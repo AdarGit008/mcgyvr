@@ -512,6 +512,17 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+# How long one dispatched request may take before the transport gives up.
+# Defined here rather than in :mod:`mcgyvr.runner` because it is now a config
+# default as well as the runner's constant, and the two must be one number:
+# a literal in each is how the door and `emit` came apart over `-c` (see
+# `kv_bytes_for_run`). Measured against on 2026-09-06: the top local rung
+# gives 27.2 tok/s to one stream and 5.09 tok/s to each of eight, so what this
+# number forbids is a function of the width a rung serves and the cap a
+# contract declares, which is why it has to be declarable beside them.
+DEFAULT_REQUEST_TIMEOUT_S = 120.0
+
+
 BUDGET_FIELDS: tuple[Field, ...] = (
     Field(
         "max_escalations",
@@ -537,6 +548,22 @@ BUDGET_FIELDS: tuple[Field, ...] = (
             "set a whole number of attempts, or leave it unset to be bounded "
             "by the ladder's own budget (`mcgyvr pool` prints that number)"
         ),
+    ),
+    Field(
+        "request_timeout_s",
+        "float",
+        "How long one dispatched request may take before the transport gives "
+        "up, in seconds. A reply of `limits.max_output_tokens` tokens takes "
+        "the time its rung's per-stream rate says it takes, and that rate "
+        "falls as the rung serves more streams at once, so this bound, the "
+        "cap and the rung's width are three numbers that decide each other. "
+        "Left as a constant in the runner it decided the other two silently: "
+        "a cap an operator was free to declare was unreachable at a width "
+        "they were also free to declare, and the failure arrived as a socket "
+        "timeout naming neither. Raise it for a slow rung serving a large "
+        "cap; lower it to fail faster.",
+        default=DEFAULT_REQUEST_TIMEOUT_S,
+        min_value=0.0,
     ),
     Field(
         "task_timeout_s",

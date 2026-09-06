@@ -1285,6 +1285,7 @@ def _climb(
     going to dispatch.
     """
     from mcgyvr.availability import AvailabilityVerdict
+    from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, worker_attempt
     from mcgyvr.escalate import ascent, escalate
@@ -1298,6 +1299,18 @@ def _climb(
     # ask for real. `mcgyvr pool --probe` is where an operator asks it in
     # advance, and paying for it here would charge every run for a diagnosis.
     pool = source_map(config)
+
+    # The bound `mcgyvr pool` prints, actually applied. Built here, once, and
+    # handed to both `ascent` and `escalate`: the reservations one makes are
+    # the loads the other reads, so two capacities would be two tallies of one
+    # rig. Its slot files are a host-wide rendezvous, which is what makes this
+    # bound hold across concurrent `mcgyvr run` processes and not merely
+    # within one — the case it exists for, since a single contract dispatches
+    # one request at a time and never contends with itself.
+    try:
+        capacity = Capacity.of(config)
+    except CapacityError as exc:
+        return _error(report, str(exc))
 
     # The cooldown learns from dispatch failures, not from a probe, so its
     # liveness half is a stub that always reports live. Probing here would
@@ -1317,7 +1330,7 @@ def _climb(
 
     cooldown = Cooldown(probe=_always_live)
     try:
-        route = ascent(config, pool, contract)
+        route = ascent(config, pool, contract, capacity=capacity)
     except RouteError as exc:
         return _error(report, str(exc))
     if not route:
@@ -1373,11 +1386,11 @@ def _climb(
                 cooldown=cooldown,
             )
 
-            outcome = escalate(config, pool, contract, driver)
+            outcome = escalate(config, pool, contract, driver, capacity=capacity)
             return _report_climb(
                 args, contract, sandbox, repo, outcome, recording, report
             )
-    except (DriveError, SandboxError) as exc:
+    except (DriveError, SandboxError, CapacityError) as exc:
         return _error(report, str(exc))
 
 
