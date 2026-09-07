@@ -40,6 +40,7 @@ import sys
 import time
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -113,9 +114,9 @@ def suite_summary(output: str) -> str:
 
 def classify(
     added: Mapping[str, frozenset[int]], report: Mapping[str, frames.FileCoverage]
-) -> tuple[list[dict], dict[str, int]]:
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """Split each file's added lines four ways against the coverage report."""
-    files: list[dict] = []
+    files: list[dict[str, Any]] = []
     totals = {
         "added": 0,
         "reached": 0,
@@ -127,7 +128,7 @@ def classify(
         lines = added[path]
         coverage = report.get(path)
         if coverage is None:
-            entry = {
+            entry: dict[str, Any] = {
                 "path": path,
                 "added": len(lines),
                 "reached": 0,
@@ -152,7 +153,9 @@ def classify(
     return files, totals
 
 
-def measure_frame(frame: Mapping, runtime: FrameRuntime) -> list[dict]:
+def measure_frame(
+    frame: Mapping[str, Any], runtime: FrameRuntime
+) -> list[dict[str, Any]]:
     clone = frames.prepare_clone(frame, CLONES)
     tag = f"reach-{frame['repo'].split('/')[-1].lower()}"
     frames.build_image(runtime, tag)
@@ -160,7 +163,7 @@ def measure_frame(frame: Mapping, runtime: FrameRuntime) -> list[dict]:
     out = SCRATCH / frame["repo"].replace("/", "_")
     cache = SCRATCH / "cache" / frame["repo"].replace("/", "_")
     report_path = out / "coverage.json"
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
 
     with FrameContainer(tag, clone, out, cache) as container:
         provisioned: str | None = None
@@ -252,9 +255,9 @@ def measure_frame(frame: Mapping, runtime: FrameRuntime) -> list[dict]:
     return rows
 
 
-def summarise(rows: list[dict]) -> dict:
+def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Per-frame totals, and a pooled figure that carries its split."""
-    by_frame: dict[str, dict] = {}
+    by_frame: dict[str, dict[str, Any]] = {}
     for row in rows:
         frame = by_frame.setdefault(
             row["frame"],
@@ -327,8 +330,10 @@ def main() -> int:
         parser.error("pass exactly one of --run / --summarise")
 
     if args.summarise:
-        rows = [json.loads(line) for line in ROWS.read_text().splitlines() if line]
-        print(json.dumps(summarise(rows), indent=2, sort_keys=True))
+        summarised: list[dict[str, Any]] = [
+            json.loads(line) for line in ROWS.read_text().splitlines() if line
+        ]
+        print(json.dumps(summarise(summarised), indent=2, sort_keys=True))
         return 0
 
     corpus = frames.load_corpus()
@@ -339,7 +344,7 @@ def main() -> int:
                 row = json.loads(line)
                 existing[(row["frame"], row["commit"])] = row
 
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     for frame in corpus["frames"]:
         if args.frame and frame["repo"] != args.frame:
             rows.extend(row for key, row in existing.items() if key[0] == frame["repo"])

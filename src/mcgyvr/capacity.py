@@ -344,6 +344,18 @@ class CapacityError(Exception):
     """A slot could not be taken, and running unbounded would be worse."""
 
 
+class SlotUnavailableError(CapacityError):
+    """Every slot of a bound was busy for as long as the caller would wait.
+
+    A fact about right now, and the only :class:`CapacityError` a caller may
+    reasonably route *around*: the rung is full, so a climb that walks past it
+    to one with room has lost nothing — no verdict was produced, no attempt
+    spent, no escalation funded. Every other member of this class is two
+    configs disagreeing, which must be named rather than declined around, and
+    that is why this is a subclass and not a flag on the message.
+    """
+
+
 # One bound: a source, and the rung whose own server process it bounds when the
 # rung declared a width of its own. ``None`` is the source's own bound — what
 # every dispatch that names no rung is held against — rather than a missing
@@ -460,6 +472,7 @@ class Capacity:
         declared: Mapping[str, int] | None = None,
         rungs: Mapping[str, RungWidth] | None = None,
         urls: Mapping[str, str] | None = None,
+        queue_timeout_s: float | None = None,
     ) -> None:
         for source, limit in limits.items():
             if limit < 1:
@@ -557,6 +570,14 @@ class Capacity:
         }
         for name, rung in self._rungs.items():
             self._bounds[(rung.source, name)] = rung.limit
+        # How long a :meth:`hold` that names no timeout of its own will wait.
+        # ``None`` is the blocking default this class was written with, which
+        # is right for a batch inside one process. :meth:`of` sets it from
+        # ``budgets.task_timeout_s``, so a run driven from the command line is
+        # bounded by the same ceiling that bounds the rest of its task: a wait
+        # nobody is going to end is a command with no output and no end, and
+        # that ceiling had no reader anywhere in the product before this.
+        self._queue_timeout = queue_timeout_s
         self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
         # Re-entrant because :meth:`deciding` lends this lock to a caller, and a
         # caller inside it reads :meth:`load` and calls :meth:`reserve`, which
@@ -725,6 +746,12 @@ class Capacity:
             declared=declarations,
             rungs=rungs,
             urls={name: source.base_url for name, source in config.sources.items()},
+            # No single wait may exceed the ceiling on the whole task. That
+            # bounds each hold and not their sum: a climb of three rungs that
+            # queued at every one of them could still wait three ceilings.
+            # Charging a climb's waits against one deadline needs a deadline
+            # threaded through the climb, which is not this seam's.
+            queue_timeout_s=float(config.get("budgets.task_timeout_s")),
         )
 
     @property
@@ -1101,13 +1128,17 @@ class Capacity:
 
         The slot is an exclusive lock on one of ``max_parallel`` files keyed by
         the source's ``base_url``, so it excludes every thread of every
-        mcgyvr process on this host, not only this one (#185). With the default
-        ``timeout=None`` this blocks until a slot frees — a deep batch queue is
-        a legitimate wait, and a crashed holder's locks are released by the
-        kernel, so the wait cannot be for a slot nobody can give back. A
+        mcgyvr process on this host, not only this one (#185). ``timeout=None``
+        asks for this capacity's own bound, which is ``budgets.task_timeout_s``
+        when it was built by :meth:`of` and nothing when it was built directly
+        — and nothing means blocking until a slot frees, because a deep batch
+        queue is a legitimate wait and a crashed holder's locks are released by
+        the kernel, so the wait cannot be for a slot nobody can give back. A
         finite ``timeout`` turns the acquisition into a claim: try for that
-        long, then raise :class:`CapacityError` naming the source — pass ``0``
-        for one attempt with no queueing at all, multica's shape.
+        long, then raise :class:`SlotUnavailableError` naming the source — pass
+        ``0`` for one attempt with no queueing at all, multica's shape. The
+        subclass is what lets a caller tell a rung that is merely full from a
+        capacity that does not bound the source at all.
 
         The slot is released on the way out however the body leaves — a backend
         that times out or refuses must not cost the source a slot for the rest
@@ -1126,6 +1157,13 @@ class Capacity:
         (both of which mean the capacity and the source map were built from
         different configs), or when the calling thread already holds this bound.
         """
+        # ``None`` asks for this capacity's own bound, which is what a config
+        # declared; ``0`` is still "try once, do not queue" and every other
+        # number is still the caller's. Compared against ``None`` and not for
+        # truth, or a caller asking for no queueing at all would silently get
+        # the configured wait instead.
+        if timeout is None:
+            timeout = self._queue_timeout
         endpoint = None if isinstance(source, str) else source
         name = source if isinstance(source, str) else source.source
         if name not in self._limits:
@@ -1237,7 +1275,7 @@ class Capacity:
                     continue
                 return fd
             if deadline is not None and time.monotonic() >= deadline:
-                raise CapacityError(
+                raise SlotUnavailableError(
                     f"{where} has all {limit} declared slot(s) in use "
                     f"host-wide and none freed within {timeout}s. The bound "
                     f"counts every mcgyvr process on this host; a longer or "

@@ -14,7 +14,7 @@ import sys
 import textwrap
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 from mcgyvr import __version__
 from mcgyvr import scan as scan_module
@@ -23,6 +23,7 @@ from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import (
     CONFIG_FILENAME,
     CONFIG_PATH_ENV,
+    CONFIGS_DIR,
     USER_CONFIG_DIR,
     Config,
     ConfigError,
@@ -30,6 +31,7 @@ from mcgyvr.config import (
     named_config_path,
 )
 from mcgyvr.config import config_path as resolve_config_path
+from mcgyvr.config import keep as keep_config
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
 from mcgyvr.emit import EmitError, emit_all
@@ -94,7 +96,10 @@ def _config(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    print(f"{config.path}: valid\n")
+    print(f"{config.path}: valid")
+    # The identity every row and result made under this file will carry, and
+    # the name of its copy under the journal's configs/ (R2).
+    print(f"digest: {config.digest()}\n")
     print("Sources:")
     for source in config.sources.values():
         credential = (
@@ -961,11 +966,13 @@ def _run(args: argparse.Namespace) -> int:
             orchestrator=session.orchestrator,
             run=stamp,
             session_file=session.session_file,
+            config_digest=config.digest() if config is not None else None,
             mirrors=mirrors,
         )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    report.config_digest = recording.config_digest
     # Asked before the run rather than discovered during it. Our sink raises on
     # an unwritable path, by the rule `telemetry` opens with — but raising from
     # inside a dispatch reached the caller as a traceback with no `result:`
@@ -983,7 +990,42 @@ def _run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    # The config that is about to run, kept by its digest beside the journal
+    # (R2): the file every row of this run will name, and the one to hand
+    # `MCGYVR_CONFIG` to run under exactly this setup again. A copy that
+    # cannot be written is refused the way the journal is, and for the same
+    # reason: a run whose setup cannot be traced is a run recorded wrong.
+    if config is not None:
+        try:
+            keep_config(config, journal_dir)
+        except OSError as exc:
+            print(
+                f"error: the config this run is made under cannot be kept at "
+                f"{journal_dir / CONFIGS_DIR} ({exc}). Every run names its "
+                f"config by digest and that copy is what the digest resolves "
+                f"to, so this one is refused rather than run untraceable.",
+                file=sys.stderr,
+            )
+            return 1
+        # A copy of the journal is a copy of the whole of it — every line,
+        # every blob, the result, and the config those rows name — and a
+        # copy that fails is a note, as every other part of a copy is.
+        for mirror in mirrors:
+            try:
+                keep_config(config, mirror)
+            except OSError as exc:
+                recording.copy_failed(mirror, exc)
     print(f"journal: {recording.path}", file=sys.stderr)
+
+    # Settled once, here, so both paths below open the same sandbox. The
+    # precedence is the one `sandbox/base.py` states and nothing implemented:
+    # a flag typed at the terminal is a person overriding their own file and
+    # wins; with no flag the file answers; with neither, `docker`.
+    args.sandbox = (
+        args.sandbox
+        or (config.get("sandbox.mode") if config is not None else None)
+        or "docker"
+    )
 
     if contract.is_deterministic:
         code = _floor(args, contract, repo, report, recording=recording)
@@ -1194,6 +1236,7 @@ def _floor(
                 task_type=contract.task_type,
                 session_file=recording.session_file,
                 tier=DETERMINISTIC,
+                config_digest=recording.config_digest,
                 mirrors=recording.mirrors,
                 on_copy_error=recording.copy_failed,
             )
@@ -1285,8 +1328,9 @@ def _climb(
     going to dispatch.
     """
     from mcgyvr.availability import AvailabilityVerdict
+    from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.cooldown import Cooldown
-    from mcgyvr.drive import DriveError, worker_attempt
+    from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import ascent, escalate
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
@@ -1298,6 +1342,18 @@ def _climb(
     # ask for real. `mcgyvr pool --probe` is where an operator asks it in
     # advance, and paying for it here would charge every run for a diagnosis.
     pool = source_map(config)
+
+    # The bound `mcgyvr pool` prints, actually applied. Built here, once, and
+    # handed to both `ascent` and `escalate`: the reservations one makes are
+    # the loads the other reads, so two capacities would be two tallies of one
+    # rig. Its slot files are a host-wide rendezvous, which is what makes this
+    # bound hold across concurrent `mcgyvr run` processes and not merely
+    # within one — the case it exists for, since a single contract dispatches
+    # one request at a time and never contends with itself.
+    try:
+        capacity = Capacity.of(config)
+    except CapacityError as exc:
+        return _error(report, str(exc))
 
     # The cooldown learns from dispatch failures, not from a probe, so its
     # liveness half is a stub that always reports live. Probing here would
@@ -1317,7 +1373,7 @@ def _climb(
 
     cooldown = Cooldown(probe=_always_live)
     try:
-        route = ascent(config, pool, contract)
+        route = ascent(config, pool, contract, capacity=capacity)
     except RouteError as exc:
         return _error(report, str(exc))
     if not route:
@@ -1363,6 +1419,29 @@ def _climb(
         with sandbox:
             for note in sandbox.notes:
                 print(f"note: {note}")
+            # The baseline, before the first rung. `Acceptance.precondition`
+            # runs both lists against the UNCHANGED tree, and until it was
+            # called nothing did: `run` reasoned from a baseline nobody took
+            # ("they failed at baseline, so one still failing is ..."). Two
+            # silent failures followed. A `bug_fix` whose demonstration was
+            # already passing was judged by running it after the change,
+            # seeing green, and reporting the bug fixed — nothing was
+            # demonstrated and the result file could not say so. And a
+            # contract whose acceptance suite was already red charged the
+            # model for the tree's fault, which is the exact thing a preflight
+            # exists to prevent. The issue's own wording tells the two apart,
+            # because the operator's next move differs completely: one says
+            # fix the contract, the other says fix the tree.
+            acceptance = acceptance_for(contract, sandbox)
+            if acceptance is not None:
+                issue = acceptance.precondition()
+                if issue is not None:
+                    # Filed under `error`, the word the result file
+                    # documents for a run that reached no verdict — a
+                    # preflight issue is an orchestration error and not
+                    # a rejected change (gate/preflight.py). The detail
+                    # names it as one.
+                    return _error(report, str(issue))
             driver = worker_attempt(
                 config,
                 pool,
@@ -1373,11 +1452,11 @@ def _climb(
                 cooldown=cooldown,
             )
 
-            outcome = escalate(config, pool, contract, driver)
+            outcome = escalate(config, pool, contract, driver, capacity=capacity)
             return _report_climb(
                 args, contract, sandbox, repo, outcome, recording, report
             )
-    except (DriveError, SandboxError) as exc:
+    except (DriveError, SandboxError, CapacityError) as exc:
         return _error(report, str(exc))
 
 
@@ -2217,12 +2296,24 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
         run.error(str(exc))
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
+    """The whole command line, plus the ``run`` subparser on its own.
+
+    Two returns because :func:`_name_the_writer` refuses a blank
+    ``--orchestrator`` through the subparser that owns the flag, so its usage
+    line is the one the caller was typing against
+    (tests/test_a_blank_orchestrator_is_refused_not_filed.py).
+    """
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
         description=("Offload scoped coding work to a configurable worker ladder."),
     )
-    parser.add_argument("--version", action="version", version=f"mcgyvr {__version__}")
+    parser.add_argument(
+        "--version",
+        action=_Version,
+        nargs=0,
+        help="the product version, and the digest of the config a run would use",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     caps = sub.add_parser(
@@ -2610,11 +2701,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     run.add_argument(
         "--sandbox",
-        default="docker",
+        # No default. `sandbox.mode` in the config is declared as where this
+        # comes from, and a flag that is never absent is a flag the config can
+        # never lose to. `_run` settles the precedence: typed flag, else the
+        # file, else `docker`.
+        default=None,
         choices=("docker", "tempdir"),
         help=(
-            "sandbox mode; `docker` falls back to `tempdir` when no daemon "
-            "answers, and says so"
+            "sandbox mode; defaults to `sandbox.mode` in the config, then to "
+            "`docker`, which falls back to `tempdir` when no daemon answers "
+            "and says so"
         ),
     )
     run.add_argument(
@@ -2667,6 +2763,59 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     run.set_defaults(func=_run)
 
+    return parser, run
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """The command line as a person types it.
+
+    Public so what a run reads and what a person typed can be checked against
+    each other. ``--sandbox`` is the case that made it necessary: it carried an
+    argparse default of ``docker``, so the flag was never absent, so
+    ``sandbox.mode`` in a config was never reached and an operator who wrote
+    ``tempdir`` ran under Docker and was told nothing.
+    """
+    return _build()[0]
+
+
+class _Version(argparse.Action):
+    """``--version``: the product, then the config a run here would be made under.
+
+    Two lines and not one, because they are two identities (owner's ruling
+    R2): the wheel is the code, and the config is the setup, and a result
+    names both. The config is the one `load()` locates — `$MCGYVR_CONFIG`,
+    then the working directory, then the user dir — so the digest printed is
+    the digest a run typed at this prompt would carry. No config prints
+    `none`; one that is there and cannot be read prints why, because a
+    version line that swallowed that would be the one lie an operator
+    checking their setup cannot afford.
+    """
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        print(f"mcgyvr {__version__}")
+        try:
+            config = load_config(None)
+        except ConfigMissingError:
+            print("config: none")
+        except ConfigError as exc:
+            print(f"config: unreadable ({exc})")
+        except (OSError, RuntimeError) as exc:
+            # A `~nobody` in the variable, a working directory that is gone:
+            # not a config that cannot be read, one that cannot be found.
+            print(f"config: cannot be located ({exc!r})")
+        else:
+            print(f"config: {config.digest()} ({config.path})")
+        parser.exit(0)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser, run = _build()
     args = parser.parse_args(argv)
     if args.func is _run:
         _name_the_writer(run, args)

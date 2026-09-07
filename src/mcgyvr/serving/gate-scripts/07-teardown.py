@@ -46,6 +46,7 @@ from pathlib import Path
 
 from mcgyvr.serving.gatelib import (
     artifact_escape,
+    displaced_by_run,
     door_required,
     envelope_escape,
     need,
@@ -133,6 +134,13 @@ def main() -> int:
     serve = os.environ.get("RUN_SERVE", "")
     expected = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
     before = set() if serve == "down" else _ids(pre.get("containers"))
+    # What this live run displaced at gate 2 (R1). A container of that run
+    # that came back during the step — its step retrying a launch — is torn
+    # down again here, by the name its lease gave it, and is not this run's
+    # leftover: the displaced run is the one that left it.
+    displaced = displaced_by_run()
+    if displaced is not None and displaced.run_id != "none":
+        _rig.teardown_displaced(need("RUN_HOST"), displaced, "gate 7")
     up = _containers_up()
     if up is None:
         status = 1

@@ -29,8 +29,10 @@ bindings, and writing the file are separate concerns and do not live here.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
+import threading
 import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -42,6 +44,13 @@ import yaml
 SCHEMA_VERSION = 1
 CONFIG_FILENAME = "mcgyvr.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
+#: What a config's identity starts with (:meth:`Config.digest`), so it can
+#: never be read as a product digest or a blob name: those are bare hex.
+DIGEST_PREFIX = "cfg-"
+#: Where the journal keeps the config each run was made under, by its digest
+#: (:func:`keep`): ``<journal.dir>/configs/<digest>.yaml``. Naming that file
+#: in ``MCGYVR_CONFIG`` re-selects the setup a result names, in one command.
+CONFIGS_DIR = "configs"
 #: The user-level config directory (owner, 2026-09-05). A literal with `~` so
 #: help text reads the same on every machine; expanded at the point of use.
 #: This is the third and last place a config is looked for, after the
@@ -507,10 +516,24 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "line moves it: it is the one place every run is, which is what makes "
         "it worth asking questions of. `mcgyvr run --record DIR` adds a second "
         "copy for your own use. Read either back with `tools/live/review.py "
-        "DIR`.",
+        "DIR`. The config each run was made under is kept here too, as "
+        "`configs/<digest>.yaml`, and every row and result names that "
+        "digest: `MCGYVR_CONFIG=<dir>/configs/<digest>.yaml` re-selects the "
+        "exact setup a result was produced under.",
         default=JOURNAL_DIR_DEFAULT,
     ),
 )
+
+# How long one dispatched request may take before the transport gives up.
+# Defined here rather than in :mod:`mcgyvr.runner` because it is now a config
+# default as well as the runner's constant, and the two must be one number:
+# a literal in each is how the door and `emit` came apart over `-c` (see
+# `kv_bytes_for_run`). Measured against on 2026-09-06: the top local rung
+# gives 27.2 tok/s to one stream and 5.09 tok/s to each of eight, so what this
+# number forbids is a function of the width a rung serves and the cap a
+# contract declares, which is why it has to be declarable beside them.
+DEFAULT_REQUEST_TIMEOUT_S = 120.0
+
 
 BUDGET_FIELDS: tuple[Field, ...] = (
     Field(
@@ -537,6 +560,22 @@ BUDGET_FIELDS: tuple[Field, ...] = (
             "set a whole number of attempts, or leave it unset to be bounded "
             "by the ladder's own budget (`mcgyvr pool` prints that number)"
         ),
+    ),
+    Field(
+        "request_timeout_s",
+        "float",
+        "How long one dispatched request may take before the transport gives "
+        "up, in seconds. A reply of `limits.max_output_tokens` tokens takes "
+        "the time its rung's per-stream rate says it takes, and that rate "
+        "falls as the rung serves more streams at once, so this bound, the "
+        "cap and the rung's width are three numbers that decide each other. "
+        "Left as a constant in the runner it decided the other two silently: "
+        "a cap an operator was free to declare was unreachable at a width "
+        "they were also free to declare, and the failure arrived as a socket "
+        "timeout naming neither. Raise it for a slow rung serving a large "
+        "cap; lower it to fail faster.",
+        default=DEFAULT_REQUEST_TIMEOUT_S,
+        min_value=0.0,
     ),
     Field(
         "task_timeout_s",
@@ -617,6 +656,22 @@ SCHEMA: tuple[Field, ...] = (
         "breaking change to this file's shape.",
         required=True,
         min_value=1,
+    ),
+    Field(
+        "profile",
+        "enum",
+        "Which setup this file is: `live`, the ladder that serves for real, or "
+        "`dev`, a setup under development. The default is `live`, because the "
+        "safe value is the one you get when you say nothing: "
+        "`~/.mcgyvr/config/mcgyvr.yaml` is the unnamed fallback and is the "
+        "live setup, and a dev setup is a file you name in `MCGYVR_CONFIG` "
+        "(or a `mcgyvr.yaml` beside the work), so forgetting the variable "
+        "lands on the live setup and never the other way round. Live outranks "
+        "dev on the rigs: a run under a `dev` profile does not start or stop "
+        "the live ladder, refuses a rig another run holds, and yields the rig "
+        "to a live run that takes it.",
+        choices=("live", "dev"),
+        default="live",
     ),
     Field(
         "sources",
@@ -851,6 +906,59 @@ class Config:
             )
         return value
 
+    def canonical(self) -> str:
+        """The loaded config as one YAML text, the same for every spelling of it.
+
+        Keys sorted, no anchors or aliases, block style throughout, and every
+        default the loader filled in written out: two files that load to the
+        same config render to the same bytes, whatever their comments, blank
+        lines or key order, and a file that omits a defaulted key renders as
+        one that states it. What is NOT in it is where the file sat —
+        ``path`` is a fact about the caller, not the config — except through
+        the one key whose meaning depends on it: a relative ``geometry_json``
+        is read beside the config (:func:`mcgyvr.serving.units_for`), so it
+        is written here as the file it names, absolutely. Two copies of a
+        config that name different geometry files are two setups, and a kept
+        copy that pointed beside itself would re-select a geometry that is
+        not there. Loading this text back yields the same config, and the
+        same digest.
+        """
+        return yaml.dump(
+            _plain(self._pinned()),
+            Dumper=_CanonicalDumper,
+            sort_keys=True,
+            default_flow_style=False,
+            allow_unicode=True,
+            width=1_000_000,
+        )
+
+    def _pinned(self) -> Mapping[str, Any]:
+        """``data`` with every path-valued key made absolute, as it is used."""
+        models = self.data.get("models")
+        if not isinstance(models, Mapping) or self.path is None:
+            return self.data
+        pinned: dict[str, Any] = {}
+        for name, block in models.items():
+            stated = block.get("geometry_json") if isinstance(block, Mapping) else None
+            if not stated:
+                pinned[name] = block
+                continue
+            where = Path(str(stated)).expanduser()
+            if not where.is_absolute():
+                where = self.path.parent / where
+            pinned[name] = {**block, "geometry_json": str(where)}
+        return {**self.data, "models": pinned}
+
+    def digest(self) -> str:
+        """The config's identity: ``cfg-`` and the sha256 of :meth:`canonical`.
+
+        Over the loaded and validated tree and never over the file's bytes,
+        because an identity that moved when a comment was added would name
+        the edit and not the setup (owner's ruling R2, 2026-09-06).
+        """
+        raw = self.canonical().encode("utf-8")
+        return DIGEST_PREFIX + hashlib.sha256(raw).hexdigest()
+
     def _unbound(self, key: str) -> str:
         field = field_at(key)
         parts = [f"`{key}` is not bound{self._in_file()}."]
@@ -862,6 +970,70 @@ class Config:
 
     def _in_file(self) -> str:
         return f" in {self.path}" if self.path is not None else ""
+
+
+class _CanonicalDumper(yaml.SafeDumper):
+    """A SafeDumper that never writes an anchor.
+
+    Two keys sharing one default object — a tuple declared once in the
+    schema — would otherwise render as ``&id001`` and ``*id001``, and the
+    digest would depend on object identity inside this process.
+    """
+
+    def ignore_aliases(self, data: object) -> bool:
+        return True
+
+
+def _plain(value: Any) -> Any:
+    """``value`` as plain dicts, lists and scalars, for a canonical dump."""
+    if isinstance(value, Mapping):
+        return {str(k): _plain(v) for k, v in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
+        return [_plain(v) for v in value]
+    if isinstance(value, Path):
+        return str(value)
+    return value
+
+
+def keep(config: Config, journal_dir: Path) -> Path:
+    """File ``config`` under ``journal_dir`` by its digest, and return the path.
+
+    ``<journal_dir>/configs/<digest>.yaml``, holding :meth:`Config.canonical`:
+    the one place a result's ``config_digest`` can be followed back to, and
+    the file to name in ``MCGYVR_CONFIG`` to run under exactly that setup
+    again. Content-addressed, so one that is already there and reads as the
+    text it should hold is left alone; one that reads otherwise — a copy a
+    crash left short — is replaced, because a kept copy that will not load
+    is worse than none. A new one is staged under a name unique to this
+    writer, opened exclusively, and moved into place whole, as the journal's
+    blobs are: two runs keeping the same config at once each stage their
+    own, and the last move wins with bytes identical to the first. An
+    ``OSError`` propagates: a copy that cannot be written is a result that
+    cannot be traced, and the caller says so.
+    """
+    text = config.canonical()
+    where = journal_dir / CONFIGS_DIR
+    path = where / f"{config.digest()}.yaml"
+    try:
+        if path.read_text(encoding="utf-8") == text:
+            return path
+    except (OSError, UnicodeDecodeError):
+        pass
+    where.mkdir(parents=True, exist_ok=True)
+    staging = where / f".{path.name}.{os.getpid()}-{threading.get_ident()}.part"
+    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        try:
+            data = text.encode("utf-8")
+            while data:
+                data = data[os.write(fd, data) :]
+        finally:
+            os.close(fd)
+        os.replace(staging, path)
+    except BaseException:
+        staging.unlink(missing_ok=True)
+        raise
+    return path
 
 
 def field_at(key: str) -> Field | None:
@@ -915,6 +1087,17 @@ def _no_duplicate_keys(
     mapping: dict[Any, Any] = {}
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=True)
+        try:
+            hash(key)
+        except TypeError:
+            # `[dev]: x` — a list as a key. YAML allows it; a config does
+            # not, and `key in mapping` would have raised a TypeError past
+            # every caller expecting a ConfigError.
+            mark = key_node.start_mark
+            raise ConfigSchemaError(
+                f"key {key!r} at line {mark.line + 1} is not a plain name; a "
+                "config key is one word, never a list or a mapping."
+            ) from None
         if key in mapping:
             mark = key_node.start_mark
             raise ConfigSchemaError(

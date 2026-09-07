@@ -436,14 +436,14 @@ def run(
         # Read-only, and taken FIRST. Discovery has to happen before anything is
         # cleared, or the survey can only measure whichever engine it reaches
         # first — which is how the predecessor could never measure both.
-        entry: dict[str, Any] = {
+        surveyed: dict[str, Any] = {
             "snapshot": contract.snapshot(host),
             "present": {},
             "measured": {},
         }
         for name, backend in backends.items():
             base = backend.probe(host)
-            entry["present"][name] = {
+            surveyed["present"][name] = {
                 "base": base,
                 "reachable": base is not None,
                 "inventory": backend.inventory(host, base) if base else [],
@@ -451,7 +451,7 @@ def run(
                 if collect.get("host_config")
                 else {},
             }
-        result["hosts"][host] = entry
+        result["hosts"][host] = surveyed
 
         for spec in entries:
             label = str(spec.get("label") or spec["id"])
@@ -476,7 +476,7 @@ def run(
                     f"({prior.get('outcome')}), skipping",
                     flush=True,
                 )
-                entry["measured"][label] = {
+                surveyed["measured"][label] = {
                     k: v for k, v in prior.items() if k not in ("host", "label")
                 }
                 # **DE-B.** The skip used to `continue` before any refusal was
@@ -541,7 +541,7 @@ def run(
                         "stage": "exclusion",
                     }
                 )
-                entry["measured"][label] = row_out = {
+                surveyed["measured"][label] = row_out = {
                     "backend": name,
                     "model": spec["id"],
                     "family": spec.get("family"),
@@ -591,7 +591,8 @@ def run(
                     )
                 claimed = backend.claim(
                     host,
-                    entry["present"][name]["base"] or f"http://{host}:{backend.PORT}",
+                    surveyed["present"][name]["base"]
+                    or f"http://{host}:{backend.PORT}",
                     str(spec["id"]),
                     spec.get("serve"),
                     spec.get("expect"),
@@ -608,7 +609,7 @@ def run(
                         "stage": "claim",
                     }
                 )
-                entry["measured"][label] = row_out = {
+                surveyed["measured"][label] = row_out = {
                     "backend": name,
                     "model": spec["id"],
                     "family": spec.get("family"),
@@ -636,7 +637,7 @@ def run(
                 record({"host": host, "label": label, **row_out})
                 continue
 
-            base = entry["present"][name]["base"] or f"http://{host}:{backend.PORT}"
+            base = surveyed["present"][name]["base"] or f"http://{host}:{backend.PORT}"
             row: dict[str, Any] = {
                 "backend": name,
                 "model": spec["id"],
@@ -652,7 +653,7 @@ def run(
                 "claim": claimed,
                 "started_at": cell_started_at,
             }
-            entry["measured"][label] = row
+            surveyed["measured"][label] = row
             # Described and ramped INSIDE a guard, and the row is already in the
             # result before either runs. A survey is hours of rig time across
             # many models, and an ssh that dies while describing the last one

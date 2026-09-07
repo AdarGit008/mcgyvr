@@ -570,7 +570,8 @@ def capture(
     }
     if reasons:
         block[identity.REFUSALS] = reasons
-    return scrub(elide(block))
+    scrubbed: dict[str, Any] = scrub(elide(block))
+    return scrubbed
 
 
 #: Every read-only endpoint vLLM 0.26.0 answers, measured by asking the server

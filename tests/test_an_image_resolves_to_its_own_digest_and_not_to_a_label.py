@@ -27,7 +27,10 @@ def test_a_local_build_labelled_with_a_digest_resolves_to_its_own_id(
     tmp_path: Path,
 ) -> None:
     env = onedoor.bare_env(
-        tmp_path / "stubs", RUN_REPO=str(onedoor.REPO), RUN_ROOT=str(onedoor.REPO)
+        tmp_path / "stubs",
+        RUN_REPO=str(onedoor.REPO),
+        RUN_ROOT=str(onedoor.REPO),
+        RUN_BIN=str(onedoor.BIN),
     )
     result = onedoor.bash(
         f"set -euo pipefail\n. '{onedoor.COMMON_SH}'\n"

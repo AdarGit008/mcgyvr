@@ -88,6 +88,7 @@ from enum import StrEnum
 from typing import Any, ClassVar
 
 from mcgyvr.capacity import Capacity
+from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 
@@ -95,7 +96,11 @@ from mcgyvr.redact import safe_url
 # capped generation on a 6 GB card can take minutes. This is the ceiling on one
 # dispatch, not a health check — #22 owns "is anything there", with a timeout
 # three orders of magnitude shorter.
-GENERATE_TIMEOUT_S = 120.0
+#
+# What a run that declares nothing gets, and no longer the only answer: it is
+# `budgets.request_timeout_s`'s default, imported rather than restated so the
+# config's number and the runner's cannot drift apart.
+GENERATE_TIMEOUT_S = DEFAULT_REQUEST_TIMEOUT_S
 
 # How much of a failed response body an error message quotes. Enough to carry a
 # backend's own explanation, short enough not to paste a model's whole answer
@@ -553,6 +558,10 @@ def dispatch(
         raise UnknownRungError(f"no rung named {rung!r}")
     if capacity is None:
         return runner_for(endpoint).generate(step.model, request)
+    # How long this may wait for a slot is the capacity's own, set from
+    # ``budgets.task_timeout_s`` when it was built from a config: a bound on
+    # the wait belongs to the thing that owns the bound, not to every call
+    # site that has to remember to pass it.
     with capacity.hold(endpoint, rung=rung):
         return runner_for(endpoint).generate(step.model, request)
 

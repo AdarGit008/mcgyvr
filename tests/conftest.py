@@ -46,7 +46,15 @@ def _own_home_and_session(
     project.mkdir(parents=True, exist_ok=True)
     (project / "pytest.jsonl").write_text('{"type": "session"}\n', encoding="utf-8")
     monkeypatch.setenv("HOME", str(home))
-    for name in ("PI_SESSION_FILE", "CLAUDE_CONFIG_DIR"):
+    # A developer's shell may export where mcgyvr's config and the door's run
+    # root are; a test that inherited either would load that developer's
+    # config, or file a fixture's run under their evidence tree.
+    for name in (
+        "PI_SESSION_FILE",
+        "CLAUDE_CONFIG_DIR",
+        "MCGYVR_CONFIG",
+        "MCGYVR_RUN_ROOT",
+    ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "pytest")
 

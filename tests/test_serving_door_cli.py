@@ -29,6 +29,7 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -52,6 +53,25 @@ SHIM_DOCKER = BIN / DOCKER
 RUN_DATE = "2026-09-02"
 
 GATES = sorted(p.name for p in GATE_SCRIPTS.glob("*.py"))
+
+#: The record gate 1 writes into. These tests drive the real door from the real
+#: root, so a run whose tree has moved off the open round legitimately appends
+#: one — which is the door's job (owner, 2026-09-06) and emphatically not
+#: something a test run may leave behind in a tracked file. Whatever the door
+#: writes here is put back.
+ROUNDS = REPO / "tools" / "bench" / "rounds.json"
+
+
+@pytest.fixture(autouse=True)
+def _restore_rounds() -> Iterator[None]:
+    before = ROUNDS.read_bytes() if ROUNDS.is_file() else None
+    try:
+        yield
+    finally:
+        if before is None:
+            ROUNDS.unlink(missing_ok=True)
+        elif ROUNDS.read_bytes() != before:
+            ROUNDS.write_bytes(before)
 
 
 def stubs(where: Path) -> Path:
@@ -235,15 +255,15 @@ def test_the_manifest_requires_both_shims(
     shutil.copytree(GATE_SCRIPTS, copy, ignore=shutil.ignore_patterns("__pycache__"))
     monkeypatch.setattr(run, "GATE_SCRIPTS", copy)
     monkeypatch.setattr(run, "BIN", copy / "bin")
-    run._check_manifest()  # complete: admitted
+    run.check_manifest()  # complete: admitted
     (copy / "bin" / missing).chmod(0o644)
     with pytest.raises(run.RefusedError) as refused:
-        run._check_manifest()
+        run.check_manifest()
     assert refused.value.status == 2
     assert missing in refused.value.rule and "shim" in refused.value.rule
     (copy / "bin" / missing).unlink()
     with pytest.raises(run.RefusedError):
-        run._check_manifest()
+        run.check_manifest()
 
 
 # --------------------------------------------------------------------------
@@ -365,10 +385,12 @@ def test_a_gate_run_by_hand_exits_2(env: dict[str, str], script: str) -> None:
 
 
 def test_every_entry_in_sequence_is_a_shipped_script() -> None:
-    """Every shipped .py under gate-scripts is a gate the door runs, or one of
-    the door's own serve steps — nothing shipped there is reachable by no run."""
+    """Every shipped .py under gate-scripts is a gate the door runs, one of
+    the door's own serve steps, or the lease release the door spawns on its
+    way out — nothing shipped there is reachable by no run."""
     steps = [path.name for path in run.SERVE_STEPS.values()]
-    assert sorted([*(e.script for e in (*run.SEQUENCE, *run.ALWAYS)), *steps]) == GATES
+    owned = [*(e.script for e in (*run.SEQUENCE, *run.ALWAYS)), *steps]
+    assert sorted([*owned, run.LEASE_RELEASE.script]) == GATES
 
 
 # --------------------------------------------------------------------------
@@ -408,6 +430,9 @@ def fake_gates(where: Path, out_dir: Path, flag: Path) -> Path:
             lines.append(f"Path({str(out_dir / 'parse-ran')!r}).touch()")
         lines.append("sys.exit(0)")
         executable(where / entry.script, "\n".join(lines) + "\n")
+    # The release the door spawns on its way out: on the manifest, so a
+    # fixture without it is an incomplete door.
+    executable(where / run.LEASE_RELEASE.script, "#!/usr/bin/env python3\n")
     return where
 
 

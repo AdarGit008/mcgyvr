@@ -65,7 +65,10 @@ def _load(slot: str, path: Path) -> types.ModuleType:
     return module
 
 
-contract = _load("serving_contract", HERE / "contract.py")
+# `Any`, not `ModuleType`: this module is loaded by path, and the ramp below
+# rebinds `contract.RAMP_TOKENS` around a run — an attribute assignment no
+# checker can verify against a module object it never resolved.
+contract: Any = _load("serving_contract", HERE / "contract.py")
 
 #: Token counts the ramp is repeated at. The batch-width result was measured at
 #: 128 and never varied; short generations weight prefill more heavily than
@@ -368,7 +371,7 @@ def ramp(
     for host in hosts:
         vllm.release(host)
         # vLLM: launch at each configured width, ramp at each token count.
-        model = _awq(host, vllm) if "vllm" in engines else None
+        model: str | None = _awq(host, vllm) if "vllm" in engines else None
         if "vllm" in engines and not model:
             # **BL-A, and this is the expensive half.** `_awq` shells out to
             # `ls ~/.cache/huggingface/hub`, and `contract.ssh` returns None for
@@ -580,9 +583,10 @@ def _widths(
 
 def _card_mib(host: str) -> int | None:
     """What the card is holding, right now. The only evidence sleep produces."""
-    return contract.first_int(
+    mib: int | None = contract.first_int(
         contract.ssh(host, "nvidia-smi --query-gpu=memory.used --format=csv,noheader")
     )
+    return mib
 
 
 def _post(base: str, path: str, timeout: float = 60.0) -> dict[str, Any]:

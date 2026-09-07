@@ -50,6 +50,14 @@ earlier still exits 130, otherwise the exit is what 7 and 8 decided. And the
 claim gate 5 took on the RUN_ID (``.<RUN_ID>.running`` in the envelope) is
 released on every exit path, the interrupted ones included.
 
+WHERE A RUN IS FILED. The run root is ``$MCGYVR_RUN_ROOT`` when it is set and
+the checkout otherwise (:func:`run_root`): the envelope is made under its
+``records/evidence/``, and the round, ``hosts.json`` and the campaigns are
+read from it. The code and the root are two places on purpose — an installed
+wheel has no ``records/`` — and the door exports both, ``RUN_ROOT`` and
+``RUN_BIN`` (its shim directory), so a step derives neither from the other. A
+value naming a directory that does not exist is refused, never created.
+
 GATE ORDER IS THE POINT, NOT AN IMPLEMENTATION DETAIL. Gates 1-5 refuse having
 written nothing under ``records/``: gate 1 reaches no rig at all, and gates 2-5
 only read one (a snapshot over ssh, a daemon's name) and never launch on it, so
@@ -81,6 +89,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
 
+from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.serving import gatelib
 
 #: The package directory. ``gate-scripts`` carries a hyphen so it can never be
@@ -93,6 +102,15 @@ BIN = GATE_SCRIPTS / "bin"
 SHIMS = ("docker", "ssh")
 #: The step a caller gets without naming one.
 DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
+#: The shell files beside the gates that a gate READS rather than spawns.
+#: `rig-snapshot.sh` is the reader gate 2 sends to the rig and gate 7 compares
+#: against; `default-step.sh` is what a run without `--step` executes. Neither
+#: is an entry in SEQUENCE, so neither was on the manifest — and a check that
+#: covers only the entries someone remembered is the absence the manifest
+#: exists to turn into a refusal: delete `rig-snapshot.sh` and gate 2 died on a
+#: FileNotFoundError traceback, which is a gate that stopped running without
+#: anyone deciding it should.
+READERS = (DEFAULT_STEP, GATE_SCRIPTS / "rig-snapshot.sh")
 #: The door's own serve steps, one per direction. Shipped beside the gates
 #: because, like the default step, they belong to no campaign: a live ladder
 #: is not an experiment, and the envelope it files under is the host's.
@@ -107,10 +125,18 @@ MINTED_PREFIXES = ("RUN_", "DOCKER_")
 #: :func:`_check_step_args`).
 OUTPUT_FLAGS = ("--out", "--out-dir")
 
-#: The repo root, four levels up from this file (src/mcgyvr/serving/run.py).
-#: Read from the file's own location and never from the caller's cwd, because a
-#: door invoked from a subdirectory must still put evidence in one place.
+#: The checkout this file sits in, four levels up (src/mcgyvr/serving/run.py),
+#: and the run root when nothing names one. Read from the file's own location
+#: and never from the caller's cwd, because a door invoked from a subdirectory
+#: must still put evidence in one place.
 ROOT = HERE.parents[2]
+#: Names the run root: where the envelope is made (``records/evidence/``) and
+#: where the gates read the declarations a run is measured against — the
+#: round (``tools/bench/``), the rigs (``tools/runs/hosts.json``) and the
+#: campaigns. Separate from the code because the code need not be a checkout:
+#: from an installed wheel :data:`ROOT` is ``site-packages/``, and a run's
+#: evidence written there is evidence nobody finds. See :func:`run_root`.
+ROOT_ENV = "MCGYVR_RUN_ROOT"
 
 
 class RefusedError(Exception):
@@ -144,19 +170,28 @@ class Entry:
 SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "01-round.py",
-        "gate 1: the tree is on the open product round. A measurement taken "
-        "against an unpinned tree cannot be compared with anything, so this "
-        "refuses before the rig is touched",
-        exports=("RUN_ROUND", "RUN_PRODUCT_SHA256"),
+        "gate 1: the tree is on the open product round, and the run knows "
+        "which profile it is under. A measurement taken against an unpinned "
+        "tree cannot be compared with anything, and a dev run does not touch "
+        "the live ladder, so both refuse before the rig is touched",
+        exports=(
+            "RUN_ROUND",
+            "RUN_PRODUCT_SHA256",
+            "RUN_PROFILE",
+            "RUN_CONFIG",
+            "RUN_CONFIG_DIGEST",
+        ),
     ),
     Entry(
         "02-rig.py",
-        "gate 2: the live machine equals its declaration in hosts.json. The "
+        "gate 2: the rig is leased to this run — a dev run yields to a held "
+        "rig, a live run takes it and tears down what it displaced (R1) — "
+        "and the live machine equals its declaration in hosts.json. The "
         "steps' own start==end check catches a rig that moves DURING a run and "
         "says nothing about one that moved before it — RAM swapped between "
         "these two rigs twice in six days with every artifact internally "
         "consistent",
-        exports=("RUN_PRE_RIG",),
+        exports=("RUN_LEASE", "RUN_DISPLACED", "RUN_PRE_RIG"),
     ),
     Entry(
         "03-image.py",
@@ -242,6 +277,18 @@ ALWAYS: tuple[Entry, ...] = (
     ),
 )
 
+#: What releases the rig's lease on every way out. Spawned from the door's
+#: `finally` like gate 5's claim is unlinked there, and on the manifest for
+#: the same reason the gates are: a release that could go missing is a lease
+#: that outlives every run.
+LEASE_RELEASE = Entry(
+    "lease-release.py",
+    "the rig's lease is released if it is still this run's; a rig that "
+    "cannot be reached is said, and the lease reads as stale to the next run "
+    "on this machine",
+    status=1,
+)
+
 #: THE SERVE RUN (`python -m mcgyvr.serving.run serve up|down --host H
 #: --compose FILE`). A second fixed sequence, not a switch on the first: a
 #: live ladder is started and LEFT RUNNING, which is the one thing the
@@ -259,12 +306,17 @@ SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
     if entry.script
     in ("01-round.py", "02-rig.py", "03-image.py", "05-envelope.py", "06-step.py")
 )
-SERVE_ALWAYS: tuple[Entry, ...] = ALWAYS
 
 #: The full vocabulary a gate script may read. A script that wants something
 #: not on this list is asking for a fact nobody gated.
 EXPORTED = (
+    # The run root (:func:`run_root`) and the door's own shim directory. Two
+    # variables because they are two places: the root is where a run is filed
+    # and measured against, the shims are part of the code, and a step that
+    # derived one from the other found no shims under a run root that was not
+    # a checkout.
     "RUN_ROOT",
+    "RUN_BIN",
     "RUN_CAMPAIGN",
     "RUN_STEP_FILE",
     "RUN_HOST",
@@ -291,19 +343,90 @@ def _refuse(status: int, rule: str) -> NoReturn:
     raise RefusedError(status, rule)
 
 
-def _check_manifest() -> None:
+def pin_config(env: dict[str, str]) -> None:
+    """Make ``$MCGYVR_CONFIG`` in ``env`` the path the operator meant.
+
+    The gates run with the run root as their working directory, so a
+    relative value — ``MCGYVR_CONFIG=dev.yaml`` typed in ``~/work`` — would
+    have been read against the run root by gate 1 and against ``~/work`` by
+    ``mcgyvr`` itself: refused if absent, silently another file if present.
+    Resolved here, once, against the directory the door was invoked from, so
+    the config a run is made under is the one the shell that typed it would
+    load. Whether the file exists is gate 1's question, with its own rule;
+    a value that cannot even be read as a path is refused here.
+    """
+    named = env.get(CONFIG_PATH_ENV)
+    if not named:
+        return
+    try:
+        path = Path(named).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+    except (OSError, RuntimeError) as escape:
+        _refuse(
+            2,
+            f"{CONFIG_PATH_ENV}={named!r} cannot be read as a path "
+            f"({escape!r}); name the config file by an absolute path",
+        )
+    env[CONFIG_PATH_ENV] = str(path)
+
+
+def run_root() -> Path:
+    """The run root: ``$MCGYVR_RUN_ROOT`` when it is set, else the checkout.
+
+    A value that is set names a directory that exists, or the run is refused
+    before any gate — the door does not create it. A root the door made
+    silently is how evidence goes missing: the operator meant one directory,
+    typed another, and the run filed itself under a path nobody looks at,
+    exit 0. Resolved, so every gate sees one spelling of it (``RUN_ROOT`` is
+    exported once, by the door, and gate 5 files under exactly that).
+    """
+    named = os.environ.get(ROOT_ENV)
+    if named is None:
+        return ROOT
+    # Absolute, or refused: a relative value lands somewhere different from
+    # every directory the door is invoked in, which is the one thing a root
+    # is for not doing. `~` is not absolute either, and a `~user` the shell
+    # did not expand is a value nobody checked.
+    try:
+        path = Path(named).expanduser()
+        usable = bool(named) and path.is_absolute() and path.is_dir()
+    except (OSError, RuntimeError):
+        # An unreadable parent, a `~nobody` — a root the door cannot judge
+        # is a root it does not use, and says so rather than tracing back.
+        usable = False
+    if not usable:
+        _refuse(
+            2,
+            f"{ROOT_ENV}={named!r} is not an existing directory named by an "
+            "absolute path. The run root is where the envelope is made "
+            "(records/evidence/) and where the round, hosts.json and the "
+            "campaigns are read from; the door never creates it, because a "
+            "root made silently is a run filed where nobody looks. Name a "
+            "directory that exists, or unset the variable to use the tree "
+            f"the door runs from ({ROOT})",
+        )
+    return path.resolve()
+
+
+def check_manifest() -> None:
     """Every entry exists and is executable, BEFORE anything runs.
 
     Checked as a set rather than lazily at each step, so a run cannot get four
     gates in — past the round check, past the rig comparison — and then stop
     because the fifth file is missing. And checked at all because a deleted
     script is the cheapest way to skip a gate: without this, `rm` is a flag.
+
+    :data:`READERS` is on the list for the same reason the gates are. A file a
+    gate reads is part of the door whether or not the door spawns it, and one
+    that can go missing unnoticed makes the promise above true only of the
+    entries someone remembered to list.
     """
     missing = [
         e.script
-        for e in (*SEQUENCE, *ALWAYS)
+        for e in (*SEQUENCE, *ALWAYS, LEASE_RELEASE)
         if not (GATE_SCRIPTS / e.script).is_file()
-    ] + [step.name for step in SERVE_STEPS.values() if not step.is_file()]
+    ] + [path.name for path in (*SERVE_STEPS.values(), *READERS) if not path.is_file()]
     if missing:
         _refuse(
             2,
@@ -315,7 +438,7 @@ def _check_manifest() -> None:
         )
     unrunnable = [
         e.script
-        for e in (*SEQUENCE, *ALWAYS)
+        for e in (*SEQUENCE, *ALWAYS, LEASE_RELEASE)
         if not os.access(GATE_SCRIPTS / e.script, os.X_OK)
     ] + [step.name for step in SERVE_STEPS.values() if not os.access(step, os.X_OK)]
     if unrunnable:
@@ -360,7 +483,7 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
     try:
         proc = subprocess.Popen(
             [sys.executable, str(GATE_SCRIPTS / entry.script), *(args or [])],
-            cwd=ROOT,
+            cwd=env.get("RUN_ROOT") or ROOT,
             env=dict(env, RUN_EXPORT_FD=str(write_fd)),
             pass_fds=(write_fd,),
         )
@@ -527,7 +650,9 @@ def _inside(path: Path, envelope: Path) -> bool:
     return True
 
 
-def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
+def _check_step_args(
+    step_args: list[str], envelope: Path, root: Path = ROOT
+) -> str | None:
     """A step's own output flag may not leave the envelope — the door owns it.
 
     Ported from the archived door (archive/runs/run.sh, check_step_args): six
@@ -543,7 +668,7 @@ def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
         if token == "--force":
             return (
                 f"step argument '{token}' is refused: the door owns the envelope "
-                f"({_rel(envelope)}/) and every declared artifact is written "
+                f"({_rel(envelope, root)}/) and every declared artifact is written "
                 "there, once. A re-run is --suffix S over a RUN_REWRITES "
                 "declaration; nothing is written elsewhere, or by force"
             )
@@ -555,11 +680,11 @@ def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
             else:
                 continue
             target = Path(value)
-            target = target if target.is_absolute() else ROOT / target
+            target = target if target.is_absolute() else root / target
             if not value or not _inside(target, envelope):
                 return (
                     f"step argument '{flag} {value}' is refused: it names a path "
-                    f"outside the envelope {_rel(envelope)}/, and the door owns "
+                    f"outside the envelope {_rel(envelope, root)}/, and the door owns "
                     "the envelope — every declared artifact is written there, "
                     "once. A re-run is --suffix S over a RUN_REWRITES "
                     "declaration; nothing is written elsewhere"
@@ -567,9 +692,9 @@ def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
     return None
 
 
-def _rel(path: Path) -> str:
+def _rel(path: Path, base: Path = ROOT) -> str:
     try:
-        return str(path.relative_to(ROOT))
+        return str(path.relative_to(base))
     except ValueError:
         return str(path)
 
@@ -605,6 +730,11 @@ def _serve(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 2
+    try:
+        root = run_root()
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
     compose_file = Path(opts.compose)
     compose_file = (
         compose_file if compose_file.is_absolute() else Path.cwd() / compose_file
@@ -629,8 +759,14 @@ def _serve(argv: list[str]) -> int:
 
     env = dict(os.environ)
     env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    try:
+        pin_config(env)
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
     env.update(
-        RUN_ROOT=str(ROOT),
+        RUN_ROOT=str(root),
+        RUN_BIN=str(BIN),
         RUN_CAMPAIGN=f"live-{opts.host}",
         RUN_STEP_FILE=str(SERVE_STEPS[opts.mode].resolve()),
         RUN_HOST=opts.host,
@@ -645,28 +781,36 @@ def _serve(argv: list[str]) -> int:
     interrupted = False
     step_status = 0
     try:
-        _check_manifest()
-        for entry in SERVE_SEQUENCE:
-            status = _run_entry(entry, env)
-            if status != 0:
-                if entry.script != "06-step.py":
-                    return _stop(entry, status, env)
-                step_status = status
-    except RefusedError as refusal:
-        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-        return refusal.status
-    except KeyboardInterrupt:
-        interrupted = True
-        print(
-            "run.py: interrupted — gates 7 and 8 still run; a run whose end "
-            "state is unknown is the one that ended silently",
-            file=sys.stderr,
-        )
+        try:
+            check_manifest()
+            for entry in SERVE_SEQUENCE:
+                status = _run_entry(entry, env)
+                if status != 0:
+                    if entry.script != "06-step.py":
+                        return _stop(entry, status, env)
+                    step_status = status
+        except RefusedError as refusal:
+            print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+            return refusal.status
+        except KeyboardInterrupt:
+            interrupted = True
+            print(
+                "run.py: interrupted — gates 7 and 8 still run; a run whose end "
+                "state is unknown is the one that ended silently",
+                file=sys.stderr,
+            )
 
-    after = _always(env)
-    if interrupted:
-        return 130
-    return step_status or after
+        after = _always(env)
+        if interrupted:
+            return 130
+        return step_status or after
+    finally:
+        # Gate 5's claim is released here and not only in `_always`, which
+        # a refusal between the claim and the always-block returns straight
+        # past. Releasing twice is releasing once: `gatelib.release`
+        # unlinks `missing_ok`.
+        _release_claim(env)
+        _release_lease(env)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -691,6 +835,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    # The root is settled before the step is looked for and before the
+    # envelope is named, because both are said relative to it.
+    try:
+        root = run_root()
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
 
     if opts.step:
         step = Path(opts.step)
@@ -712,8 +863,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     run_date = opts.date or datetime.now(UTC).strftime("%Y-%m-%d")
-    envelope = ROOT / "records" / "evidence" / f"{run_date}-{opts.campaign}"
-    escape = _check_step_args(step_args, envelope)
+    envelope = root / "records" / "evidence" / f"{run_date}-{opts.campaign}"
+    escape = _check_step_args(step_args, envelope, root)
     if escape is not None:
         print(f"run.py: REFUSED — {escape}", file=sys.stderr)
         return 2
@@ -722,8 +873,14 @@ def main(argv: list[str] | None = None) -> int:
     # The shims come first, so `ssh` and `docker` under the door are the
     # door's; whatever PATH the operator had follows for everything else.
     env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    try:
+        pin_config(env)
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
     env.update(
-        RUN_ROOT=str(ROOT),
+        RUN_ROOT=str(root),
+        RUN_BIN=str(BIN),
         RUN_CAMPAIGN=opts.campaign,
         RUN_STEP_FILE=str(step.resolve()),
         RUN_HOST=opts.host,
@@ -739,37 +896,45 @@ def main(argv: list[str] | None = None) -> int:
     interrupted = False
     step_status = 0
     try:
-        _check_manifest()
-        for entry in SEQUENCE:
-            args = step_args if entry.script == "06-step.py" else None
-            status = _run_entry(entry, env, args)
-            if status != 0:
-                if entry.script != "06-step.py":
-                    return _stop(entry, status, env)
-                # The step's own failure is the operator's result, not the
-                # door's refusal: 7 and 8 still run, and its status propagates
-                # after them.
-                step_status = status
-    except RefusedError as refusal:
-        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-        return refusal.status
-    except KeyboardInterrupt:
-        # Ctrl-C or SIGTERM (`_sigterm` turns it into this). The entry that
-        # was running has been ended by `_run_entry`; what follows is the
-        # main flow, not a signal handler, so gate 7's own ssh is not the
-        # nested read that came back empty in the shell door.
-        interrupted = True
-        print(
-            "run.py: interrupted — gates 7 and 8 still run; a run whose end "
-            "state is unknown is the one that ended silently",
-            file=sys.stderr,
-        )
+        try:
+            check_manifest()
+            for entry in SEQUENCE:
+                args = step_args if entry.script == "06-step.py" else None
+                status = _run_entry(entry, env, args)
+                if status != 0:
+                    if entry.script != "06-step.py":
+                        return _stop(entry, status, env)
+                    # The step's own failure is the operator's result, not the
+                    # door's refusal: 7 and 8 still run, and its status propagates
+                    # after them.
+                    step_status = status
+        except RefusedError as refusal:
+            print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+            return refusal.status
+        except KeyboardInterrupt:
+            # Ctrl-C or SIGTERM (`_sigterm` turns it into this). The entry that
+            # was running has been ended by `_run_entry`; what follows is the
+            # main flow, not a signal handler, so gate 7's own ssh is not the
+            # nested read that came back empty in the shell door.
+            interrupted = True
+            print(
+                "run.py: interrupted — gates 7 and 8 still run; a run whose end "
+                "state is unknown is the one that ended silently",
+                file=sys.stderr,
+            )
 
-    after = _always(env)
+        after = _always(env)
 
-    if interrupted:
-        return 130
-    return step_status or after
+        if interrupted:
+            return 130
+        return step_status or after
+    finally:
+        # Gate 5's claim is released here and not only in `_always`, which
+        # a refusal between the claim and the always-block returns straight
+        # past. Releasing twice is releasing once: `gatelib.release`
+        # unlinks `missing_ok`.
+        _release_claim(env)
+        _release_lease(env)
 
 
 #: What the ALWAYS phase will not be stopped by.
@@ -812,6 +977,28 @@ def _release_claim(env: dict[str, str]) -> None:
     out_dir, run_id = env.get("RUN_OUT_DIR"), env.get("RUN_ID")
     if out_dir and run_id:
         gatelib.release(Path(out_dir), run_id)
+
+
+def _release_lease(env: dict[str, str]) -> None:
+    """Release the rig's lease, if gate 2 took one for this run.
+
+    Through a script and not in-process: the door itself is not *under* the
+    door — the shims prove an ancestor — so its own ssh would be refused,
+    and rightly. Signals are ignored for the duration, as for gates 7 and
+    8: a Ctrl-C that landed on the release would leave a lease a rig cannot
+    tell from a live one. Released once: the variable is dropped after.
+    """
+    if not env.get(gatelib.LEASE_VAR):
+        return
+    previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
+    try:
+        _run_entry(LEASE_RELEASE, env)
+    except RefusedError as refusal:
+        print(f"run.py: {refusal.rule}", file=sys.stderr)
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+        env.pop(gatelib.LEASE_VAR, None)
 
 
 def _stop(entry: Entry, status: int, env: dict[str, str]) -> int:
