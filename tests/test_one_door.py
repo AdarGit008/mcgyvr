@@ -116,9 +116,10 @@ RETIRED_SEAMS = re.compile(r"\bRUN_DOCKER\b|\bRUN_SSH\b|\bRUN_RIG_SNAPSHOT_CMD\b
 #: ``gatelib.ssh`` — see ``test_the_serving_harness_spawns_no_ssh_of_its_own``.
 ALLOWED: dict[str, str] = {
     "src/mcgyvr/serving/gatelib.py": (
-        "the ONLY ssh spawn in src/ and tools/: gatelib.ssh refuses outside the "
-        "door and to any host but the door's; gate 2, gate 7, the geometry read, "
-        "`mcgyvr scan` and the serving harness (contract.ssh) all go through it"
+        "the ssh spawns in src/ and tools/: gatelib.ssh, which refuses outside "
+        "the door and to any host but the door's — gate 2, gate 7, the geometry "
+        "read, `mcgyvr scan` and the serving harness (contract.ssh) all go "
+        "through it — and the shims' own lease check, which admits the same way"
     ),
     "src/mcgyvr/serving/gate-scripts/bin/ssh": (
         "the `ssh` on the PATH the door exports: admits the door's host through "
@@ -135,11 +136,11 @@ ALLOWED: dict[str, str] = {
     ),
     "src/mcgyvr/serving/gate-scripts/default-step.sh": (
         "the shipped step: it proves the door (gatelib.under_door) first, then "
-        "runs the shims BY PATH under RUN_ROOT, never an ssh or docker from PATH"
+        "runs the shims BY PATH under RUN_BIN, never an ssh or docker from PATH"
     ),
     "tools/runs/_common.sh": (
         "the emitter every campaign step sources: rig_snapshot and image_digest "
-        "prove the door, then run the shims by path under RUN_ROOT; "
+        "prove the door, then run the shims by path under RUN_BIN; "
         "door_required refuses without the RUN_* only the door exports AND "
         "without the door itself"
     ),
@@ -154,6 +155,12 @@ ALLOWED: dict[str, str] = {
     "tools/bench/serving/backends/*.py": (
         "a `docker run` command LINE the serving backends ship to the rig over "
         "contract.ssh -> gatelib.ssh; nothing here spawns a process of its own"
+    ),
+    "tests/red_port/test_dod_rig_lease.py": (
+        "`docker run` and `ssh` LINES inside steps a test runs under the door: "
+        "the ssh asks the stub rig what its lease says, and the launch proves "
+        "the shim refuses it once the run's lease is gone — the test asserts it "
+        "never reached the daemon"
     ),
     "tools/bench/serving/knobs.py": (
         "a `docker run --help` command line shipped the same way, for the knob "
@@ -471,6 +478,7 @@ def _hand_set(stubs: Path, tmp_path: Path, **only: str) -> dict[str, str]:
     env.update(dict.fromkeys(EXPORTED, "x"))
     env.update(
         RUN_ROOT=str(REPO),
+        RUN_BIN=str(REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "bin"),
         RUN_REPO=str(REPO),
         RUN_HOST="srv1",
         RUN_ID="2026-09-05-srv1-kernel-arms-kernel-arms",

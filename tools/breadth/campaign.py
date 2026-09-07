@@ -167,7 +167,7 @@ def run_stage(
                 aborted = task.id
                 break
     measure.record_completeness(out)
-    all_rows = measure.read_rows(rows_path)
+    all_rows: list[dict[str, Any]] = measure.read_rows(rows_path)
     (out / "summary.md").write_text(
         measure.summarise(rows_path) + "\n", encoding="utf-8"
     )

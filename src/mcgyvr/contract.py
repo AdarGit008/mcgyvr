@@ -375,6 +375,29 @@ VERIFICATION_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+RENAME_FIELDS: tuple[Field, ...] = (
+    Field(
+        "from",
+        "str",
+        "The symbol as it is written today. Stated rather than read out of "
+        "`task`: the floor renames every reference the index resolved across "
+        "every file that holds one, and a name inferred from prose is a "
+        "multi-file rewrite resting on a guess about English. A worker asked "
+        "to guess would guess; a program must be told.",
+        default="",
+        hint="e.g. fetch_page",
+    ),
+    Field(
+        "to",
+        "str",
+        "What the symbol becomes. Must be a legal identifier — the floor "
+        "rewrites text, and a `to` that is not a name would produce a tree "
+        "that no longer parses while reporting success.",
+        default="",
+        hint="e.g. fetch_document",
+    ),
+)
+
 LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
@@ -599,6 +622,17 @@ SCHEMA: tuple[Field, ...] = (
         "Hard ceilings on what one execution of this contract may spend.",
         block=LIMITS_FIELDS,
     ),
+    Field(
+        "rename",
+        "block",
+        "Which symbol becomes which, for `task_type: rename_symbol`. The one "
+        "task type the floor executes in-process rather than by running a "
+        "program, and the only one whose input is not fully determined by "
+        "`target`: a rename fans across every file that references the "
+        "symbol, so the pair has to be said. Meaningless on any other type "
+        "and ignored there.",
+        block=RENAME_FIELDS,
+    ),
 )
 
 
@@ -612,6 +646,22 @@ class Dependency:
     path: str
     signature: str
     note: str = ""
+
+
+@dataclass(frozen=True)
+class Rename:
+    """The symbol a ``rename_symbol`` contract renames, and what it becomes.
+
+    Both empty is the ordinary state of every contract that is not a rename,
+    and :attr:`stated` is how a caller asks whether this one said anything.
+    """
+
+    old: str = ""
+    new: str = ""
+
+    @property
+    def stated(self) -> bool:
+        return bool(self.old and self.new)
 
 
 @dataclass(frozen=True)
@@ -661,6 +711,7 @@ class Contract:
     risk: str = "medium"
     verification: Verification = Verification("gate_only")
     limits: Limits = Limits(_RUNNING_ALLOWANCE, 2)
+    rename: Rename = Rename()
     max_output_tokens_declared: bool = True
 
     @property
@@ -766,10 +817,18 @@ class Contract:
         exactly when it says something costs nothing to add later.
         """
         stated = {"depends_on": sorted(self.depends_on)} if self.depends_on else {}
-        # Same rule as `depends_on`, for the same reason this docstring gives:
-        # a share carried whether or not one was declared would change the
-        # serialised form of every contract that never mentioned one, and with
-        # it the digest each recorded run is keyed by.
+        # Emitted on the same rule and for the same reason: a key every
+        # contract carries whether or not it means anything re-keys every
+        # contract ever emitted, and the provenance of every run with them.
+        renamed = (
+            {"rename": {"from": self.rename.old, "to": self.rename.new}}
+            if self.rename.stated
+            else {}
+        )
+        # Same rule again, for the share: one carried whether or not it was
+        # declared would change the serialised form of every contract that
+        # never mentioned one, and with it the digest each recorded run is
+        # keyed by.
         share = (
             {"max_window_fraction": self.limits.max_window_fraction}
             if self.limits.max_window_fraction is not None
@@ -798,6 +857,7 @@ class Contract:
             "demonstration": list(self.demonstration),
             **stated,
             "risk": self.risk,
+            **renamed,
             "verification": {"policy": self.verification.policy},
             "limits": {
                 "max_output_tokens": (
@@ -922,6 +982,7 @@ def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Cont
             attempts=data["limits"]["attempts"],
             max_window_fraction=data["limits"]["max_window_fraction"],
         ),
+        rename=Rename(old=data["rename"]["from"], new=data["rename"]["to"]),
         max_output_tokens_declared=max_output_tokens_declared,
     )
 

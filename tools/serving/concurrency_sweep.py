@@ -22,9 +22,12 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 
-def one(url: str, model: str, prompt: str, tokens: int, timeout: float) -> dict:
+def one(
+    url: str, model: str, prompt: str, tokens: int, timeout: float
+) -> dict[str, Any]:
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -60,7 +63,9 @@ def one(url: str, model: str, prompt: str, tokens: int, timeout: float) -> dict:
     }
 
 
-def sweep(url: str, model: str, width: int, tokens: int, timeout: float) -> dict:
+def sweep(
+    url: str, model: str, width: int, tokens: int, timeout: float
+) -> dict[str, Any]:
     prompts = [
         f"Write a short technical note, number {i}, about list slicing. "
         f"Be verbose and keep writing prose until you are stopped."

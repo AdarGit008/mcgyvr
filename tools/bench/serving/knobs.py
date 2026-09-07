@@ -226,7 +226,7 @@ def capture_declared(host: str, out_dir: Path) -> Path:
     is taken on a declared rig through the door, or not at all."""
 
     def run(cmd: str) -> str:
-        out = contract.ssh(host, cmd, timeout=900)
+        out: str | None = contract.ssh(host, cmd, timeout=900)
         if out is None:
             raise SystemExit(
                 f"{cmd!r} on {host} answered nothing: the host did not answer, "

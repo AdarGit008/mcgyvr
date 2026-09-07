@@ -614,8 +614,8 @@ def verify_manifest() -> list[str]:
             for directory in arm_root.iterdir():
                 if not directory.is_dir():
                     continue
-                entry = by_id.get(directory.name)
-                if entry is None:
+                pinned = by_id.get(directory.name)
+                if pinned is None:
                     problems.append(
                         f"{directory.name} is on disk under {root.name}/ but "
                         "not in the manifest"

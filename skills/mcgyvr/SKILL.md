@@ -44,6 +44,7 @@ type's guarantee.
 | `risk` | one of `low`, `medium`, `high` | no | `medium` | How much a wrong answer costs. A floor on how cheap the work may start and how cheaply it may be verified, never a preference. Deterministic classification from type, prompt and scope is #16; a declared value may raise that classification, never lower it. (orchestrator-facing) |
 | `verification` | block | no | — | How the change is judged once the gate has passed. (orchestrator-facing) |
 | `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. (orchestrator-facing) |
+| `rename` | block | no | — | Which symbol becomes which, for `task_type: rename_symbol`. The one task type the floor executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other type and ignored there. (orchestrator-facing) |
 
 #### `deps`
 
@@ -92,6 +93,15 @@ Hard ceilings on what one execution of this contract may spend.
 | `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of a rung's context window this contract may claim: its assembled prompt and `max_output_tokens` together, over the whole window. A different question from whether the two fit, which `context.max_input_tokens` already bounds — a contract that fits with nothing to spare leaves the rung nothing to hold anything beside it and nothing to absorb an estimate that ran long. Declared here rather than on the ladder because it is a statement about this unit of work, and enforced against whichever rung the work reaches. Unset means no share is enforced, which is not the same as 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave a quarter of the rung's window clear. (orchestrator-facing) |
 | `limits.attempts` | number (min 1) | no | `2` | How many times a rung may be retried before escalating. Retrying forever on one rung is how a cheap task becomes an expensive one. (orchestrator-facing) |
 
+#### `rename`
+
+Which symbol becomes which, for `task_type: rename_symbol`. The one task type the floor executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other type and ignored there.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `rename.from` | text | no | empty | The symbol as it is written today. Stated rather than read out of `task`: the floor renames every reference the index resolved across every file that holds one, and a name inferred from prose is a multi-file rewrite resting on a guess about English. A worker asked to guess would guess; a program must be told. e.g. fetch_page. (orchestrator-facing) |
+| `rename.to` | text | no | empty | What the symbol becomes. Must be a legal identifier — the floor rewrites text, and a `to` that is not a name would produce a tree that no longer parses while reporting success. e.g. fetch_document. (orchestrator-facing) |
+
 ### One minimal example per task type
 
 Each example loads through the contract validator; they are checked by the
@@ -137,6 +147,9 @@ id: rename-fetch
 task_type: rename_symbol
 task: Rename fetch_page to fetch_document in the module.
 target: src/pkg/messy.py
+rename:
+  from: fetch_page
+  to: fetch_document
 scope:
   allow: ["src/pkg/**"]
 ```

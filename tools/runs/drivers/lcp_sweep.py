@@ -96,17 +96,23 @@ if not H:
     sys.exit(2)
 
 
-def sh(c):
+#: One request's row: tokens generated, wall seconds, prompt tokens, and the
+#: budget it was given. `None` is a slot no thread ever filled, which is a
+#: crashed thread and not a cell that measured zero.
+Cell = tuple[int, float, int, int]
+
+
+def sh(c: str) -> str:
     return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
 
 
-def rig(c):
+def rig(c: str) -> str:
     """A command on the rig, through the one ssh in the product: gatelib.ssh
     refuses outside the door and to any host but the door's."""
     return gatelib.ssh(H, c).stdout.strip()
 
 
-def post(out, idx):
+def post(out: list[Cell | None], idx: int) -> None:
     prompt, want = workload.mkprompt()
     # CHAT, not `/completion`. The raw endpoint applies no chat template, and on
     # 2026-09-01 that cost 20 of 60 measured rows: Qwen3.6-35B emitted a stop
@@ -198,9 +204,10 @@ for cell in CELLS:
     log = sh(f"docker logs {NAME} 2>&1")
     real_slot = re.search(r"n_ctx_slot = (\d+)", log)
     vram = rig("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
-    warm = [None]
+    warm: list[Cell | None] = [None]
     post(warm, 0)
-    if warm[0][0] == 0:
+    first = warm[0]
+    if first is None or first[0] == 0:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
         sh(f"docker rm -f {NAME}")
         continue
@@ -208,10 +215,10 @@ for cell in CELLS:
     # let it through: it only refused otok==0, so an immediate stop produced a
     # full ladder of agg=0.1-0.6 rows that read as a throughput collapse. Refuse
     # the cell here, once, with the warmup's own numbers in the reason.
-    if warm[0][0] <= 1:
+    if first[0] <= 1:
         print(
-            f"{H}\t{lab}\tDEGENERATE\tmodel stopped at otok={warm[0][0]} "
-            f"against a {warm[0][3]}-token budget (ptok={warm[0][2]}); "
+            f"{H}\t{lab}\tDEGENERATE\tmodel stopped at otok={first[0]} "
+            f"against a {first[3]}-token budget (ptok={first[2]}); "
             f"measuring this cell would record artifacts",
             flush=True,
         )
@@ -220,11 +227,11 @@ for cell in CELLS:
     print(
         f"{H}\t{lab}\tCONFIG\timg={IMG}"
         f"\treal_ctx_slot={real_slot.group(1) if real_slot else '?'}"
-        f"\tvram={vram}\twarm_ptok={warm[0][2]}",
+        f"\tvram={vram}\twarm_ptok={first[2]}",
         flush=True,
     )
     for n in levels:
-        out = [None] * n
+        out: list[Cell | None] = [None] * n
         th = [threading.Thread(target=post, args=(out, i)) for i in range(n)]
         t0 = time.time()
         for t in th:
@@ -232,14 +239,19 @@ for cell in CELLS:
         for t in th:
             t.join()
         wall = time.time() - t0
-        gen = sum(o[0] for o in out)
-        if gen == 0:
+        # A slot still holding `None` is a thread that died before it could
+        # write its own failure row, which is not the same as a request that
+        # returned nothing: the level is refused rather than averaged over
+        # however many threads happened to survive.
+        rows = [o for o in out if o is not None]
+        gen = sum(o[0] for o in rows)
+        if len(rows) != n or gen == 0:
             print(f"{H}\t{lab}\tn={n}\tERR", flush=True)
             break
-        pin = sum(o[2] for o in out)
-        short = sum(1 for o in out if 0 < o[0] < o[3])
-        fail = sum(1 for o in out if o[0] == 0)
-        lat = sorted(o[1] for o in out)
+        pin = sum(o[2] for o in rows)
+        short = sum(1 for o in rows if 0 < o[0] < o[3])
+        fail = sum(1 for o in rows if o[0] == 0)
+        lat = sorted(o[1] for o in rows)
         print(
             f"{H}\t{lab}\tn={n}\tagg={gen / wall:.1f}\tp50={lat[len(lat) // 2]:.2f}"
             f"\tprefill={pin / wall:.1f}\tptok={pin // n}\totok={gen // n}"

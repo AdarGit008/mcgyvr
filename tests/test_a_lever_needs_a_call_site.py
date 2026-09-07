@@ -82,7 +82,8 @@ task_type: function_implementation
 task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
-acceptance: ["sh -c 'grep -q RETRY {TARGET}'"]
+demonstration: ["sh -c 'grep -q RETRY {TARGET}'"]
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
 limits:
   max_output_tokens: 256
 scope:
@@ -1013,7 +1014,8 @@ task_type: function_implementation
 task: Add a backoff helper in its own module.
 target: {NEW_FILE}
 stop_conditions: ["The backoff curve is not stated."]
-acceptance: ["sh -c 'grep -q backoff {NEW_FILE}'"]
+demonstration: ["sh -c 'grep -q backoff {NEW_FILE}'"]
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
 limits:
   max_output_tokens: 256
 scope:

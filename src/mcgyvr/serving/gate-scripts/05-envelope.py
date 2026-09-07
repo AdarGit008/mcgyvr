@@ -35,6 +35,15 @@ elsewhere is refused before the step, because the step would write through
 it into evidence the door never guarded; and the envelope itself is a
 directory the door made, never a link.
 
+THE ENVELOPE HEADER. Once the RUN_ID is claimed, the run's identity is filed
+beside the artifacts the step will write, as ``<RUN_ID>.run.json``: the run,
+the campaign and step, the host, the round and product digest, the profile,
+and the config's digest (owner's ruling R2, 2026-09-06 — every result names
+the exact config that produced it). Written once, before the step, so a step
+that dies before its own START still left a record of what was about to
+measure; a header already there under this RUN_ID is refused, because two
+door invocations never share a run id.
+
 Everything here happens before any rig is touched and before anything is
 written, except the deliberate moves at the end.
 """
@@ -49,13 +58,17 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+import mcgyvr
 from mcgyvr.serving.gatelib import (
     artifact_escape,
     claim,
     claim_path,
+    displaced_by_run,
     door_required,
     envelope_escape,
     export,
+    lease_of_run,
+    lease_stamp,
     need,
     refuse,
     release,
@@ -119,6 +132,42 @@ DOOR_STEPS = frozenset(
         Path(__file__).resolve().parent / "serve-down.py",
     }
 )
+
+
+def header_path(out_dir: Path, run_id: str) -> Path:
+    """Where a run's header sits in its envelope: ``<RUN_ID>.run.json``."""
+    return out_dir / f"{run_id}.run.json"
+
+
+def header_record(
+    run_id: str, step_name: str, campaign: str, run_date: str
+) -> dict[str, str]:
+    """The run's identity, from what gates 1-5 established.
+
+    Every value is one the door exported or minted — nothing here is read
+    from the rig or guessed — and the config's digest is the one gate 1 took
+    from the config it loaded, or ``none`` when there was none. Assembled
+    before the claim is taken, so a missing export refuses with nothing to
+    release.
+    """
+    return {
+        "run_id": run_id,
+        "campaign": campaign,
+        "step": step_name,
+        "host": need("RUN_HOST"),
+        "date": run_date,
+        "round": need("RUN_ROUND"),
+        "product_sha256": need("RUN_PRODUCT_SHA256"),
+        "profile": need("RUN_PROFILE"),
+        "config": need("RUN_CONFIG"),
+        "config_digest": need("RUN_CONFIG_DIGEST"),
+        "mcgyvr_version": mcgyvr.__version__,
+        "started_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+def write_header(path: Path, record: dict[str, str]) -> None:
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
 
 def main() -> int:
@@ -308,9 +357,54 @@ def main() -> int:
             "sha256": hashlib.sha256(raw).hexdigest(),
         }
 
+    # The root was judged when the door opened; gates 1-4 have spent rig time
+    # since, and a root that went away meanwhile is not re-made here — a
+    # `parents=True` below would recreate it silently, which is the root made
+    # by nobody that the door refuses to make.
+    if not root().is_dir():
+        refuse(
+            f"gate 5: the run root {root()} is no longer a directory; the door "
+            "files under a root that exists and never makes one. Nothing is "
+            "minted"
+        )
+    # Judged after the artifacts, so a re-run is told about its file first —
+    # `probe.tsv carries run_id=...` says more than `a header exists` — and
+    # before anything is made, so a header that is already there costs
+    # nothing: a run made before under this id is a run id reused.
+    header = header_path(out_dir, run_id)
+    if header.exists():
+        refuse(
+            f"gate 5: {header.name} is already in the envelope, so a run with "
+            f"this RUN_ID ({run_id}) has been made before. Two door invocations "
+            "never share a run id: a same-day re-run takes --suffix"
+        )
+    record = header_record(run_id, step_name, campaign, run_date)
+
+    # A live run that displaced another run of this step, from another
+    # machine, on the same day, would mint the run id that run's lease
+    # carries — and gate 7 would then tear down this run's own containers as
+    # the displaced run's. One fleet, two hosts, one id: refused, with the
+    # suffix that tells them apart.
+    displaced = displaced_by_run()
+    if displaced is not None and displaced.run_id == run_id:
+        refuse(
+            f"gate 5: this run would mint RUN_ID {run_id}, which the run it "
+            f"displaced at gate 2 ({displaced.describe()}) already carries; "
+            "two runs never share a run id, and gate 7 could not tell this "
+            "run's containers from the displaced run's. Re-run with --suffix"
+        )
+
+    # The rig's lease learns the RUN_ID, so a live run that displaces this
+    # one can name its containers; and if the lease is no longer this run's
+    # by now, this run yields here, before anything is minted.
+    lease = lease_of_run()
+    if lease is not None:
+        lease_stamp(need("RUN_HOST"), lease, run_id)
+
     out_dir.mkdir(parents=True, exist_ok=True)
     claim(out_dir, run_id)
     try:
+        write_header(header, record)
         for name, aside in aside_of.items():
             (out_dir / name).rename(out_dir / aside)
             print(

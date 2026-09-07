@@ -30,7 +30,7 @@
 # and re-read at END, because a lock has wiped srv1's BIOS profile before.
 #
 # The ssh and docker this step runs are the door's shims (gate-scripts/bin),
-# resolved BY PATH from RUN_ROOT and never from $PATH: ssh refuses any host
+# resolved BY PATH from RUN_BIN and never from $PATH: ssh refuses any host
 # but RUN_HOST, docker lands on the rig's daemon, and a PATH reordered
 # mid-step finds neither real binary. Before that, the door itself is proved
 # — an ancestor's command line, read by gatelib.under_door — because every
@@ -58,18 +58,19 @@ oneline() { tr '\t\r\n' '   ' | tr -s ' ' | cut -c1-300; }
 proof=$(python3 -c 'from mcgyvr.serving.gatelib import under_door; raise SystemExit(0 if under_door() else 2)' 2>&1 >/dev/null) \
     || refuse "this step was not started by the door — no ancestor is mcgyvr.serving.run${proof:+; the proof said: $(printf '%s' "$proof" | tail -n 1 | oneline)} — and RUN_* set by hand does not stand in for one. Start the run as \`$DOOR\` (okf/must-read/touching-rigs.md)"
 
-for v in RUN_ROOT RUN_HOST RUN_MODEL RUN_PARALLEL RUN_CTX_PER_SLOT RUN_UBATCH \
-    RUN_ROUND RUN_PRODUCT_SHA256 RUN_ID RUN_OUT_DIR \
+for v in RUN_ROOT RUN_BIN RUN_HOST RUN_MODEL RUN_PARALLEL RUN_CTX_PER_SLOT RUN_UBATCH \
+    RUN_ROUND RUN_PRODUCT_SHA256 RUN_PROFILE RUN_CONFIG_DIGEST RUN_ID RUN_OUT_DIR \
     RUN_SCAN_JSON RUN_GEOMETRY_JSON RUN_PLACEMENT_JSON; do
     [ -n "${!v:-}" ] || refuse "$v is not set. This step reads the run from the environment the door exports; an empty one means it was started outside mcgyvr.serving.run, where no gate has run and nothing is guarded"
 done
 
-# The shims, by path. RUN_ROOT is the door's export of its own tree; with the
-# door proved above, taking it from the environment is fine — the shim refuses
-# by itself when it is not under the door.
-SHIMS=$RUN_ROOT/src/mcgyvr/serving/gate-scripts/bin
+# The shims, by path. RUN_BIN is the door's export of its own shim directory
+# (RUN_ROOT is the run root, which need not hold any code); with the door
+# proved above, taking it from the environment is fine — the shim refuses by
+# itself when it is not under the door.
+SHIMS=$RUN_BIN
 for bin in ssh docker; do
-    [ -x "$SHIMS/$bin" ] || refuse "$SHIMS/$bin is missing or not executable; the door's shims are the only ssh and docker this step runs, and RUN_ROOT=$RUN_ROOT holds none"
+    [ -x "$SHIMS/$bin" ] || refuse "$SHIMS/$bin is missing or not executable; the door's shims are the only ssh and docker this step runs, and RUN_BIN=$RUN_BIN holds none"
 done
 SSH=$SHIMS/ssh
 DOCKER=$SHIMS/docker
@@ -318,6 +319,7 @@ end_stamp() {
 # ---------------------------------------------------------------------------
 say "### START run_id=$RUN_ID host=$RUN_HOST pl1=$S_PL1 pl2=$S_PL2 uptime_since=$S_UPTIME"
 say "### ROUND id=$RUN_ROUND product_sha256=$RUN_PRODUCT_SHA256"
+say "### CONFIG profile=$RUN_PROFILE digest=$RUN_CONFIG_DIGEST"
 
 if [ "$H_OFFLOAD" != true ] && [ "$P_FLOOR" -gt 0 ]; then
     say "$(row REFUSED at_floor "$P_FLOOR" 0 "$P_PREDICTED" NA "$S_FREE" cpu-expert-offload-disabled-on-host)"

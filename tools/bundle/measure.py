@@ -251,13 +251,14 @@ def _host_block(endpoint: str) -> dict[str, object]:
             "rather than raised, and recorded rather than dropped: a probe that "
             "broke must not read as a machine there was nothing to read"
         )
-        return observed_module.scrub(
+        refusal: dict[str, object] = observed_module.scrub(
             {
                 "reason": "probe_failed",
                 "refused": why,
                 "width": {"value": None, "source": None, "refused": why},
             }
         )
+        return refusal
 
 
 # The Python arm's conditions are the measured bundles themselves, not a copy of

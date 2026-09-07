@@ -1,0 +1,55 @@
+# The product is built here, once, from a `v*` tag, and nowhere else.
+#
+# Four buckets (owner, 2026-09-06): source (this repository), product (a
+# wheel built from src/mcgyvr on a tag), declared config (~/.mcgyvr/config,
+# tools/runs/hosts.json) and live state (the rigs). The arrows go one way —
+# source -> product -> install — and config joins at install time, never at
+# build time: the same wheel runs on the laptop and on srv1, and only
+# $MCGYVR_CONFIG differs. A wheel built twice would be two products with one
+# name, so `ci.yml` publishes nothing (the wheels its tests build go to
+# temporary directories and prove packaging) and this workflow builds exactly
+# once. A tag pushed a second time finds its release already there and is
+# refused by `gh`: a moved tag is not a second product under the first name.
+#
+# The version is the tag's, read by hatch-vcs from git: `fetch-depth: 0`
+# because a checkout without its tags reads as a distance from nothing
+# (`0.0.1.dev<N>+g<sha>`), and a wheel stamped with that would be a product
+# that cannot say which tag it is.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.28"
+          python-version: "3.12"
+      # `uv build` writes the wheel and the sdist under dist/; the wheel is the
+      # product, the sdist is the source it was built from, both stamped with
+      # the tag's version by hatch-vcs.
+      - name: build the distribution, once
+        run: uv build
+      # The version the wheel says it is must be the tag's: a mismatch here
+      # is a tag on the wrong commit, or a build that read something other
+      # than the tag, and publishing it would be a product that lies about
+      # its code. Compared as versions, not strings — a wheel's filename is
+      # PEP 440-normalised, so `v0.1.0-rc1` builds `mcgyvr-0.1.0rc1-…`.
+      - name: the wheel is the tag's version
+        run: |
+          ls dist/
+          uv run --no-project --with packaging python tools/release/wheel_is_tag.py "$GITHUB_REF_NAME" dist/*.whl
+      # `gh` is on every ubuntu runner and needs no action to pin. The release
+      # carries the wheel and the sdist as assets; the tag's notes are
+      # generated from the commits since the previous tag.
+      - name: publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
