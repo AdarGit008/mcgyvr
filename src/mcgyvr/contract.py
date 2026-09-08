@@ -411,7 +411,13 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "reply at a derived 1024 that nobody had chosen. It is the one key in "
         "the schema with no static default: a single number for every type is "
         "wrong for at least one of them. Deriving it from the target's own "
-        "content is #17.",
+        "content is #17. What this states is what the *work* is worth, which "
+        "is why it is here and not on the ladder; what a particular backend "
+        "needs to finish a reply is a different question, answered by that "
+        "rung's `ladder.tiers.*.output_tokens`, and where a rung answers it "
+        "that number is sent instead of this one. Declaring this is still "
+        "required either way: the same contract may be run against a ladder "
+        "whose rungs say nothing.",
         default=None,
         min_value=1,
     ),

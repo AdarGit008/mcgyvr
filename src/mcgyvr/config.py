@@ -361,6 +361,46 @@ TIER_FIELDS: tuple[Field, ...] = (
         ),
     ),
     Field(
+        "output_tokens",
+        "int",
+        "How much room a reply on this rung is given — the `max_tokens` its "
+        "backend is actually sent. Not a second `limits.max_output_tokens`, "
+        "and deliberately not spelled like one: a contract's cap says what "
+        "this unit of work is worth, and this says what this backend needs to "
+        "finish a reply of that worth. The two are different questions about "
+        "different things, so where a rung states one it is sent and the "
+        "contract's is not — the fallback where a rung states none, which is "
+        "what `dispatch_prompt` has always sent. Measured over 358 journalled "
+        "attempts under one contract cap of 1024: the 3B rung's replies had a "
+        "p95 of 716 and the 7B rung's 465, neither within 300 tokens of the "
+        "cap, while the 35B rung's p50 was 850 and 32 of its 82 replies were "
+        "cut at 1024 — `reply[incomplete-reply]`, refused rather than applied "
+        "(`src/mcgyvr/worker/reply.py`), so the dearest rung in the ladder was "
+        "spent and produced nothing. Taking the *lower* of the two numbers, "
+        "which is what `attempts` above does, re-creates exactly that: the "
+        "contract's cap is the smaller one on every rung that needed more. "
+        "Taking the *higher* would forbid the other direction, and a rung "
+        "needs it — a rung that answers at 17 tok/s reaches 2048 tokens only "
+        "just inside the default `budgets.request_timeout_s` of 120, so this "
+        "number, the rung's `max_parallel` (which lowers per-stream rate) and "
+        "that timeout decide each other, and raising one alone buys a socket "
+        "timeout instead of a reply. What bounds a rung's number is the rung "
+        "itself: a room that does not fit its source's `context_window` "
+        "alongside the prompt is refused by name in "
+        "`mcgyvr.gate.preflight.check_contract_against_rung`, never truncated "
+        "silently. It does not excuse a contract from declaring "
+        "`limits.max_output_tokens`: `mcgyvr contract` and `mcgyvr run` still "
+        "refuse a model contract that leaves it out, because a ladder can be "
+        "re-pointed at rungs that declare nothing and the work still has to "
+        "say what it is willing to spend.",
+        min_value=1,
+        bind_hint=(
+            "set it to the reply length this rung's own journalled attempts "
+            "show it needs (e.g. 2048), and leave it out to send the "
+            "contract's cap"
+        ),
+    ),
+    Field(
         "attempts",
         "int",
         "How many times this rung may be tried before escalation moves on. "
@@ -827,6 +867,16 @@ class Tier:
     defaulted to the source's value would be indistinguishable from a rung that
     declared it. :meth:`mcgyvr.capacity.Capacity.limit` is where the fallback
     happens, once, at the point the bound is actually built.
+
+    ``output_tokens`` is ``None`` on the same terms and for the same reason,
+    and its fallback is a contract's ``limits.max_output_tokens``. It is a
+    statement about the backend rather than about the work — what this model
+    needs to finish a reply, not what the work is worth — which is why it
+    replaces the contract's number rather than being bounded by it, and why it
+    travels below the seam on :class:`mcgyvr.pool.Endpoint` beside
+    ``context_window`` rather than above it on :class:`mcgyvr.pool.Rung`.
+    :func:`mcgyvr.gate.preflight.reply_cap` is where the fallback happens,
+    once.
     """
 
     name: str
@@ -834,6 +884,7 @@ class Tier:
     model: str
     max_parallel: int | None = None
     attempts: int = 1
+    output_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -1471,6 +1522,7 @@ def parse(text: str, path: Path | None = None) -> Config:
                 model=t["model"],
                 max_parallel=t["max_parallel"],
                 attempts=t["attempts"],
+                output_tokens=t["output_tokens"],
             )
             for t in data["ladder"]["tiers"]
         ),

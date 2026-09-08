@@ -37,6 +37,7 @@ from mcgyvr.gate.preflight import (
     check_contract_fits,
     check_prompt_fits,
     check_window_fraction,
+    reply_cap,
 )
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
@@ -68,4 +69,5 @@ __all__ = [
     "check_contract_fits",
     "check_prompt_fits",
     "check_window_fraction",
+    "reply_cap",
 ]

@@ -303,6 +303,15 @@ def _cap_undeclared(contract: Contract) -> str | None:
     reply at a derived 1024 after a 41-second climb, and nobody had chosen
     the number. The derived figure is printed as the value to start from. A
     deterministic contract has no reply to cap and is not asked.
+
+    A ladder that declares ``ladder.tiers.*.output_tokens`` does not lift this.
+    The two numbers answer different questions — what this unit of work is
+    worth, and what a particular backend needs to finish a reply (see
+    :func:`mcgyvr.gate.preflight.reply_cap`) — so a rig owner answering the
+    second has not answered the first, and the same contract may be run against
+    a ladder whose rungs declare nothing, where its own number is the only one
+    there is. A refusal lifted by a config the contract never mentions would
+    also make this command's answer depend on which machine it was typed on.
     """
     if contract.is_deterministic or contract.max_output_tokens_declared:
         return None
