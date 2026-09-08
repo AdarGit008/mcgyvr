@@ -251,8 +251,10 @@ MODEL_FIELDS: tuple[Field, ...] = (
         "is refused, and so is a geometry scanned from a file this model does "
         "not serve: each deviation from a scan requires a new scan. Required "
         "for an MoE; a dense model without it is sized from `vram_gb` alone, "
-        "one slot wide. A relative path is read against the config file's "
-        "directory.",
+        "one slot wide. A relative path is read against the config file's own "
+        "directory, with the route to that file resolved, so an entry reached "
+        "through a symlink still names the scan filed beside it; a config with "
+        "no location on disk cannot read one beside itself and is refused.",
         bind_hint=(
             "on a machine holding the file, `python -m mcgyvr.serving.ggufscan "
             "<gguf> > <model>.geometry.json`, and name that file here"
@@ -900,10 +902,17 @@ class Ladder:
 class Config:
     """A loaded, validated configuration.
 
-    ``data`` is the validated tree with defaults filled in; ``sources`` and
-    ``ladder`` are typed views over the parts that are fully determined.
-    Values that are legitimately optional are reached through ``require``
-    and ``secret``, which fail at the point of use rather than at load.
+    ``data`` is the validated tree with defaults filled in and every
+    path-valued key resolved against the config's own location
+    (:func:`_resolved_paths`); ``sources`` and ``ladder`` are typed views over
+    the parts that are fully determined. Values that are legitimately optional
+    are reached through ``require`` and ``secret``, which fail at the point of
+    use rather than at load.
+
+    ``path`` is where the caller found the file, kept for error messages. It
+    is not consulted after :func:`parse`: everything whose meaning depended on
+    it was settled there, so two callers holding one config cannot disagree
+    about what it says.
     """
 
     path: Path | None
@@ -967,38 +976,23 @@ class Config:
         one that states it. What is NOT in it is where the file sat —
         ``path`` is a fact about the caller, not the config — except through
         the one key whose meaning depends on it: a relative ``geometry_json``
-        is read beside the config (:func:`mcgyvr.serving.units_for`), so it
-        is written here as the file it names, absolutely. Two copies of a
-        config that name different geometry files are two setups, and a kept
-        copy that pointed beside itself would re-select a geometry that is
-        not there. Loading this text back yields the same config, and the
-        same digest.
+        means the scan filed beside the config, and :func:`_resolved_paths`
+        has already written it into ``data`` as the file it names, absolutely
+        and with the route to the config file resolved. Two copies of a config
+        that name different geometry files are two setups; two routes to one
+        copy are one setup; and a kept copy that pointed beside itself would
+        re-select a geometry that is not there. Loading this text back yields
+        the same config, and the same digest — unconditionally now, because a
+        config whose ``geometry_json`` could not be resolved never loaded.
         """
         return yaml.dump(
-            _plain(self._pinned()),
+            _plain(self.data),
             Dumper=_CanonicalDumper,
             sort_keys=True,
             default_flow_style=False,
             allow_unicode=True,
             width=1_000_000,
         )
-
-    def _pinned(self) -> Mapping[str, Any]:
-        """``data`` with every path-valued key made absolute, as it is used."""
-        models = self.data.get("models")
-        if not isinstance(models, Mapping) or self.path is None:
-            return self.data
-        pinned: dict[str, Any] = {}
-        for name, block in models.items():
-            stated = block.get("geometry_json") if isinstance(block, Mapping) else None
-            if not stated:
-                pinned[name] = block
-                continue
-            where = Path(str(stated)).expanduser()
-            if not where.is_absolute():
-                where = self.path.parent / where
-            pinned[name] = {**block, "geometry_json": str(where)}
-        return {**self.data, "models": pinned}
 
     def digest(self) -> str:
         """The config's identity: ``cfg-`` and the sha256 of :meth:`canonical`.
@@ -1439,6 +1433,88 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         )
 
 
+def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
+    """``data`` with every path-valued key made absolute against the config.
+
+    One key has this shape today: ``models.<id>.geometry_json``, which may be
+    written relative and means "the scan filed beside this config" — the live
+    config writes it that way (``~/.mcgyvr/config/mcgyvr.yaml:54``,
+    ``geometry_json: ./Qwen3.6-35B-A3B-UD-IQ3_XXS.geometry.json``).
+
+    Resolved **here**, once, and never again. Until 2026-09-08 the join was
+    done twice and later: by ``Config._pinned`` for the digest and by
+    :func:`mcgyvr.serving.declared_models` for the file that is opened. Two
+    derivations of one meaning are two answers waiting to differ, and both
+    already differed from each other under a symlink. A value in ``data`` is
+    one answer that every reader gets, including a reader that never heard of
+    ``self.path``.
+
+    Two decisions are pinned in the three lines below, and each prevents a
+    named failure.
+
+    **A relative path with no config location is refused, not guessed.** The
+    line means "next to me", and a config parsed from text nobody filed
+    (:func:`parse` with ``path=None``) has no "me". The two old sites took
+    that as permission to carry the word unresolved: the digest named
+    ``./x.json`` — a different file from every directory — and
+    ``declared_models`` handed the bare name to ``open``, so the run read
+    whatever the process's working directory held. Measured on the live config
+    on 2026-09-08: from its path ``cfg-02ab991e…``, from the same bytes with
+    no path ``cfg-68b454c9…``, the second naming a file that exists from
+    nowhere. Resolving against the working directory instead would keep both
+    of those and add a third: a config whose meaning depends on where the
+    operator was standing when they ran it. The remaining answer is to say so.
+    This repo already answers a missing fact this way rather than inventing
+    one — ``emit.py`` refuses to report an unscanned host, and
+    ``check_contract_against_rung`` says an invented window "is the defect this
+    function exists to end" — and :meth:`Config.canonical`'s promise that
+    loading its text back yields the same digest (``config.py:974``) is
+    unconditional, so the case it cannot keep must not be loadable.
+
+    **The route to the config file is resolved before its directory is taken.**
+    ``records/plans/config-library.md`` §6/D5 selects a ladder by symlinking
+    its entry to the default config path. The scan sits beside the *entry*,
+    because that is where the entry's author filed it; taking ``path.parent``
+    through the link named the link's directory instead, so one file with one
+    set of bytes got two identities — ``cfg-25d592ef…`` and ``cfg-97b08fad…``
+    on a copy of the live config, 2026-09-08 — and one of them named a scan
+    that was never written. :meth:`Config.digest` is the config's identity, and
+    an identity that moved with the route taken to the file would name the
+    route. The cost is real and accepted: a config reached through a link whose
+    *target* directory does not hold the scan now fails loudly at the point of
+    use instead of quietly reading a different file, and the remedy is one
+    absolute path in that entry. ``resolve`` also settles a config named by a
+    relative path (``--config ./mcgyvr.yaml``) against the directory the file
+    was actually read from, rather than leaving the geometry relative for
+    whatever comes later to interpret.
+    """
+    models = data.get("models")
+    if not isinstance(models, Mapping):
+        return data
+    beside = path.resolve().parent if path is not None else None
+    resolved: dict[str, Any] = {}
+    for name, block in models.items():
+        stated = block.get("geometry_json") if isinstance(block, Mapping) else None
+        if not stated:
+            resolved[name] = block
+            continue
+        where = Path(str(stated)).expanduser()
+        if not where.is_absolute():
+            if beside is None:
+                raise ConfigSchemaError(
+                    f"models.{name}.geometry_json: {str(stated)!r} is a "
+                    f"relative path, and this config has no location to read "
+                    f"it beside. A relative geometry is the scan filed next to "
+                    f"the config file, so it can only be resolved by a config "
+                    f"that was loaded from one. Load the file with "
+                    f"`mcgyvr.config.load(path)`, pass `parse(text, "
+                    f"path=...)`, or write the geometry's path out in full."
+                )
+            where = beside / where
+        resolved[name] = {**block, "geometry_json": str(where)}
+    return {**data, "models": resolved}
+
+
 def named_config_path() -> Path | None:
     """The config path the environment names, or ``None`` if it names none.
 
@@ -1500,6 +1576,7 @@ def parse(text: str, path: Path | None = None) -> Config:
 
     data = _block(raw, SCHEMA, "")
     _cross_validate(data)
+    data = _resolved_paths(data, path)
 
     sources = {
         name: Source(
