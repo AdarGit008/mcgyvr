@@ -10,7 +10,7 @@ exact inverse of what #113 asks for."*
 That is the whole test of the choice, and it does not point at
 ``pyproject.toml``. When ``lint_config`` was written, this repository's
 selection and the product's *were* the same list — ``src/mcgyvr/gate/adapters/
-python.py:44`` says so, crediting ``lint_config`` as where the selection was
+python.py:45`` says so, crediting ``lint_config`` as where the selection was
 first measured. They stopped being the same on 2026-09-08, when
 ``DEFAULT_RUFF_SELECT`` narrowed pycodestyle from ``E`` to ``E4``/``E7``/``E9``
 so that E501 — the one selected rule ``ruff format`` structurally cannot
