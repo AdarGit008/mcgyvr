@@ -1308,13 +1308,16 @@ owner, and every one is load-bearing.
   82 s** (§6, N7, `records/measurements/wake-2026-09-08/`). `wake_timeout_s`'s
   480 stands, with 2.4× headroom over the fleet's worst wake of 203 s. What the
   measurement opened, the owner then closed: there is no engine scope (N10).
-* **Nothing refuses a model that does not fit its host's RAM.** The same
-  measurement found `fit` weighing spilled experts against `MemAvailable` with
-  no headroom at all, so a 16.9 GiB blob was emitted onto a 15 GiB host and
-  took 203 s to wake behind a thrashing page cache. The rule and its evidence
-  are now in `okf/must-read/touching-rigs.md`; the arms that would enforce it —
-  blob plus headroom, else spilled experts plus headroom with
-  `--load-mode none`, else refuse — are specified in
-  `tests/test_a_blob_that_overflows_ram_is_emitted_unmapped.py` and not yet
-  built. This design inherits the gap: a wake is a load, and a wake onto a host
-  that cannot hold the model is a wake that lands as a thrash.
+* ~~**Nothing refuses a model that does not fit its host's RAM**~~ — **fixed
+  on this branch.** The same measurement found `fit` weighing spilled experts
+  against `MemAvailable` with no headroom at all, so a 16.9 GiB blob was
+  emitted onto a 15 GiB host and took 203 s to wake behind a thrashing page
+  cache. `fit` now has two arms — blob plus headroom, else spilled experts plus
+  headroom with `--load-mode none`, else refuse — and `unit_for` writes the
+  mode the fit approved into the argv
+  (`tests/test_a_blob_that_overflows_ram_is_emitted_unmapped.py`,
+  `okf/must-read/touching-rigs.md`). It matters here because **a wake is a
+  load**: what this design brings back at 03:00 is whatever `emit` wrote, and
+  before this the thing it wrote could be a model the host cannot hold.
+  Consequence for the live ladder: srv1's top rung now emits `--load-mode
+  none`, so `emit --check` reports drift until the rig is re-emitted.

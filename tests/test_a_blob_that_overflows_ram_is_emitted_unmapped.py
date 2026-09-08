@@ -22,10 +22,10 @@ So the fit has two arms, and it names which one carried the model:
 * else the spilled experts plus headroom fit -> admitted, ``--load-mode none``
 * else -> refused, because no loading mode makes a model fit a host this small
 
-Today the module has neither arm: it weighs the spilled experts against
-``MemAvailable`` with no headroom at all, which is exactly how KAT-Coder passed
-onto srv1 (12.6 GiB of experts against 13 GiB available) and then took 203 s to
-wake behind a 16.9 GiB blob on a 15 GiB host.
+Before this spec the module had neither arm: it weighed the spilled experts
+against ``MemAvailable`` with no headroom at all, which is exactly how KAT-Coder
+passed onto srv1 (12.6 GiB of experts against 13 GiB available) and then took
+203 s to wake behind a 16.9 GiB blob on a 15 GiB host.
 """
 
 from __future__ import annotations
@@ -130,14 +130,21 @@ def test_the_fit_states_which_mode_it_approved() -> None:
 
 
 def test_every_model_on_the_tight_rig_is_judged_by_its_own_blob() -> None:
-    """Not by the rig's reputation. On 13 GiB available the 8.3 GiB blob clears
-    the headroom and the 10.6 GiB one does not, so two models on one card take
-    two different arms."""
+    """Not by the rig's reputation — srv1 is not "the unmapped rig".
+
+    Its own two candidates on 13 GiB available: DeepSeek-Coder-V2-Lite's 8.3 GiB
+    blob clears the headroom and maps, Qwen3.6-35B's 12.3 GiB does not and is
+    read unmapped. One card, one moment, two arms. Gemma-4-26B sits between them
+    at 10.6 GiB and maps, which is the point of weighing each blob rather than
+    labelling the host.
+    """
     tight = rig(ram_gb=13.0)
     lite = unit_for(tight, LITE, engine="llama.cpp", ctx_per_slot=WINDOW)
     gemma = unit_for(tight, GEMMA, engine="llama.cpp", ctx_per_slot=WINDOW)
+    moe = unit_for(tight, MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert "--load-mode" not in lite.args
-    assert gemma.args["--load-mode"] == "none"
+    assert "--load-mode" not in gemma.args
+    assert moe.args["--load-mode"] == "none"
 
 
 def test_vllm_is_never_handed_a_llama_cpp_loading_mode() -> None:

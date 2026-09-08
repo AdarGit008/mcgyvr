@@ -102,6 +102,18 @@ DEFAULT_PORT = 8080
 # on the card is not paying it, and a dense model has no spill to pay it for.
 RUNTIME_RESIDENT_GB = 1.53
 
+# Held back from host RAM, on top of whatever the model needs, for the same
+# reason :data:`vramfit.SCRATCH_AND_CONTEXT_MIB` is held back from the card:
+# the page cache needs room to work and the host has its own processes. Two
+# GiB is what ``tools/bench/serving/backends/llamacpp.py`` has weighed against
+# for a campaign (``MMAP_HEADROOM_BYTES``), and the figure it was chosen
+# against is a live mmap depressing ``MemAvailable`` by about a gigabyte. How
+# much is *enough* is unmeasured; what is measured is that none is too little
+# — KAT-Coder cleared bare ``MemAvailable`` by 0.4 GiB on srv1 and then took
+# 203 s to wake behind a thrashing cache
+# (``records/measurements/wake-2026-09-08/``).
+RAM_HEADROOM_GB = 2.0
+
 # The widest configuration anyone has measured on these rigs (#366, 32 slots on
 # a 12 GB card). Past it this arithmetic would be extrapolating.
 MAX_WIDTH = 32
@@ -264,6 +276,12 @@ class Fit:
     #: a refusal. Carried so that the units on one host can be summed: each
     #: fitting alone is how a 12 GB card ends up asked for 13.
     vram_gb: float = 0.0
+    #: How llama.cpp must read the weights for this fit to hold, or ``None``
+    #: where the engine's own default (mmap) is what was approved. A fit that
+    #: admitted a model on the unmapped arm approved a different launch from
+    #: the one that fits mapped, so the mode is part of what was approved and
+    #: :func:`unit_for` writes it into the argv rather than deriving it again.
+    load_mode: str | None = None
 
 
 @dataclass(frozen=True)
@@ -384,16 +402,36 @@ def fit(
         placed = _placement(spec, free_bytes, width, ctx_per_slot=ctx_per_slot)
     except UnitError as exc:
         return Fit(fits=False, headroom_gb=_allowance_gb(spec), why=str(exc))
-    if placed.ram_gb > available_ram:
-        return Fit(
-            fits=False,
-            headroom_gb=DEFAULT_HEADROOM_GB,
-            why=(
-                f"{spec.name}: needs {placed.ram_gb:.1f} GB of RAM"
-                f"{_offload_note(spec, placed)}, "
-                f"{available_ram:.1f} GB available"
-            ),
-        )
+    # Host RAM has two arms, because how much of the model has to be resident
+    # depends on how llama.cpp is told to read it. Under mmap — the engine's
+    # default — every page is file-backed, the CPU-side experts included, so
+    # the kernel may evict them and re-read them per token: the blob is the
+    # figure that has to fit. Under `--load-mode none` only the spilled experts
+    # are resident, as anonymous memory nothing can take back. Neither mode is
+    # the better one in general — measured +63% on a rig too tight for its blob
+    # and -12% on one with room to map it
+    # (`records/evidence/2026-08-25-moe-expert-offload/`) — which is why the rig
+    # decides it and not a default.
+    #
+    # A model with nothing to spill has no arm to take: its weights are the
+    # card's, the pages it reads are clean the moment they are uploaded, and
+    # host RAM is not a constraint on it at all.
+    load_mode: str | None = None
+    if placed.ram_gb and spec.disk_gb + RAM_HEADROOM_GB > available_ram:
+        if placed.ram_gb + RAM_HEADROOM_GB > available_ram:
+            return Fit(
+                fits=False,
+                headroom_gb=DEFAULT_HEADROOM_GB,
+                why=(
+                    f"{spec.name}: needs {placed.ram_gb:.1f} GB of RAM for "
+                    f"the experts it spills{_offload_note(spec, placed)}, or "
+                    f"{spec.disk_gb:.1f} GB to hold its blob mapped, against "
+                    f"{available_ram:.1f} GB available with "
+                    f"{RAM_HEADROOM_GB:.1f} GB held back. No loading mode "
+                    f"fits this host"
+                ),
+            )
+        load_mode = "none"
     if spec.geometry is None and placed.vram_gb + DEFAULT_HEADROOM_GB > free_vram:
         return Fit(
             fits=False,
@@ -417,13 +455,20 @@ def fit(
         if spec.moe and placed.ram_gb
         else ""
     )
+    unmapped = (
+        f", read with --load-mode none because its {spec.disk_gb:.1f} GB blob "
+        f"does not fit {available_ram:.1f} GB of RAM mapped"
+        if load_mode
+        else ""
+    )
     return Fit(
         fits=True,
         vram_gb=placed.vram_gb,
         headroom_gb=placed.headroom_gb,
+        load_mode=load_mode,
         why=(
             f"{spec.name}: {placed.vram_gb:.1f} GB on the card of "
-            f"{free_vram:.1f} GB free, {held}{spilled}"
+            f"{free_vram:.1f} GB free, {held}{spilled}{unmapped}"
         ),
     )
 
@@ -524,6 +569,13 @@ def unit_for(
     # that was never in play.
     if placed.n_cpu_moe > 0:
         args["--n-cpu-moe"] = str(placed.n_cpu_moe)
+    # The mode the fit approved, never a second derivation: a unit read one
+    # way and sized another is exactly the drift `argv` exists to prevent, one
+    # flag over. Absent where the default (mmap) is what fits, because
+    # `--load-mode auto` printed into a file a person reads says a choice was
+    # made where none was.
+    if sized.load_mode is not None:
+        args["--load-mode"] = sized.load_mode
 
     return Unit(
         key=UnitKey(host=scan.machine.host, model=spec.name, engine=engine, port=port),
