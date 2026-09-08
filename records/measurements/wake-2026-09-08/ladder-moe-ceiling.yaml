@@ -1,0 +1,43 @@
+# N7 ceiling measurement, 2026-09-08. Not a working ladder.
+# The biggest MoE with small active params that each rig can hold, because a
+# wake is only worth its 50-130s if what comes up outranks what is already
+# there -- sleep/wake design section 7.7 found the pressure wake has no
+# candidate on the live ladder, and this is the check for whether the fleet
+# could actually hold one.
+version: 1
+sources:
+  srv1_llamacpp:
+    base_url: "http://srv1:8080"
+    api: openai
+    image: "llamacpp:b10644-L3"
+    max_parallel: 2
+    context_window: 4096
+  srv2_llamacpp:
+    base_url: "http://srv2:8003"
+    api: openai
+    image: "llamacpp:b10644-L3"
+    max_parallel: 2
+    context_window: 4096
+models:
+  "KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP":
+    geometry_json: <this directory>/kat.geometry.json
+    serve_args: ["--chat-template-kwargs", '{"enable_thinking":false}']
+  "Qwen3-Next-80B-A3B-Instruct-Q3_K_M":
+    geometry_json: <this directory>/qwen80b.geometry.json
+    serve_args: ["--chat-template-kwargs", '{"enable_thinking":false}']
+ladder:
+  tiers:
+    - name: local_kat-q3km
+      source: srv1_llamacpp
+      model: "KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP"
+      max_parallel: 2
+    - name: local_qwen3-next-80b-a3b
+      source: srv2_llamacpp
+      model: "Qwen3-Next-80B-A3B-Instruct-Q3_K_M"
+      max_parallel: 2
+verifier: {enabled: false}
+sandbox: {mode: tempdir}
+delivery: {mode: branch}
+budgets: {max_escalations: 1, task_timeout_s: 900, request_timeout_s: 180}
+breadth: {draws: 1}
+journal: {dir: "~/.local/state/mcgyvr/journal"}

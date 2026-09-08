@@ -15,7 +15,11 @@ branch that carries this file.
    `serve up|down` under `dev` and concluded a sleeping card is a decline for a
    dev run. Overturned; §11 designs the exception.
 4. **Sleep/wake is scoped to vLLM first.** §6 takes that ruling and reports
-   that the measurement usually offered for it does not support it.
+   that the measurement usually offered for it does not support it — and the
+   2026-09-08 wake measurement has since closed that question in the other
+   direction: the engines wake at the same speed, and the scope excludes the
+   only rung this fleet can add. That is N10, reopened, and it is the one
+   ruling this document now asks the owner to revisit.
 
 ---
 
@@ -280,14 +284,14 @@ is designed in §11.
 
 **The owner's ruling: sleep/wake supports vLLM first.** The reason offered was
 speed — "I believe its faster over there". This design takes the ruling and
-declines to repeat the reason, because the only timings taken do not show it.
+declines to repeat the reason, because the timings taken do not show it.
 
 **What was measured, 2026-09-08.** Units recreated with
 `docker compose up -d --force-recreate` through `DOCKER_HOST=ssh://<rig>`,
 `/v1/models` polled every 10 s:
 
 * **srv1, llama.cpp**, Qwen3.6-35B-A3B MoE with CPU expert offload
-  (`--n-cpu-moe 29`), 13.2 GB of weights off local disk: first 200 between
+  (`--n-cpu-moe 29`), 12.3 GB of weights off local disk: first 200 between
   **50 s and 80 s**, across two separate restarts.
 * **srv2, vLLM**, both units — the 3B-AWQ and the 7B-AWQ — recreated in one
   `compose up`: neither answered before **110 s**, both by **120 s**.
@@ -299,14 +303,31 @@ covers two sequential engine boots plus CUDA graph capture on one card. It is
 the wake time of the *card*, which is the number this design actually needs,
 and it is not comparable with srv1's single unit.
 
-**The number nobody has, and it is the one the knob is priced from.** A single
-vLLM unit alone on an empty card has not been timed. `servelib`'s comment
-records "a vLLM server measured 87 s to health on srv2" from 2026-09-05
-(`src/mcgyvr/serving/servelib.py:29-31`), and nothing in the tree establishes
-that that 87 s was one unit on an otherwise-empty card rather than one row out
-of a two-unit bring-up. So the figure `budgets.wake_timeout_s` should be priced
-against is unmeasured. It is N7 in §16, and it is the one item on that list
-that a measurement rather than a ruling settles.
+**That number has since been taken, and so has the fleet's worst case**
+(`records/measurements/wake-2026-09-08/`, same day, later). A single vLLM unit
+alone on an empty card — srv2's 7B-AWQ with `depends_on` stripped — answered in
+**82 s**. That is consistent with `servelib`'s "87 s to health on srv2"
+(`src/mcgyvr/serving/servelib.py:29-31`) having been a per-unit figure, and it
+lands *inside* llama.cpp's own band for the same rig class rather than above or
+below it. **Neither engine is measurably faster to wake.** The premise this
+section declined to repeat is not merely unsupported; it is now measured and
+absent.
+
+| what | rig | engine | size | host RAM | wake |
+| --- | --- | --- | --- | --- | --- |
+| Qwen3.6-35B-A3B, `-c 8192` | srv1 | llama.cpp | 12.3 GB | 15 GB | 50–80 s |
+| Qwen3.6-35B-A3B, `-c 16384` (the live config) | srv1 | llama.cpp | 12.3 GB | 15 GB | **128 s** |
+| KAT-Coder 35.5B/A3B — srv1's ceiling | srv1 | llama.cpp | 16.9 GB | 15 GB | **203 s** |
+| 7B-AWQ alone on the card | srv2 | vLLM | 5.2 GB | 45 GB | **82 s** |
+| Qwen3-Next 80B/A3B — srv2's ceiling | srv2 | llama.cpp | 35.7 GB | 45 GB | **97 s** |
+
+**Wake time tracks RAM headroom, not model size, and that is the finding.** The
+80B is 2.1× KAT's bytes and wakes in half the time: 35.7 GB into srv2's 45 GB
+fits, 16.9 GB into srv1's 15 GB thrashes. llama.cpp mmaps and pages lazily, so
+a wake pays for memory pressure. Every number a reader might try to extrapolate
+from — engine, parameter count, file size — is the wrong axis. **The fleet's
+worst wake is srv1's, and it is 203 s.** That is what N7 is priced against, and
+it is the number §13 must keep distinguishable from a hung rig.
 
 **What actually differs between the engines, from the record rather than from
 folklore.** vLLM's startup does engine-core init, a weight load out of the HF
@@ -472,7 +493,8 @@ wearing its name" (`route.py:340`ff).
   Another mcgyvr process with nineteen threads blocked on a full rig
   contributes its granted slots and none of its queue. So the algorithm reads
   low, trips late, and never trips on pressure that is not there. For an action
-  that costs 50–130 s and takes hardware, late-and-certain is the right
+  that costs 80–130 s on this ladder and takes hardware, late-and-certain is
+  the right
   direction, and the alternative — a shared waiter count — would be a second
   rendezvous file written on every dispatch, which is a cost the whole module
   is organised to avoid.
@@ -496,7 +518,7 @@ wearing its name" (`route.py:340`ff).
   again queued behind them. A ratio of 1.0 is merely "full", which is what a
   correctly-sized rig looks like under load and is not a reason to start a
   container.
-* **`WAKE_SUSTAIN_S = 45` (N2).** A wake that takes 50–130 s to land must not
+* **`WAKE_SUSTAIN_S = 45` (N2).** A wake that takes 80–130 s to land (§6) must not
   be started for a queue that would have cleared first, or it arrives after it
   was needed and the card is then idle. The window is anchored to the measured
   per-stream rates rather than chosen round: the 3B at width 8 holds 109.6
@@ -622,7 +644,8 @@ extension and this is where it hooks in.
 
 ### 7.6 Thrash, and the numbers that damp it
 
-A wake costs 50–130 s of rig time and a card's worth of VRAM (§6). A ratio that
+A wake costs 80–130 s of rig time on this ladder — 203 s at the fleet's
+measured worst — and a card's worth of VRAM (§6). A ratio that
 wakes and sleeps one card repeatedly costs minutes per cycle for nothing, and
 the sequential case is the realistic one, not a corner: twenty contracts run as
 twenty `mcgyvr run` processes back to back would, with no damping, sleep srv2
@@ -672,7 +695,10 @@ itself (already up — the congested rung is on it) or srv1 (llama.cpp, scoped
 out). **So with the ruling as given, on the config as it stands, §7.3's wake
 never fires.** It becomes live the moment any one of three things is true: the
 scope widens to llama.cpp; the ladder gains a vLLM card above srv2; or the
-ladder gains a second vLLM card that duplicates srv2's rungs.
+ladder gains a second vLLM card that duplicates srv2's rungs. **The first of
+those three is no longer hypothetical**: srv2 will serve an 80B-A3B in 97 s
+under llama.cpp (§6), which is a rung above srv1's top, on a rig already in
+scope — see N10.
 
 **Sleep, by contrast, is fully live under the vLLM scope**, and so is the
 refusal-driven wake of D6. srv2 goes idle for `SLEEP_IDLE_S`, the next
@@ -687,7 +713,8 @@ the sleep side's trigger and the wake side's dormant twin.** It is specified in
 full because the owner asked for the algorithm, and because the day the ladder
 gains a rung above srv2 it starts firing without another design pass. Whether
 to widen the scope to llama.cpp — which would make the wake side live
-immediately, since srv1's rung is `>=` every srv2 rung — is **N10**.
+immediately, since srv1's rung is `>=` every srv2 rung — is **N10, and the
+2026-09-08 measurement is the argument for reopening it.**
 
 ---
 
@@ -778,16 +805,19 @@ serve it would turn a thrash guard into an outage.
 * Not `budgets.task_timeout_s` (900 live), which is what `Capacity.of` hands
   `hold` as its queue ceiling (`src/mcgyvr/capacity.py:754`). That bounds a
   wait for a *slot* on a server that exists. A wake is a wait for the server.
-* **Default 480.0 (N7, and the one item on that list a measurement settles
+* **Default 480.0 (N7, and the one item on that list a measurement settled
   rather than a ruling).** The door's own health budget is 360 s
   (`servelib.HEALTH_POLLS × HEALTH_INTERVAL_S`) and gates 1, 2, 3 and 5 run
   before the step. A caller budget *below* the door's would abandon a wake
   while the door was still working and leave a card half-up — so the schema
   refuses a `wake_timeout_s` under the door's own figure, by the same shape as
   `Capacity.of`'s width refusal: name the disagreement at the one moment both
-  numbers are in hand, rather than quietly correcting it. What 480 is *not* is
-  priced from a measurement of the thing it bounds, because §6 shows that
-  measurement has not been taken.
+  numbers are in hand, rather than quietly correcting it. **480 now also has a
+  measurement behind it, not only that floor**: the fleet's worst wake is
+  srv1's ceiling model at 203 s (§6), so the budget carries 2.4× headroom over
+  the slowest thing the ladder can be asked to start. It was priced from the
+  door and it survives the measurement; that is the strongest form this number
+  was available in.
 
 The wake budget bounds one wake and not their sum, exactly as
 `queue_timeout_s` bounds one hold and not a climb's — and for the same reason
@@ -1094,11 +1124,13 @@ three above are all consumed today.
 
 ## 13. How an 80-second block does not look like a hung rig
 
-The measured numbers this must survive (§6): srv1's llama.cpp unit answered
-50–80 s after recreation on 2026-09-08, and srv2's card — both vLLM units, one
-`compose up`, sequential by `depends_on` — answered by 120 s with neither unit
-up at 110 s. `budgets.request_timeout_s` is 120.0. So a wake and a hang overlap
-in duration, and duration cannot tell them apart. Three things can:
+The measured numbers this must survive (§6): srv1's llama.cpp unit answered in
+128 s at its live `-c 16384`, srv2's card — both vLLM units, one `compose up`,
+sequential by `depends_on` — answered by 120 s, a single vLLM unit alone in
+82 s, and srv1's ceiling model took 203 s. `budgets.request_timeout_s` is
+120.0, which every one of those either exceeds or sits within seconds of. So a
+wake and a hang overlap in duration, and duration cannot tell them apart. Three
+things can:
 
 1. **It announces itself at the moment it starts waiting** (D10.2), with the
    direction, the budget and the envelope path. A hung rig announces nothing —
@@ -1232,16 +1264,16 @@ owner, and every one is load-bearing.
 | | what | proposed | why that, and what it costs to be wrong |
 | --- | --- | --- | --- |
 | **N1** | `WAKE_RATIO` | `2.0` | Full plus a full queue again. Lower wakes cards for ordinary saturation; higher never wakes. |
-| **N2** | `WAKE_SUSTAIN_S` | `45` | Above the 3B's ~9 s service time at width 8, below srv1's ~73 s at width 2. Lower spends 50–130 s wakes on bursts; higher sends help after it was needed. |
+| **N2** | `WAKE_SUSTAIN_S` | `45` | Above the 3B's ~9 s service time at width 8, below srv1's ~73 s at width 2. Lower spends 80–130 s wakes on bursts; higher sends help after it was needed. |
 | **N3** | `SLEEP_IDLE_S` | `600` | The damper that kills back-to-back `mcgyvr run` thrash. Lower thrashes; higher makes sleep useless. |
 | **N4** | `MIN_UPTIME_S` | `900` | Bounds a pathological oscillation to ~14% boot time. |
 | **N5** | `COOLDOWN_S` | `600` | Hysteresis on either direction; exempt for D6's refusal-driven wake, or a thrash guard becomes an outage. |
 | **N6** | Is an idle-timer daemon wanted? | **no daemon** | §7.5 evaluates sleep only while mcgyvr is running, so a card idle after everything stops is slept by the last run or not at all. The alternative is a real daemon; the substitute is a cron the operator writes. |
-| **N7** | `budgets.wake_timeout_s` | `480.0` | Priced from the door's 360 s health budget, **not** from a measurement of a single vLLM unit's wake — §6 shows that measurement has never been taken. This is the one row a measurement settles rather than a ruling. |
+| **N7** | `budgets.wake_timeout_s` | `480.0` | **Measured 2026-09-08** (`records/measurements/wake-2026-09-08/`). Priced from the door's 360 s health budget, and now also above the fleet's worst measured wake — 203 s, srv1's ceiling model — by 2.4×. §6 has the five figures. This was the one row a measurement rather than a ruling settled, and it settled in the proposal's favour. |
 | **N8** | `enable_sleep_wake: true` with `fanout: none` | document, do not refuse | A woken card gets no work under `none` until something escalates onto it. Refusing would also take away D6's refusal-driven wake, which is useful under every mode. |
 | **N9** | A half-up card | report, do not repair | `down`-then-`up` would fix it and is a repair of a machine mcgyvr found wrong, which run contract §4 forbids a cell. Whether the sleep/wake algorithm is exempt is the owner's. |
-| **N10** | Widen the engine scope to llama.cpp? | not yet | Under the vLLM-only ruling the pressure wake has no candidate on the live ladder (§7.7). Adding srv1 makes it live immediately, since srv1's rung is `>=` every srv2 rung. |
-| **N11** | A `dev` round may sleep the live ladder on a free rig | accept, at one wake | §11.3. The live run that follows pays 50–130 s, not a failure, and the wake is in its envelope. Alternatives: dev may wake but not sleep; or dev must hold the lease and wake it back. |
+| **N10** | Widen the engine scope to llama.cpp? | **reopened — the owner should rule** | Under the vLLM-only ruling the pressure wake has no candidate on the live ladder (§7.7). Adding srv1 makes it live immediately, since srv1's rung is `>=` every srv2 rung. The 2026-09-08 wake measurement removed both legs the "not yet" stood on: the engines are not measurably different to wake (§6), and srv2 — a rig already in scope — can serve an 80B-A3B in 97 s, a real rung above srv1's 35B-A3B, but only under llama.cpp. mcgyvr's own fit refuses the 14B AWQ (11.6 + 2.0 GB against 12.0 free), so there is no vLLM upgrade path on this fleet at all. As ruled, the scope excludes the only ladder upgrade the hardware can offer. |
+| **N11** | A `dev` round may sleep the live ladder on a free rig | accept, at one wake | §11.3. The live run that follows pays 80–130 s, not a failure, and the wake is in its envelope. Alternatives: dev may wake but not sleep; or dev must hold the lease and wake it back. |
 | **N12** | `capacity_changes` on `RunResult` | one field | D10.1. Alternative is stderr only, which the `/mcgyvr` skill does not read. |
 
 ---
@@ -1268,7 +1300,8 @@ owner, and every one is load-bearing.
   compose file per host and no two cards contend. The algorithm is symmetric
   anyway; whether the symmetry is worth its numbers before a host ever holds
   two alternative specs is a fair question to put back.
-* **A single vLLM unit's wake time is unmeasured** (§6, N7). It is the number
-  `budgets.wake_timeout_s` should be priced from, it takes one `compose up` of
-  one service on an empty card to get, and it should be taken before the knob's
-  default is fixed.
+* ~~**A single vLLM unit's wake time is unmeasured**~~ — **taken 2026-09-08:
+  82 s** (§6, N7, `records/measurements/wake-2026-09-08/`). `wake_timeout_s`'s
+  480 stands, with 2.4× headroom over the fleet's worst wake of 203 s. What the
+  measurement opened instead is N10: the engine scope, as ruled, excludes the
+  only rung this fleet can add above srv1.
