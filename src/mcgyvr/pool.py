@@ -103,12 +103,14 @@ class Protocol(StrEnum):
 
     ``OPENAI`` is the OpenAI-compatible chat-completions shape, which vLLM,
     llama-server, LM Studio, TGI and the hosted providers all speak. Supporting
-    a new backend is therefore a config entry naming one of these, not a new
-    integration — which is why this enum has two members and is expected to keep
-    having two.
+    a new backend is therefore a config entry naming it, not a new integration —
+    which is why this enum has one member and is expected to keep having one.
+
+    It had two. The second was removed on 2026-09-06 with the backend it served
+    (see ``archive/forensic-ollama/``); a protocol nothing serves is a branch
+    through every dispatch decision that no test of the live ladder reaches.
     """
 
-    OLLAMA = "ollama"
     OPENAI = "openai"
 
 
@@ -130,6 +132,13 @@ class Endpoint:
     protocol: Protocol
     max_parallel: int
     credential_env: str | None
+    #: Tokens the process behind this URL serves in one request, or ``None``
+    #: when its source declared none. Below the seam on purpose: a window is a
+    #: fact about the machine, and :class:`Rung` stays empty so that a rung can
+    #: be re-pointed at another one. ``None`` enforces nothing rather than
+    #: standing in for a number — see
+    #: :func:`mcgyvr.gate.preflight.check_contract_against_rung`.
+    context_window: int | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -433,6 +442,7 @@ def _endpoint(source: Source) -> Endpoint:
         protocol=Protocol(source.api),
         max_parallel=source.max_parallel,
         credential_env=source.api_key_env,
+        context_window=source.context_window,
     )
 
 

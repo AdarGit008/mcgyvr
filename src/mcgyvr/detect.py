@@ -29,16 +29,14 @@ reports holding — is the evidence the proposal uses instead, and unlike a
 VRAM estimate it cannot be wrong about which machine it describes.
 
 A probed host is identified by name in every backend it yields, because with
-more than one host in play "ollama answered" no longer identifies anything.
+more than one host in play "a backend answered" no longer identifies anything.
 Names stay bare for a single-host sweep so the ordinary install reads the way
 it always did.
 
-**Asking and dispatching are two different questions (#164).** A backend is
-probed on whichever protocol enumerates what it holds, and bound on whichever
-protocol work should later be sent over. For every backend here but one those
-are the same answer. Ollama is the exception and the reason the fields are
-separate: its native listing is the only one that includes models pulled but
-not loaded, while its native *generation* path is the one CAV-01 invalidates.
+Every backend here is asked and dispatched to on the same protocol. It was not
+always so: the case that made asking and dispatching separate questions (#164),
+and the reason a reader may still expect two fields here, is recorded in
+``archive/forensic-ollama/``.
 
 Probes run concurrently against a short timeout, so an endpoint that
 accepts a connection and then hangs costs the timeout once rather than
@@ -93,21 +91,18 @@ class ProbeTarget:
 
     name: str
     base_url: str
-    api: str  # how to ASK: "ollama" or "openai"
+    api: str  # the wire protocol, asked and dispatched alike: "openai"
     host: str = DEFAULT_HOST
-    kind: str = ""  # the backend convention: "ollama", "vllm", ... (default: name)
-    binds_as: str = ""  # how to DISPATCH later; defaults to `api`
+    kind: str = ""  # the backend convention: "vllm", "llama-server", ...
 
     def __post_init__(self) -> None:
         # `kind` is what the server IS; `name` is what it will be called. They
         # part company the moment a sweep covers two hosts, and the capability
         # table's `requires_backend` matches on the former — a model measured
-        # on Ollama is measured on Ollama whether the source is called
-        # `ollama` or `srv2_ollama`.
+        # on vLLM is measured on vLLM whether the source is called `vllm` or
+        # `srv2_vllm`.
         if not self.kind:
             object.__setattr__(self, "kind", self.name)
-        if not self.binds_as:
-            object.__setattr__(self, "binds_as", binds_as_for(self.kind, self.api))
 
 
 # Default ports each backend ships with, and for each: how to ASK it what it
@@ -116,39 +111,12 @@ class ProbeTarget:
 # downstream is the wire protocol and the model list, and both are read from
 # the answer rather than assumed.
 #
-# **Ollama is asked one way and bound another, and that is the point (#164).**
-# Its native `/api/tags` is the only endpoint that enumerates models that are
-# *pulled but not loaded*, which is exactly the inventory a proposal needs. Its
-# native `/api/generate`, though, is the path CAV-01 is a record of — it scored
-# `qwen2.5-coder:7b` at 32.3% against a true 84.1%, so every completion from it
-# is marked `quality_safe=False` and a quality-sensitive request is refused
-# outright. The same port also serves the OpenAI-compatible shape, with the same
-# model ids and no caveat. Asking natively and dispatching compatibly is not a
-# compromise between the two; it is each protocol used for the thing it is
-# actually better at.
-PORT_CONVENTIONS: tuple[tuple[str, int, str, str], ...] = (
-    ("ollama", 11434, "ollama", "openai"),
-    ("llama-server", 8080, "openai", "openai"),
-    ("vllm", 8000, "openai", "openai"),
-    ("lmstudio", 1234, "openai", "openai"),
-    ("tgi", 3000, "openai", "openai"),
+PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (
+    ("llama-server", 8080, "openai"),
+    ("vllm", 8000, "openai"),
+    ("lmstudio", 1234, "openai"),
+    ("tgi", 3000, "openai"),
 )
-
-
-def binds_as_for(kind: str, api: str) -> str:
-    """The protocol to dispatch to ``kind`` on, given how it was asked.
-
-    Reads the one convention table, so every construction path agrees. That
-    matters more than it looks: the difference between asking Ollama natively
-    and dispatching to it natively is a measured 32.3% against 84.1%, and a
-    :class:`Backend` built by hand — in a test, or by a future caller that is
-    not :func:`probe` — silently taking the caveated path would be a trap
-    rather than a default.
-    """
-    for name, _, _, binds in PORT_CONVENTIONS:
-        if name == kind:
-            return binds
-    return api
 
 
 def _host_token(host: str) -> str:
@@ -168,7 +136,7 @@ def _host_token(host: str) -> str:
 
 def targets_for(
     hosts: Sequence[str] = (DEFAULT_HOST,),
-    conventions: Sequence[tuple[str, int, str, str]] = PORT_CONVENTIONS,
+    conventions: Sequence[tuple[str, int, str]] = PORT_CONVENTIONS,
 ) -> tuple[ProbeTarget, ...]:
     """Expand hosts into the candidate endpoints to sweep on each.
 
@@ -187,7 +155,7 @@ def targets_for(
     qualify = len(unique) > 1
     targets: list[ProbeTarget] = []
     for host in unique:
-        for name, port, api, binds_as in conventions:
+        for name, port, api in conventions:
             targets.append(
                 ProbeTarget(
                     name=f"{_host_token(host)}_{name}" if qualify else name,
@@ -195,7 +163,6 @@ def targets_for(
                     api=api,
                     host=host,
                     kind=name,
-                    binds_as=binds_as,
                 )
             )
     return tuple(targets)
@@ -222,23 +189,10 @@ class Backend:
     how: str
     host: str = DEFAULT_HOST
     kind: str = ""  # the backend convention; see ProbeTarget.kind
-    binds_as: str = ""  # the protocol a config should dispatch on; see #164
 
     def __post_init__(self) -> None:
         if not self.kind:
             object.__setattr__(self, "kind", self.name)
-        if not self.binds_as:
-            object.__setattr__(self, "binds_as", binds_as_for(self.kind, self.api))
-
-    @property
-    def bound_on_another_protocol(self) -> bool:
-        """Whether this will be dispatched to differently from how it answered.
-
-        True for Ollama and nothing else today. Surfaced rather than left
-        implicit because a config saying ``api: openai`` for a source that
-        `detect` called Ollama looks like a mistake until the reason is given.
-        """
-        return self.binds_as != self.api
 
     @property
     def is_local(self) -> bool:
@@ -254,8 +208,8 @@ class Backend:
     def has_model(self, model_id: str) -> bool:
         """Whether this backend already holds a model, by exact id or by tag.
 
-        Ollama reports `qwen2.5-coder:7b`; an OpenAI-compatible server may
-        report a path or a bare name for the same weights. An exact match is
+        A server may report a path, a bare name or a tagged name for the same
+        weights, and they are not interchangeable. An exact match is
         the only claim made here — a near match is reported as absent, since
         proposing a pull that turns out to be unnecessary is cheaper than
         binding a model that is not there.
@@ -343,13 +297,13 @@ def _get_json(url: str, timeout: float) -> Any | None:
 
 
 def _models_from(payload: Any, api: str) -> tuple[str, ...]:
-    """Pull model ids out of either wire protocol's listing."""
+    """Pull model ids out of the listing. ``api`` names the protocol asked."""
     if not isinstance(payload, dict):
         return ()
-    rows = payload.get("models") if api == "ollama" else payload.get("data")
+    rows = payload.get("data")
     if not isinstance(rows, list):
         return ()
-    key = "name" if api == "ollama" else "id"
+    key = "id"
     found = [
         row[key]
         for row in rows
@@ -360,7 +314,7 @@ def _models_from(payload: Any, api: str) -> tuple[str, ...]:
 
 def probe(target: ProbeTarget, timeout: float = PROBE_TIMEOUT_S) -> Backend | None:
     """Ask one target what it is serving. None means nothing usable there."""
-    path = "/api/tags" if target.api == "ollama" else "/v1/models"
+    path = "/v1/models"
     url = target.base_url.rstrip("/") + path
     payload = _get_json(url, timeout)
     if payload is None:
@@ -373,7 +327,6 @@ def probe(target: ProbeTarget, timeout: float = PROBE_TIMEOUT_S) -> Backend | No
         how=f"answered GET {path} at {target.base_url} within {timeout:g}s",
         host=target.host,
         kind=target.kind,
-        binds_as=target.binds_as,
     )
 
 

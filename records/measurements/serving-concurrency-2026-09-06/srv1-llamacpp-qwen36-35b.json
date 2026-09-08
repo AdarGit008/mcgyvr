@@ -1,0 +1,68 @@
+{
+  "url": "http://srv1:8080",
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "tokens": 192,
+  "label": "srv1-llamacpp-qwen36-35b-a3b-iq3xxs",
+  "results": [
+    {
+      "width": 1,
+      "ok": 1,
+      "failed": 0,
+      "wall": 7.052554646972567,
+      "tokens_out": 192,
+      "per_stream_tps": 27.232605394207177,
+      "per_stream_min": 27.232605394207177,
+      "per_stream_max": 27.232605394207177,
+      "aggregate_tps": 27.2241775655605,
+      "latency_p50": 7.050372052937746,
+      "latency_max": 7.050372052937746,
+      "error": "",
+      "label": "srv1-llamacpp-qwen36-35b-a3b-iq3xxs"
+    },
+    {
+      "width": 2,
+      "ok": 2,
+      "failed": 0,
+      "wall": 13.74732658197172,
+      "tokens_out": 384,
+      "per_stream_tps": 13.985611324316846,
+      "per_stream_min": 13.968594095953126,
+      "per_stream_max": 14.002628552680568,
+      "aggregate_tps": 27.932703694082498,
+      "latency_p50": 13.72841556998901,
+      "latency_max": 13.745119851082563,
+      "error": "",
+      "label": "srv1-llamacpp-qwen36-35b-a3b-iq3xxs"
+    },
+    {
+      "width": 4,
+      "ok": 4,
+      "failed": 0,
+      "wall": 24.560985188931227,
+      "tokens_out": 768,
+      "per_stream_tps": 7.8287775879190304,
+      "per_stream_min": 7.81859692858379,
+      "per_stream_max": 7.83973970383216,
+      "aggregate_tps": 31.269103991240165,
+      "latency_p50": 24.524942956515588,
+      "latency_max": 24.556835677009076,
+      "error": "",
+      "label": "srv1-llamacpp-qwen36-35b-a3b-iq3xxs"
+    },
+    {
+      "width": 8,
+      "ok": 8,
+      "failed": 0,
+      "wall": 37.73491978109814,
+      "tokens_out": 1536,
+      "per_stream_tps": 5.0894817263236325,
+      "per_stream_min": 5.08875427633377,
+      "per_stream_max": 5.109119639126535,
+      "aggregate_tps": 40.70500239328454,
+      "latency_p50": 37.724862829898484,
+      "latency_max": 37.7302556920331,
+      "error": "",
+      "label": "srv1-llamacpp-qwen36-35b-a3b-iq3xxs"
+    }
+  ]
+}

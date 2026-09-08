@@ -30,7 +30,8 @@ green. The engines' vocabularies are declared below and
 ``tests/test_serving.py`` holds the live configs to them.
 
 **Both engines land in one shape.** vLLM states its config as a Python repr on
-``/server_info``; ollama's is split between its child process's command line and
+``/server_info``; a daemon that runs it as a child splits the same reading
+between that child's command line and
 that child's ``/props``. Different sources, different spellings, one normalised
 structure — so the two digests mean the same thing on either engine.
 

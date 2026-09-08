@@ -146,7 +146,16 @@ def test_a_value_the_door_cannot_judge_is_refused_not_traced_back(
 
     monkeypatch.setenv(RUN_ROOT_VAR, value)
     status = run.main(
-        ["--host", "srv1", "--campaign", CAMPAIGN, "--model", "/models/x.gguf"]
+        [
+            "--host",
+            "srv1",
+            "--campaign",
+            CAMPAIGN,
+            "--model",
+            "/models/x.gguf",
+            "--ctx-per-slot",
+            "2048",
+        ]
     )
     err = capsys.readouterr().err
     assert status == 2, err

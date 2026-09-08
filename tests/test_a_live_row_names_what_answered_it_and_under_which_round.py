@@ -50,7 +50,7 @@ _observe = cast("Callable[..., Any]", observe)
 
 SYSTEM = "You are a careful worker. Answer with one fenced block."
 USER = "Set VALUE to 1 in src/pkg/messy.py."
-ENDPOINT = "http://localhost:11434"
+ENDPOINT = "http://localhost:8080"
 
 
 def _bench_product() -> types.ModuleType:
@@ -75,7 +75,7 @@ def _completion() -> Completion:
         raw_stop_reason="stop",
         model="qwen2.5-coder:7b",
         source="workstation",
-        protocol=Protocol.OLLAMA,
+        protocol=Protocol.OPENAI,
         max_output_tokens=1024,
         latency_s=0.0,
     )
@@ -105,7 +105,7 @@ def test_a_row_names_the_endpoint_the_model_the_protocol_and_the_condition(
 
     assert row["endpoint"] == ENDPOINT
     assert row["model"] == "qwen2.5-coder:7b"
-    assert row["protocol"] == "ollama"
+    assert row["protocol"] == "openai"
     # Live work is the stock product, never an ablation; the field is what lets
     # a live row and a bench cell be told apart by content rather than by path.
     assert row["condition"] == "stock"
@@ -154,14 +154,14 @@ from mcgyvr.telemetry import fold, observe
 
 completion = Completion(
     text="x", stop_reason=StopReason.COMPLETE, raw_stop_reason="stop",
-    model="m", source="workstation", protocol=Protocol.OLLAMA,
+    model="m", source="workstation", protocol=Protocol.OPENAI,
     max_output_tokens=8, latency_s=0.0,
 )
 sink = Path({str(sink)!r})
 observe(
     lambda: completion, path=sink, attempt_id="a:1", orchestrator="a", rung="r",
     messages=[{{"role": "system", "content": "s"}}, {{"role": "user", "content": "u"}}],
-    endpoint="http://localhost:11434",
+    endpoint="http://localhost:8080",
 )
 (row,) = fold(path=sink)
 print(json.dumps({{"file": mcgyvr.__file__, "keys": sorted(row)}}))

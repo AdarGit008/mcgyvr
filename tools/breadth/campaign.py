@@ -34,7 +34,7 @@ away nothing. `campaign.json` records every decision the driver made.
 Usage::
 
     uv run --no-sync python tools/breadth/campaign.py \\
-        --endpoint http://srv1:11434 --protocol openai \\
+        --endpoint http://srv1:8080 --protocol openai \\
         --models qwen2.5-coder:1.5b,qwen2.5-coder:3b,llama3.2:3b,qwen2.5-coder:7b \\
         --out records/measurements/breadth-campaign-2026-08-06/srv1
 """

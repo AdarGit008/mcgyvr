@@ -25,6 +25,11 @@ def _gatelib():  # noqa: ANN202 - a shim, outside the checked tree
         )
         assert spec is not None and spec.loader is not None
         gatelib = importlib.util.module_from_spec(spec)
+        # Registered BEFORE it is executed, as an import does. `gatelib` holds
+        # a dataclass, and `@dataclass` resolves a string annotation through
+        # `sys.modules.get(cls.__module__)`; unregistered, that is None and the
+        # shim dies on an AttributeError before it applies any rule.
+        sys.modules[spec.name] = gatelib
         spec.loader.exec_module(gatelib)
     return gatelib
 

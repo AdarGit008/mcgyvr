@@ -168,7 +168,7 @@ def test_a_second_check_of_the_same_source_issues_no_further_http(
     other_rung = Endpoint(
         source="workstation",
         base_url="http://localhost:11434",
-        protocol=Protocol.OLLAMA,
+        protocol=Protocol.OPENAI,
         max_parallel=4,
         credential_env=None,
     )

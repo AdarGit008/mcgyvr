@@ -75,7 +75,7 @@ version: 1
 sources:
   local:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
 ladder:
   tiers:
     - name: cheap
