@@ -44,6 +44,59 @@ linear layers each hold `ssm_inner_size 4096 × ssm_state_size 128 × 4 B` =
 **`--n-cpu-moe N` saturates at the layer count.** ncmoe=99 and ncmoe=40 give
 byte-identical VRAM on a 40-layer model. Neither engine offloads KV, ever.
 
+## Host RAM — the weights must fit it, or nothing else you measure is real
+
+**Never put a model on a rig whose RAM cannot hold what that model will keep
+resident. Not a wake, not a sleep, not a bench cell, not a hand launch.** Owner
+ruling, 2026-09-08. Under mmap an oversized model does not refuse and does not
+OOM: it *starts*, slowly, and then pages off NVMe for as long as it serves.
+Nothing has failed, so no gate fires and the run reports a disk benchmark as a
+decode rate.
+
+**Which bytes have to fit depends on one flag, and the difference is the whole
+model.**
+
+* **With mmap (the default, and what every live compose file uses):** the whole
+  GGUF is paged through the page cache. Measured 2026-08-25 on the then-16 GB
+  rig with an 18.56 GB blob — 821 MB/s of sustained NVMe reads *during decode*,
+  `free` at 207 MB, page cache pinned at max.
+  → `records/evidence/2026-08-25-moe-expert-offload/raw-postswap-squeeze-concurrency.txt`
+* **With `--no-mmap`:** only the CPU-side expert tensors are allocated, as anon
+  memory, and nothing pages. Same rig, same blob: **+63%** decode (42.9 vs 26.3
+  tok/s at `ncmoe 20`). On the roomy rig the same flag is **−12%** — the copy
+  costs and mmap was never the problem. **The flag is rig-dependent, not
+  universally good.**
+
+**Wake time tracks RAM headroom, not model size.** Cold start to first 200 on
+`/v1/models`, 2026-09-08:
+
+| model | bytes | host | RAM | wake |
+|---|---|---|---|---|
+| KAT-Coder 35.5B/A3B Q3_K_M | 16.9 GB | srv1 | 15 GB — blob does not fit | **203 s** |
+| Qwen3-Next 80B/A3B Q3_K_M | 35.7 GB | srv2 | 45 GB — fits | **97 s** |
+
+2.1x the bytes, half the time. Do not extrapolate a wake or a load from
+parameter count, quant, or engine; the only axis that predicted these was
+whether the blob fits RAM. **srv1 is the slow rig, and its ceiling is not "the
+biggest model" — it is "the model closest to overflowing 15 GB".**
+→ `records/measurements/wake-2026-09-08/`
+
+**The product's own fit check does not enforce this, and that is why KAT ran.**
+`serving/__init__.py:387` weighs `placed.ram_gb` — the spilled experts plus
+runtime, *not the blob* — against `MemAvailable`, with **no headroom**. KAT at
+`ncmoe 32` spills ~12.6 GB against srv1's 13 GB available, so it fits and is
+emitted; the 16.9 GB blob behind it does not fit 15 GB of RAM and pages. The
+bench's `mmap_gate` is the stricter of the two and already says the right
+thing — resident share against `MemAvailable − 2 GB`, evaluated *after* the
+previous cell tears down, because a live mmap depresses `available` by about a
+gigabyte.
+→ `tools/bench/serving/backends/llamacpp.py:607`, `MMAP_HEADROOM_BYTES`
+
+**How much headroom is enough is not measured.** Two wake points bracket it and
+the 2026-08-25 squeeze gives the steady-state edge. Until a sweep says
+otherwise, read `free -g` at the moment the previous cell tears down — the same
+discipline as the VRAM term — and keep the bench's 2 GB.
+
 ## Host memory bandwidth
 
 Measured 2026-09-01 with a pure sequential read, not STREAM triad. Triad is
