@@ -31,6 +31,7 @@ from typing import Any
 
 import pytest
 
+from mcgyvr.gate.adapters.python import DEFAULT_RUFF_SELECT
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.runner import Gate
 from mcgyvr.sandbox.tempdir import TempDirSandbox
@@ -138,20 +139,28 @@ def test_the_staged_tree_carries_a_gitignore(
         assert "__pycache__" in (base / ".gitignore").read_text()
 
 
-def test_the_staged_tree_carries_the_projects_lint_config(
+def test_the_staged_tree_carries_the_products_lint_floor(
     score: types.ModuleType, measure: types.ModuleType
 ) -> None:
-    """A workspace with no config makes ruff apply rules the project never chose."""
-    import tomllib
+    """A workspace with no config makes ruff apply rules nobody chose.
 
-    with (REPO / "pyproject.toml").open("rb") as fh:
-        selected = tomllib.load(fh)["tool"]["ruff"]["lint"]["select"]
+    Asserted against ``DEFAULT_RUFF_SELECT`` rather than against this repo's
+    ``pyproject.toml``, which is what it read until 2026-09-08. The two were the
+    same list when this test was written and then diverged, and the version that
+    read ``pyproject.toml`` went on passing while the bench rejected on E501 —
+    a rule the product had just dropped precisely because ``ruff format`` cannot
+    satisfy it. The bar a bench workspace is judged by is the product's floor;
+    the argument is at ``tools/bench/score.py:lint_config`` and the applied
+    behaviour is pinned by
+    ``tests/test_the_bench_lints_by_the_products_floor.py``.
+    """
+    import tomllib
 
     task = measure.load_tier_tasks("bench-py", ["b002-option-pairs"])[0]
     with tempfile.TemporaryDirectory() as tmp:
         base = score.stage_dir(task, task.contract.target_content, Path(tmp) / "b")
         staged = tomllib.loads((base / "pyproject.toml").read_text())
-    assert staged["tool"]["ruff"]["lint"]["select"] == selected
+    assert staged["tool"]["ruff"]["lint"]["select"] == list(DEFAULT_RUFF_SELECT)
 
 
 def test_the_reference_is_never_staged(

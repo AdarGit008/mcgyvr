@@ -35,12 +35,15 @@ makes a failed attempt leave no trace in the next.
 from __future__ import annotations
 
 import tempfile
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from mcgyvr.gate.acceptance import Acceptance
+from mcgyvr.gate.adapters.python import (
+    DEFAULT_RUFF_LINE_LENGTH,
+    DEFAULT_RUFF_SELECT,
+)
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.runner import Gate
 from mcgyvr.sandbox.tempdir import TempDirSandbox
@@ -160,40 +163,55 @@ def link_node_modules(into: Path) -> None:
 
 
 def lint_config() -> str:
-    """The project's own ruff settings, as a workspace ``pyproject.toml``.
+    """The product's own lint floor, as a workspace ``pyproject.toml``.
 
     **Why this file has to exist.** The adapter runs ``ruff check`` with the
     workspace as its working directory. A workspace holding only a solution and
     a checker has no ``pyproject.toml``, so ruff finds no configuration and
-    falls back to a rule set far wider than this project selects — measured on
-    the corpus, that is `TRY004` alone rejecting 75 of 257 checked-in reference
-    solutions for raising ``ValueError`` where the contract asked only for "an
-    error". The bench would have been applying a **stricter** bar than the
-    product, which is the exact inverse of what #113 asks for.
+    falls back to a rule set far wider than anything this project selects —
+    measured on the corpus, that is `TRY004` alone rejecting 75 of 257
+    checked-in reference solutions for raising ``ValueError`` where the contract
+    asked only for "an error". The bench would have been applying a **stricter**
+    bar than the product, which is the exact inverse of what #113 asks for.
 
-    In production the gate lints a real repository against *that repository's*
-    configuration. A synthetic one-file workspace has none, so the bench has to
-    supply one, and the defensible choice is the project's own — it is what a
-    mcgyvr-managed repository carries.
+    **Why the product's floor and not this repository's ``pyproject.toml``.**
+    That test — *stricter than the product is the wrong bar* — is the only one
+    this function has ever had, and it does not point at this repository. When
+    this function was written the two selections were the same list, and
+    :data:`~mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT` credits this
+    function as where that list was first measured. They diverged on
+    2026-09-08, when the product narrowed pycodestyle from ``E`` to
+    ``E4``/``E7``/``E9`` so that E501 — the one selected rule ``ruff format``
+    structurally cannot satisfy, and 104 of 220 lint findings in the live
+    journal — stopped rejecting a docstring no formatter can wrap
+    (``src/mcgyvr/gate/adapters/python.py:56``). Deriving the bench's bar from
+    ``pyproject.toml`` kept selecting ``E``, so a reply the product would ship
+    scored here as a lint rejection: the defect this docstring was written
+    against, back after three days.
 
-    Derived from ``pyproject.toml`` at call time rather than copied, so the two
-    cannot drift; ``extend-exclude`` is dropped because its paths name the
-    repository, and one of them is ``tools/bench/tasks`` — carrying it through
-    would exclude the very file being linted.
+    A bench workspace is precisely the case ``DEFAULT_RUFF_SELECT`` is *for* — a
+    repository that declares no ruff configuration of its own — so mirroring the
+    floor is not an approximation of production, it is production's own answer
+    to this exact question. Reading ``pyproject.toml`` instead would measure a
+    worker against this repository's house style, which nothing in a bench run
+    is about, and would silently move every published pass rate the next time a
+    rule is added here for our own prose.
+
+    Imported rather than restated: two copies of a rule list is how these two
+    drifted apart in the first place. What is deliberately *not* carried over
+    from the product's :func:`~mcgyvr.gate.adapters.python.ruff_config_args` is
+    ``target-version``: it states none, so ruff's default applies there, and
+    stating one here would be a bar the product does not apply.
     """
-    with (REPO / "pyproject.toml").open("rb") as fh:
-        ruff = tomllib.load(fh)["tool"]["ruff"]
-    select = ", ".join(f'"{r}"' for r in ruff["lint"]["select"])
-    fmt = ruff.get("format", {})
+    select = ", ".join(f'"{family}"' for family in DEFAULT_RUFF_SELECT)
     return (
         "[tool.ruff]\n"
-        f"line-length = {ruff['line-length']}\n"
-        f'target-version = "{ruff["target-version"]}"\n\n'
+        f"line-length = {DEFAULT_RUFF_LINE_LENGTH}\n\n"
         "[tool.ruff.lint]\n"
         f"select = [{select}]\n\n"
         "[tool.ruff.format]\n"
-        f'quote-style = "{fmt.get("quote-style", "double")}"\n'
-        f'indent-style = "{fmt.get("indent-style", "space")}"\n'
+        'quote-style = "double"\n'
+        'indent-style = "space"\n'
     )
 
 
