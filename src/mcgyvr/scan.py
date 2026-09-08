@@ -60,7 +60,7 @@ SSH_TIMEOUT_S = 60.0
 # point is that the far end measures itself.
 REMOTE_COMMAND = "mcgyvr scan --json"
 
-NVIDIA_SMI_QUERY = "index,name,memory.total,memory.used"
+NVIDIA_SMI_QUERY = "index,name,memory.total,memory.used,memory.free"
 KB_PER_GB = 1024.0 * 1024.0
 BYTES_PER_GB = 1024.0**3
 
@@ -135,11 +135,20 @@ class Mismatch:
 
 @dataclass(frozen=True)
 class Vram:
-    """One card's memory. ``free`` is the number that decides a fit today."""
+    """One card's memory. ``free`` is the number that decides a fit today.
+
+    ``reserved`` is the remainder the driver holds and never hands to a
+    process: on these rigs 400 MiB of srv1's 6144 and 376 of srv2's 12288
+    (measured 2026-09-05). It is carried rather than folded into ``used``
+    because the two are answerable by different people -- used is a workload
+    and reserved is the card -- and because carrying it is what lets the four
+    numbers close: ``total == used + free + reserved``, always.
+    """
 
     total_mib: int
     used_mib: int
     free_mib: int
+    reserved_mib: int = 0
 
 
 @dataclass(frozen=True)
@@ -281,7 +290,11 @@ class Scan:
                 vram=Vram(
                     total_mib=gpu.vram.total_mib,
                     used_mib=mib,
-                    free_mib=max(gpu.vram.total_mib - mib, 0),
+                    # The reserve is the card's, so a hypothetical load does
+                    # not get to spend it: only what was free plus what this
+                    # machine's own workload was holding is on offer.
+                    free_mib=max(gpu.vram.total_mib - gpu.vram.reserved_mib - mib, 0),
+                    reserved_mib=gpu.vram.reserved_mib,
                 ),
             )
             for gpu in self.gpus
@@ -303,6 +316,7 @@ class Scan:
                         "total_mib": gpu.vram.total_mib,
                         "used_mib": gpu.vram.used_mib,
                         "free_mib": gpu.vram.free_mib,
+                        "reserved_mib": gpu.vram.reserved_mib,
                     },
                 }
                 for gpu in self.gpus
@@ -362,6 +376,11 @@ class Scan:
                         total_mib=int(gpu["vram"]["total_mib"]),
                         used_mib=int(gpu["vram"]["used_mib"]),
                         free_mib=int(gpu["vram"]["free_mib"]),
+                        # Absent in a scan taken before the reserve was read,
+                        # where free was total minus used and the remainder
+                        # was zero by construction. Zero is that scan's own
+                        # answer, not a default standing in for one.
+                        reserved_mib=int(gpu["vram"].get("reserved_mib", 0)),
                     ),
                 )
                 for gpu in raw.get("gpus") or ()
@@ -653,35 +672,54 @@ def _scan_machine() -> tuple[Machine, _Facts, _Notes]:
 
 
 def _parse_gpu_row(line: str) -> Gpu | None:
-    """One ``index, name, total, used`` row, read from its ends inward.
+    """One ``index, name, total, used, free`` row, read from its ends inward.
 
-    The query is this module's own and is four fields wide, but exactly one of
+    The query is this module's own and is five fields wide, but exactly one of
     those fields is free text a vendor writes, and vendors put commas in it —
-    ``1, Tesla T4, Custom, 15360, 400`` is a real card printed as five fields.
-    The row is therefore anchored at its ends, where the machine-generated
-    values are: the index leads, the two memory numbers trail, and whatever
-    lies between them is the name, comma and all. Splitting on commas and
-    demanding exactly four fields instead would throw away a card that is
-    present and shift every index after it.
+    ``1, Tesla T4, Custom, 15360, 400, 14960`` is a real card printed as six
+    fields. The row is therefore anchored at its ends, where the
+    machine-generated values are: the index leads, the three memory numbers
+    trail, and whatever lies between them is the name, comma and all.
+    Splitting on commas and demanding exactly five fields instead would throw
+    away a card that is present and shift every index after it.
 
     ``None`` means the row could not be read at all — a MIG or vGPU parent
     printing ``[N/A]`` for memory, or a future column order. The caller turns
     that into a note; it must never turn it into silence.
     """
     parts = [part.strip() for part in line.split(",")]
-    if len(parts) < 4:
+    if len(parts) < 5:
         return None
     try:
-        index, total, used = int(parts[0]), int(parts[-2]), int(parts[-1])
+        index = int(parts[0])
+        total, used, free = int(parts[-3]), int(parts[-2]), int(parts[-1])
     except ValueError:
         return None
     return Gpu(
         index=index,
-        name=", ".join(parts[1:-2]),
-        # Free is derived rather than queried: memory.free and memory.used are
-        # sampled at different instants, and a total that does not equal used
-        # plus free is a scan nobody can act on.
-        vram=Vram(total_mib=total, used_mib=used, free_mib=max(total - used, 0)),
+        name=", ".join(parts[1:-3]),
+        # Free is the card's own answer, not ``total - used``. The two differ
+        # by the driver's reserve, which is memory no process is ever given:
+        # deriving free would over-state it by that much on every rig here,
+        # and a placement sized against the over-statement clears the fit and
+        # then fails to allocate. Sampling skew was the reason for deriving
+        # it; it is answered by keeping the remainder rather than by
+        # discarding the card's number, so the three still sum to the total.
+        #
+        # The remainder is the driver's reserve and not a workload figure,
+        # which is checkable rather than assumed: nvidia-smi carries its own
+        # ``memory.reserved``, and it agrees within a MiB of rounding — 401
+        # against 400 on srv1, 377 against 376 on srv2 (2026-09-06). srv2 read
+        # 376 at four different loads that day, an empty card included, so it
+        # is a property of the card and not of what is on it. It is derived
+        # here anyway, because a derived remainder makes the three numbers sum
+        # exactly and a queried one would not.
+        vram=Vram(
+            total_mib=total,
+            used_mib=used,
+            free_mib=free,
+            reserved_mib=max(total - used - free, 0),
+        ),
     )
 
 
@@ -732,8 +770,12 @@ def _scan_gpus() -> tuple[tuple[Gpu, ...], _Facts, _Notes]:
             continue
         gpus.append(gpu)
         facts.append(Fact(field=f"gpu[{gpu.index}].vram.total_mib", how=how))
+        facts.append(Fact(field=f"gpu[{gpu.index}].vram.free_mib", how=how))
         facts.append(
-            Fact(field=f"gpu[{gpu.index}].vram.free_mib", how=f"{how} (total-used)")
+            Fact(
+                field=f"gpu[{gpu.index}].vram.reserved_mib",
+                how=f"{how} (total-used-free)",
+            )
         )
     if not gpus and not notes:
         return (), (), ("GPU: nvidia-smi answered but reported no device.",)

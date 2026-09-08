@@ -216,7 +216,49 @@ def _document(units: tuple[Unit, ...]) -> str:
                 "one of them — rename a model so the two spell differently"
             )
         services[name] = _service(unit)
+    _sequence_on_one_card(units, services)
     return yaml.safe_dump({"services": services}, sort_keys=True, width=200)
+
+
+def _sequence_on_one_card(
+    units: tuple[Unit, ...], services: dict[str, dict[str, object]]
+) -> None:
+    """Order the units that share a card, largest first, in place.
+
+    A compose file with no dependency between its services tells the daemon to
+    start every one of them at once, which on a card that fits both only if
+    they load one after the other is a race. Measured on srv2, 2026-09-05:
+    started together the 7B got 0.89 GiB of KV cache and 4.08x concurrency;
+    started alone after the 3B was resident, 2.77 GiB and 12.68x. The first
+    attempt crash-looped — the 7B needed 8.37 GiB free and found 7.61 — until
+    the two were sequenced by hand.
+
+    **Largest first, because it is the one that cannot recover.** A small model
+    measuring the card after a large neighbour has taken its share still fits;
+    the large one measuring after the small has taken its share does not. A
+    vLLM unit makes this sharper than it looks: it sizes its cache from
+    ``--gpu-memory-utilization`` of what is free *at load*, so the order does
+    not merely decide who wins a race, it decides how much cache each one ends
+    up holding for the rest of its life.
+
+    A chain rather than a fan-in on the largest, so that three units on one
+    card load one at a time as well as two. Sorted by the card figure the fit
+    approved and then by service name, because a compose file that differs
+    between two runs of ``emit`` over one config is a file nobody can review.
+
+    Units on different cards are not sequenced: they do not contend, and a
+    dependency there is noise that delays every restart. Neither is a host with
+    one unit, for the same reason.
+    """
+    on_card: dict[int, list[tuple[float, str]]] = {}
+    for unit in units:
+        on_card.setdefault(unit.gpu, []).append((unit.fit.vram_gb, _service_name(unit)))
+    for sharing in on_card.values():
+        if len(sharing) < 2:
+            continue
+        ordered = sorted(sharing, key=lambda pair: (-pair[0], pair[1]))
+        for (_, waiter), (_, ahead) in zip(ordered[1:], ordered[:-1], strict=True):
+            services[waiter]["depends_on"] = {ahead: {"condition": "service_started"}}
 
 
 def _service(unit: Unit) -> dict[str, object]:

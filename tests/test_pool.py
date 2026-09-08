@@ -33,7 +33,7 @@ version: 1
 sources:
   local:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 3
 ladder:
   tiers:
@@ -50,7 +50,7 @@ version: 1
 sources:
   local:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 3
   remote:
     base_url: https://api.example.com/v1
@@ -87,7 +87,7 @@ def test_a_rung_can_be_repointed_at_another_source_by_editing_config(
     after = source_map(parse(TWO_SOURCES.replace("source: remote", "source: local")))
 
     assert after.bind("strong").base_url == "http://localhost:11434"
-    assert after.bind("strong").protocol is Protocol.OLLAMA
+    assert after.bind("strong").protocol is Protocol.OPENAI
     # The ladder above the seam is untouched: same rungs, same models.
     assert [(r.name, r.model) for r in after.rungs] == [
         (r.name, r.model) for r in before.rungs
@@ -99,10 +99,10 @@ def test_both_wire_protocols_resolve_without_a_per_vendor_branch(
 ) -> None:
     monkeypatch.setenv("MCGYVR_TEST_KEY", "sk-test")
     pool = source_map(parse(TWO_SOURCES))
-    assert pool.bind("cheap").protocol is Protocol.OLLAMA
+    assert pool.bind("cheap").protocol is Protocol.OPENAI
     assert pool.bind("strong").protocol is Protocol.OPENAI
     # Two protocols is the whole vocabulary — a new backend is a config entry.
-    assert set(Protocol) == {Protocol.OLLAMA, Protocol.OPENAI}
+    assert set(Protocol) == {Protocol.OPENAI, Protocol.OPENAI}
 
 
 # --- nothing outside the seam can read a source or a backend --------------
@@ -384,7 +384,7 @@ def test_a_bound_role_resolves_through_the_seam_like_a_rung() -> None:
         sources:
           local:
             base_url: http://localhost:11434
-            api: ollama
+            api: openai
             max_parallel: 3
         ladder:
           tiers:
@@ -401,7 +401,7 @@ def test_a_bound_role_resolves_through_the_seam_like_a_rung() -> None:
     assert binding is not None
     assert binding.model == "qwen2.5-coder:14b"
     assert isinstance(binding.endpoint, Endpoint)
-    assert binding.endpoint.protocol is Protocol.OLLAMA
+    assert binding.endpoint.protocol is Protocol.OPENAI
 
 
 def test_a_role_on_an_unusable_source_says_so(
@@ -413,7 +413,7 @@ def test_a_role_on_an_unusable_source_says_so(
         sources:
           local:
             base_url: http://localhost:11434
-            api: ollama
+            api: openai
             max_parallel: 3
           remote:
             base_url: https://api.example.com/v1

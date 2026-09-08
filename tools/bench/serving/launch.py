@@ -80,21 +80,6 @@ MARKERS: tuple[tuple[str, str, str], ...] = (
         "D6/D7 item 7 — the losing repeat is kept",
     ),
     (
-        "tools/bench/serving/backends/ollama.py",
-        'check["card_idle_before_load"] is True',
-        "BL-1 — D4's replacement gate actually gates",
-    ),
-    (
-        "tools/bench/serving/backends/ollama.py",
-        "def blob_path(",
-        "BL-5 — the child is identified by the blob it serves",
-    ),
-    (
-        "tools/bench/serving/backends/ollama.py",
-        '"keep_alive": -1',
-        "BL-6 — the co-resident neighbour outlives the ramp",
-    ),
-    (
         "tools/bench/serving/backends/vllm.py",
         "def declared_slots(",
         "E5 — the width, with its provenance",
@@ -136,11 +121,6 @@ MARKERS: tuple[tuple[str, str, str], ...] = (
 #: from a mention of one pushes every author toward deleting the explanation.
 #: So a comment or docstring line is not a hit.
 WITHDRAWN: tuple[tuple[str, str, str], ...] = (
-    (
-        "tools/bench/serving/backends/ollama.py",
-        "MIN_VRAM_FRACTION = 0.8",
-        "D4 — the withdrawn gate must not still be a constant",
-    ),
     (
         "tools/bench/serving/contract.py",
         "BATCHING_SPEEDUP = 2.0",

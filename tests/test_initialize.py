@@ -40,7 +40,11 @@ SMALL_RIG = Detection(
     ram_gb=32.0,
     backends=(
         Backend(
-            "ollama", "http://localhost:11434", "ollama", ("qwen2.5-coder:3b",), "probe"
+            "llama-server",
+            "http://localhost:8080",
+            "openai",
+            ("qwen2.5-coder:3b",),
+            "probe",
         ),
         Backend("llama-server", "http://localhost:8080", "openai", (), "probe"),
     ),
@@ -54,7 +58,11 @@ KEYLESS_RIG = Detection(
     ram_gb=32.0,
     backends=(
         Backend(
-            "ollama", "http://localhost:11434", "ollama", ("qwen2.5-coder:7b",), "probe"
+            "llama-server",
+            "http://localhost:8080",
+            "openai",
+            ("qwen2.5-coder:7b",),
+            "probe",
         ),
     ),
     docker=False,
@@ -146,13 +154,15 @@ def test_a_reachable_backend_with_nothing_bindable_also_refuses(  # type: ignore
         gpus=(),
         cpu_count=4,
         ram_gb=16.0,
-        backends=(Backend("ollama", "http://localhost:11434", "ollama", (), "probe"),),
+        backends=(
+            Backend("llama-server", "http://localhost:8080", "openai", (), "probe"),
+        ),
         docker=False,
         provenance={"docker": "docker is not on PATH"},
     )
     with pytest.raises(InitError) as exc:
         initialize(tmp_path / "c.yaml", detection=detection, table=table)
-    assert "Reachable backends: ollama" in str(exc.value)
+    assert "Reachable backends: llama-server" in str(exc.value)
 
 
 def test_a_refusal_never_touches_an_existing_config(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
@@ -225,7 +235,7 @@ def test_force_overwrites_and_says_what_changed(tmp_path: Path, table) -> None: 
     forced = initialize(path, detection=KEYLESS_RIG, table=table, force=True)
     assert forced.written and not forced.created
     assert any("max_parallel" in str(d) for d in forced.deltas)
-    assert load_config(path).sources["ollama"].max_parallel == 1
+    assert load_config(path).sources["llama-server"].max_parallel == 1
 
 
 def test_rendering_is_deterministic(table) -> None:  # type: ignore[no-untyped-def]
@@ -311,7 +321,7 @@ def test_values_that_need_quoting_get_it(tmp_path: Path, table) -> None:  # type
     path = tmp_path / "mcgyvr.yaml"
     initialize(path, detection=KEYLESS_RIG, table=table)
     text = path.read_text(encoding="utf-8")
-    assert '"http://localhost:11434"' in text
+    assert '"http://localhost:8080"' in text
     assert '"qwen2.5-coder:7b"' in text
 
 
@@ -323,22 +333,22 @@ REMOTE_ONLY = Detection(
     ram_gb=23.5,
     backends=(
         Backend(
-            "srv1_ollama",
-            "http://srv1:11434",
-            "ollama",
+            "srv1_llama-server",
+            "http://srv1:8080",
+            "openai",
             ("qwen2.5-coder:3b", "qwen2.5-coder:1.5b"),
             "probe",
             host="srv1",
-            kind="ollama",
+            kind="llama-server",
         ),
         Backend(
-            "srv2_ollama",
-            "http://srv2:11434",
-            "ollama",
+            "srv2_llama-server",
+            "http://srv2:8080",
+            "openai",
             ("qwen2.5-coder:7b", "qwen2.5-coder:3b"),
             "probe",
             host="srv2",
-            kind="ollama",
+            kind="llama-server",
         ),
     ),
     docker=True,
@@ -361,7 +371,7 @@ def test_a_laptop_with_no_gpu_binds_the_rigs_it_can_reach(  # type: ignore[no-un
     assert result.created and path.exists()
     config = load_config(path)
     assert config.ladder.tiers, "a reachable rig is a bindable rig"
-    assert set(config.sources) == {"srv1_ollama", "srv2_ollama"}
+    assert set(config.sources) == {"srv1_llama-server", "srv2_llama-server"}
     assert config.is_local_only, "no key is needed to reach your own machines"
 
 
@@ -377,8 +387,8 @@ def test_two_rigs_running_the_same_backend_both_survive(  # type: ignore[no-unty
     data = build(REMOTE_ONLY, proposal)
     assert len(data["sources"]) == 2
     assert {s["base_url"] for s in data["sources"].values()} == {
-        "http://srv1:11434",
-        "http://srv2:11434",
+        "http://srv1:8080",
+        "http://srv2:8080",
     }
 
 
@@ -424,7 +434,10 @@ def test_hosts_are_ignored_when_a_detection_is_supplied(  # type: ignore[no-unty
     result = initialize(
         tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table, hosts=("nope.invalid",)
     )
-    assert set(load_config(result.path).sources) == {"srv1_ollama", "srv2_ollama"}
+    assert set(load_config(result.path).sources) == {
+        "srv1_llama-server",
+        "srv2_llama-server",
+    }
 
 
 # --- a written config dispatches on the uncaveated path (#164) ------------
@@ -437,7 +450,7 @@ def test_a_written_config_binds_ollama_on_the_uncaveated_protocol(  # type: igno
     path = tmp_path / "mcgyvr.yaml"
     initialize(path, detection=KEYLESS_RIG, table=table)
     config = load_config(path)
-    assert config.sources["ollama"].api == "openai"
+    assert config.sources["llama-server"].api == "openai"
 
 
 def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore[no-untyped-def]
@@ -462,16 +475,6 @@ def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore
             f"{rung.name} dispatches on a path CAV-01 invalidates, so this "
             f"install cannot serve a measurement"
         )
-
-
-def test_the_protocol_switch_is_explained_rather_than_silent(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
-    """A config saying `openai` for a source called `ollama` reads as a bug."""
-    result = initialize(tmp_path / "c.yaml", detection=KEYLESS_RIG, table=table)
-    joined = " ".join(result.decisions)
-    assert "CAV-01" in joined
-    assert "32.3%" in joined
 
 
 def test_detection_still_reads_the_native_model_listing(  # type: ignore[no-untyped-def]

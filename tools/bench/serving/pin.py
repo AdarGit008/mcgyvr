@@ -24,8 +24,9 @@ and each needs its own evidence:
 ``same_config``
     The semantic serving digest at open equals the one at close. Refutes
     *"the configuration changed without a restart"* — and that is not
-    hypothetical. Ollama re-derives its serving parameters **per model**:
-    measured on one host with one ``OLLAMA_NUM_PARALLEL``, ``qwen2.5-coder:*``
+    hypothetical. A daemon that serves many checkpoints from one process
+    re-derives its serving parameters **per model**: measured 2026-08-22 on one
+    host at one configured width, ``qwen2.5-coder:*``
     was served ``-c 8192 -np 2`` and ``nemotron-3-nano:4b`` ``-c 4096 -np 1``.
     Same machine, same pid, different served window and slot count — so the
     first two claims both hold while the thing being described has changed.
@@ -195,17 +196,17 @@ def _int(text: str) -> int | None:
 #: Bracketed so `pgrep -f` cannot match the shell that runs it — an unbracketed
 #: pattern kills the ssh session before it finds anything.
 _ENGINES: tuple[tuple[str, str], ...] = (
-    ("ollama", "'[l]lama-server'"),
+    ("llamacpp", "'[l]lama-server'"),
     ("vllm", "'[v]llm serve'"),
 )
 
 
 #: Where this engine states the batch width it was started with, in the parsed
-#: serving config. `n_parallel` is the `-np` the child was launched with;
-#: `total_slots` is what that child then reports on its own `/props`. Both are
+#: serving config. `n_parallel` is the `-np` the server was launched with;
+#: `total_slots` is what it then reports on its own `/props`. Both are
 #: classified **semantic** by `fingerprint.py`, under its own comment "batching
 #: and caching — decide whether a re-run reproduces at all".
-OLLAMA_WIDTH_FIELDS: tuple[str, ...] = ("n_parallel", "total_slots")
+LLAMACPP_WIDTH_FIELDS: tuple[str, ...] = ("n_parallel", "total_slots")
 
 
 def width(
@@ -250,7 +251,7 @@ def width(
     semantic = (config or {}).get("semantic") or {}
     found = {
         name: semantic[name]
-        for name in OLLAMA_WIDTH_FIELDS
+        for name in LLAMACPP_WIDTH_FIELDS
         if isinstance(semantic.get(name), int) and not isinstance(semantic[name], bool)
     }
     if not found:
@@ -260,7 +261,7 @@ def width(
             "source": None,
             "refused": (
                 "the serving config carried neither "
-                + " nor ".join(OLLAMA_WIDTH_FIELDS)
+                + " nor ".join(LLAMACPP_WIDTH_FIELDS)
                 + (f", because {refusal}" if refusal else "")
             ),
         }
@@ -519,10 +520,11 @@ def host_block(endpoint: str, host: str = "") -> dict[str, Any]:
         }
 
     backend = contract.load_backend(found["engine"])
-    if found["engine"] == "ollama":
-        config = backend.serving_config(backend._server(host))
-    else:
-        config = backend.serving_config(f"http://{host}:{backend.PORT}")
+    # One spelling now. A branch stood here for the engine that ran
+    # llama-server as a child of a daemon, whose address had to be discovered
+    # rather than computed from a known port; both engines this build serves
+    # answer at a port the backend states (archive/forensic-ollama/).
+    config = backend.serving_config(f"http://{host}:{backend.PORT}")
     return {
         **found,
         "machine": machine,
