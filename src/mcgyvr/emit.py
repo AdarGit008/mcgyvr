@@ -31,10 +31,12 @@ them:
 
 from __future__ import annotations
 
+import difflib
 import ipaddress
 import re
 import shlex
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -163,12 +165,103 @@ def emit_all(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
     files are all filed under, and quietly rewriting it here would file this
     file under a name nothing else uses.
     """
+    root.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    for path, document in _planned(units, root):
+        path.write_text(document, encoding="utf-8")
+        written.append(path)
+    return tuple(written)
+
+
+@dataclass(frozen=True)
+class Drift:
+    """One compose file that is not what the config would emit today.
+
+    ``found`` is ``None`` when nothing is there at all, and that is deliberately
+    not spelled as an empty string: "never emitted" and "emitted from a config
+    that has since moved" send an operator to different commands — one writes a
+    file for the first time, the other re-emits and restarts a container that is
+    already up and serving the wrong argv. A reader that could not tell them
+    apart would send half of them to the wrong one.
+    """
+
+    path: Path
+    #: The document this config implies, as :func:`emit_all` would write it.
+    emitted: str
+    #: The document on disk, or ``None`` where there is none.
+    found: str | None
+
+    @property
+    def missing(self) -> bool:
+        return self.found is None
+
+    def diff(self) -> tuple[str, ...]:
+        """The on-disk file against the one the config implies, unified.
+
+        Empty for a missing file: there is no line that changed, only a file
+        that is not there, and rendering the whole document as additions would
+        bury that fact in its own output.
+        """
+        if self.found is None:
+            return ()
+        return tuple(
+            line.rstrip("\n")
+            for line in difflib.unified_diff(
+                self.found.splitlines(keepends=True),
+                self.emitted.splitlines(keepends=True),
+                fromfile=f"{self.path.name} (on disk)",
+                tofile=f"{self.path.name} (this config)",
+                n=1,
+            )
+        )
+
+
+def check_all(units: Iterable[Unit], root: Path) -> tuple[Drift, ...]:
+    """Which of ``root``'s compose files are not what ``units`` would write.
+
+    The other half of :func:`emit_all`, sharing its plan so that the comparison
+    is against the same bytes the same call would produce — a check rendering
+    its own document would be the second configuration this module's own
+    docstring warns about, and it would agree with the file it was checking
+    exactly until the day it mattered.
+
+    Files this config says nothing about are not read and not reported. A
+    directory may hold compose files for rigs a ladder no longer binds, and
+    calling those a drift would ask an operator to delete evidence of a machine
+    that is still serving perfectly well; what this answers is whether the
+    ladder in hand and the files on disk agree about the rigs it names.
+
+    Nothing is written and nothing is created — not even ``root``, which
+    :func:`emit_all` makes and this deliberately does not: a check that
+    conjured an empty directory would report every file missing from a place
+    it had just invented.
+    """
+    drifted: list[Drift] = []
+    for path, document in _planned(units, root):
+        try:
+            found: str | None = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            found = None
+        except OSError as exc:
+            raise EmitError(f"{path}: cannot be read to compare — {exc}") from exc
+        if found != document:
+            drifted.append(Drift(path=path, emitted=document, found=found))
+    return tuple(drifted)
+
+
+def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
+    """Every (path, document) pair a host's units resolve to, host-sorted.
+
+    Extracted so that writing and checking cannot disagree about grouping,
+    naming or refusal. Every rule below was :func:`emit_all`'s and keeps its
+    meaning; what changed is that the answer is now a value, so a caller may
+    compare it with the disk instead of committing it to the disk.
+    """
     grouped: dict[str, list[Unit]] = {}
     for unit in units:
         grouped.setdefault(unit.host, []).append(unit)
 
-    root.mkdir(parents=True, exist_ok=True)
-    written: list[Path] = []
+    planned: list[tuple[Path, str]] = []
     claimed: dict[str, str] = {}
     for host in sorted(grouped):
         name = _safe_host(host)
@@ -185,11 +278,15 @@ def emit_all(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
                 "would be the only one left"
             )
         path = root / f"{COMPOSE_PREFIX}{name}{COMPOSE_SUFFIX}"
+        # `path.resolve().parent` and not `path.parent.resolve()`: the name is
+        # sanitised and cannot climb, but a symlink planted at it can, and only
+        # resolving the file itself sees that. It holds for a path that does
+        # not exist yet, which is every path on a first emit and some on a
+        # check.
         if path.resolve().parent != root.resolve():
             raise EmitError(f"{host}: would write outside {root}")
-        path.write_text(_document(tuple(grouped[host])), encoding="utf-8")
-        written.append(path)
-    return tuple(written)
+        planned.append((path, _document(tuple(grouped[host]))))
+    return tuple(planned)
 
 
 def _document(units: tuple[Unit, ...]) -> str:
