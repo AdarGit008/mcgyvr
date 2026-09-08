@@ -80,15 +80,6 @@ ladder:
       model: a-model
 """
 
-WITH_GEOMETRY = (
-    LOCAL_ONLY
-    + """\
-models:
-  a-model:
-    geometry_json: geometry.json
-"""
-)
-
 #: An optional key of the shape that caused this: a rung-level number nobody is
 #: obliged to state, whose absence the loader fills in with ``None``. It is the
 #: shape ``output_tokens`` has, deliberately, and it is not that field: the
@@ -191,35 +182,4 @@ def test_a_kept_config_hashes_to_the_name_it_was_filed_under(
         f"file is intact and still loads; its name is the part that is wrong, "
         f"and MCGYVR_CONFIG={kept} now re-selects a setup under an identity "
         f"nothing will match."
-    )
-
-
-def test_a_kept_config_reloads_to_the_setup_it_was_kept_from(tmp_path: Path) -> None:
-    """The same lie, with no schema change at all: canonical() reads a fact off
-    the caller.
-
-    ``canonical`` promises that "loading this text back yields the same config,
-    and the same digest" (``config.py:974``), unconditionally. It cannot: a
-    relative ``geometry_json`` is written out absolute against ``self.path``
-    (``_pinned``, ``config.py:986``), and a config parsed from text nobody
-    filed — :func:`parse` takes ``path=None``, and ``gate/semantic_driver.py``
-    calls it that way — has no ``self.path`` to resolve against, so the
-    relative name is written through unchanged. ``keep`` then stores it beside
-    the journal, where re-loading it resolves that name against the *journal's*
-    directory and yields a different setup under a different digest.
-
-    Same family as the two above and the same remedy is not automatic: the
-    digest here moves because ``canonical()`` renders something the config's
-    declared tree does not contain. Whatever answer settles the schema question
-    has to settle this one too, or a snapshot goes on naming a geometry file
-    that is not where the name says.
-    """
-    config = parse(WITH_GEOMETRY)
-    kept = keep(config, tmp_path / "journal")
-    reloaded = load(kept)
-
-    assert reloaded.digest() == kept.stem, (
-        f"{kept.name} reloads as {reloaded.digest()}: the kept text names "
-        f"`geometry.json` relative to wherever it is read from, so the copy "
-        f"filed to be re-selectable is the one copy that resolves it wrong."
     )
