@@ -2,7 +2,7 @@
 
 ``limits.max_output_tokens`` exists only on the contract
 (``src/mcgyvr/contract.py:401`` ``LIMITS_FIELDS``) and reaches the wire at
-``src/mcgyvr/drive.py:269`` ``dispatch_prompt``. ``TIER_FIELDS``
+``src/mcgyvr/drive.py:281`` ``dispatch_prompt``. ``TIER_FIELDS``
 (``src/mcgyvr/config.py:327``) has no output key at all, so one number is sent
 to every rung a contract climbs — a 3B model and a 35B reasoning model are
 given the same room to answer in.
