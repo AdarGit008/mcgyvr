@@ -28,6 +28,7 @@ them alike would send half of them to the wrong one.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -48,6 +49,10 @@ WINDOW = 4096
 #: 12 GiB card sizes it without an argument. The drift under test is about a
 #: width an operator wrote, so the model must not be the interesting part.
 MODEL = "qwen2.5-coder:3b"
+
+#: What the `install` fixture hands a case: where compose files land, the
+#: config path, and a way to rewrite the tier's declared width.
+Install = tuple[Path, Path, Callable[[int], None]]
 
 #: The host a source's URL routes to and the name the machine calls itself.
 #: They are the same string here on purpose: reconciling the two is
@@ -74,9 +79,7 @@ ladder:
 
 
 @pytest.fixture
-def install(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> "tuple[Path, Path, callable]":
+def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Install:
     """A scanned machine, a config that can be rewritten, and where files land.
 
     The scan is written rather than stubbed because ``emit`` refuses a host it
@@ -119,7 +122,7 @@ def _check(out: Path) -> int:
 
 
 def test_a_file_that_is_what_the_config_emits_is_not_a_mismatch(
-    install: tuple[Path, Path, object], capsys: pytest.CaptureFixture[str]
+    install: Install, capsys: pytest.CaptureFixture[str]
 ) -> None:
     out, _config_path, declare = install
     declare(2)
@@ -135,7 +138,7 @@ def test_a_file_that_is_what_the_config_emits_is_not_a_mismatch(
 
 
 def test_a_width_that_moved_since_the_last_emit_is_a_mismatch(
-    install: tuple[Path, Path, object], capsys: pytest.CaptureFixture[str]
+    install: Install, capsys: pytest.CaptureFixture[str]
 ) -> None:
     out, _config_path, declare = install
     declare(8)
@@ -160,7 +163,7 @@ def test_a_width_that_moved_since_the_last_emit_is_a_mismatch(
 
 
 def test_a_config_that_was_never_emitted_is_not_reported_as_drift(
-    install: tuple[Path, Path, object], capsys: pytest.CaptureFixture[str]
+    install: Install, capsys: pytest.CaptureFixture[str]
 ) -> None:
     out, _config_path, declare = install
     declare(2)

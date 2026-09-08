@@ -34,11 +34,18 @@ from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import keep as keep_config
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-from mcgyvr.emit import EmitError, emit_all
+from mcgyvr.emit import Drift, EmitError, check_all, emit_all
 from mcgyvr.exits import Exit
 from mcgyvr.initialize import InitError, initialize
 from mcgyvr.scan import Mismatch, Scan
-from mcgyvr.serving import ModelSpec, UnitError, hold_together, host_of, units_for
+from mcgyvr.serving import (
+    ModelSpec,
+    Unit,
+    UnitError,
+    hold_together,
+    host_of,
+    units_for,
+)
 
 #: The three places a config is looked for, in order, as every `--config`
 #: help line states them: one sentence, so no command names a fourth.
@@ -1980,6 +1987,21 @@ def _emit(args: argparse.Namespace) -> int:
             return Exit.REFUSED
 
     out = Path(args.out) if args.out else Path.cwd()
+
+    # `--check` is the whole answer to "the config moved and the rig did not".
+    # It is here rather than in the door because this is the function that
+    # knows what a config implies, and the comparison must be against the
+    # bytes this same call would write — `check_all` shares the plan with
+    # `emit_all` so the two cannot drift apart the way the thing they are
+    # detecting did.
+    if args.check:
+        try:
+            drifted = check_all(units, root=out)
+        except (EmitError, OSError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return Exit.ERROR
+        return _report_drift(drifted, out, units)
+
     try:
         written = emit_all(units, root=out)
     except (EmitError, OSError) as exc:
@@ -1997,6 +2019,48 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"wrote {compose}")
     print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")
     return Exit.OK
+
+
+def _report_drift(drifted: Sequence[Drift], out: Path, units: Sequence[Unit]) -> Exit:
+    """Say which compose files stopped matching the config, and stop.
+
+    Nothing here writes: an operator re-emits and then restarts the container,
+    and doing the first half for them would leave a rig serving argv that no
+    file on disk has ever named. The exit code is
+    :attr:`~mcgyvr.exits.Exit.MISMATCH`, which is what ``scan`` already returns
+    for a record and a machine that stopped agreeing — this is that fact about
+    a different pair.
+
+    A missing file and a stale one are printed differently on purpose. The
+    first is one command away from correct; the second is two, and the second
+    of those is on the rig.
+    """
+    if not drifted:
+        for path, _ in sorted(
+            {(out / f"compose.{unit.host}.yml", unit.host) for unit in units}
+        ):
+            print(f"{path.name} is what this config emits")
+        return Exit.OK
+
+    for item in sorted(drifted, key=lambda d: d.path.name):
+        if item.missing:
+            print(
+                f"mismatch: no compose file at {item.path} — this config "
+                f"names the rig and nothing has been emitted for it. Run "
+                f"`mcgyvr emit` to write it.",
+                file=sys.stderr,
+            )
+            continue
+        print(
+            f"mismatch: {item.path} is not what this config emits. The file "
+            f"was written from an older config, so the rig is serving argv "
+            f"nobody is reading any more. Run `mcgyvr emit` and then restart "
+            f"the unit — the file alone changes nothing that is already up.",
+            file=sys.stderr,
+        )
+        for line in item.diff():
+            print(f"  {line}", file=sys.stderr)
+    return Exit.MISMATCH
 
 
 def _report_mismatches(found: Sequence[Mismatch], stream: TextIO) -> None:
@@ -2479,6 +2543,17 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "the window this run serves per slot; `-c` is this times the slot "
             "count, and the cache law is fed the same product"
+        ),
+    )
+    emi.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "compare the files already under --out with what this config "
+            "emits and write nothing: exit 4 when they disagree, naming each "
+            "file and the lines that moved. A config edited without "
+            "re-emitting is two configurations, and the rig goes on serving "
+            "the older one"
         ),
     )
     emi.set_defaults(func=_emit)
