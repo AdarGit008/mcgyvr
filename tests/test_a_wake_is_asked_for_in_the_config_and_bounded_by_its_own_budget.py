@@ -24,14 +24,13 @@ file's:
   ``wake_timeout_s`` bounds a wait for a server *to exist*. One knob for three
   faults would mean setting reply length and boot time with the same number.
 
-What is deliberately NOT pinned here is the *value* 480.0. It is N7 in the
-design's §16 and it is the one row on that list a measurement settles rather
-than a ruling: §6 shows that a single vLLM unit alone on an empty card has never
-been timed, and 480 is priced from the door's own health budget instead. So this
-file pins that the budget exists, that it is a third number and not a re-spelling
-of either of the other two, and the one relation the design *did* rule on — that
-the schema refuses a caller budget below the door's health budget, because a
-caller who gave up while the door was still working would leave a card half-up.
+The *value* 480.0 was N7 in the design's §16 — the one row a measurement
+settled rather than a ruling — and the measurement was taken on 2026-09-08
+(``records/measurements/wake-2026-09-08/``). Five cold starts across both rigs:
+82 s for a single vLLM unit alone on an empty card, 50-128 s for llama.cpp on
+srv1, and **203 s** for srv1's ceiling model, which is the worst this fleet can
+produce. So the value is pinned here now, against the two things it has to
+clear: the door's own health budget, and the slowest wake anyone has measured.
 """
 
 from __future__ import annotations
@@ -39,8 +38,8 @@ from __future__ import annotations
 import pytest
 
 #: One card, two vLLM sources, the shape of the live srv2 (§6). Every worked
-#: example in the design is this card, because the vLLM scope the owner ruled
-#: picks the multi-unit case and scopes the single-unit llama.cpp rig out.
+#: example in the design is this card because it is the multi-unit one, which is
+#: the harder case; the engine on a card decides nothing (N10, ruled 2026-09-08).
 CARD = """
 version: 1
 sources:
@@ -161,10 +160,10 @@ def test_a_wake_budget_is_neither_the_request_nor_the_task_one() -> None:
 def test_a_wake_budget_is_defaulted_and_is_not_a_re_spelling_of_the_other_two() -> None:
     """A config that states none of the three still has all three, distinctly.
 
-    The value is not asserted — it is N7 (§16), unmeasured, and this suite
-    leaves it free. What is asserted is that it is a number, that it is the
-    door's own budget or more (the ruled relation, below), and that it did not
-    arrive by being handed one of its neighbours' defaults.
+    What is asserted here is that it is a number, that it is the door's own
+    budget or more (the ruled relation, below), and that it did not arrive by
+    being handed one of its neighbours' defaults. The value itself is pinned
+    separately, against the measurement that settled N7.
     """
     from mcgyvr.config import parse
 
@@ -220,15 +219,33 @@ def test_a_wake_budget_at_or_above_the_doors_health_budget_is_accepted() -> None
     assert config.get("budgets.wake_timeout_s") == _door_health_budget()
 
 
-@pytest.mark.skip(
-    reason="N7 (design §16): budgets.wake_timeout_s = 480.0 is priced from the "
-    "door's 360s health budget and NOT from a measurement of the thing it "
-    "bounds. §6 records that a single vLLM unit alone on an empty card has "
-    "never been timed — the srv2 figure of 120s covers two sequential engine "
-    "boots chained by depends_on, and servelib's 87s comment does not "
-    "establish that it was one unit on an empty card. This suite pins the "
-    "budget's existence and its one ruled relation, and leaves the constant "
-    "free until someone takes the one `compose up` that settles it."
-)
-def test_the_default_wake_budget_is_the_measured_wake_of_one_vllm_unit() -> None:
-    raise AssertionError("unreachable: see the skip reason")
+#: The slowest wake anyone has measured on this fleet: srv1's ceiling model,
+#: KAT-Coder 35.5B/A3B, 16.9 GiB of blob against 15 GiB of RAM, cold to first
+#: 200 on /v1/models (2026-09-08). Every other rig and model measured that day
+#: came in faster, the 35.7 GiB 80B on srv2 included, because a wake is paid in
+#: memory pressure and not in bytes.
+WORST_MEASURED_WAKE_S = 203.0
+
+
+def test_the_default_wake_budget_clears_the_slowest_wake_ever_measured() -> None:
+    """N7, settled by measurement rather than by ruling.
+
+    480 was priced from the door's 360 s health budget before anyone had timed
+    the thing it bounds. The timing exists now and the number survives it: the
+    fleet's worst wake is 203 s, which 480 clears twice over. A budget that
+    merely exceeded the worst case would be a budget that fails the first time a
+    rig is a little slower than the day it was measured, so the margin is what
+    is asserted, not the bare inequality.
+
+    If a future ladder holds a model this fails for, the fix is a re-measurement
+    and a new default — not a wider assertion.
+    """
+    from mcgyvr.config import parse
+
+    wake = parse(CARD).get("budgets.wake_timeout_s")
+
+    assert wake >= 2 * WORST_MEASURED_WAKE_S, (
+        f"the default wake budget is {wake!r}s against a measured worst wake of "
+        f"{WORST_MEASURED_WAKE_S:g}s. A caller that gives up near the measured "
+        "ceiling abandons wakes that were about to land, and leaves the card up"
+    )

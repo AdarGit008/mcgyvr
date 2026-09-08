@@ -14,12 +14,13 @@ branch that carries this file.
 3. **`dev` gets sleep and wake too.** The first draft read gate 1's refusal of
    `serve up|down` under `dev` and concluded a sleeping card is a decline for a
    dev run. Overturned; §11 designs the exception.
-4. **Sleep/wake is scoped to vLLM first.** §6 takes that ruling and reports
-   that the measurement usually offered for it does not support it — and the
-   2026-09-08 wake measurement has since closed that question in the other
-   direction: the engines wake at the same speed, and the scope excludes the
-   only rung this fleet can add. That is N10, reopened, and it is the one
-   ruling this document now asks the owner to revisit.
+4. **There is no engine scope. Every card may sleep and wake, whatever
+   serves it.** The first draft scoped the feature to vLLM and §6 reported
+   that the measurement usually offered for that did not support it. The
+   2026-09-08 wake measurement then closed the question outright — the engines
+   wake at the same speed, and the scope excluded the only rung this fleet can
+   add — and the owner dropped it (N10, ruled). §6 is the evidence and what
+   remains of D4.
 
 ---
 
@@ -280,11 +281,14 @@ is designed in §11.
 
 ---
 
-## 6. D4 — The engine scope is vLLM, and the premise usually given for it is not supported
+## 6. D4 — There is no engine scope, and the premise once offered for one is measured and absent
 
-**The owner's ruling: sleep/wake supports vLLM first.** The reason offered was
-speed — "I believe its faster over there". This design takes the ruling and
-declines to repeat the reason, because the timings taken do not show it.
+**The owner's first ruling was: sleep/wake supports vLLM first.** The reason
+offered was speed — "I believe its faster over there". This design took the
+ruling and declined to repeat the reason, because the timings taken did not
+show it. **On 2026-09-08 the owner dropped the scope entirely** — no rig is
+banned for the engine that serves it — and this section is now the record of
+why a scope was never load-bearing.
 
 **What was measured, 2026-09-08.** Units recreated with
 `docker compose up -d --force-recreate` through `DOCKER_HOST=ssh://<rig>`,
@@ -344,18 +348,17 @@ llama.cpp with `--n-cpu-moe` streams most of its weights to host RAM instead.
 Which of those two is faster to first-token-served is an empirical question,
 not a design one, and this document asserts neither answer.
 
-**The scope predicate needs no new schema.** `Source.engine` is already
-declared — `vllm` or, absent, llama.cpp (`src/mcgyvr/config.py:215-226`). A
-card is in scope when **every** source on it declares `engine: vllm`. A mixed
-card is out of scope and says so; it is not woken half-way, because there is no
-half-way (D3.4).
+**There is no scope predicate, and `Source.engine` stays what it was** — a
+statement about how a unit is launched (`src/mcgyvr/config.py:215-226`), not a
+gate on whether its card may sleep. A mixed card is a card: it is woken whole,
+because there is no half-way (D3.4), and the compose file `emit` wrote already
+holds both engines' units in the order they have to start.
 
-**The ruling picks the harder case, and that is worth stating.** On the live
-ladder the vLLM units are srv2's **two** co-resident sources on one RTX 3060,
-and the llama.cpp unit is srv1's **one**. So whole-card eviction under this
-scope always takes down two rungs at once — `local_qwen2.5-coder-3b` and
-`local_qwen2.5-coder-7b` — while the engine that was scoped *out* is the
-trivial single-unit case. **Every worked example below is srv2.**
+**The worked examples below are still srv2's, and now for the honest reason.**
+srv2 is the **two**-unit card — `local_qwen2.5-coder-3b` and
+`local_qwen2.5-coder-7b` co-resident on one RTX 3060 — so whole-card eviction
+there takes down two rungs at once, while srv1 is the trivial single-unit case.
+**The hard case is multiplicity, not engine.**
 
 What the wake path must reproduce for that card, it reproduces by not
 reproducing anything: it hands the door the compose file `emit` already wrote,
@@ -364,14 +367,14 @@ reproducing anything: it hands the door the compose file `emit` already wrote,
 (`serving/__init__.py:671`) already ran at emit time against the scan. A wake
 re-runs no fit and re-derives no order. That is the whole benefit of D1.
 
-**Does scoping to vLLM let anything be dropped? No — and that is the honest
-answer.** The wake path is a compose file, `serve up|down`, and a `/v1/models`
-poll; all three are engine-agnostic and none of them carries a llama.cpp branch
-to delete. `hold_together` and the `depends_on` sequencing are needed *more*
-under this scope, not less, because srv2 is the multi-unit card. The ruling
-narrows which cards the feature is offered for — one predicate on
-`source.engine` — and simplifies no code path. Generality that costs nothing is
-kept.
+**Did scoping to vLLM let anything be dropped? No, and that is why dropping
+the scope costs nothing.** The wake path is a compose file, `serve up|down`,
+and a `/v1/models` poll; all three are engine-agnostic and none of them ever
+carried a llama.cpp branch to delete. `hold_together` and the `depends_on`
+sequencing are needed for the multi-unit card either way. A scope would have
+narrowed which cards the feature is offered for — one predicate on
+`source.engine` — and simplified no code path. Generality that costs nothing is
+kept, and the predicate that bought nothing is not written.
 
 ---
 
@@ -569,7 +572,6 @@ say so.
 upward. For each rung take its card (D1's `cards(config)`) and skip it when:
 
 * the rung is an api rung — it has no card;
-* the card is out of engine scope (D4) — a llama.cpp or mixed card;
 * the card is `up` — there is nothing to wake;
 * the card is `down` rather than `asleep` (D2) — mcgyvr has no launch spec for
   it, and inventing one is the thing `emit`'s boundary forbids (§14).
@@ -677,44 +679,46 @@ processes.
 
 ### 7.7 What this algorithm actually does on the live ladder today
 
-This is the part a reader is owed before anyone implements it. Under the vLLM
+This is the part a reader is owed before anyone implements it. With no engine
 scope (D4), on `~/.mcgyvr/config/mcgyvr.yaml` as it stands:
 
-| rung | index | card | engine | in scope |
+| rung | index | card | engine | may sleep |
 | --- | --- | --- | --- | --- |
 | `local_qwen2.5-coder-3b` | 0 | srv2 | vLLM | yes |
 | `local_qwen2.5-coder-7b` | 1 | srv2 | vLLM | yes |
-| `local_qwen3.6-35b-a3b` | 2 (top) | srv1 | llama.cpp | no |
+| `local_qwen3.6-35b-a3b` | 2 (top) | srv1 | llama.cpp | yes |
 
-**The pressure-driven wake has no candidate on this ladder.** Take the owner's
-sentence literally — work piles up on the top rung, wake another `>=` rung —
-and the top rung is `local_qwen3.6-35b-a3b`: there is nothing above it, so
-nothing is woken and the finding is "the ladder is too small" (§7.4).
-Take congestion on rung 0 or rung 1 instead, and every `>=` card is either srv2
-itself (already up — the congested rung is on it) or srv1 (llama.cpp, scoped
-out). **So with the ruling as given, on the config as it stands, §7.3's wake
-never fires.** It becomes live the moment any one of three things is true: the
-scope widens to llama.cpp; the ladder gains a vLLM card above srv2; or the
-ladder gains a second vLLM card that duplicates srv2's rungs. **The first of
-those three is no longer hypothetical**: srv2 will serve an 80B-A3B in 97 s
-under llama.cpp (§6), which is a rung above srv1's top, on a rig already in
-scope — see N10.
+**Sleep and the refusal-driven wake are live on both rigs on day one.** A card
+goes idle for `SLEEP_IDLE_S`, the next `mcgyvr run` to finish takes it down
+whole — srv2's two units in one `serve down`, srv1's one in another — and the
+next dispatch at that URL gets connection refused and brings the card back.
+That is exactly "release the card when nobody is using it, and take it back
+without anyone typing anything", and it is worth having on its own terms.
 
-**Sleep, by contrast, is fully live under the vLLM scope**, and so is the
-refusal-driven wake of D6. srv2 goes idle for `SLEEP_IDLE_S`, the next
-`mcgyvr run` to finish takes it down whole — both units, one `serve down` — and
-the next dispatch at `http://srv2:8001` gets connection refused and brings the
-card back. That is the behaviour the owner gets on day one, and it is worth
-having on its own terms: it is exactly "release the 3060 when nobody is using
-it, and take it back without anyone typing anything".
+**The pressure-driven wake still has no candidate, and now for a reason no
+ruling can fix.** Take the owner's sentence literally — work piles up on the
+top rung, wake another `>=` rung — and the top rung is
+`local_qwen3.6-35b-a3b`: there is nothing above it, so nothing is woken and the
+finding is "the ladder is too small" (§7.4). Take congestion on rung 0 or 1
+instead, and every `>=` card is either srv2 itself (already up, since the
+congested rung is on it) or srv1, whose card is the top rung's own. Dropping
+the engine scope did not conjure a rung; **what it did was make the fleet's one
+real upgrade reachable** — srv2 serves an 80B-A3B in 97 s under llama.cpp (§6),
+which outranks srv1's 35B-A3B, on a rig the ladder already uses. Add that rung
+and §7.3's wake fires without another design pass.
 
-So the design is honest about its own shape: **under this ruling, the ratio is
-the sleep side's trigger and the wake side's dormant twin.** It is specified in
-full because the owner asked for the algorithm, and because the day the ladder
-gains a rung above srv2 it starts firing without another design pass. Whether
-to widen the scope to llama.cpp — which would make the wake side live
-immediately, since srv1's rung is `>=` every srv2 rung — is **N10, and the
-2026-09-08 measurement is the argument for reopening it.**
+So the design is honest about its own shape: **today the ratio is the sleep
+side's trigger and the wake side's dormant twin**, and the thing that wakes it
+is a rung, not a ruling. It is specified in full because the owner asked for
+the algorithm, and because the ladder is one config edit away from having a
+candidate.
+
+**What this ladder cannot yet express is the layout the owner wants**: srv1
+alternating between DeepSeek-Coder-V2-Lite and Qwen3.6-35B, srv2 between its
+vLLM pair and the 80B. Both are *sleep funding a wake* on one card, and §17
+records why nothing can say it today — `emit` writes one compose file per host,
+so no host holds a second spec to switch to. That is the next design's problem,
+and dropping the engine scope was its precondition, not its solution.
 
 ---
 
@@ -1272,7 +1276,7 @@ owner, and every one is load-bearing.
 | **N7** | `budgets.wake_timeout_s` | `480.0` | **Measured 2026-09-08** (`records/measurements/wake-2026-09-08/`). Priced from the door's 360 s health budget, and now also above the fleet's worst measured wake — 203 s, srv1's ceiling model — by 2.4×. §6 has the five figures. This was the one row a measurement rather than a ruling settled, and it settled in the proposal's favour. |
 | **N8** | `enable_sleep_wake: true` with `fanout: none` | document, do not refuse | A woken card gets no work under `none` until something escalates onto it. Refusing would also take away D6's refusal-driven wake, which is useful under every mode. |
 | **N9** | A half-up card | report, do not repair | `down`-then-`up` would fix it and is a repair of a machine mcgyvr found wrong, which run contract §4 forbids a cell. Whether the sleep/wake algorithm is exempt is the owner's. |
-| **N10** | Widen the engine scope to llama.cpp? | **reopened — the owner should rule** | Under the vLLM-only ruling the pressure wake has no candidate on the live ladder (§7.7). Adding srv1 makes it live immediately, since srv1's rung is `>=` every srv2 rung. The 2026-09-08 wake measurement removed both legs the "not yet" stood on: the engines are not measurably different to wake (§6), and srv2 — a rig already in scope — can serve an 80B-A3B in 97 s, a real rung above srv1's 35B-A3B, but only under llama.cpp. mcgyvr's own fit refuses the 14B AWQ (11.6 + 2.0 GB against 12.0 free), so there is no vLLM upgrade path on this fleet at all. As ruled, the scope excludes the only ladder upgrade the hardware can offer. |
+| **N10** | Widen the engine scope to llama.cpp? | **RULED 2026-09-08: there is no engine scope** | Not widened — removed. The wake measurement took both legs out from under "not yet": the engines are indistinguishable to wake (82 s for one vLLM unit against 50-128 s for llama.cpp on the same fleet, §6), and srv2 — already in the ladder — serves an 80B-A3B in 97 s under llama.cpp, the one rung this hardware can add above srv1. mcgyvr's own fit refuses the 14B AWQ (11.6 + 2.0 GB against 12.0 free), so there was no vLLM upgrade path at all. A predicate on `source.engine` would have bought no simplification (§6) and cost the ladder its ceiling. No rig is banned for the engine that serves it. |
 | **N11** | A `dev` round may sleep the live ladder on a free rig | accept, at one wake | §11.3. The live run that follows pays 80–130 s, not a failure, and the wake is in its envelope. Alternatives: dev may wake but not sleep; or dev must hold the lease and wake it back. |
 | **N12** | `capacity_changes` on `RunResult` | one field | D10.1. Alternative is stderr only, which the `/mcgyvr` skill does not read. |
 
@@ -1303,5 +1307,14 @@ owner, and every one is load-bearing.
 * ~~**A single vLLM unit's wake time is unmeasured**~~ — **taken 2026-09-08:
   82 s** (§6, N7, `records/measurements/wake-2026-09-08/`). `wake_timeout_s`'s
   480 stands, with 2.4× headroom over the fleet's worst wake of 203 s. What the
-  measurement opened instead is N10: the engine scope, as ruled, excludes the
-  only rung this fleet can add above srv1.
+  measurement opened, the owner then closed: there is no engine scope (N10).
+* **Nothing refuses a model that does not fit its host's RAM.** The same
+  measurement found `fit` weighing spilled experts against `MemAvailable` with
+  no headroom at all, so a 16.9 GiB blob was emitted onto a 15 GiB host and
+  took 203 s to wake behind a thrashing page cache. The rule and its evidence
+  are now in `okf/must-read/touching-rigs.md`; the arms that would enforce it —
+  blob plus headroom, else spilled experts plus headroom with
+  `--load-mode none`, else refuse — are specified in
+  `tests/test_a_blob_that_overflows_ram_is_emitted_unmapped.py` and not yet
+  built. This design inherits the gap: a wake is a load, and a wake onto a host
+  that cannot hold the model is a wake that lands as a thrash.

@@ -36,9 +36,18 @@ Substituting it is what makes this suite pass, once the feature lands, on a
 laptop.
 
 **The card here is srv2's**, two vLLM sources on one RTX 3060 behind ``:8001``
-and ``:8002``, because the owner's vLLM scope picks the multi-unit card and
-scopes the single-unit llama.cpp rig out (§6). Waking it is waking both rungs;
-sleeping it is ``tests/test_sleeping_a_card_takes_every_rung_it_serves.py``.
+and ``:8002``, because it is the multi-unit card and therefore the harder case:
+waking it is waking both rungs at once. Sleeping it is
+``tests/test_sleeping_a_card_takes_every_rung_it_serves.py``.
+
+**The engine is not a predicate.** An earlier draft scoped the feature to vLLM
+cards and put srv1's llama.cpp rig out of it. The owner dropped that scope on
+2026-09-08 (N10) after the wake measurement showed the two engines
+indistinguishable — a single vLLM unit woke in 82 s against llama.cpp's 50-128 s
+on the same fleet — and after the same measurement found srv2 can serve an
+80B-A3B in 97 s under llama.cpp, which is a rung above anything the vLLM-only
+ladder could reach. A card is a card; what is on it decides nothing about
+whether it may sleep. That is pinned below.
 
 Numbers this file does not pin: ``WAKE_RATIO`` (N1), ``WAKE_SUSTAIN_S`` (N2) and
 the three dampers (N3-N5) belong to the pressure-driven wake of §7.3, which on
@@ -391,27 +400,27 @@ def test_the_dispatch_that_follows_a_wake_spends_no_attempt(
     )
 
 
-# --- what is out of scope, and what is merely down ----------------------------
+# --- every engine, and what is merely down ------------------------------------
 
 
-def test_a_card_whose_engine_is_not_vllm_is_out_of_scope_with_the_switch_on(
+def test_a_llama_cpp_card_is_woken_exactly_as_a_vllm_one_is(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The owner scoped sleep/wake to vLLM first (D4), and scope is a predicate.
+    """No rig is banned for the engine that serves it (N10, ruled 2026-09-08).
 
-    ``Source.engine`` is already declared and needs no new schema: a card is in
-    scope when every source on it says ``vllm``. Absent means llama.cpp, which
-    is what emit assumed before the field existed, so the config below is the
-    srv1 shape — and srv1 is exactly the rig the ruling scopes out.
+    This is the same config as the wake above with one field changed — every
+    source says ``llama.cpp`` instead of ``vllm`` — and it must produce the same
+    door run. The wake path is a compose file, ``serve up`` and a ``/v1/models``
+    poll; all three are engine-agnostic, and neither engine ever carried a
+    branch of its own here (§6). Scoping the feature bought no simplification
+    and cost the ladder its only upgrade path, so the scope is gone.
 
-    The design declines to repeat the reason usually given for the scope: the
-    only timings taken (2026-09-08) show llama.cpp answering in 50-80s and
-    srv2's *card* in 110-120s, and the srv2 figure covers two sequential engine
-    boots, so it does not establish that vLLM is faster. The ruling stands on
-    its own; this test pins the ruling and not the reason.
+    Pinned as an equality of behaviour rather than as a second set of literals:
+    what would regress is somebody re-introducing a predicate on
+    ``Source.engine``, and a predicate shows up as a card that is not woken.
     """
     specs = compose_dir(tmp_path, with_spec=True)
     config = config_file(
@@ -421,18 +430,29 @@ def test_a_card_whose_engine_is_not_vllm_is_out_of_scope_with_the_switch_on(
         switch=True,
         engine="llama.cpp",
     )
-    generate, asked = refusing(until_call=99)
+    generate, asked = refusing(until_call=1)
     lj.patch_backend(monkeypatch, generate)
     spawned = door_log(monkeypatch)
 
     code, result = run_once(tmp_path, config, "lcp", capsys)
 
-    assert spawned == [], (
-        f"a llama.cpp card was woken: {spawned}. The scope is one predicate on "
-        "`source.engine` and widening it is N10, which is the owner's"
+    assert code == 0, result
+    assert result["outcome"] == "accepted", (
+        f"a llama.cpp card whose port was shut ended the run as "
+        f"{result['outcome']!r}: {result['detail']}. The engine on the card is "
+        "not a reason to decline work mcgyvr holds the launch spec for"
     )
-    assert code == 1 and result["outcome"] == "error", result
-    assert len(asked) == 1, f"an out-of-scope card was retried anyway: {asked}"
+    assert len(asked) == 2, f"the refusal was not retried: {asked}"
+
+    assert len(spawned) == 1, (
+        f"expected one door run for a llama.cpp card, saw {spawned}. A "
+        "predicate on `source.engine` is exactly what N10 removed"
+    )
+    (argv,) = spawned
+    assert argv[argv.index("serve") + 1] == "up", argv
+    assert str(specs / f"compose.{HOST}.yml") in argv, argv
+    for forbidden in ("docker", "ssh"):
+        assert not any(forbidden in part for part in argv), (argv, forbidden)
 
 
 def test_a_card_with_no_launch_spec_is_down_rather_than_asleep(
