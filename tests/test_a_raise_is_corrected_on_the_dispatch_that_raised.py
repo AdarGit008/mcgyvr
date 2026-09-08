@@ -94,7 +94,7 @@ def test_the_error_lands_on_the_draw_whose_dispatch_raised(
             raw_stop_reason="stop",
             model="qwen2.5-coder:7b",
             source="workstation",
-            protocol=Protocol.OLLAMA,
+            protocol=Protocol.OPENAI,
             max_output_tokens=request.max_output_tokens,
             latency_s=0.0,
         )

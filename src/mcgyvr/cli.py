@@ -388,11 +388,7 @@ def _detect(args: argparse.Namespace) -> int:
                 print(f"  {host}:")
             for backend in (b for b in found.backends if b.host == host):
                 indent = "    " if hosts else "  "
-                protocol = (
-                    f"asked={backend.api} bind={backend.binds_as}"
-                    if backend.bound_on_another_protocol
-                    else f"api={backend.api}"
-                )
+                protocol = f"api={backend.api}"
                 print(f"{indent}{backend.name:<20} {backend.base_url:<30} {protocol}")
                 if backend.models:
                     for model in backend.models:
@@ -1332,6 +1328,7 @@ def _climb(
     going to dispatch.
     """
     from mcgyvr.availability import AvailabilityVerdict
+    from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import ascent, escalate
@@ -1345,6 +1342,18 @@ def _climb(
     # ask for real. `mcgyvr pool --probe` is where an operator asks it in
     # advance, and paying for it here would charge every run for a diagnosis.
     pool = source_map(config)
+
+    # The bound `mcgyvr pool` prints, actually applied. Built here, once, and
+    # handed to both `ascent` and `escalate`: the reservations one makes are
+    # the loads the other reads, so two capacities would be two tallies of one
+    # rig. Its slot files are a host-wide rendezvous, which is what makes this
+    # bound hold across concurrent `mcgyvr run` processes and not merely
+    # within one — the case it exists for, since a single contract dispatches
+    # one request at a time and never contends with itself.
+    try:
+        capacity = Capacity.of(config)
+    except CapacityError as exc:
+        return _error(report, str(exc))
 
     # The cooldown learns from dispatch failures, not from a probe, so its
     # liveness half is a stub that always reports live. Probing here would
@@ -1364,7 +1373,7 @@ def _climb(
 
     cooldown = Cooldown(probe=_always_live)
     try:
-        route = ascent(config, pool, contract)
+        route = ascent(config, pool, contract, capacity=capacity)
     except RouteError as exc:
         return _error(report, str(exc))
     if not route:
@@ -1443,11 +1452,11 @@ def _climb(
                 cooldown=cooldown,
             )
 
-            outcome = escalate(config, pool, contract, driver)
+            outcome = escalate(config, pool, contract, driver, capacity=capacity)
             return _report_climb(
                 args, contract, sandbox, repo, outcome, recording, report
             )
-    except (DriveError, SandboxError) as exc:
+    except (DriveError, SandboxError, CapacityError) as exc:
         return _error(report, str(exc))
 
 
@@ -1931,7 +1940,9 @@ def _emit(args: argparse.Namespace) -> int:
     # behind. A caller branching on the code should read them the same way it
     # reads an unscanned host. A malformed capability table is a real error.
     try:
-        units = units_for(config, scans, specs=_model_specs())
+        units = units_for(
+            config, scans, specs=_model_specs(), ctx_per_slot=args.ctx_per_slot
+        )
         hold_together(units, scans)
     except UnitError as exc:
         print(f"refused: {exc}", file=sys.stderr)
@@ -1943,8 +1954,10 @@ def _emit(args: argparse.Namespace) -> int:
     # One llama-server or vLLM process serves one model, so two units sharing a
     # source share a port and the second one loses the race to bind it. The
     # emitted file would look right and fail on the rig, which is the failure
-    # this whole module exists to avoid. Ollama is exempt: it swaps models
-    # behind one endpoint by design.
+    # this whole module exists to avoid. There is no exemption: every backend
+    # this build serves is one process per model. (The one that was not is in
+    # ``archive/forensic-ollama/``, together with the reason its exemption
+    # never fired — it tested the dispatch protocol, which never held its name.)
     endpoints: dict[str, list[str]] = {}
     for unit in units:
         for rung in unit.rungs:
@@ -1952,8 +1965,6 @@ def _emit(args: argparse.Namespace) -> int:
             if tier is None:
                 continue
             source = config.sources[tier.source]
-            if source.api == "ollama":
-                continue
             endpoints.setdefault(source.base_url, [])
             if unit.key.slug not in endpoints[source.base_url]:
                 endpoints[source.base_url].append(unit.key.slug)
@@ -2077,7 +2088,7 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     a machine already in it.
 
     Without this, ``emit`` refuses the machine it is running on. The stock
-    config says ``base_url: http://localhost:11434``, ``mcgyvr scan`` files the
+    config says ``base_url: http://localhost:8080``, ``mcgyvr scan`` files the
     record under ``platform.node()``, and the two never agree — so the most
     ordinary setup there is, one rig serving itself, reports "localhost has
     never been scanned" the instant after it was scanned.
@@ -2453,6 +2464,22 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         default=None,
         metavar="DIR",
         help="where the compose files are written (default: the current directory)",
+    )
+    # Required, and deliberately not defaulted. The window prices the cache,
+    # the `-c` on the argv and the `--n-cpu-moe` floor, so a run that did not
+    # say is a run sized against a number nobody chose — which is what a
+    # module constant here was doing until 2026-09-06, against a door that
+    # defaulted to a different one. Read it off the unit and state what it
+    # said.
+    emi.add_argument(
+        "--ctx-per-slot",
+        type=int,
+        required=True,
+        metavar="N",
+        help=(
+            "the window this run serves per slot; `-c` is this times the slot "
+            "count, and the cache law is fed the same product"
+        ),
     )
     emi.set_defaults(func=_emit)
 

@@ -266,6 +266,7 @@
         "qwen2.5-coder:3b",
         "qwen2.5-coder:7b"
       ],
+      "_endpoint_note": "The two addresses this block was dispatched at on 2026-08-11, recorded as run. Not a live setting: this file is append-only (`a re-assignment is a new dated block appended to blocks, never an edit of an old one`), so editing them would say the sweep ran somewhere it did not.",
       "endpoint": [
         "http://srv1:11434",
         "http://srv2:11434"

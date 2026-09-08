@@ -24,7 +24,7 @@ from mcgyvr.exits import Exit
 LSCPU = (
     "CPU(s):                20\nCore(s) per socket:    10\nThread(s) per core:    2\n"
 )
-SMI = "0, NVIDIA GeForce RTX 3060, 12288, 12\n"
+SMI = "0, NVIDIA GeForce RTX 3060, 12288, 12, 12276\n"
 
 
 #: What the `bench` fixture hands a case: a re-installer for the stubbed
@@ -107,7 +107,18 @@ def test_emitting_for_an_unscanned_host_exits_three(
         "ladder:\n  tiers:\n    - {name: r, source: d9, model: qwen3-coder-30b}\n",
         encoding="utf-8",
     )
-    assert main(["emit", "--config", str(tmp_path / "mcgyvr.yaml")]) == Exit.REFUSED
+    assert (
+        main(
+            [
+                "emit",
+                "--ctx-per-slot",
+                "4096",
+                "--config",
+                str(tmp_path / "mcgyvr.yaml"),
+            ]
+        )
+        == Exit.REFUSED
+    )
 
 
 def test_an_unknown_command_exits_two(capsys: pytest.CaptureFixture[str]) -> None:
@@ -144,7 +155,18 @@ def test_two_models_on_one_endpoint_are_refused(
         encoding="utf-8",
     )
     assert (
-        main(["emit", "--config", str(config), "--out", str(tmp_path)]) == Exit.REFUSED
+        main(
+            [
+                "emit",
+                "--ctx-per-slot",
+                "4096",
+                "--config",
+                str(config),
+                "--out",
+                str(tmp_path),
+            ]
+        )
+        == Exit.REFUSED
     )
     assert "port" in capsys.readouterr().err.lower()
 
@@ -170,7 +192,20 @@ def test_a_loopback_source_resolves_to_the_scan_of_this_machine(
         "    - {name: fast, source: here, model: qwen2.5-coder:3b}\n",
         encoding="utf-8",
     )
-    assert main(["emit", "--config", str(config), "--out", str(tmp_path)]) == Exit.OK
+    assert (
+        main(
+            [
+                "emit",
+                "--ctx-per-slot",
+                "4096",
+                "--config",
+                str(config),
+                "--out",
+                str(tmp_path),
+            ]
+        )
+        == Exit.OK
+    )
     assert "never been scanned" not in capsys.readouterr().err
 
 
@@ -189,7 +224,17 @@ def test_a_loopback_address_resolves_the_same_way_a_name_does(
             "    - {name: fast, source: here, model: qwen2.5-coder:3b}\n",
             encoding="utf-8",
         )
-        code = main(["emit", "--config", str(config), "--out", str(tmp_path)])
+        code = main(
+            [
+                "emit",
+                "--ctx-per-slot",
+                "4096",
+                "--config",
+                str(config),
+                "--out",
+                str(tmp_path),
+            ]
+        )
         capsys.readouterr()
         assert code == Exit.OK, host
 
@@ -214,7 +259,18 @@ def test_another_machine_is_still_refused_when_this_one_is_scanned(
         encoding="utf-8",
     )
     assert (
-        main(["emit", "--config", str(config), "--out", str(tmp_path)]) == Exit.REFUSED
+        main(
+            [
+                "emit",
+                "--ctx-per-slot",
+                "4096",
+                "--config",
+                str(config),
+                "--out",
+                str(tmp_path),
+            ]
+        )
+        == Exit.REFUSED
     )
     assert "never been scanned" in capsys.readouterr().err
 

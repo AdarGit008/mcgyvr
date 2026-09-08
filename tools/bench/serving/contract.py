@@ -2,10 +2,11 @@
 """What every serving backend must implement, and what none of them may own.
 
 **One rule shapes this file: a backend never knows another backend exists.**
-``backends/ollama.py`` contains no reference to vLLM; ``backends/vllm.py``
-contains no reference to ollama. Adding a third engine is a third file and a
+``backends/llamacpp.py`` contains no reference to vLLM; ``backends/vllm.py``
+contains no reference to llama.cpp. Adding a third engine is a third file and a
 line of config, with no edit to either of the first two and none to
-:mod:`run`.
+:mod:`run`. Removing one was a file deletion and four entries out of
+``launch.py``'s marker list, which is the same property from the other side.
 
 That is not tidiness. An earlier single-module version cleared the machine
 unconditionally before every measurement, which meant it stopped vLLM
@@ -85,7 +86,8 @@ REPO = HERE.parents[2]
 #: point: the right top is a function of the width the server was launched
 #: with, not a constant. :func:`ladder` is that function; this tuple is its
 #: base and stays the survey default because a roster entry that has not
-#: declared a width (ollama reports `total_slots = 1` for every model) has no
+#: declared a width -- a daemon on the 2026-08-19 roster reported
+#: `total_slots = 1` for every model it served -- has no
 #: business being offered 384 queued requests -- on srv2's deep-spill models a
 #: single level of 24 already costs 6-9 minutes per repeat
 #: (`configs/d7-campaign.json`, E13).
@@ -231,7 +233,8 @@ LATENCY_TOLERANCE = 0.10
 #: entirely. Recomputed from ``samples.jsonl`` at 512 tokens: a ``> 1.0`` gate
 #: reads four of five vLLM widths correctly and declines the fifth with **no
 #: wrong answer**, where 2.0 suppresses three correct ones. The 2.0 threshold
-#: was separating vLLM at 4 from ollama at 2 — and that is not the job. A
+#: was separating the engine that batches, at 4, from the one that did not, at
+#: 2 — and that is not the job. A
 #: declared limit and an inferred saturation point are different quantities
 #: and are now different fields; this constant governs only the inferred one.
 #:
@@ -1082,9 +1085,10 @@ def ramp(
     **Validated against a known value, and the validation is partial.** A server
     launched with a batch width of 8 reads 8, replicated within 1% including its
     reproducible dips — n=12 is one full batch plus a two-thirds empty one, so
-    it pays two batch-times for one and a half batches of work. Against ollama
-    it reads nothing: see :func:`knee` for why that is a finding rather than a
-    failure, and for the earlier version of this docstring which claimed both.
+    it pays two batch-times for one and a half batches of work. Against the
+    non-batching server on the 2026-08-19 roster it reads nothing: see
+    :func:`knee` for why that is a finding rather than a failure, and for the
+    earlier version of this docstring which claimed both.
 
     Depends on totals rather than on when any individual request landed, so
     unequal reply lengths cannot corrupt it, and every reading carries the
@@ -1230,11 +1234,16 @@ def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
     ==========================  ==================  ==============  ==========
     vLLM ``--max-num-seqs 8``   8                   2.52            8
     vLLM ``--max-num-seqs 16``  16                  3.94            16
-    ollama ``-np 2``            4                   1.71            2
-    ollama ``-np 1``            —                   —               1
+    daemon ``-np 2``            4                   1.71            2
+    daemon ``-np 1``            —                   —               1
     ==========================  ==================  ==============  ==========
 
-    The ollama plateau column is stated **at the shipped**
+    All four rows are 2026-08-19 readings; the two ``daemon`` rows are the
+    engine removed on 2026-09-06 (``archive/forensic-ollama/``), kept because a
+    plateau column that lost half its rows would stop showing the contrast the
+    paragraph below is about.
+
+    That plateau column is stated **at the shipped**
     :data:`PLATEAU_FRACTION` **of 0.92**. It read 6 in the original record,
     which was computed at 0.95 before D2 moved the constant; the vLLM columns
     are unchanged at either value. Re-deriving it here rather than copying the
