@@ -1,0 +1,39 @@
+serve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080
+serve-up: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080 :8080 up after 128.6s, models=['/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf']
+mmap: restarted, StartedAt 2026-09-08T15:53:31.512740986Z -> 2026-09-08T16:11:33.304187502Z
+mmap: no --load-mode in argv (mapped)
+mmap     warm-up (discarded)  decode  25.89 tok/s
+mmap     sample 1             decode  33.00 tok/s
+mmap     sample 2             decode  32.99 tok/s
+mmap     sample 3             decode  32.91 tok/s
+mmap: RAM used 1631 MiB, avail 13761 MiB, cache 12808 MiB
+serve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080
+serve-up: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080 :8080 up after 119.7s, models=['/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf']
+none: restarted, StartedAt 2026-09-08T16:11:33.304187502Z -> 2026-09-08T16:14:55.665760964Z
+"--load-mode","none"
+none     warm-up (discarded)  decode  28.95 tok/s
+none     sample 1             decode  33.08 tok/s
+none     sample 2             decode  23.95 tok/s
+none     sample 3             decode  33.08 tok/s
+none: RAM used 10072 MiB, avail 5320 MiB, cache 11978 MiB
+serve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080
+serve-up: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080 :8080 up after 115.7s, models=['/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf']
+mmap2: restarted, StartedAt 2026-09-08T16:14:55.665760964Z -> 2026-09-08T16:18:12.653659761Z
+mmap2: no --load-mode in argv (mapped)
+mmap2    warm-up (discarded)  decode  22.97 tok/s
+mmap2    sample 1             decode  31.41 tok/s
+mmap2    sample 2             decode  31.44 tok/s
+mmap2    sample 3             decode  31.40 tok/s
+mmap2: RAM used 1626 MiB, avail 13766 MiB, cache 12995 MiB
+serve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080
+serve-up: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080 :8080 up after 120.3s, models=['/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf']
+none2: restarted, StartedAt 2026-09-08T16:18:12.653659761Z -> 2026-09-08T16:21:26.393335304Z
+"--load-mode","none"
+none2    warm-up (discarded)  decode  24.13 tok/s
+none2    sample 1             decode  31.31 tok/s
+none2    sample 2             decode  31.30 tok/s
+none2    sample 3             decode  31.35 tok/s
+none2: RAM used 10016 MiB, avail 5377 MiB, cache 10815 MiB
+A/B COMPLETE; srv1 left serving unmapped
+
+[exited with code 0]

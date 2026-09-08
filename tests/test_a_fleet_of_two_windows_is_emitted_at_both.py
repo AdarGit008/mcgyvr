@@ -28,7 +28,7 @@ import pytest
 
 from mcgyvr.config import parse
 from mcgyvr.scan import Scan
-from mcgyvr.serving import UnitError, units_for
+from mcgyvr.serving import Unit, UnitError, units_for
 
 HF_CACHE = "/home/someone/.cache/huggingface"
 SEVEN_B = "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
@@ -51,6 +51,7 @@ SCANS = {
     "srv1": rig("srv1", vram_mib=6144, ram_gb=48.0),
     "srv2": rig("srv2", vram_mib=12288, ram_gb=45.0),
 }
+
 
 def config_text(*, srv1_window: str = "", srv2_window: str = "") -> str:
     """The live fleet's shape: llama.cpp on srv1, one vLLM unit on srv2."""
@@ -85,12 +86,10 @@ ladder:
 """
 
 
-def units(text: str, *, ctx_per_slot: int | None):
+def units(text: str, *, ctx_per_slot: int | None) -> dict[str, Unit]:
     return {
         unit.host: unit
-        for unit in units_for(
-            parse(text), SCANS, specs=(), ctx_per_slot=ctx_per_slot
-        )
+        for unit in units_for(parse(text), SCANS, specs=(), ctx_per_slot=ctx_per_slot)
     }
 
 

@@ -2538,20 +2538,25 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="DIR",
         help="where the compose files are written (default: the current directory)",
     )
-    # Required, and deliberately not defaulted. The window prices the cache,
-    # the `-c` on the argv and the `--n-cpu-moe` floor, so a run that did not
-    # say is a run sized against a number nobody chose — which is what a
-    # module constant here was doing until 2026-09-06, against a door that
-    # defaulted to a different one. Read it off the unit and state what it
-    # said.
+    # Not defaulted, and no longer required: a source that declares
+    # `context_window` is emitted at the window it declares, and this flag is
+    # what a run says for the sources that declare none. It was required until
+    # a fleet serving two windows — srv1 at 8192, srv2 at 4096 — showed that
+    # one number cannot describe one fleet: whichever value `--check` was given,
+    # it reported the other host as drifted. What is never defaulted is the
+    # window itself; a unit that neither the config nor the run states one for
+    # is still refused, because the cache, the `-c` on the argv and the
+    # `--n-cpu-moe` floor are all priced against it.
     emi.add_argument(
         "--ctx-per-slot",
         type=int,
-        required=True,
         metavar="N",
         help=(
-            "the window this run serves per slot; `-c` is this times the slot "
-            "count, and the cache law is fed the same product"
+            "the window this run serves per slot, for sources that declare no "
+            "`context_window` of their own; `-c` is this times the slot count, "
+            "and the cache law is fed the same product. A source that declares "
+            "its window is emitted at that window, and a flag that contradicts "
+            "a declaration is refused rather than preferred"
         ),
     )
     emi.add_argument(

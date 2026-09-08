@@ -845,6 +845,12 @@ class Source:
     #: window it reached. Declaring this is what lets the gate ask the second
     #: question; leaving it out enforces nothing, which is the honest
     #: behaviour for a machine nobody has read back.
+    #:
+    #: It is also what `mcgyvr emit` sizes this source's unit at — ``-c`` times
+    #: the slots on llama.cpp, ``--max-model-len`` on vLLM — so a fleet serving
+    #: two windows is emitted at both and checked in one command. Where this is
+    #: declared, `--ctx-per-slot` is not needed and a *different* value on that
+    #: flag is refused rather than preferred.
     context_window: int | None = None
 
     @property

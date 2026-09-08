@@ -625,23 +625,24 @@ def units_for(
     caller's port-contention check has nothing to complain about either. That
     rung is dead in a ladder that reads as fine.
 
-    ``ctx_per_slot`` is the window this run is bringing the ladder up with,
-    and ``None`` is refused rather than defaulted. This is the entry every
-    reader below derives from, so a default here would be the one place a
-    number nobody chose could reach a rig nobody measured — and the half a
-    default hides is the run that forgot to say, sized silently and told
-    nothing.
+    ``ctx_per_slot`` is the window this run is bringing the ladder up with, and
+    it is the *fallback*: a source that declares ``context_window`` is emitted
+    at the window it declares. The declaration is a fact about the process —
+    read back off the running unit and written down — while the flag is what a
+    run says when nobody has written the fact down yet, and a number that
+    reaches a rig only from a flag is a number ``Config.digest`` cannot see.
+    One flag also cannot describe a fleet: srv1 serves 8192 per slot and srv2
+    4096, so a single ``--ctx-per-slot`` makes one of the two look drifted
+    under ``emit --check`` whichever value it takes.
+
+    Where both speak and disagree, neither wins: :func:`_window_for` refuses and
+    names the source and both numbers, which is the shape ``Capacity.of`` uses
+    for a width disagreement. A window that nobody states at all is still
+    refused, because the cache, the ``-c`` on the argv and the ``--n-cpu-moe``
+    floor are all priced against it and a window this module chose would be a
+    number nobody measured.
     """
-    if ctx_per_slot is None:
-        raise UnitError(
-            "no context window was declared for this run, so nothing can be "
-            "sized: the cache, the `-c` on the argv and the `--n-cpu-moe` "
-            "floor are all priced against it, and a window this module chose "
-            "would be a number nobody measured. Declare it — read it back off "
-            "the running unit (`max_model_len` on vLLM, `n_ctx` on llama.cpp) "
-            "and state what it said"
-        )
-    if ctx_per_slot < 1:
+    if ctx_per_slot is not None and ctx_per_slot < 1:
         raise UnitError(
             f"the declared context window is {ctx_per_slot}, which is not a "
             f"window: a slot serves at least one token"
@@ -655,6 +656,10 @@ def units_for(
     models: dict[UnitKey, ModelSpec] = {}
     widths: dict[UnitKey, int] = {}
     images: dict[UnitKey, str | None] = {}
+    #: Declared window -> the sources that declared it, per unit. A mapping and
+    #: not a scalar because two sources can name one URL, and two windows on
+    #: one process is a disagreement to report rather than one to resolve.
+    windows: dict[UnitKey, dict[int, list[str]]] = {}
 
     for tier in config.ladder.tiers:
         source = config.sources.get(tier.source)
@@ -688,6 +693,10 @@ def units_for(
             port=port_of(source.base_url),
         )
         grouped.setdefault(key, []).append(tier.name)
+        if source.context_window is not None:
+            windows.setdefault(key, {}).setdefault(source.context_window, []).append(
+                source.name
+            )
         hosts.setdefault(key, scan)
         models.setdefault(key, spec)
         images.setdefault(key, source.image)
@@ -709,7 +718,7 @@ def units_for(
                     engine=key.engine,
                     width=widths.get(key),
                     port=key.port,
-                    ctx_per_slot=ctx_per_slot,
+                    ctx_per_slot=_window_for(key, windows.get(key, {}), ctx_per_slot),
                 ),
                 tuple(rungs),
             ),
@@ -1101,6 +1110,56 @@ def _host_gb(geometry: dict[str, Any], n_cpu_moe: int) -> float:
     if offloaded <= 0:
         return 0.0
     return offloaded / _BYTES_PER_GIB + RUNTIME_RESIDENT_GB
+
+
+def _window_for(
+    key: UnitKey, declared: Mapping[int, list[str]], ctx_per_slot: int | None
+) -> int:
+    """The window this unit is sized and launched at, from the config or the run.
+
+    Three ways to have one and two ways to have none. A single declared window
+    is the answer, and it is the answer even when the run also stated one and
+    stated the same thing — saying a number twice is not a disagreement. A run
+    window is the answer where nothing was declared, which is what a fleet
+    nobody has read back looks like.
+
+    Both of the refusals name what is missing or what disagrees, because both
+    are one edit away from being right and neither is this module's to guess.
+    """
+    if len(declared) > 1:
+        pairs = ", ".join(
+            f"{window} ({', '.join(sorted(names))})"
+            for window, names in sorted(declared.items())
+        )
+        raise UnitError(
+            f"{key.slug}: one process, {len(declared)} declared context "
+            f"windows — {pairs}. These sources name one URL, so one window "
+            f"would silently lose and the rung behind it would be served a "
+            f"window its contracts were never priced against. Point them at "
+            f"one window, or at two ports"
+        )
+    if declared:
+        ((window, names),) = declared.items()
+        if ctx_per_slot is not None and ctx_per_slot != window:
+            raise UnitError(
+                f"{names[0]}: declares context_window {window} and this run "
+                f"was told {ctx_per_slot}. Both numbers are in hand and they "
+                f"are two different launches, so neither is preferred here: "
+                f"edit the source if the rig moved, or drop the flag if it "
+                f"did not"
+            )
+        return window
+    if ctx_per_slot is None:
+        raise UnitError(
+            f"{key.slug}: no context window was declared for this run and its "
+            f"source declares none, so nothing can be sized: the cache, the "
+            f"`-c` on the argv and the `--n-cpu-moe` floor are all priced "
+            f"against it, and a window this module chose would be a number "
+            f"nobody measured. Declare it — read it back off the running unit "
+            f"(`max_model_len` on vLLM, `n_ctx` on llama.cpp) and state what "
+            f"it said"
+        )
+    return ctx_per_slot
 
 
 def _offload_note(spec: ModelSpec, placed: _Placement) -> str:
