@@ -1,0 +1,12 @@
+{
+ "dense": true,
+ "derived": true,
+ "floor_n_cpu_moe": 0,
+ "host": "srv2",
+ "model": "/home/adaramir/models/dense/Qwen3.8-27B/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf",
+ "n_ctx_total": 16384,
+ "n_ubatch": 512,
+ "parallel": 8,
+ "run_id": "2026-09-07-live-lease-default-step",
+ "why": "no expert tensors: nothing for --n-cpu-moe to move"
+}
