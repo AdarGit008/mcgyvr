@@ -68,6 +68,7 @@ from mcgyvr.escalate import (
 from mcgyvr.gate import Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.changeset import ChangeSet
+from mcgyvr.gate.preflight import reply_cap
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import TypeCheck
 from mcgyvr.route import Try, Verdict, family_of
@@ -102,6 +103,17 @@ class UnrunnableStepError(DriveError):
 
 class PromptTooLargeError(DriveError):
     """The assembled prompt does not fit the ceiling its own contract set."""
+
+
+class OutputCapTooLargeError(DriveError):
+    """The reply cap for this rung does not fit the window that rung serves.
+
+    Distinct from :class:`PromptTooLargeError` because the repair is: one is a
+    contract to re-decompose, the other is a number on the ladder to re-declare.
+    A rung asking for more reply room than its machine serves would be
+    truncated at a boundary nobody chose — the failure a per-rung cap exists to
+    end — so it is refused at the seam that would have sent it.
+    """
 
 
 @dataclass(frozen=True)
@@ -280,22 +292,40 @@ def dispatch_prompt(
 
     The binding pattern C names. Both halves of the prompt travel — ``system``
     carries the bundle the target's language earned and dropping it would send a
-    worker the instructions for no language at all — and the output cap is the
-    contract's, which is the first time ``limits.max_output_tokens`` reaches
-    anything: it is validated at contract load, documented as a hard ceiling on
-    one execution, and until now was read by nothing.
+    worker the instructions for no language at all — and the output cap is
+    :func:`~mcgyvr.gate.preflight.reply_cap`'s: the rung's own
+    ``ladder.tiers.*.output_tokens`` where it declared one, and the contract's
+    ``limits.max_output_tokens`` where it did not, which is what this has always
+    sent. That fallback is the whole of the change here; the argument for which
+    of the two wins is written where the choice is made, in ``reply_cap``.
 
     ``contract`` is taken whole rather than as a cap, because a binding given
     only a number cannot be the place the fit refusal happens, and the refusal
     is the point: a prompt that does not fit
     :attr:`~mcgyvr.contract.Contract.max_input_tokens` is refused here, with the
     preflight issue ``build_prompt`` already computed, instead of being sent to
-    be truncated somewhere that cannot say why.
+    be truncated somewhere that cannot say why. A per-rung cap adds a second
+    refusal of the same kind and for the same reason — a cap the rung's own
+    window cannot hold — and it is checked here rather than trusted to the
+    ladder's author, because this is the last place that holds both numbers
+    before they reach a socket. ``build_prompt`` cannot ask it: a prompt is
+    assembled once and may be offered to several rungs, and which window it
+    faces is only known here.
     """
     if not prompt.fits:
         raise PromptTooLargeError(
             f"contract {contract.id!r}: the assembled prompt does not fit its "
             f"own ceiling and was not sent — {prompt.fit_issue}"
+        )
+    endpoint = source_map.bind(rung)
+    cap = reply_cap(contract, endpoint)
+    window = endpoint.context_window
+    if window is not None and cap >= window:
+        raise OutputCapTooLargeError(
+            f"rung {rung!r}: a reply cap of {cap} tokens does not fit the "
+            f"{window}-token window {endpoint.source!r} serves, leaving nothing "
+            f"for the prompt. Lower `ladder.tiers.{rung}.output_tokens`, or "
+            f"point the rung at a machine that serves more"
         )
     # ``timeout_s`` is the run's, threaded from ``budgets.request_timeout_s``
     # by the caller that holds the config. ``None`` keeps ``Request``'s own
@@ -304,7 +334,7 @@ def dispatch_prompt(
     fields: dict[str, Any] = {
         "prompt": prompt.user,
         "system": prompt.system,
-        "max_output_tokens": contract.limits.max_output_tokens,
+        "max_output_tokens": cap,
         "response_schema": response_schema,
     }
     if timeout_s is not None:

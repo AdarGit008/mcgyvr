@@ -7,8 +7,15 @@ configuration — and TRY004 alone rejected six of nine replies for raising
 ``ValueError`` where the worker bundle says to. ``tools/bench/score.py``
 already writes this project's own selection into every bench workspace for
 exactly that reason; the live gate had no such floor. Now it does, and the
-floor is the same nine families. A repo that states its own ruff config keeps
-it, whatever it selects: the default is for the repo that said nothing.
+floor is the same nine families, with pycodestyle narrowed to ``E4``/``E7``/
+``E9`` — ruff's own default — so that E501 is not in it. A repo that states its
+own ruff config keeps it, whatever it selects: the default is for the repo that
+said nothing.
+
+Why E501 left is argued where it lives, at
+``src/mcgyvr/gate/adapters/python.py:54``, and held to by
+``tests/test_a_line_the_formatter_cannot_wrap_is_not_a_rejection.py``. This file
+pins only that the floor is still stated and is still this project's own.
 """
 
 from __future__ import annotations
@@ -74,7 +81,19 @@ def test_a_repo_that_declares_no_ruff_config_gets_the_basic_default(
 
 
 def test_the_default_is_this_projects_own_nine_families() -> None:
-    assert DEFAULT_RUFF_SELECT == ("E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF")
+    assert DEFAULT_RUFF_SELECT == (
+        "E4",
+        "E7",
+        "E9",
+        "F",
+        "W",
+        "I",
+        "N",
+        "UP",
+        "B",
+        "SIM",
+        "RUF",
+    )
 
 
 def test_a_repo_with_its_own_ruff_config_keeps_it(tmp_path: Path) -> None:
