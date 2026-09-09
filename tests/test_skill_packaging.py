@@ -32,9 +32,7 @@ def _frontmatter(path: Path) -> dict[str, object]:
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     assert lines and lines[0].strip() == "---", "frontmatter must open the file"
-    end = next(
-        (i for i in range(1, len(lines)) if lines[i].strip() == "---"), None
-    )
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
     assert end is not None, "frontmatter must be closed by a second ---"
     doc = yaml.safe_load("\n".join(lines[1:end]))
     assert isinstance(doc, dict), "frontmatter must be a YAML mapping"
@@ -98,7 +96,8 @@ def test_skill_positions_the_agent_as_orchestrator() -> None:
     # The doctrine: the agent stays the orchestrator; mcgyvr owns everything
     # below the task contract. Asserted as the two words that define the split.
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
-    text = (_body(SKILL_MD) + " " + str(_frontmatter(SKILL_MD).get("description", ""))).lower()
+    described = str(_frontmatter(SKILL_MD).get("description", ""))
+    text = (_body(SKILL_MD) + " " + described).lower()
     assert "orchestrat" in text
     assert "offload" in text
 
@@ -122,7 +121,7 @@ def test_install_places_the_skill_in_both_harnesses(tmp_path: Path) -> None:
     for target in (CLAUDE_SKILL, PI_SKILL):
         landed = home / target
         assert landed.exists(), f"expected {target} under HOME"
-        assert landed.read_text(encoding="utf-8") == SKILL_MD.read_text(encoding="utf-8")
+        assert landed.read_bytes() == SKILL_MD.read_bytes()
 
 
 def test_install_is_idempotent(tmp_path: Path) -> None:
