@@ -52,6 +52,13 @@ SKILL_DIR = REPO / "skills" / "mcgyvr"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 INSTALL_SH = SKILL_DIR / "install.sh"
 
+# `skills/mcgyvr/SKILL.md` as it stood before actions 4 and 5 took Step 0 out
+# of it — the file a machine that installed the skill before this script kept
+# a record is still carrying. Frozen here, verbatim, because that is what such
+# a machine holds: a copy of a file no ref in this repository will name once
+# this lands.
+OLD_SKILL_MD = Path(__file__).parent / "fixtures" / "skill_md_carrying_step_0.md"
+
 # Named by action 1: `skills/mcgyvr/SETUP.md`, beside the skill it is not
 # part of. Checked as a substring rather than the absolute path, so this
 # holds however a caller renders it (bare, or with a repo prefix).
@@ -436,26 +443,29 @@ def test_a_machine_carrying_the_old_skill_with_no_record_upgrades_unforced(
     equally true of the hand edit and of the upgrade. If that is refused,
     action 32 defeats action 4 on every machine that already has the skill.
 
-    The old file is taken from `git show main:skills/mcgyvr/SKILL.md` rather
-    than fabricated, so what is driven is the upgrade those machines make.
+    The old file is the real one those machines carry, kept verbatim beside
+    this test rather than fabricated or read back out of git. Reading it out
+    of git would say nothing on a checkout that has no `main` — and would say
+    the wrong thing the moment this branch lands, since `main`'s SKILL.md is
+    then the Step-0-less one and the file this test is about would exist
+    nowhere a ref could name it. A frozen copy is what an old machine has.
     """
-    old = subprocess.run(
-        ["git", "show", "main:skills/mcgyvr/SKILL.md"],
-        cwd=REPO,
-        capture_output=True,
-        timeout=60,
-    )
-    assert old.returncode == 0, old.stderr.decode()
-    assert b"mcgyvr init" in old.stdout, (
-        "main's SKILL.md must still be the Step-0-carrying one this upgrade "
+    old = OLD_SKILL_MD.read_bytes()
+    assert b"mcgyvr init" in old, (
+        "the frozen copy must still be the Step-0-carrying one this upgrade "
         "is for; if it is not, this test is no longer driving action 33"
+    )
+    assert b"name: mcgyvr" in old, "the frozen copy must be a real SKILL.md"
+    assert old != SKILL_MD.read_bytes(), (
+        "the frozen copy must differ from the source being installed, or "
+        "there is no upgrade here to refuse or allow"
     )
 
     home = tmp_path / "home"
     home.mkdir()
     installed = home / CLAUDE_SKILL
     installed.parent.mkdir(parents=True)
-    installed.write_bytes(old.stdout)
+    installed.write_bytes(old)
     record = installed.parent / ".mcgyvr-installed"
     assert not record.exists(), "the machine this is about has no record"
 
