@@ -1,12 +1,18 @@
-"""F7/F8/F9 — the capability table is read honestly, bounded, and immutable.
+"""F7/F9 — the capability table is read honestly, bounded, and immutable.
 
-Three defects on one file. F7: ``params_b`` became a required key while
+Two defects on one file. F7: ``params_b`` became a required key while
 ``schema_version`` stayed 1, so a v1 table that predates the field dies with a
-bare ``KeyError`` instead of a named table error. F8: a ``NaN`` ``params_b``
-fails every size comparison, so :func:`mcgyvr.orchestrator.read.budget_for_model`
-raises ``StopIteration`` where it should answer conservatively. F9:
-``shipped_table()`` returns one shared mutable instance, so a caller that mutates
-a model changes every later selection process-wide.
+bare ``KeyError`` instead of a named table error. F9: ``shipped_table()``
+returns one shared mutable instance, so a caller that mutates a model changes
+every later selection process-wide.
+
+F8 was the third and is closed by deletion rather than by a fix. A ``NaN``
+``params_b`` fails every size comparison, and the one size comparison in the
+tree was the exploration budget ``mcgyvr.orchestrator.read`` sized from the
+model being dispatched to — which had no caller under ``src/`` and has been
+removed (action 18). Nothing in ``src/`` compares ``params_b`` to anything now,
+so there is no ``StopIteration`` left to raise. If a size comparison comes back,
+it comes back where a rung is chosen, and F8's assertion belongs there.
 """
 
 from __future__ import annotations
@@ -49,21 +55,6 @@ def test_a_missing_required_key_is_a_named_error(tmp_path: Path) -> None:
 
     with pytest.raises(CapabilityTableError, match="params_b"):
         load(_table(tmp_path, [row]))
-
-
-def test_a_nan_params_b_is_not_a_stop_iteration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import mcgyvr.capability as capability
-    from mcgyvr.orchestrator.read import budget_for_model
-
-    monkeypatch.setattr(
-        capability, "table_path", lambda: _table(tmp_path, [_model(params_b="nan")])
-    )
-    capability.shipped_table.cache_clear()
-
-    # A NaN size fits no ceiling; the conservative answer is the smallest budget.
-    assert budget_for_model("m1") == 4096
 
 
 def test_the_shipped_table_is_structurally_immutable(

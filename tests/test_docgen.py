@@ -13,12 +13,49 @@ when the run returns, whatever the verdict.
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from mcgyvr import docgen
 from mcgyvr.config import SCHEMA, Field
+
+
+def _outputs(tmp_path: Path, *, skill: Path | None = None) -> list[str]:
+    """All four output flags, every one of them inside ``tmp_path``.
+
+    ``--skill-output``, ``--setup-output`` and ``--examples-output`` default
+    to the committed copies (docgen.py:868-880), so a write-mode run that
+    overrides only some of them regenerates the rest of the checkout in
+    place. A test that did that would erase, from the working tree, exactly
+    the drift ``make docs-check`` exists to catch: set SETUP.md to "STALE",
+    run this file, and the file comes back regenerated, after which nothing
+    can tell it had drifted. Every ``docgen.main()`` call in this file passes
+    these, and
+    ``test_running_the_docgen_tests_does_not_rewrite_the_committed_documents``
+    holds them to it.
+    """
+    return [
+        "--output",
+        str(tmp_path / "config-reference.md"),
+        "--skill-output",
+        str(skill if skill is not None else tmp_path / "SKILL.md"),
+        "--setup-output",
+        str(tmp_path / "SETUP.md"),
+        "--examples-output",
+        str(tmp_path / "examples.md"),
+    ]
+
+
+def _render_the_kept_documents(tmp_path: Path) -> None:
+    """The two documents `--check` compares that this file is not about.
+
+    Written current, so a check-mode run in here reports drift in the skill
+    and nothing else.
+    """
+    (tmp_path / "SETUP.md").write_text(docgen.render_setup(), encoding="utf-8")
+    (tmp_path / "examples.md").write_text(docgen.render_examples(), encoding="utf-8")
 
 
 def _walk(fields: tuple[Field, ...], prefix: str = "") -> list[tuple[str, Field]]:
@@ -106,7 +143,7 @@ def test_the_reference_is_rendered_checked_and_deleted_on_every_run(
     reference = tmp_path / "config-reference.md"
     skill = tmp_path / "SKILL.md"
     skill.write_text(docgen.render_skill(), encoding="utf-8")
-    common = ["--output", str(reference), "--skill-output", str(skill)]
+    common = _outputs(tmp_path, skill=skill)
 
     assert docgen.main(common) == 0
     assert not reference.exists()
@@ -124,7 +161,7 @@ def test_a_reference_that_drops_a_key_fails_its_check_and_is_still_deleted(
     skill.write_text(docgen.render_skill(), encoding="utf-8")
     monkeypatch.setattr(docgen, "render_reference", lambda: docgen.MARKER + "\n")
 
-    argv = ["--output", str(reference), "--skill-output", str(skill)]
+    argv = _outputs(tmp_path, skill=skill)
     assert docgen.main(argv) == 1
     assert not reference.exists()
     err = capsys.readouterr().err
@@ -132,13 +169,8 @@ def test_a_reference_that_drops_a_key_fails_its_check_and_is_still_deleted(
 
 
 def test_check_mode_treats_a_missing_skill_as_drift(tmp_path: Path) -> None:
-    argv = [
-        "--check",
-        "--output",
-        str(tmp_path / "config-reference.md"),
-        "--skill-output",
-        str(tmp_path / "absent.md"),
-    ]
+    _render_the_kept_documents(tmp_path)
+    argv = ["--check", *_outputs(tmp_path, skill=tmp_path / "absent.md")]
     assert docgen.main(argv) == 1
 
 
@@ -147,13 +179,8 @@ def test_check_mode_names_the_fix(
 ) -> None:
     skill = tmp_path / "SKILL.md"
     skill.write_text("stale\n", encoding="utf-8")
-    argv = [
-        "--check",
-        "--output",
-        str(tmp_path / "config-reference.md"),
-        "--skill-output",
-        str(skill),
-    ]
+    _render_the_kept_documents(tmp_path)
+    argv = ["--check", *_outputs(tmp_path, skill=skill)]
     docgen.main(argv)
     assert "make docs" in capsys.readouterr().err
 
@@ -170,6 +197,59 @@ def test_no_rendered_reference_is_committed() -> None:
     ).stdout.split()
     assert tracked == [], tracked
     assert not hasattr(docgen, "REFERENCE_PATH")
+
+
+def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents() -> None:
+    """A sentinel planted in the committed SETUP.md survives this file.
+
+    `--skill-output`, `--setup-output` and `--examples-output` default to the
+    checkout's own copies, so a write-mode `docgen.main()` call that overrides
+    only some of them regenerates the others in place. That is not a stray
+    write: it silently repairs, in the working tree, the very drift
+    `make docs-check` exists to fail on (plan actions 2 and 3), so a run of
+    the suite would leave a stale committed document looking current.
+
+    A digest taken before and after would not see it — the rewrite produces
+    the bytes the file is supposed to have. A sentinel does: it is the one
+    thing regeneration cannot reproduce. This test is deselected from the
+    inner run, or it would drive itself.
+    """
+    committed = docgen.REPO_ROOT / "skills" / "mcgyvr" / "SETUP.md"
+    assert committed.exists(), "skills/mcgyvr/SETUP.md must exist"
+    original = committed.read_bytes()
+    sentinel = b"\n<!-- a docgen test rewrote the committed SETUP.md -->\n"
+    here = Path(__file__)
+    myself = (
+        f"tests/{here.name}::"
+        f"{test_running_the_docgen_tests_does_not_rewrite_the_committed_documents.__name__}"
+    )
+    try:
+        committed.write_bytes(original + sentinel)
+        run = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                f"tests/{here.name}",
+                "--deselect",
+                myself,
+            ],
+            cwd=docgen.REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        assert run.returncode == 0, run.stdout + run.stderr
+        assert committed.read_bytes() == original + sentinel, (
+            "a docgen test wrote the committed SETUP.md: every main() call "
+            "that writes must point all four outputs at a tmp_path"
+        )
+    finally:
+        committed.write_bytes(original)
+    assert committed.read_bytes() == original
 
 
 def test_table_cells_escape_pipes() -> None:
