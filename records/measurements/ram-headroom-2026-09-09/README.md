@@ -11,6 +11,15 @@ degrades between +2.0 and +0.5 GiB of clearance. Below zero the cost is real,
 reproducible, and lands entirely on **wake** — decode throughput never moved at
 any clearance on any of the three models.
 
+> **Added after the sweep, 2026-09-09.** The recommendation below landed.
+> `RAM_HEADROOM_GB` no longer exists: it is now `MODE_RAM_HEADROOM_GB = 0.5`
+> and `REFUSAL_RAM_HEADROOM_GB = 2.0`
+> (`src/mcgyvr/serving/__init__.py:159`, `:185`). Everything below is left as
+> it was measured and names the single constant throughout, because that is
+> what `fit` did when these numbers were taken; the code it describes is one
+> commit behind the tree, deliberately. `records/plans/fleet-shape/evidence_and_params.md`
+> §3 carries the current constants.
+
 ## What ran
 
 One arm = one (model, clearance) pair, where
