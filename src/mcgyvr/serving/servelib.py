@@ -7,6 +7,17 @@ gate 7 and the health check need, and both are literal in the file
 :mod:`mcgyvr.emit` wrote. A service without either is refused by name, before
 anything is started, because a unit the door cannot name is a unit gate 7
 cannot tell from a stranger.
+
+**Answering is not the same as serving, and since 2026-09-09 the door knows
+it.** A vLLM unit slept at level 2 answers ``/v1/models`` with 200, reports
+``{"is_sleeping": true}``, and then hangs forever on a real request — no
+response in 60 s (``records/measurements/vllm-sleep-2026-09-09/README.md``).
+Until a unit could sleep, up meant serving and one question was enough; it no
+longer is, and the failure it leaves is silent rather than loud: the door would
+print ``up``, gate 7 would find every declared container running, the run would
+be green, and the first contract dispatched to the rig would hang until
+``budgets.request_timeout_s``. So the probe asks a second question, and
+:func:`sleeping` is careful about what an answer to it is.
 """
 
 from __future__ import annotations
@@ -139,16 +150,74 @@ def models_served(host: str, port: int) -> list[str] | None:
     return ids
 
 
+def sleeping(host: str, port: int) -> bool | None:
+    """Whether the unit on ``host``:``port`` says it is asleep, or None if it cannot.
+
+    ``/is_sleeping`` is a **vLLM** endpoint and exists only on a unit launched
+    ``--enable-sleep-mode`` with ``VLLM_SERVER_DEV_MODE=1``; without those it is
+    404, and llama.cpp has no such route at any launch
+    (``records/measurements/vllm-sleep-2026-09-09/README.md``). That is not a
+    corner case, it is the fleet: the 2026-09-09 handoff leaves srv2's vLLM pair
+    with sleep mode off and ``/is_sleeping`` 404, and srv1 is llama.cpp
+    throughout. **So None is the ordinary answer and it means awake.** An engine
+    that cannot report a sleep has no way to be asleep, and a probe that read a
+    404 as an error — or, worse, as a yes — would take every rig in the fleet out
+    of service the day it landed.
+
+    Only an explicit ``{"is_sleeping": true}`` may take a unit out of service.
+    Everything else — the route missing, the ssh failing, a body that does not
+    parse, a body of some other shape — is None. Failing closed on an unreadable
+    answer would mean refusing to serve on every engine nobody has taught this
+    function about yet, which today is both of them.
+    """
+    try:
+        done = ssh(host, f"curl -sf http://localhost:{port}/is_sleeping", timeout=30)
+    except subprocess.TimeoutExpired:
+        return None
+    if done.returncode != 0:
+        return None
+    try:
+        doc = json.loads(done.stdout)
+    except ValueError:
+        return None
+    if not isinstance(doc, dict):
+        return None
+    said = doc.get("is_sleeping")
+    return said if isinstance(said, bool) else None
+
+
 def wait_for(host: str, service: Service) -> dict[str, object]:
-    """Poll one unit until it lists its models or the budget is spent."""
+    """Poll one unit until it is serving, or the budget is spent.
+
+    Serving is two readings and not one: the unit lists its models *and* does
+    not say it is asleep. A sleeper reads as not-yet rather than as no, so the
+    poll keeps waiting — a vLLM wake is 0.24-0.82 s, well inside one 3.0 s
+    interval, and giving up the first time ``is_sleeping`` came back true would
+    abandon a wake that was about to succeed.
+
+    ``/v1/models`` stays the gate on asking at all: a unit still reading its
+    weights — 50-129 s of it on srv1 — cannot answer either question, and a
+    second ssh per poll for two minutes buys nothing.
+
+    The row carries ``sleeping`` so the envelope can tell the two failures
+    apart. A unit that never came up wants its container log read; one that is
+    asleep wants a ``POST /wake_up`` and nothing else, and its log is clean.
+    ``None`` is "never got an answer to that question" — nobody asked, or the
+    engine cannot say — and it is deliberately not ``False``, which is an engine
+    that was asked and said no.
+    """
     started = time.monotonic()
+    asleep: bool | None = None
+    ids: list[str] | None = None
     for attempt in range(HEALTH_POLLS):
         ids = models_served(host, service.port)
-        if ids is not None:
+        asleep = sleeping(host, service.port) if ids is not None else None
+        if ids is not None and not asleep:
             return {
                 "container": service.container,
                 "port": service.port,
                 "healthy": True,
+                "sleeping": asleep,
                 "seconds": round(time.monotonic() - started, 1),
                 "models": ids,
             }
@@ -158,8 +227,9 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
         "container": service.container,
         "port": service.port,
         "healthy": False,
+        "sleeping": asleep,
         "seconds": round(time.monotonic() - started, 1),
-        "models": [],
+        "models": ids or [],
     }
 
 
