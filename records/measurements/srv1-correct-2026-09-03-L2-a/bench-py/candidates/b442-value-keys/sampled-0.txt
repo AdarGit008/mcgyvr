@@ -1,0 +1,19 @@
+```python
+def value_keys(store: dict) -> dict:
+    """
+    Return a mapping from each value in the store to the count of how many keys hold that value.
+    
+    If the store is empty, return an empty dictionary.
+    """
+    if not store:
+        return {}
+    
+    value_counts = {}
+    for value in store.values():
+        if value in value_counts:
+            value_counts[value] += 1
+        else:
+            value_counts[value] = 1
+    
+    return value_counts
+```

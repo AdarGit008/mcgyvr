@@ -1,0 +1,20 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Shorten a number to a string in short form: below a thousand it is written as it stands,
+    a thousand or more takes a k, and a million or more takes an m. A shortened number keeps one decimal place,
+    rounded down.
+    """
+    if value < 0:
+        raise ValueError("Value must be non-negative")
+    if value == 0:
+        return "0"
+    
+    if value < 1000:
+        return str(value)
+    
+    if value < 1000000:
+        return f"{value // 1000}k"
+    
+    return f"{value // 1000000}m"
+```

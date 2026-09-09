@@ -1,0 +1,19 @@
+```python
+def wire_value(value) -> str:
+    if not isinstance(value, str):
+        raise ValueError("Value must be a string")
+    if "\n" in value:
+        raise ValueError("Text holding newline is not allowed")
+    
+    return wire_text(value[0]) + str(len(value[1:])) + ":" + wire_text(value[1:])
+
+def wire_text(text: str) -> str:
+    if not isinstance(text, str):
+        raise ValueError("Text must be a string")
+    if "\n" in text:
+        raise ValueError("Text holding newline is not allowed")
+    if text == "":
+        return "s0"
+    
+    return "s" + str(len(text)) + ":" + text
+```

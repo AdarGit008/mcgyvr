@@ -1,0 +1,23 @@
+```python
+from typing import Dict, Optional
+
+def merge_settings(base: Dict[str, str], ours: Dict[str, str], theirs: Dict[str, str]) -> Dict[str, str]:
+    merged = {}
+    for key in set(base.keys()) | set(ours.keys()) | set(theirs.keys()):
+        if key not in base:
+            merged[key] = theirs[key]
+        elif key not in ours:
+            merged[key] = base[key]
+        elif key not in theirs:
+            merged[key] = ours[key]
+        else:
+            if ours[key] == theirs[key]:
+                merged[key] = ours[key]
+            elif ours[key] in ["added", "edited"] and theirs[key] in ["deleted", "edited"]:
+                merged[key] = theirs[key]
+            elif ours[key] in ["deleted", "edited"] and theirs[key] in ["added", "edited"]:
+                merged[key] = ours[key]
+            else:
+                raise ValueError(f"Conflict for key {key}")
+    return merged
+```

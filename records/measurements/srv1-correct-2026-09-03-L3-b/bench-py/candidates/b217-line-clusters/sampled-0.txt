@@ -1,0 +1,33 @@
+```python
+from typing import List, Tuple
+
+def line_clusters(stops: List[str], links: List[Tuple[str, str]]) -> List[List[str]]:
+    # Normalize stops and links
+    normalized_stops = sorted(set(stops))
+    normalized_links = sorted(set(links))
+
+    # Create adjacency list for the graph
+    graph = {stop: set() for stop in normalized_stops}
+    for from_stop, to_stop in normalized_links:
+        graph[from_stop].add(to_stop)
+        graph[to_stop].add(from_stop)
+
+    # Depth-first search to find clusters
+    clusters = []
+    visited = set()
+    for stop in normalized_stops:
+        if stop not in visited:
+            cluster = []
+            dfs(stop, graph, cluster, visited)
+            clusters.append(cluster)
+
+    # Return clusters sorted by the first stop
+    return sorted(clusters, key=lambda x: x[0])
+
+def dfs(stop, graph, cluster, visited):
+    visited.add(stop)
+    cluster.append(stop)
+    for neighbor in graph[stop]:
+        if neighbor not in visited:
+            dfs(neighbor, graph, cluster, visited)
+```

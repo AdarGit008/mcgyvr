@@ -1,0 +1,25 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """
+    Calculate the price before VAT given a gross price and a VAT rate.
+    
+    Parameters:
+    gross (int): The gross price including VAT.
+    rate (int): The VAT rate as a percentage (e.g., 20 for 20%).
+    
+    Returns:
+    int: The price before VAT, rounded down.
+    
+    Raises:
+    ValueError: If the rate is negative.
+    """
+    if rate < 0:
+        raise ValueError("VAT rate must be non-negative")
+    
+    # Calculate the VAT amount and then subtract it from the gross price
+    vat_amount = gross * (rate / 100)
+    price_before_vat = gross - vat_amount
+    
+    # Return the price before VAT, rounded down
+    return int(price_before_vat)
+```

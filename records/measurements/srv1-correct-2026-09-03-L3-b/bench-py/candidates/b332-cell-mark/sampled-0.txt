@@ -1,0 +1,21 @@
+```python
+class LiveCell:
+    def __init__(self, alive):
+        self.alive = alive
+
+    def live_count(self, neighbours):
+        """
+        Returns the number of alive neighbours of the cell.
+        """
+        if not neighbours:
+            return 0
+        return sum(1 for neighbour in neighbours if neighbour.alive)
+
+    def live_next(self, alive, neighbours):
+        """
+        Returns True if the cell should be alive in the next round.
+        """
+        if alive:
+            return self.live_count(neighbours) in [2, 3]
+        return self.live_count(neighbours) == 3
+```

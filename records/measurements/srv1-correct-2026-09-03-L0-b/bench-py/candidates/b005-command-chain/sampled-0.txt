@@ -1,0 +1,29 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    if person is None or not isinstance(person, str) or person == "":
+        raise ValueError("Invalid person argument")
+    if not root:
+        raise ValueError("Root node is empty")
+    if person not in root:
+        raise ValueError("Person not found in the chart")
+    if not root[person]:
+        return [person]
+    return [person] + chain_of_command(root, root[person][0])
+
+def headcount(root: dict) -> int:
+    if not root:
+        return 0
+    return 1 + sum(headcount(child) for child in root.values())
+
+def widest_team(root: dict) -> int:
+    if not root:
+        return 0
+    max_team_size = 0
+    for person in root:
+        team_size = 1
+        for child in root[person].values():
+            if child:
+                team_size += 1
+        max_team_size = max(max_team_size, team_size)
+    return max_team_size
+```

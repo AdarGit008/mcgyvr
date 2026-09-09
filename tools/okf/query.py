@@ -7,17 +7,27 @@ repo is not reachable through it. This wrapper points get_knowledge() at
 mcgyvr's bundle instead. OKF-only: it does not consult pgvector, so a
 fuzzy query returns NONE rather than WEAK.
 
+WHAT IS IN THE STORE. Today: the thirteen `models/` sizing concepts and nothing
+else. They are hand-authored, `stable`, and carry no signer at all. The
+machine-built `serving/**` bundle this docstring used to cite is not on disk —
+see `okf/index.md` for how it was built and where its approvals live.
+
 NOTE ON THE TRUST GATE. get_knowledge() returns STRONG only when a concept is
 HUMAN_REVIEWED (`verified.by` starts with "human:"), status is stable, and it is
-not stale (okf_rag/api.py::_okf_result). Every concept here is signed
-`machine:claude-opus-5`, so get_knowledge ABSTAINS on all of them by design —
-the store refuses to serve machine-generated findings as authoritative until a
-human signs off. Use --raw to read one before signing, and `sign` to promote it.
+not stale (okf_rag/api.py::_okf_result). Nothing here is signed, so
+get_knowledge ABSTAINS on every concept by design — the store refuses to serve
+unreviewed findings as authoritative. Use --raw to read one before signing, and
+--sign to promote it.
 
-    python3 tools/okf/query.py "serving/vllm/enforce-eager-cost"
-    python3 tools/okf/query.py --raw "serving/method/run-to-run-spread"
+FRONTMATTER IS YAML AND ONE BAD FILE TAKES DOWN THE WHOLE LISTING. A parse error
+in any concept raises FrontmatterError out of db.list(), so --list fails
+entirely rather than skipping the offender. A `description` or `title`
+containing ": " must be quoted.
+
+    python3 tools/okf/query.py "models/a-05-dense-no-cold-pile"
+    python3 tools/okf/query.py --raw "models/b-01-capacity-cliff-not-slope"
     python3 tools/okf/query.py --list
-    python3 tools/okf/query.py --sign serving/method/run-to-run-spread --as human:adar
+    python3 tools/okf/query.py --sign models/a-05-dense-no-cold-pile --as human:adar
 """
 
 from __future__ import annotations

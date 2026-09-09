@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def fork_paths(pattern: str) -> List[str]:
+    if not isinstance(pattern, str) or len(pattern) == 0 or pattern.isspace():
+        raise ValueError("Invalid input")
+
+    result = []
+    current_path = []
+
+    def process_segment(segment):
+        if segment == '{}':
+            result.append(''.join(current_path))
+        elif segment[0] == '{':
+            options = segment[1:-1].split(',')
+            for option in options:
+                current_path.append(option)
+                process_segment(segment[len(option) + 1:])
+                current_path.pop()
+
+    process_segment(pattern)
+    return result
+```

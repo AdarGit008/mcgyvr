@@ -1,0 +1,19 @@
+```python
+from typing import List, Union
+
+def move_stock(opening: int, moves: List[Union[int, str]]) -> int:
+    closing = opening
+    for move in moves:
+        if isinstance(move, int):
+            closing += move
+            if closing < 0:
+                closing = 0
+        elif isinstance(move, str):
+            if move == 'buy':
+                closing += 1
+            elif move == 'sell':
+                closing -= 1
+            else:
+                raise ValueError("Invalid stock movement: {}".format(move))
+    return closing
+```

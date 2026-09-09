@@ -1,0 +1,16 @@
+```python
+from typing import List, Optional
+
+def step_allowed(start: str, end: str, allowed: List[str]) -> bool:
+    return end in allowed
+
+def step_plan(states: List[str], allowed: List[str]) -> int:
+    if not states:
+        raise ValueError("No states to evaluate.")
+    
+    allowed_set = set(allowed)
+    for i in range(len(states) - 1):
+        if states[i] in allowed_set and states[i + 1] not in allowed_set:
+            return i
+    return -1
+```

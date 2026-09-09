@@ -1,0 +1,29 @@
+```python
+def camel_break(name: str) -> list:
+    """
+    Break a camel-cased identifier into its individual words, converting the first letter of each word to lowercase.
+
+    Args:
+    name (str): The camel-cased identifier to break.
+
+    Returns:
+    list: A list of the individual words in the identifier, all in lowercase.
+    """
+    if not name:
+        return []
+
+    words = []
+    current_word = ''
+    for char in name:
+        if char.isupper():
+            if current_word:
+                words.append(current_word.lower())
+                current_word = ''
+            words.append(char.lower())
+        else:
+            current_word += char
+    if current_word:
+        words.append(current_word.lower())
+
+    return words
+```

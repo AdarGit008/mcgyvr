@@ -1,0 +1,44 @@
+```python
+from typing import *
+from collections import *
+
+def decode_escaped_note(text: str) -> str:
+    if not text:
+        return ""
+
+    folded_text = ""
+    current_line = ""
+
+    for char in text:
+        if char == '\n':
+            if current_line.endswith('='):
+                current_line = current_line[:-2]
+            folded_text += current_line + '\n'
+            current_line = ""
+        elif char == ' ' or char == '\t':
+            if current_line.endswith('='):
+                current_line = current_line[:-2]
+            current_line += ' '
+        else:
+            current_line += char
+
+    if current_line.endswith('='):
+        current_line = current_line[:-2]
+
+    folded_text += current_line
+
+    decoded_text = ""
+    current_char = ''
+    for char in folded_text:
+        if char == '=':
+            if current_char.isupper() and current_char.isalnum():
+                decoded_text += chr(int(current_char + current_char.lower(), 16))
+                current_char = ''
+            else:
+                raise ValueError("Invalid escaped character")
+        else:
+            decoded_text += char
+            current_char = char
+
+    return decoded_text
+```

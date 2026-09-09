@@ -1,0 +1,23 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if diners == 0:
+        raise ValueError("Cannot split a bill with zero diners.")
+    
+    # Calculate the total number of pennies to be split
+    total_pennies = total * 100
+    
+    # Calculate the number of pennies each diner pays
+    pennies_per_diner = total_pennies // diners
+    
+    # Calculate the remaining pennies after splitting
+    remaining_pennies = total_pennies % diners
+    
+    # Determine the first diner's payment
+    first_diner_payment = pennies_per_diner + (1 if remaining_pennies > 0 else 0)
+    
+    # Calculate the payment for each subsequent diner
+    payment_per_diner = pennies_per_diner
+    
+    # Return the payment for each diner
+    return [first_diner_payment] + [payment_per_diner] * (diners - 1)
+```

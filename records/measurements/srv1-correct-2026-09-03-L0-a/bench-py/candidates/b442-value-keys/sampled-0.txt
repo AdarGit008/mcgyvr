@@ -1,0 +1,24 @@
+```python
+def value_keys(store: dict) -> dict:
+    """
+    Given a store, return the values it holds paired with how many keys hold each one, as a mapping from value to count.
+    A store holding nothing gives a mapping holding nothing.
+    
+    Args:
+    store (dict): The store to analyze.
+    
+    Returns:
+    dict: A dictionary mapping each unique value to the number of keys that hold it.
+    """
+    if not store:
+        return {}
+    
+    key_counts = {}
+    for key in store:
+        if store[key] in key_counts:
+            key_counts[store[key]] += 1
+        else:
+            key_counts[store[key]] = 1
+    
+    return key_counts
+```

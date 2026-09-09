@@ -1,0 +1,7 @@
+```python
+def seat_block(label: str) -> list:
+    if not (label.isalpha() and label[1].isupper()):
+        raise ValueError("Invalid seat label. It must be a run of digits followed by exactly one capital letter.")
+
+    return [int(label[:-1]), label[-1]]
+```

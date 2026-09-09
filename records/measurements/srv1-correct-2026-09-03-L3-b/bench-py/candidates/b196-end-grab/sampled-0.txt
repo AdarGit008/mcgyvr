@@ -1,0 +1,19 @@
+```python
+def end_grab(cards: list) -> dict:
+    if len(cards) <= 1:
+        return {"first": 0, "second": 0, "taken": cards}
+
+    first, second = cards[0], cards[-1]
+    taken = [first, second]
+
+    if first == second:
+        taken.pop(0)
+    elif first > second:
+        taken.pop(1)
+
+    if len(cards) == 1:
+        return {"first": taken[0], "second": 0, "taken": taken}
+
+    remaining = cards[1:-1]
+    return end_grab(remaining)
+```

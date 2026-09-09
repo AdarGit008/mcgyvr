@@ -1,0 +1,20 @@
+```python
+def mid_pair(values: list) -> list:
+    """
+    Given a list of values, return the two values closest to the middle of the list.
+    If the list has an odd number of elements, return the two middle values.
+    If the list is empty, return two nothings.
+
+    :param values: List of values to check
+    :return: List of two values closest to the middle
+    """
+    if not values:
+        return [None, None]
+
+    values.sort()
+    mid = len(values) // 2
+    lower_mid = values[mid - 1] if mid > 0 else None
+    upper_mid = values[mid] if mid < len(values) - 1 else None
+
+    return [lower_mid, upper_mid]
+```

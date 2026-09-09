@@ -1,0 +1,14 @@
+```python
+def range_check(readings: list, low: int, high: int) -> bool:
+    if not readings:
+        return True  # An empty list is considered to fall within any range
+
+    if low > high:
+        raise ValueError("Low bound cannot be greater than high bound")
+
+    for reading in readings:
+        if reading < low or reading > high:
+            return False  # Found a reading outside the specified range
+
+    return True  # All readings are within the specified range
+```

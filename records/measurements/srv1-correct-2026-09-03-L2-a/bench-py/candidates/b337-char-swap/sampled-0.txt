@@ -1,0 +1,31 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """
+    Returns two characters in the other order.
+    
+    Parameters:
+    first (str): The first character.
+    second (str): The second character.
+    
+    Returns:
+    str: The characters in the other order.
+    """
+    return second + first
+
+def swap_all(text: str) -> str:
+    """
+    Walks a text in twos and swaps each pair it finds, leaving a final odd character exactly where it is.
+    
+    Parameters:
+    text (str): The text to process.
+    
+    Returns:
+    str: The processed text.
+    """
+    # Ensure the text length is even for proper pairs
+    if len(text) % 2 != 0:
+        raise ValueError("Text length must be even for swapping pairs.")
+    
+    # Iterate over the text in steps of 2
+    return ''.join(swap_pair(text[i], text[i+1]) for i in range(0, len(text), 2))
+```

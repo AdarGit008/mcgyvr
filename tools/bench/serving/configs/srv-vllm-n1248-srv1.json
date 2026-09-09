@@ -1,0 +1,129 @@
+{
+  "_doc": "vLLM half of the 2026-08-30 concurrency run (run-request-2026-08-30-n1248.md). Keys are (host, backend, label). max_model_len is 2048, not 8192: the ramp prompt plus its 475-token budget never exceeds ~490 tokens, and a larger window only reserves KV that is never touched -- at 8192 the KV cache alone is 9.66 GB for Qwen3-4B (8 KV heads, no GQA compression) and 12.88 GB for the 14B, which puts both off their cards for reasons that have nothing to do with the model. max_num_seqs is 8 because the concurrency grid tops out at n=8; a smaller value would cap the ramp and produce a false plateau. Split per host so each run's `hosts` matches its entries exactly (run.py:254 DE-11 refuses an entry pinned to an unsurveyed host); the two halves run concurrently on separate machines.",
+  "hosts": [
+    "srv1"
+  ],
+  "collect": {
+    "host_config": true,
+    "concurrency": true
+  },
+  "models": [
+    {
+      "label": "q15-vllm-srv1",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "family": "qwen2.5-coder-1.5b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "max_model_len": 2048,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 469762048,
+        "bytes_per_token": 28672,
+        "_bytes_per_token_note": "COMPUTED from the checkpoint's own config.json on the serving host: num_hidden_layers x num_key_value_heads x head_dim x 2 (K and V) x 2 bytes. Verified against the pre-existing q15 entry, which declares 28672 and was derived independently on 2026-08-22.",
+        "weights_bytes": 1181116006,
+        "_weights_bytes_note": "1.1 GiB, MEASURED -- this engine's own `Model loading took 1.1 GiB` line, read off a start on srv1 and srv2 2026-08-30 (ADR-0039 rule 2's idiom, extended to weights by #354). Read before the KV cache is touched, so it is the weights and nothing else. It replaces an ON-DISK sum of *.safetensors that this entry carried first: the two disagree by -4% to +37% with no constant ratio between them (1.5B 1.61 GB on disk against 1.1 GiB loaded; 7B 5.57 GB against 5.29 GiB), so no correction could have been applied to the disk figure. For the 14B this is the FULL weight, not the resident share -- `--cpu-offload-gb` is subtracted separately by `cpu_offload_mib()` so that one number stays the model's and the other stays the declaration's.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        },
+        "_footprint_mib": {
+          "srv1": 1754
+        },
+        "_footprint_note": "MEASURED on the card 2026-08-30, not computed -- the arithmetic predicts the KV cache and only nvidia-smi says what the process took. Read at steady state after `Application startup complete`, with the entry's own flags. Present so this cell is weighed by its reading rather than by weights+KV+NON_KV_OVERHEAD_MIB: the residue those cells actually produced is 180-374 MiB on srv1 (--enforce-eager, TRITON attention) and 715-791 MiB on srv2 (FLASHINFER, fp8 KV), so one predicted constant cannot be right for both hosts. CUDA graph capture accounts for only 70 MiB of that gap, measured by launching the same 3B on srv2 with and against --enforce-eager."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      "_serve_origin": "ORIGIN of this value: chosen here, not inherited. kv_cache_memory_bytes is not a free knob \u2014 it is this entry's own max_num_seqs x max_model_len x bytes_per_token, and each of those three was chosen for a stated reason. max_model_len is 2048 because the ramp sends one fixed prompt and a 475-token completion budget, so no request can exceed ~490 tokens; a larger window only reserves KV that is never read, and at 8192 the cache alone is 9.66 GB for Qwen3-4B (8 KV heads, no GQA compression) and 12.88 GB for the 14B, which puts both off their cards for a reason that has nothing to do with the model. max_num_seqs is 8 because the concurrency grid tops out at n=8 and a narrower width would cap the ramp and record the cap as a plateau \u2014 the failure mode measured on llama.cpp's 4 default slots on 2026-08-30. bytes_per_token is read off each checkpoint's own config.json. Nothing here is inherited from the 2026-08-24 sweep."
+    },
+    {
+      "label": "q3-vllm-srv1",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "family": "qwen2.5-coder-3b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "max_model_len": 2048,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 603979776,
+        "bytes_per_token": 36864,
+        "_bytes_per_token_note": "COMPUTED from the checkpoint's own config.json on the serving host: num_hidden_layers x num_key_value_heads x head_dim x 2 (K and V) x 2 bytes. Verified against the pre-existing q15 entry, which declares 28672 and was derived independently on 2026-08-22.",
+        "weights_bytes": 2093796556,
+        "_weights_bytes_note": "1.95 GiB, MEASURED -- this engine's own `Model loading took 1.95 GiB` line, read off a start on srv2 2026-08-30 (ADR-0039 rule 2's idiom, extended to weights by #354). Read before the KV cache is touched, so it is the weights and nothing else. It replaces an ON-DISK sum of *.safetensors that this entry carried first: the two disagree by -4% to +37% with no constant ratio between them (1.5B 1.61 GB on disk against 1.1 GiB loaded; 7B 5.57 GB against 5.29 GiB), so no correction could have been applied to the disk figure. For the 14B this is the FULL weight, not the resident share -- `--cpu-offload-gb` is subtracted separately by `cpu_offload_mib()` so that one number stays the model's and the other stays the declaration's.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        },
+        "_footprint_mib": {
+          "srv1": 2786
+        },
+        "_footprint_note": "MEASURED on the card 2026-08-30, not computed -- the arithmetic predicts the KV cache and only nvidia-smi says what the process took. Read at steady state after `Application startup complete`, with the entry's own flags. Present so this cell is weighed by its reading rather than by weights+KV+NON_KV_OVERHEAD_MIB: the residue those cells actually produced is 180-374 MiB on srv1 (--enforce-eager, TRITON attention) and 715-791 MiB on srv2 (FLASHINFER, fp8 KV), so one predicted constant cannot be right for both hosts. CUDA graph capture accounts for only 70 MiB of that gap, measured by launching the same 3B on srv2 with and against --enforce-eager."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      "_serve_origin": "ORIGIN of this value: chosen here, not inherited. kv_cache_memory_bytes is not a free knob \u2014 it is this entry's own max_num_seqs x max_model_len x bytes_per_token, and each of those three was chosen for a stated reason. max_model_len is 2048 because the ramp sends one fixed prompt and a 475-token completion budget, so no request can exceed ~490 tokens; a larger window only reserves KV that is never read, and at 8192 the cache alone is 9.66 GB for Qwen3-4B (8 KV heads, no GQA compression) and 12.88 GB for the 14B, which puts both off their cards for a reason that has nothing to do with the model. max_num_seqs is 8 because the concurrency grid tops out at n=8 and a narrower width would cap the ramp and record the cap as a plateau \u2014 the failure mode measured on llama.cpp's 4 default slots on 2026-08-30. bytes_per_token is read off each checkpoint's own config.json. Nothing here is inherited from the 2026-08-24 sweep."
+    },
+    {
+      "label": "q34b-vllm-srv1",
+      "backend": "vllm",
+      "id": "thewimo/Qwen3-4B-AWQ",
+      "family": "qwen3-4b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "max_model_len": 2048,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 2415919104,
+        "bytes_per_token": 147456,
+        "_bytes_per_token_note": "COMPUTED from the checkpoint's own config.json on the serving host: num_hidden_layers x num_key_value_heads x head_dim x 2 (K and V) x 2 bytes. Verified against the pre-existing q15 entry, which declares 28672 and was derived independently on 2026-08-22.",
+        "weights_bytes": 2684354560,
+        "_weights_bytes_note": "2.5 GiB, MEASURED -- this engine's own `Model loading took 2.5 GiB` line, read off a start on srv2 2026-08-30 (ADR-0039 rule 2's idiom, extended to weights by #354). Read before the KV cache is touched, so it is the weights and nothing else. It replaces an ON-DISK sum of *.safetensors that this entry carried first: the two disagree by -4% to +37% with no constant ratio between them (1.5B 1.61 GB on disk against 1.1 GiB loaded; 7B 5.57 GB against 5.29 GiB), so no correction could have been applied to the disk figure. For the 14B this is the FULL weight, not the resident share -- `--cpu-offload-gb` is subtracted separately by `cpu_offload_mib()` so that one number stays the model's and the other stays the declaration's.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        },
+        "_footprint_mib": {
+          "srv1": 5238
+        },
+        "_footprint_note": "MEASURED on the card 2026-08-30, not computed -- the arithmetic predicts the KV cache and only nvidia-smi says what the process took. Read at steady state after `Application startup complete`, with the entry's own flags. Present so this cell is weighed by its reading rather than by weights+KV+NON_KV_OVERHEAD_MIB: the residue those cells actually produced is 180-374 MiB on srv1 (--enforce-eager, TRITON attention) and 715-791 MiB on srv2 (FLASHINFER, fp8 KV), so one predicted constant cannot be right for both hosts. CUDA graph capture accounts for only 70 MiB of that gap, measured by launching the same 3B on srv2 with and against --enforce-eager."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      "_serve_origin": "ORIGIN of this value: chosen here, not inherited. kv_cache_memory_bytes is not a free knob \u2014 it is this entry's own max_num_seqs x max_model_len x bytes_per_token, and each of those three was chosen for a stated reason. max_model_len is 2048 because the ramp sends one fixed prompt and a 475-token completion budget, so no request can exceed ~490 tokens; a larger window only reserves KV that is never read, and at 8192 the cache alone is 9.66 GB for Qwen3-4B (8 KV heads, no GQA compression) and 12.88 GB for the 14B, which puts both off their cards for a reason that has nothing to do with the model. max_num_seqs is 8 because the concurrency grid tops out at n=8 and a narrower width would cap the ramp and record the cap as a plateau \u2014 the failure mode measured on llama.cpp's 4 default slots on 2026-08-30. bytes_per_token is read off each checkpoint's own config.json. Nothing here is inherited from the 2026-08-24 sweep."
+    }
+  ],
+  "_refused": {
+    "q7-vllm-srv1": "refused by the gate on srv1's 6,144 MiB card (weights 5,313 + KV 896 + 733 = 6,942 MiB); the refusal is the measurement and is recorded in records/evidence/serving-2026-08-30/vllm-srv1.jsonl"
+  }
+}

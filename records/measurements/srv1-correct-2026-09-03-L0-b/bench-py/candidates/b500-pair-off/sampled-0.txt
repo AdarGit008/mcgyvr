@@ -1,0 +1,19 @@
+```python
+def pair_off(marks: list[str]) -> list[str]:
+    """
+    Pairs off marks in a list, removing duplicates and merging adjacent marks of the same type.
+    
+    Parameters:
+    marks (list[str]): A list of mark strings.
+    
+    Returns:
+    list[str]: A list of mark strings with adjacent duplicates removed.
+    """
+    left = []
+    for mark in marks:
+        if len(left) > 0 and left[len(left) - 1] == mark:
+            left.pop()
+        else:
+            left.append(mark)
+    return left
+```

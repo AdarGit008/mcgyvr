@@ -1,0 +1,12 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    """
+    Return the entries of one list that do not appear in another, keeping the order they came in and keeping any repeats among them.
+    Removing from an empty list gives an empty list.
+
+    :param entries: List of elements to check
+    :param remove: List of elements to remove from entries
+    :return: List of elements in entries but not in remove, in the order they came in
+    """
+    return [entry for entry in entries if entry not in remove]
+```

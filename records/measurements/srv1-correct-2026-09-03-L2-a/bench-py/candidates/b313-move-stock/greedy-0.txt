@@ -1,0 +1,14 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    """
+    Apply each stock movement in order, adding or removing as its sign says.
+    Stock never falls below zero, so a removal larger than what is held empties it instead.
+    Return the closing quantity.
+    """
+    closing = opening
+    for move in moves:
+        closing += move
+        if closing < 0:
+            closing = 0
+    return closing
+```

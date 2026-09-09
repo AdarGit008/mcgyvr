@@ -1,0 +1,14 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str) or len(ticket) != 16 or not ticket.isupper():
+        raise ValueError("Invalid ticket format")
+    letters = ticket[:2]
+    digits = ticket[3:7]
+    check_digit = ticket[8]
+    total = sum((ord(letter) - ord('A') + 1) * i + int(digit) * (i + 1) for i, letter, digit in enumerate(zip(letters, digits)))
+    if check_digit != str(total)[-1]:
+        return "check"
+    if total % 10 == 0:
+        return "shape"
+    return "ok"
+```

@@ -1,0 +1,21 @@
+```python
+def warm_up(readings: list, floor: int) -> list:
+    """
+    Discard readings from the start that are below the floor, and return everything from the first
+    reading that reaches the floor. A run that never reaches the floor returns an empty list.
+    
+    :param readings: A list of float values representing readings.
+    :param floor: A float value representing the floor threshold.
+    :return: A list of float values representing the readings that reach the floor.
+    """
+    if not readings or floor >= readings[0]:
+        return readings
+    
+    warm_up_end_index = 0
+    for index, reading in enumerate(readings):
+        if reading >= floor:
+            warm_up_end_index = index
+            break
+    
+    return readings[warm_up_end_index:]
+```

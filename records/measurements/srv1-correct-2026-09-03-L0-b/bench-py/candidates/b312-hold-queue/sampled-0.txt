@@ -1,0 +1,23 @@
+```python
+from collections import deque
+
+def hold_queue(callers: list, limit: int) -> list:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than 0")
+
+    if not callers:
+        return []
+
+    if limit == 1:
+        return callers
+
+    queue = deque(maxlen=limit)
+
+    for caller in callers:
+        if caller not in queue:
+            queue.append(caller)
+            if len(queue) > 1 and caller > queue[1]:
+                queue.popleft()
+
+    return list(queue)
+```

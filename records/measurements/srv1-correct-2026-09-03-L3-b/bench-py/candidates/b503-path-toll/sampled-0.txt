@@ -1,0 +1,21 @@
+```python
+def step_cost(kind: str) -> int:
+    """Return the cost of a single step of the given kind."""
+    if kind == "walk":
+        return 1
+    elif kind == "bicycle":
+        return 2
+    elif kind == "motorcycle":
+        return 3
+    else:
+        raise ValueError("Invalid step kind")
+
+def path_toll(steps: list[str]) -> int:
+    """Return the total cost of a path, except that every third step along it is free."""
+    cost = 0
+    for i, step in enumerate(steps):
+        cost += step_cost(step)
+        if i % 3 == 2:
+            cost -= step_cost(step)
+    return cost
+```

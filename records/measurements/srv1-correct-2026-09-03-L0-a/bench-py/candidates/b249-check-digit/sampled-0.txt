@@ -1,0 +1,15 @@
+```python
+def check_digit(code: str) -> int:
+    if not code:
+        return 0
+
+    digits = [int(digit) for digit in code if digit.isdigit()]
+    if not digits:
+        raise ValueError("Input code must contain at least one digit.")
+
+    total = sum(digits)
+    while total % 10 != 0:
+        total = (total + 1) % 10
+
+    return total
+```

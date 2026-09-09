@@ -1,0 +1,61 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events, prices):
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+    session_state = OPEN
+
+    for event in events:
+        action, payload = event
+        if action == "scan":
+            if payload in prices:
+                if payload in cart:
+                    cart[payload] += 1
+                else:
+                    cart[payload] = 1
+                total += prices[payload]
+            else:
+                raise ValueError("item not in price list: " + str(payload))
+        elif action == "void":
+            if payload in cart:
+                cart[payload] -= 1
+                if cart[payload] == 0:
+                    del cart[payload]
+                total -= prices[payload]
+            else:
+                raise ValueError("item not in cart: " + str(payload))
+        elif action == "pay":
+            if total <= paid:
+                raise ValueError("insufficient funds to pay")
+            paid += payload
+            total -= payload
+            change = total if total > 0 else 0
+        elif action == "close":
+            if total > 0:
+                raise ValueError("cannot close a non-empty session")
+            if session_state == OPEN:
+                session_state = PAID
+            else:
+                session_state = CANCELLED
+            paid = total
+            total = 0
+            change = paid if paid > 0 else 0
+        else:
+            raise ValueError("unknown action: " + action)
+
+    return {
+        "items": sorted([(name, quantity) for name, quantity in cart.items()], key=lambda x: x[0]),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

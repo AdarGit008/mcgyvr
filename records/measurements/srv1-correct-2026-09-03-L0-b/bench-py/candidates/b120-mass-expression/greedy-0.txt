@@ -1,0 +1,51 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Both text and unit must be strings.")
+    if not text or not unit:
+        raise ValueError("Text and unit cannot be empty.")
+    if len(text) % 2 != 1:
+        raise ValueError("Text must have an odd number of terms.")
+    if unit not in ['g', 'kg', 't']:
+        raise ValueError("Goal unit must be 'g', 'kg', or 't'.")
+    if not all(term.isdigit() or term in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be plain counts or units.")
+    if any(term.startswith('0') for term in text.split()):
+        raise ValueError("Leading zeros are not allowed.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()[:-1]):
+        raise ValueError("All terms except the last must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()[1:]):
+        raise ValueError("All terms except the first must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("All terms must be units.")
+    if any(term not in ['g', 'kg', 't']

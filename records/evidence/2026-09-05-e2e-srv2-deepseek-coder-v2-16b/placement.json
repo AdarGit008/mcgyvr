@@ -1,0 +1,23 @@
+{
+ "blocks_on_card": 20,
+ "card_free_mib": 11911,
+ "constant_mib": 5854.8,
+ "dense": false,
+ "derived": true,
+ "experts_on_card_mib": 5940.0,
+ "floor_n_cpu_moe": 7,
+ "host": "srv2",
+ "kv_mib": 4320.0,
+ "kv_swa_mib": 0.0,
+ "model": "/models/moe/deepseek-coder-v2-16b.gguf",
+ "n_ctx_seq": 2048,
+ "n_ctx_total": 16384,
+ "n_placeable": 26,
+ "n_ubatch": 256,
+ "nonexpert_mib": 766.8,
+ "parallel": 8,
+ "predicted_card_mib": 11794.8,
+ "run_id": "2026-09-05-e2e-srv2-deepseek-coder-v2-16b-size",
+ "scratch_allowance_mib": 768,
+ "state_mib": 0.0
+}

@@ -1,0 +1,12 @@
+{
+ "dense": true,
+ "derived": true,
+ "floor_n_cpu_moe": 0,
+ "host": "srv2",
+ "model": "/models/dense/Qwen3.8-27B/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf",
+ "n_ctx_total": 16384,
+ "n_ubatch": 512,
+ "parallel": 8,
+ "run_id": "2026-09-05-srv2-qwen3-8-27b-gsq-rco-iq3xxs-default-step",
+ "why": "no expert tensors: nothing for --n-cpu-moe to move"
+}

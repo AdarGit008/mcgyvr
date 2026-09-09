@@ -1,0 +1,33 @@
+```python
+from typing import List, Tuple, Union
+
+def net_tally(sheets: List[str]) -> str:
+    if not sheets:
+        return ""
+
+    def parse_sheet(sheet: str) -> List[Tuple[str, int, int]]:
+        rows = [row.strip() for row in sheet.split('\n') if row.strip()]
+        items = [(row.split('|')[0], int(row.split('|')[1]), int(row.split('|')[2])) for row in rows if len(row.split('|')) == 3 and row.split('|')[0]]
+        return items
+
+    items = set()
+    for sheet in sheets:
+        items.update(parse_sheet(sheet))
+
+    if not items:
+        return ""
+
+    item_to_counts = {item: (0, 0) for item in items}
+    for item, sold, returned in items:
+        item_to_counts[item] = (sold, returned)
+
+    total_sold = sum(item_to_counts[item][0] for item in items)
+    total_returned = sum(item_to_counts[item][1] for item in items)
+    net = total_sold - total_returned
+
+    report_items = sorted(item_to_counts.items(), key=lambda x: x[0])
+    report = '\n'.join(f"{item.ljust(max(len(item) for item in report_items), ' ')} {item_to_counts[item][0] - item_to_counts[item][1]}")
+    report += f"\n{report_items[-1][0].ljust(max(len(item) for item in report_items), ' ')} {net}"
+
+    return report
+```

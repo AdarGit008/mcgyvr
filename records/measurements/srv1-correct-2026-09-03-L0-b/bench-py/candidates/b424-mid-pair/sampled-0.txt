@@ -1,0 +1,8 @@
+```python
+def mid_pair(values: list) -> list:
+    if not values:
+        return [None, None]
+    values.sort()
+    mid = len(values) // 2
+    return [values[mid], values[mid]]
+```

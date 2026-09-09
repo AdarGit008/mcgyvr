@@ -1,0 +1,44 @@
+```python
+from typing import List, Dict
+
+def group_batches(jobs: list, capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list) or not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("jobs must be a non-empty list of four-item lists")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+    
+    job_dict = {}
+    for job in jobs:
+        name, group, priority, weight = job
+        if not isinstance(name, str) or not isinstance(group, str):
+            raise ValueError("names and groups must be non-empty strings")
+        if not isinstance(priority, int):
+            raise ValueError("priority must be an integer")
+        if not isinstance(weight, int) or weight < 1 or weight > capacity:
+            raise ValueError("weight must be an integer from 1 to the capacity")
+        if name in job_dict:
+            raise ValueError("duplicate job name")
+        job_dict[name] = (group, priority, weight)
+    
+    batches = []
+    current_batch = []
+    current_weight = 0
+    
+    for name, (group, priority, weight) in job_dict.items():
+        if current_weight + weight <= capacity:
+            current_batch.append(name)
+            current_weight += weight
+        else:
+            if current_batch:
+                batches.append(current_batch)
+                current_batch = [name]
+                current_weight = weight
+            else:
+                current_batch = [name]
+                current_weight = weight
+    
+    if current_batch:
+        batches.append(current_batch)
+    
+    return batches
+```

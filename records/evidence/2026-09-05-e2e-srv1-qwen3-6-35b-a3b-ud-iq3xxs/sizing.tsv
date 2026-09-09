@@ -1,0 +1,4 @@
+### START run_id=2026-09-05-e2e-srv1-qwen3-6-35b-a3b-ud-iq3xxs-size host=srv1
+### ROUND id=r3-05-09-2026 product_sha256=247d1386fbe4de0cd674d710f86fb39039643e14902b723d6e6ed198677db333
+srv1	Qwen3.6-35B-A3B-UD-IQ3_XXS	SIZED	arch=qwen35moe	n_layer=40	placeable=40	floor_n_cpu_moe=33	kv_mib=320.0	experts_on_card_mib=1948.0	predicted_mib=5533.2	free_mib=5727
+### END run_id=2026-09-05-e2e-srv1-qwen3-6-35b-a3b-ud-iq3xxs-size

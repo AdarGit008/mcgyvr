@@ -1,0 +1,28 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    """
+    Returns the next value moving from `current` toward `target` by at most `step`,
+    never overshooting the target.
+    """
+    if step == 0:
+        raise ValueError("Step must be non-zero to move towards the target.")
+    if current == target:
+        return target
+    return min(target, current + step)
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    """
+    Returns every value visited going from `start` to `target`, both ends included.
+    """
+    if start == target:
+        return [start]
+    if start > target:
+        start, target = target, start
+
+    values = []
+    current = start
+    while current <= target:
+        values.append(current)
+        current += step
+    return values
+```

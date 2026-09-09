@@ -1,0 +1,63 @@
+{
+  "_doc": "The host state this project DECLARES, as data rather than as prose in a session record. Filed 2026-08-22 to close the gap the K9 ruling named: the settings that decide residency were declared live on both rigs, and nothing in this repository stated them, set them, or would notice them regressing. A value here is the required value; a survey that disagrees is a defect, and `tests/test_declared_host_state.py` is where it is caught. This file states what must be true; applying it is a host action (see `apply`), because this repository does not reach into a rig's unit files.",
+  "declared_on": "2026-08-22",
+  "source": "archive/docs/archive/sessions/lane/286/2026-08-22-120000-claude.md:22-35 — the table of what each rig was and what both now are, and the owner's rule beneath it.",
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "_rig_doc": "Per-host `rig` blocks: what the machine IS, read live on `read_on` and compared field by field with the live reading by gate 2 of the door (`src/mcgyvr/serving/gate-scripts/02-rig.py`, through `rig-snapshot.sh`) before any step starts. Until 2026-09-02 a rig was only compared with itself — START against END — which is how RAM swapped between rigs twice in six days, PL1 read 95 W at 05:23 and 4095 W at 05:57 after a hard lock wiped srv1's BIOS profile, and srv1's max clock went 4800 -> 4600, all without a record. Values are the strings a `k=v` snapshot line carries, compared literally. `uptime_since` is deliberately not here: it changes per boot and is compared start==end only. `docker` (the daemon's server version) joined on 2026-09-03: one image listed Vulkan0 on srv2 (docker 29.7.1, `--gpus all` routed through the CDI spec, which mounts the NVIDIA Vulkan ICD manifest) and benched the CPU on srv1 (29.1.3, the legacy hook, which does not); both rigs were then moved to docker-ce 29.7.2 and the value is compared like the hardware.",
+  "srv1": {
+    "rig": {
+      "cpu_max_mhz": "4600",
+      "cpu_model": "Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz",
+      "ram_mt_s": "3600",
+      "pl1_uw": "95000000",
+      "pl2_uw": "120000000",
+      "gpu_name": "NVIDIA_GeForce_GTX_1660_SUPER",
+      "gpu_vram_mib": "6144",
+      "gpu_cc": "7.5",
+      "driver": "580.173.02",
+      "gpu_reserve_mib": "401",
+      "docker": "29.7.2"
+    },
+    "read_on": "2026-09-03",
+    "llamacpp_image": "llamacpp:b10644-L3",
+    "cpu_expert_offload": true
+  },
+  "srv2": {
+    "rig": {
+      "cpu_max_mhz": "5200",
+      "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+      "ram_mt_s": "2933",
+      "pl1_uw": "65000000",
+      "pl2_uw": "0",
+      "gpu_name": "NVIDIA_GeForce_RTX_3060",
+      "gpu_vram_mib": "12288",
+      "gpu_cc": "8.6",
+      "driver": "595.84",
+      "gpu_reserve_mib": "377",
+      "docker": "29.7.2"
+    },
+    "read_on": "2026-09-03",
+    "llamacpp_image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644",
+    "cpu_expert_offload": true
+  },
+  "residency": {
+    "_removed_2026_09_06": "This block declared the three daemon settings that decided whether a model stayed on the card and whether a second could join it, and the owner's `no limits` rule that chose their values. The engine they configured was removed from the product and masked on srv2 the same day. The settings, the rule and the co-residency measurements that chose them are in archive/forensic-ollama/. The engines this build serves take the equivalent decisions on the command line the compose file carries -- `--parallel` and `-c` on llama.cpp, `--max-num-seqs` and `--max-model-len` on vLLM -- so there is no daemon-wide setting left to declare."
+  },
+  "engine": {
+    "_doc": "Engine builds a past campaign was measured under. Provenance, not a declaration to apply -- see `apply`.",
+    "_removed_2026_09_06": "The build recorded here served a backend that is no longer in the product; it is in archive/forensic-ollama/ with the eleven-version jump (K6) that made it worth recording. The builds the live ladder runs are declared where they are applied: `llamacpp_image` above, and the vLLM image digest under `not_declared_here`."
+  },
+  "not_declared_here": {
+    "_doc": "Named so the omissions are not read as completeness — ADR-0026 lens 3.",
+    "vllm_image_digest": "Both rigs run the same docker vLLM image, recorded in the session record as `sha256:ffb2d59b…` — ELIDED there, so the full digest exists only on the hosts. It is not written here because a truncated digest that looks like a declaration is worse than no declaration. Recovering it is a host read.",
+    "gpu_memory_utilization": "#337 — the value is being measured on both rigs rather than inherited, so declaring the inherited one here would pin the number that issue exists to replace."
+  },
+  "apply": {
+    "_doc": "What a host must be set to. This repository states it and checks it; it does not apply it, because nothing here has write access to a rig's unit files and a setter that silently disagreed with this file would be the drift over again.",
+    "_removed_2026_09_06": "This block declared a unit-file override for the daemon whose three residency settings are described under `residency`, and the service restart that applied it. That backend was removed from the product and masked on srv2 the same day; the settings, and the co-residency measurements that chose them, are in archive/forensic-ollama/. Nothing is applied to a rig for the engines this build serves: vLLM and llama.cpp both take their settings on the command line the compose file carries."
+  },
+  "_procedure_doc": "Per-host keys read by the door's default step (`src/mcgyvr/serving/gate-scripts/default-step.sh`): `llamacpp_image` is the image every row is stamped with (srv1 is only valid against a stated image: the stock server-cuda build runs emulated tensor-core kernels on TU116 -> okf/must-read/touching-rigs.md), and `cpu_expert_offload` says whether the procedure may launch with `--n-cpu-moe > 0` on this host at all; srv1 hard-locked three times under CPU expert offload on 2026-09-01 and a lock wipes its BIOS profile, so the step refused there until 2026-09-05, when the owner declared the lock fixed: the 09-04 floor sweep (records/evidence/2026-09-04-srv1-ncmoe-floor/) and the 09-05 spike ran Qwen3.6-35B at --n-cpu-moe 29-32 on srv1 with uptime unbroken since 2026-09-01T08:11, and the live ladder's top rung is that placement (touching-rigs.md, 'srv1 hard-locks')."
+}

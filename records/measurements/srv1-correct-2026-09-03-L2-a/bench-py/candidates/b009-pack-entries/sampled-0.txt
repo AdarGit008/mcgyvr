@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def pack_entries(entries: List[List[str]]) -> str:
+    if not isinstance(entries, list) or not all(isinstance(entry, list) and len(entry) == 2 for entry in entries):
+        raise ValueError("Input must be a list of two-element lists")
+
+    def escape_string(s):
+        return s.replace("\\", "\\\\").replace(";", "\\;").replace("=", "\\=")
+
+    return ";".join(f"{escape_string(key)}={escape_string(value)}" for key, value in entries)
+```

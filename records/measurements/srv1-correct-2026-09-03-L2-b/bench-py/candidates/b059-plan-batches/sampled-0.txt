@@ -1,0 +1,16 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    if units <= 0 or capacity <= 0:
+        raise ValueError("Both units and capacity must be positive integers.")
+
+    def split_and_plan(units, capacity, rounds):
+        if units <= capacity:
+            return {f"load_{rounds}": units}
+        else:
+            half = (units + 1) // 2
+            left, right = split_and_plan(half, capacity, rounds + 1), split_and_plan(units - half, capacity, rounds + 1)
+            return {f"load_{rounds}": left, f"load_{rounds + 1}": right}
+
+    result = split_and_plan(units, capacity, 0)
+    return result
+```

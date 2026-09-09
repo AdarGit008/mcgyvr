@@ -1,0 +1,17 @@
+```python
+def pair_off(marks: list[str]) -> list[str]:
+    if not marks:
+        return marks
+    
+    left = []
+    i = 0
+    while i < len(marks):
+        if i + 1 < len(marks) and marks[i] == marks[i + 1]:
+            marks.pop(i)
+            marks.pop(i)
+        else:
+            left.append(marks[i])
+        i += 1
+    
+    return left
+```

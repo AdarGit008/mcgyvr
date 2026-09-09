@@ -1,0 +1,20 @@
+```python
+def in_quote(ch: str) -> bool:
+    return ch in '"'
+
+def quote_split(line: str) -> list:
+    result = []
+    current = ''
+    depth = 0
+    for char in line:
+        if depth == 0 and char == ',' and not in_quote(current):
+            if current:
+                result.append(current)
+                current = ''
+        elif char == '"':
+            depth += 1 if depth == 0 else -1
+        current += char
+    if current:
+        result.append(current)
+    return result
+```

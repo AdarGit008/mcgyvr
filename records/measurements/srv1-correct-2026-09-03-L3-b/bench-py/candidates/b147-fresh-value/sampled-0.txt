@@ -1,0 +1,37 @@
+```python
+from typing import Dict, Union
+
+class Record:
+    def __init__(self, value: str, stored: int, ttl: int):
+        self.value = value
+        self.stored = stored
+        self.ttl = ttl
+
+    @property
+    def is_usable(self) -> bool:
+        return self.stored <= self.now < self.stored + self.ttl
+
+    @property
+    def now(self) -> int:
+        raise NotImplementedError("Implement the now property")
+
+def fresh_value(entry: Dict[str, Union[str, int]], now: int) -> str:
+    if not isinstance(entry, dict) or len(entry) != 3:
+        raise ValueError("Invalid entry")
+    
+    value, stored, ttl = entry.values()
+    if not isinstance(value, str):
+        raise ValueError("Invalid value")
+    if not isinstance(stored, int) or stored < 0:
+        raise ValueError("Invalid stored")
+    if not isinstance(ttl, int) or ttl <= 0:
+        raise ValueError("Invalid ttl")
+    if not isinstance(now, int) or now < stored:
+        raise ValueError("Invalid now")
+    
+    record = Record(value, stored, ttl)
+    if not record.is_usable:
+        raise ValueError("Record no longer usable at now")
+    
+    return record.value
+```

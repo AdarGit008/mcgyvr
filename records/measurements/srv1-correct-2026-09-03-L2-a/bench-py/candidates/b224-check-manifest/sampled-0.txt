@@ -1,0 +1,24 @@
+```python
+def check_manifest(line: dict) -> dict:
+    if line is None:
+        raise ValueError("Manifest line cannot be None")
+
+    keys = line.keys()
+    required_keys = {"sku", "count", "note"}
+    if not required_keys.issubset(keys):
+        raise ValueError("Manifest line must contain all required keys")
+
+    sku = line["sku"].strip().upper()
+    if not isinstance(sku, str) or not sku:
+        raise ValueError("SKU must be a non-empty string")
+
+    count = line["count"]
+    if not isinstance(count, int) or count <= 0:
+        raise ValueError("Count must be a positive whole number")
+
+    note = line["note"]
+    if not isinstance(note, str):
+        raise ValueError("Note must be a string")
+
+    return line
+```

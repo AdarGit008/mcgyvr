@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def hop_chain(hops: List[List[int]]) -> bool:
+    if not hops:
+        return True
+    if len(hops) == 1:
+        return True
+    for i in range(len(hops) - 1):
+        if hops[i][1] != hops[i + 1][0]:
+            return False
+    return True
+```

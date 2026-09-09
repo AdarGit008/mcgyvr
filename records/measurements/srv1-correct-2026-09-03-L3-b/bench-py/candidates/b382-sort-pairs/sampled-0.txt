@@ -1,0 +1,31 @@
+```python
+# solution.py
+
+def field_of(record: dict, field: str) -> int:
+    """
+    Returns the value of the specified field in a record, or raises ValueError if the field is missing.
+    
+    :param record: A dictionary representing a record.
+    :param field: The name of the field to retrieve.
+    :return: The value of the field.
+    """
+    if field not in record:
+        raise ValueError(f"Record does not have field '{field}'.")
+    return record[field]
+
+def sort_pairs(records: list, field: str) -> list:
+    """
+    Sorts a list of records by the specified field, breaking ties by leaving earlier records earlier.
+    
+    :param records: A list of dictionaries, where each dictionary represents a record.
+    :param field: The name of the field to sort by.
+    :return: A new list of records sorted by the specified field.
+    """
+    # Ensure the field exists in all records
+    for record in records:
+        if field not in record:
+            raise ValueError(f"Record does not have field '{field}'.")
+    
+    # Sort records by the specified field, breaking ties by keeping earlier records earlier
+    return sorted(records, key=lambda x: (x[field], records.index(x)))
+```

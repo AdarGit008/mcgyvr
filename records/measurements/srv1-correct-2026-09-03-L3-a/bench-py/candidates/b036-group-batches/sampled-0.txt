@@ -1,0 +1,32 @@
+```python
+from typing import List
+
+def group_batches(jobs: List[List[str]], capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list) or not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("jobs must be a list of four-item lists")
+    
+    groups = {}
+    for job in jobs:
+        name, group, priority, weight = job
+        if not isinstance(name, str) or not isinstance(group, str) or not isinstance(priority, int) or not isinstance(weight, int):
+            raise ValueError("job elements must be of type str and int")
+        if weight < 1 or weight > capacity:
+            raise ValueError("weight must be in the range 1 to capacity")
+        if name in groups:
+            raise ValueError("duplicate job name")
+        
+        if group not in groups:
+            groups[group] = []
+        groups[group].append((name, priority, weight))
+    
+    batches = []
+    for group in sorted(groups.keys()):
+        batch = []
+        for name, priority, weight in sorted(groups[group], key=lambda x: (-x[1], x[2])):
+            if capacity >= weight:
+                batch.append(name)
+                capacity -= weight
+        batches.append(batch)
+    
+    return batches
+```

@@ -1,0 +1,41 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """
+    Calculate the charge for one step.
+    
+    Parameters:
+    amount (int): The total amount to be charged.
+    fixed (int): The fixed sum to be added to the charge.
+    percent (int): The percentage of the amount to be shared as a charge.
+    
+    Returns:
+    int: The total charge for one step.
+    """
+    if amount <= 0:
+        raise ValueError("Amount must be positive.")
+    if percent < 0 or percent > 100:
+        raise ValueError("Percent must be between 0 and 100.")
+    
+    charge = fixed + (amount * percent) // 100
+    return charge
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    """
+    Calculate the charge for each of several amounts.
+    
+    Parameters:
+    amounts (list): A list of amounts to be charged.
+    fixed (int): The fixed sum to be added to the charge.
+    percent (int): The percentage of the amount to be shared as a charge.
+    
+    Returns:
+    list: A list of charges for each amount.
+    """
+    if not amounts:
+        raise ValueError("Amounts list must not be empty.")
+    if fixed < 0 or percent < 0 or percent > 100:
+        raise ValueError("Fixed and percent must be between 0 and 100.")
+    
+    charges = [step_rate(amount, fixed, percent) for amount in amounts]
+    return charges
+```

@@ -1,0 +1,11 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    return -(-length // tile)  # Equivalent to math.ceil(length / tile)
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    total_tiles = (width * height) // tile
+    spare_tiles = (width * height) % tile
+    breakages = spare_tiles // tile
+    total_tiles += breakages
+    return total_tiles
+```

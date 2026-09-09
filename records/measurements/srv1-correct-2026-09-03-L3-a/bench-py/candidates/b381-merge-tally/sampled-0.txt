@@ -1,0 +1,17 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    # Ensure the name is in the dictionary, adding it with a count of zero if not
+    if name not in tally:
+        tally[name] = 0
+    # Add the amount to the count for the given name
+    tally[name] += amount
+    return tally
+
+def merge_tally(left: dict, right: dict) -> dict:
+    # Merge two tallies into one
+    merged_tally = {**left, **right}
+    # Add counts for names that appear in both tallies
+    for name in merged_tally:
+        merged_tally[name] += min(left.get(name, 0), right.get(name, 0))
+    return merged_tally
+```

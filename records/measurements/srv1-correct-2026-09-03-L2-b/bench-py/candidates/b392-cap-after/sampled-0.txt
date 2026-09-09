@@ -1,0 +1,32 @@
+```python
+def cap_after(passage: str) -> str:
+    """
+    Return a passage with the first letter of every sentence in capitals,
+    a sentence beginning at the start of the passage and again after any full stop.
+    Letters anywhere else are left exactly as they are.
+    
+    :param passage: The input string to be processed.
+    :return: A processed string with the specified capitalization rules.
+    """
+    if not passage:
+        return passage
+    
+    # Split the passage into sentences based on '.', '?' or '!'
+    sentences = passage.replace('?', '.').split('.')
+    
+    # Capitalize the first sentence and the first sentence after each full stop
+    capitalized_sentences = [sentence.capitalize() for sentence in sentences]
+    capitalized_sentences.insert(1, capitalized_sentences[0])
+    
+    # Join the capitalized sentences back into a single string
+    return '. '.join(capitalized_sentences)
+```
+
+**Explanation**:
+- The function `cap_after` takes a string `passage` as input.
+- It first checks if the input string is empty. If so, it returns the empty string as is.
+- The passage is split into sentences based on '.', '?' or '!', using the `replace` method to replace '?' with '.' and then splitting by these delimiters.
+- The first sentence is capitalized using the `capitalize` method.
+- The first sentence is inserted into the second position of the list of sentences to maintain the original sentence order.
+- The capitalized sentences are joined back into a single string using the `join` method with a space separator.
+- The function returns the processed string with the specified capitalization rules.

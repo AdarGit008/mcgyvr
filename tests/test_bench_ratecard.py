@@ -260,6 +260,6 @@ def test_the_superseded_constant_is_gone_from_the_prose() -> None:
 # asserted that ADR-0027's "~40 minutes each" carried the #289 amendment
 # retiring it, so the constant could not stay quotable in the record after
 # rate-card.json replaced it. The decision records were archived on
-# 2026-08-25 (docs/archive/decisions/) and no longer bind anything, so
+# 2026-08-25 (archive/docs/archive/decisions/) and no longer bind anything, so
 # there is nothing left for that check to keep in sync. rate-card.json is
 # still checked by the tests above.

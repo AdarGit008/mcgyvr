@@ -1,0 +1,13 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    # Ensure both tins are not empty
+    if volume_a <= 0 or volume_b <= 0:
+        raise ValueError("Both tins must contain at least one millilitre of paint.")
+    
+    # Calculate the total volume and total strength
+    total_volume = volume_a + volume_b
+    total_strength = (volume_a * strength_a + volume_b * strength_b) / total_volume
+    
+    # Round down to the nearest whole percent
+    return int(total_strength * 100)
+```

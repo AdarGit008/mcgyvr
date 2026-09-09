@@ -1,0 +1,23 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    if not isinstance(a, str) or not isinstance(b, str):
+        raise ValueError("Both inputs must be strings")
+    if a == "" or b == "":
+        raise ValueError("Both inputs must be non-empty strings")
+    if any(c not in "0123456789." for c in a) or any(c not in "0123456789." for c in b):
+        raise ValueError("Both inputs must contain only digits, dots, and spaces")
+    if a == b:
+        return 0
+    a_marks = a.split('.')
+    b_marks = b.split('.')
+    for i in range(max(len(a_marks), len(b_marks))):
+        if i < len(a_marks) and i < len(b_marks):
+            if int(a_marks[i]) < int(b_marks[i]):
+                return -1
+            elif int(a_marks[i]) > int(b_marks[i]):
+                return 1
+        elif i < len(a_marks):
+            return -1
+        else:
+            return 1
+```

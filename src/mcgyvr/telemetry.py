@@ -39,7 +39,7 @@ properties is load-bearing:
   error the rule exists to prevent; one that reads it as "not reported" is
   reading the store correctly.
 
-**The v2 constraint (docs/port-from-local-ai.md §9).** The queue architecture
+**The v2 constraint (archive/docs/port-from-local-ai.md §9).** The queue architecture
 puts several orchestrators behind one stream, so this module holds no state:
 there is no logger object, no default sink, and nothing module-level for a
 second orchestrator to share by accident. ``path`` is required at every call —
@@ -58,25 +58,85 @@ module that knew how to run an attempt could not record one it did not run. No
 derived quantities: a cost in
 dollars, an overran-cap flag and a success rate are all computable from fields
 already on the row, and freezing one here would store today's price list as
-though it were a measurement. No reply text: this is a measurement stream, and
-copying a worker's output into it grows every row without answering a question
-the row exists to answer.
+though it were a measurement.
+
+**The text is kept — beside the row, never in it (the live journal, WP0).**
+This module used to refuse reply text, on the ground that a measurement stream
+should not grow by a worker's output per row. The refusal was right about the
+row and wrong about the text: a journal that keeps the hash and not the text
+can be counted and never reviewed. A row could say a rung answered in 1.2 s and
+could not say what it was asked or what it said, so nothing the product ever
+dispatched was reviewable for quality, and every judgement about whether a
+cheap rung's answers were any good rested on a number. Four rules govern how
+the text is kept:
+
+* **Content-addressed, under ``<sink dir>/blobs/<sha256>``.** The row carries
+  ``prompt_sha256`` and ``reply_sha256`` — the names ``tools/bench/identity.py``
+  already gives a request — and a blob is named by the digest of its own
+  bytes, so a reader can verify a blob without trusting the row that named it.
+  This is also what answers the old objection: one scaffold shared by
+  thousands of prompts is one blob, and the same text dispatched twice costs
+  nothing the second time. The store sits beside the sink rather than inside
+  it because a sink is one orchestrator's file and the blobs are every
+  orchestrator's — whoever dispatched the scaffold, it is the same scaffold.
+* **Scrubbed before it is hashed.** :func:`~mcgyvr.redact.scrub` names
+  telemetry as a sink an operator pastes into an issue, and a credential that
+  reached a blob has left the machine the moment the blob is shared. Scrubbing
+  first means the digest names the scrubbed bytes, so a reader who hashes the
+  blob gets the row's name back; scrubbing after would leave the row naming
+  bytes that exist nowhere on disk.
+* **A raised attempt still names its prompt.** The prompt blob is written
+  before the attempt runs, so ``prompt_sha256`` is a fact of the attempt
+  whether or not anything came back — a failed dispatch that cannot say what
+  it asked is the hole quality review exists to fill. ``reply_sha256`` is then
+  absent: not null, and not the digest of the empty string, which looks
+  exactly like a model that answered with nothing.
+* **A blob that cannot be written raises**, by the sink rule above and without
+  softening. A row naming a ``prompt_sha256`` whose blob was never written is
+  worse than no row, because the hash reads as evidence that exists.
+
+**A row names what answered it, and under which round.** ``tools/bench/identity.py``
+settled what a measurement records after five lists disagreed and a manifest
+mutated in the sixth field produced a byte-identical report; a live row that
+carried none of those names could not be laid beside a bench cell, because it
+did not say which endpoint served it, which system prompt it carried or which
+product revision dispatched it. So each row also carries ``endpoint``,
+``model``, ``protocol``, ``condition`` — always ``"stock"``: live work is the
+product as shipped, never an ablation, and the field is what tells a live row
+from a bench cell by content rather than by path — ``bundle_sha256`` (the
+system prompt, hashed as the bench hashes it), and, when the process runs
+inside this repo checkout, ``round`` and ``product_sha256``, read from
+``tools/bench/product`` loaded by path the way ``tools/breadth/measure.py``
+loads it. Off-round is recorded, not refused: live work is not a measurement
+run, ``require_pinned`` is never called here, and the digest written is the
+tree's, so a reader can flag ``off_round`` instead of being told nothing ran.
+An install that is not this checkout has no round to name, and both keys are
+absent rather than null — ``round: null`` would read to ``product.declare`` as
+a run that recorded something.
 """
 
 from __future__ import annotations
 
+import contextlib
 import fcntl
+import functools
+import hashlib
+import importlib.util
 import json
 import os
+import sys
+import threading
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import mcgyvr
 from mcgyvr.redact import scrub
 from mcgyvr.runner import Completion
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from collections.abc import Callable
-    from pathlib import Path
+    import types
+    from collections.abc import Callable, Mapping, Sequence
 
 # One record is one JSON object. Deliberately not a dataclass on the way out:
 # a reader is looking at records written by versions of mcgyvr other than its
@@ -98,11 +158,36 @@ CORRECTION_KIND = "correction"
 # What a correction is allowed to say about its attempt, and the whole of it. A
 # correction that could set any field could rewrite which orchestrator ran the
 # work or how long it took, which is the in-place edit this shape exists to
-# refuse — spelled differently. ``outcome`` and ``detail`` move together
-# because the detail is the winning outcome's own words: keeping a superseded
-# correction's prose beside a newer verdict would report a reason nobody gave
-# for it.
-_CORRECTABLE = ("outcome", "detail")
+# refuse — spelled differently.
+#
+# ``outcome`` is the verdict, and the other two are attributes of *that*
+# verdict: the detail is its own words and ``applied_by`` is the writer who
+# gave it. So :func:`fold` moves the three as one block rather than field by
+# field — a byline left standing beside somebody else's newer verdict is a row
+# that credits a judgement to whoever last happened to write prose about the
+# attempt, and ``tools/live/index.py`` copies that into a column whose whole
+# question is "who judged this". ``applied_by`` is carried onto the row rather
+# than left on the correction line alone because a folded row is all a reader
+# of the fold gets, and under §9 the one applying a correction need not be the
+# one that ran the attempt — ``orchestrator`` says who ran, and only this says
+# who judged.
+_VERDICT = "outcome"
+_CORRECTABLE = (_VERDICT, "detail", "applied_by")
+
+# Where the text lives: a directory beside the sink, one file per distinct
+# scrubbed text, named by the sha256 of its bytes. Beside rather than inside
+# the sink because the sink is one orchestrator's and the blobs are shared.
+BLOB_DIR = "blobs"
+
+# The bench's word for "no ablation" (tools/bench/identity.py's `condition`).
+# Written on every live row, because a live row and a bench cell have to be
+# told apart by content: a directory of rows says nothing about which it holds.
+STOCK = "stock"
+
+# The `sys.modules` slot tools/breadth/measure.py loads tools/bench/product.py
+# into. The same slot, not a suffixed one, so a process that already holds the
+# module is handed that copy rather than a second one that could disagree.
+_PRODUCT_SLOT = "bench_product"
 
 
 def observe[T](
@@ -113,6 +198,14 @@ def observe[T](
     orchestrator: str,
     rung: str,
     model: str | None = None,
+    messages: Sequence[Mapping[str, str]] | None = None,
+    endpoint: str | None = None,
+    task_type: str | None = None,
+    session_file: Path | None = None,
+    tier: str | None = None,
+    config_digest: str | None = None,
+    mirrors: Sequence[Path] = (),
+    on_copy_error: CopyError | None = None,
 ) -> T:
     """Run one attempt, append exactly one record for it, and hand back its answer.
 
@@ -129,12 +222,94 @@ def observe[T](
     cannot say which model failed is a hole in exactly the data this exists to
     collect.
 
+    ``messages`` is the prompt as sent — ``{"role", "content"}`` pairs in the
+    order the backend received them — and ``endpoint`` is the base URL that
+    served it. Both are optional because an attempt need not be a dispatch at
+    all, and both are absent from the row rather than null when not given.
+    When ``messages`` is given, the prompt is scrubbed and stored as a blob
+    *before* the attempt runs, so the row for an attempt that raised still
+    names what it asked, and the system message is hashed onto the row as
+    ``bundle_sha256``. A caller that has the prompt and does not pass it is
+    writing a row nobody can review.
+
+    ``task_type`` is the contract's kind of work and ``session_file`` is the
+    transcript of the session that typed the command (:mod:`mcgyvr.session`).
+    Both are identity, known before the attempt and written on both rows: a
+    feedback loop that wants to say "this rung fails implementations" needs
+    the type beside the verdict, and a reviewer who wants the conversation
+    behind an attempt needs the path beside the row. Absent, not null, when
+    the caller has neither. ``config_digest`` is identity of the same kind:
+    which setup (:meth:`mcgyvr.config.Config.digest`) the run was made under,
+    so a row can be traced to the exact config that produced it (R2) — and
+    absent on a run made with no config, as a floor run may be.
+
     A sink that cannot be written raises rather than being swallowed. Silence
     here is the failure this module was built to end, and an unwritable path is
     an operator error that is cheap to fix at the moment it happens and
     impossible to notice a week later, when the answer is simply missing rows.
+    The blob store is a sink under the same rule — *both* of its blobs — and
+    the row still goes down when either fails, because *exactly one record* is
+    what this promises and a dispatch that left none is one no caller can tell
+    from a dispatch nobody made.
     """
+    # The clock starts before anything this call can fail on, so that a row
+    # written because a blob could not be stored still carries an elapsed time.
+    # What it measures is this call, which is what ``elapsed_s`` says it is.
     started = time.monotonic()
+
+    def append(record: Record) -> None:
+        _append(path, record, mirrors=mirrors, on_copy_error=on_copy_error)
+
+    def store(data: bytes) -> str:
+        return _store(path, data, mirrors=mirrors, on_copy_error=on_copy_error)
+
+    # What the attempt *is* — its prompt, its endpoint, the revision
+    # dispatching it — is known before the attempt runs and is the same fact
+    # whichever of the two rows below gets written. `unlanded` reads it out of
+    # this dict rather than off a parameter, which is what lets a failure
+    # part-way through assembling it still write a row saying everything the
+    # steps before it knew.
+    identity: Record = {}
+
+    def unlanded(failure: BaseException) -> Record:
+        record = (
+            _stamp(ATTEMPT_KIND, attempt_id)
+            | {
+                "orchestrator": orchestrator,
+                "rung": rung,
+                "ok": False,
+                "elapsed_s": _since(started),
+                "error": type(failure).__name__,
+                "error_detail": scrub(str(failure)),
+            }
+            | identity
+        )
+        if model is not None:
+            record["model"] = model
+        return record
+
+    try:
+        # Assembling the identity touches the disk twice — the prompt blob is
+        # written to the store, the product revision is read off the checkout
+        # — and either can fail. Both used to sit outside every `try`, so an
+        # unwritable store raised out of this function before any row existed,
+        # which is the one thing "exactly one record per call" forbids. It was
+        # the *reply* blob that got the guard, and the prompt blob that was
+        # cited as the reason for it.
+        _identity(
+            identity,
+            store,
+            messages=messages,
+            endpoint=endpoint,
+            task_type=task_type,
+            session_file=session_file,
+            tier=tier,
+            config_digest=config_digest,
+        )
+    except BaseException as failure:
+        append(unlanded(failure))
+        raise
+
     try:
         answer = attempt()
     except BaseException as failure:
@@ -143,33 +318,45 @@ def observe[T](
         # a hole in the record is hardest to account for afterwards. The record
         # is written before the re-raise, so the caller's exception is what
         # propagates and this line is not in its path.
-        record = _stamp(ATTEMPT_KIND, attempt_id) | {
-            "orchestrator": orchestrator,
-            "rung": rung,
-            "ok": False,
-            "elapsed_s": _since(started),
-            "error": type(failure).__name__,
-            "error_detail": scrub(str(failure)),
-        }
-        if model is not None:
-            record["model"] = model
-        _append(path, record)
+        append(unlanded(failure))
         raise
 
-    record = _stamp(ATTEMPT_KIND, attempt_id) | {
-        "orchestrator": orchestrator,
-        "rung": rung,
-        "ok": True,
-        # Two timings that are two different quantities. ``latency_s`` is the
-        # runner's, around the request alone; ``elapsed_s`` is this call's,
-        # around everything the attempt did — prompt, dispatch, apply, gate.
-        # Their difference is the host-side cost of an attempt, which no single
-        # measurement states.
-        "elapsed_s": _since(started),
-    }
+    record = (
+        _stamp(ATTEMPT_KIND, attempt_id)
+        | {
+            "orchestrator": orchestrator,
+            "rung": rung,
+            "ok": True,
+            # Two timings that are two different quantities. ``latency_s`` is
+            # the runner's, around the request alone; ``elapsed_s`` is this
+            # call's, around everything the attempt did — prompt, dispatch,
+            # apply, gate. Their difference is the host-side cost of an
+            # attempt, which no single measurement states.
+            "elapsed_s": _since(started),
+        }
+        | identity
+    )
     if isinstance(answer, Completion):
         record |= _completion_fields(answer)
-    _append(path, record)
+        try:
+            # Stored before the row that names it is appended, never after: a
+            # reader must not find a row whose ``reply_sha256`` names nothing
+            # on disk. A blob that cannot be written still raises — the sink
+            # rule, not an exception to it — but the row goes down first, as
+            # the failure it now is, with no ``reply_sha256`` on it.
+            #
+            # The row is what makes "exactly one record per call" true, and it
+            # was not: an unwritable blob store (``ENOSPC``, a ``blobs/``
+            # replaced by a file) left a dispatch that happened with no trace
+            # of it at all. A caller cannot tell that from a dispatch nobody
+            # made, and the one that counted an attempt's rows to find the
+            # draw a raise was about counted one short and blamed the draw
+            # that answered.
+            record["reply_sha256"] = store(_bytes(scrub(answer.text)))
+        except BaseException as failure:
+            append(unlanded(failure))
+            raise
+    append(record)
     return answer
 
 
@@ -204,6 +391,231 @@ def _completion_fields(answer: Completion) -> Record:
     return fields
 
 
+def _prompt_identity(
+    store: Callable[[bytes], str], messages: Sequence[Mapping[str, str]] | None
+) -> Record:
+    """The prompt's own identity: its blob in the store, and the bundle digest.
+
+    Split out of :func:`_identity` because it is the step of an attempt's
+    identity that writes to the blob store, and the store is a sink: it raises
+    rather than being swallowed, so where the step sits decides whether the
+    dispatch it belongs to is recorded at all. Its caller runs it inside the
+    guard that turns that raise into a row.
+    """
+    if messages is None:
+        return {}
+    fields: Record = {"prompt_sha256": store(_render(messages))}
+    system = next((m["content"] for m in messages if m.get("role") == "system"), None)
+    if system is not None:
+        # Raw, not scrubbed: this is the bench's ``bundle_sha256``
+        # (``sha256(prompt.system)``, tools/breadth/measure.py) and has to
+        # equal it for a live row to lie beside a bench cell. A digest
+        # discloses nothing, so scrubbing would only make the two disagree.
+        fields["bundle_sha256"] = hashlib.sha256(_bytes(system)).hexdigest()
+    return fields
+
+
+def _identity(
+    fields: Record,
+    store: Callable[[bytes], str],
+    *,
+    messages: Sequence[Mapping[str, str]] | None,
+    endpoint: str | None,
+    task_type: str | None,
+    session_file: Path | None,
+    tier: str | None = None,
+    config_digest: str | None = None,
+) -> None:
+    """What the attempt is, known before it runs and shared by both rows it can write.
+
+    The failing row and the succeeding row name the same prompt, endpoint and
+    product revision, which is what makes a raised attempt reviewable at all.
+    Every key here is absent, not null, when the caller could not supply it —
+    an attempt that is not a dispatch has no endpoint and no prompt — under the
+    rule that keeps an unreported token count out of the row.
+
+    **Written into ``fields`` step by step rather than returned whole**, which
+    is the whole reason this takes a dict instead of building one. Two of the
+    steps touch the disk — :func:`_prompt_identity` writes the prompt to the
+    blob store, :func:`_product_revision` reads the checkout — and either can
+    raise. Filling the caller's dict as it goes means the row it writes for
+    that failure still carries everything the earlier steps established: what
+    endpoint was about to be asked, under what condition, and, past the blob,
+    which revision was asking. Returning a value would make that row empty of
+    all of it, and an empty row is the shape a reader cannot act on.
+
+    **Which makes the order a contract and not a layout.** Everything the
+    caller handed in — the condition, the endpoint, the task type, the session
+    file — is established by being passed and cannot fail, so all of it is
+    written before either step that can. Writing a fact after a step that may
+    raise gives it away for nothing: ``observe`` promises ``task_type`` and
+    ``session_file`` on both rows and a reader takes their absence to mean the
+    caller had neither, so a full disk would silently unsay what the caller
+    said. The only keys a failure row can be missing are the two nothing can
+    establish without touching the disk.
+
+    ``condition`` is the one key always written: live work is the product as
+    shipped, and the bench's word for "no ablation" is ``"stock"``.
+    """
+    fields["condition"] = STOCK
+    if endpoint is not None:
+        fields["endpoint"] = endpoint
+    if task_type is not None:
+        fields["task_type"] = task_type
+    if session_file is not None:
+        fields["session_file"] = str(session_file)
+    if tier is not None:
+        fields["tier"] = tier
+    if config_digest is not None:
+        fields["config_digest"] = config_digest
+    fields |= _prompt_identity(store, messages)
+    revision = _product_revision()
+    if revision is not None:
+        fields["round"], fields["product_sha256"] = revision
+
+
+def _render(messages: Sequence[Mapping[str, str]]) -> bytes:
+    """The prompt as one blob: ``[role]``, the content, a blank line, per message.
+
+    Deterministic — the same messages always render to the same bytes, which
+    is what lets one prompt dispatched a thousand times be one blob — and
+    readable as it is, every content a plain substring, so a reviewer who
+    opens the blob reads what the model read rather than a JSON encoding of
+    it. Each content is scrubbed on the way in, before the bytes exist to be
+    hashed; the role is a vocabulary word and carries nothing to scrub.
+    """
+    rendered = "\n".join(f"[{m['role']}]\n{scrub(m['content'])}\n" for m in messages)
+    return _bytes(rendered)
+
+
+def _bytes(text: str) -> bytes:
+    """``text`` as UTF-8, encoded the way every other writer in the project encodes.
+
+    ``surrogateescape`` rather than strict: the prompt carries the target file,
+    which :mod:`mcgyvr.drive` reads with ``surrogateescape`` so a byte no codec
+    round-trips still reaches the worker, and the blob has to be able to hold
+    what was sent. For text that is plain UTF-8 — every reply, and every prompt
+    over a clean file — the bytes are identical to a strict encode; for the
+    rest, a strict encode would raise out of an attempt that has not failed.
+    """
+    return text.encode("utf-8", "surrogateescape")
+
+
+def _store(
+    path: Path,
+    data: bytes,
+    *,
+    mirrors: Sequence[Path] = (),
+    on_copy_error: CopyError | None = None,
+) -> str:
+    """Put ``data`` in the sink's blob store and return the name it is stored under.
+
+    The name is the sha256 of the bytes, so the store is a store and not a
+    lookup table: a reader who hashes what it opened gets the name back. An
+    existing blob is left alone — same bytes, same name — and a new one is
+    written whole to a private staging name and moved into place, so a reader
+    never opens a blob whose bytes do not yet hash to its name, and a crash
+    mid-write leaves a stray ``.part`` file rather than a blob that lies about
+    itself and, being "existing", would never be rewritten.
+
+    Every ``OSError`` propagates, ``mkdir`` included: a file sitting where the
+    directory must go is the cheapest way to be unwritable and is refused the
+    same as a full disk. The row that would have named the blob is not
+    written, which is the sink rule applied one level down.
+
+    ``mirrors`` get the same bytes under the same name. The digest is the
+    bytes' own, so every store that holds them agrees on it without being told,
+    and a copy that failed leaves a row naming a blob the *caller's* store
+    lacks — which ``tools/live/review.py`` already prints as missing, because
+    that is a thing a journal can be.
+    """
+    digest = _store_one(path, data)
+    _also(mirrors, on_copy_error, lambda mirror: _store_one(mirror / path.name, data))
+    return digest
+
+
+def _store_one(path: Path, data: bytes) -> str:
+    """The store itself, for one directory: ``path.parent / BLOB_DIR``."""
+    digest = hashlib.sha256(data).hexdigest()
+    blobs = path.parent / BLOB_DIR
+    blobs.mkdir(parents=True, exist_ok=True)
+    blob = blobs / digest
+    if blob.exists():
+        return digest
+    # Unique per writer, so two threads or processes storing the same text at
+    # once each stage their own copy and the last ``replace`` wins with bytes
+    # identical to the first.
+    staging = blobs / f".{digest}.{os.getpid()}-{threading.get_ident()}.part"
+    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+    try:
+        try:
+            _write_all(fd, data)
+        finally:
+            os.close(fd)
+        os.replace(staging, blob)
+    except BaseException:
+        # Best effort and only for the file this call created: the failure
+        # that matters is the one about to propagate.
+        with contextlib.suppress(OSError):
+            os.unlink(staging)
+        raise
+    return digest
+
+
+def _checkout() -> Path:
+    """The repository this package was imported from — never the working directory.
+
+    A wheel install run from inside somebody's checkout must not borrow that
+    checkout's round, and a checkout run from elsewhere must not lose its own,
+    so the only path that counts is the one the package itself resolves to.
+    """
+    return Path(mcgyvr.__file__).resolve().parents[2]
+
+
+def _bench_product() -> types.ModuleType | None:
+    """``tools/bench/product.py`` by path, or ``None`` when this is not the checkout.
+
+    ``tools/`` is not a package, so the bench loads it by path into a named
+    ``sys.modules`` slot; this uses the slot ``tools/breadth/measure.py`` uses
+    and reuses whatever is already there, so a process that holds the module
+    is not handed a second copy that could disagree with the first. ``None``
+    is the honest answer for an install with no ``tools/bench/product.py``
+    beside it: there is no round to name, and the row carries none.
+    """
+    cached = sys.modules.get(_PRODUCT_SLOT)
+    if cached is not None:
+        return cached
+    source = _checkout() / "tools" / "bench" / "product.py"
+    if not source.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location(_PRODUCT_SLOT, source)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"{source} exists and cannot be loaded as a module")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[_PRODUCT_SLOT] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@functools.cache
+def _product_revision() -> tuple[str, str] | None:
+    """The open round's id and this tree's digest, or ``None`` outside the checkout.
+
+    Memoised for the process because the digest walks every file of the
+    product surface, and it is a fact about the checkout rather than about any
+    orchestrator: two orchestrators in one process share one tree by
+    construction, so this is a memo and not the shared state §9 forbids.
+    ``require_pinned`` is deliberately not called. A live run off its round is
+    recorded as such — the digest written is the tree's — and the reader flags
+    it; refusing would make the journal go dark on exactly the days the
+    product is changing.
+    """
+    product = _bench_product()
+    if product is None:
+        return None
+    return str(product.open_round()["id"]), str(product.digest(_checkout()))
+
+
 def correct(
     *,
     path: Path,
@@ -211,6 +623,8 @@ def correct(
     outcome: str,
     orchestrator: str,
     detail: str = "",
+    mirrors: Sequence[Path] = (),
+    on_copy_error: CopyError | None = None,
 ) -> None:
     """Append how one attempt's work finally landed, leaving its record alone.
 
@@ -226,13 +640,18 @@ def correct(
     correction that names no known attempt has no attempt row to borrow an
     author from: the one place an orphan could be anonymous is the one place a
     reader most needs to know who wrote it.
+
+    ``mirrors`` are the caller's copies of the journal, and a correction goes
+    to all of them for the same reason the attempt row did: a copy holding the
+    dispatch and not its verdict is a copy that reads as a run nobody ever
+    judged, which is the one reading breadth's telemetry must not invite.
     """
     record = _stamp(CORRECTION_KIND, attempt_id) | {
         "outcome": outcome,
         "detail": detail,
         "applied_by": orchestrator,
     }
-    _append(path, record)
+    _append(path, record, mirrors=mirrors, on_copy_error=on_copy_error)
 
 
 def fold(*, path: Path) -> list[Record]:
@@ -251,6 +670,29 @@ def fold(*, path: Path) -> list[Record]:
     than being dropped. It is a mistake somebody made, and a mistake that is
     visible costs one question; a mistake that deletes itself costs the trust in
     every other number in the file.
+
+    **A verdict arrives whole.** ``outcome``, ``detail`` and ``applied_by``
+    are one statement, not three fields, and a correction that states an
+    outcome supplies all three — a field it does not state is not inherited
+    from the verdict it supersedes. A correction stating no outcome judges
+    nothing and repaints none of them.
+
+    What a verdict replaces is the last verdict, not the row under it. The
+    corrections are an overlay: a field the newest one leaves unstated falls
+    back to what the *attempt row itself* said, and is absent only where the
+    row said nothing either. An attempt row of this module's carries none of
+    the three, so this is invisible here and decides a foreign row — one whose
+    ``detail`` is "run 42, arm B", the runner's own word for what it ran. That
+    is the attempt's statement about itself, and a merge gate appending
+    ``{outcome: "merged"}`` has said nothing about it; saying nothing must not
+    delete it.
+    :func:`correct` always writes all three, so this only ever decides what a
+    line written elsewhere means; that is most of the point, since the sink is
+    shared by other hosts, other processes and other versions of this module
+    by construction. The alternative — each field latest-wins on its own —
+    produces a row whose ``applied_by`` names somebody who did not give its
+    ``outcome``, which is a lie ``tools/live/index.py`` then stores in a
+    column and a reviewer then weighs.
     """
     attempts: list[Record] = []
     corrections: list[tuple[int, Record]] = []
@@ -268,17 +710,41 @@ def fold(*, path: Path) -> list[Record]:
         latest[str(record.get("attempt_id", ""))] = index
 
     orphans: list[Record] = []
+    # What each attempt row said about itself, before any verdict was painted
+    # over it. A verdict is an overlay on the row and not a rewrite of it: the
+    # block it replaces is the *previous verdict's*, so lifting one uncovers
+    # what the row underneath stated rather than a hole. Nothing this module
+    # writes puts a `detail` or an `applied_by` on an attempt row, but a
+    # foreign writer's "run 42, arm B" is its own statement, and a correction
+    # that says nothing about it has not said to delete it.
+    said: dict[int, Record] = {}
     for _, correction in sorted(corrections, key=lambda entry: entry[0]):
         match = latest.get(str(correction.get("attempt_id", "")))
         if match is None:
             orphans.append(correction)
             continue
         base = attempts[match]
+        if correction.get(_VERDICT) is None:
+            # No verdict, so nothing to attach a detail or a byline to: a line
+            # that judges nothing does not get to rewrite how the work landed,
+            # nor to sign somebody else's judgement. Absence is not a
+            # retraction — the standing verdict keeps all three of its fields.
+            continue
+        own = said.setdefault(
+            match, {key: base[key] for key in _CORRECTABLE if key in base}
+        )
         for key in _CORRECTABLE:
-            # ``None`` is "this correction does not say", which leaves whatever
-            # an earlier one said standing. Absence is not a retraction.
-            if correction.get(key) is not None:
-                base[key] = correction[key]
+            # The whole block, from this one correction: a field it does not
+            # state is not inherited from the verdict this one supersedes. It
+            # falls back to the row's own word for it, and where the row had
+            # none it is absent.
+            value = correction.get(key)
+            if value is None:
+                value = own.get(key)
+            if value is None:
+                base.pop(key, None)
+            else:
+                base[key] = value
 
     return attempts + orphans
 
@@ -303,7 +769,52 @@ def _since(started: float) -> float:
     return round(time.monotonic() - started, 6)
 
 
-def _append(path: Path, record: Record) -> None:
+#: What a failed write to one of the caller's copies is reported through: the
+#: copy's directory and what went wrong. Called at most once per failed write,
+#: and never for the primary sink, which raises.
+type CopyError = Callable[[Path, BaseException], None]
+
+
+def _also(
+    mirrors: Sequence[Path],
+    on_copy_error: CopyError | None,
+    write: Callable[[Path], object],
+) -> None:
+    """Do the same write into each of the caller's copies, and survive it failing.
+
+    The asymmetry between this and the primary sink is deliberate and is the
+    whole of the copy feature's contract. ``journal.dir`` is where mcgyvr keeps
+    its own record and is a sink under the rule this module opens with: it
+    raises, because a run whose record is missing is the silence the module
+    exists to end. A copy is something a caller asked for on top of that, for
+    their own reading, in a directory of their choosing — and ending a run we
+    have recorded correctly, over a directory that is not ours and not needed,
+    would be the product punishing somebody for using a feature.
+
+    So a copy's failure is handed to ``on_copy_error`` and the write goes on.
+    A caller that passes none gets the sink rule for its copies too, which is
+    the right default for a caller that has not said what else to do.
+
+    ``Exception`` and not ``BaseException``: an interrupt is not this copy's
+    news to swallow, and a run being killed must not be turned into a note
+    about a directory.
+    """
+    for mirror in mirrors:
+        try:
+            write(mirror)
+        except Exception as exc:
+            if on_copy_error is None:
+                raise
+            on_copy_error(mirror, exc)
+
+
+def _append(
+    path: Path,
+    record: Record,
+    *,
+    mirrors: Sequence[Path] = (),
+    on_copy_error: CopyError | None = None,
+) -> None:
     """Add one line to the sink, whole, under an exclusive lock.
 
     The lock and the append mode do two different jobs, and both are needed for
@@ -314,8 +825,20 @@ def _append(path: Path, record: Record) -> None:
     is checked to end on a line boundary first — a torn line left by a crash is
     terminated, not glued onto — and the write is counted, because a short write
     on a full disk is a failure to signal, not a stump to leave behind.
+
+    ``mirrors`` are the caller's own copies of the journal, each a *directory*
+    the same line is appended into under this file's name. The line is
+    serialised once and written into ours first: a copy is a copy of a record
+    that exists, and one that got the line while the sink did not would be a
+    reader's only evidence of a run this machine has no record of.
     """
     line = (json.dumps(record) + "\n").encode("utf-8")
+    _append_line(path, line)
+    _also(mirrors, on_copy_error, lambda mirror: _append_line(mirror / path.name, line))
+
+
+def _append_line(path: Path, line: bytes) -> None:
+    """One line into one file, whole, under that file's own exclusive lock."""
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o666)
     try:

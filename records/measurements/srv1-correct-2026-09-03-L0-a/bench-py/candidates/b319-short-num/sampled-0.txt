@@ -1,0 +1,21 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Shorten a whole number to a form below a thousand:
+    - It is written as it stands if it's less than 1000.
+    - It takes a 'k' if it's between 1000 and 9999.
+    - It takes an 'm' if it's 10000 or more.
+
+    Parameters:
+    value (int): The whole number to be shortened.
+
+    Returns:
+    str: The shortened number, rounded down to one decimal place.
+    """
+    if value < 1000:
+        return str(value)
+    elif value < 10000:
+        return f"{value // 1000:.1f}k"
+    else:
+        return f"{value // 10000:.1f}m"
+```

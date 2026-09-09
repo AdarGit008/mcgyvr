@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def payout(stake: int, odds: int) -> int:
+    if stake < 0:
+        raise ValueError("Stake cannot be negative")
+    return stake * odds
+
+def settle_all(bets: List[int]) -> int:
+    total = 0
+    for bet in bets:
+        if bet > 0:
+            total += payout(bet, bet)
+    return total
+```

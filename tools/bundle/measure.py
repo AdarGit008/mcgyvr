@@ -87,7 +87,7 @@ Usage::
 
     # the same, spelled out
     uv run --no-sync python tools/bundle/measure.py \\
-        --endpoint http://localhost:11434 --protocol openai \\
+        --endpoint http://localhost:8080 --protocol openai \\
         --model qwen2.5-coder:3b \\
         --out records/measurements/jsts-bundle-YYYY-MM-DD
 
@@ -251,13 +251,14 @@ def _host_block(endpoint: str) -> dict[str, object]:
             "rather than raised, and recorded rather than dropped: a probe that "
             "broke must not read as a machine there was nothing to read"
         )
-        return observed_module.scrub(
+        refusal: dict[str, object] = observed_module.scrub(
             {
                 "reason": "probe_failed",
                 "refused": why,
                 "width": {"value": None, "source": None, "refused": why},
             }
         )
+        return refusal
 
 
 # The Python arm's conditions are the measured bundles themselves, not a copy of
@@ -626,7 +627,7 @@ def resolve_worker(explicit: dict[str, str | None], defaults: dict[str, str]) ->
             "without a worker."
         )
 
-    protocol_name = chosen["protocol"] or Protocol.OLLAMA.value
+    protocol_name = chosen["protocol"] or Protocol.OPENAI.value
     try:
         protocol = Protocol(protocol_name)
     except ValueError:
@@ -654,10 +655,10 @@ def check_protocol_can_carry_a_measurement(worker: Worker) -> None:
 
     Every request the rig sends is ``quality_sensitive=True``, because its
     output *is* a measurement of the model. ``runner.generate`` refuses such a
-    request on a caveated path before sending it, so a sweep against Ollama's
-    native ``/api/generate`` produces eighty dispatch errors and no
-    measurement — the failure arriving one request at a time, an hour into a
-    run, phrased as a transport problem.
+    request on a caveated path before sending it, so a sweep dispatched over
+    one produces eighty dispatch errors and no measurement — the failure
+    arriving one request at a time, an hour into a run, phrased as a transport
+    problem.
 
     CAV-01 is why the path is caveated: it scored a model at 32.3% against a
     true 84.1%. The fix is not a different endpoint but a different protocol on
@@ -1119,14 +1120,14 @@ def main() -> int:
         f"(default: {DEFAULT_LANGUAGE.name})",
     )
     parser.add_argument(
-        "--endpoint", help="base URL of the worker, e.g. http://localhost:11434"
+        "--endpoint", help="base URL of the worker, e.g. http://localhost:8080"
     )
     parser.add_argument("--model", help="model name as the backend knows it")
     parser.add_argument(
         "--protocol",
         choices=[p.value for p in Protocol],
         default=None,
-        help=f"wire protocol the endpoint speaks (default: {Protocol.OLLAMA.value})",
+        help=f"wire protocol the endpoint speaks (default: {Protocol.OPENAI.value})",
     )
     parser.add_argument(
         "--api-key-env",

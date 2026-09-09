@@ -1,0 +1,28 @@
+```python
+"""Count the hits a key stream scores on a direct-mapped cache."""
+
+
+def slot_hits(keys: list, slots: int) -> int:
+    """Count the hits a key stream scores on a direct-mapped cache.
+
+    :param keys: List of integers representing cache keys.
+    :param slots: Positive integer representing the number of slots in the cache.
+    :return: Total number of hits.
+    """
+    if not isinstance(slots, int) or slots <= 0:
+        raise ValueError("Slot count must be a positive integer")
+    if not all(isinstance(key, int) for key in keys):
+        raise ValueError("All keys must be integers")
+    
+    held = [None] * slots
+    hits = 0
+    
+    for key in keys:
+        slot = key % slots
+        if held[slot] is not None and held[slot] != key:
+            held[slot] = key
+        else:
+            hits += 1
+    
+    return hits
+```

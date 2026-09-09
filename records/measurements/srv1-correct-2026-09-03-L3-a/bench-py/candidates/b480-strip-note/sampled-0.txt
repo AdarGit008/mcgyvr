@@ -1,0 +1,17 @@
+```python
+def strip_note(title: str) -> str:
+    """
+    Strip a closing note (a round bracket) from the title, and remove any trailing spaces.
+    If there is no note, return the original title.
+    
+    Args:
+    title (str): The title from which to strip the note.
+    
+    Returns:
+    str: The fixed title with the note removed.
+    """
+    opened = title.find("(")
+    if opened == -1:
+        return title
+    return title[:opened].rstrip()
+```

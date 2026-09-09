@@ -1,0 +1,16 @@
+```python
+def code_valid(code: str, length: int) -> bool:
+    """
+    Determine whether a code is valid based on its length and character composition.
+
+    A code is valid when it runs to exactly the stated length and holds nothing
+    but capital letters and digits. A length of zero or less raises a ValueError.
+
+    Args:
+        code: The code string to validate.
+        length: The exact expected length of the code.
+
+    Returns:
+        True if the code has the exact length and contains only uppercase letters and digits.
+
+   

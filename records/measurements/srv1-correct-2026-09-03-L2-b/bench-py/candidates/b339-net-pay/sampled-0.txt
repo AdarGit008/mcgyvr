@@ -1,0 +1,6 @@
+```python
+def net_pay(gross: int, rate: int, fee: int) -> int:
+    """Gross pay less a percentage and then a flat fee."""
+    after_fee = max(gross - fee, 0)
+    return max(after_fee - (after_fee * rate // 100), 0)
+```

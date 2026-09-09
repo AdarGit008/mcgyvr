@@ -1,0 +1,16 @@
+```python
+def end_grab(cards: list) -> dict:
+    if not cards:
+        return {'first': 0, 'second': 0, 'taken': []}
+    
+    first, second = cards[0], cards[-1]
+    taken = [first, second]
+    
+    if first == second:
+        cards = cards[1:-1]
+    else:
+        cards = cards[1:] + cards[:1]
+    
+    total = sum(taken)
+    return {'first': total, 'second': total, 'taken': taken}
+```

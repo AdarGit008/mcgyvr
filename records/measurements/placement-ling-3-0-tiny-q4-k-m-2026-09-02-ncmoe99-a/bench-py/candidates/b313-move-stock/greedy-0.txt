@@ -1,0 +1,9 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    quantity = opening
+    for move in moves:
+        quantity += move
+        if quantity < 0:
+            quantity = 0
+    return quantity
+```

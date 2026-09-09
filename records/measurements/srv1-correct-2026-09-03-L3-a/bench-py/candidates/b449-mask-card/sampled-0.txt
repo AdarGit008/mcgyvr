@@ -1,0 +1,12 @@
+```python
+from typing import *
+from collections import *
+
+def last_four(number: str) -> str:
+    """Returns the last four characters of a card number, or the whole of it when it is shorter."""
+    return number[-4:]
+
+def mask_card(number: str) -> str:
+    """Returns the number with everything but its last four replaced by stars, one star for each character hidden."""
+    return '*' * (len(number) - 4) + number[-4:]
+```

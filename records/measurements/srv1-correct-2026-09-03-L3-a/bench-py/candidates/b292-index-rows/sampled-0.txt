@@ -1,0 +1,23 @@
+```python
+from typing import List, Dict
+
+def row_key(name: str) -> str:
+    """
+    Return the first letter of a name in upper case.
+    """
+    return name[0].upper()
+
+def index_rows(names: List[str]) -> Dict[str, List[str]]:
+    """
+    Returns a dictionary where each key is the row_key of a name
+    and each value is a list of names that start with that key.
+    """
+    index = {}
+    for name in names:
+        if name:
+            row = row_key(name)
+            if row not in index:
+                index[row] = []
+            index[row].append(name)
+    return index
+```

@@ -1,0 +1,13 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    # Reject a first place standing above the second with an error.
+    if start > end:
+        raise ValueError("Start place cannot be greater than end place.")
+    
+    # Ensure places are within the bounds of the string.
+    start = max(0, min(start, len(text)))
+    end = max(0, min(end, len(text)))
+    
+    # Return the part of the text between the two places.
+    return text[start:end]
+```

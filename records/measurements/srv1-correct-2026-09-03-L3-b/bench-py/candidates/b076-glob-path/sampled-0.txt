@@ -1,0 +1,51 @@
+```python
+from typing import *
+from collections import *
+
+def glob_path(pattern: str, path: str) -> bool:
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Pattern and path must be strings.")
+    if not pattern or not path:
+        raise ValueError("Pattern and path cannot be empty.")
+    pattern = path.replace("\\", "/")  # Handle Windows path separators
+    pattern = pattern.replace("//", "/")  # Replace double slashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern.replace("\\\\", "\\")  # Replace double backslashes
+    pattern = pattern

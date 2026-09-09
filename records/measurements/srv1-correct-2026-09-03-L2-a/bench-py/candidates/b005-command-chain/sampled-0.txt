@@ -1,0 +1,42 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    if not isinstance(root, dict) or not isinstance(person, str):
+        raise ValueError("Invalid arguments")
+    
+    def find_root(person):
+        for node in root.values():
+            if node['name'] == person:
+                return node
+        raise ValueError(f"{person} not found in the chart")
+    
+    root_node = find_root(person)
+    result = []
+    
+    def traverse(node):
+        result.append(node['name'])
+        for child in node['reports']:
+            traverse(child)
+    
+    traverse(root_node)
+    return result
+
+def headcount(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid arguments")
+    
+    def count_people(node):
+        return 1 + sum(count_people(child) for child in node['reports'])
+    
+    return count_people(root)
+
+def widest_team(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid arguments")
+    
+    def find_max_depth(node):
+        if not node['reports']:
+            return 0
+        return 1 + max(find_max_depth(child) for child in node['reports'])
+    
+    return max(find_max_depth(node) for node in root.values())
+```

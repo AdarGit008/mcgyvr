@@ -1,0 +1,20 @@
+```python
+def slot_pack(items: list, capacity: int) -> list:
+    """Group items into slots of a fixed capacity, in order, without exceeding capacity and ensuring no items repeat."""
+    if capacity == 0:
+        raise ValueError("Capacity cannot be zero.")
+    
+    slots = []
+    start = 0
+    
+    while start < len(items):
+        end = min(start + capacity, len(items))
+        if end - start == capacity:
+            slots.append(items[start:end])
+            start = end
+        else:
+            slots.append(items[start:end])
+            start = end + 1
+    
+    return slots
+```

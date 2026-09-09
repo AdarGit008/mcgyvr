@@ -36,7 +36,18 @@ from typing import Any
 
 from mcgyvr.capability import CapabilityTable
 from mcgyvr.capability import load as load_table
-from mcgyvr.config import SCHEMA, SCHEMA_VERSION, Config, ConfigError, Field
+from mcgyvr.config import (
+    BREADTH_FIELDS,
+    BUDGET_FIELDS,
+    CLEANUP_FIELDS,
+    DELIVERY_FIELDS,
+    JOURNAL_FIELDS,
+    SCHEMA,
+    SCHEMA_VERSION,
+    Config,
+    ConfigError,
+    Field,
+)
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, Detection, detect, targets_for
@@ -84,7 +95,7 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
         f"with no source or no rung dispatches nowhere.\n\n"
         f"The loader would reject it with: {why}\n\n"
         f"Fix one of these, then re-run:\n"
-        f"  - start a local backend (ollama, llama-server, vLLM, LM Studio, "
+        f"  - start a local backend (llama-server, vLLM, LM Studio, "
         f"TGI) and re-run, or\n"
         f"  - name the rig that serves your models, if it is not this one\n"
         f"    (`mcgyvr init --host srv1 --host srv2`), or\n"
@@ -236,16 +247,29 @@ def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
     return text + "\n"
 
 
+def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
+    """The schema's own default for each named key.
+
+    `init` writes these keys out rather than leaving the renderer to show them
+    commented, so the file says what the loader does. Restating the *value*
+    here makes the file say what the loader used to do: `cleanup.enabled`
+    drifted exactly that way and shipped repair-and-regate turned off against
+    the ruling that turned it on. So a static key is read from the schema and
+    never spelled twice — a moved default reaches a new install by moving.
+    """
+    by_name = {field.name: field for field in fields}
+    return {name: by_name[name].default for name in names}
+
+
 def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
     """The config data implied by what was detected and proposed."""
     sources = {
         backend.name: {
             "base_url": backend.base_url,
-            # How work will be DISPATCHED, which is not always how the backend
-            # was ASKED what it holds. For Ollama they differ on purpose: the
-            # native path enumerates pulled models but is the one CAV-01
-            # measured at 32.3% against a true 84.1% (#164).
-            "api": backend.binds_as,
+            # The wire protocol, asked and dispatched alike. They were once
+            # separate questions; see ``archive/forensic-ollama/`` for the
+            # backend that made them so and the measurement behind it (#164).
+            "api": backend.api,
             "max_parallel": 1,
         }
         for backend in detection.backends
@@ -256,6 +280,9 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
     ]
     return {
         "version": SCHEMA_VERSION,
+        # Written at its default so the file says which setup it is. The
+        # value is the schema's, never spelled here (see `_defaults`).
+        **_defaults(SCHEMA, "profile"),
         "sources": sources,
         "ladder": {"tiers": tiers},
         "orchestrator": {"source": None, "model": None},
@@ -265,21 +292,24 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
             "image": None,
             "setup": [],
         },
-        "delivery": {"mode": "branch"},
-        "budgets": {"max_escalations": 1, "task_timeout_s": 900},
+        "delivery": _defaults(DELIVERY_FIELDS, "mode"),
+        "budgets": _defaults(BUDGET_FIELDS, "max_escalations", "task_timeout_s"),
         # Written out at its default rather than left for the renderer to show
         # commented. An omitted key renders as `# draws:  # unset`, which is
         # true of the file and false of the behaviour: the loader fills 1 in.
         # A knob whose off position is a number is better read than inferred.
-        "breadth": {"draws": 1},
-        "cleanup": {"enabled": False},
+        "breadth": _defaults(BREADTH_FIELDS, "draws"),
+        "cleanup": _defaults(CLEANUP_FIELDS, "enabled"),
+        # Spelled out for the same reason: the journal is where a user's runs
+        # are recorded, and a key they can see is a key they can move.
+        "journal": _defaults(JOURNAL_FIELDS, "dir"),
     }
 
 
 def _sources_for(detection: Detection) -> list[AvailableSource]:
     """Detected backends as proposal inputs.
 
-    ``backend`` is the kind of server (``ollama``, ``vllm``) and drives the
+    ``backend`` is the kind of server (``vllm``, ``llama-server``) and drives the
     table's ``requires_backend`` check; ``name`` is what the source will be
     called in the config, which for a multi-host sweep is qualified with the
     machine. They are the same string on a single-host sweep and must not be
@@ -313,19 +343,8 @@ def _decisions(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
         where = "here" if backend.is_local else f"on {backend.host}"
         decisions.append(
             f"Source '{backend.name}' {where} at {backend.base_url} speaking "
-            f"{backend.binds_as}; {len(backend.models)} model(s) already pulled."
+            f"{backend.api}; {len(backend.models)} model(s) already pulled."
         )
-        if backend.bound_on_another_protocol:
-            decisions.append(
-                f"  '{backend.name}' answered as {backend.api} but is bound as "
-                f"{backend.binds_as}: the same port serves both, with the same "
-                f"model ids. CAV-01 measured the native path scoring "
-                f"qwen2.5-coder:7b at 32.3% against a true 84.1%, so work "
-                f"dispatched on it carries a quality caveat and cannot serve a "
-                f"measurement at all. Detection still asks natively, because "
-                f"that is the only listing that includes models pulled but not "
-                f"loaded."
-            )
     for rung in proposal.rungs:
         presence = (
             "already pulled"

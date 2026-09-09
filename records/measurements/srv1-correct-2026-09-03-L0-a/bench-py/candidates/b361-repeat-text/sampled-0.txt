@@ -1,0 +1,11 @@
+```python
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    """
+    Return a phrase written out a given number of times, the copies joined by a stated separator.
+    Asking for one copy gives the phrase alone with no separator, and asking for none or fewer gives empty text.
+    """
+    if times <= 0:
+        raise ValueError("Number of times must be a positive integer")
+    
+    return between.join([phrase] * times)
+```

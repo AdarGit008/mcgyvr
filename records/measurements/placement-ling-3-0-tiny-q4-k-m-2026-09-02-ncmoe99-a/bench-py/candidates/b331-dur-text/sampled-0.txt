@@ -1,0 +1,5 @@
+```python
+def dur_hours(minutes: int) -> int:
+    return minutes // 60
+
+def dur_text(minutes: int) -> str:

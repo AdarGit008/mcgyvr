@@ -1,0 +1,16 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """Return a list of numbers from `first` to `first + count - 1`."""
+    if count == 0:
+        return []
+    return list(range(first, first + count))
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Find the first number in the range `[first, first + count - 1]` that is not in `seen`."""
+    if first + count > len(seen):
+        return None
+    for i in range(first, first + count):
+        if i not in seen:
+            return i
+    return None
+```

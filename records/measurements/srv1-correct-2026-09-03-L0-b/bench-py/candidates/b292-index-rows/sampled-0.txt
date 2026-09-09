@@ -1,0 +1,21 @@
+```python
+def row_key(name: str) -> str:
+    """Return the first letter of a name in upper case."""
+    if not name:
+        raise ValueError("Name cannot be empty.")
+    return name[0].upper()
+
+def index_rows(names: list) -> dict:
+    """File names under their row_key, each group holding their names in the order they arrived."""
+    if not names:
+        return {}
+    
+    name_to_key = {name: row_key(name) for name in names}
+    index = {}
+    for key, name in name_to_key.items():
+        if key not in index:
+            index[key] = []
+        index[key].append(name)
+    
+    return index
+```

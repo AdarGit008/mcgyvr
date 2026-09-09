@@ -1,0 +1,44 @@
+```python
+def crate_fill(items: int, crates: int) -> list:
+    """
+    Spread items across crates as evenly as possible, returning the sizes largest first.
+
+    Args:
+    - items: The total number of items to be spread.
+    - crates: The total number of crates to spread the items into.
+
+    Returns:
+    - A list of integers representing the sizes of each crate, largest first.
+
+    Raises:
+    - ValueError: If crates is zero or negative.
+    """
+    if crates <= 0:
+        raise ValueError("Number of crates must be positive")
+
+    item_count_per_crate = items // crates
+    leftover_items = items % crates
+
+    if leftover_items == 0:
+        return [item_count_per_crate] * crates
+    else:
+        return [item_count_per_crate] * (crates - leftover_items) + [item_count_per_crate + 1] * leftover_items
+
+def crate_total(sizes: list) -> int:
+    """
+    Add up the sizes of all crates.
+
+    Args:
+    - sizes: A list of integers representing the sizes of each crate.
+
+    Returns:
+    - The total size of all crates.
+
+    Raises:
+    - ValueError: If the list of sizes is empty.
+    """
+    if not sizes:
+        raise ValueError("List of sizes must not be empty")
+
+    return sum(sizes)
+```

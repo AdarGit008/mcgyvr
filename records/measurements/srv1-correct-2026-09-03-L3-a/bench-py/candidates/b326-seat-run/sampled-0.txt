@@ -1,0 +1,26 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+    
+    free_seats = 0
+    min_free_length = float('inf')
+    start_index = -1
+    
+    for i, seat in enumerate(row):
+        if seat == '.':
+            free_seats += 1
+        else:
+            if free_seats > 0:
+                min_free_length = min(min_free_length, free_seats)
+                start_index = i - free_seats + 1
+            free_seats = 0
+    
+    if free_seats > 0:
+        min_free_length = min(min_free_length, free_seats)
+    
+    if min_free_length >= party:
+        return start_index
+    else:
+        return -1
+```

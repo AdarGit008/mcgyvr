@@ -1,0 +1,13 @@
+### srv1 PHASE3 START 2026-09-01T10:29:30+00:00 PL1=95000000 PL2=120000000
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2772	warm_ptok=730
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=12.6	p50=8.04	prefill=73.2	ptok=589	otok=101	early_stop=0/1	failed=0/1	wall=8.0
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=17.3	p50=32.51	prefill=36.2	ptok=588	otok=280	early_stop=0/2	failed=0/2	wall=32.5
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=15.8	p50=52.39	prefill=45.3	ptok=641	otok=223	early_stop=0/4	failed=0/4	wall=56.7
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=17.6	p50=104.18	prefill=45.3	ptok=681	otok=264	early_stop=0/8	failed=0/8	wall=120.5
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2772	warm_ptok=694
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=1	agg=15.4	p50=18.26	prefill=47.5	ptok=868	otok=281	early_stop=0/1	failed=0/1	wall=18.3
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=4	agg=17.5	p50=52.18	prefill=39.3	ptok=580	otok=257	early_stop=0/4	failed=0/4	wall=59.0
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=32	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4944	warm_ptok=590
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=32	n=1	agg=12.4	p50=8.13	prefill=81.1	ptok=660	otok=101	early_stop=0/1	failed=0/1	wall=8.1
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=32	n=4	agg=11.9	p50=45.79	prefill=61.6	ptok=721	otok=138	early_stop=0/4	failed=0/4	wall=46.8
+### srv1 PHASE3 DONE 2026-09-01T10:41:44+00:00 PL1=95000000

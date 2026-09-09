@@ -1,0 +1,22 @@
+```python
+def tag_count(line: str) -> int:
+    """
+    Count the number of markers in a given line.
+    A marker is an opening angle bracket followed by everything up to the next closing angle bracket.
+    An opening bracket is not closed is not a marker.
+    Raises a ValueError if the line contains an unmatched closing bracket.
+    """
+    count = 0
+    depth = 0
+    for char in line:
+        if char == '<':
+            depth += 1
+        elif char == '>':
+            depth -= 1
+            if depth < 0:
+                raise ValueError("Unmatched closing bracket found.")
+            count += 1
+    if depth != 0:
+        raise ValueError("Unmatched opening bracket found.")
+    return count
+```

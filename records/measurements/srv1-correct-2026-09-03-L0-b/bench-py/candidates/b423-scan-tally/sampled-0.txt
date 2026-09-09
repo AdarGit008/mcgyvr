@@ -1,0 +1,17 @@
+```python
+def step_value(step: str) -> int:
+    """Add one if the step is '+', subtract one if the step is '-', otherwise return 0."""
+    if step == "+":
+        return 1
+    if step == "-":
+        return -1
+    return 0
+
+
+def scan_tally(steps: list) -> list:
+    """The running total after each instruction."""
+    total = 0
+    for step in steps:
+        total += step_value(step)
+    return [total]
+```

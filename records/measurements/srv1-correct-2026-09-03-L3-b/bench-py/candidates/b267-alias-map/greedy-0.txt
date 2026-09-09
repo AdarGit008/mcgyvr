@@ -1,0 +1,16 @@
+```python
+def alias_resolve(aliases: dict, name: str) -> str:
+    """
+    Resolve a name to its value, following one hop and no further.
+    If the name stands for nothing, return the name itself.
+    """
+    if name in aliases:
+        return aliases[name]
+    return name
+
+def alias_names(aliases: dict) -> list:
+    """
+    List all names that stand for something, in alphabetical order.
+    """
+    return sorted(aliases.keys())
+```

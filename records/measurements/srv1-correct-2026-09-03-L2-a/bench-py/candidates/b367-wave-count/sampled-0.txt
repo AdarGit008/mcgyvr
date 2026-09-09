@@ -1,0 +1,15 @@
+```python
+def wave_count(readings: list) -> int:
+    """
+    Return how many times a run of readings changes direction.
+    
+    :param readings: List of integers representing readings.
+    :return: Number of changes in direction.
+    """
+    count = 0
+    for i in range(1, len(readings)):
+        if (readings[i] > readings[i - 1] and readings[i + 1] < readings[i]) or \
+           (readings[i] < readings[i - 1] and readings[i + 1] > readings[i]):
+            count += 1
+    return count
+```

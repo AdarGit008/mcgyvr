@@ -1,0 +1,36 @@
+```python
+from typing import Dict, Union
+
+def add_one(tally: Dict[str, int], name: str, amount: int) -> Dict[str, int]:
+    """
+    Adds the specified amount to the count of the given name in the tally.
+    The tally remains unchanged if the name does not exist.
+    
+    Parameters:
+    tally (Dict[str, int]): The input tally.
+    name (str): The name to add to the tally.
+    amount (int): The amount to add to the count of the name.
+    
+    Returns:
+    Dict[str, int]: The updated tally.
+    """
+    if name in tally:
+        tally[name] += amount
+    return tally
+
+def merge_tally(left: Dict[str, int], right: Dict[str, int]) -> Dict[str, int]:
+    """
+    Merges two tallies by adding counts for shared names.
+    
+    Parameters:
+    left (Dict[str, int]): The first tally.
+    right (Dict[str, int]): The second tally.
+    
+    Returns:
+    Dict[str, int]: The merged tally.
+    """
+    merged = left.copy()
+    for name, count in right.items():
+        merged[name] = merged.get(name, 0) + count
+    return merged
+```

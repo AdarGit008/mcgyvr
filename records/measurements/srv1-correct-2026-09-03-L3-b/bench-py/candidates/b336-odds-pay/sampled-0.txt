@@ -1,0 +1,9 @@
+```python
+def payout(stake: int, odds: int) -> int:
+    if stake < 0:
+        raise ValueError("Stake must be non-negative")
+    return stake * odds
+
+def settle_all(bets: list) -> int:
+    return sum(s * o for s, o in bets if s * o > 0)
+```

@@ -1,0 +1,16 @@
+```python
+from typing import *
+from collections import *
+
+def lap_best(laps: List[int]) -> int:
+    """The quickest completed lap of a session."""
+    if not laps:
+        return 0
+    best = laps[0]
+    for lap in laps:
+        if lap == 0:
+            continue
+        if lap < best:
+            best = lap
+    return best
+```

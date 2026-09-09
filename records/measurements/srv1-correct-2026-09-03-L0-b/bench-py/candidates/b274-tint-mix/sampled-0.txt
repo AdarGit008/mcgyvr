@@ -1,0 +1,14 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if volume_a <= 0 or volume_b <= 0 or strength_a <= 0 or strength_b <= 0:
+        raise ValueError("Volume and strength must be positive integers")
+
+    # Calculate the total volume of paint
+    total_volume = volume_a + volume_b
+
+    # Calculate the total strength of the mixture
+    total_strength = (volume_a * strength_a + volume_b * strength_b) // total_volume
+
+    # Return the total strength rounded down to a whole percent
+    return total_strength // 100
+```

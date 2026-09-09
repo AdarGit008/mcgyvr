@@ -1,0 +1,17 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list) or any(not isinstance(yield, int) or yield < 0 for yield in yields):
+        raise ValueError("Input must be a non-empty list of non-negative integers.")
+    
+    total_yield = 0
+    next_workable_day = 0
+    
+    for yield_ in yields:
+        if yield_ == 0:
+            continue
+        
+        total_yield += yield_
+        next_workable_day = max(next_workable_day, yield_ + 1)
+    
+    return total_yield
+```

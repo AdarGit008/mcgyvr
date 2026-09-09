@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def line_clusters(stops: List[str], links: List[tuple[str, str]]) -> List[List[str]]:
+    if not stops or not links:
+        return []
+    
+    cluster_dict = {stop: [] for stop in stops}
+    for start, end in links:
+        if start in cluster_dict:
+            cluster_dict[start].append(end)
+        if end in cluster_dict:
+            cluster_dict[end].append(start)
+    
+    clusters = [list(cluster) for cluster in cluster_dict.values() if cluster]
+    clusters.sort(key=lambda cluster: cluster[0])
+    return clusters
+```

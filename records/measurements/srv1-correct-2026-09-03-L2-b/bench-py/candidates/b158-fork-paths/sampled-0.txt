@@ -1,0 +1,29 @@
+```python
+def fork_paths(pattern: str) -> list:
+    if not pattern or pattern == '/' or pattern == '' or pattern == ',' or pattern == '{':
+        raise ValueError("Invalid pattern")
+    
+    paths = [pattern]
+    
+    def is_fork(segment):
+        return segment[0] == '{' and segment[-1] == '}'
+    
+    def expand_fork(segment):
+        parts = segment[1:-1].split(',')
+        for part in parts:
+            if part in paths:
+                continue
+            paths.append(segment.replace(segment[1:-1], part, 1))
+    
+    while True:
+        new_paths = []
+        for path in paths:
+            if is_fork(path):
+                expand_fork(path)
+            new_paths.extend(paths)
+        if len(new_paths) == len(paths):
+            break
+        paths = new_paths
+    
+    return paths
+```

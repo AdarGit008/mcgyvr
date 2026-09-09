@@ -1,0 +1,39 @@
+```python
+from typing import List, Tuple
+
+def line_cost(price: int, quantity: int) -> int:
+    """
+    Calculate the cost of a single line.
+
+    Args:
+    price (int): The unit price of the item.
+    quantity (int): The quantity of the item.
+
+    Returns:
+    int: The total cost of the line.
+    """
+    return price * quantity
+
+def basket_cost(lines: List[Tuple[int, int]], discount: int) -> int:
+    """
+    Calculate the total cost of all lines in a basket after applying a discount.
+
+    Args:
+    lines (List[Tuple[int, int]]): A list of tuples where each tuple contains
+                                  (unit price, quantity).
+    discount (int): The discount percentage to be applied to the total cost.
+
+    Returns:
+    int: The total cost after applying the discount, rounded down to whole pence.
+    """
+    if not lines:
+        return 0
+    
+    total_cost = sum(line_cost(price, quantity) for price, quantity in lines)
+    
+    if discount > 100:
+        raise ValueError("Discount cannot be above one hundred percent.")
+    
+    discounted_cost = total_cost * (100 - discount) / 100
+    return int(discounted_cost)
+```

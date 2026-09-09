@@ -1,0 +1,21 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """
+    Returns the charge for one step: a fixed sum plus a whole-percent share of the amount, rounded down.
+    :param amount: The amount of the step.
+    :param fixed: The fixed part of the charge.
+    :param percent: The percentage share of the amount to be added.
+    :return: The total charge for one step.
+    """
+    return fixed + (amount * percent) // 100
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    """
+    Returns the charge for each of several amounts, in order.
+    :param amounts: A list of amounts.
+    :param fixed: The fixed part of the charge.
+    :param percent: The percentage share of the amount to be added.
+    :return: A list of charges for each amount.
+    """
+    return [fixed + (amount * percent) // 100 for amount in amounts]
+```

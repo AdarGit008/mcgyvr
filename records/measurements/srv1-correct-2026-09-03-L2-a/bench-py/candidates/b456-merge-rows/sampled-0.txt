@@ -1,0 +1,13 @@
+```python
+def row_keys(row: dict) -> list:
+    return list(row.keys())
+
+
+def merge_rows(under: dict, over: dict) -> dict:
+    """One row laid over another, the row above winning."""
+    merged = dict(over)
+    for key in under.keys():
+        if merged.get(key) is None or under[key] != merged[key]:
+            merged[key] = under[key]
+    return merged
+```

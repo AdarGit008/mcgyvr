@@ -1,0 +1,45 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    if not isinstance(values, list) or not all(isinstance(x, int) for x in values):
+        raise ValueError("values must be a list of integers")
+    if not isinstance(selector, str) or selector == "":
+        raise ValueError("selector must be a non-empty string")
+    
+    def is_valid_term(term):
+        parts = term.split('-')
+        if len(parts) == 1:
+            return parts[0].isdigit() and int(parts[0]) >= 0
+        elif len(parts) == 2:
+            low, high = parts
+            return low.isdigit() and high.isdigit() and int(low) <= int(high) >= 0
+        else:
+            return False
+    
+    def is_valid_range(range_str):
+        parts = range_str.split('-')
+        if len(parts) != 2:
+            return False
+        low, high = parts
+        try:
+            low_val = int(low)
+            high_val = int(high)
+            return low_val <= high_val >= 0
+        except ValueError:
+            return False
+    
+    count = 0
+    for value in values:
+        if value < 0:
+            continue
+        for term in selector.split(','):
+            if is_valid_term(term):
+                if term.isdigit():
+                    if int(term) == value:
+                        count += 1
+                elif is_valid_range(term):
+                    if value in range(int(term.split('-')[0]), int(term.split('-')[1]) + 1):
+                        count += 1
+            elif value == 0:
+                count += 1
+    return count
+```

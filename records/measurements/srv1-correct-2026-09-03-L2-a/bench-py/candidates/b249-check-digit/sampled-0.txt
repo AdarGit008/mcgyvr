@@ -1,0 +1,26 @@
+```python
+def check_digit(code: str) -> int:
+    """
+    Check the validity of a code by calculating the checksum digit.
+
+    Args:
+    code (str): The code to check, consisting of digits and possibly a checksum digit.
+
+    Returns:
+    int: The checksum digit that needs to be added to bring the total up to a multiple of ten.
+
+    Raises:
+    ValueError: If the code contains any non-digit characters.
+    """
+    if not code.isdigit():
+        raise ValueError("Code must contain only digits.")
+
+    # Calculate the sum of digits
+    total = sum(int(digit) for digit in code)
+
+    # Calculate the checksum digit
+    remainder = total % 10
+    checksum = 10 - remainder if remainder != 0 else 0
+
+    return checksum
+```

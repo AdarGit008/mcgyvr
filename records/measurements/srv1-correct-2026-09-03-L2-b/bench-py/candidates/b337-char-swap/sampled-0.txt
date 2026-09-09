@@ -1,0 +1,7 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    return second + first
+
+def swap_all(text: str) -> str:
+    return ''.join([swap_pair(text[i], text[i + 1]) if i + 1 < len(text) else text[i] for i in range(0, len(text), 2)])
+```

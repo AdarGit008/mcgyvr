@@ -1,0 +1,31 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    if not isinstance(installed, str):
+        raise ValueError("installed is not a string")
+    if not isinstance(steps, list):
+        raise ValueError("steps is not a list")
+    if not all(isinstance(step, dict) and len(step) == 2 for step in steps):
+        raise ValueError("steps must be a list of {tag, requires} records")
+    if not all(isinstance(tag, str) and len(tag.split('.')) == 2 for tag in steps):
+        raise ValueError("steps tags must be two dot-separated decimal numbers")
+    if not all(isinstance(requires, int) and requires >= 0 for requires in steps):
+        raise ValueError("steps requires must be a non-negative integer")
+    if not all(tag.split('.')[-1].isdigit() for tag in steps):
+        raise ValueError("steps tags must have a decimal part")
+    if not all(tag.split('.')[0].isdigit() and tag.split('.')[0].lstrip('0') != '' for tag in steps):
+        raise ValueError("steps tags must have a non-zero integer part")
+    if not all(int(tag.split('.')[1]) < int(tag.split('.')[0]) for tag in steps):
+        raise ValueError("steps tags must be in ascending order")
+    
+    carried = installed
+    for step in steps:
+        if carried < step["requires"]:
+            raise ValueError(f"step {step['tag']} requires at least {step['requires']}")
+        if step["tag"] <= carried:
+            raise ValueError(f"step {step['tag']} is not an upgrade from {carried}")
+        carried = step["tag"]
+    return carried
+```

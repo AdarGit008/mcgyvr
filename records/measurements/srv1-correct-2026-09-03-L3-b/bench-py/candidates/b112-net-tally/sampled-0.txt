@@ -1,0 +1,36 @@
+```python
+from typing import List, Tuple, Optional
+
+def net_tally(sheets: List[str]) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    report = []
+    total_sold = total_returned = 0
+    item_counts = {}
+
+    for sheet in sheets:
+        lines = sheet.split('\n')
+        for line in lines:
+            if not line.strip():
+                continue
+            fields = line.split('|')
+            if len(fields) != 3:
+                raise ValueError("invalid row")
+            item, sold, returned = fields
+            sold, returned = map(lambda x: float(x), (sold, returned))
+            if item in item_counts:
+                item_counts[item] = (item_counts[item][0] + sold, item_counts[item][1] + returned)
+            else:
+                item_counts[item] = (sold, returned)
+            total_sold += sold
+            total_returned += returned
+
+    for item, (sold, returned) in item_counts.items():
+        if returned > sold:
+            raise ValueError(f"item {item} returned more than sold")
+        net = sold - returned
+        report.append(f"{item:<{max(len(item) for item in item_counts)}}{net}")
+    report.append(f"{total_sold:<{max(len(item) for item in item_counts)}}{total_sold - total_returned}")
+
+    return '\n'.join(report)
+```

@@ -101,7 +101,7 @@
     ]
   },
   "audit": {
-    "artifact": "docs/archive/sessions/lane/225/2026-08-11-ablation-eligibility-audit.json",
+    "artifact": "archive/docs/archive/sessions/lane/225/2026-08-11-ablation-eligibility-audit.json",
     "covers": [
       "b003-carve-shift",
       "b013-region-totals",

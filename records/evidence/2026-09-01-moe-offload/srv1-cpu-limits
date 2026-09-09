@@ -1,0 +1,20 @@
+#!/bin/bash
+# PL1 95 W / PL2 120 W + ring 4100 MHz.
+# The ASRock Z390 BIOS drops its profile after a hard lock, so these are held here.
+modprobe msr 2>/dev/null
+python3 - <<'PY'
+import struct
+P="/dev/cpu/0/msr"
+def rd(m):
+    with open(P,"rb") as f: f.seek(m); return struct.unpack("<Q",f.read(8))[0]
+def wr(m,v):
+    with open(P,"wb") as f: f.seek(m); f.write(struct.pack("<Q",v))
+pw=1.0/(1<<(rd(0x606)&0xF))
+wr(0x620,(rd(0x620) & ~0x7F) | 41)
+v=rd(0x610)
+v=(v & ~0x7FFF) | int(round(95/pw)) | (1<<15)
+v=(v & ~(0x7FFF<<32)) | (int(round(120/pw))<<32) | (1<<47)
+wr(0x610,v)
+b=rd(0x610)
+print(f"PL1={(b&0x7FFF)*pw:.0f}W PL2={((b>>32)&0x7FFF)*pw:.0f}W ring={(rd(0x620)&0x7F)*100}MHz")
+PY

@@ -1,0 +1,32 @@
+```python
+"""A word-to-line index for a plain-text note."""
+
+import re
+
+WORD_RUN = re.compile(r"[a-z0-9]+")
+
+
+def words_of_line(line):
+    """Lowercase one line and return the maximal runs of ASCII letters and digits in order."""
+    return WORD_RUN.findall(line.lower())
+
+
+def build_word_index(text):
+    """Fix the implementation of build_word_index to correctly index the note."""
+    if not isinstance(text, str):
+        raise ValueError("Note must be a string.")
+    
+    index = {}
+    rows = text.split("\n")
+    for row, line in enumerate(rows, start=1):
+        for word in words_of_line(line):
+            if word not in index:
+                index[word] = []
+            index[word].append(row)
+    
+    # Ensure that each word appears only once per line
+    for word, lines in index.items():
+        index[word] = list(set(lines))
+    
+    return index
+```

@@ -1,0 +1,28 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """
+    Return the price before a whole-percent tax was added.
+
+    Args:
+        gross: The gross price with tax.
+        rate: The tax rate as a whole percent (0-100).
+
+    Returns:
+        The price before tax was applied.
+
+    Examples:
+    >>> vat_back(100, 10)
+    80
+    >>> vat_back(80, 10)
+    72
+    >>> vat_back(0, 10)
+    0
+    >>> vat_back(99, 0)
+    99
+    """
+    if not (0 <= rate <= 100):
+        raise ValueError("Rate must be between 0 and 100.")
+    if rate == 0:
+        return gross
+    return gross * (100 - rate) // 100
+```

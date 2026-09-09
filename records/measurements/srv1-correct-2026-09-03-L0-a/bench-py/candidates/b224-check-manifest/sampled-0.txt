@@ -1,0 +1,27 @@
+```python
+def check_manifest(line: dict) -> dict:
+    # Validate the input dictionary
+    if not isinstance(line, dict):
+        raise ValueError("Input must be a dictionary")
+    
+    # Extract and validate keys
+    keys = ["sku", "count", "note"]
+    for key in keys:
+        if key not in line:
+            line[key] = ""
+    
+    sku = line.get("sku")
+    if not isinstance(sku, str) or not sku.strip():
+        raise ValueError("SKU must be a non-empty string")
+    sku = sku.upper().strip()
+    
+    count = line.get("count")
+    if not isinstance(count, int) or count <= 0:
+        raise ValueError("Count must be a positive whole number")
+    
+    note = line.get("note")
+    if not isinstance(note, str):
+        raise ValueError("Note must be a string")
+    
+    return line
+```

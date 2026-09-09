@@ -1,0 +1,17 @@
+```python
+def index_map(labels: list) -> dict:
+    """
+    Given a list of labels, return a mapping from each label to every position it holds,
+    the positions counted from zero and given in increasing order. A label appearing once still gets a list.
+    
+    :param labels: List of labels
+    :return: Dictionary mapping each label to a list of positions it holds
+    """
+    index_map = {}
+    for i, label in enumerate(labels):
+        if label not in index_map:
+            index_map[label] = [i]
+        else:
+            index_map[label].append(i)
+    return index_map
+```

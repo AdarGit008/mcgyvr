@@ -1,0 +1,31 @@
+```python
+def plural_of(noun: str) -> str:
+    """
+    Return the plural of an English noun.
+
+    Args:
+        noun (str): The noun to pluralize.
+
+    Returns:
+        str: The pluralized noun.
+
+    Examples:
+        >>> plural_of("dog")
+        "dogs"
+        >>> plural_of("cat")
+        "cats"
+        >>> plural_of("box")
+        "boxes"
+        >>> plural_of("boxy")
+        "boxies"
+        >>> plural_of("boy")
+        "boys"
+    """
+    if len(noun) < 2:
+        raise ValueError("Nouns must have at least two characters.")
+    if noun[-2:] in ["sh", "ch", "x", "s"]:
+        return noun + "es"
+    if noun[-1] in "y":
+        return noun[:-1] + "ies"
+    return noun + "s"
+```

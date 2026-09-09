@@ -23,6 +23,7 @@ import dataclasses
 import hashlib
 import importlib.util
 import json
+import subprocess
 import sys
 import types
 from pathlib import Path
@@ -31,7 +32,29 @@ from typing import Any
 import pytest
 
 from mcgyvr.runner import Completion, Request, StopReason
+from mcgyvr.serving import gatelib
 from mcgyvr.worker.reply import ParsedFile
+
+
+@pytest.fixture(autouse=True)
+def _no_rig(monkeypatch: Any) -> None:
+    """No test here reaches a rig: the door's transport answers "unreachable".
+
+    ``tools/breadth/measure.py`` reads the card through ``pin.py`` ->
+    ``contract.ssh`` -> ``gatelib.ssh``, the one transport, which refuses
+    outside a door run. Before the door owned the transport a real ``ssh test``
+    simply failed and ``contract.ssh`` recorded the absent reading as ``None``;
+    this stub is that same absent host, so the rig tests keep exercising the
+    draw plan, the resume and the dispatch-error path and never the transport.
+    """
+
+    def unreachable(
+        host: str, command: str, timeout: float = 120.0, *, input: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([host, command], 255, "", "unreachable")
+
+    monkeypatch.setattr(gatelib, "ssh", unreachable)
+
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -1020,6 +1043,14 @@ def test_a_digest_that_was_null_and_is_now_answered_refuses_the_resume(
     under weights nobody recorded. Appending rows measured under weights
     somebody did would put both in one denominator, and the manifest would
     describe only the second half.
+
+    Driven by replacing `probe_model` rather than the fetcher under it. Since
+    2026-09-06 the probe refuses all four of its fields on every endpoint —
+    the surface that answered them went with its backend — so no arrangement of
+    HTTP stubs can make one of them go from `null` to answered. What is under
+    test is `record_run`'s rule, not how the probe reaches its answer, and the
+    probe is the seam that supplies the field; the day a surface carries weights
+    identity again, this is where it arrives.
     """
     _no_endpoint(monkeypatch)
     invocation = {"started": "2026-08-17T00:00:00+00:00", "tasks": ["t01"]}
@@ -1027,8 +1058,12 @@ def test_a_digest_that_was_null_and_is_now_answered_refuses_the_resume(
 
     monkeypatch.setattr(
         breadth.identity_module,
-        "_get_json",
-        lambda *a, **k: {"models": [{"name": "test-model", "digest": "beef"}]},
+        "probe_model",
+        lambda endpoint, model, **k: (
+            {field: None for field in breadth.identity_module.MODEL_PROBE_FIELDS}
+            | {"model_sha256": "beef"},
+            {},
+        ),
     )
     with pytest.raises(breadth.bundle.MeasureError, match="model_sha256"):
         breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)

@@ -93,7 +93,7 @@ target goes on deciding — :func:`parse_pinned` opens what came back only where
 the target could not hold it as a file, so pinning a schema never turns a real
 ``.json`` file into one of its own fields.
 
-Ported from local-ai's ``extract_code`` (``docs/port-from-local-ai.md``, D14).
+Ported from local-ai's ``extract_code`` (``archive/docs/port-from-local-ai.md``, D14).
 Its second half — a regex that digs a Python triple-quoted string out of
 *invalid* JSON — is deliberately not here: text that is not JSON is not read as
 JSON, or this module has gone back to guessing.
@@ -486,8 +486,8 @@ def parse_pinned(
     which is the guess this module exists to avoid; trying the carrier first
     depends only on the reply being the object that was asked for.
 
-    A backend that ignored the schema — Ollama's native path, an older
-    llama-server, anything behind a proxy that drops unknown fields — reaches
+    A backend that ignored the schema — an older llama-server, anything behind
+    a proxy that drops unknown fields — reaches
     the fenced reader and its file comes out identical, trailing newline
     included. That is what keeps ``response_schema`` settable on the rungs
     where it would help most: pinning one can save an attempt and can never

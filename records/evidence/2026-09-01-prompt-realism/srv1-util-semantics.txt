@@ -1,0 +1,36 @@
+### srv1 UTILSWEEP2 2026-09-01T11:41:56+00:00  vllm sees 5.61 GiB total
+## PART 1 -- solo minimum util, one model at a time on an empty card
+solo q15 util=0.25  REFUSED: ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilizati
+solo q15 util=0.35  used=2206MiB  GPU KV cache size: 14,064 tokens
+solo q15 util=0.45  used=2822MiB  GPU KV cache size: 35,072 tokens
+solo q15 util=0.55  used=3382MiB  GPU KV cache size: 56,064 tokens
+solo q15 util=0.65  used=3942MiB  GPU KV cache size: 77,072 tokens
+solo q3 util=0.25  REFUSED: ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilizati
+solo q3 util=0.35  REFUSED: ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilizati
+solo q3 util=0.45  REFUSED: ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilizati
+solo q3 util=0.55  used=3344MiB  GPU KV cache size: 14,448 tokens
+solo q3 util=0.65  used=3920MiB  GPU KV cache size: 30,784 tokens
+## PART 2 -- q15 fixed first, q3 second, q3 util swept
+first  q15 util=0.30  used=1928MiB free=3816MiB  GPU KV cache size: 3,568 tokens
+second q3  util=0.40 free_before=3816MiB  REFUSED: ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilizati
+second q3  util=0.50 free_before=3816MiB  REFUSED: 
+### srv1 UTILSWEEP3 2026-09-01T12:05:04+00:00  vllm sees 5.61 GiB total
+## DISCRIMINATOR -- q15 fixed at 0.40, q3 swept.
+##  share reading:      q3 budget = util x 5743, so it comes up from ~0.50.
+##  cumulative reading: q3 budget = util x 5743 - q15_used(2288), so it needs
+##                      ~0.89 -- but the free-memory precondition caps util at
+##                      (5727-2288)/5743 = 0.59, so it can NEVER come up.
+## The two readings therefore predict opposite outcomes at 0.50-0.60, and the
+## 0.70 rung should fail with the OTHER error (precondition, not cache blocks),
+## which confirms where the cap sits.
+first  q15 util=0.40  used=2486MiB free=3258MiB  GPU KV cache size: 24,560 tokens
+second q3  util=0.50 free_before=3258MiB pair_used=5474MiB  GPU KV cache size: 6,272 tokens
+second q3  util=0.55 free_before=3258MiB pair_used=5734MiB  GPU KV cache size: 14,448 tokens
+second q3  util=0.60 free_before=3258MiB  REFUSED: ValueError: Free memory on device cuda:0 (3.11/5.61 GiB) on startup is less than desired G
+second q3  util=0.70 free_before=3258MiB  REFUSED: ValueError: Free memory on device cuda:0 (3.11/5.61 GiB) on startup is less than desired G
+### srv1 UTILSWEEP3 DONE 2026-09-01T12:12:52+00:00
+### srv1 REPEATABILITY 2026-09-01T12:19:09+00:00 -- identical command, 3 runs, clean card each
+run1 ok=n pre_used_free=[17, 5727 ] | Model loading took 1.1 GiB |  | 
+run2 ok=y pre_used_free=[17, 5727 ] | Model loading took 1.1 GiB | Available KV cache memory: 0.66 GiB | GPU KV cache size: 24,560 tokens
+run3 ok=y pre_used_free=[17, 5727 ] | Model loading took 1.1 GiB | Available KV cache memory: 0.66 GiB | GPU KV cache size: 24,560 tokens
+### srv1 REPEATABILITY DONE 2026-09-01T12:23:59+00:00

@@ -5,7 +5,7 @@ A bench problem is two arms of the same problem (``tasks/ts/<id>/`` and
 ``tasks/py/<id>/``), each a contract plus a reference solution plus a
 checker, with one ``meta.json`` sidecar in the ts arm (the canonical arm —
 the near-duplicate screen already keys on its prose). The design of record
-is ``docs/bench-design-2026-08-10.md`` §3; the check order below is that
+is ``archive/docs/bench-design-2026-08-10.md`` §3; the check order below is that
 section's, and the execution machinery (fresh directory per candidate,
 contract-declared commands, the 30s ceiling) is the pool gate's, imported
 by path — orchestration is bench-owned, machinery is shared.
@@ -614,8 +614,8 @@ def verify_manifest() -> list[str]:
             for directory in arm_root.iterdir():
                 if not directory.is_dir():
                     continue
-                entry = by_id.get(directory.name)
-                if entry is None:
+                pinned = by_id.get(directory.name)
+                if pinned is None:
                     problems.append(
                         f"{directory.name} is on disk under {root.name}/ but "
                         "not in the manifest"

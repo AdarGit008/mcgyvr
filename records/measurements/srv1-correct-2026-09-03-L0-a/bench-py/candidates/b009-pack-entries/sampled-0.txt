@@ -1,0 +1,21 @@
+```python
+def pack_entries(entries: list) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+
+    def sanitize_entry(entry):
+        if not isinstance(entry, list) or len(entry) != 2:
+            raise ValueError("Each entry must be a two-element list")
+        key, value = entry
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError("Key and value must be strings")
+        if key == "":
+            raise ValueError("Key cannot be empty")
+        return key, value
+
+    sanitized_entries = [sanitize_entry(entry) for entry in entries]
+    key_values = [f"{key}={value}" for key, value in sanitized_entries]
+    escaped_values = [key_values[i].replace("\\", "\\\\").replace(";", "\\;").replace("=", "\\\\=").replace("'", "\'") for i in range(len(key_values))]
+    serialized_str = "; ".join(escaped_values)
+    return serialized_str
+```

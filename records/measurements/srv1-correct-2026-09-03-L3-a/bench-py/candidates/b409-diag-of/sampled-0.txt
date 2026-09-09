@@ -1,0 +1,15 @@
+```python
+# solution.py
+def cell_at(grid: list, row: int, column: int) -> int:
+    if not isinstance(grid, list) or not all(isinstance(i, list) for i in grid) or len(grid) == 0 or row < 0 or column < 0 or row >= len(grid) or column >= len(grid[0]):
+        raise ValueError("Invalid grid or coordinates.")
+    return grid[row][column]
+
+def diag_of(grid: list) -> list:
+    if not isinstance(grid, list) or not all(isinstance(i, list) for i in grid) or len(grid) == 0:
+        raise ValueError("Invalid grid.")
+    diagonal_values = []
+    for i in range(len(grid)):
+        diagonal_values.append(grid[i][i])
+    return diagonal_values
+```

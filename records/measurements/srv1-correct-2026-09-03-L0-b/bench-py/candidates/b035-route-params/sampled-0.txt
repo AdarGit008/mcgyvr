@@ -1,0 +1,39 @@
+```python
+def split_segments(path: str) -> list:
+    if not path or not path.startswith("/"):
+        raise ValueError("Path must be non-empty and start with a slash")
+    return [segment for segment in path[1:].split("/") if segment]
+
+def match_route(pattern: str, path: str) -> dict | None:
+    if not pattern or not pattern.startswith("/"):
+        raise ValueError("Pattern must be non-empty and start with a slash")
+    
+    segments = split_segments(path)
+    pattern_segments = split_segments(pattern)
+    
+    if len(segments) != len(pattern_segments):
+        return None
+    
+    route = {}
+    pattern_index = 0
+    
+    for segment, pattern_segment in zip(segments, pattern_segments):
+        if pattern_segment == "*":
+            route[pattern_segment] = segments[pattern_index:]
+            break
+        elif pattern_segment == "**":
+            route[pattern_segment] = segments[pattern_index:]
+            pattern_index += 1
+        elif pattern_segment.startswith(":"):
+            capture_name = pattern_segment[1:]
+            if not capture_name.isalnum() or capture_name.isupper():
+                raise ValueError("Capture name must be a letter or underscore followed by letters, digits or underscores")
+            if capture_name in route:
+                raise ValueError("Capture name repeated within the pattern")
+            route[capture_name] = segment
+        else:
+            if segment != pattern_segment:
+                return None
+    
+    return route
+```

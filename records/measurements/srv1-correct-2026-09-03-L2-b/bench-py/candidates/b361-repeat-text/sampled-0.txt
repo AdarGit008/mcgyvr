@@ -1,0 +1,17 @@
+```python
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    """
+    Return a phrase written out 'times' number of times, the copies joined by 'between'.
+
+    Args:
+    phrase: The phrase to be repeated.
+    times: The number of times the phrase should be repeated.
+    between: The separator between each repetition.
+
+    Returns:
+    A string with the phrase repeated 'times' times, joined by 'between'.
+    """
+    if times <= 0:
+        raise ValueError("Number of times must be positive")
+    return between.join([phrase] * times)
+```

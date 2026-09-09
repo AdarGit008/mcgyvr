@@ -1,0 +1,21 @@
+```python
+def tags_of(line: str) -> list:
+    return [tag.strip() for tag in line.split(',') if tag.strip()]
+
+def tag_index(lines: list) -> dict:
+    if not all(isinstance(line, str) for line in lines):
+        raise ValueError("All input lines must be strings")
+    if not all(line.strip() for line in lines):
+        raise ValueError("All input lines must contain some text")
+    if len(lines) == 0:
+        return {}
+
+    tag_map = {}
+    for i, line in enumerate(lines):
+        for tag in tags_of(line):
+            if tag in tag_map:
+                tag_map[tag].append(i)
+            else:
+                tag_map[tag] = [i]
+    return tag_map
+```

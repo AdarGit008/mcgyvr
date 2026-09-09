@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def poll_gaps(minutes: List[int]) -> List[int]:
+    if not minutes:
+        raise ValueError("Input list cannot be empty")
+    
+    if len(minutes) < 2:
+        return []
+    
+    first_run = minutes[0]
+    last_run = minutes[-1]
+    gaps = [last_run - first_run]
+    
+    for i in range(1, len(minutes)):
+        if minutes[i] != minutes[i-1]:
+            gaps.append(minutes[i] - minutes[i-1])
+    
+    return gaps
+```

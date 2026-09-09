@@ -1,0 +1,38 @@
+```python
+from typing import *
+from collections import OrderedDict
+
+def new_cache(limit: int) -> dict:
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("limit must be a positive integer")
+    return {
+        'limit': limit,
+        'keys': OrderedDict(),
+        'store': OrderedDict()
+    }
+
+def cache_write(cache: dict, key: str, value: int) -> list:
+    if not isinstance(key, str) or not key:
+        raise ValueError("key must be a non-empty string")
+    if not isinstance(value, int):
+        raise ValueError("value must be an integer")
+    
+    if key in cache['keys']:
+        cache['keys'].move_to_end(key)
+    else:
+        cache['keys'].add(key)
+        if len(cache['keys']) > cache['limit']:
+            cache['keys'].popitem(last=False)
+    
+    cache['store'][key] = value
+    return [key] if len(cache['keys']) == cache['limit'] else []
+
+def cache_read(cache: dict, key: str) -> int:
+    if not isinstance(key, str) or not key:
+        raise ValueError("key must be a non-empty string")
+    if key not in cache['keys']:
+        raise ValueError("key is not held")
+    
+    cache['keys'].move_to_end(key)
+    return cache['store'][key]
+```

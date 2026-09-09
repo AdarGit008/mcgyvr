@@ -1,0 +1,15 @@
+```python
+def stamp_build(major: int, minor: int, patch: int) -> int:
+    if not (isinstance(major, int) and isinstance(minor, int) and isinstance(patch, int)):
+        raise ValueError("All components must be integers")
+    if major < 0 or minor < 0 or patch < 0:
+        raise ValueError("Components cannot be negative")
+    if major == 0 and minor == 0 and patch == 0:
+        raise ValueError("A release cannot have all components as zero")
+    if major == 0 and minor == 0 and patch > 0:
+        raise ValueError("A release cannot have all components as zero and a patch of 1000 or more")
+    if major == 0 and minor > 0 and patch > 0:
+        raise ValueError("A release cannot have all components as zero, a minor of 1000 or more, and a patch of 1000 or more")
+    if major > 0 and minor > 0 and patch > 0:
+        return patch + 1000 * minor + 1000000 * major
+```

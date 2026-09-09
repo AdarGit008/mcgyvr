@@ -1,0 +1,27 @@
+```python
+def order_release_tags(tags: list) -> list:
+    def compare_tags(tag1: str, tag2: str) -> int:
+        def parse_tag(tag: str) -> tuple:
+            parts = tag.split('-')
+            if len(parts) == 2:
+                major, minor, patch = parts[0].split('.')[:3]
+                preview = parts[1]
+                return int(major), int(minor), int(patch), preview
+            else:
+                major, minor, patch = parts[0].split('.')[:3]
+                return int(major), int(minor), int(patch)
+
+        tag1_parts = parse_tag(tag1)
+        tag2_parts = parse_tag(tag2)
+        
+        for i in range(3):
+            if tag1_parts[i] != tag2_parts[i]:
+                return tag1_parts[i] - tag2_parts[i]
+        
+        if tag1_parts[3] == tag2_parts[3]:
+            return 0
+        else:
+            return 1 if tag1_parts[3] < tag2_parts[3] else -1
+
+    return sorted(tags, key=lambda t: (-compare_tags(t, t)))
+```

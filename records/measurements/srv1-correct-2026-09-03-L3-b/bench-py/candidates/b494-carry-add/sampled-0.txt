@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def carry_add(left: List[int], right: List[int]) -> List[int]:
+    result = []
+    carry = 0
+    left_index, right_index = 0, 0
+    
+    while left_index < len(left) or right_index < len(right) or carry > 0:
+        if left_index < len(left):
+            carry += left[left_index]
+            left_index += 1
+        if right_index < len(right):
+            carry += right[right_index]
+            right_index += 1
+        
+        result.append(carry % 10)
+        carry //= 10
+    
+    # Tidy leading zeros
+    while result and result[0] == 0:
+        result.pop(0)
+    
+    return result[::-1]
+```

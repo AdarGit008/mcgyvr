@@ -1,0 +1,25 @@
+```python
+from typing import *
+from math import ceil, floor
+
+def plan_batches(units: int, capacity: int) -> dict:
+    if not isinstance(units, int) or not isinstance(capacity, int) or units <= 0 or capacity <= 0:
+        raise ValueError("units and capacity must be positive integers")
+    
+    if units <= capacity:
+        return {"loads": [units], "splits": 0, "rounds": 0}
+    
+    half_units = ceil(units / 2)
+    half_capacity = ceil(capacity / 2)
+    
+    left_load, left_splits, left_rounds = plan_batches(half_units, half_capacity)
+    right_load, right_splits, right_rounds = plan_batches(units - half_units, half_capacity)
+    
+    total_rounds = max(left_rounds, right_rounds) + 1
+    
+    return {
+        "loads": [left_load, right_load],
+        "splits": left_splits + right_splits + 1,
+        "rounds": total_rounds
+    }
+```

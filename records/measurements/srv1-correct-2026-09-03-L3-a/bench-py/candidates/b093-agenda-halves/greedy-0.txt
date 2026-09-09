@@ -1,0 +1,59 @@
+```python
+from typing import List, Tuple
+
+def split_agenda(sessions: List[Tuple[int, int]], limit: int) -> List[Tuple[int, int]]:
+    if not sessions or not limit:
+        raise ValueError("Sessions or limit cannot be empty.")
+    
+    if not all(isinstance(session, tuple) and len(session) == 2 for session in sessions):
+        raise ValueError("Sessions must be a list of tuples.")
+    
+    if not all(isinstance(session[0], int) and isinstance(session[1], int) for session in sessions):
+        raise ValueError("Session start and end times must be integers.")
+    
+    if not all(session[0] <= session[1] for session in sessions):
+        raise ValueError("Sessions must be in chronological order.")
+    
+    if not all(isinstance(limit, int) and limit > 0 for limit in [limit]):
+        raise ValueError("Limit must be a positive integer.")
+    
+    if not all(session[0] >= 0 for session in sessions):
+        raise ValueError("Session start times must be non-negative.")
+    
+    if not all(session[0] <= limit for session in sessions):
+        raise ValueError("Session start times must not exceed the limit.")
+    
+    if not all(session[0] < session[1] for session in sessions):
+        raise ValueError("Sessions must not overlap.")
+    
+    blocks = []
+    current_block = []
+    current_start = None
+    
+    for session in sessions:
+        if current_start is None:
+            current_start = session[0]
+            current_block.append(session)
+        else:
+            if session[0] > current_start:
+                if current_block:
+                    blocks.append(current_block)
+                    current_block = [session]
+                else:
+                    raise ValueError("Sessions must be in chronological order.")
+            else:
+                current_block.append(session)
+    
+    if current_block:
+        blocks.append(current_block)
+    
+    for i in range(len(blocks)):
+        if blocks[i][1] - blocks[i][0] > limit:
+            mid = (blocks[i][0] + blocks[i][1]) // 2
+            if blocks[i][1] - mid > limit:
+                mid -= 1
+            blocks[i][1] = mid
+            blocks[i][0] = mid + 1
+    
+    return blocks
+```

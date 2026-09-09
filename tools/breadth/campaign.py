@@ -34,7 +34,7 @@ away nothing. `campaign.json` records every decision the driver made.
 Usage::
 
     uv run --no-sync python tools/breadth/campaign.py \\
-        --endpoint http://srv1:11434 --protocol openai \\
+        --endpoint http://srv1:8080 --protocol openai \\
         --models qwen2.5-coder:1.5b,qwen2.5-coder:3b,llama3.2:3b,qwen2.5-coder:7b \\
         --out records/measurements/breadth-campaign-2026-08-06/srv1
 """
@@ -167,7 +167,7 @@ def run_stage(
                 aborted = task.id
                 break
     measure.record_completeness(out)
-    all_rows = measure.read_rows(rows_path)
+    all_rows: list[dict[str, Any]] = measure.read_rows(rows_path)
     (out / "summary.md").write_text(
         measure.summarise(rows_path) + "\n", encoding="utf-8"
     )

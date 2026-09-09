@@ -1,0 +1,105 @@
+journal: records/evidence/serving-2026-08-30/lcpp-srv1.jsonl
+[srv1] snapshot
+[srv1] d3b-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] d3b-lcpp-srv1 — concurrency ramp
+[srv1] d4b-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] d4b-lcpp-srv1 — concurrency ramp
+[srv1] d7b-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] d7b-lcpp-srv1 — concurrency ramp
+[srv1] docr7b-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] docr7b-lcpp-srv1 — concurrency ramp
+[srv1] m_ling-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_ling-lcpp-srv1 — concurrency ramp
+[srv1] m_dsv2-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_dsv2-lcpp-srv1 — concurrency ramp
+[srv1] m_gemma4-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_gemma4-lcpp-srv1 REFUSED: ['ollama', 'vllm'] would not give up the card before m_gemma4-lcpp-srv1: ollama=None MiB, vllm=None MiB. Measuring now would place this model behind another engine's allocation, where it is served from CPU at a fraction of the speed and nothing in the result looks wrong.
+[srv1] m_q36iq2-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_q36iq2-lcpp-srv1 REFUSED: ['ollama', 'vllm'] would not give up the card before m_q36iq2-lcpp-srv1: ollama=None MiB, vllm=None MiB. Measuring now would place this model behind another engine's allocation, where it is served from CPU at a fraction of the speed and nothing in the result looks wrong.
+[srv1] m_oss20-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_oss20-lcpp-srv1 REFUSED: ['ollama', 'vllm'] would not give up the card before m_oss20-lcpp-srv1: ollama=None MiB, vllm=None MiB. Measuring now would place this model behind another engine's allocation, where it is served from CPU at a fraction of the speed and nothing in the result looks wrong.
+[srv1] final release of llamacpp: released=False card=None MiB
+[srv1] final release of ollama: released=False card=None MiB
+[srv1] final release of vllm: released=False card=None MiB
+
+wrote records/evidence/serving-2026-08-30/lcpp-srv1.json (291945 bytes)
+  srv1/d3b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/d4b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/d7b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/docr7b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/m_ling-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/m_dsv2-lcpp-srv1: ok  saturation_n REFUSED: only level n=1 survived; a curve with one point has no saturation point, and the rest were dropped: [{'n': 2, 'errors': 2, 'error_kinds': ['TimeoutError'], 'uncounted': 0}, {'n': 4, 'errors': 4, 'error_kinds': ['URLError'], 'uncounted': 0}, {'n': 8, 'errors': 8, 'error_kinds': ['URLError'], 'uncounted': 0}]
+  srv1/m_gemma4-lcpp-srv1: REFUSED
+  srv1/m_q36iq2-lcpp-srv1: REFUSED
+  srv1/m_oss20-lcpp-srv1: REFUSED
+  family qwen2.5-coder-3b: single member — nothing to compare  [1 of 1]
+  family qwen3-4b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-7b: single member — nothing to compare  [1 of 1]
+  family opencodereasoning-nemotron-7b: single member — nothing to compare  [1 of 1]
+  family ling-3.0-tiny: single member — nothing to compare  [1 of 1]
+  family deepseek-coder-v2-16b: single member — nothing to compare  [1 of 1]
+  family gemma-4-26b-a4b: no member was measured  [0 of 1]
+  family qwen3.6-35b-a3b: no member was measured  [0 of 1]
+  family gpt-oss-20b: no member was measured  [0 of 1]
+journal: records/evidence/serving-2026-08-30/lcpp-srv1.jsonl
+resuming: 6 entries already measured
+[srv1] snapshot
+[srv1] d3b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d4b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] docr7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_ling-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_dsv2-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_gemma4-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_gemma4-lcpp-srv1 — concurrency ramp
+[srv1] m_q36iq2-lcpp-srv1 (llamacpp) — yielding the card
+journal: records/evidence/serving-2026-08-30/lcpp-srv1.jsonl
+resuming: 5 entries already measured
+[srv1] snapshot
+[srv1] d3b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d4b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] docr7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_ling-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_dsv2-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_dsv2-lcpp-srv1 — concurrency ramp
+[srv1] m_dsv2-lcpp-srv1 — ramp_failed: [2, 4, 8] measured nothing
+[srv1] m_gemma4-lcpp-srv1 (llamacpp) — yielding the card
+journal: records/evidence/serving-2026-08-30/lcpp-srv1.jsonl
+resuming: 6 entries already measured
+[srv1] snapshot
+[srv1] d3b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d4b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] docr7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_ling-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_dsv2-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_gemma4-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_gemma4-lcpp-srv1 — concurrency ramp
+[srv1] m_q36iq2-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_q36iq2-lcpp-srv1 — concurrency ramp
+[srv1] m_oss20-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_oss20-lcpp-srv1 — concurrency ramp
+[srv1] final release of llamacpp: released=True card=17 MiB
+[srv1] final release of ollama: released=True card=17 MiB
+[srv1] final release of vllm: released=True card=17 MiB
+
+wrote /tmp/claude-1000/-home-adaramir-claude-mcgyvr/900783a7-45cd-4deb-bc61-19e752dde5ed/scratchpad/lcpp-srv1.out.json (463720 bytes)
+  srv1/d3b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/d4b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/d7b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/docr7b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/m_ling-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/m_dsv2-lcpp-srv1: ok  saturation_n=4 @475tok
+  srv1/m_gemma4-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/m_q36iq2-lcpp-srv1: ok  saturation_n=4 @475tok
+  srv1/m_oss20-lcpp-srv1: ok  saturation_n=4 @475tok
+  family qwen2.5-coder-3b: single member — nothing to compare  [1 of 1]
+  family qwen3-4b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-7b: single member — nothing to compare  [1 of 1]
+  family opencodereasoning-nemotron-7b: single member — nothing to compare  [1 of 1]
+  family ling-3.0-tiny: single member — nothing to compare  [1 of 1]
+  family deepseek-coder-v2-16b: single member — nothing to compare  [1 of 1]
+  family gemma-4-26b-a4b: single member — nothing to compare  [1 of 1]
+  family qwen3.6-35b-a3b: single member — nothing to compare  [1 of 1]
+  family gpt-oss-20b: single member — nothing to compare  [1 of 1]

@@ -1,0 +1,19 @@
+```python
+def tag_trim(tag: str) -> str:
+    """
+    Remove leading and trailing markers from a tag.
+
+    Args:
+    tag (str): The tag to trim.
+
+    Returns:
+    str: The trimmed tag without leading or trailing markers.
+    """
+    if not tag:
+        return tag
+
+    leading_marker = "#" if tag.startswith("#") else ""
+    trailing_marker = ":" if tag.endswith(":") else ""
+
+    return leading_marker + tag[len(leading_marker):-len(trailing_marker)]
+```

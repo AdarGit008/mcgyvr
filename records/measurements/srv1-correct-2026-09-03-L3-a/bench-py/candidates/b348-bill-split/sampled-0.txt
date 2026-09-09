@@ -1,0 +1,17 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    """
+    Divide a bill between a number of diners so that each pays a whole number of pence.
+    The first diner pays the total amount without any remainder, and the rest pay the
+    remainder. Returns the amount each diner pays, in order.
+    
+    :param total: The total amount of the bill in pence.
+    :param diners: The number of diners.
+    :return: A list of integers where each integer is the amount each diner pays.
+    """
+    if not diners:
+        raise ValueError("There are no diners.")
+    
+    remainder = total % diners
+    return [total // diners] * (diners - 1) + [remainder]
+```

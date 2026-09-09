@@ -1,0 +1,12 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    """Apply stock movements starting from an opening quantity.
+
+    Stock never falls below zero, so a removal larger than what is held
+    empties it instead. Returns the closing quantity.
+    """
+    current = opening
+    for move in moves:
+        current += move
+        if current < 0:
+            current

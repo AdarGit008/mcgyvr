@@ -1,0 +1,69 @@
+```python
+import struct
+
+def unpack_frame(data: list) -> list:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+
+    readings = []
+    total_sum = 0
+
+    for i in range(len(data)):
+        if not isinstance(data[i], int) or data[i] < 0 or data[i] > 255:
+            raise ValueError("Byte must be an integer from 0 to 255")
+
+        if i == len(data) - 1 and data[i] != total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 2 and data[i] == 0:
+            raise ValueError("Wasted zero in a varint")
+
+        if i == len(data) - 3 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 4 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 5 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 6 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 7 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 8 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 9 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 10 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 11 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 12 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 13 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 14 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 15 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 16 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 17 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i == len(data) - 18 and data[i] == total_sum % 256:
+            raise ValueError("Trailer byte does not equal the byte sum")
+
+        if i

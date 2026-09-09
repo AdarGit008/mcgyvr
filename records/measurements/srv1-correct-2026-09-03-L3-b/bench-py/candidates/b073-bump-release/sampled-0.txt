@@ -1,0 +1,30 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    # Validate input
+    if not isinstance(version, str) or len(version) != 3 or any(c not in '0123456789.' for c in version):
+        raise ValueError("Invalid version string")
+    if part not in ['major', 'minor', 'patch']:
+        raise ValueError("Invalid part name")
+    
+    # Split the version into components
+    parts = version.split('.')
+    
+    # Validate each part
+    for i, part_val in enumerate(parts):
+        if not part_val.isdigit() or part_val == '0':
+            raise ValueError(f"Part {part} must be a non-negative integer")
+        if i == 0 and int(part_val) == 0:
+            raise ValueError("Part 0 cannot be zero")
+    
+    # Determine the next part value
+    if part == 'major':
+        next_part = int(parts[0]) + 1
+        next_version = f"{next_part}.{parts[1]}.{parts[2]}"
+    elif part == 'minor':
+        next_part = int(parts[1]) + 1
+        next_version = f"{parts[0]}.{next_part}.{parts[2]}"
+    else:
+        next_version = f"{parts[0]}.{parts[1]}.{int(parts[2]) + 1}"
+    
+    return next_version
+```

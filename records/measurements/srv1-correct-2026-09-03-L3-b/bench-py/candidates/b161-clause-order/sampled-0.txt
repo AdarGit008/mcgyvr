@@ -1,0 +1,75 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    if not isinstance(a, str) or not isinstance(b, str):
+        raise ValueError("Both arguments must be strings.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b:
+        raise ValueError("Both arguments must not be empty.")
+    if not a.isdigit() or not b.isdigit():
+        raise ValueError("Both arguments must be decimal integers.")
+    if not a or not b

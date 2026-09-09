@@ -49,7 +49,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:
@@ -82,7 +82,10 @@ task_type: function_implementation
 task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
-acceptance: ["sh -c 'grep -q RETRY {TARGET}'"]
+demonstration: ["sh -c 'grep -q RETRY {TARGET}'"]
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """
@@ -132,7 +135,7 @@ def _completion(text: str):  # type: ignore[no-untyped-def]
         raw_stop_reason="stop",
         model="qwen2.5-coder:7b",
         source="workstation",
-        protocol=Protocol.OLLAMA,
+        protocol=Protocol.OPENAI,
         max_output_tokens=1024,
         latency_s=0.0,
     )
@@ -236,9 +239,17 @@ def test_the_ladder_is_found_the_way_every_other_command_finds_it(
     code = main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
 
     assert code == 0
-    # No `--commit`, so the verdict was reached and nothing was written — the
-    # same bargain the deterministic path makes.
-    assert (repo / TARGET).read_text(encoding="utf-8") == BASE
+    # No `--commit`, so the accepted file is left in the working tree and the
+    # repository is otherwise untouched — the same bargain the deterministic
+    # path makes (owner's ruling, 2026-09-03: output files, no commit).
+    assert (repo / TARGET).read_text(encoding="utf-8").startswith("RETRY = 3\n")
+    log = subprocess.run(
+        ["git", "-C", str(repo), "log", "--format=%s"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "RETRY" not in log.stdout and len(log.stdout.splitlines()) == 1, log.stdout
 
 
 def test_an_install_with_no_rung_is_told_what_to_bind(
@@ -521,16 +532,25 @@ MESSY = "RETRY = 3\n\n\ndef fetch( url ):\n    return  url\n"
 #: What `ruff format` makes of it, and what the repository must end up holding.
 TIDIED = "RETRY = 3\n\n\ndef fetch(url):\n    return url\n"
 
-#: Misformatted *and* wrong. The unused import is two lint findings, which no
-#: formatter answers, and they arrive in the same `findings` tuple as the
-#: format one.
-MESSY_AND_BROKEN = "import  os\n\nRETRY = 3\n\n\ndef fetch( url ):\n    return  url\n"
+#: Misformatted *and* wrong: no RETRY, so the acceptance command fails, and
+#: no tool answers that. (An unused import used to stand here; since
+#: 2026-09-05 the linter's own autofix removes one, which is the point.)
+MESSY_AND_BROKEN = "def fetch( url ):\n    return  url\n"
 
 TIDYING = (
     LADDER
     + """
 cleanup:
   enabled: true
+"""
+)
+#: The knob turned off by hand. Since 2026-09-05 a config that says nothing
+#: tidies (owner's ruling), so "not tidied" is something an install asks for.
+NOT_TIDYING = (
+    LADDER
+    + """
+cleanup:
+  enabled: false
 """
 )
 
@@ -631,16 +651,15 @@ def test_the_bytes_that_were_delivered_are_the_bytes_that_were_re_gated(
     assert landed == TIDIED
 
 
-def test_enabling_the_cleanup_does_not_tidy_a_correctness_rejection(
+def test_enabling_the_cleanup_does_not_rescue_a_wrong_answer(
     repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Style is cleaned; correctness is rejected, and the knob does not blur that.
+    """Style is repaired; a wrong answer is rejected, and the knob does not blur that.
 
-    The reply is misformatted *and* carries an unused import, so the rejection is
-    not one the formatter raised and the bytes must come back untouched. A
-    cleanup that rewrote them would hand the next attempt a file the worker never
-    wrote, and every retry note about "your change" would be about somebody
-    else's.
+    The reply is misformatted *and* wrong — it never names RETRY, so the
+    acceptance command fails — and no fixer answers that. The tools may tidy
+    the sandbox copy on the way to the second verdict; the repository must
+    come back untouched and the run must fail.
 
     Asserted through the repository because that is where the damage would be:
     the run must fail and write nothing, not tidy its way to a commit. The
@@ -673,15 +692,16 @@ def test_enabling_the_cleanup_does_not_tidy_a_correctness_rejection(
     assert (repo / TARGET).read_bytes() == before
 
 
-def test_an_install_that_asked_for_nothing_is_not_tidied(
+def test_an_install_that_turned_the_cleanup_off_is_not_tidied(
     repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The knob is off, and off means the formatter is never reached.
 
     ``tidy`` rewrites a change after the gate has spoken about it, which is a
-    rewrite of somebody's file on a verdict they cannot see. That is worth having
-    and it is not worth having by default, so an install that asked for nothing
-    gets the rejection the gate reached and no fourth party touching the bytes.
+    rewrite of somebody's file on a verdict they cannot see. Since 2026-09-05
+    that is the default (owner: the formatter after a rung is the point), so
+    the install that does not want it says so — and having said so, gets the
+    rejection the gate reached and no fourth party touching the bytes.
 
     Spying rather than inferring: the format-only rejection already failed the
     run before this lever existed, so an assertion on the exit code alone would
@@ -689,7 +709,7 @@ def test_an_install_that_asked_for_nothing_is_not_tidied(
     """
     from mcgyvr.cli import main
 
-    config = _config(tmp_path)
+    config = _config(tmp_path, NOT_TIDYING)
     seen = _tidies_seen(monkeypatch)
     _answers(monkeypatch, _fenced(MESSY))
 
@@ -754,7 +774,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   hosted:
     base_url: https://api.example.invalid
@@ -994,7 +1014,10 @@ task_type: function_implementation
 task: Add a backoff helper in its own module.
 target: {NEW_FILE}
 stop_conditions: ["The backoff curve is not stated."]
-acceptance: ["sh -c 'grep -q backoff {NEW_FILE}'"]
+demonstration: ["sh -c 'grep -q backoff {NEW_FILE}'"]
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """

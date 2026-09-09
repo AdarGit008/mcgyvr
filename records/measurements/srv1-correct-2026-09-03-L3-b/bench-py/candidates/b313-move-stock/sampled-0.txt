@@ -1,0 +1,13 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    if opening is None or not moves or opening < 0:
+        raise ValueError("Invalid input")
+    
+    closing = opening
+    for move in moves:
+        closing += move
+        if closing < 0:
+            closing = 0
+    
+    return closing
+```

@@ -1,0 +1,20 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    if not isinstance(shelf, dict) or not all(isinstance(item, str) and isinstance(count, int) for item, count in shelf.items()):
+        raise ValueError("Invalid shelf")
+    
+    if not isinstance(order, list):
+        raise ValueError("Invalid order")
+    
+    for line in order:
+        if len(line) != 2:
+            raise ValueError("Invalid order line")
+        item, count = line
+        if item not in shelf or count <= 0 or not isinstance(count, int):
+            raise ValueError(f"Invalid order line: {line}")
+        if shelf[item] < count:
+            raise ValueError(f"Invalid order line: {line}")
+        shelf[item] -= count
+    
+    return shelf
+```

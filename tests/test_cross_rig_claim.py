@@ -2,7 +2,8 @@
 
 The width-16 ramp read srv2 at 15.42x of a single stream and srv1 at 3.76x, and
 the campaign README concludes from it that "the gap is hardware, not
-configuration" (`records/evidence/calibration-2026-08-19/README.md:983-987`),
+configuration"
+(`archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:983-987`),
 resting on one controlled flag: `--enforce-eager` on both hosts. The owner's
 hunch on record is the opposite — "something feels off — maybe config".
 

@@ -1,0 +1,4 @@
+### START run_id=2026-09-05-e2e-srv1-default-step host=srv1 pl1=95000000 pl2=120000000 uptime_since=2026-09-01T08:11:08Z
+### ROUND id=r4-05-09-2026 product_sha256=db4bfba1873b79b248fe47ea8fa4e087f33b7bdf21aeeed7fc654127b59518a8
+srv1	Qwen2.5-Coder-3B-Instruct-Q4_K_M	OK	arm=at_floor	n_cpu_moe=0	try=1/3	predicted_mib=NA	measured_mib=2554	delta_mib=NA	free_before_mib=5727	img=llamacpp@sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6	reason=NA
+### END run_id=2026-09-05-e2e-srv1-default-step free_mib=5727 pl1=95000000 pl2=120000000

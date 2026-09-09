@@ -1,0 +1,19 @@
+```python
+from typing import *
+
+def path_clean(path: str) -> str:
+    """
+    Remove every segment of two dots by dropping it together with the segment standing before it,
+    and return what remains joined by slashes. Two dots with nothing before them are dropped alone.
+    """
+    cleaned_path = []
+    for i in range(len(path)):
+        if path[i] == '.':
+            if i > 0 and path[i-1] != '.':
+                cleaned_path.pop()
+            elif i == 0:
+                cleaned_path.pop()
+        else:
+            cleaned_path.append(path[i])
+    return ''.join(cleaned_path)
+```

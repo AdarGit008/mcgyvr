@@ -1,0 +1,15 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    """Check if the cell at (row, column) holds the specified value."""
+    if not grid:
+        raise ValueError("The grid is empty.")
+    return grid[row][column] == value
+
+def grid_find(grid: list, value: int) -> list:
+    """Find the first occurrence of the specified value in the grid."""
+    for row_index, row in enumerate(grid):
+        for col_index, cell in enumerate(row):
+            if cell == value:
+                return [row_index, col_index]
+    raise ValueError(f"The value {value} is not found in the grid.")
+```

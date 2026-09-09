@@ -153,6 +153,38 @@ class Consensus:
     chosen: int
     gates: tuple[GateResult, ...]
     unusable: tuple[str, ...] = ()
+    #: The dispatch index of each candidate, on the same index as ``gates``.
+    #: ``chosen`` indexes the candidates; the journal is keyed by the dispatch
+    #: (one row per ``sample(index)``), and the two part company the moment a
+    #: draw before the winner was unusable. Defaulted to the identity when no
+    #: draw was refused, which is the one case the two are the same thing.
+    indices: tuple[int, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.indices:
+            if self.unusable:
+                raise ConsensusError(
+                    "a consensus with refused draws must say which dispatch "
+                    "each candidate came from: `indices` is empty and "
+                    f"{len(self.unusable)} draw(s) were unusable"
+                )
+            object.__setattr__(self, "indices", tuple(range(len(self.gates))))
+        if len(self.indices) != len(self.gates):
+            raise ConsensusError(
+                f"{len(self.indices)} dispatch indices for {len(self.gates)} "
+                "candidates: every candidate came from exactly one dispatch"
+            )
+
+    @property
+    def dispatched(self) -> int:
+        """Which dispatch the winner was: the index the journal keyed its row by.
+
+        Not :attr:`chosen`. ``chosen`` counts candidates and skips the draws
+        that produced none; a correction written under it landed on whichever
+        row happened to hold that ordinal, which with an unreadable first
+        reply was the unreadable one.
+        """
+        return self.indices[self.chosen]
 
     @property
     def gate(self) -> GateResult:
@@ -274,6 +306,7 @@ def _draw(
     drawn: list[Accepted] = []
     verdicts: list[GateResult] = []
     refused: list[str] = []
+    dispatched: list[int] = []
 
     for index in range(n):
         content = sample(index)
@@ -302,6 +335,7 @@ def _draw(
             # own string rather than for anything the gate read.
             drawn.append(_bind(space.workspace, contract, verdict, index))
             verdicts.append(verdict)
+            dispatched.append(index)
         finally:
             # In `finally` rather than after the verdict: a gate that raises
             # must not leave one draw's bytes in the workspace the next draw —
@@ -332,6 +366,7 @@ def _draw(
         chosen=best,
         gates=tuple(verdicts),
         unusable=tuple(refused),
+        indices=tuple(dispatched),
     )
 
 

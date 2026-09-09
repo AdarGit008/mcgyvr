@@ -1,0 +1,44 @@
+```python
+from typing import *
+from collections import *
+
+def chain_of_command(root: dict, person: str) -> list:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid input: root must be a dictionary")
+    if not isinstance(person, str):
+        raise ValueError("Invalid input: person must be a string")
+    if len(person) == 0:
+        raise ValueError("Invalid input: person cannot be an empty string")
+    
+    if person not in root:
+        raise ValueError("Person not found in the chart")
+    
+    return chain_of_command_helper(root, person)
+
+def chain_of_command_helper(root: dict, person: str) -> List[str]:
+    if person in root:
+        return [person] + chain_of_command_helper(root[person], person)
+    return []
+
+def headcount(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid input: root must be a dictionary")
+    
+    count = 0
+    for person in root:
+        if person:
+            count += 1
+    return count
+
+def widest_team(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid input: root must be a dictionary")
+    
+    max_reports = 0
+    for person in root:
+        if person:
+            reports = len(root[person])
+            if reports > max_reports:
+                max_reports = reports
+    return max_reports
+```

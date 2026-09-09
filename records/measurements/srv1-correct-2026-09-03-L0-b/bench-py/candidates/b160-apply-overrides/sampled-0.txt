@@ -1,0 +1,15 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+    merged = dict(base)
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError("Each override must be a string.")
+        key, value = override.split('=', 1)
+        if not key:
+            raise ValueError("Setting name cannot be empty.")
+        if key in merged:
+            merged[key] = value
+    return merged
+```

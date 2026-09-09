@@ -1,0 +1,12 @@
+```python
+def alias_resolve(aliases: dict, name: str) -> str:
+    """Turn a name into whatever it stands for, following one hop and no further, and hands back the name itself when it stands for nothing."""
+    if name not in aliases:
+        return name
+    return aliases[name]
+
+
+def alias_names(aliases: dict) -> list:
+    """List every name that stands for something, in alphabetical order."""
+    return sorted(aliases.keys())
+```

@@ -1,0 +1,26 @@
+```python
+def pair_off(marks: list[str]) -> list[str]:
+    """
+    Pair off marks in the input list, removing duplicates and combining adjacent marks of the same type.
+    
+    Args:
+    marks (list[str]): A list of marks to be paired off.
+    
+    Returns:
+    list[str]: A list of marks that have been paired off.
+    
+    Example:
+    pair_off(['A', 'B', 'A', 'B']) -> ['A', 'B', 'A', 'B']
+    pair_off(['A', 'A', 'A', 'B']) -> ['B']
+    pair_off(['A', 'B', 'C', 'A', 'B', 'C']) -> ['C', 'C', 'C']
+    """
+    if not marks:
+        return []
+    
+    left = []
+    for i in range(len(marks)):
+        if i == 0 or marks[i] != marks[i - 1]:
+            left.append(marks[i])
+    
+    return left
+```

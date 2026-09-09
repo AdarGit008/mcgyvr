@@ -1,0 +1,13 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """Converts a row and column index to a spreadsheet name."""
+    if column > 25:
+        raise ValueError("Column index must be between 0 and 25.")
+    return chr(column + ord('A')) + str(row + 1)
+
+def grid_cells(rows: int, columns: int) -> list:
+    """Generates a list of cell names for a grid of given dimensions."""
+    if rows < 0 or columns < 0:
+        raise ValueError("Grid dimensions must be non-negative.")
+    return [cell_name(row, col) for row in range(rows) for col in range(columns)]
+```

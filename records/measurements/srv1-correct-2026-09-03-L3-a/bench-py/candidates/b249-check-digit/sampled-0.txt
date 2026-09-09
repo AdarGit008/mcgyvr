@@ -1,0 +1,18 @@
+```python
+def check_digit(code: str) -> int:
+    if not code:
+        return 0
+
+    total = 0
+    for digit in code:
+        if not digit.isdigit():
+            raise ValueError("Code must contain only digits")
+
+        digit = int(digit)
+        total += digit
+
+    if total % 10 == 0:
+        return 0
+
+    return 10 - total % 10
+```

@@ -1,0 +1,24 @@
+```python
+from typing import List
+
+def warm_up(readings: List[int], floor: int) -> List[int]:
+    """
+    Discard readings from the start until the first reading that reaches the floor.
+    Return all readings from the first reaching one onwards.
+
+    :param readings: List of integers representing the readings.
+    :param floor: Integer representing the floor level.
+    :return: List of integers representing the readings from the first reaching one onwards.
+    """
+    if not readings or floor is None:
+        raise ValueError("Invalid input")
+
+    i = 0
+    while i < len(readings) and readings[i] < floor:
+        i += 1
+
+    if i == len(readings):
+        return []
+
+    return readings[i:]
+```

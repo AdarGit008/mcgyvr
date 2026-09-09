@@ -1,0 +1,25 @@
+```python
+def drive_bridge(commands: list) -> str:
+    if not isinstance(commands, list):
+        raise ValueError("Commands must be a list")
+    
+    state = "lowered"
+    
+    for command in commands:
+        if command not in ["raise", "lower", "lock", "unlock"]:
+            raise ValueError("Invalid command")
+        
+        if state == "lowered":
+            if command == "raise":
+                state = "raised"
+        elif state == "raised":
+            if command == "lower" or command == "lock":
+                state = "lowered"
+            elif command == "unlock":
+                state = "raised"
+        elif state == "locked":
+            if command == "unlock":
+                state = "lowered"
+    
+    return state
+```

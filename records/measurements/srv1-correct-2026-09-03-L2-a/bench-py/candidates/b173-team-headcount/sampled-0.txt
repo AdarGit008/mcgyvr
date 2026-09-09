@@ -1,0 +1,16 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    if not isinstance(chart, dict):
+        raise ValueError("Chart must be a mapping.")
+    if name not in chart:
+        raise ValueError("Name must be a key in the chart.")
+    if not isinstance(chart[name], list):
+        raise ValueError("Reports must be a list.")
+    if not all(isinstance(report, str) for report in chart[name]):
+        raise ValueError("Reports must be strings.")
+
+    headcount = 1
+    for report in chart[name]:
+        headcount += team_headcount(chart, report)
+    return headcount
+```

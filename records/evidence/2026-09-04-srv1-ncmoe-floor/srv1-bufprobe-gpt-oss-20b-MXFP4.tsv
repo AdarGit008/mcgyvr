@@ -1,0 +1,8 @@
+### HOST srv1  2026-09-04T17:23:52+00:00
+### GPU NVIDIA GeForce GTX 1660 SUPER, 6144 MiB, 401 MiB, 580.173.02
+### IMG llamacpp:b10644-L3  MODEL /models/moe/gpt-oss-20b-MXFP4.gguf  ncmoe=20 c=8192 np=8
+ub	vram_used	model	kv	rs	compute	sum_reported	cuda_ctx
+256	3420	2859.92	96.00	0	169.67	3125.59	294.41
+512	3504	2859.92	144.00	0	205.12	3209.04	294.96
+1024	3624	2859.92	192.00	0	276.27	3328.19	295.81
+### END 2026-09-04T17:28:15+00:00 uptime_since=2026-09-01 08:11:08

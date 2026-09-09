@@ -1,0 +1,22 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """Swap two characters in the other order."""
+    if not isinstance(first, str) or not isinstance(second, str):
+        raise ValueError("Both inputs must be strings.")
+    return second + first
+
+def swap_all(text: str) -> str:
+    """Swap each pair of characters in the text."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    result = []
+    for i in range(0, len(text), 2):
+        if i + 1 < len(text):
+            result.append(text[i + 1])
+            result.append(text[i])
+        else:
+            result.append(text[i])
+    
+    return ''.join(result)
+```

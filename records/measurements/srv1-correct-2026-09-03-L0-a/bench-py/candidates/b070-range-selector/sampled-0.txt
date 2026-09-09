@@ -1,0 +1,33 @@
+```python
+from typing import List, Union
+
+def selector_hits(values: List[int], selector: str) -> int:
+    if not isinstance(values, list) or not all(isinstance(val, int) for val in values):
+        raise ValueError("Values must be a list of integers.")
+    if not isinstance(selector, str) or selector == "":
+        raise ValueError("Selector must be a non-empty string.")
+    
+    def parse_term(term: str) -> Union[int, range]:
+        if '-' in term:
+            low, high = term.split('-')
+            return range(int(low), int(high) + 1)
+        elif term.isdigit():
+            return int(term)
+        else:
+            raise ValueError("Term must be a bare non-negative integer or two of them joined by a hyphen.")
+    
+    def matches_term(value: int, term: Union[int, range]) -> bool:
+        if isinstance(term, range):
+            return value in term
+        else:
+            return value == term
+    
+    hits = 0
+    for value in values:
+        for term in selector.split(','):
+            if matches_term(value, parse_term(term)):
+                hits += 1
+                break
+    
+    return hits
+```

@@ -1,0 +1,22 @@
+```python
+import re
+
+WORD_RUN = re.compile(r"[a-z0-9]+")
+
+
+def words_of_line(line):
+    return WORD_RUN.findall(line.lower())
+
+
+def build_word_index(text):
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    index = {}
+    rows = text.split("\n")
+    for row, line in enumerate(rows, start=1):
+        for word in words_of_line(line):
+            if word not in index:
+                index[word] = []
+            index[word].append(row)
+    return index
+```

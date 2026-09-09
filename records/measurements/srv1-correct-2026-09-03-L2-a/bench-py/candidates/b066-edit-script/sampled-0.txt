@@ -1,0 +1,53 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    """
+    Apply an edit script to a string.
+    
+    An edit script is a list of two-item operations:
+    ["copy", n] appends the next n characters of the original to the result and moves past them.
+    ["skip", n] moves past the next n characters without copying them.
+    ["insert", text] appends text to the result without touching the original.
+    
+    Parameters:
+    original (str): The original string to be edited.
+    script (list): A list of operations to apply.
+    
+    Returns:
+    str: The edited string after applying all operations.
+    
+    Raises:
+    ValueError: If the original is not a string, if the script contains an unknown op name,
+              if a copy or skip count is not a positive integer, if an insert text is not a non-empty string,
+              if an op reads past the end of the original, or if the script stops before the original is used up.
+    """
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string")
+    
+    edited = []
+    original_index = 0
+    
+    for op, count in script:
+        if op == "copy":
+            if count <= 0:
+                raise ValueError("Copy count must be a positive integer")
+            if original_index + count > len(original):
+                raise ValueError("Copy reads past the end of the original")
+            edited.extend(original[original_index:original_index + count])
+            original_index += count
+        elif op == "skip":
+            if count <= 0:
+                raise ValueError("Skip count must be a positive integer")
+            original_index += count
+        elif op == "insert":
+            if not isinstance(count, str) or not count:
+                raise ValueError("Insert text must be a non-empty string")
+            edited.append(count)
+            original_index += len(count)
+        else:
+            raise ValueError(f"Unknown op: {op}")
+    
+    if original_index < len(original):
+        raise ValueError("Script stops before the original is used up")
+    
+    return "".join(edited)
+```

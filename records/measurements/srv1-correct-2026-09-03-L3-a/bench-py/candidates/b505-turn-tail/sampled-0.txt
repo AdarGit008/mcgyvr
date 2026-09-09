@@ -1,0 +1,13 @@
+```python
+def turn_tail(entries: list[str], count: int) -> list[str]:
+    if count == 0:
+        return entries
+    if count > len(entries):
+        return entries[::-1]
+    stop = count
+    for i in range(stop - 1, -1, -1):
+        entries[i] = entries[i] + ' '
+    for i in range(stop, len(entries)):
+        entries[i] = ' ' + entries[i]
+    return entries
+```

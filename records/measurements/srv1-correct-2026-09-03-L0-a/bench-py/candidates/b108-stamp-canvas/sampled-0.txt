@@ -1,0 +1,33 @@
+```python
+from typing import List, Dict, Tuple
+
+def new_canvas(rows: int, cols: int) -> Dict[str, int]:
+    if isinstance(rows, bool) or not isinstance(rows, int) or rows < 1:
+        raise ValueError("canvas dimensions must be positive integers")
+    if isinstance(cols, bool) or not isinstance(cols, int) or cols < 1:
+        raise ValueError("canvas dimensions must be positive integers")
+    cells = [[0] * cols for _ in range(rows)]
+    return {"rows": rows, "cols": cols, "cells": cells}
+
+
+def stamp_rect(canvas: Dict[str, int], rect: List[int]) -> int:
+    top, left, bottom, right = rect
+    inked = 0
+    if not isinstance(rect, list) or len(rect) != 4:
+        raise ValueError("rect must be a list of exactly four integers")
+    if top >= bottom or left >= right:
+        raise ValueError("rect covers no cells")
+    for r in range(top, bottom):
+        for c in range(left, right):
+            if canvas["cells"][r][c] == 1:
+                inked += 1
+                canvas["cells"][r][c] = 1
+    return inked
+
+
+def ink_total(canvas: Dict[str, int]) -> int:
+    total = 0
+    for row in canvas["cells"]:
+        total += sum(row)
+    return total
+```

@@ -1,0 +1,14 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str):
+        raise ValueError("Ticket must be a string")
+    if len(ticket) != 10:
+        return "shape"
+    if ticket[2] != '-':
+        return "shape"
+    if ticket[5] != '-':
+        return "shape"
+    if ticket[8] != ticket[9]:
+        return "check"
+    return "ok"
+```

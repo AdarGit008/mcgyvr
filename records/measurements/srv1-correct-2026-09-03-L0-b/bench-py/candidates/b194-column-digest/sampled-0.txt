@@ -1,0 +1,28 @@
+```python
+from typing import *
+from collections import *
+
+def column_digest(rows: list, column: int) -> dict:
+    count = 0
+    min_val, max_val = float('inf'), float('-inf')
+    total = 0
+    if column >= len(rows[0]):
+        return {'count': 0, 'min': 0, 'max': 0, 'mean': 0, 'median': 0}
+    
+    for row in rows:
+        if count == column:
+            break
+        if count < column:
+            count += 1
+            if row[column] < min_val:
+                min_val = row[column]
+            if row[column] > max_val:
+                max_val = row[column]
+            total += row[column]
+    
+    mean = total / count if count > 0 else 0
+    median = sorted(row[column] for row in rows)[count // 2] if count % 2 != 0 else (sorted(row[column] for row in rows)[count // 2 - 1] + sorted(row[column] for row in rows)[count // 2]) / 2
+    median = round(median, 2)
+    
+    return {'count': count, 'min': min_val, 'max': max_val, 'mean': round(mean, 2), 'median': round(median, 2)}
+```

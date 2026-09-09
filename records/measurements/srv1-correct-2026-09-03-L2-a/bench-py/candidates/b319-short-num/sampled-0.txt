@@ -1,0 +1,22 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Convert a whole number to a shortened form.
+
+    Args:
+    value (int): The integer to convert.
+
+    Returns:
+    str: The shortened form of the integer.
+    """
+    if value < 0:
+        raise ValueError("Negative numbers are not allowed.")
+    if value < 1000:
+        return str(value)
+    elif value < 1000000:
+        return f"{value // 1000}k"
+    elif value < 1000000000:
+        return f"{value // 1000000}m"
+    else:
+        raise ValueError("Numbers greater than a billion cannot be shortened.")
+```

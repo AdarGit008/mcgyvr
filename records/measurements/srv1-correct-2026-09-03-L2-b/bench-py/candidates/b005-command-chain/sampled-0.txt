@@ -1,0 +1,47 @@
+```python
+from typing import Dict, List
+
+class TreeNode:
+    def __init__(self, name: str, reports: List['TreeNode'] = None):
+        self.name = name
+        self.reports = reports if reports is not None else []
+
+def chain_of_command(root: Dict[str, TreeNode], person: str) -> List[str]:
+    if not isinstance(root, dict) or not isinstance(person, str):
+        raise ValueError("Root must be a dictionary and person must be a string.")
+    if not root:
+        raise ValueError("Root cannot be empty.")
+    if person not in root:
+        raise ValueError("Person not found in the chart.")
+    return _chain_of_command(root, person)
+
+def _chain_of_command(node: TreeNode, person: str) -> List[str]:
+    if node.name == person:
+        return [node.name]
+    if node.reports:
+        return [node.name] + _chain_of_command(node.reports[0], person)
+
+def headcount(root: Dict[str, TreeNode]) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    if not root:
+        raise ValueError("Root cannot be empty.")
+    return len(_headcount(root))
+
+def _headcount(node: TreeNode) -> int:
+    if node.reports:
+        return 1 + _headcount(node.reports[0])
+    return 0
+
+def widest_team(root: Dict[str, TreeNode]) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    if not root:
+        raise ValueError("Root cannot be empty.")
+    return _widest_team(root)
+
+def _widest_team(node: TreeNode) -> int:
+    if node.reports:
+        return max(_widest_team(node.reports[0]) + 1, _widest_team(node.reports[1]))
+    return 0
+```

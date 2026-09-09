@@ -1,0 +1,12 @@
+```python
+def digit_count(value: int) -> int:
+    if value == 0:
+        return 1
+    if value < 0:
+        value = -value
+    count = 0
+    while value:
+        value //= 10
+        count += 1
+    return count
+```

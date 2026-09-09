@@ -1,0 +1,59 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if not (0 <= hop <= count):
+        raise ValueError("Invalid hop value")
+    if not all(0 <= build <= count for build in builds):
+        raise ValueError("Invalid build value")
+    if not all(build in lts for build in builds):
+        raise ValueError("Builds must be in the list of long-term support releases")
+    if not all(build < count for build in builds):
+        raise ValueError("Builds must be strictly below the newest release")
+    if not all(build > 0 for build in builds):
+        raise ValueError("Builds must be strictly above zero")
+    if not all(build == int(build) for build in builds):
+        raise ValueError("Builds must be whole numbers")
+    if not all(build in lts for build in builds):
+        raise ValueError("Builds must be in the list of long-term support releases")
+    if not all(build < count for build in builds):
+        raise ValueError("Builds must be strictly below the newest release")
+    if not all(build > 0 for build in builds):
+        raise ValueError("Builds must be strictly above zero")
+    if not all(build == int(build) for build in builds):
+        raise ValueError("Builds must be whole numbers")
+    if not all(build in lts for build in builds):
+        raise ValueError("Builds must be in the list of long-term support releases")
+    if not all(build < count for build in builds):
+        raise ValueError("Builds must be strictly below the newest release")
+    if not all(build > 0 for build in builds):
+        raise ValueError("Builds must be strictly above zero")
+    if not all(build == int(build) for build in builds):
+        raise ValueError("Builds must be whole numbers")
+    if not all(build in lts for build in builds):
+        raise ValueError("Builds must be in the list of long-term support releases")
+    if not all(build < count for build in builds):
+        raise ValueError("Builds must be strictly below the newest release")
+    if not all(build > 0 for build in builds):
+        raise ValueError("Builds must be strictly above zero")
+    if not all(build == int(build) for build in builds):
+        raise ValueError("Builds must be whole numbers")
+    if not all(build in lts for build in builds):
+        raise ValueError("Builds must be in the list of long-term support releases")
+    if not all(build < count for build in builds):
+        raise ValueError("Builds must be strictly below the newest release")
+    if not all(build > 0 for build in builds):
+        raise ValueError("Builds must be strictly above zero")
+    if not all(build == int(build) for build in builds):
+        raise ValueError("Builds must be whole numbers")
+    if not all(build in lts for build in builds):
+        raise ValueError("Builds must be in the list of long-term support releases")
+    if not all(build < count for build in builds):
+        raise ValueError("Builds must be strictly below the newest release")
+    if not all(build > 0 for build in builds):
+        raise ValueError("Builds must be strictly above zero")
+    if not all(build == int(build) for build in builds):
+        raise ValueError("Builds must be whole numbers")
+    if not all(build in lts for build in builds):
+        raise ValueError("Builds must be in the list of long-term support releases")
+    if not all(build < count for build in builds):
+        raise ValueError("Builds must be strictly below the newest release")
+    if not all(build > 0

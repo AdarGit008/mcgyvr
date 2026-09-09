@@ -47,6 +47,17 @@ from mcgyvr.catalog import catalog
 
 TABLE_FILENAME = "capability-table.json"
 
+# The table's ``*_gb`` figures are decimal gigabytes; the rest of this codebase
+# is in GiB (:data:`mcgyvr.detect.MIB_PER_GB` is 1024). Tied to a real file
+# rather than assumed: ``deepseek-coder-v2-16b.gguf`` is 8_905_109_984 bytes
+# and its row says ``weights_gb: 8.9``, which is 8.905 decimal and 8.294 GiB.
+#
+# The table is left in decimal because that is what every tool that reported
+# these numbers prints, and a table nobody can check against `ls -l` is worse
+# than a conversion. Divide by this wherever a table figure crosses into the
+# sizing code, and nowhere else.
+GB_PER_GIB = 1.073741824
+
 # The score a model must reach on a task's dimension before it may be asked for
 # that task. 0.5 is inherited rather than measured here — it is the number
 # local-ai's router enforces — and it is stated once, as the default of the one

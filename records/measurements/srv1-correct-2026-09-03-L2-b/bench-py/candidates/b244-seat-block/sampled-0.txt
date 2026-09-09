@@ -1,0 +1,14 @@
+```python
+def seat_block(label: str) -> list:
+    if not label or not label.isalpha():
+        raise ValueError("Invalid input: must be a run of digits followed by exactly one capital letter.")
+    
+    row_str = label[:-1]
+    letter = label[-1]
+    
+    if not row_str.isdigit() or not letter.isupper():
+        raise ValueError("Invalid input: must be a run of digits followed by exactly one capital letter.")
+    
+    row = int(row_str)
+    return [row, letter]
+```

@@ -1,0 +1,6 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if count > width:
+        raise ValueError("Count cannot exceed width.")
+    return '#' * count + ('>' if count < width else '')
+```

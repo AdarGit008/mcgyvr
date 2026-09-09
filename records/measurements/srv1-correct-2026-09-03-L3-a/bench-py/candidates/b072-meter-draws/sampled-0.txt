@@ -1,0 +1,29 @@
+```python
+from typing import *
+from collections import defaultdict
+
+def meter_draws(draws: list, allowance: int) -> dict:
+    if allowance <= 0:
+        raise ValueError("Allowance must be a positive integer.")
+    used = defaultdict(int)
+    denied = []
+    for key, units in draws:
+        if units <= 0:
+            denied.append((key, units))
+        elif units <= used[key]:
+            used[key] += units
+        else:
+            denied.append((key, units - used[key]))
+    return {"used": used, "denied": denied}
+
+def remaining_for(used: dict, key: str, allowance: int) -> int:
+    if not isinstance(key, str):
+        raise ValueError("Key must be a non-empty string.")
+    if allowance <= 0:
+        raise ValueError("Allowance must be a positive integer.")
+    if key not in used:
+        used[key] = 0
+    if used[key] + allowance > allowance:
+        raise ValueError("Key's allowance would push it over the limit.")
+    return allowance - used[key]
+```

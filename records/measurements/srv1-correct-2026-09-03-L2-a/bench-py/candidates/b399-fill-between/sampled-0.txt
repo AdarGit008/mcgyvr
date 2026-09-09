@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def fill_between(entries: List[str], filler: str) -> List[str]:
+    """
+    Places a filler between every two neighbouring entries in a list of strings.
+    If the list has one entry or is empty, returns the list unchanged.
+
+    :param entries: List of strings.
+    :param filler: String to be placed between entries.
+    :return: List of strings with fillers inserted.
+    """
+    if len(entries) <= 1:
+        return entries
+    
+    return [entry + filler for entry in entries[:-1]] + [entries[-1]]
+```

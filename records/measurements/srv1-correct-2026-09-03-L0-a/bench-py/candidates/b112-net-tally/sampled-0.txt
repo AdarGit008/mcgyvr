@@ -1,0 +1,61 @@
+```python
+from typing import List, Tuple
+import re
+
+def net_tally(sheets: List[str]) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+
+    report = []
+    item_totals = {}
+    item_names = set()
+
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("each sheet must be a string")
+
+        rows = sheet.split('\n')
+        for row in rows:
+            fields = row.split('|')
+            if len(fields) != 3:
+                raise ValueError("each row must have exactly three fields")
+
+            item = fields[0].strip()
+            sold = fields[1].strip()
+            returned = fields[2].strip()
+
+            if not item:
+                continue
+
+            try:
+                sold = float(sold)
+                returned = float(returned)
+            except ValueError:
+                raise ValueError("sold or returned field must be a string of decimal digits")
+
+            if sold > returned:
+                raise ValueError("returned total cannot exceed sold total for item '{item}'")
+
+            item_names.add(item)
+            if item in item_totals:
+                item_totals[item][0] += sold
+                item_totals[item][1] += returned
+            else:
+                item_totals[item] = [sold, returned]
+
+    if not item_names:
+        return ""
+
+    item_names = sorted(item_names)
+    max_width = max(len(item) for item in item_names)
+
+    report.append(' '.join(item.ljust(max_width) for item in item_names))
+    report.append('  '.join(['net'] * len(item_names)))
+    report.append('  '.join(['total'] * len(item_names)))
+
+    for item, (sold, returned) in item_totals.items():
+        report.append(f"{item.ljust(max_width)}  {sold - returned}")
+    report.append(f"{max_width * ' '}  {sum(item_totals[item][0] - item_totals[item][1] for item in item_names)}")
+
+    return '\n'.join(report)
+```

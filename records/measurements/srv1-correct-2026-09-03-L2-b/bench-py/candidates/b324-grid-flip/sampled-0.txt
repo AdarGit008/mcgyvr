@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+def grid_flip(grid: List[List[int]]) -> List[List[int]]:
+    """
+    Flip a grid such that its columns become rows, preserving the order of values.
+
+    Args:
+    grid: A list of rows, where each row is a list of integers.
+
+    Returns:
+    A new list of rows that represents the flipped grid.
+    """
+    if not grid:
+        return []
+
+    # Get the width of the grid
+    width = len(grid[0])
+
+    # Initialize the flipped grid as a list of lists
+    flipped_grid = [[] for _ in range(width)]
+
+    # Iterate over each column in the original grid
+    for col_index in range(width):
+        # Append the values of each row to the corresponding column in the flipped grid
+        for row_index in range(len(grid)):
+            flipped_grid[col_index].append(grid[row_index][col_index])
+
+    return flipped_grid
+```

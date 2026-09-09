@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def range_check(readings: List[int], low: int, high: int) -> bool:
+    """
+    Check if all readings in the list fall within the specified range [low, high].
+    
+    Args:
+    readings: List of integers representing the readings.
+    low: The lower bound of the range.
+    high: The upper bound of the range.
+    
+    Returns:
+    True if all readings are within the range, False otherwise.
+    
+    Raises:
+    ValueError: If the low value is greater than the high value.
+    """
+    if low > high:
+        raise ValueError("Low value must be less than or equal to high value.")
+    
+    return all(low <= reading <= high for reading in readings)
+```

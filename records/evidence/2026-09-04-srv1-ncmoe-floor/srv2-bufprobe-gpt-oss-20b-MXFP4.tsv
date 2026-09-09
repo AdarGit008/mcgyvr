@@ -1,0 +1,8 @@
+### HOST srv2  2026-09-04T17:19:52+00:00
+### GPU NVIDIA GeForce RTX 3060, 12288 MiB, 377 MiB, 595.84
+### IMG ghcr.io/ggml-org/llama.cpp:server-cuda-b10644  MODEL /models/moe/gpt-oss-20b-MXFP4.gguf  ncmoe=20 c=8192 np=8
+ub	vram_used	model	kv	rs	compute	sum_reported	cuda_ctx
+256	3451	2859.92	96.00	0	169.67	3125.59	325.41
+512	3535	2859.92	144.00	0	205.12	3209.04	325.96
+1024	3655	2859.92	192.00	0	276.27	3328.19	326.81
+### END 2026-09-04T17:20:34+00:00 uptime_since=2026-09-01 05:20:12

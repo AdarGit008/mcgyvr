@@ -1,0 +1,27 @@
+```python
+from typing import List, Tuple
+
+def merge_ledgers(base: List[Tuple[str, int]], ours: List[Tuple[str, int]], theirs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    base_accounts = {account: cents for account, cents in base}
+    ours_accounts = {account: cents for account, cents in ours}
+    theirs_accounts = {account: cents for account, cents in theirs}
+
+    merged_accounts = base_accounts.copy()
+    for account, cents in ours_accounts.items():
+        if account in merged_accounts:
+            merged_accounts[account] += cents
+        else:
+            merged_accounts[account] = cents
+    for account, cents in theirs_accounts.items():
+        if account in merged_accounts:
+            merged_accounts[account] += cents
+        else:
+            merged_accounts[account] = cents
+
+    merged_accounts = [(account, cents) for account, cents in merged_accounts.items() if cents != 0]
+
+    # Sort the merged accounts by account name
+    merged_accounts.sort(key=lambda x: x[0])
+
+    return merged_accounts
+```

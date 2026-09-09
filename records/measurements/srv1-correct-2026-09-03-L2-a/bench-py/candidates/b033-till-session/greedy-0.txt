@@ -1,0 +1,82 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events, prices):
+    if not events or not prices:
+        raise ValueError("events and prices must not be empty")
+
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+    session_state = OPEN
+
+    for event in events:
+        action, payload = event[0], event[1]
+
+        if action not in ["scan", "void", "pay", "close", "cancel"]:
+            raise ValueError("unknown action: " + action)
+
+        if action == "scan":
+            if payload not in prices:
+                raise ValueError("item not in price list: " + payload)
+            if payload in cart:
+                cart[payload] += 1
+            else:
+                cart[payload] = 1
+            total += prices[payload]
+
+        elif action == "void":
+            if payload not in cart:
+                raise ValueError("item not in cart: " + payload)
+            if cart[payload] == 0:
+                raise ValueError("item quantity is zero: " + payload)
+            cart[payload] -= 1
+            total -= prices[payload]
+
+        elif action == "pay":
+            if paid >= total:
+                raise ValueError("session is already paid")
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("pay amount must be a positive integer: " + str(payload))
+            paid += payload
+            change = paid - total
+
+        elif action == "close":
+            if paid < total:
+                raise ValueError("session is not paid")
+            if not cart:
+                raise ValueError("session is empty")
+            session_state = PAID
+            total = 0
+            paid = 0
+            change = 0
+
+        elif action == "cancel":
+            if paid >= total:
+                raise ValueError("session is already paid")
+            if session_state == PAID:
+                raise ValueError("session is already paid")
+            if session_state == CANCELLED:
+                raise ValueError("session is already cancelled")
+            session_state = CANCELLED
+            total = 0
+            paid = 0
+            change = 0
+
+    if session_state == OPEN or session_state == PAID:
+        raise ValueError("session is not closed")
+
+    return {
+        "items": sorted(cart.items(), key=lambda x: x[0]),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

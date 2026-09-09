@@ -1,0 +1,18 @@
+```python
+from typing import List, Union
+
+def pick_lane(queues: List[int], closed: List[int]) -> int:
+    if not queues or not all(isinstance(i, int) for i in queues) or not all(isinstance(i, int) for i in closed):
+        raise ValueError("Invalid queues or closed list")
+    
+    closed = set(closed)
+    
+    if all(lane in closed for lane in range(len(queues))):
+        raise ValueError("Every lane is closed")
+    
+    best = 0
+    for lane in range(1, len(queues)):
+        if queues[lane] <= queues[best] and lane not in closed:
+            best = lane
+    return best
+```

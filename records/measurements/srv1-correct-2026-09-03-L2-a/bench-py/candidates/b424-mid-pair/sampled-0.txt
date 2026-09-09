@@ -1,0 +1,18 @@
+```python
+def mid_pair(values: list) -> list:
+    """
+    Return the two values standing closest to the middle of a list once it is sorted.
+    A list of an odd length gives its middle value twice, and a list holding nothing gives two nothings.
+    """
+    if not values:
+        return [None, None]
+
+    values.sort()
+    length = len(values)
+    mid_index = length // 2
+
+    if length % 2 == 0:
+        return [values[mid_index - 1], values[mid_index]]
+    else:
+        return [values[mid_index]]
+```

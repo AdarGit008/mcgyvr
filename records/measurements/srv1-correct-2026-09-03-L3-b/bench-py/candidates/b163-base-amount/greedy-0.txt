@@ -1,0 +1,12 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    if unit not in defs or unit == base:
+        raise ValueError("unknown unit or base unit")
+    if not isinstance(defs[unit][0], int) or defs[unit][0] <= 0:
+        raise ValueError("bad factor")
+    if unit == base:
+        return amount
+    return amount * base_amount(amount // defs[unit][0], defs[unit][1], defs, base)
+```

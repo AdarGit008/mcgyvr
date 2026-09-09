@@ -1,0 +1,39 @@
+```python
+from typing import List, Tuple
+
+def line_clusters(stops: List[str], links: List[Tuple[str, str]]) -> List[List[str]]:
+    if not stops or not links:
+        return []
+
+    # Create a graph to represent the stops and links
+    graph = {}
+    for stop in stops:
+        graph[stop] = []
+
+    for link in links:
+        graph[link[0]].append(link[1])
+        graph[link[1]].append(link[0])
+
+    # Find connected components (clusters)
+    clusters = []
+    visited = set()
+
+    for stop in stops:
+        if stop not in visited:
+            cluster = []
+            dfs(stop, graph, visited, cluster)
+            clusters.append(cluster)
+
+    # Sort clusters by the first stop alphabetically
+    clusters.sort(key=lambda x: x[0])
+
+    return clusters
+
+def dfs(stop: str, graph: dict, visited: set, cluster: List[str]) -> None:
+    visited.add(stop)
+    cluster.append(stop)
+
+    for neighbor in graph[stop]:
+        if neighbor not in visited:
+            dfs(neighbor, graph, visited, cluster)
+```

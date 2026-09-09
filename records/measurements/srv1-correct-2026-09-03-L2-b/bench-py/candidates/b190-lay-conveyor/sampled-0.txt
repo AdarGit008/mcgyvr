@@ -1,0 +1,13 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    if row < 0 or row >= len(floor):
+        raise ValueError("the run starts off the plan")
+    if col + length > len(floor[0]):
+        raise ValueError("the run passes the last column")
+    if any(floor[row][col + i] != '.' for i in range(length)):
+        raise ValueError("any cell the run covers is not open")
+    new_floor = floor[:]
+    for i in range(length):
+        new_floor[row][col + i] = '='
+    return new_floor
+```

@@ -1,0 +1,20 @@
+```python
+def cap_after(passage: str) -> str:
+    """
+    Return a passage with the first letter of every sentence in capitals, a sentence beginning at the start of the passage and again after any full stop.
+
+    Parameters:
+    passage (str): The input passage to be processed.
+
+    Returns:
+    str: The modified passage with the specified formatting.
+    """
+    if not passage:
+        return ""
+
+    parts = passage.split(". ")
+    result = parts[0].capitalize() + ". "
+    for part in parts[1:]:
+        result += part.capitalize() + ". "
+    return result.strip()
+```

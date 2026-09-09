@@ -1,0 +1,18 @@
+```python
+from typing import Dict, Union
+
+def add_one(tally: Dict[str, int], name: str, amount: int) -> Dict[str, int]:
+    if name in tally:
+        tally[name] += amount
+    else:
+        tally[name] = amount
+    return tally
+
+def merge_tally(left: Dict[str, int], right: Dict[str, int]) -> Dict[str, int]:
+    combined = left.copy()
+    combined.update(right)
+    for name, amount in combined.items():
+        if amount < 0:
+            raise ValueError(f"Negative count for name '{name}' cannot be merged.")
+    return combined
+```

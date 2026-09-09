@@ -1,0 +1,20 @@
+```python
+from typing import List, Optional
+
+def crate_fill(items: int, crates: int) -> List[int]:
+    if crates <= 0:
+        raise ValueError("Number of crates must be positive.")
+    
+    if items == 0:
+        return []
+    
+    item_count = len(items)
+    if item_count % crates == 0:
+        return [item_count // crates] * crates
+    else:
+        remainder = item_count % crates
+        return [item_count // crates] * (crates - remainder) + [remainder] * remainder
+
+def crate_total(sizes: List[int]) -> int:
+    return sum(sizes)
+```

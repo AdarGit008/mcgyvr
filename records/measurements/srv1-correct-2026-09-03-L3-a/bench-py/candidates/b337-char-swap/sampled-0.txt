@@ -1,0 +1,21 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """
+    Swaps two characters in the other order.
+    """
+    if not (isinstance(first, str) and isinstance(second, str)):
+        raise ValueError("Both arguments must be strings")
+    if len(first) != 1 or len(second) != 1:
+        raise ValueError("Both arguments must be single characters")
+    return second + first
+
+def swap_all(text: str) -> str:
+    """
+    Swaps each pair of characters in the text, leaving a final odd character exactly where it is.
+    """
+    if not isinstance(text, str):
+        raise ValueError("The argument must be a string")
+    if len(text) % 2 != 0:
+        raise ValueError("The input string must have an even length")
+    return ''.join([swap_pair(text[i], text[i + 1]) for i in range(0, len(text) - 1, 2)])
+```

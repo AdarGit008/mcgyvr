@@ -1,0 +1,19 @@
+```python
+def digit_word(digit: int) -> str:
+    """
+    Returns the English word for a given digit.
+    :param digit: An integer representing a digit (0-9).
+    :return: The English word for the digit.
+    """
+    if not 0 <= digit <= 9:
+        raise ValueError("Invalid digit")
+    return ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][digit]
+
+def digit_words(digits: str) -> str:
+    """
+    Returns a string with the English words for each digit in the input string.
+    :param digits: A string containing digits.
+    :return: A string with the English words for the digits, separated by spaces.
+    """
+    return " ".join(digit_word(int(digit)) for digit in digits)
+```

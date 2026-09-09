@@ -83,6 +83,33 @@ def _where(path: Path, lineno: int) -> str:
 # happen to have picked the same word — which this check must not force into
 # agreement.
 DECLARED_DUPLICATES: dict[str, bool] = {
+    # Two serving backends, added 2026-08-30. Each names the engine it drives,
+    # so three of these four MUST differ and are declared False for that reason
+    # rather than as an unreconciled conflict.
+    # Different engines ship different images; equal values here would mean one
+    # backend was launching the other's container.
+    "CONTAINER_IMAGE": False,
+    # Must agree: the container mount point and the host tree behind it are one
+    # deployment fact seen from two sides — the bench backend launches with
+    # `-v $HOME/models:/models`, and the door's geometry script translates a
+    # container path back to the host one to read a header OUTSIDE any
+    # container. Not made one definition of the other on purpose: the door
+    # would then import a bench backend, which is the dependency the door
+    # exists to remove. If these two stop agreeing, ggufscan reads a path that
+    # is not the blob the step serves, and the placement describes another file.
+    "CONTAINER_MODELS": True,
+    "HOST_MODELS": True,
+    # Must differ: one name for both would have the two backends tear down and
+    # reuse each other's container, which is the collision `release()` exists to
+    # make impossible.
+    "CONTAINER_NAME": False,
+    # 40 against 60. How much log each keeps on a refusal is tuned to how much
+    # that engine prints before it fails; there is no quantity here they share.
+    "LAUNCH_LOG_LINES": False,
+    # Must agree: both express the same thing — how long a launch may take
+    # before the cell is refused — and a run that allowed one engine longer than
+    # the other would report the difference as the engine's.
+    "START_TIMEOUT_S": True,
     # Must agree. Asserted in a comment at repo.py:46 and by nothing else;
     # git's empty-tree SHA-1 is the same fact on both sides of the seam.
     "_EMPTY_TREE": True,
@@ -95,6 +122,17 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # than importing them (G4 — importing the adapters drags tree-sitter into a
     # planning-only process), and worker/reply.py carries the same pair.
     "_PY_EXTENSIONS": True,
+    # Must agree, and cannot be derived. `mcgyvr.cli` writes this as the `tier`
+    # of every deterministic-floor row; `tools/live/index.py` is what a reviewer
+    # filters the table by, and if the two drifted the query for "how much work
+    # finished without a model" would silently return nothing. The reviewer
+    # tool is deliberately not an importer of the CLI — it reads journals other
+    # installs and other versions wrote, and importing `mcgyvr.cli` to learn one
+    # string would drag the whole command surface into a read-only tool — so the
+    # duplication is declared rather than removed. `tests/
+    # test_a_floor_run_is_in_the_corpus_too.py` holds the value to the catalog's
+    # own family name at the writing end.
+    "DETERMINISTIC": True,
     # Must agree. Both rigs clone the same frames for the same corpus.
     "CLONE_DEPTH": True,
     "REMOTES": True,
@@ -140,6 +178,9 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     "CHECK": False,  # the gate's own per-module check name
     "ARMS": False,  # each rig's arms are its own
     "TIMEOUT_S": False,  # unrelated tools, unrelated ceilings
+    # workload.py's bench system prompt vs propose.py's decomposition prompt:
+    # two prompts for two different callers that happen to share a name.
+    "SYSTEM": False,
     "_CACHE": False,
     "_DRIVER": False,
     # reply.py and deterministic.py carry the whole family; symbols.py is JS only

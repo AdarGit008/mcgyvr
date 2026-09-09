@@ -1,0 +1,13 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    if not isinstance(chart, dict) or name not in chart:
+        raise ValueError("Invalid chart or name.")
+    if not isinstance(chart[name], list) or any(not isinstance(report, str) for report in chart[name]):
+        raise ValueError("Invalid reports.")
+    
+    count = 1
+    for report in chart[name]:
+        count += team_headcount(chart, report)
+    
+    return count
+```

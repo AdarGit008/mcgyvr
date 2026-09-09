@@ -34,6 +34,22 @@ it was asked about, and this is already the view "every family this contract
 may climb, from its floor upward". ``full`` spreads *within* a family and stays
 :func:`~mcgyvr.route.climb`'s; this module adds nothing to it.
 
+**And the name is acted on, because a mode that changes no dispatch is a false
+entry in the published reference.** :func:`escalate` *enters* at the family of
+:attr:`Ascent.next_free_rung` — it rebuilds the ascent with that family as its
+floor, which is choosing where to begin and not reordering anything, since the
+rungs of whichever family is entered are still :func:`~mcgyvr.route.plan`'s own
+price order. Within that family the cheapest rung with a free slot is
+:func:`~mcgyvr.route.climb`'s to take, under the same ``idle``, so the two seams
+answer the two halves of one question and neither restates the other.
+Computing the answer and discarding it was the earlier state and it made
+``ladder.fanout: idle`` a switch wired to nothing: the schema's ``doc`` told
+operators the mode reaches a priced rung rather than waits, and setting it
+changed no dispatch at all. The choice is a read and not yet a claim, though:
+what a concurrent batch can lose in the window between naming a free rung here
+and reserving one down in :func:`~mcgyvr.route.climb` is written down in
+:func:`_idle_entry`, with the change in :mod:`mcgyvr.route` that would close it.
+
 **Busy is not a verdict, and the record is the difference.** A rung that
 :attr:`~Ascent.next_free_rung` passed over was not tried: it produced no
 verdict, spent no attempt and funded no escalation, because
@@ -41,7 +57,12 @@ verdict, spent no attempt and funded no escalation, because
 not a failure. So an api rung reached under ``idle`` and an api rung reached by
 escalation are the same rung with two different histories — one was chosen
 before anything ran, the other was climbed to after something failed — and only
-the second says the local family could not do the work.
+the second says the local family could not do the work. That difference is what
+keeps a raised entry off ``budgets.max_escalations``: the count is over rungs
+that *ran*, so a rung entered at costs nothing until it produces a verdict, and
+a contract whose floor family was saturated at the moment it started still has
+its whole escalation budget to climb with. :func:`_idle_entry` is where that is
+written down.
 
 **Two ceilings bound the task, and they bound different things.**
 ``budgets.max_escalations`` bounds how far the work *climbs* — a cheap rung that
@@ -117,12 +138,14 @@ from mcgyvr.route import (
     Attempted,
     Exhaustion,
     Fanout,
+    Machine,
     Plan,
     Result,
     RouteError,
     Step,
     Try,
     Verdict,
+    attempted,
     climb,
     fanout_of,
     plan,
@@ -301,10 +324,27 @@ class Judgement:
     reviewer_failed: bool = False
     retry: RetryNotes | None = None
     detail: str = ""
+    #: Which draw the verdict is about, how many were asked for, and how many
+    #: left a journal row; see :class:`~mcgyvr.route.Result`.
+    draw: int = 0
+    draws: int = 1
+    rows: int = 1
 
     def as_result(self) -> Result:
-        """The routing verdict alone, for :func:`~mcgyvr.route.climb`."""
-        return Result(verdict=self.verdict, detail=self.detail)
+        """The routing verdict, for :func:`~mcgyvr.route.climb`, with the findings.
+
+        The finding lines ride along so the climb's record can say *why* a
+        rung failed and not only that it did; ``route`` never reads them.
+        """
+        findings = self.retry.lines if self.retry is not None else ()
+        return Result(
+            verdict=self.verdict,
+            detail=self.detail,
+            findings=findings,
+            draw=self.draw,
+            draws=self.draws,
+            rows=self.rows,
+        )
 
 
 # --- policy ----------------------------------------------------------------
@@ -448,6 +488,53 @@ class Ceiling:
 
 
 @dataclass(frozen=True)
+class Entry:
+    """A raised entry: the family to climb into, and the rung reserved for it.
+
+    What :meth:`Ascent.reserve_entry` hands back, and it is a *held* thing
+    rather than a described one — the reservation exists by the time this
+    record does. That is the difference between it and a rung name: a name is a
+    reading every member of a batch can take at once, and a reservation is
+    something exactly one of them has.
+
+    It therefore carries an obligation, and the type is what makes the
+    obligation visible: whoever holds one either hands ``rung`` to
+    :func:`~mcgyvr.route.climb` as ``claimed``, which releases it once when that
+    rung is done with, or calls :meth:`release` itself. A leaked reservation is
+    forever, and it would show that source as busy to every later choice this
+    process makes.
+
+    ``machine`` and ``capacity`` are the two halves of giving it back and are
+    out of ``repr`` and out of the comparison, for the reason :class:`Ascent`
+    gives about both: they are how the answer is acted on and not part of the
+    answer, and #20's rule is that nothing above the execution seam learns where
+    work runs — a :class:`~mcgyvr.route.Machine` names nothing, and a printed
+    entry says a family and a rung, which are the operator's own words.
+    """
+
+    family: Family
+    rung: str
+    machine: Machine = field(repr=False, compare=False)
+    capacity: Capacity = field(repr=False, compare=False)
+
+    def release(self) -> None:
+        """Give the reservation back. Never raises, so a ``finally`` is safe.
+
+        :meth:`~mcgyvr.route.Machine.release` is floored rather than checked, so
+        this is callable on a path where something has already gone wrong —
+        which is the only kind of path that reaches it, since the ordinary one
+        hands the reservation to a climb instead.
+
+        Given back on ``rung`` and not on the machine alone, because that is the
+        queue it was taken on: a rung with a width of its own is a server
+        process of its own (#23), and a reservation returned to the rig would
+        leave that rung reading as busy for the rest of the run while the rig
+        read as one dispatch emptier than it is.
+        """
+        self.machine.release(self.capacity, self.rung)
+
+
+@dataclass(frozen=True)
 class Ascent:
     """Every family a task may enter, in order, with what bounds the climb.
 
@@ -588,22 +675,129 @@ class Ascent:
         hand does not bound that machine, which is a capacity and a plan built
         from different configs.
 
+        Both halves are read per rung, and they have to be the same half each
+        time: a rung with a width of its own is a server process of its own, so
+        its load is the load of that process and its width is that process's
+        width. Comparing one rung's load against another's width — the rig's
+        load against a rung's width, as this did while load was read per source
+        — reports a busy rig's idle narrow rung as full and spends money
+        climbing past it.
+
         The load is read here rather than stored when the ascent was built,
         because a reading taken before the batch started is only true until the
         batch starts; this is the closest a caller can get to the moment it acts.
+
+        **One snapshot, and not a commitment.** The whole walk reads its loads
+        inside :meth:`~mcgyvr.capacity.Capacity.deciding`, so the rungs are
+        priced against one another as they stood at a single moment; without it
+        a cheap rung could be read before another thread reserved it and a dear
+        one after, and the answer would be "cheapest free" for a ladder that was
+        never in that state. Nothing slow runs in there — these are counter
+        reads — which is the condition ``deciding`` sets on its borrowers.
+
+        **Reading is all this does.** Naming a rung reserves nothing, so between
+        this answer and the moment anything acts on it another thread may take
+        the slot it named. That is why it is not the seam a batch enters on:
+        :meth:`reserve_entry` answers the same question and *commits* to the
+        answer inside the same section, and :func:`_idle_entry` uses that one.
+        This one stays because "which rung would an idle ladder offer" is a
+        question worth being able to ask without buying anything — ``mcgyvr
+        pool`` asks it, and so does every test that pins the rule.
+        """
+        found = self._entry_rung(reserve=False)
+        return None if found is None else found[1]
+
+    def reserve_entry(self) -> Entry | None:
+        """The raised entry ``idle`` decides on, with its rung already reserved.
+
+        The same question :attr:`next_free_rung` answers, made into a decision:
+        the loads are priced against one another and the rung that wins is
+        reserved before the lock is given up, so what comes back is a rung this
+        caller *holds* rather than a rung it saw free a moment ago. That is the
+        whole of the fix for the window :func:`_idle_entry` used to describe —
+        without it every member of a batch reads the same one free api slot and
+        each pays for it, which is a funnel priced in money.
+
+        ``None`` whenever there is nothing to raise: every case
+        :attr:`next_free_rung` answers ``None`` for, and the case where the
+        cheapest free rung is already in the floor family. **Nothing is reserved
+        on any of those paths**, which matters as much as the reservation does:
+        a reservation taken and given back a moment later would show a free
+        machine as busy to whichever peer read it in between, and that peer
+        would climb into a dearer family for a slot nobody had taken — the
+        phantom-reservation failure, which is the same defect wearing the other
+        mask.
+
+        The reservation returned is the caller's until it is handed to
+        :func:`~mcgyvr.route.climb` as ``claimed``, which releases it exactly
+        once. A caller that does not reach a climb must release it itself;
+        :func:`escalate` does that in a ``finally``.
+        """
+        found = self._entry_rung(reserve=True)
+        if found is None:
+            return None
+        family, rung, machine = found
+        if not self._raises(family):
+            return None
+        # `_entry_rung` answers None without a capacity, so there is one here,
+        # and it is the one the reservation was taken against.
+        assert self.capacity is not None
+        return Entry(family=family, rung=rung, machine=machine, capacity=self.capacity)
+
+    def _raises(self, family: Family) -> bool:
+        """Whether entering ``family`` is a raise rather than the floor itself.
+
+        The one place the comparison is written. Entering the floor family is
+        what would have happened anyway, so it is not a decision and buys
+        nothing — and it is also the case that must not reserve.
+        """
+        return family.rank > self.floor.rank
+
+    def _entry_rung(self, *, reserve: bool) -> tuple[Family, str, Machine] | None:
+        """The cheapest free rung at or above the floor, optionally claimed.
+
+        One walk for both callers, because "cheapest rung with a free slot" is
+        one question and answering it twice would be two rules to keep in step.
+        The rules it walks by are :attr:`next_free_rung`'s and are stated there.
+
+        ``reserve`` decides whether the answer is also a commitment. It is taken
+        inside the same :meth:`~mcgyvr.capacity.Capacity.deciding` section the
+        loads were read in, which is what makes the read and the claim one
+        decision rather than a snapshot another thread can act on first — and it
+        is taken through :meth:`~mcgyvr.route.Machine.claim`, so no source name
+        crosses the seam here any more than it does anywhere else (#20).
+
+        It is taken *only for a rung that raises the entry*, and never for one in
+        the floor family. A reservation on the floor rung would be handed to
+        nobody — entering the floor is not a decision, so there is nothing to
+        hand it to — and giving it back a moment later, outside the lock, leaves
+        a window in which a peer reads a free machine as busy and climbs into a
+        dearer family for a slot that was never taken. The rung named is the
+        same either way; only the commitment is conditional.
+
+        The family is returned beside the rung because the walk already knows
+        which plan it stopped in. Looking it up again afterwards would be a
+        second answer to a question this loop had in hand, and the version of
+        this code that did so had to raise for a name it could not find again.
         """
         if self.fanout is not Fanout.IDLE or self.capacity is None:
             return None
-        for each in self.plans:
-            for step in each.climbable:
-                width = self.widths.get(step.rung.name)
-                load = (
-                    None if step.machine is None else step.machine.load(self.capacity)
-                )
-                if width is None or load is None:
-                    return None
-                if load < width:
-                    return step.rung.name
+        with self.capacity.deciding():
+            for each in self.plans:
+                for step in each.climbable:
+                    machine = step.machine
+                    width = self.widths.get(step.rung.name)
+                    load = (
+                        None
+                        if machine is None
+                        else machine.load(self.capacity, step.rung.name)
+                    )
+                    if machine is None or width is None or load is None:
+                        return None
+                    if load < width:
+                        if reserve and self._raises(each.family):
+                            machine.claim(self.capacity, step.rung.name)
+                        return each.family, step.rung.name, machine
         return None
 
     @property
@@ -654,12 +848,21 @@ def ascent(
 
 
 def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
-    """How wide each rung's machine is, keyed by the rung rather than the machine.
+    """How wide each rung's own server is, keyed by the rung rather than the machine.
 
     The static half of "has a free slot". A width is a property of how a backend
     was started, so :class:`~mcgyvr.capacity.Capacity` settles it once and this
     reads it once; only the load has to be read at the moment the question is
     asked.
+
+    The rung's width and not its source's, because a tier may declare one and a
+    rung that did is bounded by it. Reading the source's number for such a rung
+    would price a free slot on the source's terms — sixteen where the rung will
+    admit four, or four where it will admit sixteen — and ``idle`` would either
+    queue on a full rung or climb past an empty one. A rung that declares
+    nothing is answered with its source's width, which is what
+    :meth:`~mcgyvr.capacity.Capacity.limit` falls back to and what
+    ``sources.*.max_parallel`` has always meant.
 
     The source name is read inside this function and does not leave it: #20's
     rule is that nothing above the execution seam learns where work runs, and a
@@ -675,7 +878,7 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
         return {}
     limits = capacity.limits
     return {
-        tier.name: limits[tier.source]
+        tier.name: capacity.limit(tier.source, tier.name)
         for tier in config.ladder.tiers
         if tier.source in limits
     }
@@ -739,6 +942,72 @@ class Halted:
         return False
 
 
+class DispatchRaisedError(Exception):
+    """An attempt function's own account of the dispatch it died on.
+
+    An attempt that asks its rung for several candidates (``breadth.draws``)
+    makes one dispatch per draw and one journal row per dispatch. When it
+    raises instead of judging, two facts decide which of those rows the failure
+    belongs on, and *only the attempt function holds either*: how many of its
+    draws reached a row, and which one it was in when it died. A plain `raise`
+    carries neither, and every party downstream can do no better than infer.
+
+    Inference is what this class exists to end. The rows were counted once —
+    take the last one, "the dispatch in flight" — and that sentence is false
+    twice over: for a raise *after* the draws (a verifier, a cleanup, a gate)
+    it pins the failure on a dispatch that answered, and for a draw whose row
+    was lost (an unwritable blob store, a torn last line) it shifts every draw
+    down one and lands on the dispatch that answered. Both are the bug the
+    counting was written to fix.
+
+    So the raise site says it, in three numbers that are three different
+    quantities and never stand in for one another:
+
+    ``draws`` is the breadth the attempt was configured for (``breadth.draws``)
+    and means that on every entry there is, whatever the verdict. It used to be
+    the rows on a raised entry and the breadth on a judged one, so a two-draw
+    run that raised after one row reported ``draws: 1`` and read as a run
+    configured for one draw.
+
+    ``rows`` is how many of those draws left a journal row — ``0`` for a raise
+    before the first dispatch — and it is what a caller correcting the journal
+    iterates. It is never larger than ``draws``, and is smaller when the
+    attempt died part-way or when the driver keeps no journal at all: it counts
+    what was written, not what was drawn, and a driver holding no ``recording``
+    writes nothing whatever it draws.
+
+    ``draw`` is the row the attempt died *in*, or ``None`` when no row of its
+    own is the culprit. ``None`` is not one case but two, and ``rows`` tells
+    them apart without a third field: ``rows == 0`` is a raise before any
+    dispatch, and ``rows > 0`` is a raise past draw ``rows - 1``, which had
+    answered and left its row — the gate that judged it, the preparation of the
+    next draw, or everything after the last one. That is what lets a reader be
+    told where the attempt died rather than only that no dispatch owns it.
+
+    A driver that raises anything else says nothing, and is read as having
+    asked for nothing and written nothing.
+    """
+
+    def __init__(
+        self,
+        cause: BaseException,
+        *,
+        draws: int,
+        rows: int,
+        draw: int | None = None,
+    ) -> None:
+        super().__init__(str(cause))
+        #: What actually went wrong. This class is an envelope, and the
+        #: operator is told what died and not what carried the news.
+        self.cause = cause
+        #: The breadth the attempt was configured for.
+        self.draws = draws
+        #: How many of the attempt's draws left a journal row.
+        self.rows = rows
+        #: The row the attempt died in, or ``None`` for a raise no row owns.
+        self.draw = draw
+
+
 class _AttemptError(Exception):
     """An attempt function raised instead of returning a judgement.
 
@@ -749,12 +1018,24 @@ class _AttemptError(Exception):
     carried together so :func:`escalate` can name them in the terminal
     :attr:`Outcome.ERROR` rather than let them escape to a caller that cannot
     tell a dead socket from a bug it owns.
+
+    **The draw comes from the raise site or not at all.** A driver that wrapped
+    its failure in :class:`DispatchRaisedError` has stated the breadth it asked
+    for, how many of its dispatches left a row and which one it died in; this
+    seam unwraps it, so ``cause`` is the failure itself and the envelope is
+    never what the operator reads. A driver that raised anything else has said
+    nothing, and nothing is what is recorded: no breadth, no rows and no draw.
     """
 
-    def __init__(self, rung: str, cause: BaseException) -> None:
+    def __init__(self, rung: str, attempt: int, cause: BaseException) -> None:
+        stated = cause if isinstance(cause, DispatchRaisedError) else None
         super().__init__(rung)
         self.rung = rung
-        self.cause = cause
+        self.attempt = attempt
+        self.cause = stated.cause if stated is not None else cause
+        self.draws = stated.draws if stated is not None else 0
+        self.rows = stated.rows if stated is not None else 0
+        self.draw = stated.draw if stated is not None else None
 
 
 def escalate(
@@ -783,8 +1064,46 @@ def escalate(
     :func:`~mcgyvr.route.climb` refuses to catch it for exactly that reason;
     here it is caught and recorded as :attr:`Outcome.ERROR` naming the rung,
     so a caller can hand it to :func:`disposition` instead of a traceback.
+
+    Under ``ladder.fanout: idle`` the climb *enters* at the family of the
+    cheapest rung with a free slot rather than at the contract's floor, which is
+    the whole of what that mode decides across families and the reason it is
+    computed here rather than in :mod:`mcgyvr.route`. It is expressed by
+    building the ascent a second time with that family as its ``floor``, so a
+    raised entry is the same shape as any other floor: the cheaper families are
+    *absent* from the ascent rather than skipped inside it, which is what keeps
+    "each family is entered at most once" a fact about the shape. Choosing an
+    entry family is not reordering a plan — the rungs within whichever family is
+    entered stay in the price order :func:`~mcgyvr.route.plan` put them in, and
+    which of them a climb starts on is still :func:`~mcgyvr.route.climb`'s.
+    See :func:`_idle_entry` for why the raised entry costs no escalation.
+
+    **The entry rung is reserved before it is entered, and handed down.**
+    :func:`_idle_entry` claims the rung it names inside the section that priced
+    it, and that reservation is passed to the entry family's climb as
+    ``claimed`` — so the read and the commitment are one decision, and a batch
+    cannot sell one free api slot to every member at once. The reservation is
+    given back exactly once: by :func:`~mcgyvr.route.climb`, when that rung is
+    done with, on the path that reaches a climb — and by the ``finally`` here on
+    every path that does not, because a reservation nobody gives back narrows a
+    source for the life of the process.
     """
     route = ascent(config, pool, contract, floor=floor, capacity=capacity)
+    entry = _idle_entry(route)
+    claimed: str | None = None
+    if entry is not None:
+        try:
+            route = ascent(
+                config, pool, contract, floor=entry.family, capacity=capacity
+            )
+            claimed = _handed_down(route, entry)
+        finally:
+            # Everything between the reservation and the climb that takes it
+            # over: an ascent that raised while being rebuilt, and an ascent
+            # rebuilt without the rung the reservation is for. `claimed` is
+            # cleared the moment a climb takes it, so it doubles as "still ours".
+            if claimed is None:
+                entry.release()
     ceiling = route.ceiling
     budget = route.budget
 
@@ -794,6 +1113,13 @@ def escalate(
     accepted_judgement: Judgement | None = None
     history: list[Attempted] = []
     entered: list[Family] = []
+    # The judged attempts of the climb in progress, kept here as they are
+    # judged. `climb` keeps the same list and returns it — unless an attempt
+    # raises, when the exception ends the call and the list goes with it. The
+    # attempts before the raise dispatched, wrote journal rows and produced
+    # findings; a history that dropped them would count them in
+    # `attempts_spent` and list them nowhere.
+    judged: list[Attempted] = []
 
     def permit(step: Step, number: int) -> bool:
         nonlocal stopped_by
@@ -821,59 +1147,107 @@ def escalate(
             # work"; here is the seam that turns it into a terminal outcome of
             # its own, carrying the rung so the operator knows which tier to
             # fix.
-            raise _AttemptError(this.rung.name, exc) from exc
+            raise _AttemptError(this.rung.name, this.attempt, exc) from exc
         if judgement.verdict is not Verdict.DECLINED:
             attempts_spent += 1
             if this.rung.name not in spent_rungs:
                 spent_rungs.append(this.rung.name)
         if judgement.verdict is Verdict.PASSED:
             accepted_judgement = judgement
-        return judgement.as_result()
+        result = judgement.as_result()
+        judged.append(attempted(this.rung.name, this.attempt, result))
+        return result
 
-    for each in route.plans:
-        if not each.climbable:
-            # Not entered, and its reason is kept for the halt detail. The test
-            # is `climbable` rather than truthiness because the two stopped
-            # agreeing when #81 bound the floor: a deterministic family holding
-            # a program is non-empty and still has nothing to climb, so a
-            # truthiness guard entered it and `climb` raised `RouteError` —
-            # which is not a `RunnerError`, so the mission loop did not catch
-            # it and the run ended with earlier contracts already committed.
-            continue
-        try:
-            result = climb(each, observed, capacity=capacity, permit=permit)
-        except _AttemptError as raised:
-            return Halted(
-                outcome=Outcome.ERROR,
-                entered=tuple(entered),
-                history=tuple(history),
-                attempts_spent=attempts_spent,
-                escalations=max(0, len(spent_rungs) - 1),
-                detail=(
+    try:
+        for each in route.plans:
+            if not each.climbable:
+                # Not entered, and its reason is kept for the halt detail. The
+                # test is `climbable` rather than truthiness because the two
+                # stopped agreeing when #81 bound the floor: a deterministic
+                # family holding a program is non-empty and still has nothing to
+                # climb, so a truthiness guard entered it and `climb` raised
+                # `RouteError` — which is not a `RunnerError`, so the mission
+                # loop did not catch it and the run ended with earlier contracts
+                # already committed.
+                continue
+            # The reserved rung is on the entry family's plan and on no other,
+            # and the entry family is this ascent's floor — so it is handed to
+            # the first climb there is, and every rung after it claims its own.
+            taking = claimed if claimed in each.rungs else None
+            if taking is not None:
+                claimed = None
+            judged.clear()
+            try:
+                result = climb(
+                    each, observed, capacity=capacity, permit=permit, claimed=taking
+                )
+            except _AttemptError as raised:
+                detail = (
                     f"rung {raised.rung!r} raised "
                     f"{type(raised.cause).__name__}: {raised.cause}"
-                ),
-            )
-        history.extend(result.history)
-        if result.history:
-            entered.append(each.family)
-        if isinstance(result, Accepted):
-            assert accepted_judgement is not None  # set by `observed` on PASSED
-            return Delivered(
-                family=result.family,
-                rung=result.rung,
-                # An attempt that passed without saying what its acceptance
-                # rests on is read as unverified. Defaulting the other way is
-                # how a result comes to be reported as more assured than it is.
-                assurance=accepted_judgement.assurance or Assurance.UNVERIFIED,
-                judgement=accepted_judgement,
-                entered=tuple(entered),
-                history=tuple(history),
-                attempts_spent=attempts_spent,
-                escalations=max(0, len(spent_rungs) - 1),
-            )
-        if result.reason is Exhaustion.WITHHELD:
-            break
+                )
+                # Every attempt judged before the raise, then the raise. The
+                # judged ones dispatched and were counted; the raising one is
+                # in the history too, because a record that omitted it would
+                # show a climb that never touched the rung it died on.
+                history.extend(judged)
+                history.append(
+                    Attempted(
+                        rung=raised.rung,
+                        attempt=raised.attempt,
+                        verdict=Verdict.FAILED,
+                        detail=detail,
+                        raised=True,
+                        # Copied from the raise site and never inferred here.
+                        # `draws` is the breadth the attempt asked for and
+                        # means that on every entry; `rows` is how many of
+                        # those draws left a journal row, which is what the
+                        # caller corrects; `draw` is the one it died in, or
+                        # `None` when no row of it is the culprit. The
+                        # dataclass defaults said "draw 0 of 1" — not "unknown"
+                        # but a claim — and the caller believed it, so under
+                        # `breadth.draws > 1` the error went onto a dispatch
+                        # that had answered. See `DispatchRaisedError` for why a
+                        # driver is the only party that can say any of them.
+                        draw=raised.draw,
+                        draws=raised.draws,
+                        rows=raised.rows,
+                    )
+                )
+                return Halted(
+                    outcome=Outcome.ERROR,
+                    entered=tuple(entered),
+                    history=tuple(history),
+                    attempts_spent=attempts_spent,
+                    escalations=max(0, len(spent_rungs) - 1),
+                    detail=detail,
+                )
+            history.extend(result.history)
+            if result.history:
+                entered.append(each.family)
+            if isinstance(result, Accepted):
+                assert accepted_judgement is not None  # set by `observed` on PASSED
+                return Delivered(
+                    family=result.family,
+                    rung=result.rung,
+                    # An attempt that passed without saying what its acceptance
+                    # rests on is read as unverified. Defaulting the other way is
+                    # how a result comes to be reported as more assured than it is.
+                    assurance=accepted_judgement.assurance or Assurance.UNVERIFIED,
+                    judgement=accepted_judgement,
+                    entered=tuple(entered),
+                    history=tuple(history),
+                    attempts_spent=attempts_spent,
+                    escalations=max(0, len(spent_rungs) - 1),
+                )
+            if result.reason is Exhaustion.WITHHELD:
+                break
+    finally:
+        # Unreachable by the argument above, and kept anyway: the cost of that
+        # argument being wrong one day is not a wrong answer, it is a source
+        # that reads as busy for the rest of the process.
+        if entry is not None and claimed is not None:
+            entry.release()
 
     escalations = max(0, len(spent_rungs) - 1)
     outcome = stopped_by or _spent_outcome(history, attempts_spent)
@@ -885,6 +1259,108 @@ def escalate(
         escalations=escalations,
         detail=_halt_detail(outcome, route, attempts_spent, escalations),
     )
+
+
+def _idle_entry(route: Ascent) -> Entry | None:
+    """Which family ``idle`` enters when that is dearer than the floor, and the
+    rung it has reserved there.
+
+    ``None`` under every other mode, without a capacity, and whenever the
+    cheapest free rung is already in the floor family — three cases in which
+    there is nothing to raise, the ascent stands as built, and **nothing is
+    reserved**. :meth:`Ascent.reserve_entry` is the single answer this reads;
+    the reasons it declines to give one are its own and are not restated here.
+
+    **The read and the commitment are one decision.** They were not, and the
+    gap was this function's whole risk: naming a rung reserved nothing, while
+    the reservation for the rung a climb takes was made much later inside
+    :func:`~mcgyvr.route.climb`'s own
+    :meth:`~mcgyvr.capacity.Capacity.deciding` section. In between, every member
+    of a batch reaching this point saw the same one free api slot, every one of
+    them raised its entry into the priced family, and they then queued on it —
+    *paying* for a rung they could have waited out locally for nothing. It was
+    the funnel :mod:`mcgyvr.route` describes as narrowed to microseconds and not
+    closed, with money rather than throughput as the cost.
+
+    It is closed by reserving the named rung inside the very section that priced
+    it, and handing that reservation down: :func:`escalate` passes ``rung`` to
+    the entry family's :func:`~mcgyvr.route.climb` as ``claimed``, and that
+    climb takes it *without claiming it again*, so the source counts one attempt
+    for one dispatch and ``climb``'s existing ``finally`` gives it back exactly
+    once. The two failures the older reading feared are the two this shape
+    rules out: a double count, because the claim is skipped for exactly that
+    rung, and a phantom reservation, because nothing is reserved on any path
+    that does not raise the entry.
+
+    **What it does not do is shorten the walk.** An earlier note here proposed
+    that ``climb`` drop the rungs cheaper than the claimed one. That is the
+    defect ``869bf2a1`` removed, in the other module: a family short of the
+    rungs it was dropped runs out of ladder while still holding escalation
+    budget nothing has paid for, and that leftover move funds a dispatch into a
+    dearer family — it is how ``full`` came to buy an api call the default
+    refuses. Fan-out is a scheduling decision and not a spend decision, so the
+    claimed rung is popped out of the middle of the walk and every other rung
+    stays exactly where it was.
+
+    **A leaked reservation is forever**, so the obligation :class:`Entry`
+    carries is discharged on every path: by the climb that takes it over, and
+    otherwise by :func:`escalate`'s ``finally``.
+
+    **A raised entry is free, and a climbed one is not.** An escalation is what
+    a *failure* buys: ``budgets.max_escalations`` bounds how far work climbs
+    after something could not do it, and the record that funds a move is a
+    verdict. Entering high because everything cheaper was full is not that.
+    Nothing was tried, nothing failed, and the rungs below were passed over
+    rather than judged — so charging the entry would let a busy ladder spend a
+    budget that only a failure is entitled to spend, and would silently halve
+    the ladder of every contract whose floor family happened to be saturated
+    when it started. A reservation is not a verdict either: reserving the entry
+    rung records nothing about it and buys nothing on it, which is why the
+    arithmetic below is untouched by the reservation.
+
+    **The code path that keeps it free.** :func:`escalate` counts moves off
+    ``spent_rungs``, which is appended to only in ``observed`` and only for a
+    verdict that was not a decline — so it holds rungs that *ran*, never rungs
+    that were reached. Raising the entry drops the cheaper families from the
+    ascent entirely, so the first rung the climb reaches finds ``spent_rungs``
+    empty: ``permit``'s ``moving`` is ``bool(spent_rungs)`` and is therefore
+    False for it, and ``escalations`` is ``len(spent_rungs) - 1`` floored at
+    zero, which is zero. Nothing has to remember not to charge it, because
+    there is nothing in the count for it to be charged against. What the raised
+    entry does *not* do is shorten the climb from there: :attr:`Ascent.rungs`
+    now holds the entry family's rungs and everything above, so
+    :attr:`Ascent.most_rungs` still offers ``max_escalations`` moves from the
+    rung work actually starts on.
+
+    The same rule read from the other side: a rung reached by escalation and the
+    same rung reached under ``idle`` are one rung with two histories. Only the
+    first is preceded by a failure, and only the first is charged.
+    """
+    return route.reserve_entry()
+
+
+def _handed_down(route: Ascent, entry: Entry) -> str | None:
+    """The rung to hand the entry family's climb, or ``None`` if it is not there.
+
+    The ascent :func:`escalate` climbs is built a second time, with the entry
+    family as its floor, and this asks the only question that matters about the
+    rebuild: does the plan the climb will be given still offer the rung the
+    reservation was taken for. It does, for every ascent built from the same
+    config, pool and contract — :func:`ascent` is a function of those three, and
+    the entry family's rungs do not depend on which floor was asked for.
+
+    It is asked anyway because the answer decides who owes the release.
+    :func:`~mcgyvr.route.climb` cannot give back a reservation for a rung its
+    plan does not offer: a :class:`~mcgyvr.route.Machine` is built from the
+    rungs of one family, so there is no handle there to release with, and #20's
+    rule keeps the source name from being the alternative. ``None`` therefore
+    means "still ours", and :func:`escalate` releases it rather than handing
+    down a name that would be quietly ignored.
+    """
+    for each in route.plans:
+        if each.family == entry.family:
+            return entry.rung if entry.rung in each.rungs else None
+    return None
 
 
 def _spent_outcome(history: list[Attempted], attempts_spent: int) -> Outcome:

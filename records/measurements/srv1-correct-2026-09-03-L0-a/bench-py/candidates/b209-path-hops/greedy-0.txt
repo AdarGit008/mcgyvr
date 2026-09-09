@@ -1,0 +1,34 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path):
+        segments = path.split('/')
+        return [segment for segment in segments if segment and segment != '.' and segment != '..']
+
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+
+    if len(start_segments) == 0 or len(goal_segments) == 0:
+        return 0
+
+    common_prefix_length = min(len(start_segments), len(goal_segments))
+
+    start_hops = common_prefix_length
+    goal_hops = common_prefix_length
+
+    for i in range(common_prefix_length):
+        if start_segments[i] != goal_segments[i]:
+            break
+        start_hops += 1
+        goal_hops += 1
+
+    if start_segments[common_prefix_length:] == goal_segments[common_prefix_length:]:
+        return 0
+
+    if start_segments[common_prefix_length:] == ['..'] * len(start_segments[common_prefix_length:]):
+        return 0
+
+    if goal_segments[common_prefix_length:] == ['..'] * len(goal_segments[common_prefix_length:]):
+        return 0
+
+    return start_hops + goal_hops
+```

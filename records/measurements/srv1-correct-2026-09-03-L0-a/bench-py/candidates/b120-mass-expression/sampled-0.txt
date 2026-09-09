@@ -1,0 +1,31 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Input must be a non-empty string and the goal unit must be one of 'g', 'kg', or 't'.")
+    if not text or not unit in ['g', 'kg', 't']:
+        raise ValueError("Tally is not a non-empty string or the goal unit is not one of 'g', 'kg', or 't'.")
+    if len(text) % 2 != 1 or text.count(' + ') != text.count(' - '):
+        raise ValueError("Tally terms and operators must alternate ending on a term.")
+    if any(char.isdigit() and (char == '0' or char in [' ', '-', '+']) for char in text):
+        raise ValueError("Term must be a plain count directly on one of the three units.")
+    
+    total = 0
+    for term in text.split():
+        if term.isdigit():
+            total += int(term)
+        elif term == 'kg':
+            total *= 1000
+        elif term == 't':
+            total *= 1000000
+    
+    if total % 1 != 0:
+        raise ValueError("Total must come out whole in the goal unit.")
+    
+    if total < 0:
+        raise ValueError("Tally cannot dip below zero.")
+    
+    if total != (total % 1000 * 1000) and total != (total % 1000000 * 1000):
+        raise ValueError("Tally cannot come out whole in the goal unit.")
+    
+    return total % 1000 * 1000 if unit == 'g' else total % 1000000 * 1000 if unit == 'kg' else total
+```

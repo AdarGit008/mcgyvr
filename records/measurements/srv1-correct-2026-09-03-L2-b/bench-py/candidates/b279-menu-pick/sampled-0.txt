@@ -1,0 +1,11 @@
+```python
+from typing import List
+
+def menu_pick(dishes: List, budget: int) -> List:
+    if not dishes or budget < 0:
+        return []
+
+    sorted_dishes = sorted(dishes, key=lambda x: (x[1], x[0]))
+    filtered_dishes = [dish for dish in sorted_dishes if dish[1] <= budget]
+    return filtered_dishes
+```

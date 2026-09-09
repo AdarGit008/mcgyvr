@@ -1,0 +1,15 @@
+```python
+from typing import *
+from collections import *
+
+def glob_path(pattern: str, path: str) -> bool:
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Both pattern and path must be strings.")
+    if pattern == "" or path == "":
+        raise ValueError("Pattern and path cannot be empty.")
+    if not path.startswith(pattern):
+        return False
+    if not all(char in path for char in pattern):
+        return False
+    return True
+```

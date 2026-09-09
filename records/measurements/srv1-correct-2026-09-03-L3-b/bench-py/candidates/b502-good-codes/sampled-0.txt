@@ -1,0 +1,9 @@
+```python
+def code_sum(code: str) -> int:
+    """Returns the sum of all digits in the given code."""
+    return sum(int(c) for c in code if c.isdigit())
+
+def good_codes(codes: list[str]) -> list[str]:
+    """Returns a list of codes whose sum of digits is divisible by three."""
+    return [code for code in codes if code_sum(code) % 3 == 0]
+```

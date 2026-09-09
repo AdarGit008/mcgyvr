@@ -1,0 +1,12 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    if not chart or name not in chart:
+        raise ValueError("Invalid input: chart or name not found")
+    if not isinstance(chart[name], list):
+        raise ValueError("Invalid input: chart value is not a list")
+    if not all(isinstance(report, str) for report in chart[name]):
+        raise ValueError("Invalid input: chart values are not strings")
+    if chart[name] == []:
+        return 1
+    return len(chart[name]) + team_headcount(chart, chart[name][0])
+```

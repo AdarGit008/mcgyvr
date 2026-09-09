@@ -1,0 +1,9 @@
+```python
+def menu_pick(dishes: list, budget: int) -> list:
+    if not dishes or budget < 0:
+        raise ValueError("Invalid input")
+
+    affordable_dishes = [dish for dish in dishes if dish['price'] <= budget]
+    affordable_dishes.sort(key=lambda x: (x['price'], x['name']))
+    return affordable_dishes
+```

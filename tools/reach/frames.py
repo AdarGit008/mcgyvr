@@ -42,6 +42,7 @@ import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent.parent
 CORPUS_DIR = REPO / "records" / "corpora" / "reach-2026-08-02"
@@ -65,8 +66,9 @@ class ReachError(RuntimeError):
 # --- corpus ---------------------------------------------------------------
 
 
-def load_corpus() -> dict:
-    return json.loads(CORPUS.read_text(encoding="utf-8"))
+def load_corpus() -> dict[str, Any]:
+    corpus: dict[str, Any] = json.loads(CORPUS.read_text(encoding="utf-8"))
+    return corpus
 
 
 def matches(path: str, glob: str) -> bool:
@@ -137,18 +139,18 @@ def added_lines(
     return {p: frozenset(v) for p, v in out.items() if v}
 
 
-def prepare_clone(frame: Mapping, workdir: Path) -> Path:
+def prepare_clone(frame: Mapping[str, Any], workdir: Path) -> Path:
     """Materialise a frame at its pinned commit, checkout-able commit by commit.
 
     The self frame is cloned rather than used in place: the measurement checks
     out 20 historical commits and must not touch the working tree it is run
     from.
     """
-    dest = workdir / frame["repo"].replace("/", "_")
+    dest = workdir / str(frame["repo"]).replace("/", "_")
     if dest.exists():
         return dest
     dest.mkdir(parents=True)
-    sha = frame["pinned_commit"]
+    sha = str(frame["pinned_commit"])
     if frame["role"] == "self":
         subprocess.run(
             ["git", "clone", "--quiet", "--no-hardlinks", str(REPO), str(dest)],
@@ -214,7 +216,7 @@ class FrameRuntime:
     report_cmd: str
     report_kind: str  # "coverage.py" | "istanbul"
     keep: tuple[str, ...] = ()
-    env: Mapping[str, str] = field(default_factory=dict)
+    env: Mapping[str, str] = field(default_factory=dict[str, Any])
 
 
 # A cache and a HOME that are writable by the host user and outside the clone,
@@ -406,7 +408,7 @@ class FileCoverage:
     executable: frozenset[int]
 
 
-def parse_coverage_py(report: Mapping) -> dict[str, FileCoverage]:
+def parse_coverage_py(report: Mapping[str, Any]) -> dict[str, FileCoverage]:
     out = {}
     for path, data in report.get("files", {}).items():
         executed = frozenset(data.get("executed_lines", []))
@@ -415,7 +417,7 @@ def parse_coverage_py(report: Mapping) -> dict[str, FileCoverage]:
     return out
 
 
-def parse_istanbul(report: Mapping) -> dict[str, FileCoverage]:
+def parse_istanbul(report: Mapping[str, Any]) -> dict[str, FileCoverage]:
     out = {}
     for path, data in report.items():
         statements = data.get("statementMap", {})
@@ -450,7 +452,7 @@ def load_report(kind: str, path: Path) -> dict[str, FileCoverage]:
     raise ReachError(f"unknown report kind {kind!r}")
 
 
-def write_jsonl(path: Path, rows: Iterable[Mapping]) -> None:
+def write_jsonl(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         for row in rows:

@@ -1,0 +1,8 @@
+### HOST srv2  2026-09-04T17:19:16+00:00
+### GPU NVIDIA GeForce RTX 3060, 12288 MiB, 377 MiB, 595.84
+### IMG ghcr.io/ggml-org/llama.cpp:server-cuda-b10644  MODEL /models/moe/deepseek-coder-v2-16b.gguf  ncmoe=24 c=8192 np=8
+ub	vram_used	model	kv	rs	compute	sum_reported	cuda_ctx
+256	3967	1545.27	2160.00	0	124.39	3829.66	137.34
+512	3991	1545.27	2160.00	0	149.77	3855.04	135.96
+1024	4043	1545.27	2160.00	0	200.54	3905.81	137.19
+### END 2026-09-04T17:19:52+00:00 uptime_since=2026-09-01 05:20:12

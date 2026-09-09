@@ -1,0 +1,18 @@
+```python
+def take_back(values: list, target: int) -> int:
+    if not values or target <= 0:
+        return -1
+
+    total = sum(values)
+    if total < target:
+        return -1
+
+    taken = 0
+    for value in reversed(values):
+        total -= value
+        taken += 1
+        if total >= target:
+            return taken
+
+    return -1
+```

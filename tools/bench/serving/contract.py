@@ -2,10 +2,11 @@
 """What every serving backend must implement, and what none of them may own.
 
 **One rule shapes this file: a backend never knows another backend exists.**
-``backends/ollama.py`` contains no reference to vLLM; ``backends/vllm.py``
-contains no reference to ollama. Adding a third engine is a third file and a
+``backends/llamacpp.py`` contains no reference to vLLM; ``backends/vllm.py``
+contains no reference to llama.cpp. Adding a third engine is a third file and a
 line of config, with no edit to either of the first two and none to
-:mod:`run`.
+:mod:`run`. Removing one was a file deletion and four entries out of
+``launch.py``'s marker list, which is the same property from the other side.
 
 That is not tidiness. An earlier single-module version cleared the machine
 unconditionally before every measurement, which meant it stopped vLLM
@@ -85,7 +86,8 @@ REPO = HERE.parents[2]
 #: point: the right top is a function of the width the server was launched
 #: with, not a constant. :func:`ladder` is that function; this tuple is its
 #: base and stays the survey default because a roster entry that has not
-#: declared a width (ollama reports `total_slots = 1` for every model) has no
+#: declared a width -- a daemon on the 2026-08-19 roster reported
+#: `total_slots = 1` for every model it served -- has no
 #: business being offered 384 queued requests -- on srv2's deep-spill models a
 #: single level of 24 already costs 6-9 minutes per repeat
 #: (`configs/d7-campaign.json`, E13).
@@ -231,7 +233,8 @@ LATENCY_TOLERANCE = 0.10
 #: entirely. Recomputed from ``samples.jsonl`` at 512 tokens: a ``> 1.0`` gate
 #: reads four of five vLLM widths correctly and declines the fifth with **no
 #: wrong answer**, where 2.0 suppresses three correct ones. The 2.0 threshold
-#: was separating vLLM at 4 from ollama at 2 — and that is not the job. A
+#: was separating the engine that batches, at 4, from the one that did not, at
+#: 2 — and that is not the job. A
 #: declared limit and an inferred saturation point are different quantities
 #: and are now different fields; this constant governs only the inferred one.
 #:
@@ -241,8 +244,9 @@ LATENCY_TOLERANCE = 0.10
 #:
 #: **#356, 2026-08-24: the boundary is far from every graphs-on curve.** D7
 #: showed 0.02 separating "excluded" from "valid" (srv1 width 1 at 1.00
-#: against srv2's 1.02, `calibration-2026-08-19/README.md:996-1000`) -- both
-#: were width-1 servers under eager. On the 2026-08-24 sweep the lowest max
+#: against srv2's 1.02,
+#: `archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:996-1000`)
+#: -- both were width-1 servers under eager. On the 2026-08-24 sweep the lowest max
 #: speedup over n=1 is 3.39 (srv1, eager) and 3.61 (srv1, graphs); srv2's
 #: lowest is 7.5. Nothing is within a factor of three of the floor, so the
 #: constant excludes nothing in the new regime and its sensitivity stays a
@@ -316,6 +320,16 @@ PROVENANCE: dict[str, dict[str, str]] = {
         "date": "2026-08-24",
         "kind": "derived",
         "note": "ends at 384, the level that read below 256 on srv2",
+    },
+    "PROBE_INTERVAL_S": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-31",
+        "kind": "invariant",
+        "note": "reads no rate: it samples an endpoint beside the measurement "
+        "and never enters it. Sized against the levels in that run, whose "
+        "shortest is tens of seconds, so a 2 s period samples every level "
+        "many times over while adding one GET per period to a server that is "
+        "already serving n streams",
     },
     "RAMP_REPEATS": {
         "run": "records/evidence/2026-08-23-cross-rig",
@@ -644,13 +658,15 @@ def ssh(host: str, command: str, timeout: float = STEP_TIMEOUT_S) -> str | None:
     the gap instead of failing over it. Callers that need certainty check the
     reading rather than trusting the call.
     """
+    # The door's transport, imported when called and not when this module
+    # loads: the tests that stub this function never touch gatelib, and outside
+    # a door run gatelib refuses with SystemExit naming the door. That refusal
+    # propagates -- `except Exception` is for a timeout or a dead host, which
+    # are readings, and never for the door saying no.
+    from mcgyvr.serving.gatelib import ssh as door_ssh
+
     try:
-        proc = subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", host, command],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        proc = door_ssh(host, command, timeout=timeout)
     except Exception:
         return None
     return proc.stdout.strip() or None
@@ -909,6 +925,40 @@ def level_state(raw: str | None, client: list[float] | None) -> dict[str, Any]:
     }
 
 
+#: How often the in-flight probe asks, while a level runs. Two seconds against
+#: levels that run tens of seconds to minutes: enough samples to catch a width
+#: that never opened, few enough that the probe is not itself load.
+PROBE_INTERVAL_S = 2.0
+
+
+def in_flight(samples: list[dict[str, Any]], offered: int) -> dict[str, Any] | None:
+    """What the server said it was doing while the level was in flight.
+
+    **The question this answers.** A ramp that offers n=32 to a server admitting
+    8 at a time measures four sequential batches and records their aggregate as
+    one level. The curve flatlines, `outcome` stays `ok`, and nothing in the row
+    says which of the two happened -- saturation, or a queue. `max_running` is
+    the most the server ever ran at once; if it is below `offered`, the level
+    was never the width it is labelled.
+
+    `null` when nothing was sampled, which is the warm-up level and any engine
+    with no endpoint to ask. An unasked question is not an answer of zero.
+    """
+    if not samples:
+        return None
+    running = [int(s["running"]) for s in samples if s.get("running") is not None]
+    waiting = [int(s["waiting"]) for s in samples if s.get("waiting") is not None]
+    return {
+        "samples": len(samples),
+        "max_running": max(running) if running else None,
+        "max_waiting": max(waiting) if waiting else None,
+        "offered": offered,
+        # The finding, precomputed, because the comparison is the whole point
+        # and a reader who has to do it themselves will not.
+        "reached_offered": (max(running) >= offered) if running else None,
+    }
+
+
 def read_level_state(host: str) -> str | None:
     """The level reader's one ssh (#327): card and load in one round trip.
 
@@ -997,6 +1047,18 @@ def get_json(target: str, timeout: float = 10.0) -> Any | None:
         return None
 
 
+def get_text(target: str, timeout: float = 10.0) -> str | None:
+    """GET a document that is not JSON -- a Prometheus exposition, say -- or
+    ``None`` on any failure at all. Same contract as :func:`get_json`, one
+    decode less: what answers here is text by design, and parsing it belongs to
+    the caller that knows what it asked for."""
+    try:
+        with urllib.request.urlopen(target, timeout=timeout) as response:
+            return str(response.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
 # --- the ramp ---------------------------------------------------------------
 #
 # Shared because it belongs to no engine: OpenAI-compatible chat completions and
@@ -1010,6 +1072,7 @@ def ramp(
     *,
     host: str | None = None,
     reader: Callable[[], str | None] | None = None,
+    probe: Callable[[], dict[str, Any] | None] | None = None,
     order: str = "ascending",
     seed: int | None = None,
 ) -> dict[str, Any]:
@@ -1022,9 +1085,10 @@ def ramp(
     **Validated against a known value, and the validation is partial.** A server
     launched with a batch width of 8 reads 8, replicated within 1% including its
     reproducible dips — n=12 is one full batch plus a two-thirds empty one, so
-    it pays two batch-times for one and a half batches of work. Against ollama
-    it reads nothing: see :func:`knee` for why that is a finding rather than a
-    failure, and for the earlier version of this docstring which claimed both.
+    it pays two batch-times for one and a half batches of work. Against the
+    non-batching server on the 2026-08-19 roster it reads nothing: see
+    :func:`knee` for why that is a finding rather than a failure, and for the
+    earlier version of this docstring which claimed both.
 
     Depends on totals rather than on when any individual request landed, so
     unequal reply lengths cannot corrupt it, and every reading carries the
@@ -1056,7 +1120,7 @@ def ramp(
     # losing repeat has already been paid for. Discarding it made the one
     # measurement that could settle it unrecoverable afterwards.
     attempts = [
-        [_level(base, model, n, reader=read) for _ in range(RAMP_REPEATS)]
+        [_level(base, model, n, reader=read, probe=probe) for _ in range(RAMP_REPEATS)]
         for n in levels_run
     ]
     # #327: every reader below -- the n=1 baseline, the plateau scans, the
@@ -1170,11 +1234,16 @@ def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
     ==========================  ==================  ==============  ==========
     vLLM ``--max-num-seqs 8``   8                   2.52            8
     vLLM ``--max-num-seqs 16``  16                  3.94            16
-    ollama ``-np 2``            4                   1.71            2
-    ollama ``-np 1``            —                   —               1
+    daemon ``-np 2``            4                   1.71            2
+    daemon ``-np 1``            —                   —               1
     ==========================  ==================  ==============  ==========
 
-    The ollama plateau column is stated **at the shipped**
+    All four rows are 2026-08-19 readings; the two ``daemon`` rows are the
+    engine removed on 2026-09-06 (``archive/forensic-ollama/``), kept because a
+    plateau column that lost half its rows would stop showing the contrast the
+    paragraph below is about.
+
+    That plateau column is stated **at the shipped**
     :data:`PLATEAU_FRACTION` **of 0.92**. It read 6 in the original record,
     which was computed at 0.95 before D2 moved the constant; the vLLM columns
     are unchanged at either value. Re-deriving it here rather than copying the
@@ -1321,7 +1390,8 @@ def _max_speedup(levels: list[dict[str, Any]]) -> float | None:
     rates = [row["tokens_per_s"] or 0 for row in levels]
     if not single or not rates:
         return None
-    return round(max(rates) / single, 2)
+    peak: float = round(max(rates) / single, 2)
+    return peak
 
 
 def _throughput_plateau(levels: list[dict[str, Any]]) -> int | None:
@@ -1367,6 +1437,7 @@ def _level(
     model: str,
     n: int,
     reader: Callable[[], str | None] | None = None,
+    probe: Callable[[], dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     """One level: ``n`` simultaneous completions, what they cost, and the
     state of both machines at its end (#327).
@@ -1374,6 +1445,13 @@ def _level(
     ``reader`` is the one ssh the level pays for; ``None`` reads nothing (the
     warm-up), and the row then carries the state blocks as ``null`` with the
     command they would have needed.
+
+    ``probe`` is asked WHILE the level runs, which ``reader`` cannot be: it is
+    read at the level's end, when every request has returned and a server's
+    in-flight count is zero by definition. An engine that reports how many
+    requests it is running versus queueing answers the one question a plateau
+    cannot -- whether the level was ever offered the concurrency it claims --
+    and it has to be asked mid-flight or not at all.
     """
     out: list[dict[str, Any]] = []
     lock = threading.Lock()
@@ -1384,11 +1462,31 @@ def _level(
         threading.Thread(target=_one, args=(base, model, out, lock, budget))
         for _ in range(n)
     ]
+    # What the server said about itself while the level was in flight. The
+    # sampler is a daemon so a probe that hangs cannot hold the ramp; it stops
+    # when the requests do, and its readings are kept as the extremes -- the
+    # most the server ever ran at once, and the most it ever had waiting.
+    samples: list[dict[str, Any]] = []
+    running = threading.Event()
+
+    def sample() -> None:
+        while not running.is_set():
+            reading = probe() if probe is not None else None
+            if reading is not None:
+                samples.append(reading)
+            running.wait(PROBE_INTERVAL_S)
+
+    sampler = threading.Thread(target=sample, daemon=True) if probe else None
     begin = time.monotonic()
     for thread in threads:
         thread.start()
+    if sampler is not None:
+        sampler.start()
     for thread in threads:
         thread.join()
+    running.set()
+    if sampler is not None:
+        sampler.join(timeout=PROBE_INTERVAL_S * 2)
     wall = time.monotonic() - begin
     good = [row for row in out if "error" not in row]
     # A reply that arrived without a `usage` block is NOT a reply that generated
@@ -1417,6 +1515,11 @@ def _level(
             round(sum(latencies) / len(latencies), 3) if latencies else None
         ),
         "latency_max_s": round(max(latencies), 3) if latencies else None,
+        # **Concurrency, observed rather than assumed.** `n` is what was
+        # offered; this is what the server said it was doing. `null` when
+        # nothing was asked (the warm-up, or an engine with no such endpoint) --
+        # never zero, which is a reading and not an absence.
+        "in_flight": in_flight(samples, n),
         **state,
     }
 

@@ -1,0 +1,3 @@
+```python
+def sift_marks(entries: list[str], mark: str) -> list[list[str]]:
+    """Sift entries into two runs based on whether they open with the given

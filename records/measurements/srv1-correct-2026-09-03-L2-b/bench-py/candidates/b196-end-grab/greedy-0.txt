@@ -1,0 +1,21 @@
+```python
+from typing import List, Dict
+
+def end_grab(cards: List[int]) -> Dict[str, int]:
+    if not cards:
+        return {"first": 0, "second": 0, "taken": []}
+
+    first, second = cards[0], cards[-1]
+    taken = [first, second]
+
+    while len(cards) > 1:
+        if first > second:
+            taken.append(first)
+            cards.pop(0)
+        else:
+            taken.append(second)
+            cards.pop(-1)
+        first, second = cards[0], cards[-1]
+
+    return {"first": sum(taken), "second": sum(cards), "taken": taken}
+```

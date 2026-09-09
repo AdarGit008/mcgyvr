@@ -1,0 +1,34 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Given a mapping of names to codes, return the mapping the other way round,
+    from each code to a name. When two names share one code, the name that sorts first
+    is the one kept. A name whose code is empty text is left out altogether.
+    
+    :param names: A dictionary mapping names to codes.
+    :return: A dictionary mapping codes to names.
+    """
+    if not names:
+        return {}
+    
+    # Create a dictionary for each name to store their codes
+    code_to_names = {}
+    
+    for name, code in names.items():
+        # Ensure the name is not empty text
+        if code:
+            # If the code is not in the dictionary, add it
+            if code not in code_to_names:
+                code_to_names[code] = []
+            # Add the name to the list of names for this code
+            code_to_names[code].append(name)
+    
+    # Sort each list of names for this code and choose the first one
+    for code in code_to_names:
+        code_to_names[code].sort()
+    
+    # Create the final dictionary for the reversed mapping
+    reversed_names = {code: names[name] for name in names for code in code_to_names[name]}
+    
+    return reversed_names
+```

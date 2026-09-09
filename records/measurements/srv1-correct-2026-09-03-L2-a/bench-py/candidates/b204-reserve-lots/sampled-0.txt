@@ -1,0 +1,49 @@
+```python
+from typing import List, Tuple, Dict
+
+class Draw:
+    def __init__(self, order_id: int, lot_id: int, units_taken: int):
+        self.order_id = order_id
+        self.lot_id = lot_id
+        self.units_taken = units_taken
+
+class Shortfall:
+    def __init__(self, order_id: int, shortfall: int):
+        self.order_id = order_id
+        self.shortfall = shortfall
+
+class StockState:
+    def __init__(self, lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]):
+        self.lots = lots
+        self.orders = orders
+        self.picks = []
+        self.draws = []
+        self.shortfalls = []
+
+    def reserve_lots(self) -> Dict[str, List]:
+        lots = sorted(self.lots, key=lambda x: (x[1], x[0]))
+        orders = sorted(self.orders, key=lambda x: (x[1], x[0]))
+
+        for order in orders:
+            order_id, units_wanted = order
+            shortfall = units_wanted
+
+            for lot in lots:
+                lot_id, use_by_date, units_on_hand = lot
+
+                if use_by_date <= use_by_date:
+                    shortfall -= min(units_wanted, units_on_hand)
+                    units_on_hand -= min(units_wanted, units_on_hand)
+                    self.picks.append((order_id, lot_id, units_taken))
+                    self.draws.append((order_id, lot_id, units_taken))
+                else:
+                    self.draws.append((order_id, lot_id, units_taken))
+                    self.shortfalls.append((order_id, shortfall))
+                    break
+
+        return {
+            "picks": self.picks,
+            "draws": self.draws,
+            "shortfalls": self.shortfalls
+        }
+```

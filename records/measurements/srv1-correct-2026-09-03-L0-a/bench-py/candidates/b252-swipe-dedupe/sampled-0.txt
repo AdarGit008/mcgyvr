@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def swipe_dedupe(swipes: List[int]) -> List[int]:
+    """
+    Given a list of card swipes, drop any swipe that simply repeats the one immediately before it,
+    keeping the first of each such run. A card swiped again later, with a different card in between,
+    is kept.
+    
+    :param swipes: List of integers representing card swipes.
+    :return: A list of integers representing the deduplicated card swipes.
+    """
+    if not swipes:
+        return []
+
+    deduplicated = [swipes[0]]
+    for swipe in swipes[1:]:
+        if swipe != deduplicated[-1]:
+            deduplicated.append(swipe)
+    return deduplicated
+```

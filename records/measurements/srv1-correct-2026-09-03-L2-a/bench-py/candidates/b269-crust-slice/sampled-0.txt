@@ -1,0 +1,12 @@
+```python
+def crust_slice(name: str) -> str:
+    """
+    Given a file name, return the part before its final dot.
+    A name carrying no dot at all comes back unchanged, and so does a name
+    whose only dot is its very first character, since that dot begins a hidden
+    name rather than an extension.
+    """
+    if not name:
+        return name
+    return name.rsplit('.', 1)[0]
+```

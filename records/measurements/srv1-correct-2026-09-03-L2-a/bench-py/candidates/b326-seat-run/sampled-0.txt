@@ -1,0 +1,32 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    """
+    Return the position of the first seat of the earliest run of free seats long enough to hold the party,
+    or minus one when there is none.
+
+    :param row: A string representing a row of seats, 'x' for taken and '.' for free.
+    :param party: The number of people to seat.
+    :return: The index of the first seat of the first run of free seats, or -1 if none.
+    """
+    if party == 0:
+        return -1
+
+    max_free_seats = -1
+    current_free_seats = 0
+
+    for char in row:
+        if char == '.':
+            current_free_seats += 1
+        else:
+            if current_free_seats > max_free_seats:
+                max_free_seats = current_free_seats
+            current_free_seats = 0
+
+    if current_free_seats > max_free_seats:
+        max_free_seats = current_free_seats
+
+    if max_free_seats >= party:
+        return max_free_seats - party
+    else:
+        return -1
+```

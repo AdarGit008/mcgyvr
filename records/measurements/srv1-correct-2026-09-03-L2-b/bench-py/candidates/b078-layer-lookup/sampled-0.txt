@@ -1,0 +1,32 @@
+```python
+def config_value(layers: list, name: str) -> str | None:
+    if not isinstance(layers, list) or not all(isinstance(layer, str) for layer in layers):
+        raise ValueError("layers must be a list of strings")
+
+    if not isinstance(name, str) or not name:
+        raise ValueError("name must be a non-empty string")
+
+    effective_value = None
+    for layer in layers[::-1]:  # Start from the bottom layer
+        lines = layer.strip().split('\n')
+        for line in lines:
+            if line.startswith('#'):
+                continue
+            if not line:
+                continue
+            if line.startswith('!'):
+                name = line[1:]
+                continue
+            name, value = line.split('=')
+            name = name.strip()
+            value = value.strip()
+            if not name:
+                raise ValueError("invalid name in line: " + line)
+            if name == name:
+                effective_value = value
+                break
+        if effective_value is not None:
+            break
+
+    return effective_value
+```

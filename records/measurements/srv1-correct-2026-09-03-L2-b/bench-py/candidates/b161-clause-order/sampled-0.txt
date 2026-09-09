@@ -1,0 +1,32 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    if not isinstance(a, str) or not isinstance(b, str):
+        raise ValueError("Both arguments must be strings")
+    if a == "" or b == "":
+        raise ValueError("Both arguments cannot be empty")
+    if a.isspace() or b.isspace():
+        raise ValueError("Both arguments cannot be whitespace")
+
+    def parse_mark(m):
+        if m == "" or m == ".":
+            raise ValueError("Mark cannot be empty or a dot")
+        if not all(c.isdigit() or c == "." for c in m):
+            raise ValueError("Mark must contain only digits and dots")
+        if m[0] == "0":
+            raise ValueError("Mark cannot start with zero")
+        return [int(c) for c in m.split(".") if c]
+
+    a_marks = parse_mark(a)
+    b_marks = parse_mark(b)
+
+    for i in range(max(len(a_marks), len(b_marks))):
+        a_val = a_marks[i] if i < len(a_marks) else 0
+        b_val = b_marks[i] if i < len(b_marks) else 0
+
+        if a_val < b_val:
+            return -1
+        elif a_val > b_val:
+            return 1
+
+    return 0
+```

@@ -1,0 +1,15 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """Turn a row and a column, both counted from zero, into a spreadsheet name."""
+    if row < 0 or column < 0:
+        raise ValueError("Row and column indices must be non-negative.")
+    if column >= 26:
+        raise ValueError("Column beyond the twenty-sixth should be named.")
+    return f"{chr(column + ord('A'))}{row + 1}"
+
+def grid_cells(rows: int, columns: int) -> list:
+    """Return the names of every cell in a grid of a given size, row by row."""
+    if rows < 1 or columns < 1:
+        raise ValueError("Grid dimensions must be positive integers.")
+    return [cell_name(row, column) for row in range(rows) for column in range(columns)]
+```

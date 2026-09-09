@@ -1,0 +1,37 @@
+```python
+"""Replay a notepad editing session: type, erase, replace, undo and redo."""
+
+
+def replay_notepad(commands):
+    buffer = ""
+    past = []
+    future = []
+    for command in commands:
+        action = command[0]
+        if action == "type":
+            past.append(buffer)
+            buffer += command[1]
+        elif action == "erase":
+            if len(buffer) < command[1]:
+                future.append(buffer)
+                buffer = ""
+            else:
+                future.append(buffer)
+                buffer = buffer[: len(buffer) - command[1]]
+        elif action == "replace":
+            if command[1] not in buffer:
+                future.append(buffer)
+                buffer += command[1]
+            else:
+                future.append(buffer)
+                buffer = buffer.replace(command[1], command[2], 1)
+        elif action == "undo":
+            for _ in range(command[1]):
+                future.append(buffer)
+                buffer = past.pop()
+        elif action == "redo":
+            for _ in range(command[1]):
+                past.append(buffer)
+                buffer = future.pop()
+    return buffer
+```

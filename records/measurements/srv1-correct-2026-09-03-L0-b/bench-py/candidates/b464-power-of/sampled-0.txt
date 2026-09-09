@@ -1,0 +1,11 @@
+```python
+def power_of(base: int, power: int) -> int:
+    if power < 0:
+        raise ValueError("Power cannot be below nothing.")
+    if base == 0:
+        return 1
+    result = 1
+    for _ in range(power):
+        result *= base
+    return result
+```

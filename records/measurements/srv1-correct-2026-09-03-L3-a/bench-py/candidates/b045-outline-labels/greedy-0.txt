@@ -1,0 +1,37 @@
+```python
+from typing import List, Mapping
+
+def number_sections(sections: List[Mapping]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("outline must be a list")
+    
+    def number_section(section, depth=0):
+        if not isinstance(section, Mapping):
+            raise ValueError("section must be a mapping")
+        if not isinstance(section.get("children"), list):
+            raise ValueError("children must be a list")
+        if not isinstance(section.get("heading"), str) or not section.get("heading"):
+            raise ValueError("heading must be a non-empty string")
+        
+        label = f"{depth + 1} {section['heading']}"
+        children = [number_section(child, depth + 1) for child in section.get("children")]
+        return [label] + children
+    
+    return number_section(sections)
+
+def section_count(sections: List[Mapping]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("outline must be a list")
+    
+    def count_section(section):
+        if not isinstance(section, Mapping):
+            raise ValueError("section must be a mapping")
+        if not isinstance(section.get("children"), list):
+            raise ValueError("children must be a list")
+        if not isinstance(section.get("heading"), str) or not section.get("heading"):
+            raise ValueError("heading must be a non-empty string")
+        
+        return 1 + sum(count_section(child) for child in section.get("children"))
+    
+    return count_section(sections)
+```

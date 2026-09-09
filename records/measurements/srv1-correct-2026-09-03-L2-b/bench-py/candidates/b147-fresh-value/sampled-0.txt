@@ -1,0 +1,36 @@
+```python
+from typing import Any, Dict, Union
+
+def fresh_value(entry: Dict[str, Union[str, int, int]], now: int) -> str:
+    # Check if the entry is a dictionary
+    if not isinstance(entry, dict):
+        raise ValueError("entry must be a dictionary")
+    
+    # Check if the entry contains the required fields
+    required_fields = ["value", "stored", "ttl"]
+    if not all(field in entry for field in required_fields):
+        raise ValueError("entry must contain all required fields")
+    
+    # Check if the value is a string
+    if not isinstance(entry["value"], str):
+        raise ValueError("value must be a string")
+    
+    # Check if the stored is a non-negative integer
+    if not isinstance(entry["stored"], int) or entry["stored"] < 0:
+        raise ValueError("stored must be a non-negative integer")
+    
+    # Check if the ttl is a positive integer
+    if not isinstance(entry["ttl"], int) or entry["ttl"] <= 0:
+        raise ValueError("ttl must be a positive integer")
+    
+    # Check if the now is an integer at least stored
+    if not isinstance(now, int) or now < entry["stored"]:
+        raise ValueError("now must be an integer at least stored")
+    
+    # Check if the record is no longer usable at now
+    if now >= entry["stored"] + entry["ttl"]:
+        raise ValueError("record is no longer usable at now")
+    
+    # Return the value of the record while it is still usable
+    return entry["value"]
+```

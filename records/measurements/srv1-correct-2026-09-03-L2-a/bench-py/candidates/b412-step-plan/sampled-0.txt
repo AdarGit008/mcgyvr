@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def step_allowed(start: str, end: str, allowed: List[str]) -> bool:
+    """
+    Returns True if moving from 'start' to 'end' appears among the allowed moves.
+    """
+    return (start, end) in allowed
+
+def step_plan(states: List[str], allowed: List[str]) -> int:
+    """
+    Returns the position of the first move a run of states makes that is not allowed.
+    Returns -1 when every move is allowed.
+    """
+    if not states or len(states) == 1:
+        raise ValueError("No states to check.")
+
+    for i in range(len(states) - 1):
+        if not step_allowed(states[i], states[i + 1], allowed):
+            return i
+
+    return -1
+```

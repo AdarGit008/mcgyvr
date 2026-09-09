@@ -1,0 +1,25 @@
+```python
+def pick_fields(records: list, fields: list) -> list:
+    if not records or not fields:
+        raise ValueError("Input lists must not be empty")
+    
+    result = []
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError("Every record must be a mapping")
+        if not isinstance(fields, list) or not fields:
+            raise ValueError("Field list must not be empty")
+        
+        row = []
+        for field in fields:
+            stem = field[:-1] if field.endswith('?') else field
+            if stem == '':
+                row.append(None)
+            elif stem in record:
+                row.append(record[stem])
+            else:
+                raise ValueError(f"Missing required field: {field}")
+        result.append(row)
+    
+    return result
+```

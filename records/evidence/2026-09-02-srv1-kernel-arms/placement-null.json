@@ -1,0 +1,37 @@
+{
+  "model": "ling-3-0-tiny-q4-k-m",
+  "tier": "bench-py",
+  "cells": 257,
+  "run_a": {
+    "n_cpu_moe": 0,
+    "serving_build": "llama.cpp@llamacpp:b10644-L3@sha256:ce5966e960d10222cc7c1d8f51f7938eb3e956d24e03df7c0d7e345943fabfc3",
+    "run": "placement-ling-3-0-tiny-q4-k-m-2026-09-02-ncmoe0-a/bench-py"
+  },
+  "run_b": {
+    "n_cpu_moe": 99,
+    "serving_build": "llama.cpp@llamacpp:b10644-L3@sha256:ce5966e960d10222cc7c1d8f51f7938eb3e956d24e03df7c0d7e345943fabfc3",
+    "run": "placement-ling-3-0-tiny-q4-k-m-2026-09-02-ncmoe99-a/bench-py"
+  },
+  "flips": 9,
+  "acceptance_drift": 0,
+  "same_bytes": 230,
+  "diff_bytes": 27,
+  "bound": {
+    "serving_build": "llama.cpp@llamacpp:b10644-L3@sha256:ce5966e960d10222cc7c1d8f51f7938eb3e956d24e03df7c0d7e345943fabfc3",
+    "cells": 257,
+    "bound_pp": 1.47,
+    "flips": 0,
+    "acceptance_drift": 0,
+    "runs": [
+      "placement-ling-3-0-tiny-q4-k-m-2026-09-02-ncmoe0-a/bench-py",
+      "placement-ling-3-0-tiny-q4-k-m-2026-09-02-ncmoe0-b/bench-py"
+    ],
+    "measured": "2026-09-02",
+    "why": "This build has no committed bound in tools/bench/reproducibility.json, so the run priced its own null first: two identical passes at n_cpu_moe=0 in one server session. The bound is the 95% Wilson upper on flips/cells, never the point estimate."
+  },
+  "measured": "2026-09-02",
+  "instrument": {
+    "measure": "tools/breadth/measure.py",
+    "pairing": "tools/bench/null.py"
+  }
+}

@@ -1,0 +1,11 @@
+```python
+from typing import List
+
+def sort_by_len(words: List[str]) -> List[str]:
+    if not words:
+        return []
+
+    # Sort by length, then alphabetically for words of the same length
+    words.sort(key=lambda word: (len(word), word))
+    return words
+```

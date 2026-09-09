@@ -249,6 +249,7 @@ def _evidence_allowance(evidence: CatalogEvidence) -> int:
 
 Kind = Literal[
     "int",
+    "float",
     "str",
     "bool",
     "enum",
@@ -286,7 +287,12 @@ class Field:
     default: Any = None
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
-    min_value: int | None = None
+    min_value: float | None = None
+    #: Inclusive upper bound, for a value that is a share of something rather
+    #: than a count of it. Absent on every counting field: a token cap has no
+    #: natural ceiling, and inventing one would refuse a contract nobody has
+    #: shown to be wrong.
+    max_value: float | None = None
     worker_facing: bool = False
     hint: str = ""
     choices_from: Callable[[], tuple[str, ...]] | None = None
@@ -369,19 +375,69 @@ VERIFICATION_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+RENAME_FIELDS: tuple[Field, ...] = (
+    Field(
+        "from",
+        "str",
+        "The symbol as it is written today. Stated rather than read out of "
+        "`task`: the floor renames every reference the index resolved across "
+        "every file that holds one, and a name inferred from prose is a "
+        "multi-file rewrite resting on a guess about English. A worker asked "
+        "to guess would guess; a program must be told.",
+        default="",
+        hint="e.g. fetch_page",
+    ),
+    Field(
+        "to",
+        "str",
+        "What the symbol becomes. Must be a legal identifier — the floor "
+        "rewrites text, and a `to` that is not a name would produce a tree "
+        "that no longer parses while reporting success.",
+        default="",
+        hint="e.g. fetch_document",
+    ),
+)
+
 LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
         "int",
         "Hard cap on the worker's reply, enforced in the runner. A reply cut "
         "off at the cap is a named failure and is never applied to a file. "
-        "Left out, it is derived from what the task type's own required "
-        "evidence says the reply has to be (`output_cap`) — which is why this "
-        "is the one key in the schema with no static default: a single number "
-        "for every type is wrong for at least one of them. Deriving it "
-        "further from the target's own content is #17.",
+        "Declare it for any task type a model executes: `mcgyvr contract` and "
+        "`mcgyvr run` refuse a model contract that leaves it out (exit 2) and "
+        "print the figure the type's own evidence would derive (`output_cap`) "
+        "as the value to start from — the first live run cut its top rung's "
+        "reply at a derived 1024 that nobody had chosen. It is the one key in "
+        "the schema with no static default: a single number for every type is "
+        "wrong for at least one of them. Deriving it from the target's own "
+        "content is #17. What this states is what the *work* is worth, which "
+        "is why it is here and not on the ladder; what a particular backend "
+        "needs to finish a reply is a different question, answered by that "
+        "rung's `ladder.tiers.*.output_tokens`, and where a rung answers it "
+        "that number is sent instead of this one. Declaring this is still "
+        "required either way: the same contract may be run against a ladder "
+        "whose rungs say nothing.",
         default=None,
         min_value=1,
+    ),
+    Field(
+        "max_window_fraction",
+        "float",
+        "The largest share of a rung's context window this contract may "
+        "claim: its assembled prompt and `max_output_tokens` together, over "
+        "the whole window. A different question from whether the two fit, "
+        "which `context.max_input_tokens` already bounds — a contract that "
+        "fits with nothing to spare leaves the rung nothing to hold anything "
+        "beside it and nothing to absorb an estimate that ran long. Declared "
+        "here rather than on the ladder because it is a statement about this "
+        "unit of work, and enforced against whichever rung the work reaches. "
+        "Unset means no share is enforced, which is not the same as 1.0: a "
+        "contract that declared none is recorded as having declared none.",
+        default=None,
+        min_value=0.0,
+        max_value=1.0,
+        hint="e.g. 0.75 to leave a quarter of the rung's window clear",
     ),
     Field(
         "attempts",
@@ -572,6 +628,17 @@ SCHEMA: tuple[Field, ...] = (
         "Hard ceilings on what one execution of this contract may spend.",
         block=LIMITS_FIELDS,
     ),
+    Field(
+        "rename",
+        "block",
+        "Which symbol becomes which, for `task_type: rename_symbol`. The one "
+        "task type the floor executes in-process rather than by running a "
+        "program, and the only one whose input is not fully determined by "
+        "`target`: a rename fans across every file that references the "
+        "symbol, so the pair has to be said. Meaningless on any other type "
+        "and ignored there.",
+        block=RENAME_FIELDS,
+    ),
 )
 
 
@@ -588,6 +655,22 @@ class Dependency:
 
 
 @dataclass(frozen=True)
+class Rename:
+    """The symbol a ``rename_symbol`` contract renames, and what it becomes.
+
+    Both empty is the ordinary state of every contract that is not a rename,
+    and :attr:`stated` is how a caller asks whether this one said anything.
+    """
+
+    old: str = ""
+    new: str = ""
+
+    @property
+    def stated(self) -> bool:
+        return bool(self.old and self.new)
+
+
+@dataclass(frozen=True)
 class Verification:
     """How a change is judged once the deterministic gate has passed."""
 
@@ -600,6 +683,11 @@ class Limits:
 
     max_output_tokens: int
     attempts: int
+    #: The share of a rung's window this contract may claim, or ``None`` when
+    #: it declared none. ``None`` rather than ``1.0`` because "no share was
+    #: stated" and "the whole window was allowed" are different declarations,
+    #: and only one of them should read as an operator's choice in a record.
+    max_window_fraction: float | None = None
 
 
 @dataclass(frozen=True)
@@ -629,6 +717,7 @@ class Contract:
     risk: str = "medium"
     verification: Verification = Verification("gate_only")
     limits: Limits = Limits(_RUNNING_ALLOWANCE, 2)
+    rename: Rename = Rename()
     max_output_tokens_declared: bool = True
 
     @property
@@ -734,6 +823,23 @@ class Contract:
         exactly when it says something costs nothing to add later.
         """
         stated = {"depends_on": sorted(self.depends_on)} if self.depends_on else {}
+        # Emitted on the same rule and for the same reason: a key every
+        # contract carries whether or not it means anything re-keys every
+        # contract ever emitted, and the provenance of every run with them.
+        renamed = (
+            {"rename": {"from": self.rename.old, "to": self.rename.new}}
+            if self.rename.stated
+            else {}
+        )
+        # Same rule again, for the share: one carried whether or not it was
+        # declared would change the serialised form of every contract that
+        # never mentioned one, and with it the digest each recorded run is
+        # keyed by.
+        share = (
+            {"max_window_fraction": self.limits.max_window_fraction}
+            if self.limits.max_window_fraction is not None
+            else {}
+        )
         return {
             "version": self.version,
             "id": self.id,
@@ -757,6 +863,7 @@ class Contract:
             "demonstration": list(self.demonstration),
             **stated,
             "risk": self.risk,
+            **renamed,
             "verification": {"policy": self.verification.policy},
             "limits": {
                 "max_output_tokens": (
@@ -765,6 +872,7 @@ class Contract:
                     else None
                 ),
                 "attempts": self.limits.attempts,
+                **share,
             },
         }
 
@@ -878,7 +986,9 @@ def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Cont
         limits=Limits(
             max_output_tokens=data["limits"]["max_output_tokens"],
             attempts=data["limits"]["attempts"],
+            max_window_fraction=data["limits"]["max_window_fraction"],
         ),
+        rename=Rename(old=data["rename"]["from"], new=data["rename"]["to"]),
         max_output_tokens_declared=max_output_tokens_declared,
     )
 
@@ -916,6 +1026,8 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     """One value, validated against its field's kind."""
     if spec.kind == "int":
         return _int(raw, spec, path)
+    if spec.kind == "float":
+        return _float(raw, spec, path)
     if spec.kind == "bool":
         if not isinstance(raw, bool):
             raise ContractSchemaError(f"{path}: must be true or false, got {raw!r}.")
@@ -953,7 +1065,27 @@ def _int(raw: object, spec: Field, path: str) -> int:
         raise ContractSchemaError(
             f"{path}: must be at least {spec.min_value}, got {raw}."
         )
+    if spec.max_value is not None and raw > spec.max_value:
+        raise ContractSchemaError(
+            f"{path}: must be at most {spec.max_value}, got {raw}."
+        )
     return raw
+
+
+def _float(raw: object, spec: Field, path: str) -> float:
+    # A whole number is a valid decimal and a bool is not, which is the same
+    # rule `_int` runs on: `max_window_fraction: true` is not a share.
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ContractSchemaError(f"{path}: must be a number, got {raw!r}.")
+    if spec.min_value is not None and raw < spec.min_value:
+        raise ContractSchemaError(
+            f"{path}: must be at least {spec.min_value}, got {raw}."
+        )
+    if spec.max_value is not None and raw > spec.max_value:
+        raise ContractSchemaError(
+            f"{path}: must be at most {spec.max_value}, got {raw}."
+        )
+    return float(raw)
 
 
 def _str(raw: object, path: str, *, allow_empty: bool = False) -> str:

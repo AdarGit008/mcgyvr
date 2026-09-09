@@ -1,0 +1,19 @@
+```python
+def check_manifest(line: dict) -> dict:
+    if not line:
+        return {}
+
+    sku = line.get('sku', '').strip().upper()
+    if not sku:
+        return {}
+
+    count = line.get('count', 0)
+    if not isinstance(count, int) or count <= 0:
+        return {}
+
+    note = line.get('note', '')
+    if not isinstance(note, str):
+        return {}
+
+    return {key: value for key, value in line.items() if key in ['sku', 'count', 'note']}
+```

@@ -1,0 +1,5 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    """Count how many cells in the grid hold the stated value."""
+    return sum(row.count(value) for row in grid)
+```

@@ -1,0 +1,18 @@
+```python
+def pack_entries(entries: list) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+    
+    def escape_string(s):
+        return s.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+    
+    def serialize_entry(entry):
+        key, value = entry
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError("Both key and value must be strings")
+        if not key or not value:
+            raise ValueError("Key and value cannot be empty")
+        return f"{escape_string(key)}={escape_string(value)}"
+    
+    return ";".join(serialize_entry(entry) for entry in entries)
+```

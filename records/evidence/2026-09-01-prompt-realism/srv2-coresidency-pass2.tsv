@@ -1,0 +1,6 @@
+### srv2 PHASE5B START 2026-09-01T11:26:43+00:00
+srv2	s2-q15+q7	s2-q7	REFUSED	ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details.
+srv2	s2-q15+q7	ABORT	1/2 servers came up; a co-residency row needs every member resident
+srv2	s2-3way	s2-q3	REFUSED	ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details.
+srv2	s2-3way	ABORT	2/3 servers came up; a co-residency row needs every member resident
+### srv2 PHASE5B DONE 2026-09-01T11:30:08+00:00

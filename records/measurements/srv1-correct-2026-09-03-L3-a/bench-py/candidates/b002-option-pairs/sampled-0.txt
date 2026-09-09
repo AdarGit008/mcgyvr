@@ -1,0 +1,31 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    key, eq, raw = segment.partition("=")
+    if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    if not isinstance(text, str):
+        raise ValueError("input must be a string")
+    if len(text) == 0:
+        return []
+    segments = []
+    in_quote = False
+    for i, char in enumerate(text):
+        if char == '"':
+            in_quote = not in_quote
+        elif char == ';' and not in_quote:
+            if segments and segments[-1][0] == segments[-1][1]:
+                raise ValueError("repeated key: " + segments[-1][0])
+            segments.append(parse_option(text[segments[-1][0] + 1:i]))
+    if segments and segments[-1][0] != segments[-1][1]:
+        raise ValueError("repeated key: " + segments[-1][0])
+    return segments
+```

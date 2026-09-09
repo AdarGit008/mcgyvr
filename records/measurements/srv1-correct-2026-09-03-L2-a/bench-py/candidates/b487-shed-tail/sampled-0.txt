@@ -1,0 +1,20 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    """
+    Take a closing piece off the end of a text again and again, for as long
+    as the text still closes with it. A text that never closes with the piece
+    is given back whole, and a piece holding nothing leaves the text alone.
+
+    :param text: The text from which to take the piece.
+    :param piece: The piece to take off the end of the text.
+    :return: The text after taking the piece off the end as many times as possible,
+             or the original text if it doesn't close with the piece.
+    """
+    if not piece:
+        return text
+
+    while text.endswith(piece):
+        text = text[:-len(piece)]
+
+    return text
+```

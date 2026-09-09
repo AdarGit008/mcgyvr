@@ -1,0 +1,28 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    # Check if the input is a dictionary with string keys and values
+    if not all(isinstance(key, str) and isinstance(value, str) for key, value in base.items()) or \
+       not all(isinstance(key, str) and isinstance(value, str) for key, value in ours.items()) or \
+       not all(isinstance(key, str) and isinstance(value, str) for key, value in theirs.items()):
+        raise ValueError("All inputs must be dictionaries with string keys and values")
+    
+    # Check for conflicts
+    for key in ours:
+        if key not in theirs:
+            ours.pop(key)
+        elif ours[key] != theirs[key]:
+            ours.pop(key)
+    
+    for key in theirs:
+        if key not in base:
+            theirs.pop(key)
+        elif theirs[key] != base[key]:
+            theirs.pop(key)
+    
+    # Merge the settings
+    merged = base.copy()
+    merged.update(ours)
+    merged.update(theirs)
+    
+    return merged
+```

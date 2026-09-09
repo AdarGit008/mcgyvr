@@ -4,7 +4,7 @@ ADR-0037 (#323) bound prose to predicate in two places and this file was the
 predicate for both. **Rule 3 is gone with its corpus.** It walked
 ``docs/decisions/0*.md`` and required every ``tests/<file>::<test>`` a record
 named to resolve to a real function. The decision records were archived on
-2026-08-25 (``docs/archive/decisions/``) and no longer govern anything, so a
+2026-08-25 (``archive/docs/archive/decisions/``) and no longer govern anything, so a
 check that enforced their prose would be the archive governing by the back
 door. The resolver, its population guard and its canary went with it.
 

@@ -1,0 +1,21 @@
+```python
+def tags_of(line) -> list:
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string")
+    return [tag.strip() for tag in line.split(",") if tag.strip()]
+
+def tag_index(lines: list) -> dict:
+    if not isinstance(lines, list):
+        raise ValueError("Input must be a list")
+    tag_map = {}
+    for line in lines:
+        if not isinstance(line, str) or not line.strip():
+            continue
+        tags = tags_of(line)
+        for tag in tags:
+            if tag in tag_map:
+                tag_map[tag].append(line)
+            else:
+                tag_map[tag] = [line]
+    return tag_map
+```

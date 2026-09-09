@@ -1,0 +1,27 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    """
+    Divide a bill between a number of diners so that each pays a whole number of pence.
+    Everyone pays the same except the first, who also takes whatever pennies are left over.
+    
+    Args:
+    total (int): The total amount of the bill in pence.
+    diners (int): The number of diners.
+    
+    Returns:
+    list: A list of integers representing the amount each diner pays.
+    """
+    if diners == 0:
+        raise ValueError("Cannot split a bill with zero diners.")
+    
+    # Calculate the base amount each diner should pay
+    base_amount = total // diners
+    
+    # Calculate the remainder to be split among the diners
+    remainder = total % diners
+    
+    # Determine the payment for each diner
+    payments = [base_amount] * (diners - 1) + [base_amount + remainder]
+    
+    return payments
+```

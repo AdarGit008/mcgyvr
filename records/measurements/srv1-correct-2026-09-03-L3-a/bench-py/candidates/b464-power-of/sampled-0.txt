@@ -1,0 +1,19 @@
+```python
+def power_of(base: int, power: int) -> int:
+    # Reject power below nothing
+    if power < 0:
+        raise ValueError("Power must be a non-negative integer.")
+    
+    # Base case: anything raised to the power of 0 is 1
+    if power == 0:
+        return 1
+    
+    # Initialize result to 1
+    result = 1
+    
+    # Multiply base by itself power times
+    for _ in range(power):
+        result *= base
+    
+    return result
+```

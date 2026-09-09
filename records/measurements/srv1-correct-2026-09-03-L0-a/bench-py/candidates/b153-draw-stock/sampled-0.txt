@@ -1,0 +1,25 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    if not isinstance(shelf, dict) or not isinstance(order, list):
+        raise ValueError("Invalid input: shelf must be a dictionary and order must be a list.")
+    
+    # Validate order lines
+    for item, count in order:
+        if not isinstance(item, str) or not isinstance(count, int) or count <= 0:
+            raise ValueError(f"Invalid order line: {item} has an invalid count {count}.")
+    
+    # Validate shelf items
+    for item in order:
+        if item not in shelf:
+            raise ValueError(f"Invalid order line: {item} is not on the shelf.")
+    
+    # Process the order
+    new_shelf = shelf.copy()
+    for item, count in order:
+        if new_shelf[item] > count:
+            new_shelf[item] -= count
+        else:
+            del new_shelf[item]
+    
+    return new_shelf
+```

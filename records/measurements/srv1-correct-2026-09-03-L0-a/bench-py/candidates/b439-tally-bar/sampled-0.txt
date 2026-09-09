@@ -1,0 +1,21 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    """
+    Draw a count as that many hashes, but never more than a stated width,
+    and mark a bar that had to be cut short by ending it in a greater-than sign
+    in place of the last hash. A count of nothing draws an empty bar.
+
+    Parameters:
+    - count: The number of hashes to draw.
+    - width: The maximum width of the bar.
+
+    Returns:
+    - A string representing the bar with appropriate marks.
+    """
+    if count > width:
+        return " " * width
+    elif count == 0:
+        return ""
+    else:
+        return "#" * count + ">"
+```

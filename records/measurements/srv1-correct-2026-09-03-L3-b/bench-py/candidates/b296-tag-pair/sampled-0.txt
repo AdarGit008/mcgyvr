@@ -1,0 +1,11 @@
+```python
+def tag_open(marker: str) -> str:
+    if marker[0] == '/':
+        marker = marker[1:]
+    if marker[0] != '<' or marker[-1] != '>':
+        raise ValueError("Invalid marker format")
+    return marker[1:-1]
+
+def tag_pair(opening: str, closing: str) -> bool:
+    return opening.lower() == closing.lower()
+```

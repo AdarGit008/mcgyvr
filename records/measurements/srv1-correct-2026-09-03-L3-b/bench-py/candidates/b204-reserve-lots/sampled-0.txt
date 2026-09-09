@@ -1,0 +1,55 @@
+```python
+from typing import List, Tuple
+
+class Draw:
+    def __init__(self, order_id: int, lot_id: int, units_taken: int):
+        self.order_id = order_id
+        self.lot_id = lot_id
+        self.units_taken = units_taken
+
+class Shortfall:
+    def __init__(self, order_id: int, shortfall: int):
+        self.order_id = order_id
+        self.shortfall = shortfall
+
+class ReserveLotsResult:
+    def __init__(self, picks: List[Draw], draws: List[Draw], short: List[Shortfall]):
+        self.picks = picks
+        self.draws = draws
+        self.short = short
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]) -> ReserveLotsResult:
+    # Convert use-by dates to datetime objects for easy comparison
+    lots = [(id, date, units) for id, date, units in lots]
+    lots.sort(key=lambda x: (x[1], x[0]))
+
+    draws = []
+    short = []
+
+    for order_id, units_wanted in orders:
+        order_draws = []
+        shortfall = units_wanted
+
+        for lot_id, lot_date, lot_units in lots:
+            if lot_units > 0 and lot_date > lot_date:
+                order_draws.append(Draw(order_id, lot_id, min(units_wanted, lot_units)))
+                shortfall -= min(units_wanted, lot_units)
+                lot_units -= min(units_wanted, lot_units)
+                if lot_units == 0:
+                    lots.remove((lot_id, lot_date, lot_units))
+            elif lot_units > 0 and lot_date == lot_date:
+                order_draws.append(Draw(order_id, lot_id, lot_units))
+                shortfall -= lot_units
+                lot_units -= lot_units
+                if lot_units == 0:
+                    lots.remove((lot_id, lot_date, lot_units))
+            elif lot_units > 0 and lot_date < lot_date:
+                break
+
+        if shortfall > 0:
+            short.append(Shortfall(order_id, shortfall))
+        else:
+            draws.extend(order_draws)
+
+    return ReserveLotsResult(draws, draws, short)
+```

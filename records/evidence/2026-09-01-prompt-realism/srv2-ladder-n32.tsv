@@ -1,0 +1,23 @@
+### srv2 PHASE2 START 2026-09-01T10:05:34+00:00
+srv2	s2-q15 util=0.9 len=2048 seqs=128 kv=fp8	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=11709	kv_tok=664320	maxconc=324.4	warm_ptok=711	offload=none
+srv2	s2-q15 util=0.9 len=2048 seqs=128 kv=fp8	n=1	agg=181.1	p50=0.56	prefill=1029.0	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=0.6
+srv2	s2-q15 util=0.9 len=2048 seqs=128 kv=fp8	n=2	agg=245.1	p50=1.79	prefill=638.3	ptok=573	otok=220	early_stop=1/2	failed=0/2	wall=1.8
+srv2	s2-q15 util=0.9 len=2048 seqs=128 kv=fp8	n=4	agg=454.0	p50=1.38	prefill=1272.5	ptok=625	otok=223	early_stop=1/4	failed=0/4	wall=2.0
+srv2	s2-q15 util=0.9 len=2048 seqs=128 kv=fp8	n=8	agg=596.6	p50=1.48	prefill=1883.8	ptok=664	otok=210	early_stop=3/8	failed=0/8	wall=2.8
+srv2	s2-q15 util=0.9 len=2048 seqs=128 kv=fp8	n=16	agg=900.1	p50=1.87	prefill=3133.6	ptok=663	otok=190	early_stop=2/16	failed=0/16	wall=3.4
+srv2	s2-q15 util=0.9 len=2048 seqs=128 kv=fp8	n=32	agg=1292.9	p50=3.32	prefill=4674.0	ptok=662	otok=183	early_stop=12/32	failed=0/32	wall=4.5
+srv2	s2-q3 util=0.9 len=2048 seqs=128 kv=fp8	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=11605	kv_tok=458368	maxconc=223.8	warm_ptok=711	offload=none
+srv2	s2-q3 util=0.9 len=2048 seqs=128 kv=fp8	n=1	agg=108.3	p50=0.93	prefill=615.3	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=0.9
+srv2	s2-q3 util=0.9 len=2048 seqs=128 kv=fp8	n=2	agg=148.3	p50=2.82	prefill=406.7	ptok=573	otok=209	early_stop=1/2	failed=0/2	wall=2.8
+srv2	s2-q3 util=0.9 len=2048 seqs=128 kv=fp8	n=4	agg=268.4	p50=2.38	prefill=749.8	ptok=625	otok=223	early_stop=0/4	failed=0/4	wall=3.3
+srv2	s2-q3 util=0.9 len=2048 seqs=128 kv=fp8	n=8	agg=431.2	p50=2.97	prefill=1089.1	ptok=664	otok=263	early_stop=1/8	failed=0/8	wall=4.9
+srv2	s2-q3 util=0.9 len=2048 seqs=128 kv=fp8	n=16	agg=542.1	p50=3.70	prefill=1777.8	ptok=663	otok=202	early_stop=0/16	failed=0/16	wall=6.0
+srv2	s2-q3 util=0.9 len=2048 seqs=128 kv=fp8	n=32	agg=778.4	p50=6.68	prefill=2446.3	ptok=662	otok=210	early_stop=6/32	failed=0/32	wall=8.7
+srv2	s2-q34b util=0.9 len=2048 seqs=128 kv=fp8	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=11503	kv_tok=104400	maxconc=51.0	warm_ptok=711	offload=none
+srv2	s2-q34b util=0.9 len=2048 seqs=128 kv=fp8	n=1	agg=87.1	p50=1.16	prefill=495.1	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.2
+srv2	s2-q34b util=0.9 len=2048 seqs=128 kv=fp8	n=2	agg=112.3	p50=4.99	prefill=229.4	ptok=573	otok=280	early_stop=0/2	failed=0/2	wall=5.0
+srv2	s2-q34b util=0.9 len=2048 seqs=128 kv=fp8	n=4	agg=210.9	p50=3.06	prefill=589.0	ptok=625	otok=223	early_stop=0/4	failed=0/4	wall=4.2
+srv2	s2-q34b util=0.9 len=2048 seqs=128 kv=fp8	n=8	agg=332.2	p50=3.92	prefill=833.8	ptok=664	otok=264	early_stop=0/8	failed=0/8	wall=6.4
+srv2	s2-q34b util=0.9 len=2048 seqs=128 kv=fp8	n=16	agg=407.2	p50=5.02	prefill=1335.3	ptok=663	otok=202	early_stop=0/16	failed=0/16	wall=8.0
+srv2	s2-q34b util=0.9 len=2048 seqs=128 kv=fp8	n=32	agg=606.0	p50=9.18	prefill=1776.2	ptok=662	otok=226	early_stop=0/32	failed=0/32	wall=11.9
+### srv2 PHASE2 DONE 2026-09-01T10:12:11+00:00

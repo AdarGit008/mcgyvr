@@ -1,0 +1,16 @@
+```python
+def vend_credit(coins: list, price: int) -> int:
+    if not coins or price <= 0 or price % 5 != 0:
+        raise ValueError("Invalid input")
+    
+    credit = 0
+    items_dropped = 0
+    
+    for coin in coins:
+        credit += coin
+        while credit >= price:
+            credit -= price
+            items_dropped += 1
+    
+    return credit
+```

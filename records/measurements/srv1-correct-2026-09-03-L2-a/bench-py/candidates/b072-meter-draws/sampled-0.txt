@@ -1,0 +1,36 @@
+```python
+from typing import *
+from collections import *
+
+def meter_draws(draws: List[List[str]], allowance: int) -> Dict[str, int]:
+    if allowance <= 0:
+        raise ValueError("Invalid allowance")
+    ledger = defaultdict(int)
+    refused_positions = []
+    used = defaultdict(int)
+    for draw in draws:
+        if len(draw) != 2:
+            raise ValueError("Invalid draw format")
+        key, units = draw
+        if len(key) == 0:
+            raise ValueError("Invalid key")
+        if not isinstance(units, int) or units <= 0:
+            raise ValueError("Invalid units count")
+        if key in ledger:
+            if ledger[key] + units > allowance:
+                refused_positions.append(draw)
+                used[key] = ledger[key]
+            else:
+                ledger[key] += units
+        else:
+            ledger[key] = units
+            used[key] = 0
+    return {"used": used, "denied": refused_positions}
+
+def remaining_for(used: Dict[str, int], key: str, allowance: int) -> int:
+    if allowance <= 0:
+        raise ValueError("Invalid allowance")
+    if key not in used:
+        return allowance
+    return allowance - used[key]
+```

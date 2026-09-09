@@ -1,0 +1,12 @@
+```python
+def step_allowed(start: str, end: str, allowed: list) -> bool:
+    if start == end:
+        return False
+    return end in allowed
+
+def step_plan(states: list, allowed: list) -> int:
+    for i in range(1, len(states)):
+        if states[i] != states[i-1] and states[i] not in allowed:
+            return i - 1
+    raise ValueError("No allowed moves found")
+```

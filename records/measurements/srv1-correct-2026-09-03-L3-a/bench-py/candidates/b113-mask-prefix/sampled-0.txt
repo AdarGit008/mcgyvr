@@ -1,0 +1,22 @@
+```python
+def mask_from_prefix(prefix):
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    return ".".join(octets)
+
+
+def prefix_from_mask(mask):
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    parts = mask.split(".")
+    if len(parts) != 4 or any(part not.isdigit() for part in parts) or any(int(part) > 255 for part in parts):
+        raise ValueError("Invalid mask format")
+    prefix = 0
+    for part in parts:
+        prefix = prefix * 256 + int(part)
+    return prefix
+```

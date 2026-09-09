@@ -1,0 +1,8 @@
+```python
+def strip_note(title: str) -> str:
+    opened = title.find("(")
+    if opened == -1:
+        return title
+    closing = title.rfind(")")
+    return title[:opened].rstrip() if closing == -1 else title[:closing].rstrip()
+```

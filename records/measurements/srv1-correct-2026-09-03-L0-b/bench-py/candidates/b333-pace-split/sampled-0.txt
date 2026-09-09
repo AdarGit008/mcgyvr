@@ -1,0 +1,17 @@
+```python
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Distance cannot be zero or negative.")
+    return seconds // kilometres
+
+def pace_list(legs: list) -> list:
+    if not legs:
+        return []
+    
+    result = []
+    for seconds, kilometres in legs:
+        if kilometres <= 0:
+            raise ValueError("Distance cannot be zero or negative.")
+        result.append(seconds // kilometres)
+    return result
+```

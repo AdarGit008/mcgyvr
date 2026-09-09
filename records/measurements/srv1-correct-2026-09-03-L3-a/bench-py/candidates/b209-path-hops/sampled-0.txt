@@ -1,0 +1,35 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    if not start or not goal:
+        raise ValueError("Both paths must be non-empty strings.")
+    
+    def reduce_path(path):
+        segments = path.split('/')
+        reduced = []
+        for segment in segments:
+            if segment == '.':
+                continue
+            elif segment == '..':
+                if reduced and reduced[-1] == '..':
+                    reduced.pop()
+                else:
+                    reduced.append('.')
+            else:
+                reduced.append(segment)
+        return reduced
+    
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+    
+    if start_segments == goal_segments:
+        return 0
+    
+    shared_segments = 0
+    for i in range(min(len(start_segments), len(goal_segments))):
+        if start_segments[i] == goal_segments[i]:
+            shared_segments += 1
+        else:
+            break
+    
+    return shared_segments + len(start_segments) - shared_segments + len(goal_segments) - shared_segments
+```

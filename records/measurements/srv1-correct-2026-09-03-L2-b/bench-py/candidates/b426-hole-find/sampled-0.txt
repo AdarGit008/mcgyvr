@@ -1,0 +1,10 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """Returns a list of numbers from 'first' to 'first + count - 1'."""
+    return list(range(first, first + count))
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Finds the first missing number in a sequence from 'first' to 'first + count - 1'.
+    Returns None if the sequence is complete."""
+    return next((i for i in range(first, first + count) if i not in seen), None)
+```

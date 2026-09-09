@@ -1,0 +1,4 @@
+### START run_id=2026-09-05-e2e-srv1-gemma-4-26b-a4b-it-ud-iq3xxs-size host=srv1
+### ROUND id=r3-05-09-2026 product_sha256=247d1386fbe4de0cd674d710f86fb39039643e14902b723d6e6ed198677db333
+srv1	gemma-4-26B-A4B-it-UD-IQ3_XXS	SIZED	arch=gemma4	n_layer=30	placeable=30	floor_n_cpu_moe=29	kv_mib=2320.0	experts_on_card_mib=465.1	predicted_mib=5517.0	free_mib=5727
+### END run_id=2026-09-05-e2e-srv1-gemma-4-26b-a4b-it-ud-iq3xxs-size

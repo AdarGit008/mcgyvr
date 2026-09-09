@@ -1,0 +1,30 @@
+# llama.cpp b10644 (commit d7a207411) built to AVOID the Turing MMA path.
+# TU116 (GTX 1660 SUPER) reports cc 7.5 but has NO tensor cores. llama.cpp
+# checks only the cc integer, so ggml_cuda_should_use_mmq() and
+# ggml_cuda_get_best_fattn_kernel() select tensor-core kernels that TU116
+# emulates at abysmal speed. Compiling for 61-virtual;80-virtual makes
+# ggml_cuda_highest_compiled_arch(75) return 61 < TURING, forcing the DP4A path.
+FROM nvidia/cuda:12.8.0-devel-ubuntu24.04 AS build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git cmake build-essential libcurl4-openssl-dev ca-certificates ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+RUN git clone https://github.com/ggml-org/llama.cpp.git . && git checkout d7a207411
+RUN cmake -B build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DGGML_CUDA=ON \
+      -DGGML_CUDA_FORCE_MMQ=ON \
+      -DCMAKE_CUDA_ARCHITECTURES="61-virtual;80-virtual" \
+      -DLLAMA_CURL=ON \
+      -DBUILD_SHARED_LIBS=ON \
+      -DLLAMA_BUILD_TESTS=OFF -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined \
+ && cmake --build build --config Release -j 20 --target llama-server llama-bench
+
+FROM nvidia/cuda:12.8.0-runtime-ubuntu24.04
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libgomp1 libcurl4 curl ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /src/build/bin/ /app/
+ENV LD_LIBRARY_PATH=/app:$LD_LIBRARY_PATH
+EXPOSE 8080
+ENTRYPOINT ["/app/llama-server"]

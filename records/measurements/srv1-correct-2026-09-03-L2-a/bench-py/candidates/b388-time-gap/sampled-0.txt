@@ -1,0 +1,18 @@
+```python
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    """
+    Calculate the minutes between two times on a 24-hour clock, considering
+    the second time is the next day if it is not later than the first time.
+    """
+    if from_hour > to_hour or (from_hour == to_hour and from_minute > to_minute):
+        from_hour, from_minute = to_hour, to_minute
+        to_hour, to_minute = from_hour - 1, from_minute - 1
+        if from_hour == 0:
+            from_hour = 23
+        if from_minute == 0:
+            from_minute = 59
+
+    # Calculate the minutes difference
+    minutes_difference = (to_hour - from_hour) * 60 + (to_minute - from_minute)
+    return minutes_difference
+```

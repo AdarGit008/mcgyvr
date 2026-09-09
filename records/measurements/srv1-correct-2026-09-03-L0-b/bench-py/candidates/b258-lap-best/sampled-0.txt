@@ -1,0 +1,11 @@
+```python
+def lap_best(laps: list) -> int:
+    """The quickest completed lap of a session."""
+    if not laps:
+        return 0
+    best = laps[0]
+    for lap in laps:
+        if lap < best and lap != 0:
+            best = lap
+    return best
+```

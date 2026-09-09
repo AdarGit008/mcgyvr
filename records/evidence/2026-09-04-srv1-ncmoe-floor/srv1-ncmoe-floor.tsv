@@ -1,0 +1,12 @@
+### START 2026-09-04T16:13:57+00:00
+### RIG Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz mem=15G PL1=95000000
+### GPU NVIDIA GeForce GTX 1660 SUPER, 6144 MiB, 401 MiB, 580.173.02
+### IMG llamacpp:b10644-L3  uptime_since=2026-09-01 08:11:08
+srv1	ncmoe=32	OK	vram=4798	rss=2.454GiB	n1=30.15	n8_agg=40.88	up=2026-09-01 08:11:08
+srv1	ncmoe=30	OK	vram=5322	rss=751.6MiB	n1=31.18	n8_agg=43.68	up=2026-09-01 08:11:08
+srv1	ncmoe=28	REFUSED	0.04.141.892 E srv    load_model: failed to create_context with model '/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf'|0.04.142.417 E srv  llama_server: exiting due to model loading error|
+srv1	ncmoe=26	REFUSED	0.02.126.400 E srv    load_model: failed to create_context with model '/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf'|0.02.126.910 E srv  llama_server: exiting due to model loading error|
+srv1	ncmoe=24	REFUSED	0.01.673.622 E srv    load_model: failed to load model, '/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf'|0.01.674.095 E srv  llama_server: exiting due to model loading error|
+srv1	ncmoe=22	REFUSED	0.01.656.416 E srv    load_model: failed to load model, '/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf'|0.01.656.840 E srv  llama_server: exiting due to model loading error|
+### END 2026-09-04T16:20:14+00:00 uptime_since=2026-09-01 08:11:08 PL1=95000000
+

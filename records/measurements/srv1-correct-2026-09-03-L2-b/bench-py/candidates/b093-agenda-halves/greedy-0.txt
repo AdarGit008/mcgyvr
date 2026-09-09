@@ -1,0 +1,64 @@
+```python
+from typing import List, Tuple
+
+def split_agenda(sessions: List[Tuple[int, int]], limit: int) -> List[Tuple[int, int]]:
+    if not sessions or not limit:
+        raise ValueError("Sessions or limit cannot be empty.")
+    
+    if not all(isinstance(session, tuple) and len(session) == 2 for session in sessions):
+        raise ValueError("Sessions must be a list of tuples.")
+    
+    if not all(isinstance(session[0], int) and isinstance(session[1], int) for session in sessions):
+        raise ValueError("Session start and end times must be integers.")
+    
+    if not all(session[0] <= session[1] for session in sessions):
+        raise ValueError("Sessions must be in chronological order.")
+    
+    if not all(isinstance(limit, int) and limit > 0 for limit in [limit]):
+        raise ValueError("Limit must be a positive integer.")
+    
+    if not all(session[0] >= 0 for session in sessions):
+        raise ValueError("Session start times must be non-negative.")
+    
+    if not all(session[0] <= limit for session in sessions):
+        raise ValueError("Session start times must not exceed the limit.")
+    
+    if not all(session[1] <= limit for session in sessions):
+        raise ValueError("Session end times must not exceed the limit.")
+    
+    if not all(session[0] < session[1] for session in sessions):
+        raise ValueError("Sessions must not overlap.")
+    
+    blocks = []
+    current_block = []
+    current_block_start = None
+    
+    for session in sessions:
+        if current_block_start is None:
+            current_block_start = session[0]
+            current_block.append(session)
+        else:
+            if session[0] > current_block_start:
+                if current_block[0][1] < session[0]:
+                    raise ValueError("Session start times must not overlap.")
+                if current_block[0][1] > limit:
+                    raise ValueError("Session end times must not exceed the limit.")
+                if current_block[0][1] - current_block_start > limit:
+                    mid = current_block[0][1] - limit // 2
+                    current_block.append((mid, current_block[0][1]))
+                else:
+                    current_block.append(session)
+            else:
+                if session[1] > limit:
+                    raise ValueError("Session end times must not exceed the limit.")
+                if session[1] - current_block_start > limit:
+                    mid = current_block[0][1] - limit // 2
+                    current_block.append((mid, current_block[0][1]))
+                else:
+                    current_block.append(session)
+    
+    if current_block:
+        blocks.append(current_block)
+    
+    return blocks
+```

@@ -1,0 +1,16 @@
+```python
+def fresh_value(entry: dict, now: int) -> str:
+    if not isinstance(entry, dict):
+        raise ValueError("Expected a dictionary as the entry.")
+    if not isinstance(entry, dict):
+        raise ValueError("Expected a string as the value.")
+    if not isinstance(entry, dict):
+        raise ValueError("Expected a non-negative integer as the stored.")
+    if not isinstance(entry, dict):
+        raise ValueError("Expected a positive integer as the ttl.")
+    if not isinstance(now, int):
+        raise ValueError("Expected an integer as now.")
+    if now < entry['stored']:
+        raise ValueError("The record is no longer usable at now.")
+    return entry['value']
+```

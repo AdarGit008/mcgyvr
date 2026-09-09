@@ -1,0 +1,29 @@
+```python
+from typing import List, Mapping
+
+def number_sections(sections: List[Mapping[str, str]]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("sections must be a list")
+
+    def helper(index: int, depth: int, result: List[str]) -> None:
+        if index < len(sections):
+            section = sections[index]
+            heading = section.get("heading", "")
+            if not isinstance(heading, str) or not heading.strip():
+                raise ValueError(f"Invalid heading '{heading}'")
+            result.append(f"{depth * 2} {heading}")
+            children = section.get("children", [])
+            if isinstance(children, list):
+                helper(0, depth + 1, result)
+        elif depth > 0:
+            result.append("")
+
+    result = []
+    helper(0, 0, result)
+    return result
+
+def section_count(sections: List[Mapping[str, str]]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("sections must be a list")
+    return len(sections)
+```

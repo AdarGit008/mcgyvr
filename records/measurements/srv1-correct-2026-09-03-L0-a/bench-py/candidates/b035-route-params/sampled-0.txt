@@ -1,0 +1,75 @@
+```python
+def split_segments(path: str) -> list:
+    if not isinstance(path, str) or not path:
+        raise ValueError("Path must be a non-empty string")
+    if not path.startswith("/"):
+        raise ValueError("Path must start with a slash")
+    return path.split("/")
+
+def first_route(patterns: list, path: str) -> int:
+    if not isinstance(patterns, list) or not patterns:
+        raise ValueError("Patterns must be a non-empty list")
+    if not isinstance(path, str) or not path:
+        raise ValueError("Path must be a non-empty string")
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path) is not None:
+            return i
+    return -1
+
+def match_route(pattern: str, path: str) -> dict | None:
+    if not isinstance(pattern, str) or not path:
+        raise ValueError("Pattern and path must be non-empty strings")
+    if not path.startswith("/"):
+        raise ValueError("Path must start with a slash")
+    if not pattern.startswith("/"):
+        raise ValueError("Pattern must start with a slash")
+    if pattern == "/":
+        return {}
+    if pattern[0] == ":":
+        name = pattern[1:]
+        if not name.isalnum():
+            raise ValueError("Capture name must be a letter or underscore followed by letters, digits or underscores")
+        if name in path:
+            return {name: path[path.index(name) + 1:]}
+    if pattern == "*":
+        return {pattern: path}
+    if pattern == "**":
+        if pattern.count("**") > 1:
+            raise ValueError("Pattern holding '**' more than once is invalid")
+        return {pattern: path.split(pattern)[1:]}
+    if pattern.count(":") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("*") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("**") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count(":") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("*") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("**") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count(":") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("*") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("**") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count(":") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("*") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("**") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count(":") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("*") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("**") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count(":") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("*") > 1:
+        raise ValueError("Capture name repeated within the pattern is invalid")
+    if pattern.count("**") > 1:
+        raise ValueError("Capture name

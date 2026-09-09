@@ -42,6 +42,109 @@ _EXTENSIONS = (".py", ".pyi")
 #: and a second opinion cannot guarantee the re-run gate accepts.
 RUFF = "ruff"
 
+#: The basic default a repository that declares no ruff configuration is judged
+#: by: this project's own nine families (owner, 2026-09-05), with pycodestyle
+#: narrowed for the reason stated at the bottom of this comment. Measured in the
+#: first live e2e, ruff 0.16.4 with no configuration enables 826 rules, and
+#: TRY004 alone rejected six of nine replies for raising ``ValueError`` where
+#: the worker bundle says to; ``tools/bench/score.py:lint_config`` had already
+#: measured the same on the corpus and written this selection into every bench
+#: workspace. The live gate had no such floor. A repository that states its
+#: own ``[tool.ruff]``, ``ruff.toml`` or ``.ruff.toml`` keeps it, whatever it
+#: selects: the default is for the repository that said nothing.
+#:
+#: **pycodestyle is spelled ``E4``/``E7``/``E9``, not ``E``, and that is not a
+#: typo.** The whole ``E`` family carries E501, line-too-long, and E501 is the
+#: one rule in this selection the bundled formatter structurally cannot satisfy:
+#: ``ruff format`` rewraps *code*, and never a long string, comment or
+#: docstring. :mod:`mcgyvr.cleanup` then declines correctly and uselessly — a
+#: change is cleaned there only when every reason the gate gave for rejecting it
+#: is one the formatter itself raised, and E501 arrives as a *lint* finding — so
+#: the attempt is spent and nothing is produced over a docstring a few
+#: characters too wide. Measured over the live journal (341 correction records
+#: carrying gate findings): E501 was 104 of 220 lint findings, three times the
+#: next code, and **39 changes were rejected on E501 and nothing else**.
+#:
+#: **Line length has not stopped mattering.** ``DEFAULT_RUFF_LINE_LENGTH`` is
+#: unchanged and is still handed to ``ruff format`` below, which still wraps
+#: code at 88; over-wide *code* still rejects, on the format rung, and that is
+#: the one rejection :mod:`mcgyvr.cleanup` repairs at zero model cost. All that
+#: changed is that a line the formatter *cannot* wrap stopped being a rejection.
+#:
+#: Narrowing the select rather than adding ``lint.ignore = ["E501"]`` — the
+#: other honest spelling — because the ignore is a trap at this call site.
+#: Measured on ruff 0.16.6: a ``--config lint.ignore`` that *follows* a
+#: ``--config lint.select`` on the same command line is silently discarded, and
+#: :func:`ruff_config_args` appends in exactly that order. The fix would have
+#: read correctly and changed nothing, which is the hole that looks like a pass
+#: (#261). Narrowing needs no second layer and is not an invention of ours: it
+#: is the pycodestyle selection ruff itself enables by default. Beyond E501 it
+#: drops exactly one further stable rule, E101 (mixed-spaces-and-tabs), which
+#: ``ruff format`` normalises — so the format rung still catches it and cleanup
+#: still fixes it for free.
+DEFAULT_RUFF_SELECT: tuple[str, ...] = (
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "SIM",
+    "RUF",
+)
+DEFAULT_RUFF_LINE_LENGTH = 88
+_RUFF_CONFIG_FILES = ("ruff.toml", ".ruff.toml")
+
+
+def declares_ruff_config(repo: Path) -> bool:
+    """Whether ``repo`` states a ruff configuration of its own at its root.
+
+    A ``pyproject.toml`` that does not parse counts as declared: ruff must be
+    let read it and fault, loudly, on the rung — the default is for the
+    repository that said nothing, never for one whose statement is broken.
+    A linter that could not load its config and quietly lints under another
+    is the hole that looks like a pass (#261).
+    """
+    if any((repo / name).is_file() for name in _RUFF_CONFIG_FILES):
+        return True
+    pyproject = repo / "pyproject.toml"
+    if not pyproject.is_file():
+        return False
+    try:
+        with pyproject.open("rb") as handle:
+            tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+        return True
+    return _has_toml_table(pyproject, "ruff")
+
+
+def ruff_config_args(repo: Path) -> list[str]:
+    """The arguments that hold ruff to the basic default for a repo that
+    declares none — ``--isolated`` so no configuration is found by walking up
+    from the workspace, then the default stated inline. Empty when the repo
+    has its own, so ruff reads it exactly as it would for the repo's owner.
+
+    ``line-length`` is here for the formatter, not for a lint threshold: it is
+    the width ``ruff format`` wraps code to on both rungs below, and the default
+    selection no longer carries E501 (see :data:`DEFAULT_RUFF_SELECT`). Nothing
+    may be appended after ``lint.select``: measured on ruff 0.16.6, a later
+    ``--config lint.ignore`` on the same command line is silently discarded."""
+    if declares_ruff_config(repo):
+        return []
+    select = ", ".join(f'"{family}"' for family in DEFAULT_RUFF_SELECT)
+    return [
+        "--isolated",
+        "--config",
+        f"line-length = {DEFAULT_RUFF_LINE_LENGTH}",
+        "--config",
+        f"lint.select = [{select}]",
+        "--config",
+        'format.quote-style = "double"',
+    ]
+
 
 class PythonAdapter(LanguageAdapter):
     @property
@@ -98,6 +201,7 @@ class PythonAdapter(LanguageAdapter):
             [
                 ruff,
                 "check",
+                *ruff_config_args(repo),
                 "--output-format=json",
                 "--force-exclude",
                 "--",
@@ -160,7 +264,15 @@ class PythonAdapter(LanguageAdapter):
             return []
         ruff = require_tool(RUFF)
         proc = subprocess.run(
-            [ruff, "format", "--diff", "--force-exclude", "--", *_paths(files)],
+            [
+                ruff,
+                "format",
+                *ruff_config_args(repo),
+                "--diff",
+                "--force-exclude",
+                "--",
+                *_paths(files),
+            ],
             cwd=repo,
             capture_output=True,
             text=True,

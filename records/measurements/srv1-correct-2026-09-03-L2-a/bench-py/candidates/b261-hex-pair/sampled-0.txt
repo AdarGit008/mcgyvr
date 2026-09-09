@@ -1,0 +1,11 @@
+```python
+def hex_split(colour: str) -> list:
+    if len(colour) != 6 or not colour.isalnum() or not all(c in "0123456789abcdef" for c in colour):
+        raise ValueError("Invalid colour")
+    return [colour[:2], colour[2:4], colour[4:]]
+
+def hex_join(parts: list) -> str:
+    if len(parts) != 3 or not all(len(p) == 2 for p in parts):
+        raise ValueError("Invalid parts")
+    return f"{parts[0]}{parts[1]}{parts[2]}"
+```

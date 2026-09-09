@@ -1,0 +1,7 @@
+```python
+def pad_code(code: str, width: int) -> str:
+    """A code padded with zeros to a fixed width."""
+    if width <= 0:
+        raise ValueError("Width must be positive")
+    return code.rjust(width, "0")
+```

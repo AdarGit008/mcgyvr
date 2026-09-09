@@ -1,0 +1,66 @@
+```python
+from typing import List, Tuple
+
+class StockRecord:
+    def __init__(self, lot_id: int, use_by_date: str, units_on_hand: int):
+        self.lot_id = lot_id
+        self.use_by_date = use_by_date
+        self.units_on_hand = units_on_hand
+
+class DrawRecord:
+    def __init__(self, order_id: int, lot_id: int, units_taken: int):
+        self.order_id = order_id
+        self.lot_id = lot_id
+        self.units_taken = units_taken
+
+class ShortfallRecord:
+    def __init__(self, order_id: int, shortfall: int):
+        self.order_id = order_id
+        self.shortfall = shortfall
+
+class ReserveLotsResult:
+    def __init__(self, picks: List[Tuple[int, int, int]], draws: List[DrawRecord], short: List[ShortfallRecord]):
+        self.picks = picks
+        self.draws = draws
+        self.short = short
+
+def reserve_lots(lots: List[StockRecord], orders: List[Tuple[int, int]]) -> ReserveLotsResult:
+    if not lots or not orders:
+        return ReserveLotsResult([], [], [])
+
+    # Sort lots by use-by date and then by lot id
+    lots.sort(key=lambda x: (x.use_by_date, x.lot_id))
+
+    draws = []
+    short = []
+    remaining_orders = orders[:]
+    picked_lots = set()
+
+    for order_id, units_wanted in remaining_orders:
+        picked_lots.add(order_id)
+        picked_lots.update(lot_id for lot_id, _, _ in lots)
+        picked_lots.update(lot_id for lot_id, _, _ in drawn_lots)
+
+        # Find the earliest lot that still holds units
+        earliest_lot = None
+        for lot_id, use_by_date, units_on_hand in lots:
+            if lot_id not in picked_lots and units_on_hand >= units_wanted:
+                if earliest_lot is None or use_by_date < earliest_lot.use_by_date:
+                    earliest_lot = lot_id
+                elif use_by_date == earliest_lot.use_by_date and lot_id < earliest_lot.lot_id:
+                    earliest_lot = lot_id
+
+        if earliest_lot is None:
+            shortfall = units_wanted
+            draw_record = DrawRecord(order_id, earliest_lot, shortfall)
+            short.append(ShortfallRecord(order_id, shortfall))
+        else:
+            draw_record = DrawRecord(order_id, earliest_lot, units_wanted)
+            draws.append(draw_record)
+
+    # Remove picked lots from the remaining orders
+    for lot_id in picked_lots:
+        remaining_orders = [(order_id, units_wanted) for order_id, units_wanted in remaining_orders if order_id != lot_id]
+
+    return ReserveLotsResult(draws, draws, short)
+```

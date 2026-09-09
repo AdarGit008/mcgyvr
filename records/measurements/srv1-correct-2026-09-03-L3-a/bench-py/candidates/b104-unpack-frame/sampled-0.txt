@@ -1,0 +1,44 @@
+```python
+from typing import List
+
+def unpack_frame(data: List[int]) -> List[int]:
+    if not isinstance(data, list):
+        raise ValueError("Input should be a list")
+    
+    if not all(isinstance(item, int) for item in data):
+        raise ValueError("All elements in the input list should be integers")
+    
+    if not all(0 <= item <= 255 for item in data):
+        raise ValueError("All elements in the input list should be integers from 0 to 255")
+    
+    if len(data) < 2:
+        raise ValueError("Frame should have at least two elements")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer byte does not equal the byte sum")
+    
+    varint_bytes = []
+    varint_sum = 0
+    varint = 0
+    
+    for byte in data[:-1]:
+        varint_bytes.append(byte)
+        varint_sum += byte
+        
+        if varint_sum >= 128:
+            varint += varint_sum // 128
+            varint_sum %= 128
+        else:
+            varint += varint_sum
+    
+    if len(varint_bytes) != varint:
+        raise ValueError("Varint length does not match the varint value")
+    
+    readings = []
+    for byte in varint_bytes:
+        if byte == 0:
+            break
+        readings.append(byte)
+    
+    return readings
+```

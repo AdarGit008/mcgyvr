@@ -1,0 +1,47 @@
+```python
+from typing import List, Union
+
+def split_agenda(sessions: List[List[int]], limit: int) -> List[List[int]]:
+    if not sessions or not limit:
+        raise ValueError("Invalid input: sessions or limit cannot be empty")
+    
+    if not all(isinstance(session, list) and len(session) == 2 for session in sessions):
+        raise ValueError("Invalid input: sessions must be a list of [start, end] pairs")
+    
+    if not all(isinstance(start, int) and isinstance(end, int) for start, end in sessions):
+        raise ValueError("Invalid input: session start and end must be integers")
+    
+    if not all(start <= end for start, end in sessions):
+        raise ValueError("Invalid input: sessions must be in chronological order")
+    
+    if not limit.is_integer() or limit < 1:
+        raise ValueError("Invalid input: limit must be a whole number of at least one")
+    
+    blocks = []
+    for start, end in sessions:
+        if start < 0 or end < 0:
+            raise ValueError("Invalid input: session start and end must be non-negative integers")
+        
+        if start >= end:
+            raise ValueError("Invalid input: sessions must be in chronological order")
+        
+        if start > sessions[-1][1]:
+            raise ValueError("Invalid input: sessions must be in chronological order")
+        
+        if start < sessions[-1][0]:
+            raise ValueError("Invalid input: session starting before the previous session ends")
+    
+    for start, end in sessions:
+        if end - start <= limit:
+            blocks.append([start, end])
+        else:
+            mid = (start + end) // 2
+            if (end - mid) % 2 == 1:
+                blocks.append([start, mid])
+                blocks.append([mid, end])
+            else:
+                blocks.append([start, mid])
+                blocks.append([mid + 1, end])
+    
+    return blocks
+```

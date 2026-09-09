@@ -1,0 +1,21 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    """
+    Count how many readings at the very end of the run sat at or above the target
+    without interruption.
+
+    Args:
+        readings: List of temperature readings taken in chronological order.
+        target: The temperature threshold (inclusive).
+
+    Returns:
+        The number of consecutive trailing readings that are at or above the target.
+    """
+    count = 0
+    for reading in reversed(readings):
+        if reading >= target:
+            count += 1
+        else:
+            break
+    return count
+```

@@ -1,0 +1,39 @@
+```python
+def route_stops(route: str) -> list:
+    """
+    Breaks a route written as stop names joined by greater-than signs into the stops themselves,
+    trimming any spaces around each one.
+    
+    Parameters:
+    route (str): The route to be broken down.
+    
+    Returns:
+    list: A list of stops in the route.
+    
+    Examples:
+    >>> route_stops("New York>Los Angeles>Chicago")
+    ['New York', 'Los Angeles', 'Chicago']
+    """
+    return route.strip().split('>')
+
+def route_hops(route: str) -> int:
+    """
+    Counts the journeys between stops, one fewer than the stops, and none at all for a blank route.
+    
+    Parameters:
+    route (str): The route to be analyzed.
+    
+    Returns:
+    int: The number of journeys between stops.
+    
+    Examples:
+    >>> route_hops("New York>Los Angeles>Chicago")
+    2
+    >>> route_hops("")
+    0
+    """
+    stops = route_stops(route)
+    if not stops:
+        return 0
+    return len(stops) - 1
+```

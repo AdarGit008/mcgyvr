@@ -1,0 +1,19 @@
+```python
+def mid_pair(values: list) -> list:
+    """
+    Given a list of values, return the two values standing closest to the middle of the list,
+    the lower one first. If the list is empty, return two nothings.
+
+    :param values: List of values
+    :return: List containing two values, the lower one first
+    """
+    if not values:
+        return [None, None]
+
+    values.sort()
+    mid_index = len(values) // 2
+    if len(values) % 2 == 1:
+        return [values[mid_index], values[mid_index + 1]]
+    else:
+        return [values[mid_index - 1], values[mid_index]]
+```

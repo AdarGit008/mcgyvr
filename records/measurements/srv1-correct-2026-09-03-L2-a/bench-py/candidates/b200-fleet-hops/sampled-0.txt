@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def fleet_hops(count: int, lts: List[int], builds: List[int], hop: int) -> int:
+    if not all(0 <= build <= count - 1 for build in builds):
+        raise ValueError("Invalid build numbers")
+
+    hops = 0
+    current_release = 0
+
+    for build in builds:
+        # Move to the next release if it's a long-term support release
+        if build in lts:
+            current_release = build
+        else:
+            # Move to the next release within the hop limit
+            current_release = min(current_release + hop, count - 1)
+
+        # Count the hop
+        hops += 1
+
+    return hops
+```

@@ -1,0 +1,17 @@
+```python
+def row_key(name: str) -> str:
+    if not name:
+        raise ValueError("Input name cannot be empty")
+    return name[0].upper()
+
+def index_rows(names: list) -> dict:
+    if not names:
+        return {}
+    index_dict = {}
+    for name in names:
+        key = row_key(name)
+        if key not in index_dict:
+            index_dict[key] = []
+        index_dict[key].append(name)
+    return index_dict
+```

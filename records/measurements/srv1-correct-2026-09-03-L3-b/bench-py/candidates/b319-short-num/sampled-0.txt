@@ -1,0 +1,40 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Shorten a number to a base of thousand, million, etc., with one decimal place.
+    
+    :param value: The number to shorten.
+    :return: The shortened number as a string.
+    
+    Examples:
+    >>> short_num(500)
+    '500'
+    >>> short_num(1234)
+    '1.2k'
+    >>> short_num(1000000)
+    '1m'
+    >>> short_num(1500000)
+    '1.5m'
+    >>> short_num(9999999)
+    '9.9m'
+    >>> short_num(0)
+    '0'
+    >>> short_num(-500)
+    '-500'
+    >>> short_num(1500000.1)
+    '1.5m'
+    """
+    if value < 0:
+        return '-' + short_num(-value)
+    
+    if value < 1000:
+        return str(value)
+    
+    if value < 1000000:
+        return f'{value / 1000:.1f}k'
+    
+    if value < 1000000000:
+        return f'{value / 1000000:.1f}m'
+    
+    return f'{value / 1000000000:.1f}b'
+```

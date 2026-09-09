@@ -1,0 +1,64 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events, prices):
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+    state = OPEN
+
+    for event in events:
+        action, *payload = event
+        if action not in ["scan", "void", "pay", "close", "cancel"]:
+            raise ValueError(f"unknown action: {action}")
+
+        if action == "scan" and payload[0] not in prices:
+            raise ValueError(f"item {payload[0]} not in price list")
+
+        if action == "void" and payload[0] not in cart:
+            raise ValueError(f"item {payload[0]} not in cart")
+
+        if action == "pay" and not isinstance(payload[0], int) or payload[0] <= 0:
+            raise ValueError("pay amount must be a positive integer")
+
+        if action == "close":
+            if state not in [OPEN, PAID, CANCELLED]:
+                raise ValueError("closed session cannot be replayed")
+            elif len(cart) == 0:
+                raise ValueError("no items in cart for close")
+
+            total = sum(price * quantity for name, (quantity, price) in cart.items())
+            paid = total
+            change = 0
+            state = PAID
+
+        elif action == "scan":
+            if payload[0] in cart:
+                cart[payload[0]] += 1
+            else:
+                cart[payload[0]] = 1
+
+        elif action == "void":
+            if payload[0] in cart:
+                cart[payload[0]] -= 1
+                if cart[payload[0]] == 0:
+                    del cart[payload[0]]
+
+        elif action == "pay":
+            paid += price * cart[payload[0]]
+            cart[payload[0]] = 0
+
+    return {
+        "items": sorted(cart.items(), key=lambda x: x[0]),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

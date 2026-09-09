@@ -1,0 +1,28 @@
+```python
+from typing import List
+
+
+def common_head(words: List[str]) -> str:
+    if not words:
+        return ""
+    
+    # Find the first character that appears in all words
+    common_char = next((char for char in words[0] if all(word.startswith(char) for word in words)), None)
+    
+    if not common_char:
+        return ""
+    
+    # Find the longest run of common characters
+    longest_run = ""
+    current_run = ""
+    
+    for char in words[0]:
+        if char == common_char:
+            current_run += char
+            if len(current_run) > len(longest_run):
+                longest_run = current_run
+        else:
+            current_run = char
+    
+    return longest_run
+```

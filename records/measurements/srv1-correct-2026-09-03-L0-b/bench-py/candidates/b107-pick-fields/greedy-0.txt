@@ -1,0 +1,29 @@
+```python
+from typing import List, Mapping, Optional
+
+def pick_fields(records: List[Mapping[str, Optional[Any]]], fields: List[str]) -> List[List[Optional[Any]]]:
+    if not isinstance(records, list) or not all(isinstance(record, Mapping) for record in records):
+        raise ValueError("records must be a list of mappings")
+    if not isinstance(fields, list) or not all(isinstance(field, str) for field in fields):
+        raise ValueError("fields must be a list of strings")
+    if not fields:
+        raise ValueError("fields must not be empty")
+    
+    result = []
+    for record in records:
+        if not isinstance(record, Mapping):
+            raise ValueError("record must be a mapping")
+        if not all(field in record for field in fields):
+            raise ValueError("record is missing required fields")
+        
+        row = []
+        for field in fields:
+            stem = field.rstrip('?')
+            if stem in record:
+                row.append(record[stem])
+            else:
+                row.append(None)
+        result.append(row)
+    
+    return result
+```

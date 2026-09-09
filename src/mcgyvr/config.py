@@ -29,8 +29,10 @@ bindings, and writing the file are separate concerns and do not live here.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
+import threading
 import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -42,6 +44,19 @@ import yaml
 SCHEMA_VERSION = 1
 CONFIG_FILENAME = "mcgyvr.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
+#: What a config's identity starts with (:meth:`Config.digest`), so it can
+#: never be read as a product digest or a blob name: those are bare hex.
+DIGEST_PREFIX = "cfg-"
+#: Where the journal keeps the config each run was made under, by its digest
+#: (:func:`keep`): ``<journal.dir>/configs/<digest>.yaml``. Naming that file
+#: in ``MCGYVR_CONFIG`` re-selects the setup a result names, in one command.
+CONFIGS_DIR = "configs"
+#: The user-level config directory (owner, 2026-09-05). A literal with `~` so
+#: help text reads the same on every machine; expanded at the point of use.
+#: This is the third and last place a config is looked for, after the
+#: environment override and the working directory, and where `mcgyvr init`
+#: writes when nobody names a path. `$XDG_CONFIG_HOME` is not consulted.
+USER_CONFIG_DIR = "~/.mcgyvr/config"
 
 
 class ConfigError(Exception):
@@ -50,6 +65,25 @@ class ConfigError(Exception):
 
 class ConfigFileError(ConfigError):
     """The config file is missing, unreadable, or not parseable as YAML."""
+
+
+class ConfigMissingError(ConfigFileError):
+    """There is no config file at all.
+
+    A class rather than a message to grep, because "there is none" and "the
+    one that is there cannot be read" ask for different answers from a caller
+    that can run without a config. The deterministic floor is one: it
+    dispatches nothing, needs no ladder, and an install with no config is a
+    supported install — so a missing file is silence, while a file the
+    operator wrote and this run could not use is something to say out loud.
+
+    Silence is the *default location's* to earn, not this class's. Whether the
+    path was one the caller named is what :func:`named_config_path` answers,
+    and a caller that treats this exception as "nothing to mention" has to ask:
+    nobody chose the empty default, whereas ``--config`` or ``$MCGYVR_CONFIG``
+    pointing at nothing is a path somebody typed, and a run that goes quietly
+    on under some other directory is the operator's problem to discover later.
+    """
 
 
 class ConfigSchemaError(ConfigError):
@@ -76,6 +110,7 @@ class UnboundValueError(ConfigError):
 
 Kind = Literal[
     "int",
+    "float",
     "str",
     "url",
     "bool",
@@ -103,7 +138,12 @@ class Field:
     default: Any = None
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
-    min_value: int | None = None
+    min_value: float | None = None
+    #: Inclusive upper bound, for the values that have one because they are a
+    #: share of something rather than a count of it. Absent on every counting
+    #: field: attempts and timeouts have no natural ceiling, and inventing one
+    #: would refuse a config nobody has shown to be wrong.
+    max_value: float | None = None
     bind_hint: str = ""
 
     retired: tuple[tuple[str, str], ...] = ()
@@ -125,7 +165,7 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         "url",
         "Where the source answers, including scheme and port.",
         required=True,
-        bind_hint="e.g. http://localhost:11434",
+        bind_hint="e.g. http://localhost:8080",
     ),
     Field(
         "api",
@@ -134,7 +174,7 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         "TGI, so adding a backend is a protocol question, not an "
         "integration.",
         required=True,
-        choices=("ollama", "openai"),
+        choices=("openai",),
     ),
     Field(
         "max_parallel",
@@ -146,6 +186,21 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         min_value=1,
     ),
     Field(
+        "context_window",
+        "int",
+        "How many tokens this source's process serves in one request. Absent "
+        "means nobody declared it and nothing is enforced against it: a "
+        "window invented here would be a number nobody measured, and the "
+        "first live day found exactly that failure — a ladder whose bottom "
+        "priced a request at twice what its top could hold. Read it back "
+        "from the running unit (`max_model_len` on vLLM, `n_ctx` on "
+        "llama.cpp) and write what it said. It belongs on the source rather "
+        "than the rung because the window is a fact about the process, and a "
+        "rung that carried one could not be re-pointed at another machine.",
+        min_value=1,
+        bind_hint="e.g. 4096 — what the unit reports, not what you hoped for",
+    ),
+    Field(
         "api_key_env",
         "env_name",
         "NAME of the environment variable holding this source's key. Absent "
@@ -155,6 +210,119 @@ SOURCE_FIELDS: tuple[Field, ...] = (
             "set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never "
             "the key itself"
         ),
+    ),
+    Field(
+        "engine",
+        "enum",
+        "Which server program runs behind this URL, for `mcgyvr emit` to "
+        "write a launch spec for. `api` cannot answer this: it is a wire "
+        "protocol, and vLLM and llama-server both speak `openai` while "
+        "taking entirely different argv. Absent means llama.cpp, which is "
+        "what emit assumed unconditionally before this field existed. It "
+        "belongs on the source rather than the rung because a URL points at "
+        "one process and one process runs one engine.",
+        choices=("llama.cpp", "vllm"),
+        bind_hint="leave it out unless the backend is not llama-server",
+    ),
+    Field(
+        "image",
+        "str",
+        "Container image `mcgyvr emit` writes for this source's process, as a "
+        "tag or a digest. Absent means the engine's own default, and that is a "
+        "floating tag: srv1's numbers are only valid against a stated build "
+        "(okf/must-read/touching-rigs.md), so a source that must run one "
+        "image says which here.",
+        bind_hint="e.g. vllm/vllm-openai@sha256:<hex>, or llamacpp:b10644-L3",
+    ),
+)
+
+MODEL_FIELDS: tuple[Field, ...] = (
+    Field(
+        "geometry_json",
+        "str",
+        "Path to this model's GGUF geometry: the `geometry.json` a serving-door "
+        "run leaves in its envelope, or the output of `python -m "
+        "mcgyvr.serving.ggufscan <gguf>` (a list; the row scanned from "
+        "`<model>.gguf` is the one read). Once set it is the source of truth "
+        "for the model's bytes — `disk_gb` is read from its `size_bytes`, and "
+        "the card figure, the slot count and `--n-cpu-moe` are derived from "
+        "its tensor table and cache geometry by the law in "
+        "`mcgyvr.serving.vramfit`. A stated `disk_gb` that disagrees with it "
+        "is refused, and so is a geometry scanned from a file this model does "
+        "not serve: each deviation from a scan requires a new scan. Required "
+        "for an MoE; a dense model without it is sized from `vram_gb` alone, "
+        "one slot wide. A relative path is read against the config file's own "
+        "directory, with the route to that file resolved, so an entry reached "
+        "through a symlink still names the scan filed beside it; a config with "
+        "no location on disk cannot read one beside itself and is refused.",
+        bind_hint=(
+            "on a machine holding the file, `python -m mcgyvr.serving.ggufscan "
+            "<gguf> > <model>.geometry.json`, and name that file here"
+        ),
+    ),
+    Field(
+        "vram_gb",
+        "float",
+        "Working set on the card with nothing offloaded, in GiB, for a dense "
+        "model that has no `geometry_json`. Not the weight on disk: a working "
+        "set carries buffers. Not read when `geometry_json` is set — the card "
+        "figure is then derived from the header.",
+        min_value=0.0,
+        bind_hint=(
+            "set it to what the server reports resident on the card with "
+            "-ngl 99 and no offload, converted to GiB"
+        ),
+    ),
+    Field(
+        "disk_gb",
+        "float",
+        "Weight on disk, in GiB, for a model that has no `geometry_json`. "
+        "Note the unit — a file listed as 13.2 GB by a tool using decimal "
+        "gigabytes is 12.3 GiB here. Leave it out when `geometry_json` is set: "
+        "it is then read from the scan's `size_bytes`, and a stated value that "
+        "differs from that by more than rounding to two decimals is refused.",
+        min_value=0.0,
+        bind_hint="set it to `ls -l` on the weights file divided by 1024^3",
+    ),
+    Field(
+        "ram_gb",
+        "float",
+        "A floor on what system memory may be asked to hold, in GiB. Absent "
+        "means the offload arithmetic decides it alone; state it only to "
+        "claim a demand this module cannot see.",
+        default=0.0,
+        min_value=0.0,
+    ),
+    Field(
+        "moe",
+        "bool",
+        "Whether this model has expert weights that `--n-cpu-moe` can move "
+        "off the card. Not inferable from the other numbers: it is the "
+        "difference between `does not fit` and `fits differently here`.",
+        default=False,
+    ),
+    Field(
+        "hf_cache",
+        "str",
+        "The HuggingFace cache on the rig that holds this model's weights, as "
+        "an absolute path there. Required for a model served by vLLM, which "
+        "loads a repository id from that cache rather than a file from the "
+        "weights directory; `mcgyvr emit` mounts it read-only and starts the "
+        "server offline, so nothing is downloaded on a rig at load. Not read "
+        "for a llama.cpp model.",
+        bind_hint="e.g. /home/<user>/.cache/huggingface, as the rig sees it",
+    ),
+    Field(
+        "serve_args",
+        "str_list",
+        "Arguments appended verbatim to the server's command line after the "
+        "ones mcgyvr derives, for what no scan can know: `--gpu-memory-"
+        "utilization` for vLLM (measured per rig, #337, never inherited), or "
+        "`--chat-template-kwargs` to turn a thinking model's reasoning off. "
+        "One flag or value per entry; an entry containing whitespace is "
+        "refused at emit, because the compose file and the pasted command "
+        "cannot spell it the same way.",
+        default=(),
     ),
 )
 
@@ -179,6 +347,61 @@ TIER_FIELDS: tuple[Field, ...] = (
         required=True,
     ),
     Field("model", "str", "Model identifier as the source names it.", required=True),
+    Field(
+        "max_parallel",
+        "int",
+        "How many requests this rung may run at once, overriding its source's "
+        "`max_parallel`. Concurrency is a property of the serving process "
+        "rather than of the machine: the same weights on two rigs are two "
+        "processes started with two different slot counts, so one number on "
+        "the source cannot describe both. Unset means the source's number "
+        "stands, which is what it has always meant.",
+        min_value=1,
+        bind_hint=(
+            "set it to the slot count the rung's backend was started with "
+            "(e.g. 8), and leave it out to inherit the source's"
+        ),
+    ),
+    Field(
+        "output_tokens",
+        "int",
+        "How much room a reply on this rung is given — the `max_tokens` its "
+        "backend is actually sent. Not a second `limits.max_output_tokens`, "
+        "and deliberately not spelled like one: a contract's cap says what "
+        "this unit of work is worth, and this says what this backend needs to "
+        "finish a reply of that worth. The two are different questions about "
+        "different things, so where a rung states one it is sent and the "
+        "contract's is not — the fallback where a rung states none, which is "
+        "what `dispatch_prompt` has always sent. Measured over 358 journalled "
+        "attempts under one contract cap of 1024: the 3B rung's replies had a "
+        "p95 of 716 and the 7B rung's 465, neither within 300 tokens of the "
+        "cap, while the 35B rung's p50 was 850 and 32 of its 82 replies were "
+        "cut at 1024 — `reply[incomplete-reply]`, refused rather than applied "
+        "(`src/mcgyvr/worker/reply.py`), so the dearest rung in the ladder was "
+        "spent and produced nothing. Taking the *lower* of the two numbers, "
+        "which is what `attempts` above does, re-creates exactly that: the "
+        "contract's cap is the smaller one on every rung that needed more. "
+        "Taking the *higher* would forbid the other direction, and a rung "
+        "needs it — a rung that answers at 17 tok/s reaches 2048 tokens only "
+        "just inside the default `budgets.request_timeout_s` of 120, so this "
+        "number, the rung's `max_parallel` (which lowers per-stream rate) and "
+        "that timeout decide each other, and raising one alone buys a socket "
+        "timeout instead of a reply. What bounds a rung's number is the rung "
+        "itself: a room that does not fit its source's `context_window` "
+        "alongside the prompt is refused by name in "
+        "`mcgyvr.gate.preflight.check_contract_against_rung`, never truncated "
+        "silently. It does not excuse a contract from declaring "
+        "`limits.max_output_tokens`: `mcgyvr contract` and `mcgyvr run` still "
+        "refuse a model contract that leaves it out, because a ladder can be "
+        "re-pointed at rungs that declare nothing and the work still has to "
+        "say what it is willing to spend.",
+        min_value=1,
+        bind_hint=(
+            "set it to the reply length this rung's own journalled attempts "
+            "show it needs (e.g. 2048), and leave it out to send the "
+            "contract's cap"
+        ),
+    ),
     Field(
         "attempts",
         "int",
@@ -212,17 +435,24 @@ LADDER_FIELDS: tuple[Field, ...] = (
         "enum",
         "Whether a batch of contracts spreads across rungs or queues on one. "
         "`none` is today's behaviour: the cheapest rung at or above the "
-        "contract's floor, queued behind whoever is already there. `idle` "
-        "takes the cheapest such rung that has a free slot — the floor is the "
-        "only bound and nothing bounds it above, so when every cheaper rung is "
-        "full this reaches a priced api rung rather than wait, which is a "
-        "spend decision the knob makes deliberately. `full` spreads across the "
-        "eligible rungs regardless of load. It is a knob rather than a "
-        "behaviour because the right answer is a property of the machines: two "
-        "interchangeable rigs should share a batch, but a throughput rig "
-        "feeding an intelligence rig must not — the second is sized to drain "
-        "the first's failure tail, and fanning volume onto it eats exactly the "
-        "capacity that drain needs.",
+        "contract's floor, queued behind whoever is already there. `full` "
+        "starts each climb on the cheapest rung that has a free slot, so a "
+        "batch fills every rig that can serve it instead of stacking on one — "
+        "and it never leaves the contract's floor family, so it cannot spend. "
+        "`idle` uses that same rule and then lifts the one limit: the floor is "
+        "the only bound and nothing bounds it above, so when every rung of "
+        "every cheaper family is full it enters a priced api family rather "
+        "than wait. That is the difference between the two, and it is a spend "
+        "decision the knob makes deliberately. Neither mode reorders the "
+        "ladder: load decides which rung a climb starts on and never what it "
+        "may spend, so a rung passed over for being full is still walked, and "
+        "a rung that can run now is never passed over for a dearer one with "
+        "more room. It is a knob rather than a behaviour because the right "
+        "answer is a property of the machines: two interchangeable rigs "
+        "should share a batch, but a throughput rig feeding an intelligence "
+        "rig must not — the second is sized to drain the first's failure "
+        "tail, and fanning volume onto it eats exactly the capacity that "
+        "drain needs.",
         default="none",
         choices=("none", "idle", "full"),
     ),
@@ -309,6 +539,44 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+#: Where the live journal goes when `journal.dir` is left out. A literal with
+#: `~` rather than an expanded path so the reference reads the same on every
+#: machine; expanded at the point of use. The XDG state dir is the convention
+#: `mcgyvr scan` already keeps its records under.
+JOURNAL_DIR_DEFAULT = "~/.local/state/mcgyvr/journal"
+
+JOURNAL_FIELDS: tuple[Field, ...] = (
+    Field(
+        "dir",
+        "str",
+        "Where every run journals what it asked, what came back and how it "
+        "landed: one `<orchestrator>.jsonl` per writer, the prompts and replies "
+        "content-addressed under `blobs/`, and each run's result file under "
+        "`results/`. Deterministic runs are here too, with a row naming the "
+        "program instead of a model. This is mcgyvr's own record, it never "
+        "lands in the repository a run works on, and nothing on the command "
+        "line moves it: it is the one place every run is, which is what makes "
+        "it worth asking questions of. `mcgyvr run --record DIR` adds a second "
+        "copy for your own use. Read either back with `tools/live/review.py "
+        "DIR`. The config each run was made under is kept here too, as "
+        "`configs/<digest>.yaml`, and every row and result names that "
+        "digest: `MCGYVR_CONFIG=<dir>/configs/<digest>.yaml` re-selects the "
+        "exact setup a result was produced under.",
+        default=JOURNAL_DIR_DEFAULT,
+    ),
+)
+
+# How long one dispatched request may take before the transport gives up.
+# Defined here rather than in :mod:`mcgyvr.runner` because it is now a config
+# default as well as the runner's constant, and the two must be one number:
+# a literal in each is how the door and `emit` came apart over `-c` (see
+# `kv_bytes_for_run`). Measured against on 2026-09-06: the top local rung
+# gives 27.2 tok/s to one stream and 5.09 tok/s to each of eight, so what this
+# number forbids is a function of the width a rung serves and the cap a
+# contract declares, which is why it has to be declarable beside them.
+DEFAULT_REQUEST_TIMEOUT_S = 120.0
+
+
 BUDGET_FIELDS: tuple[Field, ...] = (
     Field(
         "max_escalations",
@@ -336,11 +604,44 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         ),
     ),
     Field(
+        "request_timeout_s",
+        "float",
+        "How long one dispatched request may take before the transport gives "
+        "up, in seconds. A reply of `limits.max_output_tokens` tokens takes "
+        "the time its rung's per-stream rate says it takes, and that rate "
+        "falls as the rung serves more streams at once, so this bound, the "
+        "cap and the rung's width are three numbers that decide each other. "
+        "Left as a constant in the runner it decided the other two silently: "
+        "a cap an operator was free to declare was unreachable at a width "
+        "they were also free to declare, and the failure arrived as a socket "
+        "timeout naming neither. Raise it for a slow rung serving a large "
+        "cap; lower it to fail faster.",
+        default=DEFAULT_REQUEST_TIMEOUT_S,
+        min_value=0.0,
+    ),
+    Field(
         "task_timeout_s",
         "int",
         "Wall-clock ceiling for one task, including acceptance commands.",
         default=900,
         min_value=1,
+    ),
+    Field(
+        "max_window_fraction",
+        "float",
+        "The largest share of a rung's context window one contract may claim "
+        "-- its prompt and its own declared reply together, over the whole "
+        "window. Distinct from whether the two *fit*, which the fit check "
+        "already asks: a contract that fits with nothing to spare leaves the "
+        "rung nothing to absorb a long estimate with. Unset enforces no "
+        "share, which is not the same as 1.0: a run that declared none is "
+        "recorded as having declared none.",
+        min_value=0.0,
+        max_value=1.0,
+        bind_hint=(
+            "a share between 0 and 1 -- e.g. 0.75 to keep a quarter of every "
+            "rung's window clear -- or leave it unset to enforce no share"
+        ),
     ),
 )
 
@@ -368,18 +669,24 @@ CLEANUP_FIELDS: tuple[Field, ...] = (
     Field(
         "enabled",
         "bool",
-        "Reformat a change the gate rejected only on formatting, and judge it "
-        "again, instead of spending an attempt asking a model to insert a "
-        "space. The formatter is the one the gate already checks with, so a "
-        "cleanup produces the shape the format rung asks for rather than a "
-        "second opinion about it, and it costs no tokens by construction. Off "
-        "by default because it rewrites a file after the gate has spoken about "
-        "it: the bytes that come back are not the bytes the worker sent, and an "
-        "operator reading a diff should have said yes to that. Nothing else is "
-        "ever tidied — a lint code, a failed acceptance command or a rung that "
-        "could not say what bar it applied leaves the change exactly as the "
-        "worker wrote it.",
-        default=False,
+        "Repair a change the gate rejected with the deterministic tools — the "
+        "declared imports, the linter's own autofixes, the formatter — and "
+        "judge it again on the same rung, instead of spending an attempt or a "
+        "climb on what a tool clears for nothing. The tools are the ones the "
+        "gate already checks with, so a repair produces the shape the rungs "
+        "ask for rather than a second opinion about it, and it costs no tokens "
+        "by construction. On by default (owner, 2026-09-05): the first live "
+        "ladder rejected all nine replies on a reflowed line, whitespace on a "
+        "blank line or an unsorted import block and paid a climb for each, "
+        "and running the fixers after a rung is done is the point — it lifts "
+        "every task the deterministic floor could not take outright. It "
+        "rewrites a file after the gate has spoken about it, so the bytes "
+        "that come back are not the bytes the worker sent: the journal keeps "
+        "the reply, the tree keeps the repaired file, and the verdict says a "
+        "repair ran. Set false to have the rejection stand as the gate "
+        "reached it. What no tool fixes — a failed acceptance command, a "
+        "name, a line too long to wrap — is rejected exactly as before.",
+        default=True,
     ),
 )
 
@@ -393,6 +700,22 @@ SCHEMA: tuple[Field, ...] = (
         min_value=1,
     ),
     Field(
+        "profile",
+        "enum",
+        "Which setup this file is: `live`, the ladder that serves for real, or "
+        "`dev`, a setup under development. The default is `live`, because the "
+        "safe value is the one you get when you say nothing: "
+        "`~/.mcgyvr/config/mcgyvr.yaml` is the unnamed fallback and is the "
+        "live setup, and a dev setup is a file you name in `MCGYVR_CONFIG` "
+        "(or a `mcgyvr.yaml` beside the work), so forgetting the variable "
+        "lands on the live setup and never the other way round. Live outranks "
+        "dev on the rigs: a run under a `dev` profile does not start or stop "
+        "the live ladder, refuses a rig another run holds, and yields the rig "
+        "to a live run that takes it.",
+        choices=("live", "dev"),
+        default="live",
+    ),
+    Field(
         "sources",
         "block_map",
         "Where model work is executed, keyed by a name you choose. A source "
@@ -400,6 +723,17 @@ SCHEMA: tuple[Field, ...] = (
         "the execution seam knows which host or backend served a request.",
         required=True,
         block=SOURCE_FIELDS,
+    ),
+    Field(
+        "models",
+        "block_map",
+        "Serving specs for models the shipped capability table does not "
+        "carry, or whose numbers you want to override, keyed by the model "
+        "identifier a rung names. mcgyvr sizes from what it can measure; this "
+        "is where an operator states what it cannot. A declaration here wins "
+        "over the table and is not second-guessed — a wrong one produces a "
+        "launch spec that fails on the rig, which is the operator's to make.",
+        block=MODEL_FIELDS,
     ),
     Field(
         "ladder",
@@ -447,6 +781,12 @@ SCHEMA: tuple[Field, ...] = (
         "block",
         "What may be fixed without asking a model.",
         block=CLEANUP_FIELDS,
+    ),
+    Field(
+        "journal",
+        "block",
+        "Where mcgyvr keeps its own record of what it dispatched.",
+        block=JOURNAL_FIELDS,
     ),
 )
 
@@ -498,6 +838,16 @@ class Source:
     api: str
     max_parallel: int
     api_key_env: str | None
+    engine: str | None = None
+    image: str | None = None
+    #: Tokens this source serves in one request, or ``None`` when nobody said.
+    #: ``None`` is an answer rather than a gap: every budget in mcgyvr was
+    #: spent against a number the *contract* declared, so a contract was
+    #: measured against the window it was written for and never against the
+    #: window it reached. Declaring this is what lets the gate ask the second
+    #: question; leaving it out enforces nothing, which is the honest
+    #: behaviour for a machine nobody has read back.
+    context_window: int | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -512,12 +862,31 @@ class Tier:
     how many times this rung is tried before escalation leaves it, and it lives
     here because policy references a rung by name (ADR-0008). It defaults to 1
     so that the configured behaviour is to escalate rather than retry.
+
+    ``max_parallel`` is ``None`` rather than a number when the rung does not
+    state one, because "this rung was started with eight slots" and "nobody
+    said, so the source's number stands" are different facts and a rung that
+    defaulted to the source's value would be indistinguishable from a rung that
+    declared it. :meth:`mcgyvr.capacity.Capacity.limit` is where the fallback
+    happens, once, at the point the bound is actually built.
+
+    ``output_tokens`` is ``None`` on the same terms and for the same reason,
+    and its fallback is a contract's ``limits.max_output_tokens``. It is a
+    statement about the backend rather than about the work — what this model
+    needs to finish a reply, not what the work is worth — which is why it
+    replaces the contract's number rather than being bounded by it, and why it
+    travels below the seam on :class:`mcgyvr.pool.Endpoint` beside
+    ``context_window`` rather than above it on :class:`mcgyvr.pool.Rung`.
+    :func:`mcgyvr.gate.preflight.reply_cap` is where the fallback happens,
+    once.
     """
 
     name: str
     source: str
     model: str
+    max_parallel: int | None = None
     attempts: int = 1
+    output_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -533,10 +902,17 @@ class Ladder:
 class Config:
     """A loaded, validated configuration.
 
-    ``data`` is the validated tree with defaults filled in; ``sources`` and
-    ``ladder`` are typed views over the parts that are fully determined.
-    Values that are legitimately optional are reached through ``require``
-    and ``secret``, which fail at the point of use rather than at load.
+    ``data`` is the validated tree with defaults filled in and every
+    path-valued key resolved against the config's own location
+    (:func:`_resolved_paths`); ``sources`` and ``ladder`` are typed views over
+    the parts that are fully determined. Values that are legitimately optional
+    are reached through ``require`` and ``secret``, which fail at the point of
+    use rather than at load.
+
+    ``path`` is where the caller found the file, kept for error messages. It
+    is not consulted after :func:`parse`: everything whose meaning depended on
+    it was settled there, so two callers holding one config cannot disagree
+    about what it says.
     """
 
     path: Path | None
@@ -590,6 +966,44 @@ class Config:
             )
         return value
 
+    def canonical(self) -> str:
+        """The loaded config as one YAML text, the same for every spelling of it.
+
+        Keys sorted, no anchors or aliases, block style throughout, and every
+        default the loader filled in written out: two files that load to the
+        same config render to the same bytes, whatever their comments, blank
+        lines or key order, and a file that omits a defaulted key renders as
+        one that states it. What is NOT in it is where the file sat —
+        ``path`` is a fact about the caller, not the config — except through
+        the one key whose meaning depends on it: a relative ``geometry_json``
+        means the scan filed beside the config, and :func:`_resolved_paths`
+        has already written it into ``data`` as the file it names, absolutely
+        and with the route to the config file resolved. Two copies of a config
+        that name different geometry files are two setups; two routes to one
+        copy are one setup; and a kept copy that pointed beside itself would
+        re-select a geometry that is not there. Loading this text back yields
+        the same config, and the same digest — unconditionally now, because a
+        config whose ``geometry_json`` could not be resolved never loaded.
+        """
+        return yaml.dump(
+            _plain(self.data),
+            Dumper=_CanonicalDumper,
+            sort_keys=True,
+            default_flow_style=False,
+            allow_unicode=True,
+            width=1_000_000,
+        )
+
+    def digest(self) -> str:
+        """The config's identity: ``cfg-`` and the sha256 of :meth:`canonical`.
+
+        Over the loaded and validated tree and never over the file's bytes,
+        because an identity that moved when a comment was added would name
+        the edit and not the setup (owner's ruling R2, 2026-09-06).
+        """
+        raw = self.canonical().encode("utf-8")
+        return DIGEST_PREFIX + hashlib.sha256(raw).hexdigest()
+
     def _unbound(self, key: str) -> str:
         field = field_at(key)
         parts = [f"`{key}` is not bound{self._in_file()}."]
@@ -601,6 +1015,70 @@ class Config:
 
     def _in_file(self) -> str:
         return f" in {self.path}" if self.path is not None else ""
+
+
+class _CanonicalDumper(yaml.SafeDumper):
+    """A SafeDumper that never writes an anchor.
+
+    Two keys sharing one default object — a tuple declared once in the
+    schema — would otherwise render as ``&id001`` and ``*id001``, and the
+    digest would depend on object identity inside this process.
+    """
+
+    def ignore_aliases(self, data: object) -> bool:
+        return True
+
+
+def _plain(value: Any) -> Any:
+    """``value`` as plain dicts, lists and scalars, for a canonical dump."""
+    if isinstance(value, Mapping):
+        return {str(k): _plain(v) for k, v in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
+        return [_plain(v) for v in value]
+    if isinstance(value, Path):
+        return str(value)
+    return value
+
+
+def keep(config: Config, journal_dir: Path) -> Path:
+    """File ``config`` under ``journal_dir`` by its digest, and return the path.
+
+    ``<journal_dir>/configs/<digest>.yaml``, holding :meth:`Config.canonical`:
+    the one place a result's ``config_digest`` can be followed back to, and
+    the file to name in ``MCGYVR_CONFIG`` to run under exactly that setup
+    again. Content-addressed, so one that is already there and reads as the
+    text it should hold is left alone; one that reads otherwise — a copy a
+    crash left short — is replaced, because a kept copy that will not load
+    is worse than none. A new one is staged under a name unique to this
+    writer, opened exclusively, and moved into place whole, as the journal's
+    blobs are: two runs keeping the same config at once each stage their
+    own, and the last move wins with bytes identical to the first. An
+    ``OSError`` propagates: a copy that cannot be written is a result that
+    cannot be traced, and the caller says so.
+    """
+    text = config.canonical()
+    where = journal_dir / CONFIGS_DIR
+    path = where / f"{config.digest()}.yaml"
+    try:
+        if path.read_text(encoding="utf-8") == text:
+            return path
+    except (OSError, UnicodeDecodeError):
+        pass
+    where.mkdir(parents=True, exist_ok=True)
+    staging = where / f".{path.name}.{os.getpid()}-{threading.get_ident()}.part"
+    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        try:
+            data = text.encode("utf-8")
+            while data:
+                data = data[os.write(fd, data) :]
+        finally:
+            os.close(fd)
+        os.replace(staging, path)
+    except BaseException:
+        staging.unlink(missing_ok=True)
+        raise
+    return path
 
 
 def field_at(key: str) -> Field | None:
@@ -654,6 +1132,17 @@ def _no_duplicate_keys(
     mapping: dict[Any, Any] = {}
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=True)
+        try:
+            hash(key)
+        except TypeError:
+            # `[dev]: x` — a list as a key. YAML allows it; a config does
+            # not, and `key in mapping` would have raised a TypeError past
+            # every caller expecting a ConfigError.
+            mark = key_node.start_mark
+            raise ConfigSchemaError(
+                f"key {key!r} at line {mark.line + 1} is not a plain name; a "
+                "config key is one word, never a list or a mapping."
+            ) from None
         if key in mapping:
             mark = key_node.start_mark
             raise ConfigSchemaError(
@@ -750,7 +1239,28 @@ def _value(raw: object, spec: Field, path: str) -> Any:
             raise ConfigSchemaError(
                 f"{path}: must be at least {spec.min_value}, found {raw}"
             )
+        if spec.max_value is not None and raw > spec.max_value:
+            raise ConfigSchemaError(
+                f"{path}: must be at most {spec.max_value}, found {raw}"
+            )
         return raw
+
+    if spec.kind == "float":
+        # An int is a valid decimal, but a bool is not: `moe: true` and
+        # `disk_gb: true` must not both be accepted by the same rule.
+        if not isinstance(raw, (int, float)) or isinstance(raw, bool):
+            raise ConfigSchemaError(
+                f"{path}: expected a number, found {_typename(raw)}"
+            )
+        if spec.min_value is not None and raw < spec.min_value:
+            raise ConfigSchemaError(
+                f"{path}: must be at least {spec.min_value}, found {raw}"
+            )
+        if spec.max_value is not None and raw > spec.max_value:
+            raise ConfigSchemaError(
+                f"{path}: must be at most {spec.max_value}, found {raw}"
+            )
+        return float(raw)
 
     if spec.kind == "bool":
         if not isinstance(raw, bool):
@@ -923,17 +1433,125 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         )
 
 
-def config_path() -> Path:
-    """Locate the config file: explicit override, then cwd, then user config."""
+def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
+    """``data`` with every path-valued key made absolute against the config.
+
+    One key has this shape today: ``models.<id>.geometry_json``, which may be
+    written relative and means "the scan filed beside this config" — the live
+    config writes it that way (``~/.mcgyvr/config/mcgyvr.yaml:54``,
+    ``geometry_json: ./Qwen3.6-35B-A3B-UD-IQ3_XXS.geometry.json``).
+
+    Resolved **here**, once, and never again. Until 2026-09-08 the join was
+    done twice and later: by ``Config._pinned`` for the digest and by
+    :func:`mcgyvr.serving.declared_models` for the file that is opened. Two
+    derivations of one meaning are two answers waiting to differ, and both
+    already differed from each other under a symlink. A value in ``data`` is
+    one answer that every reader gets, including a reader that never heard of
+    ``self.path``.
+
+    Two decisions are pinned in the three lines below, and each prevents a
+    named failure.
+
+    **A relative path with no config location is refused, not guessed.** The
+    line means "next to me", and a config parsed from text nobody filed
+    (:func:`parse` with ``path=None``) has no "me". The two old sites took
+    that as permission to carry the word unresolved: the digest named
+    ``./x.json`` — a different file from every directory — and
+    ``declared_models`` handed the bare name to ``open``, so the run read
+    whatever the process's working directory held. Measured on the live config
+    on 2026-09-08: from its path ``cfg-02ab991e…``, from the same bytes with
+    no path ``cfg-68b454c9…``, the second naming a file that exists from
+    nowhere. Resolving against the working directory instead would keep both
+    of those and add a third: a config whose meaning depends on where the
+    operator was standing when they ran it. The remaining answer is to say so.
+    This repo already answers a missing fact this way rather than inventing
+    one — ``emit.py`` refuses to report an unscanned host, and
+    ``check_contract_against_rung`` says an invented window "is the defect this
+    function exists to end" — and :meth:`Config.canonical`'s promise that
+    loading its text back yields the same digest (``config.py:974``) is
+    unconditional, so the case it cannot keep must not be loadable.
+
+    **The route to the config file is resolved before its directory is taken.**
+    ``records/plans/config-library.md`` §6/D5 selects a ladder by symlinking
+    its entry to the default config path. The scan sits beside the *entry*,
+    because that is where the entry's author filed it; taking ``path.parent``
+    through the link named the link's directory instead, so one file with one
+    set of bytes got two identities — ``cfg-25d592ef…`` and ``cfg-97b08fad…``
+    on a copy of the live config, 2026-09-08 — and one of them named a scan
+    that was never written. :meth:`Config.digest` is the config's identity, and
+    an identity that moved with the route taken to the file would name the
+    route. The cost is real and accepted: a config reached through a link whose
+    *target* directory does not hold the scan now fails loudly at the point of
+    use instead of quietly reading a different file, and the remedy is one
+    absolute path in that entry. ``resolve`` also settles a config named by a
+    relative path (``--config ./mcgyvr.yaml``) against the directory the file
+    was actually read from, rather than leaving the geometry relative for
+    whatever comes later to interpret.
+    """
+    models = data.get("models")
+    if not isinstance(models, Mapping):
+        return data
+    beside = path.resolve().parent if path is not None else None
+    resolved: dict[str, Any] = {}
+    for name, block in models.items():
+        stated = block.get("geometry_json") if isinstance(block, Mapping) else None
+        if not stated:
+            resolved[name] = block
+            continue
+        where = Path(str(stated)).expanduser()
+        if not where.is_absolute():
+            if beside is None:
+                raise ConfigSchemaError(
+                    f"models.{name}.geometry_json: {str(stated)!r} is a "
+                    f"relative path, and this config has no location to read "
+                    f"it beside. A relative geometry is the scan filed next to "
+                    f"the config file, so it can only be resolved by a config "
+                    f"that was loaded from one. Load the file with "
+                    f"`mcgyvr.config.load(path)`, pass `parse(text, "
+                    f"path=...)`, or write the geometry's path out in full."
+                )
+            where = beside / where
+        resolved[name] = {**block, "geometry_json": str(where)}
+    return {**data, "models": resolved}
+
+
+def named_config_path() -> Path | None:
+    """The config path the environment names, or ``None`` if it names none.
+
+    Split out of :func:`config_path` because "somebody chose this path" is a
+    fact about the *caller*, not about the file, and it survives the file not
+    being there — which is the only moment it matters. A default location with
+    nothing in it is a bare install; ``$MCGYVR_CONFIG`` pointing at nothing is
+    a variable set ahead of the ``init`` that fills it, or a typo, and the two
+    want different sentences. Callers that take a path from a flag already know
+    the answer and do not need this.
+    """
     override = os.environ.get(CONFIG_PATH_ENV)
-    if override:
-        return Path(override).expanduser()
+    return Path(override).expanduser() if override else None
+
+
+def user_config_path() -> Path:
+    """``~/.mcgyvr/config/mcgyvr.yaml``, expanded against the current HOME."""
+    return Path(USER_CONFIG_DIR).expanduser() / CONFIG_FILENAME
+
+
+def config_path() -> Path:
+    """Locate the config file: explicit override, then cwd, then the user dir.
+
+    The user dir is :data:`USER_CONFIG_DIR` and nothing else: the XDG config
+    home was the third answer until 2026-09-05, and the owner asked for one
+    directory of mcgyvr's own. A path that depends on an environment variable
+    only some shells export is a config that is found from one terminal and
+    not another, which is the same file in two places as far as an operator
+    debugging it is concerned.
+    """
+    override = named_config_path()
+    if override is not None:
+        return override
     local = Path.cwd() / CONFIG_FILENAME
     if local.is_file():
         return local
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".config"
-    return base / "mcgyvr" / "config.yaml"
+    return user_config_path()
 
 
 def parse(text: str, path: Path | None = None) -> Config:
@@ -958,6 +1576,7 @@ def parse(text: str, path: Path | None = None) -> Config:
 
     data = _block(raw, SCHEMA, "")
     _cross_validate(data)
+    data = _resolved_paths(data, path)
 
     sources = {
         name: Source(
@@ -966,6 +1585,9 @@ def parse(text: str, path: Path | None = None) -> Config:
             api=block["api"],
             max_parallel=block["max_parallel"],
             api_key_env=block["api_key_env"],
+            engine=block["engine"],
+            image=block["image"],
+            context_window=block["context_window"],
         )
         for name, block in data["sources"].items()
     }
@@ -975,7 +1597,9 @@ def parse(text: str, path: Path | None = None) -> Config:
                 name=t["name"],
                 source=t["source"],
                 model=t["model"],
+                max_parallel=t["max_parallel"],
                 attempts=t["attempts"],
+                output_tokens=t["output_tokens"],
             )
             for t in data["ladder"]["tiers"]
         ),
@@ -984,15 +1608,67 @@ def parse(text: str, path: Path | None = None) -> Config:
     return Config(path=path, data=data, sources=sources, ladder=ladder)
 
 
+def _absent_remedy(path: Path | None) -> str:
+    """What to do about a config that is not there, given who chose the path.
+
+    Three situations wearing one exception. ``path`` is what the caller named
+    on purpose — a ``--config`` flag — or ``None`` when nobody did and
+    :func:`load` located the file itself; in that second case
+    ``$MCGYVR_CONFIG`` may still have named it, and that is a third answer
+    again.
+
+    Nobody named one: both remedies are open and both are said. The variable
+    named it: ``mcgyvr init`` writes to exactly that path — ``_init`` resolves
+    its destination the same way and its help says so — so a fresh install
+    with the documented ``export MCGYVR_CONFIG=...`` already done is one
+    command from finished, and answering it with "set the variable" is advice
+    to do again what has just been done. A flag named it: the file typed is not
+    there, and only a different path helps.
+    """
+    if path is not None:
+        return "Name one that is there."
+    if named_config_path() is not None:
+        return (
+            "`mcgyvr init` writes there: run it to generate one, or "
+            "name a file that already exists."
+        )
+    return (
+        f"Run `mcgyvr init` to generate one, or set {CONFIG_PATH_ENV} "
+        f"to point at an existing file."
+    )
+
+
 def load(path: Path | None = None) -> Config:
-    """Load and validate the config file."""
-    path = path or config_path()
+    """Load and validate the config file.
+
+    ``path`` is one the caller was pointed at on purpose — a ``--config`` flag,
+    say. ``None`` means nobody named one, and this locates the file rather than
+    the caller: that is not a convenience, it is the only way the remedy for a
+    file that is not there can be right. Which of ``$MCGYVR_CONFIG``, a flag,
+    or nothing at all put this path here is a fact about the *caller*, and a
+    caller that resolves the path itself has thrown it away before this
+    function can be asked. It was a ``named`` keyword the caller passed
+    alongside a resolved path, and four of the five commands that load a config
+    never passed it — so each shipped "set ``$MCGYVR_CONFIG``" to operators
+    whose ``$MCGYVR_CONFIG`` was the reason they were reading the message.
+    """
+    chosen = path
+    if path is None:
+        path = config_path()
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
+        raise ConfigMissingError(
+            f"no config at {path}. {_absent_remedy(chosen)}"
+        ) from exc
+    except UnicodeDecodeError as exc:
+        # Caught by name, not by family. It is a `ValueError`, so neither
+        # `except` below it saw it and it left `load` as a traceback — from a
+        # file that is present and unusable, which is the case every caller
+        # here already knows how to say something about. A `ConfigFileError`
+        # is what "there is a file and this run cannot use it" means.
         raise ConfigFileError(
-            f"no config at {path}. Run `mcgyvr init` to generate one, or set "
-            f"{CONFIG_PATH_ENV} to point at an existing file."
+            f"cannot read {path}: it is not UTF-8 text ({exc})"
         ) from exc
     except OSError as exc:
         raise ConfigFileError(f"cannot read {path}: {exc}") from exc

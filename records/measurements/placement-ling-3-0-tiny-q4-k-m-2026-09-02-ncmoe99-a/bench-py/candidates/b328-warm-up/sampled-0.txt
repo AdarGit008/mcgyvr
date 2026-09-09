@@ -1,0 +1,10 @@
+```python
+def warm_up(readings: list, floor: int) -> list:
+    """Drop readings from the start as long as they sit below the floor,
+    and return everything from the first reading that reaches the floor.
+    If no reading reaches the floor, return an empty list."""
+    for i, reading in enumerate(readings):
+        if reading >= floor:
+            return readings[i:]
+    return []
+```

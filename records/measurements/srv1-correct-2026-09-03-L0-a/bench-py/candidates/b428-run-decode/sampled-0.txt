@@ -1,0 +1,19 @@
+```python
+def run_decode(coded: str) -> str:
+    """Return the letters written out in full, decoding a run of letters followed by a count."""
+    decoded = ""
+    i = 0
+    while i < len(coded):
+        char = coded[i]
+        if char.isdigit():
+            count = ""
+            while i < len(coded) and coded[i].isdigit():
+                count += coded[i]
+                i += 1
+            count = int(count)
+            decoded += char * count
+        else:
+            decoded += char
+            i += 1
+    return decoded
+```

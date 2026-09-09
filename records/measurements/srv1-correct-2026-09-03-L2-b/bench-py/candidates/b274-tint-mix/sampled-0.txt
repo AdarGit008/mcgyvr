@@ -1,0 +1,10 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if volume_a == 0 and volume_b == 0:
+        return 0
+    
+    total_volume = volume_a + volume_b
+    total_strength = (strength_a / 100) * volume_a + (strength_b / 100) * volume_b
+    
+    return round(total_strength * 100)
+```

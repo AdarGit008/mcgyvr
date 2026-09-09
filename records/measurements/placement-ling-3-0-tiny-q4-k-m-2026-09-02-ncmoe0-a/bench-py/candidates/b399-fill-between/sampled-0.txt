@@ -1,0 +1,11 @@
+```python
+def fill_between(entries: list, filler: str) -> list:
+    """Return a new list with filler inserted between every two neighbouring entries."""
+    if not entries:
+        return []
+    result = [entries[0]]
+    for entry in entries[1:]:
+        result.append(filler)
+        result.append(entry)
+    return result
+```

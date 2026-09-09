@@ -1,0 +1,20 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    """
+    Returns how many tiles of a given size cover a length, rounding up.
+    """
+    return (length + tile - 1) // tile
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """
+    Returns the tiles needed for a wall of a width and height,
+    adding a whole-percent allowance for breakages and rounding up.
+    """
+    total_tiles = width * height
+    full_tiles = total_tiles // tile
+    partial_tiles = total_tiles % tile
+    allowance = int(spare * tile)
+    total_tiles_with_allowance = full_tiles + allowance
+    tiles_needed = total_tiles_with_allowance // tile
+    return tiles_needed
+```

@@ -1,0 +1,11 @@
+```python
+def tag_open(marker: str) -> str:
+    if marker[0] == "/":
+        return marker[1:]
+    return marker
+
+def tag_pair(opening: str, closing: str) -> bool:
+    if opening != closing:
+        raise ValueError("Markers must match.")
+    return True
+```

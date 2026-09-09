@@ -1,0 +1,145 @@
+##### HOST: srv2 2026-09-01T12:54:59+00:00 #####
+--- UPTIME ---
+ 12:54:59 up  7:34,  1 user,  load average: 0.00, 0.00, 0.00
+--- CPU ---
+CPU(s): 20
+Model name: Intel(R) Core(TM) i9-10900F CPU @ 2.80GHz
+Thread(s) per core: 2
+Core(s) per socket: 10
+Socket(s): 1
+CPU(s) scaling MHz: 30%
+CPU max MHz: 5200.0000
+CPU min MHz: 800.0000
+L1d cache: 320 KiB (10 instances)
+L1i cache: 320 KiB (10 instances)
+L2 cache: 2.5 MiB (10 instances)
+L3 cache: 20 MiB (1 instance)
+NUMA node(s): 1
+NUMA node0 CPU(s): 0-19
+--- MEM TOTAL ---
+               total        used        free      shared  buff/cache   available
+Mem:              45           1           7           0          37          44
+--- MEM HW (dmidecode) ---
+Error Correction Type: None
+Size: 16 GB
+Locator: ChannelA-DIMM0
+Bank Locator: BANK 0
+Type: DDR4
+Speed: 2400 MT/s
+Manufacturer: Kingston
+Part Number: KF3200C16D4/16GX    
+Rank: 1
+Configured Memory Speed: 2933 MT/s
+Non-Volatile Size: None
+Volatile Size: 16 GB
+Cache Size: None
+Logical Size: None
+Locator: ChannelA-DIMM1
+Bank Locator: BANK 1
+Type: Unknown
+Size: 32 GB
+Locator: ChannelB-DIMM0
+Bank Locator: BANK 2
+Type: DDR4
+Speed: 3200 MT/s
+Manufacturer: Transcend
+Part Number: JM3200HLE-32G       
+Rank: 2
+Configured Memory Speed: 2933 MT/s
+Non-Volatile Size: None
+Volatile Size: 32 GB
+Cache Size: None
+Logical Size: None
+Locator: ChannelB-DIMM1
+Bank Locator: BANK 3
+Type: Unknown
+--- BASEBOARD ---
+Vendor: American Megatrends Inc.
+Version: 5.17
+Release Date: 12/17/2020
+Manufacturer: BIOSTAR Group
+Product Name: H410MH
+Version:  
+--- MEM CHANNELS (from populated slots) ---
+
+	Bank Locator: BANK 1
+--- GPU ---
+index, name, memory.total [MiB], memory.used [MiB], memory.reserved [MiB], memory.free [MiB], compute_cap, driver_version, pcie.link.gen.max, pcie.link.gen.current, pcie.link.width.max, pcie.link.width.current, power.limit [W], clocks.max.sm [MHz]
+0, NVIDIA GeForce RTX 3060, 12288 MiB, 1 MiB, 377 MiB, 11911 MiB, 8.6, 595.84, 3, 1, 16, 16, 170.00 W, 2190 MHz
+--- GPU TOPO ---
+	[4mGPU0	CPU Affinity	NUMA Affinity	GPU NUMA ID[0m
+GPU0	 X 	0-19	0		N/A
+
+Legend:
+
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+--- CPU POWER LIMITS ---
+/sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw = 65000000
+/sys/class/powercap/intel-rapl:0/constraint_1_power_limit_uw = 0
+--- DISK ---
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  915G  741G  128G  86% /
+/dev/nvme0n1p2  915G  741G  128G  86% /
+NAME      SIZE ROTA MODEL
+nvme0n1 931.5G    0 KIOXIA-EXCERIA SSD
+--- DOCKER IMAGES ---
+ghcr.io/ggml-org/llama.cpp:server-cuda 6.98GB
+ghcr.io/ggml-org/llama.cpp:server-cuda-b10644 6.98GB
+openmmlab/lmdeploy:v0.16.0-cu12.8 16.5GB
+ghcr.io/ggml-org/llama.cpp:server-cuda-b10481 6.98GB
+ghcr.io/ggml-org/llama.cpp:full-cuda-b10481 10.3GB
+vllm/vllm-openai:latest 28.1GB
+vllm/vllm-openai:v0.26.0 28.1GB
+ubuntu:24.04 119MB
+--- RUNNING CONTAINERS ---
+--- MODELS: HF CACHE ---
+4.0K	/home/adaramir/.cache/huggingface/hub/CACHEDIR.TAG
+12K	/home/adaramir/.cache/huggingface/hub/models--unsloth--Qwen3.8-27B-GGUF
+1.6G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-1.5B-Instruct-AWQ
+2.5G	/home/adaramir/.cache/huggingface/hub/models--thewimo--Qwen3-4B-AWQ
+2.6G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-3B-Instruct-AWQ
+5.2G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ
+9.4G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-14B-Instruct-AWQ
+12G	/home/adaramir/.cache/huggingface/hub/models--ggml-org--gpt-oss-20b-GGUF
+23G	/home/adaramir/.cache/huggingface/hub/models--cyankiwi--KAT-Coder-V2.5-Dev-AWQ-INT4
+34G	/home/adaramir/.cache/huggingface/hub/models--bartowski--inclusionAI_Ling-flash-2.0-GGUF
+34G	/home/adaramir/.cache/huggingface/hub/models--debackerl--KAT-Coder-V2.5-Dev-FP8
+35G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen3.6-35B-A3B-FP8
+36G	/home/adaramir/.cache/huggingface/hub/models--unsloth--Qwen3-Next-80B-A3B-Instruct-GGUF
+--- MODELS: GGUF FILES ---
+1.4G  /home/adaramir/specdecode/llama_sd/qwen2.5-coder-1.5b-instruct-q6_k.gguf
+4.4G  /home/adaramir/GGUF/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+8.4G  /home/adaramir/GGUF/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+18G  /home/adaramir/GGUF/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
+5.8G  /home/adaramir/train189-out/base-f16.gguf
+1.8G  /home/adaramir/train189-out/tuned-q4_K_M.gguf
+5.8G  /home/adaramir/train189-out/tuned-f16.gguf
+1.8G  /home/adaramir/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf
+4.4G  /home/adaramir/models/dense/nvidia_OpenCodeReasoning-Nemotron-7B-Q4_K_M.gguf
+4.0G  /home/adaramir/models/dense/Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf
+2.4G  /home/adaramir/models/dense/Qwen3-4B-Q4_K_M.gguf
+11G  /home/adaramir/models/dense/Qwen3.8-27B/Qwen3.8-27B-UD-IQ3_XXS.gguf
+8.4G  /home/adaramir/models/dense/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+4.2G  /home/adaramir/models/dense/nvidia_OpenCodeReasoning-Nemotron-7B-Q4_K_S.gguf
+941M  /home/adaramir/models/dense/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf
+4.7G  /home/adaramir/models/dense/Qwen3-8B-Q4_K_M.gguf
+18G  /home/adaramir/models/moe/qwen3-coder-30b.gguf
+12G  /home/adaramir/models/moe/gpt-oss-20b-MXFP4.gguf
+20G  /home/adaramir/models/moe/KAT-Coder-V2.5-Dev.Q4_K_M.gguf
+13G  /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf
+36G  /home/adaramir/models/moe/Qwen3-Next-80B-A3B-Instruct-Q3_K_M.gguf
+14G  /home/adaramir/models/moe/KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf
+13G  /home/adaramir/models/moe/KAT-Coder-V2.5-Dev.Q2_K.gguf
+17G  /home/adaramir/models/moe/nvidia_Nemotron-3-Nano-30B-A3B-IQ2_XXS.gguf
+3.1G  /home/adaramir/models/moe/4b-Q4_K_M.gguf
+9.9G  /home/adaramir/models/moe/North-Mini-Code-1.0-IQ2_M.gguf
+34G  /home/adaramir/models/moe/Qwen3-Coder-Next-UD-Q3_K_XL.gguf
+14G  /home/adaramir/models/moe/Ornith-1.0-35B_Q2_K-AllGPU.gguf
+12G  /home/adaramir/models/moe/Qwen3-Coder-30B-A3B-Instruct-UD-IQ3_XXS.gguf
+8.3G  /home/adaramir/models/moe/deepseek-coder-v2-16b.gguf
+13G  /home/adaramir/models/moe/gpt-oss-20b.gguf
+##### END srv2 #####

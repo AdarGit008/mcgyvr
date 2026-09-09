@@ -1,0 +1,48 @@
+### srv2 START 2026-08-31T21:01:05+00:00
+srv2	s2-kat-awq util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+14+--cpu-offload-params+experts	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=9677	warm_ptok=717	Total CPU offloaded parameters: 26.01
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	n=1	agg=0.3	p50=3.51	prefill=163.8	ptok=576	otok=1	early_stop=1/1	failed=0/1	wall=3.5
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	n=2	agg=0.5	p50=4.13	prefill=278.4	ptok=575	otok=1	early_stop=2/2	failed=0/2	wall=4.1
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	n=4	agg=0.5	p50=6.59	prefill=316.4	ptok=628	otok=1	early_stop=4/4	failed=0/4	wall=7.9
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	n=8	agg=0.6	p50=12.24	prefill=370.6	ptok=668	otok=1	early_stop=8/8	failed=0/8	wall=14.4
+### srv2 vLLM done 2026-08-31T21:15:22+00:00
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2243	warm_ptok=717
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=20.1	p50=5.02	prefill=114.7	ptok=576	otok=101	early_stop=0/1	failed=0/1	wall=5.0
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=27.1	p50=17.00	prefill=64.1	ptok=545	otok=230	early_stop=1/2	failed=0/2	wall=17.0
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=28.2	p50=18.03	prefill=127.0	ptok=575	otok=127	early_stop=2/4	failed=0/4	wall=18.1
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=33.2	p50=42.10	prefill=101.4	ptok=633	otok=207	early_stop=1/8	failed=0/8	wall=50.0
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=40	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2243	warm_ptok=681
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=40	n=1	agg=22.8	p50=12.33	prefill=69.4	ptok=855	otok=281	early_stop=0/1	failed=0/1	wall=12.3
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=40	n=4	agg=36.2	p50=23.11	prefill=87.3	ptok=567	otok=235	early_stop=1/4	failed=0/4	wall=26.0
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=24	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=6691	warm_ptok=577
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=24	n=1	agg=27.2	p50=3.71	prefill=157.9	ptok=586	otok=101	early_stop=0/1	failed=0/1	wall=3.7
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=24	n=4	agg=28.0	p50=14.40	prefill=177.5	ptok=675	otok=106	early_stop=1/4	failed=0/4	wall=15.2
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2803	warm_ptok=717
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=0.4	p50=2.29	prefill=251.2	ptok=576	otok=1	early_stop=1/1	failed=0/1	wall=2.3
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=0.5	p50=3.64	prefill=283.0	ptok=515	otok=1	early_stop=2/2	failed=0/2	wall=3.6
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=0.5	p50=8.00	prefill=287.4	ptok=575	otok=1	early_stop=4/4	failed=0/4	wall=8.0
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=0.5	p50=16.68	prefill=294.5	ptok=625	otok=1	early_stop=8/8	failed=0/8	wall=17.0
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2803	warm_ptok=681
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=1	agg=0.4	p50=2.80	prefill=304.8	ptok=855	otok=1	early_stop=1/1	failed=0/1	wall=2.8
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=4	agg=0.6	p50=6.78	prefill=334.2	ptok=567	otok=1	early_stop=4/4	failed=0/4	wall=6.8
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=24	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=7071	warm_ptok=577
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=24	n=1	agg=0.6	p50=1.56	prefill=375.9	ptok=586	otok=1	early_stop=1/1	failed=0/1	wall=1.6
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=24	n=4	agg=0.6	p50=6.19	prefill=426.6	ptok=660	otok=1	early_stop=4/4	failed=0/4	wall=6.2
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=99	REFUSED	0.00.139.204 E srv  llama_server: exiting due to model loading error
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=40	REFUSED	0.00.132.402 E srv  llama_server: exiting due to model loading error
+### srv2 ALL DONE 2026-08-31T21:20:21+00:00
+### srv2 PASS2 2026-08-31T21:30:27+00:00
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=3053	warm_ptok=698
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=11.0	p50=9.21	prefill=60.9	ptok=561	otok=101	early_stop=0/1	failed=0/1	wall=9.2
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=18.0	p50=31.17	prefill=34.5	ptok=537	otok=280	early_stop=0/2	failed=0/2	wall=31.2
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=20.3	p50=38.51	prefill=59.3	ptok=581	otok=199	early_stop=1/4	failed=0/4	wall=39.2
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=22.2	p50=72.55	prefill=62.5	ptok=603	otok=214	early_stop=3/8	failed=0/8	wall=77.2
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=40	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=8877	warm_ptok=663
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=1	agg=17.5	p50=15.17	prefill=45.2	ptok=685	otok=266	early_stop=1/1	failed=0/1	wall=15.2
+srv2	s2-next80b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=4	agg=22.4	p50=31.82	prefill=59.9	ptok=515	otok=193	early_stop=2/4	failed=0/4	wall=34.4
+### srv2 PASS2 DONE 2026-08-31T21:41:57+00:00
+### srv2 PASS3 2026-08-31T21:55:47+00:00
+srv2	s2-kat-awq util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+18+--cpu-offload-params+experts	REFUSED	(APIServer pid=1) INFO 08-31 21:56:07 [api_utils.py:273] non-default args: {'model_tag': 'cyankiwi/KAT-Coder-V2.5-Dev-AWQ-INT4', 'model': 'cyankiwi/KAT-Coder-V2.5-Dev-AWQ-INT4', 'max_model_len': 2048, 'gpu_memory_utilization': 0.95, 'cpu_offload_gb': 18.0, 'cpu_offload_params': ['experts'], 'max_num_seqs': 8} | (APIServer pid=1) INFO 08-31 21:56:24 [model.py:623] Resolved architecture: Qwen3_5MoeF
+srv2	s2-kat-awq util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+20+--cpu-offload-params+experts	REFUSED	(APIServer pid=1)     raise RuntimeError("Cannot send a request, as the client has been closed.") | (APIServer pid=1) RuntimeError: Cannot send a request, as the client has been closed.
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+30+--cpu-offload-params+experts	REFUSED	(APIServer pid=1)     raise RuntimeError("Cannot send a request, as the client has been closed.") | (APIServer pid=1) RuntimeError: Cannot send a request, as the client has been closed.
+### srv2 PASS3 DONE 2026-08-31T22:17:53+00:00

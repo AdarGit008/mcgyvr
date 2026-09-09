@@ -1,0 +1,11 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if was_out_of <= 0 or now_out_of <= 0:
+        raise ValueError("Total cannot be zero or negative.")
+    if mark > now_out_of:
+        raise ValueError("Mark cannot exceed the new total.")
+    if mark < 0:
+        raise ValueError("Mark cannot be negative.")
+    
+    return int(mark * now_out_of / was_out_of)
+```

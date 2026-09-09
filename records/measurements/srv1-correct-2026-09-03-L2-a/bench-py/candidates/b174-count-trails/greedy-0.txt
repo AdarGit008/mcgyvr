@@ -1,0 +1,44 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be whole numbers of at least one")
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in blocked):
+        raise ValueError("blocked must be a list of two-item lists")
+    if any(not isinstance(entry[0], int) or not isinstance(entry[1], int) for entry in blocked):
+        raise ValueError("blocked cell indices must be integers")
+    if any(entry[0] < 0 or entry[1] < 0 for entry in blocked):
+        raise ValueError("blocked cell indices must be non-negative")
+    if any(entry[0] >= rows or entry[1] >= cols for entry in blocked):
+        raise ValueError("blocked cell indices must be within the grid bounds")
+    if any(entry[0] == 0 or entry[1] == 0 for entry in blocked):
+        raise ValueError("rope cannot cross the entrance or the exit cell")
+    if any(entry[0] == rows - 1 or entry[1] == cols - 1 for entry in blocked):
+        raise ValueError("rope cannot cross the entrance or the exit cell")
+
+    def is_valid_cell(row: int, col: int) -> bool:
+        return 0 <= row < rows and 0 <= col < cols
+
+    def is_blocked(row: int, col: int) -> bool:
+        return [row, col] in blocked
+
+    def is_valid_move(row: int, col: int) -> bool:
+        return is_valid_cell(row, col) and not is_blocked(row, col)
+
+    def count_routes(row: int, col: int, visited: set) -> int:
+        if row == rows - 1 and col == cols - 1:
+            return 1
+        if (row, col) in visited:
+            return 0
+        visited.add((row, col))
+        routes = 0
+        if is_valid_move(row + 1, col):
+            routes += count_routes(row + 1, col, visited)
+        if is_valid_move(row, col + 1):
+            routes += count_routes(row, col + 1, visited)
+        visited.remove((row, col))
+        return routes
+
+    return count_routes(0, 0, set())
+```

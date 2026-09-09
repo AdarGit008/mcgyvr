@@ -1,0 +1,12 @@
+```python
+def grid_flip(grid: list) -> list:
+    """
+    Given a grid written as a list of rows, return it turned so that its columns become its rows:
+    the first row of the answer holds the first value of every row in order.
+    A grid with no rows gives an empty grid.
+    """
+    if not grid:
+        return []
+    
+    return [row for row in zip(*grid)]
+```

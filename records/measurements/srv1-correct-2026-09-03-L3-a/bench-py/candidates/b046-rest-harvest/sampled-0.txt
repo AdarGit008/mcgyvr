@@ -1,0 +1,24 @@
+```python
+from typing import List
+
+def best_harvest(yields: List[int]) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    if any(not isinstance(yield, int) or yield < 0 for yield in yields):
+        raise ValueError("Yields must be non-negative integers")
+    if not yields:
+        return 0
+
+    total_harvest = 0
+    next_day = 0
+
+    for yield_ in yields:
+        total_harvest += yield_
+        next_day += 1
+        if next_day >= len(yields):
+            break
+        elif yields[next_day] >= yield_:
+            next_day += 1
+
+    return total_harvest
+```

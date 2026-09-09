@@ -1,0 +1,33 @@
+```python
+"""Drain labelled items across planned lanes, round by round."""
+
+
+def drain_lanes(plan: list, items: list) -> dict:
+    if not plan:
+        raise ValueError("Empty plan")
+    if not all(isinstance(item, tuple) and len(item) == 2 for item in items):
+        raise ValueError("Invalid item format")
+    if any(not isinstance(item[0], str) or not isinstance(item[1], str) for item in items):
+        raise ValueError("Invalid item format")
+    if any(item[0] == item[1] for item in items):
+        raise ValueError("Duplicate labels")
+
+    queues = {}
+    for lane, _quota in plan:
+        queues[lane] = []
+    for label, lane in items:
+        if lane in queues:
+            queues[lane].append(label)
+    order = []
+    rounds = 0
+    while queues:
+        rounds += 1
+        for lane, quota in plan:
+            queue = queues[lane]
+            taken = 0
+            while taken < quota and queue:
+                order.append(queue.pop(0))
+                taken += 1
+            if taken < quota:
+                return {"order": order, "rounds": rounds}
+```

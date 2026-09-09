@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def case_count(text: str) -> List[int]:
+    count = [0, 0]  # [capital letters, small letters]
+    for char in text:
+        if char.isupper():
+            count[0] += 1
+        elif char.islower():
+            count[1] += 1
+    return count
+```

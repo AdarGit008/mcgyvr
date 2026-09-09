@@ -1,0 +1,32 @@
+```python
+from typing import List
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    def parse_tag(tag: str) -> tuple[int, int, int]:
+        parts = tag.split('.')
+        if len(parts) < 3:
+            raise ValueError("Invalid tag format. It must have at least three parts.")
+        major, minor, patch = map(int, parts[:3])
+        if len(parts) == 4:
+            preview = parts[3].lower()
+            if not preview.isalpha() or not preview.islower():
+                raise ValueError("Invalid preview label. It must be a lowercase word.")
+            return major, minor, patch, preview
+        return major, minor, patch
+
+    def compare_tags(tag1: str, tag2: str) -> int:
+        major1, minor1, patch1, preview1 = parse_tag(tag1)
+        major2, minor2, patch2, preview2 = parse_tag(tag2)
+        if major1 != major2:
+            return major1 - major2
+        if minor1 != minor2:
+            return minor1 - minor2
+        if patch1 != patch2:
+            return patch1 - patch2
+        if preview1 and preview2:
+            return (preview1, preview2) - (preview2, preview1)
+        return 0
+
+    tags.sort(key=lambda tag: compare_tags(tag, tag))
+    return tags
+```

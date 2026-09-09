@@ -1,0 +1,33 @@
+```python
+from typing import List, Dict, Any
+
+def draw_tree_lines(root: Dict[str, Any]) -> List[str]:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary")
+    
+    def draw_node(node, depth=0):
+        if not isinstance(node, dict) or not node:
+            raise ValueError("Node must be a non-empty dictionary")
+        
+        name = node.get('name')
+        if not isinstance(name, str) or not name:
+            raise ValueError("Node name must be a non-empty string")
+        
+        children = node.get('children')
+        if not isinstance(children, list) or not children:
+            raise ValueError("Node children must be a non-empty list")
+        
+        if not all(isinstance(child, dict) for child in children):
+            raise ValueError("Node children must be dictionaries")
+        
+        lines = []
+        for i, child in enumerate(children):
+            if i > 0:
+                lines.append("'-- " * (depth + 1) + child['name'])
+            else:
+                lines.append("|-- " * depth + child['name'])
+            lines.extend(draw_node(child, depth + 1))
+        return lines
+    
+    return draw_node(root)
+```

@@ -1,0 +1,62 @@
+```python
+from typing import List, Tuple
+
+class StockDraw:
+    def __init__(self, order_id: int, lot_id: int, units_taken: int):
+        self.order_id = order_id
+        self.lot_id = lot_id
+        self.units_taken = units_taken
+
+class Shortfall:
+    def __init__(self, order_id: int, shortfall_units: int):
+        self.order_id = order_id
+        self.shortfall_units = shortfall_units
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]) -> dict:
+    stock = {}
+    draws = []
+    shortfalls = []
+
+    def get_lot_with_min_use_by(date: str, lot_id: int) -> int:
+        min_use_by = float('inf')
+        for lot in lots:
+            if lot[1] <= date and lot[0] <= lot_id and lot[2] > 0:
+                min_use_by = min(min_use_by, lot[1])
+        return min_use_by
+
+    def draw_units(lot_id: int) -> Tuple[int, int, int]:
+        for lot in lots:
+            if lot[0] == lot_id and lot[2] > 0:
+                units_taken = min(lot[2], units_to_draw)
+                stock[lot[0]] -= units_taken
+                draws.append(StockDraw(order_id, lot_id, units_taken))
+                lot[2] -= units_taken
+                if lot[2] == 0:
+                    lots.remove(lot)
+                return units_taken
+        return 0
+
+    units_to_draw = 0
+    for order in orders:
+        for i in range(order[1]):
+            if stock:
+                min_use_by = get_lot_with_min_use_by("9999-12-31", 0)
+                for lot in lots:
+                    if lot[1] >= min_use_by and lot[0] <= order[0] and lot[2] > 0:
+                        units_to_draw = draw_units(lot[0])
+                        break
+                if units_to_draw == 0:
+                    shortfall_units = order[1] - i
+                    shortfalls.append(Shortfall(order[0], shortfall_units))
+                    break
+            else:
+                shortfall_units = order[1]
+                shortfalls.append(Shortfall(order[0], shortfall_units))
+                break
+
+    return {
+        "picks": draws,
+        "draws": draws,
+        "short": shortfalls
+    }
+```

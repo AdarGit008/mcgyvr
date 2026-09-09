@@ -1,0 +1,108 @@
+{
+  "record": "srv1-kernel-arms/correctness/1",
+  "model": "qwen2.5-coder-1.5b",
+  "tier": "bench-py",
+  "gate_rungs": [
+    "scope",
+    "secrets",
+    "structured",
+    "adapters",
+    "acceptance"
+  ],
+  "reference": "L0",
+  "arms": [
+    {
+      "arm": "L0",
+      "endpoint": "http://127.0.0.1:8081",
+      "serving_build": "llama.cpp@llamacpp:b10644-L0@llamacpp@sha256:e755dd07a106a473bef6f1a67882e42f0345259016d58cf88d46d5ada0cb2970",
+      "cells": 257,
+      "drift_pp": 0.0,
+      "flips": 0,
+      "acceptance_drift": 0,
+      "is_reference": true,
+      "self_null": {
+        "serving_build": "llama.cpp@llamacpp:b10644-L0@llamacpp@sha256:e755dd07a106a473bef6f1a67882e42f0345259016d58cf88d46d5ada0cb2970",
+        "cells": 257,
+        "bound_pp": 1.47,
+        "flips": 0,
+        "acceptance_drift": 0,
+        "runs": [
+          "srv1-correct-2026-09-03-L0-a/bench-py",
+          "srv1-correct-2026-09-03-L0-b/bench-py"
+        ],
+        "_bound": "95% Wilson upper limit on flips/cells, measured on THIS arm's own build. reproducibility.json keys a bound on serving_build and every arm here is a new one, so no committed bound covers it."
+      },
+      "compared_runs": [
+        "srv1-correct-2026-09-03-L0-a/bench-py",
+        "srv1-correct-2026-09-03-L0-b/bench-py"
+      ]
+    },
+    {
+      "arm": "L2",
+      "endpoint": "http://127.0.0.1:8081",
+      "serving_build": "llama.cpp@llamacpp:b10644-L2@llamacpp@sha256:a77621c171aa6db32894566d653fd4e0b9d4ce4b3cb27c87076850def8a2f6b5",
+      "cells": 257,
+      "drift_pp": 0.39,
+      "flips": 1,
+      "acceptance_drift": 0,
+      "is_reference": false,
+      "self_null": {
+        "serving_build": "llama.cpp@llamacpp:b10644-L2@llamacpp@sha256:a77621c171aa6db32894566d653fd4e0b9d4ce4b3cb27c87076850def8a2f6b5",
+        "cells": 257,
+        "bound_pp": 1.47,
+        "flips": 0,
+        "acceptance_drift": 0,
+        "runs": [
+          "srv1-correct-2026-09-03-L2-a/bench-py",
+          "srv1-correct-2026-09-03-L2-b/bench-py"
+        ],
+        "_bound": "95% Wilson upper limit on flips/cells, measured on THIS arm's own build. reproducibility.json keys a bound on serving_build and every arm here is a new one, so no committed bound covers it."
+      },
+      "compared_runs": [
+        "srv1-correct-2026-09-03-L0-a/bench-py",
+        "srv1-correct-2026-09-03-L2-a/bench-py"
+      ]
+    },
+    {
+      "arm": "L3",
+      "endpoint": "http://127.0.0.1:8081",
+      "serving_build": "llama.cpp@llamacpp:b10644-L3@llamacpp@sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6",
+      "cells": 257,
+      "drift_pp": 0.39,
+      "flips": 1,
+      "acceptance_drift": 0,
+      "is_reference": false,
+      "self_null": {
+        "serving_build": "llama.cpp@llamacpp:b10644-L3@llamacpp@sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6",
+        "cells": 257,
+        "bound_pp": 1.47,
+        "flips": 0,
+        "acceptance_drift": 0,
+        "runs": [
+          "srv1-correct-2026-09-03-L3-a/bench-py",
+          "srv1-correct-2026-09-03-L3-b/bench-py"
+        ],
+        "_bound": "95% Wilson upper limit on flips/cells, measured on THIS arm's own build. reproducibility.json keys a bound on serving_build and every arm here is a new one, so no committed bound covers it."
+      },
+      "compared_runs": [
+        "srv1-correct-2026-09-03-L0-a/bench-py",
+        "srv1-correct-2026-09-03-L3-a/bench-py"
+      ]
+    }
+  ],
+  "verdicts": [
+    {
+      "question": "which llama.cpp build should srv1 serve on",
+      "winner": "L3",
+      "basis": "highest mean aggregate throughput over the widths every arm ran (n=1,4,8) in records/evidence/2026-09-02-srv1-kernel-arms/srv1-lcpp-arms.tsv",
+      "mean_agg_tok_s": {
+        "A1": 69.42,
+        "L0": 69.84,
+        "L1": 69.15,
+        "L2": 111.14,
+        "L3": 112.14,
+        "L4": 68.98
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+```python
+def pad_code(code: str, width: int) -> str:
+    """A code padded with zeros to a fixed width."""
+    if width <= 0:
+        raise ValueError("Width must be positive.")
+    
+    if not code:
+        return code
+    
+    # Calculate the number of zeros needed
+    zeros_needed = width - len(code)
+    
+    if zeros_needed <= 0:
+        return code
+    
+    # Pad with zeros on the left
+    padded_code = "0" * zeros_needed + code
+    return padded_code
+```

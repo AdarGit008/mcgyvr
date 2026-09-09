@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def hold_queue(callers: List[int], limit: int) -> List[int]:
+    if limit <= 0:
+        raise ValueError("Limit must be positive")
+    
+    if not callers:
+        return []
+    
+    # Initialize a list to hold the callers and their wait times
+    call_queue = [(caller, 0) for caller in callers]
+    
+    # Sort the queue based on wait times
+    call_queue.sort(key=lambda x: x[1])
+    
+    # If the queue is already at the limit, remove the caller with the longest wait time
+    if len(call_queue) > limit:
+        call_queue.pop(0)
+    
+    # Return the queue as it stands
+    return [caller for caller, wait_time in call_queue]
+```

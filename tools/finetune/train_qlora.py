@@ -1,6 +1,6 @@
 """The #189 pilot's training run: Unsloth QLoRA on Qwen2.5-Coder-3B-Instruct.
 
-The recipe is the review doc's (`docs/unsloth-fine-tuning-review-2026-08-06.md`
+The recipe is the review doc's (`archive/docs/unsloth-fine-tuning-review-2026-08-06.md`
 §2/§5), pinned: `unsloth==2026.8.5`, Unsloth's patched instruct checkpoint (the
 pad-token fix), QLoRA r16, ChatML at training time — the same template the
 serve side applies, because template mismatch is the review's documented #1
@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 
 def main() -> None:
@@ -67,7 +68,7 @@ def main() -> None:
         },
     )
 
-    def to_text(example: dict) -> dict:
+    def to_text(example: dict[str, Any]) -> dict[str, Any]:
         return {
             "text": tokenizer.apply_chat_template(
                 example["messages"], tokenize=False, add_generation_prompt=False

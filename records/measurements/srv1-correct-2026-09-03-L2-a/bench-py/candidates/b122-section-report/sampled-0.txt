@@ -1,0 +1,28 @@
+```python
+"""A sectioned sales report: item lines, subtotals, and a ranked summary."""
+
+
+def section_report(rows):
+    lines = []
+    sections = []
+    current = ""
+    subtotal = 0
+    count = 0
+    grand = 0
+    for section, label, amount in rows:
+        if current != "" and section != current:
+            lines.append(["section", current, "", subtotal])
+            sections.append([current, count, subtotal])
+            count = 0
+        current = section
+        lines.append(["item", section, label, amount])
+        subtotal += amount
+        count += 1
+        grand += amount
+    if current != "":
+        lines.append(["section", current, "", subtotal])
+        sections.append([current, count, subtotal])
+    lines.append(["grand", "", "", grand])
+    sections.sort(key=lambda entry: (-entry[2], entry[0]))
+    return {"lines": lines, "sections": sections, "grand": grand}
+```

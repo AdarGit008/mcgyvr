@@ -1,0 +1,53 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+import re
+
+
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    held = parse_sheet(opening)
+    # TODO: apply the day's semicolon-separated moves to the sheet,
+    # validating each one, then render only the entries still on hand.
+    entries = []
+    for move in moves.split(";"):
+        parts = move.split("+")
+        if len(parts) != 2:
+            raise ValueError(f"move does not contain exactly two parts: {move}")
+        name, qty_str = parts
+        if re.fullmatch(r"[a-z]+", name) is None:
+            raise ValueError(f"bad item name in move: {move}")
+        if re.fullmatch(r"0|[1-9]\d*", qty_str) is None:
+            raise ValueError(f"bad count in move: {move}")
+        qty = int(qty_str)
+        if name not in held:
+            raise ValueError(f"item {name} is not on the sheet")
+        if held[name] < qty:
+            raise ValueError(f"cannot issue {qty} units of {name} from the sheet")
+        held[name] -= qty
+        if held[name] == 0:
+            entries.append(f"{name}:0")
+        else:
+            entries.append(f"{name}:{held[name]}")
+    entries.sort()
+    return ";".join(entries)
+```

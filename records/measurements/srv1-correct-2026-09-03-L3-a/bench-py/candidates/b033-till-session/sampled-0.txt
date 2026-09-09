@@ -1,0 +1,87 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+def run_till_session(events, prices):
+    cart = []
+    total = 0
+    paid = 0
+    change = 0
+    session_state = OPEN
+
+    for event in events:
+        action, item = event[0], event[1]
+
+        if action not in ["scan", "void", "close", "pay", "cancel"]:
+            raise ValueError("unknown action: " + action)
+
+        if action == "scan":
+            if item not in prices:
+                raise ValueError("item not in price list: " + item)
+            if item not in cart:
+                cart.append(item)
+                total += prices[item]
+            else:
+                raise ValueError("item already in cart: " + item)
+
+        elif action == "void":
+            if item not in cart:
+                raise ValueError("item not in cart: " + item)
+            if cart.count(item) == 1:
+                cart.remove(item)
+                total -= prices[item]
+            else:
+                raise ValueError("item not in cart: " + item)
+
+        elif action == "close":
+            if paid == total:
+                session_state = PAID
+            else:
+                session_state = CANCELLED
+            return {
+                "items": sorted([(name, quantity) for name, quantity in cart]),
+                "total": total if paid == 0 else total - paid,
+                "paid": paid,
+                "change": change if paid == 0 else paid - total
+            }
+
+        elif action == "pay":
+            if paid > total:
+                raise ValueError("insufficient funds: " + str(total))
+            if paid < total:
+                change = total - paid
+            paid = total
+            return {
+                "items": sorted([(name, quantity) for name, quantity in cart]),
+                "total": total,
+                "paid": paid,
+                "change": change if paid == 0 else paid - total
+            }
+
+        elif action == "cancel":
+            if paid != 0:
+                session_state = CANCELLED
+                return {
+                    "items": sorted([(name, quantity) for name, quantity in cart]),
+                    "total": total,
+                    "paid": paid,
+                    "change": change if paid == 0 else paid - total
+                }
+            else:
+                session_state = CANCELLED
+                return {
+                    "items": sorted([(name, quantity) for name, quantity in cart]),
+                    "total": total,
+                    "paid": paid,
+                    "change": change if paid == 0 else paid - total
+                }
+
+        if session_state == CANCELLED:
+            raise ValueError("session is cancelled")
+
+    raise ValueError("no events after session is paid or cancelled")
+```

@@ -1,0 +1,16 @@
+```python
+from typing import Dict
+
+def value_keys(store: dict) -> Dict:
+    if not store:
+        return {}
+    
+    value_count = {}
+    for value in store.values():
+        if value in value_count:
+            value_count[value] += 1
+        else:
+            value_count[value] = 1
+    
+    return value_count
+```

@@ -1,0 +1,10 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if now_out_of <= 0:
+        return None
+    if mark < 0:
+        return None
+    if mark > now_out_of:
+        return now_out_of
+    return int(mark / was_out_of * now_out_of)
+```

@@ -1,0 +1,7 @@
+```python
+def crust_slice(name: str) -> str:
+    """Return the part of the file name before its final dot."""
+    if not name:
+        return name
+    return name.rsplit('.', 1)[0]
+```

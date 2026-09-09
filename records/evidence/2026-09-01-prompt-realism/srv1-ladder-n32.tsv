@@ -1,0 +1,21 @@
+### srv1 PHASE2 START 2026-09-01T10:05:39+00:00
+srv1	s1-q15 util=0.9 len=2048 seqs=128 kv=auto	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=5398	kv_tok=129584	maxconc=63.3	warm_ptok=711	offload=none
+srv1	s1-q15 util=0.9 len=2048 seqs=128 kv=auto	n=1	agg=30.4	p50=3.32	prefill=172.7	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=3.3
+srv1	s1-q15 util=0.9 len=2048 seqs=128 kv=auto	n=2	agg=25.4	p50=11.29	prefill=101.5	ptok=573	otok=143	early_stop=1/2	failed=0/2	wall=11.3
+srv1	s1-q15 util=0.9 len=2048 seqs=128 kv=auto	n=4	agg=36.7	p50=20.29	prefill=120.5	ptok=625	otok=190	early_stop=1/4	failed=0/4	wall=20.7
+srv1	s1-q15 util=0.9 len=2048 seqs=128 kv=auto	n=8	agg=46.0	p50=27.70	prefill=121.8	ptok=664	otok=250	early_stop=3/8	failed=0/8	wall=43.6
+srv1	s1-q15 util=0.9 len=2048 seqs=128 kv=auto	n=16	agg=61.7	p50=36.16	prefill=264.4	ptok=663	otok=154	early_stop=6/16	failed=0/16	wall=40.2
+srv1	s1-q15 util=0.9 len=2048 seqs=128 kv=auto	n=32	agg=72.0	p50=68.09	prefill=262.2	ptok=662	otok=181	early_stop=14/32	failed=0/32	wall=80.9
+srv1	s1-q3 util=0.9 len=2048 seqs=128 kv=auto	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=5288	kv_tok=71616	maxconc=35.0	warm_ptok=711	offload=none
+srv1	s1-q3 util=0.9 len=2048 seqs=128 kv=auto	n=1	agg=15.3	p50=6.61	prefill=86.8	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=6.6
+srv1	s1-q3 util=0.9 len=2048 seqs=128 kv=auto	n=2	agg=16.5	p50=24.53	prefill=46.7	ptok=573	otok=203	early_stop=1/2	failed=0/2	wall=24.5
+srv1	s1-q3 util=0.9 len=2048 seqs=128 kv=auto	n=4	agg=22.0	p50=35.49	prefill=62.5	ptok=625	otok=219	early_stop=1/4	failed=0/4	wall=40.0
+srv1	s1-q3 util=0.9 len=2048 seqs=128 kv=auto	n=8	agg=28.9	p50=47.87	prefill=73.6	ptok=664	otok=261	early_stop=1/8	failed=0/8	wall=72.2
+srv1	s1-q3 util=0.9 len=2048 seqs=128 kv=auto	n=16	agg=34.5	p50=71.20	prefill=124.9	ptok=663	otok=183	early_stop=3/16	failed=0/16	wall=85.0
+srv1	s1-q3 util=0.9 len=2048 seqs=128 kv=auto	n=32	agg=42.1	p50=138.11	prefill=136.7	ptok=662	otok=203	early_stop=5/32	failed=0/32	wall=155.1
+srv1	s1-q34b util=0.9 len=2048 seqs=128 kv=auto	WIDTH	dropped n=8,16,32: pool holds 12816 tokens = 6.3 concurrent requests at len=2048, so those rungs would queue, not saturate
+srv1	s1-q34b util=0.9 len=2048 seqs=128 kv=auto	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=5276	kv_tok=12816	maxconc=6.3	warm_ptok=711	offload=none
+srv1	s1-q34b util=0.9 len=2048 seqs=128 kv=auto	n=1	agg=11.4	p50=8.84	prefill=65.0	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=8.8
+srv1	s1-q34b util=0.9 len=2048 seqs=128 kv=auto	n=2	agg=13.3	p50=42.12	prefill=27.2	ptok=573	otok=280	early_stop=0/2	failed=0/2	wall=42.1
+srv1	s1-q34b util=0.9 len=2048 seqs=128 kv=auto	n=4	agg=16.3	p50=47.81	prefill=45.5	ptok=625	otok=223	early_stop=0/4	failed=0/4	wall=54.9
+### srv1 PHASE2 DONE 2026-09-01T10:24:48+00:00

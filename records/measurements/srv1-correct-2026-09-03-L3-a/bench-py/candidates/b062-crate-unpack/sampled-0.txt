@@ -1,0 +1,24 @@
+```python
+def unpack_crates(crate: list) -> list:
+    """Return a flat list of all item names in the given nested crate, in order."""
+    def helper(crate):
+        for item in crate:
+            if isinstance(item, str):
+                yield item
+            elif isinstance(item, list):
+                yield from helper(item)
+            else:
+                raise ValueError("Invalid entry in crate")
+    return list(helper(crate))
+
+def crate_depth(crate: list) -> int:
+    """Return the deepest nesting level of the crate."""
+    def helper(crate, depth=1):
+        for item in crate:
+            if isinstance(item, list):
+                depth = helper(item, depth + 1)
+            elif isinstance(item, str):
+                depth = max(depth, 1)
+        return depth
+    return helper(crate)
+```

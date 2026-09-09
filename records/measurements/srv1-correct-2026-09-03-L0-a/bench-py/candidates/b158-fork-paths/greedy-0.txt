@@ -1,0 +1,27 @@
+```python
+from typing import List, Optional
+
+def fork_paths(pattern: str) -> List[str]:
+    if not isinstance(pattern, str) or not pattern:
+        raise ValueError("Pattern must be a non-empty string")
+    
+    def parse_segment(segment: str) -> List[str]:
+        if segment == "":
+            return []
+        if segment[0] == "{":
+            options = segment[1:-1].split(",")
+            return [f"{segment[0]}/{opt}" for opt in options]
+        else:
+            return [segment]
+    
+    def expand_pattern(pattern: str) -> List[str]:
+        if pattern == "":
+            return [pattern]
+        if pattern[0] == "{":
+            options = pattern[1:-1].split(",")
+            return [f"{segment[0]}/{opt}" for segment in expand_pattern(pattern[1:]) for opt in options]
+        else:
+            return [pattern]
+    
+    return expand_pattern(pattern)
+```

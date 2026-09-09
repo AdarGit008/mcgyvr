@@ -1,0 +1,56 @@
+```python
+"""A storage report over a tree of named folders and byte-sized files."""
+
+
+def check_node(node):
+    if not isinstance(node, dict):
+        raise ValueError("each node must be a mapping")
+    name = node.get("name")
+    if not isinstance(name, str) or not name or "/" in name:
+        raise ValueError("each name must be a non-empty string without slashes")
+    if ("bytes" in node) == ("children" in node):
+        raise ValueError("a node holds either bytes or children")
+    size = node.get("bytes", 0)
+    if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+        raise ValueError("bytes must be a non-negative whole number")
+    if "children" in node and not isinstance(node["children"], list):
+        raise ValueError("children must be a list")
+
+
+def file_paths(root: dict) -> list:
+    paths = []
+    stack = [(root, "")]
+    while stack:
+        node, prefix = stack.pop()
+        check_node(node)
+        path = prefix + node["name"]
+        if "bytes" in node:
+            paths.append(path)
+        else:
+            for child in reversed(node["children"]):
+                stack.append((child, path + "/"))
+    return paths
+
+
+def tree_bytes(root: dict) -> int:
+    total = 0
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        check_node(node)
+        if "bytes" in node:
+            total += node["bytes"]
+        else:
+            stack.extend(node["children"])
+    return total
+
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(root, dict):
+        raise ValueError("root must be a mapping")
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative whole number")
+    paths = file_paths(root)
+    total = tree_bytes(root)
+    return [[path, total] for path in paths if total >= min_bytes]
+```

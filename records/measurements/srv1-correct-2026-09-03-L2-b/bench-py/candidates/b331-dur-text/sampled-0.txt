@@ -1,0 +1,13 @@
+```python
+def dur_hours(minutes: int) -> int:
+    if minutes < 0:
+        raise ValueError("Negative values are not valid for minutes.")
+    return minutes // 60
+
+def dur_text(minutes: int) -> str:
+    if minutes < 0:
+        raise ValueError("Negative values are not valid for minutes.")
+    hours = minutes // 60
+    minutes %= 60
+    return f"{hours}h{minutes:02d}m"
+```

@@ -1,0 +1,15 @@
+### START uptime_since=2026-09-01T08:11:08Z pl1_uw=95000000 pl2_uw=120000000 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=4600 ram_mt_s=3600
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-qwen3-6-35b-a3b-ud-iq3-xxs np=1 ctx_slot=4096 c=4096 ncmoe=99	CONFIG	arm=L3	img=llamacpp:b10644-L3	vram=2074	n_layers=40	nonexpert_mib=1596.81	expert_total_mib=12189.97	kv_mib=80.00	cuda_ctx_mib=397.19	usable_mib=5743	checkpoint_quant=IQ3_XXS_-_3.0625_bpw
+### PREDICT arm=L3 usable_mib=5743 cuda_ctx_mib=397.19 nonexpert_mib=1596.81 kv_mib=80.00 expert_total_mib=12189.97 n_layers=40 predicted=28.0
+srv1	A1-qwen3-6-35b-a3b-ud-iq3-xxs np=1 ctx_slot=4096 c=4096 ncmoe=99	CONFIG	arm=A1	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	vram=2074	n_layers=40	nonexpert_mib=1596.81	expert_total_mib=12189.97	kv_mib=80.00	cuda_ctx_mib=397.19	usable_mib=5743	checkpoint_quant=IQ3_XXS_-_3.0625_bpw
+### PREDICT arm=A1 usable_mib=5743 cuda_ctx_mib=397.19 nonexpert_mib=1596.81 kv_mib=80.00 expert_total_mib=12189.97 n_layers=40 predicted=28.0
+srv1	L3-qwen3-6-35b-a3b-ud-iq3-xxs np=1 ctx_slot=4096 c=4096 ncmoe=28	CONFIG	arm=L3	img=llamacpp:b10644-L3	vram=5294	tries=1
+srv1	L3-qwen3-6-35b-a3b-ud-iq3-xxs np=1 ctx_slot=4096 c=4096 ncmoe=27	CONFIG	arm=L3	img=llamacpp:b10644-L3	vram=5556	tries=1
+srv1	L3-qwen3-6-35b-a3b-ud-iq3-xxs np=1 ctx_slot=4096 c=4096 ncmoe=26	REFUSED	arm=L3	img=llamacpp:b10644-L3	checkpoint_quant=IQ3_XXS_-_3.0625_bpw	tries=3	0 refused: arm L3 would not load at --n-cpu-moe 26 after 3 launch attempts; last log line: 0.02.106.233 E srv  llama_server: exiting due to model loading error
+### FLOOR arm=L3 usable_mib=5743 cuda_ctx_mib=397.19 nonexpert_mib=1596.81 kv_mib=80.00 expert_total_mib=12189.97 n_layers=40 predicted=28.0 measured=27
+srv1	A1-qwen3-6-35b-a3b-ud-iq3-xxs np=1 ctx_slot=4096 c=4096 ncmoe=28	CONFIG	arm=A1	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	vram=5294	tries=1
+srv1	A1-qwen3-6-35b-a3b-ud-iq3-xxs np=1 ctx_slot=4096 c=4096 ncmoe=27	CONFIG	arm=A1	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	vram=5556	tries=1
+srv1	A1-qwen3-6-35b-a3b-ud-iq3-xxs np=1 ctx_slot=4096 c=4096 ncmoe=26	REFUSED	arm=A1	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	checkpoint_quant=IQ3_XXS_-_3.0625_bpw	tries=3	0 refused: arm A1 would not load at --n-cpu-moe 26 after 3 launch attempts; last log line: 0.02.103.354 E srv  llama_server: exiting due to model loading error
+### FLOOR arm=A1 usable_mib=5743 cuda_ctx_mib=397.19 nonexpert_mib=1596.81 kv_mib=80.00 expert_total_mib=12189.97 n_layers=40 predicted=28.0 measured=27
+### END uptime_since=2026-09-01T08:11:08Z pl1_uw=95000000 pl2_uw=120000000 cpu_max_mhz=4600 ram_mt_s=3600

@@ -1,0 +1,33 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    if not isinstance(base, list) or not all(isinstance(entry, list) and len(entry) == 2 for entry in base):
+        raise ValueError("base must be a list of [account, cents] pairs")
+    if not isinstance(ours, list) or not all(isinstance(entry, list) and len(entry) == 2 for entry in ours):
+        raise ValueError("ours must be a list of [account, cents] pairs")
+    if not isinstance(theirs, list) or not all(isinstance(entry, list) and len(entry) == 2 for entry in theirs):
+        raise ValueError("theirs must be a list of [account, cents] pairs")
+    if not all(isinstance(account, str) and account for account in base) or not all(isinstance(account, str) and account for account in ours) or not all(isinstance(account, str) and account for account in theirs):
+        raise ValueError("all accounts must be non-empty strings")
+    if not all(isinstance(cents, int) for account, cents in base) or not all(isinstance(cents, int) for account, cents in ours) or not all(isinstance(cents, int) for account, cents in theirs):
+        raise ValueError("all cents must be integers")
+    if len(set(account for account, cents in base)) != len(base) or len(set(account for account, cents in ours)) != len(ours) or len(set(account for account, cents in theirs)) != len(theirs):
+        raise ValueError("accounts must be unique")
+
+    merged = []
+    for account, cents in base:
+        if account in ours:
+            ours_cents = ours[ours.index([account, cents])]
+            merged.append([account, ours_cents + cents])
+        if account in theirs:
+            theirs_cents = theirs[theirs.index([account, cents])]
+            merged.append([account, theirs_cents + cents])
+    for account, cents in ours:
+        if account not in base and account not in theirs:
+            merged.append([account, cents])
+    for account, cents in theirs:
+        if account not in base and account not in ours:
+            merged.append([account, cents])
+
+    merged.sort(key=lambda x: x[0])
+    return merged
+```

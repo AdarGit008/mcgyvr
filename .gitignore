@@ -33,9 +33,9 @@ build/
 *.egg-info/
 tools/breadth/worker.local.json
 node_modules/
-# The campaign driver's stop sentinel (tools/bench/serving/launch.py) — touched
-# by the interrupt trap so a phase that has not started cannot start during the
-# kill. Cleared at the next launch, so an interrupted run leaves one behind.
+# The retired campaign driver's stop sentinel: launch.py no longer launches
+# (the interrupt path is gate 7 of the door), and a sentinel left by an old
+# checkout must never be committed.
 .campaign-stop
 
 # okf-rag artifacts. `okf/` is a generated concept bundle — its authority is the
@@ -43,7 +43,11 @@ node_modules/
 # by records/evidence/2026-08-26-claim-verification/build_okf.py. Committing it
 # would put generated prose in the tree and give a stale copy equal standing
 # with the store. `.okfrag/` is the staleness flag okf-rag writes on `status`.
-okf/
+okf/*
+!okf/index.md
+!okf/config/
+!okf/must-read/
+!okf/models/
 .okfrag/
 
 # graphify's output directory. `graphify-out/` holds a generated knowledge graph
@@ -52,3 +56,8 @@ okf/
 # a snapshot in the tree that goes stale the moment anything under src/ or
 # tools/ moves.
 graphify-out/
+
+# Per-developer Claude Code settings. `.claude/settings.json` here holds one
+# person's local permission allowlist, not project configuration — committing it
+# would hand everyone else's session a set of approvals they never granted.
+.claude/

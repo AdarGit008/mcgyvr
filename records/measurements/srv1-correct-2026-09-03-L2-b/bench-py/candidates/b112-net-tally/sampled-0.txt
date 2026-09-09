@@ -1,0 +1,51 @@
+```python
+from typing import List
+
+def net_tally(sheets: List[str]) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    
+    report_lines = []
+    item_totals = {}
+    item_total_sum = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("sheet must be a string")
+        
+        rows = sheet.split('\n')
+        for row in rows:
+            fields = row.strip().split('|')
+            if len(fields) != 3:
+                raise ValueError("row must have exactly three fields")
+            item = fields[0].strip()
+            sold = fields[1].strip()
+            returned = fields[2].strip()
+            
+            if not item or not sold.isdigit() or not returned.isdigit():
+                raise ValueError("item or sold/returned field is not valid")
+            
+            if int(returned) > int(sold):
+                raise ValueError(f"item {item} returned more than sold")
+            
+            if item in item_totals:
+                item_totals[item]['sold'] += int(sold)
+                item_totals[item]['returned'] += int(returned)
+            else:
+                item_totals[item] = {'sold': int(sold), 'returned': int(returned)}
+                item_total_sum += int(sold) - int(returned)
+    
+    if not item_totals:
+        return ""
+    
+    report_lines.append(" " * len(max(item_totals.keys(), key=len)) + "Net Count")
+    report_lines.append(" " * len(max(item_totals.keys(), key=len)) + "Sold - Returned")
+    
+    for item, totals in item_totals.items():
+        net_count = totals['sold'] - totals['returned']
+        report_lines.append(f"{item:<{len(max(item_totals.keys(), key=len))}} {net_count}")
+    
+    report_lines.append(" " * len(max(item_totals.keys(), key=len)) + f"Word Total: {item_total_sum}")
+    
+    return '\n'.join(report_lines)
+```

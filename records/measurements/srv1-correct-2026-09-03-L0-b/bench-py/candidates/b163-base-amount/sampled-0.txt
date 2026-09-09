@@ -1,0 +1,36 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+
+    def get_factor(unit):
+        if unit == base:
+            return 1
+        for parent, [factor, finer] in defs.items():
+            if parent == unit:
+                return factor
+        raise ValueError(f"unit '{unit}' is not defined in the defs")
+
+    if unit not in defs or not isinstance(defs[unit], list) or len(defs[unit]) != 2:
+        raise ValueError(f"invalid unit definition for '{unit}'")
+
+    factor, finer = defs[unit]
+
+    if not isinstance(factor, int) or factor <= 0:
+        raise ValueError("factor must be a positive whole number")
+
+    if not isinstance(finer, str) or finer not in defs:
+        raise ValueError(f"finer unit '{finer}' is not defined in the defs")
+
+    if amount == 0:
+        return 0
+
+    current_unit = unit
+    total_factor = 1
+    while current_unit != base:
+        factor = get_factor(current_unit)
+        total_factor *= factor
+        current_unit = finer
+
+    return total_factor * amount
+```

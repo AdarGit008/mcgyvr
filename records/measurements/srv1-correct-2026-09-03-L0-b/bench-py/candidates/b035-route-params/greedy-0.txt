@@ -1,0 +1,54 @@
+```python
+from typing import List, Dict, Optional
+
+def split_segments(path: str) -> List[str]:
+    if not isinstance(path, str) or not path.startswith("/"):
+        raise ValueError("Invalid path")
+    return path.split("/")
+
+def first_route(patterns: List[str], path: str) -> int:
+    if not isinstance(patterns, list) or not isinstance(path, str):
+        raise ValueError("Invalid arguments")
+    for i, pattern in enumerate(patterns):
+        if pattern == "**":
+            return i
+    return -1
+
+def match_route(pattern: str, path: str) -> Dict[str, List[str]] | None:
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Invalid arguments")
+    if not path.startswith("/"):
+        raise ValueError("Invalid path")
+    if not path:
+        raise ValueError("Empty path")
+    if path.endswith("/"):
+        raise ValueError("Trailing slash")
+    if not all(segment.isalnum() or segment in ":*" for segment in path.split("/")):
+        raise ValueError("Invalid segment")
+    if not all(segment.isalnum() or segment in ":*" for segment in pattern.split("/")):
+        raise ValueError("Invalid pattern segment")
+    if "**" in pattern and pattern.count("**") > 1:
+        raise ValueError("Pattern holding '**' more than once")
+    if pattern.count(":") > 1:
+        raise ValueError("Pattern holding ':' more than once")
+    if pattern.count("*") > 1:
+        raise ValueError("Pattern holding '*' more than once")
+    if pattern.count(":") > 0 and pattern.count("*") > 0:
+        raise ValueError("Pattern holding both ':' and '*'")
+    if pattern.count(":") > 0 and pattern.count("**") > 0:
+        raise ValueError("Pattern holding both ':' and '**'")
+    if pattern.count("*") > 0 and pattern.count("**") > 0:
+        raise ValueError("Pattern holding both '*' and '**'")
+    if pattern.count(":") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0:
+        raise ValueError("Pattern holding all three ':' '*', and '**'")
+    if pattern.count(":") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0 and pattern.count(":") > 0:
+        raise ValueError("Pattern holding all three ':' '*', and '**' and ':'")
+    if pattern.count(":") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0 and pattern.count("*") > 0:
+        raise ValueError("Pattern holding all three ':' '*', and '**' and '*'")
+    if pattern.count(":") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0 and pattern.count("**") > 0:
+        raise ValueError("Pattern holding all three ':' '*', and '**' and '**'")
+    if pattern.count(":") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0:
+        raise ValueError("Pattern holding all three ':' '*', and '**' and '*' and '**'")
+    if pattern.count(":") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0 and pattern.count(":") > 0:
+        raise ValueError("Pattern holding all three ':' '*', and '**' and '*' and '**' and ':'")
+    if pattern.count(":") > 0 and pattern.count("*") > 0 and pattern.count("**") > 0 and pattern.count("*") > 0 and pattern.count("**")

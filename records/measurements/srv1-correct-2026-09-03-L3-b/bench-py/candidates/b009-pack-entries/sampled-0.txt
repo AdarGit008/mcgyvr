@@ -1,0 +1,18 @@
+```python
+def pack_entries(entries: list) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list.")
+    
+    result = []
+    for key, value in entries:
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError("Both key and value must be strings.")
+        if not key or not value:
+            raise ValueError("Key and value cannot be empty.")
+        if key in result:
+            raise ValueError("Key repeats within the input.")
+        
+        result.append(f"{key}={value.replace('\\', '\\\\').replace(';', '\\;').replace('=', '\\=')}")
+    
+    return ';'.join(result)
+```

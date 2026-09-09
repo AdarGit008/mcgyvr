@@ -1,0 +1,31 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    if not isinstance(installed, str) or not installed.isnumeric():
+        raise ValueError("Invalid installed tag. It must be a string of digits.")
+    installed = int(installed)
+    
+    if not isinstance(steps, list) or not all(isinstance(step, dict) for step in steps):
+        raise ValueError("Invalid steps. They must be a list of dictionaries.")
+    
+    if not all(isinstance(step["tag"], str) and step["tag"].isnumeric() for step in steps):
+        raise ValueError("Invalid step tags. They must be strings of digits.")
+    
+    if not all(isinstance(step["requires"], str) and step["requires"].isnumeric() for step in steps):
+        raise ValueError("Invalid step requires. They must be strings of digits.")
+    
+    if not all(int(step["tag"]) > int(step["requires"]) for step in steps):
+        raise ValueError("Invalid steps. Steps must be in ascending order.")
+    
+    carried = installed
+    
+    for step in steps:
+        if carried >= int(step["requires"]):
+            raise ValueError(f"step {step['tag']} requires at least {step['requires']}")
+        if int(step["tag"]) <= carried:
+            raise ValueError(f"step {step['tag']} is not an upgrade from {carried}")
+        carried = int(step["tag"])
+    
+    return str(carried)
+```

@@ -1,0 +1,20 @@
+```python
+from typing import List, Tuple
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres == 0:
+        raise ValueError("Leg distance cannot be zero.")
+    return seconds // kilometres
+
+def pace_list(legs: List[Tuple[int, int]]) -> List[int]:
+    if not legs:
+        return []
+    
+    pace_list = []
+    for seconds, kilometres in legs:
+        if kilometres == 0:
+            raise ValueError("Leg distance cannot be zero.")
+        pace_list.append(seconds // kilometres)
+    
+    return pace_list
+```

@@ -1,0 +1,16 @@
+```python
+def count_by(records: list, field: str) -> dict:
+    """Count records by the value of a specified field.
+
+    Records lacking the field are skipped. An empty field name raises ValueError.
+    """
+    if not field:
+        raise ValueError("Field name must not be empty")
+
+    counts = {}
+    for record in records:
+        if field in record:
+            value = record[field]
+            counts[value] = counts.get(value, 0) + 1
+    return counts
+```

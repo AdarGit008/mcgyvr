@@ -1,0 +1,11 @@
+```python
+def over_count(store: dict, floor: int) -> int:
+    """How many of a store's values reach a floor."""
+    if not isinstance(floor, (int, float)):
+        raise ValueError("floor must be a number")
+    found = 0
+    for value in store.values():
+        if value <= floor:
+            found += 1
+    return found
+```

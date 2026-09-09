@@ -1,0 +1,74 @@
+== the image says its backend is vulkan
+cuda_library=absent
+backend=vulkan
+
+== the vulkan backend .so is present and links cleanly
+-rwxr-xr-x 1 root root 43797272 Sep  1 22:00 /app/libggml-vulkan.so
+0
+
+== but the runtime loader refuses it
+        59:	calling init: /app/libggml-vulkan.so
+        59:	/app/libggml-vulkan.so: error: symbol lookup error: undefined symbol: ggml_backend_score (fatal)
+        59:	calling fini: /app/libggml-vulkan.so [0]
+
+== so only the CPU backend registers, and the bench runs on the CPU
+load_backend: loaded CPU backend from /app/libggml-cpu-haswell.so
+| model                          |       size |     params | backend    | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | ------: | --------------: | -------------------: |
+| qwen2 1.5B Q4_K - Medium       | 934.69 MiB |     1.54 B | CPU        |       6 |           pp128 |        196.56 ± 0.00 |
+| qwen2 1.5B Q4_K - Medium       | 934.69 MiB |     1.54 B | CPU        |       6 |            tg16 |         38.18 ± 0.00 |
+build: d7a207411 (10644)
+
+== diagnosis, srv2, 2026-09-02 (same image, --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all)
+/etc/vulkan/icd.d/nvidia_icd.json           injected by the toolkit
+libGLX_nvidia.so.0 libnvidia-glvkspirv.so   injected by the toolkit
+$ vulkaninfo --summary
+ERROR: [Loader Message] Code 0 : libXext.so.6: cannot open shared object file: No such file or directory
+ERROR: [Loader Message] Code 0 : loader_icd_scan: Failed loading library associated with ICD JSON libGLX_nvidia.so.0. Ignoring this JSON
+ERROR: [Loader Message] Code 0 : vkCreateInstance: Found no drivers!
+
+== so the cause is the runtime image, not the build
+The runtime stage installed libvulkan1 + vulkan-tools under --no-install-recommends
+and none of libX11.so.6, libXext.so.6, libGLdispatch.so.0 that the NVIDIA ICD
+links. No ICD -> no device -> ggml_backend_vk_reg() returns NULL -> only the
+CPU backend registers. The "undefined symbol: ggml_backend_score" line above is
+the loader probing an optional scoring symbol that no non-CPU backend exports;
+it is not the failure.
+
+== fix (tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh, 3-llama-bench.sh)
+runtime apt line gains libglvnd0 libx11-6 libxext6, a build-time ldconfig check
+fails the image if they did not resolve, the A3 spec carries icd_deps=x11 so the
+image without it is rebuilt rather than reused, and the bench step refuses a
+declared backend the report says did not run instead of filing its rows.
+
+== 2026-09-03: the rebuild with libX11/libXext/libGLdispatch (icd_deps=x11)
+3-llama-bench.sh refused it (declared vulkan, measured CPU) — the verdict
+working. Inside the image the ICD now loaded and failed one step later:
+  loader_scanned_icd_add: Could not get 'vkCreateInstance' via 'vk_icdGetInstanceProcAddr' for ICD libGLX_nvidia.so.0
+Not the loader version (host's 1.4.341 bind-mounted: same), not the base image
+(ubuntu:24.04, ubuntu:26.04 and the CUDA runtime all fail), not the packages
+upstream lists (libgl1 libglx0 libgles2 libx11-xcb1 libdrm2 mesa: all fail).
+strace -e openat inside the image, after libGLX_nvidia.so.0 loaded:
+  openat(... "/usr/lib/x86_64-linux-gnu/libEGL.so.1") = ENOENT
+The NVIDIA ICD dlopens libEGL.so.1 at init and returns no vkCreateInstance
+without it. Upstream's server-vulkan image carries it as a mesa dependency.
+With libegl1 added to our image (apt-get in an ephemeral container):
+  vulkaninfo: deviceName = NVIDIA GeForce RTX 3060
+  /app/llama-bench --list-devices: Vulkan0: NVIDIA GeForce RTX 3060 (12534 MiB)
+Fix: libegl1 on the runtime apt line, libEGL.so.1 in the ldconfig check,
+icd_deps=x11-egl so the x11-only image is rebuilt, not reused.
+
+== 2026-09-03, third layer: the libegl1 image (icd_deps=x11-egl) refused again, on srv1 only
+On srv2 the same image (sha256:327764267c86...) lists Vulkan0: NVIDIA GeForce RTX 3060.
+On srv1, inside the container: all 34 driver libraries injected, /etc/vulkan/icd.d/ ABSENT.
+Both hosts: toolkit 1.19.1, mode=auto, /var/run/cdi/nvidia.yaml carrying the mount
+  hostPath /usr/share/vulkan/icd.d/nvidia_icd.json -> /etc/vulkan/icd.d/nvidia_icd.json
+The difference is docker: srv2 29.7.1 routes --gpus all through that CDI spec,
+srv1 29.1.3 through the legacy hook (nvidia-container-cli), whose file list holds
+libGLX_nvidia.so and no manifest. No manifest -> "Found no drivers!" -> CPU.
+On srv1 with --device nvidia.com/gpu=all (a CDI request, both hosts):
+  /etc/vulkan/icd.d/nvidia_icd.json present
+  vulkaninfo: deviceName = NVIDIA GeForce GTX 1660 SUPER
+  /app/llama-bench --list-devices: ggml_vulkan: 0 = NVIDIA GeForce GTX 1660 SUPER
+Fix: 3-llama-bench.sh requests the device for A3 through CDI. CUDA arms need no
+manifest and keep --gpus all, the invocation every filed number carries.

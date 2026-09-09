@@ -1,0 +1,42 @@
+```python
+def net_tally(sheets: list) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    
+    report_lines = []
+    total_sold = 0
+    total_returned = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("sheet must be a string")
+        
+        rows = sheet.split('\n')
+        for row in rows:
+            fields = row.split('|')
+            if len(fields) != 3:
+                raise ValueError("row must have exactly three fields")
+            
+            item = fields[0].strip()
+            sold = fields[1].strip()
+            returned = fields[2].strip()
+            
+            if not sold.isdigit() or not returned.isdigit():
+                raise ValueError("sold or returned field must be a string of decimal digits")
+            
+            if int(returned) > int(sold):
+                raise ValueError("returned total cannot exceed sold total")
+            
+            net_count = int(sold) - int(returned)
+            report_lines.append(f"{item:{len(item) + 1}}  {net_count}")
+            total_sold += int(sold)
+            total_returned += int(returned)
+    
+    total_net = total_sold - total_returned
+    report_lines.append(f"{'total':{len('total') + 1}}  {total_net}")
+    
+    if not report_lines:
+        return ""
+    
+    return '\n'.join(report_lines)
+```

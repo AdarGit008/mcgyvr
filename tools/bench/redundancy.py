@@ -25,7 +25,7 @@ each. This tool reads it three ways.
   test on the nearest pairs individually.
 * **denominator** — what the instrument resolves, counted in cells that are
   actually swept. `split.py` sends ~half of every tranche to a reserve that
-  `docs/bench-design-2026-08-10.md` states is never swept and no rig tier
+  `archive/docs/bench-design-2026-08-10.md` states is never swept and no rig tier
   serves. ADR-0021's 2026-08-12 amendment fixed the `ts`/`py` denominator and
   did not reach this one.
 
@@ -303,7 +303,7 @@ def denominator(band: str, targets: tuple[int, ...], psis: tuple[float, ...]) ->
         f"\nBand {band}: {len(rows)} authored, {swept} bench ({share:.1%}), "
         f"{len(rows) - swept} reserve\n"
     )
-    print("  The reserve is never swept (docs/bench-design-2026-08-10.md) and")
+    print("  The reserve is never swept (archive/docs/bench-design-2026-08-10.md) and")
     print("  serves #222, so an authored problem enters the statistic only if")
     print("  the split rule sent it to the bench half.\n")
     print(

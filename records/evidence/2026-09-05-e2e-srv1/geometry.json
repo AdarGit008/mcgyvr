@@ -1,0 +1,267 @@
+{
+ "arch": "qwen2",
+ "bytes_experts": 0,
+ "bytes_nonexpert": 1923946496,
+ "bytes_total_tensors": 1923946496,
+ "caching_layers": 36,
+ "caching_layers_from": "every layer caches",
+ "expert_blocks": [],
+ "expert_bytes_by_block": {},
+ "expert_layers": 0,
+ "file": "/home/adaramir/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf",
+ "full_attn_interval": null,
+ "key_length": 128,
+ "key_length_mla": null,
+ "key_length_swa": null,
+ "kv_layers": [
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 0,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 1,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 2,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 3,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 4,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 5,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 6,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 7,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 8,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 9,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 10,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 11,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 12,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 13,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 14,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 15,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 16,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 17,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 18,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 19,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 20,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 21,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 22,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 23,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 24,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 25,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 26,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 27,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 28,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 29,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 30,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 31,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 32,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 33,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 34,
+   "v_elems": 256
+  },
+  {
+   "is_swa": false,
+   "k_elems": 256,
+   "layer": 35,
+   "v_elems": 256
+  }
+ ],
+ "mla_absorbed_v": false,
+ "mla_by_identity": false,
+ "n_ctx_train": 32768,
+ "n_embd": 2048,
+ "n_expert": null,
+ "n_expert_used": null,
+ "n_head_kv": 2,
+ "n_layer": 36,
+ "n_placeable": 0,
+ "n_recurrent": 0,
+ "name": "Qwen2.5 Coder 3B Instruct",
+ "nextn_blocks": [],
+ "nextn_predict_layers": null,
+ "params_total": 3085938688,
+ "placeable_blocks": [],
+ "recurrent_blocks": [],
+ "rope_dim": null,
+ "size_bytes": 1929903360,
+ "sliding_window": null,
+ "sliding_window_pattern_declared": false,
+ "ssm_conv_kernel": null,
+ "ssm_group_count": null,
+ "ssm_inner_size": null,
+ "ssm_params_from": null,
+ "ssm_state_size": null,
+ "swa_pattern_from": "no sliding window declared",
+ "type_bytes": {
+  "F32": 966656,
+  "Q4_K": 1327104000,
+  "Q6_K": 595875840
+ },
+ "value_length": 128,
+ "value_length_swa": null
+}

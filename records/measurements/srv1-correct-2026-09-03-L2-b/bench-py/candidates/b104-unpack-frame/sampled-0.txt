@@ -1,0 +1,37 @@
+```python
+from typing import List
+
+def unpack_frame(data: List[int]) -> List[int]:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list of integers.")
+
+    varint_length = 0
+    varint_value = 0
+    readings = []
+
+    for byte in data:
+        if not isinstance(byte, int) or byte < 0 or byte > 255:
+            raise ValueError("All byte values must be integers between 0 and 255.")
+
+        varint_value = varint_value << 7
+        varint_value += byte & 0x7F
+
+        if varint_value & 0x80 == 0:
+            readings.append(varint_value)
+            varint_length = 0
+            varint_value = 0
+        else:
+            varint_length += 1
+
+    if varint_length != 0:
+        raise ValueError("Invalid varint length.")
+
+    trailer = data[-1]
+    if trailer != sum(data[:-1]) % 256:
+        raise ValueError("Invalid trailer.")
+
+    if len(data) != len(readings) + 2:
+        raise ValueError("Extra bytes left over after the trailer.")
+
+    return readings
+```

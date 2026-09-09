@@ -1,0 +1,29 @@
+```python
+from typing import *
+from collections import *
+
+def chain_of_command(root: dict, person: str) -> List[str]:
+    if not isinstance(root, dict) or not isinstance(person, str):
+        raise ValueError("Invalid input: root must be a dictionary and person must be a string.")
+    if not root or not person:
+        raise ValueError("Invalid input: root and person cannot be empty.")
+    if person not in root:
+        raise ValueError("Person not found in the chart.")
+    if root[person] == []:
+        return [person]
+    return [person] + chain_of_command(root, root[person][0])
+
+def headcount(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid input: root must be a dictionary.")
+    if not root:
+        return 0
+    return 1 + sum(headcount(child) for child in root.values())
+
+def widest_team(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid input: root must be a dictionary.")
+    if not root:
+        return 0
+    return max(len(child) for child in root.values())
+```

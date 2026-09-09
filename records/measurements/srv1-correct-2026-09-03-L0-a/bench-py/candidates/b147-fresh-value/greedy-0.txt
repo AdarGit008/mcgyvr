@@ -1,0 +1,18 @@
+```python
+from typing import Dict, Optional
+
+def fresh_value(entry: Dict[str, int], now: int) -> str:
+    if not isinstance(entry, dict) or len(entry) != 3:
+        raise ValueError("Invalid entry format")
+    if not isinstance(entry['value'], str):
+        raise ValueError("Invalid value type")
+    if not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("Invalid stored value")
+    if not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("Invalid ttl value")
+    if not isinstance(now, int) or now < entry['stored']:
+        raise ValueError("Invalid now value")
+    if now >= entry['stored'] + entry['ttl']:
+        raise ValueError("Record no longer usable at now")
+    return entry['value']
+```

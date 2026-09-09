@@ -1,0 +1,15 @@
+```python
+from typing import List, Union
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Leg distance must be greater than zero.")
+    return seconds // kilometres
+
+def pace_list(legs: List[Tuple[int, float]]) -> List[int]:
+    if not all(isinstance(leg, tuple) and len(leg) == 2 for leg in legs):
+        raise ValueError("Legs must be tuples of (seconds, distance) pairs.")
+    if any(distance <= 0 for _, distance in legs):
+        raise ValueError("Legs must have a positive distance.")
+    return [pace_of(seconds, distance) for seconds, distance in legs]
+```

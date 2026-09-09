@@ -1,0 +1,39 @@
+```python
+def carry_add(left: list[int], right: list[int]) -> list[int]:
+    """
+    Add two counts held as runs of single figures, the weightiest figure first,
+    and give the answer in the same form. Work from the light end, carrying into
+    the next place where a pair reaches ten. The two runs need not be the same
+    length.
+    
+    :param left: List of integers representing runs of single figures.
+    :param right: List of integers representing runs of single figures.
+    :return: List of integers representing the sum of the input runs.
+    """
+    if not left or not right:
+        return []
+    
+    result = []
+    carry = 0
+    
+    # Reverse the lists to start from the least significant digit
+    left = left[::-1]
+    right = right[::-1]
+    
+    while left or right or carry:
+        # Sum the carry and the current digits if available
+        digit_sum = carry
+        if left:
+            digit_sum += left.pop(0)
+        if right:
+            digit_sum += right.pop(0)
+        
+        # Append the least significant digit to the result
+        result.append(digit_sum % 10)
+        
+        # Calculate the new carry
+        carry = digit_sum // 10
+    
+    # Reverse the result to get the final answer
+    return result[::-1]
+```

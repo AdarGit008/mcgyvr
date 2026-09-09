@@ -1,0 +1,134 @@
+### START 2026-09-01T13:55:24+00:00 uptime_since=2026-09-01 08:11:08 PL1=95000000 PL2=120000000 maxMHz=4600.0000 memclk=3600 MT/s memfree=14455M
+### TEST Ling-3.0-tiny Q4_K_M ncmoe=99 np=8 -- SAME bandwidth load as the killer config, ~25% of RAM instead of 55%
+### PASS 1 2026-09-01T13:55:24+00:00 avail=14454M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.0	p50=2.88	prefill=203.6	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=45.3	p50=18.28	prefill=113.2	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=21.6
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=53.1	p50=33.32	prefill=141.7	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.7
+### PASS 2 2026-09-01T13:57:53+00:00 avail=14446M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=33.2	p50=3.04	prefill=193.0	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=3.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=51.5	p50=15.64	prefill=128.7	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=19.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=55.1	p50=30.81	prefill=147.2	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.3
+### PASS 3 2026-09-01T14:00:11+00:00 avail=14410M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.4	p50=2.85	prefill=205.9	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=46.0	p50=17.73	prefill=115.1	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=21.3
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=53.1	p50=32.07	prefill=141.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.7
+### PASS 4 2026-09-01T14:02:35+00:00 avail=14392M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=33.4	p50=3.02	prefill=194.1	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=3.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=45.6	p50=18.13	prefill=114.0	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=21.5
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=55.4	p50=30.94	prefill=147.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.1
+### PASS 5 2026-09-01T14:04:59+00:00 avail=14393M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.4	p50=2.85	prefill=205.9	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=47.2	p50=17.43	prefill=117.9	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=20.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=57.2	p50=29.78	prefill=152.6	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=36.0
+### PASS 6 2026-09-01T14:07:19+00:00 avail=14396M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=34.3	p50=2.95	prefill=199.2	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=48.2	p50=16.95	prefill=120.6	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=20.3
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=54.4	p50=31.63	prefill=145.1	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.8
+### PASS 7 2026-09-01T14:09:40+00:00 avail=14387M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.5	p50=2.85	prefill=206.1	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=51.4	p50=15.64	prefill=128.6	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=19.1
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=56.7	p50=31.24	prefill=151.5	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=36.2
+### PASS 8 2026-09-01T14:11:57+00:00 avail=14383M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=33.4	p50=3.02	prefill=194.4	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=3.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=53.2	p50=15.01	prefill=133.0	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=18.4
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=53.6	p50=32.52	prefill=143.2	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.3
+### PASS 9 2026-09-01T14:14:18+00:00 avail=14388M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.4	p50=2.85	prefill=205.8	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=51.6	p50=15.58	prefill=129.1	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=19.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=57.6	p50=29.80	prefill=153.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=35.7
+### PASS 10 2026-09-01T14:16:34+00:00 avail=14379M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.2	p50=2.87	prefill=204.8	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=43.4	p50=18.78	prefill=108.5	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=22.6
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=52.9	p50=32.16	prefill=141.3	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.8
+### PASS 11 2026-09-01T14:19:00+00:00 avail=14387M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.5	p50=2.85	prefill=206.3	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=51.2	p50=15.75	prefill=128.0	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=19.1
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=55.1	p50=30.82	prefill=147.0	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.3
+### PASS 12 2026-09-01T14:21:19+00:00 avail=14391M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.3	p50=2.86	prefill=205.3	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=51.8	p50=15.55	prefill=129.4	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=18.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=56.1	p50=30.44	prefill=149.9	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=36.6
+### PASS 13 2026-09-01T14:23:38+00:00 avail=14397M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.2	p50=2.87	prefill=204.7	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=47.8	p50=17.09	prefill=119.5	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=20.5
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=56.4	p50=30.48	prefill=150.6	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=36.4
+### PASS 14 2026-09-01T14:26:00+00:00 avail=14387M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=33.5	p50=3.02	prefill=194.6	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=3.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=53.3	p50=14.98	prefill=133.3	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=18.4
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=53.5	p50=32.17	prefill=142.7	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.4
+### PASS 15 2026-09-01T14:28:21+00:00 avail=14389M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.5	p50=2.85	prefill=206.2	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=44.8	p50=18.28	prefill=112.0	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=21.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=56.0	p50=30.11	prefill=149.5	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=36.7
+### PASS 16 2026-09-01T14:30:42+00:00 avail=14393M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=34.4	p50=2.93	prefill=200.1	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=53.0	p50=15.10	prefill=132.4	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=18.5
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=54.6	p50=30.50	prefill=145.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.6
+### PASS 17 2026-09-01T14:33:03+00:00 avail=14393M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.5	p50=2.85	prefill=206.3	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=46.6	p50=17.32	prefill=116.6	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=21.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=53.7	p50=32.58	prefill=143.4	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.2
+### PASS 18 2026-09-01T14:35:26+00:00 avail=14384M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=33.2	p50=3.04	prefill=193.2	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=3.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=51.8	p50=15.50	prefill=129.6	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=18.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=53.5	p50=33.01	prefill=142.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.4
+### PASS 19 2026-09-01T14:37:48+00:00 avail=14400M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=34.1	p50=2.96	prefill=198.0	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=3.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=51.4	p50=15.70	prefill=128.5	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=19.1
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=52.6	p50=32.53	prefill=140.3	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=39.1
+### PASS 20 2026-09-01T14:40:10+00:00 avail=14385M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.4	p50=2.85	prefill=205.8	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=50.9	p50=15.75	prefill=127.2	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=19.3
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=54.2	p50=32.57	prefill=144.6	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.9
+### PASS 21 2026-09-01T14:42:31+00:00 avail=14398M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.5	p50=2.85	prefill=206.3	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=48.0	p50=17.04	prefill=119.9	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=20.4
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=55.0	p50=31.49	prefill=146.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.4
+### PASS 22 2026-09-01T14:44:53+00:00 avail=14409M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.4	p50=2.85	prefill=206.0	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=53.0	p50=15.09	prefill=132.5	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=18.5
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=54.1	p50=32.12	prefill=144.4	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.0
+### PASS 23 2026-09-01T14:47:14+00:00 avail=14395M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=34.7	p50=2.91	prefill=201.9	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.9
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=51.3	p50=15.72	prefill=128.2	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=19.1
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=55.0	p50=31.10	prefill=146.9	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.3
+### PASS 24 2026-09-01T14:49:35+00:00 avail=14366M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.5	p50=2.84	prefill=206.3	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=46.7	p50=17.55	prefill=116.9	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=21.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=54.2	p50=31.27	prefill=144.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.9
+### PASS 25 2026-09-01T14:51:55+00:00 avail=14400M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=33.2	p50=3.04	prefill=193.0	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=3.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=46.7	p50=17.55	prefill=116.7	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=21.0
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=53.1	p50=32.48	prefill=141.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=38.7
+### PASS 26 2026-09-01T14:54:20+00:00 avail=14394M
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=1092	warm_ptok=724
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=35.5	p50=2.85	prefill=206.2	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=2.8
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=48.3	p50=16.91	prefill=120.8	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=20.3
+srv1	s1-ling-soak np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=55.0	p50=31.20	prefill=146.9	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=37.4
+### END 2026-09-01T14:56:40+00:00 uptime_since=2026-09-01 08:11:08 PL1=95000000 PL2=120000000 maxMHz=4600.0000 memclk=3600 MT/s memfree=14396M
+### SURVIVED

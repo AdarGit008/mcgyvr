@@ -63,7 +63,7 @@ Usage::
 
     # the sweep
     uv run --no-sync python tools/breadth/measure.py \\
-        --endpoint http://srv2:11434 --protocol openai \\
+        --endpoint http://srv2:8000 --protocol openai \\
         --model qwen2.5-coder:14b \\
         --out records/measurements/breadth-YYYY-MM-DD
 
@@ -88,13 +88,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import urlsplit
 
 from mcgyvr.gate.preflight import check_prompt_fits
 from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.runner import Request, RunnerError, runner_for
 from mcgyvr.sandbox.tempdir import TempDirSandbox
+from mcgyvr.telemetry import STOCK
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
@@ -240,7 +241,18 @@ observed_module = _bench_observed()
 CARD_SAMPLES_FILE = "card.jsonl"
 
 
-def _card_sampler(endpoint: str, out) -> object | None:
+class CardSampler(Protocol):
+    """What a card reader has to be able to do, from this side of the seam.
+
+    The class itself lives in ``tools/bench/serving/pin.py`` and is loaded
+    by path, so it cannot be named here as a type. What this run needs of
+    it is one method, and stating that is what lets the call below be
+    checked rather than believed."""
+
+    def sample(self, label: str, at: str) -> dict[str, Any] | None: ...
+
+
+def _card_sampler(endpoint: str, out: str | Path) -> CardSampler | None:
     """The per-task card reader, or ``None`` when there is no host to read.
 
     **Why the scored path reads the card at all.** Every reading that describes
@@ -272,7 +284,8 @@ def _card_sampler(endpoint: str, out) -> object | None:
         host = urlsplit(endpoint).hostname or ""
         if not host or host in ("localhost", "127.0.0.1"):
             return None
-        return module.CardSampler(host, Path(out) / CARD_SAMPLES_FILE)
+        sampler: CardSampler = module.CardSampler(host, Path(out) / CARD_SAMPLES_FILE)
+        return sampler
     except Exception:
         # Same promise `_host_block` makes: a recording must never be the
         # reason a sweep produces no rows. Unlike that one there is nothing to
@@ -319,13 +332,14 @@ def _host_block(endpoint: str) -> dict[str, object]:
             "rather than raised, and recorded rather than dropped: a probe that "
             "broke must not read as a machine there was nothing to read"
         )
-        return observed_module.scrub(
+        refusal: dict[str, object] = observed_module.scrub(
             {
                 "reason": "probe_failed",
                 "refused": why,
                 "width": {"value": None, "source": None, "refused": why},
             }
         )
+        return refusal
 
 
 # The variables of this experiment, all held fixed within a run.
@@ -410,8 +424,11 @@ BENCH_TIERS = ("bench-ts", "bench-py")
 # reads the cells rather than knowing them. The three names below are kept as
 # constants because run identity is recorded under them and every existing run
 # directory on disk carries one; they are asserted against the matrix at import
-# so a rename in the data can never silently orphan a run.
-STOCK = "stock"
+# so a rename in the data can never silently orphan a run. `STOCK` is the
+# product's (`mcgyvr.telemetry.STOCK`): the live journal writes it as every
+# live row's `condition` so a live row can be laid beside a bench cell, the
+# product cannot read the matrix, and one definition beats two that could
+# drift — so the assertion below holds the product's word to the matrix too.
 PLAN_ONLY = "planonly"
 NO_SCAFFOLD = "noscaffold"
 
@@ -991,8 +1008,9 @@ def serving_build(endpoint: str) -> str | None:
     """The serving stack's build at ``endpoint``, or ``None`` when it won't say.
 
     ADR-0024: two rates are only comparable if the same build produced them.
-    This is not hypothetical. The scaffold ablation ran the 3B against srv1 and
-    the 7B against srv2 while those two hosts sat on ollama 0.32.4 and 0.32.5,
+    This is not hypothetical. The 2026-08-19 scaffold ablation ran the 3B
+    against srv1 and the 7B against srv2 while those two hosts sat on two
+    different builds of the backend they then served (ollama 0.32.4 and 0.32.5),
     so the one cross-model contrast the campaign most wanted to draw had a
     serving-build difference folded into it that no manifest recorded.
 
@@ -1581,7 +1599,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, help="measurement directory for the rows")
     parser.add_argument(
-        "--endpoint", help="base URL of the worker, e.g. http://srv2:11434"
+        "--endpoint", help="base URL of the worker, e.g. http://srv2:8000"
     )
     parser.add_argument("--model", help="model name as the backend knows it")
     parser.add_argument(

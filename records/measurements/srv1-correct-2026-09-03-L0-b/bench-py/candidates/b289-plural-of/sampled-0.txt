@@ -1,0 +1,18 @@
+```python
+def plural_of(noun: str) -> str:
+    """
+    Return the plural of an English noun.
+    A noun ending in s, x, ch or sh takes es.
+    A noun ending in y after a consonant loses the y and takes ies instead.
+    Every other noun simply takes s.
+    """
+    if not noun:
+        raise ValueError("Input cannot be empty")
+    
+    if noun[-1] in 'sxchsh':
+        return noun + 'es'
+    elif noun[-1] == 'y':
+        return noun[:-1] + 'ies'
+    else:
+        return noun + 's'
+```

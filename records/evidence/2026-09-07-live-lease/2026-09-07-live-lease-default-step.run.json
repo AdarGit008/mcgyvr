@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-09-07-live-lease-default-step",
+  "campaign": "live-lease",
+  "step": "default-step",
+  "host": "srv2",
+  "date": "2026-09-07",
+  "round": "r8-07-09-2026",
+  "product_sha256": "13c5bd5e32fb8c8198b65facfb4edb11ef2473764fead3eb08d06751c3146d4e",
+  "profile": "live",
+  "config": "/home/adaramir/.mcgyvr/config/mcgyvr.yaml",
+  "config_digest": "cfg-8a231b9a9ffd9fa97eeb66ca3dd53aab1ede992dedc2a969c171749c95093e3e",
+  "mcgyvr_version": "0.1.0",
+  "started_at": "2026-09-07T23:32:56Z"
+}

@@ -458,9 +458,11 @@ NOT_A_FIGURE = {
     "tools/bench/score.py": "the scorer itself, wrapped by the rigs",
     "tools/bench/mode.py": "the declaration",
     "tools/bench/serving/launch.py": (
-        "the verify-then-launch step. It reads the harness source for decision "
-        "markers and starts a campaign; it measures nothing, states no rate, and "
-        "describes no run"
+        "the harness marker check (D8). It reads the serving source for the "
+        "decision markers and reports which are missing; the door's gate 2 "
+        "(02-rig.py) runs it as sub-check 2b and it launches nothing itself. "
+        "It measures "
+        "nothing, states no rate, and describes no run"
     ),
     "tools/bench/product.py": "the pin the declaration reads",
     "tools/bench/regrade.py": "re-scores rows in place; it reports verdicts moved",
@@ -513,12 +515,6 @@ NOT_A_FIGURE = {
         "semantic and operational — and reads no run directory, no row and no "
         "rate. It states nothing about outcomes at all"
     ),
-    "tools/bench/serving/sweep.py": (
-        "the configuration sweep (#357). It reports serving throughput in "
-        "tokens per second per engine configuration, not a bench pass rate: no "
-        "task is scored, no verdict is produced, and there is no tier "
-        "attribution to declare"
-    ),
     "tools/bench/serving/knobs.py": (
         "the knob surface (#357): declared, accepted, effective. It reads the "
         "sweep's records into a table of launch outcomes and single-flag "
@@ -536,6 +532,10 @@ NOT_A_FIGURE = {
     "tools/bench/serving/contract.py": (
         "the backend interface and the pieces no engine owns — the ramp and "
         "the machine readings. It describes servers, never runs"
+    ),
+    "tools/bench/serving/backends/llamacpp.py": (
+        "one serving backend: how that engine yields the card, takes it and "
+        "describes itself. It states no rate about any run"
     ),
     "tools/bench/serving/backends/ollama.py": (
         "one serving backend: how that engine yields the card, takes it and "

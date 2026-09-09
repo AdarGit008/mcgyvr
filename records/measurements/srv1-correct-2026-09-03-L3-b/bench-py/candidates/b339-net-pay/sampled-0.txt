@@ -1,0 +1,13 @@
+```python
+def net_pay(gross: int, rate: int, fee: int) -> int:
+    """Gross pay less a percentage and then a flat fee."""
+    if gross is None or rate is None or fee is None:
+        raise ValueError("All arguments must be provided.")
+    
+    after_fee = gross - fee
+    if after_fee < 0:
+        return 0
+    
+    after_percentage = after_fee - after_fee * rate // 100
+    return max(after_percentage, 0)
+```

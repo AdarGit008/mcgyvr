@@ -1,0 +1,40 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be at least one")
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in blocked):
+        raise ValueError("blocked must be a list of two-item lists")
+    if any(row < 0 or col < 0 for row, col in blocked):
+        raise ValueError("blocked cells must be within the grid")
+    if any(row >= rows or col >= cols for row, col in blocked):
+        raise ValueError("blocked cells must be within the grid")
+    if any(row == 0 or col == 0 or row == rows - 1 or col == cols - 1 for row, col in blocked):
+        raise ValueError("ropes must not cross the entrance or the exit cell")
+
+    # Convert blocked list to a set for efficient lookup
+    blocked_set = set(tuple(entry) for entry in blocked)
+
+    # Define the grid size
+    grid_size = rows * cols
+
+    # Dynamic programming table to store the number of ways to reach each cell
+    dp = [[0 for _ in range(cols)] for _ in range(rows)]
+
+    # Base case: the entrance cell is always reachable
+    dp[0][0] = 1
+
+    # Fill the DP table
+    for row in range(rows):
+        for col in range(cols):
+            if (row, col) in blocked_set:
+                continue
+            if row > 0:
+                dp[row][col] += dp[row - 1][col]
+            if col > 0:
+                dp[row][col] += dp[row][col - 1]
+
+    # The number of distinct routes to the exit cell
+    return dp[rows - 1][cols - 1]
+```

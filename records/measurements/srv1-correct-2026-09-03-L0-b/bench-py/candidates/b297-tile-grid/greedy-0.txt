@@ -1,0 +1,13 @@
+```python
+from math import ceil
+
+def tiles_across(length: int, tile: int) -> int:
+    """Return how many tiles of a given size cover a length, rounding up."""
+    return ceil(length / tile)
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """Return the tiles for a wall of a width and a height, adding a whole-percent allowance for breakages and rounding up again."""
+    total_tiles = width * height
+    total_tiles += ceil((width + spare) / tile) * ceil((height + spare) / tile)
+    return total_tiles
+```

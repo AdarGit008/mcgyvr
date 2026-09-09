@@ -1,0 +1,23 @@
+{
+ "blocks_on_card": 11,
+ "card_free_mib": 11911,
+ "constant_mib": 4247.2,
+ "dense": false,
+ "derived": true,
+ "experts_on_card_mib": 7536.0,
+ "floor_n_cpu_moe": 37,
+ "host": "srv2",
+ "kv_mib": 384.0,
+ "kv_swa_mib": 0.0,
+ "model": "/models/moe/Qwen3-Coder-Next-UD-Q3_K_XL.gguf",
+ "n_ctx_seq": 2048,
+ "n_ctx_total": 16384,
+ "n_placeable": 48,
+ "n_ubatch": 256,
+ "nonexpert_mib": 2492.2,
+ "parallel": 8,
+ "predicted_card_mib": 11783.2,
+ "run_id": "2026-09-05-e2e-srv2-qwen3-coder-next-ud-q3kxl-size",
+ "scratch_allowance_mib": 768,
+ "state_mib": 603.0
+}

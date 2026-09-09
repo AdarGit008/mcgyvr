@@ -1,0 +1,41 @@
+```python
+def fork_paths(pattern: str) -> list:
+    if not pattern or pattern.isspace() or not pattern[0].isalpha() or pattern[-1].isalpha():
+        raise ValueError("Pattern must be a non-empty string with only alphabetic characters at the beginning and end.")
+
+    def split_pattern(pattern):
+        segments = []
+        current_segment = []
+        for char in pattern:
+            if char == '{' or char == ',':
+                segments.append(''.join(current_segment))
+                current_segment = []
+            elif char == '}':
+                segments.append(''.join(current_segment))
+                break
+            else:
+                current_segment.append(char)
+        segments.append(''.join(current_segment))
+        return segments
+
+    def parse_segment(segment):
+        if segment[0] == '{':
+            options = segment[1:-1].split(',')
+            return options
+        return segment
+
+    def expand_pattern(segment, options):
+        if not options:
+            return [segment]
+        expanded_paths = []
+        for option in options:
+            expanded_paths.extend(expand_pattern(segment.replace('{', option), []))
+        return expanded_paths
+
+    segments = split_pattern(pattern)
+    paths = []
+    for segment in segments:
+        options = parse_segment(segment)
+        paths.extend(expand_pattern(segment, options))
+    return paths
+```

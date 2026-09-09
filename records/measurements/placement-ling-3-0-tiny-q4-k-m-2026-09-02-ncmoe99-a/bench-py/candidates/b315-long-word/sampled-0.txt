@@ -1,0 +1,17 @@
+```python
+def long_word(sentence: str) -> str:
+    """Return the longest word in a sentence.
+
+    A word is any run of non-space characters. When two words are equally
+    long the one appearing first wins. If the sentence contains no words,
+    return an empty string.
+    """
+    words = sentence.split()
+    if not words:
+        return ""
+    longest = words[0]
+    for word in words[1:]:
+        if len(word) > len(longest):
+            longest = word
+    return longest
+```

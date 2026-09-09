@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be whole numbers of at least one")
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in blocked):
+        raise ValueError("blocked must be a list of two-item lists")
+    if any(not (0 <= entry[0] < rows) or not (0 <= entry[1] < cols) for entry in blocked):
+        raise ValueError("blocked cells must be within the grid")
+    if any(entry[0] == 0 or entry[0] == rows - 1 or entry[1] == 0 or entry[1] == cols - 1 for entry in blocked):
+        raise ValueError("rope must not cross the entrance or the exit cell")
+    
+    def is_valid(x, y):
+        return 0 <= x < rows and 0 <= y < cols and (x, y) not in blocked
+    
+    def dfs(x, y, count):
+        if x == rows - 1 and y == cols - 1:
+            return 1
+        if not is_valid(x, y):
+            return 0
+        return dfs(x + 1, y, count) + dfs(x, y + 1, count)
+    
+    return dfs(0, 0, 0)
+```

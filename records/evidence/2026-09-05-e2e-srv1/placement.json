@@ -1,0 +1,12 @@
+{
+ "dense": true,
+ "derived": true,
+ "floor_n_cpu_moe": 0,
+ "host": "srv1",
+ "model": "/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf",
+ "n_ctx_total": 16384,
+ "n_ubatch": 256,
+ "parallel": 8,
+ "run_id": "2026-09-05-e2e-srv1-default-step",
+ "why": "no expert tensors: nothing for --n-cpu-moe to move"
+}

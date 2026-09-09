@@ -1,0 +1,12 @@
+```python
+from typing import *
+from collections import *
+
+def seat_block(label: str) -> list:
+    if not label.isalpha() or len(label) != 2 or not label[1].isupper():
+        raise ValueError("Invalid seat label")
+
+    row = int(label[:-1])
+    letter = label[-1]
+    return [row, letter]
+```

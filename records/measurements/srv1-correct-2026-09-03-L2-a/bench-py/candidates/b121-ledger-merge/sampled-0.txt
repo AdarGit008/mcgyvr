@@ -1,0 +1,32 @@
+```python
+from typing import List
+
+def merge_ledgers(base: List[List[str]], ours: List[List[str]], theirs: List[List[str]]) -> List[List[str]]:
+    # Validate inputs
+    if not isinstance(base, list) or not isinstance(ours, list) or not isinstance(theirs, list):
+        raise ValueError("All inputs must be lists")
+    if not all(isinstance(item, list) and len(item) == 2 and isinstance(item[0], str) and isinstance(item[1], int) for item in base + ours + theirs):
+        raise ValueError("All entries must be 2-item lists with string account and integer cents")
+    if not all(isinstance(account, str) and len(account) > 0 for account in base + ours + theirs):
+        raise ValueError("All account names must be non-empty strings")
+    if not all(isinstance(cents, int) for cents in base + ours + theirs):
+        raise ValueError("All cents values must be integers")
+    if any(account in base + ours + theirs for account in base + ours + theirs):
+        raise ValueError("Account names must be unique within each ledger")
+
+    # Merge the ledgers
+    merged = []
+    for account in base + ours + theirs:
+        base_value = int(base[account][1])
+        ours_value = int(ours[account][1])
+        theirs_value = int(theirs[account][1])
+        new_value = base_value + ours_value + theirs_value
+
+        if new_value != 0:
+            merged.append([account, new_value])
+
+    # Sort the merged ledger by account name
+    merged.sort(key=lambda x: x[0])
+
+    return merged
+```

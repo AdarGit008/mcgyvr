@@ -1,0 +1,15 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """Swap two characters."""
+    return second + first
+
+def swap_all(text: str) -> str:
+    """Swap characters in pairs in a text."""
+    result = ""
+    for i in range(0, len(text), 2):
+        if i + 1 < len(text):
+            result += swap_pair(text[i], text[i + 1])
+        else:
+            result += text[i]
+    return result
+```

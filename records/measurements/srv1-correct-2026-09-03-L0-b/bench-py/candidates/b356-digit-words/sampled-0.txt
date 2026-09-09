@@ -1,0 +1,36 @@
+```python
+def digit_word(digit: int) -> str:
+    """
+    Returns the word for a given digit in English.
+    
+    Args:
+    digit (int): The digit to convert to its word representation.
+    
+    Returns:
+    str: The word representation of the digit.
+    
+    Raises:
+    ValueError: If the input digit is not between 0 and 9.
+    """
+    if not 0 <= digit <= 9:
+        raise ValueError("Input digit must be between 0 and 9")
+    return str(digit)
+
+
+def digit_words(digits: str) -> str:
+    """
+    Returns the word for each digit in a run of digits in order, joined by a single space.
+    
+    Args:
+    digits (str): A string containing the digits to process.
+    
+    Returns:
+    str: A string with the word representations of the digits separated by spaces.
+    
+    Raises:
+    ValueError: If the input string contains non-digit characters.
+    """
+    if not digits.isdigit():
+        raise ValueError("Input string must contain only digits")
+    return ' '.join(digit_word(int(digit)) for digit in digits)
+```

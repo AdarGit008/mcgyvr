@@ -1,0 +1,72 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events, prices):
+    for name, price in prices.items():
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("price must be a positive integer: " + str(name))
+    
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+    current_state = OPEN
+
+    for event in events:
+        action, payload = event
+        if action not in ["scan", "void", "close", "pay", "cancel"]:
+            raise ValueError("unknown action: " + action)
+
+        if action == "scan":
+            if payload not in prices:
+                raise ValueError("item not in price list: " + payload)
+            if payload in cart:
+                cart[payload] += 1
+            else:
+                cart[payload] = 1
+            total += prices[payload]
+
+        elif action == "void":
+            if payload not in cart:
+                raise ValueError("item not in cart: " + payload)
+            if cart[payload] == 0:
+                raise ValueError("item quantity is zero: " + payload)
+            cart[payload] -= 1
+            total -= prices[payload]
+
+        elif action == "close":
+            if total == 0:
+                raise ValueError("session is already closed")
+            if len(cart) == 0:
+                raise ValueError("session is empty")
+            current_state = PAID
+            paid = total
+            total = 0
+
+        elif action == "pay":
+            if paid >= total:
+                raise ValueError("excess paid: " + str(total))
+            if paid < total:
+                change = total - paid
+                paid = total
+
+        elif action == "cancel":
+            if current_state in [OPEN, PAID]:
+                current_state = CANCELLED
+            elif current_state == PAID and paid < total:
+                change = total - paid
+                paid = total
+
+    return {
+        "items": sorted(cart.items(), key=lambda x: x[0]),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

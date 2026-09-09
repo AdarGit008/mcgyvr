@@ -1,0 +1,45 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    """
+    Merges two settings snapshots into a common ancestor, handling conflicts.
+    
+    Args:
+    base (dict): A flat mapping from string keys to string values.
+    ours (dict): A flat mapping from string keys to string values.
+    theirs (dict): A flat mapping from string keys to string values.
+    
+    Returns:
+    dict: The merged mapping with resolved conflicts.
+    
+    Raises:
+    ValueError: If any key is not a string, if there is a conflict of two different edits,
+               or if there is a conflict of an edit against a deletion.
+    """
+    merged = {}
+    for key in base:
+        if key not in ours and key not in theirs:
+            merged[key] = None
+        elif key in ours and key in theirs:
+            if ours[key] == theirs[key]:
+                merged[key] = ours[key]
+            elif ours[key] is None and theirs[key] is not None:
+                merged[key] = theirs[key]
+            elif ours[key] is not None and theirs[key] is None:
+                merged[key] = ours[key]
+            else:
+                raise ValueError(f"Conflict at {key}: ours={ours[key]}, theirs={theirs[key]}")
+        elif key in ours:
+            merged[key] = ours[key]
+        elif key in theirs:
+            merged[key] = theirs[key]
+    
+    for key in ours:
+        if key not in base:
+            merged[key] = ours[key]
+    
+    for key in theirs:
+        if key not in base:
+            merged[key] = theirs[key]
+    
+    return merged
+```

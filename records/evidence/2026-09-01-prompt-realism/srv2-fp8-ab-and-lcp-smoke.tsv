@@ -1,0 +1,10 @@
+### srv2 FP8-AB START 2026-09-01T10:12:59+00:00
+srv2	s2-q15-kvauto util=0.9 len=2048 seqs=128 kv=auto	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=11121	kv_tok=332160	maxconc=162.2	warm_ptok=711	offload=none
+srv2	s2-q15-kvauto util=0.9 len=2048 seqs=128 kv=auto	n=1	agg=191.8	p50=0.53	prefill=1089.8	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=0.5
+srv2	s2-q15-kvfp8 util=0.9 len=2048 seqs=128 kv=fp8	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=11709	kv_tok=664320	maxconc=324.4	warm_ptok=711	offload=none
+srv2	s2-q15-kvfp8 util=0.9 len=2048 seqs=128 kv=fp8	n=1	agg=181.7	p50=0.56	prefill=1032.6	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=0.6
+### srv2 LCP-SMOKE START 2026-09-01T10:16:11+00:00
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2803	warm_ptok=730
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=20.9	p50=4.84	prefill=121.8	ptok=589	otok=101	early_stop=0/1	failed=0/1	wall=4.8
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=27.4	p50=20.44	prefill=57.5	ptok=588	otok=280	early_stop=0/2	failed=0/2	wall=20.4
+### srv2 PHASE2B DONE 2026-09-01T10:17:06+00:00

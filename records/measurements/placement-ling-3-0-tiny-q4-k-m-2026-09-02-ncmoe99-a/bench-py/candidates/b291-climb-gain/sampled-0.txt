@@ -1,0 +1,12 @@
+```python
+def leg_gain(start: int, end: int) -> int:
+    """Return the height gained on one leg: the rise when the ground goes up,
+    and zero when it goes down or stays level."""
+    if end > start:
+        return end - start
+    return 0
+
+
+def climb_gain(heights: list) -> int:
+    """Return the total climb gain of a walk given the heights in order.
+    A walk of fewer than two heights gains nothing."""

@@ -1,0 +1,28 @@
+```python
+from typing import List, Mapping
+
+def pick_fields(records: List[Mapping[str, str]], fields: List[str]) -> List[List[str]]:
+    if not isinstance(records, list) or not all(isinstance(record, Mapping) for record in records):
+        raise ValueError("Records must be a list of dictionaries")
+    if not isinstance(fields, list) or not fields:
+        raise ValueError("Fields must be a non-empty list of strings")
+    
+    result = []
+    for record in records:
+        if not isinstance(record, Mapping):
+            raise ValueError("Each record must be a dictionary")
+        
+        fields_with_stem = {field: record.get(field, None) for field in fields}
+        fields_without_stem = {field: record.get(field, None) for field in fields if field.endswith('?')}
+        
+        final_record = []
+        for field in fields_with_stem:
+            if field.endswith('?'):
+                final_record.append(fields_without_stem[field])
+            else:
+                final_record.append(fields_with_stem[field])
+        
+        result.append(final_record)
+    
+    return result
+```

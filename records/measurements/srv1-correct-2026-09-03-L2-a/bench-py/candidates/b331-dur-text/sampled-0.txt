@@ -1,0 +1,14 @@
+```python
+def dur_hours(minutes: int) -> int:
+    if minutes < 0:
+        raise ValueError("Cannot have a negative number of minutes")
+    return minutes // 60
+
+def dur_text(minutes: int) -> str:
+    if minutes < 0:
+        return "-%02d:%02d" % (-minutes // 60, minutes % 60)
+    elif minutes < 60:
+        return "%02d:%02d" % (minutes // 60, minutes % 60)
+    else:
+        return "%02d:%02d" % (minutes // 60, minutes % 60)
+```

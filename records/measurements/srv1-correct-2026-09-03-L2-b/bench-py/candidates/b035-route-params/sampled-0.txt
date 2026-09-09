@@ -1,0 +1,64 @@
+```python
+from typing import List, Union, Dict
+
+def split_segments(path: str) -> List[str]:
+    if not path or path[0] != '/':
+        raise ValueError("Path must start with a slash and not be empty.")
+    return path.split('/')
+
+def first_route(patterns: List[str], path: str) -> int:
+    if not path:
+        return -1
+    for i, pattern in enumerate(patterns):
+        if path.startswith(pattern):
+            return i
+    return -1
+
+def match_route(pattern: str, path: str) -> Dict[str, List[str]] | None:
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Both pattern and path must be strings.")
+    if not pattern or not path:
+        return None
+    if not path[0] == '/':
+        raise ValueError("Path must start with a slash.")
+    if not path.endswith('/'):
+        raise ValueError("Path must not end with a slash.")
+    if not all(segment.isalnum() or segment in "._-" for segment in path[1:]):
+        raise ValueError("Path segments must be alphanumeric or contain _._- characters.")
+    if any(segment[0] not in "a-zA-Z_") or any(segment[1:] not in "a-zA-Z0-9_"):
+        raise ValueError("Capture names must start with a letter or underscore.")
+    if any(segment in pattern for segment in split_segments(pattern)):
+        raise ValueError("Pattern cannot contain path segments.")
+    if '**' in pattern:
+        raise ValueError("Pattern cannot contain more than one '**'.")
+    if '**' in split_segments(pattern):
+        raise ValueError("Pattern cannot contain '**' at the beginning or end.")
+    if path in split_segments(pattern):
+        raise ValueError("Pattern cannot match the path exactly.")
+    if not path.startswith(pattern):
+        return None
+    segments = split_segments(pattern)
+    match = {}
+    i = 0
+    for segment in segments:
+        if segment.startswith(':'):
+            capture_name = segment[1:]
+            if capture_name in match:
+                raise ValueError("Pattern cannot capture the same capture name twice.")
+            match[capture_name] = [path[i + 1]]
+            i += 1
+        elif segment == '*':
+            match[capture_name] = [path[i:i + len(pattern) - len(segment) + 1]]
+            i += len(pattern) - len(segment) + 1
+        elif segment == '**':
+            match[capture_name] = [path[i:i + len(pattern) - len(segment) + 1]]
+            i += len(pattern) - len(segment) + 1
+        elif segment.isalnum() or segment in "._-":
+            if i >= len(path):
+                raise ValueError("Pattern cannot match the path exactly.")
+            match[capture_name] = [path[i]]
+            i += 1
+        else:
+            raise ValueError("Pattern segment contains invalid character.")
+    return match
+```

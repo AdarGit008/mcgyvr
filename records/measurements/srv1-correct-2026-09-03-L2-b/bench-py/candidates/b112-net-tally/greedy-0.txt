@@ -1,0 +1,46 @@
+```python
+from typing import List, Tuple
+
+def net_tally(sheets: List[str]) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    
+    report = []
+    total_sold = 0
+    total_returned = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("sheet must be a string")
+        
+        rows = sheet.split('\n')
+        for row in rows:
+            if not row.strip():
+                continue
+            
+            fields = row.split('|')
+            if len(fields) != 3:
+                raise ValueError("row must have exactly three fields")
+            
+            item = fields[0].strip()
+            sold = fields[1].strip()
+            returned = fields[2].strip()
+            
+            if not sold.isdigit() or not returned.isdigit():
+                raise ValueError("sold or returned field must be a string of decimal digits")
+            
+            if int(returned) > int(sold):
+                raise ValueError("returned total cannot exceed sold total")
+            
+            total_sold += int(sold)
+            total_returned += int(returned)
+            report.append(f"{item:>{len(item)}}  {int(sold) - int(returned)}")
+    
+    if not report:
+        return ""
+    
+    total = total_sold - total_returned
+    report.append(f"{len(report):>{len(item)}}  {total}")
+    
+    return '\n'.join(report)
+```

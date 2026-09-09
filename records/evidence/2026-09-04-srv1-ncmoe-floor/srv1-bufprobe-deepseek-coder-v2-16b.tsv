@@ -1,0 +1,8 @@
+### HOST srv1  2026-09-04T17:21:12+00:00
+### GPU NVIDIA GeForce GTX 1660 SUPER, 6144 MiB, 401 MiB, 580.173.02
+### IMG llamacpp:b10644-L3  MODEL /models/moe/deepseek-coder-v2-16b.gguf  ncmoe=24 c=8192 np=8
+ub	vram_used	model	kv	rs	compute	sum_reported	cuda_ctx
+256	3936	1545.27	2160.00	0	124.39	3829.66	106.34
+512	3960	1545.27	2160.00	0	149.77	3855.04	104.96
+1024	4012	1545.27	2160.00	0	200.54	3905.81	106.19
+### END 2026-09-04T17:23:52+00:00 uptime_since=2026-09-01 08:11:08

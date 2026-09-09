@@ -1,0 +1,6 @@
+```python
+def seat_block(label: str) -> list:
+    if not label or not label[0].isalpha() or not label[1:].isdigit():
+        raise ValueError("Invalid seat label. Must be a single capital letter followed by digits.")
+    return [int(label[1:]), label[0]]
+```

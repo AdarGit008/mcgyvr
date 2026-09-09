@@ -34,34 +34,29 @@ caller can observe:
   ``response_schema`` on a :class:`Request` is a JSON Schema the answer should
   conform to. The OpenAI-compatible path sends it as ``response_format``, and a
   server that implements it answers with the object instead of prose — a whole
-  class of parse failure that then never happens (``docs/port-from-local-ai.md``,
-  D13). Ollama's native path does not carry it: ``/api/generate`` spells the
-  same idea ``format``, which older builds accept only as the string ``json``,
-  so sending a schema there turns a working dispatch into a rejected request on
-  exactly the machines that path exists to reach. A pinned request still runs
-  there and still answers; it answers in prose, and the completion says so in a
-  note rather than leaving a caller to infer it from the shape of the text.
-* **Truncation is read, never inferred.** Ollama's ``done_reason`` and the
-  OpenAI-compatible ``finish_reason`` are the only evidence used. Output that
+  class of parse failure that then never happens
+  (``archive/docs/port-from-local-ai.md``, D13). A path that cannot carry one
+  still runs a pinned request and still answers; it answers in prose, and the
+  completion says so in a note rather than leaving a caller to infer it from
+  the shape of the text.
+* **Truncation is read, never inferred.** The backend's own
+  ``finish_reason`` is the only evidence used. Output that
   merely *looks* cut off is not truncation, and a response whose stop reason is
   absent or unrecognised becomes :attr:`StopReason.UNKNOWN` — which is not read
   as a complete answer. Guessing from output shape is how a truncated patch
   gets applied as a whole one.
 * **Every dispatch is measured.** Latency is wall-clock and host-side, so it is
-  the same quantity on both protocols; token counts are the backend's own, and
+  the same quantity whatever the backend; token counts are the backend's own, and
   are ``None`` when it did not report them. An absent count never becomes zero —
   a zero would average into telemetry as a real measurement of nothing.
 
-**CAV-01, which is why this module has an opinion about Ollama.** Ollama's
-native ``/api/generate`` returned invalid HumanEval+ scores — 32.3% against a
-true 84.1% for Qwen2.5-Coder 7B (``data/README.md``, CLM-0002). The path is
-implemented here because it is what a default Ollama install offers, but it is
-marked: every completion from it carries ``quality_safe=False`` and a note, and
-a :class:`Request` that declares itself ``quality_sensitive`` is refused
-outright with :class:`QualityCaveatError`. That is the whole of #21's third
-acceptance bullet — the dependency is allowed, the *silence* is not. The remedy
-is a config edit rather than a code change, because Ollama also serves the
-OpenAI-compatible shape: point the same host at ``api: openai``.
+**A path that cannot measure says so.** A runner may declare
+``quality_safe=False``: every completion from it then carries that field and a
+note, and a :class:`Request` declaring itself ``quality_sensitive`` is refused
+outright with :class:`QualityCaveatError`. That is #21's third acceptance
+bullet — a caveated dependency is allowed, the *silence* is not. No path in this
+build is caveated. The one that was, and the measurement that caveated it, are
+in ``archive/forensic-ollama/``.
 
 **On credentials.** The key is resolved from the environment at the moment of
 dispatch through :meth:`~mcgyvr.pool.Endpoint.credential` and lives only in the
@@ -93,6 +88,7 @@ from enum import StrEnum
 from typing import Any, ClassVar
 
 from mcgyvr.capacity import Capacity
+from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 
@@ -100,7 +96,11 @@ from mcgyvr.redact import safe_url
 # capped generation on a 6 GB card can take minutes. This is the ceiling on one
 # dispatch, not a health check — #22 owns "is anything there", with a timeout
 # three orders of magnitude shorter.
-GENERATE_TIMEOUT_S = 120.0
+#
+# What a run that declares nothing gets, and no longer the only answer: it is
+# `budgets.request_timeout_s`'s default, imported rather than restated so the
+# config's number and the runner's cannot drift apart.
+GENERATE_TIMEOUT_S = DEFAULT_REQUEST_TIMEOUT_S
 
 # How much of a failed response body an error message quotes. Enough to carry a
 # backend's own explanation, short enough not to paste a model's whole answer
@@ -113,11 +113,15 @@ _ERROR_BODY_CHARS = 400
 # same request on the wire.
 _RESPONSE_SCHEMA_NAME = "reply"
 
-CAV_01_NOTE = (
-    "Served by Ollama's native /api/generate, which CAV-01 records as returning "
-    "invalid quality measurements (32.3% against a true 84.1% for "
-    "qwen2.5-coder:7b). Usable for work, not for measuring a model. Declare the "
-    "same host with api: openai to get the OpenAI-compatible path instead."
+#: What a caveated path puts on every completion it returns. No path in this
+#: build is caveated: the one that was is in ``archive/forensic-ollama/``,
+#: removed on 2026-09-06. The mechanism is kept
+#: because it is general and because ``quality_safe`` is a field telemetry
+#: writes into a write-once journal — a path that cannot measure must still be
+#: able to say so.
+CAVEAT_NOTE = (
+    "Served by a path this build marks as unable to carry a quality "
+    "measurement. Usable for work, not for measuring a model."
 )
 
 
@@ -336,7 +340,7 @@ class Runner(ABC):
             raise QualityCaveatError(
                 f"refusing a quality-sensitive request on the "
                 f"{self.protocol} path of source {self.endpoint.source!r}. "
-                f"{CAV_01_NOTE}"
+                f"{CAVEAT_NOTE}"
             )
 
         url = _url_for(self.endpoint.base_url, self.path)
@@ -369,7 +373,7 @@ class Runner(ABC):
         """Anything about this dispatch that a caller should not have to infer."""
         notes: list[str] = []
         if not self.quality_safe:
-            notes.append(CAV_01_NOTE)
+            notes.append(CAVEAT_NOTE)
         if request.response_schema is not None and not self.honours_response_schema:
             notes.append(
                 f"a response schema was pinned and the {self.protocol} path has "
@@ -422,58 +426,9 @@ class Runner(ABC):
         """Read an answer, raising :class:`ProtocolError` if it cannot be."""
 
 
-class OllamaRunner(Runner):
-    """Ollama's native generate — implemented, and marked by CAV-01.
-
-    ``/api/generate`` is what a default Ollama install offers and what most
-    local setups already have running, so refusing to speak it would refuse the
-    common machine. What it cannot do is carry a measurement: CAV-01 records
-    this path scoring a model at 32.3% against a true 84.1%, and a table
-    regenerated through it would route away from the best model available. So
-    ``quality_safe`` is False here, which puts a note on every completion and
-    refuses a request that declares itself quality-sensitive.
-    """
-
-    protocol: ClassVar[Protocol] = Protocol.OLLAMA
-    path: ClassVar[str] = "/api/generate"
-    quality_safe: ClassVar[bool] = False
-
-    def _payload(self, model: str, request: Request) -> dict[str, Any]:
-        options: dict[str, Any] = {
-            "num_predict": request.max_output_tokens,
-            "temperature": request.temperature,
-        }
-        payload: dict[str, Any] = {
-            "model": model,
-            "prompt": request.prompt,
-            # Nothing here streams: a single document is what makes the stop
-            # reason and the token counts readable in one place.
-            "stream": False,
-            "options": options,
-        }
-        if request.system:
-            payload["system"] = request.system
-        return payload
-
-    def _parse(self, document: dict[str, Any]) -> _Parsed:
-        text = document.get("response")
-        if not isinstance(text, str):
-            raise ProtocolError(
-                f"{self.endpoint.source!r} answered /api/generate without a "
-                f"string 'response' field. Keys present: "
-                f"{', '.join(sorted(document)) or '(none)'}"
-            )
-        return _Parsed(
-            text=text,
-            raw_stop_reason=_as_str(document.get("done_reason")),
-            input_tokens=_as_int(document.get("prompt_eval_count")),
-            output_tokens=_as_int(document.get("eval_count")),
-        )
-
-
 class OpenAIRunner(Runner):
     """The OpenAI-compatible chat-completions shape — vLLM, llama-server, TGI,
-    LM Studio, Ollama's own ``/v1``, and the hosted providers.
+    LM Studio and the hosted providers.
 
     One protocol rather than one integration per vendor, which is what makes
     adding a backend a config entry. It is also the path a measurement must run
@@ -547,7 +502,6 @@ class OpenAIRunner(Runner):
 
 
 _RUNNERS: dict[Protocol, type[Runner]] = {
-    Protocol.OLLAMA: OllamaRunner,
     Protocol.OPENAI: OpenAIRunner,
 }
 
@@ -588,6 +542,15 @@ def dispatch(
     which is right for a single request and wrong for a batch; that is what
     :func:`~mcgyvr.capacity.run_batch` exists to prevent by handing every job
     the capacity it must dispatch under.
+
+    The rung is named to the capacity as well as to the pool, because a rung may
+    declare a width of its own and this is the only place that knows which rung
+    is dispatching. Held against the source alone, a rung's declared width was a
+    number the config could state and nothing could ever reach: a rig whose
+    source line says 1 and whose rung says 16 ran one request at a time, and
+    every report agreed the width was 16. A rung that declares nothing is held
+    against its source's slots exactly as before —
+    :meth:`~mcgyvr.capacity.Capacity.hold` decides that fallback, not this.
     """
     endpoint = source_map.bind(rung)
     step = source_map.get(rung)
@@ -595,7 +558,11 @@ def dispatch(
         raise UnknownRungError(f"no rung named {rung!r}")
     if capacity is None:
         return runner_for(endpoint).generate(step.model, request)
-    with capacity.hold(endpoint):
+    # How long this may wait for a slot is the capacity's own, set from
+    # ``budgets.task_timeout_s`` when it was built from a config: a bound on
+    # the wait belongs to the thing that owns the bound, not to every call
+    # site that has to remember to pass it.
+    with capacity.hold(endpoint, rung=rung):
         return runner_for(endpoint).generate(step.model, request)
 
 
@@ -616,6 +583,11 @@ def dispatch_role(
     the same machine: a verifier sharing a card with the ladder competes with
     it for slots, and a bound that only counted ladder traffic would be
     describing a different machine than the one under load.
+
+    No rung is named, and none can be: a role is a binding to a source and a
+    model with no step of the ladder behind it, so the source's own width is
+    the only width there is to hold it to. Passing a rung here would have to
+    invent one.
     """
     binding = source_map.role(role)
     if binding is None:
@@ -680,7 +652,7 @@ def _url_for(base_url: str, path: str) -> str:
     """Join a source's base URL to a protocol path, tolerating a doubled ``/v1``.
 
     The config reference documents ``base_url`` as where the source answers —
-    a root, ``http://localhost:11434`` — and that is what the local backends
+    a root, ``http://localhost:8080`` — and that is what the local backends
     want. But every hosted provider documents its own endpoint *with* ``/v1``
     on the end, so a user pasting the URL from the page they got their key from
     would otherwise be sent to ``/v1/v1/chat/completions``: a 404 whose message

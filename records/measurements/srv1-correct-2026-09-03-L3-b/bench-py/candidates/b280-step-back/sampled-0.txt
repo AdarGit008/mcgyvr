@@ -1,0 +1,20 @@
+```python
+def step_back(moves: str) -> int:
+    # Initialize the position and maximum distance
+    position = 0
+    max_distance = 0
+    
+    # Iterate through each move in the string
+    for move in moves:
+        # Update the position based on the move
+        if move == 'F':
+            position += 1
+        elif move == 'B':
+            position -= 1
+        
+        # Update the maximum distance if necessary
+        max_distance = max(max_distance, position)
+    
+    # Return the furthest forward position
+    return max_distance
+```

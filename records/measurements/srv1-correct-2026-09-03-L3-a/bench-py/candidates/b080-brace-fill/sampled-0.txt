@@ -1,0 +1,14 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    # Walk the template once, passing literal characters through
+    # and replacing each placeholder from values
+    def replace_placeholder(match):
+        placeholder = match.group(1)
+        if placeholder in values:
+            return values[placeholder]
+        else:
+            raise ValueError(f"Placeholder '{placeholder}' is not found in the values dictionary")
+    return re.sub(r'\{(\w+)\}', replace_placeholder, template)
+```

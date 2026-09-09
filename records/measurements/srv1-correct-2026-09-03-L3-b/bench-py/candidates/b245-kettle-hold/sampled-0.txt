@@ -1,0 +1,20 @@
+```python
+from typing import List, Optional
+
+def kettle_hold(readings: List[int], target: int) -> int:
+    if not readings:
+        return 0
+    
+    count = 0
+    current_max = readings[0]
+    
+    for reading in readings[1:]:
+        if reading > current_max:
+            current_max = reading
+            if reading >= target:
+                count += 1
+        else:
+            break
+    
+    return count
+```

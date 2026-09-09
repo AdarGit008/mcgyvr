@@ -1,0 +1,24 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    
+    if not all(isinstance(y, int) and y >= 0 for y in yields):
+        raise ValueError("All yields must be non-negative integers")
+    
+    if not yields:
+        return 0
+    
+    total = 0
+    current_yield = 0
+    for yield_ in yields:
+        if current_yield == 0:
+            current_yield = yield_
+            total += yield_
+        else:
+            if yield_ > current_yield:
+                total += yield_ - current_yield
+                current_yield = yield_
+    
+    return total
+```

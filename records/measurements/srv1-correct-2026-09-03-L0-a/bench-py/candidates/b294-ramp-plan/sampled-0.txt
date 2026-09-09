@@ -1,0 +1,20 @@
+```python
+from typing import *
+from collections import *
+
+def ramp_step(current: int, target: int, step: int) -> int:
+    if step <= 0:
+        raise ValueError("Step must be positive.")
+    if step == 1:
+        return target
+    if current == target:
+        return target
+    return min(target, current + step)
+
+def ramp_plan(start: int, target: int, step: int) -> List[int]:
+    if step <= 0:
+        raise ValueError("Step must be positive.")
+    if start == target:
+        return [start]
+    return list(range(start, target + 1, step))
+```

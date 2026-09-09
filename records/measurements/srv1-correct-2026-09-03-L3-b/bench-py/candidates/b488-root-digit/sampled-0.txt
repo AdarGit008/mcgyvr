@@ -1,0 +1,18 @@
+```python
+def root_digit(value: int) -> int:
+    """
+    Fold a whole count down to a single figure by adding its figures together,
+    then adding the figures of that answer, again and again until one figure is left.
+    A count already standing as one figure is given back as it is.
+    
+    :param value: The integer to fold.
+    :return: The final single figure.
+    """
+    if value < 10:
+        return value
+    total = 0
+    while value > 0:
+        total += value % 10
+        value = total
+    return total
+```

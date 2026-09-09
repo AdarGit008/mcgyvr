@@ -1,0 +1,23 @@
+```python
+def rank_of(score: int, scores: list) -> int:
+    if score is None:
+        raise ValueError("score cannot be None")
+    if not scores:
+        raise ValueError("scores cannot be empty")
+    if score not in scores:
+        raise ValueError(f"score {score} is not in scores")
+    above = sum(1 for other in scores if other > score)
+    return above + 1
+
+
+def rank_all(scores: list) -> list:
+    """Each score's rank, in the order the scores were given."""
+    ordered = sorted(scores, reverse=True)
+    places = {}
+    for i, value in enumerate(ordered):
+        if value in places:
+            places[value] = max(places[value], i + 1)
+        else:
+            places[value] = i + 1
+    return [places[score] for score in scores]
+```

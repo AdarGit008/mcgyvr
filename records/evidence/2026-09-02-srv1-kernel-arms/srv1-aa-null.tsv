@@ -1,0 +1,104 @@
+### WORKLOAD digest=2f2bb7932a0b660653def819 driver=lcp_sweep_31-08-2026.py
+### START uptime_since=2026-09-01T08:11:08Z pl1_uw=95000000 pl2_uw=120000000 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=4600 ram_mt_s=3600
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.8	p50=1.47	prefill=391.2	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=1	side=a	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=115.8	p50=6.38	prefill=350.9	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.8	arm=L3	img=llamacpp:b10644-L3	rep=1	side=a	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=137.7	p50=11.94	prefill=420.7	ptok=672	otok=220	early_stop=3/8	failed=0/8	wall=12.8	arm=L3	img=llamacpp:b10644-L3	rep=1	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.5	p50=1.47	prefill=389.1	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=1	side=b	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=115.2	p50=6.41	prefill=349.2	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.9	arm=L3	img=llamacpp:b10644-L3	rep=1	side=b	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=130.8	p50=12.63	prefill=408.0	ptok=672	otok=215	early_stop=3/8	failed=0/8	wall=13.2	arm=L3	img=llamacpp:b10644-L3	rep=1	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.2	p50=1.23	prefill=477.9	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=1	side=a	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=132.0	p50=5.41	prefill=330.1	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.4	arm=L3	img=llamacpp:b10644-L3	rep=1	side=a	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=144.9	p50=10.85	prefill=386.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=14.2	arm=L3	img=llamacpp:b10644-L3	rep=1	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.6	p50=1.22	prefill=480.3	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=1	side=b	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=138.1	p50=5.08	prefill=345.3	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.1	arm=L3	img=llamacpp:b10644-L3	rep=1	side=b	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=156.5	p50=10.68	prefill=417.9	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=13.1	arm=L3	img=llamacpp:b10644-L3	rep=1	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.4	p50=1.48	prefill=388.8	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=2	side=b	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=115.1	p50=6.42	prefill=348.9	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.9	arm=L3	img=llamacpp:b10644-L3	rep=2	side=b	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=132.9	p50=12.34	prefill=404.2	ptok=672	otok=221	early_stop=3/8	failed=0/8	wall=13.3	arm=L3	img=llamacpp:b10644-L3	rep=2	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.4	p50=1.48	prefill=388.5	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=2	side=a	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=114.8	p50=6.44	prefill=348.0	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.9	arm=L3	img=llamacpp:b10644-L3	rep=2	side=a	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=129.3	p50=12.44	prefill=391.6	ptok=672	otok=222	early_stop=3/8	failed=0/8	wall=13.7	arm=L3	img=llamacpp:b10644-L3	rep=2	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.5	p50=1.22	prefill=479.5	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=2	side=b	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=132.1	p50=5.41	prefill=330.2	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.4	arm=L3	img=llamacpp:b10644-L3	rep=2	side=b	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=142.7	p50=11.05	prefill=380.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=14.4	arm=L3	img=llamacpp:b10644-L3	rep=2	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.2	p50=1.23	prefill=477.7	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=2	side=a	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=132.1	p50=5.40	prefill=330.4	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.4	arm=L3	img=llamacpp:b10644-L3	rep=2	side=a	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=146.0	p50=10.71	prefill=389.7	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=14.1	arm=L3	img=llamacpp:b10644-L3	rep=2	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.4	p50=1.48	prefill=388.4	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=3	side=a	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=114.9	p50=6.43	prefill=348.2	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.9	arm=L3	img=llamacpp:b10644-L3	rep=3	side=a	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=132.6	p50=12.39	prefill=406.5	ptok=672	otok=219	early_stop=3/8	failed=0/8	wall=13.2	arm=L3	img=llamacpp:b10644-L3	rep=3	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.3	p50=1.48	prefill=388.0	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=3	side=b	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=121.2	p50=6.07	prefill=367.4	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.5	arm=L3	img=llamacpp:b10644-L3	rep=3	side=b	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=126.1	p50=12.58	prefill=369.0	ptok=672	otok=229	early_stop=3/8	failed=0/8	wall=14.6	arm=L3	img=llamacpp:b10644-L3	rep=3	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.6	p50=1.22	prefill=480.1	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=3	side=a	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=136.9	p50=5.13	prefill=342.3	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.2	arm=L3	img=llamacpp:b10644-L3	rep=3	side=a	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=145.1	p50=10.79	prefill=387.4	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=14.2	arm=L3	img=llamacpp:b10644-L3	rep=3	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.6	p50=1.22	prefill=480.0	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=3	side=b	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=118.4	p50=6.26	prefill=296.0	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=8.3	arm=L3	img=llamacpp:b10644-L3	rep=3	side=b	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=150.7	p50=10.79	prefill=402.2	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=13.6	arm=L3	img=llamacpp:b10644-L3	rep=3	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.3	p50=1.48	prefill=388.1	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=4	side=b	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=121.2	p50=6.07	prefill=367.4	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.5	arm=L3	img=llamacpp:b10644-L3	rep=4	side=b	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=128.8	p50=12.60	prefill=402.0	ptok=672	otok=215	early_stop=3/8	failed=0/8	wall=13.4	arm=L3	img=llamacpp:b10644-L3	rep=4	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.3	p50=1.48	prefill=388.0	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=4	side=a	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=114.8	p50=6.44	prefill=347.8	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.9	arm=L3	img=llamacpp:b10644-L3	rep=4	side=a	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=128.9	p50=12.72	prefill=382.2	ptok=672	otok=226	early_stop=2/8	failed=0/8	wall=14.1	arm=L3	img=llamacpp:b10644-L3	rep=4	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.1	p50=1.23	prefill=477.2	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=4	side=b	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=131.5	p50=5.43	prefill=328.8	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.5	arm=L3	img=llamacpp:b10644-L3	rep=4	side=b	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=139.7	p50=11.34	prefill=372.9	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=14.7	arm=L3	img=llamacpp:b10644-L3	rep=4	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.5	p50=1.22	prefill=479.6	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=4	side=a	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=132.1	p50=5.40	prefill=330.3	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.4	arm=L3	img=llamacpp:b10644-L3	rep=4	side=a	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=137.4	p50=11.27	prefill=366.8	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=15.0	arm=L3	img=llamacpp:b10644-L3	rep=4	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.3	p50=1.48	prefill=388.4	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=5	side=a	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=121.3	p50=6.07	prefill=367.5	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.5	arm=L3	img=llamacpp:b10644-L3	rep=5	side=a	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=136.9	p50=11.96	prefill=417.0	ptok=672	otok=220	early_stop=3/8	failed=0/8	wall=12.9	arm=L3	img=llamacpp:b10644-L3	rep=5	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=2588	warm_ptok=711	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.3	p50=1.48	prefill=388.4	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5	arm=L3	img=llamacpp:b10644-L3	rep=5	side=b	otok_req=101
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=121.3	p50=6.07	prefill=367.5	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.5	arm=L3	img=llamacpp:b10644-L3	rep=5	side=b	otok_req=245
+srv1	L3-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=127.3	p50=12.65	prefill=385.4	ptok=672	otok=222	early_stop=2/8	failed=0/8	wall=14.0	arm=L3	img=llamacpp:b10644-L3	rep=5	side=b	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=a
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.1	p50=1.23	prefill=477.4	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=5	side=a	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=137.2	p50=5.11	prefill=343.1	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.1	arm=L3	img=llamacpp:b10644-L3	rep=5	side=a	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=148.1	p50=11.03	prefill=395.2	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=13.9	arm=L3	img=llamacpp:b10644-L3	rep=5	side=a	otok_req=256
+### RIG cpu_max_mhz=4600 ram_mt_s=3600 pl1_uw=95000000 pl2_uw=120000000 driver=580.173.02 gpu_reserve_mib=401 gpu_name=NVIDIA_GeForce_GTX_1660_SUPER gpu_vram_mib=6144 gpu_cc=7.5 cpu_model=Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-L3	real_ctx_slot=2048	vram=4976	warm_ptok=724	arm=L3	img=llamacpp:b10644-L3	side=b
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.1	p50=1.23	prefill=477.1	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2	arm=L3	img=llamacpp:b10644-L3	rep=5	side=b	otok_req=101
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=131.6	p50=5.42	prefill=329.0	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.4	arm=L3	img=llamacpp:b10644-L3	rep=5	side=b	otok_req=245
+srv1	L3-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=134.3	p50=11.60	prefill=358.6	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=15.3	arm=L3	img=llamacpp:b10644-L3	rep=5	side=b	otok_req=256
+### NULL spread_pct=15.3103
+### END uptime_since=2026-09-01T08:11:08Z pl1_uw=95000000 pl2_uw=120000000 cpu_max_mhz=4600 ram_mt_s=3600

@@ -1,0 +1,23 @@
+```python
+import math
+
+
+def explode_kit(catalog, kit, want):
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    totals = {}
+    # TODO: work down from kit, turning each requirement into whole runs
+    # and charging a run's parts to its sub-kits or to the base totals.
+    current_kit = kit
+    while want > 0:
+        recipe = catalog[current_kit]
+        runs = math.ceil(want / recipe["makes"])
+        for component, count in recipe["parts"].items():
+            if component in catalog:
+                current_kit = component
+            else:
+                totals[component] = totals.get(component, 0) + count * runs
+        want -= recipe["makes"] * runs
+    return totals
+```

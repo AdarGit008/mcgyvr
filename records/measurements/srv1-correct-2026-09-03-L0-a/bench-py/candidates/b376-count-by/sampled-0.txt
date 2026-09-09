@@ -1,0 +1,13 @@
+```python
+from typing import *
+from collections import Counter
+
+def count_by(records: list, field: str) -> dict:
+    if not field:
+        raise ValueError("Field name cannot be empty")
+
+    if not records:
+        return {}
+
+    return Counter(record[field] for record in records if field in record)
+```

@@ -1,0 +1,27 @@
+```python
+from typing import List
+
+def decode_escaped_note(text: str) -> str:
+    # Step 1: Fold the lines
+    folded_text = ""
+    for line in text.split('\n'):
+        folded_line = ''.join(line.rstrip().split())
+        folded_text += folded_line + '\n'
+    
+    # Step 2: Walk the lines and decode escapes
+    decoded_text = ""
+    i = 0
+    while i < len(folded_text):
+        if i < len(folded_text) - 1 and folded_text[i] == '=' and folded_text[i+1] == '=':
+            i += 2
+        elif i < len(folded_text) - 1 and folded_text[i] == '=' and folded_text[i+1].isupper():
+            i += 2
+            hex_code = folded_text[i:i+2]
+            decoded_text += chr(int(hex_code, 16))
+            i += 2
+        else:
+            decoded_text += folded_text[i]
+            i += 1
+    
+    return decoded_text
+```

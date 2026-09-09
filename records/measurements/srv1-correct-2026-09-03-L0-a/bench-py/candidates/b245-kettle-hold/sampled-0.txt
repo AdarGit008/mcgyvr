@@ -1,0 +1,19 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    """
+    Given temperature readings in the order they were taken and a target, report how many readings
+    at the very end of the run sat at or above that target without interruption. A run that dips
+    below the target stops the count there.
+
+    :param readings: List of temperature readings
+    :param target: Target temperature
+    :return: Number of readings at or above the target
+    """
+    holding_count = 0
+    for reading in readings[-1::-1]:  # Start from the last reading and go backwards
+        if reading >= target:
+            holding_count += 1
+        else:
+            break  # Stop counting if the reading is below the target
+    return holding_count
+```

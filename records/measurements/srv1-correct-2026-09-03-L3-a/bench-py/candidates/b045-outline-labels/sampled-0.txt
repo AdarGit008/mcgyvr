@@ -1,0 +1,41 @@
+```python
+def number_sections(sections: list) -> list:
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+    
+    def recursive_number_sections(sections, parent_level=1):
+        result = []
+        for section in sections:
+            if not isinstance(section, dict) or not section or 'heading' not in section:
+                raise ValueError("Section must be a mapping with 'heading'")
+            if not isinstance(section['heading'], str):
+                raise ValueError("Heading must be a non-empty string")
+            heading = section['heading']
+            number = f"{parent_level}.{heading.replace(' ', '.')}"
+            result.append(number)
+            if 'children' in section:
+                result.extend(recursive_number_sections(section['children'], parent_level + 1))
+        return result
+    
+    return recursive_number_sections(sections)
+
+def section_count(sections: list) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+    
+    def recursive_section_count(sections):
+        count = 0
+        for section in sections:
+            if not isinstance(section, dict) or not section or 'heading' not in section:
+                raise ValueError("Section must be a mapping with 'heading'")
+            if not isinstance(section['heading'], str):
+                raise ValueError("Heading must be a non-empty string")
+            heading = section['heading']
+            if 'children' in section:
+                count += 1 + recursive_section_count(section['children'])
+            else:
+                count += 1
+        return count
+    
+    return recursive_section_count(sections)
+```

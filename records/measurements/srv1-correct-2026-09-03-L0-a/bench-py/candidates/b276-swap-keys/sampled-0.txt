@@ -1,0 +1,13 @@
+```python
+def swap_keys(names: dict) -> dict:
+    # Create a dictionary that maps codes to names
+    code_to_name = {code: name for name, code in names.items()}
+    
+    # Create a dictionary that maps names to codes, ensuring the names are sorted first
+    name_to_code = {}
+    for name in sorted(names.keys()):
+        if name not in code_to_name:
+            name_to_code[name] = code_to_name[name]
+    
+    return name_to_code
+```

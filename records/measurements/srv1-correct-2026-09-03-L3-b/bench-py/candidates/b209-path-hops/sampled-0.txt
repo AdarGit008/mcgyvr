@@ -1,0 +1,43 @@
+```python
+from typing import List
+
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path: str) -> List[str]:
+        result = []
+        current_segment = ""
+        for segment in path.split("/"):
+            if current_segment == ".":
+                current_segment = ""
+            elif current_segment == "..":
+                if result:
+                    result.pop()
+            elif segment != "." and segment != "..":
+                current_segment += segment + "/"
+            if current_segment:
+                result.append(current_segment)
+        return result
+
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+    
+    # Check if the paths are the same
+    if start_segments == goal_segments:
+        return 0
+    
+    # Find the common prefix
+    common_prefix = ""
+    while start_segments and goal_segments and start_segments[0] == goal_segments[0]:
+        common_prefix += start_segments[0]
+        start_segments.pop(0)
+        goal_segments.pop(0)
+    
+    # Calculate the number of hops
+    start_hops = len(start_segments) - len(common_prefix)
+    goal_hops = len(goal_segments) - len(common_prefix)
+    total_hops = start_hops + goal_hops
+    
+    if ".." in common_prefix:
+        raise ValueError("Invalid path: two dots have no segment left to drop")
+    
+    return total_hops
+```

@@ -1,0 +1,22 @@
+```python
+from typing import *
+from collections import *
+
+def end_grab(cards: List[int]) -> Dict[str, List[int]]:
+    if not cards:
+        return {"first": [], "second": [], "taken": []}
+    
+    first, second = cards[0], cards[-1]
+    
+    if first == second:
+        taken = [first]
+        left = cards[1:-1]
+    elif first > second:
+        taken = [second]
+        left = cards[0:-1]
+    else:
+        taken = [first]
+        left = cards[1:]
+    
+    return {"first": [first], "second": [second], "taken": taken}
+```

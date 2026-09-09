@@ -1,0 +1,9 @@
+```python
+def digit_word(digit: int) -> str:
+    """Return the word for the given digit."""
+    return "zero" if digit == 0 else "one" if digit == 1 else "two" if digit == 2 else "three" if digit == 3 else "four" if digit == 4 else "five" if digit == 5 else "six" if digit == 6 else "seven" if digit == 7 else "eight" if digit == 8 else "nine"
+
+def digit_words(digits: str) -> str:
+    """Return a string of the words for each digit in the input string."""
+    return " ".join(digit_word(int(digit)) for digit in digits)
+```

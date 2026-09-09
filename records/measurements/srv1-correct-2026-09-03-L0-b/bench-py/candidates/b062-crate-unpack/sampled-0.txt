@@ -1,0 +1,15 @@
+```python
+def unpack_crates(crate: list) -> list:
+    """Returns a flat list of items from a nested list of crates."""
+    return [item for sublist in crate for item in sublist if isinstance(item, (str, list))]
+
+def crate_depth(crate: list) -> int:
+    """Returns the depth of a nested list of crates."""
+    def helper(crate, depth=1):
+        if not isinstance(crate, list):
+            raise ValueError("Invalid entry")
+        if not crate:
+            return depth - 1
+        return max(helper(subcrate, depth + 1) for subcrate in crate)
+    return helper(crate)
+```

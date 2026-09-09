@@ -571,6 +571,16 @@ def open_sandbox(
     callers that already probed). The returned sandbox carries ``notes`` naming
     the weaker mode when one is in force — the caller surfaces them once at open.
     """
+    if mode != "tempdir":
+        # Before the daemon is even probed: a `docker info` under DOCKER_HOST
+        # would go wherever the variable points, a rig included, and the
+        # sandbox runs on this machine's daemon or nowhere.
+        from mcgyvr.sandbox.image import foreign_daemon
+
+        refusal = foreign_daemon()
+        if refusal is not None:
+            raise SandboxError(refusal)
+
     if docker_available is None:
         from mcgyvr.detect import detect_docker
 

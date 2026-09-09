@@ -1,0 +1,6 @@
+```python
+def mid_pair(values: list) -> list:
+    if not values:
+        return [None, None]
+    
+    sorted_values =

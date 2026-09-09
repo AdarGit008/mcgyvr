@@ -1,0 +1,37 @@
+```python
+"""A sectioned sales report: item lines, subtotals, and a ranked summary."""
+
+
+def section_report(rows):
+    if not isinstance(rows, list) or not all(isinstance(row, list) and len(row) == 3 for row in rows):
+        raise ValueError("Invalid rows argument. Must be a list of three-item lists.")
+    
+    lines = []
+    sections = []
+    current = ""
+    subtotal = 0
+    count = 0
+    grand = 0
+    for section, label, amount in rows:
+        if not isinstance(section, str) or section == "":
+            raise ValueError("Invalid section. Must be a non-empty string.")
+        if not isinstance(label, str) or label == "":
+            raise ValueError("Invalid label. Must be a non-empty string.")
+        if not isinstance(amount, int):
+            raise ValueError("Invalid amount. Must be an integer.")
+        if current != "" and section != current:
+            lines.append(["section", current, "", subtotal])
+            sections.append([current, count, subtotal])
+            count = 0
+        current = section
+        lines.append(["item", section, label, amount])
+        subtotal += amount
+        count += 1
+        grand += amount
+    if current != "":
+        lines.append(["section", current, "", subtotal])
+        sections.append([current, count, subtotal])
+    lines.append(["grand", "", "", grand])
+    sections.sort(key=lambda entry: (-entry[2], entry[0]))
+    return {"lines": lines, "sections": sections, "grand": grand}
+```

@@ -1,0 +1,25 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    # Walk the template once, passing literal characters through and replacing placeholders from values
+    result = ''
+    i = 0
+    while i < len(template):
+        if template[i] == '{':
+            name = ''
+            i += 1
+            while i < len(template) and template[i].isalnum():
+                name += template[i]
+                i += 1
+            if i == len(template) or template[i] != '}':
+                raise ValueError("Unmatched placeholder")
+            if name in values:
+                result += values[name]
+            else:
+                raise ValueError(f"Unknown placeholder: {name}")
+        else:
+            result += template[i]
+        i += 1
+    return result
+```

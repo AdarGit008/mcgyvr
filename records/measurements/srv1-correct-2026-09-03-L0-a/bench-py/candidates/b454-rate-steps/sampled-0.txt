@@ -1,0 +1,41 @@
+```python
+from typing import List, Union
+
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """
+    Calculate the charge for one step.
+    
+    Args:
+    amount (int): The total amount to be charged.
+    fixed (int): The fixed charge.
+    percent (int): The percentage charge.
+    
+    Returns:
+    int: The total charge for one step.
+    
+    Raises:
+    ValueError: If the charge for one step would be more than the amount.
+    """
+    if (fixed + (amount * (percent / 100))) > amount:
+        raise ValueError("Charge for one step would be more than the amount.")
+    return fixed + (amount * (percent / 100))
+
+def rate_steps(amounts: List[int], fixed: int, percent: int) -> List[int]:
+    """
+    Calculate the charge for each of several amounts.
+    
+    Args:
+    amounts (list of int): The amounts to be charged.
+    fixed (int): The fixed charge.
+    percent (int): The percentage charge.
+    
+    Returns:
+    list of int: The total charge for each amount.
+    
+    Raises:
+    ValueError: If the charge for any amount would be more than the amount itself.
+    """
+    if any((amount + (amount * (percent / 100))) > amount for amount in amounts):
+        raise ValueError("Charge for any amount would be more than the amount.")
+    return [fixed + (amount * (percent / 100)) for amount in amounts]
+```

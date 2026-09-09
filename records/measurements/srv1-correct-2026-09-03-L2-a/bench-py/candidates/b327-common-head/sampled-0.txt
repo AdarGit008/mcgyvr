@@ -1,0 +1,20 @@
+```python
+def common_head(words: list) -> str:
+    """
+    Return the longest run of characters that every word in a list begins with.
+    """
+    if not words:
+        return ""
+    
+    # Find the shortest word to determine the common prefix
+    min_word = min(words, key=len)
+    common_prefix = ""
+    
+    for i in range(len(min_word)):
+        if all(word[i] == min_word[i] for word in words):
+            common_prefix += min_word[i]
+        else:
+            break
+    
+    return common_prefix
+```

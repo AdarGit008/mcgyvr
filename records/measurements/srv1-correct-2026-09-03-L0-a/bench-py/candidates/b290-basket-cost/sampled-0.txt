@@ -1,0 +1,35 @@
+```python
+from typing import List
+
+def line_cost(price: int, quantity: int) -> int:
+    """
+    Returns the cost of a single line, given its unit price and quantity.
+    
+    Parameters:
+    price (int): The price of a single item.
+    quantity (int): The number of items in the line.
+    
+    Returns:
+    int: The total cost of the line.
+    """
+    if price < 0 or quantity < 0:
+        raise ValueError("Price and quantity must be non-negative.")
+    return price * quantity
+
+def basket_cost(lines: List[int], discount: int) -> int:
+    """
+    Calculates the total cost of a basket of items, applying a discount if applicable.
+    
+    Parameters:
+    lines (List[int]): A list of integers representing the prices of the items.
+    discount (int): The discount percentage to apply to the total cost.
+    
+    Returns:
+    int: The total cost of the basket, after applying the discount.
+    """
+    if discount > 100:
+        raise ValueError("Discount must be less than or equal to 100.")
+    total_cost = sum(lines)
+    discounted_cost = total_cost * (100 - discount) / 100
+    return int(discounted_cost)
+```

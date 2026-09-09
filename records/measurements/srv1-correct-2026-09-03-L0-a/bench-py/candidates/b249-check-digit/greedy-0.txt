@@ -1,0 +1,13 @@
+```python
+def check_digit(code: str) -> int:
+    if not code:
+        return 0
+
+    total = sum(int(digit) for digit in code)
+    remainder = total % 10
+
+    if remainder == 0:
+        return 0
+
+    return 10 - remainder
+```

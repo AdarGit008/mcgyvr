@@ -1,0 +1,47 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+import re
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    if not isinstance(installed, str):
+        raise ValueError("installed must be a string")
+    
+    if not isinstance(steps, list):
+        raise ValueError("steps must be a list")
+    
+    for step in steps:
+        if not isinstance(step, dict) or "tag" not in step or "requires" not in step:
+            raise ValueError("each step must be a {tag, requires} record")
+    
+    installed_parts = re.split(r'\.', installed)
+    if len(installed_parts) != 2 or not all(part.isdigit() for part in installed_parts):
+        raise ValueError("installed must be a two-part decimal string")
+    
+    if not all(isinstance(part, str) for part in steps):
+        raise ValueError("steps must be a list of strings")
+    
+    for step in steps:
+        tag_parts = re.split(r'\.', step["tag"])
+        if len(tag_parts) != 2 or not all(part.isdigit() for part in tag_parts):
+            raise ValueError("each step's tag must be a two-part decimal string")
+    
+        if len(tag_parts) != 2 or not all(part.isdigit() for part in tag_parts):
+            raise ValueError("each step's tag must be a two-part decimal string")
+        if int(tag_parts[0]) < int(installed_parts[0]):
+            raise ValueError("step's tag must be at least as old as the installed tag")
+        if int(tag_parts[0]) == int(installed_parts[0]) and int(tag_parts[1]) <= int(installed_parts[1]):
+            raise ValueError("step's tag must be strictly older than the installed tag")
+    
+    carried = installed
+    for step in steps:
+        if carried < step["requires"]:
+            raise ValueError(
+                f"step {step['tag']} requires at least {step['requires']}"
+            )
+        if step["tag"] <= carried:
+            raise ValueError(f"step {step['tag']} is not an upgrade from {carried}")
+        carried = step["tag"]
+    
+    return carried
+```

@@ -1,0 +1,25 @@
+```python
+def config_value(layers: list, name: str) -> str | None:
+    if not isinstance(layers, list):
+        raise ValueError("Layers must be a list of strings.")
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Name must be a non-empty string.")
+    
+    layers = [layer.strip() for layer in layers if layer.strip() not in ("", "#")]
+    
+    value = None
+    for layer in layers:
+        if layer.startswith("!"):
+            name = layer[1:]
+            if name in config:
+                del config[name]
+            continue
+        parts = layer.split("=", 1)
+        if len(parts) == 2:
+            config[parts[0].strip()] = parts[1].strip()
+            value = config.get(name)
+    
+    return value
+```
+
+Please verify the solution against the provided edge cases and common pitfalls.

@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # The JS half of the gate's own bar (ADR-0025). Two reasons this job needs
-      # a toolchain the baseline job's Node 20 does not supply:
+      # a Node newer than 20:
       #
       # * the JS lint rung is only a rung if it can reject, and the test that
       #   proves it needs eslint plus the pinned typescript-eslint parser. A
@@ -41,12 +41,13 @@ jobs:
         run: make lint
       - name: typecheck
         run: make typecheck
-      # The config reference is generated from config.SCHEMA. This fails a
-      # schema change that did not regenerate it, which is the only thing
-      # keeping a documented key and a validated key from drifting apart.
-      # It lives in this job on purpose: `test` is a required status check,
-      # so drift cannot merge. A separate job would not be required.
-      - name: config reference is current
+      # The config reference is rendered from config.SCHEMA, checked and
+      # deleted — no copy is kept, so the schema is the only description of
+      # the config. The /mcgyvr skill is the document that is committed, and
+      # this fails a contract-schema change that did not regenerate it. It
+      # lives in this job on purpose: `test` is a required status check, so
+      # drift cannot merge. A separate job would not be required.
+      - name: config reference renders and the skill is current
         run: make docs-check
       - name: test
         run: make test

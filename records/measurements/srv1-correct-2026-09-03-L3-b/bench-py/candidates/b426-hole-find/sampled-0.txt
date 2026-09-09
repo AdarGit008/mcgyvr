@@ -1,0 +1,31 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """
+    Returns a list of numbers starting from `first` and including `count` elements.
+    
+    Parameters:
+    - first: The starting number of the sequence.
+    - count: The number of elements to include in the sequence.
+    
+    Returns:
+    - A list of integers.
+    """
+    return list(range(first, first + count))
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """
+    Finds the first number in the range [first, first + count) that is not present in the `seen` list.
+    
+    Parameters:
+    - seen: A list of numbers that have already been encountered.
+    - first: The starting number of the range to search.
+    - count: The number of elements to search in the range.
+    
+    Returns:
+    - The first missing number in the range, or None if all numbers are present.
+    """
+    for num in range(first, first + count):
+        if num not in seen:
+            return num
+    return None
+```

@@ -1,0 +1,26 @@
+```python
+from typing import List, Dict
+
+def row_key(name: str) -> str:
+    """
+    Return the first letter of a name in upper case.
+    """
+    if not name:
+        raise ValueError("Name cannot be empty")
+    return name[0].upper()
+
+def index_rows(names: List[str]) -> Dict[str, List[str]]:
+    """
+    Return a dictionary where keys are the first letter of names in upper case,
+    and values are lists of names sorted by their arrival order.
+    """
+    if not names:
+        return {}
+    rows = {}
+    for name in names:
+        key = row_key(name)
+        if key not in rows:
+            rows[key] = []
+        rows[key].append(name)
+    return {key: sorted(values) for key, values in rows.items()}
+```

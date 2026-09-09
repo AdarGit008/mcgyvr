@@ -9,12 +9,18 @@ loose implementation would wave through: a non-git directory, a file where a
 directory was expected, and an input that is neither a path nor a URL. The
 clone path is exercised without a network by cloning a local repository through
 a ``file://`` URL.
+
+One more boundary sits here since 2026-09-05: an ssh remote is refused before
+git runs, because ``git clone`` over ssh spawns ``ssh`` from PATH and nothing
+in mcgyvr opens ssh except the rig door (``mcgyvr.serving.gatelib.ssh``).
 """
 
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -23,6 +29,7 @@ from mcgyvr.orchestrator.repo import (
     AttachedRepo,
     AttachError,
     _looks_remote,
+    _ssh_form,
     attach,
 )
 
@@ -228,3 +235,83 @@ def test_urls_are_recognised_as_remote(source: str) -> None:
 )
 def test_local_paths_are_not_mistaken_for_remote(source: str) -> None:
     assert _looks_remote(source) is False
+
+
+# --- ssh remotes: refused before git runs, so no ssh is ever spawned ------
+
+SSH_REFUSED = (
+    "an ssh remote is refused: nothing in mcgyvr opens ssh except the rig "
+    "door; use https://, git://, file:// or a local path"
+)
+
+
+def _never(*args: object, **kwargs: object) -> NoReturn:
+    raise AssertionError(f"git was spawned: {args}")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "ssh://git@github.com/owner/repo.git",
+        "SSH://github.com/owner/repo.git",
+        "git+ssh://git@github.com/owner/repo.git",
+        "git@github.com:owner/repo.git",
+        "srv1:/home/adaramir/repos/x.git",
+        "adaramir@srv2:repos/x.git",
+    ],
+    ids=[
+        "ssh-scheme",
+        "SSH-upper",
+        "git+ssh",
+        "git-at-host",
+        "host-path",
+        "user-at-host-path",
+    ],
+)
+def test_an_ssh_remote_is_refused_before_git_runs(
+    source: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(subprocess, "run", _never)
+    with pytest.raises(AttachError) as raised, attach(source):
+        pass
+    assert SSH_REFUSED in str(raised.value), str(raised.value)
+    assert source in str(raised.value)
+    assert _ssh_form(source) is not None
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://github.com/owner/repo.git",
+        "http://github.com/owner/repo.git",
+        "git://github.com/owner/repo.git",
+        "file:///srv/repos/repo.git",
+    ],
+)
+def test_a_transport_that_opens_no_ssh_is_handed_to_git(
+    source: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control: an admitted form reaches ``git clone``. git is a stub that
+    fails, so the proof of admission is git's own failure, not a refusal."""
+    seen: list[list[str]] = []
+
+    def fake_run(
+        argv: Sequence[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        seen.append(list(argv))
+        return subprocess.CompletedProcess(list(argv), 128, "", "fatal: stub")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert _ssh_form(source) is None
+    with pytest.raises(AttachError, match="could not clone"), attach(source):
+        pass
+    assert seen and seen[0][:3] == ["git", "clone", "--quiet"], seen
+    assert source in seen[0]
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["/home/user/repo", "./relative/repo", "repo", r"C:\Users\me\repo"],
+)
+def test_a_local_path_is_not_an_ssh_form(source: str) -> None:
+    assert _ssh_form(source) is None

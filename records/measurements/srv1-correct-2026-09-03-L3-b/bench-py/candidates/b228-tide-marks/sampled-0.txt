@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def tide_marks(levels: List[int]) -> List[int]:
+    """
+    Given a list of integer water levels read in order, return the positions
+    of every local peak: a position whose level is strictly greater than the
+    level immediately before it and the level immediately after it. The first
+    and last positions are never peaks. Return the positions in increasing order,
+    and an empty list when there are none.
+    """
+    if not levels:
+        return []
+    
+    peaks = []
+    for i in range(1, len(levels) - 1):
+        if levels[i] > levels[i - 1] and levels[i] > levels[i + 1]:
+            peaks.append(i)
+    
+    return peaks
+```

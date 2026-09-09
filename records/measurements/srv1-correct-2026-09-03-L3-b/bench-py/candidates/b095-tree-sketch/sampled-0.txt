@@ -1,0 +1,24 @@
+```python
+from typing import *
+from collections import *
+
+def draw_tree_lines(root: dict) -> list:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    
+    def draw_node(node, indent):
+        if not isinstance(node, dict) or not node or not isinstance(node.get("name"), str) or node.get("name") == "" or node.get("name") == "\n" or not isinstance(node.get("children"), list):
+            raise ValueError("Invalid node.")
+        
+        lines = []
+        lines.append(f"{indent}{node['name']}")
+        
+        if node["children"]:
+            indent += "   " if node.get("children")[-1]["name"] == "" else "'-- "
+            for child in node["children"]:
+                lines.extend(draw_node(child, indent))
+        
+        return lines
+    
+    return draw_node(root, "")
+```

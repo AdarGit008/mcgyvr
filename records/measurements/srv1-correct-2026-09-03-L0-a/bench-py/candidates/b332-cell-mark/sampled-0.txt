@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def live_count(neighbours: List[int]) -> int:
+    """Return the number of alive neighbours."""
+    return sum(neighbours)
+
+def live_next(alive: bool, neighbours: List[int]) -> bool:
+    """Return True if the cell is alive in the next round."""
+    if alive:
+        return live_count(neighbours) in [2, 3]
+    else:
+        return live_count(neighbours) == 3
+```

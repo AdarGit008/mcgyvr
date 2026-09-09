@@ -3,7 +3,7 @@
 
 One function decides which half of the campaign an admitted problem belongs
 to, from its id alone. The rule was declared in
-``docs/bench-design-2026-08-10.md`` and committed here before any generated
+``archive/docs/bench-design-2026-08-10.md`` and committed here before any generated
 problem existed — that ordering, not the hash, is what makes the split blind:
 no prose, no difficulty figure, no measurement can move a problem across the
 line, and nothing that arrives later can have been fitted to it.

@@ -1,0 +1,20 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    # Validate input
+    if not isinstance(version, str) or len(version) != 3 or version.count('.') != 2:
+        raise ValueError("Invalid version string format")
+    parts = version.split('.')
+    for i, part in enumerate(parts):
+        if not part.isdigit() or part[0] == '0':
+            raise ValueError(f"Component {i} must be a non-negative integer")
+    if part not in ['major', 'minor', 'patch']:
+        raise ValueError("Part must be one of 'major', 'minor', 'patch'")
+    
+    # Advance the specified part
+    parts[part == 'major'] += 1
+    parts[part == 'minor'] = 0
+    parts[part == 'patch'] = 0
+    
+    # Format the result
+    return '.'.join(str(part) for part in parts)
+```

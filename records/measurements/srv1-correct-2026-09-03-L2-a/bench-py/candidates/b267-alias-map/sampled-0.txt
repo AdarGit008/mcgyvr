@@ -1,0 +1,21 @@
+```python
+def alias_resolve(aliases: dict, name: str) -> str:
+    """
+    Resolve a name to its value in the aliases dictionary, following one hop and no further.
+    Return the name itself if it stands for nothing.
+    
+    :param aliases: A dictionary mapping names to their values.
+    :param name: The name to resolve.
+    :return: The resolved name or the original name if it stands for nothing.
+    """
+    return aliases.get(name, name)
+
+def alias_names(aliases: dict) -> list:
+    """
+    Return a sorted list of all names that stand for something in the aliases dictionary.
+    
+    :param aliases: A dictionary mapping names to their values.
+    :return: A sorted list of unique aliases.
+    """
+    return sorted(set(aliases.values()))
+```

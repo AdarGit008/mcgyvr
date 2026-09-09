@@ -1,0 +1,9 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    """
+    Count the number of readings at the very end of the run that sat at or above the target without interruption.
+    A run that dips below the target stops the count there.
+    """
+    count = 0
+    for reading in reversed(readings):
+        if

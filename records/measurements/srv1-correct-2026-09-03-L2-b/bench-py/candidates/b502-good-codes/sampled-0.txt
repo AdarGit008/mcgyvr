@@ -1,0 +1,7 @@
+```python
+def code_sum(code: str) -> int:
+    return sum(int(char) for char in code if char.isdigit())
+
+def good_codes(codes: list[str]) -> list[str]:
+    return [code for code in codes if code_sum(code) % 3 == 0]
+```

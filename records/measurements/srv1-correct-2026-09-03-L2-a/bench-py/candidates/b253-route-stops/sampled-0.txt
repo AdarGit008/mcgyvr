@@ -1,0 +1,24 @@
+```python
+def route_stops(route: str) -> list:
+    """
+    Break a route written as stop names joined by greater-than signs into the stops themselves,
+    trimming any spaces around each one.
+    
+    :param route: A string representing a route with stop names separated by '>'.
+    :return: A list of stops.
+    """
+    stops = [stop.strip() for stop in route.split('>')]
+    return stops
+
+def route_hops(route: str) -> int:
+    """
+    Count the journeys between stops, one fewer than the stops, and none at all for a blank route.
+    
+    :param route: A string representing a route with stop names separated by '>'.
+    :return: The number of journeys.
+    """
+    if not route:
+        return 0
+    stops = route_stops(route)
+    return len(stops) - 1
+```

@@ -1,0 +1,44 @@
+```python
+def fill_order(sources: list, needed: int) -> dict:
+    if needed <= 0:
+        raise ValueError("Invalid needed value")
+    
+    if not sources or not all(isinstance(source, (list, tuple)) and len(source) == 2 for source in sources):
+        raise ValueError("Invalid sources list")
+    
+    if not all(isinstance(stock, int) and stock > 0 for source in sources):
+        raise ValueError("Invalid stock in sources list")
+    
+    if not all(isinstance(cost, int) and cost > 0 for source in sources):
+        raise ValueError("Invalid cost in sources list")
+    
+    if not all(stock >= needed for stock in sources):
+        raise ValueError("Not enough stock in all sources")
+    
+    sources = sorted(sources, key=lambda source: (source[0], sources.index(source)))
+    order = []
+    taken = [0] * len(sources)
+    cost = 0
+    remaining = needed
+    
+    while remaining > 0:
+        min_cost_index = 0
+        min_cost = sources[0][0]
+        for i in range(1, len(sources)):
+            if sources[i][0] < min_cost:
+                min_cost_index = i
+                min_cost = sources[i][0]
+        
+        unit_cost, stock = sources[min_cost_index]
+        if stock <= remaining:
+            taken[min_cost_index] = stock
+            cost += stock * unit_cost
+            remaining -= stock
+        else:
+            taken[min_cost_index] = remaining
+            cost += remaining * unit_cost
+            remaining = 0
+    
+    leftover = [sources[i][1] - taken[i] for i in range(len(sources))]
+    return {"cost": cost, "taken": taken, "leftover": leftover}
+```

@@ -1,0 +1,36 @@
+```python
+def run_press(jobs: list, budget: int) -> dict:
+    if not isinstance(jobs, list) or not jobs:
+        raise ValueError("jobs must be a non-empty list")
+    
+    if not isinstance(budget, int) or budget < 0:
+        raise ValueError("budget must be a non-negative whole number")
+    
+    printed = []
+    waiting = []
+    pages = 0
+    
+    for job in jobs:
+        if not isinstance(job, list) or len(job) != 2:
+            raise ValueError("each job must be a two-item list")
+        name, pages = job
+        
+        if not isinstance(name, str) or not name:
+            raise ValueError("name must be a non-empty string")
+        
+        if not isinstance(pages, int) or pages <= 0:
+            raise ValueError("pages must be a positive whole number")
+        
+        if pages > budget:
+            waiting.append(name)
+            continue
+        
+        budget -= pages
+        printed.append(name)
+    
+    return {
+        "printed": printed,
+        "waiting": waiting,
+        "pages": pages
+    }
+```

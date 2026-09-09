@@ -1,0 +1,35 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str):
+        raise ValueError("Ticket must be a string")
+
+    if len(ticket) != 12:
+        return "shape"
+
+    if not ticket.isupper():
+        return "shape"
+
+    if not '-' in ticket:
+        return "shape"
+
+    parts = ticket.split('-')
+    if len(parts) != 4:
+        return "shape"
+
+    letters = parts[0]
+    digits = parts[1]
+    check_digit = parts[2]
+
+    if len(check_digit) != 1:
+        return "shape"
+
+    letters_sum = sum(ord(letter) - ord('A') + 1 for letter in letters)
+    digits_sum = sum(int(digit) * (i + 1) for i, digit in enumerate(digits))
+
+    total = letters_sum + digits_sum
+
+    if check_digit == str(total)[-1]:
+        return "ok"
+    else:
+        return "check"
+```

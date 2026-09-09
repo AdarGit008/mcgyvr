@@ -1,0 +1,196 @@
+{
+  "captures": {
+    "at_open": {
+      "native": {
+        "endpoint": "http://127.0.0.1:8081",
+        "model": "qwen2.5-coder-1.5b",
+        "engine": "openai-compatible",
+        "quantization": null,
+        "context_length": null,
+        "concurrency": null,
+        "seed": null,
+        "native": {
+          "models": {
+            "models": [
+              {
+                "name": "qwen2.5-coder-1.5b",
+                "model": "qwen2.5-coder-1.5b",
+                "modified_at": "",
+                "size": "",
+                "digest": "",
+                "type": "model",
+                "description": "",
+                "tags": [
+                  ""
+                ],
+                "capabilities": [
+                  "completion"
+                ],
+                "parameters": "",
+                "details": {
+                  "parent_model": "",
+                  "format": "gguf",
+                  "family": "",
+                  "families": [
+                    ""
+                  ],
+                  "parameter_size": "",
+                  "quantization_level": ""
+                }
+              }
+            ],
+            "object": "list",
+            "data": [
+              {
+                "id": "qwen2.5-coder-1.5b",
+                "aliases": [
+                  "qwen2.5-coder-1.5b"
+                ],
+                "tags": [],
+                "object": "model",
+                "created": 1788416769,
+                "owned_by": "llamacpp",
+                "meta": {
+                  "vocab_type": true,
+                  "n_vocab": 151936,
+                  "n_ctx": 4096,
+                  "n_ctx_train": 32768,
+                  "n_embd": 1536,
+                  "n_params": 1543714304,
+                  "size": 980097536,
+                  "ftype": "Q4_K - Medium"
+                }
+              }
+            ]
+          }
+        },
+        "identity_refusals": {
+          "quantization": "this OpenAI-compatible server served no endpoint carrying the quantization. this OpenAI-compatible server was identified by what it answered, not by a version, so nothing here has been measured against it \u2014 this refusal records that the field was not on the surface it does serve, and nothing more",
+          "context_length": "this OpenAI-compatible server listed no max_model_len on the model card for 'qwen2.5-coder-1.5b'. this OpenAI-compatible server was identified by what it answered, not by a version, so nothing here has been measured against it \u2014 this refusal records that the field was not on the surface it does serve, and nothing more",
+          "concurrency": "the batch width is not on any endpoint this OpenAI-compatible server served. this OpenAI-compatible server was identified by what it answered, not by a version, so nothing here has been measured against it \u2014 this refusal records that the field was not on the surface it does serve, and nothing more",
+          "seed": "no dispatch in this tree sends a seed (greedy bypasses the sampler RNG), and this OpenAI-compatible server reported none. Whether it holds one server-side is unknown here. this OpenAI-compatible server was identified by what it answered, not by a version, so nothing here has been measured against it \u2014 this refusal records that the field was not on the surface it does serve, and nothing more"
+        }
+      },
+      "host": {
+        "reason": "loopback",
+        "refused": "the dispatch address '127.0.0.1' is loopback, so it names whatever box resolved it rather than a machine these readings could be bound to. `same_machine` cannot refute a claim it cannot address",
+        "width": {
+          "value": null,
+          "source": null,
+          "refused": "the dispatch address '127.0.0.1' is loopback, so it names whatever box resolved it rather than a machine these readings could be bound to. `same_machine` cannot refute a claim it cannot address"
+        }
+      },
+      "resolved": {
+        "served_width": {
+          "value": null,
+          "identity_refusals": "the dispatch address '127.0.0.1' is loopback, so it names whatever box resolved it rather than a machine these readings could be bound to. `same_machine` cannot refute a claim it cannot address"
+        },
+        "dispatch_max_parallel": {
+          "value": 1,
+          "source": "the endpoint the runner dispatched through"
+        },
+        "server_completions_in_window": {
+          "value": null,
+          "identity_refusals": "the capture holds no vllm:request_success_total to read: the engine answered as 'openai-compatible' and either served no /metrics body or serves a build without that series. A counter that was not read is not a counter reading zero"
+        },
+        "note": "three terms on the realised batch, never substituted for one another. A served_width of 1 licenses 'the batch was 1'; a dispatch_max_parallel of 1 does not, because it bounds the batch only if this run was the sole client. server_completions_in_window is what settles that, and it is a count rather than a verdict: it is the server's own tally of requests finished between the open and close captures, so FOREIGN traffic is that value minus the rows this run dispatched (in run.json beside this file), and zero is measured sole-clientness. Where the engine serves no counter the field refuses and names where the answer would be, which is a fact about reach and not about the run. Nothing compares this block (ADR-0027 D7)"
+      }
+    },
+    "at_close": {
+      "native": {
+        "endpoint": "http://127.0.0.1:8081",
+        "model": "qwen2.5-coder-1.5b",
+        "engine": "openai-compatible",
+        "quantization": null,
+        "context_length": null,
+        "concurrency": null,
+        "seed": null,
+        "native": {
+          "models": {
+            "models": [
+              {
+                "name": "qwen2.5-coder-1.5b",
+                "model": "qwen2.5-coder-1.5b",
+                "modified_at": "",
+                "size": "",
+                "digest": "",
+                "type": "model",
+                "description": "",
+                "tags": [
+                  ""
+                ],
+                "capabilities": [
+                  "completion"
+                ],
+                "parameters": "",
+                "details": {
+                  "parent_model": "",
+                  "format": "gguf",
+                  "family": "",
+                  "families": [
+                    ""
+                  ],
+                  "parameter_size": "",
+                  "quantization_level": ""
+                }
+              }
+            ],
+            "object": "list",
+            "data": [
+              {
+                "id": "qwen2.5-coder-1.5b",
+                "aliases": [
+                  "qwen2.5-coder-1.5b"
+                ],
+                "tags": [],
+                "object": "model",
+                "created": 1788417456,
+                "owned_by": "llamacpp",
+                "meta": {
+                  "vocab_type": true,
+                  "n_vocab": 151936,
+                  "n_ctx": 4096,
+                  "n_ctx_train": 32768,
+                  "n_embd": 1536,
+                  "n_params": 1543714304,
+                  "size": 980097536,
+                  "ftype": "Q4_K - Medium"
+                }
+              }
+            ]
+          }
+        },
+        "identity_refusals": {
+          "quantization": "this OpenAI-compatible server served no endpoint carrying the quantization. this OpenAI-compatible server was identified by what it answered, not by a version, so nothing here has been measured against it \u2014 this refusal records that the field was not on the surface it does serve, and nothing more",
+          "context_length": "this OpenAI-compatible server listed no max_model_len on the model card for 'qwen2.5-coder-1.5b'. this OpenAI-compatible server was identified by what it answered, not by a version, so nothing here has been measured against it \u2014 this refusal records that the field was not on the surface it does serve, and nothing more",
+          "concurrency": "the batch width is not on any endpoint this OpenAI-compatible server served. this OpenAI-compatible server was identified by what it answered, not by a version, so nothing here has been measured against it \u2014 this refusal records that the field was not on the surface it does serve, and nothing more",
+          "seed": "no dispatch in this tree sends a seed (greedy bypasses the sampler RNG), and this OpenAI-compatible server reported none. Whether it holds one server-side is unknown here. this OpenAI-compatible server was identified by what it answered, not by a version, so nothing here has been measured against it \u2014 this refusal records that the field was not on the surface it does serve, and nothing more"
+        }
+      },
+      "host": {
+        "reason": "loopback",
+        "refused": "the dispatch address '127.0.0.1' is loopback, so it names whatever box resolved it rather than a machine these readings could be bound to. `same_machine` cannot refute a claim it cannot address",
+        "width": {
+          "value": null,
+          "source": null,
+          "refused": "the dispatch address '127.0.0.1' is loopback, so it names whatever box resolved it rather than a machine these readings could be bound to. `same_machine` cannot refute a claim it cannot address"
+        }
+      },
+      "resolved": {
+        "served_width": {
+          "value": null,
+          "identity_refusals": "the dispatch address '127.0.0.1' is loopback, so it names whatever box resolved it rather than a machine these readings could be bound to. `same_machine` cannot refute a claim it cannot address"
+        },
+        "dispatch_max_parallel": {
+          "value": 1,
+          "source": "the endpoint the runner dispatched through"
+        },
+        "server_completions_in_window": {
+          "value": null,
+          "identity_refusals": "the capture holds no vllm:request_success_total to read: the engine answered as 'openai-compatible' and either served no /metrics body or serves a build without that series. A counter that was not read is not a counter reading zero"
+        },
+        "note": "three terms on the realised batch, never substituted for one another. A served_width of 1 licenses 'the batch was 1'; a dispatch_max_parallel of 1 does not, because it bounds the batch only if this run was the sole client. server_completions_in_window is what settles that, and it is a count rather than a verdict: it is the server's own tally of requests finished between the open and close captures, so FOREIGN traffic is that value minus the rows this run dispatched (in run.json beside this file), and zero is measured sole-clientness. Where the engine serves no counter the field refuses and names where the answer would be, which is a fact about reach and not about the run. Nothing compares this block (ADR-0027 D7)"
+      }
+    }
+  }
+}

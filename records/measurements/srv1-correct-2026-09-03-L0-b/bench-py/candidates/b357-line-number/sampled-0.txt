@@ -1,0 +1,14 @@
+```python
+def line_number(block: str) -> str:
+    if not block:
+        return ""
+    
+    lines = block.split('\n')
+    longest_line = max(len(line) for line in lines)
+    result = ''
+    
+    for i, line in enumerate(lines, start=1):
+        result += f"{i}: {line}\n"
+    
+    return result
+```

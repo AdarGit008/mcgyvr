@@ -1,0 +1,9 @@
+```python
+def unit_price(total: int, count: int) -> int:
+    """The price of one unit, in whole pence."""
+    if total <= 0:
+        raise ValueError("total cannot be zero or negative")
+    if count == 0:
+        raise ValueError("count cannot be zero")
+    return (total // count) * 100
+```

@@ -1,0 +1,17 @@
+```python
+from typing import *
+from collections import *
+
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if capacity <= 0 or writes < 0 or k < 0:
+        raise ValueError("Invalid arguments")
+    if k >= writes:
+        return -1  # Not enough survivors
+    
+    slots = deque(range(capacity))
+    for i in range(writes):
+        slots.rotate(-1)
+        slots.append(writes - i - 1)
+    
+    return slots[k]
+```

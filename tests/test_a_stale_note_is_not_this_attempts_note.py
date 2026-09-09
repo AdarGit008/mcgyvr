@@ -77,7 +77,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:
@@ -96,7 +96,8 @@ task_type: function_implementation
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
-acceptance: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
+demonstration: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
 scope:
   allow: ["src/**"]
 """
@@ -145,7 +146,7 @@ def _completion(text: str):  # type: ignore[no-untyped-def]
         raw_stop_reason="stop",
         model="qwen2.5-coder:7b",
         source="workstation",
-        protocol=Protocol.OLLAMA,
+        protocol=Protocol.OPENAI,
         max_output_tokens=1024,
         latency_s=0.0,
     )

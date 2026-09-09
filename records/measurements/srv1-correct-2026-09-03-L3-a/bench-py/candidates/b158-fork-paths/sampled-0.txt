@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def fork_paths(pattern: str) -> List[str]:
+    if not pattern:
+        raise ValueError("Pattern must be a non-empty string.")
+    
+    paths = []
+    i = 0
+    while i < len(pattern):
+        if pattern[i] == '{':
+            j = i + 1
+            options = []
+            while j < len(pattern) and pattern[j] not in '}':
+                options.append(pattern[j])
+                j += 1
+            if j == len(pattern) or pattern[j] != '}':
+                raise ValueError("Invalid pattern: curly brace or comma missing.")
+            paths.append(pattern[:i] + ''.join(sorted(options)))
+            i = j + 1
+        else:
+            paths.append(pattern[i])
+            i += 1
+    return paths
+```

@@ -1,0 +1,33 @@
+# What --gpu-memory-utilization actually allocates. srv2, Qwen2.5-Coder-1.5B-AWQ,
+# max-model-len 2048, max-num-seqs 128, kv-cache-dtype fp8, vllm-openai:v0.26.0.
+# Card verified EMPTY (0 compute processes) before each launch -- the first
+# attempt at this table was polluted by a live 7,924 MiB container and is void.
+# Card total 11,911 MiB.
+
+util=0.25 pre=1MiB post=3925MiB   GPU KV cache size: 98,032 tokens
+util=0.45 pre=1MiB post=6333MiB   GPU KV cache size: 272,272 tokens
+util=0.90 pre=1MiB post=11709MiB  GPU KV cache size: 664,320 tokens
+
+# util x 11,911 = 2,978 / 5,360 / 10,720 -- each ~980 MiB under `post`.
+# The budget covers weights + KV + activations; the CUDA context is outside it.
+
+# CO-RESIDENCY, same util on both, q3 launched first (srv2-coresidency-pass1.tsv):
+#   q3  first   kv_tok=44,592  maxconc=21.8
+#   q15 second  kv_tok=17,536  maxconc= 8.6
+# Equal utils do NOT give equal pools, and q15 is the SMALLER model.
+#
+# UNSETTLED: how util composes across co-resident servers. Two readings each
+# explain part of the data and neither explains all of it. What is established
+# is only the observation above plus these two engine behaviours:
+#
+#   ValueError: Free memory on device cuda:0 (1.12/11.63 GiB) on startup is less
+#   than desired GPU memory utilization (0.9, 10.47 GiB).
+#     -> a precondition on FREE memory, checked before anything is allocated.
+#
+#   AssertionError: Error in memory profiling. Initial free memory 8.43 GiB,
+#   current free memory 8.82 GiB. This happens when other processes sharing the
+#   same container release GPU memory while vLLM is profiling.
+#     -> init-time profiling reads LIVE free memory, so a neighbour still
+#        tearing down makes the next launch refuse. `docker rm -f` returns
+#        before the CUDA context is gone; wait for nvidia-smi to report no
+#        compute processes.

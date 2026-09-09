@@ -1,0 +1,19 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Swap the keys and values of the input dictionary.
+    When two names share one code, the name that sorts first is kept.
+    A name whose code is empty text is left out altogether.
+    """
+    # Extract keys and values from the input dictionary
+    keys = list(names.keys())
+    values = list(names.values())
+
+    # Sort the keys based on the comparison of the values
+    sorted_keys = sorted(keys, key=lambda k: values[keys.index(k)])
+
+    # Create a new dictionary with the swapped keys and values
+    swapped_names = {v: k for k, v in zip(sorted_keys, values)}
+
+    return swapped_names
+```

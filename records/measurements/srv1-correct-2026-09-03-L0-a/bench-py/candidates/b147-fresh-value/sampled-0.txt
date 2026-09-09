@@ -1,0 +1,18 @@
+```python
+from typing import Any, Dict, Union
+
+def fresh_value(entry: Dict[str, Union[str, int]], now: int) -> str:
+    if not entry or "value" not in entry or "stored" not in entry or "ttl" not in entry or "now" not in entry:
+        raise ValueError("Invalid input: missing required fields")
+    if not isinstance(entry["value"], str):
+        raise ValueError("Invalid input: value must be a string")
+    if not isinstance(entry["stored"], int) or entry["stored"] < 0:
+        raise ValueError("Invalid input: stored must be a non-negative integer")
+    if not isinstance(entry["ttl"], int) or entry["ttl"] <= 0:
+        raise ValueError("Invalid input: ttl must be a positive integer")
+    if not isinstance(now, int) or now < entry["stored"]:
+        raise ValueError("Invalid input: now must be at least stored")
+    if now >= entry["stored"] + entry["ttl"]:
+        raise ValueError("Invalid input: record is no longer usable at now")
+    return entry["value"]
+```

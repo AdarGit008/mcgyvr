@@ -1,0 +1,63 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Both text and unit must be strings.")
+    if not text or not unit:
+        raise ValueError("Text and unit cannot be empty.")
+    if len(text) % 2 != 1:
+        raise ValueError("Text must have an odd number of terms.")
+    if unit not in ['g', 'kg', 't']:
+        raise ValueError("Goal unit must be 'g', 'kg', or 't'.")
+    if not text.isalnum() or not text.replace('+', '-').isalnum():
+        raise ValueError("Text must contain only alphanumeric characters and '+' and '-'.")
+    if not all(term.isnumeric() or term in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("Text must contain only numeric counts and units.")
+    if any(term.startswith('0') for term in text.split()):
+        raise ValueError("Term cannot start with '0'.")
+    if any(term not in ['g', 'kg', 't'] for term in text.split()):
+        raise ValueError("Term must be a unit.")
+    if any(term not in ['+', '-'] for term in text.split()):
+        raise ValueError("Operator must be '+' or '-'.")
+    if any(term.startswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('+') for term in text.split()):
+        raise ValueError("Draw cannot dip below zero.")
+    if any(term.endswith('-')

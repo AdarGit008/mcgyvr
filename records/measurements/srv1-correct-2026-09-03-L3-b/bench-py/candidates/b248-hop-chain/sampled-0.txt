@@ -1,0 +1,13 @@
+```python
+def hop_chain(hops: list) -> bool:
+    if len(hops) <= 1:
+        return True
+    
+    last_end = hops[0][1]
+    for start, end in hops[1:]:
+        if start != last_end:
+            return False
+        last_end = end
+    
+    return True
+```

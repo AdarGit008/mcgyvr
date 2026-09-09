@@ -63,7 +63,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol as TypingProtocol
 
-from mcgyvr.config import Config, Source
+from mcgyvr.config import Config, Source, Tier
 
 _ROLES = ("orchestrator", "verifier")
 
@@ -103,12 +103,14 @@ class Protocol(StrEnum):
 
     ``OPENAI`` is the OpenAI-compatible chat-completions shape, which vLLM,
     llama-server, LM Studio, TGI and the hosted providers all speak. Supporting
-    a new backend is therefore a config entry naming one of these, not a new
-    integration — which is why this enum has two members and is expected to keep
-    having two.
+    a new backend is therefore a config entry naming it, not a new integration —
+    which is why this enum has one member and is expected to keep having one.
+
+    It had two. The second was removed on 2026-09-06 with the backend it served
+    (see ``archive/forensic-ollama/``); a protocol nothing serves is a branch
+    through every dispatch decision that no test of the live ladder reaches.
     """
 
-    OLLAMA = "ollama"
     OPENAI = "openai"
 
 
@@ -130,6 +132,24 @@ class Endpoint:
     protocol: Protocol
     max_parallel: int
     credential_env: str | None
+    #: Tokens the process behind this URL serves in one request, or ``None``
+    #: when its source declared none. Below the seam on purpose: a window is a
+    #: fact about the machine, and :class:`Rung` stays empty so that a rung can
+    #: be re-pointed at another one. ``None`` enforces nothing rather than
+    #: standing in for a number — see
+    #: :func:`mcgyvr.gate.preflight.check_contract_against_rung`.
+    context_window: int | None = None
+    #: Room a reply on this *rung* is given, from ``ladder.tiers.*.
+    #: output_tokens``, or ``None`` when the rung declared none. The one field
+    #: here that is a rung's rather than its source's: a source serving four
+    #: rungs is four endpoints in the map already (keyed by rung name), and
+    #: what a 3B model needs to finish a reply is not what a 35B reasoning
+    #: model needs off the same rig. Below the seam with ``context_window`` and
+    #: for the same reason — both are facts about the machine that answers, and
+    #: :class:`Rung` stays empty so a rung can be re-pointed at another one.
+    #: ``None`` falls back to the contract's ``limits.max_output_tokens``; see
+    #: :func:`mcgyvr.gate.preflight.reply_cap`, where that happens once.
+    output_tokens: int | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -340,7 +360,7 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
             skipped.append(Skipped(name=tier.name, model=tier.model, reason=reason))
             continue
         usable.append(Rung(name=tier.name, model=tier.model))
-        endpoints[tier.name] = _endpoint(source)
+        endpoints[tier.name] = _endpoint(source, tier)
 
     roles: dict[str, RoleBinding] = {}
     role_skips: dict[str, str] = {}
@@ -425,14 +445,22 @@ def _drop_unreachable(
 # --- small deterministic helpers -------------------------------------------
 
 
-def _endpoint(source: Source) -> Endpoint:
-    """A declared source as the endpoint a runner dispatches against."""
+def _endpoint(source: Source, tier: Tier | None = None) -> Endpoint:
+    """A declared source as the endpoint a runner dispatches against.
+
+    ``tier`` is the rung this endpoint was resolved *for*, where there is one.
+    A role binding has no rung, so it passes none and carries no reply room —
+    the orchestrator and the verifier are not on the ladder and there is
+    nothing on them to declare it.
+    """
     return Endpoint(
         source=source.name,
         base_url=source.base_url,
         protocol=Protocol(source.api),
         max_parallel=source.max_parallel,
         credential_env=source.api_key_env,
+        context_window=source.context_window,
+        output_tokens=None if tier is None else tier.output_tokens,
     )
 
 

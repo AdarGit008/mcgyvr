@@ -1,0 +1,15 @@
+```python
+def climb_budget(tolls: list) -> int:
+    if not tolls:
+        return 0
+
+    total_cost = 0
+    for i, toll in enumerate(tolls):
+        try:
+            cost = int(toll)
+            total_cost += cost
+        except ValueError:
+            raise ValueError(f"Invalid toll at position {i}: {toll}")
+
+    return total_cost
+```

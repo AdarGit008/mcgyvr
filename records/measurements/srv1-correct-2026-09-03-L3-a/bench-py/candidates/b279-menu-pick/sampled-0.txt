@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def menu_pick(dishes: List, budget: int) -> List:
+    if budget < 0:
+        raise ValueError("Budget cannot be negative")
+    
+    # Filter dishes by price and sort them by name in ascending order
+    valid_dishes = [dish for dish in dishes if dish["price"] <= budget]
+    valid_dishes.sort(key=lambda x: (x["price"], x["name"]))
+    
+    return valid_dishes
+```
+
+This solution follows the interface requirements and includes type hints for input and output. It also includes basic validation for the budget to ensure it is non-negative.

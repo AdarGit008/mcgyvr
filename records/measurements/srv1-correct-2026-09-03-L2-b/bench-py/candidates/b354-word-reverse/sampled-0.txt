@@ -1,0 +1,9 @@
+```python
+def word_reverse(line: str) -> str:
+    """
+    Returns a line with the letters of each word turned back to front,
+    the words themselves keeping the order they came in. Any run of spaces
+    separates two words, and the words come back joined by a single space.
+    """
+    return ' '.join(word[::-1] for word in line.split())
+```

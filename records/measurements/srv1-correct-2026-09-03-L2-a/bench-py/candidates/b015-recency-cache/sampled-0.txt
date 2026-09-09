@@ -1,0 +1,31 @@
+```python
+from typing import Dict, List
+
+def new_cache(limit: int) -> Dict[str, int]:
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("limit must be a positive integer")
+    return {'keys': [], 'store': {}}
+
+def cache_write(cache: Dict[str, int], key: str, value: int) -> List[str]:
+    if not isinstance(key, str) or not key:
+        raise ValueError("key must be a non-empty string")
+    if key in cache['store']:
+        cache['store'][key] = value
+        cache['keys'].remove(key)
+    else:
+        cache['keys'].append(key)
+        cache['store'][key] = value
+        if len(cache['keys']) > cache['limit']:
+            spilled_key = cache['keys'].pop(0)
+            del cache['store'][spilled_key]
+    return [spilled_key] if spilled_key else []
+
+def cache_read(cache: Dict[str, int], key: str) -> int:
+    if not isinstance(key, str) or not key:
+        raise ValueError("key must be a non-empty string")
+    if key not in cache['store']:
+        raise ValueError("key is not held in the cache")
+    cache['keys'].remove(key)
+    cache['keys'].append(key)
+    return cache['store'][key]
+```

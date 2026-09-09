@@ -1,0 +1,15 @@
+```python
+def pick_lane(queues: list, closed: list) -> int:
+    if not queues or not closed or any(not isinstance(closed[i], int) or closed[i] >= len(queues) for i in range(len(closed))):
+        raise ValueError("Invalid input")
+
+    best = 0
+    for lane in range(1, len(queues)):
+        if queues[lane] <= queues[best] and lane not in closed:
+            best = lane
+
+    if best == len(queues) - 1 and all(lane in closed for lane in range(len(queues))):
+        raise ValueError("All lanes are closed")
+
+    return best
+```

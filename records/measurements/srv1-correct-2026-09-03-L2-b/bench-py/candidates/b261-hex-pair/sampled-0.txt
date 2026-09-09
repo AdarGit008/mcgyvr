@@ -1,0 +1,13 @@
+```python
+def hex_split(colour: str) -> list:
+    if not colour or len(colour) != 7 or not colour[0].isalpha():
+        raise ValueError("Invalid input. Must be a hash followed by six hexadecimal digits.")
+    parts = [colour[i:i+2].lower() for i in range(1, 7, 2)]
+    return parts
+
+
+def hex_join(parts: list) -> str:
+    if len(parts) != 3:
+        raise ValueError("Invalid input. Must have three parts.")
+    return "".join(parts).upper()
+```

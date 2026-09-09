@@ -1,0 +1,24 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str) or len(ticket) != 13:
+        raise ValueError("Invalid ticket format")
+
+    letters = ticket[:2]
+    digits = ticket[3:7]
+    check_digit = ticket[-1]
+
+    if letters[0].upper() < 'A' or letters[0].upper() > 'Z' or letters[1].upper() < 'A' or letters[1].upper() > 'Z':
+        raise ValueError("Invalid ticket: letters must be A-Z")
+
+    if not digits.isdigit() or len(digits) != 4:
+        raise ValueError("Invalid ticket: digits must be 4 digits")
+
+    total = 0
+    for i, digit in enumerate(digits):
+        total += (ord(letters[i].upper()) - ord('A') + 1) * (i + 1) + (int(digit) * (i + 1))
+
+    if check_digit != str(total)[-1]:
+        return "check"
+
+    return "ok"
+```

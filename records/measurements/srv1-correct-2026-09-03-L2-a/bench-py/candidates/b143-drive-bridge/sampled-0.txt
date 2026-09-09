@@ -1,0 +1,30 @@
+```python
+def drive_bridge(commands: list) -> str:
+    state = "lowered"
+
+    for command in commands:
+        if not isinstance(command, list) or len(command) != 1:
+            raise ValueError("Invalid command format")
+        if command not in ["raise", "lower", "lock", "unlock"]:
+            raise ValueError("Invalid command word")
+
+        if state == "lowered":
+            if command == "raise":
+                state = "raised"
+            else:
+                raise ValueError("Cannot raise a lowered span")
+        elif state == "raised":
+            if command == "lower":
+                state = "lowered"
+            elif command == "lock":
+                state = "locked"
+            else:
+                raise ValueError("Cannot lower a raised span")
+        elif state == "locked":
+            if command == "unlock":
+                state = "raised"
+            else:
+                raise ValueError("Cannot unlock a locked span")
+
+    return state
+```

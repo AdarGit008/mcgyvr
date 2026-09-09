@@ -1,0 +1,28 @@
+```python
+from typing import *
+from collections import *
+
+def matches_stencil(stencil: str, code: str) -> bool:
+    if not isinstance(stencil, str) or not isinstance(code, str):
+        raise ValueError("Stencil and code must be strings.")
+    if len(stencil) != len(code):
+        raise ValueError("Stencil and code must have the same length.")
+    
+    for i in range(len(stencil)):
+        if stencil[i] == "#":
+            if code[i] < '0' or code[i] > '9':
+                return False
+        elif stencil[i] == "@":
+            if code[i].islower() and code[i] != stencil[i]:
+                return False
+            elif code[i].isupper() and code[i] != stencil[i].upper():
+                return False
+        elif stencil[i] == "?":
+            if code[i] == stencil[i]:
+                return False
+        elif stencil[i] != stencil[i]:
+            if code[i] != stencil[i]:
+                return False
+    
+    return True
+```

@@ -1,0 +1,33 @@
+```python
+def meter_draws(draws: list, allowance: int) -> dict:
+    if not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Allowance must be a positive integer.")
+    if not isinstance(draws, list):
+        raise ValueError("Draws must be a list.")
+    if not all(isinstance(draw, list) and len(draw) == 2 for draw in draws):
+        raise ValueError("Each draw must be a list of two elements.")
+    if not all(isinstance(draw[0], str) and len(draw[0]) > 0 for draw in draws):
+        raise ValueError("Each key must be a non-empty string.")
+    if not all(isinstance(draw[1], int) and draw[1] > 0 for draw in draws):
+        raise ValueError("Each units must be a positive integer.")
+
+    used = {}
+    denied = []
+    for draw in draws:
+        key, units = draw
+        if key in used:
+            used[key] += units
+            if used[key] > allowance:
+                denied.append((draw, key, used[key]))
+                used[key] = allowance
+        else:
+            used[key] = units
+    return {"used": used, "denied": denied}
+
+def remaining_for(used: dict, key: str, allowance: int) -> int:
+    if not isinstance(used, dict) or not isinstance(key, str) or not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Invalid input.")
+    if key not in used:
+        return allowance
+    return allowance - used[key]
+```

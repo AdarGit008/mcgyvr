@@ -1,0 +1,19 @@
+```python
+from typing import *
+
+def key_path(store: dict, head: str) -> list:
+    if not store or not head:
+        raise ValueError("Invalid input")
+    
+    # Split the head by full stops to get the hierarchical structure
+    head_parts = head.split('.')
+    current_level = store
+    
+    for part in head_parts:
+        if part not in current_level:
+            raise ValueError(f"Head '{head}' does not exist")
+        current_level = current_level[part]
+    
+    # Return the names under the head, excluding the head itself
+    return list(current_level.keys())
+```

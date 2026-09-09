@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path: str) -> List[str]:
+        return [segment for segment in path.split('/') if segment and segment != '.' and segment != '..']
+
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+
+    if start_segments[0] != goal_segments[0]:
+        raise ValueError("The paths must start with the same directory.")
+
+    start_hops = len(start_segments) - len(start_segments[1:])
+    goal_hops = len(goal_segments) - len(goal_segments[1:])
+
+    if start_hops < goal_hops:
+        start_hops, goal_hops = goal_hops, start_hops
+
+    return start_hops + goal_hops
+```

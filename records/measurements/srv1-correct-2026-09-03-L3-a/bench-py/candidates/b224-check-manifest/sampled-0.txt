@@ -1,0 +1,21 @@
+```python
+def check_manifest(line: dict) -> dict:
+    if not isinstance(line, dict):
+        raise ValueError("Input must be a dictionary.")
+    
+    keys = set(line)
+    if keys != {'sku', 'count', 'note'}:
+        raise ValueError("Invalid keys in the manifest.")
+    
+    sku = line.get('sku', '').strip().upper()
+    if not sku:
+        raise ValueError("SKU must not be blank.")
+    
+    count = line.get('count', 0)
+    if not isinstance(count, int) or count < 1:
+        raise ValueError("Count must be a positive whole number.")
+    
+    note = line.get('note', '')
+    
+    return {'sku': sku, 'count': count, 'note': note}
+```

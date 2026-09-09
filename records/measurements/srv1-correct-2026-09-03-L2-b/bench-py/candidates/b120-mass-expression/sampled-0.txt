@@ -1,0 +1,35 @@
+```python
+from typing import *
+from collections import *
+
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not text or unit not in {'g', 'kg', 't'}:
+        raise ValueError("Invalid input")
+    
+    terms = text.split()
+    if not terms or len(terms) % 2 != 1:
+        raise ValueError("Invalid tally")
+    
+    count = 0
+    for i in range(0, len(terms), 2):
+        term = terms[i]
+        operator = terms[i + 1]
+        if not term.isdigit() or term[0] == '0' or not (term[-1] in {'g', 'kg', 't'}):
+            raise ValueError("Invalid term")
+        
+        if operator != '+' and operator != '-':
+            raise ValueError("Invalid operator")
+        
+        if operator == '+':
+            count += int(term)
+        else:
+            count -= int(term)
+    
+    if count < 0:
+        raise ValueError("Draw")
+    
+    if not (count * 1000) % (int(unit) * 1000):
+        raise ValueError("Total not whole in goal unit")
+    
+    return int(count * 1000) // (int(unit) * 1000)
+```

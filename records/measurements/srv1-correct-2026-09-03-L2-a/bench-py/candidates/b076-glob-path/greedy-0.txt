@@ -1,0 +1,24 @@
+```python
+def glob_path(pattern: str, path: str) -> bool:
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Both pattern and path must be strings.")
+    if not pattern or not path:
+        raise ValueError("Pattern and path cannot be empty.")
+    if pattern == "" or path == "":
+        return False
+
+    def match(pattern, path):
+        if not pattern:
+            return True
+        if not path:
+            return False
+        if pattern[0] == '*':
+            return match(pattern[1:], path) or match(pattern, path[1:])
+        if pattern[0] == '?':
+            return match(pattern[1:], path[1:])
+        if pattern[0] == path[0]:
+            return match(pattern[1:], path[1:])
+        return False
+
+    return match(pattern, path)
+```

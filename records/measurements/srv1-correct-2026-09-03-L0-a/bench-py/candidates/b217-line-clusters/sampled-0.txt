@@ -1,0 +1,48 @@
+```python
+from typing import List
+
+def line_clusters(stops: List[str], links: List[tuple[str, str]]) -> List[List[str]]:
+    if not stops or not links:
+        return []
+
+    # Build a graph of stops and links
+    graph = {}
+    for link in links:
+        if link[0] not in graph:
+            graph[link[0]] = []
+        graph[link[0]].append(link[1])
+        if link[1] not in graph:
+            graph[link[1]] = []
+        graph[link[1]].append(link[0])
+
+    # Find all connected components
+    clusters = []
+    visited = set()
+    for stop in stops:
+        if stop not in visited:
+            component = find_cluster(stop, graph, visited)
+            clusters.append(component)
+
+    # Sort clusters by the first stop
+    clusters.sort(key=lambda x: x[0])
+
+    return clusters
+
+def find_cluster(stop: str, graph: dict, visited: set) -> List[str]:
+    if stop in visited:
+        return []
+
+    visited.add(stop)
+    queue = [stop]
+    cluster = [stop]
+
+    while queue:
+        current_stop = queue.pop(0)
+        for neighbor in graph[current_stop]:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(neighbor)
+                cluster.append(neighbor)
+
+    return cluster
+```

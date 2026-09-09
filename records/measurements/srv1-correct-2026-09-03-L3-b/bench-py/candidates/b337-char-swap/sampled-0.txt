@@ -1,0 +1,20 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """
+    Return two characters in the other order.
+    """
+    if len(first) != 1 or len(second) != 1:
+        raise ValueError("Both inputs must be single characters.")
+    return second + first
+
+def swap_all(text: str) -> str:
+    """
+    Walks a text in twos and swaps each pair it finds, leaving a final odd character exactly where it is.
+    """
+    if not text:
+        return ""
+    if len(text) % 2 != 0:
+        return text[:-1] + swap_pair(text[-2], text[-1])
+    
+    return ''.join([swap_pair(text[i], text[i+1]) if i % 2 == 0 else text[i] for i in range(len(text))])
+```

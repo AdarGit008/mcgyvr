@@ -1,0 +1,13 @@
+```python
+def cross_up(readings: list, level: int) -> int:
+    """Return the number of upward crossings in a list of readings.
+
+    An upward crossing occurs when a reading reaches or exceeds the level
+    and the immediately preceding reading was strictly below the level.
+    """
+    count = 0
+    for i in range(1, len(readings)):
+        if readings[i] >= level and readings[i - 1] < level:
+            count += 1
+    return count
+```

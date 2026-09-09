@@ -1,0 +1,17 @@
+```python
+def flag_states(mask: int, catalog: list) -> dict:
+    if not isinstance(mask, int) or mask < 0:
+        raise ValueError("Invalid mask: must be a non-negative integer")
+    if not isinstance(catalog, list) or not catalog:
+        raise ValueError("Invalid catalog: must be a non-empty list")
+    if not all(isinstance(flag, str) and flag.isalnum() for flag in catalog):
+        raise ValueError("Invalid catalog: must contain only non-empty alphanumeric strings")
+    if len(catalog) > 32:
+        raise ValueError("Catalog length must be less than or equal to 32")
+    if len(catalog) != len(set(catalog)):
+        raise ValueError("Catalog must not contain repeated flag names")
+    if mask & (1 << len(catalog)):
+        raise ValueError("Mask contains a set bit beyond the catalog length")
+
+    return {flag: (mask & (1 << i)) != 0 for i, flag in enumerate(catalog)}
+```

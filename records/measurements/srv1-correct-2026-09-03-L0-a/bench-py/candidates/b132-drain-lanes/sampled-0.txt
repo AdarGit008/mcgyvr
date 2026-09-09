@@ -1,0 +1,30 @@
+```python
+"""Drain labelled items across planned lanes, round by round."""
+
+
+def drain_lanes(plan, items):
+    if not plan:
+        raise ValueError("Plan must be a non-empty list of pairs")
+    for item in items:
+        if not isinstance(item, tuple) or len(item) != 2:
+            raise ValueError("Every item must be a pair of two strings")
+        lane, quota = item
+        if not isinstance(lane, str) or not isinstance(quota, int) or quota <= 0:
+            raise ValueError("Lane must be a non-empty string and quota must be a positive integer")
+        if lane in plan:
+            queues[lane].append(quota)
+        else:
+            queues[lane] = [quota]
+    order = []
+    rounds = 0
+    while True:
+        rounds += 1
+        for lane, quota in plan:
+            queue = queues[lane]
+            taken = 0
+            while taken < quota and queue:
+                order.append(queue.pop(0))
+                taken += 1
+            if taken < quota:
+                return {"order": order, "rounds": rounds}
+```

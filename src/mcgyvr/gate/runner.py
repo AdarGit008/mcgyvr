@@ -51,7 +51,7 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.secrets import scan_secrets
-from mcgyvr.gate.semantic import SemanticCheck
+from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 from mcgyvr.gate.structured import validate_structured_data
 from mcgyvr.gate.typecheck import STYLE, TypeCheck, TypeCheckTimeoutError
 from mcgyvr.scope import Scope
@@ -113,6 +113,16 @@ class GateResult:
     environment_issues: tuple[str, ...] = field(default=())
     observations: tuple[Finding, ...] = field(default=())
     inconclusive: tuple[InconclusiveRung, ...] = field(default=())
+    semantic: SemanticReport | None = field(default=None)
+    """The semantic rung's own report, or ``None`` where the rung did not run.
+
+    The rung is non-blocking, so its findings arrive as ``observations`` and a
+    reader cannot tell a rung that ran and saw nothing from a rung that was
+    never wired — which is exactly how it stayed unwired: the gate accepted
+    ``SemanticCheck`` and the one function both tiers reach acceptance through
+    passed none, and every verdict looked the same. ``None`` here says the rung
+    did not run; a report says it did, and ``resolved`` says how much it saw.
+    """
 
     @property
     def accepted(self) -> bool:
@@ -219,6 +229,7 @@ class Gate:
         # names on added lines against the packages the repository actually
         # installs — the coverage `tests_pass` cannot give, since a suite is a
         # verdict on itself and not on a diff (ADR-0010).
+        semantic_report: SemanticReport | None = None
         if semantic is not None and not findings:
             semantic_report = semantic.run(changeset)
             findings.extend(semantic_report.findings)
@@ -240,6 +251,7 @@ class Gate:
             environment_issues=tuple(env_issues),
             observations=tuple(observations),
             inconclusive=tuple(inconclusive),
+            semantic=semantic_report,
         )
 
     def _run_adapter(

@@ -1,0 +1,38 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    """
+    Decode a mail-safe escaped note into its original text.
+    
+    Args:
+    text (str): A note stored in a mail-safe escaped form.
+    
+    Returns:
+    str: The original text of the note.
+    
+    Raises:
+    ValueError: If an invalid escape sequence is found.
+    """
+    # First pass: fold lines
+    lines = text.split('\n')
+    folded_lines = []
+    for line in lines:
+        folded_line = line.rstrip()
+        folded_lines.append(folded_line)
+    folded_text = '\n'.join(folded_lines)
+
+    # Second pass: decode escapes
+    decoded_text = ''
+    i = 0
+    while i < len(folded_text):
+        if folded_text[i] == '=':
+            if i + 2 < len(folded_text) and folded_text[i + 1:i + 3] in '0123456789ABCDEF':
+                decoded_text += chr(int(folded_text[i + 1:i + 3], 16))
+                i += 3
+            else:
+                raise ValueError("Invalid escape sequence: = followed by not two uppercase hexadecimal digits")
+        else:
+            decoded_text += folded_text[i]
+            i += 1
+
+    return decoded_text
+```

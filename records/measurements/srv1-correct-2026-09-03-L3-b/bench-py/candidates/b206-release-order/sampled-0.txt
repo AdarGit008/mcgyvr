@@ -1,0 +1,36 @@
+```python
+def order_release_tags(tags: list) -> list:
+    if not tags:
+        return []
+
+    release_order = []
+    for tag in tags:
+        if not tag or tag == "v0.0.0":
+            continue
+        major, minor, patch = tag.split(".")
+        if patch.isdigit():
+            patch = int(patch)
+        else:
+            patch = None
+
+        preview_label = None
+        if "-" in tag:
+            parts = tag.split("-")
+            major, minor, patch, preview_label = parts[:4]
+
+        if preview_label:
+            preview_label = preview_label.lower()
+
+        release_order.append((major, minor, patch, preview_label))
+
+    release_order.sort(key=lambda x: (x[0], x[1], x[2], x[3]))
+
+    sorted_tags = []
+    for major, minor, patch, preview_label in release_order:
+        if preview_label:
+            sorted_tags.append(f"{major}.{minor}.{patch}-{preview_label}")
+        else:
+            sorted_tags.append(f"{major}.{minor}.{patch}")
+
+    return sorted_tags
+```

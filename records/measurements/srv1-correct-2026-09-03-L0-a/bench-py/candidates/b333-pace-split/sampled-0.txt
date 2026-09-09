@@ -1,0 +1,31 @@
+```python
+from typing import List, Union, Tuple
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    """
+    Calculate the pace in seconds per kilometre for a given distance and duration.
+
+    :param seconds: Total seconds taken for the leg.
+    :param kilometres: Distance of the leg in kilometres.
+    :return: Pace in seconds per kilometre, rounded down.
+    """
+    if kilometres == 0:
+        raise ValueError("Leg distance cannot be zero.")
+    pace = seconds // kilometres
+    return pace
+
+def pace_list(legs: List[Tuple[int, Union[int, float]]]) -> List[int]:
+    """
+    Calculate the pace for each leg of a run, given each leg's seconds and distance.
+
+    :param legs: List of tuples where each tuple contains (seconds, distance).
+    :return: List of pace values in seconds per kilometre.
+    """
+    result = []
+    for seconds, distance in legs:
+        if distance == 0:
+            raise ValueError("Leg distance cannot be zero.")
+        pace = seconds // distance
+        result.append(pace)
+    return result
+```
