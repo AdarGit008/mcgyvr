@@ -1,9 +1,10 @@
 # Handoff — sleep/wake round, end of 2026-09-09
 
 Everything is on **`red/sleep-wake`** (PR #430). `records/plans/sleep-wake.md` is
-the design. **Read this file before that one** — the design was corrected three
-times today and one of its sections now describes an implementation that does
-not exist (§3, see O5 below).
+the design. **Read this file before that one** — the design was corrected four
+times on 2026-09-09, the fourth being §3, §10 and §11.2, which had come to
+describe implementations that do not exist (O5 and O4 below, both since
+corrected).
 
 Read these first, in this order:
 
@@ -27,13 +28,26 @@ first five:
 | `b4e9ea8e` | GREEN: a sleeping unit does not read as serving |
 | `49a98c57` | Say what is true: the records this branch made false |
 | `0f95fb9b` | A wake budget is a property of the unit, not of the fleet's shape |
-| *(the last)* | the sleep/wake GREEN, the card-contention discriminator, three review fixes, the campaign |
+| `cabc5a26` | the sleep/wake GREEN, the card-contention discriminator, three review fixes, the campaign |
 
-**Test state: `uv run --no-sync pytest -q` gives exactly 3 failures.** Down from
-19. The suite takes over ten minutes. All three are one decision, not three bugs
-— see O1. **The nineteen sleep/wake RED tests all pass and none was edited.**
+**Four more in a later session the same day**, closing O1, O3, O5 and half of
+O4 as they were written below:
+
+| | |
+|---|---|
+| `ae35449e` | The three tests that asserted a refusal the owner retired |
+| `531a9f47` | ruff format what the last commit left unformatted |
+| `6848e321` | A test may name a rig and may not reach one |
+| `877a421a` | Say what is true: cards() lists a directory, gate 1 checks one |
+
+**Test state: `uv run --no-sync pytest -q` is green** — 2,832 outcomes, no
+failures, exit 0. It was 3 failures when the section above was written, and
+those three are `ae35449e`. The suite takes twelve to fifteen minutes. **The
+nineteen sleep/wake RED tests all pass and none was edited.**
 
 `ruff`, `ruff format`, `mypy src` (94 files) and `docgen --check` are clean.
+They were not quite when this was first written: `cabc5a26` left
+`tests/test_one_door.py` failing both ruff checks, which is `531a9f47`.
 
 ## What today settled
 
@@ -111,26 +125,31 @@ change from how the day began, owner-approved. srv2 serving the 3B + 7B pair.
 
 ## Open — ranked, one recommendation each
 
-### O1. Three failing tests, and it is one decision — **start here**
+*(O1, O3 and O5 are closed and kept below with what doing them taught. **Start
+at O2**, which needs a ruling before it can be built.)*
 
-```
-test_two_models_on_one_url_are_alternatives.py::test_co_residents_are_still_summed
-test_two_models_on_one_url_are_alternatives.py::test_a_host_that_mixes_alternatives_and_co_residents_is_refused
-test_the_live_ladder_serves_vllm_and_carries_extra_flags.py::test_units_on_one_host_are_summed_against_its_free_vram
-```
+### O1. ~~Three failing tests, and it is one decision~~ — **closed, `ae35449e`**
 
-All three assert one thing: **two units that do not sum onto a card are a
-refusal.** Under ruling 1 they are alternatives instead. Verified not caused by
-the day's fixes — an agent neutralised its own code and re-ran.
+The three tests all asserted that two units which do not sum onto a card are a
+refusal. Under ruling 1 they are alternatives, and the refusal was unreachable
+dead code, so they now assert what replaced it: the cut, and the sentence
+`hold_together` returns for it — both spec files named, plus the stale
+`compose.<host>.yml` an earlier emit left behind.
 
-The refusal they test is now **unreachable dead code**: `hold_together`'s only
-caller passes the same `scans` dict `fit` already used, and `launch_specs`
-guarantees each spec's per-GPU sum. They cannot be made to pass by fixing code.
+Three things worth carrying forward from doing it:
 
-**Rec:** retire the mixed-host test (the earlier handoff's ruling 5 already
-killed it) and rewrite the other two to assert what replaced the refusal —
-`hold_together` now returns a tuple of sentences, one per host cut into N
-alternatives, which `cli._emit` prints.
+* **The mixed-host case could not be tested with srv1's fixtures at all.** A
+  llama.cpp unit grows to fill whatever card it is given, so no two of them ever
+  co-reside and the "mix" was three alternatives. It needed declared figures —
+  8 + 8 + 3 GiB on a 12 GiB card — which emit as `{big_a, small}` and
+  `{big_b, small}`. That is the covering, exercised for the first time.
+* **The card sum's one live tooth had no test.** A ladder sized against one
+  reading of a card and checked against a tighter one is caught there and
+  nowhere else, because `alternate` cuts on `Fit.card_free_gb` and
+  `hold_together` reads the scan. It has one now.
+* The earlier handoff's ruling 5 killed the mixed-host refusal, and the test
+  asking for it was rewritten rather than deleted: the covering is a claim worth
+  holding.
 
 ### O2. The wrong-weights hole is still open on the path that matters
 
@@ -151,52 +170,66 @@ key gating a `Residency` probe, which costs a schema key and re-identifies every
 existing config. Both are written into the comment at `_climb`'s `source_map`
 call. **Cannot fire on either live rig today** — both are single-spec hosts.
 
-### O3. The test suite can reach the production rigs
+### O3. ~~The test suite can reach the production rigs~~ — **closed, `6848e321`**
 
-`srv1`/`srv2` resolve over Tailscale on this machine, and the protected sleep/wake
-specs name `http://srv2:8001`. While building O2's probe, **one run of the test
-suite issued read-only `GET /v1/models` at srv2** before the agent diagnosed it
-and reverted. Nothing was written, nothing started or stopped.
+`conftest._no_test_resolves_a_machine` refuses `socket.getaddrinfo` for every
+name that is not this machine, which is under `urllib`, `http.client` and
+anything else that opens a socket. It denies the whole world rather than the two
+rigs: a guard listing srv1 and srv2 is a guard the third rig is not in.
 
-The hazard outlives that revert: **any test naming a rig by hostname is
-non-hermetic and nothing prevents it.** `tests/test_one_door.py` guards *spawns*,
-not name resolution.
+Two ways through, both narrow and both stated in the fixture. Addresses that are
+dead by standard (RFC 5737, RFC 3849) stay reachable, because `test_runner`
+dials `192.0.2.1:9` to drive a real transport failure — the suite already used
+them by convention and this makes the convention the only door. And a test's own
+`monkeypatch` still wins, which is the escape `_offline_probes` leaves.
 
-**Rec:** extend the door scanner, or block name resolution for rig hostnames in
-`conftest.py`. It now understands `monkeypatch.setattr(…, "ssh", …)` versus a
-real spawn, so it is the right place.
+**What it does not cover:** a subprocess resolves in its own interpreter, where
+the fixture is not. `test_one_door.py` is the guard on that side, and it guards
+what may spawn rather than what a spawned thing may reach. Closing that would
+mean a resolver stub the gate scripts inherit, and nobody has needed one.
 
-### O4. Gate 1's provenance check has two holes, and its docstring overclaims
+The first draft of the guard was wrong twice and the suite caught both — it
+broke the two 192.0.2.1 tests, and it wrote a credential into its own refusal,
+because urllib hands the resolver `user:sk-...@127.0.0.1` with the userinfo
+still attached. Both are pinned in
+`tests/test_a_test_may_name_a_rig_and_may_not_reach_one.py`.
+
+### O4. Gate 1's provenance check has two holes — **docstring corrected
+(`877a421a`), the holes are still open and still yours**
 
 `refuse_unless_the_live_ladders_own` replaced the profile check. Traversal and
-symlinks are genuinely closed. Two holes remain:
+symlinks are genuinely closed. Two holes remain, and both are now written into
+the gate's own docstring and into `sleep-wake.md` §11.2, where the shipped check
+was being described by a proposal it does not implement:
 
 1. **It is a directory check, not a provenance check.** Any file named
    `compose.*.yml` inside the live `compose_dir` is started, whatever is in it. A
-   dev round reaches this with `mcgyvr emit --out ~/.mcgyvr/config`.
+   dev round reaches this with `mcgyvr emit --out ~/.mcgyvr/config`. Asking the
+   planner instead needs units, and units need a scan — the cost this check was
+   chosen to avoid.
 2. **A dev config can declare itself live.** `configlib.user_config_path()`
    expands `~` against `$HOME`, and the door builds gate env as
    `dict(os.environ)` with `HOME` untouched. Repointing `HOME` makes a dev tree
    the "live" config.
 
-Not a regression — the old `profile: live` check was defeated as easily — but the
-docstring asserts a property the code does not have, on a gate that guards a live
-rig. **Rec:** at minimum correct the docstring; closing hole 2 means the door
-stops trusting `$HOME`, which is a real behavioural change and yours.
+Neither is a regression — the old `profile: live` check was defeated as easily.
+What was fixed is the overclaim on a gate that guards a live rig. **Closing hole
+2 means the door stops trusting `$HOME`, which is a real behavioural change and
+yours.**
 
-### O5. `sleep-wake.md` §3 and §10 describe a `cards()` that does not exist
+### O5. ~~`sleep-wake.md` §3 and §10 describe a `cards()` that does not
+exist~~ — **closed, `877a421a`**
 
-§3's correction says `cards()` "should call `emit.planned_paths`". **It cannot** —
-`planned_paths` needs units, units need a `Scan`, and not needing a scan is
-exactly what D1 exists for; also `emit` imports `serving`, so the import cannot
-run the other way. What was built instead: the naming convention moved *into*
-`serving` (`spec_name`, `safe_host`, `safe_model`, which `emit` now imports), and
-`cards()` calls `spec_files(root, host)` — **a directory listing**. Update §3 and
-§10 to say that.
+§3 now says what was built: the naming convention moved *into* `serving`
+(`spec_name`, `safe_host`, `safe_model`, which `emit` imports, so it is spelled
+once), and `cards()` calls `spec_files` — a directory listing — because
+`planned_paths` needs units, units need a scan, and not needing a scan is the
+whole of D1. Why a listing beats a name is there too, and so is the IPv6 bug
+that spelling the convention twice produced.
 
-A latent bug fell out of the same work: `cards()` looked for
-`compose.fd00::1.yml` where `emit` writes `compose.fd00--1.yml`, so **an IPv6 rig
-could never be woken.** Fixed.
+§10 no longer says a ladder whose units cannot co-reside "was never emittable".
+It is emitted as N alternatives, and `hold_together`'s refusal survives for the
+tighter-scan case only.
 
 ### O6. `emit` should pass `--alias` for llama.cpp
 
