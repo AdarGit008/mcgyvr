@@ -53,6 +53,15 @@ CONFIG_DEFAULT_HELP = (
     f"${CONFIG_PATH_ENV}, ./{CONFIG_FILENAME} or {USER_CONFIG_DIR}/{CONFIG_FILENAME}"
 )
 
+#: Where a machine's owner reads how to stand the ladder up. The skill is the
+#: one instruction an agent reads before it authors a contract, and setup is
+#: not part of it — so an agent that has read the skill and reached a machine
+#: nobody ran `mcgyvr init` on has no route back to setup except the one an
+#: error prints. Relative to the repository, as the skill directory is: the
+#: reader is the person who has the checkout this ran from, and an absolute
+#: path resolved here would be this machine's, not theirs.
+SETUP_DOC = "skills/mcgyvr/SETUP.md"
+
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
@@ -876,7 +885,13 @@ def _run(args: argparse.Namespace) -> int:
     except ConfigError as exc:
         config_error = exc
     if config is None and not contract.is_deterministic:
-        print(f"error: {config_error}", file=sys.stderr)
+        # `config_error` says `mcgyvr init` and where the file would go, which
+        # is the whole remedy for an operator who already knows what a config
+        # is for. It is not the whole remedy for the reader this line actually
+        # has: an agent following the skill, which names no setup verb and no
+        # lever, onto a machine nobody has set up. So the message keeps the
+        # loader's own remedy and adds where the rest of it is written down.
+        print(f"error: {config_error} {SETUP_DOC} says how.", file=sys.stderr)
         return 1
 
     # Ours, and nothing a caller passes moves it. The journal is a corpus to be
