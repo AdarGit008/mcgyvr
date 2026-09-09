@@ -131,10 +131,31 @@ def refuse_unless_the_live_ladders_own(serve: str, source: str) -> None:
 
     So the check keys on **whose launch spec is being run** rather than on whose
     profile is running it. ``RUN_COMPOSE`` must name a file inside the live
-    config's ``serving.compose_dir``, under a name ``emit_all`` would produce —
-    which is the composition guard whole, because a dev config's freshly-emitted
-    ``compose.srv2.yml`` sitting in the dev tree is not in that directory and is
-    refused exactly as it is today.
+    config's ``serving.compose_dir``, under the *shape* of a name ``emit_all``
+    produces — ``compose.`` … ``.yml`` — which refuses the ordinary mistake: a
+    dev config's freshly-emitted ``compose.srv2.yml`` sitting in the dev tree is
+    not in that directory, and is refused exactly as it is today.
+
+    **It is a directory check, and calling it a provenance check would overstate
+    it twice.** Both are stated rather than closed, because closing either is a
+    behavioural change to a gate that guards a live rig.
+
+    1. *Nothing here reads the file.* Any file named ``compose.*.yml`` that
+       reaches the live ``compose_dir`` is started, whatever is inside it, and a
+       dev round reaches that directory with ``mcgyvr emit --out
+       ~/.mcgyvr/config``. Asking the planner instead — "is this one of the
+       specs this config plans?" — would need units, and units need a scan,
+       which is the cost this check was chosen to avoid.
+    2. *A dev config can declare itself live.* ``configlib.user_config_path()``
+       expands ``~`` against ``$HOME``, and the door builds this gate's
+       environment as ``dict(os.environ)`` with ``HOME`` untouched, so
+       repointing ``HOME`` makes a dev tree the "live" config and its own
+       ``compose_dir`` the one being compared against.
+
+    Neither is a regression: the ``profile: live`` check this replaced was
+    defeated by exactly the same two moves. What traversal and symlinks cannot
+    do is escape the directory — ``spec.resolve()`` is compared against
+    ``kept.resolve()`` — and that part is genuinely closed.
 
     It costs no rig time and needs no scan: this gate already loads a config and
     already knows ``user_config_path()``, which it named in the very refusal

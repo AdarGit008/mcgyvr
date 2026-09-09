@@ -179,17 +179,37 @@ needs no fit: the card's identity is the host and the file, and the GPU index
 only matters to `emit`, which already has it. That is what keeps the wake path
 usable on a machine that never scanned the rig.
 
-**One correction since this was drafted.** It said "the file `emit_all`'s
-convention would have written", which was `compose.<host>.yml` and one name per
-host. Since `d8c5cf0a` a host of alternatives has one file per alternative, so
-`compose_file` is not derivable from the host alone and `cards()` must not
-spell the name itself. `emit.planned_paths`
-(`src/mcgyvr/emit.py:270`) exists for exactly this — it asks the planner rather
-than spelling the convention, "which is a name that stopped being true the day
-a host could hold alternatives" — and it is what this function should call. On
-a host of alternatives `Card.compose_file` becomes one file *per alternative*
-and the card's identity stops being the file; §10 records what that costs the
-eviction rule.
+**Two corrections since this was drafted, and the second overturns the first.**
+It said "the file `emit_all`'s convention would have written", which was
+`compose.<host>.yml` and one name per host. Since `d8c5cf0a` a host of
+alternatives has one file per alternative, so the name is not derivable from the
+host alone and `cards()` must not spell it. The first correction then said
+`cards()` should call `emit.planned_paths` — **and it cannot.** `planned_paths`
+needs units, units need a `Scan`, and not needing a scan is the whole of D1;
+`emit` imports `serving`, so the call cannot run the other way round either.
+
+**What was built instead.** The naming convention moved *into* `serving` —
+`spec_name`, `safe_host` and `safe_model`, which `emit` now imports, so the
+convention is spelled once — and `cards()` calls `serving.spec_files(root,
+host)`, which is **a directory listing**: every file under
+`serving.compose_dir` that mcgyvr's own convention gives this host. A listing
+and not a name, because a hardcoded `compose.<host>.yml` was wrong in both
+directions and both were live. It **missed** a host emitted as N alternatives,
+where that name is never written at all, and it **found** the whole-host file an
+earlier emit left behind when the host stopped fitting together — which holds
+every unit on one card, and starting it is precisely the overcommit a wake must
+never cause.
+
+So `Card` carries both, and they answer different questions: `compose_file` is
+the ordinary host's name and never a promise the file is current, and `specs` is
+what is actually on disk. `wake.compose_for` chooses out of `specs` and declines
+to guess when there is more than one. On a host of alternatives the card's
+identity stops being the file; §10 records what that costs the eviction rule.
+
+Spelling the convention in two modules had already cost something before the
+move: `cards()` looked for `compose.fd00::1.yml` where `emit` writes
+`compose.fd00--1.yml`, so an IPv6 rig could never have been woken. Fixed with
+the move.
 
 ---
 
@@ -997,9 +1017,13 @@ unit that comes up together. srv2's holds both the 3B on `:8001` and the 7B on
 `:8002`, sequenced largest-first by `depends_on`
 (`~/.mcgyvr/config/compose.srv2.yml`; `src/mcgyvr/emit.py:395`). There is no
 per-model wake, so there is no wake that displaces a neighbour. And a ladder
-whose units could not co-reside was never emittable: `hold_together`
-(`src/mcgyvr/serving/__init__.py:1081`) refuses it before a file is written —
-"fit the card one at a time and not together".
+whose units cannot co-reside is not emitted as one spec that overcommits the
+card: since 2026-09-09 `hold_together` cuts such a host into one launch spec per
+alternative and returns a sentence saying so, where it used to refuse the ladder
+outright — "fit the card one at a time and not together". That refusal is kept
+for the one case a cut cannot answer: a ladder sized against one reading of a
+card and checked against a tighter one, which `alternate` cannot see because it
+cuts on the figure each unit recorded when it was sized.
 
 **This paragraph used to say "the card is the compose file, and the compose
 file holds every unit on that host", and that stopped being true at commit
@@ -1131,6 +1155,18 @@ launch spec is being run.**
 > `emit.planned_paths` would produce for it** — i.e. only when the spec being
 > started or stopped is the live ladder's own. A dev run may **operate** the
 > live ladder. It may never **install** one.
+
+**What shipped is narrower than that sentence, and the difference is a hole
+rather than a simplification.** `refuse_unless_the_live_ladders_own` checks the
+*shape* of the name — `compose.` … `.yml` — and the resolved parent directory.
+It does not ask the planner what this config plans, so **any** file called
+`compose.*.yml` that reaches the live `compose_dir` is started, whatever is
+inside it; and `configlib.user_config_path()` expands `~` against `$HOME`, which
+the door passes through untouched, so repointing `HOME` makes a dev tree the
+"live" config. Neither is a regression — the `profile: live` check it replaced
+was defeated the same two ways — but this gate guards a live rig, and closing
+the second means the door stops trusting `$HOME`, which is a behavioural change
+and the owner's to make.
 
 Why this is the right cut:
 
