@@ -157,6 +157,7 @@ def _scanned(line: str) -> str:
     and nothing else on the line touched."""
     return SEAM_MENTION.sub(" <seam mention> ", line)
 
+
 #: The door and what stands behind it. Path glob -> why it may reach a rig.
 #: ``fnmatch`` semantics: ``*`` crosses ``/``. ``run.py`` itself is NOT here
 #: and must not be: it reaches no rig, it only runs the gate scripts in
@@ -302,9 +303,7 @@ def _matching(pattern: re.Pattern[str], text: str) -> list[str]:
     The whole decision, in one place, so the test that pins it below is asking
     the same question of the same code the tree-wide scans ask.
     """
-    return [
-        line[:100] for line in _code_lines(text) if pattern.search(_scanned(line))
-    ]
+    return [line[:100] for line in _code_lines(text) if pattern.search(_scanned(line))]
 
 
 def _hits(
@@ -420,7 +419,9 @@ def test_replacing_the_seam_is_not_a_spawn_and_hides_no_spawn() -> None:
     for line in A_SEAM_MENTION:
         assert not _matching(SSH_SPAWN, line), f"a substitution read as a spawn: {line}"
     for line in STILL_A_SPAWN:
-        assert _matching(SSH_SPAWN, line), f"a spawn slipped through the erasure: {line}"
+        assert _matching(SSH_SPAWN, line), (
+            f"a spawn slipped through the erasure: {line}"
+        )
 
 
 def test_no_shipped_file_is_exempted_by_the_seam_erasure() -> None:
