@@ -1,0 +1,30 @@
+services:
+  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:
+    command:
+    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
+    - --max-model-len
+    - '4096'
+    - --max-num-seqs
+    - '8'
+    - --port
+    - '8002'
+    - --gpu-memory-utilization
+    - '0.72'
+    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+            device_ids:
+            - '0'
+            driver: nvidia
+    environment:
+      HF_HUB_OFFLINE: '1'
+    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52
+    ipc: host
+    network_mode: host
+    restart: 'no'
+    volumes:
+    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro

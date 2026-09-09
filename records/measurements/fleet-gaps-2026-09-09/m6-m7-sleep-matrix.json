@@ -1,0 +1,358 @@
+[
+  {
+    "step": "baseline-both-serving",
+    "vram_used_mib": 10641,
+    "vram_free_mib": 1271,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.12,
+    "mem_free_gib": 30.22,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6816 MiB | 963083, 3810 MiB",
+    "decode_3b": 129.23,
+    "decode_7b": 68.87
+  },
+  {
+    "step": "L2-3b-alone-asleep",
+    "vram_used_mib": 7059,
+    "vram_free_mib": 4853,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.12,
+    "mem_free_gib": 30.22,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6816 MiB | 963083, 228 MiB",
+    "sleep_s": 0.27
+  },
+  {
+    "step": "L2-3b-asleep-7b-serving",
+    "vram_used_mib": 7059,
+    "vram_free_mib": 4853,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.12,
+    "mem_free_gib": 30.22,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6816 MiB | 963083, 228 MiB",
+    "decode_other": 68.97
+  },
+  {
+    "step": "L2-3b-alone-awake",
+    "vram_used_mib": 10621,
+    "vram_free_mib": 1291,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.12,
+    "mem_free_gib": 30.22,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6816 MiB | 963083, 3790 MiB",
+    "wake_s": 0.25,
+    "decode": 127.99
+  },
+  {
+    "step": "L2-7b-alone-asleep",
+    "vram_used_mib": 4039,
+    "vram_free_mib": 7873,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.11,
+    "mem_free_gib": 30.21,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 3790 MiB",
+    "sleep_s": 0.32
+  },
+  {
+    "step": "L2-7b-asleep-3b-serving",
+    "vram_used_mib": 4039,
+    "vram_free_mib": 7873,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.1,
+    "mem_free_gib": 30.2,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 3790 MiB",
+    "decode_other": 127.5
+  },
+  {
+    "step": "L2-7b-alone-awake",
+    "vram_used_mib": 10601,
+    "vram_free_mib": 1311,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.1,
+    "mem_free_gib": 30.2,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 3790 MiB",
+    "wake_s": 0.32,
+    "decode": 69.03
+  },
+  {
+    "step": "L2-both-asleep",
+    "vram_used_mib": 477,
+    "vram_free_mib": 11435,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.09,
+    "mem_free_gib": 30.19,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 228 MiB",
+    "sleep_s": {
+      "3b": 0.24,
+      "7b": 0.29
+    }
+  },
+  {
+    "step": "L2-both-asleep-probe-3b",
+    "vram_used_mib": 477,
+    "vram_free_mib": 11435,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.1,
+    "mem_free_gib": 30.2,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 228 MiB",
+    "v1_models_http": "200"
+  },
+  {
+    "step": "L2-both-asleep-probe-7b",
+    "vram_used_mib": 477,
+    "vram_free_mib": 11435,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.09,
+    "mem_free_gib": 30.19,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 228 MiB",
+    "v1_models_http": "200"
+  },
+  {
+    "step": "L2-both-awake",
+    "vram_used_mib": 10601,
+    "vram_free_mib": 1311,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.07,
+    "mem_free_gib": 30.17,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 3790 MiB",
+    "wake_s": {
+      "3b": 0.25,
+      "7b": 0.31
+    },
+    "decode_3b": 128.22,
+    "decode_7b": 68.61
+  },
+  {
+    "step": "L1-3b-before",
+    "vram_used_mib": 10601,
+    "vram_free_mib": 1311,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 39.06,
+    "mem_free_gib": 30.16,
+    "cached_gib": 9.3,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 3790 MiB"
+  },
+  {
+    "step": "L1-3b-asleep",
+    "vram_used_mib": 7045,
+    "vram_free_mib": 4867,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 35.94,
+    "mem_free_gib": 27.04,
+    "cached_gib": 12.36,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 228 MiB",
+    "sleep_s": 1.37
+  },
+  {
+    "step": "L1-3b-awake",
+    "vram_used_mib": 10607,
+    "vram_free_mib": 1305,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 35.92,
+    "mem_free_gib": 27.02,
+    "cached_gib": 12.36,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 3790 MiB",
+    "wake_s": 0.42,
+    "decode": 128.47
+  },
+  {
+    "step": "L1-7b-before",
+    "vram_used_mib": 10607,
+    "vram_free_mib": 1305,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 35.92,
+    "mem_free_gib": 27.02,
+    "cached_gib": 12.36,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 3790 MiB"
+  },
+  {
+    "step": "L1-7b-asleep",
+    "vram_used_mib": 4065,
+    "vram_free_mib": 7847,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 25.57,
+    "mem_free_gib": 16.65,
+    "cached_gib": 22.54,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 3790 MiB",
+    "sleep_s": 3.78
+  },
+  {
+    "step": "L1-7b-awake",
+    "vram_used_mib": 10627,
+    "vram_free_mib": 1285,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 25.6,
+    "mem_free_gib": 16.69,
+    "cached_gib": 22.54,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 3790 MiB",
+    "wake_s": 0.79,
+    "decode": 69.03
+  },
+  {
+    "step": "L1then2-3b-asleep-L2",
+    "vram_used_mib": 7065,
+    "vram_free_mib": 4847,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 25.59,
+    "mem_free_gib": 16.67,
+    "cached_gib": 22.54,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 228 MiB",
+    "sleep_s": 0.33
+  },
+  {
+    "step": "L1then2-7b-asleep-L2",
+    "vram_used_mib": 503,
+    "vram_free_mib": 11409,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 25.58,
+    "mem_free_gib": 16.67,
+    "cached_gib": 22.54,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 228 MiB",
+    "sleep_s": 0.4
+  },
+  {
+    "step": "L1then2-both-asleep-L2",
+    "vram_used_mib": 503,
+    "vram_free_mib": 11409,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 25.59,
+    "mem_free_gib": 16.68,
+    "cached_gib": 22.54,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 228 MiB"
+  },
+  {
+    "step": "L1then2-both-asleep-L2-after-60s-idle",
+    "vram_used_mib": 503,
+    "vram_free_mib": 11409,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 25.64,
+    "mem_free_gib": 16.73,
+    "cached_gib": 22.54,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":true}",
+      "7b": "200:{\"is_sleeping\":true}"
+    },
+    "gpu_procs": "960508, 234 MiB | 963083, 228 MiB"
+  },
+  {
+    "step": "L1then2-both-awake",
+    "vram_used_mib": 10627,
+    "vram_free_mib": 1285,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 25.63,
+    "mem_free_gib": 16.72,
+    "cached_gib": 22.54,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 3790 MiB",
+    "decode_3b": 127.82,
+    "decode_7b": 68.68
+  },
+  {
+    "step": "L1-second-cycle-both-awake",
+    "vram_used_mib": 10627,
+    "vram_free_mib": 1285,
+    "vram_reserved_mib": 377,
+    "mem_avail_gib": 25.62,
+    "mem_free_gib": 16.71,
+    "cached_gib": 22.54,
+    "sleeping": {
+      "3b": "200:{\"is_sleeping\":false}",
+      "7b": "200:{\"is_sleeping\":false}"
+    },
+    "gpu_procs": "960508, 6796 MiB | 963083, 3790 MiB",
+    "decode_3b": 128.64,
+    "decode_7b": 67.74
+  }
+]

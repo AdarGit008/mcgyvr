@@ -1,0 +1,36 @@
+version: 1
+sources:
+  a:
+    base_url: http://srv2:8080
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+  b:
+    base_url: http://srv2:8081
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+models:
+  deepseek-coder-v2-16b:
+    geometry_json: ./deepseek-coder-v2-16b.geometry.json
+  Qwen3.6-35B-A3B-UD-IQ3_XXS:
+    geometry_json: ./Qwen3.6-35B-A3B-UD-IQ3_XXS.geometry.json
+ladder:
+  tiers:
+  - name: t_a
+    source: a
+    model: deepseek-coder-v2-16b
+    max_parallel: 2
+  - name: t_b
+    source: b
+    model: Qwen3.6-35B-A3B-UD-IQ3_XXS
+    max_parallel: 2
+  fanout: idle
+verifier:
+  enabled: false
+sandbox:
+  mode: docker
+delivery:
+  mode: branch

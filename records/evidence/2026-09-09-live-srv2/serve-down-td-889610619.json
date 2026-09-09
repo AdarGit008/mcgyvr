@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-09-live-srv2-serve-down-td-889607608",
+  "host": "srv2",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.7b-alone.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 11911
+  }
+}

@@ -32,7 +32,6 @@ them:
 from __future__ import annotations
 
 import difflib
-import ipaddress
 import re
 import shlex
 from collections.abc import Iterable
@@ -41,7 +40,17 @@ from pathlib import Path
 
 import yaml
 
-from mcgyvr.serving import HF_CACHE_MOUNT, Unit, launch_specs
+from mcgyvr.serving import (
+    COMPOSE_PREFIX,
+    COMPOSE_SUFFIX,
+    HF_CACHE_MOUNT,
+    Unit,
+    launch_specs,
+    safe_host,
+    safe_model,
+    spec_files,
+    spec_name,
+)
 
 # The engines this module can render, and what each one is. An engine it has no
 # argv shape for is refused rather than guessed at: llama.cpp's flags on a vLLM
@@ -59,10 +68,16 @@ ENGINE_IMAGES = {
 # it.
 MOUNT = "/models"
 
-COMPOSE_PREFIX = "compose."
-COMPOSE_SUFFIX = ".yml"
+# Re-exported from :mod:`mcgyvr.serving`, where they now live: `serving.cards`
+# has to name the file a host's launch spec is kept in without a scan, and this
+# module already imports that one. Kept spelled here because they are what an
+# operator reads off a directory listing and half the tree imports them from
+# `mcgyvr.emit`. `safe_host` and `safe_model` moved with them, for the same
+# reason and on 2026-09-09: while the convention was spelled twice, `cards`
+# spelled it wrong for every host whose name has to be rewritten.
+__all__ = ["COMPOSE_PREFIX", "COMPOSE_SUFFIX", "safe_host", "safe_model"]
 
-# Compose service and container names, and the file name a host is filed under.
+# Compose service names: the process, not the file.
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -263,6 +278,42 @@ def planned_paths(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
     return tuple(path for path, _ in _planned(units, root))
 
 
+def unplanned(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
+    """Launch specs on disk for a rig this ladder binds that this config does not write.
+
+    **The third answer, and it is neither of the two :func:`check_all` gives.**
+    A planned file that differs is a drift; a file this config says nothing
+    about is not read at all, deliberately, because a directory may hold compose
+    files for rigs a ladder no longer binds and calling those a drift asks an
+    operator to delete evidence of a machine that is serving. What sits between
+    them is a file that matches **mcgyvr's own naming convention, for a host
+    this ladder still names, that this config would not write** — and that is
+    not somebody else's file. It is one of ours, left behind.
+
+    It is left behind constantly and by design: ``emit`` writes what a config
+    plans and deletes nothing, so the day a host's units stop summing onto its
+    card, ``emit`` writes ``compose.<host>.<model>.yml`` per alternative and the
+    old ``compose.<host>.yml`` — holding every unit on one card, the overcommit
+    :func:`~mcgyvr.serving.hold_together` was written to refuse — simply stays.
+    :func:`~mcgyvr.serving.spec_files` finds it, so a wake declines to guess
+    rather than starting it, and this is what tells the operator it is there.
+
+    Reported at drift severity by :func:`mcgyvr.cli._report_drift` rather than as
+    a warning, for the reason drift is: the consequence is a rig serving argv
+    nobody is reading. The repair is different and the sentence says so — a
+    drifted file is re-emitted, this one is deleted.
+    """
+    units = tuple(units)
+    hosts = {unit.host for unit in units}
+    planned = {path.name for path in planned_paths(units, root)}
+    found: list[Path] = []
+    for host in sorted(hosts):
+        found.extend(
+            path for path in spec_files(root, host) if path.name not in planned
+        )
+    return tuple(sorted(set(found)))
+
+
 def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
     """Every (path, document) pair a ladder's units resolve to, path-sorted.
 
@@ -272,12 +323,16 @@ def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
     compare it with the disk instead of committing it to the disk.
 
     The cut into files is :func:`~mcgyvr.serving.launch_specs`' and not this
-    module's — what comes up together is a fact about units. What is decided
-    here is only how a spec is spelled: ``compose.<host>.yml`` for a host that
-    comes up as one, which is every fleet emitted until now and nothing on disk
-    moves for one, and ``compose.<host>.<model>.yml`` for each of a host's
-    alternatives, because ``serve up --compose`` takes one file and starts what
-    is in it.
+    module's — what comes up together is a fact about units, and since
+    2026-09-09 it is a fact about the *card* they share rather than about the
+    port they answer on. What is decided here is only how a spec is spelled:
+    ``compose.<host>.yml`` for a host that comes up as one, which is both live
+    rigs and every fleet emitted until now and nothing on disk moves for one,
+    and ``compose.<host>.<what tells it apart>.yml`` otherwise, because
+    ``serve up --compose`` takes one file and starts what is in it. The
+    discriminator is :func:`~mcgyvr.serving.launch_specs`' too — usually the
+    model of the spec's largest unit, and more where a host needs more to tell
+    two specs apart.
     """
     planned: list[tuple[Path, str]] = []
     # What each file name is a name *for*, so that two things reaching one path
@@ -289,10 +344,7 @@ def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
     # one compose service.
     claimed: dict[str, str] = {}
     for spec in launch_specs(units):
-        name = _safe_host(spec.host)
-        if spec.model is not None:
-            name = f"{name}.{_safe_model(spec.model)}"
-        name = f"{COMPOSE_PREFIX}{name}{COMPOSE_SUFFIX}"
+        name = spec_name(spec.host, spec.model)
         called = spec.units[0].key.slug if spec.model is not None else spec.host
         first = claimed.setdefault(name, called)
         if first != called:
@@ -392,7 +444,7 @@ def _service(unit: Unit) -> dict[str, object]:
         return _vllm_service(unit)
     return {
         "image": _image(unit),
-        "container_name": f"mcgyvr-{_safe_host(unit.host)}-{_service_name(unit)}",
+        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
         "command": list(argv(unit)),
         # The host's network rather than a published port, for the same reason
         # the argv is built once: the port is already in the argv, so a
@@ -443,7 +495,7 @@ def _vllm_service(unit: Unit) -> dict[str, object]:
     """
     return {
         "image": _image(unit),
-        "container_name": f"mcgyvr-{_safe_host(unit.host)}-{_service_name(unit)}",
+        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
         "command": list(argv(unit)),
         "network_mode": "host",
         "ipc": "host",
@@ -498,56 +550,3 @@ def _service_name(unit: Unit) -> str:
     ``qwen2.5-coder:3b`` has a colon, which compose does not take in a name.
     """
     return f"{_UNSAFE.sub('-', unit.model)}-{unit.port}"
-
-
-def _safe_host(host: str) -> str:
-    """The host as a file name component, refusing whatever it would have to tidy.
-
-    A host is the key scans, units and files are all filed under, so a name
-    that merely needs sanitising is refused rather than sanitised: rewriting it
-    here would file this file under a name nothing else in the tool uses.
-
-    An IPv6 literal is the one exception, because refusing it is refusing the
-    rig. ``host_of("http://[fd00::1]:8080")`` is ``fd00::1`` — a real address
-    of a real machine that a ladder can already reach — and a colon is not a
-    compose name anywhere, nor a path component on every system a compose file
-    gets copied to. So it is spelled out instead, and normalised first, so that
-    the two ways of writing one address (``fd00::1`` and ``fd00:0:0:0:0:0:0:1``)
-    cannot become two files for one rig. What comes back is a name, not an
-    address; :func:`emit_all` is where two hosts are stopped from claiming one.
-    """
-    address = _ipv6(host)
-    if address is not None:
-        return _UNSAFE.sub("-", address)
-    if not host or host != _UNSAFE.sub("-", host) or host in {".", ".."}:
-        raise EmitError(f"{host!r} is not a host name a file can be named after")
-    return host
-
-
-def _safe_model(model: str) -> str:
-    """The model as a file name component, sanitised rather than refused.
-
-    The opposite call from :func:`_safe_host`, and for the opposite reason. A
-    host is the key scans, units and files are filed under, so rewriting one
-    here would file this file under a name nothing else uses — but a model name
-    is not a file-system key anywhere, and the names this fleet actually serves
-    are ``Qwen/Qwen2.5-Coder-7B-Instruct-AWQ`` and ``qwen2.5-coder:3b``.
-    Refusing a slash or a colon would refuse every HuggingFace id and every
-    tagged name, which is refusing the ladder rather than protecting it.
-
-    Sanitising is many-to-one, so it is :func:`_planned` that stops two models
-    from claiming one file — the same guard, and for the same reason, as two
-    hosts spelling one name.
-    """
-    name = _UNSAFE.sub("-", model)
-    if not name or name in {".", ".."} or set(name) <= {"-"}:
-        raise EmitError(f"{model!r} is not a model name a file can be named after")
-    return name
-
-
-def _ipv6(host: str) -> str | None:
-    """``host`` as one normalised IPv6 literal, or ``None`` if it is not one."""
-    try:
-        return ipaddress.IPv6Address(host).compressed
-    except ValueError:
-        return None

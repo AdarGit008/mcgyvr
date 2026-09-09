@@ -30,9 +30,9 @@ tests in it pin decisions that nothing below revisits:
 | pinned | by | value |
 |---|---|---|
 | it is a **config key**, not a flag | `test_a_config_that_asks_for_sleep_and_wake_is_not_refused_as_an_unknown_key`, and the module docstring's first bullet | `budgets.wake_timeout_s`, beside `serving.enable_sleep_wake` (default `False`) and `serving.compose_dir` |
-| it is **its own number** | `test_a_wake_budget_is_neither_the_request_nor_the_task_one` | not derived from `request_timeout_s` (default 120.0) or `task_timeout_s` (default 900) — `src/mcgyvr/config.py:604-625` |
+| it is **its own number** | `test_a_wake_budget_is_neither_the_request_nor_the_task_one` | not derived from `request_timeout_s` (default 120.0) or `task_timeout_s` (default 900) — `src/mcgyvr/config.py:619-641` |
 | it is **defaulted and filled in**, not absent | `test_a_wake_budget_is_defaulted_and_is_not_a_re_spelling_of_the_other_two` | a `float`, readable off a config that never mentioned it |
-| it has a **floor at the door's own health budget** | `test_a_wake_budget_under_the_doors_own_health_budget_is_refused_by_name`, `..._at_or_above_..._is_accepted` | `HEALTH_POLLS × HEALTH_INTERVAL_S` = 120 × 3.0 = **360 s** (`src/mcgyvr/serving/servelib.py:30-31`), and a config below it is refused *naming that number* |
+| it has a **floor at the door's own health budget** | `test_a_wake_budget_under_the_doors_own_health_budget_is_refused_by_name`, `..._at_or_above_..._is_accepted` | `HEALTH_POLLS × HEALTH_INTERVAL_S` = 120 × 3.0 = **360 s** (`src/mcgyvr/serving/servelib.py:41-42`), and a config below it is refused *naming that number* |
 | the **default clears the fleet's worst measured wake twice over** | `test_the_default_wake_budget_clears_the_slowest_wake_ever_measured` | `default >= 2 × 203.0 = 406 s` |
 
 So the owner is not being asked whether there should be a single config
@@ -162,7 +162,7 @@ T_wake(u) =  T0(u) × ( 1 + k(h) × shortfall(u) / B(m) )     llama.cpp cold
           =  T_wake_L2(u)                                   vLLM L2 wake [F3.5]
 
 margin = 2.4      the ratio the door's own comment already uses ("three of the
-                  slowest with room", servelib.py:27-29) and the ratio the
+                  slowest with room", servelib.py:38-40) and the ratio the
                   current 480 s default has over the fleet's worst emittable
                   wake (480 / 203 = 2.36)
 ```
@@ -285,7 +285,7 @@ The sum in §3 runs over the units a **launch spec** holds, and as of commit
 `d8c5cf0a` ("GREEN: two models on one URL are alternatives, and each is its own
 launch spec") that is no longer the same as the units on a host.
 
-`serving.launch_specs` (`src/mcgyvr/serving/__init__.py:804-863`) now cuts a
+`serving.launch_specs` (`src/mcgyvr/serving/__init__.py:955-1034`) now cuts a
 ladder three ways:
 
 * a host whose units **all come up together** stays one `compose.<host>.yml`,
@@ -333,7 +333,7 @@ every measurement taken since.
 
 | it must clear | value | 480 clears it by |
 |---|---|---|
-| the door's own health budget, or the caller abandons a wake the door is still working on (`servelib.py:30-31`, and the RED test refuses below it *by name*) | 360 s | 120 s |
+| the door's own health budget, or the caller abandons a wake the door is still working on (`servelib.py:41-42`, and the RED test refuses below it *by name*) | 360 s | 120 s |
 | `2 × WORST_MEASURED_WAKE_S`, asserted by `test_the_default_wake_budget_clears_the_slowest_wake_ever_measured` | 406 s | 74 s |
 | the fleet's worst **emittable** wake — KAT on srv1, 16.90 GiB into 15 GB of RAM, mapped | 203 s | **2.36×** |
 | the fleet's worst wake **ever recorded**, squeezed past `h_refuse` into the cliff | 385.3 s | 94.7 s |

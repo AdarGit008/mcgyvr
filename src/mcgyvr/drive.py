@@ -75,6 +75,7 @@ from mcgyvr.route import Try, Verdict, family_of
 from mcgyvr.runner import Completion, Request, RunnerError, dispatch
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, verify
+from mcgyvr.wake import for_config as wake_for_config
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
@@ -632,6 +633,12 @@ def worker_attempt(
     # so that what bounds a request is the run's declaration and not a literal
     # in the transport. See `budgets.request_timeout_s`.
     request_timeout = float(config.get("budgets.request_timeout_s"))
+    # `None` for a config that did not ask for sleep and wake, and then every
+    # dispatch below is the one it has always been. Built here rather than
+    # threaded through `dispatch` as a parameter because this is the layer that
+    # holds the config, and a card is derived from a config: `runner.dispatch`
+    # takes a source map and a rung and deliberately knows about no machine.
+    waker = wake_for_config(config)
 
     def attempt(this: Try) -> Judgement:
         # The whole of this function's failure path, in one place. Everything
@@ -691,26 +698,35 @@ def worker_attempt(
                 )
 
         def send(draw: int) -> Completion:
+            def wire() -> Completion:
+                return dispatch_prompt(
+                    pool,
+                    this.rung.name,
+                    prompt,
+                    contract,
+                    capacity=this.capacity,
+                    timeout_s=request_timeout,
+                )
+
+            def asked() -> Completion:
+                # The wake sits *inside* the cooldown's view and outside the
+                # transport, and the order is the whole of what it buys. A
+                # refused port on a card mcgyvr holds a launch spec for is not
+                # a fault of the rung — nothing was asked and nothing answered
+                # — so the cooldown must not learn from it and the attempt must
+                # not be charged for it. `waker` is None for a config that did
+                # not ask for the feature, and then this is the call it always
+                # was, byte for byte.
+                if waker is None:
+                    return wire()
+                return waker.dispatching(this.rung.name, wire)
+
             def once() -> Completion:
                 if cooldown is None:
-                    return dispatch_prompt(
-                        pool,
-                        this.rung.name,
-                        prompt,
-                        contract,
-                        capacity=this.capacity,
-                        timeout_s=request_timeout,
-                    )
+                    return asked()
                 endpoint = pool.bind(this.rung.name)
                 try:
-                    completion = dispatch_prompt(
-                        pool,
-                        this.rung.name,
-                        prompt,
-                        contract,
-                        capacity=this.capacity,
-                        timeout_s=request_timeout,
-                    )
+                    completion = asked()
                 except RunnerError:
                     # The dispatch is what the cooldown learns from: a source
                     # that answered and failed the generation is the fault this

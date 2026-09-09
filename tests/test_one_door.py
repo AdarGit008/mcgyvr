@@ -27,7 +27,11 @@ The tripwires, each a scan over the tree:
 
 1. An ssh (or scp/rsync/sftp, a paramiko/fabric/asyncssh import, ``/usr/bin/
    ssh``, ``command -p ssh``) or a ``docker run`` appears in a code line only
-   behind the door.
+   behind the door. A SPAWN, not the seam's name: a test that substitutes
+   ``servelib.ssh``, and the stdlib result record a stub hands back, are the
+   opposite of reaching a rig, and the scan now reads those two spellings for
+   what they are (``SEAM_MENTION``) instead of taking the bare word — while
+   still scanning the whole of the rest of every such line.
 2. Nothing under ``tools/`` or ``src/`` names its own daemon: no
    ``DOCKER_HOST``, no ``docker -H``/``--host``/``--context``, no ``-H ssh://``
    outside the shim, and no ``env -u``/``env -i`` that would strip the
@@ -107,6 +111,52 @@ DAEMON_OVERRIDE = re.compile(
 LOOPBACK = re.compile(r"\blocalhost\b|\b127\.0\.0\.1\b")
 RETIRED_SEAMS = re.compile(r"\bRUN_DOCKER\b|\bRUN_SSH\b|\bRUN_RIG_SNAPSHOT_CMD\b")
 
+#: Two spellings in which the seam's NAME provably starts no process, erased
+#: from a line before the spawn patterns read it. Added 2026-09-09: the list
+#: form above sees ``"ssh",`` and cannot tell ``subprocess.run(["ssh", host])``
+#: from a test taking that very call OUT of the path. Both here are the second
+#: kind, and each is anchored on the construct that makes it so:
+#:
+#: 1. ``monkeypatch.setattr(<module>, "ssh", fake)`` — pytest's fixture,
+#:    REPLACING the seam. The opposite of reaching a rig, and the reason a
+#:    probe test can substitute ``servelib.ssh`` and touch no machine.
+#: 2. ``CompletedProcess(args=["ssh", host], returncode=..., ...)`` — the
+#:    stdlib's RESULT record, which a stub hands back in place of a call that
+#:    was never made. It is a plain container; running one is not among the
+#:    things it can do. Two anchors, either of which settles it on its own:
+#:    the constructor named on the line, or a ``returncode=`` beside the argv,
+#:    which no spawning API in the stdlib accepts — ``subprocess.run`` and
+#:    ``Popen`` both raise ``TypeError`` on it. So the second reads the
+#:    constructor wrapped over two lines, which is how black formats it.
+#:
+#: What makes this narrower than the ``SEAM = "ssh"`` binding it replaces —
+#: which deleted the text from the file and so would have hidden a real spawn
+#: written the same way — is that only the matched text is erased and the whole
+#: of the rest of the line is still scanned. An argv, a command string or a
+#: second seam anywhere else on the line survives the erasure and is still a
+#: hit, INCLUDING inside the substitute itself:
+#: ``monkeypatch.setattr(servelib, "ssh", lambda h: run(["ssh", h]))`` is
+#: caught on its second ``"ssh",``. Neither spelling can be reached by
+#: accident either: a bare ``setattr`` is not exempt, only ``monkeypatch.``'s,
+#: and both require the seam to be the FIRST element of the argv, so
+#: ``run(args=["env", "ssh", h])`` is untouched. The substitution is
+#: deliberately single-line: one wrapped over two leaves ``servelib, "ssh",
+#: rig`` alone on one of them and is a hit, which is the safe way to fail.
+SEAM_MENTION = re.compile(
+    r"\bmonkeypatch\.setattr\(\s*[A-Za-z_][\w.]*\s*,\s*"
+    r"[\"'](?:/usr/bin/)?(?:ssh|scp|rsync|sftp)[\"']\s*,"
+    r"|(?<![\w.])(?:subprocess\.)?CompletedProcess\(\s*args\s*=\s*\[\s*"
+    r"[\"'](?:/usr/bin/)?(?:ssh|scp|rsync|sftp)[\"']\s*,"
+    r"|\bargs\s*=\s*\[\s*[\"'](?:/usr/bin/)?(?:ssh|scp|rsync|sftp)[\"']\s*,"
+    r"(?=[^()]*\breturncode\s*=)"
+)
+
+
+def _scanned(line: str) -> str:
+    """The line as every pattern here reads it: a :data:`SEAM_MENTION` erased,
+    and nothing else on the line touched."""
+    return SEAM_MENTION.sub(" <seam mention> ", line)
+
 #: The door and what stands behind it. Path glob -> why it may reach a rig.
 #: ``fnmatch`` semantics: ``*`` crosses ``/``. ``run.py`` itself is NOT here
 #: and must not be: it reaches no rig, it only runs the gate scripts in
@@ -177,10 +227,6 @@ ALLOWED: dict[str, str] = {
     "tests/test_cross_rig_claim.py": (
         "monkeypatches contract.ssh with a stub; reaches no rig"
     ),
-    "tests/test_breadth_rig.py": (
-        "monkeypatches gatelib.ssh with a stub that raises; reaches no rig"
-    ),
-    "tests/test_card_samples.py": "stubs contract.ssh, and the ssh binary being gone",
     "tests/test_serving.py": "stubs a dead ssh and asserts its message is kept",
     "tests/test_serving_memory_declaration.py": (
         "asserts the shape of a launch line against a stub"
@@ -250,16 +296,23 @@ def _allowed(rel: str) -> bool:
     return any(fnmatch(rel, pattern) for pattern in ALLOWED)
 
 
+def _matching(pattern: re.Pattern[str], text: str) -> list[str]:
+    """Every code line of ``text`` the pattern hits, seam mentions erased.
+
+    The whole decision, in one place, so the test that pins it below is asking
+    the same question of the same code the tree-wide scans ask.
+    """
+    return [
+        line[:100] for line in _code_lines(text) if pattern.search(_scanned(line))
+    ]
+
+
 def _hits(
     pattern: re.Pattern[str], roots: tuple[str, ...], *, root_files: bool = False
 ) -> dict[str, list[str]]:
     hits: dict[str, list[str]] = {}
     for path in _sources(roots, root_files=root_files):
-        lines = [
-            line[:100]
-            for line in _code_lines(path.read_text(encoding="utf-8", errors="replace"))
-            if pattern.search(line)
-        ]
+        lines = _matching(pattern, path.read_text(encoding="utf-8", errors="replace"))
         if lines:
             hits[_rel(path)] = lines
     return hits
@@ -311,6 +364,91 @@ def test_every_allowed_entry_names_a_file_that_exists() -> None:
         if not any(fnmatch(rel, pattern) for rel in present)
     ]
     assert not stale, f"ALLOWED names files that do not exist: {stale}"
+
+
+#: Lines that must NOT read as a spawn: the seam's name, in the two spellings
+#: that provably start nothing. Every one of these reaches no machine.
+A_SEAM_MENTION = (
+    'monkeypatch.setattr(servelib, "ssh", rig)',
+    'monkeypatch.setattr(gatelib, "ssh", fake_ssh)',
+    'monkeypatch.setattr(mcgyvr.serving.servelib, "ssh", rig)',
+    'return subprocess.CompletedProcess(args=["ssh", HOST], returncode=0, stdout="")',
+    'CompletedProcess(args=["scp", HOST], returncode=1, stdout="")',
+    # The constructor as black wraps it: the argv line stands alone, and the
+    # ``returncode=`` beside it is the anchor.
+    'args=["ssh", HOST], returncode=code, stdout=stdout, stderr=""',
+)
+
+#: Lines that must STILL read as a spawn, with the erasure in force. The first
+#: is the plain argv the guard has always caught; the rest are the ``SEAM``
+#: trick attempted against a call that really does reach a rig, in each shape
+#: the erasure could have been hoped to cover. If any of these stops being a
+#: hit, the guard has been made weaker and not smarter.
+STILL_A_SPAWN = (
+    'subprocess.run(["ssh", host, "nvidia-smi"])',
+    'monkeypatch.setattr(servelib, "ssh", lambda h, c: subprocess.run(["ssh", h, c]))',
+    'monkeypatch.setattr(servelib, "ssh", lambda h, c: os.system(f"ssh {h} {c}"))',
+    'monkeypatch.setattr(servelib, "ssh", fake); subprocess.run(["ssh", host])',
+    # A bare ``setattr`` is not pytest's fixture and is not exempt.
+    'setattr(servelib, "ssh", fake)',
+    # The seam is not the first element, so nothing is erased: a real spawn by
+    # keyword cannot dress itself as a result record.
+    'subprocess.run(args=["env", "ssh", host])',
+    # No ``returncode=`` and no constructor: a spawn by keyword is not a record.
+    'subprocess.run(args=["ssh", host])',
+    'subprocess.run(args=["ssh", host], check=True, capture_output=True)',
+    'run(f"ssh srv1 nvidia-smi")',
+)
+
+
+def test_replacing_the_seam_is_not_a_spawn_and_hides_no_spawn() -> None:
+    """The scanner tells ``replacing ssh`` from ``calling ssh``.
+
+    ``tests/test_a_sleeping_unit_does_not_read_as_serving.py`` substitutes
+    ``servelib.ssh`` in order to touch NO machine, which is the opposite of
+    what tripwire 1 looks for, and the list-form pattern could not see the
+    difference. That test worked around it by binding the name to a constant —
+    and a workaround that lives in the scanned file is one anybody can apply to
+    a test that really does reach a rig, because it makes the guard pass by
+    changing the text rather than the situation.
+
+    So the erasure is the narrowest thing that settles it: the mention itself
+    and not one character more, with the rest of the line still scanned. The
+    second half of this test is the part that matters — the same trick, done to
+    a real spawn, and still caught.
+    """
+    for line in A_SEAM_MENTION:
+        assert not _matching(SSH_SPAWN, line), f"a substitution read as a spawn: {line}"
+    for line in STILL_A_SPAWN:
+        assert _matching(SSH_SPAWN, line), f"a spawn slipped through the erasure: {line}"
+
+
+def test_no_shipped_file_is_exempted_by_the_seam_erasure() -> None:
+    """The erasure is a test-suite affordance and must stay one.
+
+    ``monkeypatch`` is pytest's, and a product that hands back a result record
+    it did not get from a subprocess is not a thing this repo does. So no line
+    under ``src/`` or ``tools/`` — the code that ships, and the code that runs
+    a campaign — is read short by it. A first one is argued into a diff here
+    rather than absorbed silently, which is the same rule ``ALLOWED`` keeps.
+    """
+    exempted = {
+        _rel(path): lines
+        for path in _sources(("src", "tools"), root_files=False)
+        if (
+            lines := [
+                line[:100]
+                for line in _code_lines(
+                    path.read_text(encoding="utf-8", errors="replace")
+                )
+                if SEAM_MENTION.search(line)
+            ]
+        )
+    }
+    assert not exempted, (
+        "a shipped file spells a seam mention, so a line of it is no longer "
+        f"scanned whole: {exempted}"
+    )
 
 
 def test_the_serving_harness_spawns_no_ssh_of_its_own() -> None:

@@ -1,0 +1,409 @@
+[
+  {
+    "label": "v-pair-plain-1",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 1,
+    "compose": "/home/adaramir/.mcgyvr/config/compose.srv2.yml",
+    "wake_s": 89.84842920303345,
+    "idle_avail_gib": 44.68449783325195,
+    "avail_after_gib": 39.193302154541016,
+    "ram_cost_gib": 5.4911956787109375,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 9665,
+    "vram_steady_used_mib": 9613,
+    "vram_steady_free_mib": 2299,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "is_sleeping_http": "404",
+        "tok_s": [
+          68.96,
+          68.7,
+          68.84
+        ],
+        "ttft_s": [
+          0.189,
+          0.167,
+          0.185
+        ],
+        "mean_tok_s": 68.83364731906103
+      },
+      "3b": {
+        "started_offset_s": 37,
+        "is_sleeping_http": "404",
+        "tok_s": [
+          128.12,
+          127.93,
+          127.38
+        ],
+        "ttft_s": [
+          0.192,
+          0.191,
+          0.168
+        ],
+        "mean_tok_s": 127.81030213772932
+      }
+    },
+    "samples": 269
+  },
+  {
+    "label": "v-pair-sleep-1",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 1,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.sleepmode.yml",
+    "wake_s": 141.35288166999817,
+    "idle_avail_gib": 44.68305206298828,
+    "avail_after_gib": 39.1025505065918,
+    "ram_cost_gib": 5.580501556396484,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 11257,
+    "vram_steady_used_mib": 11257,
+    "vram_steady_free_mib": 655,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "is_sleeping_http": "200",
+        "tok_s": [
+          69.02,
+          68.93,
+          68.8
+        ],
+        "ttft_s": [
+          0.186,
+          0.187,
+          0.174
+        ],
+        "mean_tok_s": 68.91624753992782
+      },
+      "3b": {
+        "started_offset_s": 89,
+        "is_sleeping_http": "200",
+        "tok_s": [
+          127.31,
+          127.91,
+          128.1
+        ],
+        "ttft_s": [
+          0.188,
+          0.2,
+          0.191
+        ],
+        "mean_tok_s": 127.77474444765983
+      }
+    },
+    "samples": 281
+  },
+  {
+    "label": "v-pair-plain-1",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 1,
+    "compose": "/home/adaramir/.mcgyvr/config/compose.srv2.yml",
+    "failed": "door up rc=2; see crash-v-pair-plain-1.log"
+  },
+  {
+    "label": "v-pair-sleep-1",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 1,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.sleepmode.yml",
+    "failed": "door up rc=2; see crash-v-pair-sleep-1.log"
+  },
+  {
+    "label": "v-3b-alone-1",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.3b-alone.yml",
+    "failed": "door up rc=2; see crash-v-3b-alone-1.log"
+  },
+  {
+    "label": "v-3b-alone-2",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.3b-alone.yml",
+    "wake_s": 99.75236201286316,
+    "idle_avail_gib": 44.646270751953125,
+    "avail_after_gib": 41.71628189086914,
+    "ram_cost_gib": 2.9299888610839844,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 2829,
+    "vram_steady_used_mib": 2795,
+    "vram_steady_free_mib": 9117,
+    "per_unit": {
+      "3b": {
+        "started_offset_s": 0,
+        "is_sleeping_http": "404",
+        "tok_s": [
+          127.97,
+          128.28,
+          128.05
+        ],
+        "ttft_s": [
+          0.188,
+          0.193,
+          0.193
+        ],
+        "mean_tok_s": 128.09923443556866
+      }
+    },
+    "samples": 115
+  },
+  {
+    "label": "v-3b-alone-3",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.3b-alone.yml",
+    "wake_s": 101.67234873771667,
+    "idle_avail_gib": 44.666015625,
+    "avail_after_gib": 41.74522018432617,
+    "ram_cost_gib": 2.920795440673828,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 2829,
+    "vram_steady_used_mib": 2795,
+    "vram_steady_free_mib": 9117,
+    "per_unit": {
+      "3b": {
+        "started_offset_s": 0,
+        "is_sleeping_http": "404",
+        "tok_s": [
+          125.1,
+          127.7,
+          124.41
+        ],
+        "ttft_s": [
+          0.195,
+          0.171,
+          0.19
+        ],
+        "mean_tok_s": 125.74014224616093
+      }
+    },
+    "samples": 135
+  },
+  {
+    "label": "v-7b-alone-1",
+    "units": [
+      "7b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.7b-alone.yml",
+    "wake_s": 104.89194512367249,
+    "idle_avail_gib": 44.661014556884766,
+    "avail_after_gib": 41.741241455078125,
+    "ram_cost_gib": 2.9197731018066406,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 7795,
+    "vram_steady_used_mib": 7795,
+    "vram_steady_free_mib": 4117,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "is_sleeping_http": "404",
+        "tok_s": [
+          68.94,
+          68.97,
+          68.93
+        ],
+        "ttft_s": [
+          0.188,
+          0.194,
+          0.189
+        ],
+        "mean_tok_s": 68.94406940595223
+      }
+    },
+    "samples": 133
+  },
+  {
+    "label": "v-7b-alone-2",
+    "units": [
+      "7b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.7b-alone.yml",
+    "wake_s": 104.16686129570007,
+    "idle_avail_gib": 44.6834716796875,
+    "avail_after_gib": 41.763614654541016,
+    "ram_cost_gib": 2.9198570251464844,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 7795,
+    "vram_steady_used_mib": 7795,
+    "vram_steady_free_mib": 4117,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "is_sleeping_http": "404",
+        "tok_s": [
+          68.91,
+          68.95,
+          68.9
+        ],
+        "ttft_s": [
+          0.193,
+          0.208,
+          0.21
+        ],
+        "mean_tok_s": 68.91826802468246
+      }
+    },
+    "samples": 132
+  },
+  {
+    "label": "v-7b-alone-3",
+    "units": [
+      "7b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.7b-alone.yml",
+    "wake_s": 104.12980437278748,
+    "idle_avail_gib": 44.66450119018555,
+    "avail_after_gib": 41.711204528808594,
+    "ram_cost_gib": 2.953296661376953,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 7795,
+    "vram_steady_used_mib": 7795,
+    "vram_steady_free_mib": 4117,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "is_sleeping_http": "404",
+        "tok_s": [
+          68.85,
+          68.73,
+          68.83
+        ],
+        "ttft_s": [
+          0.182,
+          0.185,
+          0.172
+        ],
+        "mean_tok_s": 68.7992053517864
+      }
+    },
+    "samples": 137
+  },
+  {
+    "label": "v-pair-plainB-1",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 1,
+    "compose": "/home/adaramir/.mcgyvr/config/compose.srv2.yml",
+    "wake_s": 91.65315127372742,
+    "idle_avail_gib": 44.6596565246582,
+    "avail_after_gib": 39.16510772705078,
+    "ram_cost_gib": 5.494548797607422,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 10271,
+    "vram_steady_used_mib": 9445,
+    "vram_steady_free_mib": 2467,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "restart_count": 1,
+        "engine_lines": "(EngineCore pid=203) INFO 09-09 13:48:32 [gpu_worker.py:560] Available KV cache memory: -0.08 GiB\n(EngineCore pid=151) INFO 09-09 13:49:11 [gpu_worker.py:560] Available KV cache memory: 0.46 GiB\n(EngineCore pid=151) INFO 09-09 13:49:11 [kv_cache_utils.py:2177] GPU KV cache size: 8,592 tokens\n(EngineCore pid=151) INFO 09-09 13:49:11 [gpu_worker.py:857] Free memory on device (11.52/11.63 GiB) on startup. Desired GPU memory utilization is (0.72, 8.37 GiB). Actual usage is 5.29 GiB for weight, 0.26 GiB for peak activation, 2.37 GiB for non-torch memory, and 0.06 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=270974116` (0.25 GiB) to fit into requested memory, or `--kv-cache-memory=3649588224` (3.4 GiB) to fully utilize gpu memory. Current kv cache memory in use is 0.46 GiB.\n(APIServer pid=1) INFO 09-09 13:50:20 [loggers.py:310] Engine 000: Avg prompt throughput: 3.0 tokens/s, Avg generation throughput: 35.8 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.6%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "404",
+        "tok_s": [
+          68.91,
+          68.81,
+          68.89
+        ],
+        "ttft_s": [
+          0.191,
+          0.183,
+          0.188
+        ],
+        "mean_tok_s": 68.86867749050049
+      },
+      "3b": {
+        "started_offset_s": 38,
+        "restart_count": 2,
+        "engine_lines": "(EngineCore pid=204) INFO 09-09 13:48:32 [gpu_worker.py:560] Available KV cache memory: -6.04 GiB\n(EngineCore pid=152) INFO 09-09 13:49:11 [gpu_worker.py:560] Available KV cache memory: -3.89 GiB\n(EngineCore pid=152) INFO 09-09 13:49:46 [gpu_worker.py:560] Available KV cache memory: 0.87 GiB\n(EngineCore pid=152) INFO 09-09 13:49:46 [kv_cache_utils.py:2177] GPU KV cache size: 25,312 tokens\n(EngineCore pid=152) INFO 09-09 13:49:47 [gpu_worker.py:857] Free memory on device (5.44/11.63 GiB) on startup. Desired GPU memory utilization is (0.26, 3.02 GiB). Actual usage is 1.95 GiB for weight, 0.15 GiB for peak activation, 0.05 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=723877151` (0.67 GiB) to fit into requested memory, or `--kv-cache-memory=3322312704` (3.09 GiB) to fully utilize gpu memory. Current kv cache memory in use is 0.87 GiB.",
+        "is_sleeping_http": "404",
+        "tok_s": [
+          128.08,
+          128.43,
+          128.13
+        ],
+        "ttft_s": [
+          0.192,
+          0.195,
+          0.19
+        ],
+        "mean_tok_s": 128.21315558756228
+      }
+    },
+    "samples": 214
+  },
+  {
+    "label": "v-pair-sleepB-1",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 1,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.sleepmode.yml",
+    "wake_s": 142.943913936615,
+    "idle_avail_gib": 44.67290115356445,
+    "avail_after_gib": 39.11846160888672,
+    "ram_cost_gib": 5.554439544677734,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 10641,
+    "vram_steady_used_mib": 10641,
+    "vram_steady_free_mib": 1271,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "restart_count": 0,
+        "engine_lines": "(EngineCore pid=205) INFO 09-09 13:55:14 [gpu_worker.py:560] Available KV cache memory: 1.0 GiB\n(EngineCore pid=205) INFO 09-09 13:55:14 [kv_cache_utils.py:2177] GPU KV cache size: 18,768 tokens\n(EngineCore pid=205) INFO 09-09 13:55:15 [gpu_worker.py:857] Free memory on device (11.52/11.63 GiB) on startup. Desired GPU memory utilization is (0.72, 8.37 GiB). Actual usage is 5.29 GiB for weight, 1.04 GiB for peak activation, 1.04 GiB for non-torch memory, and 0.06 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=853967012` (0.8 GiB) to fit into requested memory, or `--kv-cache-memory=4232581120` (3.94 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.0 GiB.\n(APIServer pid=1) INFO 09-09 13:56:24 [loggers.py:310] Engine 000: Avg prompt throughput: 3.0 tokens/s, Avg generation throughput: 42.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.6%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          68.89,
+          68.9,
+          68.82
+        ],
+        "ttft_s": [
+          0.185,
+          0.184,
+          0.159
+        ],
+        "mean_tok_s": 68.87042036112432
+      },
+      "3b": {
+        "started_offset_s": 89,
+        "restart_count": 1,
+        "engine_lines": "(EngineCore pid=203) INFO 09-09 13:55:14 [gpu_worker.py:560] Available KV cache memory: -5.42 GiB\n(EngineCore pid=152) INFO 09-09 13:55:51 [gpu_worker.py:560] Available KV cache memory: 1.46 GiB\n(EngineCore pid=152) INFO 09-09 13:55:51 [kv_cache_utils.py:2177] GPU KV cache size: 42,608 tokens\n(EngineCore pid=152) INFO 09-09 13:55:52 [gpu_worker.py:857] Free memory on device (4.86/11.63 GiB) on startup. Desired GPU memory utilization is (0.26, 3.02 GiB). Actual usage is 1.95 GiB for weight, 0.15 GiB for peak activation, -0.54 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1361411359` (1.27 GiB) to fit into requested memory, or `--kv-cache-memory=3332798464` (3.1 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.46 GiB.\n(APIServer pid=1) INFO 09-09 13:56:30 [loggers.py:310] Engine 000: Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 6.3 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.2%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          127.8,
+          128.1,
+          127.82
+        ],
+        "ttft_s": [
+          0.172,
+          0.185,
+          0.187
+        ],
+        "mean_tok_s": 127.9051731259129
+      }
+    },
+    "samples": 157
+  }
+]

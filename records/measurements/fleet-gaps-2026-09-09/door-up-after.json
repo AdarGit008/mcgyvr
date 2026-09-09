@@ -1,0 +1,267 @@
+{
+  "m1-80b-mapped-n36-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 98.7
+    }
+  ],
+  "m1-80b-mapped-n40-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 98.0
+    }
+  ],
+  "m1-80b-unmapped-n36-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 110.7
+    }
+  ],
+  "m1-80b-unmapped-n40-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 111.2
+    }
+  ],
+  "m1-qwen-unmapped-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 125.5
+    }
+  ],
+  "m1-qwen-unmapped-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 126.5
+    }
+  ],
+  "m1-srv1-mapped-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 134.1
+    }
+  ],
+  "m2-both": [
+    {
+      "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "up_after_s": 50.0
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081",
+      "port": 8081,
+      "up_after_s": 33.7
+    }
+  ],
+  "m2-deepseek-alone": [
+    {
+      "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "up_after_s": 46.0
+    }
+  ],
+  "m2-qwen36-alone": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081",
+      "port": 8081,
+      "up_after_s": 78.1
+    }
+  ],
+  "m3-qwen-mapped-neg2.0-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 162.5
+    }
+  ],
+  "m3-qwen-mapped-neg2.0-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 164.0
+    }
+  ],
+  "m3-qwen-mapped-neg3.0-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 162.8
+    }
+  ],
+  "m3-qwen-mapped-restore-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 135.1
+    }
+  ],
+  "m3x-experts-n0.30-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 128.3
+    }
+  ],
+  "m3x-experts-p0.20-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 126.9
+    }
+  ],
+  "m3x-restore-mapped-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 133.9
+    }
+  ],
+  "r-srv1-gemma-1": [
+    {
+      "container": "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 118.0
+    }
+  ],
+  "r-srv1-gemma-2": [
+    {
+      "container": "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 118.1
+    }
+  ],
+  "r-srv1-ling-1": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "up_after_s": 63.5
+    }
+  ],
+  "r-srv1-ling-2": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "up_after_s": 67.4
+    }
+  ],
+  "r-srv1-qwen-mapped-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 131.1
+    }
+  ],
+  "r-srv1-qwen-mapped-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 134.2
+    }
+  ],
+  "r-srv2-deepseek-1": [
+    {
+      "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "up_after_s": 41.2
+    }
+  ],
+  "r-srv2-deepseek-2": [
+    {
+      "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "up_after_s": 43.7
+    }
+  ],
+  "r-srv2-qwen36-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 74.3
+    }
+  ],
+  "r-srv2-qwen36-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 73.6
+    }
+  ],
+  "door-up-restore-up-964586.log": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 170.9
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.1
+    }
+  ],
+  "v-3b-alone-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 93.7
+    }
+  ],
+  "v-3b-alone-3": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 94.5
+    }
+  ],
+  "v-7b-alone-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 98.3
+    }
+  ],
+  "v-7b-alone-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 97.7
+    }
+  ],
+  "v-7b-alone-3": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 97.4
+    }
+  ],
+  "v-pair-plainB-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 170.0
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.1
+    }
+  ],
+  "v-pair-sleepB-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 133.7
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.1
+    }
+  ]
+}

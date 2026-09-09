@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-09-live-srv2-serve-down-td-6-35B-A3B-UD-IQ3_XXS-1788963058",
+  "host": "srv2",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/emit/srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS/compose.srv2.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 11911
+  }
+}

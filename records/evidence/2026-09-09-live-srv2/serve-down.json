@@ -1,12 +1,11 @@
 {
-  "run_id": "2026-09-09-live-srv2-serve-down-fwrestore",
+  "run_id": "2026-09-09-live-srv2-serve-down-restore-down-964568",
   "host": "srv2",
   "mode": "down",
-  "compose_file": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/compose.srv2.sleepmode.yml",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2-80b-mapped-ncmoe40.yml",
   "compose_down_exit": 0,
   "expected": [
-    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
-    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+    "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003"
   ],
   "remaining": [],
   "daemon_read": true,

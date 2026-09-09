@@ -45,7 +45,11 @@ wrong shape — leaves it in.
 **The seam** is ``mcgyvr.serving.servelib.ssh``, the one call in the probe path
 that reaches a rig; ``gatelib.ssh`` refuses outright unless it descends from the
 door (``src/mcgyvr/serving/gatelib.py:213``), so these tests substitute it and
-touch no machine. The polling constants are cut down the same way, because the
+touch no machine. The substitution is spelled plainly, ``monkeypatch.setattr(
+servelib, "ssh", rig)``: ``tests/test_one_door.py`` scans ``tests/`` for text
+that looks like reaching a rig, and it reads that spelling for what it is —
+taking the one rig-reaching call OUT of the path — rather than as a spawn.
+The polling constants are cut down the same way, because the
 real budget is 120 polls at 3.0 s and this file must not spend six minutes
 proving that a sleeper is never called healthy.
 """
@@ -71,19 +75,10 @@ UNIT = servelib.Service(name="svc0", container="mcgyvr-srv1-a-8080", port=8080)
 HOST = "srv1"
 
 
-#: The attribute :func:`probe` substitutes, spelled once and away from a comma.
-#: ``tests/test_one_door.py`` scans every line of ``tests/`` for something that
-#: looks like a spawn, and a bare ``"ssh",`` in an argument list looks exactly
-#: like one. Nothing here reaches a machine — that is the point of substituting
-#: it — so the name is bound to a constant rather than argued into that file's
-#: ALLOWED, which is the list of places that really do touch a rig.
-SEAM = "ssh"
-
-
 def reply(stdout: str = "", *, code: int = 0) -> subprocess.CompletedProcess[str]:
     """One answer from the rig, shaped as :func:`gatelib.ssh` returns them."""
     return subprocess.CompletedProcess(
-        args=[SEAM, HOST], returncode=code, stdout=stdout, stderr=""
+        args=["ssh", HOST], returncode=code, stdout=stdout, stderr=""
     )
 
 
@@ -157,7 +152,7 @@ def brief(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def probe(monkeypatch: pytest.MonkeyPatch, rig: Rig) -> dict[str, object]:
     """``wait_for`` against ``rig``, with the one rig-reaching call substituted."""
-    monkeypatch.setattr(servelib, SEAM, rig)
+    monkeypatch.setattr(servelib, "ssh", rig)
     return servelib.wait_for(HOST, UNIT)
 
 

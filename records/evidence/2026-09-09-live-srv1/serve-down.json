@@ -1,8 +1,8 @@
 {
-  "run_id": "2026-09-09-live-srv1-serve-down-restore3",
+  "run_id": "2026-09-09-live-srv1-serve-down-td-leet-gaps-2026-09-09-1788962909",
   "host": "srv1",
   "mode": "down",
-  "compose_file": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.yml",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv1.unmapped-as-found.yml",
   "compose_down_exit": 0,
   "expected": [
     "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080"

@@ -85,6 +85,19 @@ class SourceProbe(TypingProtocol):
         """Source name → why it cannot serve, holding only the ones that cannot."""
         ...
 
+    # A probe may also answer a second, *per rung* question — whether the model
+    # a rung names is the one its port is currently holding — and it is
+    # deliberately not declared here. This protocol is satisfied by a
+    # dict-backed stub in three lines, and requiring the second method would
+    # make every such stub claim an answer it has no way to have. So
+    # :func:`source_map` asks for it by name and skips the question where it is
+    # absent, which is the same rule the answer itself takes: a probe that
+    # cannot tell which weights are resident shortens no ladder. The
+    # implementation is
+    # :meth:`mcgyvr.availability.Availability.not_serving`, and what it exists
+    # to prevent is O3 — llama.cpp answering a request that names weights it is
+    # not holding from the weights it is, silently.
+
 
 class PoolError(Exception):
     """A dispatch could not be resolved to somewhere to run."""
@@ -395,6 +408,26 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
                 if reason is not None:
                     role_skips[role] = reason
                     del roles[role]
+        # A port that answers is not a port serving *your* model, and the
+        # question is per rung where the one above is per source. Asked through
+        # `getattr` and not through the protocol because :class:`SourceProbe` is
+        # a structural type that a dict-backed stub satisfies in three lines —
+        # requiring a second method would make every such stub a liar about a
+        # question it has no way to answer, and a probe that cannot tell which
+        # weights are resident should shorten no ladder. See
+        # :meth:`mcgyvr.availability.Availability.not_serving`.
+        asks_models = getattr(probe, "not_serving", None)
+        if asks_models is not None and usable:
+            bound = tuple(
+                (endpoints[rung.name], rung.model)
+                for rung in usable
+                if rung.name in endpoints
+            )
+            elsewhere = asks_models(bound)
+            if elsewhere:
+                usable, skipped, endpoints = _drop_wrong_model(
+                    config, usable, skipped, endpoints, elsewhere
+                )
 
     return SourceMap(
         rungs=tuple(usable),
@@ -434,6 +467,48 @@ def _drop_unreachable(
         if rung is None:  # not usable and not skipped: cannot happen
             continue
         reason = down.get(endpoints[tier.name].source)
+        if reason is None:
+            kept.append(rung)
+            continue
+        grew.append(Skipped(name=rung.name, model=rung.model, reason=reason))
+        del endpoints[tier.name]
+    return kept, grew, endpoints
+
+
+def _drop_wrong_model(
+    config: Config,
+    usable: list[Rung],
+    skipped: list[Skipped],
+    endpoints: dict[str, Endpoint],
+    elsewhere: Mapping[tuple[str, str], str],
+) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
+    """Move rungs whose model is not what their port is holding into ``skipped``.
+
+    The same shape as :func:`_drop_unreachable` and deliberately a second
+    function rather than a parameter on it: one is keyed by source and the other
+    by (source, model), and a rung dropped for the wrong reason would be
+    reported to an operator with advice that does not apply. Declared order is
+    rebuilt from the config for the same reason that one does — a ladder read
+    out of order is a ladder nobody can check against the file.
+    """
+    by_name = {rung.name: rung for rung in usable}
+    already = {skip.name: skip for skip in skipped}
+    kept: list[Rung] = []
+    grew: list[Skipped] = []
+    for tier in config.ladder.tiers:
+        structural = already.get(tier.name)
+        if structural is not None:
+            grew.append(structural)
+            continue
+        rung = by_name.get(tier.name)
+        if rung is None:  # not usable and not skipped: cannot happen
+            continue
+        endpoint = endpoints.get(tier.name)
+        reason = (
+            elsewhere.get((endpoint.source, rung.model))
+            if endpoint is not None
+            else None
+        )
         if reason is None:
             kept.append(rung)
             continue

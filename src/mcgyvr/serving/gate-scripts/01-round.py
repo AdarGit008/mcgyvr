@@ -30,8 +30,10 @@ from __future__ import annotations
 import importlib.util
 import os
 import sys
+from pathlib import Path
 
 from mcgyvr import config as configlib
+from mcgyvr.serving import COMPOSE_PREFIX, COMPOSE_SUFFIX
 from mcgyvr.serving.gatelib import DEV, door_required, export, refuse, root
 
 
@@ -82,6 +84,100 @@ def profile() -> tuple[str, str, str]:
     return str(loaded.get("profile")), str(loaded.path), loaded.digest()
 
 
+def live_compose_dir() -> Path | None:
+    """Where the **live** config keeps its launch specs, or ``None`` if unsaid.
+
+    Loaded separately from the run's own config, and that separation is the
+    point: a dev round is running under a config ``$MCGYVR_CONFIG`` names, and
+    the question being asked is about somebody else's file — the live ladder's.
+    Reading ``serving.compose_dir`` off the dev config would let a dev round
+    declare its own tree to be the live one, which is the composition guard
+    turned inside out.
+
+    A live config that is absent or unreadable answers ``None``, and ``None``
+    refuses every dev serve: there is no live ladder to operate, so operating it
+    is not what is being asked for.
+    """
+    where = configlib.user_config_path()
+    if not where.is_file():
+        return None
+    try:
+        live = configlib.parse(where.read_text(encoding="utf-8"), path=where)
+    except (configlib.ConfigError, OSError):
+        return None
+    stated = live.get("serving.compose_dir")
+    return Path(str(stated)).expanduser() if stated else None
+
+
+def refuse_unless_the_live_ladders_own(serve: str, source: str) -> None:
+    """A dev round may **operate** the live ladder. It may never **install** one.
+
+    **The owner overturned this gate's profile check on 2026-09-09**
+    (``records/plans/sleep-wake.md`` §11): dev gets sleep and wake too. What the
+    old check refused was two different things at once, and only one of them was
+    ever this gate's.
+
+    *Composition* is the real one. ``serve up`` starts whatever compose file it
+    is handed, and a dev config is by definition a setup under development —
+    different models, a different ``--gpu-memory-utilization``, a different
+    image digest. Bring that up on a shared rig and every later live run, and
+    every live measurement, is against a ladder nobody declared.
+
+    *Availability* is the other, and it is already covered elsewhere: gate 2
+    refuses a ``dev`` run any rig another run holds, and refuses **any** run —
+    dev or live — a rig that is not idle for ``serve up``. So the conflict this
+    gate uniquely covers is the narrow one: a dev run acting on a card no other
+    run holds.
+
+    So the check keys on **whose launch spec is being run** rather than on whose
+    profile is running it. ``RUN_COMPOSE`` must name a file inside the live
+    config's ``serving.compose_dir``, under a name ``emit_all`` would produce —
+    which is the composition guard whole, because a dev config's freshly-emitted
+    ``compose.srv2.yml`` sitting in the dev tree is not in that directory and is
+    refused exactly as it is today.
+
+    It costs no rig time and needs no scan: this gate already loads a config and
+    already knows ``user_config_path()``, which it named in the very refusal
+    being replaced. The refusal below names the **spec**, not the profile,
+    because telling an operator to change their profile when what is wrong is
+    which file they pointed at sends them to the wrong repair.
+
+    **The residual, stated rather than hidden.** A dev run can now put the live
+    ladder to sleep on a free rig, which is the thing R1 was written to prevent.
+    Its price is bounded by the same design's own machinery: the live run that
+    arrives afterwards finds the card asleep, is refused by the port and wakes
+    it, so it pays one wake — 50 to 130 seconds — and not a failure, in an
+    envelope of its own. Whether that price is acceptable is N11 and is the
+    owner's; this gate implements the ruling, not N11's resolution.
+    """
+    named = os.environ.get("RUN_COMPOSE") or ""
+    kept = live_compose_dir()
+    spec = Path(named) if named else None
+    if (
+        kept is not None
+        and spec is not None
+        and spec.name.startswith(COMPOSE_PREFIX)
+        and spec.name.endswith(COMPOSE_SUFFIX)
+        and spec.resolve().parent == kept.resolve()
+    ):
+        return
+    refuse(
+        f"gate 1: this run is under a dev profile ({source}) and "
+        f"`serve {serve}` was pointed at {named or '(no --compose)'}, which is "
+        f"not one of the live ladder's own launch specs. A dev round may "
+        f"operate the live ladder and may never install one: the spec has to "
+        f"be a file `mcgyvr emit` wrote into the live config's "
+        f"`serving.compose_dir`"
+        + (
+            f", which is {kept}"
+            if kept is not None
+            else f" — and the live config at {configlib.user_config_path()} "
+            f"states no `serving.compose_dir`, so there is no live ladder to "
+            f"operate"
+        )
+    )
+
+
 def main() -> int:
     door_required("gate 1")
     # The profile first, and the round second: the round check may APPEND a
@@ -92,15 +188,7 @@ def main() -> int:
     which, source, digest_of_config = profile()
     serve = os.environ.get("RUN_SERVE")
     if serve and which == DEV:
-        refuse(
-            f"gate 1: this run is under a dev profile ({source}), and the live "
-            f"ladder is not started or stopped under one: `serve {serve}` is "
-            "prod's. Live outranks dev (owner, 2026-09-06). Run it under the "
-            f"live config: the one at {configlib.user_config_path()} with "
-            f"`profile: live`, named by {configlib.CONFIG_PATH_ENV} or reached "
-            "by leaving the variable unset — and if that is the file this run "
-            "loaded, set its profile to live"
-        )
+        refuse_unless_the_live_ladders_own(serve, source)
 
     # tools/ is not a package, so product.py is reached by path. Loaded here and
     # not at module scope: a gate that failed to import would refuse with a

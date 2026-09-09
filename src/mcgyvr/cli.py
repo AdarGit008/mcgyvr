@@ -34,7 +34,14 @@ from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import keep as keep_config
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-from mcgyvr.emit import Drift, EmitError, check_all, emit_all, planned_paths
+from mcgyvr.emit import (
+    Drift,
+    EmitError,
+    check_all,
+    emit_all,
+    planned_paths,
+    unplanned,
+)
 from mcgyvr.exits import Exit
 from mcgyvr.initialize import InitError, initialize
 from mcgyvr.scan import Mismatch, Scan
@@ -1357,6 +1364,32 @@ def _climb(
     # timeout per source and answers a question the dispatch below is about to
     # ask for real. `mcgyvr pool --probe` is where an operator asks it in
     # advance, and paying for it here would charge every run for a diagnosis.
+    #
+    # **One question this does leave open, named here because it is not the one
+    # above.** `Availability.not_serving` asks whether the model a rung declares
+    # is the one its port is currently holding, and that is *not* something the
+    # dispatch discovers for real: llama.cpp answers a request naming weights it
+    # is not holding from the weights it is, so a run against an alternated card
+    # records an answer from a rung that was never up (O3). It cannot happen on
+    # either live rig today — both are single-spec hosts — and it becomes real
+    # the day alternatives are deployed.
+    #
+    # Closing it here means probing before dispatch, and that was tried on
+    # 2026-09-09 and backed out. The cost is not the latency: one concurrent
+    # `GET /v1/models` per source, bounded by `availability.PROBE_TIMEOUT_S`, is
+    # nothing against a run that then spends minutes in a model. The cost is
+    # that this function stops being reachable without a network. It is the
+    # doctrine `mcgyvr.wake` states — "fail-first, never probe-first", a card
+    # that is up must cost nothing extra — and it is load-bearing in the tests:
+    # the sleep/wake specs name `http://srv2:8001`, which on a developer's
+    # machine resolves to the actual rig, so a probe here sent the suite's own
+    # requests to production and took four of the nineteen approved specs with
+    # it. Two ways to close it are written up for the owner: read the `model`
+    # the completion itself reports (llama.cpp returns the loaded path there)
+    # and compare it with `availability._is_model`, which costs no network and
+    # catches it on the dispatch that matters; or gate a probe behind a new
+    # `serving.` key, off by default, which costs a schema key and therefore
+    # re-identifies every existing config.
     pool = source_map(config)
 
     # The bound `mcgyvr pool` prints, actually applied. Built here, once, and
@@ -1911,6 +1944,64 @@ def _scan(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
+def _serve(args: argparse.Namespace) -> int:
+    """Hand a card back, or take it back, by name.
+
+    A thin front over the door's two steps for the operator who wants to say it
+    by hand, and it is deliberately **not** gated by
+    ``serving.enable_sleep_wake``: that switch exists so that mcgyvr does not
+    decide to take a card down without being asked, and a person typing this has
+    asked (``records/plans/sleep-wake.md`` §15).
+
+    ``sleep`` drains before it evicts. Every slot of every bound the card serves
+    is taken first, so a dispatch that had already been admitted finishes rather
+    than having its container killed under it — the one thing whole-card
+    eviction is not allowed to do (D8). The census that decides *whether* to
+    sleep is a reading and this is a hold, and between the two a dispatch can
+    start, which is why both exist.
+    """
+    try:
+        config = load_config(Path(args.config) if args.config else None)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
+    from mcgyvr import wake as wakelib
+    from mcgyvr.capacity import Capacity, SlotUnavailableError
+
+    try:
+        if args.direction == "wake":
+            made = wakelib.wake(config, args.host)
+        else:
+            card = wakelib.card_named(config, args.host)
+            capacity = Capacity.of(config)
+            # `budgets.request_timeout_s` and not the task budget: a dispatch in
+            # flight either finishes inside its own transport bound or the
+            # transport has already given up on it, so waiting longer than that
+            # is waiting for something that is no longer running.
+            with capacity.drain(
+                card.sources, timeout=float(config.get("budgets.request_timeout_s"))
+            ):
+                made = wakelib.sleep(config, args.host)
+    except wakelib.WakeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.REFUSED
+    except SlotUnavailableError as busy:
+        print(f"error: {busy}", file=sys.stderr)
+        return Exit.REFUSED
+
+    if not made.ok:
+        print(
+            f"error: the door exited {made.code} bringing {made.host} "
+            f"{'up' if made.direction == 'up' else 'down'} — read its envelope "
+            f"under records/evidence/live-{made.host}/",
+            file=sys.stderr,
+        )
+        return Exit.ERROR
+    print(f"{made.host} {args.direction}: {made.seconds:.1f}s ({made.compose_file})")
+    return Exit.OK
+
+
 def _emit(args: argparse.Namespace) -> int:
     """Write one compose file per launch spec for the ladder's serving units.
 
@@ -1961,7 +2052,12 @@ def _emit(args: argparse.Namespace) -> int:
         units = units_for(
             config, scans, specs=_model_specs(), ctx_per_slot=args.ctx_per_slot
         )
-        hold_together(units, scans)
+        # What the card refusal became. `hold_together` no longer refuses a host
+        # whose units will not sum onto its card — `launch_specs` emits them as
+        # alternatives instead (owner's ruling 5, 2026-09-09) — and a change to
+        # what the rig runs, decided by arithmetic nobody sees, must not reach an
+        # operator as nothing but a second `wrote ...` line.
+        cut = hold_together(units, scans)
     except UnitError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED
@@ -1977,12 +2073,24 @@ def _emit(args: argparse.Namespace) -> int:
     # owner to invent a second port is telling them to buy a second card. What
     # the refusal was protecting against — a file whose second service can
     # never bind — is now impossible by construction, because
-    # `serving.launch_specs` gives each alternative a launch spec of its own.
-    # The refusals that still mean something are two: `hold_together` above,
-    # for units that really do share a card, and a host mixing alternatives
-    # with co-residents, which `emit_all` and `check_all` raise below.
+    # `serving.launch_specs` gives each alternative a launch spec of its own —
+    # and since the discriminator became card contention rather than the port,
+    # "alternative" covers srv2's :8001/:8002/:8003 trio too, which no port
+    # collision could ever have seen.
+    # The refusal of a host mixing alternatives with co-residents went the same
+    # way on 2026-09-09 (owner's ruling 5): under a fluid ladder that mix is the
+    # normal case, and `launch_specs` answers it as a covering by feasible
+    # combinations rather than as a partition it cannot make. What still refuses
+    # is `hold_together` above, on the axis alternation does not trade — host
+    # RAM, which two units that share a card happily can still fail to share.
 
     out = Path(args.out) if args.out else Path.cwd()
+
+    # Before the files and before the check, because it is the fact both of
+    # them are about: a host that was cut into alternatives has N files where it
+    # had one, only one of which is ever up.
+    for said in cut:
+        print(f"warning: {said}", file=sys.stderr)
 
     # `--check` is the whole answer to "the config moved and the rig did not".
     # It is here rather than in the door because this is the function that
@@ -2039,8 +2147,19 @@ def _report_drift(drifted: Sequence[Drift], out: Path, units: Sequence[Unit]) ->
     A missing file and a stale one are printed differently on purpose. The
     first is one command away from correct; the second is two, and the second
     of those is on the rig.
+
+    **A third kind, and it is not a drift of any planned file.** `unplanned`
+    names a launch spec on disk, for a rig this ladder still binds, that this
+    config would not write — the `compose.<host>.yml` an earlier emit left
+    behind when the host stopped fitting together, holding every unit on one
+    card. It is reported at the same severity because the consequence is the
+    same one drift has, and it is `serving.cards`' first candidate on the wake
+    path: nothing else in this tool would have said a word about it. The repair
+    is the other one, and the sentence says so — a drifted file is re-emitted,
+    this one is deleted.
     """
-    if not drifted:
+    leftover = unplanned(units, out)
+    if not drifted and not leftover:
         # The files this config would write, asked of the function that writes
         # them. Spelled here as `compose.<host>.yml` it was a name nothing had
         # emitted for a host of alternatives, so a clean check named a file
@@ -2048,6 +2167,17 @@ def _report_drift(drifted: Sequence[Drift], out: Path, units: Sequence[Unit]) ->
         for path in planned_paths(units, out):
             print(f"{path.name} is what this config emits")
         return Exit.OK
+
+    for path in leftover:
+        print(
+            f"mismatch: {path} is a launch spec this config does not write. "
+            f"`mcgyvr emit` leaves the files it no longer plans where they are, "
+            f"so this is an older cut of the same rig — and it is the first "
+            f"file a wake would find for that card. Bring up what you mean and "
+            f"delete it; nothing here deletes a file that may be what is "
+            f"running.",
+            file=sys.stderr,
+        )
 
     for item in sorted(drifted, key=lambda d: d.path.name):
         if item.missing:
@@ -2518,6 +2648,33 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         ),
     )
     sca.set_defaults(func=_scan)
+
+    srv = sub.add_parser(
+        "serve",
+        help="put a card to sleep, or wake it, through the serving door",
+    )
+    srv.add_argument(
+        "direction",
+        choices=("sleep", "wake"),
+        help=(
+            "sleep takes the whole card down after draining every slot it "
+            "serves; wake brings the launch spec back up"
+        ),
+    )
+    srv.add_argument(
+        "--host",
+        required=True,
+        metavar="HOST",
+        help="the rig, as the base_url of a source names it",
+    )
+    srv.add_argument(
+        "--config",
+        default=None,
+        type=_named_path,
+        metavar="PATH",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
+    )
+    srv.set_defaults(func=_serve)
 
     emi = sub.add_parser(
         "emit",

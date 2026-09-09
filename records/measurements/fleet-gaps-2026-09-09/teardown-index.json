@@ -1,0 +1,11 @@
+{
+  "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/emit/srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS/compose.srv2.yml",
+  "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/emit/srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS/compose.srv1.yml",
+  "mcgyvr-srv2-deepseek-coder-v2-16b-8080": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.m2-deepseek-coder-v2-16b-8080.yml",
+  "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/emit/srv1-Ling-3.0-tiny-Q4_K_M/compose.srv1.yml",
+  "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": "/home/adaramir/.mcgyvr/config/compose.srv1.yml",
+  "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": "/home/adaramir/.mcgyvr/config/compose.srv2.yml",
+  "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": "/home/adaramir/.mcgyvr/config/compose.srv2.yml",
+  "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.m2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081.yml",
+  "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2-80b-mapped-ncmoe36.yml"
+}
