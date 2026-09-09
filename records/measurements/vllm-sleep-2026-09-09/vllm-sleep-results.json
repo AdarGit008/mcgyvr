@@ -1,0 +1,178 @@
+[
+  {
+    "step": "baseline-both-serving",
+    "vram_used_mib": 10641,
+    "vram_free_mib": 1271,
+    "ram_avail_gib": 39.18,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":false}",
+      "7B": "200:{\"is_sleeping\":false}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "procs": "838861, 6816 MiB | 840372, 3810 MiB"
+  },
+  {
+    "step": "L1-3B-asleep",
+    "vram_used_mib": 7065,
+    "vram_free_mib": 4847,
+    "ram_avail_gib": 36.06,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":true}",
+      "7B": "200:{\"is_sleeping\":false}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "sleep_s": 1.39,
+    "procs": "838861, 6816 MiB | 840372, 228 MiB"
+  },
+  {
+    "step": "L1-3B-awake",
+    "vram_used_mib": 10627,
+    "vram_free_mib": 1285,
+    "ram_avail_gib": 36.06,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":false}",
+      "7B": "200:{\"is_sleeping\":false}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "wake_s": 0.41
+  },
+  {
+    "step": "L1-7B-asleep",
+    "vram_used_mib": 4065,
+    "vram_free_mib": 7847,
+    "ram_avail_gib": 25.74,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":false}",
+      "7B": "200:{\"is_sleeping\":true}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "sleep_s": 3.99,
+    "procs": "838861, 234 MiB | 840372, 3790 MiB"
+  },
+  {
+    "step": "L1-7B-awake",
+    "vram_used_mib": 10627,
+    "vram_free_mib": 1285,
+    "ram_avail_gib": 25.72,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":false}",
+      "7B": "200:{\"is_sleeping\":false}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "wake_s": 0.79
+  },
+  {
+    "step": "L2-3B-asleep",
+    "vram_used_mib": 7065,
+    "vram_free_mib": 4847,
+    "ram_avail_gib": 25.72,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":true}",
+      "7B": "200:{\"is_sleeping\":false}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "sleep_s": 0.25,
+    "procs": "838861, 6796 MiB | 840372, 228 MiB"
+  },
+  {
+    "step": "L2-3B-awake",
+    "vram_used_mib": 10627,
+    "vram_free_mib": 1285,
+    "ram_avail_gib": 25.72,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":false}",
+      "7B": "200:{\"is_sleeping\":false}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "wake_s": 0.24
+  },
+  {
+    "step": "L2-7B-asleep",
+    "vram_used_mib": 4065,
+    "vram_free_mib": 7847,
+    "ram_avail_gib": 25.73,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":false}",
+      "7B": "200:{\"is_sleeping\":true}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "sleep_s": 0.3,
+    "procs": "838861, 234 MiB | 840372, 3790 MiB"
+  },
+  {
+    "step": "L2-7B-awake",
+    "vram_used_mib": 10627,
+    "vram_free_mib": 1285,
+    "ram_avail_gib": 25.72,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":false}",
+      "7B": "200:{\"is_sleeping\":false}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "wake_s": 0.31
+  },
+  {
+    "step": "L2-both-asleep",
+    "vram_used_mib": 503,
+    "vram_free_mib": 11409,
+    "ram_avail_gib": 25.72,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":true}",
+      "7B": "200:{\"is_sleeping\":true}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "sleep_s": {
+      "3B": 0.24,
+      "7B": 0.3
+    },
+    "procs": "838861, 234 MiB | 840372, 228 MiB"
+  },
+  {
+    "step": "L2-both-awake",
+    "vram_used_mib": 10627,
+    "vram_free_mib": 1285,
+    "ram_avail_gib": 25.71,
+    "sleeping": {
+      "3B": "200:{\"is_sleeping\":false}",
+      "7B": "200:{\"is_sleeping\":false}"
+    },
+    "answers": {
+      "3B": true,
+      "7B": true
+    },
+    "wake_s": {
+      "3B": 0.24,
+      "7B": 0.3
+    }
+  }
+]

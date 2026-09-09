@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-09-live-srv1-serve-down-srv1-deepseek-neg-down",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-deepseek-coder-v2-16b-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 5122,
+    "free_mib": 622
+  }
+}

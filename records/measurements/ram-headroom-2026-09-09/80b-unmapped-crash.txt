@@ -1,0 +1,8 @@
+0.01.305.688 W common_fit_params: failed to fit params to free device memory: n_gpu_layers already set by user to 99, abort
+0.01.465.711 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.46.512.284 I cmn          init: llama threadpool init, n_threads = 10
+/src/ggml/src/ggml-cuda/ggml-cuda.cu:107: CUDA error
+1.23.602.426 E CUDA error: the resource allocation failed
+--
+0.00.632.570 W common_fit_params: failed to fit params to free device memory: n_gpu_layers already set by user to 99, abort
+0.00.791.567 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden

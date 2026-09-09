@@ -61,11 +61,21 @@ model.**
   rig with an 18.56 GB blob — 821 MB/s of sustained NVMe reads *during decode*,
   `free` at 207 MB, page cache pinned at max.
   → `records/evidence/2026-08-25-moe-expert-offload/raw-postswap-squeeze-concurrency.txt`
-* **With `--no-mmap`:** only the CPU-side expert tensors are allocated, as anon
-  memory, and nothing pages. Same rig, same blob: **+63%** decode (42.9 vs 26.3
-  tok/s at `ncmoe 20`). On the roomy rig the same flag is **−12%** — the copy
-  costs and mmap was never the problem. **The flag is rig-dependent, not
-  universally good.**
+* **With `--no-mmap`:** only the CPU-side expert tensors are allocated, and
+  nothing is read from the blob during decode. Same rig, same blob: **+63%**
+  decode (42.9 vs 26.3 tok/s at `ncmoe 20`). On the roomy rig the same flag is
+  **−12%** — the copy costs and mmap was never the problem. **The flag is
+  rig-dependent, not universally good.**
+
+  **It is `Shmem`, not private anon, and `Shmem` swaps.** Measured 2026-09-09
+  on srv1 serving `--load-mode none`: 8.09 GiB of `Shmem` with `/dev/shm` at
+  100K used and no tmpfs to account for it
+  (`records/measurements/ram-headroom-2026-09-09/srv1-release.txt`). Both rigs
+  run 8 GiB of swap — srv2 was 2.2 GiB into it that morning — so the experts
+  *can* be paged out. What the flag buys is that they are not re-read from the
+  GGUF per token; it does not buy unpageability. Anything that depends on the
+  experts being untouchable needs swap off or `mlock`, neither of which this
+  fleet does.
 
 **Wake time tracks RAM headroom, not model size.** Cold start to first 200 on
 `/v1/models`, 2026-09-08:

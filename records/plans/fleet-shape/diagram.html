@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet shape — the control loop</title>
+<style>
+  :root {
+    --bg:      #fbfaf8;
+    --fg:      #1b1a18;
+    --muted:   #6f6b66;
+    --line:    #cfc9c1;
+    --card:    #ffffff;
+    --chip:    #f1eee9;
+    --accent:  #2f6f5e;
+    --accent-w:#e2efea;
+    --warm:    #9a5628;
+    --warm-w:  #f7ece2;
+    --shadow:  rgba(30,25,18,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:      #16181a;
+      --fg:      #e8e6e2;
+      --muted:   #97938d;
+      --line:    #3b3e43;
+      --card:    #202327;
+      --chip:    #292c31;
+      --accent:  #6cb8a1;
+      --accent-w:#1e2e2b;
+      --warm:    #d99a63;
+      --warm-w:  #302620;
+      --shadow:  rgba(0,0,0,.35);
+    }
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 40px 24px 56px;
+  }
+  main { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 28px; font-size: 14px; }
+  .frame {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 1px 3px var(--shadow);
+    overflow-x: auto;
+  }
+  svg { display: block; width: 100%; height: auto; min-width: 720px; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 20px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+
+  .box   { fill: var(--card); stroke: var(--line); stroke-width: 1.25; }
+  .boxin { fill: var(--chip); stroke: var(--line); stroke-width: 1.25; }
+  .boxac { fill: var(--accent-w); stroke: var(--accent); stroke-width: 1.5; }
+  .t     { fill: var(--fg); font-size: 15px; font-weight: 600; }
+  .s     { fill: var(--muted); font-size: 12.5px; font-weight: 400; }
+  .n     { fill: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+  .flow  { stroke: var(--line); stroke-width: 1.6; fill: none; }
+  .flowb { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+  .learn { stroke: var(--warm); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+  .lbl   { fill: var(--muted); font-size: 12px; }
+  .lblw  { fill: var(--warm); font-size: 12px; font-weight: 600; }
+  .lbla  { fill: var(--accent); font-size: 12.5px; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fleet shape — the control loop</h1>
+  <p class="sub">Time, size and sleep/wake reduce to one verdict: what shape should the fleet be right now.</p>
+
+  <div class="frame">
+  <svg viewBox="0 0 960 800" role="img" aria-label="A control loop: work queue and ladder status feed a demand signal, which generates candidate fleet shapes, filters them for feasibility, scores them, damps the decision, and commits a transition to the fleet; the fleet's observed behaviour feeds back both as new status and as learned constants.">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/>
+      </marker>
+      <marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+      </marker>
+      <marker id="ahw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--warm)"/>
+      </marker>
+    </defs>
+
+    <!-- ============ inputs ============ -->
+    <rect class="boxin" x="176" y="26" width="252" height="56" rx="10"/>
+    <text class="t" x="196" y="50">live ladder status</text>
+    <text class="s" x="196" y="69">what is up, asleep, serving — per rung</text>
+
+    <rect class="boxin" x="532" y="26" width="252" height="56" rx="10"/>
+    <text class="t" x="552" y="50">work queue</text>
+    <text class="s" x="552" y="69">tasks queued and running</text>
+
+    <path class="flow" marker-end="url(#ah)" d="M302,82 L302,104 Q302,116 314,116 L468,116 L468,132"/>
+    <path class="flow" marker-end="url(#ah)" d="M658,82 L658,104 Q658,116 646,116 L492,116 L492,132"/>
+
+    <!-- ============ stage 1 ============ -->
+    <rect class="box" x="256" y="134" width="448" height="60" rx="10"/>
+    <text class="n" x="276" y="158">1</text>
+    <text class="t" x="300" y="159">demand signal</text>
+    <text class="s" x="300" y="178">pressure = (busy + waiting) ÷ width, per rung — shared, reads low</text>
+    <path class="flow" marker-end="url(#ah)" d="M480,194 L480,222"/>
+
+    <!-- ============ stage 2 ============ -->
+    <rect class="box" x="256" y="224" width="448" height="60" rx="10"/>
+    <text class="n" x="276" y="248">2</text>
+    <text class="t" x="300" y="249">candidate shapes</text>
+    <text class="s" x="300" y="268">enumerate what each rig could hold — the set is small</text>
+    <path class="flow" marker-end="url(#ah)" d="M480,284 L480,312"/>
+
+    <!-- ============ stage 3 ============ -->
+    <rect class="box" x="256" y="314" width="448" height="60" rx="10"/>
+    <text class="n" x="276" y="338">3</text>
+    <text class="t" x="300" y="339">is it feasible?</text>
+    <text class="s" x="300" y="358">card · host RAM · refusal gates — what sleepers still hold</text>
+    <path class="flow" marker-end="url(#ah)" d="M480,374 L480,402"/>
+
+    <!-- ============ stage 4 ============ -->
+    <rect class="box" x="256" y="404" width="448" height="60" rx="10"/>
+    <text class="n" x="276" y="428">4</text>
+    <text class="t" x="300" y="429">score it</text>
+    <text class="s" x="300" y="448">seconds to switch + seconds to drain the queue it would serve</text>
+    <path class="flow" marker-end="url(#ah)" d="M480,464 L480,492"/>
+
+    <!-- ============ stage 5 ============ -->
+    <rect class="box" x="256" y="494" width="448" height="60" rx="10"/>
+    <text class="n" x="276" y="518">5</text>
+    <text class="t" x="300" y="519">commit, or stay</text>
+    <text class="s" x="300" y="538">clocks and a margin — the switch must pay for itself</text>
+
+    <!-- verdict -->
+    <path class="flowb" marker-end="url(#ahb)" d="M480,554 L480,614"/>
+    <text class="lbla" x="496" y="576">fleet.next = (srv1, srv2)</text>
+    <text class="lbl"  x="496" y="595">drain · sleep or down · wake or up</text>
+
+    <!-- ============ the fleet ============ -->
+    <rect class="boxac" x="256" y="616" width="448" height="104" rx="12"/>
+    <text class="t" x="280" y="644">the fleet</text>
+    <text class="s" x="352" y="644">two rigs, one card each, resident set is fluid</text>
+
+    <rect class="box" x="280" y="656" width="188" height="46" rx="8"/>
+    <text class="t" x="298" y="675" font-size="14">srv1</text>
+    <text class="s" x="298" y="692">6 GB card · 15 GB RAM · slow, tight</text>
+
+    <rect class="box" x="492" y="656" width="188" height="46" rx="8"/>
+    <text class="t" x="510" y="675" font-size="14">srv2</text>
+    <text class="s" x="510" y="692">12 GB card · 45 GB RAM · roomy</text>
+
+    <!-- ============ return: the loop ============ -->
+    <path class="flow" marker-end="url(#ah)" d="M256,668 L120,668 Q104,668 104,652 L104,70 Q104,54 120,54 L170,54"/>
+    <text class="lbl" x="34" y="368">the loop</text>
+    <text class="lbl" x="34" y="386">re-read,</text>
+    <text class="lbl" x="34" y="404">re-decide</text>
+
+    <!-- ============ learning feedback ============ -->
+    <path class="learn" marker-end="url(#ahw)" d="M704,668 L840,668 Q856,668 856,652 L856,360 Q856,344 840,344 L710,344"/>
+    <path class="learn" marker-end="url(#ahw)" d="M856,434 L710,434"/>
+    <circle cx="856" cy="434" r="3" fill="var(--warm)"/>
+    <text class="lblw" x="784" y="612">learn</text>
+    <text class="lbl"  x="746" y="500">observed wake times,</text>
+    <text class="lbl"  x="746" y="518">throughput, page faults</text>
+    <text class="lbl"  x="746" y="536">→ the constants in 3 and 4</text>
+
+    <!-- ============ side note ============ -->
+    <text class="lbl" x="34" y="746">Polled on queue diff and on a tick — never by a daemon. Every constant is cited in evidence_and_params.md.</text>
+  </svg>
+  </div>
+
+  <footer>
+    Companion to <code>formulas.md</code> and <code>evidence_and_params.md</code> in this directory.
+  </footer>
+</main>
+</body>
+</html>

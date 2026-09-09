@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-09-09-live-srv1-serve-down-B-refusal-p20-down",
+  "campaign": "live-srv1",
+  "step": "serve-down",
+  "host": "srv1",
+  "date": "2026-09-09",
+  "round": "r11-09-09-2026",
+  "product_sha256": "234582d8fce4861510671d5074e73531e027e7c74adf470ac0add6bed75dc384",
+  "profile": "live",
+  "config": "/home/adaramir/.mcgyvr/config/mcgyvr.yaml",
+  "config_digest": "cfg-9d443d314015874aef3158444c038b800a2527befb22d0cee6fcad78630c56c9",
+  "mcgyvr_version": "0.1.1.dev38+gd7ea57f0",
+  "started_at": "2026-09-09T06:17:26Z"
+}

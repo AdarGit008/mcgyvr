@@ -107,11 +107,44 @@ RUNTIME_RESIDENT_GB = 1.53
 # the page cache needs room to work and the host has its own processes. Two
 # GiB is what ``tools/bench/serving/backends/llamacpp.py`` has weighed against
 # for a campaign (``MMAP_HEADROOM_BYTES``), and the figure it was chosen
-# against is a live mmap depressing ``MemAvailable`` by about a gigabyte. How
-# much is *enough* is unmeasured; what is measured is that none is too little
-# — KAT-Coder cleared bare ``MemAvailable`` by 0.4 GiB on srv1 and then took
-# 203 s to wake behind a thrashing cache
-# (``records/measurements/wake-2026-09-08/``).
+# against is a live mmap depressing ``MemAvailable`` by about a gigabyte.
+#
+# This one figure prices two gates that fail differently, and only one of them
+# has been measured. :func:`fit` compares it first against the *blob* to pick a
+# loading mode, and then against the *spilled experts* to refuse outright.
+#
+# **The mode gate is measured, and 2.0 is roughly four times too large for it.**
+# Swept 2026-09-09 across three models on both rigs, mapped, at clearances of
+# +2.0, +0.5 and -1.0 GiB against the blob: nothing degrades between +2.0 and
+# +0.5, decode throughput never moves at any clearance, and the cost below zero
+# lands on *wake* (+19% on srv1's Qwen3.6, n=3 alternating; +36% on deepseek;
+# +5% on srv2's 80B). It is also proportional rather than constant — one GiB of
+# shortfall is 8% of a 12.30 GiB blob and 2.8% of a 35.67 GiB one.
+# → ``records/measurements/ram-headroom-2026-09-09/``
+#
+# **The refusal gate is measured too, and it keeps the 2.0.** Swept the same
+# day against the *experts* rather than the blob, it is a cliff and not a slope:
+# flat on every axis down to +0.55 GiB (131.5 s wake, 33.26 tok/s, zero pages
+# swapped out), and one GiB further down a 385 s wake, 2.3 M major faults, 2.2 M
+# pages swapped out and **decode at 32% of baseline**. Across every mode-gate
+# arm decode never moved at all; past the experts it loses two thirds.
+#
+# It keeps 2.0 for three reasons, none of them the old comment's: the cliff sits
+# somewhere in the unmeasured 1.5 GiB between +0.55 and -0.97; the failure is
+# silent, so being wrong does not announce itself the way a slow wake does — the
+# unit comes up, gate 7 is green, `/v1/models` answers, and every request is
+# served off swap (``okf/must-read/touching-rigs.md``); and the margin is free
+# on this fleet, admitting Qwen3.6's 9.2 GiB of experts and KAT's 11.8 alike.
+#
+# The KAT-Coder wake of 203 s that this comment used to cite is a *mode* datum,
+# not a refusal one — a 16.9 GiB blob mapped into 15 GiB of RAM
+# (``records/measurements/wake-2026-09-08/``), taken before :func:`fit` had two
+# arms at all.
+#
+# One thing neither sweep covers: **the mode has a VRAM cost this constant does
+# not model.** srv2's 80B crash-loops under ``--load-mode none`` on a CUDA
+# allocation while the same unit loads mapped, with 18 GiB of host RAM to spare.
+# The loading mode is decided here from host RAM alone.
 RAM_HEADROOM_GB = 2.0
 
 # The widest configuration anyone has measured on these rigs (#366, 32 slots on

@@ -1,0 +1,17 @@
+{
+  "run_id": "2026-09-09-live-srv2-serve-down-fwrestore",
+  "host": "srv2",
+  "mode": "down",
+  "compose_file": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/compose.srv2.sleepmode.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 11911
+  }
+}

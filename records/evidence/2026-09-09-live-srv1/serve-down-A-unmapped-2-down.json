@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-09-live-srv1-serve-down-A-mapped-1-down",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 17,
+    "free_mib": 5727
+  }
+}

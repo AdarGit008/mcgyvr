@@ -1,0 +1,140 @@
+[
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-qwen-hi",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": 1.9,
+    "balloon_gib": 0.0,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "idle_avail_gib": 14.224777221679688,
+    "avail_before_gib": 14.233898162841797,
+    "actual_clearance_gib": 1.9338981628417962,
+    "wake_s": 10941.089647054672,
+    "started_at": "2026-09-09T04:03:17.991333437Z",
+    "rates": [
+      32.80045318261354,
+      32.681350664726345,
+      32.74417838369381
+    ],
+    "mean_tok_s": 32.741994077011235,
+    "majfault_wake": 8676,
+    "majfault_decode": 14,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 13.284770965576172,
+      "Cached": 12.443553924560547,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.851043701171875,
+      "Shmem": 0.02960968017578125
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-deepseek-hi",
+    "model": "deepseek",
+    "blob_gib": 8.29,
+    "clearance_gib": 1.9,
+    "balloon_gib": 4.0,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "failed": "DOOR FAILED down/srv1-deepseek-hi-down rc=1\ngate 1: round=r10-08-09-2026 product_sha256=db756b3b06a51a5b... profile=live config=cfg-9d443d314015874aef3158444c038b800a2527befb22d0cee6fcad78630c56c9 (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=975218,/app/llama-server,5104MiB, containers=6a5176ffdcac); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-srv1-deepseek-hi-down -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-deepseek-coder-v2-16b-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-srv1-deepseek-hi-down)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-srv1-deepseek-hi-down- prefix): mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-qwen-mid",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": 0.5,
+    "balloon_gib": 1.39,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "idle_avail_gib": 14.216766357421875,
+    "avail_before_gib": 12.819110870361328,
+    "actual_clearance_gib": 0.5191108703613274,
+    "wake_s": 10939.916990041733,
+    "started_at": "2026-09-09T04:07:13.065678909Z",
+    "rates": [
+      32.707051578608926,
+      33.20045495063677,
+      33.192865579749935
+    ],
+    "mean_tok_s": 33.03345736966521,
+    "majfault_wake": 10265,
+    "majfault_decode": 111,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 11.90652084350586,
+      "Cached": 11.971282958984375,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.8511199951171875,
+      "Shmem": 0.029621124267578125
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-deepseek-mid",
+    "model": "deepseek",
+    "blob_gib": 8.29,
+    "clearance_gib": 0.5,
+    "balloon_gib": 5.4,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "failed": "DOOR FAILED down/srv1-deepseek-mid-down rc=1\ngate 1: round=r10-08-09-2026 product_sha256=db756b3b06a51a5b... profile=live config=cfg-9d443d314015874aef3158444c038b800a2527befb22d0cee6fcad78630c56c9 (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=980675,/app/llama-server,5104MiB, containers=4f1e2c7842ce); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-srv1-deepseek-mid-down -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-deepseek-coder-v2-16b-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-srv1-deepseek-mid-down)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-srv1-deepseek-mid-down- prefix): mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-qwen-neg",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": -1.0,
+    "balloon_gib": 2.89,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "idle_avail_gib": 14.228988647460938,
+    "avail_before_gib": 11.33188247680664,
+    "actual_clearance_gib": -0.9681175231933601,
+    "wake_s": 10970.356748342514,
+    "started_at": "2026-09-09T04:11:19.688123578Z",
+    "rates": [
+      33.13439498157707,
+      33.06984913701213,
+      33.06022950037052
+    ],
+    "mean_tok_s": 33.08815787298657,
+    "majfault_wake": 12147,
+    "majfault_decode": 110,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 10.376850128173828,
+      "Cached": 10.41317367553711,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.85113525390625,
+      "Shmem": 0.0296173095703125
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-deepseek-neg",
+    "model": "deepseek",
+    "blob_gib": 8.29,
+    "clearance_gib": -1.0,
+    "balloon_gib": 6.9,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "failed": "DOOR FAILED down/srv1-deepseek-neg-down rc=1\ngate 1: round=r10-08-09-2026 product_sha256=db756b3b06a51a5b... profile=live config=cfg-9d443d314015874aef3158444c038b800a2527befb22d0cee6fcad78630c56c9 (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=986247,/app/llama-server,5102MiB, containers=e6ebbe527dad); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-srv1-deepseek-neg-down -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-deepseek-coder-v2-16b-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-srv1-deepseek-neg-down)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-srv1-deepseek-neg-down- prefix): mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  }
+]
