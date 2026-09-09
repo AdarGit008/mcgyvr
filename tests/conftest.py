@@ -12,11 +12,14 @@ still fired.
 from __future__ import annotations
 
 import importlib.util
+import ipaddress
 import json
+import socket
 import sys
 import types
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -57,6 +60,119 @@ def _own_home_and_session(
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "pytest")
+
+
+#: The only names a test may resolve: this machine, under the spellings a
+#: loopback server binds and connects to. Everything else is somebody's rig.
+_LOOPBACK = frozenset(
+    {
+        "",
+        "0.0.0.0",
+        "127.0.0.1",
+        "::",
+        "::1",
+        "localhost",
+        "localhost.localdomain",
+    }
+)
+
+#: Addresses the internet guarantees route nowhere: RFC 5737's three IPv4
+#: documentation blocks and RFC 3849's IPv6 one. A test that wants a *real*
+#: transport failure has to reach a socket, and these are the addresses where
+#: reaching one costs nobody anything — ``tests/test_runner.py`` dials
+#: ``http://192.0.2.1:9`` for exactly that reason, and says so. The suite
+#: already used them by convention; this makes the convention the only way
+#: through.
+_ROUTES_NOWHERE = (
+    ipaddress.ip_network("192.0.2.0/24"),
+    ipaddress.ip_network("198.51.100.0/24"),
+    ipaddress.ip_network("203.0.113.0/24"),
+    ipaddress.ip_network("2001:db8::/32"),
+)
+
+
+def _is_this_machine_or_nowhere(named: str) -> bool:
+    """Whether this name may be resolved: loopback, or an address that is dead
+    by standard. Anything else is a machine somebody owns."""
+    if named.lower() in _LOOPBACK:
+        return True
+    try:
+        address = ipaddress.ip_address(named)
+    except ValueError:
+        return False
+    return address.is_loopback or any(
+        address in block
+        for block in _ROUTES_NOWHERE
+        if address.version == block.version
+    )
+
+
+class ReachedForAMachineError(RuntimeError):
+    """A test asked the resolver for a name that is not this machine."""
+
+
+@pytest.fixture(autouse=True)
+def _no_test_resolves_a_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A test may **name** a rig. It may not **resolve** one.
+
+    ``srv1`` and ``srv2`` are real machines on this developer's Tailnet, and the
+    suite is full of fixtures that name them — the protected sleep/wake specs
+    carry ``http://srv2:8001`` because that is what the live ladder is. On
+    2026-09-09, while a residency probe was being built, **one run of this suite
+    issued a read-only** ``GET /v1/models`` **at srv2.** Nothing was written and
+    nothing was started, and the code was backed out the same day; the hazard is
+    not the code that was backed out. It is that any test naming a rig by
+    hostname is non-hermetic and nothing prevented it.
+
+    ``tests/test_one_door.py`` guards *spawns* — a test that reaches a rig
+    through ``ssh`` — and a name is not a spawn. :func:`_offline_probes` stubs
+    the two ``tools/bench`` fetchers by name, which is the same shape of guard
+    one layer up and misses every other way out: :mod:`mcgyvr.availability`,
+    :mod:`mcgyvr.detect` and :mod:`mcgyvr.runner` each open their own
+    ``urllib.request.urlopen``.
+
+    So the guard goes where all of them meet. Resolution itself is refused for
+    every name that is not this machine, which catches the socket whoever opens
+    it and whatever library they opened it with. It is a **deny-list of the
+    whole world** rather than of the two rigs on purpose: a guard listing
+    ``srv1`` and ``srv2`` is a guard the third rig is not in, and a hermetic
+    suite has no business asking a resolver anything.
+
+    Two ways through, and both are narrow. A test that wants a real transport
+    failure uses an address that is dead by standard (:data:`_ROUTES_NOWHERE`),
+    which is the convention the suite already had and is now the only way to
+    open a socket at something that is not this machine. And a test that
+    genuinely means to reach a network patches the seam back itself — its own
+    ``monkeypatch`` applies later than this one and wins, the same escape
+    :func:`_offline_probes` leaves open. There is no test of the second kind
+    today.
+
+    **What it does not cover**, stated so nobody reads it as more than it is: a
+    subprocess resolves in its own interpreter, where this fixture is not.
+    ``tests/test_one_door.py`` is the guard on that side, and it is a guard on
+    what may spawn rather than on what a spawned thing may reach.
+    """
+    resolve = socket.getaddrinfo
+
+    def refuse(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any:
+        named = "" if host is None else str(host)
+        # A URL's userinfo reaches the resolver attached to the host — urllib
+        # hands `user:sk-...@127.0.0.1` through whole — so the decision is taken
+        # on the machine and the message quotes the machine. This is a sink like
+        # any other, and no sink of this project's interpolates a credential
+        # (`test_pattern_e_boundaries`, which is what caught it here).
+        machine = named.rpartition("@")[2]
+        if _is_this_machine_or_nowhere(machine):
+            return resolve(host, port, *args, **kwargs)
+        raise ReachedForAMachineError(
+            f"this test asked the resolver for {machine!r}, which is not this "
+            f"machine. A test may name a rig and may not reach one — if it "
+            f"means to open a socket, stub the seam it opens it through; if "
+            f"it means to reach the network, it has to patch "
+            f"`socket.getaddrinfo` back itself and say why"
+        )
+
+    monkeypatch.setattr(socket, "getaddrinfo", refuse)
 
 
 def _load_instruments() -> types.ModuleType:
