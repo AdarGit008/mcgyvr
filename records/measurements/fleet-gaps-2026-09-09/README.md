@@ -207,12 +207,12 @@ predicted against 385.3 s measured), which reads like the same conflation
 ### The blob axis saturates at about +21% and then stops
 
 srv1 Qwen3.6, mapped, `--n-cpu-moe 30`, balloon set to the clearance. Baseline
-is this campaign's four ample mapped arms, **140.9 s** (137.7 / 141.5 / 142.7 /
+is this campaign's four ample mapped arms, **140.75 s** (137.7 / 141.5 / 142.7 /
 141.1), which reproduces the 2026-09-09 figure of 140.8 s to 0.1 s.
 
 | clearance vs **blob** | wake | n | vs baseline | implied `k` |
 |---|---|---|---|---|
-| +1.9 | 140.9 s | 4 | — | — |
+| +1.9 | 140.75 s | 4 | — | — |
 | +0.52 *(2026-09-09)* | 139.9 s | 1 | −0.7% | — |
 | −0.98 *(2026-09-09)* | 167.9 s | 3 | +19.2% | **2.42** |
 | **−2.03** | 169.2, 171.3 → **170.3 s** | 2 | +20.9% | **1.27** |
@@ -304,7 +304,7 @@ production `swappiness=60`, mapped, ample clearance.
 | **Ling-3.0-tiny Q4_K_M** | **4.57** | 71.1, 74.1 → **72.6 s** | 2 | 15.9 |
 | deepseek-coder-v2-16b *(2026-09-09)* | 8.29 | 85.7 s | 1 | 10.3 |
 | **gemma-4-26B-A4B IQ3_XXS** | **10.62** | 125.1, 125.3 → **125.2 s** | 2 | 11.8 |
-| Qwen3.6-35B IQ3_XXS *(re-taken)* | 12.30 | 137.7, 141.5, 142.7, 141.1 → **140.7 s** | 4 | 11.4 |
+| Qwen3.6-35B IQ3_XXS *(re-taken)* | 12.30 | 137.7, 141.5, 142.7, 141.1 → **140.75 s** | 4 | 11.4 |
 | Qwen3.6-35B *(2026-09-09, `swappiness=0`)* | 12.30 | 140.8 s | 3 | 11.4 |
 
 ```
@@ -557,7 +557,7 @@ Three further things a ban should be written against, each measured here:
    for the 7B — 14 and 26 MiB apart). Its only distinguishing property on this
    fleet is the host RAM it never returns.
 
-The exchange rate is the sentence a ban wants: **10.23 GiB of host RAM
+The exchange rate is the sentence a ban wants: **10.32 GiB of host RAM
 surrendered permanently to free 6.5 GiB of card that level 2 frees for
 nothing.** The endpoint to refuse is `POST /sleep?level=1`; the safe one is
 `POST /sleep?level=2`; and the ban belongs wherever the runtime chooses a sleep

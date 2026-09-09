@@ -250,11 +250,23 @@ wants ~11,228 MiB and **serves after 100 s**.
 **F4.3 — buying the deficit back in blocks** (MEASURED)
 
 ```
-blocks_needed = ceil( (V_need(u) - V_avail(h,S)) / e_blk(m) )
-e_blk(80B) = 34.31 GiB / 48 = 0.715 GiB = 732 MiB per block
+blocks_needed = smallest k with sum(e_blk(m, i) for the k blocks moved) >= deficit
 
-worked: ceil(551 / 732) = 1 block, and 1 block buys 732 > 551.
+worked: deficit 551 MiB, one block moved buys 728 MiB (or 792 at blocks 0-2).
 ```
+
+**The per-block figure is not one number, and the average 732 MiB it used to be
+written as is the averaging `vramfit`'s own module docstring forbids** ("a
+per-block average puts the floor three steps high"). `qwen80b.geometry.json`
+gives `expert_bytes_by_block` as **792.0 MiB at blocks 0, 1 and 2, and 728.0 MiB
+at the other 45** — 34.3125 GiB over 48, whose mean is the 732 that was quoted.
+`vramfit` already walks the real table; only this formula averaged it.
+
+Two consequences. The **marginal** block is 728 MiB everywhere past the third,
+so a deficit is bought back a little more slowly than 732 implied. And the three
+expensive blocks are the **first** three, which is the end `--n-cpu-moe N`
+offloads first, so the first three steps of any offload ladder buy more than the
+rest — 2,376 MiB for `ncmoe 3` against the 2,196 an average predicts.
 
 Each block moved costs host RAM `e_blk` and costs throughput at an unmeasured
 rate for this model (measured elsewhere: correcting an over-high offload was

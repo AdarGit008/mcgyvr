@@ -219,12 +219,29 @@ def test_a_wake_budget_at_or_above_the_doors_health_budget_is_accepted() -> None
     assert config.get("budgets.wake_timeout_s") == _door_health_budget()
 
 
-#: The slowest wake anyone has measured on this fleet: srv1's ceiling model,
-#: KAT-Coder 35.5B/A3B, 16.9 GiB of blob against 15 GiB of RAM, cold to first
-#: 200 on /v1/models (2026-09-08). Every other rig and model measured that day
-#: came in faster, the 35.7 GiB 80B on srv2 included, because a wake is paid in
-#: memory pressure and not in bytes.
+#: The slowest wake measured on this fleet **among placements the refusal gate
+#: permits**: srv1's ceiling model, KAT-Coder 35.5B/A3B, 16.9 GiB of blob
+#: against 15 GiB of RAM, cold to first 200 on /v1/models (2026-09-08). Every
+#: other permitted placement measured that day came in faster, the 35.7 GiB 80B
+#: on srv2 included, because a wake is paid in memory pressure and not in bytes.
+#:
+#: It is n=1, salvaged from a leg whose shell was killed, and never re-taken.
+#: The flexibility campaign takes it at n=3.
 WORST_MEASURED_WAKE_S = 203.0
+
+#: The slowest wake measured on this fleet **in any state**, permitted or not:
+#: srv1's Qwen3.6 ballooned to -0.97 GiB of clearance against its 9.2 GiB of
+#: spilled experts (`ram-headroom-2026-09-09`, "The two gates fail
+#: differently"). It is a wake that *landed* — 2.9x the baseline, 2.3 million
+#: major faults, 5.5 million pages through swap, decode at 32% — not a failure,
+#: which is what makes it the dangerous one: nothing errors, gate 7 is green,
+#: and every request is served off swap.
+#:
+#: `REFUSAL_RAM_HEADROOM_GB = 2.0` is what keeps a placement out of this state,
+#: and the cliff behind it is bracketed only to 0.63 GiB on single samples. So
+#: the budget is asserted against this number too — with a thinner margin, and
+#: deliberately so: the two facts are recorded rather than averaged into one.
+WORST_MEASURED_WAKE_ANY_STATE_S = 385.3
 
 
 def test_the_default_wake_budget_clears_the_slowest_wake_ever_measured() -> None:
@@ -239,6 +256,12 @@ def test_the_default_wake_budget_clears_the_slowest_wake_ever_measured() -> None
 
     If a future ladder holds a model this fails for, the fix is a re-measurement
     and a new default — not a wider assertion.
+
+    **The doubled margin is asserted against permitted placements only.** A
+    ballooned rig has landed a wake at 385.3 s, which 480 clears by 1.25x and
+    not by 2 — and that is asserted separately below rather than folded in,
+    because folding it in would either weaken this margin or demand a default
+    nobody has ruled on.
     """
     from mcgyvr.config import parse
 
@@ -248,4 +271,29 @@ def test_the_default_wake_budget_clears_the_slowest_wake_ever_measured() -> None
         f"the default wake budget is {wake!r}s against a measured worst wake of "
         f"{WORST_MEASURED_WAKE_S:g}s. A caller that gives up near the measured "
         "ceiling abandons wakes that were about to land, and leaves the card up"
+    )
+
+
+def test_the_default_wake_budget_also_clears_the_worst_wake_in_any_state() -> None:
+    """The worst wake on record is not a permitted one, and it still landed.
+
+    srv1 ballooned to -0.97 GiB against its experts wakes in 385.3 s and serves
+    — slowly, off swap, with gate 7 green and nothing erroring. The refusal gate
+    is what should keep a placement out of that state, and the cliff behind that
+    gate is bracketed only to 0.63 GiB on single samples.
+
+    So this is the thinner of the two margins and it is stated as such: 480
+    clears 385.3 by 1.25x. **Whether that is enough is an owner call, not this
+    test's**, and it is the one the flexibility campaign's cliff arms exist to
+    inform. What the test holds is that the default has not fallen below a wake
+    this fleet has actually completed.
+    """
+    from mcgyvr.config import parse
+
+    wake = parse(CARD).get("budgets.wake_timeout_s")
+
+    assert wake > WORST_MEASURED_WAKE_ANY_STATE_S, (
+        f"the default wake budget is {wake!r}s against a wake this fleet has "
+        f"completed in {WORST_MEASURED_WAKE_ANY_STATE_S:g}s. Below that the "
+        "budget aborts a wake that was landing, on a rig where nothing errors"
     )

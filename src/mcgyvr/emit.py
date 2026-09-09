@@ -421,16 +421,74 @@ def _sequence_on_one_card(
     Units on different cards are not sequenced: they do not contend, and a
     dependency there is noise that delays every restart. Neither is a host with
     one unit, for the same reason.
+
+    **The condition is ``service_healthy``, and it was ``service_started``
+    until the 2026-09-09 campaign showed that started does not sequence.** The
+    daemon releases the waiter as soon as the process ahead of it exists, which
+    is about a second and always long before that process has sized its cache
+    off what is free — so the pair went on contending, the 3B crash-restarted
+    one to two times on every cold start, and ``restart: unless-stopped`` hid
+    each of those behind a wake that merely looked slow. The 168 s pair figure
+    the wake budget was argued from is a wake plus those retries, and the 86 s
+    subtraction built on it is void.
+
+    A healthcheck is written **only on a service something waits for**, which is
+    only ever a co-resident. ``service_healthy`` against a service that declares
+    none never releases at all, so the two are one change; and writing one on
+    every service would move the compose file of every single-unit rig on the
+    fleet — srv1 included — for a failure those rigs cannot have.
+
+    The check asks the unit's own port, which under host networking is the only
+    thing telling two units on one host apart. It is deliberately the same
+    ``/v1/models`` that ``servelib.wait_for`` gates on: a unit that can list its
+    models has read its weights and taken its card, which is the fact the waiter
+    needs and the only one both engines report the same way.
     """
-    on_card: dict[int, list[tuple[float, str]]] = {}
+    on_card: dict[int, list[tuple[float, str, int]]] = {}
     for unit in units:
-        on_card.setdefault(unit.gpu, []).append((unit.fit.vram_gb, _service_name(unit)))
+        on_card.setdefault(unit.gpu, []).append(
+            (unit.fit.vram_gb, _service_name(unit), unit.port)
+        )
     for sharing in on_card.values():
         if len(sharing) < 2:
             continue
-        ordered = sorted(sharing, key=lambda pair: (-pair[0], pair[1]))
-        for (_, waiter), (_, ahead) in zip(ordered[1:], ordered[:-1], strict=True):
-            services[waiter]["depends_on"] = {ahead: {"condition": "service_started"}}
+        ordered = sorted(sharing, key=lambda triple: (-triple[0], triple[1]))
+        for (_, waiter, _), (_, ahead, port) in zip(
+            ordered[1:], ordered[:-1], strict=True
+        ):
+            services[waiter]["depends_on"] = {ahead: {"condition": "service_healthy"}}
+            services[ahead]["healthcheck"] = _healthcheck(port)
+
+
+#: How long a unit ahead of another may take to read its weights and take its
+#: card before compose calls it unhealthy. The fleet's slowest measured load is
+#: 385.3 s and its slowest co-resident one is 172 s, so the window is generous
+#: on purpose: a healthcheck that gives up is a pair that never starts, and the
+#: door already has `budgets.wake_timeout_s` as the sole authority that does.
+_HEALTH_START_PERIOD_S = 600
+
+
+def _healthcheck(port: int) -> dict[str, object]:
+    """The check a co-resident's neighbour waits on.
+
+    ``start_period`` rather than a long ``retries``: during it a failing probe
+    does not count against the container, which is exactly the state a unit
+    spends its first two minutes in. ``CMD-SHELL`` with a ``wget`` fallback
+    because the two engines ship different base images and neither promises
+    ``curl`` — a check whose binary is absent is a container that is unhealthy
+    forever, and a waiter that never starts.
+    """
+    url = f"http://localhost:{port}/v1/models"
+    return {
+        "test": [
+            "CMD-SHELL",
+            f"curl -sf {url} >/dev/null 2>&1 || wget -q -O- {url} >/dev/null 2>&1",
+        ],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": f"{_HEALTH_START_PERIOD_S}s",
+    }
 
 
 def _service(unit: Unit) -> dict[str, object]:

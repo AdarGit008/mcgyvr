@@ -186,6 +186,74 @@ def sleeping(host: str, port: int) -> bool | None:
     return said if isinstance(said, bool) else None
 
 
+class SleepLevelError(ValueError):
+    """A sleep was asked for at a level this fleet has measured and banned."""
+
+
+#: The host RAM a level-1 sleep surrenders for the life of the process, measured
+#: on srv2 twice on 2026-09-09 with identical results: 3.14 GiB for the 3B and
+#: 10.32 for the 7B. A later level-2 sleep does not release it and sixty seconds
+#: idle does not release it; only a container restart does.
+_LEVEL_ONE_RAM_GIB = 13.46
+
+
+def sleep(host: str, port: int, level: int) -> bool:
+    """Put the unit on ``host``:``port`` to sleep, refusing every banned level.
+
+    **The one place a sleep level may be spelled.** It exists so that the ban
+    below has somewhere to live: until this function there was no sleep-level
+    parameter anywhere in ``src/`` and the only caller of ``POST /sleep`` was
+    ``tools/bench/serving/calibrate.py``, so a fleet-shape controller written
+    later would have had nothing to route through and nothing to route around.
+
+    **Level 1 is refused.** It keeps the weights in host RAM to wake faster, and
+    on this fleet it never gives that RAM back: 3.14 GiB for the 3B, 10.32 for
+    the 7B, 13.46 GiB in total, for the life of the process. It is bounded
+    rather than a leak — a second cycle costs nothing more — and it buys nothing
+    at all, because it releases the same card as level 2 (within 14-26 MiB)
+    while being 4-12x slower to sleep and to wake. Its only distinguishing
+    property on this fleet is RAM it does not return
+    (``records/measurements/fleet-gaps-2026-09-09/README.md``, M7).
+
+    The refusal is raised **before the transport**, because the cost is paid by
+    the request arriving rather than by it succeeding: a ban that dialled first
+    and refused the answer would have surrendered the RAM already.
+
+    Anything that is not 1 or 2 is refused for a different reason — nobody has
+    measured it. Two levels exist and one is banned, which leaves exactly one; a
+    third number is not a conservative default, it is an unmeasured call to a
+    live rig.
+
+    A rig that cannot be reached is ``False`` and not a refusal. That is the
+    same distinction :func:`sleeping` keeps between ``None`` and ``False``: a
+    transport that failed has not been asked to do anything wrong, and reading
+    one as the other would make an ssh timeout look like a policy violation.
+    """
+    if level == 1:
+        raise SleepLevelError(
+            f"refusing a level-1 sleep of {host}:{port}. It surrenders "
+            f"{_LEVEL_ONE_RAM_GIB:g} GiB of host RAM permanently — a level 2 "
+            f"sleep does not release it and only a container restart does — to "
+            f"free the same card a level 2 frees for nothing, 4-12x faster. "
+            f"Use level 2."
+        )
+    if level != 2:
+        raise SleepLevelError(
+            f"refusing a level-{level} sleep of {host}:{port}: vLLM has levels "
+            f"1 and 2, level 1 is banned on this fleet, and nobody has measured "
+            f"what {level} does here. Use level 2."
+        )
+    try:
+        done = ssh(
+            host,
+            f"curl -sf -X POST 'http://localhost:{port}/sleep?level=2'",
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        return False
+    return done.returncode == 0
+
+
 def wait_for(host: str, service: Service) -> dict[str, object]:
     """Poll one unit until it is serving, or the budget is spent.
 
