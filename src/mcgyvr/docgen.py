@@ -1,4 +1,4 @@
-"""Render the config reference and the /mcgyvr skill from the schemas behind them.
+"""Render the config reference, the /mcgyvr skill and SETUP.md from their schemas.
 
 ``config.SCHEMA`` is declarative data — every key carries its kind, whether
 it is required, its default and the prose explaining it. That makes the
@@ -10,9 +10,10 @@ schema is the only description there is.
 The reference is never kept (owner's ruling, 2026-09-05). Every run renders
 it, checks it — the provenance marker is on it and every validated key is
 named — and deletes it, so no copy sits in the checkout to be read in place
-of the schema or to fall behind it. The skill is the document that is
-written, because an agent reads it from disk; ``make docs-check`` refuses a
-committed skill that differs from what the schema renders.
+of the schema or to fall behind it. The skill, the examples beside it and
+``SETUP.md`` are the documents that are written, because they are read from
+disk; ``make docs-check`` refuses a committed one that differs from what its
+schema renders.
 
 Two constraints shape the rendering:
 
@@ -28,15 +29,24 @@ Two constraints shape the rendering:
    not of any one key.
 
 The second document is the ``/mcgyvr`` skill (owner's ruling, 2026-09-03,
-narrowed 2026-09-09): the one explicitly-invoked instruction an agent reads
-before it authors a contract — the packaged skill ships
-``disable-model-invocation: true``, so a fresh install never offloads work
-until someone asks for it — generated the same way from ``contract.SCHEMA`` so
-the fields an agent is told about are the fields the validator accepts. The
-skill carries one minimal example per task type; each is checked by loading it
+narrowed 2026-09-09, narrowed again 2026-09-09): the one explicitly-invoked
+instruction an agent reads before it authors a contract — the packaged skill
+ships ``disable-model-invocation: true``, so a fresh install never offloads
+work until someone asks for it — generated the same way from
+``contract.SCHEMA`` so the fields an agent is told about are the fields the
+validator accepts, and **setup is not part of it**. The skill points at one
+minimal example per task type, rendered beside it into
+``skills/mcgyvr/references/examples.md``; each is checked by loading it
 through the contract loader, so an example that stops validating is a build
-failure and not a lesson in the wrong shape. The scaffolding here — the steps —
-is the workflow, which is a property of the product and of no one key.
+failure and not a lesson in the wrong shape. The scaffolding here — the steps
+— is the workflow, which is a property of the product and of no one key.
+
+The third document is ``skills/mcgyvr/SETUP.md``, what a machine's owner reads
+to stand the ladder up: the first run, and every key the one config file
+accepts, rendered from ``config.SCHEMA``. It is written and kept, the way the
+skill is, because it is read from disk rather than through the schema — and it
+lives beside the skill it is not part of, so ``install.sh`` never copies it
+into a harness.
 """
 
 from __future__ import annotations
@@ -63,6 +73,8 @@ MARKER = (
 # honest here in a way it would not be in shipped code.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_PATH = Path("skills/mcgyvr/SKILL.md")
+SETUP_PATH = Path("skills/mcgyvr/SETUP.md")
+EXAMPLES_PATH = Path("skills/mcgyvr/references/examples.md")
 SKILL_MARKER = (
     "<!-- Code generated from src/mcgyvr/contract.py and src/mcgyvr/docgen.py by "
     "`make docs`. DO NOT EDIT. -->"
@@ -200,21 +212,31 @@ def _table(fields: Sequence[Field], prefix: str) -> list[str]:
     return lines
 
 
-def _section(field: Field, path: str, level: int) -> list[str]:
-    """Render one block-valued key, then any block-valued keys inside it."""
+def _section(field: Field, path: str, level: int, dotted: bool = False) -> list[str]:
+    """Render one block-valued key, then any block-valued keys inside it.
+
+    ``dotted`` names each key in the table by its full path rather than by its
+    last segment. The reference leaves it off, because :func:`reference_problems`
+    looks a leaf up under the heading of the block it belongs to and a dotted
+    cell would never match. ``SETUP.md`` turns it on, because it is read start
+    to finish by someone editing one file and `sandbox.mode` says which `mode`.
+    """
     heading = "#" * level
     lines = [f"{heading} `{path}`", "", _escape(field.doc), ""]
 
     if field.kind == "block_map":
         lines += ["Each entry takes these keys:", ""]
     elif field.kind == "block_list":
-        lines += ["An ordered list. Each entry takes these keys:", ""]
+        # Semicolon, not a full stop: the skill's own renderer opens a
+        # `block_list` the same way, and one sentence shared between the two
+        # documents is one sentence that can be updated in one of them.
+        lines += ["An ordered list; each entry takes these keys:", ""]
 
-    lines += _table(field.block, "")
+    lines += _table(field.block, f"{path}." if dotted else "")
 
     for inner in field.block:
         if inner.block:
-            lines += _section(inner, f"{path}.{inner.name}", level + 1)
+            lines += _section(inner, f"{path}.{inner.name}", level + 1, dotted)
     return lines
 
 
@@ -257,6 +279,78 @@ def render_reference() -> str:
     for field in SCHEMA:
         if field.block:
             lines += _section(field, field.name, 2)
+
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+# --- SETUP.md ----------------------------------------------------------------
+
+#: The three keys of the one config file `mcgyvr pool` reads back. They are
+#: named here rather than described here: the bullet each one gets carries the
+#: `Field`'s own `doc`, so the levers cannot say one thing in SETUP.md and
+#: another in the schema the loader walks.
+_LEVERS: tuple[str, ...] = ("sources", "ladder", "budgets")
+
+
+def render_setup() -> str:
+    """``SETUP.md``, as text: the first run, the levers, then every key.
+
+    Unlike :func:`render_reference`, which is rendered, checked and deleted,
+    this is a document that is written and kept: a machine's owner reads it
+    from disk before there is a config to read anything else from. It is still
+    a projection of :data:`SCHEMA` — the levers below are the schema's own
+    prose, and the tables are the same walk the reference makes.
+    """
+    by_name = {field.name: field for field in SCHEMA}
+    lines = [
+        MARKER,
+        "",
+        "# Setting up mcgyvr",
+        "",
+        "First run, once per machine. Nothing here is read to author a contract;",
+        f"this is how `{CONFIG_FILENAME}` comes to exist and what it can say.",
+        "",
+        "```",
+        "mcgyvr init",
+        "mcgyvr pool",
+        "```",
+        "",
+        "`mcgyvr init` detects what is reachable and writes a config bound to it. It",
+        "refuses to overwrite an existing config without `--force`, and prints what",
+        "was decided and why, then what is *not* configured and what that costs.",
+        "Backends on another machine come in with `--host` (repeatable).",
+        "",
+        "`mcgyvr pool` reads that config back: the usable rungs cheapest-first with",
+        "their family, attempt budget and model; the escalation ceiling and where it",
+        "came from; every skipped rung with the reason it was skipped; and the",
+        "orchestrator and verifier models. `--probe` also asks each source whether it",
+        "is answering — off by default, because it spends. Run it whenever a run",
+        "picks a rung you did not expect.",
+        "",
+        "Three keys of that one config file are the levers, and `mcgyvr pool` is how",
+        "you read all three:",
+        "",
+    ]
+    for lever in _LEVERS:
+        lines.append(f"- `{lever}` — {_escape(by_name[lever].doc)}")
+    lines += [
+        "",
+        "`mcgyvr config` prints the resolved config; `mcgyvr detect` and",
+        "`mcgyvr capabilities` say what a source is and what it can do.",
+        "",
+        "## Value types",
+        "",
+        "| Type | Accepted |",
+        "| --- | --- |",
+    ]
+    for name, rule in _TYPES:
+        lines.append(f"| {name} | {_escape(rule)} |")
+    lines += ["", "## Top-level keys", ""]
+    lines += _table(SCHEMA, "")
+
+    for field in SCHEMA:
+        if field.block:
+            lines += _section(field, field.name, 2, dotted=True)
 
     return "\n".join(lines).rstrip("\n") + "\n"
 
@@ -463,10 +557,11 @@ def render_skill() -> str:
     lines = [
         "---",
         "name: mcgyvr",
-        'description: "Use whenever coding work can be delegated to a local model '
-        "ladder: author a task contract, validate it, run it, read the result file, "
-        "replan from the findings. Invoke it explicitly when you are about to "
-        'delegate; the schema below is the only contract vocabulary."',
+        'description: "Use whenever a scoped piece of coding work can be '
+        "offloaded to mcgyvr: author a task contract, validate it, run it, read "
+        "the result file, replan from the findings. Invoke it explicitly when "
+        "you are about to delegate; the schema below is the only contract "
+        'vocabulary."',
         "disable-model-invocation: true",
         "---",
         "",
@@ -474,49 +569,19 @@ def render_skill() -> str:
         "",
         "# /mcgyvr",
         "",
-        "Offload one scoped piece of coding work to mcgyvr's worker ladder. You author",
-        "a *contract* (one target, one task, one way to judge it), mcgyvr climbs its",
-        "ladder of local models cheapest-first, gates every answer deterministically,",
-        "and leaves the accepted file in the working tree. It never commits unless",
-        "told to, and it never writes anything else into the repository.",
-        "",
-        "## Step 0 — first run, once per machine",
-        "",
-        "```",
-        "mcgyvr init",
-        "mcgyvr pool",
-        "```",
-        "",
-        "`mcgyvr init` detects what is reachable and writes a config bound to it. It",
-        "refuses to overwrite an existing config without `--force`, and prints what",
-        "was decided and why, then what is *not* configured and what that costs.",
-        "Backends on another machine come in with `--host` (repeatable).",
-        "",
-        "`mcgyvr pool` reads that config back: the usable rungs cheapest-first with",
-        "their family, attempt budget and model; the escalation ceiling and where it",
-        "came from; every skipped rung with the reason it was skipped; and the",
-        "orchestrator and verifier models. `--probe` also asks each source whether it",
-        "is answering — off by default, because it spends. Run it whenever a run",
-        "picks a rung you did not expect.",
-        "",
-        "Three keys of that one config file are the levers, and `mcgyvr pool` is how",
-        "you read all three:",
-        "",
-        "- `sources` — what is reachable, and how to reach it.",
-        "- `ladder` — which rungs, in which order, with how many attempts each.",
-        "- `budgets` — the ceilings a climb may not cross.",
-        "",
-        "`mcgyvr config` prints the resolved config; `mcgyvr detect` and",
-        "`mcgyvr capabilities` say what a source is and what it can do.",
+        "Offload one scoped piece of coding work to mcgyvr. You author a *contract*",
+        "(one target, one task, one way to judge it), mcgyvr gates every answer",
+        "deterministically, and leaves the accepted file in the working tree. It",
+        "never commits unless told to, and it never writes anything else into the",
+        "repository.",
         "",
         "## Step 1 — author a contract",
         "",
         "One YAML file. Every key below is the contract schema in",
         "`src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,",
         "and every rejection names the key and what a valid value looks like.",
-        "Pick the `task_type` first: it decides which family may start the work and",
-        "what evidence the contract must carry. `mcgyvr catalog <type>` prints the",
-        "type's guarantee.",
+        "Pick the `task_type` first: it decides what evidence the contract must",
+        "carry. `mcgyvr catalog <type>` prints the type's guarantee.",
         "",
         "### Keys",
         "",
@@ -528,12 +593,12 @@ def render_skill() -> str:
     lines += [
         "### One minimal example per task type",
         "",
-        "Each example loads through the contract validator; they are checked by the",
-        "test suite, so copying one is copying a shape that is known to validate.",
+        f"`{EXAMPLES_PATH}` carries one per type,",
+        "each loaded through the contract validator by the test suite, so copying",
+        "one is copying a shape that is known to validate. One file away, and it",
+        "costs nothing until it is opened.",
         "",
     ]
-    for task_type, text in EXAMPLES.items():
-        lines += [f"#### `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
     lines += [
         "## Step 2 — validate before spending anything",
         "",
@@ -550,13 +615,13 @@ def render_skill() -> str:
         "## Step 3 — run it, then read the result file",
         "",
         "```",
-        "mcgyvr run CONTRACT.yaml --repo DIR [--sandbox tempdir] [--commit]",
+        "mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] "
+        "[--sandbox tempdir] [--commit]",
         "```",
         "",
         "The run refuses unless it can say who typed it: Claude Code and Pi sessions",
-        "are detected from the environment, otherwise pass `--orchestrator ID`. A",
-        "ladder run needs a config (`mcgyvr init`, or `--config PATH`); the",
-        "deterministic floor does not. The last stdout line is `result: <path>`:",
+        "are detected from the environment, otherwise pass `--orchestrator ID`.",
+        "The last stdout line is `result: <path>`:",
         "everything above it is scrollback, and everything the run came to is in",
         "that file, under mcgyvr's own journal directory — never in the repository.",
         "Read the file, not the scrollback. No `result:` line with exit 1 or 2 means",
@@ -565,17 +630,36 @@ def render_skill() -> str:
         "way the reason is on stderr, and in the second case that line also says",
         "what the run came to. The file's keys:",
         "",
-        "- `outcome` — `accepted`, `rejected` (deterministic gate),",
-        "  `delivery_refused` (accepted, but the write to the tree was refused; see",
-        "  `detail`), or the word the ladder halted on (`ladder_spent`,",
-        "  `escalation_ceiling`, `attempt_ceiling`, `nothing_to_run`,",
-        "  `declined_throughout`, `error`).",
-        "- `attempts[]` — every rung tried: `rung`, `attempt`, `verdict` (`passed`,",
+        "- `outcome` — one word, and what it leaves to do next:",
+        "  - `accepted` — the work landed; nothing to replan.",
+        "  - `rejected` — the deterministic gate refused the change; the",
+        "    findings name the check a different contract has to answer.",
+        "  - `delivery_refused` — judged acceptable, but the write to the tree",
+        "    was refused; `detail` says what was in the way. Clear it, rerun.",
+        "  - `ladder_spent` — everything this machine offers was tried and none",
+        "    produced an acceptable change. Narrow the contract: raising a",
+        "    number changes what it costs to fail, not whether it fails.",
+        "  - `escalation_ceiling` — stopped at a ceiling on how far the work may",
+        "    be moved up, with dearer tries never entered; that says it was not",
+        "    allowed to try, not that it cannot. Rerun where those moves are",
+        "    paid for.",
+        "  - `attempt_ceiling` — stopped at what one task may spend, which",
+        "    bounds the bill and not the ability. Rerun against a budget that",
+        "    can pay for it.",
+        "  - `nothing_to_run` — nothing on this machine offered to do this work",
+        "    at all, so the machine stopped it and not the work. A different",
+        "    contract cannot fix it: `skills/mcgyvr/SETUP.md` can.",
+        "  - `declined_throughout` — everything offered stepped aside without",
+        "    spending an attempt, so nothing claims a contract of this shape.",
+        "    A different contract cannot fix this either; that same file can.",
+        "  - `error` — an exception before any verdict was reached: the failure",
+        "    is in the machinery, not the work. `detail` names the cause.",
+        "- `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,",
         "  `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines",
         "  behind a failure), `attempt_id`, `draw`, `draws`, `rows`. `draws` is the",
         "  breadth the attempt asked for (`breadth.draws`), whatever the verdict;",
         "  `rows` is how many of those draws left a journal row, which is `draws`",
-        "  unless the attempt raised part-way and `0` for a rung that declined or",
+        "  unless the attempt raised part-way and `0` for a try that declined or",
         "  raised before dispatching. `draw` is the draw the entry is about, and is",
         "  `null` — with `attempt_id` `null` beside it — on an `error` no single",
         "  dispatch caused: `rows: 0` means it raised before dispatching at all,",
@@ -609,7 +693,13 @@ def render_skill() -> str:
         "refused. Write a *different* contract — narrower target, an acceptance",
         "command that states the requirement, a stop condition for what was",
         "ambiguous — and go back to step 2. Running the same contract again spends",
-        "the ladder on the same answer.",
+        "more on the same answer.",
+        "",
+        "`nothing_to_run` and `declined_throughout` are the exception: neither is",
+        "fixable by writing a different contract, because both say this machine",
+        "offered nothing that would do the work. Rewriting only relocates the same",
+        "answer. Report it to whoever owns the machine; the remedy is in",
+        "`skills/mcgyvr/SETUP.md`.",
         "",
         "When `outcome` is `accepted`, the change is in `target`, uncommitted.",
         "Review it there and commit it yourself. To have mcgyvr commit instead, run",
@@ -617,6 +707,31 @@ def render_skill() -> str:
         "overwrite an edited or uncommitted target, so restore it first",
         "(`git checkout -- <target>`) rather than rerunning on top of the last run.",
     ]
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def render_examples() -> str:
+    """The examples file, as text: one minimal contract per task type.
+
+    A document that is written and kept, like the skill and ``SETUP.md``, and
+    checked the same way: it is a projection of :data:`EXAMPLES`, which
+    ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py`` loads
+    through ``contract.load``, so an example that stops validating is still a
+    build failure. It is one file away from the skill because an agent's
+    context is the scarce thing and a file costs nothing until it is opened.
+    """
+    lines = [
+        SKILL_MARKER,
+        "",
+        "# One minimal contract per task type",
+        "",
+        "Each loads through the contract validator; they are checked by the test",
+        "suite, so copying one is copying a shape that is known to validate. The",
+        "keys are documented in `SKILL.md`.",
+        "",
+    ]
+    for task_type, text in EXAMPLES.items():
+        lines += [f"## `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -724,18 +839,45 @@ def check_reference(target: Path) -> list[str]:
     return reference_problems(text)
 
 
+def _write_or_check(target: Path, rendered: str, schema: str, check: bool) -> int:
+    """Write ``rendered`` to ``target``, or report a committed copy that drifted.
+
+    Returns 1 when ``check`` is on and the committed document is not what its
+    schema renders, 0 otherwise. Both kept documents — the skill and
+    ``SETUP.md`` — go through here, so a stale one fails ``make docs-check``
+    whichever of the two schemas moved.
+    """
+    if not check:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(rendered, encoding="utf-8")
+        print(f"wrote {target}")
+        return 0
+    current = target.read_text(encoding="utf-8") if target.exists() else ""
+    if current == rendered:
+        return 0
+    print(
+        f"{target}: out of date with SCHEMA in {schema}.\n"
+        f"The document is generated from it — a schema change needs it "
+        f"regenerated in the same commit.\n"
+        f"Run: make docs",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.docgen",
         description=(
             "Render the configuration reference from the config schema, check it "
-            "and delete it; write the /mcgyvr skill, or check the committed one."
+            "and delete it; write the /mcgyvr skill, its examples and SETUP.md, or "
+            "check the committed ones."
         ),
     )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="exit non-zero if the committed skill is not what the schema renders",
+        help="exit non-zero if a committed document is not what the schemas render",
     )
     parser.add_argument(
         "--output",
@@ -749,6 +891,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--skill-output",
         default=str(REPO_ROOT / SKILL_PATH),
         help="where to write the /mcgyvr skill (default: the checkout's copy)",
+    )
+    parser.add_argument(
+        "--setup-output",
+        default=str(REPO_ROOT / SETUP_PATH),
+        help="where to write SETUP.md (default: the checkout's copy)",
+    )
+    parser.add_argument(
+        "--examples-output",
+        default=str(REPO_ROOT / EXAMPLES_PATH),
+        help="where to write the examples file (default: the checkout's copy)",
     )
     args = parser.parse_args(argv)
 
@@ -769,24 +921,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         print(f"config reference: rendered to {reference}, checked, deleted")
 
-    skill = Path(args.skill_output)
-    rendered = render_skill()
-    stale = 0
-    if args.check:
-        current = skill.read_text(encoding="utf-8") if skill.exists() else ""
-        if current != rendered:
-            stale = 1
-            print(
-                f"{skill}: out of date with SCHEMA in src/mcgyvr/contract.py.\n"
-                f"The document is generated from it — a schema change needs it "
-                f"regenerated in the same commit.\n"
-                f"Run: make docs",
-                file=sys.stderr,
-            )
-    else:
-        skill.parent.mkdir(parents=True, exist_ok=True)
-        skill.write_text(rendered, encoding="utf-8")
-        print(f"wrote {skill}")
+    stale = _write_or_check(
+        Path(args.skill_output), render_skill(), "src/mcgyvr/contract.py", args.check
+    )
+    stale += _write_or_check(
+        Path(args.setup_output), render_setup(), "src/mcgyvr/config.py", args.check
+    )
+    stale += _write_or_check(
+        Path(args.examples_output),
+        render_examples(),
+        "src/mcgyvr/contract.py",
+        args.check,
+    )
     return 1 if problems or stale else 0
 
 

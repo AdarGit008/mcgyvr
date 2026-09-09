@@ -336,8 +336,8 @@ CONTEXT_FIELDS: tuple[Field, ...] = (
         "int",
         "Hard ceiling the assembled worker prompt must fit under. Declared on "
         "the contract rather than inferred at dispatch so that a prompt which "
-        "will not fit is a contract-level failure, caught before a rung is "
-        "spent.",
+        "will not fit is a contract-level failure, caught before anything is "
+        "dispatched.",
         default=4096,
         min_value=1,
         worker_facing=True,
@@ -369,7 +369,7 @@ VERIFICATION_FIELDS: tuple[Field, ...] = (
         "enum",
         "How the change is judged. `gate_only` accepts on the deterministic "
         "gate alone — the whole acceptance bar in a keyless install. `model` "
-        "additionally requires a fresh-context verifier to agree.",
+        "additionally requires a fresh-context reviewer to agree.",
         default="gate_only",
         choices=("gate_only", "model"),
     ),
@@ -380,7 +380,7 @@ RENAME_FIELDS: tuple[Field, ...] = (
         "from",
         "str",
         "The symbol as it is written today. Stated rather than read out of "
-        "`task`: the floor renames every reference the index resolved across "
+        "`task`: mcgyvr renames every reference the index resolved across "
         "every file that holds one, and a name inferred from prose is a "
         "multi-file rewrite resting on a guess about English. A worker asked "
         "to guess would guess; a program must be told.",
@@ -390,7 +390,7 @@ RENAME_FIELDS: tuple[Field, ...] = (
     Field(
         "to",
         "str",
-        "What the symbol becomes. Must be a legal identifier — the floor "
+        "What the symbol becomes. Must be a legal identifier — the rename "
         "rewrites text, and a `to` that is not a name would produce a tree "
         "that no longer parses while reporting success.",
         default="",
@@ -402,48 +402,41 @@ LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
         "int",
-        "Hard cap on the worker's reply, enforced in the runner. A reply cut "
+        "The cap this contract declares on the worker's reply. A reply cut "
         "off at the cap is a named failure and is never applied to a file. "
         "Declare it for any task type a model executes: `mcgyvr contract` and "
         "`mcgyvr run` refuse a model contract that leaves it out (exit 2) and "
         "print the figure the type's own evidence would derive (`output_cap`) "
-        "as the value to start from — the first live run cut its top rung's "
-        "reply at a derived 1024 that nobody had chosen. It is the one key in "
-        "the schema with no static default: a single number for every type is "
-        "wrong for at least one of them. Deriving it from the target's own "
-        "content is #17. What this states is what the *work* is worth, which "
-        "is why it is here and not on the ladder; what a particular backend "
-        "needs to finish a reply is a different question, answered by that "
-        "rung's `ladder.tiers.*.output_tokens`, and where a rung answers it "
-        "that number is sent instead of this one. Declaring this is still "
-        "required either way: the same contract may be run against a ladder "
-        "whose rungs say nothing.",
+        "as the value to start from. It is the one key in the schema with no "
+        "static default: a single number for every type is wrong for at least "
+        "one of them. Deriving it from the target's own content is #17. What "
+        "this states is what the *work* is worth.",
         default=None,
         min_value=1,
     ),
     Field(
         "max_window_fraction",
         "float",
-        "The largest share of a rung's context window this contract may "
-        "claim: its assembled prompt and `max_output_tokens` together, over "
-        "the whole window. A different question from whether the two fit, "
-        "which `context.max_input_tokens` already bounds — a contract that "
-        "fits with nothing to spare leaves the rung nothing to hold anything "
-        "beside it and nothing to absorb an estimate that ran long. Declared "
-        "here rather than on the ladder because it is a statement about this "
-        "unit of work, and enforced against whichever rung the work reaches. "
-        "Unset means no share is enforced, which is not the same as 1.0: a "
-        "contract that declared none is recorded as having declared none.",
+        "The largest share of the context window this contract may claim: "
+        "its assembled prompt and `max_output_tokens` together, over the "
+        "whole window. A different question from whether the two fit, which "
+        "`context.max_input_tokens` already bounds — a contract that fits "
+        "with nothing to spare leaves nothing to hold anything beside it and "
+        "nothing to absorb an estimate that ran long. Declared here because "
+        "it is a statement about this unit of work, and enforced wherever the "
+        "work is executed. Unset means no share is enforced, which is not the "
+        "same as 1.0: a contract that declared none is recorded as having "
+        "declared none.",
         default=None,
         min_value=0.0,
         max_value=1.0,
-        hint="e.g. 0.75 to leave a quarter of the rung's window clear",
+        hint="e.g. 0.75 to leave a quarter of the window clear",
     ),
     Field(
         "attempts",
         "int",
-        "How many times a rung may be retried before escalating. Retrying "
-        "forever on one rung is how a cheap task becomes an expensive one.",
+        "How many times the work may be retried before escalating. Retrying "
+        "forever is how a cheap task becomes an expensive one.",
         default=2,
         min_value=1,
     ),
@@ -473,8 +466,8 @@ SCHEMA: tuple[Field, ...] = (
         "task_type",
         "enum",
         "What kind of work this is, from the declared vocabulary. The type "
-        "decides whether the deterministic tier can execute the contract "
-        "outright, and therefore whether a glob target is legal.",
+        "decides what evidence the contract must carry, and therefore whether "
+        "a glob target is legal.",
         required=True,
         choices_from=task_type_names,
         worker_facing=True,
@@ -494,7 +487,7 @@ SCHEMA: tuple[Field, ...] = (
         "Where the result goes. Exactly one literal repo-relative path for "
         "any task type a model executes — a model worker's output has one "
         "destination, and a pattern would leave it guessing. A glob is legal "
-        "only for a task type the deterministic tier executes outright.",
+        "only for a task type that is executed deterministically.",
         required=True,
         worker_facing=True,
         hint="e.g. src/pkg/fetch.py",
@@ -507,7 +500,7 @@ SCHEMA: tuple[Field, ...] = (
         "dispatch so that a contract is self-contained and exactly "
         "reproducible: `parse(dumps(c))` round-trips the bytes a worker was "
         "actually sent. Empty means the target does not exist yet, or its "
-        "content is not needed — a distinction the deterministic tier never "
+        "content is not needed — a distinction deterministic execution never "
         "asks about, because a tool reads the file itself. Deriving "
         "`limits.max_output_tokens` from this is #17; the schema only gives it "
         "somewhere to read from.",
@@ -578,7 +571,8 @@ SCHEMA: tuple[Field, ...] = (
         "tree (the preflight refuses a suite that is already red), which is "
         "exactly why a command meant to demonstrate a defect cannot live here: "
         "it goes in `demonstration`. Arbitrary shell from a contract, so they "
-        "run inside the per-task sandbox, never on the host.",
+        "run inside the per-task sandbox, never on the machine you ran "
+        "mcgyvr from.",
         default=(),
     ),
     Field(
@@ -609,8 +603,9 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "risk",
         "enum",
-        "How much a wrong answer costs. A floor on how cheap the work may "
-        "start and how cheaply it may be verified, never a preference. "
+        "How much a wrong answer costs, never a preference. A declared value "
+        "bounds how cheaply the work may start and how cheaply it may be "
+        "verified: `high` refuses the cheapest of either, `low` allows them. "
         "Deterministic classification from type, prompt and scope is #16; a "
         "declared value may raise that classification, never lower it.",
         default="medium",
@@ -632,7 +627,7 @@ SCHEMA: tuple[Field, ...] = (
         "rename",
         "block",
         "Which symbol becomes which, for `task_type: rename_symbol`. The one "
-        "task type the floor executes in-process rather than by running a "
+        "task type mcgyvr executes in-process rather than by running a "
         "program, and the only one whose input is not fully determined by "
         "`target`: a rename fans across every file that references the "
         "symbol, so the pair has to be said. Meaningless on any other type "

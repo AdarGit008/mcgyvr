@@ -10,6 +10,7 @@ default, and an onboarding path wired to the existing ``mcgyvr`` CLI.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -166,20 +167,37 @@ def test_uninstall_removes_both_and_is_idempotent(tmp_path: Path) -> None:
 # --- the onboarding path the skill documents and relies on ----------------
 
 
-def test_skill_documents_the_first_run_onboarding() -> None:
+def test_skill_body_no_longer_documents_first_run_onboarding() -> None:
+    # Inverted (plan v4, ruled 2026-09-09): Step 0 left the skill. An agent
+    # authoring a contract no longer reads `mcgyvr init` or `mcgyvr pool`
+    # here — that onboarding path moved to SETUP.md, beside the skill it is
+    # not part of.
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     body = _body(SKILL_MD)
-    assert "mcgyvr init" in body
-    assert "mcgyvr pool" in body
+    assert "mcgyvr init" not in body
+    assert "mcgyvr pool" not in body
 
 
-def test_skill_documents_the_levers() -> None:
-    # The one config file a user edits: its sources, ladder and budgets are the
-    # knobs the skill must teach a first-time user to read with `mcgyvr pool`.
+def test_skill_body_no_longer_documents_the_levers() -> None:
+    """Inverted (plan v4, ruled 2026-09-09): sources, ladder and budgets were
+    the knobs Step 0 taught a first-time user to read with `mcgyvr pool`.
+    That teaching moved to SETUP.md; the skill an agent reads to author a
+    contract no longer names them as config levers.
+
+    Matched as lever *usage* — the bulleted `` - `lever` — ... `` form Step 0
+    used — and not as a raw substring, which is what plan action 5 asks for
+    ("Test matches lever usage, not raw substring — see action 25") and what
+    the sibling check in ``tests/test_setup_leaves_the_skill.py`` already
+    does. A raw `"ladder" not in body` is unsatisfiable rather than strict:
+    action 24 requires the outcome literal `ladder_spent` to be present in
+    the body, and action 25's closed exception list keeps it. Aligning this
+    check with the plan's own wording is not a weakening of it — the bullet
+    form is exactly the shape the deleted Step 0 used to introduce a lever.
+    """
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     body = _body(SKILL_MD)
     for lever in ("ladder", "sources", "budgets"):
-        assert lever in body
+        assert not re.search(rf"^- `{lever}` ", body, re.MULTILINE), lever
 
 
 def test_cli_exposes_the_onboarding_verbs(
