@@ -14,8 +14,8 @@ pair with the 80B. That is "sleep funds a wake" in `records/plans/sleep-wake.md`
 §17, which the design records as unbuildable *because a host holds only one
 launch spec*.
 
-Today the shape is not merely unsupported, it is wrong in two ways, both pinned
-below as the behaviour that must change:
+When this file was written the shape was not merely unsupported, it was wrong in
+two ways, both pinned below as the behaviour that had to change:
 
 * `hold_together` sums both against the card and refuses the pair — 11.83 GiB
   against 6.00 free — for a contention that never happens;
@@ -35,18 +35,32 @@ below as the behaviour that must change:
 4. A host whose units all come up together keeps `compose.<host>.yml` exactly as
    it is. No existing fleet's files move.
 
-**What it deliberately leaves open**, as a refusal rather than a guess: a host
-carrying *both* alternatives and co-residents — say two models on :8080 and a
-third on :8081 that must be up alongside whichever wins. The third belongs in
-neither alternative's file and duplicating it into both makes two files that
-disagree. That is an owner's decision about what a launch spec means, so the
-test asks for a refusal that names the problem, and the design can answer it
-later without this file having guessed.
+**What this file left open, and how the owner closed it.** A host carrying
+*both* alternatives and co-residents — say two models on :8080 and a third on
+:8081 that must be up alongside whichever wins — was pinned here as a refusal
+that names the problem, because the third belongs in neither alternative's file
+and duplicating it into both makes two files that disagree. That is the right
+answer for a **partition**, and a partition is what a port gives you. Card
+contention does not: owner's ruling 5 of 2026-09-09 says the mix is the normal
+case under a fluid ladder, and `serving.launch_specs` answers it as a
+**covering** instead — every spec is a set that can really be up, every unit is
+in at least one of them, and a unit that can sit beside either alternative is
+simply in both files. The refusal is gone; the test that asked for it now
+asserts the covering.
+
+**What the card sum still refuses**, since a cut is not a refusal: two units
+that alternate can no longer trip it, because each is a launch spec of one and a
+spec of one is skipped. Its remaining tooth is drift — a ladder sized against
+one reading of a card and checked against a tighter one. `alternate` cannot see
+that, because it cuts on the figure each unit recorded when it was sized
+(`Fit.card_free_gb`) while `hold_together` adds them up against the scan it is
+handed.
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +114,19 @@ def srv2() -> Scan:
         cores=10,
         threads=20,
         bandwidth_gbps=27.9,
+    )
+
+
+def _with_free_vram(scan: Scan, free_mib: int) -> Scan:
+    """The same rig with less of its card left, which is what a second tenant is.
+
+    A card figure is the only thing these tests vary about a host, and varying
+    it in place keeps the cores, the bandwidth and the RAM identical — so a
+    refusal that fires can only be about the card.
+    """
+    gpu = scan.gpus[0]
+    return replace(
+        scan, gpus=(replace(gpu, vram=replace(gpu.vram, free_mib=free_mib)),)
     )
 
 
@@ -165,6 +192,64 @@ ladder:
 """
 
 
+#: A host that is genuinely mixed, which srv1's two llama.cpp candidates cannot
+#: be: a llama.cpp unit grows to fill whatever card it is given, so two of them
+#: never co-reside whatever the card is. Declared figures do not grow, so these
+#: three on one 12 GiB card are the shape the refusal was written about — the
+#: two 8 GiB models cannot be up together, and the 3 GiB one can be up beside
+#: either of them.
+SMALL = "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+BIG_A = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
+BIG_B = "Qwen/Qwen3-14B-AWQ"
+
+MIXED = f"""
+version: 1
+sources:
+  srv2_small:
+    base_url: "http://srv2:8001"
+    api: openai
+    engine: vllm
+    context_window: 4096
+  srv2_big_a:
+    base_url: "http://srv2:8002"
+    api: openai
+    engine: vllm
+    context_window: 4096
+  srv2_big_b:
+    base_url: "http://srv2:8003"
+    api: openai
+    engine: vllm
+    context_window: 4096
+models:
+  "{SMALL}":
+    vram_gb: 3.0
+    disk_gb: 1.95
+    hf_cache: "{HF_CACHE}"
+  "{BIG_A}":
+    vram_gb: 8.0
+    disk_gb: 9.0
+    hf_cache: "{HF_CACHE}"
+  "{BIG_B}":
+    vram_gb: 8.0
+    disk_gb: 9.0
+    hf_cache: "{HF_CACHE}"
+ladder:
+  tiers:
+    - name: local_small
+      source: srv2_small
+      model: "{SMALL}"
+      max_parallel: 8
+    - name: local_big_a
+      source: srv2_big_a
+      model: "{BIG_A}"
+      max_parallel: 8
+    - name: local_big_b
+      source: srv2_big_b
+      model: "{BIG_B}"
+      max_parallel: 8
+"""
+
+
 def services_of(path: Path) -> dict[str, Any]:
     return dict(yaml.safe_load(path.read_text(encoding="utf-8"))["services"])
 
@@ -197,17 +282,43 @@ def test_alternatives_are_never_summed_against_the_card(
     hold_together(units, {"srv1": srv1()})
 
 
-def test_co_residents_are_still_summed(geometry: dict[str, Path]) -> None:
-    """The check that exists keeps its teeth: two units on two ports do share a
-    card, and a pair that does not fit it is still refused."""
-    tight = srv2()
-    from dataclasses import replace
+def test_a_pair_that_will_not_sum_is_cut_into_alternatives_and_said_out_loud() -> None:
+    """What the card refusal became: a cut, and a sentence about the cut.
 
-    gpu = tight.gpus[0]
-    tight = replace(tight, gpus=(replace(gpu, vram=replace(gpu.vram, free_mib=10000)),))
+    Two units on two ports do share a card, and a pair that will not fit it
+    together used to be refused. Under the owner's ruling of 2026-09-09 the card
+    is the discriminator rather than a reason to say no, so the pair is emitted
+    as two launch specs — which leaves the operator holding two files where they
+    had one, only one of which is ever up, decided by arithmetic they never saw.
+    `hold_together` returns that sentence and `cli._emit` prints it.
+    """
+    tight = _with_free_vram(srv2(), 10000)
     units = units_for(parse(CO_RESIDENT), {"srv2": tight}, specs=(), ctx_per_slot=None)
+
+    (said,) = hold_together(units, {"srv2": tight})
+
+    assert "do not sum onto the card and were emitted as 2 alternatives" in said
+    assert "compose.srv2.Qwen-Qwen2.5-Coder-3B-Instruct-AWQ.yml" in said
+    assert "compose.srv2.Qwen-Qwen2.5-Coder-7B-Instruct-AWQ.yml" in said
+    # The file an emit before the cut wrote, which nothing deletes and `serve
+    # up` would happily start: both services, one card, and the second dies.
+    assert "delete the compose.srv2.yml" in said
+
+
+def test_the_card_sum_still_refuses_a_ladder_held_against_a_tighter_scan() -> None:
+    """The one path alternation cannot cover, and the reason the sum is kept.
+
+    `alternate` cuts on the card figure each unit recorded when it was sized
+    (`Fit.card_free_gb`); `hold_together` adds the same units up against the
+    scan it is handed. Sized against srv2's whole card the pair co-resides — one
+    spec holding both — so nothing cut it, and held against a rig that has since
+    had 2 GiB of something else put on it, this sum is what catches it and
+    nothing else is.
+    """
+    units = units_for(parse(CO_RESIDENT), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+
     with pytest.raises(UnitError, match="one at a time and not together"):
-        hold_together(units, {"srv2": tight})
+        hold_together(units, {"srv2": _with_free_vram(srv2(), 10000)})
 
 
 def test_each_alternative_is_its_own_launch_spec(
@@ -250,48 +361,36 @@ def test_a_host_whose_units_come_up_together_keeps_its_one_file(
     assert any("depends_on" in service for service in services.values()), services
 
 
-def test_a_host_that_mixes_alternatives_and_co_residents_is_refused(
-    geometry: dict[str, Path], tmp_path: Path
+def test_a_host_that_mixes_alternatives_and_co_residents_is_covered(
+    tmp_path: Path,
 ) -> None:
-    """Two models on :8080 and a third on :8081 that must be up beside whichever
-    wins. The third belongs in neither alternative's file, and duplicating it
-    into both writes two files that disagree about what is running. Refused by
-    name until the owner says what a launch spec means here — see this module's
-    docstring."""
-    text = f"""
-version: 1
-sources:
-  srv1_llamacpp:
-    base_url: "http://srv1:8080"
-    api: openai
-    context_window: 4096
-  srv1_beside:
-    base_url: "http://srv1:8081"
-    api: openai
-    context_window: 4096
-models:
-  "{BIG}":
-    geometry_json: {geometry[BIG]}
-  "{LITE}":
-    geometry_json: {geometry[LITE]}
-ladder:
-  tiers:
-    - name: local_lite
-      source: srv1_llamacpp
-      model: "{LITE}"
-      max_parallel: 2
-    - name: local_big
-      source: srv1_llamacpp
-      model: "{BIG}"
-      max_parallel: 2
-    - name: local_beside
-      source: srv1_beside
-      model: "{LITE}"
-      max_parallel: 1
-"""
-    units = units_for(parse(text), {"srv1": srv1()}, specs=(), ctx_per_slot=None)
-    with pytest.raises(UnitError, match="alternative"):
-        emit_all(units, root=tmp_path / "out")
+    """The refusal this file pinned, answered by the owner rather than kept.
+
+    Two 8 GiB models that cannot be up together, and a 3 GiB one that can be up
+    beside either: the third "belongs in neither alternative's file" only if the
+    files are a partition of the host. `launch_specs` returns a covering, so it
+    is in both — each file is a set an operator can actually bring up, and
+    every unit is reachable from one of them, which is the property that matters
+    because a unit no file holds is a rung mcgyvr can never start.
+    """
+    units = units_for(parse(MIXED), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+
+    written = emit_all(units, root=tmp_path / "out")
+
+    held = {
+        path.name: {service["command"][0] for service in services_of(path).values()}
+        for path in written
+    }
+    assert len(written) == 2, held
+    # Every unit reachable, and the two that contend never in one file.
+    assert {model for models in held.values() for model in models} == {
+        SMALL,
+        BIG_A,
+        BIG_B,
+    }, held
+    assert all(not {BIG_A, BIG_B} <= models for models in held.values()), held
+    # The shared unit is in both, which is the sentence the refusal denied.
+    assert all(SMALL in models for models in held.values()), held
 
 
 def test_the_command_writes_a_ladder_of_alternatives_rather_than_refusing_it(

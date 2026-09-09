@@ -18,7 +18,10 @@ off. Four things follow, each a check here:
   stated build (``okf/must-read/touching-rigs.md``) and the engine's default
   tag floats;
 * the units on one host are summed against its free VRAM, because each unit
-  fitting alone is exactly how a 12 GB card ends up asked for 13.
+  fitting alone is exactly how a 12 GB card ends up asked for 13. Since
+  2026-09-09 that sum is what **cuts** such a host into one launch spec per
+  alternative rather than what refuses it, and the pair below still comes up
+  together in one file because 7.12 + 3.49 really does fit.
 """
 
 from __future__ import annotations
@@ -255,10 +258,19 @@ def test_two_units_on_one_host_fit_it_together_at_the_spikes_numbers() -> None:
     hold_together(units, scans)
 
 
-def test_units_on_one_host_are_summed_against_its_free_vram() -> None:
-    # Each alone fits an 11.9 GB card with room; together they do not.
+def test_units_on_one_host_that_will_not_sum_are_cut_into_alternatives() -> None:
+    """Each alone fits an 11.9 GB card with room; together they do not — and
+    since 2026-09-09 that is what cuts the host into launch specs rather than
+    what refuses it (owner's ruling: the card is the discriminator). The 3B and
+    the fattened 7B get a file each, and the sentence `cli._emit` prints names
+    both of them and the `compose.srv2.yml` an earlier emit left behind."""
     tight = LIVE.replace("vram_gb: 7.12", "vram_gb: 9.0")
     scans = {"srv2": rig("srv2")}
     units = units_for(parse(tight), scans, specs=(), ctx_per_slot=WINDOW)
-    with pytest.raises(UnitError, match=r"together|sum"):
-        hold_together(units, scans)
+
+    (said,) = hold_together(units, scans)
+
+    assert "do not sum onto the card and were emitted as 2 alternatives" in said
+    assert "compose.srv2.Qwen-Qwen2.5-Coder-3B-Instruct-AWQ.yml" in said
+    assert "compose.srv2.Qwen-Qwen2.5-Coder-7B-Instruct-AWQ.yml" in said
+    assert "delete the compose.srv2.yml" in said
