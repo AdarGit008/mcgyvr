@@ -104,48 +104,85 @@ RUNTIME_RESIDENT_GB = 1.53
 
 # Held back from host RAM, on top of whatever the model needs, for the same
 # reason :data:`vramfit.SCRATCH_AND_CONTEXT_MIB` is held back from the card:
-# the page cache needs room to work and the host has its own processes. Two
-# GiB is what ``tools/bench/serving/backends/llamacpp.py`` has weighed against
-# for a campaign (``MMAP_HEADROOM_BYTES``), and the figure it was chosen
-# against is a live mmap depressing ``MemAvailable`` by about a gigabyte.
+# the page cache needs room to work and the host has its own processes.
 #
-# This one figure prices two gates that fail differently, and only one of them
-# has been measured. :func:`fit` compares it first against the *blob* to pick a
-# loading mode, and then against the *spilled experts* to refuse outright.
+# There are two of these, because :func:`fit` asks host RAM two questions in a
+# row: they compare different figures and they fail differently. One constant
+# priced both until 2026-09-09, at 2.0 GiB — what
+# ``tools/bench/serving/backends/llamacpp.py`` weighed against for a campaign
+# (``MMAP_HEADROOM_BYTES``), chosen against a live mmap depressing
+# ``MemAvailable`` by about a gigabyte, and measured on neither gate. Both were
+# then swept across three models on both rigs, mapped, with a locked balloon
+# holding the clearance where it was wanted and the page cache dropped before
+# every wake: ``records/measurements/ram-headroom-2026-09-09/``.
+
+# The **mode** gate, weighed against the *blob*: what has to be clear before
+# llama.cpp is left to map the weights rather than told ``--load-mode none``.
+# Every page of the blob is read at load, which is why this margin predicts
+# **wake** — and nothing whatever degrades between +2.0 and +0.5 GiB of it.
+# srv1's Qwen3.6 wakes in 140.8 s against 139.9 s, srv2's 80B in 102.9 against
+# 103.7, and across all nine arms decode throughput never moved at any
+# clearance. Below zero the cost is real and reproducible and still lands only
+# on wake: +19% on srv1's Qwen3.6 (n=3, alternating), +36% on deepseek, +5% on
+# the 80B. Bounded, one-off, and loud enough to be noticed.
 #
-# **The mode gate is measured, and 2.0 is roughly four times too large for it.**
-# Swept 2026-09-09 across three models on both rigs, mapped, at clearances of
-# +2.0, +0.5 and -1.0 GiB against the blob: nothing degrades between +2.0 and
-# +0.5, decode throughput never moves at any clearance, and the cost below zero
-# lands on *wake* (+19% on srv1's Qwen3.6, n=3 alternating; +36% on deepseek;
-# +5% on srv2's 80B). It is also proportional rather than constant — one GiB of
-# shortfall is 8% of a 12.30 GiB blob and 2.8% of a 35.67 GiB one.
-# → ``records/measurements/ram-headroom-2026-09-09/``
+# Not zero, because the sweep does not vindicate a bare-blob rule. Clearance is
+# measured against the blob while the process wants memory the blob does not
+# account for — llama.cpp's own allocations, CUDA host-side buffers, container
+# overhead — which is the likeliest reading of deepseek, the one model that paid
+# above the line, costing +10.7% at exactly +0.5 GiB (n=1).
 #
-# **The refusal gate is measured too, and it keeps the 2.0.** Swept the same
-# day against the *experts* rather than the blob, it is a cliff and not a slope:
-# flat on every axis down to +0.55 GiB (131.5 s wake, 33.26 tok/s, zero pages
-# swapped out), and one GiB further down a 385 s wake, 2.3 M major faults, 2.2 M
-# pages swapped out and **decode at 32% of baseline**. Across every mode-gate
-# arm decode never moved at all; past the experts it loses two thirds.
+# What it changes on this fleet is one rung: srv1's 12.30 GiB Qwen3.6 into
+# 14.19 GiB available maps at 0.5 where it went unmapped at 2.0. That is the
+# answer the measurement wants — three alternating pairs at production
+# ``vm.swappiness=60`` put unmapped at 132.9 s against mapped's 139.6 s, so the
+# trade is 8.4 GiB of reclaimable memory for 6.7 s of one-off wake on a rung
+# that stays up. The 24 s gap a single earlier sample showed was one draw.
 #
-# It keeps 2.0 for three reasons, none of them the old comment's: the cliff sits
-# somewhere in the unmeasured 1.5 GiB between +0.55 and -0.97; the failure is
-# silent, so being wrong does not announce itself the way a slow wake does — the
-# unit comes up, gate 7 is green, `/v1/models` answers, and every request is
-# served off swap (``okf/must-read/touching-rigs.md``); and the margin is free
-# on this fleet, admitting Qwen3.6's 9.2 GiB of experts and KAT's 11.8 alike.
-#
-# The KAT-Coder wake of 203 s that this comment used to cite is a *mode* datum,
-# not a refusal one — a 16.9 GiB blob mapped into 15 GiB of RAM
-# (``records/measurements/wake-2026-09-08/``), taken before :func:`fit` had two
+# The margin is proportional rather than constant and this number cannot say so:
+# one GiB of shortfall is 8% of a 12.30 GiB blob and 2.8% of a 35.67 GiB one, so
+# the same figure means two different things on two rigs. The KAT-Coder wake of
+# 203 s this comment used to cite is a mode datum that was read as a refusal one
+# — a 16.9 GiB blob mapped into 15 GiB of RAM,
+# ``records/measurements/wake-2026-09-08/``, taken before :func:`fit` had two
 # arms at all.
 #
-# One thing neither sweep covers: **the mode has a VRAM cost this constant does
-# not model.** srv2's 80B crash-loops under ``--load-mode none`` on a CUDA
-# allocation while the same unit loads mapped, with 18 GiB of host RAM to spare.
-# The loading mode is decided here from host RAM alone.
-RAM_HEADROOM_GB = 2.0
+# **A gap, named rather than guessed at: the loading mode has a VRAM cost and
+# nothing here models it.** srv2's 80B crash-loops under ``--load-mode none`` on
+# a CUDA allocation failure with 18 GiB of host RAM to spare, and loads mapped
+# in 103 s (``records/measurements/ram-headroom-2026-09-09/`` § "``--load-mode
+# none`` is not available to srv2's 80B at all"). The mode is decided from host
+# RAM alone, so an srv2 with tighter memory would be emitted into that
+# crash-loop today. Pricing it needs a measurement of what the unmapped arm
+# costs the card and nobody has taken one — the crash is n=1, on one model, at
+# an unknown margin — so no coefficient is asserted here.
+MODE_RAM_HEADROOM_GB = 0.5
+
+# The **refusal** gate, weighed against the *spilled experts*: what has to be
+# clear before this module will admit the model to the host at all. The experts
+# are the set that stays resident while the server serves, which is why this
+# margin predicts **decode** — and swept against them the curve is a cliff and
+# not a slope. Flat on every axis down to +0.55 GiB (131.5 s wake, 33.26 tok/s,
+# zero pages swapped out); one GiB further down, a 385 s wake, 2.3 M major
+# faults, 2.2 M pages swapped out and **decode at 32% of baseline**. Across
+# every mode-gate arm decode never moved at all; past the experts it loses two
+# thirds.
+#
+# So this one keeps its 2.0, for three reasons that are now measured rather than
+# inherited: the cliff sits somewhere in the 1.5 GiB nobody sampled between
+# +0.55 and -0.97, so its location is unknown; the failure is **silent**, which
+# is what makes being wrong here different in kind from being wrong about a
+# mapping — the unit comes up, gate 7 is green, ``/v1/models`` answers and every
+# request is served off swap, so a run would report a disk benchmark as a decode
+# rate (``okf/must-read/touching-rigs.md``); and the margin is free on this
+# fleet, admitting Qwen3.6's 9.2 GiB of experts and KAT's 11.8 alike, refusing
+# nothing anyone would have run.
+#
+# ``--load-mode none`` does not make those experts safe, either: the squeezed
+# arm swapped 2.2 M pages *out* during its wake. They are allocated as shared
+# anonymous memory, both rigs run 8 GiB of swap, and shared anonymous memory
+# pages. The flag buys unevictability from the page cache, not from the kernel.
+REFUSAL_RAM_HEADROOM_GB = 2.0
 
 # The widest configuration anyone has measured on these rigs (#366, 32 slots on
 # a 12 GB card). Past it this arithmetic would be extrapolating.
@@ -309,6 +346,17 @@ class Fit:
     #: a refusal. Carried so that the units on one host can be summed: each
     #: fitting alone is how a 12 GB card ends up asked for 13.
     vram_gb: float = 0.0
+    #: What this fit commits *host* memory to, in GiB, on the arm it took: the
+    #: blob a mapped unit wants in page cache, the experts an unmapped one
+    #: allocates outright, and zero for a unit with nothing to spill, whose
+    #: pages are clean the moment they are uploaded to the card. Which of the
+    #: three it is depends on ``load_mode``, which is why the figure is settled
+    #: here and not recomputed: a sum taken before the modes are picked would
+    #: be summing the wrong numbers (F2.1,
+    #: ``records/plans/fleet-shape/formulas.md``). Carried for the same reason
+    #: ``vram_gb`` is — every unit on a host clearing the same
+    #: ``MemAvailable`` alone is how a 15 GB host is asked for 26.
+    ram_gb: float = 0.0
     #: How llama.cpp must read the weights for this fit to hold, or ``None``
     #: where the engine's own default (mmap) is what was approved. A fit that
     #: admitted a model on the unmapped arm approved a different launch from
@@ -449,18 +497,25 @@ def fit(
     # A model with nothing to spill has no arm to take: its weights are the
     # card's, the pages it reads are clean the moment they are uploaded, and
     # host RAM is not a constraint on it at all.
+    #
+    # The two margins are two constants and not one, because the two arms fail
+    # differently: mapping short of the blob costs a bounded, one-off wake, and
+    # spilling short of the experts costs two thirds of decode with nothing
+    # anywhere reporting an error. See :data:`MODE_RAM_HEADROOM_GB` and
+    # :data:`REFUSAL_RAM_HEADROOM_GB`.
     load_mode: str | None = None
-    if placed.ram_gb and spec.disk_gb + RAM_HEADROOM_GB > available_ram:
-        if placed.ram_gb + RAM_HEADROOM_GB > available_ram:
+    if placed.ram_gb and spec.disk_gb + MODE_RAM_HEADROOM_GB > available_ram:
+        if placed.ram_gb + REFUSAL_RAM_HEADROOM_GB > available_ram:
             return Fit(
                 fits=False,
                 headroom_gb=DEFAULT_HEADROOM_GB,
                 why=(
                     f"{spec.name}: needs {placed.ram_gb:.1f} GB of RAM for "
-                    f"the experts it spills{_offload_note(spec, placed)}, or "
-                    f"{spec.disk_gb:.1f} GB to hold its blob mapped, against "
-                    f"{available_ram:.1f} GB available with "
-                    f"{RAM_HEADROOM_GB:.1f} GB held back. No loading mode "
+                    f"the experts it spills{_offload_note(spec, placed)} with "
+                    f"{REFUSAL_RAM_HEADROOM_GB:.1f} GB held back, or "
+                    f"{spec.disk_gb:.1f} GB to hold its blob mapped with "
+                    f"{MODE_RAM_HEADROOM_GB:.1f} GB held back, against "
+                    f"{available_ram:.1f} GB available. No loading mode "
                     f"fits this host"
                 ),
             )
@@ -494,9 +549,20 @@ def fit(
         if load_mode
         else ""
     )
+    # What the host is now committed to, on the arm just chosen: the experts
+    # where they are allocated, the blob where the kernel is being asked to
+    # cache it, nothing where nothing spills. One unit's figure, so that
+    # :func:`hold_together` can add up a host's without deciding a mode twice.
+    if not placed.ram_gb:
+        wants_ram = 0.0
+    elif load_mode == "none":
+        wants_ram = placed.ram_gb
+    else:
+        wants_ram = spec.disk_gb
     return Fit(
         fits=True,
         vram_gb=placed.vram_gb,
+        ram_gb=wants_ram,
         headroom_gb=placed.headroom_gb,
         load_mode=load_mode,
         why=(
@@ -864,7 +930,13 @@ def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
 
 
 def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> None:
-    """The units on one host, summed against the card they will share.
+    """The units on one host, summed against the card and the memory they share.
+
+    Two sums and not one, because a host has two things to run out of and they
+    are counted differently: **VRAM per card, host RAM per host** (owner's
+    ruling, 2026-09-09). Both are taken against the recorded scan and never a
+    live read — a fit that agreed with whatever the rig happened to be doing
+    when someone ran ``emit`` is a fit nobody can reproduce.
 
     :func:`fit` judges one unit against a free card, and every unit on a
     host passes that test on its own — which is exactly how a 12 GB card
@@ -882,6 +954,27 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> None:
     largest alternative at each port, added across ports. A host with one port
     therefore has nothing to sum and is left to :func:`fit`, which already
     judged each of its units against the whole card on its own.
+
+    **The memory sum is the same shape and a different figure.** Each unit
+    contributes what its fit committed the host to (:attr:`Fit.ram_gb`) — the
+    blob a mapped unit wants cached, the experts an unmapped one allocates,
+    nothing where nothing spills — and the sum runs *after* the loading modes
+    are picked, because the mode is what decides which figure a unit brings.
+    One host headroom is applied once to the total,
+    :data:`REFUSAL_RAM_HEADROOM_GB`, and not once per unit: the margin is the
+    host's own working room, and charging it per unit refuses layouts a host
+    can hold. Without this, two spilling units each cleared the same
+    ``MemAvailable`` alone and the file emitted asked a 15 GB host for 26.
+
+    Two things this sum is not. It is not measured: nothing on this fleet has
+    run two llama.cpp MoE units co-resident on one host, which is G2 in
+    ``records/plans/fleet-shape/evidence_and_params.md``, and the arms it adds
+    are F2.1's law rather than a reading of two of them together. And it is not
+    symmetric in how it fails — an unmapped unit's experts are allocated and
+    short of them the host swaps silently at a third of decode, while mapped
+    units short of their blobs pay a bounded wake and nothing else. The sum
+    treats both as a refusal, which is stricter than the mapped arm has been
+    shown to need.
 
     A check of its own rather than a rule inside :func:`units_for`, because
     that function answers "which processes does this ladder imply" and two
@@ -912,6 +1005,37 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> None:
                 f"{host}: {listed} fit the card one at a time and not together — "
                 f"{asked:.2f} GB summed against {free:.2f} GB free. Drop a unit, "
                 f"or state a smaller working set you have measured"
+            )
+        memory = scans[host].memory
+        if memory is None:
+            # A host nobody measured the memory of is a host nothing is claimed
+            # about, which is the rule :mod:`mcgyvr.scan` runs on and the one
+            # :func:`fit` took when it read ``available_ram`` as zero.
+            continue
+        # The same worst case, read on the other axis: the hungriest
+        # alternative at each port. Two axes and two maxima, because an
+        # operator can reach either — the pairing that fills the card need not
+        # be the pairing that fills the memory.
+        hungriest = sorted(
+            (max(grouped[where], key=lambda unit: unit.fit.ram_gb) for where in ports),
+            key=lambda unit: unit.key.slug,
+        )
+        wanted = sum(unit.fit.ram_gb for unit in hungriest)
+        if wanted and wanted + REFUSAL_RAM_HEADROOM_GB > memory.available_gb:
+            listed = ", ".join(
+                f"{unit.model} ({unit.fit.ram_gb:.2f} GB "
+                f"{'unmapped' if unit.fit.load_mode == 'none' else 'mapped'})"
+                for unit in hungriest
+                if unit.fit.ram_gb
+            )
+            raise UnitError(
+                f"{host}: {listed} fit host memory one at a time and not "
+                f"together — {wanted:.2f} GB summed with "
+                f"{REFUSAL_RAM_HEADROOM_GB:.1f} GB held back, against "
+                f"{memory.available_gb:.2f} GB available. Serve one of them "
+                f"from another host, drop one, or narrow a window: context is "
+                f"paid for in host RAM, 1.1 GB of it per slot between 2048 and "
+                f"32768 on srv1's Qwen3.6"
             )
 
 

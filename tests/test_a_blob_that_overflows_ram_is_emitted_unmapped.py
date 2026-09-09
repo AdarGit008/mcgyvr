@@ -83,10 +83,22 @@ LITE = scanned("deepseek-coder-v2-16b.gguf")
 
 
 def test_a_blob_that_overflows_ram_is_emitted_unmapped() -> None:
-    """srv1 as it stands: 13 GiB available against a 12.3 GiB blob. The blob
-    does not clear the headroom, the 8.9 GiB of experts do, so the model runs —
-    with the mode that makes those experts unevictable."""
-    unit = unit_for(rig(ram_gb=13.0), MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    """12.5 GiB available against a 12.3 GiB blob. The blob does not clear the
+    headroom, the 8.9 GiB of experts do, so the model runs — with the mode that
+    makes those experts unevictable.
+
+    The rig was 13.0 until 2026-09-09, and was described as "srv1 as it
+    stands". Both halves of that stopped being true on the same day. srv1 has
+    14.19 GiB, not 13; and the mode gate came down from 2.0 to 0.5
+    (:data:`~mcgyvr.serving.MODE_RAM_HEADROOM_GB`, swept in
+    ``records/measurements/ram-headroom-2026-09-09/``), which is what makes
+    12.30 + 0.5 fit inside 13.0. **srv1 maps this blob now, and that is the
+    behaviour the sweep asked for** — pinned in
+    ``tests/test_the_two_ram_gates_hold_back_different_margins.py``, not undone
+    here. What this file is about is the arm a rig too tight for its blob
+    takes, so the rig is given a number that is still tight under the gate it
+    is now judged by."""
+    unit = unit_for(rig(ram_gb=12.5), MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert unit.args["--load-mode"] == "none"
 
 
@@ -121,7 +133,7 @@ def test_the_fit_states_which_mode_it_approved() -> None:
     """A fit that admitted a model on the unmapped arm approved a different
     launch from the one that fits mapped, and `emit --check` diffs argv: the
     mode is part of what was approved, not a decoration the unit adds later."""
-    tight = fit(rig(ram_gb=13.0), MOE, ctx_per_slot=WINDOW)
+    tight = fit(rig(ram_gb=12.5), MOE, ctx_per_slot=WINDOW)
     roomy = fit(rig(ram_gb=48.0), MOE, ctx_per_slot=WINDOW)
     assert tight.fits and roomy.fits
     assert tight.load_mode == "none"
@@ -130,15 +142,20 @@ def test_the_fit_states_which_mode_it_approved() -> None:
 
 
 def test_every_model_on_the_tight_rig_is_judged_by_its_own_blob() -> None:
-    """Not by the rig's reputation — srv1 is not "the unmapped rig".
+    """Not by the rig's reputation — no rig is "the unmapped rig".
 
-    Its own two candidates on 13 GiB available: DeepSeek-Coder-V2-Lite's 8.3 GiB
+    Three candidates on 12.5 GiB available: DeepSeek-Coder-V2-Lite's 8.3 GiB
     blob clears the headroom and maps, Qwen3.6-35B's 12.3 GiB does not and is
     read unmapped. One card, one moment, two arms. Gemma-4-26B sits between them
     at 10.6 GiB and maps, which is the point of weighing each blob rather than
     labelling the host.
+
+    The number was 13.0, and named srv1. It is neither now: the 2026-09-09 sweep
+    dropped the mode gate to 0.5, under which srv1's real 14.19 GiB maps every
+    one of these three. The lesson the test carries is the one that does not
+    depend on the number — a host is not a mode.
     """
-    tight = rig(ram_gb=13.0)
+    tight = rig(ram_gb=12.5)
     lite = unit_for(tight, LITE, engine="llama.cpp", ctx_per_slot=WINDOW)
     gemma = unit_for(tight, GEMMA, engine="llama.cpp", ctx_per_slot=WINDOW)
     moe = unit_for(tight, MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
