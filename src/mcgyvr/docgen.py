@@ -27,14 +27,16 @@ Two constraints shape the rendering:
    explaining the value types, because those are properties of the loader,
    not of any one key.
 
-The second document is the ``/mcgyvr`` skill (owner's ruling, 2026-09-03): the
-one passive, always-on instruction an agent reads before it authors a
-contract, generated the same way from ``contract.SCHEMA`` so the fields an
-agent is told about are the fields the validator accepts. The skill carries
-one minimal example per task type; each is checked by loading it through the
-contract loader, so an example that stops validating is a build failure and
-not a lesson in the wrong shape. The scaffolding here — the four steps — is
-the workflow, which is a property of the product and of no one key.
+The second document is the ``/mcgyvr`` skill (owner's ruling, 2026-09-03,
+narrowed 2026-09-09): the one explicitly-invoked instruction an agent reads
+before it authors a contract — the packaged skill ships
+``disable-model-invocation: true``, so a fresh install never offloads work
+until someone asks for it — generated the same way from ``contract.SCHEMA`` so
+the fields an agent is told about are the fields the validator accepts. The
+skill carries one minimal example per task type; each is checked by loading it
+through the contract loader, so an example that stops validating is a build
+failure and not a lesson in the wrong shape. The scaffolding here — the steps —
+is the workflow, which is a property of the product and of no one key.
 """
 
 from __future__ import annotations
@@ -463,8 +465,9 @@ def render_skill() -> str:
         "name: mcgyvr",
         'description: "Use whenever coding work can be delegated to a local model '
         "ladder: author a task contract, validate it, run it, read the result file, "
-        "replan from the findings. Always on; the schema below is the only "
-        'contract vocabulary."',
+        "replan from the findings. Invoke it explicitly when you are about to "
+        'delegate; the schema below is the only contract vocabulary."',
+        "disable-model-invocation: true",
         "---",
         "",
         SKILL_MARKER,
@@ -476,6 +479,35 @@ def render_skill() -> str:
         "ladder of local models cheapest-first, gates every answer deterministically,",
         "and leaves the accepted file in the working tree. It never commits unless",
         "told to, and it never writes anything else into the repository.",
+        "",
+        "## Step 0 — first run, once per machine",
+        "",
+        "```",
+        "mcgyvr init",
+        "mcgyvr pool",
+        "```",
+        "",
+        "`mcgyvr init` detects what is reachable and writes a config bound to it. It",
+        "refuses to overwrite an existing config without `--force`, and prints what",
+        "was decided and why, then what is *not* configured and what that costs.",
+        "Backends on another machine come in with `--host` (repeatable).",
+        "",
+        "`mcgyvr pool` reads that config back: the usable rungs cheapest-first with",
+        "their family, attempt budget and model; the escalation ceiling and where it",
+        "came from; every skipped rung with the reason it was skipped; and the",
+        "orchestrator and verifier models. `--probe` also asks each source whether it",
+        "is answering — off by default, because it spends. Run it whenever a run",
+        "picks a rung you did not expect.",
+        "",
+        "Three keys of that one config file are the levers, and `mcgyvr pool` is how",
+        "you read all three:",
+        "",
+        "- `sources` — what is reachable, and how to reach it.",
+        "- `ladder` — which rungs, in which order, with how many attempts each.",
+        "- `budgets` — the ceilings a climb may not cross.",
+        "",
+        "`mcgyvr config` prints the resolved config; `mcgyvr detect` and",
+        "`mcgyvr capabilities` say what a source is and what it can do.",
         "",
         "## Step 1 — author a contract",
         "",

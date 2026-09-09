@@ -1,9 +1,10 @@
 """The /mcgyvr skill is rendered from the schema, so an agent never guesses a field.
 
 An agent that authors contracts learns the fields today by being rejected one
-key at a time. The owner's ruling (2026-09-03): the schema reaches the agent
-as a step of one passive, always-on ``/mcgyvr`` skill — not a flag, not a
-second skill — and the skill is generated the way the config reference is,
+key at a time. The owner's ruling (2026-09-03, narrowed 2026-09-09): the
+schema reaches the agent as a step of one explicitly-invoked ``/mcgyvr``
+skill — not a flag, not a second skill — and the skill is generated the way
+the config reference is,
 from the ``Field`` declarations the validator walks, so a documented key and
 a validated key cannot drift.
 

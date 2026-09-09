@@ -1,6 +1,7 @@
 ---
 name: mcgyvr
-description: "Use whenever coding work can be delegated to a local model ladder: author a task contract, validate it, run it, read the result file, replan from the findings. Always on; the schema below is the only contract vocabulary."
+description: "Use whenever coding work can be delegated to a local model ladder: author a task contract, validate it, run it, read the result file, replan from the findings. Invoke it explicitly when you are about to delegate; the schema below is the only contract vocabulary."
+disable-model-invocation: true
 ---
 
 <!-- Code generated from src/mcgyvr/contract.py and src/mcgyvr/docgen.py by `make docs`. DO NOT EDIT. -->
@@ -12,6 +13,35 @@ a *contract* (one target, one task, one way to judge it), mcgyvr climbs its
 ladder of local models cheapest-first, gates every answer deterministically,
 and leaves the accepted file in the working tree. It never commits unless
 told to, and it never writes anything else into the repository.
+
+## Step 0 — first run, once per machine
+
+```
+mcgyvr init
+mcgyvr pool
+```
+
+`mcgyvr init` detects what is reachable and writes a config bound to it. It
+refuses to overwrite an existing config without `--force`, and prints what
+was decided and why, then what is *not* configured and what that costs.
+Backends on another machine come in with `--host` (repeatable).
+
+`mcgyvr pool` reads that config back: the usable rungs cheapest-first with
+their family, attempt budget and model; the escalation ceiling and where it
+came from; every skipped rung with the reason it was skipped; and the
+orchestrator and verifier models. `--probe` also asks each source whether it
+is answering — off by default, because it spends. Run it whenever a run
+picks a rung you did not expect.
+
+Three keys of that one config file are the levers, and `mcgyvr pool` is how
+you read all three:
+
+- `sources` — what is reachable, and how to reach it.
+- `ladder` — which rungs, in which order, with how many attempts each.
+- `budgets` — the ceilings a climb may not cross.
+
+`mcgyvr config` prints the resolved config; `mcgyvr detect` and
+`mcgyvr capabilities` say what a source is and what it can do.
 
 ## Step 1 — author a contract
 
