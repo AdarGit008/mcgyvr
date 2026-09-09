@@ -292,3 +292,48 @@ ladder:
     units = units_for(parse(text), {"srv1": srv1()}, specs=(), ctx_per_slot=None)
     with pytest.raises(UnitError, match="alternative"):
         emit_all(units, root=tmp_path / "out")
+
+
+def test_the_command_writes_a_ladder_of_alternatives_rather_than_refusing_it(
+    geometry: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refusal `emit` carried is the one this file overturns.
+
+    ``_emit`` refused any ``base_url`` bound to more than one model — "they
+    would contend for the same port. Give each model its own source on its own
+    port." That advice is right for co-residents and wrong for the shape the
+    ladder is now made of: two rungs on one URL are not a race to bind 8080,
+    they are two things that take turns on it, and telling the owner to invent
+    a second port is telling them to buy a second card. The refusals that
+    remain are the ones that still mean something — the mixed host above, and
+    `hold_together` for units that really do share a card.
+
+    Driven through ``main`` rather than ``emit_all`` because the refusal was
+    never in the emit layer: every unit test in this file passed while the
+    command they describe exited REFUSED and wrote nothing.
+    """
+    from mcgyvr import scan as scan_module
+    from mcgyvr.cli import main
+    from mcgyvr.config import CONFIG_PATH_ENV
+    from mcgyvr.exits import Exit
+
+    scans = tmp_path / "scans"
+    scans.mkdir()
+    (scans / "srv1.json").write_text(srv1().to_json(), encoding="utf-8")
+    monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(scans))
+
+    config = tmp_path / "mcgyvr.yaml"
+    config.write_text(alternatives(geometry), encoding="utf-8")
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(config))
+
+    out = tmp_path / "compose"
+    assert main(["emit", "--out", str(out)]) == Exit.OK
+    assert {path.name for path in out.iterdir()} == {
+        f"compose.srv1.{LITE}.yml",
+        f"compose.srv1.{BIG}.yml",
+    }
+
+    # And the check reads the same two files. `_report_drift` listed
+    # `compose.<host>.yml` from the units it was handed, which for this ladder
+    # is a file name nothing ever wrote.
+    assert main(["emit", "--check", "--out", str(out)]) == Exit.OK

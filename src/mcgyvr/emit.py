@@ -41,7 +41,7 @@ from pathlib import Path
 
 import yaml
 
-from mcgyvr.serving import HF_CACHE_MOUNT, Unit
+from mcgyvr.serving import HF_CACHE_MOUNT, Unit, launch_specs
 
 # The engines this module can render, and what each one is. An engine it has no
 # argv shape for is refused rather than guessed at: llama.cpp's flags on a vLLM
@@ -153,12 +153,15 @@ def render_compose(unit: Unit | None) -> str:
 
 
 def emit_all(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
-    """Write one compose file per host under ``root``. Returns what was written.
+    """Write one compose file per launch spec under ``root``. Returns what was written.
 
-    Per host rather than per unit because a host is what an operator brings up:
-    ``docker compose -f compose.desktop-1.yml up`` starts everything that
-    machine serves, and two files for one rig would be two commands with a rule
-    about which comes first.
+    A launch spec is a set of units that come up **together**, which is usually
+    a host and is not always one. Per host is the right grouping for
+    co-residents: ``docker compose -f compose.desktop-1.yml up`` starts
+    everything that machine serves, and two files for one rig would be two
+    commands with a rule about which comes first. It is the wrong grouping for
+    alternatives, where the rule about which comes first is that only one ever
+    does — see :func:`_planned`.
 
     Nothing is written outside ``root``, and a host name that would climb out of
     it is refused rather than sanitised — a host is a key that scans, units and
@@ -249,44 +252,64 @@ def check_all(units: Iterable[Unit], root: Path) -> tuple[Drift, ...]:
     return tuple(drifted)
 
 
+def planned_paths(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
+    """The files :func:`emit_all` would write, without rendering an opinion.
+
+    For a reporter that wants to name them — a clean ``--check`` says which
+    files it just agreed with — and it asks the planner rather than spelling
+    ``compose.<host>.yml`` itself, which is a name that stopped being true the
+    day a host could hold alternatives.
+    """
+    return tuple(path for path, _ in _planned(units, root))
+
+
 def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
-    """Every (path, document) pair a host's units resolve to, host-sorted.
+    """Every (path, document) pair a ladder's units resolve to, path-sorted.
 
     Extracted so that writing and checking cannot disagree about grouping,
     naming or refusal. Every rule below was :func:`emit_all`'s and keeps its
     meaning; what changed is that the answer is now a value, so a caller may
     compare it with the disk instead of committing it to the disk.
-    """
-    grouped: dict[str, list[Unit]] = {}
-    for unit in units:
-        grouped.setdefault(unit.host, []).append(unit)
 
+    The cut into files is :func:`~mcgyvr.serving.launch_specs`' and not this
+    module's — what comes up together is a fact about units. What is decided
+    here is only how a spec is spelled: ``compose.<host>.yml`` for a host that
+    comes up as one, which is every fleet emitted until now and nothing on disk
+    moves for one, and ``compose.<host>.<model>.yml`` for each of a host's
+    alternatives, because ``serve up --compose`` takes one file and starts what
+    is in it.
+    """
     planned: list[tuple[Path, str]] = []
+    # What each file name is a name *for*, so that two things reaching one path
+    # is an error somebody sees. Spelling a host or a model into a file name is
+    # many-to-one wherever it rewrites anything — and for an IPv6 literal, and
+    # for a HuggingFace repository id, it does. Left alone that is not an error
+    # anybody sees: the second file overwrites the first and one unit is simply
+    # absent from the output, which is the same silent loss as two models in
+    # one compose service.
     claimed: dict[str, str] = {}
-    for host in sorted(grouped):
-        name = _safe_host(host)
-        # Spelling a host into a file name is many-to-one wherever it rewrites
-        # anything — and for an IPv6 literal it does — so two hosts can reach
-        # one path. Left alone that is not an error anybody sees: the second
-        # file overwrites the first and one rig is simply absent from the
-        # output, which is the same silent loss as two models in one service.
-        first = claimed.setdefault(name, host)
-        if first != host:
+    for spec in launch_specs(units):
+        name = _safe_host(spec.host)
+        if spec.model is not None:
+            name = f"{name}.{_safe_model(spec.model)}"
+        name = f"{COMPOSE_PREFIX}{name}{COMPOSE_SUFFIX}"
+        called = spec.units[0].key.slug if spec.model is not None else spec.host
+        first = claimed.setdefault(name, called)
+        if first != called:
             raise EmitError(
-                f"{host!r} and {first!r} would both be written to "
-                f"{COMPOSE_PREFIX}{name}{COMPOSE_SUFFIX}, and the second file "
-                "would be the only one left"
+                f"{called!r} and {first!r} would both be written to {name}, and "
+                "the second file would be the only one left"
             )
-        path = root / f"{COMPOSE_PREFIX}{name}{COMPOSE_SUFFIX}"
+        path = root / name
         # `path.resolve().parent` and not `path.parent.resolve()`: the name is
         # sanitised and cannot climb, but a symlink planted at it can, and only
         # resolving the file itself sees that. It holds for a path that does
         # not exist yet, which is every path on a first emit and some on a
         # check.
         if path.resolve().parent != root.resolve():
-            raise EmitError(f"{host}: would write outside {root}")
-        planned.append((path, _document(tuple(grouped[host]))))
-    return tuple(planned)
+            raise EmitError(f"{spec.host}: would write outside {root}")
+        planned.append((path, _document(spec.units)))
+    return tuple(sorted(planned, key=lambda pair: pair[0].name))
 
 
 def _document(units: tuple[Unit, ...]) -> str:
@@ -499,6 +522,27 @@ def _safe_host(host: str) -> str:
     if not host or host != _UNSAFE.sub("-", host) or host in {".", ".."}:
         raise EmitError(f"{host!r} is not a host name a file can be named after")
     return host
+
+
+def _safe_model(model: str) -> str:
+    """The model as a file name component, sanitised rather than refused.
+
+    The opposite call from :func:`_safe_host`, and for the opposite reason. A
+    host is the key scans, units and files are filed under, so rewriting one
+    here would file this file under a name nothing else uses — but a model name
+    is not a file-system key anywhere, and the names this fleet actually serves
+    are ``Qwen/Qwen2.5-Coder-7B-Instruct-AWQ`` and ``qwen2.5-coder:3b``.
+    Refusing a slash or a colon would refuse every HuggingFace id and every
+    tagged name, which is refusing the ladder rather than protecting it.
+
+    Sanitising is many-to-one, so it is :func:`_planned` that stops two models
+    from claiming one file — the same guard, and for the same reason, as two
+    hosts spelling one name.
+    """
+    name = _UNSAFE.sub("-", model)
+    if not name or name in {".", ".."} or set(name) <= {"-"}:
+        raise EmitError(f"{model!r} is not a model name a file can be named after")
+    return name
 
 
 def _ipv6(host: str) -> str | None:

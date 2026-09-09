@@ -34,7 +34,7 @@ from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import keep as keep_config
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-from mcgyvr.emit import Drift, EmitError, check_all, emit_all
+from mcgyvr.emit import Drift, EmitError, check_all, emit_all, planned_paths
 from mcgyvr.exits import Exit
 from mcgyvr.initialize import InitError, initialize
 from mcgyvr.scan import Mismatch, Scan
@@ -1912,8 +1912,10 @@ def _scan(args: argparse.Namespace) -> int:
 
 
 def _emit(args: argparse.Namespace) -> int:
-    """Write one compose file per host for the ladder's serving units.
+    """Write one compose file per launch spec for the ladder's serving units.
 
+    A launch spec is what comes up together, which is a host wherever a host's
+    units are co-residents and is one model wherever they take turns on a port.
     Nothing is started. See :mod:`mcgyvr.emit` — this hands the operator a
     launch spec and stops.
     """
@@ -1967,33 +1969,18 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
-    # One llama-server or vLLM process serves one model, so two units sharing a
-    # source share a port and the second one loses the race to bind it. The
-    # emitted file would look right and fail on the rig, which is the failure
-    # this whole module exists to avoid. There is no exemption: every backend
-    # this build serves is one process per model. (The one that was not is in
-    # ``archive/forensic-ollama/``, together with the reason its exemption
-    # never fired — it tested the dispatch protocol, which never held its name.)
-    endpoints: dict[str, list[str]] = {}
-    for unit in units:
-        for rung in unit.rungs:
-            tier = config.ladder.get(rung)
-            if tier is None:
-                continue
-            source = config.sources[tier.source]
-            endpoints.setdefault(source.base_url, [])
-            if unit.key.slug not in endpoints[source.base_url]:
-                endpoints[source.base_url].append(unit.key.slug)
-    for base_url, slugs in sorted(endpoints.items()):
-        if len(slugs) > 1:
-            print(
-                f"refused: {base_url} is bound to {len(slugs)} models "
-                f"({', '.join(sorted(slugs))}), and one server process serves "
-                f"one model — they would contend for the same port. Give each "
-                f"model its own source on its own port.",
-                file=sys.stderr,
-            )
-            return Exit.REFUSED
+    # A `base_url` bound to two models used to be refused here — "one server
+    # process serves one model ... give each model its own source on its own
+    # port". One process per model is still true and it is no longer a reason
+    # to refuse: two rungs on one URL are two models *taking turns* on it, the
+    # ladder shape `records/plans/sleep-wake.md` §17 is made of, and telling an
+    # owner to invent a second port is telling them to buy a second card. What
+    # the refusal was protecting against — a file whose second service can
+    # never bind — is now impossible by construction, because
+    # `serving.launch_specs` gives each alternative a launch spec of its own.
+    # The refusals that still mean something are two: `hold_together` above,
+    # for units that really do share a card, and a host mixing alternatives
+    # with co-residents, which `emit_all` and `check_all` raise below.
 
     out = Path(args.out) if args.out else Path.cwd()
 
@@ -2006,6 +1993,9 @@ def _emit(args: argparse.Namespace) -> int:
     if args.check:
         try:
             drifted = check_all(units, root=out)
+        except UnitError as exc:
+            print(f"refused: {exc}", file=sys.stderr)
+            return Exit.REFUSED
         except (EmitError, OSError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return Exit.ERROR
@@ -2013,6 +2003,12 @@ def _emit(args: argparse.Namespace) -> int:
 
     try:
         written = emit_all(units, root=out)
+    except UnitError as exc:
+        # A ladder describing a shape mcgyvr will not stand behind, not a
+        # failure to render one: same exit code as `hold_together`'s refusal,
+        # which is the other thing that reads a unit set and declines it.
+        print(f"refused: {exc}", file=sys.stderr)
+        return Exit.REFUSED
     except (EmitError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
@@ -2045,9 +2041,11 @@ def _report_drift(drifted: Sequence[Drift], out: Path, units: Sequence[Unit]) ->
     of those is on the rig.
     """
     if not drifted:
-        for path, _ in sorted(
-            {(out / f"compose.{unit.host}.yml", unit.host) for unit in units}
-        ):
+        # The files this config would write, asked of the function that writes
+        # them. Spelled here as `compose.<host>.yml` it was a name nothing had
+        # emitted for a host of alternatives, so a clean check named a file
+        # that was not there — reassuring, about the wrong path.
+        for path in planned_paths(units, out):
             print(f"{path.name} is what this config emits")
         return Exit.OK
 
@@ -2523,7 +2521,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
 
     emi = sub.add_parser(
         "emit",
-        help="write a compose file per host for the ladder's serving units",
+        help="write a compose file per launch spec for the ladder's serving units",
     )
     emi.add_argument(
         "--config",

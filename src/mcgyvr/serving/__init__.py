@@ -762,6 +762,107 @@ def units_for(
     return units
 
 
+def alternatives(units: Iterable[Unit]) -> dict[tuple[str, int], tuple[Unit, ...]]:
+    """Every unit, grouped by the host and port it takes its turn on.
+
+    A port is a thing exactly one process holds, so two units that name one
+    port are two models for one server: alternatives. They are never up at the
+    same time — the second cannot bind until the first is gone — and every
+    question that treats a host's units as simultaneous has to ask this first.
+
+    Port is a proxy and not the fact. What makes two units alternatives is that
+    they contend for something only one can have, and on srv2 that is the
+    **card**, not the port: the vLLM pair answer on :8001 and :8002 and the 80B
+    on :8003, and they alternate all the same. The proxy is what srv1's layout
+    looks like and it is what this build discriminates on; card contention is
+    the discriminator the fleet-shape controller will need
+    (``records/plans/fleet-shape/``). Named here so that the next reader
+    replaces one function rather than three call sites.
+    """
+    grouped: dict[tuple[str, int], list[Unit]] = {}
+    for unit in units:
+        grouped.setdefault((unit.host, unit.port), []).append(unit)
+    return {where: tuple(sharing) for where, sharing in grouped.items()}
+
+
+@dataclass(frozen=True)
+class LaunchSpec:
+    """One thing an operator can bring up: units that come up *together*.
+
+    Usually a host, and not always one. ``model`` is the name that
+    distinguishes this spec from the other spec on the same host, or ``None``
+    where the spec is the whole host — which is every fleet emitted until now.
+    :mod:`mcgyvr.emit` spells the two into file names; what they *are* is
+    decided here, because it is a fact about units and not about YAML.
+    """
+
+    host: str
+    units: tuple[Unit, ...]
+    model: str | None = None
+
+
+def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
+    """The ladder's units cut into the things a door can be pointed at.
+
+    A host whose units all come up together is one spec holding all of them:
+    they share a card, ``depends_on`` sequences them, and one command starts
+    the machine. A host whose units are :func:`alternatives` is one spec each,
+    because only one of them is ever up and a launch spec holding both is a
+    launch spec whose second process never binds the port.
+
+    A host carrying **both** is refused by name rather than guessed at — two
+    alternatives on :8080 and a third unit on :8081 that must be up beside
+    whichever wins. The third belongs in neither alternative's spec, and
+    duplicating it into both makes two specs that disagree about what is
+    running. What a launch spec means there is an owner's decision about the
+    fleet, and this function is not where it gets made.
+
+    A :class:`UnitError` and not an emit error: this says a ladder describes a
+    shape mcgyvr will not stand behind, which is the same kind of fact as
+    :func:`hold_together`'s and reaches an operator by the same exit code.
+    """
+    grouped = alternatives(units)
+    on_host: dict[str, list[tuple[str, int]]] = {}
+    for where in sorted(grouped):
+        on_host.setdefault(where[0], []).append(where)
+
+    specs: list[LaunchSpec] = []
+    for host in sorted(on_host):
+        ports = on_host[host]
+        taking_turns = [where for where in ports if len(grouped[where]) > 1]
+        if not taking_turns:
+            specs.append(
+                LaunchSpec(
+                    host=host,
+                    units=tuple(unit for where in ports for unit in grouped[where]),
+                )
+            )
+            continue
+        if len(ports) > 1:
+            beside = ", ".join(
+                f"{unit.model} on :{unit.port}"
+                for where in ports
+                if where not in taking_turns
+                for unit in grouped[where]
+            )
+            turns = ", ".join(
+                unit.model
+                for where in taking_turns
+                for unit in sorted(grouped[where], key=lambda unit: unit.model)
+            )
+            raise UnitError(
+                f"{host}: {turns} take turns on :{taking_turns[0][1]}, so each is "
+                f"its own launch spec — and {beside} would have to be up beside "
+                "whichever of them wins. A co-resident belongs in neither "
+                "alternative's spec, and putting it in both writes two files "
+                "that disagree about what is running. Serve the alternatives "
+                "from a host of their own, or drop one of them"
+            )
+        for unit in sorted(grouped[taking_turns[0]], key=lambda unit: unit.model):
+            specs.append(LaunchSpec(host=host, units=(unit,), model=unit.model))
+    return tuple(specs)
+
+
 def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> None:
     """The units on one host, summed against the card they will share.
 
@@ -773,23 +874,39 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> None:
     will actually be asked to hold. Measured 2026-09-05 on srv2: 7.12 + 3.49
     GiB on 11.63 free, and the card held it with 1.0 GiB to spare.
 
+    **Alternatives are not summed, because only one of them is ever on the
+    card.** Two units on one port take turns, so adding their figures prices a
+    contention that cannot happen — on srv1 that is 11.83 GiB against 6.00
+    free, refusing a ladder either half of which runs perfectly well. What is
+    summed instead is the worst case an operator can actually reach: the
+    largest alternative at each port, added across ports. A host with one port
+    therefore has nothing to sum and is left to :func:`fit`, which already
+    judged each of its units against the whole card on its own.
+
     A check of its own rather than a rule inside :func:`units_for`, because
     that function answers "which processes does this ladder imply" and two
     units that will not share a card are still two processes; whether the
     machine can hold them both is the question asked just before a file is
     written, and :func:`mcgyvr.cli._emit` asks it there.
     """
-    by_host: dict[str, list[Unit]] = {}
-    for unit in units:
-        by_host.setdefault(unit.host, []).append(unit)
-    for host, shared in by_host.items():
-        if len(shared) < 2 or host not in scans:
+    grouped = alternatives(units)
+    by_host: dict[str, list[tuple[str, int]]] = {}
+    for host, port in grouped:
+        by_host.setdefault(host, []).append((host, port))
+    for host, ports in by_host.items():
+        if len(ports) < 2 or host not in scans:
             continue
         free = _free_vram_bytes(scans[host]) / _BYTES_PER_GIB
-        asked = sum(unit.fit.vram_gb for unit in shared)
+        # The largest of each port's alternatives: the most this card can be
+        # asked to hold at once, whichever way the operator brings them up.
+        worst = sorted(
+            (max(grouped[where], key=lambda unit: unit.fit.vram_gb) for where in ports),
+            key=lambda unit: unit.key.slug,
+        )
+        asked = sum(unit.fit.vram_gb for unit in worst)
         if asked > free:
             listed = ", ".join(
-                f"{unit.model} ({unit.fit.vram_gb:.2f} GB)" for unit in shared
+                f"{unit.model} ({unit.fit.vram_gb:.2f} GB)" for unit in worst
             )
             raise UnitError(
                 f"{host}: {listed} fit the card one at a time and not together — "
