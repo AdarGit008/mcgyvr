@@ -1,0 +1,226 @@
+[
+  {
+    "label": "q16b-80b-with-3b-awake-7b-asleep-1",
+    "asleep": "7b",
+    "awake": "3b",
+    "card_pair_up_used_mib": 11369,
+    "pair_up_per_unit_mib": {
+      "7b": 7544,
+      "3b": 3810
+    },
+    "card_with_sleeper_used_mib": 4059,
+    "card_free_with_sleeper_mib": 7853,
+    "with_sleeper_per_unit_mib": {
+      "7b": 234,
+      "3b": 3810
+    },
+    "sleep_http": "200",
+    "level_one_refused": "refusing a level-1 sleep of srv2:8002. It surrenders 13.46 GiB of host RAM permanently \u2014 a level 2 sleep does not release it and only a container restart does \u2014",
+    "ncmoe": 41,
+    "predicted_mib": 7526.0,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2-80b-offdoor-ncmoe41.yml",
+    "placed": true,
+    "wake_s": 98.20448040962219,
+    "restart_count": 0,
+    "card_all_three_used_mib": 11580,
+    "card_all_three_free_mib": 332,
+    "all_three_per_unit_mib": {
+      "7b": 234,
+      "3b": 3810,
+      "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003": 7516
+    },
+    "eighty_b_added_mib": 7521,
+    "measured_vs_predicted_mib": -5.0,
+    "vram_peak_used_mib": 11580,
+    "decode_80b_cold": 10.830465814247704,
+    "decode_80b_warm": {
+      "mean": 28.41509722285502,
+      "samples": [
+        28.389202033095387,
+        28.410750842539578,
+        28.445338792930098
+      ],
+      "n": 3
+    },
+    "awake_models_http": "200",
+    "awake_decode": {
+      "ttft_s": 0.5168721675872803,
+      "tok_s": 127.85607298498441,
+      "tokens": 160,
+      "usage": {
+        "prompt_tokens": 10,
+        "total_tokens": 170,
+        "completion_tokens": 160
+      }
+    },
+    "sleeper_is_sleeping": "{\"is_sleeping\":true}"
+  },
+  {
+    "label": "q16b-80b-with-3b-awake-7b-asleep-2",
+    "asleep": "7b",
+    "awake": "3b",
+    "card_pair_up_used_mib": 11369,
+    "pair_up_per_unit_mib": {
+      "7b": 7544,
+      "3b": 3810
+    },
+    "card_with_sleeper_used_mib": 4059,
+    "card_free_with_sleeper_mib": 7853,
+    "with_sleeper_per_unit_mib": {
+      "7b": 234,
+      "3b": 3810
+    },
+    "sleep_http": "200",
+    "level_one_refused": "refusing a level-1 sleep of srv2:8002. It surrenders 13.46 GiB of host RAM permanently \u2014 a level 2 sleep does not release it and only a container restart does \u2014",
+    "ncmoe": 41,
+    "predicted_mib": 7526.0,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2-80b-offdoor-ncmoe41.yml",
+    "placed": true,
+    "wake_s": 99.83580350875854,
+    "restart_count": 0,
+    "card_all_three_used_mib": 11580,
+    "card_all_three_free_mib": 332,
+    "all_three_per_unit_mib": {
+      "7b": 234,
+      "3b": 3810,
+      "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003": 7516
+    },
+    "eighty_b_added_mib": 7521,
+    "measured_vs_predicted_mib": -5.0,
+    "vram_peak_used_mib": 11580,
+    "decode_80b_cold": 11.109376775142163,
+    "decode_80b_warm": {
+      "mean": 28.18385132814409,
+      "samples": [
+        28.186042059247416,
+        28.164952383516667,
+        28.20055954166819
+      ],
+      "n": 3
+    },
+    "awake_models_http": "200",
+    "awake_decode": {
+      "ttft_s": 0.5468504428863525,
+      "tok_s": 128.52162376858897,
+      "tokens": 160,
+      "usage": {
+        "prompt_tokens": 10,
+        "total_tokens": 170,
+        "completion_tokens": 160
+      }
+    },
+    "sleeper_is_sleeping": "{\"is_sleeping\":true}"
+  },
+  {
+    "label": "q16b-80b-with-7b-awake-3b-asleep-1",
+    "asleep": "3b",
+    "awake": "7b",
+    "card_pair_up_used_mib": 11369,
+    "pair_up_per_unit_mib": {
+      "7b": 7544,
+      "3b": 3810
+    },
+    "card_with_sleeper_used_mib": 7787,
+    "card_free_with_sleeper_mib": 4125,
+    "with_sleeper_per_unit_mib": {
+      "7b": 7544,
+      "3b": 228
+    },
+    "sleep_http": "200",
+    "level_one_refused": "refusing a level-1 sleep of srv2:8001. It surrenders 13.46 GiB of host RAM permanently \u2014 a level 2 sleep does not release it and only a container restart does \u2014",
+    "ncmoe": 46,
+    "predicted_mib": 3886.0,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2-80b-offdoor-ncmoe46.yml",
+    "placed": true,
+    "wake_s": 100.2585461139679,
+    "restart_count": 0,
+    "card_all_three_used_mib": 11666,
+    "card_all_three_free_mib": 246,
+    "all_three_per_unit_mib": {
+      "7b": 7544,
+      "3b": 228,
+      "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003": 3874
+    },
+    "eighty_b_added_mib": 3879,
+    "measured_vs_predicted_mib": -7.0,
+    "vram_peak_used_mib": 11666,
+    "decode_80b_cold": 10.880647440950419,
+    "decode_80b_warm": {
+      "mean": 25.327853257147584,
+      "samples": [
+        25.2611309837304,
+        25.24678734631018,
+        25.47564144140218
+      ],
+      "n": 3
+    },
+    "awake_models_http": "200",
+    "awake_decode": {
+      "ttft_s": 0.39856433868408203,
+      "tok_s": 68.70654083788075,
+      "tokens": 160,
+      "usage": {
+        "prompt_tokens": 10,
+        "total_tokens": 170,
+        "completion_tokens": 160
+      }
+    },
+    "sleeper_is_sleeping": "{\"is_sleeping\":true}"
+  },
+  {
+    "label": "q16b-80b-with-7b-awake-3b-asleep-2",
+    "asleep": "3b",
+    "awake": "7b",
+    "card_pair_up_used_mib": 11369,
+    "pair_up_per_unit_mib": {
+      "7b": 7544,
+      "3b": 3810
+    },
+    "card_with_sleeper_used_mib": 7787,
+    "card_free_with_sleeper_mib": 4125,
+    "with_sleeper_per_unit_mib": {
+      "7b": 7544,
+      "3b": 228
+    },
+    "sleep_http": "200",
+    "level_one_refused": "refusing a level-1 sleep of srv2:8001. It surrenders 13.46 GiB of host RAM permanently \u2014 a level 2 sleep does not release it and only a container restart does \u2014",
+    "ncmoe": 46,
+    "predicted_mib": 3886.0,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2-80b-offdoor-ncmoe46.yml",
+    "placed": true,
+    "wake_s": 99.41623067855835,
+    "restart_count": 0,
+    "card_all_three_used_mib": 11666,
+    "card_all_three_free_mib": 246,
+    "all_three_per_unit_mib": {
+      "7b": 7544,
+      "3b": 228,
+      "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003": 3874
+    },
+    "eighty_b_added_mib": 3879,
+    "measured_vs_predicted_mib": -7.0,
+    "vram_peak_used_mib": 11666,
+    "decode_80b_cold": 9.407880987820404,
+    "decode_80b_warm": {
+      "mean": 24.558279424996527,
+      "samples": [
+        24.64782291515847,
+        24.478598161487927,
+        24.54841719834318
+      ],
+      "n": 3
+    },
+    "awake_models_http": "200",
+    "awake_decode": {
+      "ttft_s": 0.3913700580596924,
+      "tok_s": 68.7342429609673,
+      "tokens": 160,
+      "usage": {
+        "prompt_tokens": 10,
+        "total_tokens": 170,
+        "completion_tokens": 160
+      }
+    },
+    "sleeper_is_sleeping": "{\"is_sleeping\":true}"
+  }
+]

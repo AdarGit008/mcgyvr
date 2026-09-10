@@ -22,6 +22,7 @@ import calendar
 import json
 import subprocess
 import time
+from datetime import date
 from pathlib import Path
 
 REPO = Path("/home/adaramir/claude/mcgyvr")
@@ -169,8 +170,17 @@ DOOR_LOCK = "/tmp/claude-1000/mcgyvr-door.lock"
 
 
 def door(direction: str, host: str, compose: str, suffix: str, timeout: int = 1800):
-    """`serve up|down` through the door, with the envelope moved aside first."""
-    ev = REPO / "records" / "evidence" / f"2026-09-09-live-{host}"
+    """`serve up|down` through the door, with the envelope moved aside first.
+
+    **The evidence directory is named for the day the door runs, not the day
+    the campaign was planned.** This was `2026-09-09-live-<host>` written out,
+    and at midnight the door began writing into `2026-09-10-live-<host>` while
+    the move-aside went on clearing yesterday's. `serve-down.json` then existed
+    where the door was about to write one, and gate 5 — which is right to
+    refuse — took two of Q9's three arms. The date the door uses is today's, so
+    that is the date read here.
+    """
+    ev = REPO / "records" / "evidence" / f"{date.today():%Y-%m-%d}-live-{host}"
     stale = ev / f"serve-{direction}.json"
     if stale.exists():
         stale.rename(ev / f"serve-{direction}-{suffix}.json")

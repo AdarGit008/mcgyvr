@@ -1,0 +1,998 @@
+[
+  {
+    "label": "q15c-sleepmode-1",
+    "wake_s": 141.90926861763,
+    "started_offset_s": {
+      "3b": 89,
+      "7b": 0
+    },
+    "restart_count": {
+      "3b": 1,
+      "7b": 0
+    },
+    "vram_peak_used_mib": 11257,
+    "level_one_refused": "refusing a level-1 sleep of srv2:8001. It surrenders 13.46 GiB of host RAM permanently \u2014 a level 2 sleep does not release it and only a container restart does \u2014",
+    "cycles": [
+      {
+        "cycle": 1,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 7412,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 7178
+        },
+        "sleep_s": {
+          "3b": 0.252,
+          "7b": 0.323
+        },
+        "wake_s": {
+          "3b": 0.24,
+          "7b": 0.312
+        }
+      },
+      {
+        "cycle": 2,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 7412,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 7178
+        },
+        "sleep_s": {
+          "3b": 0.238,
+          "7b": 0.289
+        },
+        "wake_s": {
+          "3b": 0.243,
+          "7b": 0.322
+        }
+      },
+      {
+        "cycle": 3,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 7412,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 7178
+        },
+        "sleep_s": {
+          "3b": 0.238,
+          "7b": 0.313
+        },
+        "wake_s": {
+          "3b": 0.241,
+          "7b": 0.317
+        }
+      }
+    ],
+    "steps": [
+      {
+        "step": "serving-0",
+        "card_used_mib": 11257,
+        "card_free_mib": 655,
+        "per_unit_mib": {
+          "7b": 7432,
+          "3b": 3810
+        },
+        "avail_gib": 39.186,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "decode": {
+          "3b": 127.72,
+          "7b": 68.85
+        }
+      },
+      {
+        "step": "asleep-1",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.166,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.252,
+          "7b": 0.323
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-1",
+        "card_used_mib": 11217,
+        "card_free_mib": 695,
+        "per_unit_mib": {
+          "7b": 7412,
+          "3b": 3790
+        },
+        "avail_gib": 39.152,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.24,
+          "7b": 0.312
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.75,
+          "7b": 68.85
+        }
+      },
+      {
+        "step": "asleep-2",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.155,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.238,
+          "7b": 0.289
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-2",
+        "card_used_mib": 11217,
+        "card_free_mib": 695,
+        "per_unit_mib": {
+          "7b": 7412,
+          "3b": 3790
+        },
+        "avail_gib": 39.152,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.243,
+          "7b": 0.322
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.78,
+          "7b": 68.87
+        }
+      },
+      {
+        "step": "asleep-3",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.158,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.238,
+          "7b": 0.313
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-3",
+        "card_used_mib": 11217,
+        "card_free_mib": 695,
+        "per_unit_mib": {
+          "7b": 7412,
+          "3b": 3790
+        },
+        "avail_gib": 39.164,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.241,
+          "7b": 0.317
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.72,
+          "7b": 68.89
+        }
+      }
+    ]
+  },
+  {
+    "label": "q15c-sleepmode-2",
+    "wake_s": 143.06352925300598,
+    "started_offset_s": {
+      "3b": 89,
+      "7b": 0
+    },
+    "restart_count": {
+      "3b": 1,
+      "7b": 0
+    },
+    "vram_peak_used_mib": 10753,
+    "level_one_refused": "refusing a level-1 sleep of srv2:8001. It surrenders 13.46 GiB of host RAM permanently \u2014 a level 2 sleep does not release it and only a container restart does \u2014",
+    "cycles": [
+      {
+        "cycle": 1,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 6908,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 6674
+        },
+        "sleep_s": {
+          "3b": 0.249,
+          "7b": 0.315
+        },
+        "wake_s": {
+          "3b": 0.243,
+          "7b": 0.304
+        }
+      },
+      {
+        "cycle": 2,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 6908,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 6674
+        },
+        "sleep_s": {
+          "3b": 0.3,
+          "7b": 0.351
+        },
+        "wake_s": {
+          "3b": 0.252,
+          "7b": 0.319
+        }
+      },
+      {
+        "cycle": 3,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 6908,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 6674
+        },
+        "sleep_s": {
+          "3b": 0.247,
+          "7b": 0.306
+        },
+        "wake_s": {
+          "3b": 0.245,
+          "7b": 0.296
+        }
+      }
+    ],
+    "steps": [
+      {
+        "step": "serving-0",
+        "card_used_mib": 10753,
+        "card_free_mib": 1159,
+        "per_unit_mib": {
+          "7b": 6928,
+          "3b": 3810
+        },
+        "avail_gib": 39.137,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "decode": {
+          "3b": 127.53,
+          "7b": 68.87
+        }
+      },
+      {
+        "step": "asleep-1",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.156,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.249,
+          "7b": 0.315
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-1",
+        "card_used_mib": 10713,
+        "card_free_mib": 1199,
+        "per_unit_mib": {
+          "7b": 6908,
+          "3b": 3790
+        },
+        "avail_gib": 39.163,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.243,
+          "7b": 0.304
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.78,
+          "7b": 68.86
+        }
+      },
+      {
+        "step": "asleep-2",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.141,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.3,
+          "7b": 0.351
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-2",
+        "card_used_mib": 10713,
+        "card_free_mib": 1199,
+        "per_unit_mib": {
+          "7b": 6908,
+          "3b": 3790
+        },
+        "avail_gib": 39.175,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.252,
+          "7b": 0.319
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 129.58,
+          "7b": 68.67
+        }
+      },
+      {
+        "step": "asleep-3",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.163,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.247,
+          "7b": 0.306
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-3",
+        "card_used_mib": 10713,
+        "card_free_mib": 1199,
+        "per_unit_mib": {
+          "7b": 6908,
+          "3b": 3790
+        },
+        "avail_gib": 39.154,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.245,
+          "7b": 0.296
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.44,
+          "7b": 68.95
+        }
+      }
+    ]
+  },
+  {
+    "label": "q15c-sleepmode-3",
+    "wake_s": 143.0581135749817,
+    "started_offset_s": {
+      "3b": 89,
+      "7b": 0
+    },
+    "restart_count": {
+      "3b": 1,
+      "7b": 0
+    },
+    "vram_peak_used_mib": 10641,
+    "level_one_refused": "refusing a level-1 sleep of srv2:8001. It surrenders 13.46 GiB of host RAM permanently \u2014 a level 2 sleep does not release it and only a container restart does \u2014",
+    "cycles": [
+      {
+        "cycle": 1,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 6796,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 6562
+        },
+        "sleep_s": {
+          "3b": 0.24,
+          "7b": 0.308
+        },
+        "wake_s": {
+          "3b": 0.244,
+          "7b": 0.302
+        }
+      },
+      {
+        "cycle": 2,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 6796,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 6562
+        },
+        "sleep_s": {
+          "3b": 0.24,
+          "7b": 0.298
+        },
+        "wake_s": {
+          "3b": 0.24,
+          "7b": 0.321
+        }
+      },
+      {
+        "cycle": 3,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 6796,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 6562
+        },
+        "sleep_s": {
+          "3b": 0.244,
+          "7b": 0.304
+        },
+        "wake_s": {
+          "3b": 0.239,
+          "7b": 0.31
+        }
+      }
+    ],
+    "steps": [
+      {
+        "step": "serving-0",
+        "card_used_mib": 10641,
+        "card_free_mib": 1271,
+        "per_unit_mib": {
+          "7b": 6816,
+          "3b": 3810
+        },
+        "avail_gib": 39.199,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "decode": {
+          "3b": 127.75,
+          "7b": 68.89
+        }
+      },
+      {
+        "step": "asleep-1",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.197,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.24,
+          "7b": 0.308
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-1",
+        "card_used_mib": 10601,
+        "card_free_mib": 1311,
+        "per_unit_mib": {
+          "7b": 6796,
+          "3b": 3790
+        },
+        "avail_gib": 39.198,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.244,
+          "7b": 0.302
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.32,
+          "7b": 68.97
+        }
+      },
+      {
+        "step": "asleep-2",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.2,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.24,
+          "7b": 0.298
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-2",
+        "card_used_mib": 10601,
+        "card_free_mib": 1311,
+        "per_unit_mib": {
+          "7b": 6796,
+          "3b": 3790
+        },
+        "avail_gib": 39.186,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.24,
+          "7b": 0.321
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.78,
+          "7b": 68.94
+        }
+      },
+      {
+        "step": "asleep-3",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.194,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.244,
+          "7b": 0.304
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-3",
+        "card_used_mib": 10601,
+        "card_free_mib": 1311,
+        "per_unit_mib": {
+          "7b": 6796,
+          "3b": 3790
+        },
+        "avail_gib": 39.185,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.239,
+          "7b": 0.31
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.71,
+          "7b": 68.92
+        }
+      }
+    ]
+  },
+  {
+    "label": "q15c-sleepmode-4",
+    "wake_s": 142.55493092536926,
+    "started_offset_s": {
+      "3b": 89,
+      "7b": 0
+    },
+    "restart_count": {
+      "3b": 1,
+      "7b": 0
+    },
+    "vram_peak_used_mib": 11369,
+    "level_one_refused": "refusing a level-1 sleep of srv2:8001. It surrenders 13.46 GiB of host RAM permanently \u2014 a level 2 sleep does not release it and only a container restart does \u2014",
+    "cycles": [
+      {
+        "cycle": 1,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 7524,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 7290
+        },
+        "sleep_s": {
+          "3b": 0.253,
+          "7b": 0.312
+        },
+        "wake_s": {
+          "3b": 0.244,
+          "7b": 0.314
+        }
+      },
+      {
+        "cycle": 2,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 7524,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 7290
+        },
+        "sleep_s": {
+          "3b": 0.245,
+          "7b": 0.301
+        },
+        "wake_s": {
+          "3b": 0.242,
+          "7b": 0.317
+        }
+      },
+      {
+        "cycle": 3,
+        "asleep_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "serving_mib": {
+          "7b": 7524,
+          "3b": 3790
+        },
+        "released_mib": {
+          "3b": 3562,
+          "7b": 7290
+        },
+        "sleep_s": {
+          "3b": 0.246,
+          "7b": 0.299
+        },
+        "wake_s": {
+          "3b": 0.242,
+          "7b": 0.315
+        }
+      }
+    ],
+    "steps": [
+      {
+        "step": "serving-0",
+        "card_used_mib": 11369,
+        "card_free_mib": 543,
+        "per_unit_mib": {
+          "7b": 7544,
+          "3b": 3810
+        },
+        "avail_gib": 39.154,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "decode": {
+          "3b": 127.52,
+          "7b": 68.9
+        }
+      },
+      {
+        "step": "asleep-1",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.147,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.253,
+          "7b": 0.312
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-1",
+        "card_used_mib": 11329,
+        "card_free_mib": 583,
+        "per_unit_mib": {
+          "7b": 7524,
+          "3b": 3790
+        },
+        "avail_gib": 39.172,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.244,
+          "7b": 0.314
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.73,
+          "7b": 68.89
+        }
+      },
+      {
+        "step": "asleep-2",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.171,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.245,
+          "7b": 0.301
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-2",
+        "card_used_mib": 11329,
+        "card_free_mib": 583,
+        "per_unit_mib": {
+          "7b": 7524,
+          "3b": 3790
+        },
+        "avail_gib": 39.162,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.242,
+          "7b": 0.317
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.83,
+          "7b": 68.91
+        }
+      },
+      {
+        "step": "asleep-3",
+        "card_used_mib": 477,
+        "card_free_mib": 11435,
+        "per_unit_mib": {
+          "7b": 234,
+          "3b": 228
+        },
+        "avail_gib": 39.153,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":true}",
+          "7b": "{\"is_sleeping\":true}"
+        },
+        "sleep_s": {
+          "3b": 0.246,
+          "7b": 0.299
+        },
+        "sleep_http": {
+          "3b": "200",
+          "7b": "200"
+        }
+      },
+      {
+        "step": "serving-3",
+        "card_used_mib": 11329,
+        "card_free_mib": 583,
+        "per_unit_mib": {
+          "7b": 7524,
+          "3b": 3790
+        },
+        "avail_gib": 39.161,
+        "sleeping": {
+          "3b": "{\"is_sleeping\":false}",
+          "7b": "{\"is_sleeping\":false}"
+        },
+        "wake_s": {
+          "3b": 0.242,
+          "7b": 0.315
+        },
+        "wake_http": {
+          "3b": "200",
+          "7b": "200"
+        },
+        "decode": {
+          "3b": 127.82,
+          "7b": 68.93
+        }
+      }
+    ]
+  }
+]

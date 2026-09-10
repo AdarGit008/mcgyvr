@@ -1,1 +1,1 @@
-/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.m2-both.yml
+/home/adaramir/.mcgyvr/config/compose.srv2.yml

@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-09-10-live-srv1-serve-up-q7-both-1-up-23186",
+  "host": "srv1",
+  "mode": "up",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/q7/compose.srv1.q7-both.yml",
+  "compose": "services:\n  Ling-3.0-tiny-Q6_K-8081:\n    command:\n    - --load-mode\n    - none\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q6_K.gguf\n    - --n-cpu-moe\n    - '21'\n    - --parallel\n    - '2'\n    - --port\n    - '8081'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q6_K-8081\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: 'no'\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n  gemma-4-26B-A4B-it-UD-IQ3_XXS-8080:\n    command:\n    - --load-mode\n    - none\n    - --model\n    - /home/adaramir/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '28'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    container_name: mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: 'no'\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+  "compose_up_exit": 0,
+  "units": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q6_K-8081",
+      "port": 8081,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 134.2,
+      "models": [
+        "/home/adaramir/models/moe/Ling-3.0-tiny-Q6_K.gguf"
+      ]
+    },
+    {
+      "container": "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 43.4,
+      "models": [
+        "/home/adaramir/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf"
+      ]
+    }
+  ],
+  "card_after": {
+    "used_mib": 5648,
+    "free_mib": 96
+  }
+}

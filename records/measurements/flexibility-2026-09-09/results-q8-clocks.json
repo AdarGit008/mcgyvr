@@ -1,0 +1,96 @@
+[
+  {
+    "label": "q8-clock-1",
+    "failed": "mcgyvr serve wake rc=3\nerror: srv1: this config holds no launch spec for that card. `asleep` is `down` plus a file mcgyvr wrote, and there is no file: set `serving.compose_dir` to where `mcgyvr emit --out` wrote, and emit if it has not been emitted\n"
+  },
+  {
+    "label": "q8-clock-2",
+    "failed": "mcgyvr serve wake rc=3\nerror: srv1: this config holds no launch spec for that card. `asleep` is `down` plus a file mcgyvr wrote, and there is no file: set `serving.compose_dir` to where `mcgyvr emit --out` wrote, and emit if it has not been emitted\n"
+  },
+  {
+    "label": "q8-clock-3",
+    "failed": "mcgyvr serve wake rc=3\nerror: srv1: this config holds no launch spec for that card. `asleep` is `down` plus a file mcgyvr wrote, and there is no file: set `serving.compose_dir` to where `mcgyvr emit --out` wrote, and emit if it has not been emitted\n"
+  },
+  {
+    "label": "q8b-clock-1",
+    "failed": "mcgyvr serve sleep rc=1\nTraceback (most recent call last):\n  File \"/home/adaramir/claude/mcgyvr/.venv/bin/mcgyvr\", line 10, in <module>\n    sys.exit(main())\n             ^^^^^^\n  File \"/home/adaramir/claude/mcgyvr/src/mcgyvr/cli.py\", line 3066, in main\n    result: int = args.func(args)\n                  ^^^^^^^^^^^^^^^\n  File \"/home/adaramir/claude/mcgyvr/src/mcgyvr/cli.py\", line 1982, in _serve\n    with capacity.drain(\n         ^^^^^^^^^^^^^^^\n  File \"/home/adaramir/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 137, in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\n  File \"/home/adaramir/claude/mcgyvr/src/mcgyvr/capacity.py\", line 1288, in drain\n    wanted = sorted(bound for bound in self._bounds if bound[0] in set(named))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: '<' not supported between instances of 'str' and 'NoneType'\n"
+  },
+  {
+    "label": "q8b-clock-2",
+    "failed": "mcgyvr serve wake rc=1\n02-rig.py: gate 2: srv1 is not idle \u2014 gpu_procs=1653395,/app/llama-server,5090MiB, containers=bdca261c7391. Nothing is measured on a card or a daemon something else is using, and the door does not clean a machine it found busy: kill what you started; okf/must-read/touching-rigs.md\nrun.py: REFUSED at 02-rig.py \u2014 gate 2: the rig is leased to this run \u2014 a dev run yields to a held rig, a live run takes it and tears down what it displaced (R1) \u2014 and the live machine equals its declaration in hosts.json. The steps' own start==end check catches a rig that moves DURING a run and says nothing about one that moved before it \u2014 RAM swapped between these two rigs twice in six days with every artifact internally consistent\nerror: the door exited 2 bringing srv1 up \u2014 read its envelope under records/evidence/live-srv1/\n"
+  },
+  {
+    "label": "q8b-clock-3",
+    "failed": "mcgyvr serve wake rc=1\n02-rig.py: gate 2: srv1 is not idle \u2014 gpu_procs=1653395,/app/llama-server,5090MiB, containers=bdca261c7391. Nothing is measured on a card or a daemon something else is using, and the door does not clean a machine it found busy: kill what you started; okf/must-read/touching-rigs.md\nrun.py: REFUSED at 02-rig.py \u2014 gate 2: the rig is leased to this run \u2014 a dev run yields to a held rig, a live run takes it and tears down what it displaced (R1) \u2014 and the live machine equals its declaration in hosts.json. The steps' own start==end check catches a rig that moves DURING a run and says nothing about one that moved before it \u2014 RAM swapped between these two rigs twice in six days with every artifact internally consistent\nerror: the door exited 2 bringing srv1 up \u2014 read its envelope under records/evidence/live-srv1/\n"
+  },
+  {
+    "label": "q8c-clock-1",
+    "clock1_startedat_s": 140.1800148487091,
+    "clock2_door_s": 133.9,
+    "clock3_mcgyvr_s": 153.1,
+    "door_overhead_s": 19.19999999999999,
+    "wall_s": 153.368,
+    "restart_count": 0,
+    "models_http": "200",
+    "wake_refused_at_gate5_first": false,
+    "teardown_door_rc": 0,
+    "left_up": false,
+    "remembered": null,
+    "envelope": {
+      "run_id": "2026-09-10-live-srv1-serve-up-wake-4067973-980910",
+      "units": [
+        {
+          "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+          "port": 8080,
+          "healthy": true,
+          "sleeping": null,
+          "seconds": 133.9,
+          "models": [
+            "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+          ]
+        }
+      ],
+      "card_after": {
+        "used_mib": 5110,
+        "free_mib": 634
+      }
+    },
+    "wake_stderr": "gate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-up.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-10-live-srv1 (RUN_ID=2026-09-10-live-srv1-serve-up-wake-4067973-980910)\n",
+    "wake_first_attempt": null
+  },
+  {
+    "label": "q8c-clock-2",
+    "clock1_startedat_s": 140.19359421730042,
+    "clock2_door_s": 133.5,
+    "clock3_mcgyvr_s": 152.3,
+    "door_overhead_s": 18.80000000000001,
+    "wall_s": 152.495,
+    "restart_count": 0,
+    "models_http": "200",
+    "wake_refused_at_gate5_first": false,
+    "teardown_door_rc": null,
+    "left_up": true,
+    "remembered": null,
+    "envelope": {
+      "run_id": "2026-09-10-live-srv1-serve-up-wake-4072423-215747",
+      "units": [
+        {
+          "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+          "port": 8080,
+          "healthy": true,
+          "sleeping": null,
+          "seconds": 133.5,
+          "models": [
+            "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+          ]
+        }
+      ],
+      "card_after": {
+        "used_mib": 5110,
+        "free_mib": 634
+      }
+    },
+    "wake_stderr": "gate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-up.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-10-live-srv1 (RUN_ID=2026-09-10-live-srv1-serve-up-wake-4072423-215747)\n",
+    "wake_first_attempt": null
+  }
+]

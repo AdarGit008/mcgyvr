@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-10-live-srv1-serve-down-m2td-22878",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/q7/compose.srv1.q7-gemma-8080.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 17,
+    "free_mib": 5727
+  }
+}

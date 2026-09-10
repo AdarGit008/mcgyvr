@@ -1,0 +1,17 @@
+{
+  "run_id": "2026-09-10-live-srv2-serve-down-q17-close-td",
+  "host": "srv2",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.m2-both.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 11911
+  }
+}

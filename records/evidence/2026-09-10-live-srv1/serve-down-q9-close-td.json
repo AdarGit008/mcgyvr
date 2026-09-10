@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-10-live-srv1-serve-down-td-890211276",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 17,
+    "free_mib": 5727
+  }
+}

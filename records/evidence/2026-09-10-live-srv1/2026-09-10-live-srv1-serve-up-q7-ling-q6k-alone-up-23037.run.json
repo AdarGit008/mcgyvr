@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-09-10-live-srv1-serve-up-q7-ling-q6k-alone-up-23037",
+  "campaign": "live-srv1",
+  "step": "serve-up",
+  "host": "srv1",
+  "date": "2026-09-10",
+  "round": "r26-09-09-2026",
+  "product_sha256": "ec531573f5402b84fcbf748dc68fbc8e386e7a70c053bc04522e391ab807c22f",
+  "profile": "live",
+  "config": "/home/adaramir/.mcgyvr/config/mcgyvr.yaml",
+  "config_digest": "cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb",
+  "mcgyvr_version": "0.1.1.dev38+gd7ea57f0",
+  "started_at": "2026-09-10T06:50:45Z"
+}

@@ -1,5 +1,8 @@
 # The flexibility campaign — full coverage, planned 2026-09-09
 
+**Measured 2026-09-09/10: 68 of 70 arms.** What they found is
+`records/measurements/flexibility-2026-09-09/README.md`; this file stays the plan.
+
 **The question this round exists to answer.** Not "how fast is the fleet" but
 **what shapes can it hold, and what does each one cost**: can it load X, can it
 load X+Y, can it load X and sleep Y, can it load X+Y and sleep Z, can it load
@@ -131,9 +134,12 @@ that already confounds architecture with bytes — the defect Q3 names.
 **Ling-3.0-tiny is published at every quant from 2.63 to 7.83 GiB.** One
 architecture, one layer count, one expert structure, blob bytes varying by 3x,
 across exactly the small end where the proportional form fails worst — it
-predicts Ling at 49.7 s against 72.6 measured. And Ling runs with **no
-`--n-cpu-moe` at all**, so the offload term is not merely matched across the
-ladder, it is absent.
+predicts Ling at 49.7 s against 72.6 measured. And Ling Q4_K_M runs with **no
+`--n-cpu-moe` at all**. *(Corrected 2026-09-10: the ladder is not offload-free.
+Q6_K and Q8_0 overflow srv1's card and `emit` placed them at `--n-cpu-moe` 6
+and 10; only the three smaller rungs carry no offload term.
+`records/measurements/flexibility-2026-09-09/README.md` §1 says what that does
+and does not change.)*
 
 Four quants are being fetched to srv1 (2.3 TiB free); Q4_K_M is already there:
 
@@ -190,11 +196,13 @@ the gpt-oss `emit` refuses.
 
 Arms 12–19: Ling-3.0-tiny at **IQ2_M (2.63), Q3_K_M (3.53), Q6_K (6.37) and
 Q8_0 (7.83)**, n=2 each, mapped, ample clearance, `-c 8192`. With Q1's arms 1-2
-at Q4_K_M that is **five points on one architecture** spanning 2.63 to 7.83 GiB,
-with no offload term anywhere in the ladder.
+at Q4_K_M that is **five points on one architecture** spanning 2.63 to 7.83 GiB
+— three with no offload term, the top two at `--n-cpu-moe` 6 and 10 (corrected
+2026-09-10).
 
-An intercept that survives this is real: no blob-identity, window or offload
-confound can produce it, because none of the three varies. An intercept that
+An intercept that survives this is real: no blob-identity or window confound
+can produce it, because neither varies — and it survives on the three
+offload-free rungs alone (corrected 2026-09-10). An intercept that
 does not survive it was Qwen's window all along.
 
 ## Q3. Are those five rows one measurement at all? *(0 new arms)*

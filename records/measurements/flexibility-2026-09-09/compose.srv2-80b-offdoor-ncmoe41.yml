@@ -1,0 +1,43 @@
+services:
+  Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003:
+    command:
+    - --model
+    - /home/adaramir/models/moe/Qwen3-Next-80B-A3B-Instruct-Q3_K_M.gguf
+    - --n-cpu-moe
+    - '41'
+    - --parallel
+    - '2'
+    - --port
+    - '8003'
+    - -b
+    - '512'
+    - -c
+    - '8192'
+    - -fa
+    - 'on'
+    - -ngl
+    - '99'
+    - -t
+    - '10'
+    - -ub
+    - '512'
+    - --chat-template-kwargs
+    - '{"enable_thinking":false}'
+    container_name: mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+            device_ids:
+            - '0'
+            driver: nvidia
+    environment:
+      LLAMA_ARG_HOST: 0.0.0.0
+    image: llamacpp:b10644-L3
+    network_mode: host
+    restart: 'no'
+    volumes:
+    - /home/adaramir/models:/home/adaramir/models:ro
+    - /home/adaramir/models:/models:ro

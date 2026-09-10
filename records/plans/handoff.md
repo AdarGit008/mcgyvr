@@ -1,4 +1,81 @@
-# Handoff — sleep/wake round, end of 2026-09-09
+# Handoff — the flexibility campaign, end of 2026-09-10
+
+Everything is on **`red/sleep-wake`** (PR #430). **Read
+`records/measurements/flexibility-2026-09-09/README.md` first** — it is the
+campaign's record, with every figure in it. This section says only where things
+stand and what is waiting; it does not restate the findings.
+
+### Where the branch stands
+
+| | |
+|---|---|
+| `2dae193a` | the freeze — three checks the campaign needed, four records it corrected |
+| `acdad26b` | day one: 59 arms, and the four beliefs they moved |
+| this commit | day two: the remaining arms, the defects they found, this handoff |
+
+**68 of 70 planned arms landed.** `src/` has not moved since `2dae193a`: every arm
+on both days ran on `product_sha256 ec531573…`, round `r26-09-09-2026`. The gate
+at this commit is in its message.
+
+### Live state, as left
+
+* **srv1** — its live ladder: Qwen3.6-35B at `--n-cpu-moe 30`, mapped,
+  `-c 16384`, argv identical to `~/.mcgyvr/config/compose.srv1.yml`, no restarts.
+  Brought back by Q8's last `mcgyvr serve wake`. Swappiness 60, no balloon.
+* **srv2** — the 3B + 7B pair, restored through the door on the **unchanged**
+  live `compose.srv2.yml`, which predates the freeze and still orders the pair
+  `service_started`. Coming up, **the 3B restarted twice and the 7B once** —
+  M5's defect, on production. Both `/v1/models` 200, `/is_sleeping` 404,
+  9,445 MiB of card. `emit --check` names that file as not what the tree emits.
+* `/tmp/mcgyvr-wake-1000` is left as it was found — see the README's Defects.
+
+### Owner rulings from 2026-09-10 — do not re-litigate
+
+1. **Q16 runs off the door.** Gate 2's refusal of `serve up` onto a busy rig
+   stands; the 80B went around the door under its own compose project, and the
+   pair went through it.
+2. **Q7's pair was gemma `ncmoe 28` + Ling Q6_K `ncmoe 21`, both unmapped, and
+   Q7 is accepted at n=1.** The first pair arm paged 1.15 GiB on a premise
+   (+1.43 GiB clear) that measured +0.65; the second was stopped before it
+   loaded.
+3. The rulings of 2026-09-09, below, still stand.
+
+### Waiting on the owner — ranked by what each unblocks
+
+The README's "What the campaign leaves open" has the evidence for each.
+
+1. **Re-emit srv2 onto `service_healthy`.** Validated (Q14), removes the race that
+   varies the 7B's card by 616 MiB — and costs the 3B 71% of its KV tokens.
+   Production srv2 crash-restarted three times coming back today.
+2. **Fix `mcgyvr serve sleep`.** `Capacity.drain` sorts a source's `(source, None)`
+   bound against its rung's `(source, name)`; srv1 cannot be slept through
+   mcgyvr at all. One sort key — but it moves the product hash, so it opens a
+   round.
+3. **Make the Waker usable.** Three separate gaps: the live config holds no
+   `serving.compose_dir`; a second wake of one card in a day is refused at gate 5
+   on `serve-up.json`; and this machine's clock directory is unusable, silently.
+4. **`REFUSAL_RAM_HEADROOM_GB`** — Q5 and Q7. Reconcile Q5's clearances against
+   the 9.2 GiB experts figure before quoting either.
+5. **G1's headroom on the geometry path** — Q11's +38 MiB drift and M1's 63 MiB.
+6. **`Fit.ram_gb = 0.0`** for vLLM units — 2.57–2.60 GiB each on srv1, 2.92–2.95
+   on srv2.
+7. **A per-architecture wake law** in place of `r(srv1)` and `r(srv2)`.
+8. **The records the campaign makes false** — the decode column above all.
+
+Still open from 2026-09-09: **O4** (gate 1's provenance holes), **O6**
+(`--alias`), and O8's per-service door clock, which Q8 and Q14 both show reading
+2.0–2.1 s for a pair's second unit.
+
+### What today cost in harness time
+
+The README's "Harness lessons" has each: name the evidence directory for the day
+the door runs; write the teardown marker on every path that starts a unit; a
+`pgrep -f` waiter matches itself; kill a runner by its interpreter's PID; and
+parallel shell calls share one working directory.
+
+---
+
+## Earlier — the sleep/wake round, end of 2026-09-09
 
 Everything is on **`red/sleep-wake`** (PR #430). `records/plans/sleep-wake.md` is
 the design. **Read this file before that one** — the design was corrected four
@@ -16,7 +93,7 @@ Read these first, in this order:
 4. Artifact, plain-language summary of the campaign, no jargon:
    <https://claude.ai/code/artifact/3dfb4766-8ae4-4d52-acd4-be2aa76ee8c5>
 
-## Where the branch stands
+### Where the branch stands
 
 `main` untouched. **Six commits today**, the sixth carrying everything below the
 first five:
@@ -49,9 +126,9 @@ nineteen sleep/wake RED tests all pass and none was edited.**
 They were not quite when this was first written: `cabc5a26` left
 `tests/test_one_door.py` failing both ruff checks, which is `531a9f47`.
 
-## What today settled
+### What today settled
 
-### The alternatives shape, and then the discriminator behind it
+#### The alternatives shape, and then the discriminator behind it
 
 `serving.launch_specs` cuts a ladder's units into what a door can be pointed at.
 A host whose units come up together stays `compose.<host>.yml` — **nothing on
@@ -72,7 +149,7 @@ set may have no spec (A,B,C at 5 GiB on 12 gives `{A,B}` and `{A,C}`, never
 the fleet-shape controller's question. Determinism was checked over 1,230
 orderings with zero disagreements.
 
-### The measurement campaign overturned four things
+#### The measurement campaign overturned four things
 
 **Read the campaign README rather than trusting the summary below.**
 
@@ -101,7 +178,7 @@ M2 measured the first two-MoE co-residency ever run here: `Shmem` 7.47 + 10.76 =
 this fleet, because both live vLLM units carry `Fit.ram_gb = 0.0` while actually
 costing ~2.9 GiB each.
 
-### Live state, as left
+#### Live state, as left
 
 srv1 serving Qwen3.6-35B at `--n-cpu-moe 30`, **mapped** — the one deliberate
 change from how the day began, owner-approved. srv2 serving the 3B + 7B pair.
@@ -109,7 +186,7 @@ change from how the day began, owner-approved. srv2 serving the 3B + 7B pair.
 `mcgyvr emit --check --out ~/.mcgyvr/config` clean on both hosts.
 `/is_sleeping` is still **404** on srv2 — sleep mode is off, as found.
 
-## Owner rulings from today — do not re-litigate
+### Owner rulings from today — do not re-litigate
 
 1. **Port-per-model; card contention is the discriminator, not the port.**
 2. **A derived wake budget may never shorten or abort a wake.** It warns and it
@@ -123,12 +200,11 @@ change from how the day began, owner-approved. srv2 serving the 3B + 7B pair.
 6. The earlier handoff's rulings still stand, notably: hold #430 until the GREEN
    lands, and the fleet shape is fluid and runtime-changeable.
 
-## Open — ranked, one recommendation each
+### Open — ranked, one recommendation each
 
-*(O1, O3 and O5 are closed and kept below with what doing them taught. **Start
-at O2**, which needs a ruling before it can be built.)*
+*(O1, O2, O3, O5, O7 and O9 are closed. Start at the section above this one.)*
 
-### O1. ~~Three failing tests, and it is one decision~~ — **closed, `ae35449e`**
+#### O1. ~~Three failing tests, and it is one decision~~ — **closed, `ae35449e`**
 
 The three tests all asserted that two units which do not sum onto a card are a
 refusal. Under ruling 1 they are alternatives, and the refusal was unreachable
@@ -151,7 +227,7 @@ Three things worth carrying forward from doing it:
   asking for it was rewritten rather than deleted: the covering is a claim worth
   holding.
 
-### O2. The wrong-weights hole is still open on the path that matters
+#### O2. ~~The wrong-weights hole is still open on the path that matters~~ — **closed, `2dae193a`**
 
 `mcgyvr run` builds its pool with **no probe** (`cli._climb`), so a dispatch
 aimed at a rung whose model is not resident still reaches llama.cpp and is still
@@ -170,7 +246,7 @@ key gating a `Residency` probe, which costs a schema key and re-identifies every
 existing config. Both are written into the comment at `_climb`'s `source_map`
 call. **Cannot fire on either live rig today** — both are single-spec hosts.
 
-### O3. ~~The test suite can reach the production rigs~~ — **closed, `6848e321`**
+#### O3. ~~The test suite can reach the production rigs~~ — **closed, `6848e321`**
 
 `conftest._no_test_resolves_a_machine` refuses `socket.getaddrinfo` for every
 name that is not this machine, which is under `urllib`, `http.client` and
@@ -194,7 +270,7 @@ because urllib hands the resolver `user:sk-...@127.0.0.1` with the userinfo
 still attached. Both are pinned in
 `tests/test_a_test_may_name_a_rig_and_may_not_reach_one.py`.
 
-### O4. Gate 1's provenance check has two holes — **docstring corrected
+#### O4. Gate 1's provenance check has two holes — **docstring corrected
 (`877a421a`), the holes are still open and still yours**
 
 `refuse_unless_the_live_ladders_own` replaced the profile check. Traversal and
@@ -217,7 +293,7 @@ What was fixed is the overclaim on a gate that guards a live rig. **Closing hole
 2 means the door stops trusting `$HOME`, which is a real behavioural change and
 yours.**
 
-### O5. ~~`sleep-wake.md` §3 and §10 describe a `cards()` that does not
+#### O5. ~~`sleep-wake.md` §3 and §10 describe a `cards()` that does not
 exist~~ — **closed, `877a421a`**
 
 §3 now says what was built: the naming convention moved *into* `serving`
@@ -231,14 +307,14 @@ that spelling the convention twice produced.
 It is emitted as N alternatives, and `hold_together`'s refusal survives for the
 tighter-scan case only.
 
-### O6. `emit` should pass `--alias` for llama.cpp
+#### O6. `emit` should pass `--alias` for llama.cpp
 
 So both engines report the declared model name rather than a weights path.
 `availability._is_model` currently compensates by stripping suffixes and shard
 tails. **Not done because it moves every compose file on the fleet** — a re-emit
 and a restart of both rigs. Yours.
 
-### O7. Two internal contradictions in the campaign README
+#### O7. ~~Two internal contradictions in the campaign README~~ — **closed, `2dae193a`**
 
 Both inside `records/measurements/fleet-gaps-2026-09-09/README.md`:
 
@@ -249,29 +325,29 @@ Both inside `records/measurements/fleet-gaps-2026-09-09/README.md`:
 
 Correcting a measurement record is deliberate, not cleanup — hence yours.
 
-### O8. Gaps the campaign left, and one it created
+#### O8. Gaps the campaign left, and one it created
 
 * **G1 is redefined, not closed.** The layout needs a **card headroom on the
   geometry path**; `vramfit` over-predicts by 63 MiB and `--n-cpu-moe 35` mapped
-  really clears srv1's card by ~16 MiB. Nothing implements that headroom.
+  really clears srv1's card by ~16 MiB. Nothing implements that headroom. **Q11 measured it on 2026-09-10: +38 MiB of drift, beside M1's 63.**
 * **`Fit.ram_gb = 0.0` for declared-figure units** (both live vLLM units) while
   they cost ~2.9 GiB each. The host-RAM sum is a no-op exactly where it matters.
-* `r(srv1, vLLM)` unmeasured — reachable, three arms, one carrying real lock risk.
+* `r(srv1, vLLM)` unmeasured — reachable, three arms, one carrying real lock risk. **Measured, Q9.**
 * M3's −3.03 decode arm read 5.09 tok/s on a **single cold sample**; steady state
-  unmeasured.
+  unmeasured. **Measured, Q6: 31.8–33.5 tok/s warm.**
 * The vLLM pair needs `condition: service_healthy` to stop the cold-start crashes
-  M5 found. A `src/` change nobody made.
+  M5 found. A `src/` change nobody made. **Made, `2dae193a` — and not yet emitted onto the live srv2 file.**
 * `serve-up.py` polls per service, so the door's clock reports "how much longer
   after the first" for a pair — **2.1 s for a unit that took 100**.
 
-### O9. Level-1 vLLM sleep must be banned in code
+#### O9. ~~Level-1 vLLM sleep must be banned in code~~ — **closed, `2dae193a`**: `servelib.sleep` refuses it, and Q15 and Q16 watched it fire before any transport
 
 Measured twice; reproduces identically. 3.14 + 10.32 = 13.46 GiB kept
 permanently, a level-2 sleep does not release it, and L1 frees the same card as
 L2 while being 4–12× slower. **Refuse `POST /sleep?level=1` at the runtime, not
 in `emit`.** A decision that was never written down as code.
 
-## Rig gotchas — still true, still paid for
+### Rig gotchas — still true, still paid for
 
 * **A RUN_ID cannot contain `+`.** Gate 5 requires `[A-Za-z0-9_.-]+`.
 * **The door refuses to overwrite an envelope** (gate 5, write-once). Move
@@ -290,7 +366,7 @@ in `emit`.** A decision that was never written down as code.
 * **Editing `src/` opens a new round** — it moves the product hash and the door
   writes into `tools/bench/rounds.json` by itself. Expected.
 
-## Two process lessons from today
+### Two process lessons from today
 
 **A line-number citation is a liability.** `prose-comb` reported
 `records/plans/**` CLEAN — 147 references, 0 broken — while **every one of them

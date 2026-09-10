@@ -1,0 +1,124 @@
+[
+  {
+    "label": "q7-gemma-alone",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/q7/compose.srv1.q7-gemma-8080.yml",
+    "experts_gib": 7.96,
+    "containers": [
+      "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080"
+    ],
+    "idle_avail_gib": 14.228569030761719,
+    "idle_shmem_gib": 0.000102996826171875,
+    "after_avail_gib": 5.03924560546875,
+    "after_shmem_gib": 8.555191040039062,
+    "shmem_delta_gib": 8.55508804321289,
+    "avail_delta_gib": 9.189323425292969,
+    "vram_used_mib": 3814,
+    "vram_free_mib": 1930,
+    "wake_s": 129.14487528800964,
+    "door_wall_s": 140.32283902168274,
+    "decode_tok_s": {
+      "8080": 26.28498879168402
+    },
+    "pgmajfault_delta": 34505,
+    "pswpout_delta": 69196,
+    "pswpin_delta": 41247,
+    "swap_used_before_gib": 0.36069488525390625,
+    "swap_used_after_gib": 0.4080657958984375,
+    "decode_warm": {
+      "8080": {
+        "mean": 25.571808528237753,
+        "samples": [
+          23.814762486686572,
+          26.493747475595757,
+          26.406915622430933
+        ],
+        "n": 3
+      }
+    }
+  },
+  {
+    "label": "q7-ling-q6k-alone",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/q7/compose.srv1.q7-ling-q6k-8081.yml",
+    "experts_gib": 4.8,
+    "containers": [
+      "mcgyvr-srv1-Ling-3.0-tiny-Q6_K-8081"
+    ],
+    "idle_avail_gib": 14.253440856933594,
+    "idle_shmem_gib": 8.392333984375e-05,
+    "after_avail_gib": 8.488410949707031,
+    "after_shmem_gib": 5.0039825439453125,
+    "shmem_delta_gib": 5.003898620605469,
+    "avail_delta_gib": 5.7650299072265625,
+    "vram_used_mib": 1854,
+    "vram_free_mib": 3890,
+    "wake_s": 86.67189836502075,
+    "door_wall_s": 97.90451860427856,
+    "decode_tok_s": {
+      "8081": 59.524299765871085
+    },
+    "pgmajfault_delta": 22332,
+    "pswpout_delta": 0,
+    "pswpin_delta": 27089,
+    "swap_used_before_gib": 0.4080657958984375,
+    "swap_used_after_gib": 0.17342376708984375,
+    "decode_warm": {
+      "8081": {
+        "mean": 60.19825366527012,
+        "samples": [
+          60.20485554053169,
+          60.18901622377898,
+          60.20088923149968
+        ],
+        "n": 3
+      }
+    }
+  },
+  {
+    "label": "q7-both-1",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/q7/compose.srv1.q7-both.yml",
+    "experts_gib": 12.76,
+    "containers": [
+      "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+      "mcgyvr-srv1-Ling-3.0-tiny-Q6_K-8081"
+    ],
+    "idle_avail_gib": 14.210182189941406,
+    "idle_shmem_gib": 8.392333984375e-05,
+    "after_avail_gib": 0.13338088989257812,
+    "after_shmem_gib": 13.558921813964844,
+    "shmem_delta_gib": 13.558837890625,
+    "avail_delta_gib": 14.076801300048828,
+    "vram_used_mib": 5648,
+    "vram_free_mib": 96,
+    "wake_s": 184.3865098953247,
+    "door_wall_s": 196.9006769657135,
+    "decode_tok_s": {
+      "8080": 25.637726349681174,
+      "8081": 58.84135814736318
+    },
+    "pgmajfault_delta": 187671,
+    "pswpout_delta": 565534,
+    "pswpin_delta": 421470,
+    "swap_used_before_gib": 0.17342376708984375,
+    "swap_used_after_gib": 1.3163948059082031,
+    "decode_warm": {
+      "8080": {
+        "mean": 23.255754928061197,
+        "samples": [
+          26.427294109356147,
+          16.978731842501013,
+          26.361238832326443
+        ],
+        "n": 3
+      },
+      "8081": {
+        "mean": 60.249752515946334,
+        "samples": [
+          60.25514072986029,
+          60.247012752284355,
+          60.24710406569435
+        ],
+        "n": 3
+      }
+    }
+  }
+]
