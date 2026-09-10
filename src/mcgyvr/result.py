@@ -39,6 +39,9 @@ RESULTS_DIR = "results"
 class AttemptResult:
     """One rung's try, as the climb recorded it."""
 
+    #: Which rung answered. The name stays ``rung`` and is not renamed
+    #: (owner's ruling, 2026-09-09): a second word for one concept is new
+    #: vocabulary, and the journal rows and tests already written say ``rung``.
     rung: str
     attempt: int
     verdict: str
@@ -79,6 +82,8 @@ class RunResult:
     config_digest: str | None = None
     outcome: str = "error"
     detail: str = ""
+    #: The rung the run came to rest on, under the same no-rename ruling as
+    #: :attr:`AttemptResult.rung`.
     rung: str | None = None
     assurance: str | None = None
     attempts: list[AttemptResult] = field(default_factory=list)

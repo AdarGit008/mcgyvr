@@ -2,7 +2,9 @@
 
 ``task_type`` is a closed vocabulary: nine values, each with a guarantee in
 ``data/task-catalog.json``, each rendered into the shipped skill with a minimal
-example a reader is told is "a shape that is known to validate".
+example a reader is told is "a shape that is known to validate" — rendered
+into ``skills/mcgyvr/references/examples.md``, which the shipped skill points
+at (plan v4, action 27).
 
 ``rename_symbol`` validates and cannot run. It is the sole member of
 ``deterministic._IN_PROCESS``, which yields a ``Tool`` with no argv; ``drive``
@@ -10,7 +12,7 @@ raises ``UnrunnableStepError`` on an empty argv, and ``cli._floor`` reports the
 run as ``error``. Nothing anywhere implements the in-process rename — the word
 appears in the codebase only in docstrings and in the example. Meanwhile the
 catalog still guarantees "every reference the index resolved is renamed", and
-``skills/mcgyvr/SKILL.md`` hands an orchestrator a ``rename_symbol`` contract to
+the examples file hands an orchestrator a ``rename_symbol`` contract to
 copy.
 
 So the one path an agent is most likely to take from the documentation — copy
@@ -92,17 +94,23 @@ def test_the_shipped_skill_offers_no_example_that_cannot_run(repo: Path) -> None
     Read from the repository, not from ``~/.claude``. ``tests/conftest.py``
     repoints ``HOME`` at a fresh tmp dir for every test, so a check against the
     installed copy can never fail — it would return early on every run while
-    the committed skill still carries the example.
+    the committed examples still carry the example.
+
+    Read from ``references/examples.md``, where action 27 moved the examples:
+    ``SKILL.md`` no longer carries a ``task_type: {name}`` line at all, so a
+    grep of it would match nothing for every name and pass while checking
+    nothing.
     """
-    skill = REPO / "skills" / "mcgyvr" / "SKILL.md"
-    assert skill.is_file(), f"{skill} is the shipped skill and must be readable"
-    text = skill.read_text(encoding="utf-8")
+    examples = REPO / "skills" / "mcgyvr" / "references" / "examples.md"
+    assert examples.is_file(), f"{examples} is the shipped examples file"
+    text = examples.read_text(encoding="utf-8")
+    assert text.count("```yaml") >= 1, f"{examples} carries no examples to check"
     offered = [
         name
         for name in _types()
         if not _runnable(name, repo) and f"task_type: {name}" in text
     ]
     assert not offered, (
-        f"the skill hands an orchestrator a {', '.join(offered)} example to "
-        "copy, and no executor exists for it"
+        f"the skill's examples hand an orchestrator a {', '.join(offered)} "
+        "example to copy, and no executor exists for it"
     )
