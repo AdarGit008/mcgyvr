@@ -1,0 +1,8 @@
+{
+  "mcgyvr-srv1-deepseek-coder-v2-16b-8080": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q1-deepseek-f16.yml",
+  "mcgyvr-srv2-thewimo-Qwen3-4B-AWQ-8001": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q2-q34b-fp16.yml",
+  "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q3-ling-ub256.yml",
+  "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q3-gemma-ub256.yml",
+  "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q3-80b-ub256.yml",
+  "mcgyvr-srv2-deepseek-coder-v2-16b-8080": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n0.yml"
+}

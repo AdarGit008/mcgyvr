@@ -1,0 +1,79 @@
+[
+  {
+    "host": "srv1",
+    "label": "q3-ling-ub256",
+    "arch": "bailingmoe3",
+    "ub": 256,
+    "blob_gib": 4.58,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q3-ling-ub256.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q3-ling-ub512",
+    "arch": "bailingmoe3",
+    "ub": 512,
+    "blob_gib": 4.58,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q3-ling-ub512.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q3-ling-ub1024",
+    "arch": "bailingmoe3",
+    "ub": 1024,
+    "blob_gib": 4.58,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q3-ling-ub1024.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q3-gemma-ub256",
+    "arch": "gemma4",
+    "ub": 256,
+    "blob_gib": 10.63,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q3-gemma-ub256.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q3-gemma-ub1024",
+    "arch": "gemma4",
+    "ub": 1024,
+    "blob_gib": 10.63,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q3-gemma-ub1024.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q3-80b-ub256",
+    "arch": "qwen3next",
+    "ub": 256,
+    "blob_gib": 35.67,
+    "port": 8003,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q3-80b-ub256.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q3-80b-ub1024",
+    "arch": "qwen3next",
+    "ub": 1024,
+    "blob_gib": 35.67,
+    "port": 8003,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q3-80b-ub1024.yml"
+  }
+]

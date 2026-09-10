@@ -1,0 +1,86 @@
+[
+  {
+    "host": "srv1",
+    "label": "q5-ling-1",
+    "arch": "bailingmoe3",
+    "blob_gib": 4.58,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q5-ling.yml",
+    "wake_s": 70.74618458747864,
+    "vram_peak_used_mib": 4808,
+    "vram_steady_used_mib": 4808,
+    "vram_idle_free_mib": 5727,
+    "vram_steady_net_mib": 4791,
+    "k_mib": 54.0,
+    "v_mib": 0.0,
+    "k_dtype": "f16",
+    "v_dtype": "f16",
+    "kv_line": "0.28.679.113 I llama_kv_cache: size =   54.00 MiB (  4096 cells,   6 layers,  2/2 seqs), K (f16):   54.00 MiB, V (f16):    0.00 MiB",
+    "kv_lines": [
+      {
+        "verbatim": "0.01.405.480 I llama_kv_cache: size =   54.00 MiB (  4096 cells,   6 layers,  2/2 seqs), K (f16):   54.00 MiB, V (f16):    0.00 MiB",
+        "size_mib": 54.0,
+        "k_dtype": "f16",
+        "k_mib": 54.0,
+        "v_dtype": "f16",
+        "v_mib": 0.0
+      },
+      {
+        "verbatim": "0.28.679.113 I llama_kv_cache: size =   54.00 MiB (  4096 cells,   6 layers,  2/2 seqs), K (f16):   54.00 MiB, V (f16):    0.00 MiB",
+        "size_mib": 54.0,
+        "k_dtype": "f16",
+        "k_mib": 54.0,
+        "v_dtype": "f16",
+        "v_mib": 0.0
+      }
+    ],
+    "predicted_mib": 4791.0,
+    "predicted_delta_mib": 0.0,
+    "restart_count": 0,
+    "samples": 86
+  },
+  {
+    "host": "srv1",
+    "label": "q5-ling-2",
+    "arch": "bailingmoe3",
+    "blob_gib": 4.58,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q5-ling.yml",
+    "wake_s": 73.51902866363525,
+    "vram_peak_used_mib": 4808,
+    "vram_steady_used_mib": 4808,
+    "vram_idle_free_mib": 5727,
+    "vram_steady_net_mib": 4791,
+    "k_mib": 54.0,
+    "v_mib": 0.0,
+    "k_dtype": "f16",
+    "v_dtype": "f16",
+    "kv_line": "0.28.632.469 I llama_kv_cache: size =   54.00 MiB (  4096 cells,   6 layers,  2/2 seqs), K (f16):   54.00 MiB, V (f16):    0.00 MiB",
+    "kv_lines": [
+      {
+        "verbatim": "0.01.385.900 I llama_kv_cache: size =   54.00 MiB (  4096 cells,   6 layers,  2/2 seqs), K (f16):   54.00 MiB, V (f16):    0.00 MiB",
+        "size_mib": 54.0,
+        "k_dtype": "f16",
+        "k_mib": 54.0,
+        "v_dtype": "f16",
+        "v_mib": 0.0
+      },
+      {
+        "verbatim": "0.28.632.469 I llama_kv_cache: size =   54.00 MiB (  4096 cells,   6 layers,  2/2 seqs), K (f16):   54.00 MiB, V (f16):    0.00 MiB",
+        "size_mib": 54.0,
+        "k_dtype": "f16",
+        "k_mib": 54.0,
+        "v_dtype": "f16",
+        "v_mib": 0.0
+      }
+    ],
+    "predicted_mib": 4791.0,
+    "predicted_delta_mib": 0.0,
+    "restart_count": 0,
+    "samples": 90
+  }
+]

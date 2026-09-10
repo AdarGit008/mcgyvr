@@ -1,0 +1,98 @@
+[
+  {
+    "host": "srv2",
+    "label": "q2-q34b-fp16-1",
+    "model": "thewimo/Qwen3-4B-AWQ",
+    "kv_dtype": "fp16",
+    "port": 8001,
+    "repeats": 2,
+    "units": 1,
+    "container": "mcgyvr-srv2-thewimo-Qwen3-4B-AWQ-8001",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q2-q34b-fp16.yml",
+    "wake_s": 111.17196798324585,
+    "vram_peak_used_mib": 10943,
+    "vram_steady_used_mib": 10943,
+    "vram_idle_free_mib": 11911,
+    "kv_tokens": 52192,
+    "maxconc": 25.48,
+    "pool_lines": [
+      "GPU KV cache size: 52,192 tokens",
+      "Maximum concurrency for 2,048 tokens per request: 25.48x"
+    ],
+    "tok_s": 103.83,
+    "ttft_s": 0.173,
+    "samples": 124
+  },
+  {
+    "host": "srv2",
+    "label": "q2-q34b-fp16-2",
+    "model": "thewimo/Qwen3-4B-AWQ",
+    "kv_dtype": "fp16",
+    "port": 8001,
+    "repeats": 2,
+    "units": 1,
+    "container": "mcgyvr-srv2-thewimo-Qwen3-4B-AWQ-8001",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q2-q34b-fp16.yml",
+    "wake_s": 110.9705822467804,
+    "vram_peak_used_mib": 10943,
+    "vram_steady_used_mib": 10943,
+    "vram_idle_free_mib": 11911,
+    "kv_tokens": 52192,
+    "maxconc": 25.48,
+    "pool_lines": [
+      "GPU KV cache size: 52,192 tokens",
+      "Maximum concurrency for 2,048 tokens per request: 25.48x"
+    ],
+    "tok_s": 103.87,
+    "ttft_s": 0.187,
+    "samples": 125
+  },
+  {
+    "host": "srv2",
+    "label": "q2-q34b-fp8-1",
+    "model": "thewimo/Qwen3-4B-AWQ",
+    "kv_dtype": "fp8",
+    "port": 8001,
+    "repeats": 2,
+    "units": 1,
+    "container": "mcgyvr-srv2-thewimo-Qwen3-4B-AWQ-8001",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q2-q34b-fp8.yml",
+    "wake_s": 110.27077221870422,
+    "vram_peak_used_mib": 11503,
+    "vram_steady_used_mib": 11503,
+    "vram_idle_free_mib": 11911,
+    "kv_tokens": 104400,
+    "maxconc": 50.98,
+    "pool_lines": [
+      "GPU KV cache size: 104,400 tokens",
+      "Maximum concurrency for 2,048 tokens per request: 50.98x"
+    ],
+    "tok_s": 100.37,
+    "ttft_s": 0.175,
+    "samples": 124
+  },
+  {
+    "host": "srv2",
+    "label": "q2-q34b-fp8-2",
+    "model": "thewimo/Qwen3-4B-AWQ",
+    "kv_dtype": "fp8",
+    "port": 8001,
+    "repeats": 2,
+    "units": 1,
+    "container": "mcgyvr-srv2-thewimo-Qwen3-4B-AWQ-8001",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q2-q34b-fp8.yml",
+    "wake_s": 111.1361894607544,
+    "vram_peak_used_mib": 11503,
+    "vram_steady_used_mib": 11503,
+    "vram_idle_free_mib": 11911,
+    "kv_tokens": 104400,
+    "maxconc": 50.98,
+    "pool_lines": [
+      "GPU KV cache size: 104,400 tokens",
+      "Maximum concurrency for 2,048 tokens per request: 50.98x"
+    ],
+    "tok_s": 100.18,
+    "ttft_s": 0.182,
+    "samples": 124
+  }
+]
