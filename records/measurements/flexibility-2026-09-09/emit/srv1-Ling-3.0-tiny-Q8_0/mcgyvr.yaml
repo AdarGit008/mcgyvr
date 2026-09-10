@@ -1,0 +1,24 @@
+version: 1
+sources:
+  srv1_llamacpp:
+    base_url: http://srv1:8080
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+models:
+  Ling-3.0-tiny-Q8_0:
+    geometry_json: ./Ling-3.0-tiny-Q8_0.geometry.json
+ladder:
+  tiers:
+  - name: probe_ling-3.0-tiny-q8_0
+    source: srv1_llamacpp
+    model: Ling-3.0-tiny-Q8_0
+    max_parallel: 2
+  fanout: idle
+verifier:
+  enabled: false
+sandbox:
+  mode: docker
+delivery:
+  mode: branch

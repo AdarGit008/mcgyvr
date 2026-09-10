@@ -1,0 +1,218 @@
+[
+  {
+    "label": "q15-pair-sleepmode-1",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 4,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.sleepmode.yml",
+    "wake_s": 143.83204531669617,
+    "idle_avail_gib": 44.63823699951172,
+    "avail_after_gib": 39.180721282958984,
+    "ram_cost_gib": 5.457515716552734,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 10753,
+    "vram_steady_used_mib": 10753,
+    "vram_steady_free_mib": 1159,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "restart_count": 0,
+        "engine_lines": "(EngineCore pid=205) INFO 09-09 21:15:57 [gpu_worker.py:560] Available KV cache memory: 1.15 GiB\n(EngineCore pid=205) INFO 09-09 21:15:57 [kv_cache_utils.py:2177] GPU KV cache size: 21,456 tokens\n(EngineCore pid=205) INFO 09-09 21:15:58 [gpu_worker.py:857] Free memory on device (11.38/11.63 GiB) on startup. Desired GPU memory utilization is (0.72, 8.37 GiB). Actual usage is 5.29 GiB for weight, 1.04 GiB for peak activation, 0.89 GiB for non-torch memory, and 0.06 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1008238756` (0.94 GiB) to fit into requested memory, or `--kv-cache-memory=4232581120` (3.94 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.15 GiB.\n(APIServer pid=1) INFO 09-09 21:17:07 [loggers.py:310] Engine 000: Avg prompt throughput: 3.0 tokens/s, Avg generation throughput: 34.5 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.2%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          69.15,
+          68.84,
+          68.87
+        ],
+        "ttft_s": [
+          0.251,
+          0.185,
+          0.186
+        ],
+        "mean_tok_s": 68.9528020665238
+      },
+      "3b": {
+        "started_offset_s": 89,
+        "restart_count": 1,
+        "engine_lines": "(EngineCore pid=204) INFO 09-09 21:15:57 [gpu_worker.py:560] Available KV cache memory: -4.98 GiB\n(EngineCore pid=153) INFO 09-09 21:16:34 [gpu_worker.py:560] Available KV cache memory: 1.46 GiB\n(EngineCore pid=153) INFO 09-09 21:16:34 [kv_cache_utils.py:2177] GPU KV cache size: 42,608 tokens\n(EngineCore pid=153) INFO 09-09 21:16:34 [gpu_worker.py:857] Free memory on device (4.75/11.63 GiB) on startup. Desired GPU memory utilization is (0.26, 3.02 GiB). Actual usage is 1.95 GiB for weight, 0.15 GiB for peak activation, -0.54 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1361411359` (1.27 GiB) to fit into requested memory, or `--kv-cache-memory=3215357952` (2.99 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.46 GiB.",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          127.73,
+          127.82,
+          127.78
+        ],
+        "ttft_s": [
+          0.187,
+          0.159,
+          0.152
+        ],
+        "mean_tok_s": 127.7787700558661
+      }
+    },
+    "samples": 159
+  },
+  {
+    "label": "q15-pair-sleepmode-2",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 4,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.sleepmode.yml",
+    "wake_s": 141.67147397994995,
+    "idle_avail_gib": 44.655677795410156,
+    "avail_after_gib": 39.181846618652344,
+    "ram_cost_gib": 5.4738311767578125,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 11369,
+    "vram_steady_used_mib": 11369,
+    "vram_steady_free_mib": 543,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "restart_count": 0,
+        "engine_lines": "(EngineCore pid=203) INFO 09-09 21:21:51 [gpu_worker.py:560] Available KV cache memory: 1.74 GiB\n(EngineCore pid=203) INFO 09-09 21:21:51 [kv_cache_utils.py:2177] GPU KV cache size: 32,496 tokens\n(EngineCore pid=203) INFO 09-09 21:21:52 [gpu_worker.py:857] Free memory on device (11.38/11.63 GiB) on startup. Desired GPU memory utilization is (0.72, 8.37 GiB). Actual usage is 5.29 GiB for weight, 1.04 GiB for peak activation, 0.3 GiB for non-torch memory, and 0.06 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1641578660` (1.53 GiB) to fit into requested memory, or `--kv-cache-memory=4865921024` (4.53 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.74 GiB.\n(APIServer pid=1) INFO 09-09 21:23:01 [loggers.py:310] Engine 000: Avg prompt throughput: 4.0 tokens/s, Avg generation throughput: 52.3 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.2%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          68.94,
+          68.93,
+          68.81
+        ],
+        "ttft_s": [
+          0.162,
+          0.161,
+          0.16
+        ],
+        "mean_tok_s": 68.89409712984481
+      },
+      "3b": {
+        "started_offset_s": 88,
+        "restart_count": 1,
+        "engine_lines": "(EngineCore pid=204) INFO 09-09 21:21:50 [gpu_worker.py:560] Available KV cache memory: -5.57 GiB\n(EngineCore pid=151) INFO 09-09 21:22:27 [gpu_worker.py:560] Available KV cache memory: 1.46 GiB\n(EngineCore pid=151) INFO 09-09 21:22:27 [kv_cache_utils.py:2177] GPU KV cache size: 42,608 tokens\n(EngineCore pid=151) INFO 09-09 21:22:28 [gpu_worker.py:857] Free memory on device (4.15/11.63 GiB) on startup. Desired GPU memory utilization is (0.26, 3.02 GiB). Actual usage is 1.95 GiB for weight, 0.15 GiB for peak activation, -0.54 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1361411359` (1.27 GiB) to fit into requested memory, or `--kv-cache-memory=2569435136` (2.39 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.46 GiB.\n(APIServer pid=1) INFO 09-09 21:23:06 [loggers.py:310] Engine 000: Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 11.4 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.3%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          127.48,
+          127.75,
+          127.84
+        ],
+        "ttft_s": [
+          0.162,
+          0.183,
+          0.185
+        ],
+        "mean_tok_s": 127.69113378412487
+      }
+    },
+    "samples": 295
+  },
+  {
+    "label": "q15-pair-sleepmode-3",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 4,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.sleepmode.yml",
+    "wake_s": 139.81613898277283,
+    "idle_avail_gib": 44.670936584472656,
+    "avail_after_gib": 39.19932556152344,
+    "ram_cost_gib": 5.471611022949219,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 11369,
+    "vram_steady_used_mib": 11369,
+    "vram_steady_free_mib": 543,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "restart_count": 0,
+        "engine_lines": "(EngineCore pid=205) INFO 09-09 21:27:44 [gpu_worker.py:560] Available KV cache memory: 1.74 GiB\n(EngineCore pid=205) INFO 09-09 21:27:44 [kv_cache_utils.py:2177] GPU KV cache size: 32,496 tokens\n(EngineCore pid=205) INFO 09-09 21:27:45 [gpu_worker.py:857] Free memory on device (11.38/11.63 GiB) on startup. Desired GPU memory utilization is (0.72, 8.37 GiB). Actual usage is 5.29 GiB for weight, 1.04 GiB for peak activation, 0.3 GiB for non-torch memory, and 0.06 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1641578660` (1.53 GiB) to fit into requested memory, or `--kv-cache-memory=4865921024` (4.53 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.74 GiB.\n(APIServer pid=1) INFO 09-09 21:28:54 [loggers.py:310] Engine 000: Avg prompt throughput: 4.0 tokens/s, Avg generation throughput: 64.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          68.83,
+          68.83,
+          69.14
+        ],
+        "ttft_s": [
+          0.183,
+          0.169,
+          0.173
+        ],
+        "mean_tok_s": 68.9328649550938
+      },
+      "3b": {
+        "started_offset_s": 88,
+        "restart_count": 1,
+        "engine_lines": "(EngineCore pid=204) INFO 09-09 21:27:43 [gpu_worker.py:560] Available KV cache memory: -5.57 GiB\n(EngineCore pid=151) INFO 09-09 21:28:20 [gpu_worker.py:560] Available KV cache memory: 1.46 GiB\n(EngineCore pid=151) INFO 09-09 21:28:20 [kv_cache_utils.py:2177] GPU KV cache size: 42,608 tokens\n(EngineCore pid=151) INFO 09-09 21:28:21 [gpu_worker.py:857] Free memory on device (4.15/11.63 GiB) on startup. Desired GPU memory utilization is (0.26, 3.02 GiB). Actual usage is 1.95 GiB for weight, 0.15 GiB for peak activation, -0.54 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1361411359` (1.27 GiB) to fit into requested memory, or `--kv-cache-memory=2569435136` (2.39 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.46 GiB.\n(APIServer pid=1) INFO 09-09 21:28:59 [loggers.py:310] Engine 000: Avg prompt throughput: 3.0 tokens/s, Avg generation throughput: 33.7 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.1%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          127.74,
+          127.51,
+          128.78
+        ],
+        "ttft_s": [
+          0.184,
+          0.189,
+          0.197
+        ],
+        "mean_tok_s": 128.012125995819
+      }
+    },
+    "samples": 295
+  },
+  {
+    "label": "q15-pair-sleepmode-4",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 4,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.sleepmode.yml",
+    "wake_s": 142.4338457584381,
+    "idle_avail_gib": 44.62851333618164,
+    "avail_after_gib": 39.212005615234375,
+    "ram_cost_gib": 5.416507720947266,
+    "idle_vram_used_mib": 1,
+    "vram_peak_used_mib": 11257,
+    "vram_steady_used_mib": 11257,
+    "vram_steady_free_mib": 655,
+    "per_unit": {
+      "7b": {
+        "started_offset_s": 0,
+        "restart_count": 0,
+        "engine_lines": "(EngineCore pid=204) INFO 09-09 21:33:34 [gpu_worker.py:560] Available KV cache memory: 1.59 GiB\n(EngineCore pid=204) INFO 09-09 21:33:34 [kv_cache_utils.py:2177] GPU KV cache size: 29,808 tokens\n(EngineCore pid=204) INFO 09-09 21:33:35 [gpu_worker.py:857] Free memory on device (11.52/11.63 GiB) on startup. Desired GPU memory utilization is (0.72, 8.37 GiB). Actual usage is 5.29 GiB for weight, 1.04 GiB for peak activation, 0.45 GiB for non-torch memory, and 0.06 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1487306916` (1.39 GiB) to fit into requested memory, or `--kv-cache-memory=4865921024` (4.53 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.59 GiB.\n(APIServer pid=1) INFO 09-09 21:34:44 [loggers.py:310] Engine 000: Avg prompt throughput: 4.0 tokens/s, Avg generation throughput: 57.7 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.4%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          68.91,
+          68.92,
+          68.93
+        ],
+        "ttft_s": [
+          0.165,
+          0.179,
+          0.18
+        ],
+        "mean_tok_s": 68.91609048846796
+      },
+      "3b": {
+        "started_offset_s": 90,
+        "restart_count": 1,
+        "engine_lines": "(EngineCore pid=204) INFO 09-09 21:33:33 [gpu_worker.py:560] Available KV cache memory: -5.43 GiB\n(EngineCore pid=152) INFO 09-09 21:34:10 [gpu_worker.py:560] Available KV cache memory: 1.46 GiB\n(EngineCore pid=152) INFO 09-09 21:34:10 [kv_cache_utils.py:2177] GPU KV cache size: 42,608 tokens\n(EngineCore pid=152) INFO 09-09 21:34:11 [gpu_worker.py:857] Free memory on device (4.26/11.63 GiB) on startup. Desired GPU memory utilization is (0.26, 3.02 GiB). Actual usage is 1.95 GiB for weight, 0.15 GiB for peak activation, -0.54 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=1361411359` (1.27 GiB) to fit into requested memory, or `--kv-cache-memory=2686875648` (2.5 GiB) to fully utilize gpu memory. Current kv cache memory in use is 1.46 GiB.\n(APIServer pid=1) INFO 09-09 21:34:49 [loggers.py:310] Engine 000: Avg prompt throughput: 2.0 tokens/s, Avg generation throughput: 26.3 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.3%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "200",
+        "tok_s": [
+          127.92,
+          127.81,
+          127.88
+        ],
+        "ttft_s": [
+          0.187,
+          0.183,
+          0.181
+        ],
+        "mean_tok_s": 127.86850305461282
+      }
+    },
+    "samples": 294
+  }
+]

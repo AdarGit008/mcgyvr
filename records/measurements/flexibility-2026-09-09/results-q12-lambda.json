@@ -1,0 +1,53 @@
+{
+  "url": "http://srv2:8003",
+  "model": "Qwen3-Next-80B-A3B-Instruct-Q3_K_M",
+  "tokens": 256,
+  "label": "q12-80b-lambda",
+  "results": [
+    {
+      "width": 1,
+      "ok": 1,
+      "failed": 0,
+      "wall": 38.596535714983474,
+      "tokens_out": 256,
+      "per_stream_tps": 6.633065982379932,
+      "per_stream_min": 6.633065982379932,
+      "per_stream_max": 6.633065982379932,
+      "aggregate_tps": 6.632719627751949,
+      "latency_p50": 38.59452034399146,
+      "latency_max": 38.59452034399146,
+      "error": "",
+      "label": "q12-80b-lambda"
+    },
+    {
+      "width": 2,
+      "ok": 2,
+      "failed": 0,
+      "wall": 17.605174237978645,
+      "tokens_out": 512,
+      "per_stream_tps": 14.562072108763395,
+      "per_stream_min": 14.546515531922905,
+      "per_stream_max": 14.577628685603887,
+      "aggregate_tps": 29.082359145045633,
+      "latency_p50": 17.57993575700675,
+      "latency_max": 17.598716300009983,
+      "error": "",
+      "label": "q12-80b-lambda"
+    },
+    {
+      "width": 4,
+      "ok": 4,
+      "failed": 0,
+      "wall": 28.60120652700425,
+      "tokens_out": 1024,
+      "per_stream_tps": 8.96416036125084,
+      "per_stream_min": 8.951835055193138,
+      "per_stream_max": 8.976793305732258,
+      "aggregate_tps": 35.8026854228396,
+      "latency_p50": 28.558221436993335,
+      "latency_max": 28.59748849499738,
+      "error": "",
+      "label": "q12-80b-lambda"
+    }
+  ]
+}

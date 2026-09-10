@@ -1,0 +1,22 @@
+[
+  {
+    "label": "q16-7b-awake-3b-asleep-1",
+    "failed": "DOOR FAILED up/q16-80b-with-7b-awake-3b-asleep-1-pair rc=2\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv2 matches its declaration on 11 keys\ngate 3: docker on srv2 answers, 29.7.2 as declared\n05-envelope.py: gate 5: 2026-09-09-live-srv2-serve-up-q16-80b-with-7b-awake-3b-asleep-1-pair.run.json is already in the envelope, so a run with this RUN_ID (2026-09-09-live-srv2-serve-up-q16-80b-with-7b-awake-3b-asleep-1-pair) has been made before. Two door invocations never share a run id: a same-day re-run takes --suffix\nrun.py: REFUSED at 05-envelope.py \u2014 gate 5: the evidence directory is made, the step's declared artifacts are write-once, and RUN_ID is minted. Nothing recorded is overwritten\n"
+  },
+  {
+    "label": "q16-7b-awake-3b-asleep-2",
+    "failed": "DOOR FAILED up/q16-80b-with-7b-awake-3b-asleep-2-pair rc=2\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv2 matches its declaration on 11 keys\ngate 3: docker on srv2 answers, 29.7.2 as declared\n05-envelope.py: gate 5: 2026-09-09-live-srv2-serve-up-q16-80b-with-7b-awake-3b-asleep-2-pair.run.json is already in the envelope, so a run with this RUN_ID (2026-09-09-live-srv2-serve-up-q16-80b-with-7b-awake-3b-asleep-2-pair) has been made before. Two door invocations never share a run id: a same-day re-run takes --suffix\nrun.py: REFUSED at 05-envelope.py \u2014 gate 5: the evidence directory is made, the step's declared artifacts are write-once, and RUN_ID is minted. Nothing recorded is overwritten\n"
+  },
+  {
+    "label": "q16-80b-with-3b-awake-7b-asleep-1",
+    "asleep": "7b",
+    "awake": "3b",
+    "card_pair_up_used_mib": 11369,
+    "card_free_with_sleeper_mib": 7853,
+    "ncmoe": 41,
+    "predicted_mib": 7526.0,
+    "placed": false,
+    "samples": 17,
+    "why": "Error response from daemon: No such container: mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003"
+  }
+]

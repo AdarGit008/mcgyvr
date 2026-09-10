@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-09-live-srv2-serve-down-td-exibility-2026-09-09-1788984134",
+  "host": "srv2",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2-80b-mapped-ncmoe38.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 11911
+  }
+}

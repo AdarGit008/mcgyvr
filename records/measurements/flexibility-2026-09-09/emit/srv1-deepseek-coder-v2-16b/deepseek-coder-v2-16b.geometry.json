@@ -1,0 +1,296 @@
+[
+  {
+    "file": "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf",
+    "size_bytes": 8905109984,
+    "arch": "deepseek2",
+    "name": "DeepSeek-Coder-V2-Lite-Instruct",
+    "params_total": 15706484224,
+    "n_layer": 27,
+    "n_expert": 64,
+    "n_expert_used": 6,
+    "n_embd": 2048,
+    "n_head_kv": 16,
+    "n_ctx_train": 163840,
+    "rope_dim": 64,
+    "full_attn_interval": null,
+    "sliding_window": null,
+    "bytes_total_tensors": 8901113856,
+    "bytes_experts": 8097103872,
+    "expert_layers": 26,
+    "bytes_nonexpert": 804009984,
+    "type_bytes": {
+      "Q6_K": 172032000,
+      "Q4_0": 8714944512,
+      "F32": 14137344
+    },
+    "expert_blocks": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26
+    ],
+    "nextn_blocks": [],
+    "nextn_predict_layers": null,
+    "placeable_blocks": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26
+    ],
+    "recurrent_blocks": [],
+    "n_recurrent": 0,
+    "n_placeable": 26,
+    "expert_bytes_by_block": {
+      "1": 311427072,
+      "2": 311427072,
+      "3": 311427072,
+      "4": 311427072,
+      "5": 311427072,
+      "6": 311427072,
+      "7": 311427072,
+      "8": 311427072,
+      "9": 311427072,
+      "10": 311427072,
+      "11": 311427072,
+      "12": 311427072,
+      "13": 311427072,
+      "14": 311427072,
+      "15": 311427072,
+      "16": 311427072,
+      "17": 311427072,
+      "18": 311427072,
+      "19": 311427072,
+      "20": 311427072,
+      "21": 311427072,
+      "22": 311427072,
+      "23": 311427072,
+      "24": 311427072,
+      "25": 311427072,
+      "26": 311427072
+    },
+    "caching_layers": 27,
+    "caching_layers_from": "every layer caches",
+    "kv_layers": [
+      {
+        "layer": 0,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 1,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 2,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 3,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 4,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 5,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 6,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 7,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 8,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 9,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 10,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 11,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 12,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 13,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 14,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 15,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 16,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 17,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 18,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 19,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 20,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 21,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 22,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 23,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 24,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 25,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      },
+      {
+        "layer": 26,
+        "is_swa": false,
+        "k_elems": 3072,
+        "v_elems": 2048
+      }
+    ],
+    "mla_absorbed_v": false,
+    "mla_by_identity": false,
+    "key_length_mla": null,
+    "sliding_window_pattern_declared": false,
+    "swa_pattern_from": "no sliding window declared",
+    "key_length": 192,
+    "value_length": 128,
+    "key_length_swa": null,
+    "value_length_swa": null,
+    "ssm_inner_size": null,
+    "ssm_state_size": null,
+    "ssm_conv_kernel": null,
+    "ssm_group_count": null,
+    "ssm_params_from": null
+  }
+]

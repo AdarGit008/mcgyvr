@@ -1,0 +1,462 @@
+{
+  "door-up-m2-both-up-991944.log": [
+    {
+      "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "up_after_s": 50.6
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081",
+      "port": 8081,
+      "up_after_s": 34.9
+    }
+  ],
+  "door-up-m2-deepseek-alone-up-991532.log": [
+    {
+      "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "up_after_s": 42.3
+    }
+  ],
+  "door-up-m2-qwen36-alone-up-991641.log": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081",
+      "port": 8081,
+      "up_after_s": 78.4
+    }
+  ],
+  "q1-deepseek-1": [
+    {
+      "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "up_after_s": 78.5
+    }
+  ],
+  "q1-deepseek-2": [
+    {
+      "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "up_after_s": 78.8
+    }
+  ],
+  "q1-gemma-1": [
+    {
+      "container": "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 120.3
+    }
+  ],
+  "q1-gemma-2": [
+    {
+      "container": "mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 117.2
+    }
+  ],
+  "q1-kat-1": [
+    {
+      "container": "mcgyvr-srv1-KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP-8080",
+      "port": 8080,
+      "up_after_s": 208.3
+    }
+  ],
+  "q1-kat-2": [
+    {
+      "container": "mcgyvr-srv1-KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP-8080",
+      "port": 8080,
+      "up_after_s": 208.4
+    }
+  ],
+  "q1-kat-3": [
+    {
+      "container": "mcgyvr-srv1-KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP-8080",
+      "port": 8080,
+      "up_after_s": 208.4
+    }
+  ],
+  "q1-qwen36-w8192-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 132.1
+    }
+  ],
+  "q1-qwen36-w8192-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 135.0
+    }
+  ],
+  "q10-80b-mapped-n35-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 98.6
+    }
+  ],
+  "q10-80b-mapped-n35-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 98.2
+    }
+  ],
+  "q10-80b-mapped-n36-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 97.2
+    }
+  ],
+  "q10-80b-mapped-n36-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 97.3
+    }
+  ],
+  "q10-80b-mapped-n38-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 95.2
+    }
+  ],
+  "q10-80b-mapped-n38-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 99.9
+    }
+  ],
+  "q10-80b-mapped-n40-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 95.7
+    }
+  ],
+  "q10-80b-mapped-n40-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 98.7
+    }
+  ],
+  "q10-80b-mapped-n41-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 98.6
+    }
+  ],
+  "q10-80b-mapped-n41-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 95.3
+    }
+  ],
+  "door-up-q12-80b-w4-991047.log": [
+    {
+      "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+      "port": 8003,
+      "up_after_s": 96.7
+    }
+  ],
+  "q13-qwen36-n20-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 76.8
+    }
+  ],
+  "q13-qwen36-n20-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 74.3
+    }
+  ],
+  "q13-qwen36-n40-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 74.4
+    }
+  ],
+  "q13-qwen36-n40-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 74.0
+    }
+  ],
+  "q13-qwen36-n7-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 75.8
+    }
+  ],
+  "q13-qwen36-n7-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 76.9
+    }
+  ],
+  "q14-pair-healthy-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 88.2
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.1
+    }
+  ],
+  "q14-pair-healthy-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 86.9
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.1
+    }
+  ],
+  "q15-pair-sleepmode-1": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 134.4
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.7
+    }
+  ],
+  "q15-pair-sleepmode-2": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 133.1
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.1
+    }
+  ],
+  "q15-pair-sleepmode-3": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 130.5
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.1
+    }
+  ],
+  "q15-pair-sleepmode-4": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 132.7
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.0
+    }
+  ],
+  "door-up-q16-80b-with-3b-awake-7b-asleep-1-pair.log": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "up_after_s": 131.7
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "up_after_s": 2.2
+    }
+  ],
+  "q2-ling-IQ2_M-1": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-IQ2_M-8080",
+      "port": 8080,
+      "up_after_s": 52.7
+    }
+  ],
+  "q2-ling-IQ2_M-2": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-IQ2_M-8080",
+      "port": 8080,
+      "up_after_s": 53.9
+    }
+  ],
+  "q2-ling-Q3_K_M-1": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q3_K_M-8080",
+      "port": 8080,
+      "up_after_s": 61.5
+    }
+  ],
+  "q2-ling-Q3_K_M-2": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q3_K_M-8080",
+      "port": 8080,
+      "up_after_s": 60.7
+    }
+  ],
+  "q2-ling-Q4_K_M-1": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "up_after_s": 64.2
+    }
+  ],
+  "q2-ling-Q4_K_M-2": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "up_after_s": 64.4
+    }
+  ],
+  "q2-ling-Q6_K-1": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q6_K-8080",
+      "port": 8080,
+      "up_after_s": 77.0
+    }
+  ],
+  "q2-ling-Q6_K-2": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q6_K-8080",
+      "port": 8080,
+      "up_after_s": 77.5
+    }
+  ],
+  "q2-ling-Q8_0-1": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q8_0-8080",
+      "port": 8080,
+      "up_after_s": 84.7
+    }
+  ],
+  "q2-ling-Q8_0-2": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q8_0-8080",
+      "port": 8080,
+      "up_after_s": 85.6
+    }
+  ],
+  "q4-qwen-n28-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 131.5
+    }
+  ],
+  "q4-qwen-n28-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 134.1
+    }
+  ],
+  "q4-qwen-n32-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 130.4
+    }
+  ],
+  "q4-qwen-n32-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 133.6
+    }
+  ],
+  "q5-experts-0.50-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 125.7
+    }
+  ],
+  "q5-experts-0.50-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 128.7
+    }
+  ],
+  "q5-experts-0.65-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 127.8
+    }
+  ],
+  "q5-experts-0.65-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 127.8
+    }
+  ],
+  "q5-experts-0.80-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 132.3
+    }
+  ],
+  "q5-experts-0.80-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 131.7
+    }
+  ],
+  "q6-blob-2.50-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 162.1
+    }
+  ],
+  "q6-blob-2.50-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 161.6
+    }
+  ],
+  "q6-blob-3.03-1": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 163.6
+    }
+  ],
+  "q6-blob-3.03-2": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "up_after_s": 164.1
+    }
+  ]
+}

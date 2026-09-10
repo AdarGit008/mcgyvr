@@ -18,7 +18,7 @@ most of the sleep envelope and the highest-yield experiment on the list. That
 cut is withdrawn. **A capability is measured before it is built, not after**;
 knowing the envelope is what tells us which shapes are worth writing code for.
 
-**66 arms.** At the last campaign's observed 4–5 minutes an arm that is roughly
+**70 arms.** At the last campaign's observed 4–5 minutes an arm that is roughly
 **five hours of rig time**, and more with the long loads — KAT is 203 s a start,
 the 80B 100–120 s, and the srv2 pair 130–170 s. This is a full day. It is
 budgeted as one because the alternative is another round of single-sample
@@ -108,21 +108,57 @@ corrections have landed; what follows describes each as built.
   stripped** rather than renumbered: a file plus the symbol named beside it
   resolves, and a line number does not.
 
-### One thing to settle before Q2 can run
+### Q2 was rewritten by the scan, and it is now a better experiment
 
-Q2 needs **two srv1 MoE blobs under 8 GiB that `emit` will actually place.** Not
-gpt-oss — `4b-Q4_K_M.gguf` is the one whose undeclared `sliding_window 128` made
-`emit` refuse, and that refusal cost the last campaign its most discriminating
-point. Candidates already on the fleet, from the corpus:
-`North-Mini-Code-1.0-IQ2_M`, `nvidia_Nemotron-3-Nano-30B-A3B-IQ2_XXS`,
-`Ornith-1.0-35B_Q2_K-AllGPU`. **Dense blobs are not substitutes** — every
-existing srv1 rate point is MoE, and mixing architectures into one fit is the
-confound Q3 exists to remove. Step zero: scan and `emit` each candidate, take
-the first two that place.
+The scan of 2026-09-09 killed Q2 as drafted and replaced it with something
+stronger.
+
+**What the scan found.** srv1 holds exactly two MoE blobs under 8 GiB. One is
+Ling-3.0-tiny Q4_K_M at 4.58 GiB, already a fit point. The other is
+`4b-Q4_K_M.gguf` at 3.01 GiB, and `ggufscan` confirms what the last campaign
+recorded: `arch: gpt-oss`, `sliding_window: 128`,
+`sliding_window_pattern_declared: false`. `emit` refuses it because the cache
+cannot be sized and nothing is placed from an invented split — a principled
+refusal that is not to be worked around during a freeze. The three candidates
+this plan first named are not on the fleet at those quants: srv1 has
+North-Mini-Code Q4_K_M (17.46), Nemotron IQ4_NL (16.77) and Ornith Q3_K_M
+(16.89), all far above 8 GiB, and srv2 holds no MoE blobs at all.
+
+**So there was no second small blob to find, and looking for one was the wrong
+question.** Two arbitrary new models would have added two more points to a fit
+that already confounds architecture with bytes — the defect Q3 names.
+
+**Ling-3.0-tiny is published at every quant from 2.63 to 7.83 GiB.** One
+architecture, one layer count, one expert structure, blob bytes varying by 3x,
+across exactly the small end where the proportional form fails worst — it
+predicts Ling at 49.7 s against 72.6 measured. And Ling runs with **no
+`--n-cpu-moe` at all**, so the offload term is not merely matched across the
+ladder, it is absent.
+
+Four quants are being fetched to srv1 (2.3 TiB free); Q4_K_M is already there:
+
+| blob | GiB |
+|---|---|
+| `Ling-3.0-tiny-IQ2_M` | 2.63 |
+| `Ling-3.0-tiny-Q3_K_M` | 3.53 |
+| `Ling-3.0-tiny-Q4_K_M` | 4.58 *(on disk)* |
+| `Ling-3.0-tiny-Q6_K` | 6.37 |
+| `Ling-3.0-tiny-Q8_0` | 7.83 |
+
+**No arm may run while a download is in flight.** A 20 GiB fetch moves the page
+cache, and every mapped-blob figure in this campaign is a page-cache
+measurement.
+
+**A quant ladder is not a free lunch and the analysis must say so.** Quants
+differ in more than size: type mix changes, and IQ quants dequantise differently
+from K quants, so a load rate across them is bytes *plus* whatever the type
+costs. That is still a far smaller confound than five models at three windows,
+and it is testable inside the ladder — IQ2_M against Q3_K_M is a type change at
+almost the same size, and Q6_K against Q8_0 is nearly pure bytes.
 
 ---
 
-# srv1 — 37 arms
+# srv1 — 41 arms
 
 ## Q1. The srv1 wake law, and four card figures nobody has ever read *(11 arms)*
 
@@ -144,15 +180,22 @@ today Qwen alone runs `-c 16384` while every other srv1 blob runs `-c 8192`, and
 `wake-2026-09-08` prices the window alone at **+48 s** — more than twice the
 intercept the fit is claiming.
 
-## Q2. Is the intercept real, or does it rest on one blob? *(4 arms)*
+## Q2. Is the intercept real? — the Ling quant ladder *(8 arms)*
 
 M4 reported a positive intercept of ~22.5 s and named that the reason to abandon
 the proportional form. **Refit the same five rows without Ling and the intercept
 returns to −24.3 s with a better R²** (0.979 against 0.929). The sign flip rests
-entirely on one blob.
+entirely on one blob, and the 3.01 GiB point that would have discriminated is
+the gpt-oss `emit` refuses.
 
-Arms 12–15: the two blobs chosen above, n=2 each, mapped, ample clearance,
-`-c 8192` to match Q1's arms.
+Arms 12–19: Ling-3.0-tiny at **IQ2_M (2.63), Q3_K_M (3.53), Q6_K (6.37) and
+Q8_0 (7.83)**, n=2 each, mapped, ample clearance, `-c 8192`. With Q1's arms 1-2
+at Q4_K_M that is **five points on one architecture** spanning 2.63 to 7.83 GiB,
+with no offload term anywhere in the ladder.
+
+An intercept that survives this is real: no blob-identity, window or offload
+confound can produce it, because none of the three varies. An intercept that
+does not survive it was Qwen's window all along.
 
 ## Q3. Are those five rows one measurement at all? *(0 new arms)*
 
@@ -361,7 +404,7 @@ Ordered to minimise model swaps, and to put every hazard last.
 4. **srv2, pair block** — Q14 (2), Q15 (4). One swap.
 5. **srv2, three-way** — Q16 (4). Needs Q10's residual in hand.
 6. **srv2, co-residency** — Q17 (2).
-7. **srv1, mapped block** — Q1 (11), Q2 (4), Q4 (4).
+7. **srv1, mapped block** — Q1 (11), Q2 (8), Q4 (4).
 8. **srv1, ballooned block** — Q5 (6), Q6 (4).
 9. **srv1, door block** — Q8 (3).
 10. **srv1, hazards last** — Q7 (2), then **Q9 (3), alone**.

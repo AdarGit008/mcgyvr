@@ -1,0 +1,29 @@
+[
+  {
+    "label": "q9-vllm-3b-srv1-1",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "failed": "DOOR FAILED down/td-889931262 rc=1\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=1430761,VLLM::EngineCore,3092MiB, containers=687f739d794d); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-td-889931262 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-td-889931262)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-td-889931262- prefix): mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  },
+  {
+    "label": "q9-vllm-3b-srv1-2",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "failed": "DOOR FAILED down/td-889932238 rc=1\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=1430761,VLLM::EngineCore,3092MiB, containers=687f739d794d); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-td-889932238 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-td-889932238)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-td-889932238- prefix): mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  },
+  {
+    "label": "q9-vllm-3b-srv1-3",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "failed": "DOOR FAILED down/td-889932420 rc=1\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=1430761,VLLM::EngineCore,3092MiB, containers=687f739d794d); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-td-889932420 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-td-889932420)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-td-889932420- prefix): mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  }
+]

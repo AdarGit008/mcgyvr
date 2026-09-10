@@ -1,0 +1,1 @@
+/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/emit/srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS/compose.srv1.yml

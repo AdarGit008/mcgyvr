@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-09-live-srv1-serve-down-td-exibility-2026-09-09-1788987500",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-kat.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 17,
+    "free_mib": 5727
+  }
+}

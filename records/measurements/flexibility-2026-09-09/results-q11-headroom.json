@@ -1,0 +1,264 @@
+{
+  "groups": [
+    {
+      "host": "srv2",
+      "model": "Qwen3-Next-80B-A3B-Instruct-Q3_K_M",
+      "probe_arm": "q10-80b-mapped-n35-1",
+      "probe_ncmoe": 35,
+      "C_probe_mib": 2430.0,
+      "C_min_mib": 2430.0,
+      "C_max_mib": 2430.0,
+      "C_spread_mib": 0.0,
+      "arms": [
+        {
+          "label": "q10-80b-mapped-n35-1",
+          "ncmoe": 35,
+          "measured_net_mib": 11894,
+          "peak_net_mib": 11892,
+          "experts_mib": 9464.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 11894.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n35-2",
+          "ncmoe": 35,
+          "measured_net_mib": 11894,
+          "peak_net_mib": 11892,
+          "experts_mib": 9464.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 11894.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n36-1",
+          "ncmoe": 36,
+          "measured_net_mib": 11166,
+          "peak_net_mib": 11164,
+          "experts_mib": 8736.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 11166.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n36-2",
+          "ncmoe": 36,
+          "measured_net_mib": 11166,
+          "peak_net_mib": 11164,
+          "experts_mib": 8736.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 11166.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n38-1",
+          "ncmoe": 38,
+          "measured_net_mib": 9710,
+          "peak_net_mib": 9708,
+          "experts_mib": 7280.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 9710.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n38-2",
+          "ncmoe": 38,
+          "measured_net_mib": 9710,
+          "peak_net_mib": 9708,
+          "experts_mib": 7280.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 9710.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n40-1",
+          "ncmoe": 40,
+          "measured_net_mib": 8254,
+          "peak_net_mib": 8252,
+          "experts_mib": 5824.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 8254.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n40-2",
+          "ncmoe": 40,
+          "measured_net_mib": 8254,
+          "peak_net_mib": 8252,
+          "experts_mib": 5824.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 8254.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n41-1",
+          "ncmoe": 41,
+          "measured_net_mib": 7526,
+          "peak_net_mib": 7524,
+          "experts_mib": 5096.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 7526.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q10-80b-mapped-n41-2",
+          "ncmoe": 41,
+          "measured_net_mib": 7526,
+          "peak_net_mib": 7524,
+          "experts_mib": 5096.0,
+          "C_mib": 2430.0,
+          "predicted_mib": 7526.0,
+          "residual_mib": 0.0
+        }
+      ]
+    },
+    {
+      "host": "srv1",
+      "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+      "probe_arm": "q4-qwen-n28-1",
+      "probe_ncmoe": 28,
+      "C_probe_mib": 2209.0,
+      "C_min_mib": 2209.0,
+      "C_max_mib": 2209.0,
+      "C_spread_mib": 0.0,
+      "arms": [
+        {
+          "label": "q1-qwen36-w8192-1",
+          "ncmoe": 29,
+          "measured_net_mib": 5205,
+          "peak_net_mib": 5191,
+          "experts_mib": 2996.0,
+          "C_mib": 2209.0,
+          "predicted_mib": 5205.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q1-qwen36-w8192-2",
+          "ncmoe": 29,
+          "measured_net_mib": 5205,
+          "peak_net_mib": 5191,
+          "experts_mib": 2996.0,
+          "C_mib": 2209.0,
+          "predicted_mib": 5205.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q4-qwen-n28-1",
+          "ncmoe": 28,
+          "measured_net_mib": 5467,
+          "peak_net_mib": 5453,
+          "experts_mib": 3258.0,
+          "C_mib": 2209.0,
+          "predicted_mib": 5467.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q4-qwen-n28-2",
+          "ncmoe": 28,
+          "measured_net_mib": 5467,
+          "peak_net_mib": 5453,
+          "experts_mib": 3258.0,
+          "C_mib": 2209.0,
+          "predicted_mib": 5467.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q4-qwen-n32-1",
+          "ncmoe": 32,
+          "measured_net_mib": 4419,
+          "peak_net_mib": 4405,
+          "experts_mib": 2210.0,
+          "C_mib": 2209.0,
+          "predicted_mib": 4419.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q4-qwen-n32-2",
+          "ncmoe": 32,
+          "measured_net_mib": 4419,
+          "peak_net_mib": 4405,
+          "experts_mib": 2210.0,
+          "C_mib": 2209.0,
+          "predicted_mib": 4419.0,
+          "residual_mib": 0.0
+        }
+      ]
+    },
+    {
+      "host": "srv2",
+      "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+      "probe_arm": "q13-qwen36-n7-1",
+      "probe_ncmoe": 7,
+      "C_probe_mib": 2254.0,
+      "C_min_mib": 2254.0,
+      "C_max_mib": 2292.0,
+      "C_spread_mib": 38.0,
+      "arms": [
+        {
+          "label": "q13-qwen36-n7-1",
+          "ncmoe": 7,
+          "measured_net_mib": 11014,
+          "peak_net_mib": 11000,
+          "experts_mib": 8760.0,
+          "C_mib": 2254.0,
+          "predicted_mib": 11014.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q13-qwen36-n7-2",
+          "ncmoe": 7,
+          "measured_net_mib": 11014,
+          "peak_net_mib": 11000,
+          "experts_mib": 8760.0,
+          "C_mib": 2254.0,
+          "predicted_mib": 11014.0,
+          "residual_mib": 0.0
+        },
+        {
+          "label": "q13-qwen36-n20-1",
+          "ncmoe": 20,
+          "measured_net_mib": 7610,
+          "peak_net_mib": 7596,
+          "experts_mib": 5354.0,
+          "C_mib": 2256.0,
+          "predicted_mib": 7608.0,
+          "residual_mib": 2.0
+        },
+        {
+          "label": "q13-qwen36-n20-2",
+          "ncmoe": 20,
+          "measured_net_mib": 7610,
+          "peak_net_mib": 7596,
+          "experts_mib": 5354.0,
+          "C_mib": 2256.0,
+          "predicted_mib": 7608.0,
+          "residual_mib": 2.0
+        },
+        {
+          "label": "q13-qwen36-n40-1",
+          "ncmoe": 40,
+          "measured_net_mib": 2292,
+          "peak_net_mib": 2278,
+          "experts_mib": 0.0,
+          "C_mib": 2292.0,
+          "predicted_mib": 2254.0,
+          "residual_mib": 38.0
+        },
+        {
+          "label": "q13-qwen36-n40-2",
+          "ncmoe": 40,
+          "measured_net_mib": 2292,
+          "peak_net_mib": 2278,
+          "experts_mib": 0.0,
+          "C_mib": 2292.0,
+          "predicted_mib": 2254.0,
+          "residual_mib": 38.0
+        }
+      ]
+    }
+  ],
+  "worst": {
+    "residual_mib": 38.0,
+    "at": "srv2 Qwen3.6-35B-A3B-UD-IQ3_XXS ncmoe 40 (q13-qwen36-n40-1)"
+  }
+}
