@@ -46,7 +46,9 @@ def test_every_declared_bound_obeys_the_one_percent_rule() -> None:
 def test_the_campaign_s_verified_parameters_are_declared_at_their_worst() -> None:
     bounds = _bounds()
     assert bounds.bound("vllm_unit_host_ram_gib", arch=None, rig="srv1") == 2.60
-    assert bounds.bound("vllm_unit_host_ram_gib", arch=None, rig="srv2") == 2.95
+    # srv2's worst is 2.9533 (fleet-gaps-2026-09-09/results-vllm.json,
+    # v-7b-alone-3), past the 2.95 the M2 prose rounds to.
+    assert bounds.bound("vllm_unit_host_ram_gib", arch=None, rig="srv2") == 2.96
     assert bounds.bound("vllm_l2_residual_mib", arch=None, rig="srv2") == 234
     assert bounds.bound("vllm_cold_start_overhead_mib", arch=None, rig="srv2") == 20
     assert bounds.bound("c_step_mib", arch="qwen35moe", rig="srv2") == 38
@@ -69,7 +71,7 @@ def test_a_bound_outside_its_verified_scope_is_expected() -> None:
 
 def test_a_parameter_whose_spread_is_over_one_percent_is_expected() -> None:
     """Unmapped Shmem runs 4-8% over geometry on srv1 (Q7); a started-early 7B
-    varies its card by 616 MiB, 5% of srv2's (Q15)."""
+    varies its card by 728 MiB, 5.9% of srv2's (Q15 cycles, 6,816-7,544)."""
     bounds = _bounds()
     assert (
         bounds.classify("unmapped_shmem_over_geometry", arch=None, rig="srv1")

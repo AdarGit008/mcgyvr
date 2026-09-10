@@ -7,9 +7,11 @@ exist, and the Waker wakes whatever ``serving.compose_dir`` holds. The intent is
 Owner's rulings: live must run an existing approved fleet shape; approval is a
 dev validation of every rig shape in it, then a commit; nothing changes on live
 except a transition between approved fleet shapes, enforced where a live run acts and
-not at load. Today a wake starts the one
-compose file a directory holds (``src/mcgyvr/wake.py:368``), and live srv2 runs
-a compose ``emit --check`` names as not what the tree emits
+not at load. Live is production — mcgyvr delegating real code tasks — and runs
+only the default the user picked from a closed set of approved records, each
+pinning a config's digest beside its fleet shape (2026-09-10). Today a wake
+starts the one compose file a directory holds (``src/mcgyvr/wake.py:368``), and
+live srv2 runs a compose ``emit --check`` names as not what the tree emits
 (flexibility-2026-09-09, Defects: "srv2's live compose is not what the tree emits") with
 nothing to refuse it.
 """
@@ -43,6 +45,7 @@ ladder:
       source: s
       model: m
 """
+CFG = "cfg-" + "a" * 64
 FSH = "fsh-" + "f" * 64
 RSH_1 = "rsh-" + "1" * 64
 RSH_2 = "rsh-" + "2" * 64
@@ -65,6 +68,7 @@ def approved(tmp_path: Path) -> Path:
         json.dumps(
             {
                 "fleet_shape_id": FSH,
+                "config_digest": CFG,
                 "rig_shapes": [
                     {
                         "rig_shape_id": RSH_2,
@@ -108,7 +112,7 @@ def test_a_live_config_without_a_fleet_shape_loads_and_cannot_act(
     where = approved(tmp_path)
     live = {"srv2": {"rig_id": RIG_2, "compose_sha256": COMPOSE}}
     with pytest.raises(fleet_shape.LiveRefusedError, match="fleet_shape"):
-        fleet_shape.admit_live(None, where, live)
+        fleet_shape.admit_live(CFG, None, where, live)
 
 
 def test_an_unapproved_fleet_shape_is_refused(tmp_path: Path) -> None:
@@ -116,7 +120,21 @@ def test_an_unapproved_fleet_shape_is_refused(tmp_path: Path) -> None:
     where = approved(tmp_path)
     live = {"srv2": {"rig_id": RIG_2, "compose_sha256": COMPOSE}}
     with pytest.raises(fleet_shape.LiveRefusedError, match="not approved"):
-        fleet_shape.admit_live("fsh-" + "0" * 64, where, live)
+        fleet_shape.admit_live(CFG, "fsh-" + "0" * 64, where, live)
+
+
+def test_a_config_that_is_not_the_one_approved_with_its_fleet_shape_is_refused(
+    tmp_path: Path,
+) -> None:
+    """What is approved is the pair (2026-09-10): an edited config is not the
+    approved pick, even on the fleet shape it was approved with, and the
+    refusal names the config it was handed."""
+    fleet_shape = _fleet_shape()
+    where = approved(tmp_path)
+    live = {"srv2": {"rig_id": RIG_2, "compose_sha256": COMPOSE}}
+    edited = "cfg-" + "e" * 64
+    with pytest.raises(fleet_shape.LiveRefusedError, match=edited):
+        fleet_shape.admit_live(edited, FSH, where, live)
 
 
 def test_a_rig_that_is_not_the_rig_it_was_approved_on_is_refused(
@@ -126,7 +144,7 @@ def test_a_rig_that_is_not_the_rig_it_was_approved_on_is_refused(
     where = approved(tmp_path)
     moved = {"srv2": {"rig_id": "rig-" + "9" * 64, "compose_sha256": COMPOSE}}
     with pytest.raises(fleet_shape.LiveRefusedError, match="srv2"):
-        fleet_shape.admit_live(FSH, where, moved)
+        fleet_shape.admit_live(CFG, FSH, where, moved)
 
 
 def test_a_compose_that_is_not_the_approved_one_is_refused(tmp_path: Path) -> None:
@@ -134,24 +152,24 @@ def test_a_compose_that_is_not_the_approved_one_is_refused(tmp_path: Path) -> No
     where = approved(tmp_path)
     drifted = {"srv2": {"rig_id": RIG_2, "compose_sha256": "d" * 64}}
     with pytest.raises(fleet_shape.LiveRefusedError, match="compose"):
-        fleet_shape.admit_live(FSH, where, drifted)
+        fleet_shape.admit_live(CFG, FSH, where, drifted)
 
 
 def test_the_approved_fleet_shape_on_its_own_rigs_is_admitted(tmp_path: Path) -> None:
     fleet_shape = _fleet_shape()
     where = approved(tmp_path)
     live = {"srv2": {"rig_id": RIG_2, "compose_sha256": COMPOSE}}
-    assert fleet_shape.admit_live(FSH, where, live) is None
+    assert fleet_shape.admit_live(CFG, FSH, where, live) is None
 
 
 def test_approval_is_refused_without_a_passing_validation_of_every_rig_shape() -> None:
     fleet_shape = _fleet_shape()
     passed = {"passed": True, "envelope": "records/evidence/x"}
     with pytest.raises(fleet_shape.ApprovalRefusedError, match=RSH_2):
-        fleet_shape.approve(FSH, [RSH_1, RSH_2], {RSH_1: passed}, {})
+        fleet_shape.approve(CFG, FSH, [RSH_1, RSH_2], {RSH_1: passed}, {})
     failed = {RSH_1: passed, RSH_2: {"passed": False, "envelope": "records/y"}}
     with pytest.raises(fleet_shape.ApprovalRefusedError, match=RSH_2):
-        fleet_shape.approve(FSH, [RSH_1, RSH_2], failed, {})
+        fleet_shape.approve(CFG, FSH, [RSH_1, RSH_2], failed, {})
 
 
 def test_the_waker_does_not_wake_toward_a_shape_nobody_approved(

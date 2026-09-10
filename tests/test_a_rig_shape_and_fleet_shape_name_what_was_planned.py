@@ -21,6 +21,8 @@ import importlib
 from typing import Any
 
 from tests.red_port.conftest import required
+from tests.test_a_live_run_is_an_approved_fleet_shape_or_nothing import CFG
+from tests.test_a_parameter_past_its_tolerance_alerts_the_operator_once import COVERED
 
 RIG = "rig-" + "1" * 64
 U3B = "unt-" + "3" * 64
@@ -106,7 +108,12 @@ def test_a_tolerance_change_keeps_the_fleet_shape_and_changes_its_record() -> No
     rsh = _srv2()
     fsh = fleet_shape.fleet_shape_id([rsh])
     passed = {rsh: {"passed": True, "envelope": "records/evidence/x/validation"}}
-    loose = fleet_shape.approve(fsh, [rsh], passed, {"shmem_pct": 8.0})
-    tight = fleet_shape.approve(fsh, [rsh], passed, {"shmem_pct": 5.0})
+    # Complete tolerances: approval refuses a parameter none covers (B59).
+    loose = fleet_shape.approve(
+        CFG, fsh, [rsh], passed, {**COVERED, "shmem_mib": {"pct": 8.0}}
+    )
+    tight = fleet_shape.approve(
+        CFG, fsh, [rsh], passed, {**COVERED, "shmem_mib": {"pct": 5.0}}
+    )
     assert loose["fleet_shape_id"] == tight["fleet_shape_id"] == fsh
     assert loose["tolerances"] != tight["tolerances"]
