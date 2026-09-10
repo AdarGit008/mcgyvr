@@ -100,7 +100,7 @@ def test_two_rungs_behind_one_url_pair_are_one_card_and_one_launch_spec(
     """
     from mcgyvr.config import load
     from mcgyvr.emit import COMPOSE_PREFIX, COMPOSE_SUFFIX
-    from mcgyvr.serving import cards  # type: ignore[attr-defined]
+    from mcgyvr.serving import cards
 
     specs = compose_dir(tmp_path, with_spec=True)
     config = config_file(
@@ -118,6 +118,7 @@ def test_two_rungs_behind_one_url_pair_are_one_card_and_one_launch_spec(
     assert card.host == HOST
     assert set(card.rungs) == {RUNG_3B, RUNG_7B}
     assert set(card.sources) == {"srv2_3b", "srv2_7b"}
+    assert card.compose_file is not None
     assert Path(card.compose_file) == (
         specs / f"{COMPOSE_PREFIX}{HOST}{COMPOSE_SUFFIX}"
     ), card.compose_file

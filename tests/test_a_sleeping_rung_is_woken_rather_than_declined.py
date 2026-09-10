@@ -183,9 +183,7 @@ def door_log(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     Returning ``0`` is the door reporting the card up. What the caller does with
     that — dispatch again, once — is what the tests below read.
     """
-    # The ignore comes out with the module: `mcgyvr.wake` is the one this
-    # design adds (§15) and it does not exist yet.
-    import mcgyvr.wake as wake  # type: ignore
+    import mcgyvr.wake as wake
 
     spawned: list[list[str]] = []
 
@@ -481,7 +479,7 @@ def test_a_card_with_no_launch_spec_is_down_rather_than_asleep(
     )
 
     from mcgyvr.config import load
-    from mcgyvr.serving import cards  # type: ignore[attr-defined]
+    from mcgyvr.serving import cards
 
     generate, asked = refusing(until_call=99)
     lj.patch_backend(monkeypatch, generate)
@@ -489,6 +487,7 @@ def test_a_card_with_no_launch_spec_is_down_rather_than_asleep(
 
     card = cards(load(config))[RUNG_3B]
     assert card.host == HOST
+    assert card.compose_file is not None
     assert not Path(card.compose_file).exists(), (
         "the fixture was meant to leave this card without a launch spec"
     )

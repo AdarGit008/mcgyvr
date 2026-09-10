@@ -120,4 +120,5 @@ def test_a_test_that_means_to_control_the_seam_still_can(
     """
     monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [("canned",)])
 
-    assert socket.getaddrinfo(A_RIG, 8001) == [("canned",)]
+    got: object = socket.getaddrinfo(A_RIG, 8001)
+    assert got == [("canned",)]

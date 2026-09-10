@@ -48,7 +48,7 @@ second crash-looping under ``restart: unless-stopped`` while the door reports
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pytest
@@ -229,9 +229,12 @@ def test_a_wake_that_cannot_say_which_spec_starts_nothing_and_says_so(
     import mcgyvr.wake as wake
 
     spawned: list[tuple[str, ...]] = []
-    monkeypatch.setattr(
-        wake, "spawn_door", lambda argv, **kw: spawned.append(tuple(argv)) or 0
-    )
+
+    def spawn(argv: Sequence[str], **_: object) -> int:
+        spawned.append(tuple(argv))
+        return 0
+
+    monkeypatch.setattr(wake, "spawn_door", spawn)
 
     waker = wake.for_config(load(config))
     assert waker is not None
