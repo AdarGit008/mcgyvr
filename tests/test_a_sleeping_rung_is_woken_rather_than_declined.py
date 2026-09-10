@@ -150,8 +150,15 @@ def config_file(
     specs: Path | None,
     switch: bool | None,
     engine: str = "vllm",
+    profile: str | None = None,
 ) -> Path:
     """A config on disk. ``switch=None`` writes no ``serving:`` block at all.
+
+    ``profile=None`` writes no ``profile:`` key, which loads as ``live``. The
+    tests that act on a card pass ``"dev"``: under
+    ``records/plans/fleet-identity.md`` a live config that holds launch specs
+    acts only on an approved fleet shape, and these tests pin the wake
+    mechanism, which a dev run may exercise freely.
 
     Loaded here rather than left for ``mcgyvr run`` to load, so that a config
     the schema does not know says so at the line that wrote it.
@@ -159,6 +166,8 @@ def config_file(
     from mcgyvr.config import load
 
     text = ladder(engine=engine) + f"journal:\n  dir: {journal}\n"
+    if profile is not None:
+        text += f"profile: {profile}\n"
     if switch is not None:
         text += "serving:\n"
         text += f"  enable_sleep_wake: {'true' if switch else 'false'}\n"
@@ -275,9 +284,14 @@ def test_with_the_switch_off_a_refused_port_ends_the_run_exactly_as_it_does_toda
         journal=tmp_path / "j-silent",
         specs=specs,
         switch=None,
+        profile="dev",
     )
     off = config_file(
-        tmp_path / "off.yaml", journal=tmp_path / "j-off", specs=specs, switch=False
+        tmp_path / "off.yaml",
+        journal=tmp_path / "j-off",
+        specs=specs,
+        switch=False,
+        profile="dev",
     )
 
     generate, asked = refusing(until_call=99)
@@ -325,7 +339,11 @@ def test_a_refused_vllm_card_this_config_holds_a_spec_for_is_woken_not_written_o
     """
     specs = compose_dir(tmp_path, with_spec=True)
     config = config_file(
-        tmp_path / "on.yaml", journal=tmp_path / "j", specs=specs, switch=True
+        tmp_path / "on.yaml",
+        journal=tmp_path / "j",
+        specs=specs,
+        switch=True,
+        profile="dev",
     )
     generate, asked = refusing(until_call=1)
     lj.patch_backend(monkeypatch, generate)
@@ -377,7 +395,11 @@ def test_the_dispatch_that_follows_a_wake_spends_no_attempt(
     """
     specs = compose_dir(tmp_path, with_spec=True)
     config = config_file(
-        tmp_path / "on.yaml", journal=tmp_path / "j", specs=specs, switch=True
+        tmp_path / "on.yaml",
+        journal=tmp_path / "j",
+        specs=specs,
+        switch=True,
+        profile="dev",
     )
     generate, asked = refusing(until_call=1)
     lj.patch_backend(monkeypatch, generate)
@@ -427,6 +449,7 @@ def test_a_llama_cpp_card_is_woken_exactly_as_a_vllm_one_is(
         specs=specs,
         switch=True,
         engine="llama.cpp",
+        profile="dev",
     )
     generate, asked = refusing(until_call=1)
     lj.patch_backend(monkeypatch, generate)
@@ -475,7 +498,11 @@ def test_a_card_with_no_launch_spec_is_down_rather_than_asleep(
     """
     specs = compose_dir(tmp_path, with_spec=False)
     config = config_file(
-        tmp_path / "nospec.yaml", journal=tmp_path / "j", specs=specs, switch=True
+        tmp_path / "nospec.yaml",
+        journal=tmp_path / "j",
+        specs=specs,
+        switch=True,
+        profile="dev",
     )
 
     from mcgyvr.config import load
