@@ -1,0 +1,22 @@
+[
+  {
+    "host": "srv1",
+    "label": "q1-deepseek-f16",
+    "cache_type": "f16",
+    "blob_gib": 8.29,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q1-deepseek-f16.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q1-deepseek-q8",
+    "cache_type": "q8_0",
+    "blob_gib": 8.29,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q1-deepseek-q8.yml"
+  }
+]

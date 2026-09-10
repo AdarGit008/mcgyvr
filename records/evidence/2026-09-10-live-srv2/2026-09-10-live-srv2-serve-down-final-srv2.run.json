@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-09-10-live-srv2-serve-down-final-srv2",
+  "campaign": "live-srv2",
+  "step": "serve-down",
+  "host": "srv2",
+  "date": "2026-09-10",
+  "round": "r27-10-09-2026",
+  "product_sha256": "3ca400675f647abfde3ae5cd65e69455947f9992b3fa267c71c79e577002e13d",
+  "profile": "live",
+  "config": "/home/adaramir/.mcgyvr/config/mcgyvr.yaml",
+  "config_digest": "cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb",
+  "mcgyvr_version": "0.1.1.dev77+g7023dca5.d20260910",
+  "started_at": "2026-09-10T10:57:19Z"
+}

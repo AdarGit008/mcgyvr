@@ -1,0 +1,24 @@
+{
+  "run_id": "2026-09-10-live-srv1-serve-up-q3-ling-ub1024-2-up",
+  "host": "srv1",
+  "mode": "up",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q3-ling-ub1024.yml",
+  "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '1024'\n    - --verbose\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+  "compose_up_exit": 0,
+  "units": [
+    {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 67.2,
+      "models": [
+        "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+    }
+  ],
+  "card_after": {
+    "used_mib": 4808,
+    "free_mib": 936
+  }
+}

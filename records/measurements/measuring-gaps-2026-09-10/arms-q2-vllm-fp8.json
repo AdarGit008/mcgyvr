@@ -1,0 +1,24 @@
+[
+  {
+    "host": "srv2",
+    "label": "q2-q34b-fp16",
+    "model": "thewimo/Qwen3-4B-AWQ",
+    "kv_dtype": "fp16",
+    "port": 8001,
+    "repeats": 2,
+    "units": 1,
+    "container": "mcgyvr-srv2-thewimo-Qwen3-4B-AWQ-8001",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q2-q34b-fp16.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q2-q34b-fp8",
+    "model": "thewimo/Qwen3-4B-AWQ",
+    "kv_dtype": "fp8",
+    "port": 8001,
+    "repeats": 2,
+    "units": 1,
+    "container": "mcgyvr-srv2-thewimo-Qwen3-4B-AWQ-8001",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q2-q34b-fp8.yml"
+  }
+]
