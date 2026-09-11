@@ -150,9 +150,9 @@ flag is banned: `okf/config/llama.cpp.md`. `--no-op-offload` flat-lines the
 graph splits too (80 and 106 with no `bs=512` variant).
 
 Runner `no_op_offload.py`, report `q6_report.py`, rows
-`results-arms-q6-no-op-offload.json` and `-report.json`. `q6_report.py` reads
-the deepseek geometry from the `mcgyvr-fleet-id` checkout; the path
-`c_drift_report.py` names under this checkout does not exist here.
+`results-arms-q6-no-op-offload.json` and `-report.json`. Both `q6_report.py`
+and `c_drift_report.py` read the deepseek geometry from
+`records/measurements/ram-headroom-2026-09-09/`, relative to this tree.
 
 ---
 

@@ -17,19 +17,14 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-sys.path.insert(0, "/home/adaramir/claude/mcgyvr/src")
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from mcgyvr.serving import vramfit  # noqa: E402
 
 SCR = Path(__file__).resolve().parent
 MIB = 1024 * 1024
-#: ``c_drift_report.py`` names this file under this checkout, where it is not;
-#: the one scan on disk is in the fleet-id checkout.
-GEOM_PATH = (
-    Path("/home/adaramir/claude/mcgyvr-fleet-id/records/measurements")
-    / "ram-headroom-2026-09-09"
-    / "deepseek.geometry.json"
-)
+#: The scan in this tree, so the report reruns from any clone of it.
+GEOM_PATH = SCR.parent / "ram-headroom-2026-09-09" / "deepseek.geometry.json"
 
 
 def mean(xs: list[float]) -> float | None:
