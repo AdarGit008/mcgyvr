@@ -67,10 +67,32 @@ def _vllm_entries() -> list[tuple[Path, dict[str, Any]]]:
     return found
 
 
-def test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape() -> None:
-    """ADR-0039 rules 1 and 2, over every vLLM entry in the tree."""
+#: The four entries the 2026-08-30 run launched under ``--kv-cache-dtype fp8``
+#: while pinning the fp16 size, because nothing then read the flag: each holds
+#: exactly twice the KV its shape needs at fp8. They are kept as run: these are
+#: the bytes ``records/evidence/serving-2026-08-30/vllm-srv2.json`` records each
+#: cell as started with (``claim.checks.started.serve``), and halving them here
+#: would leave the config describing a launch that run never made. So they are
+#: written down here rather than rewritten there. Closed: the check below fails
+#: if one disappears, and nothing may join it.
+PINNED_AT_FP16_AS_RUN: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("srv-vllm-n1248-srv2.json", "q15-vllm-srv2"),
+        ("srv-vllm-n1248-srv2.json", "q3-vllm-srv2"),
+        ("srv-vllm-n1248-srv2.json", "q34b-vllm-srv2"),
+        ("srv-vllm-n1248-srv2.json", "q7-vllm-srv2"),
+    }
+)
+
+
+def test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape(
+    vllm: Any,
+) -> None:
+    """ADR-0039 rules 1 and 2, over every vLLM entry in the tree, at each entry's
+    own ``--kv-cache-dtype``."""
     entries = _vllm_entries()
     assert entries, "no vLLM entry was discovered; the sweep found nothing to hold"
+    as_run: set[tuple[str, str]] = set()
     for path, entry in entries:
         where = f"{path.name}:{entry.get('label')}"
         serve = entry.get("serve") or {}
@@ -80,16 +102,27 @@ def test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape() -> None
             "srv2 (ADR-0039)"
         )
         assert "kv_cache_memory_bytes" in serve, f"{where} declares no KV cache size"
-        expected = (
-            serve["max_num_seqs"] * serve["max_model_len"] * serve["bytes_per_token"]
-        )
+        per_token = vllm.kv_bytes_per_token(serve)
+        expected = serve["max_num_seqs"] * serve["max_model_len"] * per_token
+        key = (path.name, str(entry.get("label")))
+        if key in PINNED_AT_FP16_AS_RUN:
+            as_run.add(key)
+            assert serve["kv_cache_memory_bytes"] == 2 * expected, (
+                f"{where} is listed as pinned at the fp16 size under fp8, and it "
+                "no longer is. Take it off the list rather than widening the rule"
+            )
+            continue
         assert serve["kv_cache_memory_bytes"] == expected, (
             f"{where} declares {serve['kv_cache_memory_bytes']} bytes, but its own "
             f"shape ({serve['max_num_seqs']} seqs x {serve['max_model_len']} tokens "
-            f"x {serve['bytes_per_token']} B/token) is {expected}. A declared size "
-            "that does not follow from the declaration is the config lying about "
-            "itself"
+            f"x {per_token} B/token at its cache dtype) is {expected}. A declared "
+            "size that does not follow from the declaration is the config lying "
+            "about itself"
         )
+    assert as_run == PINNED_AT_FP16_AS_RUN, (
+        f"listed as pinned at fp16 but not found in the tree: "
+        f"{sorted(PINNED_AT_FP16_AS_RUN - as_run)}"
+    )
 
 
 def test_every_declared_model_records_how_its_bytes_per_token_was_derived() -> None:

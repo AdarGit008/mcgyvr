@@ -71,14 +71,19 @@ offload or large-model cells, where weights crowd the pool.
 
 ## `--max-model-len` + `max_num_seqs` + `bytes_per_token`
 
-KV requirement is their product. The gate reads the pre-computed
+KV requirement is their product, with `bytes_per_token` read at the cache dtype
+the entry launches with. The gate reads the pre-computed
 `serve.kv_cache_memory_bytes` and returns early if absent; the product appears
 only as an inverse in `_ways_out` and as a config-time assertion.
-→ `vllm.py:1292`
+→ `vllm.py:1394`, `tests/test_serving_memory_declaration.py`
 
-**Nothing reads `--kv-cache-dtype`.** Every srv2 entry declares `fp8` while its
-`bytes_per_token` is the fp16 figure, so the gated KV is ~2x what the engine
-allocates. Conservative, but not the fp8 shape. → `vllm.py:1484`
+**`--kv-cache-dtype` is read from `serve.flags`.** `bytes_per_token` is derived
+at two bytes an element, and an fp8 element is one, so `kv_bytes_per_token`
+halves it under `fp8`/`fp8_e4m3`/`fp8_e5m2` and keeps it under
+`auto`/`float16`/`bfloat16`; any other value is refused by name before the card
+is weighed. The four srv2 entries of the 2026-08-30 run still pin the fp16 size
+under `fp8` — twice the KV their shape needs — and are kept as that run
+launched them, on a closed list. → `vllm.py:1178-1226`
 
 **The 2x is exact, and it is measured.** Paired A/B on srv2, q15, same card,
 same weights, same `max_model_len` — so weights and residue cancel:
@@ -88,10 +93,13 @@ kv=auto (fp16)   vram 11,121 MiB   KV 332,160 tok   maxconc 162.2   n=1 191.8
 kv=fp8           vram 11,709 MiB   KV 664,320 tok   maxconc 324.4   n=1 181.7
 ```
 
-664,320 / 332,160 = **2.000**, for 5.3% of single-stream throughput. So the gate
-demands twice the pool an fp8 cell needs and **will refuse cells that fit** — the
-2026-08-31 plan predicted exactly one such refusal (srv2 q34b at n=32) and the
-cell ran to n=32 without trouble. Do not derive this cross-rig: the two
+664,320 / 332,160 = **2.000**, for 5.3% of single-stream throughput. Before the
+gate read the flag it demanded twice the pool an fp8 cell needs and **refused
+cells that fit** — the 2026-08-31 plan predicted exactly one such refusal (srv2
+q34b at n=32) and the cell ran to n=32 without trouble; sized at fp8 that cell
+now fits (`tests/test_a_kv_declaration_is_sized_at_its_cache_dtype.py`).
+Confirmed on q34b by measuring-gaps Q2: 52,192 → 104,400 tokens
+(`records/measurements/measuring-gaps-2026-09-10/results-q2-vllm-fp8.json`). Do not derive this cross-rig: the two
 candidate weights+residue bases give answers 14% apart, the same trap
 `always.md` records for bits-per-weight.
 → `records/evidence/2026-09-01-prompt-realism/srv2-fp8-ab-and-lcp-smoke.tsv`

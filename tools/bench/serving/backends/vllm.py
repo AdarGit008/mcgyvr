@@ -1154,13 +1154,78 @@ def _memory_args(serve: dict[str, Any]) -> list[str]:
         raise contract.NotCleanError(
             "serve declares neither kv_cache_memory_bytes nor "
             "gpu_memory_utilization, and there is no default (ADR-0039 rule 3). "
-            "Bytes are max_num_seqs * max_model_len * bytes_per_token and are "
-            "the same on every card; a fraction is a statement about one card "
-            "and says which and why. Nothing was measured."
+            "Bytes are max_num_seqs * max_model_len * bytes_per_token at the "
+            "launch's --kv-cache-dtype and are the same on every card; a "
+            "fraction is a statement about one card and says which and why. "
+            "Nothing was measured."
         )
     if declared[0] == "kv_cache_memory_bytes":
         return ["--kv-cache-memory-bytes", str(int(serve["kv_cache_memory_bytes"]))]
     return ["--gpu-memory-utilization", str(serve["gpu_memory_utilization"])]
+
+
+#: Bytes one element of the KV cache takes under each ``--kv-cache-dtype`` this
+#: gate can size. ``auto`` is the model's own dtype, and every checkpoint in the
+#: tree resolves it to float16 or bfloat16: two bytes, the width each entry's
+#: ``bytes_per_token`` is derived at (its note: "x 2 bytes"). An fp8 element is
+#: one byte, and that is measured rather than read off the dtype's name: at one
+#: ``max_model_len`` on one card, srv2's q15 held 332,160 KV tokens under
+#: ``auto`` and 664,320 under ``fp8``
+#: (``records/evidence/2026-09-01-prompt-realism/srv2-fp8-ab-and-lcp-smoke.tsv``),
+#: and q34b 52,192 and 104,400
+#: (``records/measurements/measuring-gaps-2026-09-10/results-q2-vllm-fp8.json``),
+#: exactly 2.000x both times. A dtype missing here is refused, not defaulted.
+KV_CACHE_DTYPE_BYTES: dict[str, int] = {
+    "auto": 2,
+    "float16": 2,
+    "bfloat16": 2,
+    "fp8": 1,
+    "fp8_e4m3": 1,
+    "fp8_e5m2": 1,
+}
+
+#: The element width every ``bytes_per_token`` in the tree is derived at.
+BYTES_PER_TOKEN_ELEMENT_BYTES = 2
+
+
+def kv_cache_dtype(serve: dict[str, Any]) -> str:
+    """The ``--kv-cache-dtype`` this entry launches with, read as the launch reads it.
+
+    From ``serve["flags"]``, the list ``_start`` appends to the argv, in either
+    spelling (``--kv-cache-dtype fp8`` or ``--kv-cache-dtype=fp8``). No flag is
+    vLLM's own default, ``auto``. A flag with no value, or a value this gate has
+    no element width for, is refused by name: sized at two bytes it would
+    over-declare a narrower cache and at one it would under-declare a wider one,
+    and either is a number nobody chose.
+    """
+    flags = [str(flag) for flag in serve.get("flags") or []]
+    declared = "auto"
+    for index, flag in enumerate(flags):
+        if flag == "--kv-cache-dtype":
+            declared = flags[index + 1] if index + 1 < len(flags) else ""
+        elif flag.startswith("--kv-cache-dtype="):
+            declared = flag.partition("=")[2]
+    if declared not in KV_CACHE_DTYPE_BYTES:
+        raise contract.NotCleanError(
+            f"serve launches with --kv-cache-dtype {declared!r}, and this gate has "
+            f"no element width for it (it sizes {sorted(KV_CACHE_DTYPE_BYTES)}). "
+            "Refused rather than sized at a guessed width: a KV declaration is "
+            "bytes, and bytes at the wrong width are a cache the card was never "
+            "asked to hold. Nothing was measured."
+        )
+    return declared
+
+
+def kv_bytes_per_token(serve: dict[str, Any]) -> int:
+    """``bytes_per_token`` at the element width this entry's cache launches with.
+
+    ADR-0039's rule is ``max_num_seqs x max_model_len x bytes_per_token``, and
+    ``bytes_per_token`` is derived at :data:`BYTES_PER_TOKEN_ELEMENT_BYTES` an
+    element. Read at that width for an fp8 cache, the rule declared twice the
+    KV the engine needs and the gate refused cells that fit.
+    """
+    width = KV_CACHE_DTYPE_BYTES[kv_cache_dtype(serve)]
+    return int(serve["bytes_per_token"]) * width // BYTES_PER_TOKEN_ELEMENT_BYTES
 
 
 #: One vLLM allocation block. All three refusals of 2026-08-23 died on the same
@@ -1367,6 +1432,9 @@ def declaration_fits(
     kv_bytes = serve.get("kv_cache_memory_bytes")
     if kv_bytes is None:
         return
+    # Before anything is weighed: a cache dtype this gate has no width for is
+    # refused by name, and the ways out below count tokens at the one it has.
+    kv_cache_dtype(serve)
     if free_mib is None:
         raise contract.NotCleanError(
             f"{model} on {host}: the card did not answer how much memory is "
@@ -1463,8 +1531,11 @@ def _ways_out(serve: dict[str, Any], budget_mib: int) -> str:
     ``max_num_seqs`` and ``max_model_len`` enter the requirement as a product,
     so either one alone can be brought under the budget and both land on the
     same number of KV tokens. They are named together and neither is applied.
+    Tokens are counted at the cache dtype the entry launches with
+    (:func:`kv_bytes_per_token`): at the fp16 width an fp8 budget reads as half
+    the batch and half the window it can hold.
     """
-    per_token = serve.get("bytes_per_token")
+    per_token = serve.get("bytes_per_token") and kv_bytes_per_token(serve)
     seqs = serve.get("max_num_seqs")
     length = serve.get("max_model_len")
     if budget_mib <= 0:
