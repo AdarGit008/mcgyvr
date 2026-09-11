@@ -86,16 +86,16 @@ def served_model() -> str:
 
 def bench(model: str, out_dir: str) -> None:
     tunnel = subprocess.Popen(["ssh", "-o", "BatchMode=yes", "-o", "ExitOnForwardFailure=yes",
-                               "-N", "-L", f"18002:127.0.0.1:{PORT}", HOST])
+                               "-N", "-L", f"18004:127.0.0.1:{PORT}", HOST])
     try:
         for _ in range(100):
-            code, _ = rig.http_get("127.0.0.1", 18002, "/v1/models", timeout=2)
+            code, _ = rig.http_get("127.0.0.1", 18004, "/v1/models", timeout=2)
             if code == "200":
                 break
             time.sleep(0.3)
         else:
             raise SystemExit("port-forward to srv1 never answered")
-        cmd = [str(rig.PY), "tools/breadth/measure.py", "--endpoint", "http://127.0.0.1:18002",
+        cmd = [str(rig.PY), "tools/breadth/measure.py", "--endpoint", "http://127.0.0.1:18004",
                "--protocol", "openai", "--model", model, "--tier", "bench-py",
                "--draws", "0", "--out", out_dir]
         with open(LOGS / f"{Path(out_dir).name}.log", "a") as log:
@@ -117,6 +117,10 @@ def done() -> set[str]:
 def arm(ctype: str) -> dict:
     label = f"r4-qwen36-{ctype}"
     compose = make_compose(ctype)
+    # both dtypes share the container name, so point last-up at this compose so
+    # teardown can identify any orphaned container left by a mid-arm crash
+    rig.LOGS.mkdir(exist_ok=True)
+    (rig.LOGS / f"last-up-{HOST}.txt").write_text(str(compose))
     rig.teardown(HOST)
     idle = arms._idle(HOST)
     up = arms.start(HOST, compose, label)
