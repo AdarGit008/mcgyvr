@@ -30,16 +30,15 @@ from pathlib import Path
 
 import yaml
 
+# Re-exported, not merely used: the door polls by these, and a caller checking
+# a wake budget against the door reads them off the door.
+from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
+from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
 from mcgyvr.serving.gatelib import ssh
 
 #: The compose project every live unit is filed under on a rig. One name, so
 #: ``down`` finds exactly what ``up`` started and nothing a campaign left.
 PROJECT = "mcgyvr"
-#: How long a unit may take to answer ``/v1/models`` after ``up``: a vLLM
-#: server measured 87 s to health on srv2 and llama.cpp 54-129 s on srv1
-#: (2026-09-05), so six minutes is three of the slowest with room.
-HEALTH_POLLS = 120
-HEALTH_INTERVAL_S = 3.0
 
 
 class ComposeError(Exception):

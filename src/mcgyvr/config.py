@@ -576,6 +576,15 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
 # contract declares, which is why it has to be declarable beside them.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
+# How long `serve up` polls a unit into health after bringing it up: a vLLM
+# server measured 87 s to health on srv2 and llama.cpp 54-129 s on srv1
+# (2026-09-05), so six minutes is three of the slowest with room. The door
+# (`mcgyvr.serving.servelib`) polls by these and `wake_timeout_s` is refused
+# below their product, so both read them from here: `config` is the one module
+# both halves of the seam may import, and the door is not.
+HEALTH_POLLS = 120
+HEALTH_INTERVAL_S = 3.0
+
 # How long a dispatch waits for a *server to exist* before giving up on a wake.
 #
 # N7 in `records/plans/sleep-wake.md` §16, and the one row on that list a
@@ -653,7 +662,7 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "setting reply length and boot time with the same number — raise it to "
         "survive a two-minute boot and every hung request hangs for two "
         "minutes too. It may not be set below the door's own health budget "
-        "(`HEALTH_POLLS` x `HEALTH_INTERVAL_S`, `mcgyvr/serving/servelib.py`): "
+        "(`HEALTH_POLLS` x `HEALTH_INTERVAL_S`, `mcgyvr/config.py`): "
         "a caller that gives up while `serve up` is still polling abandons a "
         "wake the door is still working on and leaves a card half-up, which is "
         "the one lifecycle state `mcgyvr.wake` cannot name. The default of "
@@ -1486,14 +1495,14 @@ def _refuse_userinfo(name: str, base_url: str) -> None:
 def door_health_budget_s() -> float:
     """The seconds ``serve up`` will itself spend polling a unit into health.
 
-    Read off the door rather than restated here, because the whole point of the
-    refusal below is that the two numbers must not be able to drift apart. The
-    import is local: :mod:`mcgyvr.serving.servelib` reaches a rig through
-    :mod:`mcgyvr.serving.gatelib`, and a config module that imported it at load
-    would put the door's dependencies behind ``mcgyvr --help``.
+    The door polls by :data:`HEALTH_POLLS` and :data:`HEALTH_INTERVAL_S`, which
+    :mod:`mcgyvr.serving.servelib` imports from this module, so the refusal
+    below and the door read one pair of numbers and cannot drift apart. They
+    are not read off the door: ``config`` is shared by both halves of the seam,
+    and a shared module that imported :mod:`mcgyvr.serving.servelib` would pull
+    the door into everything that reads a config
+    (``tests/test_the_seam_holds.py``).
     """
-    from mcgyvr.serving.servelib import HEALTH_INTERVAL_S, HEALTH_POLLS
-
     return HEALTH_POLLS * HEALTH_INTERVAL_S
 
 

@@ -88,8 +88,10 @@ RED_PORT = Path(__file__).resolve().parent / "red_port"
 #: (availability, capacity, cooldown), a sandbox to run a command in
 #: (sandbox.*), the docker probe that decides which sandbox mode is available
 #: (detect), what the hardware measures and what that is worth running
-#: (scan, capability, propose, initialize), and a serving unit to write out
-#: and launch (emit, serving.*).
+#: (scan, capability, propose, initialize), a serving unit to write out and
+#: launch (emit, serving.*), whether a card that is down is asleep and how it
+#: is woken (wake), and how a served model id is read against the name a
+#: config declares (weights).
 BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.availability",
     "mcgyvr.capability",
@@ -114,6 +116,8 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.run",
     "mcgyvr.serving.servelib",
     "mcgyvr.serving.vramfit",
+    "mcgyvr.wake",
+    "mcgyvr.weights",
 )
 
 #: ``mcgyvr.pool``'s other half — a caller that sees a ladder of rungs and has
