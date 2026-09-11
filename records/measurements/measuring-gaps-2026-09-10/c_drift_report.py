@@ -22,18 +22,15 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/home/adaramir/claude/mcgyvr/src")
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from mcgyvr.serving import vramfit  # noqa: E402
 
 SCR = Path(__file__).resolve().parent
 MIB = 1024 * 1024
 
-GEOM_PATH = (
-    Path("/home/adaramir/claude/mcgyvr/records/measurements")
-    / "ram-headroom-2026-09-09"
-    / "deepseek.geometry.json"
-)
+#: The scan in this tree, so the report reruns from any clone of it.
+GEOM_PATH = SCR.parent / "ram-headroom-2026-09-09" / "deepseek.geometry.json"
 SPAN_BLOCKS = 26  # deepseek placeable_blocks = [1..26]; ncmoe 0 -> 26 moves 25 of 26
 
 
