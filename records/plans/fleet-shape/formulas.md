@@ -562,7 +562,7 @@ the constant:
 | `k` shortfall penalty | host | wakes at known clearance | FIT, n=3, over-predicts KAT by 27% |
 | `T0(u)` | unit | every cold wake | replaces the fit once n≥3 per unit |
 | `V_resid(u)` | unit | `nvidia-smi --query-compute-apps` after a sleep | MEASURED n=1 |
-| `V_need(u)` / `C(m,cfg)` | (model, serve config) | `constant_from_probe` on any launch — **C does not move with `--n-cpu-moe`**, so one probe fixes every placement | MEASURED law |
+| `V_need(u)` / `C(m,cfg)` | (model, serve config) | `constant_from_probe` on a launch with at least one expert block on the host — **C steps once, when the first expert leaves the card** (llama.cpp's op-offload copy: deepseek's CUDA0 compute buffer 76.13 MiB at `--n-cpu-moe 0`, 151.51 at 13 and 26), so one offloading probe fixes the offloading placements and a probe at 0 under-states them | MEASURED law on the offloaded side; the step MEASURED 2026-09-10 (`records/measurements/measuring-gaps-2026-09-10/README.md` Q4, Q6); Qwen3.6's +38 MiB at 40 unattributed (`flexibility-2026-09-09` Q11) |
 | `Λ(r, w)` | (rung, width) | completed dispatches: tokens / wall clock | MEASURED 2026-09-06 |
 | `output_tokens(r)` | rung | journalled reply lengths (p90/p95 vs the cap) | MEASURED, 82 replies |
 | the cliff location | host | any wake whose `pgmajfault` jumps an order of magnitude | **UNMEASURED** — this is the loop's most valuable output |
