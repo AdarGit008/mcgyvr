@@ -1,0 +1,127 @@
+{
+  "geometry": "/home/adaramir/claude/mcgyvr-fleet-id/records/measurements/ram-headroom-2026-09-09/deepseek.geometry.json",
+  "C_probe_n0_mib": 3028.0,
+  "failed": [],
+  "groups": [
+    {
+      "ncmoe": 0,
+      "op_offload": true,
+      "n": 2,
+      "compute_buffer_mib": [
+        76.13
+      ],
+      "graph_splits": [
+        "56"
+      ],
+      "steady_net_mib": [
+        10750
+      ],
+      "after_work_net_mib": [
+        10770
+      ],
+      "C_mib": 3028.0,
+      "C_drift_vs_n0_mib": 0.0,
+      "prefill_tok_s": 440.541799675367,
+      "prefill_prompt_n": [
+        2888
+      ],
+      "decode_tok_s": 66.35963196906131
+    },
+    {
+      "ncmoe": 13,
+      "op_offload": false,
+      "n": 2,
+      "compute_buffer_mib": [
+        76.13
+      ],
+      "graph_splits": [
+        "80"
+      ],
+      "steady_net_mib": [
+        7186
+      ],
+      "after_work_net_mib": [
+        7206
+      ],
+      "C_mib": 3028.0,
+      "C_drift_vs_n0_mib": 0.0,
+      "prefill_tok_s": 168.85402939186838,
+      "prefill_prompt_n": [
+        2888
+      ],
+      "decode_tok_s": 34.24540583188673
+    },
+    {
+      "ncmoe": 13,
+      "op_offload": true,
+      "n": 2,
+      "compute_buffer_mib": [
+        151.51
+      ],
+      "graph_splits": [
+        "92 (with bs=512), 80 (with bs=1)"
+      ],
+      "steady_net_mib": [
+        7260
+      ],
+      "after_work_net_mib": [
+        7284
+      ],
+      "C_mib": 3102.0,
+      "C_drift_vs_n0_mib": 74.0,
+      "prefill_tok_s": 327.58564563266987,
+      "prefill_prompt_n": [
+        2888
+      ],
+      "decode_tok_s": 33.86514190884987
+    },
+    {
+      "ncmoe": 26,
+      "op_offload": false,
+      "n": 2,
+      "compute_buffer_mib": [
+        76.13
+      ],
+      "graph_splits": [
+        "106"
+      ],
+      "steady_net_mib": [
+        3324
+      ],
+      "after_work_net_mib": [
+        3344
+      ],
+      "C_mib": 3027.0,
+      "C_drift_vs_n0_mib": -1.0,
+      "prefill_tok_s": 96.54098949419762,
+      "prefill_prompt_n": [
+        2888
+      ],
+      "decode_tok_s": 22.514654143480378
+    },
+    {
+      "ncmoe": 26,
+      "op_offload": true,
+      "n": 2,
+      "compute_buffer_mib": [
+        151.51
+      ],
+      "graph_splits": [
+        "131 (with bs=512), 106 (with bs=1)"
+      ],
+      "steady_net_mib": [
+        3398
+      ],
+      "after_work_net_mib": [
+        3424
+      ],
+      "C_mib": 3101.0,
+      "C_drift_vs_n0_mib": 73.0,
+      "prefill_tok_s": 252.02188511324957,
+      "prefill_prompt_n": [
+        2888
+      ],
+      "decode_tok_s": 22.174619076102612
+    }
+  ]
+}

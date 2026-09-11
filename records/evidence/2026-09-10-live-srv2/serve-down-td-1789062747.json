@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-10-live-srv2-serve-down-td-1789062561",
+  "host": "srv2",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n26.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv2-deepseek-coder-v2-16b-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 11911
+  }
+}

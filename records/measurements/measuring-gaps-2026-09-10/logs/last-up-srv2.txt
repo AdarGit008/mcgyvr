@@ -1,1 +1,1 @@
-/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n26.yml
+/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q6-deepseek-n26-noop.yml

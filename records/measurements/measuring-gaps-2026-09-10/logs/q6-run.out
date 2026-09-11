@@ -1,0 +1,12 @@
+[20:30:59] q6-deepseek-n0-op-1 done
+[20:33:32] q6-deepseek-n0-op-2 done
+[20:36:30] q6-deepseek-n13-op-1 done
+[20:39:20] q6-deepseek-n13-op-2 done
+[20:42:45] q6-deepseek-n13-noop-1 done
+[20:46:11] q6-deepseek-n13-noop-2 done
+[20:49:20] q6-deepseek-n26-op-1 done
+[20:52:26] q6-deepseek-n26-op-2 done
+[20:56:46] q6-deepseek-n26-noop-1 done
+[21:01:07] q6-deepseek-n26-noop-2 done
+srv2: 0 containers running after teardown
+wrote /home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/results-arms-q6-no-op-offload.json
