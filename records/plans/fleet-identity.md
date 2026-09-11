@@ -450,15 +450,16 @@ round.
   now read idle and btime-stamped (`results-reserve.json`): srv1 401 MiB on
   2026-09-01T08:11:08Z and 399 MiB on 2026-09-11T06:34:36Z — a 2 MiB move across
   a reboot with every other declared key identical — and srv2 377 MiB on both
-  boots. The reserve therefore does not name the rig; #439's GREEN drops it from
-  the identity and from gate 2's literal comparison.
+  boots. The reserve therefore does not name the rig; the fix on
+  `red/card-reserve-bound` (#439) drops it from the identity and from gate 2's
+  literal comparison.
 - **Snapshot gaps.** The rig snapshot reads no kernel, swap, swappiness or
   MemTotal (`src/mcgyvr/serving/gate-scripts/rig-snapshot.sh:185-197`), and
   `rig-` needs them (P2).
 - **Tolerance values** are now measured in `tolerances.json` (warm decode:
-  vLLM 1%, llama.cpp 1%, CPU experts 48% — the 48% is one sample and needs an
-  owner ruling) and `wake.json` (cold-wake clocks). The prefill tolerance stays
-  open (below).
+  vLLM 1%, llama.cpp 1%, CPU experts 48% — the 48% rests on one unit and one
+  outlier baseline sample, and needs an owner ruling) and `wake.json` (cold-wake
+  clocks). The prefill tolerance stays open (below).
 - **Offline matching at gate 1.** Gate 1 reaches no daemon. Which launch fields
   it matches against the lock offline is open; the image Id is the daemon's, and
   gate 3 reads the daemon.
