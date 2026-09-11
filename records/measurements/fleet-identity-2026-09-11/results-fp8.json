@@ -1,0 +1,218 @@
+[
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-alone-1",
+  "start": 1,
+  "kv_cache_dtype": "auto",
+  "gpu_cc": "8.6",
+  "restart_count": 0,
+  "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+  "attention_backend": "FLASH_ATTN",
+  "card_used_mib": 7795,
+  "kv_tokens": 37248,
+  "samples": [
+   {
+    "tok_s": 68.91749695297678,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.9381527522955,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.8625240589625,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.85810838216065,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.90689401044337,
+    "completion_tokens": 256
+   }
+  ],
+  "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-alone-2",
+  "start": 2,
+  "kv_cache_dtype": "auto",
+  "gpu_cc": "8.6",
+  "restart_count": 0,
+  "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+  "attention_backend": "FLASH_ATTN",
+  "card_used_mib": 7795,
+  "kv_tokens": 37248,
+  "samples": [
+   {
+    "tok_s": 68.83333612215556,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.816931545927,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.5942265146882,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.80303540744737,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.81384991719543,
+    "completion_tokens": 256
+   }
+  ],
+  "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-alone-3",
+  "start": 3,
+  "kv_cache_dtype": "auto",
+  "gpu_cc": "8.6",
+  "restart_count": 0,
+  "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+  "attention_backend": "FLASH_ATTN",
+  "card_used_mib": 7795,
+  "kv_tokens": 37248,
+  "samples": [
+   {
+    "tok_s": 68.83884297440873,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.77468062187296,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.83655240671372,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.8841140518251,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.64263881001095,
+    "completion_tokens": 256
+   }
+  ],
+  "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-fp8-1",
+  "start": 1,
+  "kv_cache_dtype": "fp8",
+  "gpu_cc": "8.6",
+  "restart_count": 0,
+  "backend_line": "Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+  "attention_backend": "FLASHINFER",
+  "card_used_mib": 8245,
+  "kv_tokens": 74512,
+  "samples": [
+   {
+    "tok_s": 67.54311057727375,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.44046586144415,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.45055422405227,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.40636131481627,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.41721288256386,
+    "completion_tokens": 256
+   }
+  ],
+  "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-fp8-2",
+  "start": 2,
+  "kv_cache_dtype": "fp8",
+  "gpu_cc": "8.6",
+  "restart_count": 0,
+  "backend_line": "Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+  "attention_backend": "FLASHINFER",
+  "card_used_mib": 8245,
+  "kv_tokens": 74512,
+  "samples": [
+   {
+    "tok_s": 67.38835389442646,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.44879747511175,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.42879060631014,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.59730783166762,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.38319127735465,
+    "completion_tokens": 256
+   }
+  ],
+  "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-fp8-3",
+  "start": 3,
+  "kv_cache_dtype": "fp8",
+  "gpu_cc": "8.6",
+  "restart_count": 0,
+  "backend_line": "Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+  "attention_backend": "FLASHINFER",
+  "card_used_mib": 8245,
+  "kv_tokens": 74512,
+  "samples": [
+   {
+    "tok_s": 67.31328520809863,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.34858905779826,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.34120223921744,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.45611432076666,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 67.43708106693018,
+    "completion_tokens": 256
+   }
+  ],
+  "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup"
+ }
+]

@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-11-live-srv2-serve-down-td-891076687-1789107668",
+  "host": "srv2",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-fp8.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 11911
+  }
+}

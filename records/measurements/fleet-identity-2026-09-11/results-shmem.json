@@ -1,0 +1,122 @@
+[
+ {
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "rig": "srv1",
+  "n_cpu_moe": 30,
+  "label": "s1-qwen36-baseline-1",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.007328033447265625,
+  "shmem_up_gib": 8.101055145263672,
+  "spilled_experts_gib": 7.67578125,
+  "residual_gib": 0.41794586181640625
+ },
+ {
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "rig": "srv1",
+  "n_cpu_moe": 30,
+  "label": "s1-qwen36-baseline-2",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.007328033447265625,
+  "shmem_up_gib": 8.101055145263672,
+  "spilled_experts_gib": 7.67578125,
+  "residual_gib": 0.41794586181640625
+ },
+ {
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "rig": "srv1",
+  "n_cpu_moe": 30,
+  "label": "s1-qwen36-baseline-3",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.00731658935546875,
+  "shmem_up_gib": 8.101055145263672,
+  "spilled_experts_gib": 7.67578125,
+  "residual_gib": 0.4179573059082031
+ },
+ {
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "rig": "srv1",
+  "n_cpu_moe": 32,
+  "label": "s1-qwen36-unmapped-n32-1",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.007328033447265625,
+  "shmem_up_gib": 8.612773895263672,
+  "spilled_experts_gib": 8.1875,
+  "residual_gib": 0.41794586181640625
+ },
+ {
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "rig": "srv1",
+  "n_cpu_moe": 32,
+  "label": "s1-qwen36-unmapped-n32-2",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.007328033447265625,
+  "shmem_up_gib": 8.612773895263672,
+  "spilled_experts_gib": 8.1875,
+  "residual_gib": 0.41794586181640625
+ },
+ {
+  "model": "Ling-3.0-tiny-Q4_K_M",
+  "rig": "srv1",
+  "n_cpu_moe": 0,
+  "label": "s1-ling-baseline-1",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.007312774658203125,
+  "shmem_up_gib": 0.15735626220703125,
+  "spilled_experts_gib": 0.0,
+  "residual_gib": 0.15004348754882812
+ },
+ {
+  "model": "Ling-3.0-tiny-Q4_K_M",
+  "rig": "srv1",
+  "n_cpu_moe": 0,
+  "label": "s1-ling-baseline-2",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.00731658935546875,
+  "shmem_up_gib": 0.15735626220703125,
+  "spilled_experts_gib": 0.0,
+  "residual_gib": 0.1500396728515625
+ },
+ {
+  "model": "Ling-3.0-tiny-Q4_K_M",
+  "rig": "srv1",
+  "n_cpu_moe": 0,
+  "label": "s1-ling-baseline-3",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.00732421875,
+  "shmem_up_gib": 0.15735626220703125,
+  "spilled_experts_gib": 0.0,
+  "residual_gib": 0.15003204345703125
+ },
+ {
+  "model": "Ling-3.0-tiny-Q4_K_M",
+  "rig": "srv1",
+  "n_cpu_moe": 4,
+  "label": "s1-ling-unmapped-n4-1",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.00732421875,
+  "shmem_up_gib": 0.6803054809570312,
+  "spilled_experts_gib": 0.52294921875,
+  "residual_gib": 0.15003204345703125
+ },
+ {
+  "model": "Ling-3.0-tiny-Q4_K_M",
+  "rig": "srv1",
+  "n_cpu_moe": 4,
+  "label": "s1-ling-unmapped-n4-2",
+  "load_mode": "none",
+  "swap_total_mib": 0,
+  "shmem_idle_gib": 0.00732421875,
+  "shmem_up_gib": 0.6803054809570312,
+  "spilled_experts_gib": 0.52294921875,
+  "residual_gib": 0.15003204345703125
+ }
+]

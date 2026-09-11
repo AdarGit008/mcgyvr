@@ -1,0 +1,18 @@
+```python
+def stamp_table(dies:          table = {}
+    for fragment,        if not isinstance(fragment, str) or not fragment:
+            raise ValueError("a die fragment must be a non-empty string")
+        if isinstance(price):
+            raise ValueError("a label price must be a positive integer")
+        if fragment in table:
+            raise ValueError("die listed twice: " + fragment)
+        table[fragment]):
+    return table)
+
+
+    
+def stamp_cover(label,    # TODO: validate the label label list the table with stamp_table and):
+    # find the cheapest sequence of die presses spelling the label
+    # exactly): reject a label no sequence can spell.
+    raise NotImplementedError
+``````

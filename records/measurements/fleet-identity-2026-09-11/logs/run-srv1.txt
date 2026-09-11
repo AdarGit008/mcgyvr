@@ -1,0 +1,74 @@
+
+=== s1-qwen36-as-run-1  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=as_run swap=on
+    ARM FAILED: s1-qwen36-as-run-1: door up rc=2
+RUNNER srv1 exit=0
+
+=== s1-qwen36-as-run-1  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=as_run swap=on
+
+=== s1-qwen36-as-run-1  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=as_run swap=on
+    wake {'door_process_s': 155.11338110797806, 'door_unit_s': 134.3, 'started_at_to_ready_s': 130.9048080444336}  decode [33.22, 33.25, 33.15, 33.14, 33.13]  shmem 0.029 GiB  restarts 0
+RUNNER srv1 exit=0
+
+=== s1-qwen36-as-run-2  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=as_run swap=on
+    wake {'door_process_s': 151.98491027503042, 'door_unit_s': 132.3, 'started_at_to_ready_s': 130.4431688785553}  decode [31.69, 31.83, 31.76, 31.76, 31.71]  shmem 0.029 GiB  restarts 0
+
+=== s1-qwen36-as-run-3  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=as_run swap=on
+    wake {'door_process_s': 154.19343596301042, 'door_unit_s': 132.9, 'started_at_to_ready_s': 130.47438383102417}  decode [31.38, 31.4, 31.35, 31.3, 31.31]  shmem 0.029 GiB  restarts 0
+
+=== s1-qwen36-baseline-1  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=baseline swap=off
+    wake {'door_process_s': 147.07897976099048, 'door_unit_s': 127.2, 'started_at_to_ready_s': 125.17062020301819}  decode [32.88, 33.22, 33.13, 33.14, 17.28]  shmem 8.094 GiB  restarts 0
+
+=== s1-qwen36-baseline-2  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=baseline swap=off
+    wake {'door_process_s': 147.29089143598685, 'door_unit_s': 127.5, 'started_at_to_ready_s': 123.94000816345215}  decode [33.17, 32.8, 33.05, 33.09, 33.09]  shmem 8.094 GiB  restarts 0
+
+=== s1-qwen36-baseline-3  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=baseline swap=off
+    wake {'door_process_s': 145.94449206098216, 'door_unit_s': 126.4, 'started_at_to_ready_s': 124.27346205711365}  decode [33.27, 32.9, 33.19, 33.16, 33.16]  shmem 8.094 GiB  restarts 0
+
+=== s1-qwen36-unmapped-n32-1  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=shmem swap=off
+    wake {'door_process_s': 149.42975912702968, 'door_unit_s': 129.8, 'started_at_to_ready_s': 126.39567351341248}  decode [31.8, 32.49, 32.41, 32.4, 22.43]  shmem 8.605 GiB  restarts 0
+
+=== s1-qwen36-unmapped-n32-2  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=shmem swap=off
+    wake {'door_process_s': 144.7274485550006, 'door_unit_s': 125.2, 'started_at_to_ready_s': 124.3613109588623}  decode [31.79, 32.44, 32.38, 32.4, 23.71]  shmem 8.605 GiB  restarts 0
+
+=== s1-ling-as-run-1  Ling-3.0-tiny-Q4_K_M  arm=as_run swap=on
+    wake {'door_process_s': 83.50706840201747, 'door_unit_s': 64.1, 'started_at_to_ready_s': 63.508522510528564}  decode [116.68, 116.69, 116.63, 116.66, 116.64]  shmem 0.024 GiB  restarts 0
+
+=== s1-ling-as-run-2  Ling-3.0-tiny-Q4_K_M  arm=as_run swap=on
+    wake {'door_process_s': 83.42376381100621, 'door_unit_s': 63.8, 'started_at_to_ready_s': 63.73439359664917}  decode [116.66, 116.68, 116.3, 116.05, 116.06]  shmem 0.024 GiB  restarts 0
+
+=== s1-ling-as-run-3  Ling-3.0-tiny-Q4_K_M  arm=as_run swap=on
+    wake {'door_process_s': 82.94967594696209, 'door_unit_s': 63.6, 'started_at_to_ready_s': 63.20320177078247}  decode [116.64, 116.65, 116.48, 116.38, 116.05]  shmem 0.024 GiB  restarts 0
+
+=== s1-ling-baseline-1  Ling-3.0-tiny-Q4_K_M  arm=baseline swap=off
+    wake {'door_process_s': 88.0823557790136, 'door_unit_s': 68.7, 'started_at_to_ready_s': 65.09130835533142}  decode [116.66, 116.67, 116.65, 116.38, 116.05]  shmem 0.150 GiB  restarts 0
+
+=== s1-ling-baseline-2  Ling-3.0-tiny-Q4_K_M  arm=baseline swap=off
+    wake {'door_process_s': 88.35284915100783, 'door_unit_s': 68.2, 'started_at_to_ready_s': 65.09074306488037}  decode [116.67, 116.67, 116.65, 116.44, 116.08]  shmem 0.150 GiB  restarts 0
+
+=== s1-ling-baseline-3  Ling-3.0-tiny-Q4_K_M  arm=baseline swap=off
+    wake {'door_process_s': 89.2704425980337, 'door_unit_s': 67.5, 'started_at_to_ready_s': 64.46098446846008}  decode [116.71, 116.72, 116.68, 116.65, 116.07]  shmem 0.150 GiB  restarts 0
+
+=== s1-ling-unmapped-n4-1  Ling-3.0-tiny-Q4_K_M  arm=shmem swap=off
+    wake {'door_process_s': 88.83098736498505, 'door_unit_s': 66.6, 'started_at_to_ready_s': 64.95686197280884}  decode [106.3, 106.2, 104.41, 104.44, 104.5]  shmem 0.673 GiB  restarts 0
+
+=== s1-ling-unmapped-n4-2  Ling-3.0-tiny-Q4_K_M  arm=shmem swap=off
+    wake {'door_process_s': 88.71299646201078, 'door_unit_s': 68.3, 'started_at_to_ready_s': 64.2378900051117}  decode [105.97, 103.95, 104.02, 104.09, 104.03]  shmem 0.673 GiB  restarts 0
+
+=== s1-3b-vllm-1  compose.srv1-3b-vllm.yml  arm=host_ram swap=on
+    mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 122.67774840496713, 'door_unit_s': 103.7, 'started_at_to_ready_s': 101.76560115814209} kv 22608 restarts 0 decode [22.9, 22.9, 22.8, 22.7, 22.7] backend Using TRITON_ATTN attention backend out 
+    RAM cost 2.506 GiB, card 3112 MiB
+
+=== s1-3b-vllm-2  compose.srv1-3b-vllm.yml  arm=host_ram swap=on
+    mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 123.09451664198423, 'door_unit_s': 103.9, 'started_at_to_ready_s': 101.80885291099548} kv 22608 restarts 0 decode [22.9, 22.9, 22.9, 22.9, 22.7] backend Using TRITON_ATTN attention backend out 
+    RAM cost 2.506 GiB, card 3112 MiB
+
+=== s1-3b-vllm-3  compose.srv1-3b-vllm.yml  arm=host_ram swap=on
+    mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 123.21223879099125, 'door_unit_s': 104.3, 'started_at_to_ready_s': 102.2986671924591} kv 22608 restarts 0 decode [22.9, 22.9, 22.9, 22.9, 22.7] backend Using TRITON_ATTN attention backend out 
+    RAM cost 2.484 GiB, card 3112 MiB
+
+=== s1-qwen36-verbose-1  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=context swap=on
+    wake {'door_process_s': 155.9143989009899, 'door_unit_s': 135.3, 'started_at_to_ready_s': 132.12170910835266}  decode [31.48, 30.78, 31.48, 31.2, 30.82]  shmem 0.028 GiB  restarts 0
+
+=== s1-qwen36-verbose-2  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=context swap=on
+    wake {'door_process_s': 153.78258602198912, 'door_unit_s': 134.4, 'started_at_to_ready_s': 131.61266207695007}  decode [30.88, 31.33, 30.59, 30.66, 30.87]  shmem 0.029 GiB  restarts 0
+RUNNER srv1 exit=0

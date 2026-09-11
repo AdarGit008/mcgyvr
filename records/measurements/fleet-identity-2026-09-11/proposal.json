@@ -1,0 +1,30 @@
+{
+ "rule": "records/plans/fleet-identity-measurements-2026-09-11.md M7 sizing rule",
+ "torch_total_bytes": 12489588736,
+ "contexts_bytes": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 122431734,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 122431734
+ },
+ "non_kv_peak_bytes": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 2431637258,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 6485825290
+ },
+ "tokens_per_unit": 32768,
+ "kv_cache_memory_bytes": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 1207959552,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 1879048192
+ },
+ "shares": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 0.3,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 0.68
+ },
+ "rooms_bytes": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 3746876621,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 8492920341
+ },
+ "margin_bytes": 67108864,
+ "today_shares": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 0.26,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 0.72
+ }
+}

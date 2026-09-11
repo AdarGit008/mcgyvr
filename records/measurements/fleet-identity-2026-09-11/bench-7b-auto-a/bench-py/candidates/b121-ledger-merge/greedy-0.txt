@@ -1,0 +1,33 @@
+```python
+from typing import List, Tuple
+
+def merge_ledgers(base: List[Tuple[str, int]], ours: List[Tuple[str, int]], theirs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    if not all(isinstance(l, list) for l in [base, ours, theirs]):
+        raise ValueError("All inputs must be lists.")
+    
+    def validate_entry(entry: Tuple[str, int]) -> bool:
+        return isinstance(entry, tuple) and len(entry) == 2 and isinstance(entry[0], str) and entry[0] and isinstance(entry[1], int)
+    
+    if not all(validate_entry(e) for e in base + ours + theirs):
+        raise ValueError("Each entry must be a [str, int] pair.")
+    
+    base_set = set(account for account, _ in base)
+    our_set = set(account for account, _ in ours)
+    their_set = set(account for account, _ in theirs)
+    
+    merged = {}
+    
+    for account in base_set.union(our_set).union(their_set):
+        base_value = next((cents for account_, cents in base if account_ == account), 0)
+        our_value = next((cents for account_, cents in ours if account_ == account), 0)
+        their_value = next((cents for account_, cents in theirs if account_ == account), 0)
+        
+        if account in base_set and account in our_set and account in their_set:
+            merged[account] = base_value + our_value + their_value
+        elif account in our_set and account not in their_set:
+            merged[account] = our_value
+        elif account in their_set and account not in our_set:
+            merged[account] = their_value
+    
+    return sorted([(account, merged[account]) for account in merged])
+```

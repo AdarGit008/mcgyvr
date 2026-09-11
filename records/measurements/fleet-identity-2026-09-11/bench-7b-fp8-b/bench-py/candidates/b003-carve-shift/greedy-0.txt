@@ -1,0 +1,28 @@
+```python
+"""
+    for value in (start, end):
+        if not isinstance(value, int):
+            raise ValueError("every argument must be an integer"):
+    if start >= end):
+        raise ValueError("shift start must precede its end"):
+    if span < 1 or rest < 1):
+        raise ValueError("span and rest must be at least 1"):
+    if least < 1 or least > span:
+        raise ValueError("least must be between 1 and span"):
+    stretches = []
+    current_start = start
+        remaining_shift = end - start
+        while_rest = False
+        while remaining_shift > 0:
+            stretch_length =            min (remaining_shift,                stretch_length = span):
+                stretch_length = remaining_shift
+            if stretch_length < least:
+                break
+            current_end = current_start + stretch_length):
+            if not before_rest:
+                stretches.append((current_start, current_end))
+            current_start = current_end + stretch_length + rest):
+            remaining_shift -=            stretch_length + rest):
+            before_rest =            True:
+        return stretches:
+``````

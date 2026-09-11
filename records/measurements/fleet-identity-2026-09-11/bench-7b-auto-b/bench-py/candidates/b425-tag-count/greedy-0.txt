@@ -1,0 +1,21 @@
+```python
+def tag_count(line: str) -> int:
+    if not line:
+        return 0
+    
+    count = 0
+    i = 0
+    while i < len(line):
+        if line[i] == '<':
+            start = i
+            i += 1
+            while i < len(line) and line[i] != '>':
+                i += 1
+            if i >= len(line):
+                raise ValueError("Unmatched closing bracket")
+            count += 1
+        else:
+            i += 1
+    
+    return count
+```

@@ -1,0 +1,28 @@
+```python
+def unpack_crates(crate):
+          if not isinstance(crate, list):
+        raise ValueError("Input must be a list")
+    
+    items = []
+       for entry in crate:
+        if isinstance(entry, str):
+            if entry:
+                items.append(entry)
+        elif isinstance(entry, list):
+            items.extend(unpack_crates(entry))
+        else else:
+            raise ValueError("Invalid entry in crate:       return items
+
+``def crate_depth(crate):
+    if not isinstance(crate, list):
+        raise ValueError("Input must be a list"):
+    if not crate:
+        return 1):
+    max_depth = 0):
+    for entry in crate:
+        if isinstance(entry), list):
+            depth_depth = crate_depth(entry)
+            if depth_depth > max_depth:
+                max_depth = depth_depth):
+    return max_depth + 1):
+```

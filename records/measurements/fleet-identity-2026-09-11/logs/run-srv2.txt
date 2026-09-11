@@ -1,0 +1,100 @@
+
+=== s2-7b-alone-1  compose.srv2-7b-alone.yml  arm=alone swap=on
+    door up rc=2: {"mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": null}
+RUNNER srv2 exit=0
+
+=== s2-7b-alone-1  compose.srv2-7b-alone.yml  arm=alone swap=on
+
+=== s2-7b-alone-1  compose.srv2-7b-alone.yml  arm=alone swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 117.60841324197827, 'door_unit_s': 98.6, 'started_at_to_ready_s': 96.32413363456726} kv 37248 restarts 0 decode [68.9, 68.9, 68.9, 68.9, 68.9] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.767 GiB, card 7795 MiB
+RUNNER srv2 exit=0
+
+=== s2-pair-as_run-1  compose.srv2-pair-as-run.yml  arm=as_run swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 190.47016390098725, 'door_unit_s': 169.2, 'started_at_to_ready_s': 42.09490895271301} kv 25312 restarts 2 decode [127.9, 127.6, 127.1, 128.0, 128.9] backend Using FLASH_ATTN attention backend out o
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 190.47016390098725, 'door_unit_s': 2.3, 'started_at_to_ready_s': 45.37139272689819} kv 14208 restarts 1 decode [69.0, 68.9, 68.9, 68.9, 68.8] backend Using FLASH_ATTN attention backend out o
+    RAM cost 5.297 GiB, card 9725 MiB
+
+=== s2-pair-as_run-2  compose.srv2-pair-as-run.yml  arm=as_run swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 190.73176081798738, 'door_unit_s': 168.6, 'started_at_to_ready_s': 42.120896100997925} kv 25312 restarts 2 decode [127.8, 128.0, 127.9, 127.9, 128.0] backend Using FLASH_ATTN attention backend out o
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 190.73176081798738, 'door_unit_s': 2.4, 'started_at_to_ready_s': 44.66182088851929} kv 51920 restarts 1 decode [68.9, 68.9, 68.9, 68.6, 68.9] backend Using FLASH_ATTN attention backend out o
+    RAM cost 5.267 GiB, card 11797 MiB
+
+=== s2-pair-as_run-3  compose.srv2-pair-as-run.yml  arm=as_run swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 193.01614136894932, 'door_unit_s': 170.7, 'started_at_to_ready_s': 41.845601081848145} kv 25312 restarts 2 decode [127.8, 128.0, 127.9, 127.5, 127.8] backend Using FLASH_ATTN attention backend out o
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 193.01614136894932, 'door_unit_s': 2.2, 'started_at_to_ready_s': 44.9771249294281} kv 13520 restarts 1 decode [68.9, 68.9, 68.6, 68.9, 68.9] backend Using FLASH_ATTN attention backend out o
+    RAM cost 5.297 GiB, card 9725 MiB
+
+=== s2-pair-baseline-1  compose.srv2-pair-as-run.yml  arm=baseline swap=off
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 191.6233152510249, 'door_unit_s': 171.4, 'started_at_to_ready_s': 42.358744859695435} kv 25312 restarts 2 decode [128.2, 127.8, 128.1, 127.8, 128.1] backend Using FLASH_ATTN attention backend out o
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 191.6233152510249, 'door_unit_s': 2.1, 'started_at_to_ready_s': 45.55937838554382} kv 13888 restarts 1 decode [68.9, 68.9, 68.9, 68.9, 68.9] backend Using FLASH_ATTN attention backend out o
+    RAM cost 5.241 GiB, card 9725 MiB
+
+=== s2-pair-baseline-2  compose.srv2-pair-as-run.yml  arm=baseline swap=off
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 195.29870654002298, 'door_unit_s': 171.2, 'started_at_to_ready_s': 41.898332834243774} kv 25312 restarts 2 decode [127.7, 127.8, 127.9, 127.9, 127.9] backend Using FLASH_ATTN attention backend out o
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 195.29870654002298, 'door_unit_s': 2.3, 'started_at_to_ready_s': 45.007811069488525} kv 14208 restarts 1 decode [68.9, 68.9, 68.9, 68.9, 68.8] backend Using FLASH_ATTN attention backend out o
+    RAM cost 5.273 GiB, card 9725 MiB
+
+=== s2-pair-baseline-3  compose.srv2-pair-as-run.yml  arm=baseline swap=off
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 191.42292227299185, 'door_unit_s': 169.8, 'started_at_to_ready_s': 42.13509225845337} kv 25312 restarts 2 decode [127.9, 128.0, 127.8, 127.7, 127.5] backend Using FLASH_ATTN attention backend out o
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 191.42292227299185, 'door_unit_s': 2.3, 'started_at_to_ready_s': 45.71409201622009} kv 8592 restarts 1 decode [68.9, 68.7, 68.9, 68.9, 68.9] backend Using FLASH_ATTN attention backend out o
+    RAM cost 5.282 GiB, card 9445 MiB
+
+=== s2-3b-alone-1  compose.srv2-3b-alone.yml  arm=alone swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 116.08853055804502, 'door_unit_s': 96.9, 'started_at_to_ready_s': 93.71478581428528} kv 12352 restarts 0 decode [128.4, 127.9, 127.6, 126.6, 127.8] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.723 GiB, card 2795 MiB
+
+=== s2-3b-alone-2  compose.srv2-3b-alone.yml  arm=alone swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 115.20047062297817, 'door_unit_s': 95.6, 'started_at_to_ready_s': 93.40537977218628} kv 12352 restarts 0 decode [127.6, 127.9, 128.2, 128.6, 127.6] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.714 GiB, card 2795 MiB
+
+=== s2-3b-alone-3  compose.srv2-3b-alone.yml  arm=alone swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: clocks {'door_process_s': 115.86713175900513, 'door_unit_s': 96.0, 'started_at_to_ready_s': 93.33653354644775} kv 12352 restarts 0 decode [128.0, 127.9, 127.7, 126.1, 128.2] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.744 GiB, card 2795 MiB
+
+=== s2-7b-alone-2  compose.srv2-7b-alone.yml  arm=alone swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 115.2167777120485, 'door_unit_s': 95.6, 'started_at_to_ready_s': 94.23200511932373} kv 37248 restarts 0 decode [68.8, 68.8, 68.6, 68.8, 68.8] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.711 GiB, card 7795 MiB
+
+=== s2-7b-alone-3  compose.srv2-7b-alone.yml  arm=alone swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 115.28660324099474, 'door_unit_s': 96.4, 'started_at_to_ready_s': 95.72324323654175} kv 37248 restarts 0 decode [68.8, 68.8, 68.8, 68.9, 68.6] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.698 GiB, card 7795 MiB
+
+=== s2-7b-fp8-1  compose.srv2-7b-fp8.yml  arm=fp8 swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 115.215453929035, 'door_unit_s': 96.3, 'started_at_to_ready_s': 94.94833159446716} kv 74512 restarts 0 decode [67.5, 67.4, 67.5, 67.4, 67.4] backend Using FLASHINFER attention backend out o
+    RAM cost 2.709 GiB, card 8245 MiB
+
+=== s2-7b-fp8-2  compose.srv2-7b-fp8.yml  arm=fp8 swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 120.00825507898116, 'door_unit_s': 98.6, 'started_at_to_ready_s': 95.9779748916626} kv 74512 restarts 0 decode [67.4, 67.4, 67.4, 67.6, 67.4] backend Using FLASHINFER attention backend out o
+    RAM cost 2.711 GiB, card 8245 MiB
+
+=== s2-7b-fp8-3  compose.srv2-7b-fp8.yml  arm=fp8 swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 119.1964079309837, 'door_unit_s': 97.6, 'started_at_to_ready_s': 95.98656606674194} kv 74512 restarts 0 decode [67.3, 67.3, 67.3, 67.5, 67.4] backend Using FLASHINFER attention backend out o
+    RAM cost 2.747 GiB, card 8245 MiB
+
+=== s2-7b-auto-quality  compose.srv2-7b-alone.yml  arm=quality swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 119.26409537898144, 'door_unit_s': 98.2, 'started_at_to_ready_s': 96.63411736488342} kv 37248 restarts 0 decode [] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.781 GiB, card 7795 MiB
+    bench bench-7b-auto-a
+bench bench-7b-auto-a rc=2; see logs/bench-7b-auto-a.log
+RUNNER srv2 exit=1
+
+=== s2-7b-auto-quality  compose.srv2-7b-alone.yml  arm=quality swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 119.13510171999224, 'door_unit_s': 99.3, 'started_at_to_ready_s': 95.53170776367188} kv 37248 restarts 0 decode [] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.728 GiB, card 7795 MiB
+    bench bench-7b-auto-a
+bench bench-7b-auto-a rc=2; see logs/bench-7b-auto-a.log
+RUNNER srv2 exit=1
+
+=== s2-7b-auto-quality  compose.srv2-7b-alone.yml  arm=quality swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 117.85460601199884, 'door_unit_s': 96.2, 'started_at_to_ready_s': 95.09483122825623} kv 37248 restarts 0 decode [] backend Using FLASH_ATTN attention backend out o
+    RAM cost 2.775 GiB, card 7795 MiB
+    bench bench-7b-auto-a
+    bench bench-7b-auto-b
+
+=== s2-7b-fp8-quality  compose.srv2-7b-fp8.yml  arm=quality swap=on
+    mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: clocks {'door_process_s': 117.16434428701177, 'door_unit_s': 97.1, 'started_at_to_ready_s': 95.41851329803467} kv 74512 restarts 0 decode [] backend Using FLASHINFER attention backend out o
+    RAM cost 2.791 GiB, card 8245 MiB
+    bench bench-7b-fp8-a
+    bench bench-7b-fp8-b
+RUNNER srv2 exit=0

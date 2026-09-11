@@ -1,0 +1,30 @@
+```python
+def glob_match(pattern: str,    if not isinstance(pattern, str or not isinstance(path: str:
+        raise ValueError("Pattern and path must be strings")
+    if not pattern or not path:
+        raise ValueError("Pattern and path cannot be empty")
+
+    pattern_parts = path.split('/')
+    pattern_parts = pattern.split('/')
+
+    if len(name_parts) != len(pattern_parts):
+        return False
+
+    for name_part, pattern_part in zip(name_parts,        if pattern_part ==('*':
+            continue
+        elif pattern_part ==            if pattern_part == '?                if                    if name_part[0]                        return False
+                elif name_part[0].isalnum():
+                    return False
+            elif pattern_part != '*':
+                if not name_part:
+                    return True
+                if any(char in name_part for char in '/'):
+                    return False
+            else:
+                if name_part != pattern_part:
+                    return False
+        else:
+            return False
+
+    return True
+```

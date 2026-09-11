@@ -1,0 +1,54 @@
+```python
+from typing import List
+
+def net_tally(sheets: List[str]) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    
+    item_totals = {}
+    max_item_length = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("each sheet must be a string")
+        
+        for row in sheet.split('\n'):
+            row = row.strip()
+            if not row:
+                continue
+            
+            parts = row.split('|')
+            if len(parts) != 3:
+                raise ValueError("each row must have exactly three fields")
+            
+            item, sold_str, returned_str = map(str.strip, parts)
+            if not item:
+                raise ValueError("item name cannot be empty")
+            
+            try:
+                sold = int(sold_str)
+                returned = int(returned_str)
+            except ValueError:
+                raise ValueError("sold and returned must be strings of decimal digits")
+            
+            if returned > sold:
+                raise ValueError(f"returned ({returned}) cannot exceed sold ({sold}) for item {item}")
+            
+            item_totals[item] = item_totals.get(item, 0) + sold - returned
+            max_item_length = max(max_item_length, len(item))
+    
+    if not item_totals:
+        return ""
+    
+    report_lines = []
+    total_net = sum(item_totals.values())
+    total_net_str = "total".rjust(max_item_length)
+    report_lines.append(f"{total_net_str}  {total_net}")
+    
+    for item in sorted(item_totals.keys()):
+        net_count = item_totals[item]
+        report_line = f"{item.rjust(max_item_length)}  {net_count}"
+        report_lines.insert(0, report_line)
+    
+    return "\n".join(report_lines)
+```

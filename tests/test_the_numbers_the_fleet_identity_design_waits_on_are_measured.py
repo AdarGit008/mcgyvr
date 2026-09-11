@@ -384,13 +384,16 @@ def test_a_pinned_kv_keeps_its_size_on_restart_and_beside_a_busy_neighbour() -> 
 
 
 def test_an_oversized_pinned_kv_runs_past_its_share_and_fails_past_the_card() -> None:
-    """M6. A pinned size above the unit's share but inside free memory serves,
-    because the pinned path "does not respect the gpu_memory_utilization config".
+    """M6. A pinned size that takes the unit past its share but not past free
+    memory serves, because the pinned path "does not respect the
+    gpu_memory_utilization config".
     A pinned size above the card's free memory fails at start and never shrinks."""
     rows = {r["case"]: r for r in _record("results-pinned-kv.json")}
     over_share = rows["oversized_share"]
     assert over_share["outcome"] == "served"
-    assert over_share["kv_cache_memory_bytes"] > over_share["room_bytes"]
+    # The pinned size plus what the unit holds beside its KV passes the room: the
+    # unit's own peak under load is past it, and it still served.
+    assert over_share["peak_process_mib"] * MIB > over_share["room_bytes"]
     over_card = rows["oversized_card"]
     assert over_card["outcome"] == "failed_at_start"
     assert over_card["kv_cache_memory_bytes"] > over_card["free_at_start_bytes"]

@@ -1,0 +1,13 @@
+```python
+def till_float(amount: int, coins:    """How many of each coin to hand back, largest coin first."""
+    counts = []
+    left = amount
+    for coin in coins:
+        if left >= coin:
+            count =left([c for c in range(left // coin + 1)], reverse=True)[0]
+            counts.append(count)
+            left -= count * coin
+        else:
+            counts.append(0)
+    return counts
+```

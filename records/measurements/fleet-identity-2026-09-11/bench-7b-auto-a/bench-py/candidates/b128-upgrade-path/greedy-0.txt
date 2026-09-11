@@ -1,0 +1,33 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+import re
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    def valid_tag(tag: str) -> bool:
+        match = re.fullmatch(r'\d+\.\d+', tag)
+        if not match:
+            return False
+        line, point = map(int, tag.split('.'))
+        return line > 0 and point >= 0
+
+    if not isinstance(steps, list):
+        raise ValueError("steps must be a list")
+
+    carried = installed
+    for step in steps:
+        if not isinstance(step, dict) or len(step) != 2:
+            raise ValueError("each step must be a {tag, requires} record")
+        tag, requires = step.values()
+        if not isinstance(tag, str) or not isinstance(requires, str):
+            raise ValueError("tag and requires must be strings")
+        if not valid_tag(tag) or not valid_tag(requires):
+            raise ValueError("invalid tag format")
+        if carried < requires:
+            raise ValueError(f"step {tag} requires at least {requires}")
+        if step["tag"] <= carried:
+            raise ValueError(f"step {tag} is not an upgrade from {carried}")
+        carried = step["tag"]
+
+    return carried
+```

@@ -1,0 +1,40 @@
+```python
+def list_of_command(root: dict, person: str) -> list:
+    if not isinstance(root, dict) or not isinstance(list,,[str]):
+        raise ValueError("Invalid root or person")
+    if not list:
+        raise ValueError("Empty cannot be empty")
+
+    def find_path(node, target):
+        if node[0]  # Base case: reached the target
+            if len(lists) ==                return [node['name'] + path]
+            elses.pop(        if node.get('reports'):
+            for report in node['reports']:
+                result = find_path(report, lists)
+                if result:
+                    return list
+        return []
+
+    
+    path = find_path(root,)
+    if path:
+        return path[0]
+    raise ValueError(f"Person {list} not found in the chart")
+
+def headcount(root: dict) -> int:
+    if count =        if isinstance(root, dict):
+            if 'reports' in root:
+                for report in root['reports']:
+                    count +=        return count
+       raise ValueError("Invalid root")
+
+def widest_team(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid root")
+
+    max_reports = 0
+    if 'reports':
+        max_reports = max(max_reports,        for report in root['reports']:
+            max_reports = max(max_reports,                max_reports = max(max_reports):
+    return max_reports)
+```

@@ -1,0 +1,11 @@
+```python
+def hour_rate(rate: int) -> int:
+    return rate
+
+
+def week_pay(hours: int, rate: int) -> int:
+    """Pay for a week, with overtime beyond forty hours."""
+    regular_hours = min(40, hours)
+    overtime_hours = max(0, hours - 40)
+    return (regular_hours + overtime_hours * 1.5) * hour_rate(rate) // 1
+```

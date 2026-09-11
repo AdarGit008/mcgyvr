@@ -1,0 +1,11 @@
+```python
+def check_manifest(line: -> dict
+    valid_keys = {'sku',              raise ValueError("Invalid key")
+    if 'sku'        raise ValueError("SKU must be a non-empty string")
+    if not isinstance(line['count'], int) or line['count'] <= 0:
+        raise ValueError("Count must be a positive whole number")
+    if not isinstance(line.get('note', ''), str):
+        raise ValueError("Note must be a string")
+    return {
+        'sku': line['sku'].        'count': line['count'],
+        'note': line.get('note',      ```

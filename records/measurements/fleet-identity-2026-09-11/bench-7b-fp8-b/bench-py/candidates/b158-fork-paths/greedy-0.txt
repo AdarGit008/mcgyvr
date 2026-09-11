@@ -1,0 +1,35 @@
+```python
+from typing import List
+
+def fork_paths(pattern: str) -> List[str]:
+    if not pattern or '/' not in pattern:
+        raise ValueError("Invalid pattern")
+
+    def expand(fork: str) -> List[str]:
+        if '{_braces := fork.split('{'):
+            if len(curly_braces) != 2:
+                raise ValueError("Invalid fork format")
+            options = curly_braces[1].split(',')
+            if not all(options):
+                raise ValueError("Empty options in fork")
+            return [option.strip() for option in options]
+        return [fork]
+
+    
+    segments = pattern.split('/')
+    if '' in segments:
+        raise ValueError("Empty segment in pattern")
+
+    paths = ['']
+    for segment in segments:
+        if '}' in segment:
+            new_paths =            for                for path in paths:
+                    new_path =                    for option in expand(segment):
+                        new_path += '/' + list
+                    new_paths.append(new_path)
+            paths = new_paths
+        else:
+            paths =            for path in paths:
+                new_paths.append(path + '/' + segment)
+            paths =       return [path[1:] for path in paths]
+```

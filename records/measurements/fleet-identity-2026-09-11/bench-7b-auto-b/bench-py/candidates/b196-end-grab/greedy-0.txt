@@ -1,0 +1,36 @@
+```python
+from typing import List, Dict
+
+def end_grab(cards: List[int]) -> Dict[str, int]:
+    """
+    Simulate the game where two players take turns picking the larger of the two end cards,
+    starting with the first player. Returns a dictionary with the total points each player
+    collected and a list of the cards taken in order.
+    """
+    if not cards:
+        raise ValueError("The input list cannot be empty.")
+    
+    first_total = 0
+    second_total = 0
+    taken_cards = []
+    
+    while cards:
+        if cards[0] >= cards[-1]:
+            first_total += cards.pop(0)
+        else:
+            first_total += cards.pop()
+        taken_cards.append(first_total)
+        
+        if cards:
+            if cards[0] >= cards[-1]:
+                second_total += cards.pop(0)
+            else:
+                second_total += cards.pop()
+            taken_cards.append(second_total)
+    
+    return {
+        "first": first_total,
+        "second": second_total,
+        "taken": taken_cards[:-1]
+    }
+```

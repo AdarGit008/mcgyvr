@@ -1,0 +1,7 @@
+```python
+def mid_pair(values: list) -> list:
+    if not values:
+        return [None,    n =        return [values[0], values[0]]
+    mid_index = len(values) // 2
+    return [values[mid_list - 1], values[mid_list]]
+```

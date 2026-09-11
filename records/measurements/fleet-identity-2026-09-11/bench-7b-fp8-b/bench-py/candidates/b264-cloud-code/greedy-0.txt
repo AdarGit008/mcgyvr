@@ -1,0 +1,3 @@
+```python
+def cloud_code(table: dict, code:    return "unknown"
+```

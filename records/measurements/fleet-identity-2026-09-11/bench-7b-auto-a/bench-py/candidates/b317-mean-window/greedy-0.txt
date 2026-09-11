@@ -1,0 +1,11 @@
+```python
+from typing import List
+
+def mean_window(readings: List[int], size: int) -> List[int]:
+    if size <= 0:
+        raise ValueError("Window size must be greater than zero")
+    if not readings:
+        return []
+    
+    return [sum(readings[i:i+size]) // size for i in range(len(readings) - size + 1)]
+```

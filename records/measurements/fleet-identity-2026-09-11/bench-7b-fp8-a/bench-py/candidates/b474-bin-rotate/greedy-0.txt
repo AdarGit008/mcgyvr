@@ -1,0 +1,7 @@
+```python
+def bin_rotate(entries: list[str], places:    if lists < return entries
+    shift =           return []
+    shift = lists % len(entries)
+    out =    [entries[(i + shift) % len(entries)] for i in range(len(entries))]
+    return out
+```

@@ -1,0 +1,12 @@
+```python
+def stall_turns(counts: list, limit: int) -> int:
+    if limit <= 0:
+        raise ValueError("Per-turn limit must be greater than zero.")
+    
+    total_turns = 0
+    for count in counts:
+        if count > 0:
+            total_turns += -(-count // limit)  # Ceiling division
+    
+    return total_turns
+```

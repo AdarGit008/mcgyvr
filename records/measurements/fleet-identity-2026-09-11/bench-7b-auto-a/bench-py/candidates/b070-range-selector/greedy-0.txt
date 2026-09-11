@@ -1,0 +1,31 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    if not isinstance(values, list) or not all(isinstance(v, int) for v in values):
+        raise ValueError("values must be a list of integers")
+    if not isinstance(selector, str) or not selector:
+        raise ValueError("selector must be a non-empty string")
+    
+    terms = selector.split(',')
+    valid_terms = []
+    
+    for term in terms:
+        if '-' in term:
+            parts = term.split('-')
+            if len(parts) != 2:
+                raise ValueError(f"invalid term: {term}")
+            low, high = map(int, parts)
+            if low > high:
+                raise ValueError(f"invalid range: {term}")
+            valid_terms.append((low, high))
+        elif term.isdigit():
+            valid_terms.append((int(term), int(term)))
+        else:
+            raise ValueError(f"invalid term: {term}")
+    
+    count = 0
+    for value in values:
+        if any(low <= value <= high for low, high in valid_terms):
+            count += 1
+    
+    return count
+```

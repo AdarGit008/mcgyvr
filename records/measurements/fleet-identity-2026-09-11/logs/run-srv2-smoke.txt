@@ -1,0 +1,3 @@
+
+=== s2-7b-alone-1  compose.srv2-7b-alone.yml  arm=alone swap=on
+    door up rc=1: {"mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": null}

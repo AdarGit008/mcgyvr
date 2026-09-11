@@ -1,0 +1,9 @@
+```python
+from typing import List
+
+def field_mean(records: List[dict], field: str) -> int:
+    """Return the mean of the specified numeric field across records, rounded down."""
+    total = sum(record.get(field, 0) for record in records if isinstance(record.get(field), (int, float)))
+    count = sum(1 for record in records if record.get(field) is not None)
+    return total // count if count > 0 else 0
+```

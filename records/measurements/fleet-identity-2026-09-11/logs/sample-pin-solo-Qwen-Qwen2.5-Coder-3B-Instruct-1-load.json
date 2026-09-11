@@ -1,0 +1,1254 @@
+[
+ {
+  "t": 1789108244,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44575396,
+  "shmem_kib": 2165716,
+  "pswpout": 5028950,
+  "pgmajfault": 4239337,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108245,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44573396,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239337,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108246,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44573812,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239337,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108247,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44579032,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239337,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108248,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44574548,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239340,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108249,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44569040,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239340,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108250,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44560360,
+  "shmem_kib": 2165728,
+  "pswpout": 5028950,
+  "pgmajfault": 4239376,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108251,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44539464,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239695,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108252,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44544700,
+  "shmem_kib": 2165728,
+  "pswpout": 5028950,
+  "pgmajfault": 4239697,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108253,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44563568,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239697,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108254,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44562824,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239699,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108255,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44543948,
+  "shmem_kib": 2165728,
+  "pswpout": 5028950,
+  "pgmajfault": 4239699,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108256,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44510792,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239701,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108258,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44483332,
+  "shmem_kib": 2165720,
+  "pswpout": 5028950,
+  "pgmajfault": 4239701,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108259,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44492504,
+  "shmem_kib": 2165728,
+  "pswpout": 5028950,
+  "pgmajfault": 4239701,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108260,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44466908,
+  "shmem_kib": 2166848,
+  "pswpout": 5028950,
+  "pgmajfault": 4240172,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108261,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44357756,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4244498,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108262,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44289776,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4246745,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108263,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44243852,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4246933,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108264,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44191196,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4246946,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108265,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44122816,
+  "shmem_kib": 2165840,
+  "pswpout": 5028950,
+  "pgmajfault": 4247001,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108266,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44096564,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247029,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108267,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44108836,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247493,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108268,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44085556,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247493,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108269,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44032076,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247496,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108270,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44016064,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247656,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108271,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43999240,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247682,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108272,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44014164,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247726,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108273,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43998584,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247726,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108274,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43996392,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247729,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108275,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44009888,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247769,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108276,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 44019752,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247870,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108277,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43990404,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247915,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108278,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43952128,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4247979,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108280,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43918884,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248234,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108281,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43897584,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248366,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108282,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43862472,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248437,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108283,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43593632,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248458,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108284,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43508600,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248458,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108285,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43437132,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248458,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108286,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43409104,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248458,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108287,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43349048,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248458,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108288,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43308980,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248465,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108289,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43299548,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4248721,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108290,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 43216368,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4249398,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108291,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 43144992,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4249438,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108292,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 43137580,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4250012,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108293,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 43118484,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4250020,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108294,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 43122724,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4250051,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108295,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 43148380,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4250795,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108296,
+  "vram_used_mib": 1,
+  "vram_free_mib": 11911,
+  "avail_kib": 43829484,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254006,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108297,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 43789052,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254006,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108298,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 43376024,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254006,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108299,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42991280,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254070,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108300,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42586920,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254349,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108302,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42649176,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254394,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108303,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42299528,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254409,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108304,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42159080,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254463,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108305,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42079172,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254465,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108306,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 41983696,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254466,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108307,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42260828,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254469,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108308,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42460720,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254469,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108309,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42406256,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254469,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108310,
+  "vram_used_mib": 4,
+  "vram_free_mib": 11908,
+  "avail_kib": 42287280,
+  "shmem_kib": 2165832,
+  "pswpout": 5028950,
+  "pgmajfault": 4254469,
+  "apps_mib": {}
+ },
+ {
+  "t": 1789108311,
+  "vram_used_mib": 151,
+  "vram_free_mib": 11761,
+  "avail_kib": 41709184,
+  "shmem_kib": 2178092,
+  "pswpout": 5028950,
+  "pgmajfault": 4254624,
+  "apps_mib": {
+   "1660546": 142
+  }
+ },
+ {
+  "t": 1789108312,
+  "vram_used_mib": 2201,
+  "vram_free_mib": 9711,
+  "avail_kib": 41908780,
+  "shmem_kib": 2178136,
+  "pswpout": 5028950,
+  "pgmajfault": 4254768,
+  "apps_mib": {
+   "1660546": 2192
+  }
+ },
+ {
+  "t": 1789108313,
+  "vram_used_mib": 2213,
+  "vram_free_mib": 9699,
+  "avail_kib": 41975496,
+  "shmem_kib": 2178124,
+  "pswpout": 5028950,
+  "pgmajfault": 4254790,
+  "apps_mib": {
+   "1660546": 2204
+  }
+ },
+ {
+  "t": 1789108314,
+  "vram_used_mib": 2805,
+  "vram_free_mib": 9107,
+  "avail_kib": 41944032,
+  "shmem_kib": 2178124,
+  "pswpout": 5028950,
+  "pgmajfault": 4254858,
+  "apps_mib": {
+   "1660546": 2796
+  }
+ },
+ {
+  "t": 1789108315,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 41910688,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4254896,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108316,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 41907256,
+  "shmem_kib": 2178124,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108317,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 41913464,
+  "shmem_kib": 2178124,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108318,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 41938112,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108319,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 41996484,
+  "shmem_kib": 2178136,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108320,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 42005844,
+  "shmem_kib": 2178136,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108321,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 42019144,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108322,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 42013796,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108323,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 42005680,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108325,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 42073968,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4254925,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108326,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 42101564,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4254932,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108327,
+  "vram_used_mib": 2199,
+  "vram_free_mib": 9713,
+  "avail_kib": 42116360,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4254946,
+  "apps_mib": {
+   "1660546": 2190
+  }
+ },
+ {
+  "t": 1789108328,
+  "vram_used_mib": 2219,
+  "vram_free_mib": 9693,
+  "avail_kib": 42077516,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255423,
+  "apps_mib": {
+   "1660546": 2210
+  }
+ },
+ {
+  "t": 1789108329,
+  "vram_used_mib": 2219,
+  "vram_free_mib": 9693,
+  "avail_kib": 42056520,
+  "shmem_kib": 2178136,
+  "pswpout": 5028950,
+  "pgmajfault": 4255454,
+  "apps_mib": {
+   "1660546": 2210
+  }
+ },
+ {
+  "t": 1789108330,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 42077464,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255654,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108331,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 42064048,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255654,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108332,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 42065488,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255654,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108333,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 42039324,
+  "shmem_kib": 2178140,
+  "pswpout": 5028950,
+  "pgmajfault": 4255654,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108334,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 42020720,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255654,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108335,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 42019304,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255656,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108336,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 41993564,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255658,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108337,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 41989708,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255658,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108338,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 41960732,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255659,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108339,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 41954600,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255659,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108340,
+  "vram_used_mib": 2813,
+  "vram_free_mib": 9099,
+  "avail_kib": 41930568,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255674,
+  "apps_mib": {
+   "1660546": 2804
+  }
+ },
+ {
+  "t": 1789108341,
+  "vram_used_mib": 2829,
+  "vram_free_mib": 9083,
+  "avail_kib": 41742444,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255807,
+  "apps_mib": {
+   "1660546": 2820
+  }
+ },
+ {
+  "t": 1789108342,
+  "vram_used_mib": 2837,
+  "vram_free_mib": 9075,
+  "avail_kib": 41730996,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255838,
+  "apps_mib": {
+   "1660546": 2828
+  }
+ },
+ {
+  "t": 1789108343,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41688776,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255897,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108344,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41676048,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255898,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108345,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41658504,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255948,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108346,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41640152,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4255949,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108347,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41568256,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256009,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108349,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41569944,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256434,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108350,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41583792,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256515,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108351,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41493904,
+  "shmem_kib": 2178136,
+  "pswpout": 5028950,
+  "pgmajfault": 4256515,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108352,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41467268,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256532,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108353,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41495480,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256533,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108354,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41496608,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256533,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108355,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41524004,
+  "shmem_kib": 2178132,
+  "pswpout": 5028950,
+  "pgmajfault": 4256534,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108356,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41519116,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256534,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108357,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41553292,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256534,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108358,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41518560,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256534,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108359,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41509020,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256534,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108360,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41517316,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256534,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108361,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41514272,
+  "shmem_kib": 2178136,
+  "pswpout": 5028950,
+  "pgmajfault": 4256535,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108362,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41518156,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256539,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ },
+ {
+  "t": 1789108363,
+  "vram_used_mib": 2879,
+  "vram_free_mib": 9033,
+  "avail_kib": 41524768,
+  "shmem_kib": 2178128,
+  "pswpout": 5028950,
+  "pgmajfault": 4256539,
+  "apps_mib": {
+   "1660546": 2870
+  }
+ }
+]

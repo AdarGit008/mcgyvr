@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-11-live-srv1-serve-down-td-891035693-1789103569",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-unmapped-n4.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 17,
+    "free_mib": 5727
+  }
+}

@@ -1,0 +1,7 @@
+```python
+def gross_price(net: int, rate: int) -> int:
+    """A net price with a whole-percent tax added, in whole pence."""
+    if rate < 0:
+        raise ValueError("Tax rate cannot be negative")
+    return net + (net * rate // 100)
+```

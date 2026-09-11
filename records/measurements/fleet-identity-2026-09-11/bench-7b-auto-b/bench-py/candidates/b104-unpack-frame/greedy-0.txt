@@ -1,0 +1,44 @@
+```python
+def unpack_frame(data: list) -> list:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    def read_varint(index: int) -> tuple[int, int]:
+        value = 0
+        shift = 0
+        while True:
+            if index >= len(data):
+                raise ValueError("Frame ends inside a varint")
+            byte = data[index]
+            if byte == 0 and shift > 0:
+                raise ValueError("Wasted zero in varint")
+            if shift >= 49:
+                raise ValueError("Varint too long")
+            value |= (byte & 0x7F) << shift
+            shift += 7
+            index += 1
+            if not (byte & 0x80):
+                break
+        return value, index
+    
+    if len(data) < 2:
+        raise ValueError("Frame too short")
+    
+    num_readings, index = read_varint(0)
+    readings = []
+    for _ in range(num_readings):
+        if index >= len(data):
+            raise ValueError("Frame ends before all readings are decoded")
+        reading, index = read_varint(index)
+        readings.append(reading)
+    
+    if index + 1 != len(data):
+        raise ValueError("Bytes left over after the trailer")
+    
+    trailer = data[-1]
+    calculated_trailer = sum(data[:-1]) % 256
+    if trailer != calculated_trailer:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    return readings
+```

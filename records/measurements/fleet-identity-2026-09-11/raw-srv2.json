@@ -1,0 +1,4392 @@
+[
+ {
+  "label": "s2-7b-alone-1",
+  "rig": "srv2",
+  "arm": "alone",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-alone.yml",
+  "t": 1789097929.6240447,
+  "kv_cache_dtype": "auto",
+  "failed": "door up rc=1",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 44.92041778564453,
+    "MemAvailable": 44.69261169433594,
+    "Cached": 0.18450546264648438,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 5.840126037597656,
+    "Shmem": 0.000400543212890625
+   },
+   "vm": {
+    "pswpin": 1857474,
+    "pswpout": 5028950,
+    "pgmajfault": 3747069
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4196627140045166
+  },
+  "up": {
+   "door_rc": 1,
+   "door_process_s": 12.65085286903195,
+   "envelope": null,
+   "ready_local": {},
+   "load_samples": 15,
+   "load_peak_used_mib": 1,
+   "load_pswpout": 0,
+   "load_pgmajfault": 369,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": -1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-alone-1-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 12.65085286903195,
+     "door_unit_s": null,
+     "started_at_to_ready_s": null
+    },
+    "healthy": false,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  }
+ },
+ {
+  "label": "s2-7b-alone-1",
+  "rig": "srv2",
+  "arm": "alone",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-alone.yml",
+  "t": 1789098030.856422,
+  "kv_cache_dtype": "auto",
+  "failed": "door up rc=2",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 44.88911819458008,
+    "MemAvailable": 44.661354064941406,
+    "Cached": 0.1851654052734375,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 5.840126037597656,
+    "Shmem": 0.000408172607421875
+   },
+   "vm": {
+    "pswpin": 1857493,
+    "pswpout": 5028950,
+    "pgmajfault": 3747939
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4258882999420166
+  },
+  "up": {
+   "door_rc": 2,
+   "door_process_s": 8.877543167036492,
+   "envelope": null,
+   "ready_local": {},
+   "load_samples": 12,
+   "load_peak_used_mib": 1,
+   "load_pswpout": 0,
+   "load_pgmajfault": 366,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": -1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-alone-1-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 8.877543167036492,
+     "door_unit_s": null,
+     "started_at_to_ready_s": null
+    },
+    "healthy": false,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  }
+ },
+ {
+  "label": "s2-7b-alone-1",
+  "rig": "srv2",
+  "arm": "alone",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-alone.yml",
+  "t": 1789098118.5263362,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 44.90607452392578,
+    "MemAvailable": 44.67841720581055,
+    "Cached": 0.18542098999023438,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 5.840126037597656,
+    "Shmem": 0.000408172607421875
+   },
+   "vm": {
+    "pswpin": 1857494,
+    "pswpout": 5028950,
+    "pgmajfault": 3749332
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4198474884033203
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 117.60841324197827,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-alone-1-up-1789098121",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 98.6,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 7795,
+     "free_mib": 4117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789098230.3601809
+   },
+   "load_samples": 116,
+   "load_peak_used_mib": 7795,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17213,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-alone-1-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 117.60841324197827,
+     "door_unit_s": 98.6,
+     "started_at_to_ready_s": 96.32413363456726
+    },
+    "healthy": true,
+    "kv_tokens": 37248,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 34.92490768432617,
+   "MemAvailable": 41.78807067871094,
+   "Cached": 7.204582214355469,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 5.840126037597656,
+   "Shmem": 0.012241363525390625
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 41.579769134521484,
+   "MemAvailable": 41.91134262084961,
+   "Cached": 0.7681503295898438,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 5.8401336669921875,
+   "Shmem": 0.012241363525390625
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 7795,
+   "reserved": 377,
+   "free": 4117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1466291,7786",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 68.91749695297678,
+      "completion_tokens": 256,
+      "ttft_s": 0.17387127876281738
+     },
+     {
+      "tok_s": 68.9381527522955,
+      "completion_tokens": 256,
+      "ttft_s": 0.18584299087524414
+     },
+     {
+      "tok_s": 68.8625240589625,
+      "completion_tokens": 256,
+      "ttft_s": 0.1761159896850586
+     },
+     {
+      "tok_s": 68.85810838216065,
+      "completion_tokens": 256,
+      "ttft_s": 0.1798410415649414
+     },
+     {
+      "tok_s": 68.90689401044337,
+      "completion_tokens": 256,
+      "ttft_s": 0.18024539947509766
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 68
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.5981788635253906
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-pair-as_run-1",
+  "rig": "srv2",
+  "arm": "as_run",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "t": 1789098513.9423447,
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 44.8822021484375,
+    "MemAvailable": 44.65790939331055,
+    "Cached": 0.18661117553710938,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 5.8401336669921875,
+    "Shmem": 0.0004119873046875
+   },
+   "vm": {
+    "pswpin": 1857548,
+    "pswpout": 5028950,
+    "pgmajfault": 3771633
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.42040038108825684
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 190.47016390098725,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-pair-as_run-1-up-1789098516",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-pair-as-run.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    depends_on:\n      Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n        condition: service_started\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 169.2,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     },
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 2.3,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 9725,
+     "free_mib": 2187
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789098663.0397089,
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789098697.1221504
+   },
+   "load_samples": 185,
+   "load_peak_used_mib": 9725,
+   "load_pswpout": 0,
+   "load_pgmajfault": 19992,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": [
+      "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+     ]
+    },
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-as_run-1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 190.47016390098725,
+     "door_unit_s": 169.2,
+     "started_at_to_ready_s": 42.09490895271301
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.17/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-11 03:50:14 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-as_run-1-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 190.47016390098725,
+     "door_unit_s": 2.3,
+     "started_at_to_ready_s": 45.37139272689819
+    },
+    "healthy": true,
+    "kv_tokens": 14208,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.38/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=205) ERROR 09-11 03:50:14 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 30.230636596679688,
+   "MemAvailable": 39.247802734375,
+   "Cached": 9.327896118164062,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 5.8401336669921875,
+   "Shmem": 0.024074554443359375
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.01090621948242,
+   "MemAvailable": 39.361045837402344,
+   "Cached": 0.7899856567382812,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 5.8401336669921875,
+   "Shmem": 0.024074554443359375
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 9725,
+   "reserved": 377,
+   "free": 2187,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1476189,6498;1477806,3212",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 127.85764929541551,
+      "completion_tokens": 256,
+      "ttft_s": 0.47936153411865234
+     },
+     {
+      "tok_s": 127.64623168545928,
+      "completion_tokens": 256,
+      "ttft_s": 0.22460317611694336
+     },
+     {
+      "tok_s": 127.11781045229229,
+      "completion_tokens": 256,
+      "ttft_s": 0.17749476432800293
+     },
+     {
+      "tok_s": 128.01266975886213,
+      "completion_tokens": 256,
+      "ttft_s": 0.18797731399536133
+     },
+     {
+      "tok_s": 128.91505833343075,
+      "completion_tokens": 256,
+      "ttft_s": 0.19572186470031738
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 33
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 69.03212610469892,
+      "completion_tokens": 256,
+      "ttft_s": 0.18993425369262695
+     },
+     {
+      "tok_s": 68.92705038714078,
+      "completion_tokens": 256,
+      "ttft_s": 0.21029353141784668
+     },
+     {
+      "tok_s": 68.92146723579071,
+      "completion_tokens": 256,
+      "ttft_s": 0.1860182285308838
+     },
+     {
+      "tok_s": 68.89051648071992,
+      "completion_tokens": 256,
+      "ttft_s": 0.18410873413085938
+     },
+     {
+      "tok_s": 68.77487963001724,
+      "completion_tokens": 256,
+      "ttft_s": 0.19144749641418457
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 23
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.532928466796875,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.538288116455078
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ },
+ {
+  "label": "s2-pair-as_run-2",
+  "rig": "srv2",
+  "arm": "as_run",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "t": 1789098895.8789573,
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 44.86575698852539,
+    "MemAvailable": 44.64765548706055,
+    "Cached": 0.18769073486328125,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 5.8401336669921875,
+    "Shmem": 0.0004119873046875
+   },
+   "vm": {
+    "pswpin": 1857600,
+    "pswpout": 5028950,
+    "pgmajfault": 3796627
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.43892407417297363
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 190.73176081798738,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-pair-as_run-2-up-1789098898",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-pair-as-run.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    depends_on:\n      Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n        condition: service_started\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 168.6,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     },
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 2.4,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 11797,
+     "free_mib": 115
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789099045.2174165,
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789099078.7413912
+   },
+   "load_samples": 186,
+   "load_peak_used_mib": 11797,
+   "load_pswpout": 0,
+   "load_pgmajfault": 19827,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": [
+      "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+     ]
+    },
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-as_run-2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 190.73176081798738,
+     "door_unit_s": 168.6,
+     "started_at_to_ready_s": 42.120896100997925
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (3.15/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-11 03:56:36 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-as_run-2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 190.73176081798738,
+     "door_unit_s": 2.4,
+     "started_at_to_ready_s": 44.66182088851929
+    },
+    "healthy": true,
+    "kv_tokens": 51920,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (9.36/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=203) ERROR 09-11 03:56:37 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 30.219181060791016,
+   "MemAvailable": 39.23487854003906,
+   "Cached": 9.326774597167969,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 5.8401336669921875,
+   "Shmem": 0.024074554443359375
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.0257682800293,
+   "MemAvailable": 39.380645751953125,
+   "Cached": 0.7940139770507812,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 5.8401336669921875,
+   "Shmem": 0.02407073974609375
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 11797,
+   "reserved": 377,
+   "free": 115,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1487535,8570;1489114,3212",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 127.84893768170149,
+      "completion_tokens": 256,
+      "ttft_s": 0.1782231330871582
+     },
+     {
+      "tok_s": 128.0225529926381,
+      "completion_tokens": 256,
+      "ttft_s": 0.1780862808227539
+     },
+     {
+      "tok_s": 127.88831750573978,
+      "completion_tokens": 256,
+      "ttft_s": 0.18177080154418945
+     },
+     {
+      "tok_s": 127.86046171893969,
+      "completion_tokens": 256,
+      "ttft_s": 0.17959904670715332
+     },
+     {
+      "tok_s": 128.03510460045186,
+      "completion_tokens": 256,
+      "ttft_s": 0.1868598461151123
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 72
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 68.85174300147817,
+      "completion_tokens": 256,
+      "ttft_s": 0.1731245517730713
+     },
+     {
+      "tok_s": 68.86715314743356,
+      "completion_tokens": 256,
+      "ttft_s": 0.18448448181152344
+     },
+     {
+      "tok_s": 68.85589189043033,
+      "completion_tokens": 256,
+      "ttft_s": 0.17207002639770508
+     },
+     {
+      "tok_s": 68.5650677302381,
+      "completion_tokens": 256,
+      "ttft_s": 0.18044281005859375
+     },
+     {
+      "tok_s": 68.85618445916401,
+      "completion_tokens": 256,
+      "ttft_s": 0.1807231903076172
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 18
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.5316543579101562,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.539257049560547
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ },
+ {
+  "label": "s2-pair-as_run-3",
+  "rig": "srv2",
+  "arm": "as_run",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "t": 1789099338.2906504,
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 44.8760986328125,
+    "MemAvailable": 44.65842056274414,
+    "Cached": 0.18854904174804688,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 5.8401336669921875,
+    "Shmem": 0.000415802001953125
+   },
+   "vm": {
+    "pswpin": 1857621,
+    "pswpout": 5028950,
+    "pgmajfault": 3821489
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4261133670806885
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 193.01614136894932,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-pair-as_run-3-up-1789099341",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-pair-as-run.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    depends_on:\n      Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n        condition: service_started\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 170.7,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     },
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 2.2,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 9725,
+     "free_mib": 2187
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789099489.0862482,
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789099523.5777771
+   },
+   "load_samples": 187,
+   "load_peak_used_mib": 9725,
+   "load_pswpout": 0,
+   "load_pgmajfault": 20053,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": [
+      "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+     ]
+    },
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-as_run-3-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 193.01614136894932,
+     "door_unit_s": 170.7,
+     "started_at_to_ready_s": 41.845601081848145
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.17/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-11 04:04:00 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-as_run-3-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 193.01614136894932,
+     "door_unit_s": 2.2,
+     "started_at_to_ready_s": 44.9771249294281
+    },
+    "healthy": true,
+    "kv_tokens": 13520,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.41/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-11 04:04:00 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 30.168960571289062,
+   "MemAvailable": 39.225257873535156,
+   "Cached": 9.363506317138672,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 5.840145111083984,
+   "Shmem": 0.024074554443359375
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 38.97462844848633,
+   "MemAvailable": 39.36098861694336,
+   "Cached": 0.8244171142578125,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 5.840145111083984,
+   "Shmem": 0.024078369140625
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 9725,
+   "reserved": 377,
+   "free": 2187,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1499068,6498;1500690,3212",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 127.81188837946983,
+      "completion_tokens": 256,
+      "ttft_s": 0.174332857131958
+     },
+     {
+      "tok_s": 127.96248036380648,
+      "completion_tokens": 256,
+      "ttft_s": 0.1837165355682373
+     },
+     {
+      "tok_s": 127.90355005972752,
+      "completion_tokens": 256,
+      "ttft_s": 0.1776103973388672
+     },
+     {
+      "tok_s": 127.4832375036518,
+      "completion_tokens": 256,
+      "ttft_s": 0.18373537063598633
+     },
+     {
+      "tok_s": 127.84751642579329,
+      "completion_tokens": 256,
+      "ttft_s": 0.22481608390808105
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 31
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 68.94902311729986,
+      "completion_tokens": 256,
+      "ttft_s": 0.19269919395446777
+     },
+     {
+      "tok_s": 68.90637460337913,
+      "completion_tokens": 256,
+      "ttft_s": 0.18489623069763184
+     },
+     {
+      "tok_s": 68.64204848807763,
+      "completion_tokens": 256,
+      "ttft_s": 0.1906743049621582
+     },
+     {
+      "tok_s": 68.88072031541911,
+      "completion_tokens": 256,
+      "ttft_s": 0.23128294944763184
+     },
+     {
+      "tok_s": 68.87010207711886,
+      "completion_tokens": 256,
+      "ttft_s": 0.18508529663085938
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 17
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.535106658935547,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.5418319702148438
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ },
+ {
+  "label": "s2-pair-baseline-1",
+  "rig": "srv2",
+  "arm": "baseline",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "t": 1789099781.6350517,
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.729976654052734,
+    "MemAvailable": 42.510108947753906,
+    "Cached": 2.254505157470703,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 3846557
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4096691608428955
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 191.6233152510249,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-pair-baseline-1-up-1789099784",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-pair-as-run.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    depends_on:\n      Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n        condition: service_started\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 171.4,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     },
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 2.1,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 9725,
+     "free_mib": 2187
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789099929.9476585,
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789099964.7135646
+   },
+   "load_samples": 186,
+   "load_peak_used_mib": 10271,
+   "load_pswpout": 0,
+   "load_pgmajfault": 19522,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": [
+      "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+     ]
+    },
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-baseline-1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 191.6233152510249,
+     "door_unit_s": 171.4,
+     "started_at_to_ready_s": 42.358744859695435
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.17/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-11 04:11:21 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-baseline-1-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 191.6233152510249,
+     "door_unit_s": 2.1,
+     "started_at_to_ready_s": 45.55937838554382
+    },
+    "healthy": true,
+    "kv_tokens": 13888,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.4/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=205) ERROR 09-11 04:11:21 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 28.114654541015625,
+   "MemAvailable": 37.13340759277344,
+   "Cached": 11.394393920898438,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 2.0890464782714844
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 36.9108772277832,
+   "MemAvailable": 37.26921081542969,
+   "Cached": 2.8610458374023438,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 2.0890541076660156
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 9725,
+   "reserved": 377,
+   "free": 2187,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1510605,6498;1512220,3212",
+  "swap_total_mib": 0,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 128.2220296879254,
+      "completion_tokens": 256,
+      "ttft_s": 0.18062686920166016
+     },
+     {
+      "tok_s": 127.80133516887489,
+      "completion_tokens": 256,
+      "ttft_s": 0.16830086708068848
+     },
+     {
+      "tok_s": 128.13232108305397,
+      "completion_tokens": 256,
+      "ttft_s": 0.16836953163146973
+     },
+     {
+      "tok_s": 127.79962482708386,
+      "completion_tokens": 256,
+      "ttft_s": 0.16193532943725586
+     },
+     {
+      "tok_s": 128.07203806905406,
+      "completion_tokens": 256,
+      "ttft_s": 0.16568636894226074
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 33
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 68.86346844889466,
+      "completion_tokens": 256,
+      "ttft_s": 0.18110942840576172
+     },
+     {
+      "tok_s": 68.85262947420816,
+      "completion_tokens": 256,
+      "ttft_s": 0.17547941207885742
+     },
+     {
+      "tok_s": 68.8923225091846,
+      "completion_tokens": 256,
+      "ttft_s": 0.16907286643981934
+     },
+     {
+      "tok_s": 68.86798680420507,
+      "completion_tokens": 256,
+      "ttft_s": 0.1716468334197998
+     },
+     {
+      "tok_s": 68.86131811511092,
+      "completion_tokens": 256,
+      "ttft_s": 0.17601394653320312
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 19
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.5322608947753906,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.5396385192871094
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ },
+ {
+  "label": "s2-pair-baseline-2",
+  "rig": "srv2",
+  "arm": "baseline",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "t": 1789100215.601725,
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.755470275878906,
+    "MemAvailable": 42.539451599121094,
+    "Cached": 2.2554054260253906,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 3871081
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.3991866111755371
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 195.29870654002298,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-pair-baseline-2-up-1789100218",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-pair-as-run.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    depends_on:\n      Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n        condition: service_started\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 171.2,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     },
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 2.3,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 9725,
+     "free_mib": 2187
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789100367.8063595,
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789100401.9552028
+   },
+   "load_samples": 190,
+   "load_peak_used_mib": 9725,
+   "load_pswpout": 0,
+   "load_pgmajfault": 19569,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": [
+      "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+     ]
+    },
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-baseline-2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 195.29870654002298,
+     "door_unit_s": 171.2,
+     "started_at_to_ready_s": 41.898332834243774
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.17/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-11 04:18:39 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-baseline-2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 195.29870654002298,
+     "door_unit_s": 2.3,
+     "started_at_to_ready_s": 45.007811069488525
+    },
+    "healthy": true,
+    "kv_tokens": 14208,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.38/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=203) ERROR 09-11 04:18:39 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 28.124412536621094,
+   "MemAvailable": 37.145938873291016,
+   "Cached": 11.397407531738281,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 2.0890541076660156
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 36.91062545776367,
+   "MemAvailable": 37.266944885253906,
+   "Cached": 2.860198974609375,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 2.08905029296875
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 9725,
+   "reserved": 377,
+   "free": 2187,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1522177,6498;1523800,3212",
+  "swap_total_mib": 0,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 127.74771025837215,
+      "completion_tokens": 256,
+      "ttft_s": 0.16626596450805664
+     },
+     {
+      "tok_s": 127.79043252421309,
+      "completion_tokens": 256,
+      "ttft_s": 0.1671161651611328
+     },
+     {
+      "tok_s": 127.85054236344806,
+      "completion_tokens": 256,
+      "ttft_s": 0.16487574577331543
+     },
+     {
+      "tok_s": 127.91945941090772,
+      "completion_tokens": 256,
+      "ttft_s": 0.17070865631103516
+     },
+     {
+      "tok_s": 127.8856720604641,
+      "completion_tokens": 256,
+      "ttft_s": 0.16289901733398438
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 31
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 68.94891199647451,
+      "completion_tokens": 256,
+      "ttft_s": 0.1713097095489502
+     },
+     {
+      "tok_s": 68.8857910803208,
+      "completion_tokens": 256,
+      "ttft_s": 0.16999030113220215
+     },
+     {
+      "tok_s": 68.86067082443454,
+      "completion_tokens": 256,
+      "ttft_s": 0.1687173843383789
+     },
+     {
+      "tok_s": 68.85489451570507,
+      "completion_tokens": 256,
+      "ttft_s": 0.1655597686767578
+     },
+     {
+      "tok_s": 68.8386524571636,
+      "completion_tokens": 256,
+      "ttft_s": 0.16602659225463867
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 18
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.532318115234375,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.5397186279296875
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ },
+ {
+  "label": "s2-pair-baseline-3",
+  "rig": "srv2",
+  "arm": "baseline",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "t": 1789100655.6128912,
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.75911331176758,
+    "MemAvailable": 42.54337692260742,
+    "Cached": 2.2564048767089844,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 2.0653953552246094
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 3895642
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.42580223083496094
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 191.42292227299185,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-pair-baseline-3-up-1789100658",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-pair-as-run.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    depends_on:\n      Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n        condition: service_started\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 169.8,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     },
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 2.3,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 9445,
+     "free_mib": 2467
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789100805.4994721,
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789100840.199095
+   },
+   "load_samples": 186,
+   "load_peak_used_mib": 10271,
+   "load_pswpout": 0,
+   "load_pgmajfault": 20012,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": [
+      "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+     ]
+    },
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-baseline-3-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 191.42292227299185,
+     "door_unit_s": 169.8,
+     "started_at_to_ready_s": 42.13509225845337
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.44/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-11 04:25:56 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-baseline-3-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 191.42292227299185,
+     "door_unit_s": 2.3,
+     "started_at_to_ready_s": 45.71409201622009
+    },
+    "healthy": true,
+    "kv_tokens": 8592,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 28.105648040771484,
+   "MemAvailable": 37.1265754699707,
+   "Cached": 11.397003173828125,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 2.08905029296875
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 36.90520477294922,
+   "MemAvailable": 37.26158905029297,
+   "Cached": 2.8607406616210938,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 2.0890541076660156
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 9445,
+   "reserved": 377,
+   "free": 2467,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1533788,6218;1535465,3212",
+  "swap_total_mib": 0,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 127.92940476536494,
+      "completion_tokens": 256,
+      "ttft_s": 0.18786883354187012
+     },
+     {
+      "tok_s": 127.96979879422987,
+      "completion_tokens": 256,
+      "ttft_s": 0.18625354766845703
+     },
+     {
+      "tok_s": 127.77203662086113,
+      "completion_tokens": 256,
+      "ttft_s": 0.17479348182678223
+     },
+     {
+      "tok_s": 127.74194288116645,
+      "completion_tokens": 256,
+      "ttft_s": 0.17310118675231934
+     },
+     {
+      "tok_s": 127.5419331373683,
+      "completion_tokens": 256,
+      "ttft_s": 0.1853184700012207
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 71
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 68.87880400024137,
+      "completion_tokens": 256,
+      "ttft_s": 0.20343899726867676
+     },
+     {
+      "tok_s": 68.73126690291521,
+      "completion_tokens": 256,
+      "ttft_s": 0.17998218536376953
+     },
+     {
+      "tok_s": 68.87478540774605,
+      "completion_tokens": 256,
+      "ttft_s": 0.18716025352478027
+     },
+     {
+      "tok_s": 68.89452359572853,
+      "completion_tokens": 256,
+      "ttft_s": 0.18749117851257324
+     },
+     {
+      "tok_s": 68.85248320463523,
+      "completion_tokens": 256,
+      "ttft_s": 0.1856846809387207
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 19
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.5329360961914062,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.539623260498047
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ },
+ {
+  "label": "s2-3b-alone-1",
+  "rig": "srv2",
+  "arm": "alone",
+  "engine": "vllm",
+  "compose": "compose.srv2-3b-alone.yml",
+  "t": 1789101093.308797,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.74665451049805,
+    "MemAvailable": 42.530975341796875,
+    "Cached": 2.25738525390625,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 3920703
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.42357468605041504
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 116.08853055804502,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-3b-alone-1-up-1789101096",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-3b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 96.9,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 2795,
+     "free_mib": 9117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789101202.248817
+   },
+   "load_samples": 114,
+   "load_peak_used_mib": 2829,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17211,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-3b-alone-1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 116.08853055804502,
+     "door_unit_s": 96.9,
+     "started_at_to_ready_s": 93.71478581428528
+    },
+    "healthy": true,
+    "kv_tokens": 12352,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 36.05799102783203,
+   "MemAvailable": 39.66472244262695,
+   "Cached": 6.010231018066406,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.0772171020507812
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.4647216796875,
+   "MemAvailable": 39.807586669921875,
+   "Cached": 2.8410377502441406,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.0772171020507812
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 2795,
+   "reserved": 377,
+   "free": 9117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1542826,2786",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 128.40561646064054,
+      "completion_tokens": 256,
+      "ttft_s": 0.2252504825592041
+     },
+     {
+      "tok_s": 127.92945067058608,
+      "completion_tokens": 256,
+      "ttft_s": 0.2032313346862793
+     },
+     {
+      "tok_s": 127.6360409071148,
+      "completion_tokens": 256,
+      "ttft_s": 0.19582462310791016
+     },
+     {
+      "tok_s": 126.5511164519081,
+      "completion_tokens": 256,
+      "ttft_s": 0.18690824508666992
+     },
+     {
+      "tok_s": 127.77847840096072,
+      "completion_tokens": 256,
+      "ttft_s": 0.19300222396850586
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 67
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.604236602783203
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 0
+  }
+ },
+ {
+  "label": "s2-3b-alone-2",
+  "rig": "srv2",
+  "arm": "alone",
+  "engine": "vllm",
+  "compose": "compose.srv2-3b-alone.yml",
+  "t": 1789101281.9957843,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.743404388427734,
+    "MemAvailable": 42.525970458984375,
+    "Cached": 2.2579383850097656,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.065387725830078
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 3942867
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4496150016784668
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 115.20047062297817,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-3b-alone-2-up-1789101284",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-3b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 95.6,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 2795,
+     "free_mib": 9117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789101519.146257
+   },
+   "load_samples": 235,
+   "load_peak_used_mib": 2829,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17213,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-3b-alone-2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 115.20047062297817,
+     "door_unit_s": 95.6,
+     "started_at_to_ready_s": 93.40537977218628
+    },
+    "healthy": true,
+    "kv_tokens": 12352,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 36.07113265991211,
+   "MemAvailable": 39.676509857177734,
+   "Cached": 6.011257171630859,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.0772247314453125
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.46699523925781,
+   "MemAvailable": 39.811767578125,
+   "Cached": 2.8417701721191406,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 2795,
+   "reserved": 377,
+   "free": 9117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1551567,2786",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 127.62789250187525,
+      "completion_tokens": 256,
+      "ttft_s": 0.17648029327392578
+     },
+     {
+      "tok_s": 127.91629252265315,
+      "completion_tokens": 256,
+      "ttft_s": 0.18881702423095703
+     },
+     {
+      "tok_s": 128.23915617947983,
+      "completion_tokens": 256,
+      "ttft_s": 0.1876082420349121
+     },
+     {
+      "tok_s": 128.58513821416582,
+      "completion_tokens": 256,
+      "ttft_s": 0.195082426071167
+     },
+     {
+      "tok_s": 127.61162926382279,
+      "completion_tokens": 256,
+      "ttft_s": 0.18277335166931152
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 68
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.6033706665039062
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 0
+  }
+ },
+ {
+  "label": "s2-3b-alone-3",
+  "rig": "srv2",
+  "arm": "alone",
+  "engine": "vllm",
+  "compose": "compose.srv2-3b-alone.yml",
+  "t": 1789101595.881221,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.75586700439453,
+    "MemAvailable": 42.538169860839844,
+    "Cached": 2.258594512939453,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653953552246094
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 3964882
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.42693567276000977
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 115.86713175900513,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-3b-alone-3-up-1789101598",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-3b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.26'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 96.0,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 2795,
+     "free_mib": 9117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789101771.3155558
+   },
+   "load_samples": 176,
+   "load_peak_used_mib": 2829,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17233,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.26"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-3b-alone-3-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 115.86713175900513,
+     "door_unit_s": 96.0,
+     "started_at_to_ready_s": 93.33653354644775
+    },
+    "healthy": true,
+    "kv_tokens": 12352,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 36.08819580078125,
+   "MemAvailable": 39.695369720458984,
+   "Cached": 6.013221740722656,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.448909759521484,
+   "MemAvailable": 39.7937126159668,
+   "Cached": 2.8419342041015625,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 2795,
+   "reserved": 377,
+   "free": 9117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1559634,2786",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 128.0260622907998,
+      "completion_tokens": 256,
+      "ttft_s": 0.17836594581604004
+     },
+     {
+      "tok_s": 127.90001688516129,
+      "completion_tokens": 256,
+      "ttft_s": 0.17670083045959473
+     },
+     {
+      "tok_s": 127.70423889983657,
+      "completion_tokens": 256,
+      "ttft_s": 0.2299187183380127
+     },
+     {
+      "tok_s": 126.05257413966311,
+      "completion_tokens": 256,
+      "ttft_s": 0.17999720573425293
+     },
+     {
+      "tok_s": 128.1576694673575,
+      "completion_tokens": 256,
+      "ttft_s": 0.1886279582977295
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 32
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.601726531982422
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 0
+  }
+ },
+ {
+  "label": "s2-7b-alone-2",
+  "rig": "srv2",
+  "arm": "alone",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-alone.yml",
+  "t": 1789101848.4122407,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.731658935546875,
+    "MemAvailable": 42.51214599609375,
+    "Cached": 2.2592544555664062,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 3986875
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4287881851196289
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 115.2167777120485,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-alone-2-up-1789101851",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 95.6,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 7795,
+     "free_mib": 4117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789102023.6058292
+   },
+   "load_samples": 175,
+   "load_peak_used_mib": 7795,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17207,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-alone-2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 115.2167777120485,
+     "door_unit_s": 95.6,
+     "started_at_to_ready_s": 94.23200511932373
+    },
+    "healthy": true,
+    "kv_tokens": 37248,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.77035140991211,
+   "MemAvailable": 39.64303207397461,
+   "Cached": 9.278377532958984,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.45744323730469,
+   "MemAvailable": 39.8015022277832,
+   "Cached": 2.843555450439453,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 7795,
+   "reserved": 377,
+   "free": 4117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1567531,7786",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 68.83333612215556,
+      "completion_tokens": 256,
+      "ttft_s": 0.19195842742919922
+     },
+     {
+      "tok_s": 68.816931545927,
+      "completion_tokens": 256,
+      "ttft_s": 0.1846621036529541
+     },
+     {
+      "tok_s": 68.5942265146882,
+      "completion_tokens": 256,
+      "ttft_s": 0.1833362579345703
+     },
+     {
+      "tok_s": 68.80303540744737,
+      "completion_tokens": 256,
+      "ttft_s": 0.17610764503479004
+     },
+     {
+      "tok_s": 68.81384991719543,
+      "completion_tokens": 256,
+      "ttft_s": 0.1853330135345459
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 67
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.6104888916015625
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-7b-alone-3",
+  "rig": "srv2",
+  "arm": "alone",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-alone.yml",
+  "t": 1789102111.01036,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.712562561035156,
+    "MemAvailable": 42.50749206542969,
+    "Cached": 2.2793350219726562,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 4009044
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.42023539543151855
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 115.28660324099474,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-alone-3-up-1789102113",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 96.4,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 7795,
+     "free_mib": 4117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789102286.4801452
+   },
+   "load_samples": 175,
+   "load_peak_used_mib": 7795,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17068,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-alone-3-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 115.28660324099474,
+     "door_unit_s": 96.4,
+     "started_at_to_ready_s": 95.72324323654175
+    },
+    "healthy": true,
+    "kv_tokens": 37248,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.79267501831055,
+   "MemAvailable": 39.66603469848633,
+   "Cached": 9.279777526855469,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.0772171020507812
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.464351654052734,
+   "MemAvailable": 39.80908966064453,
+   "Cached": 2.844226837158203,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.0772171020507812
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 7795,
+   "reserved": 377,
+   "free": 4117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1575546,7786",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 68.83884297440873,
+      "completion_tokens": 256,
+      "ttft_s": 0.17787885665893555
+     },
+     {
+      "tok_s": 68.77468062187296,
+      "completion_tokens": 256,
+      "ttft_s": 0.18007397651672363
+     },
+     {
+      "tok_s": 68.83655240671372,
+      "completion_tokens": 256,
+      "ttft_s": 0.1852729320526123
+     },
+     {
+      "tok_s": 68.8841140518251,
+      "completion_tokens": 256,
+      "ttft_s": 0.18950462341308594
+     },
+     {
+      "tok_s": 68.64263881001095,
+      "completion_tokens": 256,
+      "ttft_s": 0.18851113319396973
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 38
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.6112022399902344
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-7b-fp8-1",
+  "rig": "srv2",
+  "arm": "fp8",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-fp8.yml",
+  "t": 1789102372.3177288,
+  "kv_cache_dtype": "fp8",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.679771423339844,
+    "MemAvailable": 42.475807189941406,
+    "Cached": 2.280132293701172,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653839111328125
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 4031047
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.42362332344055176
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 115.215453929035,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-fp8-1-up-1789102375",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-fp8.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    - --kv-cache-dtype\n    - fp8\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 96.3,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 8245,
+     "free_mib": 3667
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789102552.1923656
+   },
+   "load_samples": 179,
+   "load_peak_used_mib": 8245,
+   "load_pswpout": 0,
+   "load_pgmajfault": 16992,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72",
+      "--kv-cache-dtype",
+      "fp8"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72",
+     "--kv-cache-dtype",
+     "fp8"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-fp8-1-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 115.215453929035,
+     "door_unit_s": 96.3,
+     "started_at_to_ready_s": 94.94833159446716
+    },
+    "healthy": true,
+    "kv_tokens": 74512,
+    "backend_line": "Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.754127502441406,
+   "MemAvailable": 39.62131881713867,
+   "Cached": 9.312557220458984,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.116283416748047
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.42969512939453,
+   "MemAvailable": 39.76657485961914,
+   "Cached": 2.875385284423828,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.1162796020507812
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 8245,
+   "reserved": 377,
+   "free": 3667,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1583512,8236",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 67.54311057727375,
+      "completion_tokens": 256,
+      "ttft_s": 0.2029402256011963
+     },
+     {
+      "tok_s": 67.44046586144415,
+      "completion_tokens": 256,
+      "ttft_s": 0.19464349746704102
+     },
+     {
+      "tok_s": 67.45055422405227,
+      "completion_tokens": 256,
+      "ttft_s": 0.18470239639282227
+     },
+     {
+      "tok_s": 67.40636131481627,
+      "completion_tokens": 256,
+      "ttft_s": 0.18233275413513184
+     },
+     {
+      "tok_s": 67.41721288256386,
+      "completion_tokens": 256,
+      "ttft_s": 0.18652939796447754
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 77
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.6320877075195312
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-7b-fp8-2",
+  "rig": "srv2",
+  "arm": "fp8",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-fp8.yml",
+  "t": 1789102640.8766232,
+  "kv_cache_dtype": "fp8",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.70697784423828,
+    "MemAvailable": 42.4886589050293,
+    "Cached": 2.2610397338867188,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 4053007
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.42033839225769043
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 120.00825507898116,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-fp8-2-up-1789102643",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-fp8.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    - --kv-cache-dtype\n    - fp8\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 98.6,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 8245,
+     "free_mib": 3667
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789102822.893899
+   },
+   "load_samples": 184,
+   "load_peak_used_mib": 8245,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17164,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72",
+      "--kv-cache-dtype",
+      "fp8"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72",
+     "--kv-cache-dtype",
+     "fp8"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-fp8-2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 120.00825507898116,
+     "door_unit_s": 98.6,
+     "started_at_to_ready_s": 95.9779748916626
+    },
+    "healthy": true,
+    "kv_tokens": 74512,
+    "backend_line": "Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.76743698120117,
+   "MemAvailable": 39.63684844970703,
+   "Cached": 9.314128875732422,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.1162872314453125
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.439414978027344,
+   "MemAvailable": 39.778018951416016,
+   "Cached": 2.876007080078125,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.1162796020507812
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 8245,
+   "reserved": 377,
+   "free": 3667,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1591501,8236",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 67.38835389442646,
+      "completion_tokens": 256,
+      "ttft_s": 0.1810903549194336
+     },
+     {
+      "tok_s": 67.44879747511175,
+      "completion_tokens": 256,
+      "ttft_s": 0.23476910591125488
+     },
+     {
+      "tok_s": 67.42879060631014,
+      "completion_tokens": 256,
+      "ttft_s": 0.18921256065368652
+     },
+     {
+      "tok_s": 67.59730783166762,
+      "completion_tokens": 256,
+      "ttft_s": 0.2596323490142822
+     },
+     {
+      "tok_s": 67.38319127735465,
+      "completion_tokens": 256,
+      "ttft_s": 0.2814300060272217
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 37
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.6377334594726562
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-7b-fp8-3",
+  "rig": "srv2",
+  "arm": "fp8",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-fp8.yml",
+  "t": 1789102917.0897112,
+  "kv_cache_dtype": "fp8",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.731300354003906,
+    "MemAvailable": 42.513092041015625,
+    "Cached": 2.261547088623047,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 4075088
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4364004135131836
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 119.1964079309837,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-fp8-3-up-1789102920",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-fp8.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    - --kv-cache-dtype\n    - fp8\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 97.6,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 8245,
+     "free_mib": 3667
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789103099.325756
+   },
+   "load_samples": 183,
+   "load_peak_used_mib": 8245,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17142,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72",
+      "--kv-cache-dtype",
+      "fp8"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72",
+     "--kv-cache-dtype",
+     "fp8"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-fp8-3-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 119.1964079309837,
+     "door_unit_s": 97.6,
+     "started_at_to_ready_s": 95.98656606674194
+    },
+    "healthy": true,
+    "kv_tokens": 74512,
+    "backend_line": "Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.73893356323242,
+   "MemAvailable": 39.606781005859375,
+   "Cached": 9.313114166259766,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.1162796020507812
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.42708969116211,
+   "MemAvailable": 39.76616668701172,
+   "Cached": 2.876880645751953,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.1162796020507812
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 8245,
+   "reserved": 377,
+   "free": 3667,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1599635,8236",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "tok_s": 67.31328520809863,
+      "completion_tokens": 256,
+      "ttft_s": 0.17937350273132324
+     },
+     {
+      "tok_s": 67.34858905779826,
+      "completion_tokens": 256,
+      "ttft_s": 0.1846916675567627
+     },
+     {
+      "tok_s": 67.34120223921744,
+      "completion_tokens": 256,
+      "ttft_s": 0.2553579807281494
+     },
+     {
+      "tok_s": 67.45611432076666,
+      "completion_tokens": 256,
+      "ttft_s": 0.2868790626525879
+     },
+     {
+      "tok_s": 67.43708106693018,
+      "completion_tokens": 256,
+      "ttft_s": 0.18900370597839355
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 72
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.636760711669922
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-7b-auto-quality",
+  "rig": "srv2",
+  "arm": "quality",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-alone.yml",
+  "t": 1789103192.892141,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.74715805053711,
+    "MemAvailable": 42.52910232543945,
+    "Cached": 2.262176513671875,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.065387725830078
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 4097192
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4235036373138428
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 119.26409537898144,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-auto-quality-up-1789103195",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 98.2,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 7795,
+     "free_mib": 4117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789103376.3903143
+   },
+   "load_samples": 183,
+   "load_peak_used_mib": 7795,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17206,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-auto-quality-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 119.26409537898144,
+     "door_unit_s": 98.2,
+     "started_at_to_ready_s": 96.63411736488342
+    },
+    "healthy": true,
+    "kv_tokens": 37248,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.79256820678711,
+   "MemAvailable": 39.66706848144531,
+   "Cached": 9.280620574951172,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.39999771118164,
+   "MemAvailable": 39.74825668334961,
+   "Cached": 2.8449249267578125,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 7795,
+   "reserved": 377,
+   "free": 4117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1607677,7786",
+  "swap_total_mib": 8191,
+  "decode": {},
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.60406494140625
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-7b-auto-quality",
+  "rig": "srv2",
+  "arm": "quality",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-alone.yml",
+  "t": 1789103465.50703,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.70252227783203,
+    "MemAvailable": 42.500614166259766,
+    "Cached": 2.2823753356933594,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 4119339
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4398646354675293
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 119.13510171999224,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-auto-quality-up-1789103468",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 99.3,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 7795,
+     "free_mib": 4117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789103640.7264218
+   },
+   "load_samples": 177,
+   "load_peak_used_mib": 7795,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17052,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-auto-quality-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 119.13510171999224,
+     "door_unit_s": 99.3,
+     "started_at_to_ready_s": 95.53170776367188
+    },
+    "healthy": true,
+    "kv_tokens": 37248,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.780418395996094,
+   "MemAvailable": 39.655517578125,
+   "Cached": 9.281681060791016,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.0772171020507812
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.42265319824219,
+   "MemAvailable": 39.7730712890625,
+   "Cached": 2.846912384033203,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 7795,
+   "reserved": 377,
+   "free": 4117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1615721,7786",
+  "swap_total_mib": 8191,
+  "decode": {},
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.599353790283203
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-7b-auto-quality",
+  "rig": "srv2",
+  "arm": "quality",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-alone.yml",
+  "t": 1789103739.0677052,
+  "kv_cache_dtype": "auto",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.75974655151367,
+    "MemAvailable": 42.54240798950195,
+    "Cached": 2.2633934020996094,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 4141340
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4316689968109131
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 117.85460601199884,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-auto-quality-up-1789103742",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-alone.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 96.2,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 7795,
+     "free_mib": 4117
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789103922.9275143
+   },
+   "load_samples": 183,
+   "load_peak_used_mib": 7795,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17211,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-auto-quality-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 117.85460601199884,
+     "door_unit_s": 96.2,
+     "started_at_to_ready_s": 95.09483122825623
+    },
+    "healthy": true,
+    "kv_tokens": 37248,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.8279914855957,
+   "MemAvailable": 39.7041015625,
+   "Cached": 9.282249450683594,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.077220916748047
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.418067932128906,
+   "MemAvailable": 39.76759338378906,
+   "Cached": 2.8459243774414062,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.0772247314453125
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 7795,
+   "reserved": 377,
+   "free": 4117,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1623738,7786",
+  "swap_total_mib": 8191,
+  "decode": {},
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.6029434204101562
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ },
+ {
+  "label": "s2-7b-fp8-quality",
+  "rig": "srv2",
+  "arm": "quality",
+  "engine": "vllm",
+  "compose": "compose.srv2-7b-fp8.yml",
+  "t": 1789105943.9475327,
+  "kv_cache_dtype": "fp8",
+  "idle": {
+   "uptime_since": "2026-09-01T05:20:12Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.97502517700195,
+    "MemFree": 42.75101089477539,
+    "MemAvailable": 42.53584671020508,
+    "Cached": 2.264171600341797,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 2.0653915405273438
+   },
+   "vm": {
+    "pswpin": 2412497,
+    "pswpout": 5028950,
+    "pgmajfault": 4163569
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.45186281204223633
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 117.16434428701177,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv2-serve-up-s2-7b-fp8-quality-up-1789105947",
+    "host": "srv2",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv2-7b-fp8.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    - --kv-cache-dtype\n    - fp8\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 97.1,
+      "models": [
+       "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 8245,
+     "free_mib": 3667
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1789106055.3778207
+   },
+   "load_samples": 115,
+   "load_peak_used_mib": 8245,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17426,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+     "port": 8002,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8002",
+      "--gpu-memory-utilization",
+      "0.72",
+      "--kv-cache-dtype",
+      "fp8"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72",
+     "--kv-cache-dtype",
+     "fp8"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-7b-fp8-quality-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 117.16434428701177,
+     "door_unit_s": 97.1,
+     "started_at_to_ready_s": 95.41851329803467
+    },
+    "healthy": true,
+    "kv_tokens": 74512,
+    "backend_line": "Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 32.73908996582031,
+   "MemAvailable": 39.646488189697266,
+   "Cached": 9.349163055419922,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.1162796020507812
+  },
+  "mem_up_dropped": {
+   "MemTotal": 45.97502517700195,
+   "MemFree": 39.37342071533203,
+   "MemAvailable": 39.74470520019531,
+   "Cached": 2.9066390991210938,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 2.116283416748047
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 8245,
+   "reserved": 377,
+   "free": 3667,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "gpu_apps_up": "1631353,8236",
+  "swap_total_mib": 8191,
+  "decode": {},
+  "process_rss_gib": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 2.6168556213378906
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 0
+  }
+ }
+]

@@ -1,0 +1,5 @@
+```python
+def sort_by_len(words: list) -> list:
+    """Sorts a list of words by their length, shortest first. Words of the same length are sorted alphabetically."""
+    return sorted(words, key=lambda x: (len(x), x))
+```

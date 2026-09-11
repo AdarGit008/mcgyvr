@@ -1,0 +1,42 @@
+services:
+  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:
+    command:
+    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
+    - --max-model-len
+    - '4096'
+    - --max-num-seqs
+    - '8'
+    - --port
+    - '8001'
+    - --gpu-memory-utilization
+    - '0.26'
+    - --kv-cache-memory-bytes
+    - '455344128'
+    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+            device_ids:
+            - '0'
+            driver: nvidia
+    environment:
+      HF_HUB_OFFLINE: '1'
+      VLLM_LOGGING_LEVEL: DEBUG
+    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52
+    ipc: host
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro
+    healthcheck:
+      interval: 5s
+      retries: 3
+      start_period: 600s
+      timeout: 3s
+      test:
+      - CMD-SHELL
+      - curl -sf http://localhost:8001/v1/models >/dev/null 2>&1 || wget -q -O- http://localhost:8001/v1/models
+        >/dev/null 2>&1

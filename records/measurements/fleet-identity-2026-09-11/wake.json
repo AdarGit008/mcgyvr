@@ -1,0 +1,102 @@
+{
+ "srv1/Ling-3.0-tiny-Q4_K_M": {
+  "clock": "door_process_s",
+  "n": 3,
+  "door_process_s": {
+   "median_s": 83.42376381100621,
+   "min_s": 82.94967594696209,
+   "max_s": 83.50706840201747,
+   "max_deviation_pct": 0.5682887493762003
+  },
+  "door_unit_s": {
+   "median_s": 63.8,
+   "min_s": 63.6,
+   "max_s": 64.1,
+   "max_deviation_pct": 0.4702194357366727
+  },
+  "started_at_to_ready_s": {
+   "median_s": 63.508522510528564,
+   "min_s": 63.20320177078247,
+   "max_s": 63.73439359664917,
+   "max_deviation_pct": 0.4807555390624575
+  },
+  "median_s": 83.42376381100621,
+  "waker_over_door_unit_s": 19.407068402017472,
+  "proposed_cold_tolerance_s": 8.342376381100621
+ },
+ "srv1/Qwen3.6-35B-A3B-UD-IQ3_XXS": {
+  "clock": "door_process_s",
+  "n": 3,
+  "door_process_s": {
+   "median_s": 154.19343596301042,
+   "min_s": 151.98491027503042,
+   "max_s": 155.11338110797806,
+   "max_deviation_pct": 1.4323084988584112
+  },
+  "door_unit_s": {
+   "median_s": 132.9,
+   "min_s": 132.3,
+   "max_s": 134.3,
+   "max_deviation_pct": 1.0534236267870623
+  },
+  "started_at_to_ready_s": {
+   "median_s": 130.47438383102417,
+   "min_s": 130.4431688785553,
+   "max_s": 130.9048080444336,
+   "max_deviation_pct": 0.32989173872387173
+  },
+  "median_s": 154.19343596301042,
+  "waker_over_door_unit_s": 20.813381107978046,
+  "proposed_cold_tolerance_s": 15.419343596301042
+ },
+ "srv2/Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {
+  "clock": "door_process_s",
+  "n": 3,
+  "door_process_s": {
+   "median_s": 115.86713175900513,
+   "min_s": 115.20047062297817,
+   "max_s": 116.08853055804502,
+   "max_deviation_pct": 0.5753669102757843
+  },
+  "door_unit_s": {
+   "median_s": 96.0,
+   "min_s": 95.6,
+   "max_s": 96.9,
+   "max_deviation_pct": 0.9375000000000059
+  },
+  "started_at_to_ready_s": {
+   "median_s": 93.40537977218628,
+   "min_s": 93.33653354644775,
+   "max_s": 93.71478581428528,
+   "max_deviation_pct": 0.3312507725503967
+  },
+  "median_s": 115.86713175900513,
+  "waker_over_door_unit_s": 19.60047062297818,
+  "proposed_cold_tolerance_s": 11.586713175900513
+ },
+ "srv2/Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {
+  "clock": "door_process_s",
+  "n": 3,
+  "door_process_s": {
+   "median_s": 115.28660324099474,
+   "min_s": 115.2167777120485,
+   "max_s": 117.60841324197827,
+   "max_deviation_pct": 2.0139460576612085
+  },
+  "door_unit_s": {
+   "median_s": 96.4,
+   "min_s": 95.6,
+   "max_s": 98.6,
+   "max_deviation_pct": 2.2821576763485356
+  },
+  "started_at_to_ready_s": {
+   "median_s": 95.72324323654175,
+   "min_s": 94.23200511932373,
+   "max_s": 96.32413363456726,
+   "max_deviation_pct": 1.557864178852589
+  },
+  "median_s": 115.28660324099474,
+  "waker_over_door_unit_s": 19.008413241978275,
+  "proposed_cold_tolerance_s": 11.528660324099475
+ }
+}

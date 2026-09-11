@@ -1,0 +1,9 @@
+```python
+def seat_run(row: str, party:    if not row or party <= 0:
+        raise ValueError("Invalid input")
+    
+    for i in range(len(row) - party +        if all(se == ' ' for se in row[i:i+ party]):
+            return i
+    
+    return -1
+```

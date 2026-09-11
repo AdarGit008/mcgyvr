@@ -1,0 +1,33 @@
+```python
+def trace_parcel(events: list) -> list:
+    if not isinstance(events, list):
+        raise ValueError("Input must be a list")
+    
+    states = ["created"]
+    current_state = "created"
+    
+    for event in events:
+        if event not in ["pack", "ship", "deliver", "bounce"]:
+            raise ValueError(f"Invalid event: {event}")
+        
+        if event == "pack":
+            if current_state != "created":
+                raise ValueError("Event 'pack' cannot follow the current state")
+            current_state = "packed"
+        elif event == "ship":
+            if current_state != "packed":
+                raise ValueError("Event 'ship' cannot follow the current state")
+            current_state = "shipped"
+        elif event == "deliver":
+            if current_state != "shipped":
+                raise ValueError("Event 'deliver' cannot follow the current state")
+            current_state = "delivered"
+        elif event == "bounce":
+            if current_state != "shipped":
+                raise ValueError("Event 'bounce' cannot follow the current state")
+            current_state = "returned"
+        
+        states.append(current_state)
+    
+    return states
+```

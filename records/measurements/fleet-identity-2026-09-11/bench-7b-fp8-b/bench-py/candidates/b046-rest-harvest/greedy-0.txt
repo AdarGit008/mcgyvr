@@ -1,0 +1,6 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input of yields is required")
+    
+    if not all(isinstance(yield_val,```

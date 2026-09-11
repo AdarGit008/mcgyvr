@@ -1,0 +1,24 @@
+```python
+def config_value(layers: list[str], name: str) -> str | None:
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Name must be a non-empty string")
+    
+    for layer in layers:
+        if not isinstance(layer, str):
+            raise ValueError("Each layer must be a string")
+        
+        for line in layer.splitlines():
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            parts = line.split('=', 1)
+            if len(parts) == 2:
+                key, value = map(str.strip, parts)
+                if key == name:
+                    return value
+            elif line.startswith('!') and line[1:].strip() == name:
+                return None
+    
+    return None
+```
