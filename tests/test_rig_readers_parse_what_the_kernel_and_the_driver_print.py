@@ -1,13 +1,16 @@
-"""The readers a fit and an observation stand on parse the text the rig prints.
+"""The readers an observation stands on parse the text the rig prints.
 
 RED. ``mcgyvr.fleet.observe`` does not exist; ``src/`` reads ``MemAvailable``
 (``src/mcgyvr/scan.py``) and whole-card used/free (``servelib.card``) and
-nothing else. The intent is ``records/plans/fleet-identity.md``, "readers".
+nothing else. The intent is ``records/plans/fleet-identity.md`` §6 and §7.
 
-Every figure the campaign needed was readable: per-process card with the pid
-mapped to its container through ``/proc/<pid>/cgroup`` (Q15), Shmem additive to
-0.2 MiB and swap and faults (Q7). These tests pin the parsing on fixture text,
-so no test reaches a rig.
+Swap, major faults and Shmem are recorded beside every observation (they
+explain a warm-decode alert and are never alerted themselves), and card use
+attributed per container is how live tells a unit of ours from a process it did
+not start, which refuses the rig. Every figure was readable in the campaign:
+per-process card with the pid mapped to its container through
+``/proc/<pid>/cgroup`` (Q15), Shmem and swap and faults (Q7). These tests pin
+the parsing on fixture text, so no test reaches a rig.
 """
 
 from __future__ import annotations
@@ -26,9 +29,6 @@ SwapTotal:       8388604 kB
 SwapFree:        7209000 kB
 """
 VMSTAT = "pgmajfault 188000\npswpin 1200\npswpout 565534\n"
-STATUS = (
-    "Name:\tllama-server\nRssFile:\t 6676480 kB\nRssShmem:\t 0 kB\nVmSwap:\t 1024 kB\n"
-)
 APPS = "4242, 6816\n4343, 3810\n999, 3374\n"
 DOCKER_A = "0::/system.slice/docker-" + "a" * 64 + ".scope\n"
 DOCKER_B = "0::/system.slice/docker-" + "b" * 64 + ".scope\n"
@@ -53,13 +53,6 @@ def test_vmstat_gives_swap_out_and_major_faults() -> None:
     read = _observe().parse_vmstat(VMSTAT)
     assert read["pswpout"] == 565534
     assert read["pgmajfault"] == 188000
-
-
-def test_a_process_status_gives_its_mapped_file_shmem_and_swap() -> None:
-    read = _observe().parse_status(STATUS)
-    assert read["rss_file_mib"] == pytest.approx(6676480 / 1024)
-    assert read["rss_shmem_mib"] == 0
-    assert read["vm_swap_mib"] == pytest.approx(1)
 
 
 def test_card_use_is_attributed_per_container_and_the_rest_is_foreign() -> None:

@@ -5,13 +5,15 @@ RED for the second and third tests. Gate 1
 only a spec inside the live config's ``serving.compose_dir`` and refuses any
 other before a rig is read. The owner widened sleep-wake §11.2 on 2026-09-10:
 **dev runs everything, ``serve up`` and ``down`` included** — N11 is ruled. The
-intent is ``records/plans/fleet-identity.md`` §4.
+intent is ``records/plans/fleet-identity.md`` §6.
 
 **What the refused half protected, and where that went.** The composition guard
 kept a ladder nobody declared off a shared rig, so that every later live run did
-not measure against it. Live is now production and runs only an approved fleet
-shape: live admission compares each rig's compose with the approved sha and
-refuses a mismatch (``tests/test_a_live_run_is_an_approved_fleet_shape_or_nothing.py``).
+not measure against it. Live is now production and runs only a locked fleet:
+gate 1 admits a live ``serve up`` only for units the fleet lock names
+(``tests/test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock.py``), and
+live cleans units of ours the fleet does not name
+(``tests/test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it.py``).
 Guarding dev at gate 1 as well would be the same rule in a second place.
 
 **What does not change.** Gate 2 still makes a dev run yield a rig another run

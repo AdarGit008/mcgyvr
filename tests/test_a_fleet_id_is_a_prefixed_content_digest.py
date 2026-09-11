@@ -1,14 +1,19 @@
 """A fleet identity is a prefixed digest of what it covers, and nothing else.
 
-RED. ``mcgyvr.fleet`` does not exist on this branch. The intent is
-``records/plans/fleet-identity.md``, rule ID-1.
+RED. ``mcgyvr.fleet.ids`` does not exist on this branch. The intent is
+``records/plans/fleet-identity.md`` §1.
 
-Five identities share one primitive, the shape ``Config.digest()`` already has
-(``src/mcgyvr/config.py:1092``: ``cfg-`` plus the sha256 of a canonical tree): a
-prefix that says which kind of thing is named, then a digest of the fields that
-define it. Content-addressed, so two processes computing the same inputs agree
-without talking, and any change to an input is a new name — which is the
-property every approval and every observation record is keyed through.
+Three kinds are content-addressed and share one primitive, the shape
+``Config.digest()`` already has (``src/mcgyvr/config.py:1092``: a prefix plus
+the sha256 of a canonical tree): ``unt-`` a unit, ``rig-`` a rig and ``cmb-`` a
+combination. Content-addressed, so two processes computing the same inputs
+agree without talking, and any change to an input is a new name.
+
+A fleet is not one of them. ``flt-05`` is a name, pinned in its lock file to
+the sha256 of its layout (§1, §4). The model spec, rig shape and fleet shape of
+the five-id design are gone (owner, 2026-09-10 and 2026-09-11), and so is the
+config digest as an approval key; their prefixes are refused, so a record
+written under the old design cannot pass for a current one.
 """
 
 from __future__ import annotations
@@ -21,9 +26,9 @@ import pytest
 
 from tests.red_port.conftest import required
 
-#: model spec, unit, rig, rig shape, fleet shape.
-PREFIXES = ("msp-", "unt-", "rig-", "rsh-", "fsh-")
-IDENTITY = re.compile(r"^(msp|unt|rig|rsh|fsh)-[0-9a-f]{64}$")
+#: unit, rig, combination.
+PREFIXES = ("unt-", "rig-", "cmb-")
+IDENTITY = re.compile(r"^(unt|rig|cmb)-[0-9a-f]{64}$")
 
 
 def _digest() -> Any:
@@ -57,8 +62,10 @@ def test_any_changed_or_added_field_is_a_new_identity() -> None:
     assert digest("rig-", {"host": "srv1", "driver": "580.173.02", "x": 1}) != base
 
 
-def test_a_prefix_outside_the_five_kinds_is_refused() -> None:
-    """``cfg-`` is the config's; a sixth kind is a design change, not a typo."""
+def test_a_retired_or_unknown_prefix_is_refused() -> None:
+    """``msp-``, ``rsh-`` and ``fsh-`` named the dropped design; ``cfg-`` is the
+    config's digest, which no longer keys an approval."""
     digest = _digest()
-    with pytest.raises(ValueError):
-        digest("cfg-", {"host": "srv1"})
+    for prefix in ("msp-", "rsh-", "fsh-", "cfg-", "flt-"):
+        with pytest.raises(ValueError, match=prefix):
+            digest(prefix, {"host": "srv1"})

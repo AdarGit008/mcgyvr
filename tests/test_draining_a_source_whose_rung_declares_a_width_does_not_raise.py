@@ -8,8 +8,8 @@ declares ``max_parallel: 2``, so ``sorted()`` compares ``None`` with a ``str``
 and ``mcgyvr serve sleep`` crashes on srv1 (flexibility-2026-09-09, Defects: "`mcgyvr
 serve sleep` crashes on srv1").
 
-It is a prerequisite (P0) of the fleet work: a transition drains before it
-sleeps, and on srv1 the drain cannot run.
+P0 of ``records/plans/fleet-identity.md`` §11: a switch drains a unit before
+it sleeps or stops it (§3), and on srv1 the drain cannot run.
 """
 
 from __future__ import annotations

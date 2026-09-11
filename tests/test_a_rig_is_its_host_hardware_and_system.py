@@ -1,20 +1,21 @@
-"""A rig is its host, hardware and system, and never its card reserve.
+"""A rig is its host, hardware and system.
 
 RED. ``mcgyvr.fleet.rig`` does not exist, and the two functions that answer
 "which OS install is this" are both still called ``machine_id``. The intent is
-``records/plans/fleet-identity.md``.
+``records/plans/fleet-identity.md`` §1.
 
 Owner's ruling: any hardware or system change mints a new ``rig_id``. That
 inverts ``src/mcgyvr/scan.py:642`` ("never by what was measured"), on purpose:
 RAM moved between srv1 and srv2 twice in six days, and a BIOS reset took PL1
 from 95 W to 4095 W, and every artifact from those windows was internally
 consistent and wrong (``tools/runs/hosts.json`` ``_rig_doc``). A new name makes
-every approval on the old one lapse, loudly.
+every lock on the old one lapse, loudly.
 
-The reserve is the exception by the BOUND rule: it moves ±3 MiB between boots
-(``records/plans/fleet-shape/evidence_and_params.md`` §1, ``V_reserve``), which
-is under 1% of either card, so it is declared at its worst and kept out of the
-name. Hashing it would mint a new rig on every reboot.
+Whether the card reserve (``gpu_reserve_mib``) belongs in the name is open
+(plan §12). Gate 2 compares it literally with ``tools/runs/hosts.json``, and the
+±3 MiB it is said to move across boots has not been read on two boots of either
+rig. That reading belongs to ``red/fleet-identity-measurements``, so no test
+here pins it either way.
 """
 
 from __future__ import annotations
@@ -71,13 +72,6 @@ def test_a_bios_reset_mints_a_new_rig() -> None:
 def test_the_host_is_part_of_the_rig() -> None:
     rig_id = _rig_id()
     assert rig_id("srv1", HW, SYSTEM) != rig_id("srv2", HW, SYSTEM)
-
-
-def test_the_card_reserve_is_a_bound_and_never_part_of_the_rig() -> None:
-    rig_id = _rig_id()
-    without = rig_id("srv1", HW, SYSTEM)
-    assert rig_id("srv1", {**HW, "gpu_reserve_mib": "401"}, SYSTEM) == without
-    assert rig_id("srv1", {**HW, "gpu_reserve_mib": "404"}, SYSTEM) == without
 
 
 def test_the_scan_names_the_os_install_os_machine_id() -> None:

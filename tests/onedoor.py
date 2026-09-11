@@ -388,13 +388,31 @@ case "${1:-}" in
   compose)
     # `compose ... up -d` brings up what a test queued (serving-pending
     # becomes serving-names, which `ps` and the rig's snapshot then list);
-    # `down` clears it, unless a test pinned the names in place
+    # `down` removes what Docker's does: the containers the file names, and
+    # with --remove-orphans every other container of the project too (here,
+    # every `mcgyvr-` name) — unless a test pinned the names in place
     # (compose-down-sticks).
     case " $* " in
       *" up "*)
         [ -f "$STUBS/serving-pending" ] &&
           mv "$STUBS/serving-pending" "$STUBS/serving-names" ;;
-      *" down "*) [ -e "$STUBS/compose-down-sticks" ] || rm -f "$STUBS/serving-names" ;;
+      *" down "*)
+        [ -e "$STUBS/compose-down-sticks" ] && exit 0
+        [ -f "$STUBS/serving-names" ] || exit 0
+        file= ; prev=
+        for arg in "$@"; do [ "$prev" = -f ] && file=$arg; prev=$arg; done
+        : > "$STUBS/serving-names.new"
+        while read -r name; do
+          [ -n "$name" ] || continue
+          case " $* " in
+            *" --remove-orphans "*) case $name in mcgyvr-*) continue ;; esac ;;
+          esac
+          if [ -n "$file" ] && grep -q "container_name: $name\\$" "$file"; then
+            continue
+          fi
+          printf '%s\\n' "$name" >> "$STUBS/serving-names.new"
+        done < "$STUBS/serving-names"
+        mv "$STUBS/serving-names.new" "$STUBS/serving-names" ;;
     esac
     exit 0 ;;
   image | inspect) ;;
