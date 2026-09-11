@@ -35,7 +35,7 @@ import re
 import threading
 import urllib.parse
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
@@ -1013,6 +1013,13 @@ class Config:
     are reached through ``require`` and ``secret``, which fail at the point of
     use rather than at load.
 
+    ``declared`` is the identity tree: ``data`` pruned to the settings the
+    file actually stated, with every default the loader filled in left out.
+    It is what :meth:`canonical` renders, so a schema gaining an optional key
+    does not re-identify a config that never stated it, and a key spelled out
+    at its default value is not identity either — the default is what the
+    omission already meant.
+
     ``path`` is where the caller found the file, kept for error messages. It
     is not consulted after :func:`parse`: everything whose meaning depended on
     it was settled there, so two callers holding one config cannot disagree
@@ -1023,6 +1030,7 @@ class Config:
     data: Mapping[str, Any]
     sources: Mapping[str, Source]
     ladder: Ladder
+    declared: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def is_local_only(self) -> bool:
@@ -1071,26 +1079,30 @@ class Config:
         return value
 
     def canonical(self) -> str:
-        """The loaded config as one YAML text, the same for every spelling of it.
+        """The config as one YAML text, the same for every spelling of it.
 
-        Keys sorted, no anchors or aliases, block style throughout, and every
-        default the loader filled in written out: two files that load to the
-        same config render to the same bytes, whatever their comments, blank
-        lines or key order, and a file that omits a defaulted key renders as
-        one that states it. What is NOT in it is where the file sat —
-        ``path`` is a fact about the caller, not the config — except through
-        the one key whose meaning depends on it: a relative ``geometry_json``
-        means the scan filed beside the config, and :func:`_resolved_paths`
-        has already written it into ``data`` as the file it names, absolutely
-        and with the route to the config file resolved. Two copies of a config
-        that name different geometry files are two setups; two routes to one
-        copy are one setup; and a kept copy that pointed beside itself would
-        re-select a geometry that is not there. Loading this text back yields
-        the same config, and the same digest — unconditionally now, because a
-        config whose ``geometry_json`` could not be resolved never loaded.
+        Keys sorted, no anchors or aliases, block style throughout, and
+        rendered over :attr:`declared` — the settings the file stated, with
+        every default the loader filled in left out. Two files that load to
+        the same config render to the same bytes, whatever their comments,
+        blank lines or key order, and whether a default is omitted or spelled
+        out: a defaulted key is not identity, so a schema that gains an
+        optional key does not re-identify the configs that never stated it.
+        What is NOT in it is where the file sat — ``path`` is a fact about
+        the caller, not the config — except through the one key whose meaning
+        depends on it: a relative ``geometry_json`` means the scan filed
+        beside the config, and :func:`_resolved_paths` has already written it
+        into ``data`` as the file it names, absolutely and with the route to
+        the config file resolved; a declared ``geometry_json`` keeps that
+        resolved path in ``declared``. Two copies of a config that name
+        different geometry files are two setups; two routes to one copy are
+        one setup; and a kept copy that pointed beside itself would re-select
+        a geometry that is not there. Loading this text back yields the same
+        config, and the same digest — unconditionally now, because a config
+        whose ``geometry_json`` could not be resolved never loaded.
         """
         return yaml.dump(
-            _plain(self.data),
+            _plain(self.declared),
             Dumper=_CanonicalDumper,
             sort_keys=True,
             default_flow_style=False,
@@ -1109,12 +1121,12 @@ class Config:
         return DIGEST_PREFIX + hashlib.sha256(raw).hexdigest()
 
     def _unbound(self, key: str) -> str:
-        field = field_at(key)
+        spec = field_at(key)
         parts = [f"`{key}` is not bound{self._in_file()}."]
-        if field is not None:
-            parts.append(field.doc)
-            if field.bind_hint:
-                parts.append(f"To bind it: {field.bind_hint}.")
+        if spec is not None:
+            parts.append(spec.doc)
+            if spec.bind_hint:
+                parts.append(f"To bind it: {spec.bind_hint}.")
         return " ".join(parts)
 
     def _in_file(self) -> str:
@@ -1142,6 +1154,62 @@ def _plain(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
     return value
+
+
+def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
+    """``data`` pruned to what the file declared, and only to what it changes.
+
+    The identity tree :meth:`Config.canonical` renders. ``data`` is the
+    validated tree with defaults filled in and paths resolved; ``raw`` is the
+    same tree as parsed, before the loader ran. A key the file stated is kept
+    only when it states something the omission did not already mean: a key
+    spelled out at its default value is not identity, and a key the file never
+    stated is not identity either, which is what keeps a schema gaining an
+    optional key from re-identifying every config that predates it.
+
+    Path-valued keys stay resolved: the scalar kept is ``data``'s, which
+    :func:`_resolved_paths` has already made absolute, so a relative
+    ``geometry_json`` keeps naming the file it actually resolves to.
+    """
+    out: dict[str, Any] = {}
+    raw_map = raw if isinstance(raw, Mapping) else {}
+    for spec in fields:
+        name = spec.name
+        if name not in data:
+            continue
+        value = data[name]
+        if spec.kind == "block":
+            block_pruned = _declared(value, raw_map.get(name), spec.block)
+            if block_pruned:
+                out[name] = block_pruned
+        elif spec.kind == "block_map":
+            # Every entry is kept even when its block prunes to empty, unlike
+            # ``block`` above: a map's keys are user-chosen names with no
+            # "absent" default, so an entry the file named is identity whether
+            # or not its own fields all sit at their defaults.
+            raw_entries = raw_map.get(name)
+            raw_entries = raw_entries if isinstance(raw_entries, Mapping) else {}
+            map_pruned: dict[str, Any] = {}
+            for key, block in value.items():
+                map_pruned[key] = _declared(block, raw_entries.get(key), spec.block)
+            if map_pruned:
+                out[name] = map_pruned
+        elif spec.kind == "block_list":
+            raw_items = raw_map.get(name)
+            raw_items = raw_items if isinstance(raw_items, list) else []
+            items: list[Any] = []
+            for index, block in enumerate(value):
+                raw_item = raw_items[index] if index < len(raw_items) else None
+                items.append(_declared(block, raw_item, spec.block))
+            if items:
+                out[name] = items
+        elif spec.kind == "str_list":
+            if value != list(spec.default or ()):
+                out[name] = value
+        else:
+            if value != spec.default:
+                out[name] = value
+    return out
 
 
 def keep(config: Config, journal_dir: Path) -> Path:
@@ -1715,16 +1783,17 @@ def parse(text: str, path: Path | None = None) -> Config:
             f"{path or 'config'}: is empty. Run `mcgyvr init` to generate one."
         )
 
-    declared = raw.get("version") if isinstance(raw, dict) else None
-    if isinstance(declared, int) and declared != SCHEMA_VERSION:
+    stated_version = raw.get("version") if isinstance(raw, dict) else None
+    if isinstance(stated_version, int) and stated_version != SCHEMA_VERSION:
         raise ConfigSchemaError(
-            f"unsupported config version {declared!r} — this build reads "
+            f"unsupported config version {stated_version!r} — this build reads "
             f"version {SCHEMA_VERSION}."
         )
 
     data = _block(raw, SCHEMA, "")
     _cross_validate(data)
     data = _resolved_paths(data, path)
+    declared = _declared(data, raw, SCHEMA)
 
     sources = {
         name: Source(
@@ -1753,7 +1822,9 @@ def parse(text: str, path: Path | None = None) -> Config:
         ),
         fanout=data["ladder"]["fanout"],
     )
-    return Config(path=path, data=data, sources=sources, ladder=ladder)
+    return Config(
+        path=path, data=data, sources=sources, ladder=ladder, declared=declared
+    )
 
 
 def _absent_remedy(path: Path | None) -> str:
