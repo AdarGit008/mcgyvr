@@ -1,0 +1,31 @@
+<think>
+Okay, I need to implement the seat_run function. Let's see the problem statement again. The function takes a row string where '.' is a free seat and 'x' is taken. Given a party size, I have to find the position of the first seat of the earliest run of free seats long enough to hold the party. If there's none, return -1.
+
+First, I need to parse the row into runs of consecutive free seats. For example, if the row is "....x..", then the runs are [4, 2]. Each run is a sequence of '.' characters. Then, for each run, check if its length is at least the party size. If so, the earliest such run's starting index is the answer.
+
+Wait, but how to track the starting positions? Because each run is a consecutive sequence. So, for each run, the starting index is the first position of that run. For example, in "....x..", the first run starts at 0, length 4. The next run starts at 5, length 2.
+
+So the steps are:
+
+1. Iterate through the row to find all consecutive runs of '.'.
+2. For each run, record its start index and length.
+3. Check each run's length. If it's >= party, then return the start index of that run.
+4. If multiple runs meet the condition, pick the earliest one (the first occurrence).
+5. If no such run exists, return -1.
+
+But how to process the row? Let's think about how to split the row into runs. Let's loop through each character, track when a run starts and ends.
+
+Initialize a list to hold the runs. Each run is a tuple of (start_index, length).
+
+Initialize variables: current_start = None, current_length = 0.
+
+Loop over each index, i, in the row:
+
+- if the character is '.', then increment current_length. If current_start is None, set current_start to i.
+- else, if the character is 'x', then if current_start is not None, add (current_start, current_length) to the runs list, and reset current_start and current_length.
+
+After the loop ends, check if there's a current run to add.
+
+Once we have all the runs, iterate through them in order. For each run, check if the length is >= party. The first such run's start index is the answer.
+
+But wait, what if the party is 0? The problem says that if the party is zero, but the problem statement doesn't mention it. The interface says that the function is called with party size. But the problem says that when a party of nobody is asked for, it's not stated. So maybe the function should handle party=0? But the problem says that the function should return the position of the first seat of the earliest run of free seats long enough to hold the party. If the party is zero, maybe it's considered as needing zero seats, so any run is acceptable. But the problem says that the function is supposed to return the first run's start index. However, the problem says that the function is supposed to return -1 when there is none. But if the party is zero, then any run is acceptable. But the problem says that the function is supposed to return the first run's start index. However, the problem says that the function is supposed to return -1 when there is none. But if the party is zero, then the function should return the first run's start index. But the problem says that the function is supposed to return the first run's start index. However, the problem says that the function is supposed to return -1 when there is none. But if the party

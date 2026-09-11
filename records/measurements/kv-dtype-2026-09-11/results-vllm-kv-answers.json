@@ -60,10 +60,18 @@
     "bench_b_dir": "bench-r1-3b-fp8-b"
   },
   {
-    "label": "r1-q34b-float16",
+    "label": "r1-q34b-fp8",
     "model": "thewimo/Qwen3-4B-AWQ",
-    "dtype": "float16",
-    "failed": "door rc=1",
-    "log_tail": "torch_compile_cache/c2f9574b97/rank_0_0/backbone for vLLM's torch.compile\n(EngineCore pid=152) INFO 09-11 22:36:03 [backends.py:1155] Dynamo bytecode transform time: 4.45 s\n(EngineCore pid=152) INFO 09-11 22:36:05 [backends.py:292] Directly load the compiled graph(s) for compile range (1, 2048) from the cache, took 1.580 s\n(EngineCore pid=152) INFO 09-11 22:36:05 [decorators.py:311] Directly load AOT compilation from path /root/.cache/vllm/torch_compile_cache/torch_aot_compile/1ad6495cdf99fdd340b56ebbf267ccf09dfbc86a6a46ba0536f6fcfd3359c357/rank_0_0/model\n(EngineCore pid=152) INFO 09-11 22:36:05 [monitor.py:53] torch.compile took 6.53 s in total\n(EngineCore pid=152) INFO 09-11 22:36:05 [monitor.py:81] Initial profiling/warmup run took 0.03 s\n(EngineCore pid=152) INFO 09-11 22:36:06 [gpu_worker.py:560] Available KV cache memory: 5.67 GiB\n(EngineCore pid=152) INFO 09-11 22:36:06 [kv_cache_utils.py:2177] GPU KV cache size: 41,312 tokens\n(EngineCore pid=152) INFO 09-11 22:36:06 [kv_cache_utils.py:2178] Maximum concurrency for 4,096 tokens per request: 10.09x\n(EngineCore pid=152) INFO 09-11 22:36:06 [cutedsl_warmup.py:101] Skipping CuTeDSL warmup because no compile units were requested."
+    "dtype": "fp8",
+    "image_digest": "sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+    "backend_line": "Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+    "kv_tokens": 73920,
+    "kv_line": null,
+    "restart_count": 0,
+    "card_used_mib": 8587,
+    "card_free_mib": 3325,
+    "card_reserved_mib": 377,
+    "bench_a_dir": "bench-r1-q34b-fp8-a",
+    "bench_b_dir": "bench-r1-q34b-fp8-b"
   }
 ]

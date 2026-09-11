@@ -1,0 +1,30 @@
+<think>
+Okay, I need to implement the format_bits function according to the given specifications. Let me start by understanding the requirements.
+
+First, the function must take a value (an integer) and a width. The value must be a non-negative integer. If it's not, we raise a ValueError. The width must be a positive multiple of four and not exceed 32. Also, the value must fit within the given width. If it doesn't, that's another error.
+
+So, the first step is to validate the inputs. Let's check the value: if it's not an integer or is negative, raise an error. Then check the width: it must be a multiple of 4 and between 1 and 32. Wait, the problem says "positive multiple of four or exceeds 32". Wait, the width must be a positive multiple of four, but also not exceed 32. So, if the width is 5, which is not a multiple of 4, it's invalid. Also, if the width is 33, which is more than 32, it's invalid.
+
+Next, check if the value fits in the given width. The maximum value that can be represented in 'width' bits is (1 << width) - 1. So if the value is larger than that, it's invalid.
+
+Once the inputs are validated, the next step is to convert the value to its binary representation. But since the value is non-negative, we can use bin() and then process it. However, bin(300) gives '0b100101100', so we need to remove the '0b' part and then pad with leading zeros to make sure it's of the required width.
+
+Wait, but the width is the total number of bits. So for example, if the value is 300 and the width is 12, the binary is 000100101100, which is 12 bits. Then, split into groups of four bits, separated by spaces. So 0001 0010 1100.
+
+So the steps are:
+
+1. Validate the value is a non-negative integer.
+2. Validate the width is a multiple of 4 and between 1 and 32.
+3. Check that the value is less than or equal to (1 << width) - 1.
+4. Convert the value to binary, pad with leading zeros to the required width.
+5. Split the binary string into chunks of 4 bits, starting from the left (most significant bit), then join with spaces.
+
+Let me think about the binary conversion. For example, 300 in binary is 100101100. Let's see, 300 in binary is 100101100, which is 9 bits. If the width is 12, we need to pad it with 3 leading zeros to make 12 bits. So the binary string would be '000100101100', then split into 4-bit groups: 0001 0010 1100.
+
+So the process is:
+
+- Convert the value to binary without the '0b' prefix.
+- Pad with leading zeros to make the length equal to the width.
+- Then, split into 4-bit groups, starting from the left.
+
+But how to handle the padding? For example, if the binary is shorter than the width, we need to add leading zeros. So, for a value of 300 (binary 1001

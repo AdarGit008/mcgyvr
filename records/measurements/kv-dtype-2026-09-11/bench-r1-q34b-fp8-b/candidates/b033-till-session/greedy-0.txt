@@ -1,0 +1,62 @@
+<think>
+Okay, I need to implement the run_till_session function based on the given problem description. Let me start by understanding the requirements thoroughly.
+
+First, the function takes events and prices. The prices are a dictionary mapping item names to their prices in cents. The events are a list of events, each being a list starting with an action. The session starts open with an empty cart. The function needs to process these events, track the state (open, payment, paid, cancelled), and return a dictionary with the state details.
+
+The main steps are:
+
+1. Validate the price list. Each price must be a positive integer. If not, raise ValueError.
+2. Process each event in order, checking for validity based on the current state.
+3. Track the cart, total, paid amount, and change.
+4. Handle different events: scan, void, close, pay, cancel.
+5. Reject invalid events, like those with incorrect actions, unlawful states, or invalid item names.
+
+Let me think about the state transitions. The session starts in 'open' state. When a close event is processed, it moves to 'payment' state. When payment is done (paying enough), it becomes 'paid'. If a cancel is called, it becomes 'cancelled'.
+
+For each event, I need to check if it's allowed in the current state. For example, during 'open' state, scan and void are allowed. During 'payment', pay is allowed. Once in 'paid' or 'cancelled', no more events are allowed.
+
+Now, the data structures:
+
+- The cart is a dictionary mapping item names to their quantities.
+- The total is only set when a close event is processed.
+- The paid amount is accumulated during payment, and change is calculated when the payment reaches or exceeds the total.
+
+Let me outline the steps for processing events:
+
+Initialize the state as 'open', cart as empty, total as 0, paid as 0, change as 0.
+
+For each event in events:
+
+Check the event's action. For example:
+
+- 'scan' adds one unit of the item. Check if the item exists in prices. If not, reject.
+- 'void' removes one unit. Check if the item is in the cart. If not, reject.
+- 'close' moves to payment state. Check if the cart is not empty. If empty, reject.
+- 'pay' is allowed only in payment state. Check if the amount is positive. If not, reject.
+- 'cancel' ends the session, regardless of state.
+
+Also, after processing each event, check if the session is in a state that allows further events. If an event is invalid, raise ValueError.
+
+Now, the validation for prices: the problem says that each price must be a positive integer. So, for each name in prices, check that price is an integer and >0. If not, raise error.
+
+In the current code, the user has a TODO, so I need to fill that in.
+
+Let me think about the code structure.
+
+First, validate the prices. Then, process each event in order.
+
+Initialize the state, cart, total, paid, change.
+
+Then loop through each event:
+
+For each event in events:
+
+Check the action. For example:
+
+If the action is 'scan', then check if the item is in prices. If not, error. Then add to cart.
+
+If action is 'void', check if the item is in cart. If not, error. Then subtract 1 from cart. If quantity becomes zero, remove it.
+
+If action is 'close', check if cart is not empty. If empty, error. Then set total to sum of prices * quantities. Then state becomes 'payment'.
+
+If action is 'pay', check if in payment

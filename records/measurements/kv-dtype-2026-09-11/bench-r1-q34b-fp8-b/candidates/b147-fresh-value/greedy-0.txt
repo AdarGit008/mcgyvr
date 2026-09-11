@@ -1,0 +1,75 @@
+<think>
+Okay, I need to implement the fresh_value function according to the given contract. Let me read the problem carefully.
+
+The function takes a dictionary 'entry' and an integer 'now' and returns the record's value if it's still usable. Otherwise, it should raise an error. The record has three fields: value (a string), stored (a non-negative integer), and ttl (a positive integer). The record is usable from stored up to but not including stored + ttl. So, the current tick 'now' must be >= stored and < stored + ttl.
+
+First, I need to validate the input. The entry must have exactly the three keys: 'value', 'stored', and 'ttl'. If it has any other keys, that's an error. Also, the value must be a string. Stored must be a non-negative integer, and ttl must be a positive integer. Also, now must be an integer and at least stored. If any of these checks fail, raise a ValueError with a short message.
+
+So, the steps are:
+
+1. Check that the entry has exactly the three required keys. If not, raise error.
+2. Check that the value is a string. If not, error.
+3. Check that stored is a non-negative integer. If not, error.
+4. Check that ttl is a positive integer. If not, error.
+5. Check that now is an integer. If not, error.
+6. Check that now is >= stored. If not, error.
+7. Check that now < stored + ttl. If not, error.
+
+If all these checks pass, return the value.
+
+Wait, the problem says to reject an entry that is not such a record. So, if the entry has extra fields, that's invalid. So, the first check is to ensure that the entry has exactly the three keys. So, len(entry) must be 3, and the keys must be 'value', 'stored', and 'ttl'.
+
+So, in code:
+
+First, check that the entry has exactly those three keys. If not, raise ValueError.
+
+Then, check that the value is a string. So, entry['value'] must be a string. If not, error.
+
+Then, check that stored is an integer and >=0. So, type(entry['stored']) is int and entry['stored'] >=0.
+
+Similarly, check that ttl is an integer and >0.
+
+Then, check that now is an integer. So, type(now) is int.
+
+Then, check that now >= stored. If not, error.
+
+Then, check that now < stored + ttl. If not, error.
+
+If all these are true, return the value.
+
+So, the function will have these checks in order.
+
+Now, let's code this.
+
+The function is called fresh_value, takes entry and now. So:
+
+def fresh_value(entry: dict, now: int) -> str:
+
+First, check that the entry has exactly the three keys. So:
+
+if len(entry) != 3:
+    raise ValueError("Invalid entry")
+
+Then, check the keys. For example:
+
+required_keys = {'value', 'stored', 'ttl'}
+
+if not (required_keys.issubset(entry.keys())):
+    raise ValueError("Invalid entry")
+
+Alternatively, check that the keys are exactly those three. So:
+
+if set(entry.keys()) != required_keys:
+    raise ValueError("Invalid entry")
+
+But perhaps more precise: check that the keys are exactly 'value', 'stored', and 'ttl'.
+
+So:
+
+if 'value' not in entry or 'stored' not in entry or 'ttl' not in entry:
+    raise ValueError("Invalid entry")
+
+But also check that there are no other keys. So, len(entry) must be 3.
+
+So:
+

@@ -1,0 +1,42 @@
+<think>
+Okay, I need to fix the swap_case function. The current implementation just returns text.upper(), which converts all letters to uppercase. But the problem says that each letter's case should be swapped, not all turned to uppercase. So the correct approach is to iterate through each character in the input string and change its case if it's a letter.
+
+First, I need to check if a character is a letter. If it's uppercase, convert to lowercase, and vice versa. If it's not a letter, leave it as is. So for each character in the input text, I'll process it accordingly.
+
+How to check if a character is a letter? In Python, I can use the isalpha() method. But wait, that returns True for letters, including accented characters, but the problem says to consider only English letters. However, the problem doesn't specify, but the original code uses upper() which works for English letters. So maybe the function should handle any letters, but the problem says to swap case for every letter. So the correct approach is to check if the character is a letter (using isalpha()) and then swap the case.
+
+So, the steps are:
+
+1. Iterate over each character in the input text.
+2. For each character:
+   a. If it's a letter (c.isalpha()), swap the case.
+   b. Else, leave it as is.
+3. Combine all the processed characters into a new string.
+
+So, the code can be written using a list comprehension. For each character in the input text, check if it's a letter. If yes, swap case using swapcase() method. Wait, but the original code was using upper(), which is incorrect. So the correct way is to use the swapcase() method for each character that is a letter.
+
+Wait, but the problem says that the function should swap the case of every letter. So for example, 'Hello' becomes 'hELLO'. So for each character, if it's a letter, swap case. Otherwise, leave as is.
+
+So the correct code would be:
+
+def swap_case(text: str) -> str:
+    return ''.join([c.swapcase() if c.isalpha() else c for c in text])
+
+Wait, but what about non-ASCII letters? The problem says that characters that are not letters are left as is. So the code above would handle that. Because c.isalpha() returns True for letters, including accented ones, but the problem says to swap case for every letter. However, the original code was using upper(), which would convert all letters to uppercase, but the problem says to swap case. So the correct approach is to use swapcase() for each letter.
+
+Wait, but the problem says that the function should swap the case of every letter. So for example, 'aBc' becomes 'AbC'. So the correct way is to check each character: if it's a letter, swap case, else leave as is.
+
+So the code would be:
+
+def swap_case(text: str) -> str:
+    return ''.join(c.swapcase() if c.isalpha() else c for c in text)
+
+Wait, but in Python, the swapcase() method is available for strings. So for each character c in the text, if c is a letter (c.isalpha() is True), then c.swapcase() will swap the case. Otherwise, leave it as c.
+
+Yes, that should work. Let me test this logic.
+
+For example, 'Hello, World!' would become 'hELLO, wORLD!'. The comma and exclamation mark are left as is. The 'H' becomes 'h', 'e' becomes 'E', etc.
+
+So the code would be:
+
+def swap_case

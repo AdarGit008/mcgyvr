@@ -39,7 +39,11 @@ MODELS = [
     ("r1-15b", "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ", 4096, 8, 0.72),
     ("r1-3b", "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ", 4096, 8, 0.72),
     ("r1-q34b", "thewimo/Qwen3-4B-AWQ", 4096, 8, 0.72),
-    ("r2-7b", "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ", 1024, 128, 0.9),
+    # R2 was specified as util 0.9 / len 1024 / seqs 128, but vLLM rejects every
+    # bench-py cell at len 1024 (768 output + prompt > 1024 -> HTTP 400), so the
+    # answers cannot be read there. Length is raised to 4096 (M5's length, so the
+    # prompts fit); util 0.9 is kept so the round's 7B reading sits beside M5's.
+    ("r2-7b", "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ", 4096, 8, 0.9),
 ]
 DTYPES = ("float16", "fp8")
 

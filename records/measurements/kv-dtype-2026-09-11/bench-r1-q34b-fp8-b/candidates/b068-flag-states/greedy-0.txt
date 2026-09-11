@@ -1,0 +1,39 @@
+<think>
+Okay, I need to implement the flag_states function. Let's see the requirements. The function takes a mask (integer) and a catalog (list of strings) and returns a dictionary mapping each flag name to its state (True/False based on the bit in the mask). 
+
+First, I need to validate the inputs. The mask must be a non-negative integer. If it's not, raise ValueError. Similarly, the catalog must be a list with at least one string. Also, each name in the catalog must be a non-empty string, and there can't be duplicates. Also, if any bit in the mask is set beyond the length of the catalog, that's invalid.
+
+So, step by step:
+
+1. Check if mask is a non-negative integer. If mask is negative, raise error.
+2. Check if catalog is a list. If not, error. Also, check if the catalog is empty. If empty, error.
+3. Check each element in the catalog: must be a string, non-empty. Also, check for duplicates. If any duplicates, error.
+4. Then, for each bit position in the mask, check if the bit is set. But the bit position can't be beyond the length of the catalog. So, for each bit in the mask, if the bit is set and its position is >= len(catalog), that's invalid.
+
+Wait, the problem says: "a mask with a set bit at or beyond the catalog's length, with an error." So, if the mask has a bit set that's at position >= len(catalog), that's invalid.
+
+So, for example, if the catalog has 3 elements (indices 0,1,2), then any bit set in position 3 or higher is invalid.
+
+So, how to check that? For each bit in the mask, check if it's set. If any bit is set where the position is >= len(catalog), then error.
+
+So, the steps:
+
+First, validate mask is non-negative. Then, validate catalog is a list with at least one string, no duplicates, each string is non-empty.
+
+Then, check that for all bits set in the mask, their positions are less than the length of the catalog.
+
+So, for each bit in the mask, we can check if (mask & (1 << i)) != 0. Then, if i >= len(catalog), that's invalid.
+
+Wait, but the catalog's length is the number of bits allowed. So, for example, if the catalog has 3 elements, the allowed bits are 0,1,2. Any bit set in 3 or higher is invalid.
+
+So, for each bit in the mask, check if it's set. If any of those bits is >= len(catalog), then error.
+
+So, how to check that? Let's think: for each bit position i, if the mask has that bit set, then i must be less than len(catalog).
+
+So, for example, if the catalog has length 3, then i can be 0,1,2. If the mask has a bit set at 3, that's invalid.
+
+So, how to check that? We can loop through each bit in the mask. For each bit set, check if its position is >= len(catalog). If any such, raise error.
+
+But how to loop through the bits? Well, for each i in 0 to ... up to the number of bits in the mask. But since the mask can be large, but the catalog's length is the maximum allowed.
+
+Alternatively, we can check that the mask & ((1 << len(catalog)) - 1) == mask. Because, if the mask has any bits set beyond the

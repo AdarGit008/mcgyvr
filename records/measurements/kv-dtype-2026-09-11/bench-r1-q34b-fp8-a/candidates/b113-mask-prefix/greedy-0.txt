@@ -1,0 +1,29 @@
+<think>
+Okay, I need to implement the prefix_from_mask function. Let's see what the requirements are. The function has to take a mask string and return the count of leading ones. The mask is in dotted-quad format, like "255.255.240.0". The existing code for mask_from_prefix is already written, so I just need to complete the prefix_from_mask function.
+
+First, I need to parse the mask string. The function should check that the input is a string. Then, split it into four octets. Each octet must be a valid decimal number. Also, each octet should not have leading zeros unless it's exactly "0". Also, each octet must be between 0 and 255. Then, after validating each octet, I need to check that all the leading bits are 1s. For example, 255.255.240.0 has 20 leading 1s. But if there's a zero in the middle of the bits, like 255.0.255.0, that's invalid.
+
+So the steps for prefix_from_mask are:
+
+1. Check if the input is a string. If not, raise ValueError.
+2. Split the mask into four parts using the dot as a separator. Check that there are exactly four parts.
+3. For each part, validate that it's a decimal number, no leading zeros (except for "0"), and within 0-255.
+4. Once all octets are validated, convert each octet to its 8-bit binary representation.
+5. Check that all the leading bits are 1s. If there's a 0 in the middle, it's invalid.
+6. Count the number of leading 1s across all octets.
+
+Let me think about how to split the mask. For example, "255.255.240.0" splits into ["255", "255", "240", "0"]. Then, each part is converted to an integer. Then, for each octet, convert to binary, pad to 8 bits, and check if there's a 0 in the leading bits.
+
+Wait, for each octet, we can get its binary string. For example, 255 is 11111111. Then, we need to check that all the bits in the entire 32-bit mask are 1s up to a certain point, then 0s. So, the mask must be a continuous run of 1s followed by 0s.
+
+So, the approach is:
+
+- Convert each octet to an integer.
+- For each octet, convert to 8-bit binary (without leading zeros, but when converted, they are 8 bits).
+- Then, check that all the bits in the 32-bit mask are 1s up to some position, then 0s. So, the first occurrence of a 0 in the binary string (when concatenated) would indicate a break in the leading 1s.
+
+So, for example, if the mask is 255.255.240.0, the binary is 11111111 11111111 11111000 00000000. The leading 1s are 20 (since 240 in binary is 11110000, so 8+8+4=20).
+
+So, the steps for validation:
+
+- Split the mask into four

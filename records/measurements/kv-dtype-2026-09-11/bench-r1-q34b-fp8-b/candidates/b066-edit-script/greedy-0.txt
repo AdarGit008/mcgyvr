@@ -1,0 +1,64 @@
+<think>
+Okay, I need to implement the apply_edit_script function. Let's see the requirements. The function takes an original string and an edit script. The script consists of operations like copy, skip, or insert. Each operation has specific parameters. The goal is to apply these operations in order and return the resulting string. If any invalid conditions are met, raise an error.
+
+First, I need to process each operation in the script. Let's break down each op type:
+
+For "copy", n: we need to copy the next n characters from the original string. But we have to make sure that n is a positive integer and that there are enough characters left. If not, it's an error.
+
+For "skip", n: we just skip n characters without copying. Again, n must be positive, and we need to check that there are enough characters left.
+
+For "insert", text: we add the text to the result. The text must be a non-empty string. If it's empty, that's invalid.
+
+The function must also ensure that after processing all operations, the entire original string has been processed. If the script ends before the end of the original, that's an error.
+
+So, the steps I need to take:
+
+1. Validate the original is a string. If not, raise ValueError.
+
+2. Iterate through each operation in the script. For each op, check the type and parameters.
+
+3. Keep track of the current position in the original string. Start at 0.
+
+4. For each op:
+
+   a. If it's "copy", check that n is a positive integer. Then, copy the next n characters from the original starting at current position. Add that to the result. Update current position by adding n.
+
+   b. If it's "skip", check n is positive. Update current position by adding n. But ensure that current position doesn't exceed the original length.
+
+   c. If it's "insert", check that the text is a non-empty string. Add the text to the result.
+
+5. After processing all operations, check that the current position is equal to the length of the original. If not, raise an error.
+
+Now, let's think about the edge cases. For example, if the original is empty, but the script has operations that require copying or skipping, that would be invalid. Also, if an op has a count that's zero or negative, that's invalid. Also, if an insert has empty string, that's invalid.
+
+Let me think about the parameters. The script is a list of operations. Each operation is a list with two elements. For example, ["copy", 3], ["skip", 2], ["insert", "abc"].
+
+So, in the code, for each op in the script, we need to check the first element. If it's not one of the allowed op names, raise ValueError.
+
+Now, let's outline the code structure.
+
+First, check if original is not a string. If not, raise ValueError.
+
+Then, initialize the result as an empty list, and current position as 0.
+
+Then, loop through each op in the script:
+
+for op in script:
+
+   if op[0] is "copy":
+
+      check that op[1] is a positive integer. Also, check that current position + op[1] <= len(original). If not, error.
+
+      add original[current:current+op[1]] to result.
+
+      current += op[1]
+
+   elif op[0] is "skip":
+
+      check op[1] is positive. Check that current + op[1] <= len(original). If not, error.
+
+      current += op[1]
+
+   elif op[0] is "insert":
+
+      check that op[

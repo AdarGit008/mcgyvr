@@ -1,0 +1,70 @@
+<think>
+Okay, I need to implement the swap_keys function. Let's see the requirements. The function takes a dictionary mapping names to codes and returns the inverse mapping from codes to names. But there are some specific rules.
+
+First, when two names share the same code, the one that comes first when sorted should be kept. So if there are multiple names with the same code, we need to choose the one that comes first lexicographically. Also, if a code is empty, that name is excluded entirely.
+
+So the steps I need to take are:
+
+1. Iterate over each name in the input dictionary. For each name, check if the code is empty. If it is, we skip adding it to the new dictionary.
+
+2. For each name that's not excluded, we need to collect all names that have the same code. Then, among those, select the one that comes first when sorted.
+
+Wait, but how do I handle that? For each code, collect all names that map to it. Then, sort those names and take the first one.
+
+So the process would be:
+
+- Create a new dictionary where each key is a code, and the value is the name that comes first when sorted among those with the same code.
+
+But first, we need to filter out any names that have an empty code. So for each name in the input, if the code is empty, we don't include it in the new dictionary.
+
+So the steps:
+
+- For each name in the input dictionary:
+   - if the code is empty, skip.
+   - else, add the name to a group of names for their code.
+
+Then, for each code in the group, sort the names and take the first one.
+
+So, the plan is:
+
+- Create a dictionary where the keys are codes, and the values are lists of names that map to that code.
+
+- Then, for each code in this dictionary, sort the list of names and take the first one.
+
+But how to handle the codes that are empty? We need to exclude those names from the new dictionary.
+
+So, first, process each name in the input. For each name, check if the code is empty. If not, add the name to the code's list.
+
+Once all names are processed, for each code in the new dictionary, sort the list of names and take the first one.
+
+So, the code would look like this:
+
+def swap_keys(names: dict) -> dict:
+    code_to_names = {}
+    for name, code in names.items():
+        if code == '':
+            continue
+        if code not in code_to_names:
+            code_to_names[code] = []
+        code_to_names[code].append(name)
+    # Now, for each code, sort the names and take the first
+    result = {}
+    for code, names_list in code_to_names.items():
+        # sort the names list
+        sorted_names = sorted(names_list)
+        result[code] = sorted_names[0]
+    return result
+
+Wait, but what if a code has multiple names? The sorted list will have the first one, which is the lexicographically first name.
+
+But what if the code is empty? Those names are excluded.
+
+But wait, the problem says that when two names share one code, the name that sorts first is kept. So, for each code, we have to collect all names that map to it, sort them, and take the first one.
+
+Yes, that's exactly what the code does.
+
+But wait, the input is a dictionary of names to codes. So, for each name, the code is the value. So, in the code_to_names, the keys are the codes, and the values are lists of names that have that code.
+
+So, the code is correct.
+
+But what

@@ -1,0 +1,35 @@
+<think>
+Okay, I need to implement the word_reverse function. Let's see the problem statement again. The task is to reverse each word's letters but keep the order of the words the same. Words are separated by runs of spaces, and the reversed words should be joined by a single space.
+
+First, I need to split the input line into words. But how do I handle multiple spaces between words? Oh right, the problem says that any run of spaces separates two words. So, splitting on whitespace with split() would work because split() without arguments splits on any whitespace, and multiple spaces are treated as a single separator.
+
+Wait, but the input line could have leading or trailing spaces. For example, if the line is "  hello   world  ", splitting with split() would give ["hello", "world"], which is correct. Then, after processing each word, we need to join them with a single space. So the steps are:
+
+1. Split the input line into words, using split() to handle multiple spaces.
+2. For each word in the list, reverse its characters.
+3. Join the reversed words with a single space.
+
+But wait, what if the input is empty? The function should return an empty string. Also, if the line is just spaces, split() would return an empty list, so joining would result in an empty string, which is correct.
+
+Let me test some examples. For example, input "hello world" becomes "olleh dlrow". Another example: "   a   b  " becomes "a b" after splitting, then reversed to "a b". Wait, no. Wait, the original line is "   a   b  ", split into ["a", "b"], then reversed words are "a" and "b", joined with space. So the output is "a b". But if the original words are "a" and "b", then reversed would be "a" and "b", so the output is "a b". That's correct.
+
+Another example: "   test   " would split into ["test"], reversed is "tset", so output is "tset".
+
+So the steps are straightforward. Now, code-wise, the function takes a string line. Split into words, reverse each word, then join with spaces.
+
+But how to reverse each word? For each word in the list, we can do word[::-1]. Then, join with ' '.
+
+So the code would be:
+
+def word_reverse(line: str) -> str:
+    words = line.split()
+    reversed_words = [word[::-1] for word in words]
+    return ' '.join(reversed_words)
+
+Wait, but what about if the line is empty? line.split() would return an empty list, so ' '.join would return an empty string, which is correct.
+
+But wait, what if the input is None? The function's parameters are expecting a str, so if line is None, then line.split() would throw an error. But according to the problem statement, the function is supposed to handle the input as per the contract. However, the problem says that the function's interface is def word_reverse(line: str) -> str. So the input is a string. So the function is supposed to handle any valid string input. But if the input is None, then the function would raise an error. However, the problem says that the function should not have any other parameters. So the code is correct as written.
+
+But the problem says that the function should handle any run of spaces as separators. The split() method does that. So the code should work.
+
+Wait, but what about punctuation? For example, if a word is "hello," then reversing it would be ",olleh". The problem says that the

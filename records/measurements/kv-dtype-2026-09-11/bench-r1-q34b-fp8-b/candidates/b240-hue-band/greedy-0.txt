@@ -1,0 +1,28 @@
+<think>
+Okay, I need to implement the hue_band function. Let's see the problem statement again. The function takes a hue in degrees and returns the band it falls into. The bands are red below 60, green below 180, blue below 300, and then red again from 300 up. But there's also handling for values outside 0-359. So, 400 is treated as 40, and negative numbers wrap around.
+
+First, I need to normalize the input degrees. Since the hue is modulo 360, I should adjust the degrees to be within 0-359. But how? Let's think: for any given degrees, we can compute it modulo 360. However, if the result is negative, we need to add 360 to make it positive. Wait, but in Python, the modulo operator handles negative numbers. For example, -40 % 360 would be 320. Let me check that. Let's see, -40 divided by 360 is -1 with a remainder of 320. So yes, -40 % 360 is 320. So, the correct way is to compute degrees modulo 360, but since the problem says that a negative reading counts backwards, maybe we need to adjust it properly.
+
+Wait, the problem says that a negative reading counts backwards from 360. So, for example, -1 would be 359. So, the correct way is to take the degrees modulo 360, but if the result is negative, add 360. Wait, but in Python, the modulo operation already does that. Let me test some examples. Let's say degrees is 400. 400 mod 360 is 40. That's correct. If degrees is -40, then -40 mod 360 is 320. Which is correct. So, the first step is to compute the normalized degree as degrees % 360. But wait, what if the input is 360? 360 mod 360 is 0. Which is correct, since 360 is the same as 0. So, the normalized value is degrees % 360. But wait, the problem says that 300 up is red again. So, the bands are:
+
+- Red: 0-59 (since below 60)
+- Green: 60-179 (below 180)
+- Blue: 180-299 (below 300)
+- Red again: 300-359.
+
+Wait, but the problem says "blue below 300", so 0-299 is blue? Wait, the description says:
+
+red below 60, green below 180, blue below 300, and red again from 300 up.
+
+So, the bands are:
+
+- Red: 0-59 (since below 60)
+- Green: 60-179 (below 180)
+- Blue: 180-299 (below 300)
+- Red: 300-359.
+
+So, the normalized degree is in 0-359. Then, check which range it falls into.
+
+So, the steps are:
+
+1. Normalize the input degrees to be in 0-359. This is done by taking degrees % 

@@ -1,0 +1,46 @@
+<think>
+Okay, I need to implement the tint_mix function. Let's see. The problem says that two tins of paint are mixed, each with a whole number of millilitres and a strength as a percentage. The function should return the strength of the mixture when both are poured together, rounded down. If both are empty, it returns zero.
+
+First, I need to think about how to calculate the mixed strength. Oh right, the strength is a percentage, so maybe it's a weighted average based on the volumes. Like, the total volume is volume_a + volume_b. The total strength would be (volume_a * strength_a + volume_b * strength_b) divided by the total volume. Then round down.
+
+Wait, but what if one of the volumes is zero? Like, if volume_a is zero, then the strength is just strength_b. But the problem says that pouring two empty tins gives zero. So if both volumes are zero, return 0. Otherwise, if one is zero, then the strength is the non-zero one. But wait, if volume_a is zero but volume_b is non-zero, then the mixture is just the strength of B. Similarly for volume_b being zero.
+
+So the formula would be: (volume_a * strength_a + volume_b * strength_b) / (volume_a + volume_b), then floor that value.
+
+But need to handle the case where both volumes are zero. So first check if volume_a and volume_b are both zero. If so, return 0. Otherwise, compute the weighted average.
+
+Wait, but what if one of the volumes is zero? For example, volume_a is 0 and volume_b is 5. Then the total is 5, and the strength is (0 * strength_a + 5 * strength_b)/5 = strength_b. So that's correct.
+
+So the steps are:
+
+1. Check if both volumes are zero. If yes, return 0.
+
+2. Else, compute the total volume: total = volume_a + volume_b.
+
+3. Compute the total strength: (volume_a * strength_a + volume_b * strength_b) / total.
+
+4. Round down to the nearest integer.
+
+But wait, how to handle division? Since all values are integers, we can use integer division, but need to make sure it's floor division.
+
+But in Python, using integer division with // would do floor division. However, if the sum is positive, then (a + b) is positive, so we can safely compute the total.
+
+But wait, what if volume_a and volume_b are both zero? Then the division would be 0/0, which is undefined. So the first check is necessary.
+
+So the function steps:
+
+Check if volume_a and volume_b are both zero. If yes, return 0.
+
+Else, compute the total volume. Then compute the total strength as (volume_a * strength_a + volume_b * strength_b) divided by total volume, then floor it.
+
+But wait, what if one of the volumes is zero? For example, volume_a is 0, volume_b is 5. Then the total is 5, and the strength is (0 * strength_a + 5 * strength_b)/5 = strength_b. So that's correct.
+
+But what if volume_a is 0 and volume_b is 0? Then return 0.
+
+So the code would be:
+
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if volume_a == 0 and volume_b == 0:
+        return 0
+    total_volume = volume_a + volume_b
+    total_strength = (volume_a * strength_a + volume_b * strength_b)

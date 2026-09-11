@@ -1,0 +1,56 @@
+<think>
+Okay, I need to implement the trim_caption function. Let's read the problem carefully.
+
+The function should shorten a caption to a character budget. If the text is already within the limit, return it as is. Otherwise, return a shortened version ending with "…", which counts as one character. The process starts with the first limit-1 characters. But if the next character isn't a space and the kept part has a space, we need to drop back to the last space to avoid cutting a word in the middle. Also, if the first word is too long, just cut it short. Then, remove any hanging spaces before the ellipsis.
+
+First, check if the input is a string and the limit is a positive integer. If not, raise a ValueError.
+
+So, the first step is validation. If text is not a string or limit is not a positive integer, raise an error.
+
+Next, if the length of the text is less than or equal to the limit, return it as is.
+
+Otherwise, we need to process the text. The initial approach is to take the first limit-1 characters. But then check if the next character (at index limit-1) is not a space. If so, we need to find the last space before that position and truncate there.
+
+Wait, the problem says: when the character just past the cut is not a space and the kept part holds a space, drop back to the last space. So, after taking the first limit-1 characters, check if the next character (limit-1) is not a space. If that's the case, then we need to find the last space in the first limit-1 characters and truncate there.
+
+But also, if the first word is too long, just cut it short. So, if the first word is longer than the limit, we need to truncate it.
+
+So, the steps are:
+
+1. Check if text is a string and limit is a positive integer. If not, raise error.
+
+2. If len(text) <= limit: return text.
+
+3. Else:
+
+   a. Take the first limit-1 characters.
+
+   b. Check if the next character (limit-1) is not a space. If so, find the last space in the first limit-1 characters and truncate there.
+
+   c. Also, check if the first word is longer than the limit. If so, truncate it.
+
+But how to handle these steps?
+
+Alternatively, the process is:
+
+Start with the first limit-1 characters. Then, check if the next character (limit-1) is not a space. If that's the case, then we need to find the last space before that position and truncate there. But if there is no space, then we just take the first limit-1 characters and add the ellipsis.
+
+But also, if the first word is longer than the limit, then we need to truncate it.
+
+Wait, the problem says: a first word too long to fit is simply cut short. So, if the first word is longer than the limit, then we need to cut it to fit.
+
+So, perhaps the approach is:
+
+- Take the first limit-1 characters.
+
+- Check if the next character (limit-1) is not a space. If so, find the last space in the first limit-1 characters and truncate there.
+
+- Then, add the ellipsis.
+
+But also, if the first word is longer than the limit, then we need to cut it.
+
+Wait, maybe the steps are:
+
+First, check if the text is longer than the limit. If so, process the text.
+
+Take the first limit-1 characters. Then, check if the next character (limit-1) is not a space. If that's the

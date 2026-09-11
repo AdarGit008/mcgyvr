@@ -1,0 +1,60 @@
+<think>
+Okay, I need to implement the index_map function. Let's see. The function takes a list of labels and returns a dictionary where each key is a label, and the value is a list of indices where that label occurs. The indices should be in increasing order.
+
+First, I need to iterate over the labels list. For each element in the list, I need to track its position. So, for each index, I can check the label at that index and add the index to the corresponding list in the dictionary.
+
+Wait, how to handle the dictionary? Maybe initialize an empty dictionary. Then, loop through each element in the labels list with their indices. For each label, if it's not in the dictionary, add it with a list containing the current index. If it is already present, append the index to the existing list.
+
+But wait, the labels could have duplicates. For example, if the input is ['a', 'b', 'a'], then 'a' should have [0, 2], and 'b' has [1]. So the function needs to collect all positions for each label.
+
+So the steps are:
+
+1. Initialize an empty dictionary.
+2. Loop through each index and label in the labels list.
+3. For each label, check if it's in the dictionary.
+4. If not, create an entry with the current index as the first element.
+5. If yes, append the current index to the list.
+6. After processing all elements, return the dictionary.
+
+Now, considering edge cases. What if the labels list is empty? Then the dictionary is empty, which is correct. If there's a single element, like ['a'], then the dictionary has 'a' mapped to [0]. If there are duplicates, like ['a', 'a'], then 'a' maps to [0, 1].
+
+What about None as a label? The problem says that if a label holds no characters, but the contract doesn't specify. But the function is supposed to handle any object, I think. Since the function's parameters are list of labels, which can be any objects, including None.
+
+So the code should handle any label, even if it's None.
+
+Now, implementing this in Python.
+
+The function index_map takes labels as a list. So:
+
+def index_map(labels: list) -> dict:
+    result = {}
+    for index, label in enumerate(labels):
+        if label not in result:
+            result[label] = [index]
+        else:
+            result[label].append(index)
+    return result
+
+Wait, but the problem says that the positions are counted from zero and given in increasing order. Since we're processing the list in order, the indices are added in order, so the lists will be in increasing order. So this code should work.
+
+Testing this with some examples.
+
+Test case 1: labels = ['a', 'b', 'a'] → {'a': [0, 2], 'b': [1]}
+
+Test case 2: labels = [] → {}.
+
+Test case 3: labels = [5, 5, 5] → {5: [0, 1, 2]}.
+
+Test case 4: labels = [None, 'a', None] → {None: [0, 2], 'a': [1]}.
+
+Yes, this code should handle all these cases.
+
+I think this is correct. Now, the code needs to be written in the solution.py file as per the interface.
+</think>
+
+```python
+def index_map(labels: list) -> dict:
+    """Map each label to the list of its indices in the input list."""
+    result = {}
+    for index, label in enumerate(labels):
+        if label not in result:

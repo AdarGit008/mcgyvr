@@ -1,0 +1,14 @@
+<think>
+Okay, I need to implement the plan_batches function. Let's see the requirements. The function takes units and capacity as inputs and returns a dictionary with loads, splits, and rounds. 
+
+First, I need to handle the case where units or capacity are not positive integers. So, I should check if units and capacity are positive. If not, raise a ValueError.
+
+Next, the main logic. If the units is less than or equal to capacity, then it's a single load. So, the loads would be [units], splits is 0, and rounds is 0.
+
+If it's more than capacity, split into two halves. The split is done by rounding up the first half and then the second half. Wait, the problem says "split into two halves, the half rounded up before the half rounded down". So, for example, if units is 5 and capacity is 3, the first half is (5+3-1)//3 = 2.666... rounded up to 3? Wait, maybe the split is calculated as (units + capacity -1) // capacity to get the ceiling. Wait, no. Wait, the problem says that the consignment splits into two halves, the first half is rounded up, the second is rounded down. So, for example, if units is 7 and capacity is 3, then the first half is (7 + 3 -1) // 3 = 9//3=3, and the second half is 7 - 3 = 4. Wait, but that's not correct. Wait, maybe the split is done by dividing the units into two parts: the first part is the ceiling of units / capacity, and the second part is the floor. Wait, but how?
+
+Wait, the problem says: "splits into two halves, the half rounded up before the half rounded down". So, for a consignment that can't fit, split into two parts. The first part is the ceiling of units / capacity, and the second part is the floor. Wait, but how to calculate that. For example, if units is 7 and capacity is 3. The total is 7. The first half is 3 (ceiling(7/3) = 3), the second half is 4 (7 - 3 = 4). But 3 + 4 = 7. So each half is calculated as the first part is the ceiling of units / capacity, and the second part is the remaining. But wait, that's not exactly correct. Because if you split into two parts, the first part is the ceiling of (units / capacity), and the second part is units - first part. But that might not be the case. Wait, maybe the split is done by dividing the units into two parts: the first part is the ceiling of (units / capacity) and the second part is the floor. But how?
+
+Alternatively, the split is done by dividing the units into two parts, where the first part is the ceiling of (units / capacity) and the second part is the floor. Wait, but that's not correct. Let me think. For example, if units is 5 and capacity is 3. The total is 5. The first half is 2 (ceiling(5/3) is 2?), but 2*3=6 which is more than 5. Wait, maybe the split is done by splitting the units into two parts, where the first part is the ceiling of (units / capacity) and the second part is the remaining. Wait, but that's not correct. Let me think again.
+
+The problem says that the consignment splits into two halves, the first half is

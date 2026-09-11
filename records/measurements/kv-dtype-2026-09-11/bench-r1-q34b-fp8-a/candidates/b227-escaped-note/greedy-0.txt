@@ -1,0 +1,32 @@
+<think>
+Okay, I need to implement the decode_escaped_note function. Let's start by understanding the problem step by step.
+
+First, the task says to process the text in two passes. The first pass is to fold the lines. The description says to drop every space and tab that runs to the end of a line. Then, walk the lines in order. Whenever the text so far ends in "=", then the "=" and the following line break disappear, and the next line continues the current one directly. Other line breaks survive as single line feeds.
+
+So, the first step is to process the text to fold the lines according to these rules. Then, in the second pass, decode the escaped characters. The decoding part says that an "=" followed by exactly two uppercase hexadecimal digits represents the character whose code those digits spell. So, for example, "=25" is "%", and "=20" is a space. But if there's an "=" not followed by two uppercase hex digits, that's an error.
+
+So, the function needs to first process the text to fold the lines, then decode the escaped characters.
+
+Let me break down the steps.
+
+First, the line folding. Let's think about how to process the input text. The initial step is to drop all trailing spaces and tabs in each line. So, for each line, we need to remove any trailing whitespace (space or tab) that are at the end of the line. Then, after that, we need to process the lines in order. Whenever the current text ends with an "=", we need to merge the next line's content with the current line, effectively combining the lines.
+
+Wait, the description says: "whenever the text kept so far ends in '=', that '=' and the following line break both disappear and the next line continues the current one directly, while every other line break survives as a single line feed."
+
+So, the process is:
+
+1. Process each line, trimming trailing spaces and tabs.
+2. Then, process the lines in order. For each line, check if the current text (after trimming) ends with '='. If so, then the '=' and the next line's line break are removed, and the next line's content is appended to the current line.
+
+But how to handle this? Let's think of it as a list of lines. After trimming, we process each line, and check if the current line ends with '='. If so, we merge the next line into the current line, and remove the line break between them.
+
+But how to do this? Let's think of the lines as a list. For example, suppose we have lines like:
+
+Line1: "abc="
+Line2: "def"
+
+After trimming, Line1 is "abc=", Line2 is "def".
+
+Then, since Line1 ends with "=", we merge Line2 into Line1, so the result is "abcdef", and the line break between them is removed.
+
+Another example: Line1: "abc", Line2: "def=". After trimming, Line1 is "abc", Line2 is "def=". Then, since Line2 ends with "=", we merge the next line (if any) into Line2. But if there's no next line, then the line is "def=" and the end of the text. But according to the problem statement, an "=" at the end is invalid. Wait, but in the first pass, the line folding is done, and then the second pass is decoding. But the problem says that in the first pass, the line folding is done, and then the second pass is decoding. However, the problem says that in the first pass, the line folding is done, and then the second pass is decoding. But during the line folding, the line breaks are processed. So

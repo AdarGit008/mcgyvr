@@ -1,0 +1,80 @@
+<think>
+Okay, I need to implement the fit_budget function. Let's see the requirements. The function takes a list of prices and a budget, and returns how many items can be bought by always taking the cheapest affordable ones. Each item can be bought once. Also, if the budget is below zero, it should reject with an error.
+
+First, I should check if the budget is negative. If it is, raise a ValueError. That's straightforward.
+
+Next, the main logic: buy as many items as possible by selecting the cheapest ones first. So, the approach is to sort the prices in ascending order. Then, iterate through them, adding each price to a running total until adding the next item would exceed the budget. The count of items added before that is the answer.
+
+Wait, but each item can be bought once. So, after sorting, we need to sum the prices in order until the sum is less than or equal to the budget. The number of items in that sum is the answer.
+
+Let me think of an example. Suppose prices are [5, 3, 2, 4], budget is 10. Sorted prices are [2,3,4,5]. Sum 2+3=5, then add 4: 5+4=9, which is under 10. Then add 5: 9+5=14 >10. So total is 3 items.
+
+Another example: budget is 0. Then no items can be bought. But the function should reject if budget is negative.
+
+So the steps are:
+
+1. Check if budget is negative. If yes, raise ValueError.
+2. Sort the prices in ascending order.
+3. Iterate through the sorted prices, accumulating the sum.
+4. For each price, add it to the sum if it doesn't exceed the budget. Count how many can be added.
+5. Return the count.
+
+But wait, what if the sum exactly equals the budget? Then that item is included. So the condition is sum + next price <= budget?
+
+Wait, the process is: take the cheapest items one by one. So, for each item in the sorted list, check if adding it to the current sum is within the budget. If yes, add it and increment the count. Otherwise, stop.
+
+So, the algorithm would be:
+
+Initialize total = 0, count = 0.
+
+Sort prices.
+
+For price in sorted prices:
+
+   if total + price <= budget:
+
+       total += price
+
+       count +=1
+
+   else:
+
+       break
+
+Return count.
+
+Yes, that makes sense.
+
+Now, code-wise:
+
+def fit_budget(prices: list, budget: int) -> int:
+
+    if budget < 0:
+
+        raise ValueError("Budget cannot be negative")
+
+    prices_sorted = sorted(prices)
+
+    total = 0
+
+    count = 0
+
+    for price in prices_sorted:
+
+        if total + price <= budget:
+
+            total += price
+
+            count +=1
+
+        else:
+
+            break
+
+    return count
+
+Wait, but what if the prices list is empty? The problem says each item can be bought once. So if there are no items, return 0. But the function is supposed to handle that. The code would return 0 in that case, which is correct.
+
+What about if the budget is zero? Then, the code checks if total + price <= 0. Since total starts at 0, the first price would be added only if it's zero. But if the budget is zero, and the prices are all positive, then no items can be bought. So the code would return 0, which is correct.
+
+But wait, if the budget is zero, and there's a price of zero, then

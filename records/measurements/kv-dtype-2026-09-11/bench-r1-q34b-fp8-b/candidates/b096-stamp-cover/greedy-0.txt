@@ -1,0 +1,48 @@
+<think>
+Okay, I need to implement the stamp_cover function. Let's think about what's required here. The stamp_table function is already written, so I need to use that to create a lookup of fragments to prices. The stamp_cover function needs to find the cheapest total price for a sequence of die presses that exactly spell the label.
+
+First, I need to validate the label. The problem says to reject a label that's not a non-empty string. So, if the label is empty or not a string, I should raise an error. Also, after creating the stamp_table, I need to check if the label can be formed by any combination of the die fragments. If not, raise an error.
+
+So the steps for stamp_cover are:
+
+1. Validate the label is a non-empty string.
+2. Use stamp_table to get the fragment-price mappings.
+3. Check if the label can be formed by any combination of the fragments. If not, raise an error.
+4. Find the minimum cost to form the label.
+
+Now, how to check if the label can be formed? This seems like a dynamic programming problem. For each position in the label, we can try all possible fragments that match the substring ending at that position, and keep track of the minimum cost.
+
+Let me think about the dynamic programming approach. Let's say dp[i] is the minimum cost to cover the first i characters of the label. Then, for each i, we look at all fragments that can end at position i. For each such fragment, if the fragment's length is l, then we check if the substring from i-l to i matches the fragment. If so, we can take dp[i - l] + price of the fragment, and update dp[i] accordingly.
+
+The base case is dp[0] = 0, since zero characters cost zero. Then, for each position from 1 to len(label), we compute dp[i] as the minimum of all possible valid fragment choices.
+
+But first, we need to check if there's at least one way to form the label. If dp[len(label)] is still infinity, then it's not possible.
+
+So, the steps are:
+
+- Preprocess the fragments and their prices using stamp_table.
+- Initialize a dp array where dp[i] is the minimum cost to reach the i-th character.
+- Initialize dp[0] = 0.
+- For each i from 1 to len(label):
+   - For each fragment in the table:
+      - Check if the fragment's length is l, and the substring from i-l to i matches the fragment.
+      - If so, then dp[i] = min(dp[i], dp[i - l] + price)
+- If dp[len(label)] is still infinity, then raise an error.
+
+But wait, the fragments can be of any length. So for each position i, we need to check all possible fragment lengths that could end at i. For example, if the fragment is length 2, then we check if the substring ending at i of length 2 matches the fragment.
+
+But how to efficiently check all possible fragments? For each i, iterate through all fragments, check if the fragment's length is <= i, and then check if the substring from i - l to i matches the fragment.
+
+But since the fragments can be of varying lengths, this approach is feasible.
+
+Now, let's code this.
+
+First, validate the label. If it's not a string or empty, raise ValueError.
+
+Then, create the stamp_table. Then, check if the label can be formed. If not, raise error.
+
+Now, for the dynamic programming part.
+
+Initialize dp as a list of size len(label) + 1. dp[0] = 0. The rest are set to infinity.
+
+Then

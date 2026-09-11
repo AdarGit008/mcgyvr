@@ -1,0 +1,20 @@
+<think>
+Okay, let's see. The user wants me to fix the sentence_split function. The current code uses re.split with a regex that splits on periods. But the problem is that it only splits at full stops and not at question marks or exclamation marks. Also, the task says that the function should split at any of those punctuation marks, but the current code only splits on periods.
+
+Wait, the original code is splitting on ".", which is a full stop. But the problem says that sentences should end at full stop, question mark, or exclamation mark. So the current code is only splitting on full stops, but the function needs to split on any of those three.
+
+So the fix is to modify the regex to include all three punctuation marks. But how? The current regex is r"[.]", which matches a single period. To include ?, !, and ., the regex should be r"[.?!]". But wait, the problem says that the function should only ever break at a full stop. Wait, the user says "Fix it. Each sentence comes back trimmed...". Wait, the original problem says that the function is supposed to split at full stop, question mark, or exclamation mark, but the current code only splits on full stop. But the user says to fix it so that it splits at all three. Wait, the original problem says that the function is supposed to split at full stop, question mark, or exclamation mark. But the current code only splits on full stop. So the fix is to split on any of those three.
+
+Wait, the user's instruction says: "Fix it. Each sentence comes back trimmed of surrounding spaces, and empty pieces are left out. Return the complete fixed file."
+
+So the original code is splitting on ".", but the function should split on any of the three punctuation marks. So the regex should be [\.?!], but in the code, the current regex is [.] which only matches periods. So the fix is to change the regex to include the other two punctuation marks.
+
+But wait, the user says that the function should only ever break at a full stop. Wait, that's conflicting. Wait, the original problem says that the function is supposed to split at full stop, question mark, or exclamation mark. But the user says to fix it so that it splits at all three. Wait, the original code is only splitting on full stops. So the problem is that the function is not splitting on the other two. So the fix is to change the regex to include all three.
+
+So the correct regex would be r"[.?!]". But then, when splitting, the split would occur at any of those characters. However, the current code uses re.split, which splits on each occurrence. For example, if the passage is "Hello. How are you? I'm fine!", the split would happen at each of the three punctuation marks.
+
+But wait, the current code is using re.split(r"[.]", passage), which splits on each period. So the fix is to change the regex to include the other two punctuation marks.
+
+So the corrected code would be to change the regex to r"[.?!]". But then, when splitting, the split would occur at any of those characters. However, the problem says that the function should only ever break at a full stop. Wait, that's conflicting. Wait, the original problem says that the function is supposed to split at full stop, question mark, or exclamation mark. But the user says to fix it so that it splits at all three. Wait, the original code is only splitting on full stops. So the problem is that the function is not splitting on the other two. So the fix is to split on any of the three.
+
+But the user

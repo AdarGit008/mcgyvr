@@ -1,0 +1,41 @@
+<think>
+Okay, I need to implement the two functions, tag_open and tag_pair, based on the given interface. Let me start by understanding what each function is supposed to do.
+
+First, tag_open takes a marker string and returns the name inside the angle brackets. But if the marker starts with a leading slash, I should drop that slash. Also, any marker not wrapped in angle brackets should raise an error. So, the first thing I need to check is that the input is properly enclosed in < and >. If not, ValueError is raised.
+
+So for tag_open, the steps are:
+1. Check if the marker starts and ends with < and >. If not, raise ValueError.
+2. Extract the content between the angle brackets.
+3. If the content starts with a '/', remove that leading slash.
+4. Return the result.
+
+Wait, but the problem says "dropping a leading slash when there is one". So, for example, if the marker is "<div>", then the name is "div". If it's "</div>", then the name is "div" as well. So the leading slash is stripped.
+
+So, the first step is to validate that the marker is properly enclosed in angle brackets. So, the first check is that the first character is '<' and the last is '>'. If not, raise an error.
+
+Then, the content is the substring between the first and last character. Then, check if the first character of this content is a '/', and if so, remove it.
+
+So, for example, if the marker is "<div>", the content is "div", so return "div". If the marker is "</div>", the content is "/div", so we remove the leading '/' to get "div".
+
+So, the code for tag_open would be:
+
+def tag_open(marker: str) -> str:
+    if not (marker.startswith('<') and marker.endswith('>')):
+        raise ValueError("Marker must be wrapped in angle brackets")
+    content = marker[1:-1]
+    if content.startswith('/'):
+        return content[1:]
+    return content
+
+Wait, but what if the content is empty? Like "<>"? Then, the content is empty, but the function would return an empty string. But according to the problem statement, the marker is supposed to have a name inside. But the problem says to reject any marker not wrapped in angle brackets. So, if the marker is "<>", then it's invalid because the content is empty? Or is it allowed?
+
+Wait, the problem says "Reject with an error any marker not wrapped in angle brackets." So, the check is only that the marker is wrapped in angle brackets. The content can be empty. For example, "<>" would be considered valid, but the content is empty. However, the problem says that the function is supposed to return the name inside. So, if the content is empty, then the function would return an empty string. But maybe that's acceptable.
+
+But the problem doesn't mention anything about empty content. So, the code should just process it as per the given rules.
+
+Now, moving on to tag_pair. The function takes an opening and closing marker and returns True if they name the same thing. So, for example, if the opening is "<div>" and the closing is "</div>", then they should return True because the name is "div" in both cases. But if the opening is "<div>" and the closing is "<span>", then it returns False.
+
+But how to process the opening and closing markers? The same way as tag_open. So, for each of the opening and closing markers, we need to process them to get their names, and then compare if they are the same.
+
+So, the steps for tag_pair are:
+

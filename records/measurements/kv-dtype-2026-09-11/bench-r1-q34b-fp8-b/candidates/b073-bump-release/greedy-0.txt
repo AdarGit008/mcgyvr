@@ -1,0 +1,47 @@
+<think>
+Okay, I need to implement the bump_release function. Let's think about the requirements. The function takes a version string in the format major.minor.patch and a part (major, minor, or patch). It should return the next version after incrementing the specified part. 
+
+First, I need to validate the input. The version must be a string, exactly three components, each a non-empty string of digits, no leading zeros. Also, the part must be one of the three allowed values.
+
+So, the steps are: parse the version into its components, check each component for validity. Then, based on the part, increment the corresponding component and reset the lower ones to zero. For example, if part is 'major', then major increases by 1, minor and patch become 0. If part is 'minor', major stays, minor increases by 1, patch becomes 0. If part is 'patch', only the patch increments, others stay.
+
+But wait, how to handle the components? Let's split the version string into parts. Split on dots. Then check each part is a valid number. Also, check that each part is not empty, and doesn't have leading zeros unless it's exactly "0".
+
+So, for each component, check that it's a string, and when converted to integer, it's a valid number. Also, ensure that the component is not empty, and if it's more than one character, it shouldn't start with a zero.
+
+Once the input is validated, then process the part. Let's take the components as a list. For example, if the version is "2.9.4", the components are ["2", "9", "4"].
+
+If the part is 'major', increment the first component, set the next two to 0. Similarly for others.
+
+But how to handle the increment? For example, if the major is "1", increment to "2". If it's "9", increment to "10". So, converting each component to integer, incrementing, then converting back to string.
+
+But need to make sure that when incrementing, the component is properly handled. For example, if the minor is "9", incrementing to "10", which is valid.
+
+So, the plan is:
+
+1. Split the version into parts. Check that there are exactly three parts.
+2. For each part, check that it's a valid number (digits only, no leading zeros unless it's "0").
+3. Convert each part to integer.
+4. Depending on the part, increment the corresponding component and reset the lower ones.
+5. Then, reassemble the version string with the new components.
+
+But wait, the problem says that the components are written as plain decimal integers with no leading zero. So, for example, if the component is "0", that's allowed. But if it's "01", that's invalid.
+
+So, during validation, each component must be a string that is either "0" or a string of digits with no leading zeros. So, for a component like "0", it's okay. For "01", it's invalid.
+
+So, the validation steps:
+
+- Check that the version is a string.
+- Split into parts. Check that there are exactly three parts.
+- For each part in the split list:
+   - Check that it's not empty.
+   - Check that it's all digits.
+   - Check that it doesn't have leading zeros unless it's exactly "0".
+
+So, for each part, if len(part) > 1, then part[0] should not be '0'.
+
+Once the input is validated, then process the part.
+
+Let me think about the code structure.
+
+First, the function bump

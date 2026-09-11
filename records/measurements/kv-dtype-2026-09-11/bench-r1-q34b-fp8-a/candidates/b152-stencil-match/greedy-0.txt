@@ -1,0 +1,63 @@
+<think>
+Okay, I need to implement the matches_stencil function. Let me read the problem carefully.
+
+The function takes a stencil and a code string. The stencil uses certain characters to match the code. The rules are: 
+
+- "#" matches any single digit (0-9)
+- "@" matches any ASCII letter (either case)
+- "?" matches any single character
+- All other characters in the stencil match themselves exactly, case-sensitively.
+
+The function should return True if the code's length matches the stencil's length and every position in the code satisfies the stencil's character. Otherwise, return False. Also, if the stencil is not a string, empty, or the code is not a string, it should raise a ValueError.
+
+Wait, the problem says to reject a stencil that is not a string, empty, and a code that is not a string. So, first, I need to check if stencil and code are strings. If not, raise ValueError. Also, if the stencil is empty, raise an error. Similarly for code.
+
+So the first step is validation. Let me think about the steps:
+
+1. Check if stencil is a string. If not, raise ValueError.
+2. Check if code is a string. If not, raise ValueError.
+3. Check if stencil is empty. If yes, raise ValueError.
+4. Check if code's length is not equal to stencil's length. If not, return False.
+5. Then, iterate over each character in stencil and code, check if each position matches.
+
+Wait, the problem says that the function should return True only if the code's length is exactly the same as the stencil's. So, first, check if len(code) == len(stencil). If not, return False.
+
+But also, the stencil can't be empty. So, if the stencil is empty, we need to reject it. Similarly for code, if it's not a string.
+
+So, the function starts by checking the types of stencil and code. If either is not a string, raise ValueError. Then check if stencil is empty, raise ValueError. Then check if code is empty? Wait, the problem says that code can be any string, but if it's empty, but the stencil is not empty, then len(code) would be zero, which is different from len(stencil), so the function would return False. But the problem says to reject code that is not a string. So, code must be a string. So, the code can be empty, but the function would check the length.
+
+So, the steps are:
+
+- Check that stencil is a string. If not, raise ValueError.
+- Check that code is a string. If not, raise ValueError.
+- Check that stencil is not empty. If it is, raise ValueError.
+- Check that code's length is equal to stencil's length. If not, return False.
+- Then, for each position i, check if the code's character at i matches the stencil's character.
+
+Now, how to check each position.
+
+For each character in stencil and code:
+
+If the stencil character is '#', then code's character must be a digit (0-9).
+
+If it's '@', code's character must be an ASCII letter (a-z, A-Z).
+
+If it's '?', code's character can be any character.
+
+Else, the code's character must be exactly the same as the stencil's character.
+
+So, for each position, we need to check these conditions.
+
+So, in code:
+
+Loop through each index i in range(len(stencil)):
+
+st_char = stencil[i]
+
+code_char = code[i]
+
+if st_char is '#', check if code_char is a digit.
+
+if st_char is '@', check if code_char is a letter.
+
+if st_char is '?
