@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-09-live-srv1-serve-down-td-config-1788982670",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/home/adaramir/.mcgyvr/config/compose.srv1.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 17,
+    "free_mib": 5727
+  }
+}

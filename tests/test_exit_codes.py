@@ -16,6 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+import yaml
 
 from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
@@ -131,15 +132,22 @@ def test_an_existing_command_keeps_its_codes(bench: Bench) -> None:
     assert main(["caps"]) in (Exit.OK, Exit.ERROR)
 
 
-def test_two_models_on_one_endpoint_are_refused(
+def test_two_models_on_one_endpoint_are_two_launch_specs(
     bench: Bench, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """One llama-server process serves one model, so one URL cannot hold two.
+    """One llama-server process serves one model, and one URL may still hold two.
 
-    Emitting anyway writes a compose file whose second container loses the
-    race for the port -- a file that looks right and fails on the rig. The
-    fix an operator needs is a second source on its own port, so the refusal
-    says that rather than letting them discover it from a bind error.
+    This exited REFUSED until 2026-09-09 — "give each model its own source on
+    its own port" — and the advice was right about co-residents and wrong about
+    the shape the ladder is now made of. Two rungs on one URL are two models
+    *taking turns* on it, and telling an owner to invent a second port is
+    telling them to buy a second card.
+
+    One process per model has not stopped being true; it is enforced by giving
+    each alternative a launch spec of its own
+    (:func:`mcgyvr.serving.launch_specs`), so no file ever holds two services
+    that would race for one port. The exit code moves from REFUSED to OK and
+    the count of files written is what says the rule survived the change.
     """
     main(["scan"])
     capsys.readouterr()
@@ -166,9 +174,21 @@ def test_two_models_on_one_endpoint_are_refused(
                 str(tmp_path),
             ]
         )
-        == Exit.REFUSED
+        == Exit.OK
     )
-    assert "port" in capsys.readouterr().err.lower()
+    capsys.readouterr()
+    written = sorted(path.name for path in tmp_path.glob("compose.*.yml"))
+    assert written == sorted(
+        (
+            f"compose.{host}.qwen2.5-coder-1.5b.yml",
+            f"compose.{host}.qwen2.5-coder-3b.yml",
+        )
+    ), written
+    # One service in each, which is the whole of "one process serves one
+    # model": a file holding both would be a file whose second never binds.
+    for name in written:
+        document = yaml.safe_load((tmp_path / name).read_text(encoding="utf-8"))
+        assert len(document["services"]) == 1, (name, document["services"])
 
 
 def test_a_loopback_source_resolves_to_the_scan_of_this_machine(

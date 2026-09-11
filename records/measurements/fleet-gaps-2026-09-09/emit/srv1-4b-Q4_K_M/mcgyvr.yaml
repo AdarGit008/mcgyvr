@@ -1,0 +1,24 @@
+version: 1
+sources:
+  srv1_llamacpp:
+    base_url: http://srv1:8080
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+models:
+  4b-Q4_K_M:
+    geometry_json: ./4b-Q4_K_M.geometry.json
+ladder:
+  tiers:
+  - name: probe_4b-q4_k_m
+    source: srv1_llamacpp
+    model: 4b-Q4_K_M
+    max_parallel: 2
+  fanout: idle
+verifier:
+  enabled: false
+sandbox:
+  mode: docker
+delivery:
+  mode: branch

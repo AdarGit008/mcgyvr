@@ -1,0 +1,29 @@
+[
+  {
+    "host": "srv2",
+    "label": "q13-qwen36-n7",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2-qwen36-ncmoe7.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q13-qwen36-n20",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2-qwen36-ncmoe20.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q13-qwen36-n40",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2-qwen36-ncmoe40.yml"
+  }
+]

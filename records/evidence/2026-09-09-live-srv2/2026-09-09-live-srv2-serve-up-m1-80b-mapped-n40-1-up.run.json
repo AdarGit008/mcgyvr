@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-09-09-live-srv2-serve-up-m1-80b-mapped-n40-1-up",
+  "campaign": "live-srv2",
+  "step": "serve-up",
+  "host": "srv2",
+  "date": "2026-09-09",
+  "round": "r25-09-09-2026",
+  "product_sha256": "1953b0bbc9692ba1b2cce9c5e7c0a815923d85febf640933c20d2b5c815ee51c",
+  "profile": "live",
+  "config": "/home/adaramir/.mcgyvr/config/mcgyvr.yaml",
+  "config_digest": "cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb",
+  "mcgyvr_version": "0.1.1.dev38+gd7ea57f0",
+  "started_at": "2026-09-09T14:33:33Z"
+}

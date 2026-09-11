@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-09-08-live-srv1-serve-up-loadmode-up",
+  "campaign": "live-srv1",
+  "step": "serve-up",
+  "host": "srv1",
+  "date": "2026-09-08",
+  "round": "r9-08-09-2026",
+  "product_sha256": "75dc6e4fa2fca1ab29a29d7b45ffbc523c96773190f9ddcbe1a9a15a7dcb7e1c",
+  "profile": "live",
+  "config": "/home/adaramir/.mcgyvr/config/mcgyvr.yaml",
+  "config_digest": "cfg-9d443d314015874aef3158444c038b800a2527befb22d0cee6fcad78630c56c9",
+  "mcgyvr_version": "0.1.1.dev38+gd7ea57f0",
+  "started_at": "2026-09-08T15:53:26Z"
+}

@@ -1,0 +1,40 @@
+version: 1
+sources:
+  a:
+    base_url: http://srv2:8080
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+  b:
+    base_url: http://srv2:8081
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+models:
+  m_a:
+    vram_gb: 4.0
+    ram_gb: 30.0
+    disk_gb: 8.29
+  m_b:
+    vram_gb: 4.0
+    ram_gb: 30.0
+    disk_gb: 12.29
+ladder:
+  tiers:
+  - name: t_a
+    source: a
+    model: m_a
+    max_parallel: 2
+  - name: t_b
+    source: b
+    model: m_b
+    max_parallel: 2
+  fanout: idle
+verifier:
+  enabled: false
+sandbox:
+  mode: docker
+delivery:
+  mode: branch

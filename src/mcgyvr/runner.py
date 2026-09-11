@@ -91,6 +91,7 @@ from mcgyvr.capacity import Capacity
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
+from mcgyvr.weights import is_model
 
 # Local models on modest hardware are slow rather than broken: a 7B answering a
 # capped generation on a 6 GB card can take minutes. This is the ceiling on one
@@ -143,6 +144,18 @@ class ProtocolError(RunnerError):
 
 class QualityCaveatError(RunnerError):
     """A quality-sensitive request was routed at a path a caveat invalidates."""
+
+
+class WrongWeightsError(RunnerError):
+    """The endpoint answered, but from weights other than the ones asked for.
+
+    A rung names a model; a rig serves whichever one is resident. Where those
+    two disagree the answer is not a worse answer, it is an answer to a
+    different question, and recording it would put a number against a model
+    that never ran. It is a :class:`RunnerError` because that is exactly what
+    it is — a dispatch that did not produce a completion — and because every
+    caller already treats that as an attempt to be retried elsewhere.
+    """
 
 
 class StopReason(StrEnum):
@@ -256,6 +269,7 @@ class Completion:
     latency_s: float
     input_tokens: int | None = None
     output_tokens: int | None = None
+    served_model: str | None = None
     quality_safe: bool = True
     notes: tuple[str, ...] = ()
 
@@ -295,6 +309,11 @@ class _Parsed:
     raw_stop_reason: str
     input_tokens: int | None
     output_tokens: int | None
+    #: The model the backend says it answered with, or ``None`` where it named
+    #: none. Not the model that was asked for — comparing the two is the whole
+    #: point, so a protocol that silently substituted one for the other would
+    #: erase the check.
+    served_model: str | None
 
 
 class Runner(ABC):
@@ -351,6 +370,7 @@ class Runner(ABC):
         latency_s = time.monotonic() - started
 
         parsed = self._parse(document)
+        self._refuse_other_weights(model, parsed.served_model)
         stop_reason = _STOP_REASONS.get(parsed.raw_stop_reason, StopReason.UNKNOWN)
         return Completion(
             text=parsed.text,
@@ -363,8 +383,31 @@ class Runner(ABC):
             latency_s=latency_s,
             input_tokens=parsed.input_tokens,
             output_tokens=parsed.output_tokens,
+            served_model=parsed.served_model,
             quality_safe=self.quality_safe,
             notes=self._notes(parsed, stop_reason, request),
+        )
+
+    def _refuse_other_weights(self, asked: str, served: str | None) -> None:
+        """Raise unless the answer came from the weights that were asked for.
+
+        The close for the hole `cli._climb` documents: a dispatch aimed at a
+        rung whose model is not resident reaches the server anyway and is
+        answered from whatever *is* loaded. Nothing here probes — the answer
+        already carries the name, this only stops throwing it away — so the
+        fail-first doctrine holds and a card that is up costs nothing extra.
+
+        Silence is not a mismatch. A backend that names no model cannot be
+        checked and is not refused: an optional key is not made a requirement,
+        and the completion records ``None`` rather than claiming agreement.
+        """
+        if served is None or is_model(served, asked):
+            return
+        raise WrongWeightsError(
+            f"{self.endpoint.source!r} was asked for {asked!r} and answered "
+            f"with {served!r}. Those are different weights, so this is not a "
+            f"completion for {asked!r} and must not be recorded as one — the "
+            f"rung is pointed at a model that is not the one resident."
         )
 
     def _notes(
@@ -493,11 +536,13 @@ class OpenAIRunner(Runner):
         if not isinstance(usage, dict):
             usage = {}
         raw_stop = first.get("finish_reason") if isinstance(first, dict) else None
+        served = document.get("model")
         return _Parsed(
             text=content,
             raw_stop_reason=_as_str(raw_stop),
             input_tokens=_as_int(usage.get("prompt_tokens")),
             output_tokens=_as_int(usage.get("completion_tokens")),
+            served_model=served if isinstance(served, str) and served else None,
         )
 
 

@@ -1,0 +1,129 @@
+# mcgyvr live config — owner's ladder of 2026-09-05.
+# deterministic floor -> srv2 (vLLM, 3B then 7B, co-resident) -> srv1 (llama.cpp, Qwen3.6-35B offloaded) -> out.
+# Every number here was measured on 2026-09-05 (spike, plan-e2e-live.md) or read off a tensor table.
+version: 1
+
+sources:
+  srv2_vllm_3b:
+    base_url: "http://srv2:8001"
+    api: openai
+    engine: vllm
+    image: "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52"
+    # 8, not 6: the unit is started `--max-num-seqs 8` and the 2026-09-06 sweep
+    # holds 109.6 tok/s per stream at width 8 against 115.9 at width 1.
+    max_parallel: 8
+    # Read back off the running unit on 2026-09-08, not chosen here: vLLM was
+    # started `--max-model-len 4096` and reports it. Declaring it is what turns
+    # on `check_contract_against_rung` and `check_window_fraction`, which
+    # enforce nothing while it is absent.
+    context_window: 4096
+  srv2_vllm_7b:
+    base_url: "http://srv2:8002"
+    api: openai
+    engine: vllm
+    image: "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52"
+    max_parallel: 8
+    # Read back off the running unit on 2026-09-08, not chosen here: vLLM was
+    # started `--max-model-len 4096` and reports it. Declaring it is what turns
+    # on `check_contract_against_rung` and `check_window_fraction`, which
+    # enforce nothing while it is absent.
+    context_window: 4096
+  srv1_llamacpp:
+    base_url: "http://srv1:8080"
+    api: openai
+    image: "llamacpp:b10644-L3"
+    max_parallel: 8
+    # `/props` on 2026-09-08, after the unit was re-emitted at 8192 per slot:
+    # `-c` is 16384 across 2 slots, so one request is served 8192. The per-slot
+    # figure is the window a request actually gets, and `-c` is not it.
+    #
+    # Widened from 4096 the same day, for two contracts the cap alone could not
+    # reach: p003-soundex-code and p024-shift-civil-date still truncated at a
+    # 2048-token cap, and a larger cap would not fit beside the cohort's biggest
+    # prompt (1039 tokens) under a 4096 window. It cost one expert block --
+    # `--n-cpu-moe` went 29 -> 30 -- and 48s of extra wake (80s -> 128s).
+    context_window: 8192
+
+models:
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ":
+    vram_gb: 3.49
+    disk_gb: 1.95
+    hf_cache: /home/adaramir/.cache/huggingface
+    serve_args: ["--gpu-memory-utilization", "0.26"]
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ":
+    vram_gb: 7.12
+    disk_gb: 4.93
+    hf_cache: /home/adaramir/.cache/huggingface
+    serve_args: ["--gpu-memory-utilization", "0.72"]
+  "Qwen3.6-35B-A3B-UD-IQ3_XXS":
+    # The door's own scan of /models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf on srv1 (2026-09-05).
+    geometry_json: ./Qwen3.6-35B-A3B-UD-IQ3_XXS.geometry.json
+    # A thinking model: without this every reply is reasoning and the content is empty.
+    serve_args: ["--chat-template-kwargs", '{"enable_thinking":false}']
+
+ladder:
+  tiers:
+    - name: local_qwen2.5-coder-3b
+      source: srv2_vllm_3b
+      model: "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+    - name: local_qwen2.5-coder-7b
+      source: srv2_vllm_7b
+      model: "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+    - name: local_qwen3.6-35b-a3b
+      source: srv1_llamacpp
+      model: "Qwen3.6-35B-A3B-UD-IQ3_XXS"
+      # Read by mcgyvr.serving as the slot count this llama.cpp process is
+      # started with (-c is this times DEFAULT_CONTEXT), not as a dispatch
+      # bound -- that is the source's, in capacity.py. Deleting it does not
+      # inherit the source's 8; it drops the unit to a derived 2.
+      #
+      # 2, not 8, on the 2026-09-06 sweep: this rung gives 27.2 tok/s to one
+      # stream, 14.0 to each of two and 5.1 to each of eight, while aggregate
+      # moves 27.2 -> 27.9 -> 40.7. Width buys almost nothing here and costs
+      # the latency every waiting contract pays -- at width 8 a 1024-token
+      # reply needs 201s, past `budgets.request_timeout_s`.
+      max_parallel: 2
+      # Measured 2026-09-08, not chosen: 82 journalled replies from this rung
+      # ran at a median 17.0 tok/s with p90 and p95 both sitting *at* the old
+      # 1024 contract cap, and 32 of the 82 were cut there. The 3B and 7B never
+      # came within 300 tokens of the same cap, which is why this is the rung's
+      # number and not the contract's. 2048 and no more: the largest prompt
+      # measured on this rung is 1039 tokens and 1039 + 3072 does not fit the
+      # 4096 window, so a larger figure would refuse that contract at preflight
+      # rather than serve it.
+      output_tokens: 2048
+  fanout: idle
+
+orchestrator:
+verifier:
+  enabled: false
+sandbox:
+  mode: docker
+delivery:
+  mode: branch
+budgets:
+  # Three rungs: two climbs reach the top.
+  max_escalations: 2
+  task_timeout_s: 900
+  # 180, not the 120 default, and the number comes from the top rung's own
+  # arithmetic: 82 journalled replies from `local_qwen3.6-35b-a3b` on 2026-09-07
+  # ran at a median 17.0 tok/s, so the 2048-token cap the same rows argue for
+  # (p90 and p95 both sit *at* the old 1024 cap, and 32 of 82 replies were cut
+  # there) needs 120s of wall clock -- exactly the default, which is to say
+  # unreachable. The cap, the rung's width and this bound are three numbers that
+  # decide each other; raising one alone buys a timeout instead of a reply.
+  request_timeout_s: 180
+breadth:
+  draws: 1
+cleanup:
+  # Owner, 2026-09-05: a format-only rejection is tidied and judged again on
+  # the same rung instead of climbing.
+  enabled: true
+journal:
+  dir: "~/.local/state/mcgyvr/journal"
+
+# Q8 only: the live config holds no serving.compose_dir, so `mcgyvr serve
+# wake` on it refuses. This copy differs from ~/.mcgyvr/config/mcgyvr.yaml by
+# this block and nothing else.
+serving:
+  compose_dir: /home/adaramir/.mcgyvr/config

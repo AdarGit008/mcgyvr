@@ -1245,6 +1245,102 @@ class Capacity:
             held.discard(bound)
             os.close(fd)  # closing the descriptor is what releases the flock
 
+    @contextmanager
+    def drain(
+        self, sources: Iterable[str], *, timeout: float | None = None
+    ) -> Iterator[None]:
+        """Hold **every** slot of every bound of ``sources`` for the block's body.
+
+        The primitive whole-card eviction is stated in. :meth:`hold` takes one
+        slot because a dispatch is one request; a sleep is the opposite claim —
+        nobody may be dispatching at all — and it cannot be spelled as nested
+        holds, because :meth:`hold` refuses a thread that already holds a bound
+        and because a bound's second slot would be taken by whoever was waiting
+        for the first.
+
+        **Why a hold and not a reading.** The sleep decision is made from the
+        shared census — how many slot files are locked right now — and that is a
+        reading. Between the reading and ``docker compose down`` a dispatch can
+        start, and killing a container out from under a request that was already
+        admitted is the one thing whole-card eviction is not allowed to do
+        (``records/plans/sleep-wake.md`` D8). The census decides *whether* to
+        sleep; this is what makes acting on the decision safe.
+
+        Every bound of the named sources, which is every rung that declared a
+        width of its own as well as the source's own pool: a drain that took the
+        source's slots and left a rung's would leave exactly the dispatches a
+        width-declaring rung makes running.
+
+        It is **best-effort against what the flock cannot see** and says so
+        rather than pretending otherwise: a request from a second machine, or
+        from something that is not mcgyvr, is not drained and is not asked. The
+        rig lease is the guard there and it is a decision procedure rather than
+        a mutex on requests (R1, ``gatelib``).
+
+        ``timeout`` bounds the wait for each slot; ``None`` blocks until every
+        one of them frees. A caller should pass ``budgets.request_timeout_s``,
+        because a dispatch in flight either finishes inside that or its
+        transport has already given up.
+        """
+        named = sorted(set(sources))
+        for source in named:
+            self._bounded(source)
+        wanted = sorted(bound for bound in self._bounds if bound[0] in set(named))
+        taken: list[int] = []
+        try:
+            for source, rung in wanted:
+                base_url = self._urls.get(source, source)
+                for index in range(self._bounds[(source, rung)]):
+                    taken.append(
+                        self._acquire_one(
+                            f"source {source!r}" + (f" rung {rung!r}" if rung else ""),
+                            base_url,
+                            rung,
+                            index,
+                            timeout,
+                        )
+                    )
+            yield
+        finally:
+            for fd in taken:
+                os.close(fd)  # closing the descriptor is what releases the flock
+
+    def _acquire_one(
+        self,
+        where: str,
+        base_url: str,
+        rung: str | None,
+        index: int,
+        timeout: float | None,
+    ) -> int:
+        """Take slot ``index`` specifically, waiting for it rather than sweeping.
+
+        :meth:`_acquire_slot` sweeps for *any* free slot, which is what a
+        dispatch wants and what a drain must not do: a drain needs this one, and
+        a sweep that skipped a busy slot for a free one would report the card
+        drained while a request was still in flight on it.
+        """
+        directory = self._lock_dir
+        directory.mkdir(parents=True, exist_ok=True)
+        stem = _slot_stem(base_url, rung)
+        deadline = None if timeout is None else time.monotonic() + timeout
+        fd = os.open(directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT)
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                if deadline is not None and time.monotonic() >= deadline:
+                    os.close(fd)
+                    raise SlotUnavailableError(
+                        f"{where} slot {index} was still in use after "
+                        f"{timeout}s, so the card was not drained and nothing "
+                        f"was taken down. A dispatch that is already admitted "
+                        f"is never interrupted by a sleep."
+                    ) from None
+                time.sleep(_POLL_SECONDS)
+                continue
+            return fd
+
     def _acquire_slot(
         self,
         where: str,

@@ -104,6 +104,7 @@ ladder at all; escalation is #24's.
 
 from __future__ import annotations
 
+import json
 import time
 import urllib.error
 import urllib.request
@@ -113,12 +114,19 @@ from dataclasses import dataclass
 
 from mcgyvr.pool import Endpoint, PoolError, Protocol
 from mcgyvr.redact import safe_url
+from mcgyvr.weights import is_model
 
 # Short by design, and three orders of magnitude below the dispatch timeout: this
 # bounds "did anything accept a connection and answer", not "did a model finish
 # thinking". A local host that cannot answer a model list in this long is not
 # going to serve a generation.
 PROBE_TIMEOUT_S = 2.0
+
+# How much of a model listing is read. A listing is a handful of ids and this is
+# generous for one; a source that answers with more than this is a source whose
+# body is not being read to the end, and the answer is then the same as an
+# unreadable one — `None`, which claims nothing.
+_LIST_BODY_BYTES = 1 << 20
 
 # The free, side-effect-free listing each protocol offers. Chosen over a
 # generation for the reason in the module docstring, and over a bare TCP connect
@@ -150,6 +158,16 @@ class AvailabilityVerdict:
     reason: str
     how: str
     elapsed_s: float
+    #: The model ids this endpoint said it is holding, or ``None`` where it did
+    #: not say. The distinction is the whole of :meth:`Availability.not_serving`
+    #: and it is not a nicety: a 404 on the listing, a body that is not JSON, a
+    #: body of another shape and an empty list are all ``None``, because the
+    #: model-list path is optional and half this fleet's servers do not publish
+    #: a usable one. Only an explicit, readable listing may take a rung out of
+    #: service — the same rule ``servelib.sleeping`` takes for ``/is_sleeping``
+    #: (``b4e9ea8e``), and for the same reason: a probe that failed closed on an
+    #: unreadable answer would empty the ladder the day it landed.
+    models: tuple[str, ...] | None = None
 
 
 ProbeFn = Callable[[Endpoint, float], AvailabilityVerdict]
@@ -213,6 +231,53 @@ class Availability:
                     self._verdicts[verdict.source] = verdict
         return {e.source: self._verdicts[e.source] for e in wanted}
 
+    def not_serving(
+        self, bound: Sequence[tuple[Endpoint, str]]
+    ) -> Mapping[tuple[str, str], str]:
+        """Which (source, model) pairs the port is not currently holding, and why.
+
+        **The routing hole this closes, O3.** :meth:`unavailable` answers about a
+        *source*, and a source is a URL. Two models that alternate on one card
+        are one launch spec each and only one of them is ever up — and under
+        port-per-model each has a URL of its own that goes on answering 200 for
+        as long as *anything* is behind it. llama.cpp does not check the
+        ``model`` field of a request against the weights it loaded: a dispatch
+        aimed at the sleeping rung is answered from the resident one's weights,
+        with no error anywhere. A ladder that marked both rungs up would record
+        an answer from a rung that was never up, and it would do it silently,
+        which is the worst way for a liveness reading to be wrong.
+
+        So the question a rung needs answered is not "did the port answer" but
+        "is *this model* what is behind it", and the listing the probe already
+        fetched is where that is written. **No second request is made**: the
+        verdicts are the cached ones :meth:`check_all` produced, so a source
+        serving four rungs is still one probe and a dead host still costs one
+        timeout per run.
+
+        A source whose verdict carries no listing (:attr:`AvailabilityVerdict.models`
+        is ``None``) is not reported here at all. It said nothing, and nothing is
+        not a no.
+        """
+        wanted = _distinct([endpoint for endpoint, _ in bound])
+        self.check_all(wanted)
+        not_there: dict[tuple[str, str], str] = {}
+        for endpoint, model in bound:
+            verdict = self._verdicts.get(endpoint.source)
+            if verdict is None or not verdict.live or not verdict.models:
+                continue
+            if any(is_model(served, model) for served in verdict.models):
+                continue
+            not_there[(endpoint.source, model)] = (
+                f"source {endpoint.source!r} is serving "
+                f"{', '.join(verdict.models)} and not {model!r}. The port "
+                f"answers, so a dispatch would be taken — and llama.cpp answers "
+                f"a request naming weights it is not holding from the weights it "
+                f"is, so the reply would be the wrong model's with nothing "
+                f"reporting it. Wake the card that serves {model!r}, or point "
+                f"the rung at the model that is up"
+            )
+        return not_there
+
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
         """Which of these sources cannot serve, and why — the pool's seam.
 
@@ -258,6 +323,12 @@ def probe_endpoint(
     try:
         with urllib.request.urlopen(request, timeout=timeout_s) as response:
             status = response.status
+            # Read here and not in a second call: the listing is the answer to
+            # "which weights are behind this port", and the request that asked
+            # for it has already been paid for. Bounded, because a probe is not
+            # a download and a source that answered with a gigabyte of JSON is a
+            # source this is not going to read all of.
+            body = response.read(_LIST_BODY_BYTES)
     except urllib.error.HTTPError as exc:
         return _from_status(endpoint, exc.code, url, started)
     except OSError as exc:
@@ -273,11 +344,42 @@ def probe_endpoint(
             started,
         )
 
-    return _from_status(endpoint, status, url, started)
+    return _from_status(endpoint, status, url, started, models=_listed(body))
+
+
+def _listed(body: bytes) -> tuple[str, ...] | None:
+    """The model ids in an OpenAI-shaped listing, or ``None`` if it did not say.
+
+    Every way of not saying is ``None`` and never an empty tuple: a body that is
+    not JSON, a document of another shape, a ``data`` that is not a list, a list
+    whose entries carry no ``id``. An empty listing is ``None`` too — a server
+    that publishes the route and lists nothing has told us nothing about what it
+    is holding, and reading that as "your model is not here" would take the rung
+    out of service on the strength of a server's own omission.
+    """
+    try:
+        doc = json.loads(body.decode("utf-8", "replace"))
+    except ValueError:
+        return None
+    if not isinstance(doc, dict):
+        return None
+    rows = doc.get("data")
+    if not isinstance(rows, list):
+        return None
+    ids = tuple(
+        str(row["id"])
+        for row in rows
+        if isinstance(row, dict) and isinstance(row.get("id"), str)
+    )
+    return ids or None
 
 
 def _from_status(
-    endpoint: Endpoint, status: int, url: str, started: float
+    endpoint: Endpoint,
+    status: int,
+    url: str,
+    started: float,
+    models: tuple[str, ...] | None = None,
 ) -> AvailabilityVerdict:
     """Read an HTTP status as a liveness verdict.
 
@@ -320,12 +422,23 @@ def _from_status(
             started,
         )
     return _verdict(
-        endpoint, True, "", f"GET {safe_url(url)} answered {status}", started
+        endpoint,
+        True,
+        "",
+        f"GET {safe_url(url)} answered {status}"
+        + (f", serving {', '.join(models)}" if models else ""),
+        started,
+        models=models,
     )
 
 
 def _verdict(
-    endpoint: Endpoint, live: bool, reason: str, how: str, started: float
+    endpoint: Endpoint,
+    live: bool,
+    reason: str,
+    how: str,
+    started: float,
+    models: tuple[str, ...] | None = None,
 ) -> AvailabilityVerdict:
     return AvailabilityVerdict(
         source=endpoint.source,
@@ -333,6 +446,7 @@ def _verdict(
         reason=reason,
         how=how,
         elapsed_s=time.monotonic() - started,
+        models=models,
     )
 
 

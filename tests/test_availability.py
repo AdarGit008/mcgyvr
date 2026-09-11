@@ -231,8 +231,22 @@ def _stub_urlopen(monkeypatch: pytest.MonkeyPatch, behaviour: Behaviour) -> None
 
 
 class _Response:
-    def __init__(self, status: int) -> None:
+    """A urlopen answer: a status and a body.
+
+    The body is what the probe reads the resident model ids out of, so a double
+    that carried only a status would be a double of a response no server sends —
+    and it would make every rung read as available whatever the port is holding
+    (`tests/test_a_rung_whose_model_is_not_resident_does_not_read_as_available.py`).
+    Empty by default, which is a body that says nothing and therefore takes no
+    rung out of service.
+    """
+
+    def __init__(self, status: int, body: bytes = b"") -> None:
         self.status = status
+        self._body = body
+
+    def read(self, amount: int | None = None) -> bytes:
+        return self._body[:amount] if amount is not None else self._body
 
     def __enter__(self) -> _Response:
         return self

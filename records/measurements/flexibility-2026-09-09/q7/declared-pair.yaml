@@ -1,0 +1,40 @@
+version: 1
+sources:
+  s_0:
+    base_url: http://srv1:8080
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+  s_1:
+    base_url: http://srv1:8081
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+models:
+  gemma-4-26B-A4B-it-UD-IQ3_XXS:
+    vram_gb: 3.71
+    ram_gb: 7.96
+    disk_gb: 10.63
+  Ling-3.0-tiny-Q6_K:
+    vram_gb: 1.8
+    ram_gb: 4.8
+    disk_gb: 6.37
+ladder:
+  tiers:
+  - name: t_0
+    source: s_0
+    model: gemma-4-26B-A4B-it-UD-IQ3_XXS
+    max_parallel: 2
+  - name: t_1
+    source: s_1
+    model: Ling-3.0-tiny-Q6_K
+    max_parallel: 2
+  fanout: idle
+verifier:
+  enabled: false
+sandbox:
+  mode: docker
+delivery:
+  mode: branch

@@ -1,0 +1,43 @@
+services:
+  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:
+    command:
+    - --model
+    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf
+    - --n-cpu-moe
+    - '30'
+    - --parallel
+    - '2'
+    - --port
+    - '8080'
+    - -b
+    - '512'
+    - -c
+    - '16384'
+    - -fa
+    - 'on'
+    - -ngl
+    - '99'
+    - -t
+    - '6'
+    - -ub
+    - '512'
+    - --chat-template-kwargs
+    - '{"enable_thinking":false}'
+    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+            device_ids:
+            - '0'
+            driver: nvidia
+    environment:
+      LLAMA_ARG_HOST: 0.0.0.0
+    image: llamacpp:b10644-L3
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro
+    - /home/adaramir/models/moe:/models:ro

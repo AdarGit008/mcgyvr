@@ -1,0 +1,107 @@
+[
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-deepseek-hi2",
+    "model": "deepseek",
+    "blob_gib": 8.29,
+    "clearance_gib": 1.9,
+    "balloon_gib": 4.0,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "idle_avail_gib": 14.239803314208984,
+    "avail_before_gib": 10.220344543457031,
+    "actual_clearance_gib": 1.930344543457032,
+    "wake_s": 85.65076756477356,
+    "started_at": "2026-09-09T04:15:50.061129617Z",
+    "rates": [
+      34.55651065307676,
+      34.732067222059364,
+      34.734958070099516
+    ],
+    "mean_tok_s": 34.67451198174521,
+    "majfault_wake": 5938,
+    "majfault_decode": 25,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 9.390522003173828,
+      "Cached": 8.8040771484375,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.851142883300781,
+      "Shmem": 0.1096954345703125
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-deepseek-mid2",
+    "model": "deepseek",
+    "blob_gib": 8.29,
+    "clearance_gib": 0.5,
+    "balloon_gib": 5.4,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "idle_avail_gib": 14.177330017089844,
+    "avail_before_gib": 8.787216186523438,
+    "actual_clearance_gib": 0.49721618652343835,
+    "wake_s": 94.86621379852295,
+    "started_at": "2026-09-09T04:18:28.113785061Z",
+    "rates": [
+      34.55983056554012,
+      34.571590588873775,
+      34.55914700200487
+    ],
+    "mean_tok_s": 34.563522718806254,
+    "majfault_wake": 9044,
+    "majfault_decode": 47,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 8.019535064697266,
+      "Cached": 8.15743637084961,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.851165771484375,
+      "Shmem": 0.1096954345703125
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-deepseek-neg2",
+    "model": "deepseek",
+    "blob_gib": 8.29,
+    "clearance_gib": -1.0,
+    "balloon_gib": 6.9,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "idle_avail_gib": 14.235279083251953,
+    "avail_before_gib": 7.311038970947266,
+    "actual_clearance_gib": -0.9789610290527335,
+    "wake_s": 116.3213529586792,
+    "started_at": "2026-09-09T04:21:33.269575177Z",
+    "rates": [
+      33.1840884174383,
+      33.151507392786144,
+      33.14758870054989
+    ],
+    "mean_tok_s": 33.16106150359145,
+    "majfault_wake": 10487,
+    "majfault_decode": 106,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 6.488452911376953,
+      "Cached": 6.5960540771484375,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.851165771484375,
+      "Shmem": 0.1096954345703125
+    }
+  }
+]

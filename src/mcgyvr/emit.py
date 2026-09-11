@@ -32,7 +32,6 @@ them:
 from __future__ import annotations
 
 import difflib
-import ipaddress
 import re
 import shlex
 from collections.abc import Iterable
@@ -41,7 +40,17 @@ from pathlib import Path
 
 import yaml
 
-from mcgyvr.serving import HF_CACHE_MOUNT, Unit
+from mcgyvr.serving import (
+    COMPOSE_PREFIX,
+    COMPOSE_SUFFIX,
+    HF_CACHE_MOUNT,
+    Unit,
+    launch_specs,
+    safe_host,
+    safe_model,
+    spec_files,
+    spec_name,
+)
 
 # The engines this module can render, and what each one is. An engine it has no
 # argv shape for is refused rather than guessed at: llama.cpp's flags on a vLLM
@@ -59,10 +68,16 @@ ENGINE_IMAGES = {
 # it.
 MOUNT = "/models"
 
-COMPOSE_PREFIX = "compose."
-COMPOSE_SUFFIX = ".yml"
+# Re-exported from :mod:`mcgyvr.serving`, where they now live: `serving.cards`
+# has to name the file a host's launch spec is kept in without a scan, and this
+# module already imports that one. Kept spelled here because they are what an
+# operator reads off a directory listing and half the tree imports them from
+# `mcgyvr.emit`. `safe_host` and `safe_model` moved with them, for the same
+# reason and on 2026-09-09: while the convention was spelled twice, `cards`
+# spelled it wrong for every host whose name has to be rewritten.
+__all__ = ["COMPOSE_PREFIX", "COMPOSE_SUFFIX", "safe_host", "safe_model"]
 
-# Compose service and container names, and the file name a host is filed under.
+# Compose service names: the process, not the file.
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -153,12 +168,15 @@ def render_compose(unit: Unit | None) -> str:
 
 
 def emit_all(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
-    """Write one compose file per host under ``root``. Returns what was written.
+    """Write one compose file per launch spec under ``root``. Returns what was written.
 
-    Per host rather than per unit because a host is what an operator brings up:
-    ``docker compose -f compose.desktop-1.yml up`` starts everything that
-    machine serves, and two files for one rig would be two commands with a rule
-    about which comes first.
+    A launch spec is a set of units that come up **together**, which is usually
+    a host and is not always one. Per host is the right grouping for
+    co-residents: ``docker compose -f compose.desktop-1.yml up`` starts
+    everything that machine serves, and two files for one rig would be two
+    commands with a rule about which comes first. It is the wrong grouping for
+    alternatives, where the rule about which comes first is that only one ever
+    does — see :func:`_planned`.
 
     Nothing is written outside ``root``, and a host name that would climb out of
     it is refused rather than sanitised — a host is a key that scans, units and
@@ -249,44 +267,101 @@ def check_all(units: Iterable[Unit], root: Path) -> tuple[Drift, ...]:
     return tuple(drifted)
 
 
+def planned_paths(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
+    """The files :func:`emit_all` would write, without rendering an opinion.
+
+    For a reporter that wants to name them — a clean ``--check`` says which
+    files it just agreed with — and it asks the planner rather than spelling
+    ``compose.<host>.yml`` itself, which is a name that stopped being true the
+    day a host could hold alternatives.
+    """
+    return tuple(path for path, _ in _planned(units, root))
+
+
+def unplanned(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
+    """Launch specs on disk for a rig this ladder binds that this config does not write.
+
+    **The third answer, and it is neither of the two :func:`check_all` gives.**
+    A planned file that differs is a drift; a file this config says nothing
+    about is not read at all, deliberately, because a directory may hold compose
+    files for rigs a ladder no longer binds and calling those a drift asks an
+    operator to delete evidence of a machine that is serving. What sits between
+    them is a file that matches **mcgyvr's own naming convention, for a host
+    this ladder still names, that this config would not write** — and that is
+    not somebody else's file. It is one of ours, left behind.
+
+    It is left behind constantly and by design: ``emit`` writes what a config
+    plans and deletes nothing, so the day a host's units stop summing onto its
+    card, ``emit`` writes ``compose.<host>.<model>.yml`` per alternative and the
+    old ``compose.<host>.yml`` — holding every unit on one card, the overcommit
+    :func:`~mcgyvr.serving.hold_together` was written to refuse — simply stays.
+    :func:`~mcgyvr.serving.spec_files` finds it, so a wake declines to guess
+    rather than starting it, and this is what tells the operator it is there.
+
+    Reported at drift severity by :func:`mcgyvr.cli._report_drift` rather than as
+    a warning, for the reason drift is: the consequence is a rig serving argv
+    nobody is reading. The repair is different and the sentence says so — a
+    drifted file is re-emitted, this one is deleted.
+    """
+    units = tuple(units)
+    hosts = {unit.host for unit in units}
+    planned = {path.name for path in planned_paths(units, root)}
+    found: list[Path] = []
+    for host in sorted(hosts):
+        found.extend(
+            path for path in spec_files(root, host) if path.name not in planned
+        )
+    return tuple(sorted(set(found)))
+
+
 def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
-    """Every (path, document) pair a host's units resolve to, host-sorted.
+    """Every (path, document) pair a ladder's units resolve to, path-sorted.
 
     Extracted so that writing and checking cannot disagree about grouping,
     naming or refusal. Every rule below was :func:`emit_all`'s and keeps its
     meaning; what changed is that the answer is now a value, so a caller may
     compare it with the disk instead of committing it to the disk.
-    """
-    grouped: dict[str, list[Unit]] = {}
-    for unit in units:
-        grouped.setdefault(unit.host, []).append(unit)
 
+    The cut into files is :func:`~mcgyvr.serving.launch_specs`' and not this
+    module's — what comes up together is a fact about units, and since
+    2026-09-09 it is a fact about the *card* they share rather than about the
+    port they answer on. What is decided here is only how a spec is spelled:
+    ``compose.<host>.yml`` for a host that comes up as one, which is both live
+    rigs and every fleet emitted until now and nothing on disk moves for one,
+    and ``compose.<host>.<what tells it apart>.yml`` otherwise, because
+    ``serve up --compose`` takes one file and starts what is in it. The
+    discriminator is :func:`~mcgyvr.serving.launch_specs`' too — usually the
+    model of the spec's largest unit, and more where a host needs more to tell
+    two specs apart.
+    """
     planned: list[tuple[Path, str]] = []
+    # What each file name is a name *for*, so that two things reaching one path
+    # is an error somebody sees. Spelling a host or a model into a file name is
+    # many-to-one wherever it rewrites anything — and for an IPv6 literal, and
+    # for a HuggingFace repository id, it does. Left alone that is not an error
+    # anybody sees: the second file overwrites the first and one unit is simply
+    # absent from the output, which is the same silent loss as two models in
+    # one compose service.
     claimed: dict[str, str] = {}
-    for host in sorted(grouped):
-        name = _safe_host(host)
-        # Spelling a host into a file name is many-to-one wherever it rewrites
-        # anything — and for an IPv6 literal it does — so two hosts can reach
-        # one path. Left alone that is not an error anybody sees: the second
-        # file overwrites the first and one rig is simply absent from the
-        # output, which is the same silent loss as two models in one service.
-        first = claimed.setdefault(name, host)
-        if first != host:
+    for spec in launch_specs(units):
+        name = spec_name(spec.host, spec.model)
+        called = spec.units[0].key.slug if spec.model is not None else spec.host
+        first = claimed.setdefault(name, called)
+        if first != called:
             raise EmitError(
-                f"{host!r} and {first!r} would both be written to "
-                f"{COMPOSE_PREFIX}{name}{COMPOSE_SUFFIX}, and the second file "
-                "would be the only one left"
+                f"{called!r} and {first!r} would both be written to {name}, and "
+                "the second file would be the only one left"
             )
-        path = root / f"{COMPOSE_PREFIX}{name}{COMPOSE_SUFFIX}"
+        path = root / name
         # `path.resolve().parent` and not `path.parent.resolve()`: the name is
         # sanitised and cannot climb, but a symlink planted at it can, and only
         # resolving the file itself sees that. It holds for a path that does
         # not exist yet, which is every path on a first emit and some on a
         # check.
         if path.resolve().parent != root.resolve():
-            raise EmitError(f"{host}: would write outside {root}")
-        planned.append((path, _document(tuple(grouped[host]))))
-    return tuple(planned)
+            raise EmitError(f"{spec.host}: would write outside {root}")
+        planned.append((path, _document(spec.units)))
+    return tuple(sorted(planned, key=lambda pair: pair[0].name))
 
 
 def _document(units: tuple[Unit, ...]) -> str:
@@ -346,16 +421,74 @@ def _sequence_on_one_card(
     Units on different cards are not sequenced: they do not contend, and a
     dependency there is noise that delays every restart. Neither is a host with
     one unit, for the same reason.
+
+    **The condition is ``service_healthy``, and it was ``service_started``
+    until the 2026-09-09 campaign showed that started does not sequence.** The
+    daemon releases the waiter as soon as the process ahead of it exists, which
+    is about a second and always long before that process has sized its cache
+    off what is free — so the pair went on contending, the 3B crash-restarted
+    one to two times on every cold start, and ``restart: unless-stopped`` hid
+    each of those behind a wake that merely looked slow. The 168 s pair figure
+    the wake budget was argued from is a wake plus those retries, and the 86 s
+    subtraction built on it is void.
+
+    A healthcheck is written **only on a service something waits for**, which is
+    only ever a co-resident. ``service_healthy`` against a service that declares
+    none never releases at all, so the two are one change; and writing one on
+    every service would move the compose file of every single-unit rig on the
+    fleet — srv1 included — for a failure those rigs cannot have.
+
+    The check asks the unit's own port, which under host networking is the only
+    thing telling two units on one host apart. It is deliberately the same
+    ``/v1/models`` that ``servelib.wait_for`` gates on: a unit that can list its
+    models has read its weights and taken its card, which is the fact the waiter
+    needs and the only one both engines report the same way.
     """
-    on_card: dict[int, list[tuple[float, str]]] = {}
+    on_card: dict[int, list[tuple[float, str, int]]] = {}
     for unit in units:
-        on_card.setdefault(unit.gpu, []).append((unit.fit.vram_gb, _service_name(unit)))
+        on_card.setdefault(unit.gpu, []).append(
+            (unit.fit.vram_gb, _service_name(unit), unit.port)
+        )
     for sharing in on_card.values():
         if len(sharing) < 2:
             continue
-        ordered = sorted(sharing, key=lambda pair: (-pair[0], pair[1]))
-        for (_, waiter), (_, ahead) in zip(ordered[1:], ordered[:-1], strict=True):
-            services[waiter]["depends_on"] = {ahead: {"condition": "service_started"}}
+        ordered = sorted(sharing, key=lambda triple: (-triple[0], triple[1]))
+        for (_, waiter, _), (_, ahead, port) in zip(
+            ordered[1:], ordered[:-1], strict=True
+        ):
+            services[waiter]["depends_on"] = {ahead: {"condition": "service_healthy"}}
+            services[ahead]["healthcheck"] = _healthcheck(port)
+
+
+#: How long a unit ahead of another may take to read its weights and take its
+#: card before compose calls it unhealthy. The fleet's slowest measured load is
+#: 385.3 s and its slowest co-resident one is 172 s, so the window is generous
+#: on purpose: a healthcheck that gives up is a pair that never starts, and the
+#: door already has `budgets.wake_timeout_s` as the sole authority that does.
+_HEALTH_START_PERIOD_S = 600
+
+
+def _healthcheck(port: int) -> dict[str, object]:
+    """The check a co-resident's neighbour waits on.
+
+    ``start_period`` rather than a long ``retries``: during it a failing probe
+    does not count against the container, which is exactly the state a unit
+    spends its first two minutes in. ``CMD-SHELL`` with a ``wget`` fallback
+    because the two engines ship different base images and neither promises
+    ``curl`` — a check whose binary is absent is a container that is unhealthy
+    forever, and a waiter that never starts.
+    """
+    url = f"http://localhost:{port}/v1/models"
+    return {
+        "test": [
+            "CMD-SHELL",
+            f"curl -sf {url} >/dev/null 2>&1 || wget -q -O- {url} >/dev/null 2>&1",
+        ],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": f"{_HEALTH_START_PERIOD_S}s",
+    }
 
 
 def _service(unit: Unit) -> dict[str, object]:
@@ -369,7 +502,7 @@ def _service(unit: Unit) -> dict[str, object]:
         return _vllm_service(unit)
     return {
         "image": _image(unit),
-        "container_name": f"mcgyvr-{_safe_host(unit.host)}-{_service_name(unit)}",
+        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
         "command": list(argv(unit)),
         # The host's network rather than a published port, for the same reason
         # the argv is built once: the port is already in the argv, so a
@@ -420,7 +553,7 @@ def _vllm_service(unit: Unit) -> dict[str, object]:
     """
     return {
         "image": _image(unit),
-        "container_name": f"mcgyvr-{_safe_host(unit.host)}-{_service_name(unit)}",
+        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
         "command": list(argv(unit)),
         "network_mode": "host",
         "ipc": "host",
@@ -475,35 +608,3 @@ def _service_name(unit: Unit) -> str:
     ``qwen2.5-coder:3b`` has a colon, which compose does not take in a name.
     """
     return f"{_UNSAFE.sub('-', unit.model)}-{unit.port}"
-
-
-def _safe_host(host: str) -> str:
-    """The host as a file name component, refusing whatever it would have to tidy.
-
-    A host is the key scans, units and files are all filed under, so a name
-    that merely needs sanitising is refused rather than sanitised: rewriting it
-    here would file this file under a name nothing else in the tool uses.
-
-    An IPv6 literal is the one exception, because refusing it is refusing the
-    rig. ``host_of("http://[fd00::1]:8080")`` is ``fd00::1`` — a real address
-    of a real machine that a ladder can already reach — and a colon is not a
-    compose name anywhere, nor a path component on every system a compose file
-    gets copied to. So it is spelled out instead, and normalised first, so that
-    the two ways of writing one address (``fd00::1`` and ``fd00:0:0:0:0:0:0:1``)
-    cannot become two files for one rig. What comes back is a name, not an
-    address; :func:`emit_all` is where two hosts are stopped from claiming one.
-    """
-    address = _ipv6(host)
-    if address is not None:
-        return _UNSAFE.sub("-", address)
-    if not host or host != _UNSAFE.sub("-", host) or host in {".", ".."}:
-        raise EmitError(f"{host!r} is not a host name a file can be named after")
-    return host
-
-
-def _ipv6(host: str) -> str | None:
-    """``host`` as one normalised IPv6 literal, or ``None`` if it is not one."""
-    try:
-        return ipaddress.IPv6Address(host).compressed
-    except ValueError:
-        return None

@@ -1,0 +1,39 @@
+[
+  {
+    "label": "m1-srv1-mapped-1",
+    "mode": "mapped",
+    "blob_gib": 12.303847283124924,
+    "idle_mem": {
+      "MemTotal": 15.032337188720703,
+      "MemFree": 14.28927230834961,
+      "MemAvailable": 14.22262191772461,
+      "Cached": 0.14742279052734375,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.840671539306641,
+      "Shmem": 9.918212890625e-05
+    },
+    "idle_gpu": {
+      "total": 6144,
+      "used": 17,
+      "reserved": 401,
+      "free": 5727
+    },
+    "wake_s": 141.51072597503662,
+    "vram_peak_used_mib": null,
+    "vram_min_free_mib": null,
+    "vram_steady_used_mib": 5110,
+    "vram_steady_free_mib": 634,
+    "shmem_peak_gib": 0.0,
+    "shmem_steady_gib": 0.02951812744140625,
+    "avail_steady_gib": 13.583511352539062,
+    "rates": [
+      33.32873578445573,
+      33.31391767481426,
+      33.333997217973945
+    ],
+    "mean_tok_s": 33.32555022574798,
+    "pgmajfault_wake": 12922,
+    "pswpout_wake": 32145,
+    "samples": 0
+  }
+]

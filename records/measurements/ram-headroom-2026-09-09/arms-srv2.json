@@ -1,0 +1,35 @@
+[
+  {
+    "host": "srv2",
+    "port": 8003,
+    "label": "srv2-80b-hi",
+    "model": "qwen3-next-80b",
+    "blob_gib": 35.67,
+    "clearance_gib": 1.9,
+    "balloon_gib": 6.93,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv2-80b/compose.srv2.yml",
+    "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003"
+  },
+  {
+    "host": "srv2",
+    "port": 8003,
+    "label": "srv2-80b-mid",
+    "model": "qwen3-next-80b",
+    "blob_gib": 35.67,
+    "clearance_gib": 0.5,
+    "balloon_gib": 8.33,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv2-80b/compose.srv2.yml",
+    "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003"
+  },
+  {
+    "host": "srv2",
+    "port": 8003,
+    "label": "srv2-80b-neg",
+    "model": "qwen3-next-80b",
+    "blob_gib": 35.67,
+    "clearance_gib": -1.0,
+    "balloon_gib": 9.83,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv2-80b/compose.srv2.yml",
+    "container": "mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003"
+  }
+]

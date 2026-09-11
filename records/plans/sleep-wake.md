@@ -14,8 +14,13 @@ branch that carries this file.
 3. **`dev` gets sleep and wake too.** The first draft read gate 1's refusal of
    `serve up|down` under `dev` and concluded a sleeping card is a decline for a
    dev run. Overturned; §11 designs the exception.
-4. **Sleep/wake is scoped to vLLM first.** §6 takes that ruling and reports
-   that the measurement usually offered for it does not support it.
+4. **There is no engine scope. Every card may sleep and wake, whatever
+   serves it.** The first draft scoped the feature to vLLM and §6 reported
+   that the measurement usually offered for that did not support it. The
+   2026-09-08 wake measurement then closed the question outright — the engines
+   wake at the same speed, and the scope excluded the only rung this fleet can
+   add — and the owner dropped it (N10, ruled). §6 is the evidence and what
+   remains of D4.
 
 ---
 
@@ -26,7 +31,7 @@ exactly what the architecture refuses to name above the execution seam.
 
 A rung is `(source, model)`, and a source is a `base_url` — one server process,
 not a machine (`src/mcgyvr/config.py:162`, `src/mcgyvr/config.py:327`,
-`src/mcgyvr/pool.py:118`). `mcgyvr.escalate._widths`
+`src/mcgyvr/pool.py:131`). `mcgyvr.escalate._widths`
 (`src/mcgyvr/escalate.py:850`) keys widths by rung and says why in its own
 docstring: "nothing above the execution seam learns where work runs".
 `mcgyvr.route.Machine` (`src/mcgyvr/route.py:265`) is the load reader for that
@@ -57,42 +62,66 @@ and it does it to serve a feature nothing above the seam ever asks for.
 **A card is already modelled. It is modelled below the seam, in
 `mcgyvr.serving`, and it is called a host with a GPU index.**
 
-* `serving.host_of(base_url)` (`src/mcgyvr/serving/__init__.py:837`) derives
+* `serving.host_of(base_url)` (`src/mcgyvr/serving/__init__.py:1634`) derives
   the machine from the URL. It is already how a scan is keyed.
 * `serving.Unit` carries `host` and `gpu: int`
-  (`src/mcgyvr/serving/__init__.py:311`), the index chosen by
-  `_roomiest_gpu(scan)` (`:866`) off a `scan.Gpu` (`src/mcgyvr/scan.py:201`).
-* `serving.hold_together` (`src/mcgyvr/serving/__init__.py:671`) already sums
+  (`src/mcgyvr/serving/__init__.py:424`), the index chosen by
+  `_roomiest_gpu(scan)` (`src/mcgyvr/serving/__init__.py:1663`) off a
+  `scan.Gpu` (`src/mcgyvr/scan.py:201`).
+* `serving.hold_together` (`src/mcgyvr/serving/__init__.py:1081`) already sums
   the units on one host against the free VRAM the scan read, and already
   refuses a ladder whose units fit one at a time and not together. It cites
-  the measurement: 7.12 + 3.49 GiB on 11.63 free on srv2, 2026-09-05.
-* `emit._sequence_on_one_card` (`src/mcgyvr/emit.py:223`) already groups
+  the measurement: 7.12 + 3.49 GiB on 11.63 free on srv2, 2026-09-05. Two
+  things have moved under it since this section was written, both on
+  2026-09-09. It sums **co-residents only** — alternatives take turns on one
+  card, and pricing a contention that cannot happen refused srv1's pair at
+  11.83 GiB against 6.00 free (`d8c5cf0a`; the discriminator was the port until
+  card contention replaced it later the same day). And it now takes **two** sums, not
+  one: VRAM per card and **host RAM per host** (owner's ruling), each unit
+  contributing what its fit committed the host to (`Fit.ram_gb`), with
+  `REFUSAL_RAM_HEADROOM_GB` applied once to the total against the recorded
+  scan. Before that, two spilling units each cleared the same `MemAvailable`
+  alone and a 15 GB host could be emitted a file asking for 26.
+* `emit._sequence_on_one_card` (`src/mcgyvr/emit.py:395`) already groups
   services by `unit.gpu` and chains `depends_on` largest-first, because two
   units racing for one card is a measured failure — the 7B got 0.89 GiB of KV
   cache started together and 2.77 GiB started second.
-* `emit.emit_all` (`src/mcgyvr/emit.py:153`) already writes **one compose file
-  per host**, "because a host is what an operator brings up". The emitted file
-  names the card outright: `~/.mcgyvr/config/compose.srv2.yml` carries
-  `device_ids: ['0']` on both services.
+* `emit.emit_all` (`src/mcgyvr/emit.py:170`) already writes **one compose file
+  per launch spec**, "because a host is what an operator brings up". Until
+  `d8c5cf0a` that was the same sentence as one file per host, and this document
+  was written when it was; `serving.launch_specs`
+  (`src/mcgyvr/serving/__init__.py:955`) now decides the cut, and a host whose
+  units are co-residents is still one `compose.<host>.yml` while a host whose
+  units take turns on a port is one `compose.<host>.<model>.yml` each. Both
+  rigs of the live ladder are the first case and nothing on disk moved. The
+  emitted file names the card outright: `~/.mcgyvr/config/compose.srv2.yml`
+  carries `device_ids: ['0']` on both services.
 * `serving/run.py` already has one step per direction for a whole file:
   `SERVE_STEPS = {"up": ..., "down": ...}` (`src/mcgyvr/serving/run.py:117`),
   run against the whole compose file under one pinned project
-  (`servelib.PROJECT`, `src/mcgyvr/serving/servelib.py:26`;
-  `servelib.compose`, `:86`).
+  (`servelib.PROJECT`, `src/mcgyvr/serving/servelib.py:37`;
+  `servelib.compose`, `:97`).
 * The rig already has a lock on itself: the lease at `~/.mcgyvr/lease` on the
   rig (`src/mcgyvr/serving/gatelib.py:360`), one run per rig, live outranks
   dev (R1, 2026-09-06).
 
 Whole-card eviction is therefore not a behaviour to build. It is the behaviour
-`serve down` already has, because the compose file is per host and the down
-step tears down every service in it
-(`src/mcgyvr/serving/gate-scripts/serve-down.py`).
+`serve down` already has, because the down step tears down every service in the
+file it is given (`src/mcgyvr/serving/gate-scripts/serve-down.py`). On a host
+of co-residents that file is the host's and the sentence is exact. On a host of
+alternatives — a shape `emit` has been able to write since `d8c5cf0a` — it is
+the file of the alternative that is *up*, and the card is emptied all the same
+because only one alternative is ever on it. What that costs is that the sleeper
+must name the right file: `serve down` given the other alternative's compose
+leaves the live container running and gate 7 refuses, correctly (2026-09-09,
+`records/measurements/ram-headroom-2026-09-09/README.md` §
+"Hazards this campaign paid for").
 
 **So the design is: sleep is `serve down`, wake is `serve up`, and the card is
-the compose file.** Everything below is about what is genuinely missing —
-knowing which rungs a card holds, telling "asleep" from "broken", electing one
-waker, deciding when the queue asks for a card and when it gives one back, and
-deciding who may ask.
+the launch spec that is up on it.** Everything below is about what is genuinely
+missing — knowing which rungs a card holds, telling "asleep" from "broken",
+electing one waker, deciding when the queue asks for a card and when it gives
+one back, and deciding who may ask.
 
 ---
 
@@ -130,7 +159,7 @@ untouched by this design.
 
 **The one schema addition is not a device.** The wake path must find the
 compose file emit wrote, and today `mcgyvr emit --out` defaults to the current
-directory (`src/mcgyvr/cli.py:2451`ff) — the live files happen to sit in
+directory (`src/mcgyvr/cli.py:2672`ff) — the live files happen to sit in
 `~/.mcgyvr/config/`. So: `serving.compose_dir`, one key, a directory path. It
 states where this checkout keeps launch specs. It says nothing about where any
 rung runs, it cannot go stale against a re-pointed source, and a config that
@@ -144,11 +173,43 @@ Card: host, compose_file, rungs, sources
 ```
 
 It groups the ladder's tiers by `host_of(source.base_url)` — the same grouping
-`units_for` (`src/mcgyvr/serving/__init__.py:544`) already performs — and
-names the file `emit_all`'s convention would have written. It needs **no
-scan**, because it needs no fit: the card's identity is the host and the file,
-and the GPU index only matters to `emit`, which already has it. That is what
-keeps the wake path usable on a machine that never scanned the rig.
+`units_for` (`src/mcgyvr/serving/__init__.py:726`) already performs — and
+names the file `emit` would have written. It needs **no scan**, because it
+needs no fit: the card's identity is the host and the file, and the GPU index
+only matters to `emit`, which already has it. That is what keeps the wake path
+usable on a machine that never scanned the rig.
+
+**Two corrections since this was drafted, and the second overturns the first.**
+It said "the file `emit_all`'s convention would have written", which was
+`compose.<host>.yml` and one name per host. Since `d8c5cf0a` a host of
+alternatives has one file per alternative, so the name is not derivable from the
+host alone and `cards()` must not spell it. The first correction then said
+`cards()` should call `emit.planned_paths` — **and it cannot.** `planned_paths`
+needs units, units need a `Scan`, and not needing a scan is the whole of D1;
+`emit` imports `serving`, so the call cannot run the other way round either.
+
+**What was built instead.** The naming convention moved *into* `serving` —
+`spec_name`, `safe_host` and `safe_model`, which `emit` now imports, so the
+convention is spelled once — and `cards()` calls `serving.spec_files(root,
+host)`, which is **a directory listing**: every file under
+`serving.compose_dir` that mcgyvr's own convention gives this host. A listing
+and not a name, because a hardcoded `compose.<host>.yml` was wrong in both
+directions and both were live. It **missed** a host emitted as N alternatives,
+where that name is never written at all, and it **found** the whole-host file an
+earlier emit left behind when the host stopped fitting together — which holds
+every unit on one card, and starting it is precisely the overcommit a wake must
+never cause.
+
+So `Card` carries both, and they answer different questions: `compose_file` is
+the ordinary host's name and never a promise the file is current, and `specs` is
+what is actually on disk. `wake.compose_for` chooses out of `specs` and declines
+to guess when there is more than one. On a host of alternatives the card's
+identity stops being the file; §10 records what that costs the eviction rule.
+
+Spelling the convention in two modules had already cost something before the
+move: `cards()` looked for `compose.fd00::1.yml` where `emit` writes
+`compose.fd00--1.yml`, so an IPv6 rig could never have been woken. Fixed with
+the move.
 
 ---
 
@@ -162,7 +223,7 @@ Neither neighbour fits, and the reason each fails is instructive.
 consecutive dispatch failures take a source out for sixty seconds
 (`src/mcgyvr/cooldown.py:84`, `:90`), and `drive` turns the resulting
 `SlotUnavailableError` into `Verdict.DECLINED` — "Nothing was asked and
-nothing answered" (`src/mcgyvr/drive.py:617`). A sleeping card must queue and
+nothing answered" (`src/mcgyvr/drive.py:654`). A sleeping card must queue and
 wake, not step aside, so cooldown's verdict is the wrong one. Note also that a
 cooldown's own docstring already names waking as a thing it must not mistake
 for a fault: it ends the removal after sixty seconds because "a backend
@@ -195,6 +256,18 @@ It also degrades honestly. An api source has no compose file and is never
 asleep. A rig somebody else runs has no compose file and is never asleep. A
 config with no `serving.compose_dir` has no sleeping cards at all.
 
+**What `d8c5cf0a` adds to this table, and it is a genuine gap rather than a
+rephrasing.** The `asleep` row reads "`compose_dir` holds a file for its host",
+and until that commit a host had exactly one. A host of alternatives now has
+one per alternative (`compose.<host>.<model>.yml`), so the file's *existence*
+still answers "can mcgyvr bring this back?" but no longer answers "bring back
+*which*". Nothing in this design chooses between two alternatives for a card
+that is down, and nothing measured says how it should; the config does not rank
+them and the rungs on that host are not ordered by card. Both live rigs are
+single-spec hosts, so the table is exact for the fleet as it stands — but it is
+exact by accident, and a fleet with an alternating srv1 would need this row
+extended rather than reread.
+
 **Where the reading lives.** In the same family and at the same seam as its
 two neighbours: a view that satisfies the one-method `pool.SourceProbe`
 question, wrapping an `Availability` or a `Cooldown` the way `Cooldown` wraps
@@ -204,7 +277,7 @@ an `Availability` — "an availability view that also *learns*"
 anything.
 
 **One state this reading cannot name, and must not guess at.** A card is a
-compose file with more than one service on it (srv2's has two), so there is a
+launch spec with more than one service on it (srv2's has two), so there is a
 fourth reading — *some* units answer and some do not. It is not `asleep`: a
 whole-card wake would hand the door a `serve up` on a rig that is not idle, and
 gate 2 refuses exactly that (`src/mcgyvr/serving/gate-scripts/02-rig.py:269`;
@@ -235,7 +308,7 @@ would have to defeat that test to exist.
 The door also already does the work. `serve-up.py` brings the file up through
 the rig's daemon and then polls each unit's `/v1/models` until it answers or
 the budget is spent — `HEALTH_POLLS = 120` at `HEALTH_INTERVAL_S = 3.0`
-(`src/mcgyvr/serving/servelib.py:30-31`), six minutes. That is the measured
+(`src/mcgyvr/serving/servelib.py:41-42`), six minutes. That is the measured
 wake this design must survive, already bounded, already recorded; §6 revisits
 what the recorded figures do and do not establish.
 
@@ -249,12 +322,12 @@ consequences, all accepted:
 
 1. **Every wake leaves `serve-up.json`** with the compose text, per-unit
    `healthy` and `seconds`, and `card_after` from `nvidia-smi`
-   (`servelib.card`, `:166`). That is the operator signal D10 needs, in a place
-   that already has readers.
+   (`servelib.card`, `src/mcgyvr/serving/servelib.py:236`). That is the
+   operator signal D10 needs, in a place that already has readers.
 2. **Same-day wakes must not collide.** Gate 5 claims the `RUN_ID` with
    `O_CREAT | O_EXCL` and refuses a second run that mints the same one
    (`src/mcgyvr/serving/gatelib.py:322`). So a wake passes `--suffix`
-   (`src/mcgyvr/serving/run.py:713`) derived from the waker's pid and clock:
+   (`src/mcgyvr/serving/run.py:717`) derived from the waker's pid and clock:
    every wake is its own envelope, and no wake collides with another or with
    an operator's hand-run `serve up`.
 3. **A wake needs a run root.** The door files evidence under
@@ -276,18 +349,21 @@ is designed in §11.
 
 ---
 
-## 6. D4 — The engine scope is vLLM, and the premise usually given for it is not supported
+## 6. D4 — There is no engine scope, and the premise once offered for one is measured and absent
 
-**The owner's ruling: sleep/wake supports vLLM first.** The reason offered was
-speed — "I believe its faster over there". This design takes the ruling and
-declines to repeat the reason, because the only timings taken do not show it.
+**The owner's first ruling was: sleep/wake supports vLLM first.** The reason
+offered was speed — "I believe its faster over there". This design took the
+ruling and declined to repeat the reason, because the timings taken did not
+show it. **On 2026-09-08 the owner dropped the scope entirely** — no rig is
+banned for the engine that serves it — and this section is now the record of
+why a scope was never load-bearing.
 
 **What was measured, 2026-09-08.** Units recreated with
 `docker compose up -d --force-recreate` through `DOCKER_HOST=ssh://<rig>`,
 `/v1/models` polled every 10 s:
 
 * **srv1, llama.cpp**, Qwen3.6-35B-A3B MoE with CPU expert offload
-  (`--n-cpu-moe 29`), 13.2 GB of weights off local disk: first 200 between
+  (`--n-cpu-moe 29`), 12.3 GB of weights off local disk: first 200 between
   **50 s and 80 s**, across two separate restarts.
 * **srv2, vLLM**, both units — the 3B-AWQ and the 7B-AWQ — recreated in one
   `compose up`: neither answered before **110 s**, both by **120 s**.
@@ -299,14 +375,31 @@ covers two sequential engine boots plus CUDA graph capture on one card. It is
 the wake time of the *card*, which is the number this design actually needs,
 and it is not comparable with srv1's single unit.
 
-**The number nobody has, and it is the one the knob is priced from.** A single
-vLLM unit alone on an empty card has not been timed. `servelib`'s comment
-records "a vLLM server measured 87 s to health on srv2" from 2026-09-05
-(`src/mcgyvr/serving/servelib.py:29-31`), and nothing in the tree establishes
-that that 87 s was one unit on an otherwise-empty card rather than one row out
-of a two-unit bring-up. So the figure `budgets.wake_timeout_s` should be priced
-against is unmeasured. It is N7 in §16, and it is the one item on that list
-that a measurement rather than a ruling settles.
+**That number has since been taken, and so has the fleet's worst case**
+(`records/measurements/wake-2026-09-08/`, same day, later). A single vLLM unit
+alone on an empty card — srv2's 7B-AWQ with `depends_on` stripped — answered in
+**82 s**. That is consistent with `servelib`'s "87 s to health on srv2"
+(`src/mcgyvr/serving/servelib.py:39-40`) having been a per-unit figure, and it
+lands *inside* llama.cpp's own band for the same rig class rather than above or
+below it. **Neither engine is measurably faster to wake.** The premise this
+section declined to repeat is not merely unsupported; it is now measured and
+absent.
+
+| what | rig | engine | size | host RAM | wake |
+| --- | --- | --- | --- | --- | --- |
+| Qwen3.6-35B-A3B, `-c 8192` | srv1 | llama.cpp | 12.3 GB | 15 GB | 50–80 s |
+| Qwen3.6-35B-A3B, `-c 16384` (the live config) | srv1 | llama.cpp | 12.3 GB | 15 GB | **128 s** |
+| KAT-Coder 35.5B/A3B — srv1's ceiling | srv1 | llama.cpp | 16.9 GB | 15 GB | **203 s** |
+| 7B-AWQ alone on the card | srv2 | vLLM | 5.2 GB | 45 GB | **82 s** |
+| Qwen3-Next 80B/A3B — srv2's ceiling | srv2 | llama.cpp | 35.7 GB | 45 GB | **97 s** |
+
+**Wake time tracks RAM headroom, not model size, and that is the finding.** The
+80B is 2.1× KAT's bytes and wakes in half the time: 35.7 GB into srv2's 45 GB
+fits, 16.9 GB into srv1's 15 GB thrashes. llama.cpp mmaps and pages lazily, so
+a wake pays for memory pressure. Every number a reader might try to extrapolate
+from — engine, parameter count, file size — is the wrong axis. **The fleet's
+worst wake is srv1's, and it is 203 s.** That is what N7 is priced against, and
+it is the number §13 must keep distinguishable from a hung rig.
 
 **What actually differs between the engines, from the record rather than from
 folklore.** vLLM's startup does engine-core init, a weight load out of the HF
@@ -323,34 +416,34 @@ llama.cpp with `--n-cpu-moe` streams most of its weights to host RAM instead.
 Which of those two is faster to first-token-served is an empirical question,
 not a design one, and this document asserts neither answer.
 
-**The scope predicate needs no new schema.** `Source.engine` is already
-declared — `vllm` or, absent, llama.cpp (`src/mcgyvr/config.py:215-226`). A
-card is in scope when **every** source on it declares `engine: vllm`. A mixed
-card is out of scope and says so; it is not woken half-way, because there is no
-half-way (D3.4).
+**There is no scope predicate, and `Source.engine` stays what it was** — a
+statement about how a unit is launched (`src/mcgyvr/config.py:215-226`), not a
+gate on whether its card may sleep. A mixed card is a card: it is woken whole,
+because there is no half-way (D3.4), and the compose file `emit` wrote already
+holds both engines' units in the order they have to start.
 
-**The ruling picks the harder case, and that is worth stating.** On the live
-ladder the vLLM units are srv2's **two** co-resident sources on one RTX 3060,
-and the llama.cpp unit is srv1's **one**. So whole-card eviction under this
-scope always takes down two rungs at once — `local_qwen2.5-coder-3b` and
-`local_qwen2.5-coder-7b` — while the engine that was scoped *out* is the
-trivial single-unit case. **Every worked example below is srv2.**
+**The worked examples below are still srv2's, and now for the honest reason.**
+srv2 is the **two**-unit card — `local_qwen2.5-coder-3b` and
+`local_qwen2.5-coder-7b` co-resident on one RTX 3060 — so whole-card eviction
+there takes down two rungs at once, while srv1 is the trivial single-unit case.
+**The hard case is multiplicity, not engine.**
 
 What the wake path must reproduce for that card, it reproduces by not
 reproducing anything: it hands the door the compose file `emit` already wrote,
 `depends_on` and all, so the 7B starts first and the 3B follows
-(`emit._sequence_on_one_card`, `src/mcgyvr/emit.py:223`), and `hold_together`
-(`serving/__init__.py:671`) already ran at emit time against the scan. A wake
+(`emit._sequence_on_one_card`, `src/mcgyvr/emit.py:395`), and `hold_together`
+(`src/mcgyvr/serving/__init__.py:1081`) already ran at emit time against the
+scan. A wake
 re-runs no fit and re-derives no order. That is the whole benefit of D1.
 
-**Does scoping to vLLM let anything be dropped? No — and that is the honest
-answer.** The wake path is a compose file, `serve up|down`, and a `/v1/models`
-poll; all three are engine-agnostic and none of them carries a llama.cpp branch
-to delete. `hold_together` and the `depends_on` sequencing are needed *more*
-under this scope, not less, because srv2 is the multi-unit card. The ruling
-narrows which cards the feature is offered for — one predicate on
-`source.engine` — and simplifies no code path. Generality that costs nothing is
-kept.
+**Did scoping to vLLM let anything be dropped? No, and that is why dropping
+the scope costs nothing.** The wake path is a compose file, `serve up|down`,
+and a `/v1/models` poll; all three are engine-agnostic and none of them ever
+carried a llama.cpp branch to delete. `hold_together` and the `depends_on`
+sequencing are needed for the multi-unit card either way. A scope would have
+narrowed which cards the feature is offered for — one predicate on
+`source.engine` — and simplified no code path. Generality that costs nothing is
+kept, and the predicate that bought nothing is not written.
 
 ---
 
@@ -378,11 +471,11 @@ is kept; what changed is which file it is written in.
 The precedent the owner named is real and it points this way. `mcgyvr run
 --config`'s own help text says: *"Which rung runs is this file's — the tier
 order, each tier's `attempts` and the `budgets` ceilings — never a flag"*
-(`src/mcgyvr/cli.py:2691`). Sleep/wake is not merely adjacent to that rule, it
-is a stronger case for it, for three reasons that are each checkable:
+(`src/mcgyvr/cli.py:2916-2918`). Sleep/wake is not merely adjacent to that
+rule, it is a stronger case for it, for three reasons that are each checkable:
 
 1. **The config's digest is what a run is reproducible from.** `Config.digest`
-   is taken over the loaded and validated tree (`src/mcgyvr/config.py:952`,
+   is taken over the loaded and validated tree (`src/mcgyvr/config.py:1098`,
    owner's ruling R2), every journal row carries it, the result file carries it
    (`src/mcgyvr/result.py:76-79`), and the file itself is kept at
    `<journal>/configs/<digest>.yaml` so that `MCGYVR_CONFIG=<that>` re-selects
@@ -393,12 +486,12 @@ is a stronger case for it, for three reasons that are each checkable:
    repo's worked example of the honest shape, and its comment states the rule
    outright: it takes *no* default, "because `sandbox.mode` in the config is
    declared as where this comes from, and a flag that is never absent is a flag
-   the config can never lose to" (`src/mcgyvr/cli.py:2704`). A boolean
+   the config can never lose to" (`src/mcgyvr/cli.py:2929-2931`). A boolean
    `--enable-sleep-wake` is present on every invocation as `False`. To coexist
    with a key it would have to be a tri-state (`--enable-sleep-wake` /
    `--no-enable-sleep-wake` / absent), which is a worse spelling of the key.
 3. **Gate 1 already reads the profile from the file and not from an argument**
-   (`gate-scripts/01-round.py:47-82`), for exactly this reason: a fact about
+   (`gate-scripts/01-round.py:49-84`), for exactly this reason: a fact about
    the run that every later gate reads has to come from the thing that is
    digested.
 
@@ -412,7 +505,7 @@ one of them touches a rig.
 rung is only useful if something routes to it, and `Fanout.NONE` — the schema
 default — starts every climb on the cheapest rung at or above the contract's
 floor and reaches a higher one only by escalating on failure
-(`src/mcgyvr/config.py:391-416`, `src/mcgyvr/route.py:236`). Under `none`, a
+(`src/mcgyvr/config.py:431-456`, `src/mcgyvr/route.py:238`). Under `none`, a
 card woken because a *lower* rung was congested receives nothing until a
 contract fails its way up to it. Under `idle` or `full` — "the cheapest rung
 with a slot to spare" — the woken card reads as empty through
@@ -432,7 +525,7 @@ interchangeable:
 | --- | --- | --- |
 | `Capacity.in_use` / `in_flight` (`capacity.py:913`, `:917`) | slots this capacity granted | **no** |
 | `Capacity.load` (`:936`) = `in_use + reserved` | granted plus chosen-but-not-yet-admitted | **no** |
-| `Usage.waited_seconds` (`:384`), `Concurrency` (`:421`) | this process's cost and peak | **no** |
+| `Usage.waited_seconds` (`:411`), `Concurrency` (`:421`) | this process's cost and peak | **no** |
 | the `.slot` files under `/tmp/mcgyvr-capacity-<uid>/` | every mcgyvr process on this host | **yes** |
 
 The module says this about itself, and it is not a defect to be repaired: "the
@@ -450,7 +543,7 @@ reading that is shared:
 
 * **`busy(b)`** — how many of bound *b*'s `limit(b)` slot files are locked
   right now, host-wide. Read by the same `LOCK_EX | LOCK_NB` sweep
-  `_acquire_slot` already performs (`capacity.py:1248-1280`), counting instead
+  `_acquire_slot` already performs (`capacity.py:1344-1376`), counting instead
   of returning, releasing each descriptor immediately.
 * **`waiting(b)`** — how many threads of *this* process are blocked on *b*
   right now. A new counter beside `_waited`, incremented before
@@ -472,7 +565,8 @@ wearing its name" (`route.py:340`ff).
   Another mcgyvr process with nineteen threads blocked on a full rig
   contributes its granted slots and none of its queue. So the algorithm reads
   low, trips late, and never trips on pressure that is not there. For an action
-  that costs 50–130 s and takes hardware, late-and-certain is the right
+  that costs 80–130 s on this ladder and takes hardware, late-and-certain is
+  the right
   direction, and the alternative — a shared waiter count — would be a second
   rendezvous file written on every dispatch, which is a cost the whole module
   is organised to avoid.
@@ -480,7 +574,7 @@ wearing its name" (`route.py:340`ff).
   no POSIX way to test a `flock` without taking it, so the sweep takes and
   immediately releases an exclusive lock on each *free* slot. A real acquirer
   sweeping in the same microsecond may read that slot as busy, sleep
-  `_POLL_SECONDS` (0.02, `capacity.py:250`) and sweep again. That is the whole
+  `_POLL_SECONDS` (0.02, `capacity.py:251`) and sweep again. That is the whole
   penalty, and it is paid once per wake evaluation rather than once per routing
   decision — which is exactly the cost `Machine.load` refused when it declined
   cross-process sensing: "a syscall per rung per choice… so if it is ever
@@ -496,7 +590,7 @@ wearing its name" (`route.py:340`ff).
   again queued behind them. A ratio of 1.0 is merely "full", which is what a
   correctly-sized rig looks like under load and is not a reason to start a
   container.
-* **`WAKE_SUSTAIN_S = 45` (N2).** A wake that takes 50–130 s to land must not
+* **`WAKE_SUSTAIN_S = 45` (N2).** A wake that takes 80–130 s to land (§6) must not
   be started for a queue that would have cleared first, or it arrives after it
   was needed and the card is then idle. The window is anchored to the measured
   per-stream rates rather than chosen round: the 3B at width 8 holds 109.6
@@ -518,10 +612,10 @@ remaining task budget. Three properties follow, and they matter:
 * **The ceiling is unchanged.** The slices sum to the same `task_timeout_s` the
   single call would have waited.
 * **`hold` is untouched.** `timeout` is already documented as the claim shape —
-  "try for that long, then raise `SlotUnavailableError`" (`capacity.py:1135`ff)
+  "try for that long, then raise `SlotUnavailableError`" (`capacity.py:1137`ff)
   — and this is a caller using it as written.
 * **The exception must never escape.** `drive` turns `SlotUnavailableError`
-  into `Verdict.DECLINED` (`src/mcgyvr/drive.py:617`). A slice expiring is not
+  into `Verdict.DECLINED` (`src/mcgyvr/drive.py:654`). A slice expiring is not
   a decline; it is the middle of a wait. `mcgyvr.wake` catches it inside
   `dispatch` and only the final, budget-exhausted one is allowed through, with
   the meaning it has today.
@@ -532,11 +626,12 @@ remaining task budget. Three properties follow, and they matter:
 mcgyvr has.** `ladder.tiers` is cheapest-first and its schema says a tier "must
 be measurably better than the one below or it is not a rung — binding a
 faster-but-weaker model above a slower-but-stronger one inverts the ladder and
-makes escalation actively harmful" (`src/mcgyvr/config.py:385-389`).
+makes escalation actively harmful" (`src/mcgyvr/config.py:424-427`).
 `propose.py` is what puts tiers in that order and states the rule it enforces:
 a lower rung is kept only if it is at least `MIN_QUALITY_GAIN` (0.03,
 `src/mcgyvr/propose.py:75`) below the rung above, and dominance "deliberately
-does *not* rank on speed" (`propose.py:40-43`). `Plan.steps` is that order
+does *not* rank on speed" (`src/mcgyvr/propose.py:40-43`). `Plan.steps` is that
+order
 (`route.py:526`).
 
 So **"a `>=` rung" is "a rung at or above the congested rung's index in
@@ -547,7 +642,6 @@ say so.
 upward. For each rung take its card (D1's `cards(config)`) and skip it when:
 
 * the rung is an api rung — it has no card;
-* the card is out of engine scope (D4) — a llama.cpp or mixed card;
 * the card is `up` — there is nothing to wake;
 * the card is `down` rather than `asleep` (D2) — mcgyvr has no launch spec for
   it, and inventing one is the thing `emit`'s boundary forbids (§14).
@@ -611,18 +705,40 @@ shape: `mcgyvr serve sleep --host srv2 --idle-for 30m`, run by a cron or
 systemd timer *the operator wrote*, is the operator's process and not mcgyvr's,
 and it reads the same clock in D7. Which of the two the owner wants is **N6**.
 
-**On this fleet, sleep never funds a wake, and pretending otherwise would be a
-lie.** VRAM is contended within a host, and `emit` writes one compose file per
-host, so no card can be freed to make room for another — waking srv2 never
-requires sleeping srv1. What sleep buys here is the card back for its owner:
-another job, another experiment, a game. That is the trade §14 already names,
-and it is a real reason; it is simply not a reallocation. If a future host ever
-holds two alternative compose files, sleep-to-fund-a-wake becomes the natural
-extension and this is where it hooks in.
+**Sleep funds a wake on this fleet only under a configuration it does not
+currently run.** Measured 2026-09-09: srv2's 3B and 7B, launched
+`--enable-sleep-mode`, sleep at level 2 in 0.25–0.30 s and hand back all but
+503 MiB of the card — enough for a llama.cpp 80B to serve on it in 100 s with
+both showing `is_sleeping: true`. Two things stand between that and the live
+ladder, and both are configuration rather than physics: the vLLM units launch
+without the flag, so `/sleep` is 404; and `emit` sizes the 80B against an idle
+card (`--n-cpu-moe 35`, 11,960 MiB) where the sleepers leave 11,409 — it fails
+to create a context and crash-loops. One expert block lighter fits and serves.
+`records/measurements/vllm-sleep-2026-09-09/`.
+
+**What this paragraph used to say, and why it was wrong, because a reader is
+owed the design's own mistake.** Until 2026-09-09 it read *"on this fleet,
+sleep never funds a wake, and pretending otherwise would be a lie"*, and it
+rested that on two premises. The first — VRAM is contended within a host, so
+waking srv2 never requires sleeping srv1 — is still true and was always about
+the wrong axis: the contention that funds a wake here is **within** srv2's
+card, between the vLLM pair and the 80B, which is exactly what the measurement
+above paid for. The second — `emit` writes one compose file per host, so no
+host holds a second spec to switch to — stopped being true at commit
+`d8c5cf0a`: `serving.launch_specs` cuts a host whose units take turns on a
+port into one `compose.<host>.<model>.yml` per alternative, so a host now does
+hold the second spec that sentence said did not exist. Neither premise carries
+the conclusion any more, and the conclusion itself is measured false.
+
+**What sleep buys when nothing is waiting on the card is unchanged**: the card
+back for its owner — another job, another experiment, a game. That is the
+trade §14 already names, and it is still a real reason to sleep a card. It is
+simply no longer the only one.
 
 ### 7.6 Thrash, and the numbers that damp it
 
-A wake costs 50–130 s of rig time and a card's worth of VRAM (§6). A ratio that
+A wake costs 80–130 s of rig time on this ladder — 203 s at the fleet's
+measured worst — and a card's worth of VRAM (§6). A ratio that
 wakes and sleeps one card repeatedly costs minutes per cycle for nothing, and
 the sequential case is the realistic one, not a corner: twenty contracts run as
 twenty `mcgyvr run` processes back to back would, with no damping, sleep srv2
@@ -654,40 +770,63 @@ processes.
 
 ### 7.7 What this algorithm actually does on the live ladder today
 
-This is the part a reader is owed before anyone implements it. Under the vLLM
+This is the part a reader is owed before anyone implements it. With no engine
 scope (D4), on `~/.mcgyvr/config/mcgyvr.yaml` as it stands:
 
-| rung | index | card | engine | in scope |
+| rung | index | card | engine | may sleep |
 | --- | --- | --- | --- | --- |
 | `local_qwen2.5-coder-3b` | 0 | srv2 | vLLM | yes |
 | `local_qwen2.5-coder-7b` | 1 | srv2 | vLLM | yes |
-| `local_qwen3.6-35b-a3b` | 2 (top) | srv1 | llama.cpp | no |
+| `local_qwen3.6-35b-a3b` | 2 (top) | srv1 | llama.cpp | yes |
 
-**The pressure-driven wake has no candidate on this ladder.** Take the owner's
-sentence literally — work piles up on the top rung, wake another `>=` rung —
-and the top rung is `local_qwen3.6-35b-a3b`: there is nothing above it, so
-nothing is woken and the finding is "the ladder is too small" (§7.4).
-Take congestion on rung 0 or rung 1 instead, and every `>=` card is either srv2
-itself (already up — the congested rung is on it) or srv1 (llama.cpp, scoped
-out). **So with the ruling as given, on the config as it stands, §7.3's wake
-never fires.** It becomes live the moment any one of three things is true: the
-scope widens to llama.cpp; the ladder gains a vLLM card above srv2; or the
-ladder gains a second vLLM card that duplicates srv2's rungs.
+**Sleep and the refusal-driven wake are live on both rigs on day one.** A card
+goes idle for `SLEEP_IDLE_S`, the next `mcgyvr run` to finish takes it down
+whole — srv2's two units in one `serve down`, srv1's one in another — and the
+next dispatch at that URL gets connection refused and brings the card back.
+That is exactly "release the card when nobody is using it, and take it back
+without anyone typing anything", and it is worth having on its own terms.
 
-**Sleep, by contrast, is fully live under the vLLM scope**, and so is the
-refusal-driven wake of D6. srv2 goes idle for `SLEEP_IDLE_S`, the next
-`mcgyvr run` to finish takes it down whole — both units, one `serve down` — and
-the next dispatch at `http://srv2:8001` gets connection refused and brings the
-card back. That is the behaviour the owner gets on day one, and it is worth
-having on its own terms: it is exactly "release the 3060 when nobody is using
-it, and take it back without anyone typing anything".
+**The pressure-driven wake still has no candidate, and now for a reason no
+ruling can fix.** Take the owner's sentence literally — work piles up on the
+top rung, wake another `>=` rung — and the top rung is
+`local_qwen3.6-35b-a3b`: there is nothing above it, so nothing is woken and the
+finding is "the ladder is too small" (§7.4). Take congestion on rung 0 or 1
+instead, and every `>=` card is either srv2 itself (already up, since the
+congested rung is on it) or srv1, whose card is the top rung's own. Dropping
+the engine scope did not conjure a rung; **what it did was make the fleet's one
+real upgrade reachable** — srv2 serves an 80B-A3B in 97 s under llama.cpp (§6),
+which outranks srv1's 35B-A3B, on a rig the ladder already uses. Add that rung
+and §7.3's wake fires without another design pass.
 
-So the design is honest about its own shape: **under this ruling, the ratio is
-the sleep side's trigger and the wake side's dormant twin.** It is specified in
-full because the owner asked for the algorithm, and because the day the ladder
-gains a rung above srv2 it starts firing without another design pass. Whether
-to widen the scope to llama.cpp — which would make the wake side live
-immediately, since srv1's rung is `>=` every srv2 rung — is **N10**.
+So the design is honest about its own shape: **today the ratio is the sleep
+side's trigger and the wake side's dormant twin**, and the thing that wakes it
+is a rung, not a ruling. It is specified in full because the owner asked for
+the algorithm, and because the ladder is one config edit away from having a
+candidate.
+
+**What this ladder cannot yet express is the layout the owner wants**: srv1
+alternating between DeepSeek-Coder-V2-Lite and Qwen3.6-35B, srv2 between its
+vLLM pair and the 80B. Both are *sleep funding a wake* on one card, and half of
+what §17 recorded as the obstacle is now gone. Since `d8c5cf0a`,
+`serving.launch_specs` gives a host of alternatives one
+`compose.<host>.<model>.yml` each, so srv1's layout — two models taking turns
+on `:8080` — is emittable and a host does hold a second spec to switch to.
+
+**One of the two obstacles this section recorded is now gone.** srv2's layout
+*is* recognised: on the owner's 2026-09-09 decision the discriminator became
+card contention rather than the port, so its three units on `:8001`, `:8002`
+and `:8003` are read as what they are — a pair that fits the card together and
+an 80B that fits alone — and `launch_specs` cuts them into two launch specs
+rather than pricing three co-residents against a card that cannot hold them.
+The port is still a hard constraint (one process holds one port) and is no
+longer the fact: under port-per-model no port ever collides, which is exactly
+what proves it never was.
+
+**The other stands. `emit` computes every placement against an idle card**, so
+it cannot size the 80B against what two sleeping co-residents leave: 11,409
+MiB, where it writes 11,960 (`records/measurements/vllm-sleep-2026-09-09/`).
+That is the next design's problem, and dropping the engine scope was its
+precondition, not its solution.
 
 ---
 
@@ -753,13 +892,13 @@ dispatch
 ```
 
 A probe-first design would pay `PROBE_TIMEOUT_S`
-(`src/mcgyvr/availability.py:121`) or a model-list round trip on every
+(`src/mcgyvr/availability.py:123`) or a model-list round trip on every
 dispatch to learn something the dispatch itself reports for free. That is the
 cost `Availability` exists to avoid, re-added per request.
 
 **The retry after a wake spends no attempt.** Nothing was asked and nothing
 answered, so it is not a failure — the same rule `drive` already applies to a
-declined rung (`src/mcgyvr/drive.py:617`), and the same reason: a rung that
+declined rung (`src/mcgyvr/drive.py:654`), and the same reason: a rung that
 produced no verdict funded no escalation. A wake that *fails* is different and
 is a real verdict against that rung.
 
@@ -769,7 +908,7 @@ serve it would turn a thrash guard into an outage.
 
 ### 8.3 Against a new budget: `budgets.wake_timeout_s`
 
-* Not `budgets.request_timeout_s` (120.0, `src/mcgyvr/config.py:535`). That
+* Not `budgets.request_timeout_s` (120.0, `src/mcgyvr/config.py:620`). That
   number bounds a transport, and it was chosen against measured tok/s — "the
   top local rung gives 27.2 tok/s to one stream and 5.09 tok/s to each of
   eight". An 80-second wake charged to it would eat two thirds of a budget
@@ -778,16 +917,19 @@ serve it would turn a thrash guard into an outage.
 * Not `budgets.task_timeout_s` (900 live), which is what `Capacity.of` hands
   `hold` as its queue ceiling (`src/mcgyvr/capacity.py:754`). That bounds a
   wait for a *slot* on a server that exists. A wake is a wait for the server.
-* **Default 480.0 (N7, and the one item on that list a measurement settles
+* **Default 480.0 (N7, and the one item on that list a measurement settled
   rather than a ruling).** The door's own health budget is 360 s
   (`servelib.HEALTH_POLLS × HEALTH_INTERVAL_S`) and gates 1, 2, 3 and 5 run
   before the step. A caller budget *below* the door's would abandon a wake
   while the door was still working and leave a card half-up — so the schema
   refuses a `wake_timeout_s` under the door's own figure, by the same shape as
   `Capacity.of`'s width refusal: name the disagreement at the one moment both
-  numbers are in hand, rather than quietly correcting it. What 480 is *not* is
-  priced from a measurement of the thing it bounds, because §6 shows that
-  measurement has not been taken.
+  numbers are in hand, rather than quietly correcting it. **480 now also has a
+  measurement behind it, not only that floor**: the fleet's worst wake is
+  srv1's ceiling model at 203 s (§6), so the budget carries 2.4× headroom over
+  the slowest thing the ladder can be asked to start. It was priced from the
+  door and it survives the measurement; that is the strongest form this number
+  was available in.
 
 The wake budget bounds one wake and not their sum, exactly as
 `queue_timeout_s` bounds one hold and not a climb's — and for the same reason
@@ -870,13 +1012,49 @@ The prompt's original case — waking model B on srv2 takes model A down —
 **does not arise under this design, and the reason is worth stating rather than
 celebrating.**
 
-The card is the compose file, and the compose file holds every unit on that
-host. srv2's file holds both the 3B on `:8001` and the 7B on `:8002`, sequenced
-largest-first by `depends_on` (`~/.mcgyvr/config/compose.srv2.yml`;
-`src/mcgyvr/emit.py:223`). There is no per-model wake, so there is no wake that
-displaces a neighbour. And a ladder whose units could not co-reside was never
-emittable: `hold_together` (`src/mcgyvr/serving/__init__.py:671`) refuses it
-before a file is written — "fit the card one at a time and not together".
+The card is the launch spec that is up on it, and a launch spec holds every
+unit that comes up together. srv2's holds both the 3B on `:8001` and the 7B on
+`:8002`, sequenced largest-first by `depends_on`
+(`~/.mcgyvr/config/compose.srv2.yml`; `src/mcgyvr/emit.py:395`). There is no
+per-model wake, so there is no wake that displaces a neighbour. And a ladder
+whose units cannot co-reside is not emitted as one spec that overcommits the
+card: since 2026-09-09 `hold_together` cuts such a host into one launch spec per
+alternative and returns a sentence saying so, where it used to refuse the ladder
+outright — "fit the card one at a time and not together". That refusal is kept
+for the one case a cut cannot answer: a ladder sized against one reading of a
+card and checked against a tighter one, which `alternate` cannot see because it
+cuts on the figure each unit recorded when it was sized.
+
+**This paragraph used to say "the card is the compose file, and the compose
+file holds every unit on that host", and that stopped being true at commit
+`d8c5cf0a`.** `serving.launch_specs`
+(`src/mcgyvr/serving/__init__.py:955`) now cuts a ladder's units into launch
+specs rather than into hosts: a host whose units come up together is still one
+`compose.<host>.yml` — which is both live rigs, and nothing on disk moved — but
+a host whose units take turns on one port becomes one
+`compose.<host>.<model>.yml` per alternative. On such a host the compose file
+no longer holds every unit the host serves, and "one file per host" is no
+longer the mechanism that guarantees whole-card eviction.
+
+**What guarantees it now is that a launch spec is a set of units that fit the
+card together, and that units which do not fit together are never in one spec.**
+Until 2026-09-09 that was argued from the port — one process holds one port, so
+the second alternative cannot bind until the first is gone — and the port turned
+out to be a proxy: `serving.alternate` now asks whether two units' card figures
+sum onto the card they share, which is the fact the port stood in for, and
+`hold_together` sums over what a spec brings up together rather than over what
+shares a port. So whichever spec is up *is* every unit on the card, and downing
+it still empties the card whole. Whole-card eviction survives both changes; the
+sentences that used to explain it do not.
+
+**One thing the change does cost this rule, and it is operational rather than
+architectural.** The evictor must down the file for whatever is *actually* up.
+`serve down` given the other alternative's compose names a container that is
+not running, leaves the live one serving, and gate 7 refuses the run —
+correctly; three arms were lost to exactly this on 2026-09-09
+(`records/measurements/ram-headroom-2026-09-09/README.md` § "Hazards this
+campaign paid for"). D2 already reads the lifecycle state from two facts rather
+than storing it, and this is one more fact it has to read.
 
 That is what the owner's whole-card ruling actually buys. Whole-card eviction
 does not solve partial eviction; it **deletes the case**. Gate 2 enforces the
@@ -885,9 +1063,10 @@ idle, so there is no such thing as topping a card up.
 
 **Whole-card eviction is unchanged by the ruling that made sleep automatic.** A
 sleep decision — §7.5's, or an operator's `mcgyvr serve sleep --host srv2` —
-takes down **every unit in that card's compose file**. On the live ladder that
-is two rungs at once, `local_qwen2.5-coder-3b` and `local_qwen2.5-coder-7b`,
-and a run holding work for either of them is a run this rule has to answer for.
+takes down **every unit in the launch spec that is up on that card**. On the
+live ladder that is two rungs at once, `local_qwen2.5-coder-3b` and
+`local_qwen2.5-coder-7b`, and a run holding work for either of them is a run
+this rule has to answer for.
 The rule is the draft's, restated because automation makes it load-bearing
 where an operator's typed command made it merely correct:
 
@@ -934,12 +1113,16 @@ and proposes the smallest change that keeps that protection.
 
 ### 11.1 What the refusal is, and what it is actually protecting
 
-`gate-scripts/01-round.py:94-103` refuses `serve up|down` when
-`RUN_PROFILE == dev`, before any rig is read: *"the live ladder is prod's (R1,
-live outranks dev)"*. The schema states the same rule from the config's side —
+`gate-scripts/01-round.py` refused `serve up|down` when `RUN_PROFILE == dev`,
+before any rig is read: *"the live ladder is prod's (R1, live outranks dev)"*.
+(§11.2's replacement has since landed: the check is now
+`refuse_unless_the_live_ladders_own`,
+`src/mcgyvr/serving/gate-scripts/01-round.py:112-178`, which keys on the launch
+spec and no longer on the profile. What follows is the reading that produced
+it.) The schema states the same rule from the config's side —
 a dev run "does not start or stop the live ladder, refuses a rig another run
 holds, and yields the rig to a live run that takes it"
-(`src/mcgyvr/config.py:664-672`).
+(`src/mcgyvr/config.py:789-791`).
 
 Reading the gate against its neighbours, it protects **two different things**,
 and only one of them is about measurement:
@@ -968,10 +1151,22 @@ that no other run is holding.**
 launch spec is being run.**
 
 > Under `dev`, `serve up|down` is permitted **only when `RUN_COMPOSE` names a
-> file inside the live config's `serving.compose_dir`, by `emit_all`'s
-> per-host naming convention** — i.e. only when the spec being started or
-> stopped is the live ladder's own. A dev run may **operate** the live ladder.
-> It may never **install** one.
+> file inside the live config's `serving.compose_dir`, under one of the names
+> `emit.planned_paths` would produce for it** — i.e. only when the spec being
+> started or stopped is the live ladder's own. A dev run may **operate** the
+> live ladder. It may never **install** one.
+
+**What shipped is narrower than that sentence, and the difference is a hole
+rather than a simplification.** `refuse_unless_the_live_ladders_own` checks the
+*shape* of the name — `compose.` … `.yml` — and the resolved parent directory.
+It does not ask the planner what this config plans, so **any** file called
+`compose.*.yml` that reaches the live `compose_dir` is started, whatever is
+inside it; and `configlib.user_config_path()` expands `~` against `$HOME`, which
+the door passes through untouched, so repointing `HOME` makes a dev tree the
+"live" config. Neither is a regression — the `profile: live` check it replaced
+was defeated the same two ways — but this gate guards a live rig, and closing
+the second means the door stops trusting `$HOME`, which is a behavioural change
+and the owner's to make.
 
 Why this is the right cut:
 
@@ -982,7 +1177,8 @@ Why this is the right cut:
 * It costs no rig time and needs no scan. Gate 1 already loads a config and
   already knows `configlib.user_config_path()` — it names that path in the very
   refusal being replaced. `RUN_COMPOSE` is in the environment before gate 1
-  runs (`serving/run.py:775`). The check is a path comparison and a digest
+  runs (`src/mcgyvr/serving/run.py:775`). The check is a path comparison and a
+  digest
   recorded in the envelope header.
 * It leaves R1 untouched where R1 does the work. Gate 2 still makes a dev run
   yield a held rig, and gate 2's idle check still refuses a `serve up` onto a
@@ -1022,11 +1218,13 @@ during a *measured* round is not. It is a real distinction and the tree already
 draws it — in the run sequences rather than in the profiles.
 
 `SERVE_SEQUENCE` and `SEQUENCE` are two different runs
-(`serving/run.py:292-308`): the serve run is gates 1, 2, 3, 5 and the step, and
+(`src/mcgyvr/serving/run.py:292-308`): the serve run is gates 1, 2, 3, 5 and the
+step, and
 it deliberately omits gate 4 (the pinned workload) and the three data scripts
 "about one model under measurement", because "a live ladder is not an
 experiment, and the envelope it files under is the host's"
-(`run.py:114-117`). A serve run *is not a measurement*, whatever profile it is
+(`src/mcgyvr/serving/run.py:114-117`). A serve run *is not a measurement*,
+whatever profile it is
 under, so waking a card cannot contaminate a benchmark row — there is no row.
 
 And a measured campaign run cannot overlap a live ladder at all: gate 2's idle
@@ -1094,11 +1292,13 @@ three above are all consumed today.
 
 ## 13. How an 80-second block does not look like a hung rig
 
-The measured numbers this must survive (§6): srv1's llama.cpp unit answered
-50–80 s after recreation on 2026-09-08, and srv2's card — both vLLM units, one
-`compose up`, sequential by `depends_on` — answered by 120 s with neither unit
-up at 110 s. `budgets.request_timeout_s` is 120.0. So a wake and a hang overlap
-in duration, and duration cannot tell them apart. Three things can:
+The measured numbers this must survive (§6): srv1's llama.cpp unit answered in
+128 s at its live `-c 16384`, srv2's card — both vLLM units, one `compose up`,
+sequential by `depends_on` — answered by 120 s, a single vLLM unit alone in
+82 s, and srv1's ceiling model took 203 s. `budgets.request_timeout_s` is
+120.0, which every one of those either exceeds or sits within seconds of. So a
+wake and a hang overlap in duration, and duration cannot tell them apart. Three
+things can:
 
 1. **It announces itself at the moment it starts waiting** (D10.2), with the
    direction, the budget and the envelope path. A hung rig announces nothing —
@@ -1199,17 +1399,18 @@ Changed:
   `os.utime` on `.used`.
 * `src/mcgyvr/result.py:63` — one field (D10.1).
 * `src/mcgyvr/cli.py` `_climb` — carries the waker beside the capacity it
-  already builds at `:1354`, for the same reason it builds one capacity and
-  not two; and the end-of-run sleep evaluation (§7.5).
-* `src/mcgyvr/serving/gate-scripts/01-round.py:94-103` — the profile refusal
-  becomes a spec-provenance refusal (§11.2).
+  already builds at `src/mcgyvr/cli.py:1384`, for the same reason it builds
+  one capacity and not two; and the end-of-run sleep evaluation (§7.5).
+* `src/mcgyvr/serving/gate-scripts/01-round.py:112-178` — the profile refusal
+  becomes a spec-provenance refusal (§11.2). **Landed**, as
+  `refuse_unless_the_live_ladders_own`.
 
 **Dependency on work in flight, described rather than touched.** A per-rung
 output cap is being implemented on `red/per-rung-output-cap`, touching
 `config.py`, `contract.py`, `drive.py` and `gate/preflight.py`. This design
 needs three things from `config.py` — two new keys and one new block — and one
 thing from `drive.py`: that `SlotUnavailableError` keeps meaning
-`Verdict.DECLINED` at `:617`, so that §7.3's sliced waits are caught before
+`Verdict.DECLINED` at `src/mcgyvr/drive.py:654`, so that §7.3's sliced waits are caught before
 they reach it. Neither file is edited here. If the cap lands first, the schema
 additions are three `Field` entries against whatever `SCHEMA` then looks like,
 and nothing about their content changes.
@@ -1232,16 +1433,16 @@ owner, and every one is load-bearing.
 | | what | proposed | why that, and what it costs to be wrong |
 | --- | --- | --- | --- |
 | **N1** | `WAKE_RATIO` | `2.0` | Full plus a full queue again. Lower wakes cards for ordinary saturation; higher never wakes. |
-| **N2** | `WAKE_SUSTAIN_S` | `45` | Above the 3B's ~9 s service time at width 8, below srv1's ~73 s at width 2. Lower spends 50–130 s wakes on bursts; higher sends help after it was needed. |
+| **N2** | `WAKE_SUSTAIN_S` | `45` | Above the 3B's ~9 s service time at width 8, below srv1's ~73 s at width 2. Lower spends 80–130 s wakes on bursts; higher sends help after it was needed. |
 | **N3** | `SLEEP_IDLE_S` | `600` | The damper that kills back-to-back `mcgyvr run` thrash. Lower thrashes; higher makes sleep useless. |
 | **N4** | `MIN_UPTIME_S` | `900` | Bounds a pathological oscillation to ~14% boot time. |
 | **N5** | `COOLDOWN_S` | `600` | Hysteresis on either direction; exempt for D6's refusal-driven wake, or a thrash guard becomes an outage. |
 | **N6** | Is an idle-timer daemon wanted? | **no daemon** | §7.5 evaluates sleep only while mcgyvr is running, so a card idle after everything stops is slept by the last run or not at all. The alternative is a real daemon; the substitute is a cron the operator writes. |
-| **N7** | `budgets.wake_timeout_s` | `480.0` | Priced from the door's 360 s health budget, **not** from a measurement of a single vLLM unit's wake — §6 shows that measurement has never been taken. This is the one row a measurement settles rather than a ruling. |
+| **N7** | `budgets.wake_timeout_s` | `480.0` | **Measured 2026-09-08** (`records/measurements/wake-2026-09-08/`). Priced from the door's 360 s health budget, and now also above the fleet's worst measured wake — 203 s, srv1's ceiling model — by 2.4×. §6 has the five figures. This was the one row a measurement rather than a ruling settled, and it settled in the proposal's favour. |
 | **N8** | `enable_sleep_wake: true` with `fanout: none` | document, do not refuse | A woken card gets no work under `none` until something escalates onto it. Refusing would also take away D6's refusal-driven wake, which is useful under every mode. |
 | **N9** | A half-up card | report, do not repair | `down`-then-`up` would fix it and is a repair of a machine mcgyvr found wrong, which run contract §4 forbids a cell. Whether the sleep/wake algorithm is exempt is the owner's. |
-| **N10** | Widen the engine scope to llama.cpp? | not yet | Under the vLLM-only ruling the pressure wake has no candidate on the live ladder (§7.7). Adding srv1 makes it live immediately, since srv1's rung is `>=` every srv2 rung. |
-| **N11** | A `dev` round may sleep the live ladder on a free rig | accept, at one wake | §11.3. The live run that follows pays 50–130 s, not a failure, and the wake is in its envelope. Alternatives: dev may wake but not sleep; or dev must hold the lease and wake it back. |
+| **N10** | Widen the engine scope to llama.cpp? | **RULED 2026-09-08: there is no engine scope** | Not widened — removed. The wake measurement took both legs out from under "not yet": the engines are indistinguishable to wake (82 s for one vLLM unit against 50-128 s for llama.cpp on the same fleet, §6), and srv2 — already in the ladder — serves an 80B-A3B in 97 s under llama.cpp, the one rung this hardware can add above srv1. mcgyvr's own fit refuses the 14B AWQ (11.6 + 2.0 GB against 12.0 free), so there was no vLLM upgrade path at all. A predicate on `source.engine` would have bought no simplification (§6) and cost the ladder its ceiling. No rig is banned for the engine that serves it. |
+| **N11** | A `dev` round may sleep the live ladder on a free rig | accept, at one wake | §11.3. The live run that follows pays 80–130 s, not a failure, and the wake is in its envelope. Alternatives: dev may wake but not sleep; or dev must hold the lease and wake it back. |
 | **N12** | `capacity_changes` on `RunResult` | one field | D10.1. Alternative is stderr only, which the `/mcgyvr` skill does not read. |
 
 ---
@@ -1250,7 +1451,7 @@ owner, and every one is load-bearing.
 
 * **A wake mid-batch changes the widths.** A card that comes up serves what
   the compose file says, which may differ from what `Capacity` was built with
-  at `src/mcgyvr/cli.py:1354`. Today a width disagreement is a refusal at
+  at `src/mcgyvr/cli.py:1384`. Today a width disagreement is a refusal at
   build time; a disagreement discovered *after* a wake has nowhere to go.
   Simplest answer: a wake does not re-read widths, and the config remains the
   declaration — consistent with the rest of `capacity`, and a probe after wake
@@ -1264,11 +1465,37 @@ owner, and every one is load-bearing.
   the normal case rather than the exception, a shared waiter count becomes
   worth its cost — one more file in the rendezvous directory, written on every
   queued dispatch. Nothing here forecloses it.
-* **Sleep never funds a wake on this fleet** (§7.5), because `emit` writes one
-  compose file per host and no two cards contend. The algorithm is symmetric
-  anyway; whether the symmetry is worth its numbers before a host ever holds
-  two alternative specs is a fair question to put back.
-* **A single vLLM unit's wake time is unmeasured** (§6, N7). It is the number
-  `budgets.wake_timeout_s` should be priced from, it takes one `compose up` of
-  one service on an empty card to get, and it should be taken before the knob's
-  default is fixed.
+* ~~**Sleep never funds a wake on this fleet**~~ — **answered 2026-09-09, and
+  the answer is that the symmetry is worth its numbers.** This bullet asked
+  whether the algorithm's sleep-to-fund-a-wake half was worth carrying "before
+  a host ever holds two alternative specs", and rested on §7.5's claim that
+  `emit` writes one compose file per host. Both halves have moved. The
+  capability is measured: srv2's 3B and 7B sleep at level 2 in 0.25–0.30 s,
+  leave 503 MiB on the card, and an 80B serves on what they give back in 100 s
+  with both `is_sleeping: true` (`records/measurements/vllm-sleep-2026-09-09/`).
+  And a host *can* now hold two alternative specs — `serving.launch_specs`
+  emits one `compose.<host>.<model>.yml` per alternative as of `d8c5cf0a`. The
+  owner's ruling of 2026-09-09 is that the symmetry stays: this is the case it
+  was written for and the case now measured to work. What remains open is not
+  the symmetry but its two preconditions, and both are named in §7.5 — the live
+  vLLM units launch without `--enable-sleep-mode`, so `/sleep` is 404; and
+  `emit` sizes every placement against an idle card, so it cannot write the
+  80B against the 11,409 MiB two sleepers leave.
+* ~~**A single vLLM unit's wake time is unmeasured**~~ — **taken 2026-09-08:
+  82 s** (§6, N7, `records/measurements/wake-2026-09-08/`). `wake_timeout_s`'s
+  480 stands, with 2.4× headroom over the fleet's worst wake of 203 s. What the
+  measurement opened, the owner then closed: there is no engine scope (N10).
+* ~~**Nothing refuses a model that does not fit its host's RAM**~~ — **fixed
+  on this branch.** The same measurement found `fit` weighing spilled experts
+  against `MemAvailable` with no headroom at all, so a 16.9 GiB blob was
+  emitted onto a 15 GiB host and took 203 s to wake behind a thrashing page
+  cache. `fit` now has two arms — blob plus `MODE_RAM_HEADROOM_GB` (0.5 GiB),
+  else spilled experts plus `REFUSAL_RAM_HEADROOM_GB` (2.0 GiB) with
+  `--load-mode none`, else refuse — and `unit_for` writes the
+  mode the fit approved into the argv
+  (`tests/test_a_blob_that_overflows_ram_is_emitted_unmapped.py`,
+  `okf/must-read/touching-rigs.md`). It matters here because **a wake is a
+  load**: what this design brings back at 03:00 is whatever `emit` wrote, and
+  before this the thing it wrote could be a model the host cannot hold.
+  Consequence for the live ladder: srv1's top rung now emits `--load-mode
+  none`, so `emit --check` reports drift until the rig is re-emitted.

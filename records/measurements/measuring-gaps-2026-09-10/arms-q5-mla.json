@@ -1,0 +1,12 @@
+[
+  {
+    "host": "srv1",
+    "label": "q5-ling",
+    "arch": "bailingmoe3",
+    "blob_gib": 4.58,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q5-ling.yml"
+  }
+]

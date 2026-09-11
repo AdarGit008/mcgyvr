@@ -576,6 +576,30 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
 # contract declares, which is why it has to be declarable beside them.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
+# How long `serve up` polls a unit into health after bringing it up: a vLLM
+# server measured 87 s to health on srv2 and llama.cpp 54-129 s on srv1
+# (2026-09-05), so six minutes is three of the slowest with room. The door
+# (`mcgyvr.serving.servelib`) polls by these and `wake_timeout_s` is refused
+# below their product, so both read them from here: `config` is the one module
+# both halves of the seam may import, and the door is not.
+HEALTH_POLLS = 120
+HEALTH_INTERVAL_S = 3.0
+
+# How long a dispatch waits for a *server to exist* before giving up on a wake.
+#
+# N7 in `records/plans/sleep-wake.md` §16, and the one row on that list a
+# measurement settled rather than a ruling. It was priced from the door's own
+# health budget — `HEALTH_POLLS x HEALTH_INTERVAL_S` = 360 s, below which a
+# caller abandons a wake `serve up` is still working on — before anyone had
+# timed the thing it bounds. The timing exists now and the number survives it:
+# the fleet's worst wake is srv1's ceiling model at 203 s
+# (`records/measurements/wake-2026-09-08/`), and the largest sequenced sum any
+# launch spec on this fleet emits is 2.4 x the 168 s vLLM pair, 403 s
+# (`records/plans/wake-timeout.md` §6). A budget that merely exceeded the worst
+# case would fail the first time a rig was a little slower than the day it was
+# measured, so what 480 buys is the margin and not the bare inequality.
+DEFAULT_WAKE_TIMEOUT_S = 480.0
+
 
 BUDGET_FIELDS: tuple[Field, ...] = (
     Field(
@@ -625,6 +649,29 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "Wall-clock ceiling for one task, including acceptance commands.",
         default=900,
         min_value=1,
+    ),
+    Field(
+        "wake_timeout_s",
+        "float",
+        "How long a dispatch will wait for a server to *exist*, in seconds. "
+        "Three faults get three numbers here and none is derived from another: "
+        "`request_timeout_s` bounds one reply and is priced from tokens per "
+        "second, `task_timeout_s` bounds a wait for a free slot on a server "
+        "that is already running, and this bounds a wait for the server "
+        "itself. Sharing one knob between the first and this would mean "
+        "setting reply length and boot time with the same number — raise it to "
+        "survive a two-minute boot and every hung request hangs for two "
+        "minutes too. It may not be set below the door's own health budget "
+        "(`HEALTH_POLLS` x `HEALTH_INTERVAL_S`, `mcgyvr/config.py`): "
+        "a caller that gives up while `serve up` is still polling abandons a "
+        "wake the door is still working on and leaves a card half-up, which is "
+        "the one lifecycle state `mcgyvr.wake` cannot name. The default of "
+        "480 s was priced off that floor and has since survived the "
+        "measurement: the fleet's worst wake is srv1's ceiling model at 203 s "
+        "(`records/measurements/wake-2026-09-08/`), which 480 clears twice "
+        "over.",
+        default=DEFAULT_WAKE_TIMEOUT_S,
+        min_value=0.0,
     ),
     Field(
         "max_window_fraction",
@@ -687,6 +734,47 @@ CLEANUP_FIELDS: tuple[Field, ...] = (
         "reached it. What no tool fixes — a failed acceptance command, a "
         "name, a line too long to wrap — is rejected exactly as before.",
         default=True,
+    ),
+)
+
+SERVING_FIELDS: tuple[Field, ...] = (
+    Field(
+        "enable_sleep_wake",
+        "bool",
+        "Whether mcgyvr may take a card down and bring it back on its own. Off "
+        "by default, because the feature is a trade and not an improvement: "
+        "turning it on lets `mcgyvr run` stop containers on a rig other people "
+        "share. It is a key here and not a `--flag` for the reason `mcgyvr run "
+        "--config` already gives about which rung runs — `Config.digest` is "
+        "what a run is reproducible from, and a flag would let two runs share "
+        "one digest where only one of them started and stopped containers on a "
+        "shared rig, putting the rig side effect outside the only record that "
+        "explains the run. It governs the *decisions*: `mcgyvr serve "
+        "sleep|wake`, typed by a person who has therefore asked, is not gated "
+        "by it. It sits here rather than under `ladder` because "
+        "`ladder.fanout` decides where work goes among rungs that exist and "
+        "this decides whether rungs come into existence — two authorities, and "
+        "only one of them touches a rig.",
+        default=False,
+    ),
+    Field(
+        "compose_dir",
+        "str",
+        "Where this checkout keeps the launch specs `mcgyvr emit` wrote. The "
+        "one thing that has to be stated rather than derived, because `mcgyvr "
+        "emit --out` defaults to the current directory and a wake has to find "
+        "the file again. It is deliberately not a device and not a host: a "
+        "`device: cuda:0` beside a `base_url` would be two statements of one "
+        "fact and would go stale the first time a source was re-pointed, "
+        "whereas this cannot go stale against anything — it says where files "
+        "are, not where work runs. A config that omits it has no sleeping "
+        "cards at all, only down ones: `asleep` is `down` plus a launch spec "
+        "mcgyvr holds for that card, and with no directory there is no spec.",
+        bind_hint=(
+            "the directory `mcgyvr emit --out` writes to -- e.g. "
+            "~/.mcgyvr/config -- or leave it unset and this ladder has no "
+            "sleeping cards, only down ones"
+        ),
     ),
 )
 
@@ -783,6 +871,16 @@ SCHEMA: tuple[Field, ...] = (
         block=CLEANUP_FIELDS,
     ),
     Field(
+        "serving",
+        "block",
+        "What mcgyvr may do to the machines that serve the ladder, and where "
+        "it keeps the launch specs that say how. Nothing here names a card or "
+        "a host: a rung's card is derived below the execution seam from the "
+        "URL its source states, which is what keeps a rung re-pointable by a "
+        "config edit.",
+        block=SERVING_FIELDS,
+    ),
+    Field(
         "journal",
         "block",
         "Where mcgyvr keeps its own record of what it dispatched.",
@@ -847,6 +945,12 @@ class Source:
     #: window it reached. Declaring this is what lets the gate ask the second
     #: question; leaving it out enforces nothing, which is the honest
     #: behaviour for a machine nobody has read back.
+    #:
+    #: It is also what `mcgyvr emit` sizes this source's unit at — ``-c`` times
+    #: the slots on llama.cpp, ``--max-model-len`` on vLLM — so a fleet serving
+    #: two windows is emitted at both and checked in one command. Where this is
+    #: declared, `--ctx-per-slot` is not needed and a *different* value on that
+    #: flag is refused rather than preferred.
     context_window: int | None = None
 
     @property
@@ -1388,6 +1492,48 @@ def _refuse_userinfo(name: str, base_url: str) -> None:
     )
 
 
+def door_health_budget_s() -> float:
+    """The seconds ``serve up`` will itself spend polling a unit into health.
+
+    The door polls by :data:`HEALTH_POLLS` and :data:`HEALTH_INTERVAL_S`, which
+    :mod:`mcgyvr.serving.servelib` imports from this module, so the refusal
+    below and the door read one pair of numbers and cannot drift apart. They
+    are not read off the door: ``config`` is shared by both halves of the seam,
+    and a shared module that imported :mod:`mcgyvr.serving.servelib` would pull
+    the door into everything that reads a config
+    (``tests/test_the_seam_holds.py``).
+    """
+    return HEALTH_POLLS * HEALTH_INTERVAL_S
+
+
+def _refuse_a_wake_budget_below_the_doors(data: Mapping[str, Any]) -> None:
+    """A caller may not give up on a wake while the door is still working on it.
+
+    ``serve up`` brings the launch spec up and then polls each unit into health
+    for :func:`door_health_budget_s` seconds. A ``wake_timeout_s`` below that
+    abandons the wake mid-flight and leaves a card **half-up** — some units
+    answering and some not — which ``records/plans/sleep-wake.md`` D2 names as
+    the one lifecycle state the reading cannot name and must not act on: gate 2
+    refuses ``serve up`` onto a rig that is not idle, so a half-up card cannot
+    even be repaired by waking it again.
+
+    Named at the one moment both numbers are in hand rather than quietly raised
+    to the floor, which is the shape ``Capacity.of`` uses for a width
+    disagreement: two answers to one question, and the operator is told which
+    two.
+    """
+    stated = data["budgets"]["wake_timeout_s"]
+    floor = door_health_budget_s()
+    if stated is not None and stated < floor:
+        raise ConfigSchemaError(
+            f"budgets.wake_timeout_s: {stated:g}s is below the {floor:g}s the "
+            f"serving door itself spends polling a unit into health, so a wake "
+            f"would be abandoned while `serve up` was still working on it and "
+            f"the card left half-up. Set it to {floor:g} or more, or leave it "
+            f"unset for the default of {DEFAULT_WAKE_TIMEOUT_S:g}."
+        )
+
+
 def _cross_validate(data: Mapping[str, Any]) -> None:
     """Reject configs that satisfy the schema but contradict themselves."""
     sources: Mapping[str, Any] = data["sources"]
@@ -1423,6 +1569,8 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
                 f"{role}.source: {bound!r} is not a declared source. "
                 f"Declared: {', '.join(sorted(sources))}"
             )
+
+    _refuse_a_wake_budget_below_the_doors(data)
 
     if data["verifier"]["enabled"] and data["verifier"]["source"] is None:
         raise ConfigSchemaError(

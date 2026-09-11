@@ -1,0 +1,24 @@
+version: 1
+sources:
+  srv1_llamacpp:
+    base_url: http://srv1:8080
+    api: openai
+    image: llamacpp:b10644-L3
+    max_parallel: 2
+    context_window: 4096
+models:
+  gemma-4-26B-A4B-it-UD-IQ3_XXS:
+    geometry_json: ./gemma-4-26B-A4B-it-UD-IQ3_XXS.geometry.json
+ladder:
+  tiers:
+  - name: probe_gemma-4-26b-a4b-it-ud-iq3_xxs
+    source: srv1_llamacpp
+    model: gemma-4-26B-A4B-it-UD-IQ3_XXS
+    max_parallel: 2
+  fanout: idle
+verifier:
+  enabled: false
+sandbox:
+  mode: docker
+delivery:
+  mode: branch

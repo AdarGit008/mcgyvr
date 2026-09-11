@@ -1,0 +1,67 @@
+[
+  {
+    "label": "m2-deepseek-alone",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.m2-deepseek-coder-v2-16b-8080.yml",
+    "experts_gib": 7.54,
+    "containers": [
+      "mcgyvr-srv2-deepseek-coder-v2-16b-8080"
+    ],
+    "idle_avail_gib": 44.68157958984375,
+    "idle_shmem_gib": 0.000522613525390625,
+    "after_avail_gib": 36.44717025756836,
+    "after_shmem_gib": 7.468906402587891,
+    "shmem_delta_gib": 7.4683837890625,
+    "avail_delta_gib": 8.23440933227539,
+    "vram_used_mib": 3413,
+    "vram_free_mib": 8499,
+    "wake_s": 48.53277945518494,
+    "door_wall_s": 59.63859701156616,
+    "decode_tok_s": {
+      "8080": 25.293314960948074
+    }
+  },
+  {
+    "label": "m2-qwen36-alone",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.m2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081.yml",
+    "experts_gib": 10.35,
+    "containers": [
+      "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081"
+    ],
+    "idle_avail_gib": 44.648277282714844,
+    "idle_shmem_gib": 0.000522613525390625,
+    "after_avail_gib": 32.95082092285156,
+    "after_shmem_gib": 10.758316040039062,
+    "shmem_delta_gib": 10.757793426513672,
+    "avail_delta_gib": 11.697456359863281,
+    "vram_used_mib": 2299,
+    "vram_free_mib": 9613,
+    "wake_s": 85.02849125862122,
+    "door_wall_s": 243.95355534553528,
+    "decode_tok_s": {
+      "8081": 14.572212092956416
+    }
+  },
+  {
+    "label": "m2-both",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv2.m2-both.yml",
+    "experts_gib": 17.89,
+    "containers": [
+      "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+      "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081"
+    ],
+    "idle_avail_gib": 44.64027404785156,
+    "idle_shmem_gib": 0.000522613525390625,
+    "after_avail_gib": 24.755462646484375,
+    "after_shmem_gib": 18.226703643798828,
+    "shmem_delta_gib": 18.226181030273438,
+    "avail_delta_gib": 19.884811401367188,
+    "vram_used_mib": 5711,
+    "vram_free_mib": 6201,
+    "wake_s": 94.02040505409241,
+    "door_wall_s": 286.0147633552551,
+    "decode_tok_s": {
+      "8080": 24.505935676696733,
+      "8081": 14.564934416573614
+    }
+  }
+]

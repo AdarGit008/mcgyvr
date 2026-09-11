@@ -1,0 +1,10 @@
+[
+  {
+    "label": "q9c-vllm-3b-srv1",
+    "units": [
+      "3b"
+    ],
+    "repeats": 2,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml"
+  }
+]

@@ -1,0 +1,142 @@
+[
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-qwen-hi-r1",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": 1.9,
+    "balloon_gib": 0.0,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-deepseek/compose.srv1.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "idle_avail_gib": 14.22817611694336,
+    "avail_before_gib": 14.241100311279297,
+    "actual_clearance_gib": 1.9411003112792962,
+    "wake_s": 141.27218198776245,
+    "started_at": "2026-09-09T04:24:57.949842495Z",
+    "rates": [
+      33.30077955239983,
+      33.31183777009301,
+      33.29819919569142
+    ],
+    "mean_tok_s": 33.303605506061416,
+    "majfault_wake": 9211,
+    "majfault_decode": 5,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 13.310279846191406,
+      "Cached": 12.422077178955078,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.851192474365234,
+      "Shmem": 0.02960968017578125
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-qwen-neg-r2",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": -1.0,
+    "balloon_gib": 2.89,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "idle_avail_gib": 14.1988525390625,
+    "avail_before_gib": 11.307743072509766,
+    "actual_clearance_gib": -0.9922569274902351,
+    "wake_s": 166.81984210014343,
+    "started_at": "2026-09-09T04:28:35.009850023Z",
+    "rates": [
+      31.4027427432014,
+      31.372400456261246,
+      31.348092172854564
+    ],
+    "mean_tok_s": 31.374411790772402,
+    "majfault_wake": 12274,
+    "majfault_decode": 18,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 10.403518676757812,
+      "Cached": 10.499351501464844,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.851207733154297,
+      "Shmem": 0.029621124267578125
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-qwen-hi-r3",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": 1.9,
+    "balloon_gib": 0.0,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "idle_avail_gib": 14.21234130859375,
+    "avail_before_gib": 14.226673126220703,
+    "actual_clearance_gib": 1.9266731262207024,
+    "wake_s": 140.03713464736938,
+    "started_at": "2026-09-09T04:32:39.495135011Z",
+    "rates": [
+      33.360749295018124,
+      33.34367196872993,
+      33.37849576764872
+    ],
+    "mean_tok_s": 33.36097234379893,
+    "majfault_wake": 9178,
+    "majfault_decode": 8,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 13.272499084472656,
+      "Cached": 12.401260375976562,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.8512115478515625,
+      "Shmem": 0.02960968017578125
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "srv1-qwen-neg-r4",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": -1.0,
+    "balloon_gib": 2.89,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.mapped.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "idle_avail_gib": 14.224990844726562,
+    "avail_before_gib": 11.319255828857422,
+    "actual_clearance_gib": -0.9807441711425788,
+    "wake_s": 166.54361128807068,
+    "started_at": "2026-09-09T04:36:16.255254997Z",
+    "rates": [
+      31.86419999014013,
+      31.88850974765559,
+      31.879392438929912
+    ],
+    "mean_tok_s": 31.877367392241876,
+    "majfault_wake": 12080,
+    "majfault_decode": 15,
+    "pswpin_decode": 1,
+    "pswpout_decode": 0,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 10.366695404052734,
+      "Cached": 10.416114807128906,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.851234436035156,
+      "Shmem": 0.029621124267578125
+    }
+  }
+]

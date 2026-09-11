@@ -1,0 +1,70 @@
+[
+  {
+    "host": "srv1",
+    "label": "q4-qwen-n28",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-qwen36-ncmoe28.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q4-qwen-n32",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-qwen36-ncmoe32.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q5-experts-0.50",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "balloon_gib": 5.53,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-qwen36-unmapped.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q5-experts-0.65",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "balloon_gib": 5.68,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-qwen36-unmapped.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q5-experts-0.80",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "balloon_gib": 5.83,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-qwen36-unmapped.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q6-blob-2.50",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "balloon_gib": 4.39,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/emit/srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS/compose.srv1.yml"
+  },
+  {
+    "host": "srv1",
+    "label": "q6-blob-3.03",
+    "blob_gib": 12.3,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "balloon_gib": 4.92,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/emit/srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS/compose.srv1.yml"
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "label": "q14-pair-healthy",
+    "units": [
+      "7b",
+      "3b"
+    ],
+    "repeats": 2,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/emit-q14/compose.srv2.yml"
+  }
+]

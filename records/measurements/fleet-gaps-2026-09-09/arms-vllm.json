@@ -1,0 +1,8 @@
+[
+ {"label":"v-pair-plain","units":["7b","3b"],"repeats":1,"compose":"/home/adaramir/.mcgyvr/config/compose.srv2.yml"},
+ {"label":"v-pair-sleep","units":["7b","3b"],"repeats":1,"compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.sleepmode.yml"},
+ {"label":"v-pair-plain","units":["7b","3b"],"repeats":1,"compose":"/home/adaramir/.mcgyvr/config/compose.srv2.yml"},
+ {"label":"v-pair-sleep","units":["7b","3b"],"repeats":1,"compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.sleepmode.yml"},
+ {"label":"v-3b-alone","units":["3b"],"repeats":3,"compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.3b-alone.yml"},
+ {"label":"v-7b-alone","units":["7b"],"repeats":3,"compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.7b-alone.yml"}
+]

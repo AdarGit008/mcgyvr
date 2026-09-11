@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-09-09-live-srv2-serve-up-m2-both-up",
+  "host": "srv2",
+  "mode": "up",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2.m2-both.yml",
+  "compose": "services:\n  deepseek-coder-v2-16b-8080:\n    command:\n    - --load-mode\n    - none\n    - --model\n    - /home/adaramir/models/moe/deepseek-coder-v2-16b.gguf\n    - --n-cpu-moe\n    - '26'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '10'\n    - -ub\n    - '512'\n    container_name: mcgyvr-srv2-deepseek-coder-v2-16b-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: 'no'\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8081:\n    command:\n    - --load-mode\n    - none\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '40'\n    - --parallel\n    - '2'\n    - --port\n    - '8081'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '10'\n    - -ub\n    - '512'\n    container_name: mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: 'no'\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+  "compose_up_exit": 0,
+  "units": [
+    {
+      "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 50.0,
+      "models": [
+        "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf"
+      ]
+    },
+    {
+      "container": "mcgyvr-srv2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8081",
+      "port": 8081,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 33.7,
+      "models": [
+        "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+    }
+  ],
+  "card_after": {
+    "used_mib": 5711,
+    "free_mib": 6201
+  }
+}

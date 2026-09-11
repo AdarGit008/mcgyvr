@@ -1,0 +1,155 @@
+[
+  {
+    "label": "q9-vllm-3b-srv1-1",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "failed": "DOOR FAILED down/td-889931262 rc=1\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=1430761,VLLM::EngineCore,3092MiB, containers=687f739d794d); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-td-889931262 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-td-889931262)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-td-889931262- prefix): mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  },
+  {
+    "label": "q9-vllm-3b-srv1-2",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "failed": "DOOR FAILED down/td-889932238 rc=1\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=1430761,VLLM::EngineCore,3092MiB, containers=687f739d794d); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-td-889932238 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-td-889932238)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-td-889932238- prefix): mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  },
+  {
+    "label": "q9-vllm-3b-srv1-3",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "failed": "DOOR FAILED down/td-889932420 rc=1\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=1430761,VLLM::EngineCore,3092MiB, containers=687f739d794d); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\ngate 5: RUN_ID=2026-09-09-live-srv1-serve-down-td-889932420 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1\nserve-down: docker compose down on srv1: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\ngate 8: 1 artifact(s) parse\ngate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-09-live-srv1 (RUN_ID=2026-09-09-live-srv1-serve-down-td-889932420)\ngate 7: the step left containers up that gate 2 read none of before it \u2014 NOT named for this run (no 2026-09-09-live-srv1-serve-down-td-889932420- prefix): mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 \u2014 a run that leaves a container is not green, and one it did not name is still one it left (kill what you started: docker rm -f <name>)\nrun.py: gate 7: no container named for this run is left, and the rig reads as it did before. A leftover container is NAMED and not removed \u2014 the kill is the operator's, with the name in hand\n"
+  },
+  {
+    "label": "q9b-vllm-3b-srv1-1",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "wake_s": 109.26733422279358,
+    "idle_avail_gib": 14.192996978759766,
+    "avail_after_gib": 11.62179183959961,
+    "ram_cost_gib": 2.5712051391601562,
+    "idle_vram_used_mib": 17,
+    "vram_peak_used_mib": 3112,
+    "vram_steady_used_mib": 3112,
+    "vram_steady_free_mib": 2632,
+    "per_unit": {
+      "3b": {
+        "started_offset_s": 0,
+        "restart_count": 0,
+        "engine_lines": "(EngineCore pid=121) INFO 09-10 06:13:26 [gpu_worker.py:560] Available KV cache memory: 0.78 GiB\n(EngineCore pid=121) INFO 09-10 06:13:26 [kv_cache_utils.py:2177] GPU KV cache size: 22,608 tokens\n(EngineCore pid=121) INFO 09-10 06:13:29 [gpu_worker.py:857] Free memory on device (5.52/5.61 GiB) on startup. Desired GPU memory utilization is (0.6, 3.37 GiB). Actual usage is 1.95 GiB for weight, 0.6 GiB for peak activation, 0.04 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=624248832` (0.58 GiB) to fit into requested memory, or `--kv-cache-memory=2940946432` (2.74 GiB) to fully utilize gpu memory. Current kv cache memory in use is 0.78 GiB.\n(APIServer pid=1) INFO 09-10 06:14:04 [loggers.py:310] Engine 000: Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 13.5 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.7%, Prefix cache hit rate: 0.0%\n(APIServer pid=1) INFO 09-10 06:14:14 [loggers.py:310] Engine 000: Avg prompt throughput: 2.0 tokens/s, Avg generation throughput: 22.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.2%, Prefix cache hit rate: 0.0%\n(APIServer pid=1) INFO 09-10 06:14:24 [loggers.py:310] Engine 000: Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 22.4 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.5%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "404",
+        "tok_s": [
+          22.95,
+          22.85,
+          22.78
+        ],
+        "ttft_s": [
+          0.244,
+          0.243,
+          0.244
+        ],
+        "mean_tok_s": 22.859835928420598
+      }
+    },
+    "samples": 125
+  },
+  {
+    "label": "q9b-vllm-3b-srv1-2",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "failed": "DOOR FAILED down/td-890208718 rc=2\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=1635355,VLLM::EngineCore,3092MiB, containers=c6eac379b2ac); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\n05-envelope.py: gate 5: serve-down.json already exists under records/evidence/2026-09-10-live-srv1/; an artifact is written once. Move it aside deliberately if this is a re-run \u2014 the door does not overwrite evidence\nrun.py: REFUSED at 05-envelope.py \u2014 gate 5: the evidence directory is made, the step's declared artifacts are write-once, and RUN_ID is minted. Nothing recorded is overwritten\n"
+  },
+  {
+    "label": "q9b-vllm-3b-srv1-3",
+    "units": [
+      "3b"
+    ],
+    "repeats": 3,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "failed": "DOOR FAILED down/td-890208814 rc=2\ngate 1: round=r26-09-09-2026 product_sha256=ec531573f5402b84... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)\ngate 2: srv1 is serving (gpu_procs=1635355,VLLM::EngineCore,3092MiB, containers=c6eac379b2ac); serve down opens on it to stop that, and gate 7 requires nothing left\ngate 2: srv1 matches its declaration on 11 keys\ngate 3: docker on srv1 answers, 29.7.2 as declared\n05-envelope.py: gate 5: serve-down.json already exists under records/evidence/2026-09-10-live-srv1/; an artifact is written once. Move it aside deliberately if this is a re-run \u2014 the door does not overwrite evidence\nrun.py: REFUSED at 05-envelope.py \u2014 gate 5: the evidence directory is made, the step's declared artifacts are write-once, and RUN_ID is minted. Nothing recorded is overwritten\n"
+  },
+  {
+    "label": "q9c-vllm-3b-srv1-1",
+    "units": [
+      "3b"
+    ],
+    "repeats": 2,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "wake_s": 110.94465899467468,
+    "idle_avail_gib": 14.199134826660156,
+    "avail_after_gib": 11.626701354980469,
+    "ram_cost_gib": 2.5724334716796875,
+    "idle_vram_used_mib": 17,
+    "vram_peak_used_mib": 3112,
+    "vram_steady_used_mib": 3112,
+    "vram_steady_free_mib": 2632,
+    "per_unit": {
+      "3b": {
+        "started_offset_s": 0,
+        "restart_count": 0,
+        "engine_lines": "(EngineCore pid=120) INFO 09-10 06:17:41 [gpu_worker.py:560] Available KV cache memory: 0.78 GiB\n(EngineCore pid=120) INFO 09-10 06:17:41 [kv_cache_utils.py:2177] GPU KV cache size: 22,608 tokens\n(EngineCore pid=120) INFO 09-10 06:17:44 [gpu_worker.py:857] Free memory on device (5.52/5.61 GiB) on startup. Desired GPU memory utilization is (0.6, 3.37 GiB). Actual usage is 1.95 GiB for weight, 0.6 GiB for peak activation, 0.04 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=624248832` (0.58 GiB) to fit into requested memory, or `--kv-cache-memory=2940946432` (2.74 GiB) to fully utilize gpu memory. Current kv cache memory in use is 0.78 GiB.\n(APIServer pid=1) INFO 09-10 06:18:18 [loggers.py:310] Engine 000: Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 10.8 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.6%, Prefix cache hit rate: 0.0%\n(APIServer pid=1) INFO 09-10 06:18:28 [loggers.py:310] Engine 000: Avg prompt throughput: 2.0 tokens/s, Avg generation throughput: 22.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.1%, Prefix cache hit rate: 0.0%\n(APIServer pid=1) INFO 09-10 06:18:38 [loggers.py:310] Engine 000: Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 22.5 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.4%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "404",
+        "tok_s": [
+          22.94,
+          22.94,
+          22.95
+        ],
+        "ttft_s": [
+          0.244,
+          0.249,
+          0.244
+        ],
+        "mean_tok_s": 22.94519165894486
+      }
+    },
+    "samples": 126
+  },
+  {
+    "label": "q9c-vllm-3b-srv1-2",
+    "units": [
+      "3b"
+    ],
+    "repeats": 2,
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/compose.srv1-vllm-3b.yml",
+    "wake_s": 111.05556607246399,
+    "idle_avail_gib": 14.21066665649414,
+    "avail_after_gib": 11.609992980957031,
+    "ram_cost_gib": 2.6006736755371094,
+    "idle_vram_used_mib": 17,
+    "vram_peak_used_mib": 3112,
+    "vram_steady_used_mib": 3112,
+    "vram_steady_free_mib": 2632,
+    "per_unit": {
+      "3b": {
+        "started_offset_s": 0,
+        "restart_count": 0,
+        "engine_lines": "(EngineCore pid=121) INFO 09-10 06:20:50 [gpu_worker.py:560] Available KV cache memory: 0.78 GiB\n(EngineCore pid=121) INFO 09-10 06:20:50 [kv_cache_utils.py:2177] GPU KV cache size: 22,608 tokens\n(EngineCore pid=121) INFO 09-10 06:20:54 [gpu_worker.py:857] Free memory on device (5.52/5.61 GiB) on startup. Desired GPU memory utilization is (0.6, 3.37 GiB). Actual usage is 1.95 GiB for weight, 0.6 GiB for peak activation, 0.04 GiB for non-torch memory, and 0.05 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=624248832` (0.58 GiB) to fit into requested memory, or `--kv-cache-memory=2940946432` (2.74 GiB) to fully utilize gpu memory. Current kv cache memory in use is 0.78 GiB.\n(APIServer pid=1) INFO 09-10 06:21:28 [loggers.py:310] Engine 000: Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 10.5 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.6%, Prefix cache hit rate: 0.0%\n(APIServer pid=1) INFO 09-10 06:21:38 [loggers.py:310] Engine 000: Avg prompt throughput: 2.0 tokens/s, Avg generation throughput: 22.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.1%, Prefix cache hit rate: 0.0%\n(APIServer pid=1) INFO 09-10 06:21:48 [loggers.py:310] Engine 000: Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 22.5 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.4%, Prefix cache hit rate: 0.0%",
+        "is_sleeping_http": "404",
+        "tok_s": [
+          22.95,
+          22.94,
+          22.94
+        ],
+        "ttft_s": [
+          0.248,
+          0.244,
+          0.244
+        ],
+        "mean_tok_s": 22.94594378425097
+      }
+    },
+    "samples": 126
+  }
+]

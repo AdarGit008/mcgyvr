@@ -1,0 +1,80 @@
+[
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "B-refusal-p20",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": 2.0,
+    "balloon_gib": 2.99,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "against": "experts",
+    "idle_avail_gib": 14.269020080566406,
+    "avail_before_gib": 11.28878402709961,
+    "actual_clearance_gib": -1.0112159729003913,
+    "wake_s": 127.6484022140503,
+    "started_at": "2026-09-09T06:18:09.015421906Z",
+    "rates": [
+      33.05220252394102,
+      33.17098327556576,
+      33.137516316058544
+    ],
+    "mean_tok_s": 33.12023403852177,
+    "majfault_wake": 11360,
+    "majfault_decode": 43,
+    "pswpin_wake": 6969,
+    "pswpout_wake": 0,
+    "pswpin_decode": 59,
+    "pswpout_decode": 0,
+    "balloon_alive": true,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 2.1173248291015625,
+      "Cached": 10.169025421142578,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.8328399658203125,
+      "Shmem": 8.093818664550781
+    }
+  },
+  {
+    "host": "srv1",
+    "port": 8080,
+    "label": "B-refusal-p05",
+    "model": "qwen",
+    "blob_gib": 12.3,
+    "clearance_gib": 0.5,
+    "balloon_gib": 4.49,
+    "compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.yml",
+    "down_compose": "/tmp/claude-1000/-home-adaramir-claude-mcgyvr/e09feadf-705b-4161-9112-f9247a7eb1f4/scratchpad/emit/srv1-qwen/compose.srv1.yml",
+    "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+    "against": "experts",
+    "idle_avail_gib": 14.258525848388672,
+    "avail_before_gib": 9.752029418945312,
+    "actual_clearance_gib": -2.547970581054688,
+    "wake_s": 131.4752402305603,
+    "started_at": "2026-09-09T06:21:35.634968076Z",
+    "rates": [
+      33.26011227693499,
+      33.26479530225773,
+      33.26994606502329
+    ],
+    "mean_tok_s": 33.264951214738666,
+    "majfault_wake": 6427,
+    "majfault_decode": 3,
+    "pswpin_wake": 277,
+    "pswpout_wake": 0,
+    "pswpin_decode": 0,
+    "pswpout_decode": 0,
+    "balloon_alive": true,
+    "mem_after": {
+      "MemTotal": 15.032337188720703,
+      "MemAvailable": 0.6224708557128906,
+      "Cached": 8.770042419433594,
+      "SwapTotal": 7.999996185302734,
+      "SwapFree": 7.835819244384766,
+      "Shmem": 8.093814849853516
+    }
+  }
+]

@@ -1,0 +1,14 @@
+[
+ {"host":"srv2","label":"m1-80b-mapped-n36","blob_gib":35.67,"port":8003,"repeats":1,
+  "container":"mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+  "compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2-80b-mapped-ncmoe36.yml"},
+ {"host":"srv2","label":"m1-80b-unmapped-n36","blob_gib":35.67,"port":8003,"repeats":1,
+  "container":"mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+  "compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2-80b-unmapped-ncmoe36.yml"},
+ {"host":"srv2","label":"m1-80b-unmapped-n40","blob_gib":35.67,"port":8003,"repeats":1,
+  "container":"mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+  "compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2-80b-unmapped-ncmoe40.yml"},
+ {"host":"srv2","label":"m1-80b-mapped-n40","blob_gib":35.67,"port":8003,"repeats":1,
+  "container":"mcgyvr-srv2-Qwen3-Next-80B-A3B-Instruct-Q3_K_M-8003",
+  "compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv2-80b-mapped-ncmoe40.yml"}
+]

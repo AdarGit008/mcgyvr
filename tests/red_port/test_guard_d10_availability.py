@@ -54,10 +54,22 @@ SOURCE = Endpoint(
 
 
 class _Answered:
-    """A response object shaped like the one urllib hands back."""
+    """A response object shaped like the one urllib hands back.
 
-    def __init__(self, status: int) -> None:
+    A status *and* a body, because the probe reads both: the status is
+    liveness and the body is which weights the port is holding, which is what
+    keeps a rung whose model is not resident from reading as available
+    (``tests/test_a_rung_whose_model_is_not_resident_does_not_read_as_available.py``).
+    Empty here — this file is about the status table and the cache, and an empty
+    body says nothing about any model, which takes no rung out of service.
+    """
+
+    def __init__(self, status: int, body: bytes = b"") -> None:
         self.status = status
+        self._body = body
+
+    def read(self, amount: int | None = None) -> bytes:
+        return self._body[:amount] if amount is not None else self._body
 
     def __enter__(self) -> _Answered:
         return self

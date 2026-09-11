@@ -1,0 +1,16 @@
+[
+  {"host":"srv1","label":"m1-qwen-unmapped","blob_gib":12.30,"port":8080,"repeats":2,
+   "container":"mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+   "compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/compose.srv1.unmapped-as-found.yml"},
+  {"host":"srv1","label":"m3-qwen-mapped-neg2.0","blob_gib":12.30,"port":8080,"repeats":2,
+   "balloon_gib":3.93,
+   "container":"mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+   "compose":"/home/adaramir/.mcgyvr/config/compose.srv1.yml"},
+  {"host":"srv1","label":"m3-qwen-mapped-neg3.0","blob_gib":12.30,"port":8080,"repeats":1,
+   "balloon_gib":4.93,
+   "container":"mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+   "compose":"/home/adaramir/.mcgyvr/config/compose.srv1.yml"},
+  {"host":"srv1","label":"m3-qwen-mapped-restore","blob_gib":12.30,"port":8080,"repeats":1,
+   "container":"mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+   "compose":"/home/adaramir/.mcgyvr/config/compose.srv1.yml"}
+]

@@ -1,0 +1,79 @@
+{
+  "machine": {
+    "id": "6d5d8f1f2bfa5f96",
+    "host": "srv2",
+    "kernel": "7.0.0-30-generic"
+  },
+  "gpus": [
+    {
+      "index": 0,
+      "name": "NVIDIA GeForce RTX 3060",
+      "vram": {
+        "total_mib": 12288,
+        "used_mib": 1,
+        "free_mib": 11911,
+        "reserved_mib": 376
+      }
+    }
+  ],
+  "memory": {
+    "total_gb": 46.0,
+    "available_gb": 44.6
+  },
+  "cpu": {
+    "cores": 10,
+    "threads": 20
+  },
+  "bandwidth": {
+    "measured_gbps": 13.2,
+    "how": "in-process copy of 256 MiB x5, best pass, bytes copied/s"
+  },
+  "disk": {
+    "path": "/home/adaramir/models/moe",
+    "free_gb": 86.7
+  },
+  "notes": [],
+  "facts": [
+    {
+      "field": "machine.id",
+      "how": "sha256 of /etc/machine-id"
+    },
+    {
+      "field": "gpu[0].vram.total_mib",
+      "how": "nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free"
+    },
+    {
+      "field": "gpu[0].vram.free_mib",
+      "how": "nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free"
+    },
+    {
+      "field": "gpu[0].vram.reserved_mib",
+      "how": "nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free (total-used-free)"
+    },
+    {
+      "field": "memory.total_gb",
+      "how": "/proc/meminfo MemTotal"
+    },
+    {
+      "field": "memory.available_gb",
+      "how": "/proc/meminfo MemAvailable"
+    },
+    {
+      "field": "cpu.threads",
+      "how": "lscpu CPU(s)"
+    },
+    {
+      "field": "cpu.cores",
+      "how": "lscpu Core(s) per socket x Socket(s)"
+    },
+    {
+      "field": "bandwidth.measured_gbps",
+      "how": "in-process copy of 256 MiB x5, best pass, bytes copied/s"
+    },
+    {
+      "field": "disk.free_gb",
+      "how": "free space on /home/adaramir/models/moe"
+    }
+  ]
+}
+

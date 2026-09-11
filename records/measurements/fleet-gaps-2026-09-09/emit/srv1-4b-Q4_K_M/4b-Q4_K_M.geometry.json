@@ -1,0 +1,273 @@
+[
+  {
+    "file": "/home/adaramir/models/moe/4b-Q4_K_M.gguf",
+    "size_bytes": 3233023264,
+    "arch": "gpt-oss",
+    "name": "Gpt Oss 4B",
+    "params_total": 4185504672,
+    "n_layer": 24,
+    "n_expert": 4,
+    "n_expert_used": 2,
+    "n_embd": 2880,
+    "n_head_kv": 8,
+    "n_ctx_train": 131072,
+    "rope_dim": null,
+    "full_attn_interval": null,
+    "sliding_window": 128,
+    "bytes_total_tensors": 3220027008,
+    "bytes_experts": 1794908160,
+    "expert_layers": 24,
+    "bytes_nonexpert": 1425118848,
+    "type_bytes": {
+      "Q8_0": 1057144320,
+      "F32": 5762688,
+      "Q5_0": 1997867520,
+      "Q4_K": 159252480
+    },
+    "expert_blocks": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "nextn_blocks": [],
+    "nextn_predict_layers": null,
+    "placeable_blocks": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "recurrent_blocks": [],
+    "n_recurrent": 0,
+    "n_placeable": 24,
+    "expert_bytes_by_block": {
+      "0": 81008640,
+      "1": 81008640,
+      "2": 81008640,
+      "3": 68567040,
+      "4": 68567040,
+      "5": 81008640,
+      "6": 68567040,
+      "7": 68567040,
+      "8": 81008640,
+      "9": 68567040,
+      "10": 68567040,
+      "11": 81008640,
+      "12": 68567040,
+      "13": 68567040,
+      "14": 81008640,
+      "15": 68567040,
+      "16": 68567040,
+      "17": 81008640,
+      "18": 68567040,
+      "19": 68567040,
+      "20": 81008640,
+      "21": 81008640,
+      "22": 81008640,
+      "23": 81008640
+    },
+    "caching_layers": 24,
+    "caching_layers_from": "every layer caches",
+    "kv_layers": [
+      {
+        "layer": 0,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 1,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 2,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 3,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 4,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 5,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 6,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 7,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 8,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 9,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 10,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 11,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 12,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 13,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 14,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 15,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 16,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 17,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 18,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 19,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 20,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 21,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 22,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      },
+      {
+        "layer": 23,
+        "is_swa": null,
+        "k_elems": 512,
+        "v_elems": 512
+      }
+    ],
+    "mla_absorbed_v": false,
+    "mla_by_identity": false,
+    "key_length_mla": null,
+    "sliding_window_pattern_declared": false,
+    "swa_pattern_from": null,
+    "key_length": 64,
+    "value_length": 64,
+    "key_length_swa": null,
+    "value_length_swa": null,
+    "ssm_inner_size": null,
+    "ssm_state_size": null,
+    "ssm_conv_kernel": null,
+    "ssm_group_count": null,
+    "ssm_params_from": null
+  }
+]

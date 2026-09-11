@@ -1,0 +1,14 @@
+Thu Sep 10 06:58:07 AM UTC 2026
+               total        used        free      shared  buff/cache   available
+Mem:           15393       15260         155       13884       14164         132
+Swap:           8191        1375        6816
+MemAvailable:     135428 kB
+Cached:         14398092 kB
+SwapTotal:       8388604 kB
+SwapFree:        6980336 kB
+Shmem:          14217576 kB
+pswpin 9901701
+pswpout 19095497
+pgmajfault 7040556
+5678 MiB, 66 MiB
+ 06:58:07 up 8 days, 22:46,  1 user,  load average: 2.35, 2.04, 1.20

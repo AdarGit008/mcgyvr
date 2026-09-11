@@ -1,0 +1,11 @@
+[
+  {"host":"srv1","label":"r-srv1-ling","blob_gib":4.57,"port":8080,"repeats":2,
+   "container":"mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+   "compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/emit/srv1-Ling-3.0-tiny-Q4_K_M/compose.srv1.yml"},
+  {"host":"srv1","label":"r-srv1-gemma","blob_gib":10.62,"port":8080,"repeats":2,
+   "container":"mcgyvr-srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS-8080",
+   "compose":"/home/adaramir/claude/mcgyvr/records/measurements/fleet-gaps-2026-09-09/emit/srv1-gemma-4-26B-A4B-it-UD-IQ3_XXS/compose.srv1.yml"},
+  {"host":"srv1","label":"r-srv1-qwen-mapped","blob_gib":12.30,"port":8080,"repeats":2,
+   "container":"mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+   "compose":"/home/adaramir/.mcgyvr/config/compose.srv1.yml"}
+]

@@ -1,0 +1,67 @@
+{
+  "geometry": "/home/adaramir/claude/mcgyvr/records/measurements/ram-headroom-2026-09-09/deepseek.geometry.json",
+  "probe_arm": "q4-deepseek-n0-1",
+  "probe_ncmoe": 0,
+  "C_probe_mib": 3028.0,
+  "C_min_mib": 3028.0,
+  "C_max_mib": 3102.0,
+  "C_spread_mib": 74.0,
+  "per_block_drift_mib": 2.8461538461538463,
+  "span_blocks": 26,
+  "arms": [
+    {
+      "label": "q4-deepseek-n0-1",
+      "ncmoe": 0,
+      "measured_net_mib": 10750,
+      "experts_mib": 7722.0,
+      "C_mib": 3028.0,
+      "predicted_mib": 10750.0,
+      "residual_mib": 0.0
+    },
+    {
+      "label": "q4-deepseek-n0-2",
+      "ncmoe": 0,
+      "measured_net_mib": 10750,
+      "experts_mib": 7722.0,
+      "C_mib": 3028.0,
+      "predicted_mib": 10750.0,
+      "residual_mib": 0.0
+    },
+    {
+      "label": "q4-deepseek-n13-1",
+      "ncmoe": 13,
+      "measured_net_mib": 7260,
+      "experts_mib": 4158.0,
+      "C_mib": 3102.0,
+      "predicted_mib": 7186.0,
+      "residual_mib": 74.0
+    },
+    {
+      "label": "q4-deepseek-n13-2",
+      "ncmoe": 13,
+      "measured_net_mib": 7260,
+      "experts_mib": 4158.0,
+      "C_mib": 3102.0,
+      "predicted_mib": 7186.0,
+      "residual_mib": 74.0
+    },
+    {
+      "label": "q4-deepseek-n26-1",
+      "ncmoe": 26,
+      "measured_net_mib": 3398,
+      "experts_mib": 297.0,
+      "C_mib": 3101.0,
+      "predicted_mib": 3325.0,
+      "residual_mib": 73.0
+    },
+    {
+      "label": "q4-deepseek-n26-2",
+      "ncmoe": 26,
+      "measured_net_mib": 3398,
+      "experts_mib": 297.0,
+      "C_mib": 3101.0,
+      "predicted_mib": 3325.0,
+      "residual_mib": 73.0
+    }
+  ]
+}

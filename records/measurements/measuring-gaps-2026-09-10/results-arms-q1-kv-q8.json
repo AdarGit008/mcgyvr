@@ -1,0 +1,122 @@
+[
+  {
+    "host": "srv1",
+    "label": "q1-deepseek-f16-1",
+    "cache_type": "f16",
+    "blob_gib": 8.29,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q1-deepseek-f16.yml",
+    "wake_s": 87.1965811252594,
+    "vram_peak_used_mib": 5446,
+    "vram_steady_used_mib": 5460,
+    "vram_idle_free_mib": 5727,
+    "decode_tok_s": 32.22560354603245,
+    "decode_warm": {
+      "mean": 32.28070211977779,
+      "samples": [
+        31.857630453490362,
+        32.54833837661989,
+        32.436137529223124
+      ],
+      "n": 3
+    },
+    "k_mib": 1296.0,
+    "v_mib": 864.0,
+    "k_dtype": "f16",
+    "v_dtype": "f16",
+    "kv_line": "llama_kv_cache: size = 2160.00 MiB (  4096 cells,  27 layers,  2/2 seqs), K (f16): 1296.00 MiB, V (f16):  864.00 MiB",
+    "samples": 103
+  },
+  {
+    "host": "srv1",
+    "label": "q1-deepseek-f16-2",
+    "cache_type": "f16",
+    "blob_gib": 8.29,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q1-deepseek-f16.yml",
+    "wake_s": 86.09647631645203,
+    "vram_peak_used_mib": 5446,
+    "vram_steady_used_mib": 5460,
+    "vram_idle_free_mib": 5727,
+    "decode_tok_s": 31.22504083312337,
+    "decode_warm": {
+      "mean": 31.098996976198787,
+      "samples": [
+        31.418938545741828,
+        31.250700192575067,
+        30.627352190279456
+      ],
+      "n": 3
+    },
+    "k_mib": 1296.0,
+    "v_mib": 864.0,
+    "k_dtype": "f16",
+    "v_dtype": "f16",
+    "kv_line": "llama_kv_cache: size = 2160.00 MiB (  4096 cells,  27 layers,  2/2 seqs), K (f16): 1296.00 MiB, V (f16):  864.00 MiB",
+    "samples": 102
+  },
+  {
+    "host": "srv1",
+    "label": "q1-deepseek-q8-1",
+    "cache_type": "q8_0",
+    "blob_gib": 8.29,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q1-deepseek-q8.yml",
+    "wake_s": 86.21074223518372,
+    "vram_peak_used_mib": 4432,
+    "vram_steady_used_mib": 4446,
+    "vram_idle_free_mib": 5727,
+    "decode_tok_s": 32.79337021178124,
+    "decode_warm": {
+      "mean": 33.18368025924958,
+      "samples": [
+        33.60051022057784,
+        32.40212875872336,
+        33.54840179844753
+      ],
+      "n": 3
+    },
+    "k_mib": 688.5,
+    "v_mib": 459.0,
+    "k_dtype": "q8_0",
+    "v_dtype": "q8_0",
+    "kv_line": "llama_kv_cache: size = 1147.50 MiB (  4096 cells,  27 layers,  2/2 seqs), K (q8_0):  688.50 MiB, V (q8_0):  459.00 MiB",
+    "samples": 101
+  },
+  {
+    "host": "srv1",
+    "label": "q1-deepseek-q8-2",
+    "cache_type": "q8_0",
+    "blob_gib": 8.29,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv1-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv1-q1-deepseek-q8.yml",
+    "wake_s": 86.36542510986328,
+    "vram_peak_used_mib": 4432,
+    "vram_steady_used_mib": 4446,
+    "vram_idle_free_mib": 5727,
+    "decode_tok_s": 34.0196385317124,
+    "decode_warm": {
+      "mean": 34.41759766368677,
+      "samples": [
+        34.86916278701542,
+        33.700013501200374,
+        34.68361670284452
+      ],
+      "n": 3
+    },
+    "k_mib": 688.5,
+    "v_mib": 459.0,
+    "k_dtype": "q8_0",
+    "v_dtype": "q8_0",
+    "kv_line": "llama_kv_cache: size = 1147.50 MiB (  4096 cells,  27 layers,  2/2 seqs), K (q8_0):  688.50 MiB, V (q8_0):  459.00 MiB",
+    "samples": 102
+  }
+]

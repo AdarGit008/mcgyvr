@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-09-live-srv1-serve-down-td-eepseek-coder-v2-16b-1788985621",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/flexibility-2026-09-09/emit/srv1-deepseek-coder-v2-16b/compose.srv1.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-deepseek-coder-v2-16b-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 17,
+    "free_mib": 5727
+  }
+}
