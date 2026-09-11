@@ -38,7 +38,11 @@ For the GREEN. Live srv1 serves Qwen3.6 at ``-ub 512``, and
 ``tests/red_port/test_dod_placement_conservatism.py`` pins that its running
 placement is accepted: 5347.2 MiB predicted against 5726 usable. The bound would
 refuse it (5347.2 + 768), so the GREEN needs a qwen35moe reading taken at 512 —
-the buffer probe above has its compute half — not the bound standing in. #438's
+the buffer probe above has its compute half — not the bound standing in. That
+reading is now measured: **316.57 MiB** at ``-ub 512``, with a ``-ub 256``
+control of 304.57 MiB that reproduces the pinned 302.7 to 0.6%
+(``records/measurements/kv-dtype-2026-09-11/results-s1-scratch.json``, the
+measuring-gaps Q3 method). #438's
 B77 calls ``allowance_mib({"arch": "qwen3next"})`` with no batch; how that call
 reads is the GREEN's to settle with #438.
 """
