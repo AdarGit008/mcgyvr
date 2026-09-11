@@ -1,0 +1,16 @@
+```python
+from typing import List, Dict
+
+def end_grab(cards: List[int]) -> Dict[str, int]:
+    if not cards:
+        return {"first": 0, "second": 0, "taken": 0}
+
+    first, second = cards[0], cards[-1]
+    taken = first if first > second else second
+    first, second = first - taken, second - taken
+
+    if first == second:
+        first -= 1
+
+    return {"first": first, "second": second, "taken": taken}
+```

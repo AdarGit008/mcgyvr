@@ -1,0 +1,24 @@
+```python
+from typing import List, Union
+
+def field_mean(records: List[Union[str, int]], field: str) -> int:
+    """
+    Given records that each may carry a named numeric field, return the mean of that field across them, rounded down.
+    A record lacking the field is passed over, and a set in which none carry it averages to nothing.
+    """
+    if not records:
+        return 0
+    
+    total = 0
+    count = 0
+    
+    for record in records:
+        if isinstance(record, int) and field in record:
+            total += record[field]
+            count += 1
+    
+    if count == 0:
+        return 0
+    
+    return total // count
+```

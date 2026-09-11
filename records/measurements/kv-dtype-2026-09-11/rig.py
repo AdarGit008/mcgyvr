@@ -32,7 +32,7 @@ import statistics
 import subprocess
 import threading
 import time
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -216,7 +216,7 @@ def door(direction: str, host: str, compose: Path, suffix: str,
     # Gate 5 mints RUN_ID from the suffix and never reuses one, not even after a
     # refused attempt, so every attempt carries its own clock reading.
     suffix = f"{suffix}-{int(time.time())}"
-    ev = REPO / "records" / "evidence" / f"{date.today():%Y-%m-%d}-live-{host}"
+    ev = REPO / "records" / "evidence" / f"{datetime.now(UTC).strftime('%Y-%m-%d')}-live-{host}"
     stale = ev / f"serve-{direction}.json"
     if stale.exists():
         stale.rename(ev / f"serve-{direction}-before-{suffix}.json")

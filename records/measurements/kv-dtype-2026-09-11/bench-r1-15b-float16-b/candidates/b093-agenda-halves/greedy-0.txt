@@ -1,0 +1,56 @@
+```python
+from typing import List
+
+def split_agenda(sessions: List[List[int]], limit: int) -> List[List[int]]:
+    if not sessions or limit < 1:
+        raise ValueError("Invalid input")
+
+    def is_valid_session(session: List[int]) -> bool:
+        start, end = session
+        if start >= end:
+            return False
+        return True
+
+    def is_valid_limit(limit: int) -> bool:
+        return limit >= 1
+
+    def is_valid_session_bound(session: List[int]) -> bool:
+        start, end = session
+        return start >= 0 and end >= 0
+
+    def is_valid_start_before_end(session: List[int]) -> bool:
+        start, end = session
+        return start < end
+
+    def is_valid_session(session: List[int], limit: int) -> bool:
+        start, end = session
+        if end - start + 1 > limit:
+            return False
+        return True
+
+    def split_session(session: List[int], limit: int) -> List[List[int]]:
+        if end - start + 1 <= limit:
+            return [session]
+        mid = (start + end) // 2
+        if (end - start + 1) % 2 == 1:
+            mid += 1
+        return [split_session([start, mid], limit), split_session([mid, end], limit)]
+
+    def split_agenda_helper(sessions: List[List[int]], limit: int) -> List[List[int]]:
+        if not sessions:
+            return []
+        session = sessions[0]
+        if not is_valid_session(session):
+            raise ValueError("Invalid session")
+        if not is_valid_limit(limit):
+            raise ValueError("Invalid limit")
+        if not is_valid_session_bound(session):
+            raise ValueError("Invalid session bound")
+        if not is_valid_start_before_end(session):
+            raise ValueError("Invalid start before end")
+        if not is_valid_session(session, limit):
+            raise ValueError("Invalid session")
+        return split_session(session, limit) + split_agenda_helper(sessions[1:], limit)
+
+    return split_agenda_helper(sessions, limit)
+```

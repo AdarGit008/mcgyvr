@@ -1,0 +1,17 @@
+[
+  {
+    "label": "r1-15b-float16",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "dtype": "float16",
+    "image_digest": "sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_tokens": 253744,
+    "kv_line": null,
+    "restart_count": 0,
+    "card_used_mib": 8335,
+    "card_free_mib": 3577,
+    "card_reserved_mib": 377,
+    "bench_a_dir": "bench-r1-15b-float16-a",
+    "bench_b_dir": "bench-r1-15b-float16-b"
+  }
+]

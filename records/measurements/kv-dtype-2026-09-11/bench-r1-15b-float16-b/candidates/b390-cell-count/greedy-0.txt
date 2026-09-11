@@ -1,0 +1,20 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    """
+    Return the number of cells in the grid that hold the specified value.
+
+    :param grid: List of lists representing the grid.
+    :param value: The value to count in the grid.
+    :return: The count of cells holding the specified value.
+    """
+    if not grid:
+        return 0
+
+    count = 0
+    for row in grid:
+        for cell in row:
+            if cell == value:
+                count += 1
+
+    return count
+```

@@ -1,0 +1,36 @@
+```python
+from typing import List
+
+def pack_entries(entries: List) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+    
+    def escape_value(value: str) -> str:
+        return value.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+    
+    def escape_key(key: str) -> str:
+        return key.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+    
+    def serialize_pair(key: str, value: str) -> str:
+        return f"{escape_key(key)}={escape_value(value)}"
+    
+    def serialize_entries(entries: List) -> str:
+        return "; ".join(serialize_pair(key, value) for key, value in entries)
+    
+    if not entries:
+        return ""
+    
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in entries):
+        raise ValueError("Each entry must be a two-element list")
+    
+    if not all(isinstance(item, str) for item in entries):
+        raise ValueError("Each key and value must be strings")
+    
+    if any(key == "" for key in entries):
+        raise ValueError("Key cannot be empty")
+    
+    if any(key == value for key, value in entries):
+        raise ValueError("Key cannot repeat within the input")
+    
+    return serialize_entries(entries)
+```

@@ -1,0 +1,7 @@
+```python
+def strip_ends(text: str, mark: str) -> str:
+    """The text with a character removed from both of its ends."""
+    if not text or text[0] != mark or text[-1] != mark:
+        return text
+    return text[1:-1]
+```

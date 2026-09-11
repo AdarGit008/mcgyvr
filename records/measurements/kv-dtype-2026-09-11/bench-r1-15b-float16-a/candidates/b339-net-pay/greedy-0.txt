@@ -1,0 +1,6 @@
+```python
+def net_pay(gross: int, rate: int, fee: int) -> int:
+    """Gross pay less a percentage and then a flat fee, and it subtracts the fee first, so the percentage comes off the wrong amount. Fix it. The percentage is rounded down and pay never falls below zero."""
+    after_fee = gross - fee
+    return max(after_fee - after_fee * rate // 100, 0)
+```

@@ -1,0 +1,17 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    # Scan the rules, rejecting non-string values and misplaced
+    # stars, then prefer the exact selector, else the longest covering
+    # ".*" wildcard, else the lone "*", else None.
+    for rule in rules:
+        if rule == name:
+            return rules[rule]
+        elif "*" in rule:
+            if rule.endswith(".*"):
+                return rules[rule]
+            elif rule == "*":
+                return rules[rule]
+    return None
+```

@@ -1,0 +1,19 @@
+```python
+from typing import Dict, List, Tuple
+
+def field_of(record: Dict[str, int], field: str) -> int:
+    """
+    Returns the value of the specified field in the record, or raises a ValueError if the field is missing.
+    """
+    if field not in record:
+        raise ValueError(f"Field '{field}' not found in record.")
+    return record[field]
+
+def sort_pairs(records: List[Dict[str, int]], field: str) -> List[Dict[str, int]]:
+    """
+    Sorts the list of records by the specified field, breaking ties by leaving the earlier record earlier.
+    """
+    # Sort the records based on the specified field
+    sorted_records = sorted(records, key=lambda x: x[field])
+    return sorted_records
+```
