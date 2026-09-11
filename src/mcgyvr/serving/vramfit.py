@@ -19,16 +19,31 @@ The split this module rests on:
     The NON-EXPERT model weights -- which are the largest part of it, 1080.83 of
     2126.00 MiB on KAT -- plus cache, recurrent state, compute scratch, the CUDA
     primary context, and whatever device memory the engine allocates without
-    naming. Called ``C`` here. **Measured once, at any placement, because it
-    does not move with ``--n-cpu-moe``**: verified at five placements of one
-    checkpoint, where every term held to the last printed digit and the
-    unnamed remainder held at 144.67 MiB
-    net of idle (145.67 raw). That remainder is per-rig -- 144.67
-    on srv2 against 97.69 on srv1, both net of the card's idle baseline -- but
-    ``C`` itself is per (model, serve config) and subsumes it.
+    naming. Called ``C`` here. **It held across every placement measured that
+    keeps expert blocks on the host**: five placements of KAT, where every term
+    held to the last printed digit and the unnamed remainder held at 144.67 MiB
+    net of idle (145.67 raw), and three of nemotron spanning 9.6 GB of experts.
+    That remainder is per-rig -- 144.67 on srv2 against 97.69 on srv1, both net
+    of the card's idle baseline -- but ``C`` itself is per (model, serve
+    config) and subsumes it.
 
-That invariance is the whole trick: one probe fixes ``C`` for every placement,
-so the floor follows from arithmetic on the header with nothing left to guess.
+    **It steps when the first expert block leaves the card.** llama.cpp's
+    op offload copies a host-stored expert tensor into the device compute
+    buffer for a large batch, so that buffer grows once any expert is on the
+    host and then stays: deepseek-coder-v2-16b on srv2 reads 76.13 MiB at
+    ``--n-cpu-moe 0`` and 151.51 MiB at 13 and at 26, and ``C`` moves by the
+    same 74 MiB. ``--no-op-offload`` removes the step and is banned for what it
+    costs prefill (``okf/config/llama.cpp.md``). Nor is the offloaded side
+    proven flat for every checkpoint: Qwen3.6's ``C`` read 2 MiB higher at
+    ncmoe 20 and 38 MiB higher at 40 than at 7, experts on the host at all
+    three, and nobody has attributed that yet.
+    -> ``records/measurements/measuring-gaps-2026-09-10/README.md`` Q4 and Q6,
+    ``records/measurements/flexibility-2026-09-09/README.md`` Q11
+
+So one probe fixes ``C`` for the placements on its own side of that step, and
+the floor follows from arithmetic on the header with nothing left to guess --
+provided the probe itself offloads. A probe with every expert on the card
+under-states every placement that offloads, by the op-offload copy.
 
 The header-derived laws below (:func:`kv_bytes`, :func:`rs_bytes`) are NOT used
 to compute the floor -- ``C`` already contains them, measured. They exist to
@@ -307,6 +322,12 @@ def constant_from_probe(
     is card-wide; srv1 idles at 17 MiB and srv2 at 1 MiB, and letting that ride
     along puts a 16 MiB rig difference into a number that has nothing to do with
     either rig.
+
+    **Probe with at least one expert block on the host** when the ``C`` is for
+    placements that offload. Op offload grows the compute buffer the moment an
+    expert leaves the card -- 76.13 to 151.51 MiB on deepseek2 -- so a probe
+    taken with every expert on the card under-states each of those placements by
+    that step, and :func:`floor` then admits a cell past the card's edge.
     """
     return vram_used_bytes - experts_on_card(geometry, n_cpu_moe)
 

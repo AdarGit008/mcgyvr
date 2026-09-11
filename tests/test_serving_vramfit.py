@@ -260,7 +260,9 @@ def test_the_constant_does_not_move_with_placement() -> None:
 
     This invariance is what makes a single probe sufficient. It was briefly
     believed false -- an artifact of dividing expert bytes by ``n_layer`` and
-    counting a block the knob never places.
+    counting a block the knob never places. All five placements keep experts
+    on the host; the step to the first expert on the host is a different
+    measurement (``test_the_constant_steps_once_an_expert_is_on_the_host.py``).
     """
     geom = g("KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf")
     used = {41: 2127, 8: 11023, 7: 11301, 6: 11579, 5: 11857}
