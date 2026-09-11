@@ -49,7 +49,7 @@ def make_compose(ctype: str) -> str:
            "--port", str(PORT), "-b", "512", "-c", "16384", "-fa", "on",
            "-ngl", "99", "-t", "6", "-ub", "512",
            "--chat-template-kwargs", '{"enable_thinking":false}',
-           "-ctk", ctype, "-ctv", ctype]
+           "-ctk", ctype, "-ctv", ctype, "--verbose"]
     doc = {"services": {service: {
         "command": cmd, "container_name": CONTAINER,
         "deploy": {"resources": {"reservations": {"devices": [
