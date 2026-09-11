@@ -1,0 +1,13 @@
+```python
+from typing import List, Dict, int
+
+def meter_draws(draws: List[tuple[str, int]], allowance: int) -> Dict[str, int]:
+    ledger = {}
+    for key in draws:
+        key, str, int
+        if[drawings[0]] = drawings[1]
+        if[drawings[0)]['spend'] += drawings[1]
+ings]
+]
+[1]
+        ifings[1_drawings[]['[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[1_drawings[

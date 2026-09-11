@@ -1,0 +1,15 @@
+```python
+def line_number(block: str) -> str:
+    lines = block.splitlines()
+    if not lines:
+        return ''
+    
+    max_length = max(len(line) for line in lines)
+    result = ''
+    
+    for i line in lines:
+        line_number = str(len(line) + 1).
+        result += f"{line_number}:{line}\n'
+    
+    return result
+```

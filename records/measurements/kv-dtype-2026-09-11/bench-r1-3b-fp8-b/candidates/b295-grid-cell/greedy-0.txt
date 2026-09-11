@@ -1,0 +1,23 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    if not isinstance(row, int) or not isinstance(column, int):
+        raise ValueError("row and column must be integers")
+    if row < 0 or column < 0:
+        raise ValueError("row and column must be non-negative")
+    
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if column >= len(letters):
+        raise ValueError("column index out of range for cell naming")
+    
+    column_letter = letters[column]
+    row_number = row + 1
+    return f"{column_letter}{row_number}"
+
+def grid_cells(rows: int, columns: int) -> list:
+    if not isinstance(rows, int) or not isinstance(columns, int):
+        raise ValueError("rows and columns must be integers")
+    if rows <= 0 or columns <= 0:
+        raise ValueError("rows and columns must be positive")
+    
+    return [cell_name(r, c) for r in range(rows) for c in range(columns)]
+```

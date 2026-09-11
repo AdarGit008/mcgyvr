@@ -1,0 +1,36 @@
+```python
+def config_value(layers: list, name: str) -> str | None:
+    """
+    Returns the effective value of the requested name from the configuration layers.
+    """
+    if not isinstance(layers, list) or not all(isinstance(layer, str) for layer in layers):
+        raise ValueError("Layers must be a list of strings.")
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Name must be a non-empty string.")
+
+    def parse_layer(layer: str) -> dict:
+        """Parses a layer into a dictionary of assignments."""
+        assignments = {}
+        for line in layer.splitlines():
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if '=' in line:
+                key, value = line.split('=', 1)
+                assignments[key.strip()] = value.strip()
+            elif line.startswith('!'):
+                key = line[1:].strip()
+                if key in assignments:
+                    del assignments[key]
+        return assignments
+
+    effective_assignments = {}
+    for layer in layers:
+        assignments = parse_layer(layer)
+        for key, value in assignments.items():
+            if key in effective_assignments:
+                continue
+            effective_assignments[key] = value
+
+    return effective_assignments.get(name, None)
+```

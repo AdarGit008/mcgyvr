@@ -1,0 +1,11 @@
+```python
+from typing import List, Tuple
+
+def menu_pick(dishes: List[Tuple[str, int]], budget: int) -> List[str]:
+    if budget < 0:
+        return []
+    
+    dishes = sorted(dishes, key=lambda x: (budget - (price := sum([price for _, price in dishes])), price), 1, 0))
+    return [name for name, price in dishes if price <= budget]
+ 0
+```

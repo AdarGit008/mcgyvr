@@ -1,0 +1,45 @@
+```python
+from typing import List, Mapping, Any
+
+def number_sections(sections: List[Mapping[str, Any]]) -> List[str]:
+    """
+    Number sections in document order.
+    
+    :param sections: List of sections, each a mapping with 'heading' and 'children'.
+    :return: List of section labels in document order.
+    """
+    def number_section(section: Mapping[str, Any], depth: int) -> str:
+        if not isinstance(section, dict) or 'heading' not in section or 'children' not in section:
+            raise ValueError("Invalid section format.")
+        if not isinstance(section['children'], list):
+            raise ValueError("Children must be a list.")
+        if not isinstance(section['heading'], str) or not section['heading']:
+            raise ValueError("Heading must be a non-empty string.")
+        
+        label = f"{depth + 1} {section['heading']}"
+        for child in section['children']:
+            label += f" {number_section(child, depth + 1)}"
+        return label
+    
+    return [number_section(section, 0) for section in sections]
+
+def section_count(sections: List[Mapping[str, Any]]) -> int:
+    """
+    Count sections at every depth.
+    
+    :param sections: List of sections, each a mapping with 'heading' and 'children'.
+    :return: Total number of sections.
+    """
+    def count_section(section: Mapping[str, Any]) -> int:
+        if not isinstance(section, dict) or 'children' not in section:
+            raise ValueError("Invalid section format.")
+        if not isinstance(section['children'], list):
+            raise ValueError("Children must be a list.")
+        
+        count = 1
+        for child in section['children']:
+            count += count_section(child)
+        return count
+    
+    return sum(count_section(section) for section in sections)
+```

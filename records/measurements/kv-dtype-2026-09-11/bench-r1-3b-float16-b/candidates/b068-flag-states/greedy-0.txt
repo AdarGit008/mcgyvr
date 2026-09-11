@@ -1,0 +1,24 @@
+```python
+def flag_states(mask: int, catalog: list) -> dict:
+    """
+    Convert a feature mask into a dictionary mapping flag names to their states.
+    
+    :param mask: Non-negative integer representing the feature mask.
+    :param catalog: List of flag names in bit order.
+    :return: Dictionary with flag names as keys and boolean states as values.
+    :raises ValueError: If mask is not a non-negative integer, catalog is not valid,
+                       flag names are invalid, or mask has a set bit beyond catalog length.
+    """
+    if not isinstance(mask, int) or mask < 0:
+        raise ValueError("Mask must be a non-negative integer.")
+    if not isinstance(catalog, list) or len(catalog) == 0:
+        raise ValueError("Catalog must be a non-empty list.")
+    if any(not isinstance(name, str) or not name.strip() for name in catalog):
+        raise ValueError("Catalog must contain only non-empty strings.")
+    if len(set(catalog)) != len(catalog):
+        raise ValueError("Catalog must not contain repeated flag names.")
+    if mask.bit_length() > len(catalog):
+        raise ValueError("Mask cannot have a set bit at or beyond catalog length.")
+    
+    return {name: bool(mask & (1 << i)) for i, name in enumerate(catalog)}
+```

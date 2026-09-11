@@ -1,0 +1,33 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """
+    Returns a list of numbers starting from 'first' up to 'count' elements.
+    
+    :param first: The starting number of the sequence.
+    :param count: The number of elements in the sequence.
+    :return: A list of integers from 'first' to 'first + count - 1'.
+    """
+    if count <= 0:
+        raise ValueError("Count must be greater than zero.")
+    return list(range(first, first + count))
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """
+    Finds the first missing number in a sequence of numbers from 'first' to 'first + count - 1'.
+    
+    :param seen: A list of numbers that are present in the sequence.
+    :param first: The starting number of the sequence.
+    :param count: The number of elements in the sequence.
+    :return: The first missing number in the sequence, or None if no missing number is found.
+    """
+    if count <= 0:
+        raise ValueError("Count must be greater than zero.")
+    
+    expected_numbers = set(range(first, first + count))
+    missing_numbers = expected_numbers - set(seen)
+    
+    if missing_numbers:
+        return min(missing_numbers)
+    else:
+        return None
+```

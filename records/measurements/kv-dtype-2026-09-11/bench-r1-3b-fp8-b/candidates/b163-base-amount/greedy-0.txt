@@ -1,0 +1,21 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    if unit == base:
+        return amount
+    
+    if unit not in defs:
+        raise ValueError(f"unit '{unit}' is not defined in defs")
+    
+    factor, finer = defs[unit]
+    
+    if not isinstance(factor, int) or factor <= 0:
+        raise ValueError(f"factor for unit '{unit}' must be a positive integer")
+    
+    if finer == base:
+        return amount * factor
+    
+    return base_amount(amount, finer, defs, base)
+```

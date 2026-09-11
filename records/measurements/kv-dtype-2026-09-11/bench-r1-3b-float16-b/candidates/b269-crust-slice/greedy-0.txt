@@ -1,0 +1,19 @@
+```python
+def crust_slice(name: str) -> str:
+    """
+    Returns the part of the string before the final dot.
+    If there is no dot, returns the string unchanged.
+    """
+    if not isinstance(name, str):
+        raise ValueError("Input must be a string.")
+    
+    # Find the last occurrence of the dot
+    last_dot_index = name.rfind('.')
+    
+    # If no dot is found, return the original string
+    if last_dot_index == -1:
+        return name
+    
+    # Return the substring before the last dot
+    return name[:last_dot_index]
+```

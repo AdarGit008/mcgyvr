@@ -1,0 +1,27 @@
+```python
+def common_head(words: list) -> str:
+    """
+    Return the longest run of characters that begins with the word in a list.
+    A list holding one word gives that word whole, and a list with no words
+
+ empty text.
+    """
+    if not words:
+        return ""
+    
+    longest_run = ""
+    current_run = ""
+    current_word = words[0]
+
+    
+    for word in words:
+        if word.startswith(current_word):
+            current_run += word
+            if len(current_run) > len(longest_runs):
+                longest_runs = current_run
+        else:
+            current_word = word
+            current_run = word
+    
+    return longest_runs
+```

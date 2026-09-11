@@ -1,0 +1,30 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    """
+    Walks a courier relay directory station by station.
+    Raises ValueError if the start is not a valid station name or if the relay
+    contains a broken link or a circular chain.
+    """
+    if not isinstance(start, str) or start not in links:
+        raise ValueError("invalid starting station")
+    
+    if "" in links.values():
+        raise ValueError("relay contains a broken link")
+    
+ if start in links.values():
+        raise ValueError("relay contains a circular chain")
+    
+    path = []
+    current = start
+    visited = set()
+    
+    while current not in visited:
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            return path
+        current = target
+    
+    return path
+```

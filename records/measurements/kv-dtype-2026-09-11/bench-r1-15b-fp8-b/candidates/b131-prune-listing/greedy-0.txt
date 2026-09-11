@@ -1,0 +1,97 @@
+```python
+"""Prune a file of relative slash-separated file paths with ordered drop and keep rules."""
+
+def prune_listing(listing, rules):
+    def segment_fits(pattern, text):
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+
+            elif keep < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while keep < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text, what):
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{ must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{ to have an empty segment: {text}")
+        return segments
+
+    # validate that the rule and path are valid with split_strict
+    # keep keep
+
+    # path the last last matching rule allows
+    path = listing[0]
+    for rule in rules:
+        if not isinstance(file, str) or file == "":
+            raise ValueError(f"{ to be a non, not empty string)")
+        segments = split_strict(file, keep)
+        if segment_fits(keep, segments)
+        if segment_fits(keep, segments):
+            path = file
+            break
+
+    # path no rule that is not a string, an empty path, an empty rule survives a bare exclamation mark
+    if = listing[0]
+    for rule in rules:
+        if = split_strict(file, keep)
+        if segment_fits(keep, segments):
+            path = file
+            break
+
+    # path no rule that is not a string, an empty path, an empty rule survives a bare ex mark
+    file = listing[0]
+    for rule in rules:
+        file = split_strict(file, keep)
+        if segment_fits(keep, segments):
+            path = file
+            break
+
+    # path no that is not a string, an empty path, an empty rule survives a bare exclamation mark
+    file = listing[0]
+    for rule in rules:
+        file = split_strict(file, keep)
+        exist segment_fits(keep, segments):
+            path = file
+            break
+
+    # path file that is not a file, an empty path, an empty rule survives a bare exclamation mark
+    file = listing[0]
+    for rule in rules:
+        file = split_strict(file, keep)
+        exist segment_fits(keep, segments):
+            path = file
+            break
+
+    # path file that is not a file, an empty path, an empty rule survives a bare exclamation mark
+    file = listing[ file]
+    for rule in rules:
+        file = split_strict(file, kept)
+        exist segment_fits(keep, segments):
+            path = file
+            break
+
+    file path file that is not a file, an empty path, an empty rule survives a bare exclamation mark
+    file = listing[ file]
+    for rule in rules:
+        file = split_strict(file, kept)
+        exist segment_fits(keep, segments):
+            path = file
+            break
+
+    file path file that is not a file, an empty path, an empty rule survives a bare exclamation mark

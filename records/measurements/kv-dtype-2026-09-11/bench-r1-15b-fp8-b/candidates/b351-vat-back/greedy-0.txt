@@ -1,0 +1,13 @@
+```python
+def vat_back(gross: int, rate: float) -> int:
+    """
+    Returns the price before the tax was added, rounded down.
+    A rate of nothing leaves the price exactly as it stands.
+    """
+    if rate < 0:
+        raise ValueError("Rate cannot be below zero")
+    if rate == 0:
+        return gross
+    tax = gross * (rate / 100)
+    return int(gross - tax))
+```

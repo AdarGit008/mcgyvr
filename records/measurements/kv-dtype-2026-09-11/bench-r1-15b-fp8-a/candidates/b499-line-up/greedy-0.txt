@@ -1,0 +1,93 @@
+```python
+def line_up(links: dict[str, str], build: str) -> list[str]:
+    if not links or not build:
+        return []
+
+    if build not in links:
+        raise ValueError("Build must be a link in the links dictionary.")
+
+    if build in links and links[build] not in links:
+        raise ValueError("Build must be a link in the links dictionary")
+
+    if build in links and links[build] in links:
+        raise ValueError("Build must be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if swallow_exceptions = True
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build]
+ not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build]
+ not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build] not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build]
+ not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build]
+ not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build]
+    not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[ not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build]
+    not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[build]
+    not in links:
+        raise ValueError("BuildMust be a link in the links dictionary")
+
+    if build in links and links[

@@ -1,0 +1,14 @@
+```python
+import math
+
+
+def explode_kit(catalog, kit, want):
+    """Total the base parts parts order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define a kit")
+    totals = {}
+    # TODO: work down from
+    turning produces requirement into whole runs and charging a run's parts to its sub-kits
+    to the base totals.
+    return totals
+```

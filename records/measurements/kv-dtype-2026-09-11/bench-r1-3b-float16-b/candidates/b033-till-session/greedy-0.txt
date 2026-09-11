@@ -1,0 +1,91 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    if not events:
+        return {
+            "items": [],
+            "total": 0,
+            "paid": 0,
+            "change": 0,
+        }
+
+    cart = {}
+    total = 0
+    paid = 0
+    state = OPEN
+
+    for event in events:
+        if len(event) != 2:
+            raise ValueError("event must be a list of two elements")
+
+        action, payload = event
+
+        if action == OPEN:
+            if state != OPEN:
+                raise ValueError("cannot start a new session while another is open")
+            cart = {}
+            total = 0
+            paid = 0
+            state = OPEN
+        elif action == PAYMENT:
+            if state != PAYMENT:
+                raise ValueError("cannot enter payment state while another state is active")
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("pay amount must be a positive integer")
+            if paid >= total:
+                raise ValueError("cannot pay more than the total")
+            change = paid - total
+            state = PAID
+        elif action == PAID:
+            if state != PAID:
+                raise ValueError("cannot enter paid state while another state is active")
+            state = CANCELLED
+        elif action == CANCELLED:
+            if state != CANCELLED:
+                raise ValueError("cannot enter cancelled state while another state is active")
+            state = CANCELLED
+        elif action == "scan":
+            if state != OPEN:
+                raise ValueError("cannot scan while another state is active")
+            item_name = payload
+            if item_name not in prices:
+                raise ValueError("unknown item: " + item_name)
+            if item_name in cart:
+                cart[item_name] += 1
+            else:
+                cart[item_name] = 1
+            price = prices[item_name]
+            total += price
+        elif action == "void":
+            if state != OPEN:
+                raise ValueError("cannot void while another state is active")
+            item_name = payload
+            if item_name not in cart:
+                raise ValueError("item not in cart: " + item_name)
+            if cart[item_name] > 0:
+                cart[item_name] -= 1
+                if cart[item_name] == 0:
+                    del cart[item_name]
+                price = prices[item_name]
+                total -= price
+        else:
+            raise ValueError("unknown action: " + action)
+
+    if state != OPEN and state != CANCELLED:
+        raise ValueError("session ended in an illegal state")
+
+    items = sorted(cart.items())
+    return {
+        "items": items,
+        "total": total,
+        "paid": paid,
+        "change": change,
+    }
+```

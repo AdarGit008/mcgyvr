@@ -1,0 +1,23 @@
+```python
+def check_digit(code: str) -> int:
+    """
+    Calculate the check digit for a given code string.
+    
+    The check digit is the single digit that would have to be appended to the code
+    to make the total sum of its digits a multiple of ten. If the code contains
+    non-digit characters, a ValueError is raised. If the code is empty, a zero is returned.
+    """
+    if not code.isdigit():
+        raise ValueError("Code must contain only digits.")
+    
+    if not code:
+        return 0
+    
+    total = sum(int(digit) for digit in code)
+    remainder = total % 10
+    
+    if remainder == 0:
+        return 0
+    else:
+        return 10 - remainder
+```

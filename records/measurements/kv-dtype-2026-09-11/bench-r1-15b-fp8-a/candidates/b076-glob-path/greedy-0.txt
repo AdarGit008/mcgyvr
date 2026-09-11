@@ -1,0 +1,111 @@
+```python
+def glob_path(pattern: str, path: str) -> bool:
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must not be a non-string")
+    if not isinstance(path, str):
+        raise ValueError("Path must not be a non-string")
+    if not pattern:
+        raise ValueError("Pattern must not be an empty string")
+    if not path:
+        raise ValueError("Path must not be an empty string")
+
+    if pattern == path:
+        return True
+
+    if pattern == '**':
+        return path == path
+
+    if pattern == '*':
+        return path == path
+
+    if pattern == '?':
+        return path == path
+
+    if pattern == '*?':
+        return path == path
+
+    if pattern == '*.*':
+        return path == path
+
+    if pattern == '*.*?':
+        return path == path
+
+    if pattern == '*.*.*':
+        return path == path
+
+    if pattern == '*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*':
+        return path == path
+
+    if pattern == '*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*':
+        return path == path
+
+    if pattern == '*.*.*.*.*':
+        return path == path
+
+    if pattern == '*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern == '*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?':
+        return path == path
+
+    if pattern ==

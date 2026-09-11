@@ -1,0 +1,16 @@
+```python
+def repeat_text(phrase: str, count: int, str) -> str:
+    """
+    Return a phrase written out a given number of times,
+    the copies joined by a stated separator.
+    Asking for one copy gives the phrase alone with no separator,
+    and asking for none or fewer gives empty text.
+    """
+    if phrase == "":
+        return ""
+    if text == 0:
+        return phrase
+    if text < 0:
+        return phrase * text
+    return phrase * text + separator
+```

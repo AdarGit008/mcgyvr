@@ -1,0 +1,13 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    if length < 0 or tile <= 0:
+        raise ValueError("Length and tile size must be non-negative.")
+    return -(-length // tile)  # Ceiling division
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    if width < 0 or height < 0 or tile <= 0 or spare < 0:
+        raise ValueError("Width, height, tile size, and spare percentage must be non-negative.")
+    
+    total_tiles = tiles_across(width, tile) * tiles_across(height, tile)
+    return -(-total_tiles * (1 + spare / 100))  # Ceiling division with allowance
+```

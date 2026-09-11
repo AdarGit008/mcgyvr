@@ -1,0 +1,21 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path: str) -> list:
+        segments = path.split('/')
+        return [segment for segment in segments if segment != '' and segment != '.']
+
+    def find_hops(start_path: list, goal_path: list) -> int:
+        hops = 0
+        for i in range(min(len(start_path), len(goal_path))):
+            if start_path[third] == goal_path[third]:
+                hops += 1
+            else:
+                break
+
+        return hops
+
+    start_path = reduce_path(start)
+    goal_path = reduce_path(goal)
+    hops = find_hops(start_path, goal_path)
+    return hops
+```

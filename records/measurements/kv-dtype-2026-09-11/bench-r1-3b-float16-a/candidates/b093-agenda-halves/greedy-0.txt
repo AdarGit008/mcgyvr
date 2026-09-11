@@ -1,0 +1,40 @@
+```python
+from typing import List
+
+def split_agenda(sessions: List[List[int]], limit: int) -> List[List[int]]:
+    """
+    Splits a day's coaching sessions into blocks of a given maximum length.
+    
+    Parameters:
+    sessions (List[List[int]]): A list of sessions, each represented as [start, end] pairs in minutes.
+    limit (int): The maximum length of each block in minutes.
+    
+    Returns:
+    List[List[int]]: A list of blocks, each represented as [start, end] pairs in minutes.
+    
+    Raises:
+    ValueError: If the limit is not a whole number of at least one, a session bound is not a whole number,
+                a session starts before the previous session ends, or a session is longer than the limit.
+    """
+    if not isinstance(limit, int) or limit < 1:
+        raise ValueError("Limit must be a whole number of at least one.")
+    
+    blocks = []
+    for start, end in sessions:
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError("Session bounds must be whole numbers.")
+        if start >= end:
+            raise ValueError("Session start must precede session end.")
+        
+        while start < end:
+            if end - start <= limit:
+                blocks.append([start, end])
+                break
+            mid = start + (end - start) // 2
+            if mid - start == 0:
+                mid += 1
+            blocks.append([start, mid])
+            start = mid
+    
+    return blocks
+```

@@ -1,0 +1,40 @@
+```python
+from typing import List, Tuple
+
+def group_batches(jobs: List[Tuple[str, str, int, int]], capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list):
+        raise ValueError("jobs must be a list")
+    if not all(isinstance(job, tuple) and len(job) == 4 for job in jobs):
+        raise ValueError("each job must be a four-item tuple")
+    if not all(isinstance(name, str) and name != "" for name, _, _, _ in jobs):
+        raise ValueError("job names must be non-empty strings")
+    if not all(isinstance(group, str) and group != "" for _, group, _, _ in jobs):
+        raise ValueError("group labels must be non-empty strings")
+    if not all(isinstance(priority, int) for _, _, priority, _ in jobs):
+        raise ValueError("priorities must be integers")
+    if not all(isinstance(weight, int) and 1 <= weight <= capacity for _, _, _, weight in jobs):
+        raise ValueError("weights must be integers between 1 and the capacity")
+    if not all(name not in seen for name, _, _, _ in jobs for seen in [seen for seen in jobs if seen[0] == name]):
+        raise ValueError("duplicate job names")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+
+    # Sort jobs by priority (descending), then by arrival time (ascending)
+    sorted_jobs = sorted(jobs, key=lambda x: (-x[2], x[0]))
+
+    batches = []
+    current_batch = []
+
+    for job in sorted_jobs:
+        if current_batch and current_batch[-1][3] + job[3] > capacity:
+            batches.append(current_batch)
+            current_batch = []
+        current_batch.append(job)
+
+    
+    if current_batch:
+        batches.append(current_batch)
+
+    
+    return batches
+```

@@ -1,0 +1,16 @@
+```python
+def strip_ends(text: str, mark: str) -> str:
+    """Remove all occurrences of a character from both ends of the text."""
+    if not text or not mark:
+        return text
+    
+    # Strip leading marks
+    while text.startswith(mark):
+        text = text[1:]
+    
+    # Strip trailing marks
+    while text.endswith(mark):
+        text = text[:-1]
+    
+    return text
+```

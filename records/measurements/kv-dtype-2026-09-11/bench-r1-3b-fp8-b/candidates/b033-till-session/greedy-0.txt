@@ -1,0 +1,91 @@
+```python
+from typing import Dict, List
+
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: List[List[str]], prices: Dict[str, int]) -> Dict[str]:
+    if not events:
+        return {
+            "state": OPEN,
+            "items": [],
+            "total": 0,
+            "paid": 0,
+            "change": 0
+        }
+
+    for name, price in prices.items():
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("price must be a positive integer: " + str(name))
+
+    cart = {}
+    total = 0
+    state = OPEN
+
+    for event in events:
+        action = events[0]
+        if state == OPEN:
+            if action == "scan":
+                item = events[1]
+                if item in prices:
+                    if item in cart:
+                        cart[item] += 1
+                    else:
+                        cart[item] = 1
+                    total += prices[item]
+                else:
+                    raise ValueError("unknown item: " + item)
+            elif action == "void":
+                item = events[1]
+                if item in cart:
+                    if cart[item] > 0:
+                        cart[item] -= 1
+                    if cart[item] == 0:
+                        del cart[item]
+                    total -= prices[item]
+                else:
+                    raise ValueError("unknown item: " + item)
+            elif action == "close":
+                if cart:
+                    state = PAYMENT
+                else:
+                    raise ValueError("empty cart")
+            else:
+                raise ValueError("illegal action: " + action)
+        elif state == PAYMENT:
+            if action == "pay":
+                paid = events[1]
+                if isinstance(paid, bool) or not isinstance(paid, int) or paid <= 0:
+                    raise ValueError("pay amount must be a positive integer")
+                if paid >= total:
+                    change = paid - total
+                    state = PAID
+                    return {
+                        "state": PAID,
+                        "items": sorted(cart.items()),
+                        "total": total,
+                        "paid": paid,
+                        "change": changes
+                    }
+                else:
+                    raise ValueError("insufficient funds")
+            elif action == "cancel":
+                state = CANCELLED
+                return {
+                    "state": CANCELLED,
+                    "items": sorted(cart.items()),
+                    "total": total,
+                    "paid": 0,
+                    "change": 0
+                }
+            else:
+                raise ValueError("illegal action: " + action)
+        elif state == PAID or state == CANCELLED:
+            raise ValueError("illegal action: " + action)
+
+    raise ValueError("illegal action: " + action)
+```

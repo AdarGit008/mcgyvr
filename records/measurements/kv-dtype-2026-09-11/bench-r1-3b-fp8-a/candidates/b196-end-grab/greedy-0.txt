@@ -1,0 +1,41 @@
+```python
+from typing import Dict
+
+def end_grab(cards: list) -> Dict[str, int]:
+    """
+    Calculate the totals and taken numbers for the end-grab game.
+
+    
+    Args:
+        cards: A list of integers representing the cards in the row.
+
+    Returns:
+        A dictionary with keys 'first', 'second', and 'taken' corresponding to the totals
+        collected by the first and second players, and the numbers taken in order order.
+    """
+    if not cards:
+        return {'first': 0, 'second': 0, 'taken': []}
+
+    totals = {'first': 0, 'second': 0}
+    taken = []
+
+    while cards:
+        if len(cards) == 1:
+            totals['first'] += cards[0]
+            taken.append(cards[0])
+            break
+
+        if cards[0] > cards[-1]:
+            totals['first'] += cards.pop(0)
+            taken.append(cards[0])
+        elif cards[0] < cards[-1]:
+            totals['second'] += cards.pop(-1)
+            taken.append(cards[-1])
+        else:
+            totals['first'] += cards.pop(0)
+            taken.append(cards[0])
+            totals['second'] += cards.pop(-1)
+            taken.append(cards[-1])
+
+    return totals
+```

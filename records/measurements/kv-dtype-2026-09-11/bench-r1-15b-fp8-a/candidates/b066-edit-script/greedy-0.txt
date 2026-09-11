@@ -1,0 +1,77 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string")
+    if not all op in ["copy", "skip", "insert"] for op in script]:
+        raise ValueError("Unknown op name")
+    if not all isinstance(op[1], int) for op in script:
+        raise ValueError("Copy check skip count must be a positive integer")
+    if not all isinstance(op[2], str) for op in script:
+        raise ValueError("Insert text must be a non-empty string")
+    if not all isinstance(op[0, int) for op in script:
+        raise ValueError("Op must not read past the end of the original")
+    if not all isinstance(op[2], int) for op in script:
+        raise ValueError("Operation must not stop before the original")
+    if not all isinstance(op[1, int) for op in script:
+        raise ValueError("Operation must not read past the end of the original")
+    if not all isinstance(op[2], int) for op in script:
+        raise ValueError("Operation must not read past the end of the original")
+    if not all isinstance(op[1, int) for op in script:
+        raise ValueError("Operation must not read past the end of the original")
+    if not all is op[1] and file is op op[2):
+        raise ValueError("Operation must not overlap")
+    if not file is op[1] and file is op[2):
+        raise ValueError(" operations must not overlap")
+    if not file is op[1 file and file is op[2):
+        raise ValueError(" operations must not overlap")
+    if not file is op[1 file and file is op[2):
+        raise ValueError(" operations must not overlap")
+    if not file is op[1 file and file is op[2):
+        raise ValueError(" operations must must not overlap")
+    if not isinstance(op[1 file and file is op[2):
+        raise ValueError(" operations file must not overlap")
+    if not isinstance(op[1 file and file is op[2):
+        raise ValueError(" operations file must not overlap")
+    if = op[1]
+
+    result = ""
+    i_index = 0
+    for i i range(len(original)):
+        if = False
+        if_index += 1
+        if file_index > len(original):
+            break
+        if_index += op[1]
+        if_index += op[2]
+
+        if file_index > len(original):
+            break
+        if_index += op[1]
+        if_index += op[2]
+        if = True_index > len(original)
+        if = file_index > len(original)
+        if_index += op[1]
+        file_index += op[2]
+        if = file_index > len(original)
+        if_index += op[1]
+        file_index += op[2]
+        file = file_index > len(original)
+        file_index += op[1]
+        file_index += op[3]
+        file = file_index > len(original)
+        file_index += op[1]
+        file_index += op[3]
+        file = file_index > len(original)
+        file_index += op[1]
+        file_index += op[
+        file = file_index > len(original)
+        file_index += op[3)
+        file = file_index > len(original)
+        file_index += op[3)
+        file = file_index > len(original)
+        file_index += op[
+        file = file_index > len(original)
+        file_index += file[
+        file = file_index > len(original)
+        file_index += file file
+        file = file_index > len

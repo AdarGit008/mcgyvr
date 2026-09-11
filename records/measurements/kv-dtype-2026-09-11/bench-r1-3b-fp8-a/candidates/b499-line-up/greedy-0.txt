@@ -1,0 +1,30 @@
+```python
+from typing import *
+from collections import *
+
+def line_up(links: dict[str, str], start: str) -> list[str]:
+    """
+    Returns a list of names in the order they should stand up based on the given links.
+    Raises ValueError if a link runs in a circle.
+    """
+    if start not in links:
+        raise ValueError("Start name not found in links.")
+    
+    visited = set()
+    stack = [start]
+    result = []
+
+    while stack:
+        current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        result.append(current)
+        if current in links:
+            next_name = links[current]
+            if next_name in visited:
+                raise ValueError("Link runs in a circle.")
+            stack.append(next_name)
+
+    return result
+```

@@ -1,0 +1,30 @@
+```python
+def drive_bridge(commands: list) -> str:
+    """
+    Applies a sequence of bridge commands to a span that starts lowered.
+    Returns the final state of the span as 'lowered', 'raised', or 'locked'.
+    Raises ValueError for invalid commands or states.
+    """
+    if not isinstance(commands, list):
+        raise ValueError("Commands must be a list.")
+    
+    states = ['lowered', 'raised', 'locked']
+    current_state = 'lowered'
+    
+    for command in commands:
+        if command not in states:
+            raise ValueError(f"Invalid command '{command}'.")
+        
+        if command == 'raise' and current_state == 'lowered':
+            current_state = 'raised'
+        elif command == 'lower' and current_state == 'raised':
+            current_state = 'lowered'
+        elif command == 'lock' and current_state == 'raised':
+            current_state = 'locked'
+        elif command == 'unlock' and current_state == 'locked':
+            current_state = 'raised'
+        else:
+            raise ValueError(f"Command '{command}' not allowed in current state '{current_state}'.")
+    
+    return current_state
+```

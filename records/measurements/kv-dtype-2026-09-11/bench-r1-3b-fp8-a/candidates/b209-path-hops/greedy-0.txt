@@ -1,0 +1,47 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    """
+    Calculate the number of hops between two paths under a shared root.
+    
+    Parameters:
+    - start: A string representing the start path.
+    - goal: A string representing the goal path.
+    
+    Returns:
+    - An integer representing the number of hops between the start and goal paths.
+    """
+    def reduce_path(path: str) -> list:
+        """Reduce a path to its list of segments."""
+        segments = path.split('/')
+        reduced_segments = []
+        i = 0
+        while i < len(segments):
+            if segments[i] == '':
+                i += 1
+                continue
+            elif segments[i] == '.':
+                i += 1
+                continue
+            elif segments[i] == '..':
+                if i == 0:
+                    raise ValueError("Invalid path: cannot drop a segment from the root.")
+                reduced_segments.pop()
+                i += 1
+            else:
+                reduced_segments.append(segments[i])
+                i += 1
+        return reduced_segments
+
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+
+    
+    common_prefix_length = 0
+    for i in range(min(len(start_segments), len(goal_segments))):
+        if start_segments[i] != goal_segments[i]:
+            break
+        common_prefix_length += 1
+
+    hops = len(start_segments) - common_prefix_length + len(goal_segments) - common_prefix_length
+    return hops
+```

@@ -1,0 +1,49 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    """
+    Applies an edit script to the original string and returns the edited string.
+    
+    :param original: The original string to be edited.
+    :param script: A list of two-item operations: ["copy", n], ["skip", n], or ["insert", text].
+    :return: The edited string.
+    :raises ValueError: If the original is not a string, the script contains an unknown operation,
+                         the count is not a positive integer, the text is not a non-empty string,
+       or the script does not walk off the end of the original.
+    """
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string.")
+    
+    if not all(isinstance(op, list) and len(op) == 2 for op in script):
+        raise ValueError("Script must be a list of two-item operations.")
+    
+    if not all(isinstance(count, int) and count > 0 for _, count in script):
+        raise ValueError("Count must be a positive integer.")
+    
+    if not all(isinstance(text, str) and text != "" for _, text in script):
+        raise ValueError("Text must be a non-empty string.")
+    
+    result = ""
+    original_index = 0
+    
+    for op, count in script:
+        if op == "copy":
+            if original_index + count > len(original):
+                raise ValueError("Script cannot read past the end of the original.")
+            result += original[original_index:original_index + count]
+            original_index += count
+        elif op == "skip":
+            if original_index + count > len(original):
+                raise ValueError("Script cannot read past the end of the original.")
+            original_index += count
+        elif op == "insert":
+            if not isinstance(text, str) or text == "":
+                raise ValueError("Text must be a non-empty string.")
+            result += text
+        else:
+            raise ValueError(f"Unknown operation: {op}")
+    
+    if original_index != len(original):
+        raise ValueError("Script must walk off the end of the original.")
+    
+    return result
+```

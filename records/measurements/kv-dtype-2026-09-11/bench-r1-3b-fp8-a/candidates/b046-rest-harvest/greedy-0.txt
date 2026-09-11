@@ -1,0 +1,33 @@
+```python
+def best_harvest(yields: list) -> int:
+    """
+    Calculate the maximum harvest possible given a list of daily yields.
+    
+    Parameters:
+    yields (list): A list of non-negative integers representing daily yields.
+    
+    Returns:
+    int: The maximum harvest possible.
+    """
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list.")
+    
+    if not all(isinstance(y, int) and y >= 0 for y in yields):
+        raise ValueError("All elements in the list must be non-negative integers.")
+    
+    if not yields:
+        return 0
+    
+    max_harvest = 0
+    current_harvest = 0
+    
+    for i in range(len(yields)):
+        if i % 2 == 0:
+            current_harvest += yields[i]
+        else:
+            current_harvest -= yields[i]
+        
+        max_harvest = max(max_harvest, current_harvest)
+    
+    return max_harvest
+```

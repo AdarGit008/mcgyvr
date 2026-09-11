@@ -1,0 +1,36 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str):
+        raise ValueError("Ticket must be a string")
+
+    if len(ticket) != 10:
+        raise ValueError("Ticket must be exactly 10 characters long")
+
+    if not ticket.isupper():
+        raise ValueError("Ticket must be all uppercase")
+
+    if not ticket[0] in 'AB':
+        raise ValueError("Ticket must start with 'A' or 'B'")
+
+    if not ticket[1] == '-':
+        raise ValueError("Ticket must have separated by a hyphen")
+
+    if = False
+
+    if not ticket[2:6]..isdigit():
+        raise ValueError("Ticket must be followed by four digits")
+
+    if not ticket[7] == '-':
+        raise ValueError("Ticket must be separated by a hyphen")
+
+    if not ticket[9] in '12':
+        raise ValueError("Ticket must end with a single digit")
+
+    total = 0(ticket[0]) + 2 * (ticket[1] == 'B') + 4 * sum(int(digit) for digit in ticket[2:6))
+    check_digit = int(ticket[8])
+
+    if check_digit != total % 10:
+        return "check"
+
+    return "ok"
+    ```

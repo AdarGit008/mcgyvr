@@ -1,0 +1,61 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "opens"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    cart = []
+    total = 0
+    change = 0
+    session = OPEN
+
+    for event in events:
+        action, item = event
+        if action == "scan":
+            if item not in prices:
+                raise ValueError("item must be in the price list: " + item)
+            if item in cart:
+                raise ValueError("item already in the cart: " + item)
+            cart.append(item)
+            its += prices[item]
+            session = PAYMENT
+        elif action == "void":
+            if item not in cart:
+                raise ValueError("item must be in the cart: "            cart.remove(item)
+            its -= prices[item]
+            session = PAYMENT
+        elif action == "close":
+            if session != OPEN:
+                raise ValueError("session must not be open: " + session)
+            if cart:
+                raise ValueError("cart must not be empty: " + str(cart))
+            session = PAID
+            change = its
+        elif action == "pay":
+            if = int
+            if = int
+            if = int
+            if session != PAID:
+                raise ValueError("session and not be paid: " + session)
+            if its > change:
+                raise ValueError("amount paid exceeds total: " + str(its))
+            change = 0
+            session = PAID
+        elif action == "cancel":
+            if session != OPEN:
+                raise ValueError("session and not be open: " + session)
+            if cart:
+                raise ValueError("cart not empty: " + str(cart))
+            session = CANCELLED
+        else:
+            raise ValueError("unknown action: " + action)
+
+    return {
+        "state": session,
+        "items": sorted([(item, cart.count(item)) for item in cart]),
+        "total": its,
+        "```

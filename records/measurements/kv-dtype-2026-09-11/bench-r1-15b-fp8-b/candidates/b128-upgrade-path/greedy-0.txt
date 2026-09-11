@@ -1,0 +1,19 @@
+```python
+"""V a device's proposed firmware upgrade path and report the final tag."""
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    if not isinstance(installed, str):
+        raise ValueError("installed must not be a string")
+    if not isinstance(steps, list):
+        raise ValueError("steps must not be a list")
+    if not steps:
+        return installed
+
+    installed_tag = installed
+    for step in steps:
+        if not isinstance(step, dict):
+            raise ValueError(f"step {step['tag']} is not a dictionary")
+        if not 'tag' in step:
+            raise ValueError(f"step {step['tag']} is missing a 'tag' key")
+        if not '```

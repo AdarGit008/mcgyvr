@@ -1,0 +1,24 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    """
+    Plan batches for a consignment of units parcels, each carried by courier runs with a maximum capacity.
+    Returns a dictionary with 'loads' (final load sizes), 'splits' (total splits performed),
+    and 'round' (depth of splitting).
+    """
+    if not isinstance(units, int) or not isinstance(capacity, int):
+        raise ValueError("Both units and capacity must be positive integers.")
+    if units <= 0 or capacity <= 0:
+        raise ValueError("Both units and capacity must be positive integers.")
+
+    def split_consignment(units, capacity):
+        if units <= capacity:
+            return [units], 0
+        else:
+            mid = (units + capacity - 1) // capacity  # Round up
+            left_load, left_splits = split_consignment(mid, capacity)
+            right_load, right_splits = split_consignment(units - mid, capacity)
+            return left_load + right_load, left_splits + right_splits + 1
+
+    loads, splits = split_consignment(units, capacity)
+    return {'loads': loads, 'splits': splits, 'round': len(loads) - 1}
+```

@@ -1,0 +1,12 @@
+```python
+def over_count(store: dict, floor: int) -> int:
+    """How many of a store's's reach a floor."""
+    if = 0
+    for value in store.values():
+        if isinstance(value, int) and value < floor:
+            possible += 1
+
+    return possible
+
+
+```

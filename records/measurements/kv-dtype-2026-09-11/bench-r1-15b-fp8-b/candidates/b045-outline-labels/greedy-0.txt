@@ -1,0 +1,24 @@
+```python
+from typing import List, Mapping
+
+def number_sections(sections: list) -> list:
+    if not isinstance(sections, list):
+        raise ValueError("sections must a list")
+    if not all(sections):
+        return []
+    if not isinstance(sections[0],],], Mapping):
+        raise ValueError("sections[0[0")
+    if(sections[0[0])
+    return [f"{ 1 + len(number_sections(sections[0[0])) - 1, sections[0[0]))['heading']}
+
+def count_sections(sections: list) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("sections is a list")
+    if not sections:
+        return 0
+    if not isinstance(sections[0[0], list):
+        raise ValueError("sections[0[0]) is a list")
+    if not isinstance(sections[0[0])['heading'], str):
+        raise ValueError("sections[0[0])['heading'] is a non-empty string")
+    return len(sections)
+```

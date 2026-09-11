@@ -1,0 +1,20 @@
+```python
+def take_back(values: list, target: int) -> int:
+    """
+    Returns the number of elements to take from the end of the list to reach or exceed the target sum.
+    Returns -1 if the target cannot be reached.
+    """
+    if not values or target <= 0:
+        raise ValueError("Invalid input: values must be non-empty and target must be positive.")
+    
+    total = sum(values)
+    if total < target:
+        return -1
+    
+    for i in range(len(values)):
+        total -= values[i]
+        if total >= target:
+            return len(values) - i - 1
+```
+
+This implementation calculates the sum of the list and checks if it is less than the target. If it is, it returns -1. Otherwise, it iterates through the list, subtracting each element from the total until the total is greater than or equal to the target. The number of elements taken from the end is returned as the result.

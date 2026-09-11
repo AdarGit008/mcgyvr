@@ -1,0 +1,11 @@
+```python
+def field_of(record: dict, field: str) -> int:
+    if field not in record:
+        raise ValueError(f"Record { {field} not found")
+    return record[field]
+
+def sort_pairs(records: list, field: str) -> list:
+    if not records:
+        return []
+
+    # #    #    # #    #    return sorted(records, key=lambda x: (field_of(expose, field),    return sorted(records, key=lambda expose: (field_of(expose, field),

@@ -1,0 +1,50 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    key, eq, raw = segment.partition("=")
+    if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    if not isinstance(text, str):
+        raise ValueError("input must be a string")
+    if text == "":
+        return []
+
+    result = []
+    current_segment = ""
+    in_quotes = False
+
+    for char in text:
+        if char == '"':
+            if in_quotes:
+                if current_segment.endswith('"'):
+                    current_segment = current_segment[:-1]
+                    in_quotes = False
+                else:
+                    raise ValueError("unterminated quote in option segment")
+            else:
+                in_quotes = True
+        elif char == ';':
+            if in_quotes:
+                current_segment += char
+            else:
+                result.append(parse_option(current_segment))
+                current_segment = ""
+        else:
+            current_segment += char
+
+    if in_quotes:
+        raise ValueError("unterminated quote in option segment")
+
+    if current_segment:
+        result.append(parse_option(current_segment))
+
+    return result
+```

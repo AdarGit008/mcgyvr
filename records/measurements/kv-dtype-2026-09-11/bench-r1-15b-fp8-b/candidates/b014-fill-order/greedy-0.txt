@@ -1,0 +1,52 @@
+
+- The function does not handle the case where needed is not a positive integer.
+- The function does not handle the case where sources is not a list of pairs of positive integers.
+- The function does not handle the case where sources in any cannot cover needed.
+- The function does not handle the case where sources in any is cannot cover needed.
+- The function does not handle the case where sources in any file cannot cover needed.
+- The function does not handle the case where in cannot cover needed.
+- The function does not handle the case where in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the case sources in any cannot cover needed.
+- The function does not handle the

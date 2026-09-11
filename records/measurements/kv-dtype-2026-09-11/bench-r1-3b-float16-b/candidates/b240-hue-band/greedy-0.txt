@@ -1,0 +1,23 @@
+```python
+def hue_band(degrees: int) -> str:
+    """
+    Determine the color band of a given hue in degrees.
+    
+    Args:
+    degrees (int): The hue in degrees, where 0 <= degrees < 360.
+    
+    Returns:
+    str: The color band ('red', 'green', 'blue') corresponding to the hue.
+    """
+    if degrees < 0:
+        degrees += 360
+    
+    if degrees < 60:
+        return "red"
+    elif degrees < 180:
+        return "green"
+    elif degrees < 300:
+        return "blue"
+    else:
+        return "red"
+```

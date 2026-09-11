@@ -1,0 +1,34 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """
+    Returns a list of substrings between matching opening and closing markers.
+    """
+    if not opens or not closes:
+        raise ValueError("opens and closes must not be empty")
+    
+    stack = []
+    result = []
+    open_index = -1
+    
+    for i, char in enumerate(line):
+        if char in opens:
+            if stack:
+                # If there's an open marker without a matching close, it's a mistake
+                raise ValueError("Closing marker standing alone is a mistake")
+            open_index = i
+            stack.append(char)
+        elif char in closes:
+            if not stack:
+                # If there's a close marker without a matching open, it's a mistake
+                raise ValueError("Closing marker standing alone is a mistake")
+            if open_index != -1:
+                result.append(line[open_index + 1:i])
+                open_index = -1
+            stack.pop()
+    
+    if stack:
+        # If there are unmatched open markers, it's a mistake
+        raise ValueError("Closing marker standing alone is a mistake")
+    
+    return result
+```

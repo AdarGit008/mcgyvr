@@ -1,0 +1,55 @@
+```python
+from typing import Dict
+
+def column_digest(rows: list, column: int) -> Dict[str, float]:
+    """
+    Summarize the column at the given zero-based index.
+    
+    Parameters:
+    rows (list of list of numbers): The sheet as a list of rows.
+    column (int): The zero-based index of the column to summarize.
+    
+    Returns:
+    dict: A mapping of five fields: count, how many cells were read;
+          min and max, the smallest and the largest of them;
+          mean, their average; and median, the middle cell of them once sorted,
+          or the average of the two middle cells when the count is even.
+    """
+    if column < 0:
+        raise ValueError("Column index cannot be negative.")
+    
+    count = 0
+    cells = []
+    
+    for row in rows:
+        if column < len(row):
+            cells.append(row[column])
+            count += 1
+    
+    if count == 0:
+        return {
+            'count': 0,
+            'how_many_cells_read': 0,
+            'min': 0,
+            'max': 0,
+            'mean': 0,
+            'median': 0
+        }
+    
+    min_value = min(cells)
+    max_value = max(cells)
+    mean_value = sum(cells) / count
+    median_value = sorted(cells)[count // 2]
+    
+    if count % 2 == 0:
+        median_value = (sorted(cells)[count // 2 - 1] + sorted(cells)[count // 2]) / 2
+    
+    return {
+        'count': count,
+        'how_many_cells_read': count,
+        'min': round(min_value, 2),
+        'max': round(max_value, 2),
+        'mean': round(mean_value, 2),
+        'median': round(median_value, 2)
+    }
+```

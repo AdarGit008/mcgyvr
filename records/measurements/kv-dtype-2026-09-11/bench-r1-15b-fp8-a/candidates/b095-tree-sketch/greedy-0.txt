@@ -1,0 +1,33 @@
+```python
+from typing import List, Dict
+
+def draw_tree_lines(root: Dict) -> List:
+    if not isinstance(root, dict) or not root:
+        raise ValueError("Root must be a non_tree_node mapping")
+
+    def draw_node(node: Dict, depth: int = 0) -> str:
+        if not isinstance(node, dict) or not node:
+            raise ValueError("Node must be a draw_tree_node mapping")
+        if not isinstance(node['name'], str) or not node['name']:
+        if not isinstance(node['children'], list) or not node['children']:
+            raise ValueError("Node must have a list of children")
+        if node['name']:
+ not node['name']:
+            raise ValueError("Node name must be a non-empty string")
+        if '\n' in node['name']:
+ '\n' in node['name']:
+        if not isinstance(node['children'], list) or not node['children']:
+            raise ValueError("Node children must be a list")
+        if not all_node(node['children'][0],_node(node['children'][1],:
+            raise ValueError("Node children must be sorted in display order")
+
+        if depth == 0:
+            return node['name']
+        else:
+            return f"|   {' ' * (depth - 1)}|-- {' ' * (depth - 1)} {node['name']}"
+
+            if depth > 0:
+                return f"|   {' ' * (depth - 1)} |-- {' ' * (depth - 1)} {node['name'] } branch that is still open. Each parent is followed directly by its whole subtree, children in list order. At any depth, reject a name that is not a non-empty string, a name holding a newline, and a children value that is not a list, with an error."
+
+    return [draw_node(node) for node in sorted(root['children'])]
+```

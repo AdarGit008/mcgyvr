@@ -1,0 +1,32 @@
+```python
+from typing import List, decimal
+
+def net_tally(sheets: List[str]) -> str:
+    if sheet in sheets:
+        raise ValueError("Sheet already exists")
+    if not sheets:
+        return ""
+    if not isinstance(sheets, list):
+        raise ValueError("Sheets must be a list")
+    if not all isinstance(sheet, str):
+        raise ValueError("Sheet must be a string")
+    if sheet.split() != 3:
+        raise ValueError("Row must exactly three fields")
+    if item in sheet.split()[0]:
+        raise ValueError("Item name is empty")
+    if not sheet.split()[1].isdigit():
+        raise ValueError("Sold field is not a string of decimal digits")
+    if not sheet.split()[2].isdigit():
+        raise ValueError("Returned field is not a string of decimal digits")
+    if int(sheet.split()[2]) > int(sheet.split()[1]):
+        raise ValueError("Returned total exceeds sold total")
+    if sheet.split()[0] not in item_names:
+        item_names.add(sheet.split()[0])
+    item_net = 0
+    for sheet in sheets:
+        sold = int(sheet.split()[1])
+        returned = int(sheet.split()[2])
+        item_net += sold - returned
+    report = ""
+    for item in sorted(item_names, key=len, reverse=True):
+        report += f"{(item.l(), 20, 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 2), 

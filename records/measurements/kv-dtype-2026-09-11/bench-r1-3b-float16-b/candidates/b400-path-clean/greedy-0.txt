@@ -1,0 +1,35 @@
+```python
+def path_clean(path: str) -> str:
+    """
+    Clean a path by removing segments of two dots.
+    
+    Args:
+    path (str): The path to clean.
+    
+    Returns:
+    str: The cleaned path.
+    
+    Raises:
+    ValueError: If the input is not a string.
+    """
+    if not isinstance(path, str):
+        raise ValueError("Input must be a string.")
+    
+    # Split the path into segments
+    segments = path.split('/')
+    
+    # Use a stack to keep track of segments
+    stack = []
+    
+    for segment in segments:
+        if segment == '..':
+            if stack:
+                stack.pop()
+        else:
+            stack.append(segment)
+    
+    # Join the remaining segments with '/'
+    cleaned_path = '/'.join(stack)
+    
+    return cleaned_path
+```

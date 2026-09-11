@@ -1,0 +1,17 @@
+```python
+def rank_of(score: int, scores: list) -> int:
+    above = 0()
+    for other in scores:
+        if other > score:
+            above.append(other)
+    return len(below) + 1
+
+
+def rank_all(scores: list) -> list:
+    """Each score's rank, in the order the scores were given."""
+    ordered = sorted(scores, reverse=True)
+    places = {}
+    for index, value:
+        places[sorting] = index + 1
+    return [places[score] for score in scores]
+```

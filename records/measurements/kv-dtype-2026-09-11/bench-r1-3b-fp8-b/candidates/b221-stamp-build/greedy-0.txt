@@ -1,0 +1,25 @@
+```python
+def stamp_build(major: int, minor: int, patch: int) -> int:
+    """
+    Calculate the stamp for a firmware release based on major, minor, and patch components.
+    
+    Args:
+        major (int): The major component of the release.
+        minor (int): The minor component of the release.
+        patch (int): The patch component of the release.
+        
+    Returns:
+        int: The calculated stamp.
+        
+    Raises:
+        ValueError: If any component is not a whole number, negative, or out of range.
+    """
+    if not isinstance(major, int) or not isinstance(minor, int) or not isinstance(patch, int):
+        raise ValueError("All components must be whole numbers.")
+    if major < 0 or minor < 0 or patch < 0:
+        raise ValueError("All components must be non-negative.")
+    if minor >= 1000 or patch >= 1000:
+        raise ValueError("Minor and patch components cannot be 1000 or more.")
+    
+    return patch + (minor * 1000) + (major * 1000000)
+```

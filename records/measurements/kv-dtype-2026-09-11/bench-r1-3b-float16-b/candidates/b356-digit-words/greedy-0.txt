@@ -1,0 +1,41 @@
+```python
+def digit_word(digit: int) -> str:
+    """
+    Convert a single digit (0-9) to its English word representation.
+    
+    Args:
+    digit (int): A single digit between 0 and 9.
+    
+    Returns:
+    str: The English word corresponding to the digit.
+    
+    Raises:
+    ValueError: If the input is not a single digit.
+    """
+    if not isinstance(digit, int) or digit < 0 or digit > 9:
+        raise ValueError("Input must be a single digit between 0 and 9.")
+    
+    words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+    return words[digit]
+
+def digit_words(digits: str) -> str:
+    """
+    Convert a string of digits into a space-separated string of their English words.
+    
+    Args:
+    digits (str): A string containing only numeric characters.
+    
+    Returns:
+    str: A space-separated string of English words representing the digits.
+    
+    Raises:
+    ValueError: If the input contains non-digit characters.
+    """
+    if not digits.isdigit():
+        raise ValueError("Input must contain only numeric characters.")
+    
+    words = []
+    for char in digits:
+        words.append(digit_word(int(char)))
+    return ' '.join(words)
+```

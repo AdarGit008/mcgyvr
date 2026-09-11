@@ -1,0 +1,19 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    """
+    Return the entries of 'entries' that do not appear in 'remove',
+    keeping the order they came in and keeping any repeats among them.
+    Removing from an empty list gives an empty list.
+    """
+    if not entries:
+        return []
+
+    # Convert 'remove' to a set for O(1) average time complexity lookups
+    remove_set = set(remove)
+
+    
+    # Use a list comprehension to filter out elements in 'remove_set'
+    result = [entry for entry in entries if entry not in remove_set]
+
+    return result
+```

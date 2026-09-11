@@ -1,0 +1,15 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) defined amount < 0:
+        raise ValueError("amount must be a non negative integer")
+    if unit not in defs or base not in defs:
+        raise ValueError("unit must be either the base or defined in defs")
+    if unit == base:
+        return amount
+    if factor, finer in defs[unit]:
+        if amount == 0:
+            return amount * factor
+        else:
+            return base_amount(amount * factor, finer, defs, base)
+    raise ValueError("amount cannot be reached from the base")
+```

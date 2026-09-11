@@ -1,0 +1,21 @@
+```python
+"""V a device's proposed firmware upgrade path and report the final tag."""
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    if not isinstance(installed, str):
+        raise ValueError("installed must not be a string")
+    if not isinstance(steps, list):
+        raise ValueError("steps must not be a list")
+    if not steps:
+        return installed
+
+    installed_parts = installed.split('.')
+    steps_parts = [step.split('.') for step in steps]
+
+    if not all installed_parts or not steps_parts:
+        raise ValueError("installed or steps must not be empty")
+
+    for i, step in enumerate(steps_parts):
+        if len(step) != 2:
+            raise ValueError(f"step {```

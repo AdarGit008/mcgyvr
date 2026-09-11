@@ -1,0 +1,26 @@
+```python
+from typing import Dict, List, ValueError
+
+def trace_relay(links: Dict[str, str], start: str) -> List[str]:
+    if not isinstance(start, str) or start not in links:
+        raise ValueError("invalid starting station")
+    
+    if start == "":
+        raise ValueError("starting station cannot be an empty string")
+
+    path = []
+    current = start
+    visited = set()
+
+    while current not in visited:
+        path.append(current)
+        visited.add(current)
+        target = links.get(current)
+        if target is None or target == "":
+            raise ValueError("broken link encountered")
+        if target in visited:
+            raise ValueError("circular relay detected")
+        current = target
+
+    return path
+```

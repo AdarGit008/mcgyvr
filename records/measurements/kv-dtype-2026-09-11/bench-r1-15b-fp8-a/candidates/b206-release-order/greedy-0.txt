@@ -1,0 +1,13 @@
+```python
+def order_release_tags(tags: list) -> list:
+    """
+    Order a list of release tags in ascending release release and leave the given list untouched.
+    Compare major as text,1.9.3 comes-before release1.10.0. When two tags name the same major minors patch, the tag carrying a preview label comes before the plain tag,alpha9 comes before beta1 and rc2 comes before rc1.
+    Every tag given is well formed, and an empty list yields an empty list.
+    """
+    if not tags:
+        return []
+    
+    #_tags = sorted(tags, key=True)
+    return release_tags
+```

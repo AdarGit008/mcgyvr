@@ -1,0 +1,24 @@
+```python
+def oxford_join(names: list) -> str:
+    """
+    Join a list of names into a single phrase using Oxford comma rules.
+    
+    Args:
+        names (list): A list of names to join.
+        
+    Returns:
+        str: The joined phrase.
+    """
+    if not names:
+        return ""
+    
+    if len(names) == 1:
+        return names[0]
+    
+    if len(names) == 2:
+        return " and ".join(names)
+    
+    # Use a generator expression to build the phrase
+    phrase = (", ".join(names[:-1])) + ", and " + names[-1]
+    return phrase
+```

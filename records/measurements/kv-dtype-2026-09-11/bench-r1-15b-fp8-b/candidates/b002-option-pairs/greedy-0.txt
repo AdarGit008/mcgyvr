@@ -1,0 +1,76 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    keys, eq, raw = segment.partition("=")
+    if not segment or re:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [keys, raw]
+
+
+def scan_pairs(text: str) -> list:
+    if validate_input(text):
+        segments = text.split(";")
+        pairs = [parse_option(segment) for segment in segments]
+        return pairs
+    else:
+        raise ValueError("invalid input")
+
+def validate_input(text: str) -> bool:
+    if text.strip() == "":
+        return False
+    for segment in text.split(";"):
+        if not segment.strip().startswith('"') and not segment.strip().).endswith('"'):
+            if        if        if not segment.strip("="). == "":
+            if not segment.strip("=").endswith('"'):
+                return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip.startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return False
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return '"'
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return '"'
+        if not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return '"'
+        string not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return '"'
+        string not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return '"'
+        string not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return '"'
+        string not segment.strip("=").startswith('"') and not segment.strip("=").endswith('"'):
+            return '"'
+        string not segment.strip("=").startswith('"') and

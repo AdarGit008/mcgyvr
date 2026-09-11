@@ -1,0 +1,39 @@
+```python
+def fresh_value(entry: dict, now: int) -> str:
+    """
+    Returns the value of a record if it is still usable, otherwise raises a ValueError.
+    
+    Parameters:
+    - entry: A dictionary representing the record with keys 'value', 'stored', and 'ttl'.
+    - now: An integer representing the current tick.
+    
+    Raises:
+    - ValueError: If the entry is not a valid record, the value is not a string,
+      the stored is not a non-negative integer, the ttl is not a positive integer,
+      the now is not an integer at least stored, or the record is no longer usable at now.
+    """
+    # Check if the entry is a valid record
+    if not isinstance(entry, dict) or len(entry) != 3:
+        raise ValueError("Invalid record format.")
+    
+    # Extract values from the entry
+    value = entry.get('value')
+    stored = entry.get('stored')
+    ttl = entry.get('ttl')
+    
+    # Validate the types of the extracted values
+    if not isinstance(value, str):
+        raise ValueError("Value must be a string.")
+    if not isinstance(stored, int) or stored < 0:
+        raise ValueError("Stored must be a non-negative integer.")
+    if not isinstance(ttl, int) or ttl <= 0:
+        raise ValueError("TTL must be a positive integer.")
+    if not isinstance(now, int) or now < stored:
+        raise ValueError("Now must be at least stored.")
+    
+    # Check if the record is still usable
+    if now >= stored + ttl:
+        raise ValueError("Record is no longer usable.")
+    
+    return value
+```

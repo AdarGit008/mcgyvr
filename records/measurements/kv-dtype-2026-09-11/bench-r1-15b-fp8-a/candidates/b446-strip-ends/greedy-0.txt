@@ -1,0 +1,1 @@
+_ends = lambda text, mark: text.strip(mark) if text == mark * len(text): return ''

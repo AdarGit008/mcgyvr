@@ -1,0 +1,42 @@
+
+- The function is designed to fill an order for needed units by prioritizing sources with the lowest cost first, and then by ties in cost.
+- The function correctly handles cases where the source list is empty, contains invalid sources,,,, or list, stock, and sources list.
+- The function correctly handles cases where, and sources list.
+- The function correctly handles cases where needed is zero.
+- The function correctly handles cases where needed is to be larger than the total.
+- The function correctly handles cases where list contains duplicate sources.
+- The function correctly handles cases where sources list contains sources with stock that is larger than needed.
+- The function correctly handles cases where list contains sources with stock that is smaller than needed.
+- The function correctly handles cases sources list contains sources with stock that is equal to needed.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock that is not a positive integer.
+- The function correctly handles cases sources list contains sources with stock

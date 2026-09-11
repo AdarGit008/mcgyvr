@@ -1,0 +1,17 @@
+[
+  {
+    "label": "r4-qwen36-f16",
+    "dtype": "f16",
+    "failed": "srv1: ['mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080'] are up and no last-up file names their compose"
+  },
+  {
+    "label": "r4-qwen36-q8_0",
+    "dtype": "q8_0",
+    "failed": "srv1: ['mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080'] are up and no last-up file names their compose"
+  },
+  {
+    "label": "r4-qwen36-f16",
+    "dtype": "f16",
+    "failed": "bench rc=2; see logs/bench-r4-qwen36-f16-a.log"
+  }
+]

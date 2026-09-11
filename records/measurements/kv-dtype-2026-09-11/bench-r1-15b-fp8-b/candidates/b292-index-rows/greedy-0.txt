@@ -1,0 +1,21 @@
+
+
+def row_key(name: str) -> str:
+    """ Check if the name is empty
+
+    if not name:
+        raise ValueError("Name cannot be empty")
+    # Check if the name is a single character
+    if len(name) == 1:
+        raise ValueError("Name must be at single character")
+    return name[0 0 1]. 0 1).def index_rows(names: list) -> dict:
+    """ Return a dictionary where the row_key function """
+    index = {}
+    for name in names:
+        try:
+            row = row_key(name)
+            index[row] = index.get(row, []) + [name]
+ except ValueError as e:
+            print(f"Erroring {name} as it does not start with a letter: {str(e)}")
+    return index
+```

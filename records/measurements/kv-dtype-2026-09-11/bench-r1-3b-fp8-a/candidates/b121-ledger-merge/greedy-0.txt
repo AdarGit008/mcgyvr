@@ -1,0 +1,59 @@
+```python
+from typing import List, Tuple
+
+def merge_ledgers(base: List[Tuple[str, int]], ours: List[Tuple[str, int]], theirs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    """
+    Merges three ledgers into one, combining accounts and handling deletions.
+    
+    :param base: The base ledger with no account repetition.
+    :param ours: An independently edited copy of the base ledger.
+    :param theirs: Another independently edited copy of the base ledger.
+    :return: A merged ledger sorted by account name.
+    """
+    # Validate inputs
+    if not isinstance(base, list) or not isinstance(ours, list) or not isinstance(theirs, list):
+        raise ValueError("All inputs must be lists.")
+    
+    for ledger in [base, ours, theirs]:
+        for entry in ledger:
+            if not isinstance(entry, tuple) or len(entry) != 2:
+                raise ValueError("Each entry must be a two-item tuple.")
+            if not isinstance(entry[0], str) or not entry[0]:
+                raise ValueError("Account name must be a non-empty string.")
+            if not isinstance(entry[1], int):
+                raise ValueError("Cents value must be an integer.")
+    
+    # Create a set of accounts for quick lookup
+    base_accounts = {account for account, _ in base}
+    ours_accounts = {account for account, _ in ours}
+    theirs_accounts = {account for account, _ in theirs}
+    
+    # Combine accounts
+    combined_accounts = base_accounts.union(ours_accounts).union(theirs_accounts)
+    
+    # Initialize the merged ledger
+    merged_ledger = []
+    
+    # Process each account
+    for account in combined_accounts:
+        base_value = base.get(account, 0)
+        ours_value = ours.get(account, 0)
+        theirs_value = theirs.get(account, 0)
+        
+        # Determine the final value for the account
+        if base_value == ours_value == theirs_value:
+            continue  # Account is unchanged
+        elif base_value == ours_value:
+            merged_ledger.append((account, ours_value))
+        elif base_value == theirs_value:
+            merged_ledger.append((account, theirs_value))
+        elif ours_value == theirs_value:
+            merged_ledger.append((account, ours_value + theirs_value))
+        else:
+            merged_ledger.append((account, base_value + ours_value + theirs_value))
+    
+    # Sort the merged ledger by account name
+    merged_ledger.sort(key=lambda x: x[0])
+    
+    return merged_ledger
+```

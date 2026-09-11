@@ -1,0 +1,58 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    """
+    Parses a mass expression and returns the total weight in the specified unit.
+    
+    Args:
+    text (str): The mass expression as a string.
+    unit (str): The goal unit ('g', 'kg', or 't') for the result.
+    
+    Returns:
+    int: The total weight in the specified unit.
+    
+    Raises:
+    ValueError: If the input is invalid.
+    """
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Input must be a string.")
+    
+    if not text or not text.strip():
+        raise ValueError("Tally cannot be empty.")
+    
+    if unit not in {'g', 'kg', 't'}:
+        raise ValueError("Goal unit must be 'g', 'kg', or 't'.")
+    
+    # Define conversion factors
+    conversion_factors = {'g': 1, 'kg': 1000, 't': 1000000}
+    
+    # Split the text into terms and operators
+    parts = text.split()
+    
+    if len(parts) % 2 != 1:
+        raise ValueError("Tally must alternate between terms and operators.")
+    
+    total_weight = 0
+    
+    for i in range(0, len(parts), 2):
+        term = parts[i]
+        operator = parts[i + 1]
+        
+        if not term.isdigit() or not (term[0] == '0' and len(term) > 1) or not (term[-1] in {'g', 'kg', 't'}):
+            raise ValueError("Invalid term format.")
+        
+        count = int(term[:-1])
+        weight = count * conversion_factors[unit]
+        
+        if operator == '+':
+            total_weight += weight
+        elif operator == '-':
+            total_weight -= weight
+        
+        if total_weight < 0:
+            raise ValueError("Running total dips below zero.")
+    
+    if total_weight % conversion_factors[unit] != 0:
+        raise ValueError("Total does not come out whole in the goal unit.")
+    
+    return total_weight
+```

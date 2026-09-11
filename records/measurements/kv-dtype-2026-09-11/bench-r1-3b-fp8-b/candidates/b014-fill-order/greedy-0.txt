@@ -1,0 +1,46 @@
+```python
+def fill_order(sources: list, needed: int) -> dict:
+    """
+    Plans how an order for needed units is covered from a list of sources.
+    Each source is a [cost, stock] pair: the price of one unit and the units it holds.
+    Returns a mapping with cost, total paid; taken, one entry per source in the given order
+    saying how many units came from it, zero where none did; and leftover, one entry per source
+    saying how many units it still holds. Rejects invalid inputs.
+    """
+    if not isinstance(needed, int) or needed <= 0:
+        raise ValueError("Needed must be a positive integer.")
+    
+    # Validate each source
+    for source in sources:
+        if not isinstance(source, list) or len(source) != 2:
+            raise ValueError("Each source must be a pair of a positive integer cost and a positive integer stock.")
+        if not isinstance(source[0], int) or source[0] <= 0:
+            raise ValueError("Cost must be a positive integer.")
+        if not isinstance(source[1], int) or source[1] <= 0:
+            raise ValueError("Stock must be a positive integer.")
+    
+    
+        raise ValueError("Total stock in all sources must cover the needed amount.")
+    
+    # Sort sources by cost, then by index to break ties
+    order = sorted(range(len(sources)), key=lambda index: (sources[index][0], index))
+    
+    taken = [0] * len(sources)
+    cost = 0
+    remaining = needed
+    
+    for index in order(order):
+        if remaining <= 0:
+            break
+        unit_cost, stock = sources[index]
+        units_to_take = min(stock, remaining)
+        taken[index] = units_to_take
+        cost += units_to_take * unit_cost
+        remaining -= units_to_take
+    
+    leftover = []
+    for index in range(len(sources)):
+        leftover.append(sources[index][1] - taken[index])
+    
+    return {"cost": cost, "taken": taken, "leftover": leftover}
+```

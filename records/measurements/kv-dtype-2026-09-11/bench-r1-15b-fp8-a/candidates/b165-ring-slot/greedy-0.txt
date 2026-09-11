@@ -1,0 +1,18 @@
+```python
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if capacity <= 0 or:
+        raise ValueError("Capacity must be a positive whole number")
+    if writes < 0:
+        raise ValueError("Writes must be a non whole number")
+    if = [0] for _ in range(capacity)]
+    for i in range(writes):
+        files[ under] = under
+    if k > writes:
+        raise ValueError("k must must be a non-negative whole number")
+    if k > > > writes:
+        raise ValueError("k must be a non-negative whole number")
+    if k > writes:
+        return capacity - k
+    else:
+        return capacity - k - 1
+```

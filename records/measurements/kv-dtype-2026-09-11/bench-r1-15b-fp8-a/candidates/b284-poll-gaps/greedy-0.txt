@@ -1,0 +1,16 @@
+ is the solution.py file with the poll_gaps function implemented according to the task requirements:
+
+```python
+def poll_gaps(minutes: list) -> list:
+    if not minutes:
+        return []
+
+    # = set(minutes)
+    gaps = []
+
+    for minute in sorted(given):
+        if gaps and gap > minute:
+            gaps.append(gap))
+
+    return gaps
+```

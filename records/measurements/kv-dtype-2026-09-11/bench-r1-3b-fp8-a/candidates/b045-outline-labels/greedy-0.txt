@@ -1,0 +1,47 @@
+```python
+from typing import List, Mapping, Any
+
+def number_sections(sections: List[Mapping[str, Any]]) -> List[str]:
+    """
+    Number sections in document order.
+    
+    :param sections: List of sections, each a mapping with 'title' and 'children'.
+    :return: List of section labels in document order.
+    """
+    def _number_section(section: Mapping[str, Any], parent_number: str = '') -> str:
+        if not isinstance(section, dict) or 'title' not in section or 'children' not in section:
+            raise ValueError("Invalid section format.")
+        if not isinstance(section['title'], str) or not section['title']:
+            raise ValueError("Heading must be a non-empty string.")
+        if not isinstance(section['children'], list):
+            raise ValueError("Children must be a list.")
+        
+        section_number = f"{parent_number}.{section['title'].split()[0]}"
+        section_labels = [f"{section_number} {section['title']}"]
+        for child in section['children']:
+            section_labels.extend(_number_section(child, section_number))
+        return section_labels
+    
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list.")
+    
+    return _number_section(sections[0])
+
+def section_count(sections: List[Mapping[str, Any]]) -> int:
+    """
+    Count sections at every depth.
+
+    
+    :param sections: List of sections, each a mapping with 'title' and 'children'.
+    :return: Total number of sections.
+    """
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list.")
+    
+    total_count = 0
+    for section in sections:
+        total_count += 1
+        if 'children' in section:
+            total_count += section_count(section['children'])
+    return total_count
+```

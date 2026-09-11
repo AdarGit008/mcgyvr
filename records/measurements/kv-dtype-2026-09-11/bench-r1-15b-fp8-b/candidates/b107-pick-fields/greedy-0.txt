@@ -1,0 +1,37 @@
+```python
+from typing import List, Mapping, Optional
+
+def pick_fields(records: List, fields: List) -> List:
+    if not records or isinstance(records, list):
+        raise ValueError("records must be a list")
+    if not fields or isinstance(fields, list):
+        raise ValueError("fields must be a list")
+    if = [f[:-1] for f in fields if if f.endswith('?')]
+    if not files:
+        raise ValueError("fields must a marker that is not a name's end")
+    if_dict = {f: None for f in files}
+    for record in records:
+        if_dict = {f: None for f in files}
+        if not isinstance(record, list):
+            raise ValueError("record must a non-list")
+        if not isinstance(record, Mapping):
+            raise ValueError("record exposes a non")
+        for field in fields:
+            if not isinstance(file, str):
+                raise ValueError("field name exposes a non name that is not a string")
+            if_stem = file_dict.get(file)
+            if file_stem and file_stem == '':
+                raise ValueError(f"field name exposes a file name that is empty")
+            if file_stem and file_stem in file_dict:
+                raise ValueError(f"field name exposes a file name that is shared with another file without the marker")
+            if file not in record:
+                raise ValueError(f"record exposes a field name that is missing a required field")
+            file_dict_dict[file] None:
+                file_dict[file] record[file]
+]
+_dict[file] None:
+                file_dict_dict[file]_dict[file] is_dict_dict[file name is None:
+                file_dict[file_dict[file name is_dict_dict[file name is_dict_dict[file name is is None:
+                file_dict[file name is_dict_dict[file name is_dict_dict[file name is None:
+                file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_dict_dict[file name file_file_dict_dict[file name file_file_dict_dict[file name file_file_dict_dict])
+```

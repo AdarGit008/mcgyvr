@@ -1,0 +1,7 @@
+```python
+def look_up(store: dict, key: str, fallback: str) -> str:
+    if key in store:
+        return store[key]
+    else:
+        return fallback
+```

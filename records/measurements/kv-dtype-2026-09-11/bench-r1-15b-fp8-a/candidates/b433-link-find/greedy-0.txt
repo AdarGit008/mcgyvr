@@ -1,0 +1,26 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    if not opens or closes:
+        raise ValueError("Both opening and closing markers must be provided.")
+    
+    result = []
+    stack_index = 0
+    while line:
+        if line.startswith(opens):
+            result.append(line[: line.index(opens)])
+))
+            line = line[line.index(opens) + 1:]
+        elif line.startswith(c):
+            if = line.index(c)
+            if == line.rindex(c)
+            if line[possible - 1] == opens:
+                result.append(line[: possible - 1])
+                line = line[possible + 1:]
+            else:
+                raise ValueError(f"Closing marker '{close}' does not match opening marker '{ opens}'.")
+        else:
+            result.append(line[:])
+            line = line[1:]
+    
+    return result
+```

@@ -1,0 +1,32 @@
+```python
+from typing import List, Dict
+
+def count_by(records: List[Dict], field: str) -> Dict:
+    """
+    Count occurrences of each value in a specified field across all records.
+    
+    Parameters:
+    records (List[Dict]): A list of dictionaries, where each dictionary represents a record.
+    field (str): The name of the field to count occurrences of.
+    
+    Returns:
+    Dict: A dictionary where keys are the unique values found in the specified field,
+          and values are the counts of those values.
+    
+    Raises:
+    ValueError: If the field name is empty text.
+    """
+    if not field:
+        raise ValueError("Field name cannot be empty.")
+    
+    count_dict = {}
+    for record in records:
+        if field in record:
+            value = record[field]
+            if value in count_dict:
+                count_dict[value] += 1
+            else:
+                count_dict[value] = 1
+    
+    return count_dict
+```

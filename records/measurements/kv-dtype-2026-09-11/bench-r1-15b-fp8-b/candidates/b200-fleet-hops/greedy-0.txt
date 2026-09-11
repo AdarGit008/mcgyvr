@@ -1,0 +1,52 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if not isinstance(builds, list) or isinstance(builds, tuple):
+        raise TypeError("builds must be a list or a tuple")
+    if not isinstance(lts, list) or isinstance(lts, tuple):
+        raise TypeError("lts newest be a list or a tuple")
+    if not isinstance(builds, list) or isinstance(builds, tuple):
+        raise TypeError("builds newest be a list or a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list or a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be as newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a list newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    if isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    if isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    if not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    s not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    s not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    s not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest be a lists newest a tuple")
+    s not isinstance(builds, list) and isinstance(builds, tuple):
+        raise TypeError("builds newest

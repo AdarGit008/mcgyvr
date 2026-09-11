@@ -1,0 +1,43 @@
+```python
+def trace_parcel(events: list) -> list:
+    """
+    Trace the parcel's state changes based on the given events.
+    
+    Parameters:
+    events (list): A list of event names in the order they occurred.
+
+    Returns:
+    list: A list of states the parcel passes through, starting with 'created'.
+
+    Raises:
+    ValueError: If the input is not a list, an event is not valid, or an event is fired in an invalid state.
+    """
+    if not isinstance(events, list):
+        raise ValueError("Input must be a list of event names.")
+    
+    states = ['created']
+    valid_events = {'pack', 'ship', 'deliver', 'bounce'}
+    
+    for event in events:
+        if event not in valid_events:
+            raise ValueError(f"Invalid event '{event}'. Valid events are pack, ship, deliver, bounce.")
+        
+        if event == 'pack':
+            if states[-1] != 'created':
+                raise ValueError("Event 'pack' can only occur after 'created'.")
+            states.append('packed')
+        elif event == 'ship':
+            if states[-1] != 'packed':
+                raise ValueError("Event 'ship' can only occur after 'packed'.")
+            states.append('shipped')
+        elif event == 'deliver':
+            if states[-1] != 'shipped':
+                raise ValueError("Event 'deliver' can only occur after 'shipped'.")
+            states.append('delivered')
+        elif event == 'bounce':
+            if states[-1] != 'shipped':
+                raise ValueError("Event 'bounce' can only occur after 'shipped'.")
+            states.append('returned')
+    
+    return states
+```

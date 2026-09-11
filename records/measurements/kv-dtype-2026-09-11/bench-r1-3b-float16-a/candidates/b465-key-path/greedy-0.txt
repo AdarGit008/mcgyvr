@@ -1,0 +1,22 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    """
+    Returns the names directly under the specified head in the store,
+    excluding the head and its stop. Names under a deeper head are left out.
+    """
+    if not isinstance(store, dict) or not isinstance(head, str):
+        raise ValueError("Invalid input types")
+    
+    # Split the head by full stops
+    parts = head.split('.')
+    
+    # Traverse the store to find the path
+    current = store
+    for part in parts[:-1]:
+        if part not in current:
+            raise KeyError(f"Head '{head}' not found in the store")
+        current = current[part]
+    
+    # Extract the names directly under the head
+    return list(current.keys())
+```

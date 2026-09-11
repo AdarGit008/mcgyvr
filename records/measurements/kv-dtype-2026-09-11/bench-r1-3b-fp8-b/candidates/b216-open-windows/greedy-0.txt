@@ -1,0 +1,41 @@
+```python
+"""Report the stretches of a clinic's day that no appointment covers."""
+
+import re
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def minutes(text: str) -> list[int]:
+        parts = text.split("-")
+        if len(parts) != 2 or any(re.fullmatch(r"\d{2}:\d{2}", p) is None for p in parts):
+            raise ValueError("a range must be written HH:MM-HH:MM: " + text)
+        start_hour, start_minute = map(int, parts[0].split(":"))
+        end_hour, end_minute = map(int, parts[1].split(":"))
+        return [start_hour * 60 + start_minute, end_hour * 60 + end_minute]
+
+    def stamp(at: int) -> str:
+        return f"{at // 60:02d}:{at % 60:02d}"
+
+    def normalize_time(time: int) -> int:
+        return time % (24 * 60)
+
+    
+    span_start, span_end = minutes(span)
+    booked_times = [normalize_time(minutes(appointment)) for appointment in booked]
+    booked_times.sort()
+
+    free_stretches = []
+    current_start = span_start
+
+    for booked_time in booked_times:
+        if booked_time > current_start:
+            free_stretches.append(stamp(current_start))
+            current_start = booked_time
+
+    if current_start < span_end:
+        free_stretches.append(stamp(current_start))
+
+    if not free_stretches:
+        return "none"
+
+    return ", ".join(free_stretches)
+```

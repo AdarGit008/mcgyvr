@@ -1,0 +1,5 @@
+```python
+ed
+ the trimming pass; the trimming pass; while disappear other line break survives as a single line feed. Then decode escapes in the folded text: an "=" followed the trimming pass; other character is copied unchanged. Return the decoded text. Reject an "=" in the folded text that is not followed by two uppercase hexadecimal digits, which includes an "=" left alone the very end of the note, with an error.
+
+```

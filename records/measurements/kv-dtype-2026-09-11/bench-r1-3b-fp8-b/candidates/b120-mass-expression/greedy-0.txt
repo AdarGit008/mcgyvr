@@ -1,0 +1,71 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    """
+    Parses a mass expression and returns the total weight in the specified unit.
+    
+    Args:
+        text (str): The mass expression as a string.
+        unit (str): The target unit ('g', 'kg', 't').
+
+    Returns:
+        int: The total weight in the specified unit.
+
+    Raises:
+        ValueError: If the input is invalid.
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Input must be a non-empty string.")
+    
+    # Define conversion factors
+    conversion_factors = {
+        'g': 1,
+        'kg': 1000,
+        't': 1000000
+    }
+    
+ # Validate the unit
+    if unit not in conversion_factors:
+        raise ValueError("Invalid unit. Must be 'g', 'kg', or 't'.")
+    
+    # Split the text into terms and operators
+    parts = text.split()
+    
+    # Check if the number of parts is odd
+    if len(parts) % 2 != 1:
+        raise ValueError("Tally must alternate ending on a term.")
+    
+    # Initialize the running total
+    total = 0
+    
+    # Iterate over the terms and operators
+    for i in range(0, len(parts), 2):
+        term = parts[i]
+        operator = parts[i + 1]
+        
+        # Validate the term
+        if not term.isdigit() or term[0] == '0':
+            raise ValueError("Term must be a plain count without leading zeros.")
+        
+        # Convert the term to an integer
+        count = int(term)
+        
+        # Validate the operator
+        if operator not in ['+', '-']:
+            raise ValueError("Operator must be '+' or '-'.")
+
+        # Apply the operator
+        if operator == '+':
+            total += count * conversion_factors[unit]
+        elif operator == '-':
+            total -= count * conversion_factors[unit]
+
+        # Check if the running total is below zero
+        if total < 0:
+            raise ValueError("Running total cannot dip below zero.")
+
+    # Validate the total
+    if total % conversion_factors[unit] != 0:
+        raise ValueError("Total does not come out whole in the goal unit.")
+
+    return total
+```

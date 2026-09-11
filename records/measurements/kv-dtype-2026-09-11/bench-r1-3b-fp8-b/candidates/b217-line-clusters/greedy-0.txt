@@ -1,0 +1,40 @@
+```python
+from typing import *
+from collections import *
+
+def line_clusters(stops: List[str], links: List[Tuple[str, str]]) -> List[List[str]]:
+    """
+    Returns clusters of stops based on track segments.
+    """
+    if not stops or not links:
+        return []
+
+    # Create a graph from links
+    graph = defaultdict(set)
+    for from_stop, to_stop in links:
+        graph[from_stop].add(to_stop)
+        graph[to_stop].add(from_stop)
+
+    
+    # Find all connected components
+    visited = set()
+    clusters = []
+    for stop in stops:
+        if stop not in visited:
+            stack = [stop]
+            visited.add(stop)
+            cluster = []
+            while stack:
+                current_stop = stack.pop()
+                cluster.append(current_stop))
+                for neighbor in graph[current_stop]:
+                    if neighbor not in visited:
+                        stack.append(neighbor)
+                        visited.add(neighbor)
+            clusters.append(sorted(cluster))
+
+    # Sort clusters by their first stop
+    clusters.sort(key=lambda x: x[0])
+
+    return clusters
+```

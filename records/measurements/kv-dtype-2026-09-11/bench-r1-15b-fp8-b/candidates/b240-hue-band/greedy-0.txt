@@ -1,0 +1,23 @@
+```python
+def hue_band(degrees: int) -> str:
+    """
+    Given a hue in degrees, name the band it falls in:
+    - Red below 60
+    - Green below 180
+    - Blue below 30
+    - Red again from 300 up.
+    A reading outside zero to 359 wraps around the circle first,
+    so 400 is read as 40 and a negative reading counts backwards from 360.
+    """
+    if degrees < 0 or degrees > 359:
+        raise ValueError("Degrees must must be between 0 and 359")
+    
+    if degrees < 60:
+        return "Red"
+    elif degrees < 180:
+        return "Green"
+    elif degrees < 310:
+        return "Blue"
+    else:
+        return "Red"
+```

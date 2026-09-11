@@ -1,0 +1,28 @@
+```python
+def oxford_join(names: list) -> str:
+    """
+    Join a list of names into a single phrase using Oxford comma rules.
+    
+    Args:
+        names (list): A list of names to join.
+        
+    Returns:
+        str: The joined phrase.
+    """
+    if not names:
+        return ""
+    
+    if len(names) == 1:
+        return names[0]
+    
+    if len(names) == 2:
+        return " and ".join(names)
+    
+    # Join the first two names with 'and'
+    result = " and ".join(names[:2])
+    
+    # Join the rest of the names with commas
+    result += ", ".join(names[2:])
+    
+    return result
+```
