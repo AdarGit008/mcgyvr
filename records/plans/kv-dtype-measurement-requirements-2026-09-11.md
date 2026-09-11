@@ -1,18 +1,59 @@
-# KV cache dtype — what the data points leave unmeasured — requirements 2026-09-11
+# The unified measurement campaign — KV dtype + reserve + scratch — 2026-09-11
 
-**PLAN-ONLY. Nothing here is launched, scheduled or authorised.** These are the
-measurements a quality-and-speed assessment of KV cache dtype needs **when that
-assessment starts**. The priority now is running live and compounding results;
-none of these arms runs before that, and none runs on a rig a live unit or
-another session is using.
+**One combined rig run, tracked by PR #443.** This plan is the umbrella for the
+measurements three RED specifications and one plan still wait on, scoped as one
+window on the rigs so nothing is torn down twice:
 
-**Data points, not verdicts.** The records below stand as measured, each under
-its own conditions. Nothing here re-labels, ranks or supersedes them; the
-requirements are the conditions no record covers.
+- **#443 (KV dtype)** — the fp8-vs-auto and q8_0-vs-f16 answers and speeds, arms
+  R1–R5 below;
+- **#446 (measured scratch)** — one qwen35moe scratch reading taken at `-ub 512`;
+- **#439 (card reserve bound)** — the two-boot `gpu_reserve_mib` readings that pin
+  the bound width (the GREEN sets the number; this run supplies both readings);
+- **#438 (fleet identity)** — the same two-boot readings for `gpu_reserve_mib`,
+  and confirmation that `tolerances.json` is complete against plan §12 and the
+  B-number tests.
+
+**Status.** Authorised by the owner on 2026-09-11 ("measure + green → origin/main",
+one combined run). Rig admission is done first: srv1 reads `gpu_reserve_mib` 399 MiB
+after the 2026-09-11 reboot against the declared 401, so the #439 stopgap re-declares
+srv1 at 399 and gate 2 is verified open (round `r28-11-09-2026`; "srv1 matches its
+declaration on 11 keys"). The real fix — a moving reserve is still the same rig — is
+the green session's, not this run's.
+
+**Data points, not verdicts.** The records below stand as measured, each under its
+own conditions. Nothing here re-labels, ranks or supersedes them; the arms are the
+conditions no record covers.
 
 ---
 
-## The two data points on the same unit
+## What is already on record (folded, not re-measured)
+
+The 2026-09-11 fleet-identity campaign (`records/measurements/fleet-identity-2026-09-11/`,
+branch `red/fleet-identity-measurements`, folded into #438) already read the card
+reserve idle on two boots per rig, in `results-reserve.json`:
+
+| rig | boot (`uptime_since`) | reserve | source |
+|---|---|---|---|
+| srv1 | 2026-09-01T08:11:08Z | 401 MiB | the value `hosts.json` declared since 2026-09-03 |
+| srv1 | 2026-09-11T06:34:36Z | 399 MiB | `results-reserve.json` on `red/fleet-identity-measurements` |
+| srv2 | 2026-09-01T05:20:12Z | 377 MiB | ditto |
+| srv2 | 2026-09-11T07:25:46Z | 377 MiB | ditto |
+
+Every other declared key read identical on both boots; the card and driver are the
+same across boots. This is the "two boots per rig" that plan §12 of
+`records/plans/fleet-identity.md` asked for, and the two srv1 readings (399 / 401)
+that pin #439's bound width. **No new reserve reading is taken** — the numbers are
+folded into #439 and #438 as-is, and the plan §12 open question closes: the reserve
+moved 2 MiB across a reboot (srv1) and did not move (srv2), so it does not belong in
+the `rig-` identity and gate 2's literal comparison is what #439's GREEN replaces.
+
+The 2026-09-11 campaign also produced `tolerances.json` (vLLM 1%, llama.cpp 1%,
+CPU experts 48%) — complete against plan §12 and the B-number tests, confirmed in the
+fold step. The 48% needs an owner ruling; it is carried, not re-derived.
+
+---
+
+## The two KV-dtype data points on the same unit
 
 Both are srv2, vLLM, `Qwen/Qwen2.5-Coder-7B-Instruct-AWQ`, `--kv-cache-dtype fp8`.
 
@@ -70,6 +111,7 @@ and it is one model.
 | R3 | speed under `auto` KV at the 08-28 shape, n up to 128, for the four units | 08-28 ran `fp8` only; `auto` halves the pool, so the n=64/128 levels may queue |
 | R4 | answers under llama.cpp `-ctk q8_0 -ctv q8_0` vs `f16` | Q1 measured allocation and decode; the 08-25 sweep says scoring was never done |
 | R5 | attention backend and image digest on every arm | 08-28 recorded neither; M5 showed the backend changes with the dtype |
+| S1 | the qwen35moe scratch+context at `-ub 512` | today's `MEASURED_SCRATCH_MIB` 302.7 MiB is read at `-ub 256`; units run at 512 |
 
 The cause M5 names — uncalibrated KV scales on the FlashInfer path — is marked
 UNVERIFIED there. An arm that tests a cause must use a flag the pinned image's
@@ -127,6 +169,18 @@ recoverable it is used; otherwise the digest used is recorded beside the tag.
 `--n-cpu-moe` is a semantic key (`okf/config/llama.cpp.md`), so the placement is
 held fixed across all four runs and only the cache type moves.
 
+### S1 — qwen35moe scratch+context at `-ub 512` *(one probe, 3 reps)*
+
+| arms | rig | unit | flags | instrument | records |
+|---|---|---|---|---|---|
+| 1 | srv1 | the live srv1 unit, `Qwen3.6-35B-A3B-UD-IQ3_XXS`, `llamacpp:b10644-L3` | `-ub 512 -b 512`, `--n-cpu-moe`, `-c`, `-np` fixed at the live values, `--verbose` | `buffer-probe.sh` (`records/evidence/2026-09-04-srv1-ncmoe-floor/`) | `sched_reserve: CUDA0 compute buffer size`, and the residue (card − idle − model − kv − rs) so scratch+context = compute + residue |
+
+The value this arm produces is the one the GREEN of #446 folds into
+`MEASURED_SCRATCH_MIB["qwen35moe"][512]`. The compute half is already on record
+(214.00 MiB at 512, `srv1-buffer-probe.tsv`); this arm re-reads it beside the
+residue under one cold start so the pair is one measurement, and the 256 row of
+the same probe is the control that must reproduce 302.7 MiB.
+
 ### R5 — carried by every arm above
 
 No separate arms. An arm that lacks the backend line or the image digest is
@@ -136,9 +190,13 @@ re-run, not reported.
 
 ## Order and contention
 
-1. **After live is running and compounding results** — owner priority,
-   2026-09-11. Not before.
-2. Only in a window the owner opens: R1–R3 need srv2 without its live pair, R4
-   needs srv1 without its live unit, and other sessions use both rigs.
-3. R1 and R2 before R3: the answer measurements decide which dtype rows a speed
-   comparison is about.
+1. **Rig admission first** (done): stopgap + gate 2 verified. Rigs are idle and
+   the window is this session's, per the owner's 2026-09-11 ruling.
+2. srv2 arms before srv1 (R1–R3 hold srv2; R4 + S1 hold srv1), and R1/R2 before
+   R3: the answer measurements decide which dtype rows a speed comparison is about.
+3. Both rigs are left as found: no `mcgyvr-*` container up, swap on, nothing declared
+   in `hosts.json` moved beyond the stopgap.
+
+Results land in `records/measurements/kv-dtype-2026-09-11/` with a README, the raw
+`results-*.json`, the scripts and composes that took them, and the per-arm bench
+directories, as the earlier campaigns did.
