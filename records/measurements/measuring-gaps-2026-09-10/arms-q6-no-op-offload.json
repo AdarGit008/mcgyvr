@@ -1,0 +1,52 @@
+[
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n0-op",
+    "ncmoe": 0,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n0.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n13-op",
+    "ncmoe": 13,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n13.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n13-noop",
+    "ncmoe": 13,
+    "op_offload": false,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q6-deepseek-n13-noop.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n26-op",
+    "ncmoe": 26,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n26.yml"
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n26-noop",
+    "ncmoe": 26,
+    "op_offload": false,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q6-deepseek-n26-noop.yml"
+  }
+]

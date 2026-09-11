@@ -1,0 +1,532 @@
+[
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n0-op-1",
+    "ncmoe": 0,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n0.yml",
+    "wake_s": 48.76200485229492,
+    "vram_peak_used_mib": 10751,
+    "vram_steady_used_mib": 10751,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 10750,
+    "vram_after_work_net_mib": 10770,
+    "samples": 69,
+    "engine": {
+      "cuda0_model_mib": 8376.27,
+      "cpu_mapped_model_mib": 112.5,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 76.13,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "56",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 440.3712339192867,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 438.2497990469888
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 443.96406412206187
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 438.89983858880936
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 66.43113301856414,
+      "samples": [
+        67.00164680777185,
+        66.13880413554712,
+        66.15294811237347
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n0-op-2",
+    "ncmoe": 0,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n0.yml",
+    "wake_s": 50.376543283462524,
+    "vram_peak_used_mib": 10751,
+    "vram_steady_used_mib": 10751,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 10750,
+    "vram_after_work_net_mib": 10770,
+    "samples": 68,
+    "engine": {
+      "cuda0_model_mib": 8376.27,
+      "cpu_mapped_model_mib": 112.5,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 76.13,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "56",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 440.71236543144727,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 440.6931945251501
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 440.77430981733204
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 440.66959195185956
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 66.28813091955848,
+      "samples": [
+        66.72849894451463,
+        66.11452032875965,
+        66.02137348540117
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n13-op-1",
+    "ncmoe": 13,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n13.yml",
+    "wake_s": 51.77390098571777,
+    "vram_peak_used_mib": 7261,
+    "vram_steady_used_mib": 7261,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 7260,
+    "vram_after_work_net_mib": 7284,
+    "samples": 71,
+    "engine": {
+      "cuda0_model_mib": 4812.27,
+      "cpu_mapped_model_mib": 4240.33,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 151.51,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "92 (with bs=512), 80 (with bs=1)",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 321.1950975158806,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 319.8501931560697
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 323.3452710586165
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 320.3898283329556
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 33.355646573614756,
+      "samples": [
+        33.38343648255316,
+        33.38023361125002,
+        33.30326962704108
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n13-op-2",
+    "ncmoe": 13,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n13.yml",
+    "wake_s": 48.101640939712524,
+    "vram_peak_used_mib": 7261,
+    "vram_steady_used_mib": 7261,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 7260,
+    "vram_after_work_net_mib": 7284,
+    "samples": 67,
+    "engine": {
+      "cuda0_model_mib": 4812.27,
+      "cpu_mapped_model_mib": 4240.33,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 151.51,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "92 (with bs=512), 80 (with bs=1)",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 333.97619374945907,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 333.8731797524414
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 334.36812239910984
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 333.68727909682593
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 34.37463724408499,
+      "samples": [
+        34.317623200267285,
+        34.480575075271744,
+        34.325713456715924
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n13-noop-1",
+    "ncmoe": 13,
+    "op_offload": false,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q6-deepseek-n13-noop.yml",
+    "wake_s": 49.39592432975769,
+    "vram_peak_used_mib": 7187,
+    "vram_steady_used_mib": 7187,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 7186,
+    "vram_after_work_net_mib": 7206,
+    "samples": 69,
+    "engine": {
+      "cuda0_model_mib": 4812.27,
+      "cpu_mapped_model_mib": 4240.33,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 76.13,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "80",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 171.05970114421322,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 172.26510358751622
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 172.23767272074932
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 168.6763271243741
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 34.37918023031208,
+      "samples": [
+        34.40300721229836,
+        34.25814525108851,
+        34.476388227549364
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n13-noop-2",
+    "ncmoe": 13,
+    "op_offload": false,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q6-deepseek-n13-noop.yml",
+    "wake_s": 49.75184488296509,
+    "vram_peak_used_mib": 7187,
+    "vram_steady_used_mib": 7187,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 7186,
+    "vram_after_work_net_mib": 7206,
+    "samples": 68,
+    "engine": {
+      "cuda0_model_mib": 4812.27,
+      "cpu_mapped_model_mib": 4240.33,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 76.13,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "80",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 166.64835763952354,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 167.93285011934978
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 167.8874256678132
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 164.1247971314077
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 34.11163143346137,
+      "samples": [
+        34.20007949905273,
+        34.067396451719965,
+        34.067418349611415
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n26-op-1",
+    "ncmoe": 26,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n26.yml",
+    "wake_s": 48.95198178291321,
+    "vram_peak_used_mib": 3399,
+    "vram_steady_used_mib": 3399,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 3398,
+    "vram_after_work_net_mib": 3424,
+    "samples": 66,
+    "engine": {
+      "cuda0_model_mib": 951.27,
+      "cpu_mapped_model_mib": 7993.35,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 151.51,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "131 (with bs=512), 106 (with bs=1)",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 253.65571710636252,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 253.60270835047507
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 253.59406807648458
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 253.77037489212785
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 21.86136518071481,
+      "samples": [
+        21.84681125866487,
+        21.85372354462448,
+        21.883560738855074
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n26-op-2",
+    "ncmoe": 26,
+    "op_offload": true,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q4-deepseek-n26.yml",
+    "wake_s": 45.61442947387695,
+    "vram_peak_used_mib": 3399,
+    "vram_steady_used_mib": 3399,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 3398,
+    "vram_after_work_net_mib": 3424,
+    "samples": 62,
+    "engine": {
+      "cuda0_model_mib": 951.27,
+      "cpu_mapped_model_mib": 7993.35,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 151.51,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "131 (with bs=512), 106 (with bs=1)",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 250.38805312013662,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 250.34912780895104
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 250.47525685205505
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 250.33977469940373
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 22.487872971490415,
+      "samples": [
+        22.407381414218627,
+        22.531724029743575,
+        22.524513470509035
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n26-noop-1",
+    "ncmoe": 26,
+    "op_offload": false,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q6-deepseek-n26-noop.yml",
+    "wake_s": 49.121803283691406,
+    "vram_peak_used_mib": 3325,
+    "vram_steady_used_mib": 3325,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 3324,
+    "vram_after_work_net_mib": 3344,
+    "samples": 66,
+    "engine": {
+      "cuda0_model_mib": 951.27,
+      "cpu_mapped_model_mib": 7993.35,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 76.13,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "106",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 97.46924683282366,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 100.91084264991174
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 95.79618605131904
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 95.70071179724015
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 22.49193790180682,
+      "samples": [
+        22.46685185569838,
+        22.461814914645103,
+        22.547146935076977
+      ],
+      "n": 3
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "q6-deepseek-n26-noop-2",
+    "ncmoe": 26,
+    "op_offload": false,
+    "port": 8080,
+    "repeats": 2,
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-q6-deepseek-n26-noop.yml",
+    "wake_s": 48.48201656341553,
+    "vram_peak_used_mib": 3325,
+    "vram_steady_used_mib": 3325,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 3324,
+    "vram_after_work_net_mib": 3344,
+    "samples": 65,
+    "engine": {
+      "cuda0_model_mib": 951.27,
+      "cpu_mapped_model_mib": 7993.35,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_compute_mib": 76.13,
+      "cuda_host_compute_mib": 98.01,
+      "graph_splits": "106",
+      "sched_copies": "1"
+    },
+    "prefill_tok_s": {
+      "mean": 95.61273215557156,
+      "samples": [
+        {
+          "prompt_n": 2888,
+          "tok_s": 98.99078754986557
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 94.09825089011309
+        },
+        {
+          "prompt_n": 2888,
+          "tok_s": 93.74915802673603
+        }
+      ],
+      "n": 3
+    },
+    "decode_warm_tok_s": {
+      "mean": 22.53737038515393,
+      "samples": [
+        22.514460230684012,
+        22.489118237034173,
+        22.6085326877436
+      ],
+      "n": 3
+    }
+  }
+]

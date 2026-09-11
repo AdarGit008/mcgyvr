@@ -69,6 +69,30 @@ expert bytes and KV, so it must be re-derived for every model.
 small enough to stay resident on srv1's card — scales 2.27x like a dense model,
 while offloaded cells run 1.11–1.74x.
 
+## `--no-op-offload`
+
+**Banned — leave op offload at its default, on.** Owner ruling 2026-09-11. With
+experts in host RAM, op offload copies an expert tensor onto the card for every
+batch of 32+ tokens, so prefill runs on the GPU. `--no-op-offload` stops the
+copy: it frees the copy's room in the compute buffer and cuts prefill by half
+or more, and decode does not move. Measured 2026-09-10, srv2,
+deepseek-coder-v2-16b, `-ub 512`, 2,888-token prompt, n=2 per row:
+
+| ncmoe | op offload | CUDA0 compute buffer | card net MiB | prefill tok/s | decode tok/s |
+|---|---|---|---|---|---|
+| 13 | on | 151.51 MiB | 7,260 | 328 | 33.9 |
+| 13 | off | 76.13 MiB | 7,186 | 169 | 34.3 |
+| 26 | on | 151.51 MiB | 3,398 | 252 | 22.2 |
+| 26 | off | 76.13 MiB | 3,324 | 97 | 22.5 |
+
+**The 74 MiB it frees buys nothing:** one deepseek expert block is 297 MiB, so it
+cannot move a single block onto the card. Size for the buffer with op offload
+on instead — it steps up once any expert is on the host, then holds flat
+(ncmoe 13 and 26 read the same), and that step is the whole of the `C` drift.
+→ `records/measurements/measuring-gaps-2026-09-10/results-arms-q6-no-op-offload-report.json`
+→ `records/measurements/measuring-gaps-2026-09-10/results-arms-q6-no-op-offload.json`
+(each arm's engine buffer lines, graph splits and `sched copies`)
+
 ## `-nkvo` / `--no-kv-offload`
 
 **KV offload to the GPU is ENABLED by default** — read the direction carefully.
