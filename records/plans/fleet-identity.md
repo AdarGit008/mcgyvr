@@ -4,13 +4,17 @@
 board review of 2026-09-10. The design is one fleet lock instead of five hashed
 shapes, fleets as named layouts of room slots that move only along listed
 switches, and a fixed room per unit. The failing specification is this plan and
-82 RED tests (B1–B82, P0 included), with no line under `src/`.
+90 RED tests (B1–B90, P0 included), with no line under `src/`.
 - **Commits.** The RED specification lands as one commit on `red/fleet-identity`.
   P0's GREEN fixes land inside #430 (`red/sleep-wake`), before P1.
 - **Parked.** The five-id design's plan and tests stay on the local branch
   `park/fleet-identity-five-ids`.
 - **Measurements.** The measurements this design waits on are owned by
   `red/fleet-identity-measurements`.
+- **Gaps.** B83–B90 close what a comparison of the serving terms against this
+  plan found untracked (owner's rulings, 2026-09-11), on `red/fleet-identity-gaps`:
+  per-combination headroom, a llama.cpp unit's card peak, the vLLM attention
+  backend, prefill, and CUDA_Host.
 
 **Why.** The flexibility campaign
 (`records/measurements/flexibility-2026-09-09/README.md`) found seven defects and
@@ -128,9 +132,11 @@ flt-05 ──▶ flt-02 | flt-11 | flt-14        listed in fleet.yaml; no other 
 
 ```
 records/fleet/<fleet>.json                   layout sha256, next, and for each switch the rig moves it uses with their times
-records/fleet/rigs/<rig->/<cmb->.json        a combination's validation: the rig's measured card and headroom, rooms,
-                                             pinned KV, restarts, warm decode (the locked value is the as-run figure)
-                                             and its no-NVMe baseline, wake, validated_at, envelope
+records/fleet/rigs/<rig->/<cmb->.json        a combination's validation: the rig's measured card, the combination's own
+                                             headroom, rooms, pinned KV, each vLLM unit's reported attention backend,
+                                             each llama.cpp unit's card steady and peak, restarts, warm decode and
+                                             prefill (the locked values are the as-run figures), the no-NVMe baseline,
+                                             wake, validated_at, envelope
 ```
 
 **Who writes it.** `mcgyvr fleet lock` writes these files from passing dev runs
@@ -146,9 +152,14 @@ them.
 - a combination no dev run passed;
 - a listed switch whose rig move never ran in dev, or ran without recording its
   times;
-- a rig whose headroom (Σ CUDA contexts + driver reserve) dev never measured;
-- a rig where Σ unit room + headroom > card, asleep units included;
+- a combination whose headroom (Σ CUDA contexts of its units + driver reserve)
+  its dev run never measured;
+- a combination where Σ unit room + its headroom > card, asleep units included;
 - a vLLM unit whose KV size is not pinned (`--kv-cache-memory-bytes`);
+- a vLLM unit whose attention backend is not pinned (`--attention-backend`), or
+  whose dev run reported a different one;
+- a llama.cpp unit with no measured card peak, or whose peak exceeds its room;
+- an awake unit whose dev run recorded no prefill;
 - a unit whose `output_tokens ÷ validated warm decode tok/s > request_timeout_s`;
 - NVMe use that costs warm decode more than its tolerance against the no-NVMe
   baseline. A model too big for any no-NVMe run is locked against its own value
@@ -165,11 +176,13 @@ Every check is arithmetic on the lock, never a rig read.
 |---|---|
 | restarts | exactly 0; no tolerance reaches it |
 | warm decode | at lock, as-run vs the no-NVMe baseline; live, alerts only below its locked as-run value less tolerance |
-| card memory (llama.cpp) | alerts only above its locked value plus tolerance |
+| card memory (llama.cpp), steady and peak | each alerts only above its locked value plus tolerance; the peak is the highest reading across the load and the requests |
+| prefill | alerts only below its locked as-run value less tolerance |
 | L2 wake | judged against its locked value (± tolerance) |
 | a switch | downtime, start and wake times, against its rig move's dev run |
 | swap-out, swap-in, major faults | recorded beside every observation, never alerted: NVMe is allowed wherever warm decode holds |
 | cold wake, vLLM RAM, Shmem | recorded, not alerted, until measured |
+| CUDA_Host, attention backend | recorded beside every observation, never alerted |
 
 **The Waker's wait limit** is a unit's validated wake plus the lock's wake
 tolerance. That replaces `DEVIATION_RATIO = 1.5` (`src/mcgyvr/wake.py:98`) and
@@ -186,7 +199,8 @@ tolerance. That replaces `DEVIATION_RATIO = 1.5` (`src/mcgyvr/wake.py:98`) and
 - card +32 MiB (+74 on an arch with no C-step bound);
 - L2 wake ±0.1 s.
 
-Cold wake has no tolerance yet: it is recorded until measured, and the survey's
+Prefill has no proposal: the survey holds no prefill observation. Cold wake has
+no tolerance yet: it is recorded until measured, and the survey's
 cold max(10%, 5 s) is not applied. The tests pin the rules and never these
 numbers.
 
@@ -254,8 +268,28 @@ fleet the current one lists, and nothing toward one it does not.
 - **A llama.cpp unit's room** is its computed card need (`vramfit`; qwen3next
   needs 829 MiB, not `SCRATCH_AND_CONTEXT_MIB = 768`,
   `src/mcgyvr/serving/vramfit.py:66`, measuring-gaps Q3).
-- **Headroom and card total** are measured per rig in dev and recorded in the
-  lock.
+- **Card total** is measured per rig in dev and recorded in the lock.
+- **Headroom** is measured by each combination's own dev run and recorded in its
+  record, never pooled across a rig. The CUDA context it holds differs per card
+  and per engine: llama.cpp read 115.69 MiB on srv1's GTX 1660 SUPER and 146.69 on
+  srv2's RTX 3060 for one model and `-ub`, on two images
+  (`records/evidence/2026-09-04-srv1-ncmoe-floor/srv1-buffer-probe.tsv:6`,
+  `srv2-buffer-probe.tsv:5`); vLLM's driver and context read 470 MiB on srv1 and
+  491 on srv2 on one image (ADR-0039,
+  `archive/docs/archive/decisions/0039-a-serving-memory-declaration-is-bytes-not-a-fraction-of-the-card.md:229-231`).
+- **A llama.cpp unit's peak must fit its room.** The lock takes the peak from the
+  dev run, never from `DEFAULT_HEADROOM_GB = 2.0`, the guess held back for a model
+  with no geometry (`src/mcgyvr/serving/__init__.py:553`). A peak sampled only
+  while loading reads 2–26 MiB below steady
+  (`records/measurements/fleet-gaps-2026-09-09/README.md:78-81`), so the peak
+  spans the requests too.
+- **A vLLM unit's attention backend** is pinned in its launch, because the card
+  decides what is valid: srv1 (cc 7.5) reports `TRITON_ATTN`
+  (`records/evidence/2026-08-31-inventory/board3-srv1-off1v1.log:25`), srv2
+  `FLASH_ATTN` (`records/evidence/2026-08-24-resolved-config/srv2-startup.log:22`)
+  and `FLASHINFER` under an fp8 KV cache
+  (`records/evidence/2026-08-24-config-sweep/srv2-1.5B.jsonl:12`). v0.26.0
+  resolves `--attention-backend` (`srv2-1.5B.jsonl:38`).
 
 **Why start order stops mattering.** These are facts from the vLLM v0.26.0
 code, the version srv2's pinned image digest `ffb2d59b…` runs:
@@ -336,6 +370,16 @@ are the same.
 `--remove-orphans` every other `mcgyvr-` container. It used to clear every
 listed name, which would have let B81 pass under the defect it pins.
 
+**Changed by the gaps commit (B83–B90).**
+- `tests/test_the_fleet_lock_is_written_only_from_passing_dev_runs.py`: headroom
+  moves from the rig to each combination, and B31 is renamed
+  `test_a_combination_whose_headroom_dev_never_measured_is_not_locked`. The
+  fixture's vLLM units pin `attention_backend`, and each combination carries its
+  reported backend and as-run prefill, so B27–B42 still describe a lockable fleet.
+- `tests/test_an_alert_pulls_its_combination_until_it_is_revalidated.py`:
+  `card_mib` becomes `card_steady_mib` and `card_peak_mib`, and B64 judges both.
+  The approved fixture carries a prefill value for B89.
+
 **Deleted, parked.**
 - `test_a_model_spec_and_its_units_are_named_by_what_they_resolve.py`
 - `test_a_rig_shape_and_fleet_shape_name_what_was_planned.py`
@@ -382,10 +426,10 @@ do B81 and B82.
 |---|---|
 | P0 | **Inside #430, before P1.** GREEN fixes: the `Capacity.drain` sort (`src/mcgyvr/capacity.py:1288`, B78); a second wake of a card on one day (B79); a restart count per unit in `serve-up.json` (B80); `serve down` removes every container of ours (B81); gate 2 tears down a displaced dev run's serve units (B82). #430 goes green by fixing its base failures on `red/sleep-wake` (listed below). |
 | P1 | two files and one vocabulary: `fleet.yaml` / `policy.yaml`, and "unit" for source, rung and tier (B22–B26) |
-| P2 | identities and slots (B1–B21, `os_machine_id` included), the lock and its checks (B27–B43), gate 1's lock check shipped with the guard's removal and the door tests' `profile: dev` (B46–B47, B58–B59), qwen3next 829 (B77) |
+| P2 | identities and slots (B1–B21, `os_machine_id` included), the lock and its checks (B27–B43, B83–B88), gate 1's lock check shipped with the guard's removal and the door tests' `profile: dev` (B46–B47, B58–B59), qwen3next 829 (B77) |
 | P3 | live admission, auto-clean, the Waker only along listed switches (B48–B57), and card use per container, which B54's foreign-process refusal reads (B76) |
-| P4 | observations, alerts, pulls, `mcgyvr fleet alerts`, the other readers (B60–B75); the wake limit from the lock, and the `/tmp` memory and `DEVIATION_RATIO` go (B44–B45) |
-| measurements | `red/fleet-identity-measurements`, in parallel with P1–P4: warm decode baselines and tolerances, cold wake, vLLM RAM, Shmem, fp8 KV on the RTX 3060, `--kv-cache-memory-bytes` on a rig, headroom per rig, `gpu_reserve_mib` across boots |
+| P4 | observations, alerts, pulls, `mcgyvr fleet alerts`, the other readers (B60–B75, B89–B90); the wake limit from the lock, and the `/tmp` memory and `DEVIATION_RATIO` go (B44–B45) |
+| measurements | `red/fleet-identity-measurements`, in parallel with P1–P4: warm decode baselines and tolerances, cold wake, vLLM RAM, Shmem, fp8 KV on the RTX 3060, `--kv-cache-memory-bytes` on a rig, headroom per rig, `gpu_reserve_mib` across boots; not yet planned there: headroom per combination, a llama.cpp card peak spanning requests, prefill |
 
 **#430's base failures.** The base `938a5158` fails five tests, and docs-check
 fails on the `SETUP.md` drift:
@@ -415,6 +459,24 @@ round.
 - **Placeholder seams.** The seam paths the tests resolve (`mcgyvr.fleet.*`,
   `mcgyvr fleet alerts --journal`) are placeholders
   (`tests/red_port/conftest.py`): rename them freely, and keep what is asserted.
+- **Prefill tolerance.** The survey holds no prefill observation, and the
+  measurement branch's M1 reads decode only. B89 pins the rule; the value is owed.
+- **Pooled CUDA context.** "85–147 MiB" (`src/mcgyvr/serving/vramfit.py:6`,
+  `records/plans/fleet-shape/evidence_and_params.md:60`,
+  `okf/must-read/touching-rigs.md:173`) is not a per-card figure. Its 147 is
+  srv2's Qwen3.6 reading, not net of idle
+  (`records/evidence/2026-09-04-srv1-ncmoe-floor/srv2-buffer-probe.tsv:6`), where
+  srv1 read 116.69 for the same model (`srv1-buffer-probe.tsv:7`), so the range
+  spans cards, images and instruments.
+- **measuring-gaps Q3's `-ub 1024` rows ran at `-ub 512`.** Each
+  `compose.srv*-q3-*-ub1024.yml` passes `-b 512 -ub 1024`, and llama.cpp clamps
+  the micro-batch to the batch. So the README's "the `-ub` law … saturates"
+  (`records/measurements/measuring-gaps-2026-09-10/README.md:83-86`) is that
+  clamp, not a law. B77's 829 MiB stands, because units run at `-ub 512`
+  (`DEFAULT_UBATCH`, `src/mcgyvr/serving/__init__.py:89`).
+- **Two "headrooms".** `DEFAULT_HEADROOM_GB` and `Fit.headroom_gb` hold back
+  room for one unit; the lock's headroom is a combination's CUDA contexts plus
+  the driver reserve. One word should mean one thing.
 - **Proposed, not ruled.** The rewrite made these choices, which the owner has
   not ruled on:
   - the `cmb-` content-digest prefix for a combination (B1, B14);
@@ -422,6 +484,17 @@ round.
   - refusing a retired word, or a key in the wrong file, naming its replacement
     (B24–B26);
   - `rejudge` reporting only, pulling nothing (B72).
+
+  The gaps commit made these:
+  - headroom per combination rather than per rig (B31, B83);
+  - refusing a llama.cpp peak above its room (B85);
+  - refusing a reported backend other than the pinned one (B87);
+  - refusing a lock whose dev run recorded no prefill (B88). The owner ruled
+    that prefill is judged; the refusal is what gives a live run a value to
+    judge against.
+  - dropped: writing `GGML_OP_OFFLOAD_MIN_BATCH` into a unit's environment. No
+    record names it, and op offload is `--no-op-offload` in the argv, which
+    `unt-` hashes.
 
 ---
 
@@ -468,7 +541,7 @@ round.
 - B28 A combination no dev run passed is not locked — `test_a_combination_no_dev_run_passed_is_not_locked`.
 - B29 A listed switch whose rig move never ran is not locked — `test_a_listed_switch_whose_rig_move_never_ran_is_not_locked`.
 - B30 A switch run that recorded no times is not locked — `test_a_switch_run_that_recorded_no_times_is_not_locked`.
-- B31 A rig whose headroom dev never measured is not locked — `test_a_rig_whose_headroom_dev_never_measured_is_not_locked`.
+- B31 A combination whose headroom dev never measured is not locked — `test_a_combination_whose_headroom_dev_never_measured_is_not_locked`.
 - B32 Every unit's room plus headroom must fit its card, asleep or awake — `test_every_units_room_plus_headroom_must_fit_its_card_asleep_or_awake`.
 - B33 A vLLM unit whose KV size is not pinned is not locked — `test_a_vllm_unit_whose_kv_size_is_not_pinned_is_not_locked`.
 - B34 A reply its unit cannot finish inside its timeout is not locked — `test_a_reply_its_unit_cannot_finish_inside_its_timeout_is_not_locked`.
@@ -509,7 +582,7 @@ round.
 - B61 A dev run with an alert fails — `test_a_dev_run_with_an_alert_fails`.
 - B62 A single restart alerts however loose everything else, a restart tolerance included — `test_a_single_restart_alerts_however_loose_everything_else`.
 - B63 Warm decode alerts only below its approved value less tolerance — `test_warm_decode_alerts_only_below_its_approved_value_less_tolerance`.
-- B64 Card memory alerts only above its approved value plus tolerance — `test_card_memory_alerts_only_above_its_approved_value_plus_tolerance`.
+- B64 Card memory, steady and peak, each alerts only above its approved value plus tolerance — `test_card_memory_alerts_only_above_its_approved_value_plus_tolerance`.
 - B65 Swap and major faults are recorded and never alerted — `test_swap_and_major_faults_are_recorded_and_never_alerted`.
 - B66 Cold wake, vLLM RAM and Shmem are recorded until measured, and L2 wake is judged — `test_cold_wake_vllm_ram_and_shmem_are_recorded_until_measured_and_l2_wake_is_judged`.
 - B67 A live switch slower than its dev run alerts, naming the switch — `test_a_live_switch_slower_than_its_dev_run_alerts_naming_the_switch`.
@@ -524,6 +597,18 @@ round.
 - B74 `/proc/meminfo` gives available, Shmem and swap in MiB — `test_meminfo_gives_available_shmem_and_swap_in_mib`.
 - B75 `/proc/vmstat` gives swap-out and major faults — `test_vmstat_gives_swap_out_and_major_faults`.
 - B76 Card use is attributed per container and the rest is foreign — `test_card_use_is_attributed_per_container_and_the_rest_is_foreign`.
+
+`tests/test_the_lock_pins_each_combinations_headroom_card_peak_backend_and_prefill.py`
+- B83 A combination is fitted with its own headroom — `test_a_combination_is_fitted_with_its_own_headroom`.
+- B84 A llama.cpp unit is locked on its measured card peak and never without one — `test_a_llama_cpp_unit_is_locked_on_its_measured_card_peak_and_never_without_one`.
+- B85 A llama.cpp unit whose card peak exceeds its room is not locked — `test_a_llama_cpp_unit_whose_card_peak_exceeds_its_room_is_not_locked`.
+- B86 A vLLM unit whose attention backend is not pinned is not locked — `test_a_vllm_unit_whose_attention_backend_is_not_pinned_is_not_locked`.
+- B87 The lock files the reported backend and refuses one the unit did not pin — `test_the_lock_files_the_reported_backend_and_refuses_one_the_unit_did_not_pin`.
+- B88 Prefill is locked as run, and a run that recorded none is not locked — `test_prefill_is_locked_as_run_and_a_run_that_recorded_none_is_not_locked`.
+
+`tests/test_prefill_is_judged_and_cuda_host_and_the_backend_are_recorded.py`
+- B89 Prefill alerts only below its approved value less tolerance — `test_prefill_alerts_only_below_its_approved_value_less_tolerance`.
+- B90 CUDA_Host and the attention backend are recorded and never alerted — `test_cuda_host_and_the_attention_backend_are_recorded_and_never_alerted`.
 
 `tests/test_the_scratch_allowance_for_qwen3next_is_what_it_measured.py`
 - B77 qwen3next's scratch allowance is its measured 829 MiB — `test_the_scratch_allowance_for_qwen3next_is_what_it_measured`.

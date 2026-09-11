@@ -11,7 +11,7 @@ under ``/tmp`` (``src/mcgyvr/wake.py:217``, ``:341``). The intent is
 * **Judged:**
   - restarts: exactly 0, with no tolerance reaching them;
   - warm decode: downward, against its locked as-run value;
-  - llama.cpp card memory: upward;
+  - llama.cpp card memory, steady and peak: each upward;
   - L2 wake time: against its locked value;
   - a switch's downtime: against its dev run.
 * **Recorded, never alerted:**
@@ -62,7 +62,9 @@ STAMP: dict[str, str] = {
 APPROVED: dict[str, dict[str, dict[str, Any]]] = {
     UNIT: {
         "warm_decode_tok_s": {"expected": 30.0, "tolerance": {"pct": 10.0}},
-        "card_mib": {"expected": 7000.0, "tolerance": {"abs": 32.0}},
+        "card_steady_mib": {"expected": 7000.0, "tolerance": {"abs": 32.0}},
+        "card_peak_mib": {"expected": 7026.0, "tolerance": {"abs": 32.0}},
+        "prefill_tok_s": {"expected": 440.0, "tolerance": {"pct": 5.0}},
         "l2_wake_s": {"expected": 0.25, "tolerance": {"s": 0.1}},
     },
     SWITCH: {"downtime_s": {"expected": 0.3, "tolerance": {"s": 1.0}}},
@@ -120,13 +122,13 @@ def test_every_observation_is_filed_under_the_journal_by_what_it_was_computed_fo
     scratch.mkdir()
     monkeypatch.setattr(tempfile, "tempdir", str(scratch))
     journal = tmp_path / "journal"
-    first = alerts.record(journal, STAMP, {"card_mib": 7544})
-    second = alerts.record(journal, STAMP, {"card_mib": 7546})
+    first = alerts.record(journal, STAMP, {"card_steady_mib": 7544})
+    second = alerts.record(journal, STAMP, {"card_steady_mib": 7546})
     assert first == second and Path(first).is_relative_to(journal)
     where = Path(first).relative_to(journal).as_posix()
     assert CMB in where and UNIT in where, where
     filed = [json.loads(line) for line in Path(first).read_text().splitlines()]
-    assert [row["card_mib"] for row in filed] == [7544, 7546]
+    assert [row["card_steady_mib"] for row in filed] == [7544, 7546]
     assert all({k: row[k] for k in STAMP} == STAMP for row in filed), filed
     assert list(scratch.iterdir()) == []
 
@@ -145,7 +147,7 @@ def test_a_single_restart_alerts_however_loose_everything_else(
     loose = {
         UNIT: {
             "warm_decode_tok_s": {"expected": 30.0, "tolerance": {"pct": 1000.0}},
-            "card_mib": {"expected": 7000.0, "tolerance": {"abs": 1.0e9}},
+            "card_steady_mib": {"expected": 7000.0, "tolerance": {"abs": 1.0e9}},
             "restarts": {"expected": 0, "tolerance": {"abs": 5}},
         }
     }
@@ -171,11 +173,17 @@ def test_warm_decode_alerts_only_below_its_approved_value_less_tolerance(
 def test_card_memory_alerts_only_above_its_approved_value_plus_tolerance(
     tmp_path: Path,
 ) -> None:
+    """Steady and peak are two figures, each judged. A llama.cpp peak sampled
+    while loading reads 2-26 MiB below steady
+    (``records/measurements/fleet-gaps-2026-09-09/README.md:78-81``), so the
+    peak is the highest reading across the load and the requests."""
     alerts = _alerts()
-    assert check(alerts, [seen("card_mib", 7020.0)], tmp_path / "a") == []
-    assert check(alerts, [seen("card_mib", 6000.0)], tmp_path / "b") == []
-    raised = check(alerts, [seen("card_mib", 7040.0)], tmp_path / "c")
-    assert [(a["field"], a["direction"]) for a in raised] == [("card_mib", "up")]
+    for field, expected in (("card_steady_mib", 7000.0), ("card_peak_mib", 7026.0)):
+        within, below, past = expected + 20.0, expected - 1000.0, expected + 40.0
+        assert check(alerts, [seen(field, within)], tmp_path / f"{field}-a") == []
+        assert check(alerts, [seen(field, below)], tmp_path / f"{field}-b") == []
+        raised = check(alerts, [seen(field, past)], tmp_path / f"{field}-c")
+        assert [(a["field"], a["direction"]) for a in raised] == [(field, "up")]
 
 
 def test_swap_and_major_faults_are_recorded_and_never_alerted(

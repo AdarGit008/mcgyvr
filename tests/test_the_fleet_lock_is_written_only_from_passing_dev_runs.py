@@ -14,14 +14,14 @@ command. The Waker still judges a wake by a ratio written in code
   validation, shared by every fleet that uses it.
 
 Committing them is the approval; live reads them and never writes them. What
-the lock checks comes from the fleet file and from dev: a rig's card and its
-headroom (Σ CUDA contexts + driver reserve) are **measured in dev**, not
-declared. Locking refuses, naming what failed:
+the lock checks comes from the fleet file and from dev: a rig's card, and each
+combination's headroom (Σ CUDA contexts of its units + driver reserve), are
+**measured in dev**, not declared. Locking refuses, naming what failed:
 
 * a combination no dev run passed; a listed switch whose rig move never ran, or
   ran without recording its downtime and start/wake times;
-* a rig whose headroom was never measured, or whose units' room plus headroom
-  exceeds its card, an asleep unit's room included;
+* a combination whose headroom was never measured, or whose units' room plus its
+  headroom exceeds the card, an asleep unit's room included;
 * a vLLM unit whose KV size is not pinned (``--kv-cache-memory-bytes``);
 * a unit whose reply cannot finish inside its request timeout at its validated
   warm decode speed;
@@ -71,6 +71,7 @@ FLEET: dict[str, Any] = {
             "address": "http://srv2:8002",
             "room_mib": 6800,
             "kv_cache_memory_bytes": 2_147_483_648,
+            "attention_backend": "FLASH_ATTN",
             "width": 8,
             "window": 4096,
             "output_tokens": 1024,
@@ -83,6 +84,7 @@ FLEET: dict[str, Any] = {
             "address": "http://srv2:8001",
             "room_mib": 2800,
             "kv_cache_memory_bytes": 452_984_832,
+            "attention_backend": "FLASH_ATTN",
             "width": 8,
             "window": 4096,
             "output_tokens": 1024,
@@ -97,15 +99,18 @@ FLEET: dict[str, Any] = {
 }
 
 EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv2": {"card_mib": 12000, "headroom_mib": 600}},
+    "rigs": {"srv2": {"card_mib": 12000}},
     "combinations": [
         {
             "rig": "srv2",
             "slots": FLT05,
             "passed": True,
+            "headroom_mib": 600,
             "restarts": {"srv2_7b": 0, "srv2_3b": 0},
             "warm_decode_tok_s": {"srv2_7b": 58.0},
             "baseline_tok_s": {"srv2_7b": 59.0},
+            "prefill_tok_s": {"srv2_7b": 1450.0},
+            "attention_backend": {"srv2_7b": "FLASH_ATTN", "srv2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:00:00Z",
             "envelope": "records/evidence/2026-09-11-fleet-srv2/flt-05",
         },
@@ -113,9 +118,12 @@ EVIDENCE: dict[str, Any] = {
             "rig": "srv2",
             "slots": FLT02,
             "passed": True,
+            "headroom_mib": 600,
             "restarts": {"srv2_7b": 0, "srv2_3b": 0},
             "warm_decode_tok_s": {"srv2_7b": 57.0, "srv2_3b": 105.0},
             "baseline_tok_s": {"srv2_7b": 58.5, "srv2_3b": 107.0},
+            "prefill_tok_s": {"srv2_7b": 1420.0, "srv2_3b": 3100.0},
+            "attention_backend": {"srv2_7b": "FLASH_ATTN", "srv2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:30:00Z",
             "envelope": "records/evidence/2026-09-11-fleet-srv2/flt-02",
         },
@@ -226,12 +234,14 @@ def test_a_switch_run_that_recorded_no_times_is_not_locked(tmp_path: Path) -> No
         write(lock, tmp_path, evidence=evidence)
 
 
-def test_a_rig_whose_headroom_dev_never_measured_is_not_locked(
+def test_a_combination_whose_headroom_dev_never_measured_is_not_locked(
     tmp_path: Path,
 ) -> None:
+    """Headroom is each combination's own reading, never a rig's: the CUDA
+    context differs per card and per engine (plan §8)."""
     lock = _lock()
     evidence = edited(EVIDENCE)
-    del evidence["rigs"]["srv2"]["headroom_mib"]
+    del evidence["combinations"][1]["headroom_mib"]
     with pytest.raises(lock.LockRefusedError, match="headroom"):
         write(lock, tmp_path, evidence=evidence)
 
@@ -363,6 +373,7 @@ def test_editing_one_fleet_leaves_every_other_combination_record_untouched(
         **evidence["combinations"][0],
         "slots": freed,
         "restarts": {"srv2_7b": 0},
+        "attention_backend": {"srv2_7b": "FLASH_ATTN"},
     }
     evidence["moves"] = [
         {
