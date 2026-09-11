@@ -6,6 +6,12 @@ Read at session start. Each is an owner ruling or has burned a session.
 
 **A run is expandable until its first measurement, and frozen from then on.**
 
+**A measurement run keeps both rigs working the whole window.** Owner ruling
+2026-09-12. Plan every run so srv1 and srv2 are both busy for its full
+duration. If one rig's schedule finishes sooner, fill the remaining time with
+edge cases, required measurements, experiments, or new models — never leave a
+rig idle.
+
 **The rigs swap hardware. Never quote a stored spec — read it.**
 
 **A "do not re-derive" label is not evidence.** Every one of the three headline
