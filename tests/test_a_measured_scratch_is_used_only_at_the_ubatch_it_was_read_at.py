@@ -41,8 +41,10 @@ refuse it (5347.2 + 768), so the GREEN needs a qwen35moe reading taken at 512 â€
 the buffer probe above has its compute half â€” not the bound standing in. That
 reading is now measured: **316.57 MiB** at ``-ub 512``, with a ``-ub 256``
 control of 304.57 MiB that reproduces the pinned 302.7 to 0.6%
-(``records/measurements/kv-dtype-2026-09-11/results-s1-scratch.json``, the
-measuring-gaps Q3 method). #438's
+(``records/measurements/kv-dtype-2026-09-11/results-s1-scratch.json``, on the
+measurement branch ``measurements/unified-2026-09-11``, the measuring-gaps Q3
+method; the same probe's 256 compute reads 208.50 against the
+``srv1-buffer-probe.tsv`` 205, a different-placement artefact). #438's
 B77 calls ``allowance_mib({"arch": "qwen3next"})`` with no batch; how that call
 reads is the GREEN's to settle with #438.
 """
