@@ -453,47 +453,47 @@ round.
   boots. The reserve therefore does not name the rig; the fix on
   `red/card-reserve-bound` (#439) drops it from the identity and from gate 2's
   literal comparison.
-- **Snapshot gaps.** The rig snapshot reads no kernel, swap, swappiness or
-  MemTotal (`src/mcgyvr/serving/gate-scripts/rig-snapshot.sh:185-197`), and
-  `rig-` needs them (P2).
-- **Tolerance values** are now measured in `tolerances.json` (warm decode:
-  vLLM 1%, llama.cpp 1%, CPU experts 48% — the 48% rests on one unit and one
-  outlier baseline sample, and needs an owner ruling) and `wake.json` (cold-wake
-  clocks). The prefill tolerance stays open (below).
-- **Offline matching at gate 1.** Gate 1 reaches no daemon. Which launch fields
-  it matches against the lock offline is open; the image Id is the daemon's, and
-  gate 3 reads the daemon.
+- **Snapshot gaps — ruled, filled.** The rig snapshot now reads kernel, swap,
+  swappiness and MemTotal (`src/mcgyvr/serving/gate-scripts/rig-snapshot.sh`;
+  commit `adf4a8a2`, C11). Declaring + comparing them in `hosts.json` is owed
+  by the rig re-read.
+- **Tolerance values — ruled.** Warm decode is measured in `tolerances.json`
+  (vLLM 1%, llama.cpp 1%, CPU experts 48% — the 48% stays as measured). Prefill
+  is ruled 8% (below). Cold-wake clocks are in `wake.json`.
+- **Offline matching at gate 1 — ruled (C12).** A gate checks only what it can
+  honestly verify at its place; coverage is full, and a check that is dishonest
+  because of its placement moves to the gate that can verify it. Gate 1 matches
+  only what it reads locally (container/address); the image Id is the daemon's,
+  and gate 3 reads the daemon.
 - **Placeholder seams.** The seam paths the tests resolve (`mcgyvr.fleet.*`,
   `mcgyvr fleet alerts --journal`) are placeholders
   (`tests/red_port/conftest.py`): rename them freely, and keep what is asserted.
-- **Prefill tolerance.** The survey holds no prefill observation, and the
-  measurement branch's M1 reads decode only. B89 pins the rule; the value is owed.
-- **Pooled CUDA context.** "85–147 MiB" (`src/mcgyvr/serving/vramfit.py:6`,
-  `records/plans/fleet-shape/evidence_and_params.md:60`,
-  `okf/must-read/touching-rigs.md:173`) is not a per-card figure. Its 147 is
-  srv2's Qwen3.6 reading, not net of idle
-  (`records/evidence/2026-09-04-srv1-ncmoe-floor/srv2-buffer-probe.tsv:6`), where
-  srv1 read 116.69 for the same model (`srv1-buffer-probe.tsv:7`), so the range
-  spans cards, images and instruments.
+- **Prefill tolerance — ruled 8%.** B89 pins the rule. The value is the measured
+  vLLM prefill's worst shortfall after dropping the single restart-tail outlier
+  (7.86% → 8%); see `records/measurements/fleet-identity-prefill-2026-09-12/`.
+- **Pooled CUDA context — ruled per unit (C14).** "85–147 MiB" is not a
+  per-card figure; it spans cards, images and instruments. It is read per unit
+  (per model/engine/image), never as one global constant.
 - **measuring-gaps Q3's `-ub 1024` rows ran at `-ub 512`.** Each
   `compose.srv*-q3-*-ub1024.yml` passes `-b 512 -ub 1024`, and llama.cpp clamps
   the micro-batch to the batch. So the README's "the `-ub` law … saturates"
   (`records/measurements/measuring-gaps-2026-09-10/README.md:83-86`) is that
   clamp, not a law. B77's 829 MiB stands, because units run at `-ub 512`
   (`DEFAULT_UBATCH`, `src/mcgyvr/serving/__init__.py:89`).
-- **Two "headrooms".** `DEFAULT_HEADROOM_GB` and `Fit.headroom_gb` hold back
-  room for one unit; the lock's headroom is a combination's CUDA contexts plus
-  the driver reserve. One word should mean one thing.
-- **Proposed, not ruled.** The rewrite made these choices, which the owner has
-  not ruled on:
+- **Two "headrooms" — ruled (C13).** One word, one meaning: the planner's
+  `DEFAULT_HEADROOM_GB` / `Fit.headroom_gb` keep the name **headroom** (the
+  margin held back); the lock's measured per-combination value is renamed
+  **overhead** (`overhead_mib`) — the CUDA contexts plus the driver reserve.
+- **Proposed — ruled approved (B3–B10).** The owner approved every proposal
+  below as written:
   - the `cmb-` content-digest prefix for a combination (B1, B14);
   - `engine` as a field of `unt-` (B5–B8);
   - refusing a retired word, or a key in the wrong file, naming its replacement
     (B24–B26);
   - `rejudge` reporting only, pulling nothing (B72).
 
-  The gaps commit made these:
-  - headroom per combination rather than per rig (B31, B83);
+  The gaps commit made these, also approved:
+  - overhead per combination rather than per rig (B31, B83);
   - refusing a llama.cpp peak above its room (B85);
   - refusing a reported backend other than the pinned one (B87);
   - refusing a lock whose dev run recorded no prefill (B88). The owner ruled
