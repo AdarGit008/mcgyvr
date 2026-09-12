@@ -157,10 +157,6 @@ class ChangeSet:
     def paths(self) -> tuple[str, ...]:
         return tuple(f.path for f in self.files)
 
-    def with_additions(self) -> tuple[FileChange, ...]:
-        """Files that gained at least one line — where added-line checks run."""
-        return tuple(f for f in self.files if f.added_lines)
-
     def text_changes(self) -> tuple[FileChange, ...]:
         """Non-binary, non-deleted changes — the scannable surface."""
         return tuple(f for f in self.files if not f.is_binary and not f.is_deletion)

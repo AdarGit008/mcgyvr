@@ -664,6 +664,48 @@ def _unimportable_verdict(names: Sequence[str]) -> str:
     )
 
 
+def deprecated_typing_import_lines(source: str | None) -> frozenset[int]:
+    """Lines in ``source`` holding a deprecated ``from typing import X``.
+
+    The lint rung demotes I001 — ruff's unsorted-imports rule — where its row
+    is one of these lines. On the ``typing`` half of UP035, ruff reports the
+    deprecated spelling and an I001 on the same import statement; demoting only
+    UP035 would leave the same style line rejected under a second code, so an
+    I001 sitting on a deprecated spelling is treated as the same style fault.
+    Demoting I001 wholesale would also demote a genuinely unsorted import
+    block, so the grant is keyed on the line holding the deprecated spelling
+    instead — the same per-fault, per-line shape :func:`unimportable_lines`
+    gives the withdrawal.
+
+    Same signature and same tolerance as :func:`unimportable_lines`: the
+    caller is the lint rung, which holds a linter's JSON and no tree, and a
+    file that will not parse has already been rejected by the syntax rung.
+    """
+    if source is None:
+        return frozenset()
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return frozenset()
+    return _deprecated_typing_imports(tree)
+
+
+def _deprecated_typing_imports(tree: ast.Module) -> frozenset[int]:
+    """``from typing import X`` where ``X`` is a deprecated alias, by line.
+
+    Only the ``from`` form, for the same reason :func:`_unimportable` stays on
+    the ``from`` form: I001 reports on the import statement itself, never on a
+    ``typing.X`` attribute read elsewhere in the file.
+    """
+    return frozenset(
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.module == "typing"
+        and any(alias.name in _DEPRECATED_TYPING for alias in node.names)
+    )
+
+
 def compliance_findings(
     tree: ast.Module,
     path: str,

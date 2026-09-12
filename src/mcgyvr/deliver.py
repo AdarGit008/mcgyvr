@@ -31,7 +31,7 @@ reached (:meth:`Accepted.read`, which reads the bytes off the tree the gate
 judged rather than taking them from a caller). What it carries that delivery
 cannot re-establish is the *expensive* half of the verdict — the contract's
 acceptance commands and semantic resolution, which need a sandbox this seam is
-not given — and, through :mod:`mcgyvr.pending`, the identity of the bytes across
+not given — and, through ``mcgyvr.pending``, the identity of the bytes across
 a store. It is a strictly additional refusal, never a licence to skip the gate
 run: a rejected verdict refuses, and a self-consistent forged one still has to
 survive the rungs delivery runs for itself.
@@ -294,7 +294,7 @@ class Accepted:
     refusal and never a licence: :func:`deliver` judges the bytes it is about to
     write whatever arrives here. What an :class:`Accepted` adds is the half of
     the verdict delivery cannot re-establish — the sandboxed rungs — and an
-    identity that survives a round trip through :mod:`mcgyvr.pending`, which is
+    identity that survives a round trip through ``mcgyvr.pending``, which is
     the one place ``intact`` can actually come out false.
     """
 
@@ -1332,7 +1332,7 @@ def _encoded(content: str) -> bytes:
     """``content`` as the bytes that go on disk, raising if it has none.
 
     ``surrogateescape`` is the repository's convention (documented at
-    :mod:`mcgyvr.pending`) and it is a convention about *bytes*: U+DC80..U+DCFF
+    ``mcgyvr.pending``) and it is a convention about *bytes*: U+DC80..U+DCFF
     are how a byte that is not valid UTF-8 survives a decode, and they have to
     keep round-tripping — the pending store's entire claim is that the bytes it
     stashed are the bytes it resumes.

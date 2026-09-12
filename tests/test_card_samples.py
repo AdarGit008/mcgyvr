@@ -22,15 +22,14 @@ Live-verified on both rigs 2026-08-23 before these were written — srv1 read
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import subprocess
-import sys
-import types
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+from tests._helpers import by_path
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -55,18 +54,9 @@ LIVE_LOADED = (
 )
 
 
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture(scope="module")
 def pin() -> Any:
-    return _by_path("serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py")
+    return by_path("serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py")
 
 
 def test_a_live_reading_answers_every_card_field(pin: Any) -> None:
@@ -212,7 +202,7 @@ def test_every_sample_is_one_appended_line_carrying_its_own_instant(
 
 def test_an_endpoint_with_no_host_gets_no_sampler(tmp_path: Path) -> None:
     """A hosted endpoint has no card to read, and that is ordinary, not degraded."""
-    breadth = _by_path("breadth_measure", REPO / "tools" / "breadth" / "measure.py")
+    breadth = by_path("breadth_measure", REPO / "tools" / "breadth" / "measure.py")
     assert breadth._card_sampler("http://localhost:11434", tmp_path) is None
     assert breadth._card_sampler("not-a-url", tmp_path) is None
     assert breadth._card_sampler("http://srv1:11434", tmp_path) is not None

@@ -33,7 +33,12 @@ docs: setup  ## render+check+delete the config reference; regenerate the /mcgyvr
 docs-check: setup  ## fail if the reference does not render or the committed skill drifted
 	uv run --no-sync python -m mcgyvr.docgen --check
 
-check: lint typecheck test  ## everything CI runs
+check: setup  ## everything CI runs — one build, then lint, typecheck, docs-check and test
+	uv run --no-sync ruff check .
+	uv run --no-sync ruff format --check .
+	uv run --no-sync mypy
+	uv run --no-sync python -m mcgyvr.docgen --check
+	uv run --no-sync pytest
 
 DIR ?= $(HOME)/.local/state/mcgyvr/journal
 journal-index: setup  ## build DIR/index.sqlite over the live journal (default: the schema's journal.dir)

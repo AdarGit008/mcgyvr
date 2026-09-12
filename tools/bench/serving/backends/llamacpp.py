@@ -845,7 +845,7 @@ def _host_path(host: str, model: str) -> str:
         return model
     tail = model[len(CONTAINER_MODELS) + 1 :]
     root = contract.ssh(host, f"printf %s {HOST_MODELS}")
-    return f"{(root or '').strip() or '/home/adaramir/models'}/{tail}"
+    return f"{(root or '').strip() or HOST_MODELS}/{tail}"
 
 
 def _launch_log(host: str) -> str:

@@ -31,6 +31,7 @@ from mcgyvr.gate.typecheck import (
     STYLE,
     STYLE_LINT_CODES,
     compliance_findings,
+    deprecated_typing_import_lines,
     unimportable_lines,
 )
 
@@ -228,6 +229,7 @@ class PythonAdapter(LanguageAdapter):
             ) from exc
         added = _added_by_resolved_path(files, repo)
         unimportable = _Unimportable(repo)
+        deprecated_typing = _DeprecatedTyping(repo)
         findings: list[Finding] = []
         for diag in diagnostics:
             resolved = Path(diag["filename"]).resolve()
@@ -246,7 +248,17 @@ class PythonAdapter(LanguageAdapter):
                 # side of the verdict, so a machine with ruff and a machine
                 # without one reject the same change — and the two voices,
                 # where both are heard, are not saying opposite things.
-                demoted = code in STYLE_LINT_CODES and row not in unimportable.at(path)
+                #
+                # I001 is the same shape in the other direction. On the
+                # `from typing import Mapping` half, ruff reports the
+                # deprecated spelling and an I001 on the same import statement;
+                # demoting only UP035 would still reject the same style line
+                # under a second code. The grant is keyed on the line holding a
+                # deprecated `from typing import X`, so a genuinely unsorted
+                # import block away from such a line still rejects.
+                demoted = (
+                    code in STYLE_LINT_CODES and row not in unimportable.at(path)
+                ) or (code == "I001" and row in deprecated_typing.at(path))
                 findings.append(
                     Finding(
                         check=STYLE if demoted else "lint",
@@ -444,6 +456,26 @@ class _Unimportable:
         return self._seen[path]
 
 
+class _DeprecatedTyping:
+    """Which lines of which file hold a deprecated ``from typing import X``.
+
+    The I001 half of the demotion's counterpart to :class:`_Unimportable`: one
+    of these lives for one :meth:`PythonAdapter.lint` call and reads a file
+    only when ruff reported I001 on it, so an ordinary lint finding still never
+    opens a file. Same cache-not-precomputation reason, and same independence
+    from the structural rung.
+    """
+
+    def __init__(self, repo: Path) -> None:
+        self._repo = repo
+        self._seen: dict[str, frozenset[int]] = {}
+
+    def at(self, path: str) -> frozenset[int]:
+        if path not in self._seen:
+            self._seen[path] = deprecated_typing_import_lines(_read(self._repo / path))
+        return self._seen[path]
+
+
 def _read(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8", errors="surrogateescape")
@@ -465,7 +497,7 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
     """The finding for source the parser will not even be handed.
 
     :func:`_read` decodes with ``surrogateescape`` deliberately — that is the
-    byte convention the rest of mcgyvr is written to (:mod:`mcgyvr.pending`),
+    byte convention the rest of mcgyvr is written to (``mcgyvr.pending``),
     and it is what lets a file with an undecodable byte reach the gate at all
     instead of raising on the way in. ``compile()`` refuses such a string:
     ``ast.parse`` answers a lone surrogate with ``UnicodeEncodeError``, which is

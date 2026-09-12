@@ -42,7 +42,7 @@ report every rename contract complete without touching a file.
 **What is deliberately not here.** Where work runs is :mod:`mcgyvr.route` and
 :mod:`mcgyvr.escalate`; whether a change is acceptable is :mod:`mcgyvr.gate`;
 whether it lands is :mod:`mcgyvr.deliver`; what a retry is told is
-:mod:`mcgyvr.attempt`. All four existed and were reachable. What was missing is
+``mcgyvr.attempt``. All four existed and were reachable. What was missing is
 the two seams above, and putting policy here would give decisions the port
 already settles in one place a second place to be settled differently.
 """

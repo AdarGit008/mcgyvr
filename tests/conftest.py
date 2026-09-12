@@ -23,6 +23,9 @@ from typing import Any
 
 import pytest
 
+import tests.livejournal as lj
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
 
 
@@ -60,6 +63,16 @@ def _own_home_and_session(
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "pytest")
+
+
+@pytest.fixture
+def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A HOME of the test's own, with a synthetic Claude session in it."""
+    (tmp_path / "home").mkdir(exist_ok=True)
+    lj.clean_env(monkeypatch, tmp_path / "home")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
+    lj.claude_transcript(tmp_path / "home", "s1")
+    return tmp_path / "home"
 
 
 #: The only names a test may resolve: this machine, under the spellings a
@@ -227,24 +240,6 @@ def live_instruments(
         instruments.declared.cache_clear()
 
 
-def _load_by_path(slot: str, path: Path) -> types.ModuleType:
-    """A tools module through its shared ``sys.modules`` slot, loading if absent.
-
-    `tools/` is not a package, so every rig reaches its siblings by path through
-    one slot; this uses the same slot so a fixture patches the object the rigs
-    actually hold.
-    """
-    cached = sys.modules.get(slot)
-    if cached is not None:
-        return cached
-    spec = importlib.util.spec_from_file_location(slot, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[slot] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture(autouse=True)
 def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test reaches a serving endpoint unless it says so.
@@ -272,8 +267,8 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     # it lazily, the first time anything calls `scrub`. A protection that
     # silently does not apply is the shape of half the defects this lane found,
     # so the modules are imported here rather than hoped for.
-    identity = _load_by_path("bench_identity", REPO / "tools" / "bench" / "identity.py")
-    observed = _load_by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
+    identity = by_path("bench_identity", REPO / "tools" / "bench" / "identity.py")
+    observed = by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
     # BOTH guards, because they catch different failures. Importing above fixes
     # "the module was not loaded yet". `raising=True` here fixes "the module is
     # loaded and the function was renamed" — with `raising=False` a rename would

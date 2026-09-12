@@ -18,24 +18,15 @@ so the classification is pinned here against rows built to contain one of each.
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 import types
 from pathlib import Path
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
-
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 def _write(path: Path, rows: list[dict[str, object]]) -> None:
@@ -68,7 +59,7 @@ def null(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
     ``wobble``       different bytes, verdict holds — drift that never lands.
     ``acceptance``   *same* bytes, verdict flips — the defect that matters.
     """
-    module = _by_path("bench_null", REPO / "tools" / "bench" / "null.py")
+    module = by_path("bench_null", REPO / "tools" / "bench" / "null.py")
     monkeypatch.setattr(module, "M", tmp_path)
     monkeypatch.setattr(module, "ARMS", ("bench-py",))
     a = [
@@ -130,7 +121,7 @@ def test_the_declared_bound_is_re_derivable_from_the_runs_it_names() -> None:
     printed the per-arm interval, the two entries on disk were computed by hand
     off-screen and nothing tied them to the rows.
     """
-    real = _by_path("bench_null_real", REPO / "tools" / "bench" / "null.py")
+    real = by_path("bench_null_real", REPO / "tools" / "bench" / "null.py")
     declared = json.loads(
         (REPO / "tools" / "bench" / "reproducibility.json").read_text(encoding="utf-8")
     )["bounds"]

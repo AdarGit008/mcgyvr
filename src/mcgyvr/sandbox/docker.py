@@ -32,7 +32,7 @@ And two connectivity invariants that pull opposite ways (#31):
 - **No credential reaches the container.** The environment is built from
   nothing and vetted (:func:`~mcgyvr.sandbox.base.safe_env`), so a container's
   environment satisfies ``credential_env_names(env) == frozenset()`` by
-  construction — the red-failing security invariant in ``SECURITY.md``.
+  construction — the red-failing security invariant in ``archive/SECURITY.md``.
 
 And one about WHERE the container is: on this machine's daemon, or nowhere.
 ``DOCKER_HOST`` / ``DOCKER_CONTEXT`` in the environment are refused by both

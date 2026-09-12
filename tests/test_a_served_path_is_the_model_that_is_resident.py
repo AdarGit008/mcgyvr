@@ -184,15 +184,6 @@ def test_a_listing_that_says_nothing_or_names_it_among_others_keeps_the_rung() -
 # the comment at `cli._climb`'s `source_map` call.
 
 
-@pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
-    lj.claude_transcript(tmp_path / "home", "s1")
-    return tmp_path / "home"
-
-
 def test_a_run_resolves_its_ladder_without_reaching_a_single_endpoint(
     tmp_path: Path,
     home: Path,

@@ -27,15 +27,6 @@ from tests import livejournal as lj
 UNREADABLE_REPLY = "I would rather not."
 
 
-@pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
-    lj.claude_transcript(tmp_path / "home", "s1")
-    return tmp_path / "home"
-
-
 def test_a_consensus_names_the_dispatch_index_of_its_winner(tmp_path: Path) -> None:
     repo = lj.make_repo(tmp_path / "repo")
     contract = load(lj.make_contract(tmp_path / "impl.yaml"))
@@ -57,7 +48,10 @@ def test_a_consensus_names_the_dispatch_index_of_its_winner(tmp_path: Path) -> N
 
 
 def test_a_consensus_with_no_refusals_dispatched_what_it_chose() -> None:
-    from tests.test_fix_outcomes_and_argv import _bound
+    from mcgyvr.deliver import Accepted, digest_of
+
+    def _bound(text: str, *, accepted: bool) -> Accepted:
+        return Accepted(content=text, accepted=accepted, digest=digest_of(text))
 
     picked = Consensus(
         draws=(_bound("x = 1\n", accepted=False), _bound("y = 1\n", accepted=True)),

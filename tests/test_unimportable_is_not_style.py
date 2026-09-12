@@ -52,6 +52,7 @@ import pytest
 
 from mcgyvr.gate import ChangeSet, Gate, GateResult
 from mcgyvr.verify import gate_summary
+from tests._helpers import git
 
 # `Mapping` is spelled the same way in both halves on purpose: it is the one
 # name that makes the pair differ in the imported-from module and in nothing
@@ -59,13 +60,11 @@ from mcgyvr.verify import gate_summary
 # on the imported name.
 UNIMPORTABLE = """from collections import Mapping
 
-
 def widths(rows: Mapping) -> int:
     return len(rows)
 """
 
 DEPRECATED_SPELLING = """from typing import Mapping
-
 
 def widths(rows: Mapping) -> int:
     return len(rows)
@@ -75,19 +74,9 @@ def widths(rows: Mapping) -> int:
 # separates the two halves must not disturb the case the split was argued for.
 DEPRECATED_ALIAS = """from typing import List
 
-
 def sizes(rows: List[int]) -> int:
     return len(rows)
 """
-
-
-def git(repo: Path, *args: str) -> str:
-    done = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
-    )
-    if done.returncode != 0:
-        raise AssertionError(f"git {' '.join(args)} failed: {done.stderr.strip()}")
-    return done.stdout
 
 
 @pytest.fixture
