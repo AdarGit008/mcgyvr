@@ -53,6 +53,8 @@ models:
   "a-model":
     vram_gb: 3.0
     disk_gb: 2.0
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
 ladder:
   tiers:
     - name: only

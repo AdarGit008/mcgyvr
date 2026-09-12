@@ -2402,6 +2402,8 @@ def _model_specs() -> tuple[ModelSpec, ...]:
                 disk_gb=model.weights_gb / GB_PER_GIB,
                 moe=moe,
                 geometry=None,
+                kv_cache_dtype_k="f16",
+                kv_cache_dtype_v="f16",
             )
         )
     return tuple(specs)

@@ -57,6 +57,8 @@ def scanned(file: str) -> ModelSpec:
         ram_gb=0.0,
         disk_gb=0.0,
         geometry=GEOMETRY[file],
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
     )
 
 

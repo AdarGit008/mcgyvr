@@ -123,8 +123,12 @@ sources:
 models:
   "{BIG}":
     geometry_json: {geometry[BIG]}
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
   "{LITE}":
     geometry_json: {geometry[LITE]}
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
 ladder:
   tiers:
     - name: local_lite
@@ -165,14 +169,17 @@ models:
     vram_gb: 3.49
     disk_gb: 1.95
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
   "{SEVEN_B}":
     vram_gb: 7.12
     disk_gb: 4.93
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
   "{EIGHTY_B}":
     vram_gb: 9.5
     disk_gb: 35.67
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
 ladder:
   tiers:
     - name: local_3b
@@ -207,6 +214,7 @@ PAIR = (
     vram_gb: 9.5
     disk_gb: 35.67
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
 """,
         "",
     )
@@ -240,10 +248,14 @@ models:
     vram_gb: 3.0
     ram_gb: 6.5
     disk_gb: 14.0
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
   quick-16b:
     vram_gb: 3.0
     ram_gb: 6.5
     disk_gb: 14.0
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
 ladder:
   tiers:
     - name: local_careful

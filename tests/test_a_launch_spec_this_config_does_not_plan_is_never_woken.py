@@ -91,9 +91,13 @@ models:
   {LITE}:
     vram_gb: 7.0
     disk_gb: 5.0
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
   {BIG}:
     vram_gb: 7.0
     disk_gb: 5.0
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
 ladder:
   tiers:
     - name: local_lite
@@ -122,6 +126,8 @@ models:
   {LITE}:
     vram_gb: 7.0
     disk_gb: 5.0
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
 ladder:
   tiers:
     - name: local_lite

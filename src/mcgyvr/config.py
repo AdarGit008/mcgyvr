@@ -324,6 +324,26 @@ MODEL_FIELDS: tuple[Field, ...] = (
         "cannot spell it the same way.",
         default=(),
     ),
+    Field(
+        "kv_cache_dtype_k",
+        "str",
+        "The K KV-cache dtype this model launches with — vLLM's single "
+        "`--kv-cache-dtype` (K and V are one value) vs llama.cpp's "
+        "`-ctk`/`-ctv` (independent). The value is validated by the engine's "
+        "own gate; a model served by vLLM or llama.cpp that omits it is "
+        "refused at `unit_for`.",
+        bind_hint="e.g. f16 (llama.cpp -ctk) or auto/fp8 (vLLM --kv-cache-dtype)",
+    ),
+    Field(
+        "kv_cache_dtype_v",
+        "str",
+        "The V KV-cache dtype this model launches with — vLLM's single "
+        "`--kv-cache-dtype` (K and V are one value) vs llama.cpp's "
+        "`-ctk`/`-ctv` (independent). The value is validated by the engine's "
+        "own gate; a model served by vLLM or llama.cpp that omits it is "
+        "refused at `unit_for`.",
+        bind_hint="e.g. f16 (llama.cpp -ctv); not read by vLLM, which takes one value",
+    ),
 )
 
 TIER_FIELDS: tuple[Field, ...] = (

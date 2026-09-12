@@ -302,6 +302,44 @@ def barren_downgrades_the_outcome(
     )
 
 
+def _states_knob(flags: list[str], spellings: tuple[str, ...]) -> bool:
+    """Whether any flag states one of ``spellings``, in either spelling.
+
+    A flag spelled ``--kv-cache-dtype fp8`` and one spelled
+    ``--kv-cache-dtype=fp8`` both state the knob; the same holds for
+    ``-ctk q8_0`` and ``--cache-type-k=q8_0``.
+    """
+    return any(
+        flag in spellings or flag.split("=", 1)[0] in spellings for flag in flags
+    )
+
+
+def _knob_value(flags: list[str], spellings: tuple[str, ...]) -> str | None:
+    """The value stated for the first of ``spellings``, or ``None`` if unstated.
+
+    ``--kv-cache-dtype fp8`` and ``--kv-cache-dtype=fp8`` both read ``fp8``;
+    a flag with no value reads the empty string, which no valid set contains.
+    """
+    for index, flag in enumerate(flags):
+        if flag in spellings:
+            return flags[index + 1] if index + 1 < len(flags) else ""
+        head, _, value = flag.partition("=")
+        if head in spellings:
+            return value
+    return None
+
+
+#: The KV cache dtype values each backend can size, used to refuse an unknown
+#: value at config time — before any claim or launch. Kept in step with the
+#: authoritative sets: ``backends/vllm.py``'s ``KV_CACHE_DTYPE_BYTES`` and
+#: ``mcgyvr.serving.vramfit``'s ``CACHE_ELEM_BYTES`` (the widths the sizing law
+#: can price a cache at).
+_VLLM_KV_DTYPES = frozenset(
+    {"auto", "float16", "bfloat16", "fp8", "fp8_e4m3", "fp8_e5m2"}
+)
+_LLAMACPP_CACHE_TYPES = frozenset({"f32", "f16", "bf16", "q8_0"})
+
+
 def check_entries(entries: list[dict[str, Any]], hosts: list[str]) -> None:
     """Everything a config can get wrong that costs nothing to catch here.
 
@@ -370,6 +408,51 @@ def check_entries(entries: list[dict[str, Any]], hosts: list[str]) -> None:
                 "An entry pinned to a host that is not being surveyed is silently "
                 "skipped, so the run would report success having measured nothing."
             )
+        # A unit states its KV cache dtype, and a value nothing can size is
+        # refused here — before any claim or launch — rather than left for the
+        # backend's gate to catch after the card is claimed. Presence and value
+        # are both config-time refusals; the entry is never mutated.
+        flags = [str(flag) for flag in ((entry.get("serve") or {}).get("flags") or [])]
+        backend = str(entry.get("backend") or "")
+        label = entry.get("label") or entry["id"]
+        if backend == "vllm":
+            if not _states_knob(flags, ("--kv-cache-dtype",)):
+                raise contract.NotCleanError(
+                    f"config entry {label!r} does not state its KV cache dtype "
+                    f"under serve.flags — declare --kv-cache-dtype (or "
+                    f"--kv-cache-dtype=<dtype>). Every served unit states "
+                    f"which cache it runs; a dtype nobody wrote is a number "
+                    f"nobody chose."
+                )
+            dtype = _knob_value(flags, ("--kv-cache-dtype",))
+            if dtype not in _VLLM_KV_DTYPES:
+                raise contract.NotCleanError(
+                    f"config entry {label!r} states --kv-cache-dtype {dtype!r}, "
+                    f"which this gate has no element width for (it sizes "
+                    f"{sorted(_VLLM_KV_DTYPES)}). Nothing was measured."
+                )
+        elif backend == "llamacpp":
+            missing = []
+            if not _states_knob(flags, ("-ctk", "--cache-type-k")):
+                missing.append("cache_type_k (`-ctk`/`--cache-type-k`)")
+            if not _states_knob(flags, ("-ctv", "--cache-type-v")):
+                missing.append("cache_type_v (`-ctv`/`--cache-type-v`)")
+            if missing:
+                raise contract.NotCleanError(
+                    f"config entry {label!r} does not state "
+                    f"{' and '.join(missing)} under serve.flags."
+                )
+            for knob, spellings in (
+                ("-ctk", ("-ctk", "--cache-type-k")),
+                ("-ctv", ("-ctv", "--cache-type-v")),
+            ):
+                dtype = _knob_value(flags, spellings)
+                if dtype not in _LLAMACPP_CACHE_TYPES:
+                    raise contract.NotCleanError(
+                        f"config entry {label!r} states {knob} {dtype!r}, which "
+                        f"this gate has no element width for (it sizes "
+                        f"{sorted(_LLAMACPP_CACHE_TYPES)}). Nothing was measured."
+                    )
 
 
 def run(
