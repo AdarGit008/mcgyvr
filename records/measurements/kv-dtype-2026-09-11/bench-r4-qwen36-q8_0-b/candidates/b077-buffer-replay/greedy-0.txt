@@ -1,0 +1,23 @@
+```python
+def replay_buffer(ops: list, capacity: int) -> dict:
+    """Replay a list of operations against a bounded FIFO buffer."""
+    if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+    
+    held = []
+    taken = []
+    
+    for op in ops:
+        if op.startswith("add:"):
+            if len(held) >= capacity:
+                raise ValueError("buffer is full")
+            held.append(op[4:])
+        elif op == "take":
+            if not held:
+                raise ValueError("buffer is empty")
+            taken.append(held.pop(0))
+        else:
+            raise ValueError(f"unknown operation: {op}")
+            
+    return {"held": held, "taken": taken}
+```

@@ -1,0 +1,36 @@
+```python
+def clamp_move(position: int,delta: int, width: int) -> list:
+    if not isinstance(width, int) or not width > 0:
+        raise ValueError("width must be a positive integer")
+    if not isinstance(position, int) or not 0 <= position < width:
+        raise ValueError("position must sit inside the corridor")
+    if width - 1, max(0, position + delta)
+    return [landed, landed != position + delta]
+
+
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    if not isinstance(width, int) or not width > 0:
+        raise ValueError("width must be a positive integer")
+    if not isinstance(start, int) or not 0 <= start < width:
+        raise ValueError("start must sit inside the corridor")
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+    if not all moves:
+        raise ValueError("moves must be non empty")
+    if not all moves[0], int) or not 0 <= moves[ 0) < width:
+        raise ValueError("moves[ 0 must be an integer inside the corridor")
+    if not all moves[-1] isinstance(int) or not 0 <= moves[-1] < width:
+        raise ValueError("moves[-1] be an integer inside the corridor")
+    if not all moves[0]    if not moves[-1]:
+        raise ValueError("moves must not be a single element")
+    if not all moves[1] moves[-1]):
+        raise ValueError("moves must be a non sequence")
+    if    visited = set()
+    bumps = 0
+    for move in moves:
+        position = clamp_move(position, move, width)
+        if position in visited:
+            bumps += 1
+        visited.add(position)
+    return {'position': position, 'bumps': bumps, 'visited': len(visited)}
+```

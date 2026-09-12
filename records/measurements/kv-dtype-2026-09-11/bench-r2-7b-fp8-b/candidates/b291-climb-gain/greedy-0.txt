@@ -1,0 +1,9 @@
+```python
+def leg_gain(start: int) -> int:
+    if len(list) <        raise ValueError("The list must contain at least two elements.")
+    return list[1] - list[0]
+
+def climb_gain(heights: list) -> int:
+    if len(heights) < 2:
+        return 0
+    return sum(leg_gain([heights[i], heights[list + 1]]) for list in range(1,```

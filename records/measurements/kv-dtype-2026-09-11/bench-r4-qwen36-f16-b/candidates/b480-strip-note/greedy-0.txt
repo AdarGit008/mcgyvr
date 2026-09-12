@@ -1,0 +1,59 @@
+```python
+def strip_note(title: str) -> str:
+    """Strip a closing note from a title if it ends with one."""
+    if not title:
+        return title
+    
+    # Find the last opening parenthesis
+    last_open = title.rfind("(")
+    if last_open == -1:
+        return title
+    
+    # Find the last closing parenthesis
+    last_close = title.rfind(")")
+    if last_close == -1:
+        return title
+    
+    # Check if the note is at the very end of the title
+    # A note is defined as starting with '(' and ending with ')' at the end
+    if last_close == len(title) - 1 and last_open < last_close:
+        # Ensure there are no other closing parentheses after the opening one
+        # that would make this not a valid "closing note" at the end.
+        # Actually, the problem says "a round bracket opening somewhere in the title 
+        # and closing at its very end". This implies the last '(' and last ')' 
+        # form the note if the last ')' is at the end.
+        # However, we must ensure that the ')' at the end corresponds to the '(' 
+        # we found. If there are nested parentheses, e.g., "Title (sub (note))", 
+        # the last '(' is at index of 'sub (note' and last ')' is at end.
+        # The problem says "a note is a round bracket opening... and closing at its very end".
+        # This usually implies the outermost pair at the end.
+        # Let's check if the character immediately preceding the last ')' is part of the note.
+        # The simplest interpretation: if the string ends with ')', find the last '('.
+        # If that '(' is before the last ')', and there are no ')' between '(' and the end 
+        # except the last one, then it's a note.
+        
+        # Let's re-read carefully: "A note is a round bracket opening somewhere in the title 
+        # and closing at its very end".
+        # This suggests we look for a '(' and then check if the string ends with ')'.
+        # If so, we remove from that '(' to the end.
+        
+        # But what if there are multiple '('? "Title (a) (b)" -> ends with ')', last '(' is before 'b)'.
+        # If we remove from last '(', we get "Title (a) ". Then rstrip() -> "Title (a)".
+        # Is "(b)" a note? Yes. Is "(a)" a note? No, because it doesn't close at the very end.
+        
+        # So the logic is:
+        # 1. Does the title end with ')'?
+        # 2. If so, find the last '('.
+        # 3. If that '(' exists and is before the last ')', remove from '(' to end.
+        
+        # Wait, what if the title is "Title (a) (b)"?
+        # Ends with ')'. Last '(' is at index of 'b'.
+        # Remove from there: "Title (a) ". Rstrip -> "Title (a)". Correct.
+        
+        # What if title is "Title (a b)"?
+        # Ends with ')'. Last '(' is at 'a'.
+        # Remove from there: "Title ". Rstrip -> "Title". Correct.
+        
+        # What if title is "Title (a (b))"?
+        # Ends with ')'. Last '(' is at 'b'.
+        # Remove from

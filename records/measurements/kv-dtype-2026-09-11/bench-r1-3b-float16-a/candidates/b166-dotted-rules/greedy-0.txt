@@ -1,0 +1,40 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+
+    def is_valid_selector(selector: str) -> bool:
+        if selector == "*":
+            return True
+        if not selector.endswith(".*"):
+            return False
+        parts = selector.split(".")
+        return len(parts) > 1 and parts[-1] == ".*"
+
+    def matches_exact(rule_name: str) -> bool:
+        return rule_name == name
+
+    def matches_wildcard(rule_name: str) -> bool:
+        parts = rule_name.split(".")
+        if len(parts) < 2:
+            return False
+        if parts[-1] != ".*":
+            return False
+        return parts[:-1] == name.split(".")[:-1]
+
+    def matches_lone_star() -> bool:
+        return name == "*"
+
+    def find_winner() -> str | None:
+        for rule_name, value in rules.items():
+            if isinstance(value, str):
+                if matches_exact(rule_name):
+                    return value
+                elif matches_wildcard(rule_name):
+                    return value
+                elif matches_lone_star():
+                    return value
+        return None
+
+    return find_winner()
+```

@@ -1,0 +1,48 @@
+```python
+def check_manifest(line: dict) -> dict:
+    """Validate and normalize a shipping manifest line, returning a fresh mapping."""
+    if not isinstance(line, dict):
+        raise ValueError("line must be a dict")
+
+    allowed_keys = {"sku", "count", "note"}
+    extra_keys = set(line.keys()) - allowed_keys
+    if extra_keys:
+        raise ValueError(f"Invalid keys: {extra_keys}")
+
+    # Extract values, handling missing keys with defaults
+    raw_sku = line.get("sku")
+    raw_count = line.get("count")
+    raw_note = line.get("note")
+
+    # Validate and process SKU
+    if raw_sku is None:
+        raise ValueError("Missing sku")
+    if not isinstance(raw_sku, str):
+        raise ValueError("sku must be a string")
+    
+    sku = raw_sku.strip()
+    if not sku:
+        raise ValueError("sku cannot be blank after trimming")
+    sku = sku.upper()
+
+    # Validate and process Count
+    if raw_count is None:
+        raise ValueError("Missing count")
+    if isinstance(raw_count, bool):
+        raise ValueError("count must be a positive whole number")
+    if not isinstance(raw_count, int):
+        raise ValueError("count must be a positive whole number")
+    if raw_count <= 0:
+        raise ValueError("count must be a positive whole number")
+    count = raw_count
+
+    # Validate and process Note
+    if raw_note is None:
+        note = ""
+    else:
+        if not isinstance(raw_note, str):
+            raise ValueError("note must be a string")
+        note = raw_note
+
+    return {"sku": sku, "count": count, "note": note}
+```

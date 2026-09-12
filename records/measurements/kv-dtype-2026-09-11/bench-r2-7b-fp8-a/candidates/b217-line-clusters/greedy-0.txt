@@ -1,0 +1,31 @@
+```python
+def line_clusters(stops: list[str], tracks: list[tuple[str,       if not stts:
+        return []
+
+    from collections import defaultdict, deque
+
+    # Build adjacency list
+    adj_list = defaultdict(list)
+    for start, end in tracks:
+        adj_list[start].append(end)
+        adj_list[end].append(start)
+
+    visited = set()
+    clusters = []
+
+    for stop in ststs:
+        if stop not in visited:
+            cluster = []
+            queue = deque([stop])
+            while queue:
+                current = queue.popleft()
+                if current not in visited:
+                    visited.add(current)
+                    cluster.append(current)
+                    for neighbor in adj_list[current]:
+                        if neighbor not in visited:
+                            queue.append(neighbor)
+            clusters.append(sorted(cluster))
+
+    return sorted(clusters)
+```

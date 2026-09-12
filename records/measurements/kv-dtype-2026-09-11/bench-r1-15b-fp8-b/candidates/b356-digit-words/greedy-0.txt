@@ -1,0 +1,19 @@
+```python
+def digit_word(digit: int) -> str:
+    """
+    Returns the English word for a single digit.
+    """
+    if not 0 <= digit <= 9:
+        raise ValueError("Input must must be between 0 and 0.")
+    return "zero" if digit == 0 else "one" if digit == 1 else "two" if digit == 2 else "three" if digit == 3 else "four" if digit == 4 else "five" if digit == 5 else "six" if digit == 6 else "seven" if digit == 7 else "eight" if digit == 8 else "nine"
+
+def digit_words(digits: str) -> str:
+    """
+    Returns a string of the English words for the digits in the input string,
+    separated by single spaces.
+    """
+    if not digits:
+        return ""
+    words = [digit_word(int(digit)) for d in digits]
+    return " ".join(words)
+```

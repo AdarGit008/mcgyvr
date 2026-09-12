@@ -1,0 +1,75 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    """
+    Compute the sum of cells in rectangular regions defined by queries.
+    
+    Args:
+        grid: A non-empty list of rows, each row a non-empty list of integers,
+              all rows having the same length.
+        queries: A list of queries, each being a list of four integers [top, left, bottom, right].
+        
+    Returns:
+        A list of sums corresponding to each query.
+        
+    Raises:
+        ValueError: If the grid or queries are invalid.
+    """
+    # Validate grid structure
+    if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a non-empty list of rows")
+    
+    width = len(grid[0])
+    if width == 0:
+        raise ValueError("rows must be non-empty lists")
+        
+    height = len(grid)
+    
+    for row in grid:
+        if not isinstance(row, list) or len(row) != width:
+            raise ValueError("rows must all share one length")
+        for cell in row:
+            # Check for bool first because bool is a subclass of int
+            if isinstance(cell, bool) or not isinstance(cell, int):
+                raise ValueError("cells must be integers")
+                
+    # Build prefix sum table
+    # prefix[i][j] stores the sum of the rectangle from (0,0) to (i-1, j-1)
+    # Dimensions are (height + 1) x (width + 1)
+    prefix = [[0] * (width + 1) for _ in range(height + 1)]
+    
+    for r in range(height):
+        row_sum = 0
+        for c in range(width):
+            row_sum += grid[r][c]
+            prefix[r + 1][c + 1] = prefix[r][c + 1] + row_sum
+            
+    # Process queries
+    results = []
+    for q in queries:
+        if not isinstance(q, list) or len(q) != 4:
+            raise ValueError("query must be a list of exactly four integers")
+        
+        top, left, bottom, right = q
+        
+        # Validate types
+        if not all(isinstance(coord, int) and not isinstance(coord, bool) for coord in [top, left, bottom, right]):
+            raise ValueError("query coordinates must be integers")
+            
+        # Validate bounds
+        if top >= bottom:
+            raise ValueError("top must be strictly less than bottom")
+        if left >= right:
+            raise ValueError("left must be strictly less than right")
+        if top < 0 or bottom > height or left < 0 or right > width:
+            raise ValueError("query reaches outside the grid")
+            
+        # Calculate sum using inclusion-exclusion principle
+        # Sum = P(bottom, right) - P(top, right) - P(bottom, left) + P(top, left)
+        total = (prefix[bottom][right] - 
+                 prefix[top][right] - 
+                 prefix[bottom][left] + 
+                 prefix[top][left])
+        results.append(total)
+        
+    return results
+```

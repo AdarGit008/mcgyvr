@@ -1,0 +1,34 @@
+<think>
+Okay, I need to implement the reserve_lots function. Let's think about the problem. The function takes a list of lots and a list of orders. Each lot is a triple: lot id, use-by date (as a string), and units on hand. Orders are pairs of order id and units wanted. The goal is to process each order in sequence, drawing from the earliest possible lot (by date, then id), taking as much as possible from each lot until the order is filled or the stock runs out.
+
+First, I need to process each order in the given order. For each order, I need to find the appropriate lots to draw from. The selection of lots is based on the use-by date (earliest first), and if dates are the same, the lot with the smaller id is chosen. For each order, I need to go through the lots in this order, taking as much as possible from each until the order is filled.
+
+So, the steps for each order are:
+
+1. Iterate through all lots, sorted by use-by date (ascending), then lot id (ascending).
+2. For each lot in this sorted order:
+   a. Take as much as possible from the lot (up to the order's remaining units needed).
+   b. Record the draw (order id, lot id, units taken).
+   c. Subtract the taken units from the lot's stock.
+   d. If the lot's stock is exhausted, remove it from the list (or mark it as empty).
+3. If after processing all lots, the order hasn't been fully filled, record a shortfall (order id, units needed).
+
+Now, the challenge is to efficiently sort the lots for each order. Since the order of processing is per order, and for each order, the lots need to be sorted by date and then id, I need to sort the lots each time. However, since the lots are not modified during the process (except for their units on hand), maybe I can sort them once and reuse the sorted list? Wait, but the lots are being modified (units on hand decrease), so the sorted order might change. Wait, no. The use-by date is fixed for each lot. So even if a lot's units are reduced, the date remains the same. Therefore, the sorted order of the lots based on date and id is fixed. So, I can pre-sort the lots once, and then for each order, process them in that sorted order.
+
+Wait, but the lots are not being modified in their date or id. So the initial sorting can be done once, and then for each order, the same sorted list can be used. That would be more efficient. So, the first step is to sort the lots once, based on their use-by date (ascending) and then lot id (ascending). Then, for each order, process the lots in this sorted order.
+
+So, the plan is:
+
+- Pre-sort the lots once, based on their use-by date and lot id.
+- For each order in the orders list:
+   - Initialize the remaining units needed for the order.
+   - Iterate through the sorted lots:
+      - For each lot, if it has units left:
+         - Take the minimum of the lot's units and the remaining needed.
+         - Record the draw.
+         - Subtract the taken units from the lot.
+         - Update the remaining needed.
+         - If the remaining needed is zero, break out of the loop.
+   - If after processing all lots, the remaining needed is still positive, add a shortfall.
+
+Now, the data structures. The lots are a list of tuples (lot_id, use_by_date, units). But since the use_by_date is a string, I need to parse it as a date.

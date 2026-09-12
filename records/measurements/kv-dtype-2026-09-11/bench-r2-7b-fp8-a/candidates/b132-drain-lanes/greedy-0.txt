@@ -1,0 +1,301 @@
+```python
+from typing import List,Dict:
+
+def drain_lanes(plan: List[List], items):
+    if not plan:
+        raise ValueError("Plan cannot be empty")
+    
+    for lane, quota in plan:
+        if not isinstance(lane, str) or not lane:
+            raise ValueError(f"Invalid lane name: {lane}")
+        If not isinstance(quota, int) or quota <= 0:
+            raise ValueError(f"Invalid quota for lane {lane}):
+        If len(list) != 3:
+            raise ValueError(f"Invalid plan entry format for lane {lane}):
+          if len(set(lane for lane, quota in plan))) != len(plan):
+        raise ValueError("Duplicate lanes found detected")
+
+    queues ={        lane]:        []
+        for lane):
+            _quota in plan):
+            queues[lane]:
+            append []
+
+    for label):
+ lane in items:
+        if lane in queues:
+            queues[lane]):
+            append append append append):
+
+            sort.append append):
+                queues[lane]):
+                Append(label)
+
+                if len(queues[lane]):
+                ): > ):
+                    return return):
+                        return):
+                        Append(label):
+                        break
+
+    sort):
+        return):
+            return):
+                return):
+                    return):
+                        return):
+                            ):
+                                ):
+                ):):
+                    ):):
+                        ):):
+                            ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):

@@ -1,0 +1,57 @@
+```python
+def climb_budget(tolls: list) -> int:
+    """Calculate the minimum cost to climb a scaffold given tolls for each rung.
+    
+    The climber starts below the first rung. Each move can step onto the next rung
+    or skip exactly one rung. The climb ends once above the top rung.
+    Returns 0 for an empty board or a board with a single rung (which can be skipped).
+    Raises ValueError for invalid tolls (non-digit characters or leading zeros).
+    """
+    if not tolls:
+        return 0
+    
+    # Validate all tolls first
+    for i, toll_str in enumerate(tolls):
+        if not isinstance(toll_str, str):
+            raise ValueError(f"Toll at position {i} is not a string")
+        if not toll_str:
+            raise ValueError(f"Toll at position {i} is empty")
+        if not toll_str.isdigit():
+            raise ValueError(f"Toll at position {i} contains non-digit characters")
+        if len(toll_str) > 1 and toll_str[0] == '0':
+            raise ValueError(f"Toll at position {i} has a leading zero")
+    
+    n = len(tolls)
+    # If there's only one rung, the climber can skip it (step from ground to above top)
+    # Cost is 0.
+    if n == 1:
+        return 0
+    
+    # Convert tolls to integers
+    costs = [int(t) for t in tolls]
+    
+    # Dynamic programming approach
+    # dp[i] represents the minimum cost to reach rung i (0-indexed)
+    # The climber starts "below" rung 0.
+    # Moves: from current position, can step to next rung or skip one rung.
+    # This means from position i, you can go to i+1 or i+2.
+    # The climb ends once above the top rung (index n-1), so we need to reach index n or beyond.
+    # Actually, let's redefine:
+    # We want to find the minimum cost to get "above" the last rung.
+    # Let's say positions are 0, 1, ..., n-1 (the rungs).
+    # Start at position -1 (ground).
+    # From position i, you can move to i+1 or i+2.
+    # You pay the toll of the rung you land on.
+    # You stop when you are at position >= n.
+    
+    # dp[i] = min cost to reach rung i
+    # dp[0] = cost[0] (step from ground to rung 0)
+    # dp[1] = cost[1] (step from ground to rung 1, skipping rung 0)
+    # For i >= 2: dp[i] = cost[i] + min(dp[i-1], dp[i-2])
+    
+    # Final answer is min cost to reach position n (above last rung)
+    # From n-1, you can step to n (cost 0, no toll)
+    # From n-2, you can skip to n (cost 0, no toll)
+    # So final answer is min(dp[n-1], dp[n-2]) if we consider reaching "above" as the end.
+    # Wait, if we are at rung n-1, we can step to n (above top). Cost added is 0.
+    # If we are at rung n-2, we can skip

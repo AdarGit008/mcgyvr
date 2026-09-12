@@ -1,0 +1,6 @@
+```python
+from typing import List, Dict
+
+def list_mean(records: List[Dict[str,    total = sum(record.get('file', 0) for record in records if isinstance(record.get(' list'), (int,    count = sum(1 for record in records if isinstance(record.get(' list'), (int))
+    return total // count if count > 0 else 0
+```

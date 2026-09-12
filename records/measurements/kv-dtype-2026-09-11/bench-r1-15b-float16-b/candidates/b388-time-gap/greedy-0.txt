@@ -1,0 +1,26 @@
+```python
+from typing import Tuple
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    """
+    Calculate the minutes from the first time to the second, taking the second as falling on the following day whenever it is not later than the first.
+    
+    :param from_hour: The hour of the first time.
+    :param from_minute: The minute of the first time.
+    :param to_hour: The hour of the second time.
+    :param to_minute: The minute of the second time.
+    :return: The minutes from the first to the second.
+    """
+    # Ensure the times are within the valid range
+    if not (0 <= from_hour < 24 and 0 <= from_minute < 60 and 0 <= to_hour < 24 and 0 <= to_minute < 60):
+        raise ValueError("Hour and minute values must be between 0 and 23.")
+    
+    # Calculate the total minutes from the first time to the second
+    total_minutes = (to_hour - from_hour) * 60 + (to_minute - from_minute)
+    
+    # If the second time is on the following day, add 24 hours
+    if to_hour < from_hour:
+        total_minutes += 24 * 60
+    
+    return total_minutes
+```

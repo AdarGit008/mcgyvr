@@ -1,0 +1,26 @@
+```python
+from typing import List
+
+def unpack_crates(crate: List) -> List:
+    def unpack_crate(crate: List, result: List = []) -> List:
+        for item in crate:
+            if isinstance(item, str) and item:
+                result.append(item)
+            elif isinstance(item, list):
+                unpack_crate(item, result)
+            else:
+                raise ValueError("Invalid entry: must be a non-empty string or a list")
+        return result
+
+    return unpack_crate(crate)
+
+def crate_depth(crate: List) -> int:
+    def depth(crate: List, depth: int = 1) -> int:
+        if not crate:
+            return depth
+        if isinstance(crate[0], list):
+            return depth + depth(crate[0])
+        return depth
+
+    return depth(crate)
+```

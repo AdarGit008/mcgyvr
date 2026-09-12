@@ -1,0 +1,60 @@
+```python
+from typing import List, Tuple
+
+def climb_budget(tolls: List) -> int:
+    if = 0
+  for i, toll in enumerate(tolls):
+        if not toll.isdigit():
+            raise ValueError(f"Invalid toll atoll={ {g + 1})")
+        if toll[0] == '0':
+            raise ValueError(f"Leading zero in toll(toll, {g + 1})")
+        if toll[0] == '0':
+            raise ValueError(f"Trailing zero in toll(toll,, g + 1})")
+        if toll[0] 0 0:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 0:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0]  > 0:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Ex toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0 > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1}) 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if(f"Excessive toll(toll, g + 1})")
+        if(f"Excessive toll(toll, g + 1})")
+        if toll[0] > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[0) > 6:
+            raise ValueError(f"Excessive toll(toll, g + 1})")
+        if toll[

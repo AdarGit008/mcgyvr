@@ -1,0 +1,22 @@
+```python
+def drift_check(readings: list, step: int) -> int:
+    """
+    Check for drift in sensor readings.
+
+    Parameters:
+    readings (list): A list of sensor readings in order they were taken.
+    step (int): The allowed step between consecutive readings.
+
+    Returns:
+    int: The position of the first reading that differs from the one immediately before it by more than the step,
+         or -1 if every reading stays within the allowed step.
+    """
+    if not readings:
+        return -1
+
+    for i in range(1, len(readings)):
+        if abs(readings[i] - readings[i - 1]) > step:
+            return i
+
+    return -1
+```

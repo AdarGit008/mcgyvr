@@ -1,0 +1,40 @@
+<think>
+Okay, I need to implement the draw_stock function according to the given contract. Let me start by understanding the requirements.
+
+The function takes a shelf (a dictionary mapping item names to counts) and an order (a list of [item, count] lines). The order is processed from first to last. The goal is to return a new dictionary representing the remaining stock after processing the order. The shelf should not be modified. Also, there are several validation checks to perform.
+
+First, I need to validate the input. The shelf's counts must be non-negative integers. If any count is not a non-negative whole number, that's an error. Then, the order must be a list. Each line in the order must be a list with exactly two elements: an item and a count. The count must be a positive whole number. Also, the item in each line must exist in the shelf. Additionally, if a line tries to pull more of an item than what's left after previous lines, that's invalid.
+
+So, the steps are:
+
+1. Validate the shelf: check all counts are non-negative integers.
+2. Validate the order: check it's a list, each line is a list with two elements, the item is in the shelf, the count is a positive integer.
+3. Process each order line in sequence, subtracting the count from the shelf's item. If at any point the count requested is more than what's available, raise an error.
+4. Return a new dictionary with the remaining counts, ensuring that items with zero are not removed.
+
+Wait, the problem says that even if an item's count reaches zero, it's still present in the shelf. So, after processing, the shelf should have all items that were there, even if their count is zero. But the function returns a new mapping, so we need to make sure that even if the count is zero, it's included.
+
+But the original shelf is not modified. So, when processing, we need to create a new dictionary based on the original shelf's items, but with updated counts.
+
+So, the approach is:
+
+- Create a copy of the shelf's items. But since the shelf is a dictionary, we can make a deep copy? Or perhaps iterate through the original items and create a new dictionary with the same keys, but updated counts.
+
+Wait, the problem says that the shelf passed in is never modified. So, we need to create a new dictionary based on the original shelf's items, but with the updated counts.
+
+So, for each item in the original shelf, we need to track how much is left after processing the order.
+
+But the order is processed in sequence. For each line in the order, we check if the item exists in the shelf. Then, subtract the count from the current stock. But if the current stock is less than the requested count, that's an error.
+
+So, the steps for processing:
+
+- For each line in order:
+   - Check if the item is in the shelf.
+   - Check if the count is positive.
+   - Check if the current stock for the item is >= the count. If not, raise error.
+
+But how to process this? Let's think.
+
+First, create a new dictionary that's a copy of the original shelf. But wait, the original shelf is not modified. So, perhaps we need to create a new dictionary that's a copy of the original shelf's items, and then process the order lines, updating the counts.
+
+Wait, but the original shelf is not modified. So, the function must return a new dictionary. So, the initial step is to create a copy of the original shelf's items. But since the original shelf may have items with zero counts, but the problem says that even if an item's

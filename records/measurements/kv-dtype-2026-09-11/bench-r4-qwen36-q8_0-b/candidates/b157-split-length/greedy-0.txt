@@ -1,0 +1,28 @@
+```python
+LADDER = (("m", 1000), ("cm", 10), ("mm", 1))
+
+
+def split_length(mm: int) -> str:
+    """Convert a length in millimetres to workshop notation (e.g., '1m 23cm 4mm')."""
+    if isinstance(mm, bool):
+        raise ValueError("Length must be an integer, not a boolean")
+    if not isinstance(mm, int):
+        raise ValueError("Length must be an integer")
+    if mm < 0:
+        raise ValueError("Length must be non-negative")
+    
+    parts = []
+    remaining = mm
+    
+    for unit_name, unit_size in LADDER:
+        if remaining >= unit_size:
+            count = remaining // unit_size
+            remaining %= unit_size
+            if count > 0:
+                parts.append(f"{count}{unit_name}")
+    
+    if not parts:
+        return "0mm"
+    
+    return " ".join(parts)
+```

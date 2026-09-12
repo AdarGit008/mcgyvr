@@ -1,0 +1,7 @@
+```python
+from typing import List,import math
+
+def pace_of(seconds:    raise ValueError("Distance cannot be zero")
+
+def pace_list(legs:    return [math.floor(seconds / kilometers) for seconds, kilometers in legs]
+```

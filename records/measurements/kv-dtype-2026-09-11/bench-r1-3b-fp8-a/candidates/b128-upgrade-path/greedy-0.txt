@@ -1,0 +1,54 @@
+```python
+from typing import *
+from collections import *
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    """
+    Vet a device's proposed firmware upgrade path and report the final tag.
+    
+    Args:
+    installed (str): The current firmware tag of the device.
+    steps (list): A list of upgrade steps, each represented as a dictionary with keys 'tag' and 'requires'.
+    
+    Returns:
+    str: The firmware tag carried after the final step, or the installed tag if the path is empty.
+    
+    Raises:
+    ValueError: If a step's tag is not a valid firmware tag or does not meet the upgrade criteria.
+    """
+    def is_valid_tag(tag: str) -> bool:
+        parts = tag.split('.')
+        if len(parts) != 2:
+            return False
+        if not all(part.isdigit() for part in parts):
+            return False
+        if int(parts[0]) < 0 or int(parts[1]) < 0:
+            return False
+        if parts[0] == '0' and parts[1] != '0':
+            return False
+        return True
+
+    if not isinstance(steps, list):
+        raise ValueError("steps must be a list of upgrade steps.")
+    
+    for step in steps:
+        if not isinstance(step, dict) or 'tag' not in step or 'requires' not in step:
+            raise ValueError("Each step must be a dictionary with keys 'tag' and 'requires'.")
+        
+        if not is_valid_tag(step['tag']):
+            raise ValueError(f"Invalid tag '{step['tag']}' in step.")
+        
+        if not is_valid_tag(step['requires']):
+            raise ValueError(f"Invalid requires tag '{step['requires']}' in step.")
+        
+        if int(step['tag'].split('.')[0]) >= int(step['requires'].split('.')[0]):
+            raise ValueError(f"Step {step['tag']} requires at least {step['requires']}.")
+        
+        if int(step['tag'].split('.')[1]) <= int(step['requires'].split('.')[1]):
+            raise ValueError(f"Step {step['tag']} is not an upgrade from {step['requires']}.")
+    
+    carried = installed
+    for step in steps:
+        carried = step["tag"]
+    return carried
+```

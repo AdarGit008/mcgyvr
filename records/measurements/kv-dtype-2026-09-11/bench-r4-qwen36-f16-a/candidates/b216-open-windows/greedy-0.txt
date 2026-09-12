@@ -1,0 +1,50 @@
+```python
+"""Report the stretches of a clinic's day that no appointment covers."""
+
+import re
+
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def minutes(text: str) -> list[int]:
+        parts = text.split("-")
+        if len(parts) != 2 or any(re.fullmatch(r"\d{2}:\d{2}", p) is None for p in parts):
+            raise ValueError("a range must be written HH:MM-HH:MM: " + text)
+        return [int(p[:2]) * 60 + int(p[3:]) for p in parts]
+
+    def stamp(at: int) -> str:
+        return f"{at // 60:02d}:{at % 60:02d}"
+
+    span_start, span_end = minutes(span)
+    
+    # Parse and validate all booked appointments
+    intervals = []
+    for b in booked:
+        start, end = minutes(b)
+        # Appointments must be inside the span
+        if start < span_start or end > span_end:
+            raise ValueError("appointment outside span")
+        intervals.append((start, end))
+    
+    # Sort by start time
+    intervals.sort(key=lambda x: x[0])
+    
+    free: list[str] = []
+    current_time = span_start
+    
+    for start, end in intervals:
+        # If there is a gap between current_time and the start of the appointment
+        if start > current_time:
+            free.append(f"{stamp(current_time)}-{stamp(start)}")
+            current_time = end
+        else:
+            # The appointment starts before or at current_time, so we just advance
+            # If the appointment extends further, update current_time
+            if end > current_time:
+                current_time = end
+    
+    # After all appointments, check if there's remaining time until span_end
+    if current_time < span_end:
+        free.append(f"{stamp(current_time)}-{stamp(span_end)}")
+        
+    return ", ".join(free) if free else "none"
+```

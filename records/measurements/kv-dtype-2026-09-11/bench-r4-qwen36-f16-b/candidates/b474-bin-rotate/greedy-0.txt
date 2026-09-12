@@ -1,0 +1,11 @@
+```python
+def bin_rotate(entries: list[str], places: int) -> list[str]:
+    """Rotate the list of entries forward by the given number of places."""
+    if len(entries) == 0:
+        return []
+    shift = places % len(entries)
+    out = []
+    for i in range(len(entries)):
+        out.append(entries[(i + shift) % len(entries)])
+    return out
+```

@@ -1,0 +1,79 @@
+```python
+def unpack_frame(data: list) -> list:
+    """Unpack a sensor record frame from a list of byte values and return the readings."""
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    for byte_val in data:
+        if not isinstance(byte_val, int):
+            raise ValueError("All elements must be integers")
+        if byte_val < 0 or byte_val > 255:
+            raise ValueError("All elements must be between 0 and 255")
+    
+    if len(data) == 0:
+        raise ValueError("Empty frame")
+    
+    n = len(data)
+    idx = 0
+    
+    # Helper to decode a varint
+    def decode_varint(start_idx: int) -> tuple:
+        """Returns (value, new_index) or raises ValueError."""
+        if start_idx >= n:
+            raise ValueError("Frame ends inside a varint")
+        
+        value = 0
+        shift = 0
+        # Max 5 bytes for varint
+        for i in range(5):
+            if start_idx + i >= n:
+                raise ValueError("Frame ends inside a varint")
+            
+            byte = data[start_idx + i]
+            
+            # Check for wasted zero (final byte of multi-byte varint is never zero)
+            # If this is the last byte (high bit not set), it must not be 0 unless it's a single byte 0
+            if not (byte & 0x80):
+                # This is the final byte of the varint
+                if i == 0:
+                    # Single byte varint
+                    value = byte
+                    return value, start_idx + 1
+                else:
+                    # Multi-byte varint
+                    if byte == 0:
+                        raise ValueError("Wasted zero in varint")
+                    value |= byte << shift
+                    return value, start_idx + i + 1
+            else:
+                # Continuation byte
+                value |= (byte & 0x7F) << shift
+                shift += 7
+        
+        # If we get here, we used 5 bytes and the last one had high bit set
+        raise ValueError("Varint longer than five bytes")
+
+    # Decode header varint (number of readings)
+    num_readings, idx = decode_varint(0)
+    
+    readings = []
+    for _ in range(num_readings):
+        reading_val, idx = decode_varint(idx)
+        readings.append(reading_val)
+    
+    # Check if there is exactly one trailer byte left
+    if idx == n:
+        # No trailer byte
+        raise ValueError("No trailer byte")
+    elif idx == n - 1:
+        # Exactly one byte left, check trailer
+        trailer_byte = data[idx]
+        expected_trailer = sum(data[:idx]) % 256
+        if trailer_byte != expected_trailer:
+            raise ValueError("Trailer does not equal byte sum")
+        # Valid frame
+        return readings
+    else:
+        # More than one byte left
+        raise ValueError("Bytes left over after the trailer")
+```

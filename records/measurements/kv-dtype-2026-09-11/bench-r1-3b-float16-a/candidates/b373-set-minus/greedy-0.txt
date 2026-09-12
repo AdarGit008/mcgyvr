@@ -1,0 +1,16 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    """
+    Returns the entries of 'entries' that do not appear in 'remove', keeping the order they came in.
+    """
+    if not entries:
+        return []
+
+    # Create a set for faster lookup
+    remove_set = set(remove)
+
+    # Use a list comprehension to filter out elements in 'remove_set'
+    result = [entry for entry in entries if entry not in remove_set]
+
+    return result
+```

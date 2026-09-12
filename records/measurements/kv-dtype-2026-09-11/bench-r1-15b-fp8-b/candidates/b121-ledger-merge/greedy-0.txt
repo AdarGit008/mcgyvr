@@ -1,0 +1,15 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    if = base(base + ours + theirs, key=['account'])
+    for account in sorted(set(set(base) | set(ours) set set(theirs))):
+ ['account']))):
+        if account in base:
+            base[base.index(account)] = [account, base[base.index(account)][ cents + theirs[the.index(account)] + ours[ledger.index(account)])
+ cents)
+        elif account in ours:
+            ours[ours.index(account)] = [account, ours[ours.index(account)] cents + base[ledger.index(account)] + theirs[ledger.index(account)] cents
+        elif account in theirs:
+            theirs[the.index(account)] = [account, theirs[ledger.index(account)] cents + base[ledger.index(account)] + ours[ledger.index(account)] cents
+        else:
+            raise ValueError(f" account} is not a valid account name")
+    return sorted(lister,

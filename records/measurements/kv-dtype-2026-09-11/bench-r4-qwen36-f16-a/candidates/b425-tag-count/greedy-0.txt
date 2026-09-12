@@ -1,0 +1,26 @@
+```python
+def tag_count(line: str) -> int:
+    """Return the number of complete markers in the line, or raise ValueError if unmatched."""
+    count = 0
+    i = 0
+    n = len(line)
+    
+    while i < n:
+        if line[i] == '<':
+            # Found an opening bracket, look for closing bracket
+            j = line.find('>', i + 1)
+            if j == -1:
+                # No closing bracket found for this opening one
+                raise ValueError("Unmatched opening angle bracket")
+            # Found a complete marker from i to j
+            count += 1
+            i = j + 1
+        elif line[i] == '>':
+            # Found a closing bracket without a preceding opening one in the current context
+            # Since we process sequentially, this means an unmatched closing bracket
+            raise ValueError("Unmatched closing angle bracket")
+        else:
+            i += 1
+            
+    return count
+```

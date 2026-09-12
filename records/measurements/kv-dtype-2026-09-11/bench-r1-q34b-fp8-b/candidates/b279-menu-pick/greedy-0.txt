@@ -1,0 +1,37 @@
+<think>
+Okay, I need to implement the menu_pick function. Let's see the requirements. The function takes a list of dishes and a budget, and returns the names of dishes that cost no more than the budget, sorted by price (cheapest first) and then by name if prices are the same. Also, if the budget is too low, return an empty list.
+
+First, I need to process each dish. Each dish has a name and a price. So, the input dishes is a list of tuples or objects with name and price. Wait, the problem says "each dish on a menu carries a name and a price in whole pence." So the dishes are probably a list of dictionaries or tuples. But the function's parameters are a list of dishes, so I need to assume that each dish is a dictionary or a tuple with 'name' and 'price' keys or indexes.
+
+Wait, the function is called menu_pick, and the input is a list of dishes. So, for each dish in the list, I need to check if its price is <= budget. Then, collect all those dishes, sort them first by price (ascending), then by name (ascending). Then return the names in that order.
+
+So the steps are:
+
+1. Filter the dishes where price <= budget.
+2. Sort the remaining dishes by price, then by name.
+3. Extract the names from the sorted list.
+
+But how are the dishes structured? The problem says that each dish has a name and a price. So, perhaps each dish is a dictionary with 'name' and 'price' keys. Or maybe a tuple with (name, price). But since the function is written in Python, the exact structure isn't specified. However, the function's parameters are a list of dishes, so I need to assume that each dish is an object (like a dictionary) with 'name' and 'price' attributes.
+
+Wait, but in Python, when you pass a list of dictionaries, you can access them as dish['name'] and dish['price']. Alternatively, if they are tuples, then dish[0] is name, dish[1] is price. But the problem says that the function should return the names, so the code needs to extract the name and price from each dish.
+
+So, the code should process each dish in the list. For each dish, check if the price is <= budget. Then collect those dishes, sort them by price (ascending), then by name (ascending). Then return the names in that order.
+
+So, the code would look like this:
+
+def menu_pick(dishes: list, budget: int) -> list:
+    # Filter dishes with price <= budget
+    filtered = [dish for dish in dishes if dish['price'] <= budget]
+    # Sort by price, then by name
+    sorted_dishes = sorted(filtered, key=lambda x: (x['price'], x['name']))
+    # Extract names
+    return [dish['name'] for dish in sorted_dishes]
+
+Wait, but what if the dishes are tuples instead of dictionaries? For example, if each dish is a tuple (name, price), then the code would need to access the first element as name and the second as price. So, in that case, the code would be:
+
+def menu_pick(dishes: list, budget: int) -> list:
+    filtered = [dish for dish in dishes if dish[1] <= budget]
+    sorted_dishes = sorted(filtered, key=lambda x: (x[1], x[0]))
+    return [dish[0] for dish in sorted_dishes]
+
+But the problem says that the function should return the names of every dish costing no more than the budget. So the code needs to extract the name and

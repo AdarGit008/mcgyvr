@@ -1,0 +1,31 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """
+    Returns every piece of a line standing between an opening and a closing marker,
+    in the order they appear and without the markers themselves.
+    An opening marker never closed yields nothing, and the markers do not nest.
+    """
+    if not isinstance(line, str) or not isinstance(opens, str) or not isinstance(closes, str):
+        raise ValueError("All inputs must be strings.")
+    
+    if len(opens) != 1 or len(closes) != 1:
+        raise ValueError("Both opens and closes must be single characters.")
+    
+    stack = []
+    result = []
+    
+    for char in line:
+        if char in opens:
+            stack.append(char)
+        elif char in closes:
+            if stack and stack[-1] == opens:
+                result.append(''.join(stack[1:-1]))
+                stack.pop()
+            else:
+                raise ValueError("Closing marker without matching opening marker.")
+    
+    if stack:
+        raise ValueError("Opening marker without matching closing marker.")
+    
+    return result
+```

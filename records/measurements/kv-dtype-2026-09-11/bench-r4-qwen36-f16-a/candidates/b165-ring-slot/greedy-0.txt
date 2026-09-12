@@ -1,0 +1,30 @@
+```python
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    """Return the slot index holding the k-th oldest survivor in a ring buffer."""
+    if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+    if not isinstance(writes, int) or isinstance(writes, bool) or writes < 0:
+        raise ValueError("writes must be a non-negative integer")
+    if not isinstance(k, int) or isinstance(k, bool) or k < 0:
+        raise ValueError("k must be a non-negative integer")
+
+    survivor_count = min(writes, capacity)
+    if k >= survivor_count:
+        raise ValueError("k is out of range for the number of survivors")
+
+    # The survivors are the newest min(writes, capacity) readings.
+    # If writes >= capacity, the survivors are readings [writes - capacity, writes - 1].
+    # If writes < capacity, the survivors are readings [0, writes - 1].
+    # The oldest survivor is the earliest reading among the survivors.
+    # The k-th oldest survivor is the reading at index (oldest_reading_index + k).
+    
+    if writes >= capacity:
+        oldest_reading_index = writes - capacity
+    else:
+        oldest_reading_index = 0
+
+    target_reading_index = oldest_reading_index + k
+    
+    # The reading at index n is stored in slot n % capacity
+    return target_reading_index % capacity
+```

@@ -1,0 +1,16 @@
+```python
+from typing import List
+
+import bisect
+
+def poll_duplicates(lst: List[int]) -> List[int]:
+    seen = set()
+    duplicates = []
+    for item in lst:
+        if item in seen:
+            duplicates.append(item)
+        else:
+            seen.add(item)
+    return duplicates
+
+```

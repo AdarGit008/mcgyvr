@@ -1,0 +1,16 @@
+```python
+def root_digit(value: int) -> int:
+    """Fold a whole count down to a single figure by repeatedly summing its digits."""
+    if value < 0:
+        raise ValueError("value must be non-negative")
+    
+    while value >= 10:
+        total = 0
+        temp = value
+        while temp > 0:
+            total += temp % 10
+            temp //= 10
+        value = total
+    
+    return value
+```

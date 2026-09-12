@@ -1,0 +1,22 @@
+```python
+def short_num(value: int) -> str:
+    """Convert an integer to a short-form string with k or m suffixes."""
+    if value < 0:
+        raise ValueError("Value must be a non-negative integer")
+    
+    if value < 1000:
+        return str(value)
+    elif value < 1000000:
+        # Thousands: divide by 1000, keep one decimal place, rounded down
+        thousands = value / 1000
+        # Round down to one decimal place
+        # Multiply by 10, floor, divide by 10
+        truncated = int(thousands * 10) / 10
+        # Format with one decimal place
+        return f"{truncated}k"
+    else:
+        # Millions: divide by 1000000, keep one decimal place, rounded down
+        millions = value / 1000000
+        truncated = int(millions * 10) / 10
+        return f"{truncated}m"
+```

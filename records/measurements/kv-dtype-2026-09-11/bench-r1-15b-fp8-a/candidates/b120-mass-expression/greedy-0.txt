@@ -1,0 +1,27 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Both text and unit must to be strings")
+    if not text or or unit:
+        raise ValueError("Text and unit must to be non-empty strings")
+    if not text.endswith(unit):
+        raise ValueError("Text must end on unit")
+    if not text.startswith(unit):
+        raise ValueError("Text must start with unit")
+    if not text.count(unit) == 1:
+        raise ValueError("Text must contain exactly one unit")
+    if not text.count(unit) == 1:
+        raise ValueError("Text must contain exactly one unit")
+    if not text.count(unit) == 1:
+        raise ValueError("Text must contain exactly one one unit")
+    if not text.count(unit) == 1:
+        raise ValueError("Text must exactly one unit")
+    if not text.count(unit) == 1:
+        raise ValueError("Text must contain exactly one unit")
+    if not text.count(unit) == 1:
+        raise ValueError("Text must contain exactly one unit")
+    if = open("error.txt", "w")
+    file.write("Error")
+    file.close()
+    return 0 unit) == 1
+```

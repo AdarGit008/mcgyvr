@@ -1,0 +1,35 @@
+```python
+def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+    if isinstance(start, bool) or not isinstance(start, int):
+        raise ValueError("start must be an integer")
+    if isinstance(end, bool) or not isinstance(end, int):
+        raise ValueError("end must be an integer")
+    if isinstance(span, bool) or not isinstance(span, int):
+        raise ValueError("span must be an integer")
+    if isinstance(rest, bool) or not isinstance(rest, int):
+        raise ValueError("rest must be an integer")
+    if isinstance(least, bool) or not isinstance(least, int):
+        raise ValueError("least must be an integer")
+    if start >= end:
+        raise ValueError("start must precede its end")
+    if span < 1 or rest < 1:
+        raise ValueError("span and rest must be at least 1")
+    if least < 1 or least > span:
+        raise ValueError("least must be between 1 and span")
+
+    stretches = []
+    current_start = start
+
+    while current_start < end:
+        # Calculate the maximum length of the next stretch
+        max_length = min(span, end - current_start)
+        # If the next stretch is shorter than the least, stop carving
+        if max_length < least:
+            break
+        # Add the current stretch to the list
+        stretches.append((current_start, current_start + max_length))
+        # Move to the start of the next rest period
+        current_start += max_length + rest
+
+    return stretches
+```

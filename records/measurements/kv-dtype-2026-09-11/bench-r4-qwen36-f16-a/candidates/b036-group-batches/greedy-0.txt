@@ -1,0 +1,88 @@
+```python
+def group_batches(jobs: list, capacity: int) -> list:
+    """
+    Groups jobs into batches based on group constraints, priority, and weight capacity.
+    
+    Args:
+        jobs: A list of jobs, each being a [name, group, priority, weight] quadruple.
+        capacity: The weight capacity of one batch.
+        
+    Returns:
+        A list of batches, where each batch is a list of job names in the order they were taken.
+        
+    Raises:
+        ValueError: If any input validation fails.
+    """
+    # Validate capacity
+    if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    # Validate jobs argument
+    if not isinstance(jobs, list):
+        raise ValueError("Jobs must be a list.")
+    
+    # Validate individual jobs and collect metadata
+    seen_names = set()
+    job_queue = {}  # name -> [name, group, priority, weight]
+    group_queues = {}  # group -> list of job names in arrival order
+    
+    for job in jobs:
+        if not isinstance(job, list):
+            raise ValueError("Each job must be a list.")
+        if len(job) != 4:
+            raise ValueError("Each job must have exactly four elements.")
+        
+        name, group, priority, weight = job
+        
+        # Validate name
+        if not isinstance(name, str) or not name:
+            raise ValueError("Job name must be a non-empty string.")
+        
+        # Validate group
+        if not isinstance(group, str) or not group:
+            raise ValueError("Job group must be a non-empty string.")
+        
+        # Validate priority
+        if not isinstance(priority, int) or isinstance(priority, bool):
+            raise ValueError("Job priority must be an integer.")
+        
+        # Validate weight
+        if not isinstance(weight, int) or isinstance(weight, bool):
+            raise ValueError("Job weight must be an integer.")
+        if weight < 1 or weight > capacity:
+            raise ValueError(f"Job weight must be between 1 and capacity ({capacity}).")
+        
+        # Check for duplicate names
+        if name in seen_names:
+            raise ValueError(f"Duplicate job name: {name}.")
+        
+        seen_names.add(name)
+        job_queue[name] = [name, group, priority, weight]
+        
+        if group not in group_queues:
+            group_queues[group] = []
+        group_queues[group].append(name)
+    
+    # Initialize pointers for each group to track the next eligible job
+    group_pointers = {group: 0 for group in group_queues}
+    
+    batches = []
+    total_jobs = len(jobs)
+    scheduled_count = 0
+    
+    while scheduled_count < total_jobs:
+        # Determine eligible heads for this round
+        # Eligible heads are the earliest unscheduled job of each group
+        eligible_heads = []
+        for group, queue in group_queues.items():
+            ptr = group_pointers[group]
+            if ptr < len(queue):
+                name = queue[ptr]
+                job = job_queue[name]
+                # Store index in queue for potential re-evaluation if needed, 
+                # but since we only advance pointers, we just need the job data.
+                # We need to sort by priority desc, then arrival order (index in queue).
+                eligible_heads.append({
+                    'name': name,
+                    'group': group,
+                    'priority': job[2],

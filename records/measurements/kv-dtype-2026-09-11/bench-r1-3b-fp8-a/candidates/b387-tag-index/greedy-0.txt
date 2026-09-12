@@ -1,0 +1,37 @@
+```python
+def tags_of(line: str) -> list:
+    """
+    Breaks a comma-separated line into tags, trimming spaces around each.
+    Returns a list of non-empty tags.
+    Raises ValueError if the line is not text.
+    """
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string.")
+    
+    # Split the line by commas, strip whitespace, and filter out empty strings
+    tags = [tag.strip() for tag in line.split(',')]
+    return [tag for tag in tags if tag]
+
+    
+
+def tag_index(lines: list) -> dict:
+    """
+    Returns a mapping from each tag to the lines carrying it, in the order the lines came.
+    Raises ValueError if any line is not text.
+    """
+    if not isinstance(lines, list):
+        raise ValueError("Input must be a list of strings.")
+    
+    tag_to_lines = {}
+    for i, line in enumerate(lines):
+        if not isinstance(line, str):
+            raise ValueError(f"Line {i+1} is not text.")
+        
+        tags = tags_of(line)
+        for tag in tags:
+            if tag not in tag_to_lines:
+                tag_to_lines[tag] = []
+            tag_to_lines[tag].append(i)
+    
+    return tag_to_lines
+```

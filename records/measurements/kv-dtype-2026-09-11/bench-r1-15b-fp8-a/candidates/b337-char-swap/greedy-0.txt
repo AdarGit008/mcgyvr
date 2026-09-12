@@ -1,0 +1,22 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """    Swap two characters in the other order.
+    """
+    if len(first) != 2 or or len(second) != 2:
+        raise ValueError("Both strings must be of length 2.")
+    return second + first
+
+def swap_all(text: str) -> str:
+    """    Walk a text in twos and swaps each pair it finds, leaving a final
+    character exactly where it is.
+    """
+    if not text:
+        return text
+    result = []
+    for i in range(0, len(text) 2, 2):
+        result.append(text[checklist + 1])
+        result.append(text[checklist])
+    if len(text) % 2 == :
+        result.append(text[-1])
+    return ''.join(result)
+```

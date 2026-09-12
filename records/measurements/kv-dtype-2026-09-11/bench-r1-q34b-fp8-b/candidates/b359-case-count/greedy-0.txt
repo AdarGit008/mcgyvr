@@ -1,0 +1,66 @@
+<think>
+Okay, I need to implement the case_count function. The function should return a list with two elements: the number of capital letters followed by the number of small letters. Any characters that aren't letters should be ignored.
+
+First, I'll think about how to check each character in the input text. For each character, I need to determine if it's uppercase or lowercase. If it's neither, I just skip it.
+
+So, the steps are: iterate over each character in the text. For each character, check if it's uppercase using isupper(), then increment the capital count. Similarly, check if it's lowercase with islower() and increment the small count. All other characters are not counted.
+
+Wait, but what about characters from other alphabets? The problem says that non-English letters shouldn't be counted. But the problem statement doesn't specify how to handle them. However, the interface says that the function should count letters, so maybe only the standard A-Z and a-z are considered. So, the function will check if the character is an uppercase letter (A-Z) or lowercase (a-z).
+
+So, the code will loop through each character in the input text. Initialize two counters: caps and small. Then, for each char in text:
+
+if char.isupper() → caps +=1
+
+elif char.islower() → small +=1
+
+Else, do nothing.
+
+Then return [caps, small].
+
+Wait, but the problem says that a text with no letters returns two zeros. So, if the text has no letters, both counts are zero.
+
+Testing some examples:
+
+For example, "Hello, World!" → H is caps (1), e is lower (1), l is lower (1), l is lower (1), o is lower (1), W is caps (1), r is lower (1), d is lower (1), ! is ignored. So total caps: 2 (H and W), small: 6 (e, l, l, o, r, d). So the function would return [2, 6].
+
+Another example: "1234" → no letters, returns [0, 0].
+
+Another example: "aBc" → a is lower (1), B is caps (1), c is lower (1). So [1, 3].
+
+Wait, no: "aBc" → a is lowercase (1), B is uppercase (1), c is lowercase (1). So caps is 1, small is 2. So the function returns [1, 2].
+
+So the code should be straightforward.
+
+Now, implement this in Python.
+
+The function is called case_count and takes a string. It returns a list of two integers.
+
+So the code:
+
+def case_count(text: str) -> list:
+    caps = 0
+    small = 0
+    for char in text:
+        if char.isupper():
+            caps += 1
+        elif char.islower():
+            small += 1
+    return [caps, small]
+
+Wait, but what about characters that are not letters? Like numbers or symbols. The code correctly ignores them.
+
+Testing the edge cases:
+
+Empty string: returns [0, 0].
+
+Single character that is a number: returns [0, 0].
+
+A single uppercase letter: returns [1, 0].
+
+A single lowercase letter: returns [0, 1].
+
+Duplicate letters: e.g., "AaAa" → caps: 2 (A and A), small: 2 (a and a). So [2, 2].
+
+Yes.
+
+So this code should handle all cases. The problem didn't mention non-English letters, but the function is supposed to count letters. The code

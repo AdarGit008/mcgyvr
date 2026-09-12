@@ -1,0 +1,83 @@
+```python
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    """Parse a span string into total inches."""
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    if not text:
+        raise ValueError("span cannot be empty")
+    
+    parts = text.split(" ")
+    if not parts:
+        raise ValueError("span cannot be empty")
+        
+    # Check for empty parts which implies multiple spaces or leading/trailing
+    if any(p == "" for p in parts):
+        raise ValueError("invalid span format")
+
+    total = 0
+    last_unit_index = -1
+    
+    for part in parts:
+        if len(part) < 3:
+            raise ValueError("invalid part length")
+        
+        # Check for bare value (no unit) or bare unit (no value)
+        # A valid part must end with a unit string from INCHES
+        unit = part[-2:]
+        value_str = part[:-2]
+        
+        if unit not in INCHES:
+            raise ValueError(f"unknown unit: {unit}")
+        
+        if not value_str:
+            raise ValueError("bare unit found")
+            
+        try:
+            value = int(value_str)
+        except ValueError:
+            raise ValueError(f"invalid value: {value_str}")
+            
+        # Check for leading zero: "0" is allowed, "01" is not.
+        # int() handles "0" correctly. If len > 1 and starts with '0', it's a leading zero.
+        if len(value_str) > 1 and value_str[0] == '0':
+            raise ValueError("leading zero not allowed")
+            
+        # Check for negative values (though int() parses them, the spec says "plain decimal integer"
+        # and usually implies non-negative in this context, but let's check if negative is allowed.
+        # The spec says "value is a plain decimal integer with no leading zero (zero itself written 0)".
+        # It doesn't explicitly forbid negative, but spans are physical measurements.
+        # However, parse_span usually deals with positive inputs. Let's assume non-negative for now
+        # as format_span only handles non-negative. If negative is passed, it's likely invalid input.
+        if value < 0:
+            raise ValueError("negative values not allowed in span")
+
+        unit_index = ORDER.index(unit)
+        if unit_index <= last_unit_index:
+            raise ValueError("units out of order or repeated")
+        last_unit_index = unit_index
+        
+        total += value * INCHES[unit]
+        
+    return total
+
+
+def format_span(inches: int) -> str:
+    """Format a non-negative integer of total inches canonically."""
+    if isinstance(inches, bool) or not isinstance(inches, int) or inches < 0:
+        raise ValueError("inches must be a non-negative integer")
+    if inches == 0:
+        return "0in"
+    parts = []
+    yards, rest = divmod(inches, 36)
+    feet, rest = divmod(rest, 12)
+    if yards:
+        parts.append(f"{yards}yd")
+    if feet:
+        parts.append(f"{feet}ft")
+    if

@@ -1,0 +1,36 @@
+<think>
+Okay, I need to implement the carve_shift function according to the given specifications. Let me start by understanding the problem thoroughly.
+
+The function is supposed to divide a work shift into stretches. The shift runs from start (inclusive) to end (exclusive). Each stretch is at most 'span' units long. Between stretches, there's a rest of exactly 'rest' units. However, any stretch that's shorter than 'least' units is dropped, and the process stops there. The final kept stretch might be shorter than span. The result should be a list of half-open intervals [from, to) representing the stretches.
+
+First, I need to make sure all the input validations are in place. The current code already checks if all arguments are integers, start < end, and that span, rest, least are within valid ranges. So that's covered.
+
+Now, the main task is to process the shift from start to end, carving out stretches. Let me think about the steps:
+
+1. Start at the beginning of the shift, which is 'start'.
+2. For each stretch, we need to take as much as possible up to 'span' units, but if the remaining time is less than 'least', we drop it.
+3. After each stretch, we add a rest period of 'rest' units, except if we're at the end of the shift.
+4. The process continues until the end of the shift is reached or we can't take another stretch.
+
+Let me think about how to model this. Let's track the current position in the shift. Initially, current = start. Then, we need to determine the length of the current stretch. The maximum possible is span, but we can't exceed the end of the shift. However, if the remaining time is less than 'least', we don't take it.
+
+So, for each iteration:
+
+- Calculate the maximum possible stretch length: min(span, end - current).
+- If this length is less than 'least', we don't take it. So we break the loop.
+- Otherwise, we take this stretch, add it to the result, then add the rest period (if there's more time left).
+- Then, move current to current + stretch_length + rest (but only if there's more time left after the stretch).
+
+Wait, but after taking a stretch, we need to add the rest. However, if after taking the stretch, the remaining time is not enough for the rest, then we don't add the rest. But the rest is added only if there's more time left after the stretch.
+
+Wait, the problem says that consecutive stretches are separated by rest. So after a stretch, we add rest, but only if there's enough time left. But if the rest would take us beyond the end, then we don't add it.
+
+Wait, the process is: carve forward from the start. So, for each stretch, we take as much as possible (up to span), then add rest, then next stretch. But if after taking a stretch, the rest would take us beyond the end, then we don't add the rest. But the rest is only added if there's enough time left after the stretch.
+
+Wait, the rest is added between stretches. So, after a stretch, we add rest, but only if there's enough time left. For example, if after taking a stretch, the remaining time is enough to add rest, then we add rest. Otherwise, we don't.
+
+But how to model this?
+
+Let me think of an example. Suppose start=0, end=20, span=5, rest=2, least=3.
+
+First stretch: from 0 to 5 (length 5). Then add rest 2, so next start is 

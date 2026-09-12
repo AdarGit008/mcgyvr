@@ -1,0 +1,16 @@
+<think>
+Okay, I need to implement the tag_count function. Let's see. The function is supposed to count how many markers a line has. A marker is defined as an opening angle bracket followed by everything up to the next closing one. And if there's an unmatched closing bracket, that's an error.
+
+So, the steps I need to take are: process the line, track the opening and closing brackets, and count the valid markers. Also, if there's a closing bracket without a matching opening, I should raise a ValueError.
+
+Let me think about how to approach this. Maybe I can iterate through each character in the line, keep track of whether I'm inside a tag. When I see an opening bracket '<', I start a new potential tag. Then, I look for the next closing bracket '>'. Once I find that, I increment the count and reset the state. But if I encounter a closing bracket without an opening one, that's invalid.
+
+Wait, but how do I handle nested tags? Like, if there's a tag inside another tag. But according to the problem statement, a marker is everything between an opening and closing bracket. So even if there's a nested tag, the outer one would still count as a marker, and the inner one would be part of it. But the problem says that an unmatched closing bracket is rejected. So maybe the approach is to track the balance of brackets.
+
+Let me think of an example. For the line "<a><b>", the first '<' starts a tag. Then the next '>' closes it, so that's one marker. Then the next '<' starts another tag, but there's no closing '>', so that's an error. Wait, but in this case, the line is "<a><b>", so the first tag is from '<a>' to '>', then the next '<b' is not closed. So the count would be 1, but the second '<' is not closed. So the function should raise an error because there's an unmatched closing bracket?
+
+Wait, no. The problem says that an unmatched closing bracket is rejected. So if there's a closing bracket without a matching opening, that's an error. So in the example, if the line is "<a>", then that's one marker. If the line is "<a><b>", then the first '<' starts a tag, then the next '>' closes it. Then the next '<' starts another tag, but there's no closing '>', so that's an error. Wait, but the line is "<a><b>", so the first tag is from '<a>' to '>', then the next '<b' is not closed. So the function should raise an error because there's an unmatched opening bracket? Or is it that the closing bracket is unmatched?
+
+Wait, the problem says that an unmatched closing bracket is rejected. So if there's a closing bracket that hasn't been matched by an opening one, that's an error. So in the example, the line is "<a><b>", the first '<' is opened, then the first '>' closes it. Then the next '<' is opened, but there's no closing '>'. So the closing bracket is not present. Wait, no. The line is "<a><b>", so the first tag is from '<a' to '>', then the next '<b' is an opening bracket, but there's no closing. So the function should count the first tag, but the second opening bracket is not closed. So the function should raise an error because there's an unmatched opening bracket? Or is the problem that the closing bracket is unmatched?
+
+Wait, the problem says: "Reject a line holding an unmatched closing bracket with an error." So if there's a closing bracket that hasn't

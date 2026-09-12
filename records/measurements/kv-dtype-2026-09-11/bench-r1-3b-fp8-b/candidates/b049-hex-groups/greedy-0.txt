@@ -1,0 +1,25 @@
+```python
+def hex_groups(values: list, width: int) -> str:
+    """
+    Convert a list of byte values to a space-separated string of hexadecimal groups.
+    
+    :param values: List of byte values (integers from 0 to 255).
+    :param width: Group width (positive integer)
+    :return: Hexadecimal groups joined by spaces
+    """
+    if not isinstance(values, list):
+        raise ValueError("Input must be a list.")
+    if not all(isinstance(x, int) and 0 <= x <= 255 for x in values):
+        raise ValueError("All elements in the list must be integers between 0 and 255.")
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    
+    # Convert each byte to a two-digit hexadecimal string, zero-padded
+    hex_values = [f"{x:02x}" for x in values]
+    
+    # Join the hexadecimal values into groups of the specified width
+    groups = [hex_values[i:i + width] for i in range(0, len(hex_values), width)]
+    
+    # Join the groups with spaces and return the result
+    return ' '.join(''.join(group) for group in groups)
+```

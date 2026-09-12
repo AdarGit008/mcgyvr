@@ -1,0 +1,33 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    """
+    Check if the cell at the specified row and column contains the given value.
+    
+    :param grid: List of lists representing the grid.
+    :param row: Row index of the cell to check.
+    :param column: Column index of the cell to check.
+    :param value: The value to look for in the cell.
+    :return: True if the cell contains the value, False otherwise.
+    """
+    if not grid or not grid[row] or column < 0 or column >= len(grid[row]):
+        raise ValueError("Invalid row or column index.")
+    return grid[row][column] == value
+
+def grid_find(grid: list, value: int) -> list:
+    """
+    Find the first occurrence of the given value in the grid, reading row by row.
+    
+    :param grid: List of lists representing the grid.
+    :param value: The value to find in the grid.
+    :return: A list containing the row and column indices of the first occurrence of the value.
+             Returns [-1, -1] if the value is not found.
+    """
+    if not grid:
+        raise ValueError("Grid cannot be empty.")
+    
+    for row_index, row in enumerate(grid):
+        for col_index, cell_value in enumerate(row):
+            if cell_value == value:
+                return [row_index, col_index]
+    return [-1, -1]
+```

@@ -1,0 +1,50 @@
+```python
+from typing import Dict, List, Tuple
+
+def _validate_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> None:
+    for day in trip_days:
+        if not isinstance(day, int) or day < 1:
+            raise ValueError("trip days must be positive integers")
+    for earlier, later in zip(trip_days, trip_days[1:]):
+        if later <= earlier:
+            raise ValueError("trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("at least one pass kind is required")
+    for cover in passes:
+        span = cover.get("span", 0)
+        cost = cover.get("cost", 0)
+        if not isinstance(span, int) or span < 1:
+            raise ValueError("pass span must be a positive integer")
+        if not isinstance(cost, int) or cost < 0:
+            raise ValueError("pass cost must be a non-negative integer")
+
+def cheapest_pass_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> Dict[str, Union[int, List[Tuple[int, int]]]]:
+    _validate_plan(trip_days, passes)
+    
+    # Sort passes by cost and then by span
+    passes.sort(key=lambda x: (x.get("cost", 0), x.get("span", 0)))
+    
+    # Initialize variables
+    total_cost = 0
+    purchases = []
+    i = 0
+    
+    # Iterate over each trip day
+    for day in trip_days:
+        # Find the cheapest pass that covers the current day
+        while i < len(passes) and day > trip_days[i] + passes[i]["span"] - 1:
+            i += 1
+        if i == len(passes):
+            raise ValueError("no pass can cover the remaining trip days")
+        # Add the pass to the purchases
+        purchases.append((trip_days[i], passes[i]["span"]))
+        # Update the total cost
+        total_cost += passes[i]["cost"]
+        # Move to the next day covered by the pass
+        day = trip_days[i] + passes[i]["span"] - 1
+    
+    return {
+       total": total_cost,
+       purchases": purchases
+    }
+```

@@ -1,0 +1,38 @@
+```python
+def leg_gain(start: int, end: int) -> int:
+    """
+    Calculate the height gained on one leg of a walk.
+    
+    Parameters:
+    start (int): The starting height.
+    end (int): The ending height.
+    
+    Returns:
+    int: The height gained on one leg.
+    """
+    if start > end:
+        return end - start
+    elif start < end:
+        return start - end
+    else:
+        return 0
+
+def climb_gain(heights: list) -> int:
+    """
+    Calculate the total height gained from a walk given the heights in order.
+    
+    Parameters:
+    heights (list): A list of integers representing the heights of each step in the walk.
+    
+    Returns:
+    int: The total height gained from the walk.
+    """
+    if len(heights) < 2:
+        return 0
+    
+    total_gain = 0
+    for i in range(1, len(heights)):
+        total_gain += leg_gain(heights[i], heights[i - 1])
+    
+    return total_gain
+```

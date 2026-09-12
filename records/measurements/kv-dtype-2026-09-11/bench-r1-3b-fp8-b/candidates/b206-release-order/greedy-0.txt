@@ -1,0 +1,45 @@
+```python
+from typing import List
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    """
+    Sorts a list of release tags in ascending order order based on the version numbers.
+    Tags with preview labels come before those without, and within the same version,
+    preview labels are sorted alphabetically and numerically.
+    """
+    def parse_tag(tag: str) -> tuple:
+        parts = tag.split('-')
+        version = parts[0].split('.')
+        if len(parts) == 2:
+            preview_label, preview_number = parts[1].split(' ')
+            return tuple(map(int, versions)), preview_label, int(preview_number)
+        else:
+            return tuple(map(int, versions)), None, 0
+
+    def compare_tags(tag1: tuple, tag2: tuple) -> int:
+        major1, preview1, number1 = tag1
+        major2, preview2, number2 = tag2
+
+        if major1 != major2:
+            return major1 - major2
+        if minor1 != minor2:
+            return minor1 - minor2
+        if patch1 != patch2:
+            return patch1 - patch2
+
+        if preview1 is None and preview2 is None:
+            return 0
+        if preview1 is None:
+            return -1
+        if preview2 is None:
+            return 1
+
+        if preview1 == preview2:
+            return number1 - number2
+        return (preview1 < preview2).bit_count() - (preview2 < preview1).bit_count()
+
+    
+        return compare_tags(parse_tag(tag), parse_tag(other))
+
+    return sorted(tags, key=lambda x: parse_tag(x))
+```

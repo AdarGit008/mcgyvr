@@ -1,0 +1,42 @@
+<think>
+Okay, I need to implement the three functions: match_route, split_segments, and first_route. Let me start by understanding each function's requirements.
+
+First, split_segments. The problem says that split_segments should return the segment list. The root "/" gives an empty list. But it also has to reject invalid paths. The invalid cases are: not a non-empty string, not starting with a slash, empty segment inside, and trailing slash. So, for example, if the path is "/a/b", split into ["a", "b"]. If the path is "/a/b/", then it's invalid because of trailing slash. Also, if there's an empty segment like "/a//b", that's invalid.
+
+So, the first step is to process the path. Split it by slashes, but only if the path starts with a slash. Also, check that the path is not empty, starts with '/', and that after splitting, there are no empty segments. Also, check that the last segment isn't a slash.
+
+So, for split_segments:
+
+- Check if path is empty. If yes, reject.
+- Check if path starts with '/'. If not, reject.
+- Split the path into segments by splitting on '/', but then check that the first segment is the root, and the rest are non-empty. Also, after splitting, the last segment shouldn't be empty.
+
+Wait, the root is "/". So, if the path is just "/", then split_segments returns an empty list. But if the path is "/a/b/c", then split into ["a", "b", "c"].
+
+So, the steps for split_segments:
+
+1. Check if path is empty. If yes, raise ValueError.
+2. Check if path starts with '/'. If not, raise ValueError.
+3. Split the path into parts by splitting on '/'. But since the path starts with '/', the first part is empty. So, split the path into parts, then filter out any empty strings. But wait, for example, "/a//b" would split into ['', 'a', '', 'b'], which after filtering would be ['a', 'b'], but the empty segment in between is invalid. So, after splitting, check that all segments are non-empty. Also, the last segment can't be empty.
+
+Wait, the problem says that a trailing slash is invalid. So, if the path is "/a/b/", then after splitting, the last segment is empty. So, in that case, split_segments should reject it.
+
+So, the steps for split_segments:
+
+- Split the path into parts using split('/'), but since the path starts with '/', the first element is an empty string. Then, the rest of the parts are the segments. But we need to check that all segments (after the first empty string) are non-empty, and that the last segment is not empty.
+
+Wait, for example, if the path is "/a/b/c", then split on '/' gives ['', 'a', 'b', 'c']. So, the segments are ['a', 'b', 'c'].
+
+If the path is "/a/b/c/", then split gives ['', 'a', 'b', 'c', '']. So, the last segment is empty, which is invalid.
+
+So, the code for split_segments would be:
+
+def split_segments(path: str) -> list:
+    if not path:
+        raise ValueError("path must be non-empty")
+    if not path.startswith('/'):
+        raise ValueError("path must start with '/'")
+    segments = path.split('/')
+    # The first element is empty, so we start from index 1
+    # Check that all segments (from index 1 onwards) are non-empty
+    # Also, the last segment (segments[-1])

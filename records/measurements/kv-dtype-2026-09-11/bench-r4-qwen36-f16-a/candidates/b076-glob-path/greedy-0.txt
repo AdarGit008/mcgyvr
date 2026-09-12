@@ -1,0 +1,75 @@
+```python
+def glob_path(pattern: str, path: str) -> bool:
+    """Match a glob pattern against a slash-separated relative path.
+    
+    A literal character matches only itself, a question mark matches exactly
+    one character that is not a slash, and a star matches a run of zero or
+    more characters that stops at any slash. The whole pattern must consume
+    the whole path.
+    """
+    if not isinstance(pattern, str):
+        raise ValueError("pattern must be a string")
+    if not isinstance(path, str):
+        raise ValueError("path must be a string")
+    if not pattern:
+        raise ValueError("pattern must not be empty")
+    if not path:
+        raise ValueError("path must not be empty")
+
+    def _match(p_idx: int, h_idx: int) -> bool:
+        plen = len(pattern)
+        hlen = len(path)
+        
+        while p_idx < plen and h_idx < hlen:
+            char = pattern[p_idx]
+            if char == '*':
+                # Star matches zero or more non-slash characters.
+                # We need to find the longest match that allows the rest to match.
+                # Since star cannot cross slashes, we match up to the next slash or end.
+                # Optimization: try matching as many characters as possible first,
+                # then backtrack. But since star stops at slash, we can just iterate.
+                
+                # Find the end of the current segment (next slash or end of string)
+                # in the path.
+                next_slash = path.find('/', h_idx)
+                if next_slash == -1:
+                    segment_end = hlen
+                else:
+                    segment_end = next_slash
+                
+                # Try matching the star against substrings of the current segment
+                # from longest to shortest.
+                for i in range(segment_end, h_idx - 1, -1):
+                    if _match(p_idx + 1, i):
+                        return True
+                return False
+            elif char == '?':
+                # Question mark matches exactly one non-slash character.
+                if path[h_idx] == '/':
+                    return False
+                p_idx += 1
+                h_idx += 1
+            else:
+                # Literal character
+                if path[h_idx] != char:
+                    return False
+                p_idx += 1
+                h_idx += 1
+        
+        # If both are exhausted, it's a match
+        if p_idx == plen and h_idx == hlen:
+            return True
+        
+        # If pattern is exhausted but path is not, no match
+        if p_idx == plen:
+            return False
+            
+        # If path is exhausted but pattern is not, check if remaining pattern is all stars
+        while p_idx < plen:
+            if pattern[p_idx] != '*':
+                return False
+            p_idx += 1
+        return True
+
+    return _match(0, 0)
+```

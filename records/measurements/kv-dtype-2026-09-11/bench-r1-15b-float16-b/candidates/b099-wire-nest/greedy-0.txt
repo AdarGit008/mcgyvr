@@ -1,0 +1,22 @@
+```python
+def wire_value(value):
+    if not isinstance(value, (str, int, list)):
+        raise ValueError("Invalid argument: must be a string, integer, or list")
+    if isinstance(value, str) and '\n' in value:
+        raise ValueError("Invalid argument: text cannot contain a newline")
+    if isinstance(value, str):
+        return f"s{len(value)}:{value}"
+    if isinstance(value, int):
+        if value < 0:
+            return f"-{value}"
+        return f"n{value}"
+    if isinstance(value, list):
+        return f"[{wire_value(item) for item in value]}"
+
+def wire_text(text: str):
+    if not isinstance(text, str):
+        raise ValueError("Invalid argument: must be a string")
+    if '\n' in text:
+        raise ValueError("Invalid argument: text cannot contain a newline")
+    return f"s{len(text)}:{text}"
+```

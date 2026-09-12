@@ -1,0 +1,30 @@
+<think>
+Okay, I need to implement the crate_fill and crate_total functions. Let me start by understanding the problem.
+
+The crate_fill function is supposed to spread items into crates as evenly as possible. The result should have the largest crate sizes first, and the leftover items are given one each to the leading crates. If there are zero crates, it returns an empty list.
+
+So, for example, if there are 10 items and 3 crates, the base calculation would be 10 divided by 3. That's 3 with a remainder of 1. So each crate would have 3, but then the remainder is 1, so the first crate gets an extra 1. Wait, the problem says the leftover items are given one each to the leading crates. So maybe the crates are filled with the base value plus 1 for the first 'remainder' crates.
+
+Wait, the description says "handing the leftover items one each to the leading crates". So if there are 10 items and 3 crates, the base is 3 per crate (3*3=9), and 1 left. So the first 1 crates get an extra 1. So the sizes would be [4,3,3]?
+
+Wait, but the problem says "largest first". So the largest crates come first. So maybe the base is (items // crates) and then the remainder is items % crates. So the first 'remainder' crates get base +1, and the rest get base. But since the remainder is the number of crates that get an extra 1. So for 10 items and 3 crates: 10//3=3, remainder 1. So the first 1 crates get 3+1=4, the rest get 3. So the list would be [4,3,3]. But the problem says "largest first", so the largest crates first. So the order is [4,3,3], which is correct.
+
+But wait, the problem says "the largest first and handing the leftover items one each to the leading crates". So the leading crates are the first ones. So the first 'remainder' crates get an extra 1. So the list is [base +1, base +1, ... (remainder times), base, ...].
+
+So the function should return a list where the first 'remainder' elements are base +1, and the rest are base. But the base is (items // crates). Wait, but if items is 10 and crates is 3, then base is 3, remainder is 1. So the first 1 crates get 4, the rest get 3. So the list is [4,3,3]. But the problem says "largest first", so the largest is 4, then 3, then 3. So that's correct.
+
+But what if the remainder is larger than the number of crates? Wait, no, because remainder is items % crates. So for example, if items is 10 and crates is 3, remainder is 1. So the remainder is always less than crates. So the remainder is the number of crates that get an extra 1.
+
+So the algorithm is:
+
+- If crates is 0, return empty list.
+
+- Else, base = items // crates
+
+- remainder = items % crates
+
+- So the first 'remainder' crates have base +1, the rest have base.
+
+But wait, the problem says "handing the leftover items one each to the leading crates". So the remainder is the number of crates that get an extra 1. So the first 'remainder' crates get base +1, and the rest get base.
+
+So the list is

@@ -1,0 +1,43 @@
+```python
+def poll_gaps(minutes: list) -> list:
+    """Return the minutes between the first and last run where the monitor did not run.
+    
+    Args:
+        minutes: A list of integers representing the minutes on which the monitor ran,
+                 in increasing order.
+    
+    Returns:
+        A list of integers representing the minutes between the first and last run
+        where the monitor did not run, in increasing order.
+    
+    Raises:
+        ValueError: If the input is not a list or contains non-integer values.
+    """
+    if not isinstance(minutes, list):
+        raise ValueError("minutes must be a list")
+    
+    if len(minutes) < 2:
+        return []
+    
+    # Deduplicate while preserving order
+    seen = set()
+    unique_minutes = []
+    for m in minutes:
+        if not isinstance(m, int):
+            raise ValueError("All elements in minutes must be integers")
+        if m not in seen:
+            seen.add(m)
+            unique_minutes.append(m)
+    
+    if len(unique_minutes) < 2:
+        return []
+    
+    first = unique_minutes[0]
+    last = unique_minutes[-1]
+    
+    # Find all minutes between first and last (exclusive) that are not in the run list
+    run_set = set(unique_minutes)
+    gaps = [m for m in range(first + 1, last) if m not in run_set]
+    
+    return gaps
+```

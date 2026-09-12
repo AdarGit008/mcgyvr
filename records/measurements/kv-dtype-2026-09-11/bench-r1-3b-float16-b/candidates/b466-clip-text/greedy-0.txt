@@ -1,0 +1,15 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    """
+    Returns the substring of 'text' from index 'start' to 'end'.
+    If 'start' is greater than 'end', raises ValueError.
+    """
+    if start > end:
+        raise ValueError("Start index cannot be greater than end index.")
+    
+    # Adjust start and end to handle cases where they exceed the length of the text
+    start = max(0, start)
+    end = min(len(text), end)
+    
+    return text[start:end]
+```

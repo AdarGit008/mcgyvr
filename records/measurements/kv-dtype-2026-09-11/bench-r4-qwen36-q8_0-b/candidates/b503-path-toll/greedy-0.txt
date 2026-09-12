@@ -1,0 +1,22 @@
+```python
+def step_cost(kind: str) -> int:
+    """Return the cost of a single step of the given kind."""
+    if kind == "stone":
+        return 10
+    elif kind == "dirt":
+        return 5
+    elif kind == "sand":
+        return 2
+    else:
+        raise ValueError(f"Unknown step kind: {kind}")
+
+
+def path_toll(steps: list[str]) -> int:
+    """Total the cost of a path, with every third step being free."""
+    total = 0
+    for i, step in enumerate(steps, start=1):
+        if i % 3 == 0:
+            continue
+        total += step_cost(step)
+    return total
+```

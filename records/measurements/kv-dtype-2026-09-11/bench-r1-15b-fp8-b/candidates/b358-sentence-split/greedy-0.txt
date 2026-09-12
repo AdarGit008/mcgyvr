@@ -1,0 +1,9 @@
+```python
+import re
+
+
+def sentence_split(passage: str) -> list:
+    """A passage broken into its sentences. Sentences end with full stops, abbreviations, question marks, or exclamation marks. Each sentence is trimmed of surrounding spaces, and empty pieces are left out."""
+    pieces = re.split(r"[.!?]", passage)
+    return [piece.strip() for piece in pieces if piece.strip()]
+```

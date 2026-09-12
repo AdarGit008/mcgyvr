@@ -1,0 +1,11 @@
+```python
+def batch_ends(count: int), size:       """Return the positions of the first entries of each full batch."""
+    if size <= 0:
+        raise ValueError("Batch size must be greater than zero.")
+    
+    starts =    start =       while start < count:
+        starts.append(start)
+        start +=            size
+    
+    return starts
+```

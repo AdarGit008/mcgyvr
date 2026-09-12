@@ -1,0 +1,30 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """Return every piece of a line standing between an opening and a closing marker."""
+    if not opens or not closes:
+        raise ValueError("Open and close markers must be non-empty strings")
+    
+    results = []
+    start_index = 0
+    
+    while True:
+        # Find the next opening marker
+        open_pos = line.find(opens, start_index)
+        if open_pos == -1:
+            break
+            
+        # Find the next closing marker after the opening one
+        close_pos = line.find(closes, open_pos + len(opens))
+        if close_pos == -1:
+            # Opening marker never closed yields nothing
+            break
+            
+        # Extract the content between the markers
+        content = line[open_pos + len(opens):close_pos]
+        results.append(content)
+        
+        # Move start index past this closing marker to find next pair
+        start_index = close_pos + len(closes)
+        
+    return results
+```

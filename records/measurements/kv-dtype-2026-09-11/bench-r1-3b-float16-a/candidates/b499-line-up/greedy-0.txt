@@ -1,0 +1,27 @@
+```python
+from typing import *
+from collections import *
+
+def line_up(links: dict[str, str], start: str) -> list[str]:
+    """
+    Given a dictionary of links where each key points to its successor,
+    and a starting name, return the line of names from the starting name
+    to the one with nobody above it. If a link runs in a circle, raise ValueError.
+    """
+    if start not in links:
+        raise ValueError("Starting name not found in the links.")
+
+    visited = set()
+    current = start
+    line = []
+
+    while current not in visited:
+        if current in links:
+            visited.add(current)
+            line.append(current)
+            current = links[current]
+        else:
+            raise ValueError("Link runs in a circle.")
+
+    return line
+```

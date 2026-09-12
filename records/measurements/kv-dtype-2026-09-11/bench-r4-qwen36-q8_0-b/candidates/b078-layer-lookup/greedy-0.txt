@@ -1,0 +1,65 @@
+```python
+def config_value(layers: list, name: str) -> str | None:
+    """
+    Compute the effective value for a configuration name from ordered layers.
+    
+    Args:
+        layers: A list of strings, each representing a configuration layer.
+        name: The configuration name to look up.
+        
+    Returns:
+        The effective value as a string, or None if unset/never assigned.
+        
+    Raises:
+        ValueError: If inputs are invalid or contain malformed lines.
+    """
+    if not isinstance(name, str) or len(name) == 0:
+        raise ValueError("name must be a non-empty string")
+    
+    if not isinstance(layers, list):
+        raise ValueError("layers must be a list")
+        
+    # Use a dict to track the current state of all keys.
+    # We process layers in order (lowest precedence first).
+    # Later assignments overwrite earlier ones.
+    # Unsets (exclamation mark lines) remove the key from the dict.
+    config = {}
+    
+    for layer in layers:
+        if not isinstance(layer, str):
+            raise ValueError("Each layer must be a string")
+            
+        lines = layer.split('\n')
+        for line in lines:
+            # Check for blank lines or comments
+            stripped = line.strip()
+            if stripped == '' or stripped.startswith('#'):
+                continue
+                
+            # Check for unset line: starts with '!'
+            if stripped.startswith('!'):
+                # Extract name after '!'
+                unset_name = stripped[1:].strip()
+                if not unset_name:
+                    raise ValueError("Unset line has no name")
+                # Remove from config if present
+                if unset_name in config:
+                    del config[unset_name]
+                continue
+                
+            # Check for assignment line: must contain '='
+            if '=' not in stripped:
+                raise ValueError(f"Malformed line: {stripped}")
+                
+            # Split on first '='
+            eq_index = stripped.index('=')
+            raw_name = stripped[:eq_index].strip()
+            raw_value = stripped[eq_index+1:].strip()
+            
+            if not raw_name:
+                raise ValueError("Assignment line has empty name")
+                
+            config[raw_name] = raw_value
+            
+    return config.get(name, None)
+```

@@ -1,0 +1,58 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    """
+    Applies an edit script to the original string and returns the edited string.
+    
+    Parameters:
+    - original (str): The original string to be edited.
+    - script (list): A list of two-item operations: ["copy", n], ["skip", n], or ["insert", text].
+
+    Returns:
+    - str: The edited string after applying all operations in the script.
+
+    Raises:
+    - ValueError: If the original is not a string, the script contains an unknown operation,
+      a copy or skip count is not a positive integer, an insert text is not a non-empty string,
+      an op reads past the end of the original, or the script stops before the original is used up.
+    """
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string.")
+    
+    if not isinstance(script, list):
+        raise ValueError("Script must be a list.")
+    
+    if not all(isinstance(op, list) and len(op) == 2 for op in script):
+        raise ValueError("Each operation in the script must be a list of two elements.")
+    
+    if not all(isinstance(count, int) and count > 0 for _, count in script):
+        raise ValueError("Copy or skip count must be a positive integer.")
+    
+    if not all(isinstance(text, str) and text != "" for _, text in script):
+        raise ValueError("Insert text must be a non-empty string.")
+    
+    result = ""
+    original_index = 0
+    
+    
+    for op, count in script:
+        if op == "copy":
+            if original_index + count > len(original):
+                raise ValueError("Copy operation reads past the end of the original.")
+            result += original[original_index:original_index + count]
+            original_index += count
+        elif op == "skip":
+            if original_index + count > len(original):
+                raise ValueError("Skip operation reads past the end of the original.")
+            original_index += count
+        elif op == "insert":
+            if not isinstance(text, str) or text == "":
+                raise ValueError("Insert text must be a non-empty string.")
+            result += text
+        else:
+            raise ValueError(f"Unknown operation: {op}")
+    
+    if original_index != len(original):
+        raise ValueError("Script stops before the original is used up.")
+    
+    return result
+```

@@ -1,0 +1,14 @@
+```python
+def line_up(links: dict[str, str], build: str) -> list[str]:
+    if not links or not build:
+        return []
+
+    if build not in links:
+        return [build]
+
+    if build in links:
+        if links[build]        in links:
+            return [build, links[build]]
+        else:
+            return [build, links[build]]
+```

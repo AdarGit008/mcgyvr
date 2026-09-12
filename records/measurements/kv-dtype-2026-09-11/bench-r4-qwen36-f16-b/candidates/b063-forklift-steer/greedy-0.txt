@@ -1,0 +1,63 @@
+```python
+def steer_forklift(aisles: int, bays: int, moves: list) -> list:
+    """
+    Simulate forklift movement on a grid and return the final position.
+    
+    Args:
+        aisles: Number of columns (positive integer).
+        bays: Number of rows (positive integer).
+        moves: List of direction strings ('north', 'south', 'east', 'west').
+        
+    Returns:
+        A list [aisle, bay] representing the final position.
+        
+    Raises:
+        ValueError: If aisles/bays are not positive integers, moves contain
+                    invalid types or values, or a move takes the forklift off the grid.
+    """
+    # Validate aisles and bays
+    if not isinstance(aisles, int) or isinstance(aisles, bool):
+        raise ValueError("aisles must be a positive integer")
+    if not isinstance(bays, int) or isinstance(bays, bool):
+        raise ValueError("bays must be a positive integer")
+    if aisles < 1:
+        raise ValueError("aisles must be a positive integer")
+    if bays < 1:
+        raise ValueError("bays must be a positive integer")
+    
+    # Validate moves list
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+        
+    valid_moves = {'north', 'south', 'east', 'west'}
+    
+    # Current position: [aisle, bay]
+    # Start at [0, 0]
+    aisle_pos = 0
+    bay_pos = 0
+    
+    for move in moves:
+        if not isinstance(move, str):
+            raise ValueError(f"Move must be a string, got {type(move)}")
+        if move not in valid_moves:
+            raise ValueError(f"Invalid move: {move}")
+            
+        if move == 'north':
+            bay_pos -= 1
+        elif move == 'south':
+            bay_pos += 1
+        elif move == 'east':
+            aisle_pos += 1
+        elif move == 'west':
+            aisle_pos -= 1
+            
+        # Check bounds
+        # Aisles grow east: 0 to aisles-1
+        # Bays grow south: 0 to bays-1
+        if aisle_pos < 0 or aisle_pos >= aisles:
+            raise ValueError(f"Move {move} takes forklift off the floor (aisle {aisle_pos})")
+        if bay_pos < 0 or bay_pos >= bays:
+            raise ValueError(f"Move {move} takes forklift off the floor (bay {bay_pos})")
+            
+    return [aisle_pos, bay_pos]
+```

@@ -1,0 +1,45 @@
+<think>
+Okay, I need to fix the split_evenly function so that the parts sum up exactly to the total. The current implementation uses round, which causes the parts to not add up correctly. Let me think about how to distribute the cents evenly.
+
+The problem says that each part should be as close as possible, with no two parts differing by more than one cent. Also, the extra cents should go to the earliest parts. So, the approach should be to calculate the base share and then distribute the remainder.
+
+First, the total_cents divided by ways gives the base value. But since we need to split into ways parts, the base is total_cents // ways. Then, the remainder is total_cents % ways. Each of the first 'remainder' parts should be base + 1, and the rest are base. That way, the sum is exactly total_cents.
+
+Wait, let me check. For example, if total is 10 cents and ways is 3. 10 /3 is 3.333. So base is 3, remainder 1. So first 1 part is 4, others 3. Sum is 4+3+3=10. Correct.
+
+Another example: total 7, ways 3. 7//3=2, remainder 1. So first part is 3, others 2. Sum 3+2+2=7. Correct.
+
+So the algorithm is:
+
+base = total_cents // ways
+remainder = total_cents % ways
+So the first 'remainder' parts are base +1, the rest are base.
+
+But the function needs to return a list in non-increasing order. So the first 'remainder' parts are base +1, then the rest base. That way, the list is in non-increasing order.
+
+So the code would generate a list where the first 'remainder' elements are base +1, and the rest are base.
+
+But how to handle the case when ways is zero? Wait, the problem says that ways must be a positive integer. The validation is that ways must be a positive integer. So in the function, we need to check that ways is a positive integer. But the current code doesn't have that. Wait, the problem says that the other helpers are correct, but the split_evenly function needs to add the validation.
+
+Wait, the problem says: "add the missing validation: reject a total that is not a non-negative integer and a ways count that is not a positive integer, with an error."
+
+So in the split_evenly function, we need to check that total_cents is a non-negative integer, and ways is a positive integer.
+
+So first, in the function, check that total_cents is a non-negative integer. Also, check that ways is a positive integer.
+
+But in the current code, the split_evenly function doesn't have these checks. So I need to add those validations.
+
+So, in the split_evenly function, first check that total_cents is a non-negative integer. Then check that ways is a positive integer. If not, raise ValueError.
+
+Then, compute base and remainder as above.
+
+So the code would be:
+
+def split_evenly(total_cents: int, ways: int) -> list:
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not isinstance(ways, int) or ways <= 0:
+        raise ValueError("ways must be a positive integer")
+    base = total_cents // ways
+    remainder = total_cents % ways
+    # Create a list with remainder elements of base +1, then the rest base

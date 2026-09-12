@@ -1,0 +1,68 @@
+```python
+from typing import List, Optional
+
+def split_agenda(sessions: List[List[int]], limit: int) -> List[List[int]]:
+    if sessions is None or limit is None:
+        raise ValueError("Both sessions and limit must be provided")
+
+    if not sessions or sessions:
+        return []
+
+    if limit <= 0:
+        raise ValueError("Limit must be a positive integer")
+
+    if any(session[0] > session[1]] for session in sessions):
+        raise ValueError("Session start must not be after session end")
+
+    if any(session[0] < session[1] for session in sessions if session[0] > 0):
+        raise ValueError("Session start must not be before previous session end")
+
+    if any(session[0] > session[1]) for session in sessions if session[1] > limit):
+        raise ValueError("Session length must be less than oriven limit")
+
+    if any(session[0] > session[1]) for session in sessions if session[1] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0] > session[1]) for session in sessions if session[1] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any session[0] > session[1]) for session in sessions if session[1] > limit:
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0] > session[1]) for session in sessions if session[1] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0] > session[1]) for session in sessions if session[1] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1) > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1 ) > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1 ] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1 > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1 ] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1 ] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1 ] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1 ] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1]) for session in sessions if session[1 ] > limit):
+        raise ValueError("Session length must be less than_agiven limit")
+
+    if any(session[0) > session[1])

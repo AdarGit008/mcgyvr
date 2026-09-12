@@ -1,0 +1,228 @@
+```python
+import math
+
+
+from typing import Dict, Tuple
+
+
+def explode_kit(catalog: Dict[str,    dict, kit: str):
+    want: int) -> Dict[str]:
+    if kit not in catalog:
+        raise ValueError(f"The catalog does not define kit {kit}")
+    
+    def consume_parts(k dict):
+        non):
+            int):
+        ) -> None:
+        if isinstance(requirement, tuple):
+            part,):
+                int):
+                consume_parts(requirement[0], requirement[1] * runs)
+        elif requirement in catalog:
+            consume_parts(requirement,        else:
+            totals[requirement] += runs
+    
+    totals: Dict[str]):
+    int):
+        ) -> None:
+        runs:
+        if runs > 0:
+            consume_parts(requirement,        else:
+            totals[requirement] +=        runs):
+    
+    runs):
+        int):
+        ) -> int):
+        math.ceil(want /        catalog[kit][        parts):
+        int):
+        ):
+        int):
+        ):
+        int):
+        ):
+        int):
+        ):
+        int):
+        ):
+        int):
+        ):
+        int):
+        int):
+        ):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+        int):
+       

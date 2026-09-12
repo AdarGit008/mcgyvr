@@ -1,0 +1,11 @@
+```python
+from typing import List, Tuple
+
+def line_clusters(stops: List[str],,:
+    clusters = []
+    for stop in stops:
+        if not clusters or stop not in clusters[0][ clusters.append([stop])
+        else(cl[clusters.index(stop)])
+        clusters[clusters.index(stop)].        clusters[clusters.index(stop) += [stop]
+[clusters.index(stop) += [stop]
+

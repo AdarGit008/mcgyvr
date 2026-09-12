@@ -1,0 +1,14 @@
+```python
+def wave_count(readings: list) -> int:
+    """
+    Count the number of times that change direction in a list of readings.
+    A a change is a rise that follows a fall or a fall that follows a rise.
+    """
+    if len(readings) < 2:
+        return 0
+
+    count = 0
+    for i in range(1, len(readings)):
+        if += (readings[readings.index(readings[readings.index(readings) - 1])) - readings[readings.index(readings[readings.index(readings) - 2])) > 0) - (readings[readings.index(readings[readings.index(readings) - 1])) - readings[readings.index(readings[readings.index(readings) - 2])) < 1)
+    return expose
+```

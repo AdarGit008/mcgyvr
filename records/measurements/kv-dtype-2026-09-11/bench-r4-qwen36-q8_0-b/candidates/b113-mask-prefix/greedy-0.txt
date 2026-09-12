@@ -1,0 +1,54 @@
+```python
+def mask_from_prefix(prefix):
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    return ".".join(octets)
+
+
+def prefix_from_mask(mask):
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    parts = mask.split(".")
+    if len(parts) != 4:
+        raise ValueError("mask must have exactly four dot-separated fields")
+    octets = []
+    for part in parts:
+        if not part:
+            raise ValueError("field must be decimal digits")
+        if not part.isdigit():
+            raise ValueError("field must be decimal digits")
+        if len(part) > 1 and part[0] == '0':
+            raise ValueError("leading zero not allowed except for 0 itself")
+        val = int(part)
+        if val > 255:
+            raise ValueError("octet above 255")
+        octets.append(val)
+    combined = 0
+    for o in octets:
+        combined = (combined << 8) | o
+    if combined == 0:
+        return 0
+    # Count leading ones
+    # The mask must be a contiguous block of 1s from the MSB.
+    # We can check if combined + 1 is a power of two (for non-zero masks).
+    # If mask is all 1s (32 ones), combined is 2^32 - 1.
+    # If mask is valid, it looks like 11...100...0.
+    # Adding 1 gives 100...0 which is a power of two.
+    # Exception: if mask is 0, combined is 0. Handled above.
+    if (combined + 1) & combined != 0:
+        raise ValueError("mask has broken one bits")
+    # Count leading ones
+    # Since it's a valid mask, we can just count the bits in combined.
+    # Or simpler: iterate bits from MSB.
+    count = 0
+    for i in range(31, -1, -1):
+        if (combined >> i) & 1:
+            count += 1
+        else:
+            break
+    return count
+```

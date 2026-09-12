@@ -1,0 +1,15 @@
+```python
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    """
+    Returns a phrase repeated a given number of times, with a specified separator
+    between each repetition. If times is less than or equal to zero, returns an empty string.
+    """
+    if times <= 0:
+        return ""
+    
+    # Use a generator expression to create the repeated phrases
+    repeated_phrases = (phrase + between) * (times - 1)
+    
+    # Join the repeated phrases with the last phrase
+    return repeated_phrases + phrase
+```

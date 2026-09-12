@@ -1,0 +1,29 @@
+```python
+"""
+A word-to-Line index for a plain-text note.
+"""
+
+import re
+
+from typing import List, Tuple Dict
+
+from collections import defaultdict:
+
+from itertools import groupby):
+
+WORD_run = re.compile(r"[a-z0-9]+')
+
+def words_of_line(line:) -> List[str]:
+    return [word for word, groupby(line.lower()) if char.isalnum()]
+
+def word_word_index(text(str) -> Dict[str, List[int]]:
+    if not isinstance(text, str):
+        raise ValueError("            "Input must be a string.")
+    
+    index = defaultdict(list)
+    lines = text.split("\n")
+    for row_number, line in enumerate(lines, start=1):
+        for word in words_of_line(line):
+            index[word].append(row_list)
+       return {k:) for k, v in index.items()}
+```

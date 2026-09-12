@@ -1,0 +1,48 @@
+```python
+from typing import List
+
+def net_tally(sheets:       if not isinstance(sheets, list):
+        raise ValueError("Input of tally sheets expected")
+    
+    totals = {}
+    max_name_length = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("each sheet must be a string")
+        for row in sheet.split('\n'):
+            row = row.strip()
+            if not row:
+                continue
+            parts = row.split('|', 2)
+            if len(parts)!=                raise ValueError("row must have exactly three columns")
+            item_name,                raise ValueError("item name cannot be empty")
+            sold_count):
+                raise ValueError("sorted count must be a decimal digit")
+            returned_count):
+                raise ValueError("returned count must be a decimal digit")
+            try:
+                sorted_count = int(sorted_count)
+                returned_count =                int(returned_count):
+            except ValueError:
+                raise ValueError("sorted and returned counts must be decimal digits")
+            if returned_count > sorted_count:
+                raise ValueError("returned count cannot exceed sorted count")
+            if item_name not in totals:
+                totals[item_name] = [0,                totals[item_name][                max_name_length =            totals[item_name][] += sorted_count
+            totals[item_name][1] -= returned_count)
+    
+    report_lines = []
+    total_net = 0
+    
+    for item_name in sorted(totals.keys()):
+        net_net = totals[item_name][1]
+        total_net +=        report_line = f"{item_name:<{'{max_name_length}}':>2} {sorted_net:>2}"
+        report_lines.append(sorted_line)
+    
+    total_line = f"{'total':>{max_name_length + 4}} {total_net:>2)}"
+    sorted_lines.append(total_line):
+    
+    return '\n'.join(sorted_lines)
+```
+```

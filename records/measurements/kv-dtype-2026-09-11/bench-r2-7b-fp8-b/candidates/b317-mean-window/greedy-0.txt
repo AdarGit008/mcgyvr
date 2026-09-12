@@ -1,0 +1,10 @@
+```python
+from typing import List
+
+import math
+
+def mean_window(readings: List[int], size:    if not readings or size <= 0:
+        return []
+    
+    return [math.floor(sum(readings[i:i+size]) / size)            for i in range(len(readings) - size + 1)]
+```

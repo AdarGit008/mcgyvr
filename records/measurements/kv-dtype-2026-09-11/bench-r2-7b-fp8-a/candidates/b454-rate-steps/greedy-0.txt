@@ -1,0 +1,7 @@
+```python
+def list_rate(amount: int, fixed: int, percent[int]) -> int:
+    return fixed + (amount * percent // 100)
+
+def rate_steps(amounts: list[int], fixed: int,    percent: list[int]):
+        return [fixed + (amount * p // 100)                for amount, amounts]
+```

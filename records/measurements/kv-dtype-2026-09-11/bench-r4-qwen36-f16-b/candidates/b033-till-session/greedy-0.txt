@@ -1,0 +1,92 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    """Replay a POS till session from events and prices, returning final state."""
+    # Validate prices
+    for name, price in prices.items():
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("price must be a positive integer: " + str(name))
+
+    state = OPEN
+    cart = {}  # name -> quantity
+    total = 0
+    paid = 0
+    change = 0
+
+    for event in events:
+        if not isinstance(event, list):
+            raise ValueError("event must be a list")
+
+        if len(event) < 1:
+            raise ValueError("event must have an action")
+
+        action = event[0]
+        payload = event[1:] if len(event) > 1 else None
+
+        if action not in ("scan", "void", "close", "pay", "cancel"):
+            raise ValueError("unknown action: " + str(action))
+
+        # Check if session is already terminal
+        if state in (PAID, CANCELLED):
+            raise ValueError("session is already " + state)
+
+        if action == "scan":
+            if state != OPEN:
+                raise ValueError("scan only allowed in open state")
+            if len(payload) != 1:
+                raise ValueError("scan must have exactly one item")
+            item = payload[0]
+            if not isinstance(item, str):
+                raise ValueError("scan item must be a string")
+            if item not in prices:
+                raise ValueError("unknown item: " + str(item))
+            cart[item] = cart.get(item, 0) + 1
+
+        elif action == "void":
+            if state != OPEN:
+                raise ValueError("void only allowed in open state")
+            if len(payload) != 1:
+                raise ValueError("void must have exactly one item")
+            item = payload[0]
+            if not isinstance(item, str):
+                raise ValueError("void item must be a string")
+            if item not in cart or cart[item] <= 0:
+                raise ValueError("item not in cart: " + str(item))
+            cart[item] -= 1
+            if cart[item] == 0:
+                del cart[item]
+
+        elif action == "close":
+            if state != OPEN:
+                raise ValueError("close only allowed in open state")
+            if not cart:
+                raise ValueError("cannot close with empty cart")
+            total = sum(prices[item] * qty for item, qty in cart.items())
+            state = PAYMENT
+
+        elif action == "pay":
+            if state != PAYMENT:
+                raise ValueError("pay only allowed in payment state")
+            if len(payload) != 1:
+                raise ValueError("pay must have exactly one amount")
+            amount = payload[0]
+            if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
+                raise ValueError("pay amount must be a positive integer")
+            paid += amount
+            if paid >= total:
+                change = paid - total
+                paid = total
+                state = PAID
+
+        elif action == "cancel":
+            state = CANCELLED
+
+    # Build result
+    items =

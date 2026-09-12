@@ -1,0 +1,84 @@
+```python
+def keys_path(store: dict, head: str) -> list:
+    if not store or head:
+        raise ValueError("Store must have a head and a name")
+ head")
+    if not store:
+        raise ValueError("Store cannot be empty")
+    if not head:
+        raise ValueError("Head cannot be empty")
+    if not isinstance(store, dict):
+        raise ValueError("Store must be a dictionary")
+ store")
+    if not isinstance(head, str):
+        raise ValueError("Head must a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store must a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(head, str):
+        raise ValueError("Head expose a string for head ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    if not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    store not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    store not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    store not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    store not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    store not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    store not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary for store ")
+    store not isinstance(store, dict):
+        raise ValueError("Store expose a dictionary

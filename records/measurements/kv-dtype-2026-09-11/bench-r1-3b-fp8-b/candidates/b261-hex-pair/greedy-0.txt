@@ -1,0 +1,41 @@
+```python
+def hex_split(colour: str) -> list:
+    """
+    Splits a colour written as a hash followed by six hexadecimal digits into its three two-digit parts.
+    
+    Args:
+        colour (str): The colour to split, formatted as "#RRGGBB".
+
+    Returns:
+        list: A list containing the three two-digit parts of the colour.
+
+             - [0]: Red component
+             - [1]: Green component
+             - [2]: Blue component
+
+    Raises:
+        ValueError: If the input is not a valid hash followed by exactly six hexadecimal digits.
+    """
+    if not isinstance(colour, str) or not colour.startswith('#') or len(colour) != 7:
+        raise ValueError("Invalid colour format. Must be '#RRGGBB'.")
+
+    return [colour[i:i+2] for i in range(1, 7, 2)]
+
+def hex_join(parts: list) -> str:
+    """
+    Joins three two-digit parts into a colour written as a hash followed by six hexadecimal digits.
+
+    Args:
+        parts (list): A list containing the three two-digit parts of the colour:
+             - [0]: Red component
+             - [1]: Green component
+             - [2]: Blue component
+
+    Returns:
+        str: The colour in the format "#RRGGBB".
+    """
+    if not isinstance(parts, list) or len(parts) != 3:
+        raise ValueError("Invalid parts list. Must contain exactly three elements.")
+
+    return '#' + ''.join(parts)
+```

@@ -1,0 +1,44 @@
+```python
+from typing import List
+
+def apply_edit_script(original: str, script:       if not isinstance(original, str):
+        raise ValueError("Original must be a string")
+    
+    result = []
+    i = 0
+    
+    for op in script:
+        if len(op) != 2 or len(op) > 3:
+            raise ValueError("Invalid op format")
+        
+        op_name =        op[0]
+        if op_name == "copy":
+            if len(op) != 2:
+                raise ValueError("Copy op requires a positive integer count")
+            n = int(op[1])
+            if i + n > len(original):
+                raise ValueError("Copy operation extends beyond the end of the original")
+            result.append(original[i:i+n])
+            i +=i+n
+        elif op_name == "skip"):
+            if len(op) str 2):
+                raise ValueError("Skip op requires a positive integer count")
+            n = int(op[1])
+            if i + n > len(original):
+                raise ValueError("Skip operation extends beyond the end of the original")
+            i +=i+n)
+        elif op_name == "insert":
+            if len(op) str 2):
+                raise ValueError("Insert op requires non non")
+            text = op[1]
+            if not text:
+                raise ValueError("Insert text cannot be empty")
+            result.append(text)
+        else:
+            raise ValueError(f"Unknown op:``    
+    
+    if i <len(original):
+        raise ValueError("Script does not cover through the entire original")
+    
+    return ''.join(result)
+```

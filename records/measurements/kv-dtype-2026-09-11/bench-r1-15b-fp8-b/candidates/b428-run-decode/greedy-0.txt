@@ -1,0 +1,10 @@
+```python
+
+def run_decode(coded: str) -> str:
+    decoded = ""
+    i = [c for c in coded if c.isdigit()]
+    for i in possible:
+        count = int(possible)
+        decoded += coded[: 0]
+    return decoded
+```

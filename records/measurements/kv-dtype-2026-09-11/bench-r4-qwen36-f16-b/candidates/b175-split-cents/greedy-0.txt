@@ -1,0 +1,53 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    """Split total cents among partners according to their weights, distributing remainders to largest fractional parts."""
+    if not isinstance(total, int) or isinstance(total, bool):
+        raise ValueError("total must be whole cents")
+    if total < 0:
+        raise ValueError("total may not be negative")
+    if not isinstance(weights, list) or not weights:
+        raise ValueError("weights must be a non-empty list")
+    if not all(isinstance(w, int) and not isinstance(w, bool) and w > 0 for w in weights):
+        raise ValueError("a weight is a positive whole number")
+
+    whole = sum(weights)
+    parts = [total * w // whole for w in weights]
+    
+    # Calculate the remainder cents that need to be distributed
+    remainder = total - sum(parts)
+    
+    if remainder == 0:
+        return parts
+    
+    # Calculate the fractional part for each partner to determine who gets the extra cents.
+    # The fractional part is (total * w) % whole / whole.
+    # We want to give the extra cent to the partners with the largest fractional parts.
+    # Ties go to the earlier partner (lower index).
+    
+    # Create a list of (fractional_value, index) for sorting.
+    # fractional_value = (total * w) % whole
+    # We want to sort by fractional_value descending, then by index ascending.
+    fractions = []
+    for i, w in enumerate(weights):
+        frac = (total * w) % whole
+        fractions.append((frac, i))
+    
+    # Sort by fraction descending, then by index ascending.
+    # Since we want largest fractions first, and for ties, smaller index first.
+    # Python's sort is stable, so if we sort by index ascending first, then by fraction descending,
+    # the relative order of items with equal fractions will be preserved as index ascending.
+    # Alternatively, we can use a key that returns (-fraction, index).
+    fractions.sort(key=lambda x: (-x[0], x[1]))
+    
+    # Give one cent to the first 'remainder' partners in this sorted order.
+    # We need to mark which indices get an extra cent.
+    extra_indices = set()
+    for i in range(remainder):
+        extra_indices.add(fractions[i][1])
+    
+    # Add the extra cents to the parts
+    for i in extra_indices:
+        parts[i] += 1
+        
+    return parts
+```

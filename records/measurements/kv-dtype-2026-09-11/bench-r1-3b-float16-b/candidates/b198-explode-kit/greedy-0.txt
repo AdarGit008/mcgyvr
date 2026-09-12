@@ -1,0 +1,46 @@
+```python
+import math
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    
+    def get_total_parts(kit_name, want):
+        if kit_name not in catalog:
+            raise ValueError(f"the catalog does not define {kit_name}")
+        
+        recipe = catalog[kit_name]
+        parts = recipe['parts']
+        makes = recipe['makes']
+        
+        # Calculate the number of whole runs needed
+        runs = math.ceil(want / makes)
+        
+        # Initialize the total parts dictionary
+        total_parts = {}
+        
+        # Process each part in the recipe
+        for component, count in parts.items():
+            if component in catalog:
+                # If the component is a kit, recursively calculate its parts
+                sub_total = get_total_parts(component, runs * count)
+                # Add the sub-total to the total parts dictionary
+                for sub_component, sub_count in sub_total.items():
+                    if sub_component in total_parts:
+                        total_parts[sub_component] += sub_count
+                    else:
+                        total_parts[sub_component] = sub_count
+            else:
+                # If the component is a base part, add it to the total parts dictionary
+                if component in total_parts:
+                    total_parts[component] += runs * count
+                else:
+                    total_parts[component] = runs * count
+        
+        return total_parts
+    
+    # Start the recursive calculation from the given kit
+    return get_total_parts(kit, want)
+```

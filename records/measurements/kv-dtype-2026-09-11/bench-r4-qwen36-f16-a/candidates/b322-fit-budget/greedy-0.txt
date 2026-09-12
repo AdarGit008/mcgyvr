@@ -1,0 +1,22 @@
+```python
+def fit_budget(prices: list, budget: int) -> int:
+    """Return the maximum number of items that can be bought within the budget."""
+    if budget < 0:
+        raise ValueError("Budget cannot be negative")
+    
+    if not prices:
+        return 0
+    
+    sorted_prices = sorted(prices)
+    count = 0
+    remaining = budget
+    
+    for price in sorted_prices:
+        if remaining >= price:
+            remaining -= price
+            count += 1
+        else:
+            break
+            
+    return count
+```

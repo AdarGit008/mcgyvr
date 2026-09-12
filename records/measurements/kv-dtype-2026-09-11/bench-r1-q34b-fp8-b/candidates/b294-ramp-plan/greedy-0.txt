@@ -1,0 +1,33 @@
+<think>
+Okay, I need to implement the ramp_step and ramp_plan functions as per the given interface. Let's start with understanding what each function is supposed to do.
+
+First, ramp_step takes current, target, and step. The goal is to return the next value moving towards the target, but not overshooting. So, if current is already at target, return it. Otherwise, we need to decide whether to increment or decrement based on the direction. But wait, how do we determine the direction? Well, if current is less than target, we should add step, but not exceed target. If current is higher than target, subtract step, but not go below target. But wait, what if the step is larger than the difference? For example, if current is 5, target is 10, step is 10. Then adding step would take it to 15, which is over the target. So in that case, we should just return the target. Similarly, if current is 15, target is 10, step is 5, then subtracting step would take it to 10, which is correct.
+
+So the logic for ramp_step is: if current equals target, return it. Otherwise, determine the direction (whether to add or subtract step). Then calculate the next value, but cap it at the target. Wait, but how to handle when the step is larger than the difference. For example, current is 3, target is 10, step is 10. Then adding step would take it to 13, which is over target. So we should return target. Similarly, if current is 15, target is 10, step is 5, subtracting step would take it to 10, which is correct.
+
+So the formula for next value is: if current < target, then next is current + step, but not exceeding target. If current > target, next is current - step, but not going below target. But wait, what if the step is zero? The problem says that if step is zero and current is not at target, that's an invalid case. But the contract says that the function should raise ValueError for invalid arguments. Wait, the problem says that when step is zero and current is not already at target, it's not stated. So according to the problem's note, we need to raise ValueError in that case. So, in ramp_step, if step is zero, and current is not equal to target, then it's invalid. So in that case, we need to raise ValueError.
+
+So for ramp_step:
+
+- Check if step is zero. If yes, then check if current == target. If not, raise ValueError.
+
+Otherwise, compute the next value. So:
+
+if current == target: return current
+
+else:
+
+if current < target: next_val = current + step
+
+else: next_val = current - step
+
+then, clamp next_val between target and current? Wait, no. Wait, if current is less than target, then adding step could take it over target. So we need to make sure that next_val is at most target. Similarly, if current is higher than target, subtracting step could take it below target. So we need to make sure next_val is at least target.
+
+Wait, but in the case where current is less than target, and step is larger than (target - current), then adding step would overshoot. So the next value should be target. Similarly, if current is higher than target, and step is larger than (current - target), then subtracting step would go below target, so next value is target.
+
+So the correct way is:
+
+if current < target:
+
+   next_val = current + step
+

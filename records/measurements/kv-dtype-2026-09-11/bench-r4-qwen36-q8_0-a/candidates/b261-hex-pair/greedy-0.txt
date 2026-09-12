@@ -1,0 +1,28 @@
+```python
+def hex_split(colour: str) -> list:
+    """Split a hex colour string into its three two-digit components."""
+    if not isinstance(colour, str):
+        raise ValueError("colour must be a string")
+    if len(colour) != 7 or colour[0] != '#':
+        raise ValueError("colour must be a hash followed by exactly six hexadecimal digits")
+    hex_digits = colour[1:]
+    if not all(c in '0123456789abcdefABCDEF' for c in hex_digits):
+        raise ValueError("colour must contain only valid hexadecimal digits")
+    return [hex_digits[0:2], hex_digits[2:4], hex_digits[4:6]]
+
+
+def hex_join(parts: list) -> str:
+    """Join three two-digit hex parts into a lowercase hex colour string."""
+    if not isinstance(parts, list):
+        raise ValueError("parts must be a list")
+    if len(parts) != 3:
+        raise ValueError("parts must contain exactly three elements")
+    for part in parts:
+        if not isinstance(part, str):
+            raise ValueError("each part must be a string")
+        if len(part) != 2:
+            raise ValueError("each part must be exactly two characters")
+        if not all(c in '0123456789abcdefABCDEF' for c in part):
+            raise ValueError("each part must contain only valid hexadecimal digits")
+    return '#' + ''.join(p.lower() for p in parts)
+```

@@ -1,0 +1,15 @@
+```python
+def matches_stencil(stencil: str, code: str) -> bool:
+    if_stencil = "#@?"
+    if stencil not in possible_stencil:
+        raise ValueError("Stencil must must must must a string, an empty stencil, a code that a string, with an error")
+
+    if code not in possible_stencil:
+        raise ValueError("Code must be a string, with an error")
+
+    if = 0
+    for i i in stencil:
+        if = ( stencil.index(possible_stencil.index(character)) == possible_stencil.index(character)) or character in stencil
+
+    return stencil == code and stencil.index(possible_stencil.index("#")) == possible_stencil.index("#") and stencil.index(possible_stencil.index("@")) == possible_stencil.index("@") and stencil.index(possible_stencil.index("?")) == possible_stencil.index("?")
+```

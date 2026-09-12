@@ -1,0 +1,13 @@
+```python
+def swipe_dedupe(swipes: list) -> list:
+    if not swipes:
+        return []
+
+    result = [swipes[0]]
+    for i swipe in swipes[1:]:
+:
+        if swipe != result[-[-1]:
+            result.append(swipe)
+
+    return result
+```

@@ -1,0 +1,60 @@
+```python
+"""An installation order for packages under prerequisite pairs."""
+
+
+def install_order(packages: list, requires: list) -> list:
+    """Return a valid installation order respecting prerequisites and alphabetical tie-breaking."""
+    # Validate duplicate package names
+    seen = set()
+    for pkg in packages:
+        if pkg in seen:
+            raise ValueError(f"Duplicate package name: {pkg}")
+        seen.add(pkg)
+
+    # Validate requirement pairs reference existing packages
+    package_set = set(packages)
+    for pkg, needed in requires:
+        if pkg not in package_set:
+            raise ValueError(f"Package in requirement not found: {pkg}")
+        if needed not in package_set:
+            raise ValueError(f"Required package not found: {needed}")
+
+    # Build graph
+    needs = {name: 0 for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, needed in requires:
+        needs[pkg] += 1
+        enables[needed].append(pkg)
+
+    # Initialize ready queue with packages that have no prerequisites
+    # Use a sorted list to ensure alphabetical order when picking the next item
+    ready = sorted([name for name in packages if needs[name] == 0])
+    
+    order = []
+    while ready:
+        # Pick the alphabetically first available package
+        next_name = ready.pop(0)
+        order.append(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                # Insert into ready list maintaining sorted order
+                # Since we need to maintain alphabetical order, we can just append and sort,
+                # or insert in place. Given the constraints and typical sizes, appending and sorting
+                # or using bisect is fine. Let's use a simple approach: add to ready, then sort ready.
+                # However, to be efficient and correct, we can just append and then sort the whole list
+                # or insert correctly. Let's append and sort at the beginning of the loop or here.
+                # Actually, if we sort 'ready' every time we add, it's O(N log N) per addition.
+                # A better way: just append, and since we always pop(0), we need it sorted.
+                # Let's just append and then sort the list.
+                ready.append(follower)
+        
+        # Re-sort to maintain alphabetical order for the next selection
+        ready.sort()
+
+    # Check for cycles: if not all packages are in the order, there's a cycle
+    if len(order) != len(packages):
+        raise ValueError("Cycle detected in requirements")
+
+    return order
+```

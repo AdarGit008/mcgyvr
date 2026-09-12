@@ -1,0 +1,10 @@
+```python
+def drift_check(readings: list[list[int]], threshold: int)       if not readings:
+        raise ValueError("Readings list cannot be empty")
+    
+    for i in range(1, len(readings)):
+        if abs(readings[i][] - readings[i - 1]) > threshold:
+            return i
+    
+    return -1
+```

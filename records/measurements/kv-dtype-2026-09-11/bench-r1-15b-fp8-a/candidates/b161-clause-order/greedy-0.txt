@@ -1,0 +1,65 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    if not isinstance(a, str) or isinstance(b, str):
+        raise ValueError("Both arguments must be strings")
+    if not a or b:
+        raise ValueError("Both arguments must be non-empty strings")
+    if not a.isalpha() or not b.isalpha():
+        raise ValueError("Both arguments must be alphabetic strings")
+    if not a.isalnum() or not b.isalnum():
+        raise ValueError("Both arguments must be alphanumeric strings")
+    if not a.islower() or not b.islower():
+        raise ValueError("Both arguments must be lowercase strings")
+    if not a.isupper() or not b.isupper():
+        raise ValueError("Both arguments must be uppercase strings")
+    if not a.isnumeric() or not b.isnumeric():
+        raise ValueError("Both arguments must be numeric strings")
+    if not a.isdecimal() or not b.isdecimal():
+        raise ValueError("Both arguments must be decimal strings")
+    if not a.isfloat() or not b.isfloat():
+        raise ValueError("Both arguments must be float strings")
+    if not a.isint() or not b.isint():
+        raise ValueError("Both arguments must be integer strings")
+    if not a.iscomplex() or not b.iscomplex():
+        raise ValueError("Both arguments must be complex strings")
+    if not a.isimaginary() or not b.isimaginary():
+        raise ValueError("Both arguments must be imaginary strings")
+    if not a.isreal() or not b.isreal():
+        raise ValueError("Both arguments must be real strings")
+    if not a.isimaginary() or not b.isimaginary():
+        raise ValueError("Both arguments must be imaginary strings")
+    if not a.isinteger() or not b.isinteger():
+        raise ValueError("Both arguments must be integer strings")
+    if not a.isfloat() or not b.isfloat():
+        raise ValueError("Both arguments must be float strings")
+    if not a.isint() or not b.isint():
+        raise ValueError("Both arguments must be integer strings")
+    if not a.iscomplex() or not b.iscomplex():
+        raise ValueError("Both arguments must be complex strings")
+    if not a.isimaginary() or not b.isimaginary():
+        raise ValueError("Both arguments must be imaginary strings")
+    if not a.isreal() or not b.isreal():
+        raise ValueError("Both arguments must be real strings")
+    if not a.isimaginary() or not b.isimaginary():
+        raise ValueError("Both arguments must be imaginary strings")
+    if not a.isinteger() or not b.isinteger():
+        raise ValueError("Both arguments must be integer strings")
+    if not a.isfloat() or not b.isfile():
+        raise ValueError("Both arguments must be file strings")
+    if not a.isdir() or not b.isdir():
+        raise ValueError("Both arguments must be directory strings")
+    if not a.istype() or not b.istype():
+        raise ValueError("Both arguments must be type strings")
+    if not a.islist() or not b.islist():
+        raise ValueError("Both arguments must be list strings")
+    if not a.isdict() or not b.isdict():
+        raise ValueError("Both arguments must be directory strings")
+    if not a.isset() or not b.isset():
+        raise ValueError("Both arguments must be set strings")
+    if not a.isdict() or not b.isdict():
+        raise ValueError("Both arguments must be dictionary strings")
+    if not a.isset() or not b.isset():
+        raise ValueError("Both arguments must be set strings")
+    if not a.isdict() or not b.isdict():
+        raise ValueError("Both arguments must be dictionary strings")
+    if not

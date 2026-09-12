@@ -1,0 +1,29 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Converts a whole number to its short form representation.
+    Numbers below a thousand are written as they stand.
+    Numbers from a thousand to a million take a 'k'.
+    Numbers from a million to a billion take an 'm'.
+    The function rounds down to one decimal place.
+    """
+    if value < 0:
+        raise ValueError("Input must be a non-negative integer.")
+    
+    if value == 0:
+        return "0"
+    
+    if value < 1000:
+        return str(value)
+    
+    if value < 1000000:
+        return f"{value // 1000}k"
+    
+    if value < 1000000000:
+        return f"{value // 1000000}m"
+    
+    # For numbers greater than or equal to 1000000000,
+    # we would need to handle the additional letter 'b' or 't',
+    # but that is not specified in the task.
+    return f"{value // 1000000000}b"
+```

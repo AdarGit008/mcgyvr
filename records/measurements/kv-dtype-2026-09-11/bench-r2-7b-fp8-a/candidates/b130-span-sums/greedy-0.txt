@@ -1,0 +1,63 @@
+```python
+"""
+Tape-measure spans:parse to inches, format canonically then add.
+"""
+
+"""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+def parse_span(text: str) -> int:
+    """
+    Validate the span text against the part grammar and unit
+    integer then total its parts in inches.
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("span text must be a non-empty string")
+    
+    parts = text.split()
+    seen_units = set()
+              raise ValueError("unknown unit or units repeats or out of order")
+    
+   _value, unit in zip(values, units):
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("value must be a non-negative integer")
+        if unit.startswith('0'):
+            raise ValueError("unit with a value with a leading zero")
+        
+        total += value * INCHES[unit]
+    return total
+
+def format_span(inches: int) -> str:
+    """
+    Render a non-negative integer of total inches canonically
+   largest units first, feet held under 3, inches held under 12
+zero-valued parts left out plain 0in for zero.
+    """
+    if isinstance(inches, bool) or not isinstance(inches, int) or inches < 0:
+            raise ValueError("inches must be a non-negative integer")
+    
+     if inches == 0:
+        return "0in"
+    
+     parts = []
+     yards, rest = divmod(inches, 36)
+     feet, rest = divmod(rest, 12)
+     if yards:
+        parts.append(f"{yards}yd")
+     if feet:
+        parts.append(f"{feet}ft")
+     if rest:
+        parts.append(f"{rest}in")
+    
+     return " ".join(parts)
+
+    
+def add_spans(first: str, second: str) -> str:
+    """
+    Add two span texts and return their sum in that canonical form.
+    """
+    total = parse_span(first) + parse_span(second)
+    return format_span(total):
+```

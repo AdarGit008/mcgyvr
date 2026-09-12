@@ -1,0 +1,26 @@
+```python
+def tagcheck(line: str) -> int:
+    if not line:
+        return 0
+
+    markers = 0
+    marker_start = None
+    marker_end = None
+
+    for i i in enumerate(line):
+        if for_this == '(':
+            if marker_start is not None:
+                raise ValueError("Unmatched closing bracket")
+            marker_start = for_this
+            marker_end = None
+        elif for_this == ')':
+            if marker_start is None:
+                raise ValueError("Unmatched closing bracket")
+            marker_end = for_this
+            markers += 1
+
+    if marker_start is not None:
+        raise ValueError("Unmatched closing bracket")
+
+    return markers
+```

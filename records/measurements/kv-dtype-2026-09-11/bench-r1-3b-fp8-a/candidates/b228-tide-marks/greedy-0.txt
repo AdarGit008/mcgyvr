@@ -1,0 +1,27 @@
+```python
+from typing import *
+from collections import *
+
+def tide_marks(levels: List[int]) -> List[int]:
+    """
+    Find the positions of local peaks in a list of water levels.
+    
+    A local peak is defined as a position where the level is strictly greater
+    than the level immediately before it and the level immediately after it.
+    The first and last positions are never peaks.
+    
+    Parameters:
+    levels (List[int]): A list of integers representing water levels.
+
+    Returns:
+    List[int]: A list of positions where local peaks are found, in increasing order.
+    """
+    if not levels or len(levels) < 3:
+        return []
+
+    peaks = []
+    for i in range(1, len(levels) - 1):
+        if levels[i] > levels[i - 1] and levels[i] > levels[i + 1]:
+            peaks.append(i)
+    return peaks
+```

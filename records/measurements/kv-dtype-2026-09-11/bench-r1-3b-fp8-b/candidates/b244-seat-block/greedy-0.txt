@@ -1,0 +1,26 @@
+```python
+def seat_block(label: str) -> list:
+    """
+    Parse a seat label into its row number and letter components.
+    
+    Args:
+        label (str): The seat label to parse.
+        
+    Returns:
+        list: A list containing the row number as an integer and the letter as a string.
+        
+    Raises:
+        ValueError: If the label is not a valid seat label.
+    """
+    if not isinstance(label, str) or len(label) != 2:
+        raise ValueError("Invalid seat label format.")
+    
+    try:
+        row = int(label[:-1])
+        letter = label[-1]
+        if not letter.isupper() or not row.isdigit():
+            raise ValueError("Invalid seat label format.")
+        return [row, letter]
+    except ValueError:
+        raise ValueError("Invalid seat label format.")
+```

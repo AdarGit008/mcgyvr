@@ -1,0 +1,26 @@
+```python
+def wire_value(value) -> str:
+    """Render a supported value into wire notation."""
+    if isinstance(value, bool):
+        raise ValueError("Booleans are not supported")
+    if isinstance(value, str):
+        return wire_text(value)
+    if isinstance(value, int):
+        return f"n{value};"
+    if isinstance(value, float):
+        raise ValueError("Floats are not supported")
+    if isinstance(value, list):
+        parts = [wire_value(item) for item in value]
+        return "[" + "".join(parts) + "]"
+    raise ValueError(f"Unsupported value type: {type(value)}")
+
+
+def wire_text(text: str) -> str:
+    """Render a text leaf into wire notation."""
+    if not isinstance(text, str):
+        raise ValueError("Argument must be a string")
+    if "\n" in text:
+        raise ValueError("Text contains newline")
+    length = len(text)
+    return f"s{length}:{text}"
+```

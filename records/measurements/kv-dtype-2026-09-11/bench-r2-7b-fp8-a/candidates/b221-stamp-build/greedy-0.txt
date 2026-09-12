@@ -1,0 +1,7 @@
+```python
+def stamp_build(major: int,    if not isinstance(major, int) or major < 0:
+        raise ValueError("Major component must be a non-negative integer")
+    return major * 1000000
+
+
+```

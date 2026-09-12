@@ -1,0 +1,57 @@
+```python
+def wire_value(value) -> str:
+    """Render a supported value (text, whole number, or list) to wire notation."""
+    if isinstance(value, bool):
+        raise ValueError("Booleans are not supported")
+    if isinstance(value, str):
+        return wire_text(value)
+    if isinstance(value, int):
+        return f"n{value};"
+    if isinstance(value, float):
+        if value != int(value):
+            raise ValueError("Floats that are not whole numbers are not supported")
+        # Check if it's effectively a whole number but passed as float
+        # The contract says "whole number", usually implying int. 
+        # However, if a float like 1.0 is passed, is it a "whole number"?
+        # The contract says "Reject ... a number that is not whole".
+        # It also says "Reject a boolean".
+        # It lists supported values: "text, a whole number or a list".
+        # Typically "whole number" in Python context for serialization implies `int`.
+        # If `float` is passed, we should check if it's whole.
+        # But usually, type checking prefers `isinstance(value, int)`.
+        # Let's assume strict type checking for int vs float unless specified otherwise.
+        # However, to be safe against "1.0" being considered a whole number:
+        # The prompt says "Reject ... a number that is not whole".
+        # If I receive 1.0, is it a "whole number"? Mathematically yes.
+        # But in Python, `isinstance(1.0, int)` is False.
+        # Let's look at the example: `[1, ["x", []], "yz"]`. 1 is an int.
+        # If the user passes 1.0, should it be rejected?
+        # "Reject a boolean, a number that is not whole".
+        # This implies if it IS whole, it might be accepted?
+        # But "whole number" usually maps to `int`.
+        # Let's stick to `int` for whole numbers to avoid ambiguity with floats.
+        # If the contract meant to accept floats that are whole, it would likely say "numeric".
+        # Given "Reject ... a number that is not whole", it implies some numbers ARE whole.
+        # But standard wire formats usually distinguish int/float.
+        # I will treat only `int` as whole numbers. If `float` is passed, it's a different type.
+        # If the test passes 1.0, it might fail. But `isinstance(1.0, int)` is False.
+        # Let's assume strict `int`.
+        raise ValueError("Only integers are supported as whole numbers")
+    if isinstance(value, list):
+        if not value:
+            return "[]"
+        parts = [wire_value(item) for item in value]
+        return "[" + "".join(parts) + "]"
+    
+    raise ValueError("Unsupported value type")
+
+
+def wire_text(text: str) -> str:
+    """Render a text leaf to wire notation."""
+    if not isinstance(text, str):
+        raise ValueError("Argument must be a string")
+    if '\n' in text:
+        raise ValueError("Text cannot contain newlines")
+    length = len(text)
+    return f"s{length}:{text}"
+```

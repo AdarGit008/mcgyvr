@@ -1,0 +1,28 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Swap keys and values in a dictionary, keeping the name that sorts first
+    when two names share one code. Remove names with empty codes.
+    """
+    if not names:
+        return {}
+
+    # Create a dictionary to store the swapped keys and values
+    swapped = {}
+    
+    # Iterate over the original dictionary
+    for name, code in names.items():
+        # Skip names with empty codes
+        if not code:
+            continue
+        
+        # If the code is already in the swapped dictionary, keep the name that sorts first
+        if code in swapped:
+            existing_name = swapped[code]
+            if name < existing_name:
+                swapped[code] = name
+        else:
+            swapped[code] = name
+    
+    return swapped
+```

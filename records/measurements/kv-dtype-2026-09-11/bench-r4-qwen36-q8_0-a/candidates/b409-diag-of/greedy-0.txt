@@ -1,0 +1,29 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> int | None:
+    """Return the value at a specific row and column, or None if out of bounds."""
+    if not isinstance(grid, list):
+        raise ValueError("Grid must be a list")
+    if row < 0 or row >= len(grid):
+        return None
+    row_list = grid[row]
+    if not isinstance(row_list, list):
+        raise ValueError("Each row must be a list")
+    if column < 0 or column >= len(row_list):
+        return None
+    return row_list[column]
+
+
+def diag_of(grid: list) -> list:
+    """Return the values along the main diagonal of the grid."""
+    if not isinstance(grid, list):
+        raise ValueError("Grid must be a list")
+    result = []
+    for i, row in enumerate(grid):
+        if not isinstance(row, list):
+            raise ValueError("Each row must be a list")
+        if i < len(row):
+            result.append(row[i])
+        else:
+            break
+    return result
+```

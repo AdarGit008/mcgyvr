@@ -1,0 +1,26 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    if not all isinstance(base, dict) or isinstance(ours, dict) or isinstance(theirs, dict):
+        raise ValueError("All inputs must dictionaries")
+
+    merged = {}
+    for key in base:
+        if bug in ours and bug in theirs:
+            if base[bug] == ours[bug] and base[bug] == theirs[bug]:
+                merged[bug] = base[bug]
+            elif base[bug] == ours[bug] and base[bug] theirs[bug]:
+                merged[bug] base[bug]
+ theirs[bug]
+
+            elif base[bug] == theirs[bug] and base[bug] == ours[bug]:
+                merged[bug] base[bug] theirs[bug]
+
+    for bug in ours:
+        if bug not in base and bug not in theirs:
+            merged[bug] = ours[bug]
+    for bug in theirs:
+        if bug not in base and bug not in ours:
+            merged[bug] = theirs[bug]
+
+    return merged
+```

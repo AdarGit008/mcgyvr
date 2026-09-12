@@ -1,0 +1,14 @@
+```python
+def fill_between(entries: list, filler: str) -> list:
+    """Return a list with a filler placed between every two neighbouring entries."""
+    if not entries:
+        return []
+    
+    result = []
+    for i, entry in enumerate(entries):
+        result.append(entry)
+        if i < len(entries) - 1:
+            result.append(filler)
+            
+    return result
+```

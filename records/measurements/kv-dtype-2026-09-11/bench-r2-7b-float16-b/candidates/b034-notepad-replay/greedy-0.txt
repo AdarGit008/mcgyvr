@@ -1,0 +1,45 @@
+```python
+"""Replay a notepad editing session: type, erase, replace, undo and redo."""
+
+def replay_notepad(commands: list) -> str:
+    buffer = ""
+    past = []
+    future = []
+
+    for command in commands:
+        action = command[0]
+        if action == "type":
+            if not isinstance(command[1], str) or command[1] == "":
+                raise ValueError("Invalid 'type' command payload")
+            past.append(buffer)
+            buffer += command[1]
+        elif action == "erase":
+            if not isinstance(command[1], int) or command[1] <= 0 or command[1] > len(buffer):
+                raise ValueError("Invalid 'erase' command payload")
+            past.append(buffer)
+            buffer = buffer[:len(buffer) - command[1]]
+        elif action == "replace":
+            old, new = command[1], command[2]
+            if not isinstance(old, str) or old == "" or old not in buffer:
+                raise ValueError("Invalid 'replace' command payload")
+            if not isinstance(new, str):
+                raise ValueError("Invalid 'replace' command payload")
+            past.append(buffer)
+            buffer = buffer.replace(old, new, 1)
+        elif action == "undo":
+            if not isinstance(command[1], int) or command[1] <= 0 or command[1] > len(past):
+                raise ValueError("Invalid 'undo' command payload")
+            for _ in range(command[1]):
+                future.append(buffer)
+                buffer = past.pop()
+        elif action == "redo":
+            if not isinstance(command[1], int) or command[1] <= 0 or command[1] > len(future):
+                raise ValueError("Invalid 'redo' command payload")
+            for _ in range(command[1]):
+                past.append(buffer)
+                buffer = future.pop()
+        else:
+            raise ValueError("Unknown action")
+
+    return buffer
+```

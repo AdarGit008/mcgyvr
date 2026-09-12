@@ -1,0 +1,16 @@
+<think>
+Okay, I need to implement the order_release_tags function. Let's see the requirements. The function takes a list of release tags and returns a new list sorted in ascending order. The tags are in the format v followed by major, minor, patch, and optionally a preview label. 
+
+First, I need to parse each tag into its components. For each tag, I should split it into parts. The first part is 'v', then the major, minor, patch as integers. Then check if there's a hyphen and a preview label. The preview label is a lowercase word followed by a number, like rc3. Wait, the problem says the preview label is a lowercase word directly on a number. So the hyphen is followed by a word (like 'rc') and then a number (like 3). So the tag is like v2.0.0-rc3.
+
+So for each tag, I need to split into parts. Let's think about parsing. For example, 'v1.4.0' would split into ['v', '1', '4', '0'], and 'v2.0.0-rc3' would split into ['v', '2', '0', '0', 'rc3'].
+
+So the first step is to parse each tag into major, minor, patch, and a possible preview label. Then, when comparing, the major, minor, patch are compared as numbers. If two tags have the same major, minor, patch, then the one with the preview label comes first. If there are two preview labels, they are ordered by the word (alphabetically) and then the number as a number.
+
+So the plan is:
+
+1. For each tag in the input list, parse it into a tuple that contains (major, minor, patch, has_preview, preview_label). The preview_label is the part after the hyphen, like 'rc3', which is split into the word 'rc' and the number 3. Wait, but the problem says the preview label is a lowercase word directly on a number. So the hyphen is followed by a word (like 'rc') and then a number (like 3). So the preview label is the part after the hyphen, which is split into the word and the number. But how to parse that?
+
+Wait, the problem says the preview label is a lowercase word directly on a number. So the hyphen is followed by a word (like 'rc') and then a number (like 3). So the entire preview label is like 'rc3', which is the word 'rc' and the number 3. So for the tag 'v2.0.0-rc3', the preview label is 'rc3', which is split into the word 'rc' and the number 3. But how to split that? The word is the part before the number. So the hyphen is followed by a word and a number. So the preview label is the part after the hyphen, which is split into the word and the number. So for example, 'rc3' is split into 'rc' and 3. Similarly, 'beta1' is split into 'beta' and 1. So the preview label is a string that starts with a lowercase word followed by a number. So to parse that, we can split the preview label into the word and the number.
+
+But how to split that? For example, 'rc3' is the word 'rc' and the number 3. So the hyphen is followed by the word and the number. So the preview label is the part after the hyphen. So for a tag like 'v2.0.0-rc3',

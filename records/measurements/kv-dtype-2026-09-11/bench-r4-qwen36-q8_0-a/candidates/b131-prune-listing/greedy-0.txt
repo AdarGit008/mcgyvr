@@ -1,0 +1,93 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    """Return surviving paths after applying ordered drop/keep rules."""
+    
+    def segment_fits(pattern: str, text: str) -> bool:
+        """Check if pattern matches text using '*' for any run of chars."""
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list:
+        """Split text by '/' ensuring no empty segments."""
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    # Validate rules
+    parsed_rules = []
+    for rule in rules:
+        if not isinstance(rule, str):
+            raise ValueError("Rule must be a non-empty string")
+        if rule == "":
+            raise ValueError("Rule must be a non-empty string")
+        
+        is_keep = False
+        pattern = rule
+        
+        if rule.startswith("!"):
+            is_keep = True
+            pattern = rule[1:]
+            if pattern == "":
+                raise ValueError("Rule cannot be a bare exclamation mark")
+        
+        parsed_rules.append((is_keep, split_strict(pattern, "Rule")))
+
+    # Validate and process paths
+    result = []
+    for path in listing:
+        if not isinstance(path, str):
+            raise ValueError("Path must be a non-empty string")
+        if path == "":
+            raise ValueError("Path must be a non-empty string")
+        
+        path_segments = split_strict(path, "Path")
+        
+        # Determine fate based on last matching rule
+        survived = True
+        for is_keep, rule_segments in parsed_rules:
+            # Check if rule matches path
+            # Rule matches if each rule segment matches the corresponding leading path segment
+            # A matched directory covers everything beneath it (prefix match)
+            if len(rule_segments) > len(path_segments):
+                continue
+            
+            match = True
+            for i, rule_seg in enumerate(rule_segments):
+                if not segment_fits(rule_seg, path_segments[i]):
+                    match = False
+                    break
+            
+            if match:
+                if is_keep:
+                    survived = True
+                else:
+                    survived = False
+        
+        if survived:
+            result.append(path)
+    
+    return result
+```

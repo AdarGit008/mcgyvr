@@ -1,0 +1,18 @@
+```python
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    """
+    Calculate the minutes gap between two times on a 24-hour clock.
+    If the second time is earlier than the first, it is considered to be on the following day.
+    """
+    if not (0 <= from_hour < 24 and 0 <= from_minute < 60 and 0 <= to_hour < 24 and 0 <= to_minute < 60):
+        raise ValueError("Invalid hour or minute value")
+
+    # Convert times to total minutes since midnight
+    from_total_minutes = from_hour * 60 + from_minute
+    to_total_minutes = to_hour * 60 + to_minute
+
+    # Calculate the gap, considering the wrap-around from 23:59 to 00:00
+    gap = (to_total_minutes - from_total_minutes) % (24 * 60)
+
+    return gap
+```

@@ -1,0 +1,45 @@
+```python
+from typing import List, Mapping, Any
+
+def pick_fields(records: List[Mapping[str, Any]], fields: List[str]) -> List[List[Any]]:
+    """
+    Extracts specified fields from records, handling optional fields with '?' markers.
+    Raises ValueError for invalid records or fields.
+    """
+    if not records or not fields:
+        raise ValueError("Input lists cannot be empty.")
+    
+    def is_valid_field_name(name: str) -> bool:
+        if not isinstance(name, str) or not name:
+            raise ValueError("Field names must be non-empty strings.")
+        return not name.endswith('?')
+    
+    def extract_field(record: Mapping[str, Any], field: str) -> Any:
+        if field.endswith('?'):
+            stem = field[:-1]
+            return record.get(stem, None)
+        return record.get(field, None)
+    
+    def validate_record(record: Mapping[str, Any], required_fields: set) -> None:
+        missing_fields = required_fields - set(record.keys())
+        if missing_fields:
+            raise ValueError(f"Record is missing required fields: {missing_fields}")
+    
+    valid_fields = [field for field in fields if is_valid_field_name(field)]
+    required_fields = {field[:-1] for field in valid_fields if field.endswith('?')}
+    
+    result = []
+    for record in records:
+        if not isinstance(record, Mapping):
+            raise ValueError("All records must be mappings.")
+        
+        if not all(is_valid_field_name(field) for field in record.keys()):
+            raise ValueError("All record keys must be valid field names.")
+        
+        validate_record(record, required_fields)
+        
+        extracted_values = [extract_field(record, field) for field in valid_fields]
+        result.append(extracted_values)
+    
+    return result
+```

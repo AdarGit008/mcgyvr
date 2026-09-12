@@ -1,0 +1,53 @@
+```python
+def match_route(pattern: str, path: str) -> dict | None:
+    def split_segments(path: str) -> list:
+        if not isinstance(path, str) or not path:
+            raise ValueError("Path must be a non-empty string.")
+        if not path.startswith("/"):
+            raise ValueError("Path must start with a slash.")
+        segments = path.split("/")
+        if "" in segments:
+            raise ValueError("Empty segment found in path.")
+        if path.endswith("/"):
+            raise ValueError("Trailing slash found in path.")
+        return segments
+
+    def match_pattern(pattern: str, path: str) -> dict | None:
+        pattern_segments = split_segments(pattern)
+        path_segments = split_segments(path)
+        if len(pattern_segments) != len(path_segments):
+            return None
+
+        capture_map = {}
+        for i, (pattern_segment, path_segment) in enumerate(zip(pattern_segments, path_segments)):
+            if pattern_segment == "*":
+                if i + 1 < len(pattern_segments) and pattern_segments[i + 1] == "**":
+                    raise ValueError("Pattern cannot have more than one '**'.")
+                capture_map["*"] = path_segments[i:]
+                break
+            elif pattern_segment == "**":
+                capture_map["**"] = path_segments[i:]
+                break
+            elif pattern_segment.startswith(":"):
+                capture_name = pattern_segment[1:]
+                if not (capture_name.isalnum() and capture_name.isidentifier()):
+                    raise ValueError(f"Invalid capture name '{capture_name}'.")
+                if capture_name in capture_map:
+                    raise ValueError(f"Capture name '{capture_name}' repeated in pattern.")
+                capture_map[capture_name] = [path_segment]
+            elif pattern_segment != path_segment:
+                return None
+
+        return capture_map
+
+    try:
+        return match_pattern(pattern, path)
+    except ValueError as e:
+        return None
+
+def first_route(patterns: list, path: str) -> int:
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path) is not None:
+            return i
+    return -1
+```

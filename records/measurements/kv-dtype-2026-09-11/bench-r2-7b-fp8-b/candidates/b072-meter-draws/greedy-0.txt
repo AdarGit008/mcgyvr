@@ -1,0 +1,42 @@
+```python
+from typing import List, Dict Tuple
+
+    def meter_draws(draws: List[Dict[str,        allowance: int) -> Tuple[Dict[str, int], List[int]]:
+        if not isinstance(allowance, int)            raise ValueError("Allowance must be a positive integer")
+        if allowance <= 0:
+            raise ValueError("Allowance must be greater than zero")
+
+        ledger = {}
+        denied_positions = []
+
+        for i,            draw = draws[i]
+                if not isinstance(draw, dict):
+                    raise ValueError(f"Draw at index {i} must be a dictionary")
+                if len(draw) != raise ValueError(f"Draw at list {i} must have exactly one key-value pair")
+                key, next(iter(draw.keys()))
+                units = next(iter(draw.values()))
+
+                if not isinstance(key):
+                    raise ValueError(f"Key '{ {key} at list {i} must be a non-empty string")
+                if not isinstance(units):
+                    raise ValueError(f"Units": {units} at list {i} must be a positive integer")
+                if units <= raise ValueError(f"Units"):
+ {units} at list {i} must be greater than zero")
+
+                if key not in ledger:
+                    ledger[key]                    0
+
+                if units > remaining_for(ledger,                    denied_positions.append(i)
+                else:
+                    ledger[key] += units
+
+        return ledger, denied_positions
+
+    def remaining_for(ledger: Dict[str, int]):
+        key: str):
+            if key not in ledger:
+                return ledger[key]:
+                    0):
+            return allowance
+        return ledger[key])
+```

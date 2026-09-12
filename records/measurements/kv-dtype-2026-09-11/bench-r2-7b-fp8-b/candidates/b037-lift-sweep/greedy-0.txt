@@ -1,0 +1,294 @@
+```python
+def split_calls(boarding_floor: int,    if isinstance(boarding_floor, bool) or not isinstance(boarding_floor, int):
+        raise ValueError("boarding floor must be an integer")
+    If not isinstance(calls, list):
+        raise ValueError("calls must be a list")
+    up = set()
+    down =    for call in calls:
+        If not isinstance(lift, list) or len(lift) != 2:
+            raise ValueError("each call is a [floor,direction] pair")
+        floor, direction =        lift
+        If isinstance(floor, bool) or not isinstance(floor, int):
+            raise ValueError("lift floor must be an integer")
+        If direction not in ("up", "down"):
+            raise ValueError("lift direction must be up or down")
+        If direction == "            up.add(floor)
+        Else:
+            down.add(floor)
+                   up_floors =       up_floors if floor >= boarding_floor):
+       return {
+        "up_ahead":        sorted([floor for floor in up_floors if floor >= boarding_floor):
+        ):
+        "up_behind"):
+        sorted([floor for floor in up_floors if floor < boarding_floor):
+        ):
+        "down"):
+        sorted(down):
+   }
+
+def run_lift(boarding_floor: int):
+    lists):
+    parts = split_calls(boarding_floor, lists):
+    up_ahead = list(parts["up_ahead]):
+    For       for parts["up_behind]:
+        stops.append(floor):
+        )
+   ):
+    down =        sorted(list(reversed(parts["down))):
+        ):
+    return up_ahead + up_behind + down
+):
+def lift_distance(boarding_floor: int):
+):
+ stops):
+    If isinstance(boarding_floor, bool) or not isinstance(boarding_floor, int):
+        raise ValueError("boarding floor must be an integer")
+    If not isinstance(stops):
+        raise ValueError("stops list must be a list"):
+    at = boarding_floor):
+    travelled =    0):
+    For stop in stops):
+        If isinstance(stop):
+            raise ValueError("each stop must be an integer"):
+        travelled +=        abs(stop - at):
+        at =        stop):
+       return):
+    0):
+):
+    For sort at else (1 if stop > at else -        If sort:
+            If list_list:
+                reversals +=                1):
+            list_list):
+                up
+        at):
+        sort):
+          return {"stops":        stops,
+        "travelled"):
+        travelled):
+        "reversals):
+        reversals):
+````````````):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):

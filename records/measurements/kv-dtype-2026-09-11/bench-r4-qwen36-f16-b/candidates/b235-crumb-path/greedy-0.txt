@@ -1,0 +1,21 @@
+```python
+def crumb_split(trail: str) -> list:
+    """Break a breadcrumb trail on forward slashes and discard empty segments."""
+    if not isinstance(trail, str):
+        raise ValueError("trail must be a string")
+    
+    segments = trail.split('/')
+    # Filter out empty strings. A segment made only of spaces is NOT empty 
+    # because the contract does not state that whitespace-only segments count as empty.
+    return [seg for seg in segments if seg != '']
+
+
+def crumb_join(parts: list) -> str:
+    """Put segments back with a single slash between them and no slash at either end, discarding empty segments."""
+    if not isinstance(parts, list):
+        raise ValueError("parts must be a list")
+    
+    # Filter out empty strings, consistent with crumb_split behavior
+    filtered_parts = [part for part in parts if part != '']
+    return '/'.join(filtered_parts)
+```

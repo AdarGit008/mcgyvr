@@ -1,0 +1,89 @@
+<think>
+Okay, I need to implement the trace_relay function according to the given specifications. Let me start by understanding the problem.
+
+The function takes a dictionary 'links' where each key is a post name, and the value is the next post it hands the watch to. The last post hands to an empty string. The task is to start at 'start' and follow the handoffs, collecting all the posts visited in order, ending with the post that hands to empty.
+
+First, I need to check the inputs. The links must be a dictionary. If not, raise ValueError. Also, the start must be a key in links. If not, raise an error. Then, during the traversal, if a handoff refers to a post not in links, that's invalid. Also, if there's a cycle (returning to a previously visited post), that's an error.
+
+So the steps are:
+
+1. Validate that links is a dict.
+2. Check that start is in links.
+3. Initialize a route list, starting with start.
+4. Keep track of visited posts to detect cycles.
+5. Loop until the next post is empty string.
+6. For each step:
+   a. Get the current post.
+   b. Check if the next post (links[current]) is in links. If not, raise error.
+   c. Check if next post is already in visited. If yes, raise error.
+   d. Add next post to route and mark as visited.
+7. Continue until the next post is empty string. Then return the route.
+
+Wait, but the last post hands to empty. So the loop should continue until the next post is empty. So the steps would be:
+
+Start with current = start. Add to route.
+
+Then, while True:
+
+current = links[current]
+
+If current is empty, break.
+
+But before adding current to the route, check if it's in links. Because the next post is the value of links[current]. Wait, no. Wait, the links map each post to the next post. So, for example, if current is 'A', then links['A'] is 'B'. So the next post is 'B'. But if 'B' is not in links, that's invalid. Also, if during the traversal, we reach a post that's already in the route, that's a cycle.
+
+So the algorithm:
+
+Initialize route with start.
+
+visited = set containing start.
+
+current = start.
+
+loop:
+
+current = links[current]
+
+if current is empty, break.
+
+if current not in links: raise error.
+
+if current in visited: raise error.
+
+add current to route and visited.
+
+repeat.
+
+Wait, but the links dictionary's values are the next post. So, for example, if the last post hands to empty, then links[last_post] is empty string. So when current is last_post, the next is empty. So in that case, we add the last_post to the route, then check the next, which is empty, so we break.
+
+But wait, the route should include the start and all the posts until the one that hands to empty. So the last post is added to the route, and then the next is empty, so we stop.
+
+So the steps:
+
+Start with route = [start]
+
+current = start
+
+visited = {start}
+
+loop:
+
+current = links[current]
+
+if current is empty: break
+
+check if current is in links. If not, error.
+
+check if current is in visited. If yes, error.
+
+add current to route and visited.
+
+repeat.
+
+So in code:
+
+def trace_relay(links, start):
+
+    if not isinstance(links, dict): raise ValueError("links must be a mapping")
+
+    if start not in links: raise ValueError("start is not a post")
+

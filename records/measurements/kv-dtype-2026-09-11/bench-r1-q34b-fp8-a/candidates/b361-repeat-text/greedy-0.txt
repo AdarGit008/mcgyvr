@@ -1,0 +1,37 @@
+<think>
+Okay, I need to implement the repeat_text function according to the given interface. Let's see the requirements. The function should take a phrase, a number of times, and a separator. The goal is to return the phrase repeated 'times' number of times, joined by the 'between' separator. If times is 1, then it's just the phrase without the separator. If times is zero or negative, return an empty string.
+
+First, I need to handle the case where times is less than or equal to zero. In that case, return an empty string. That's straightforward.
+
+Next, when times is positive. For example, if times is 3, then the phrase is printed three times, each separated by the 'between' string. But wait, if times is 1, then there's no separator. So, for times >=1, the result is the phrase multiplied by times, but joined with the separator between them. Wait, no. Wait, if times is 3, then it's phrase + between + phrase + between + phrase? Or is it phrase repeated times, with the separator between each copy?
+
+Wait, the problem says "the copies joined by a stated separator". So, for example, if the phrase is "a", times is 3, and between is "b", then the result is "a" + "b" + "a" + "b" + "a" → "ababa"? Or is it "a" repeated three times with "b" between them. So, the separator is placed between each copy. So for 3 copies, there are two separators. So the total is (phrase + between) * (times -1) + phrase? Or maybe it's phrase multiplied by times, but joined with the between separator.
+
+Wait, the correct way is to take the phrase and repeat it 'times' times, and then join them with the 'between' separator. So for times=3, it's phrase + between + phrase + between + phrase. But that would be 3 phrases separated by 2 separators. So the total is (phrase + between) * (times -1) + phrase. But that's equivalent to joining the list of [phrase] * times with the between separator.
+
+Yes, so the correct approach is to create a list with the phrase repeated 'times' times, then join them with the between separator. But if times is 0 or negative, return empty string.
+
+So the function can be written as:
+
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    if times <= 0:
+        return ""
+    return between.join([phrase] * times)
+
+Wait, but when times is 1, [phrase] * 1 is [phrase], and joining with between gives phrase. Which is correct. For times=3, it's phrase + between + phrase + between + phrase. Which is correct.
+
+But wait, the between is placed between each copy. So for 3 copies, there are two between separators. So the code above is correct.
+
+But let me test some examples.
+
+Example 1: phrase = "a", times=1, between="b". The result is "a". Correct.
+
+Example 2: phrase = "a", times=2, between="b". The result is "ab a" → "ab a"? Wait, no. The code would be ["a", "a"], joined with "b" → "a" + "b" + "a" → "aba".
+
+Yes. Which is correct.
+
+Another example: times=0 → return empty string.
+
+What if times is 0? The function returns empty string. That's correct.
+
+But what if

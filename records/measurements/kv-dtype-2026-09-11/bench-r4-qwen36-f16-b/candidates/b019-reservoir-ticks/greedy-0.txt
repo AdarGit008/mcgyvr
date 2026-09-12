@@ -1,0 +1,63 @@
+```python
+def run_reservoir(capacity: int, start: int, ticks: list) -> dict:
+    """Simulate an irrigation reservoir tick by tick and return final state metrics."""
+    if not isinstance(capacity, int) or isinstance(capity, bool) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    
+    if not isinstance(start, int) or isinstance(start, bool):
+        raise ValueError("Starting level must be an integer")
+    if start < 0 or start > capacity:
+        raise ValueError("Starting level must be between 0 and capacity")
+    
+    if not isinstance(ticks, list):
+        raise ValueError("Ticks must be a list")
+    
+    level = start
+    total_spilled = 0
+    total_served = 0
+    total_shortfall = 0
+    
+    for tick in ticks:
+        if not isinstance(tick, (list, tuple)) or len(tick) != 2:
+            raise ValueError("Each tick must be a two-item pair")
+        
+        inflow, demand = tick
+        
+        if not isinstance(inflow, int) or isinstance(inflow, bool):
+            raise ValueError("Inflow must be a non-negative integer")
+        if inflow < 0:
+            raise ValueError("Inflow must be a non-negative integer")
+            
+        if not isinstance(demand, int) or isinstance(demand, bool):
+            raise ValueError("Demand must be a non-negative integer")
+        if demand < 0:
+            raise ValueError("Demand must be a non-negative integer")
+        
+        # Apply inflow
+        level += inflow
+        
+        # Handle spillage
+        if level > capacity:
+            spilled = level - capacity
+            total_spilled += spilled
+            level = capacity
+        
+        # Apply demand
+        if level >= demand:
+            served = demand
+            level -= demand
+            total_served += served
+        else:
+            served = level
+            total_served += served
+            shortfall = demand - level
+            total_shortfall += shortfall
+            level = 0
+            
+    return {
+        "level": level,
+        "spilled": total_spilled,
+        "shortfall": total_shortfall,
+        "served": total_served
+    }
+```

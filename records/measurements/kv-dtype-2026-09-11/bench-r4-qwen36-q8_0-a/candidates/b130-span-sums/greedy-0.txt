@@ -1,0 +1,88 @@
+```python
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 36}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    """Parse a span text string into total inches."""
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    if not text:
+        raise ValueError("span cannot be empty")
+    
+    parts = text.split(" ")
+    if not parts:
+        raise ValueError("span cannot be empty")
+        
+    # Check for empty parts which implies multiple spaces or leading/trailing
+    if any(p == "" for p in parts):
+        raise ValueError("invalid span format")
+
+    seen_units = set()
+    last_order_index = -1
+    total = 0
+    
+    for part in parts:
+        if len(part) < 3:
+            raise ValueError("invalid part length")
+        
+        # Extract value and unit
+        # Unit is the last 2 characters
+        unit = part[-2:]
+        value_str = part[:-2]
+        
+        if unit not in INCHES:
+            raise ValueError(f"unknown unit: {unit}")
+        
+        if unit in seen_units:
+            raise ValueError(f"duplicate unit: {unit}")
+        
+        # Check for leading zero
+        if len(value_str) > 1 and value_str[0] == '0':
+            raise ValueError("leading zero not allowed")
+            
+        try:
+            value = int(value_str)
+        except ValueError:
+            raise ValueError(f"invalid value: {value_str}")
+            
+        if value < 0:
+            raise ValueError("negative values not allowed")
+            
+        # Check order
+        current_order_index = ORDER.index(unit)
+        if current_order_index <= last_order_index:
+            raise ValueError("units out of order")
+            
+        seen_units.add(unit)
+        last_order_index = current_order_index
+        total += value * INCHES[unit]
+        
+    return total
+
+
+def format_span(inches: int) -> str:
+    """Format a non-negative integer of total inches into canonical span text."""
+    if isinstance(inches, bool) or not isinstance(inches, int) or inches < 0:
+        raise ValueError("inches must be a non-negative integer")
+    if inches == 0:
+        return "0in"
+    parts = []
+    yards, rest = divmod(inches, 36)
+    feet, rest = divmod(rest, 12)
+    if yards:
+        parts.append(f"{yards}yd")
+    if feet:
+        parts.append(f"{feet}ft")
+    if rest:
+        parts.append(f"{rest}in")
+    return " ".join(parts)
+
+
+def add_spans(first: str, second: str) -> str:
+    """Add two span texts and return the result in canonical form."""
+    total = parse_span(first) + parse_span(second)
+    return format_span(total)
+```

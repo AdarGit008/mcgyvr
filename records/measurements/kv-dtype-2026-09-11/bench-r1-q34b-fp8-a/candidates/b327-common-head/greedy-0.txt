@@ -1,0 +1,52 @@
+<think>
+Okay, I need to implement the common_head function. Let's see what the problem says. The function should return the longest run of characters that every word in a list begins with. If there's only one word, return it whole. If no words or no common starting characters, return empty string.
+
+So, the input is a list of words. The output is a string that is the common prefix of all words. The key is to find the longest possible prefix that all words share.
+
+First, I need to handle the case where the input list is empty. In that case, return an empty string.
+
+If there's at least one word, then I need to check the first character of each word. If they are all the same, then check the second character, and so on, until there's a discrepancy.
+
+But how to do this efficiently?
+
+Let me think. For example, if the words are ["apple", "application", "app"], the common prefix is "app".
+
+So, the approach is to take the first character of each word. If they are all the same, take the second, and so on. The process stops when there's a mismatch or when all words have the same characters up to that point.
+
+But how to implement this?
+
+One way is to take the first word's prefix and check against all others. For example, take the first word's characters one by one, and check if each subsequent word starts with that prefix.
+
+Wait, but if the first word is empty, then the result is empty. But according to the problem, if the list is empty, return empty. But if the list has words, but they all start with the same characters.
+
+So, the steps:
+
+1. If the input list is empty, return empty string.
+
+2. Else, take the first word's characters, and check for each position whether all other words start with that character.
+
+3. The maximum length is the number of characters that all words share starting from the beginning.
+
+But how to handle cases where the first word is empty? For example, if the list is ["", "a"], then the common prefix is empty, since the first word is empty. But according to the problem, if the words share no opening character, return empty. Wait, but the first word is empty, so the common prefix is empty.
+
+But maybe the problem considers that if there's at least one word, then the common prefix is the first character of each word. But if the first word is empty, then there's no characters to compare.
+
+So, the steps:
+
+- If the list is empty, return "".
+
+- Else, take the first word's first character. If any other word has a different first character, then the common prefix is empty.
+
+Wait, no. For example, if the first word is "apple", and another word is "apples", then the first character is 'a' for all. So the common prefix is 'a' (length 1). But if there's a word that starts with 'a', but another starts with 'b', then the common prefix is empty.
+
+So, the approach is to find the maximum length where all words start with the same characters up to that length.
+
+So, the algorithm could be:
+
+- If the list is empty, return "".
+
+- Else, take the first word's characters, and for each position i, check if all other words have the same character at position i.
+
+- The maximum i where this is true is the length of the common prefix.
+
+But how to handle when the first word is empty? For example, if the first word is empty, then the common prefix is empty. Because all words must start with that. But if the first word is empty, then the other

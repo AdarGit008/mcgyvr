@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+def span_merge(spans: List[List[int]]) -> List[List[int]]:
+    """
+    Merge overlapping or touching booking spans into a single span.
+    
+    :param spans: A list of lists, where each sublist contains two integers representing the start and end of a span.
+    :return: A list of lists, where each sublist represents a merged span.
+    """
+    if not spans:
+        return []
+
+    # Sort spans by start time
+    spans.sort(key=lambda x: x[0])
+
+    merged_spans = [spans[0]]
+    for current_span in spans[1:]:
+        last_merged_span = merged_spans[-1]
+        
+        # Check if the current span overlaps or touches the last merged span
+        if current_span[0] <= last_merged_span[1]:
+            # Merge the spans
+            last_merged_span[1] = max(last_merged_span[1], current_span[1])
+        else:
+            # Add the current span as a separate merged span
+            merged_spans.append(current_span)
+
+    return merged_spans
+```

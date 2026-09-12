@@ -1,0 +1,28 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    """Return the substring of text between start (inclusive) and end (exclusive)."""
+    if start > end:
+        raise ValueError("start must not be greater than end")
+    
+    n = len(text)
+    
+    # Handle negative indices by counting from the end
+    if start < 0:
+        start = max(0, n + start)
+    if end < 0:
+        end = max(0, n + end)
+    
+    # Clamp start to [0, n]
+    if start < 0:
+        start = 0
+    elif start > n:
+        start = n
+        
+    # Clamp end to [0, n]
+    if end < 0:
+        end = 0
+    elif end > n:
+        end = n
+        
+    return text[start:end]
+```

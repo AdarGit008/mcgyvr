@@ -1,0 +1,52 @@
+<think>
+Okay, I need to implement the functions code_sum and good_codes based on the given problem description. Let me start by understanding the requirements.
+
+First, the code_sum function takes a string (code) and returns the sum of all numerical values in it. Any non-numeric parts should be ignored. So, I need to parse the input string, extract numbers, and sum them. But wait, the problem mentions that a code holding no figures totals nothing, which divides evenly by three. So, if there are no numbers, the sum is zero, which is divisible by three.
+
+But how do I identify numbers in the string? The problem says "figures written in a code"—probably referring to digits. So, I need to scan each character in the code string and check if it's a digit. Then, convert each digit to an integer and sum them all.
+
+Wait, but what about numbers that are part of words? Like if the code has "twelve", should that be considered a number? The problem says "anything that is not a figure" should be passed over. So, maybe "figure" here refers to digits. So, only individual digits are considered. So, for example, the string "abc123def" would have 1+2+3=6 as the sum.
+
+So, the code_sum function would iterate through each character in the input string, check if it is a digit, and sum those digits.
+
+Next, the good_codes function takes a list of code strings and returns a list of those codes whose code_sum is divisible by three. The order should be preserved as per their original order.
+
+So, for each code in the input list, compute code_sum, check if it's divisible by three. If yes, include it in the result list.
+
+Now, let's think about possible edge cases. For example, an empty string would have a sum of zero, which is divisible by three. A code with no digits would also sum to zero. So, those would be included in good_codes.
+
+Another case: a code with a mix of letters and digits. For example, "a1b2c" would sum 1+2=3, which is divisible by three. So it would be included.
+
+What about numbers that are part of longer numbers? Like "123" would be 1+2+3=6, which is divisible by three. So that's correct.
+
+Now, implementing code_sum: iterate through each character in the code string. For each character, check if it is a digit. If yes, convert to int and add to the sum.
+
+For good_codes: iterate through each code in the input list, compute code_sum, check if sum % 3 == 0. If yes, add to the result list.
+
+Now, code-wise, the functions can be implemented as follows.
+
+For code_sum:
+
+def code_sum(code: str) -> int:
+    total = 0
+    for c in code:
+        if c.isdigit():
+            total += int(c)
+    return total
+
+But wait, what if the code is empty? Then the sum is zero, which is correct.
+
+For good_codes:
+
+def good_codes(codes: list[str]) -> list[str]:
+    return [code for code in codes if code_sum(code) % 3 == 0]
+
+But wait, the problem says that a code with no figures (i.e., no digits) has a total of zero, which is divisible by three. So, even if the code has no digits, it's included.
+
+Yes, that's handled correctly.
+
+Testing some examples:
+
+Example 1: code is "123", sum is 6, which is divisible by 3. So included.
+
+Example 2

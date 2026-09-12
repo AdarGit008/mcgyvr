@@ -1,0 +1,54 @@
+```python
+import re
+
+def split_segments(path: str)       if not isinstance(list,) or not isinstance(path, str):
+        raise ValueError("Invalid arguments")
+    if not path.startswith("/"):
+        raise ValueError("Path must start with a slash")
+    if path == ""        raise ValueError("Empty cannot be empty")
+    if path.endswith('/'):
+        raise ValueError("Path cannot end with a slash")
+    if ".." in path.split("/"):
+        raise ValueError("Path contains invalid segment '..'")
+    return [segment for segment in path[1:].split("/")    if segment ==            if segment == "":
+                raise ValueError("Path contains empty segment")
+
+def match_route(pattern: str, path:       if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Invalid arguments")
+    if pattern == "":
+        raise ValueError("Pattern cannot be empty")
+    if path:
+        raise ValueError("Path cannot be empty")
+    if pattern.startswith('/'):
+        raise ValueError("Pattern must not start with a slash")
+    if path.startswith('/'):
+        raise ValueError("Path must not start with a slash")
+    if pattern.endswith('/'):
+        raise ValueError("Pattern cannot end with a slash")
+    if path.endswith('/'):
+        raise ValueError("Path cannot end with a slash")
+    if '**' in pattern.split('/'):
+        raise ValueError("Pattern cannot contain '**' more than once")
+    if ':' in pattern.split('/'):
+        for segment in pattern.split('/'):
+            if ':' in segment:
+                if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', segment.split(':')[1]):
+                    raise ValueError("Capture name must be a valid identifier")
+    try:
+        pattern = [re.sub(r':\w+', r'(?w+)', pattern)
+        match = re.fullmatch(route, path)
+        if match:
+            return {name: match.group(i + 1)                   for i, name in enumerate(re.findall(r':(\w+)',                                                   pattern)}
+        return None
+    except re.error:
+        raise ValueError("Invalid regular expression generated")
+
+def first_route(patterns, path):
+       if not isinstance(patterns, list) or not all(isinstance(p, str for p in patterns)):
+        raise ValueError("Invalid arguments of patterns")
+    if not isinstance(path, str):
+        raise ValueError("Invalid path")
+    for i, pattern:
+        if match_route(pattern,,            return i
+    return -1)
+```

@@ -1,0 +1,17 @@
+```python
+def mean_window(readings: list, size: int) -> list:
+    """Return the mean of every run of `size` consecutive readings, rounded down."""
+    if size <= 0:
+        raise ValueError("Window size must be a positive integer")
+    if not readings:
+        return []
+    if size > len(readings):
+        return []
+    
+    result = []
+    for i in range(len(readings) - size + 1):
+        window = readings[i:i + size]
+        mean_val = sum(window) / size
+        result.append(int(mean_val))
+    return result
+```

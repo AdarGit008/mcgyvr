@@ -1,0 +1,38 @@
+<think>
+Okay, I need to implement the digit_count function. The goal is to return how many digits a whole number is written with. But wait, the problem says that nothing is written with one digit, and the minus sign isn't counted. Hmm, let me think.
+
+First, the function takes an integer as input. The output is the number of digits. But wait, the first sentence says "Nothing is written with one digit"—so maybe numbers like 0 have one digit? But the problem says that a minus sign isn't counted. So, for example, -123 would have 3 digits (1, 2, 3), but the minus sign is not counted. So the function should ignore the sign and count the digits of the absolute value.
+
+Wait, but the problem says "a whole number"—so maybe negative numbers are allowed. But the function is supposed to count the digits of the number as written. So for example, the number 0 has one digit. The number -0 is the same as 0, so it's still one digit. But the problem says that a minus sign is not counted. So the function should take the absolute value of the number and then count the digits.
+
+But how to handle zero? Let's see. If the input is 0, then the count is 1. If the input is 123, then it's 3 digits. If the input is -123, then the digits are 1, 2, 3, so 3 digits. So the function should take the absolute value of the input and then count the number of digits.
+
+So the approach is: take the absolute value of the input, then convert it to a string, and then get the length of that string. But wait, what about numbers like 0? Let's test. For 0, the absolute value is 0, converting to string gives "0", which has length 1. That's correct.
+
+But what about numbers like 100? The absolute value is 100, which is "100" → length 3. Correct.
+
+So the steps are:
+
+1. Take the absolute value of the input.
+2. Convert it to a string.
+3. Return the length of that string.
+
+But wait, the problem says that "Nothing is written with one digit"—but that's probably a typo. Because 0 is written with one digit. So maybe the problem is saying that numbers like 0 are considered as one digit. So the function should return 1 for 0, which is correct.
+
+So the code would be:
+
+def digit_count(value: int) -> int:
+    return len(str(abs(value)))
+
+Wait, but what if the input is None? But the function's interface says that the input is an integer. So the function is supposed to handle any integer, including negative numbers and zero.
+
+Testing some cases:
+
+- value = 0 → len(str(0)) → 1 → correct.
+- value = 123 → len("123") → 3 → correct.
+- value = -123 → abs(-123) is 123 → same as above.
+- value = 1 → len("1") → 1 → correct.
+
+But the problem says "Nothing is written with one digit"—maybe that's a mistake. But according to the problem statement, the function is supposed to return the number of digits. So the code seems correct.
+
+But wait, the problem says "a whole number is written with". So maybe the function is supposed to count the digits of the number as written, including the minus sign? But the problem says that the minus sign is not counted. So

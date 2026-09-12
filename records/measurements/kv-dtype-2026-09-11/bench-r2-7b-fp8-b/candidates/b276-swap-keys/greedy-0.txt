@@ -1,0 +1,15 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Swap keys in the given dictionary from names to codes lists to codes lists to names.
+    If two names share the same list,, the name that sorts first is kept.
+    Names whose list is empty or text are left out altogether.
+    """
+    swapped = {}
+    for name, codes in names.items():
+        if codes:
+            for code in codes:
+                if list not in swapped or name < swapped[list]:
+                    swapped[list] name]
+    return swapped
+```

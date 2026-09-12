@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def carry_add(left: List[int],    right:    if len(left) != len(right):
+        left, right = right,    result = []
+    carry = 0
+    for i in range(max(len(left), len(right))):
+        digit_left = left[i -        digit_right = right):
+        total = digit_left + digit_right + carry
+        carry = total // 10
+        result.append(total % 10)
+    if carry:
+        result.append(carry)
+    return result[::-1]
+```

@@ -1,0 +1,43 @@
+<think>
+Okay, let's see. I need to implement the fuel_legs function. The problem says that a tank has a certain number of litres, and each leg of a journey burns a specified amount. I have to return how many complete legs can be run before refueling. Also, if the burn value is zero or less, I should reject it with an error. And if the tank can't even cover one leg, return zero.
+
+So the function takes two integers: litres and burn. The output is the number of complete legs. Let me think about the steps.
+
+First, I need to check if burn is less than or equal to zero. Because the problem says to reject with an error if the burn is zero or less. So, if burn <= 0, raise a ValueError with a message like "Burn must be greater than zero".
+
+Then, calculate how many times the burn can be subtracted from the litres before it becomes zero. But wait, it's not exactly division. Because if litres is exactly divisible by burn, then the number of legs is litres // burn. But if there's a remainder, then it's the quotient. For example, if litres is 10 and burn is 3, then 3 legs would use 9 litres, leaving 1, which isn't enough for another leg. So the answer is 3.
+
+So the formula is simply litres divided by burn, using integer division. But wait, what if litres is less than burn? Then the result is zero. Which aligns with the problem statement that if the tank can't cover even one leg, return zero.
+
+So the steps are:
+
+1. Check if burn is <= 0. If yes, raise ValueError.
+2. Calculate the number of legs as litres // burn.
+3. Return that value.
+
+Wait, but what if litres is zero? The problem says that the tank holds a whole number of litres. But the function's parameters say that litres is an integer. So if litres is zero, then even if burn is positive, the result is zero. Because you can't run any legs. But according to the problem statement, the tank holds a whole number of litres. So maybe litres can be zero? But the problem says that the tank holds a whole number, but the function's parameters don't restrict it. However, the problem says that a tank that cannot cover even one leg returns none. So if litres is zero, then even if burn is 1, the answer is zero.
+
+But the function's parameters are integers. So the code should handle that.
+
+So the code would be:
+
+def fuel_legs(litres: int, burn: int) -> int:
+    if burn <= 0:
+        raise ValueError("Burn must be greater than zero")
+    return litres // burn
+
+Wait, but what if litres is zero? For example, if litres is 0 and burn is 5, then 0//5 is 0, which is correct. So that's handled.
+
+But wait, the problem says that the tank holds a whole number of litres. So maybe litres can be zero? The function's parameters don't restrict it. But according to the problem statement, the function should return how many complete legs can be run. So if the tank has zero litres, then zero legs can be run. So the code is correct.
+
+Testing some examples:
+
+Case 1: litres = 10, burn = 3 → 10//3 = 3 → correct.
+
+Case 2: litres = 5, burn = 5 → 1 → correct.
+
+Case 3: litres = 5, burn = 6 → 0 → correct.
+
+Case 4: burn is 0 → error.
+
+What about negative numbers

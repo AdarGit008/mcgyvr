@@ -1,0 +1,37 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    """
+    Split a stream of chunks into frames delimited by a single-character marker.
+    Doubled markers are literal markers; lone markers end frames.
+    """
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("marker must be a single character")
+    
+    buffer = "".join(chunks)
+    frames = []
+    current_frame = []
+    i = 0
+    n = len(buffer)
+    
+    while i < n:
+        char = buffer[i]
+        if char == marker:
+            # Check if this is a doubled marker (literal) or a lone marker (delimiter)
+            if i + 1 < n and buffer[i + 1] == marker:
+                # Doubled marker: treat as one literal marker in the frame
+                current_frame.append(marker)
+                i += 2  # Skip both markers
+            else:
+                # Lone marker: ends the current frame
+                frames.append("".join(current_frame))
+                current_frame = []
+                i += 1
+        else:
+            current_frame.append(char)
+            i += 1
+    
+    # The remaining current_frame is the pending text
+    pending = "".join(current_frame)
+    
+    return {"frames": frames, "pending": pending}
+```

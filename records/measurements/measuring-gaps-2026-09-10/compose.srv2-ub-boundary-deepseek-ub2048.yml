@@ -1,0 +1,42 @@
+services:
+  deepseek-coder-v2-16b-8080:
+    command:
+    - --model
+    - /home/adaramir/models/moe/deepseek-coder-v2-16b.gguf
+    - --n-cpu-moe
+    - '0'
+    - --parallel
+    - '2'
+    - --port
+    - '8080'
+    - -b
+    - '512'
+    - -c
+    - '8192'
+    - -fa
+    - 'on'
+    - -ngl
+    - '99'
+    - -t
+    - '10'
+    - -ub
+    - '2048'
+    - --verbose
+    container_name: mcgyvr-srv2-deepseek-coder-v2-16b-8080
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+            device_ids:
+            - '0'
+            driver: nvidia
+    environment:
+      LLAMA_ARG_HOST: 0.0.0.0
+    image: llamacpp:b10644-L3
+    network_mode: host
+    restart: 'no'
+    volumes:
+    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro
+    - /home/adaramir/models/moe:/models:ro

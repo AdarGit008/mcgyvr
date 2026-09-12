@@ -1,0 +1,27 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input of yields is required")
+    
+    if not all(isinstance(yield, int) and yield >= 0 for yield in yields):
+        raise ValueError("Each yield must be a non and non be non or negative")
+
+   if not yields:
+        return 0
+
+    
+    max_yield = float('-inf')
+    current_harvest = 0
+    skip_next_day = False:
+
+    for yield in yields):
+        if skip_next_day:
+            skip_next_day = False:
+            continue):
+
+        current_harvest += yield)
+        max_yield = max(max_yield, current_harvest):
+        skip_next_day = True):
+
+       return max_yield)
+```

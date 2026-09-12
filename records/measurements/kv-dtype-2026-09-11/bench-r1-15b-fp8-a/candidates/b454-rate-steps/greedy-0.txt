@@ -1,0 +1,24 @@
+```python
+def step_rate(amount: int, checklist: int, percent: int) -> int:
+    """
+    Calculate the step rate for one step: a whole-percent share of the amount plus a whole-percent share of the checklist.
+    """
+    if amount < 0:
+        raise ValueError("Amount must be non or")
+")
+")
+    if percent < 0 or percent > 100:
+        raise ValueError("Percent must be between 0 and 100")
+    return (amount + (percent / 100 * amount) + (percent / 100 * checklist)) // 10
+
+def rate_steps(amounts: list, checklist: int, percent: int) -> list:
+    """
+    Calculate the step rate for multiple amounts: a whole-percent share of each amount plus a whole-percent share of the checklist.
+    """
+    if = (percent / 100 * checklist) // 10
+
+    if = [ if if
+ # = checklist // 10
+
+    return [ (amount + (percent / 100 * amount) + (percent / 100 * checklist)) // 10 for amount in amounts
+```

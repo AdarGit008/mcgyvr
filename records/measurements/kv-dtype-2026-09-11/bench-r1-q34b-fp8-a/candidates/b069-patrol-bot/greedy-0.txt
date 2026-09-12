@@ -1,0 +1,32 @@
+<think>
+Okay, I need to implement the run_patrol function based on the given contract. Let me look at the existing code and the requirements.
+
+First, the clamp_move function is already written. The run_patrol function needs to start at 'start' position and apply each move in the 'moves' list. For each move, it should use clamp_move, which returns the landed position and a flag indicating if a wall cut the move short. The function needs to track the final position, the number of bumps (wall cuts), and the number of distinct cells visited.
+
+The constraints are that width must be a positive integer, start must be within the corridor, and moves must be a list. Also, the function should reject invalid inputs with ValueError.
+
+So, for run_patrol, the steps are:
+
+1. Check that 'moves' is a list. If not, raise ValueError.
+2. Initialize variables: current position as 'start', bumps count as 0, visited cells as a set starting with 'start'.
+3. Iterate over each move in the moves list:
+   a. Apply clamp_move to current position and delta.
+   b. Check if the move was blocked (bumped). If yes, increment bumps.
+   c. Update current position to the landed position.
+   d. Add the new position to the visited set.
+4. After processing all moves, return a dictionary with 'position', 'bumps', and 'visited' as keys.
+
+Wait, but the problem says that cells passed over mid-move don't count. But the clamp_move function moves the bot to the new position, so each move results in a new position. So the visited cells are the positions after each move, including the start. But the start is counted once. So the visited set should start with the start, and each move adds the new position. However, if a move results in the same position as before (like if the bot is at 0 and moves left, but that's clamped to 0), then adding it again doesn't increase the count.
+
+Wait, the problem says: "no moves leaves the bot at its start with one cell visited." So, the initial start is counted as one cell. Then, each move that results in a new position adds to the visited count. But if a move brings the bot back to a previous position, it's not counted again.
+
+So, the visited set is initialized with the start. Then, for each move, after applying clamp_move, the new position is added to the set. But if the new position is the same as the previous one (like if the move is clamped but the position doesn't change), then it's not added again.
+
+Wait, but the problem says that the start is counted as one. Then, each move (even if it's clamped) results in a new position. Wait, no. For example, if the bot is at position 0 and moves left (delta -1), then clamp_move would clamp it to 0. So the new position is 0. So the visited set would have 0, but since it's the same as before, it's not added again. But according to the problem statement, the start is counted as one. So the visited count is the number of distinct positions the bot has been in after each move, including the start.
+
+So, the initial position is start. Then, for each move, after applying clamp_move, the new position is added to the visited set. But if the new position is the same as the previous one, it's not added again. So the visited count is the size of the set.
+
+So, the steps for run_patrol:
+
+- Check that moves is a list. If not, raise error.
+- Initialize

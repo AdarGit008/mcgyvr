@@ -1,0 +1,18 @@
+```python
+"""Lay a notice's text into placard lines."""
+def placard_lines(text: int) -> list:
+    if not isinstance(text, str) or not isinstance(width, int):
+        raise ValueError("Invalid input types")
+    If not text or width <= 0 or text.startswith(" ") or text.endswith(" ") or "  " in text:
+        raise ValueError("Invalid input content")
+    lines =       line =          for word in text.split():
+        If line and len(line) len(word) + 1 > width:
+            lines.append(line)
+            line = word):
+        Else:
+            If line:
+                line += " "
+            line += word):
+    lines.append(line)
+    return lines
+```

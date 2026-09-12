@@ -1,0 +1,181 @@
+```python
+"""Replay tile requests against a List-limited cache of fresh renders."""
+
+from typing import List, Tuple
+
+import heapq
+
+def tile_renders(requests: List[List[int]], fresh_for: int,          if not isinstance(fresh_for, int)        raise ValueError("fresh_for must be a positive integer")
+    if fresh_for <= 0:
+        raise ValueError("fresh_for must be a positive integer")
+
+    if tick,        if isinstance(tick), int):
+            if tick < 0:
+                raise ValueError("tick must be a non-negative integer")
+        else:
+            raise ValueError("requests must contain a two-item list of [tick, name]")
+
+    cache[Tuple[int, str]]:
+    if size in (size):
+        if isinstance(size):
+            if size < 0):
+                raise ValueError("size must be a positive integer")
+        else:
+            raise ValueError("size must be a positive integer")
+
+    cache = []
+    renders = []
+
+              tick, name in requests:
+            if not cache:
+                heapq.heappush(cache, (tick):
+ name))
+            elif len(cache) < size):
+                oldest_tile = heapq.heappop(cache)
+                if oldest_tile[1]:
+ name) > name:
+                    heapq.heappush(cache):
+                        oldest_tile)
+                else:
+                    heapq.heappush(cache):
+                        (tick):
+ name))
+
+            if not any(tile for 1]:
+ == name) ==                    heapq.heappush(cache):
+                        (tick):
+ name)
+            else:
+                heapq.heapreplace(cache):
+                    (
+                        tick):
+ name),
+                    heapq.heappop(cache))
+
+                )
+
+            renders.append((tick):
+ name))
+
+              return            renders.append((
+                tick):
+ name):
+            heapq.heappush(cache):
+                (
+                    tick):
+ name):
+            renders.append((
+                tick):
+ name):
+            heapq.heapreplace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heapreplace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+ name):
+                    heapq.heappop(cache):
+                ):
+            renders.append((
+                tick):
+ name):
+            heapq.heap_replace(cache):
+                (
+                    tick):
+:name):
+                    heapq.heappop

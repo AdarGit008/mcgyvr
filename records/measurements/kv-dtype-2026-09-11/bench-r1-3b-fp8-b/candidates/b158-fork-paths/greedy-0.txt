@@ -1,0 +1,39 @@
+```python
+def fork_paths(pattern: str) -> list:
+    """
+    Expands a deployment pattern with forks into a list of paths.
+    
+    Args:
+        pattern (str): The deployment pattern to expand.
+
+    Returns:
+        list: A list of expanded paths.
+
+    Raises:
+        ValueError: If the pattern is invalid.
+    """
+    if not isinstance(pattern, str) or not pattern:
+        raise ValueError("Pattern must be a non-empty string.")
+
+    def expand_segment(segment: str) -> list:
+        if "{" not in segment:
+            return [segment]
+        if "," not in segment[segment.index("{") + 1:-1]:
+            raise ValueError("Invalid fork format.")
+        options = segment[segment.index("{") + 1:-1].split(",")
+        return [f"{option}{segment[0]}{segment[-1]}" for option in options]
+
+    def expand_pattern(pattern: str) -> list:
+        segments = pattern.split("/")
+        if len(segments) == 1:
+            return expand_segment(segments[0])
+        return [
+            f"{expand_segment(segments[0])[0]}/{expand_pattern('/'.join(segments[1:]))}"
+            for _ in range(len(expand_segment(segments[0])))
+        ]
+
+    try:
+        return expand_pattern(pattern)
+    except ValueError as e:
+        raise ValueError(f"Invalid pattern: {e}")
+```

@@ -1,0 +1,34 @@
+<think>
+Okay, I need to implement the sort_by_len function. The goal is to sort a list of words by their length, shortest first. If two words have the same length, they should be ordered alphabetically. Also, the original list shouldn't be altered.
+
+First, I should think about how to sort in Python. The built-in sort function can take a key, which is used for comparison. But since the secondary key is alphabetical order when lengths are equal, I need a way to combine both criteria.
+
+So, the key for each word should be a tuple. The first element of the tuple is the length of the word, and the second is the word itself. That way, when sorted, the primary key is length, and the secondary is the word's name. Because when two items have the same length, the tuple with the lexicographically smaller word comes first.
+
+Wait, but in Python, when you sort tuples, it compares the first elements, then the second if the first are equal. So using the tuple (len(word), word) as the key should work. Because for two words with the same length, the word itself is compared, which is alphabetical order.
+
+But wait, the problem says to order alphabetically. But what about case? The problem says that the case should not be ignored. Because the user didn't mention it. So the alphabetical order is case-sensitive. For example, 'Apple' comes before 'banana' because 'A' is uppercase and 'b' is lowercase, but in ASCII, uppercase letters have lower values. Wait, but in Python's default string comparison, uppercase letters are considered smaller than lowercase letters. So 'Apple' would come before 'apple' in alphabetical order. But the problem says to order alphabetically, but doesn't mention case insensitivity. So the default is to compare the words as they are, case-sensitive.
+
+So the key function can be lambda x: (len(x), x). Then, when sorted, the list will be ordered by length, then by the word itself. But wait, the problem says that when two words have the same length, they should be in alphabetical order. So the key is correct.
+
+But wait, the problem says that the original list is never altered. So we need to create a new list, not modify the original. So the function should create a new list by sorting the input list.
+
+So the steps are:
+
+- Take the input list of words.
+- Sort them using the key (len(word), word).
+- Return the new sorted list.
+
+But wait, in Python, the sort is stable? No, the sort is not stable when the keys are the same. But in this case, when two words have the same length, their keys are (len, word). So the sort will compare the words directly. So the sort will order them alphabetically.
+
+So the code would be:
+
+def sort_by_len(words: list) -> list:
+    return sorted(words, key=lambda word: (len(word), word))
+
+Wait, but the problem says that the original list is never altered. The sorted function returns a new list, so that's correct. The original list remains unchanged.
+
+Testing this with some examples.
+
+Test case 1: words = ["apple", "banana", "cherry", "date"]
+Lengths: 5, 6, 6, 4. So sorted by length: ["date", "apple", "banana", "cherry"]? Wait, no. Wait, "date" is length 4, then "apple" (5), then "banana" (6), "cherry" (6). But for the two words of length 6, "banana" and "cherry", they are ordered alphabetically.

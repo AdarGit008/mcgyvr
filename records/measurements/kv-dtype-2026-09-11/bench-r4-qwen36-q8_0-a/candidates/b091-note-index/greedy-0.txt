@@ -1,0 +1,30 @@
+```python
+"""A word-to-line index for a plain-text note."""
+
+import re
+
+WORD_RUN = re.compile(r"[a-z0-9]+")
+
+
+def words_of_line(line: str) -> list:
+    """Return the maximal runs of ASCII letters and digits in the lowercased line."""
+    return WORD_RUN.findall(line.lower())
+
+
+def build_word_index(text: str) -> dict:
+    """Build a mapping from each word to the strictly increasing list of line numbers."""
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    
+    index = {}
+    rows = text.split("\n")
+    for line_num, line in enumerate(rows, start=1):
+        words = words_of_line(line)
+        if words:
+            unique_words = set(words)
+            for word in unique_words:
+                if word not in index:
+                    index[word] = []
+                index[word].append(line_num)
+    return index
+```

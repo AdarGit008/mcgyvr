@@ -1,0 +1,16 @@
+```python
+import re
+
+
+def slug_word(word: str) -> str:
+    """Lowercase a word and keep only alphanumeric characters."""
+    return re.sub(r'[^a-z0-9]', '', word.lower())
+
+
+def slug_make(phrase: str) -> str:
+    """Join slugged words of a phrase with hyphens, skipping empty results."""
+    words = phrase.split()
+    slugged = [slug_word(w) for w in words]
+    filtered = [w for w in slugged if w]
+    return '-'.join(filtered)
+```

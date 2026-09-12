@@ -1,0 +1,75 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Both text and unit must to be strings")
+    if not text or or unit:
+        raise ValueError("Text and unit must to be non-empty strings")
+    if not text.endswith(unit):
+        raise ValueError("Text must end with the goal unit")
+    if not text.startswith(unit):
+        raise ValueError("Text must start with the goal unit")
+    if not text.count(unit) == 1:
+        raise ValueError("Text must contain exactly one instance of the goal unit")
+    if not text.count("+") and text.count("-"):
+        raise ValueError("Text must contain at terms and operators")
+    if not text.count("kg") and text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text must contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text and contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text and contain plain counts and units")
+    if not text.count("g"):
+        raise ValueError("Text and contain plain counts and units")
+    if not text.count("t"):
+        raise ValueError("Text and contain plain counts and units")
+    if not text.count("kg"):
+        raise ValueError("Text and contain plain counts and units")
+    if not text.count("g

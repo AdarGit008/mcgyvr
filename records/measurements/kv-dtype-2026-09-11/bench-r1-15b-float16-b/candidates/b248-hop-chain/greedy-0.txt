@@ -1,0 +1,29 @@
+```python
+from typing import List
+
+def hop_chain(hops: List[List[int]]) -> bool:
+    """
+    Check if the given list of hops forms a unbroken chain.
+    
+    A hop chain is a sequence of hops where each hop starts where the previous hop ended.
+    A list of one hop or a list of none is considered a chain.
+    
+    Parameters:
+    hops (List[List[int]]): A list of pairs, where each pair represents a hop.
+    
+    Returns:
+    bool: True if the hops form a chain, False otherwise.
+    """
+    if not hops:
+        return True
+    
+    start = hops[0][0]
+    end = hops[0][1]
+    
+    for hop in hops[1:]:
+        if hop[0] != end:
+            return False
+        end = hop[1]
+    
+    return True
+```

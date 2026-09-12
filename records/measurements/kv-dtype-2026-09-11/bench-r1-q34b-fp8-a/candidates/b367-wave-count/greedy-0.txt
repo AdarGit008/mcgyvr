@@ -1,0 +1,38 @@
+<think>
+Okay, I need to implement the wave_count function. The goal is to count how many times the readings change direction. A change is when there's a rise after a fall or a fall after a rise. So, I need to look at consecutive triplets in the readings and check if they form a peak or a trough.
+
+First, I should think about the steps. For each triplet of consecutive readings, I need to check if the middle one is a peak or a trough. For example, if the first is less than the second and the second is greater than the third, that's a peak. Or if the first is greater than the second and the second is less than the third, that's a trough. Each of these cases would count as a wave.
+
+But wait, the function is called wave_count, so each time there's a direction change, it's counted. So, for each set of three consecutive elements, I check if the middle is a peak or a trough. If so, increment the count.
+
+But how to handle the list? Let's think about the indices. For a list of length n, the triplets would be from index 0 to n-3, right? Because each triplet is i, i+1, i+2. So for i in range(len(readings) - 2), check the triplet.
+
+So, the steps are:
+
+Initialize a counter to 0.
+
+Loop through each index i from 0 to len(readings) - 3 (inclusive). Wait, no, if the list has length n, then the last possible triplet is at i = n-3, because i+2 would be n-1. So the loop should run for i in range(len(readings) - 2). Because len(readings) - 2 is the number of triplets. For example, if there are 5 elements, indexes 0,1,2,3,4. The triplets are 0-2, 1-3, 2-4. So len(readings) - 2 is 5-2=3, so i ranges from 0 to 2 (inclusive), which is correct.
+
+For each i, check the three elements: readings[i], readings[i+1], readings[i+2].
+
+Check if the middle is a peak: readings[i] < readings[i+1] and readings[i+1] > readings[i+2]. Or if the middle is a trough: readings[i] > readings[i+1] and readings[i+1] < readings[i+2]. If either of these is true, increment the counter.
+
+So, the code would be something like:
+
+def wave_count(readings: list) -> int:
+    count = 0
+    for i in range(len(readings) - 2):
+        a = readings[i]
+        b = readings[i+1]
+        c = readings[i+2]
+        if (a < b and b > c) or (a > b and b < c):
+            count += 1
+    return count
+
+Wait, but what if the list is empty or has less than 3 elements? Then len(readings) - 2 would be negative, so the loop doesn't run, and returns 0. Which is correct, since you can't have a direction change with less than 3 elements.
+
+Testing some cases:
+
+Test case 1: [1,2,3] → the triplet is 1,2,3. The middle is 2, which is a rise followed by a rise. So no direction change. So count is 0.
+
+Test case 2: [1,3,2] → the triplet is 1,3,2. Middle

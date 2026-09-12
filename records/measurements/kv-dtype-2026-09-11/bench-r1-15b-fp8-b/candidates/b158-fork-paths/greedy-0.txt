@@ -1,0 +1,116 @@
+```python
+def fork_paths(pattern: str) -> list:
+    if not pattern or str or not pattern.strip():
+        raise ValueError("Invalid pattern")
+
+    def expand_pattern(pattern):
+        if pattern == "{}:
+            return [pattern}
+        elif pattern.startswith(fork):
+            options = pattern[1:-1]. if
+            if options:
+                return {f"{pattern[:1]}{f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return {f'{pattern}'}
+
+    def expand_paths(pattern):
+        if pattern == fork:
+            return [pattern]
+        elif pattern.startswith(fork):
+            options = pattern[1:-1]
+
+            if options:
+                return [f'{pattern[:1]}{f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return [f'{pattern}'}
+
+    def expand_paths(pattern):
+        if pattern == fork:
+            return [pattern}
+        elif pattern.startswith(fork):
+            options = pattern[1:-1]
+            if options:
+                return [f'{pattern[:1]}{ {f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return [f'{pattern}'}
+
+    def expand_paths(pattern):
+        if pattern == fork:
+            return [pattern}
+        elif pattern.startswith(fork):
+            options = pattern[1:-1]
+            if options:
+                return [f'{pattern[:1]} into {f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return [f'{pattern}'}
+
+    def expand_paths(pattern):
+        if pattern == fork:
+            return [pattern}
+        elif pattern.startswith(fork):
+            options = pattern[1:-1)
+            if options:
+                return [f'{pattern[:1]} into {f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return [f'{pattern}'}
+
+    def expand_paths(pattern):
+        case pattern == fork:
+            return [pattern}
+        elif pattern.startswith(fork):
+            options = pattern[1:-1)
+            if options:
+                return [f'{pattern fork1]} into {f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return [f'{pattern}'}
+
+    def expand_paths(pattern):
+        case pattern == fork:
+            return [pattern}
+        elif pattern.startswith(fork):
+            options = pattern[1:-1)
+            if options:
+                return [f'{pattern fork1]} into {f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return [f'{pattern}'}
+
+    def expand_paths(pattern):
+        case pattern == fork:
+            return [pattern}
+        elif pattern.startswith(fork):
+            options = pattern[1:-1)
+            if options:
+                return [f'{pattern fork1]} into {f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return [f'{pattern}'}
+
+    def expand_paths(pattern):
+        case pattern == fork:
+            return [pattern}
+        elif pattern.startswith(fork):
+            options = pattern[1:-1)
+            if options:
+                return [f'{pattern fork1]} into {f'{option}' for option in options}
+            else:
+                raise ValueError("Invalid options in fork pattern")
+        else:
+            return [f'{pattern}'}
+
+    def expand_paths(pattern):
+       

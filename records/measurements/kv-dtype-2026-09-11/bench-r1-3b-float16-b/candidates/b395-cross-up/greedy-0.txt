@@ -1,0 +1,27 @@
+```python
+def cross_up(readings: list, level: int) -> int:
+    """
+    Count the number of times a run of readings crosses a level going upward,
+    where a crossing is defined as a reading that reaches the level when the
+    reading immediately before it stood below.
+    
+    Parameters:
+    readings (list): A list of integers representing the readings.
+    level (int): The level to check for crossings.
+    
+    Returns:
+    int: The number of crossings.
+    """
+    if not readings or level < 0:
+        raise ValueError("Invalid input: readings must be non-empty and level must be non-negative.")
+    
+    crossings = 0
+    previous_reading = readings[0]
+    
+    for reading in readings[1:]:
+        if reading >= level and previous_reading < level:
+            crossings += 1
+        previous_reading = reading
+    
+    return crossings
+```

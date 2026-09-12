@@ -1,0 +1,35 @@
+```python
+def plural_of(noun: str) -> str:
+    """
+    Returns the plural form of an English noun based on specific rules.
+    """
+    if not isinstance(noun, str):
+        raise ValueError("Input must be a string.")
+    
+    # Check for irregular nouns
+    irregular_nouns = {
+        "sheep": "sheep",
+        "fish": "fish",
+        "child": "children",
+        "man": "men",
+        "woman": "women",
+        "goose": "geese",
+        "deer": "deer",
+        "mouse": "mice",
+        "fly": "flies",
+        "roof": "roofs"
+    }
+    
+    if noun in irregular_nouns:
+        return irregular_nouns[noun]
+    
+    # Apply general rules
+    if noun.endswith('s'):
+        return noun + 'es'
+    elif noun.endswith('x') or noun.endswith('ch') or noun.endswith('sh'):
+        return noun + 'es'
+    elif noun.endswith('y') and not noun[:-1].endswith('consonant'):
+        return noun[:-1] + 'ies'
+    else:
+        return noun + 's'
+```

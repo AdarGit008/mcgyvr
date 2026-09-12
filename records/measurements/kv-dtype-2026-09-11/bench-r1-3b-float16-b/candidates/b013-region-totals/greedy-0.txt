@@ -1,0 +1,43 @@
+```python
+from typing import List
+
+def region_totals(grid: List[List[int]], queries: List[List[int]]) -> List[int]:
+    if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a non-empty list of rows")
+    if not isinstance(queries, list) or not queries:
+        raise ValueError("queries must be a non-empty list of queries")
+    
+    height = len(grid)
+    width = len(grid[0]) if isinstance(grid[0], list) else 0
+    
+    if width == 0:
+        raise ValueError("rows must be non-empty lists")
+    
+    for row in grid:
+        if not isinstance(row, list) or len(row) != width:
+            raise ValueError("rows must all share one length")
+        for cell in row:
+            if isinstance(cell, bool) or not isinstance(cell, int):
+                raise ValueError("cells must be integers")
+    
+    # Build a prefix-sum table
+    prefix_sum = [[0] * (width + 1) for _ in range(height + 1)]
+    for i in range(1, height + 1):
+        for j in range(1, width + 1):
+            prefix_sum[i][j] = prefix_sum[i - 1][j] + prefix_sum[i][j - 1] - prefix_sum[i - 1][j - 1] + grid[i - 1][j - 1]
+    
+    # Validate each query and answer it from the table
+    results = []
+    for query in queries:
+        top, left, bottom, right = query
+        if not isinstance(top, int) or not isinstance(left, int) or not isinstance(bottom, int) or not isinstance(right, int):
+            raise ValueError("queries must be lists of exactly four integers")
+        if top < 0 or left < 0 or bottom > height or right > width or top >= bottom or left >= right:
+            raise ValueError("queries must have valid bounds")
+        
+        # Calculate the sum using the prefix-sum table
+        total = prefix_sum[bottom][right] - prefix_sum[top][right] - prefix_sum[bottom][left] + prefix_sum[top][left]
+        results.append(total)
+    
+    return results
+```

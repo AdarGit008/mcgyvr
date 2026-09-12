@@ -1,0 +1,26 @@
+```python
+def tag_trim(tag: str) -> str:
+    """
+    Strip leading and trailing markers from a tag.
+    
+    A tag may be wrapped in markers: a leading hash and a trailing colon.
+    Strip whichever markers are present and return what is left.
+    A tag carrying neither marker comes back unchanged, and only one marker
+    of each kind is ever stripped.
+    
+    :param tag: The tag to be trimmed.
+    :return: The trimmed tag.
+    """
+    if not tag:
+        return tag
+    
+    # Strip leading hash
+    if tag.startswith('#'):
+        tag = tag[1:]
+    
+    # Strip trailing colon
+    if tag.endswith(':'):
+        tag = tag[:-1]
+    
+    return tag
+```

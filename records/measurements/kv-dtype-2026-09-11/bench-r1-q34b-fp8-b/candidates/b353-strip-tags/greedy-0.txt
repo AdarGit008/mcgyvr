@@ -1,0 +1,26 @@
+<think>
+Okay, I need to implement the strip_tags function. The goal is to remove every marker from a line of text. A marker is defined as an opening angle bracket, everything up to the next closing bracket, and that bracket. Also, if an opening bracket isn't closed, everything from there to the end of the line should be removed.
+
+First, I need to process the input line. The function should iterate through the string, identifying tags. The challenge is to correctly identify the start and end of each tag, considering that a tag could be opened and not closed, which would mean everything after the opening bracket is removed.
+
+Let me think about how to approach this. One way is to scan the string character by character, keeping track of whether we're inside a tag. When an opening bracket '<' is found, we start a tag. Then, we look for the next closing bracket '>' to end the tag. However, if there's no closing bracket after the opening one, everything from the opening bracket to the end of the line is removed.
+
+So, the steps could be:
+
+1. Initialize a result list to collect the non-tag characters.
+2. Iterate through each character in the line.
+3. When a '<' is encountered, it starts a tag. We need to find the next '>' to close it. But if there's no '>' after, everything from this '<' to the end is removed.
+4. So, during iteration, when a '<' is found, we need to look ahead to find the next '>' and mark the characters in between as part of the tag. Any characters between '<' and '>' are part of the tag and should be excluded. If there's no '>' after the '<', then all characters from '<' to the end are excluded.
+
+But how to handle this in code? Maybe using a state machine. Let's think of variables:
+
+- A flag indicating whether we are inside a tag.
+- When we see a '<', we start a tag. Then, we need to find the next '>' to close it. But if we don't find it, we need to remove everything from that '<' onwards.
+
+Alternatively, we can process the string in a loop, keeping track of the current position. Let's try to process the string step by step.
+
+Another approach is to split the line into parts that are not inside tags. For example, any text that is not within <...> is kept. So, the idea is to find all occurrences of <...> and remove them, but also handle cases where a < is not closed.
+
+So, perhaps using a regular expression. But the problem is that the tags can be nested? Or not? The problem says that a marker is an opening bracket, everything up to the next closing bracket. So, it's not nested. So, each tag is a pair of < and >, and any characters between them are part of the tag.
+
+But how to handle cases where a tag is not closed. For example, if the line is "Hello <world", then the < is not closed, so everything from < to the end is removed. So the result would be "Hello " (but the < is part of the tag, so the result is "Hello " with the < and the rest? Wait, no. The problem says that the opening bracket that is never closed removes everything from there to the end of the line. So, in that case, the < is the start of a tag, and everything from that < to the end is removed. So, the line "Hello <world" would become "Hello " (the < and the rest are removed). Wait, no. Wait, the < is the start of a tag. The tag is everything up to the next closing bracket

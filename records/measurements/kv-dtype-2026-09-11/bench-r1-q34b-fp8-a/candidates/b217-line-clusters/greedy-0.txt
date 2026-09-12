@@ -1,0 +1,48 @@
+<think>
+Okay, I need to implement the line_clusters function. Let's think about the problem. The function takes a list of stops and a list of links, which are tuples of two stop names. The goal is to group stops into clusters where clusters are connected by segments. Each cluster is a list of sorted stop names, and the clusters themselves are ordered by their first stop.
+
+First, I need to model the connections between stops. Since each link is a bidirectional segment, I should create a graph where each stop is a node and each link is an edge connecting two nodes. Then, the clusters are the connected components of this graph. But wait, the problem says that a stop not part of any link forms a cluster of its own. So, any stop not in any link is a cluster by itself.
+
+So the approach is to build a graph where each stop is a node, and each link is an edge. Then, find all connected components in this graph. Each connected component is a cluster. Then, for each cluster, sort the stops alphabetically, and then sort the clusters themselves based on their first stop.
+
+But how to find connected components? I can use a Union-Find (Disjoint Set Union) data structure. That would efficiently group all connected nodes.
+
+Let me outline the steps:
+
+1. Check if stops is empty. If so, return empty list.
+2. For each stop in stops, create a node in the DSU.
+3. For each link in links, union the two stops.
+4. After processing all links, collect all the roots of each stop. Each group of stops with the same root forms a cluster.
+5. For each cluster, collect all the stops in that group, sort them, and then sort the clusters by their first stop.
+
+Wait, but the stops are unique, so each stop is in exactly one cluster. So, the DSU will group all connected stops.
+
+But what about stops that are not in any link? Those would be in their own cluster. For example, if a stop is not part of any link, then it's not connected to any other stop, so it's a cluster by itself.
+
+So, the DSU needs to include all stops, even those not in any link. Because if a stop is not in any link, it's not connected to any other stop, so it's a singleton cluster.
+
+So the steps are:
+
+- Initialize DSU with all stops.
+- For each link, union the two stops.
+- Then, group all stops by their root.
+- Each group is a cluster.
+- Then, for each cluster, sort the stops alphabetically.
+- Then, sort all clusters by their first stop (the first element of the sorted cluster).
+
+But how to handle the DSU? Let's think about the DSU implementation. The DSU needs to have a parent dictionary where each stop is a key, and the value is its parent. Initially, each stop is its own parent.
+
+So, the DSU class would have a find and union method. But since the problem requires a function, not a class, maybe I can implement the DSU as a dictionary and functions.
+
+Alternatively, since the stops are unique and given as a list, perhaps I can process them as a list and use a dictionary to track the parent of each stop.
+
+So, the plan is:
+
+- Create a DSU structure where each stop is a node.
+- For each link, union the two stops.
+- Then, for each stop, find its root, and group the stops by root.
+- Each group is a cluster.
+- Then, process each cluster by sorting the stops in the cluster.
+- Then, sort the clusters based on their first element.
+
+Now, the DSU implementation. Let's think

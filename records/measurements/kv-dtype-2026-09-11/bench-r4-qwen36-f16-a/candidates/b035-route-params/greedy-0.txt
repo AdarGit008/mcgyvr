@@ -1,0 +1,93 @@
+```python
+def split_segments(path: str) -> list:
+    """Split a path string into a list of segments, validating format."""
+    if not isinstance(path, str):
+        raise ValueError("path must be a string")
+    if not path:
+        raise ValueError("path must be a non-empty string")
+    if not path.startswith("/"):
+        raise ValueError("path must start with a slash")
+    if path.endswith("/") and len(path) > 1:
+        raise ValueError("path must not have a trailing slash")
+    
+    # Split by '/' and filter out empty strings resulting from leading slash
+    # e.g., "/a/b" -> ["", "a", "b"] -> ["a", "b"]
+    # "/" -> ["", ""] -> []
+    parts = path.split('/')
+    # The first element is always empty because it starts with /
+    if parts[0] != '':
+        raise ValueError("path must start with a slash")
+    
+    segments = parts[1:]
+    
+    # Check for empty segments (e.g., "a//b")
+    for segment in segments:
+        if segment == '':
+            raise ValueError("path contains empty segment")
+            
+    return segments
+
+
+def match_route(pattern: str, path: str) -> dict | None:
+    """Match a route pattern against a path, returning captures if matched."""
+    pattern_segments = split_segments(pattern)
+    path_segments = split_segments(path)
+    
+    # Validate pattern syntax
+    _validate_pattern(pattern_segments)
+    
+    return _match_segments(pattern_segments, path_segments)
+
+
+def first_route(patterns: list, path: str) -> int:
+    """Return the index of the first pattern matching the path, or -1."""
+    if not isinstance(patterns, list):
+        raise ValueError("patterns must be a list")
+    if not isinstance(path, str):
+        raise ValueError("path must be a string")
+        
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path) is not None:
+            return i
+    return -1
+
+
+def _validate_pattern(segments: list) -> None:
+    """Validate pattern segments for syntax errors."""
+    wildcard_double_count = 0
+    seen_captures = set()
+    
+    for segment in segments:
+        if segment.startswith(':'):
+            name = segment[1:]
+            if not _is_valid_capture_name(name):
+                raise ValueError(f"invalid capture name: {name}")
+            if name in seen_captures:
+                raise ValueError(f"duplicate capture name: {name}")
+            seen_captures.add(name)
+        elif segment == '**':
+            wildcard_double_count += 1
+        elif segment == '*':
+            pass
+        else:
+            # Literal segment validation could go here if needed
+            pass
+            
+    if wildcard_double_count > 1:
+        raise ValueError("pattern contains multiple '**' wildcards")
+
+
+def _is_valid_capture_name(name: str) -> bool:
+    """Check if a string is a valid capture name (letter/underscore start, then alnum/underscore)."""
+    if not name:
+        return False
+    if not (name[0].isalpha() or name[0] == '_'):
+        return False
+    for char in name[1:]:
+        if not (char.isalnum() or char == '_'):
+            return False
+    return True
+
+
+def _match_segments(pattern_segments: list, path_segments: list) -> dict | None:
+    """Rec

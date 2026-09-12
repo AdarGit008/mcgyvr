@@ -1,0 +1,78 @@
+```python
+"""The cheapest set of travel passes covering every trip day."""
+
+
+def _validate_plan(trip_days, passes):
+    for day in trip_days:
+        if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+            raise ValueError("trip days must be positive integers")
+    for earlier, later in zip(trip_days, trip_days[1:]):
+        if later <= earlier:
+            raise ValueError("trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("at least one pass kind is required")
+    for cover in passes:
+        span = cover["span"]
+        cost = cover["cost"]
+        if isinstance(span, bool) or not isinstance(span, int) or span < 1:
+            raise ValueError("pass span must be a positive integer")
+        if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+            raise ValueError("pass cost must be a non-negative integer")
+
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    _validate_plan(trip_days, passes)
+    
+    if not trip_days:
+        return {"total": 0, "purchases": []}
+    
+    n = len(trip_days)
+    # dp[i] is the min cost to cover trip_days[i:]
+    # We process from the last trip day backwards to the first.
+    # State: index i in trip_days (0 to n-1).
+    # Base case: dp[n] = 0 (no trips left to cover)
+    
+    dp = [0] * (n + 1)
+    # best_pass[i] stores the index of the pass chosen at trip_days[i]
+    best_pass = [None] * n
+    
+    for i in range(n - 1, -1, -1):
+        current_day = trip_days[i]
+        min_cost = float('inf')
+        chosen_idx = -1
+        
+        for p_idx, p in enumerate(passes):
+            span = p["span"]
+            cost = p["cost"]
+            
+            # This pass covers days [current_day, current_day + span - 1]
+            # We need to find the next trip day that is NOT covered by this pass.
+            # A trip day t is covered if current_day <= t < current_day + span.
+            # Since trip_days is sorted, we can find the first trip day >= current_day + span.
+            
+            # Binary search for the first index j such that trip_days[j] >= current_day + span
+            # The range of indices covered by this pass is [i, j-1]
+            
+            left = i
+            right = n
+            while left < right:
+                mid = (left + right) // 2
+                if trip_days[mid] < current_day + span:
+                    left = mid + 1
+                else:
+                    right = mid
+            j = left
+            
+            # Cost is cost of this pass + cost to cover remaining trips starting at j
+            total_cost = cost + dp[j]
+            
+            if total_cost < min_cost:
+                min_cost = total_cost
+                chosen_idx = p_idx
+            elif total_cost == min_cost:
+                # Tie-breaking: the one listed first (smaller index) is bought.
+                # Since we iterate p_idx from 0 upwards, the first one we found with min_cost
+                # is already stored. We only update if strictly smaller.
+                pass
+        
+        dp[i] =

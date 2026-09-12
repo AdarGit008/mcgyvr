@@ -1,0 +1,22 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    """Return the names standing directly under a stated head in a dotted-key store."""
+    if not isinstance(store, dict):
+        raise ValueError("store must be a dict")
+    if not isinstance(head, str):
+        raise ValueError("head must be a string")
+
+    # Find all keys that start with the head followed by a dot
+    prefix = head + "."
+    result = []
+    for key in store:
+        if key.startswith(prefix):
+            # Extract the part after the head and the dot
+            remainder = key[len(prefix):]
+            # Check if there is another dot in the remainder
+            # If there is, it means this key is under a deeper head, so skip it
+            if "." not in remainder:
+                result.append(remainder)
+    
+    return result
+```

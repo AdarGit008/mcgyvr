@@ -1,0 +1,54 @@
+```python
+from typing import List, Dict, int
+
+def meter_draws(draws: List[tuple[str, int]], allowance: int) -> Dict[str, int]:
+    ledger = {}
+    for key in draws:
+        key, str, int
+        if[drawings[0]] = drawings[1]
+        if[drawings[0esting]) = drawings[1esting]]
+        ledger[drawings[ledgeresting]) = drawings[1]
+        ledger[drawings[ledgeresting]) = drawings[1.
+        ledger[drawings[ledgeresting]) = drawings[1esting]
+]
+        ledger[drawings[ledgeresting]) = drawings[1.
+        ledger[drawings[ledgeresting]) = drawings[1estingesting]
+        ledger[drawings[ledgeresting]) = drawings[1estingesting]
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[1estingesting
+        ledger[drawings[esting]) = drawings[1estingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[esting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ering]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ering]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings[ledgeresting]) = drawings[eringesting
+        ledger[drawings[ledgeresting]) = drawings[ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings[eringesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger[ings/])/ledgeresting]) = drawings/ledgerestingesting
+        ledger[drawings/ledgeresting]) = drawings/ledgerestingesting
+        ledger/ledgeresting]) = drawings

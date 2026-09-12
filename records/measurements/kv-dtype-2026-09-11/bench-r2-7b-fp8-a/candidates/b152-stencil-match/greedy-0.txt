@@ -1,0 +1,18 @@
+```python
+def matches_stencil(stencil:       if not isinstance(stencil, str)        raise ValueError("Stencil must be a string")
+    if not stencil:
+        raise ValueError("Stencil cannot be empty")
+
+    def matches_char(char,        if char == 1:
+            return True
+        elif char == '#':
+            return char.isdigit()
+        elif char == '@'):
+            return char.isalpha()
+        elif char == '?':
+            return True
+        else:
+            return char == char
+
+    return all(matches_char(stencil[i) for i in range(len(stencil)))
+```

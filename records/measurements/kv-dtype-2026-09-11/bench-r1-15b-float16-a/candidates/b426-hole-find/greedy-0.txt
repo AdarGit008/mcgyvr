@@ -1,0 +1,31 @@
+```python
+from typing import List, Optional
+
+def steps_on(first: int, count: int) -> List[int]:
+    """
+    Returns a list of numbers that a sequence should hold, running from a first number for a stated count.
+    
+    :param first: The first number in the sequence.
+    :param count: The number of elements in the sequence.
+    :return: A list of numbers from first to first + count - 1.
+    """
+    if count <= 0:
+        raise ValueError("Count must be positive")
+    return list(range(first, first + count))
+
+def hole_find(seen: List[int], first: int, count: int) -> Optional[int]:
+    """
+    Returns the first number in the sequence that is missing from the seen list, or None if all numbers are present.
+    
+    :param seen: A list of numbers that have already been seen.
+    :param first: The first number in the sequence.
+    :param count: The number of elements in the sequence.
+    :return: The first missing number or None if all numbers are present.
+    """
+    if count <= 0:
+        raise ValueError("Count must be positive")
+    for i in range(first, first + count):
+        if i not in seen:
+            return i
+    return None
+```

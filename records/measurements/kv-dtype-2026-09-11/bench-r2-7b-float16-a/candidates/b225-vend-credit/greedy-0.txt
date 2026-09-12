@@ -1,0 +1,19 @@
+```python
+def vend_credit(coins: list, price: int) -> int:
+    if not isinstance(price, int) or price <= 0 or price % 5 != 0:
+        raise ValueError("Invalid price")
+    
+    credit = 0
+    items_dropped = 0
+    
+    for coin in coins:
+        if coin in [5, 10, 25, 100]:
+            credit += coin
+            while credit >= price:
+                credit -= price
+                items_dropped += 1
+        else:
+            raise ValueError("Invalid coin")
+    
+    return credit
+```

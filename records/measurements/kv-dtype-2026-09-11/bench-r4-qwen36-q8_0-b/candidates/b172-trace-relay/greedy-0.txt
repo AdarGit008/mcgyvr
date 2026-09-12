@@ -1,0 +1,31 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    """Walk the watch relay from start to the post handing off to the empty name."""
+    if not isinstance(links, dict):
+        raise ValueError("links must be a mapping")
+    if start not in links:
+        raise ValueError("start is not a post")
+    
+    route = []
+    post = start
+    visited = set()
+    
+    while True:
+        if post in visited:
+            raise ValueError("watch comes round again")
+        visited.add(post)
+        route.append(post)
+        
+        next_post = links[post]
+        
+        # The last post hands on to the empty name ("")
+        if next_post == "":
+            break
+            
+        if next_post not in links:
+            raise ValueError("handoff names a post that links does not name")
+            
+        post = next_post
+        
+    return route
+```

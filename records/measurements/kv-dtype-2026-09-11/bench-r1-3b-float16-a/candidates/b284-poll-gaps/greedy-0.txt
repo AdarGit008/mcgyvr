@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def poll_gaps(minutes: List[int]) -> List[int]:
+    """
+    Given a list of minutes on which a monitor ran, return the minutes between the first and the last on which it did not run.
+    Fewer than two runs means there is nothing to report.
+    """
+    if len(minutes) < 2:
+        return []
+
+    # Find the first and last gaps
+    first_gap = minutes[0] - 0
+    last_gap = 9999999999 - minutes[-1]
+
+    # Filter out gaps that are less than or equal to 0
+    gaps = [gap for gap in [first_gap, last_gap] if gap > 0]
+
+    return gaps
+```

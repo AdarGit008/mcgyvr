@@ -1,0 +1,20 @@
+```python
+def climb_budget(tolls: list) -> int:
+    if not all(toll.isdigit() and toll[0] != '0' for toll in tolls):
+        raise ValueError("Invalid toll found")
+    
+    n = len(tolls)
+    if n == 0:
+        return 0
+    elif n == 1:
+        return 0
+    
+    dp = [float('inf')] * n
+    dp[0] = 0
+    dp[1] = int(tolls[1])
+    
+    for i in range(2, n):
+        dp[i] = min(dp[i-1], dp[i-2]) + int(tolls[i])
+    
+    return min(dp[-1], dp[-2])
+```

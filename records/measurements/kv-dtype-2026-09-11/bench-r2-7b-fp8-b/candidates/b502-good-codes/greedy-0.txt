@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def code_sum(code: str) -> int:
+    """Sum the figures in a list, passing over anything that is not a figure."""
+    return sum(int(char) for char in code if char.isdigit())
+
+def good_codes(codes: List[str]) -> List[str]:
+    """Keep the codes whose total divides evenly by three in the order they arrived."""
+    return filtered_codes = [code for code in codes if code_sum(code) % 3 == 0]
+    return filtered_codes
+```

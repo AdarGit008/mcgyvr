@@ -1,0 +1,24 @@
+<think>
+Okay, I need to implement the window_max function. Let's think about what the problem says. The function takes a list of integers called readings and an integer width. The goal is to find the largest reading in every stretch of the given width. The stretches are considered in the order they open, and only those that fit entirely within the run are considered. If the run is shorter than the width, it returns nothing.
+
+First, I need to understand what a "stretch" means here. I think it refers to a contiguous subarray of the readings list with length equal to the width. So for example, if the readings are [1, 3, 5, 2, 4] and width is 2, the stretches would be [1,3], [3,5], [5,2], [2,4]. Then, for each of these, find the max. So the output would be [3,5,5,4].
+
+But wait, the problem says "stretches that fit whole inside the run". Wait, the run is the entire list? Or is it something else? The problem says "a run shorter than the width gives nothing back." So maybe the run is the entire list. So the function is to process all possible contiguous subarrays of length 'width' in the readings list, and for each, take the max. Then return all those maxes in order.
+
+So the function should return a list where each element is the maximum of a sliding window of size 'width'. But the problem says "stretches in the order they open and using only stretches that fit whole inside the run." So the order is the order of the windows as they appear in the list. So for example, for a list of length n, the first window starts at index 0, then 1, etc., up to index n - width.
+
+So the first thing is to check if the width is valid. The problem says that if the width is below one, it should be rejected. Wait, the problem says "whether a width below one should be rejected is not stated." But the interface says that the function is supposed to take an integer width. So perhaps the function should reject invalid widths, like if width is less than 1. Because, for example, a width of 0 would not make sense. So in the function, we need to check that width is at least 1. Otherwise, return an empty list?
+
+Wait, the problem says that if the run is shorter than the width, it gives nothing back. So for example, if the readings list has length 3 and width is 4, then there are no possible windows, so the output is empty. But if the width is 0, then perhaps it's invalid. So the function should check that width is at least 1. Otherwise, return an empty list.
+
+So the first step is to validate the input. If width is less than 1, return an empty list. Also, if the length of readings is less than width, then return empty list.
+
+So the steps are:
+
+1. Check if width is less than 1. If yes, return empty list.
+2. Check if the length of readings is less than width. If yes, return empty list.
+3. Otherwise, process each window of size width, compute the max, and collect them in order.
+
+Now, how to compute the max for each window efficiently?
+
+The straightforward approach is to iterate through each possible window, collect the elements in the window, and take the max. But for large lists, this would be O(n * w) time, which could be slow if the list is large and width is big. However, the problem doesn't mention any constraints

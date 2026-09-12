@@ -1,0 +1,39 @@
+<think>
+Okay, I need to implement the line_number function. The goal is to take a string block and return a new string where each line has its number in front, starting from 1. The numbers should be followed by a colon and a space. If the input is empty, the output should be empty.
+
+First, I need to split the input block into lines. Since the input is a string, I can split it using the newline character. But wait, what if the input has multiple newlines? For example, if the block is "a\nb\nc", splitting by '\n' would give ["a", "b", "c"], which is correct. But if the block is empty, splitting would result in an empty list.
+
+Next, I need to iterate over each line, assign a number starting from 1, and prepend that number to each line. So for each line in the list, the index (starting at 0) plus 1 gives the line number.
+
+Then, I have to join these processed lines back into a single string with newlines. But wait, the original block might have trailing newlines? For example, if the input is "a\nb\n", splitting would give ["a", "b", ""], which when processed would become "1: a\n2: b\n". But the original block's trailing newline might not be present in the output. However, the problem says that a block with no text returns empty. So, if the input is empty, the output is empty. Otherwise, each line is processed and joined with newlines.
+
+Wait, but the original block could have leading or trailing newlines. For example, if the input is "\na\n", splitting would give ["", "a", ""]. Processing each line would result in "1: \n2: a\n3: ".
+
+But the problem says that the output should have each line numbered. So even if a line is empty, it should be numbered. So the function should process each line in the input, even if they are empty.
+
+So the steps are:
+
+1. Split the input block into lines. Using split('\n') is correct here.
+2. Iterate over each line with its index (starting at 0).
+3. For each line, create a new string that is the line number (index + 1) followed by ": " and then the line.
+4. Join all these processed lines with '\n' to form the output string.
+
+But wait, what if the input is empty? Then splitting would result in an empty list, and joining would result in an empty string, which is correct.
+
+Testing edge cases:
+
+- Empty input: returns empty string.
+- Single line: "hello" becomes "1: hello".
+- Multiple lines: "a\nb" becomes "1: a\n2: b".
+- Lines with trailing newlines: "a\nb\n" becomes "1: a\n2: b\n".
+
+But the problem says that the output should have each line numbered. So even if the original block has trailing newlines, the output should have them as well. However, when you split the input, the trailing newline would result in an empty string as the last element. For example, input "a\nb\n" would split into ["a", "b", ""]. Processing each line would result in "1: a\n2: b\n3: ".
+
+But the problem says that the output should have each line numbered. So even if the line is empty, it's included. So the function should handle that.
+
+Now, implementing this in Python.
+
+The function line_number takes a string block. So:
+
+def line_number(block: str) -> str:
+    lines = block.split('\

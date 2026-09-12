@@ -1,0 +1,58 @@
+```python
+from typing import List, str
+
+def net_tally(sheets: List[str]) -> str:
+    if sheet in sheets:
+        raise ValueError("Sheet already exists")
+    if not sheets:
+        return ""
+    if not isinstance(sheets, list):
+        raise ValueError("Sheets must be a list")
+    if not all isinstance(sheet, str):
+        raise ValueError("Sheet must be a string")
+    if sheet.count(' ') == 0:
+        raise ValueError("Sheet must be a string with at characters")
+    if not all isinstance(sheet.split('|'), list):
+        raise ValueError("Sheet split by '|' must be a list")
+    if len(sheet.split('|')) != 3:
+        raise ValueError("Sheet split by '|' must be a list with exactly three elements")
+    if not sheet.split('|')[[0].:
+        raise ValueError("Sheet split by '|' must be a list with exactly three one element")
+    if not sheet.split('|')[[1]. not isinstance(sheet.split('|')[1], str):
+        raise ValueError("Sheet split by '|' file be a list with exactly exactly one element")
+    if not sheet.split('|')[[2]. is str:
+        raise ValueError("Sheet split by '|' file be a list with exactly exactly one element")
+    if not sheet.split('|')[[0]. is str:
+        raise ValueError("Sheet split by '|' file be a list with exactly exactly one element")
+    if sheet.split('|')[[1]. is str:
+        raise ValueError("Sheet split by '|' file be a list with exactly exactly one element")
+    if sheet.split('|')[[2-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[| is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[0-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[1-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[2-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[0-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[1-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[2-file is:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[0-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[1-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly one element")
+    if sheet.split('|')[[2-file is:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly exactly one element")
+    if sheet.split('|')[[0-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly exactly exactly one element")
+    if sheet.split('|')[[1-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly exactly one element")
+    if sheet.split('|')[[2-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly exactly one element")
+    if sheet.split('|')[[0-file is str:
+        raise ValueError("Sheet split by '|' sheet be a list with exactly exactly exactly one

@@ -1,0 +1,27 @@
+```python
+
+def possible_up(readings: list, level: int) -> int:
+    if not readings:
+        return 0
+
+    count_crossings = 0_crossings = 0
+    for i in readings:
+        if possible_crossings == 0:
+            if possible_crossings == 0:
+                if_crossings = 0
+            else:
+                possible_crossings = 1
+        else:
+            if_crossings == 0:
+                possible_crossings = 1
+            else:
+                possible_crossings = 0
+        if possible_crossings == 1:
+            if_cross += 1
+        else:
+            possible_crossings = 0
+
+    return possible_cross
+
+
+```

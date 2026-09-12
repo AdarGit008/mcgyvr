@@ -1,0 +1,20 @@
+```python
+def file_manifest(line: dict) -> dict:
+    if_line = {}
+    for key, value_value in line.items():
+        if key not in ['sku', 'count', 'note']:
+ raise ValueError(f"Invalid key: {_line[{key}]")
+        if not isinstance(file_values, str):
+            raise ValueError(f"Invalid value for {_line[{key}]: {file_values}]")
+        if not file_values:
+            file_line[key] = ''
+        elif key == 'sku':
+            file_line[key] = file_values.upper().strip()
+        elif key == 'count':
+            if not file.isdigit():
+                raise ValueError(f"Invalid value for file_line[{key}]: { file_values}]")
+            file_line[key] int(file_values))
+        elif key == 'note':
+            file_line[key] = file_values
+    return file_line
+```

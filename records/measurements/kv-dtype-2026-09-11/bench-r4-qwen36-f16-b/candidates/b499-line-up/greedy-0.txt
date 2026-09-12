@@ -1,0 +1,30 @@
+```python
+def line_up(links: dict[str, str], start: str) -> list[str]:
+    """
+    Follow a name up through a book of links, each naming the one standing above it,
+    and give back the whole line from the name given to the one with nobody above it.
+    Reject links running in a circle with an error.
+    """
+    if start not in links:
+        raise ValueError(f"Start name '{start}' not found in links")
+
+    line = []
+    current = start
+    visited = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("Circular link detected")
+        
+        visited.add(current)
+        line.append(current)
+        
+        # If current is not in links, it means nobody is above this person
+        if current not in links:
+            break
+            
+        next_person = links[current]
+        current = next_person
+
+    return line
+```

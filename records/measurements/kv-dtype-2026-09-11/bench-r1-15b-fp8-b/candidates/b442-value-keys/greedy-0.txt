@@ -1,0 +1,13 @@
+```python
+def value_keys(store: dict) -> dict:
+    if not store:
+        return {}
+    
+    result = {}
+    for key, value in store.items():
+        if value in result:
+            result[value]. append(key)
+        else:
+            result[value] = [key]
+ result
+```

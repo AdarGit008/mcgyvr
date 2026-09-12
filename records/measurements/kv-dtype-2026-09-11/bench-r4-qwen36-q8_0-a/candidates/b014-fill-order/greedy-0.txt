@@ -1,0 +1,60 @@
+```python
+def fill_order(sources: list, needed: int) -> dict:
+    """
+    Plan how an order for `needed` units is covered from a list of sources.
+    
+    Sources are sorted by cost (cheapest first), with ties broken by original
+    list order (earlier index wins). Units are taken from each source up to
+    the remaining need. Returns cost, taken amounts, and leftover stock.
+    
+    Raises ValueError if inputs are invalid or stock is insufficient.
+    """
+    # Validate needed
+    if not isinstance(needed, int) or needed <= 0:
+        raise ValueError("needed must be a positive integer")
+    
+    # Validate sources
+    if not isinstance(sources, list):
+        raise ValueError("sources must be a list")
+    
+    total_stock = 0
+    for i, source in enumerate(sources):
+        if not isinstance(source, (list, tuple)) or len(source) != 2:
+            raise ValueError(f"Source at index {i} must be a pair [cost, stock]")
+        cost, stock = source
+        if not isinstance(cost, int) or cost <= 0:
+            raise ValueError(f"Source at index {i} has invalid cost: must be a positive integer")
+        if not isinstance(stock, int) or stock <= 0:
+            raise ValueError(f"Source at index {i} has invalid stock: must be a positive integer")
+        total_stock += stock
+    
+    # Check if total stock can cover the need
+    if total_stock < needed:
+        raise ValueError("Total stock across all sources is insufficient to cover the needed amount")
+    
+    # Create a list of (cost, original_index) to sort by cost, then by original index for ties
+    indexed_sources = [(sources[i][0], i) for i in range(len(sources))]
+    # Sort by cost (ascending), then by original index (ascending) for tie-breaking
+    indexed_sources.sort(key=lambda x: (x[0], x[1]))
+    
+    taken = [0] * len(sources)
+    cost = 0
+    remaining = needed
+    
+    for unit_cost, original_index in indexed_sources:
+        if remaining <= 0:
+            break
+        stock = sources[original_index][1]
+        # Take as much as needed, but not more than available
+        take = min(remaining, stock)
+        taken[original_index] = take
+        cost += take * unit_cost
+        remaining -= take
+    
+    # Calculate leftover for each source in original order
+    leftover = []
+    for i in range(len(sources)):
+        leftover.append(sources[i][1] - taken[i])
+    
+    return {"cost": cost, "taken": taken, "leftover": leftover}
+```

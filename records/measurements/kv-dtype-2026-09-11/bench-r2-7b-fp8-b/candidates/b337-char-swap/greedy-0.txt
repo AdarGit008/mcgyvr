@@ -1,0 +1,12 @@
+```python
+def swap_pair(first: str, second:       if len(first) != len(second) != 2:
+        raise ValueError("Both inputs must have exactly two characters.")
+    return second + first
+
+
+def swap_all(text: str) -> str:
+    result = [swap_pair(text[i(i:i+2)) for                i in range(0,(text), 2)]
+    if len(text) % 2 == 1:
+        result.append(text[-1])
+    return ''.join(result)
+```

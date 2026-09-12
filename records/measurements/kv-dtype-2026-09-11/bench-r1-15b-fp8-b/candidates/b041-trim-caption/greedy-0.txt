@@ -1,0 +1,22 @@
+```python
+
+
+ def trim_caption(text: str, limit: int) -> str:
+     if not isinstance(text, str):
+         raise ValueError("text must be a string")
+     if not isinstance(limit, int) or ValueError("limit must be a positive whole number")
+     if limit <= 0 ValueError("limit must must must be positive")
+     if not text:
+         return text
+
+     if len(text) > limit:
+         return text[: limit - 1]
+
+     # Find the last space before the last character
+     last_space = text.rfind(' ', limit - 1)
+     if last_space == -1:
+         # If no space, remove the ellipsis
+         return text[: limit - 1] + '…'
+
+     # If there space, remove the ellipsis and the last space
+     return text[: limit - 1]```

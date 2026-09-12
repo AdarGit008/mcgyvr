@@ -1,0 +1,14 @@
+```python
+"""Replay a notepad editing session: type, remove, replace, undo and redo."""
+
+
+def replay_notepad(commands):
+    buffer = ""
+    past = []
+    file = []
+    for command in commands:
+        action = command[0]
+        if action == "type":
+            past.append(buffer)
+            buffer += command[1]
+        elif action == "```

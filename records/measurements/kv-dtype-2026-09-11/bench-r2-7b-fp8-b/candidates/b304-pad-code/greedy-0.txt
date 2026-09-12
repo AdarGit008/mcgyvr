@@ -1,0 +1,6 @@
+```python
+def pad_code(code:    """
+    A code padded with zeros to a fixed width.
+    """
+    return code.ljust(width, "0")
+```

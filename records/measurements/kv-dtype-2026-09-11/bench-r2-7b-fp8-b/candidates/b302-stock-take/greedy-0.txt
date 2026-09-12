@@ -1,0 +1,7 @@
+```python
+def list_price(total:    int,        count:    int) -> int:
+    """The price of one item in whole pence."""
+    if count == 0:
+        raise ValueError("count cannot be zero")
+    return total // count
+```

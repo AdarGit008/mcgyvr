@@ -1,0 +1,16 @@
+```python
+from typing import Dict, List
+
+def alias_resolve(aliases: Dict[str, str], name: str)    """Resolve a name to its alias, or return the name itself if it has none."""
+    if name not in aliases:
+        return name
+    return aliases[name]
+
+def alias_names(aliases: Dict[str, str]) -> List[str]:
+    """List all names that stand for something, in alphabetical order."""
+    # Create a list of all keys from the dictionary
+    names = list(aliases.keys())
+    # Sort the list alphabetically
+    names.sort()
+    return names
+```

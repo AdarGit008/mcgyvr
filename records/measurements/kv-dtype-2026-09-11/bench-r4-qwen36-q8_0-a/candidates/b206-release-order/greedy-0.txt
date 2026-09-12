@@ -1,0 +1,80 @@
+```python
+def order_release_tags(tags: list) -> list:
+    """Return a new list of release tags sorted in ascending release order."""
+    def parse_tag(tag: str):
+        """Parse a release tag into a sortable tuple."""
+        if not tag.startswith('v'):
+            raise ValueError(f"Invalid tag format: {tag}")
+        
+        rest = tag[1:]
+        parts = rest.split('-', 1)
+        version_part = parts[0]
+        preview_part = parts[1] if len(parts) > 1 else None
+        
+        version_numbers = version_part.split('.')
+        if len(version_numbers) != 3:
+            raise ValueError(f"Invalid version format in tag: {tag}")
+        
+        try:
+            major = int(version_numbers[0])
+            minor = int(version_numbers[1])
+            patch = int(version_numbers[2])
+        except ValueError:
+            raise ValueError(f"Invalid version numbers in tag: {tag}")
+        
+        preview_word = None
+        preview_number = None
+        
+        if preview_part:
+            # Find where the word ends and the number begins
+            # The preview label is a lowercase word directly on a number
+            # e.g., rc3 -> word='rc', number=3
+            # e.g., alpha9 -> word='alpha', number=9
+            # We need to split the preview_part into a word and a number
+            # The word is lowercase letters, the number is digits
+            idx = 0
+            while idx < len(preview_part) and preview_part[idx].islower():
+                idx += 1
+            
+            if idx == 0:
+                raise ValueError(f"Invalid preview label in tag: {tag}")
+            
+            preview_word = preview_part[:idx]
+            preview_number_str = preview_part[idx:]
+            
+            if preview_number_str:
+                try:
+                    preview_number = int(preview_number_str)
+                except ValueError:
+                    raise ValueError(f"Invalid preview number in tag: {tag}")
+            else:
+                preview_number = 0
+        
+        # Sort key:
+        # 1. major (numeric)
+        # 2. minor (numeric)
+        # 3. patch (numeric)
+        # 4. Has preview? (True < False, so preview comes before plain)
+        # 5. If both have preview: word (alphabetical)
+        # 6. If same word: number (numeric)
+        
+        has_preview = preview_word is not None
+        
+        if has_preview:
+            # For preview tags, we want to sort by word then number
+            # Since has_preview is True, it will come before plain tags
+            # We need to ensure that within preview tags, they are sorted correctly
+            return (major, minor, patch, True, preview_word, preview_number)
+        else:
+            return (major, minor, patch, False, "", 0)
+    
+    parsed_tags = []
+    for tag in tags:
+        parsed_tags.append((tag, parse_tag(tag)))
+    
+    # Sort by the parsed key
+    parsed_tags.sort(key=lambda x: x[1])
+    
+    # Return the original tags in the sorted order
+    return [tag for tag, _ in parsed_tags]
+```

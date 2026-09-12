@@ -1,0 +1,16 @@
+```python
+def case_two(text: str) -> list:
+    """
+    Returns a list containing the count of capital letters and small letters in the input text.
+    Characters that are not letters are counted as neither.
+    """
+    if not text:
+        return [0, 0]
+    count = [0, 0]
+    for char in text:
+        if char.isupper():
+            count[0] += 1
+        elif char.islower():
+            count[1] += 1
+    return count
+```

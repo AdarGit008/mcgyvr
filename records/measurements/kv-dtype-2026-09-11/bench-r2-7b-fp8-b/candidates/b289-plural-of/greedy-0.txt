@@ -1,0 +1,10 @@
+```python
+def plural_of(noun: str) -> str:
+    if noun.endswith(('s',        return noun + 'es'
+    elif noun.endswith(('x', 'ch', 'sh')):
+        return noun + 'es'
+    elif noun.endswith('y') noun[-2] not in 'aeiou':
+        return noun[:-1] + 'ies'
+    else:
+        return noun + 's'
+```

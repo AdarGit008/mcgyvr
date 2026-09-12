@@ -1,0 +1,18 @@
+<think>
+Okay, I need to implement the climb_budget function. Let's see the problem statement again. The function takes a list of tolls, where each toll is a string of ASCII digits. The climber starts below the scaffold and can step up to the next rung or skip one. The goal is to find the minimum total cost of tolls paid, considering that each rung's toll is a string of digits. Also, if any toll is invalid (not digits or leading zero), we need to raise a ValueError with the position.
+
+First, I need to process each toll in the list. For each toll, check if it's all digits. Also, check if it has a leading zero. If any of these conditions are not met, raise an error with the position.
+
+Wait, the problem says that the toll is written as a run of ASCII digits. So each element in the tolls list is a string. But maybe the input is a list of strings, each representing a toll. So first, I need to validate each toll in the list.
+
+So, for each position i in the tolls list:
+
+- Check if the toll is a string. Wait, but the input is a list of strings. Wait, the function's parameter is a list of tolls, which are strings. So the input is a list of strings. So each element in the list is a string. So the first step is to validate each string in the list.
+
+So for each toll in the list, check if it's all digits. Also, check if it has a leading zero. For example, if the toll is "012", that's invalid because of leading zero. So, for each toll, if it's not all digits, or if it's a single zero (like "0"), then it's invalid? Wait, the problem says "a toll carrying a leading zero". So if the toll is "0", that's allowed? Or is "0" considered invalid?
+
+Wait, the problem says: "Reject a toll that is not written as digits and a toll carrying a leading zero, naming the offending rung's position counting from 0, with an error."
+
+So, the toll must be a string of digits. Also, if the toll has a leading zero, it's invalid. So, for example, "0" is invalid? Because it has a leading zero. Wait, but if the toll is "0", then it's a single zero. But according to the problem, the board of one rung costs 0 because that rung can be skipped. Wait, but the problem says that a board of one rung costs 0 because the climber can skip it. So, in that case, the toll is "0", but the climber can skip it. But according to the problem, the toll is written as a run of digits. So, if the toll is "0", is that considered invalid? Or is it allowed?
+
+Wait, the problem says that the function should reject a toll that is not written as digits (so, if the toll is not a string of digits, like "abc", then it's invalid). Also, a toll carrying a leading zero. So, for example, if the toll is "0", then it's a single zero. But leading zero is allowed? Or is "0" considered a leading zero? Because the first character is zero. So, if the toll is "0", then it's a leading zero. So, according to the problem, that's invalid. But the problem says that a board of one rung costs 0 because the rung can be skipped. So, maybe the function should not reject that. Wait, but the problem says that the function should

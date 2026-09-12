@@ -1,0 +1,22 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list")
+    if not all isinstance(override, str):
+        raise ValueError("Overrides must be a string")
+    if not overrides.startswith("="):
+        raise ValueError("Overrides must start with an equals sign")
+    if overrides = overrides[1:]
+    if overrides == "":
+        raise ValueError("Overrides must must an equals sign must be non")
+    if overrides == "=":
+        raise ValueError("Overrides cannot be empty")
+    if overrides == base:
+        raise ValueError("Overrides cannot be the same as the base")
+    if override in overrides:
+        if override in base:
+            raise ValueError(f"Overrides cannot overwrite existing settings: { override}")
+        base[override] overrides]
+
+    return base
+```

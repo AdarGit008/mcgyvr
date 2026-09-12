@@ -1,0 +1,47 @@
+```python
+from typing import Dict, Any
+
+def merge_settings(base: Dict[str, str], ours: Dict[str, str], theirs: Dict[str, str]) -> Dict[str, str]:
+    """
+    Merge two settings snapshots into a single snapshot, resolving conflicts.
+    
+    :param base: The common ancestor settings snapshot.
+    :param ours: The settings snapshot from one side.
+    :param theirs: The settings snapshot from the other side.
+    :return: The merged settings snapshot.
+    :raises ValueError: If a side is not a flat mapping of string values,
+                        if there is a conflict of two different edits, or
+            if there is a conflict of an edit against a deletion.
+    """
+    def validate_settings(settings: Dict[str, Any]) -> None:
+        if not all(isinstance(key, str) and isinstance(value, str) for key, value in settings.items()):
+            raise ValueError("All keys and values must be strings.")
+
+    validate_settings(base)
+    validate_settings(ours)
+    validate_settings(theirs)
+
+    
+    merged = {}
+    for key in set(base.keys()).union(set(ours.keys()), set(theirs.keys())):
+        if key in base and key in ours and key in theirs:
+            # Both sides have the same key, keep theirs
+            merged[key] = theirs[key]
+        elif key in base and key in ours:
+            # Only ours has the key, keep ours
+            merged[key] = ours[key]
+        elif key in base and key in theirs:
+            # Only theirs has the key, keep theirs
+            merged[key] = theirs[key]
+        elif key in ours:
+            # Only ours has the key, keep ours
+            merged[key] = ours[key]
+        elif key in theirs:
+            # Only theirs has the key, keep theirs
+            merged[key] = theirs[key]
+        else:
+            # Neither side has the key, keep base
+            merged[key] = base.get(key, "")
+    
+    return merged
+```

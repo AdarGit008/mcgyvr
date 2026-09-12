@@ -1,0 +1,34 @@
+```python
+def fresh_value(entry: dict, now: int) -> str:
+    """
+    Returns the value of the record if it is still usable at the given tick.
+    Raises ValueError if the entry is not a valid record, or if the record is no longer usable at the given tick.
+    """
+    # Check if the entry is a dictionary with the required keys
+    if not isinstance(entry, dict) or len(entry) != 3:
+        raise ValueError("Invalid entry: must be a dictionary with three keys.")
+    
+    # Extract the fields from the entry
+    value = entry.get('value')
+    cached_string = entry.get('cached_string')
+    stored = entry.get('stored')
+    ttl = entry.get('ttl')
+    
+    # Validate the types of the fields
+    if not isinstance(value, str):
+        raise ValueError("Value must be a string.")
+    if not isinstance(cached_string, str):
+        raise ValueError("Cached string must be a string.")
+    if not isinstance(stored, int) or stored < 0:
+        raise ValueError("Stored must be a non-negative integer.")
+    if not isinstance(ttl, int) or ttl <= 0:
+        raise ValueError("TTL must be a positive integer.")
+    if not isinstance(now, int) or now < stored:
+        raise ValueError("Now must be an integer at least stored.")
+    
+    # Check if the record is still usable at the given tick
+    if now >= stored + ttl:
+        raise ValueError("Record is no longer usable at the given tick.")
+    
+    return value
+```

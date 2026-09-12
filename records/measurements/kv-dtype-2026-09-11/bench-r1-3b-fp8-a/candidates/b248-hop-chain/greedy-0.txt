@@ -1,0 +1,25 @@
+```python
+def hop_chain(hops: list) -> bool:
+    """
+    Check if the given list of hops forms a unbroken chain.
+    
+    Args:
+    hops: A list of tuples, where each tuple represents a hop from one location to another.
+
+    Returns:
+    True if the hops form a unbroken chain, False otherwise.
+    """
+    if not hops:
+        return True
+    
+    # Start at the first hop' end
+    current_end = hops[0][1]
+    
+    # Iterate through the remaining hops
+    for start, end in hops[1:]:
+        if start != current_end:
+            return False
+        current_end = end
+    
+    return True
+```

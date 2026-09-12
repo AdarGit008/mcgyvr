@@ -1,0 +1,15 @@
+```python
+def warm_up(readings: list, floor: int) -> list:
+    if not readings:
+        return []
+    
+    warm_up_index = 0
+    for i in readings:
+        if readings[warm_up_index] < floor:
+            warm_up_index += 1
+        else:
+            break
+    
+    return readings[: warm_up_index]
+ len(readings)
+```

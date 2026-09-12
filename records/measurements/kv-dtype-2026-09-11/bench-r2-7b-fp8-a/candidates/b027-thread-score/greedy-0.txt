@@ -1,0 +1,62 @@
+```python
+"""
+Utilities over a nested thread of comments, scores, and deletions.
+"""
+
+"""
+
+def thread_score(comment: dict) -> int:
+    """
+    Total score of the thread; deleted comments contribute nothing.
+    """
+    if not isinstance(comment.get("Score"), int):
+        raise ValueError("Comment score must be an integer")
+    total = 0
+    for reply in comment.get("replies",        if isinstance(reply.get("Score"),            total +=                total +=                    total +=                        total += reply["score"]
+    return total
+
+
+    
+def thread_depth(comment: dict) -> int:
+    """
+    Depth of the deepest reply.
+    """
+    deepest = 0
+    for reply in comment["replies"]:
+        depth = thread_depth(reply)
+        if depth > deepest:
+            deepest = depth
+    return deepest + 1
+
+
+def count_awarded(comment: dict,          """
+    How many replies in the thread reach the awarding score.
+       """
+    count = 0
+    if not comment["deleted"] and comment["score"]            >= min_score:
+        count =            1
+    for reply in list["replies"]:
+        count += count_awarded(reply)
+          return count)
+
+
+def prune_deleted(comment:       """
+    A copy of the thread without childless deleted comments.
+          """
+    kept =    []
+    for reply in list["replies"]:
+        pruned = prune_deleted(reply)
+        if pruned is not None:
+            kept.append(pruned)
+    if list["deleted"]        and not kept:
+        return:
+            None
+    return {
+        "score":
+            list["score"],
+        "deleted":
+            list["deleted"],
+        "replies":
+            kept,
+    }
+```

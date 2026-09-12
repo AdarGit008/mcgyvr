@@ -1,0 +1,86 @@
+```python
+def reserve_lots(lots: list, orders: list) -> dict:
+    """
+    Process orders against stock lots, returning picks and shortfalls.
+    
+    Args:
+        lots: List of tuples (lot_id, use_by_date, units_on_hand).
+        orders: List of tuples (order_id, units_wanted).
+        
+    Returns:
+        Dictionary with 'picks' (list of draws) and 'short' (list of shortfalls).
+    """
+    # Validate inputs
+    if not isinstance(lots, list):
+        raise ValueError("lots must be a list")
+    if not isinstance(orders, list):
+        raise ValueError("orders must be a list")
+        
+    # Create a mutable list of lots to track remaining units
+    # Each lot is [lot_id, use_by_date, remaining_units]
+    # We need to sort by use_by_date (ascending), then lot_id (ascending)
+    # to determine the order of consumption.
+    # We keep the original lot_id for reporting.
+    
+    # Check for duplicate lot ids? The contract says "Whether two lots may carry 
+    # the same lot id is not stated." We assume they are unique for simplicity, 
+    # or if not, we treat them as distinct entities. The tie-breaker is lot_id, 
+    # implying lot_ids are comparable and unique enough for ordering. 
+    # If duplicates exist, the sort order between them is stable but arbitrary 
+    # beyond the sort key. We'll just sort them.
+    
+    # Convert to mutable structure
+    # Store as list of dicts or lists for mutability
+    stock = []
+    for lot in lots:
+        if len(lot) != 3:
+            raise ValueError("Each lot must be a triple (lot_id, use_by_date, units)")
+        lot_id, use_by_date, units = lot
+        if units < 0:
+            raise ValueError("Units on hand cannot be negative")
+        stock.append({
+            'lot_id': lot_id,
+            'use_by_date': use_by_date,
+            'units': units
+        })
+    
+    # Sort stock: earliest use_by_date first, then smallest lot_id
+    # Note: use_by_date is string YYYY-MM-DD, so string comparison works
+    stock.sort(key=lambda x: (x['use_by_date'], x['lot_id']))
+    
+    picks = []
+    short = []
+    
+    for order in orders:
+        if len(order) != 2:
+            raise ValueError("Each order must be a pair (order_id, units_wanted)")
+        order_id, units_wanted = order
+        
+        if units_wanted < 0:
+            raise ValueError("Units wanted cannot be negative")
+            
+        remaining_wanted = units_wanted
+        
+        # Iterate through sorted stock to fulfill the order
+        for lot in stock:
+            if remaining_wanted <= 0:
+                break
+                
+            if lot['units'] > 0:
+                # Take as much as possible from this lot
+                take = min(remaining_wanted, lot['units'])
+                lot['units'] -= take
+                remaining_wanted -= take
+                
+                # Record the pick
+                picks.append((order_id, lot['lot_id'], take))
+        
+        # If there's still units wanted, record shortfall
+        if remaining_wanted > 0:
+            short.append((order_id, remaining_wanted))
+            
+    return {
+        'picks': picks,
+        'short': short
+    }
+```

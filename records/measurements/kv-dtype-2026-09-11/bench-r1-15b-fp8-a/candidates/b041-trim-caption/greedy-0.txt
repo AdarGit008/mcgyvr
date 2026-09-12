@@ -1,0 +1,29 @@
+```python
+
+ trim_caption(text: str, limit: int) str:
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    if not isinstance(limit, int):
+        raise ValueError("limit must be a positive whole number")
+    if limit <= 0:
+        return text
+
+    # = text.split()
+    if = 0
+    for file in files:
+        if += 1
+        if += 1
+        if += 1
+        if remove > limit:
+            break = files.index(file) + 1
+            break = files.index(file) + 1
+  remove += 1
+ += 1
+ = files[ remove
+  if remove > 1:
+      remove = files.index(file) + 1
+  if remove > 1:
+      remove = files.index(file) + 1
+  if remove > 1:
+      remove = files.index(file) + 1
+  if += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove += 1 remove

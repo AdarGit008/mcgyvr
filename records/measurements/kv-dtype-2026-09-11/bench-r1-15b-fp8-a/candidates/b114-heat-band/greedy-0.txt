@@ -1,0 +1,55 @@
+```python
+def run_thermostat(start: int, low: int, high: int, power: int, drifts: list) -> dict:
+    if isinstance(start, bool) or isinstance(start, float):
+        raise ValueError("start must not be a boolean or float")
+    if isinstance(low, bool) or isinstance(low, float):
+        raise ValueError("low is not a boolean or float")
+    if isinstance(high, bool) or isinstance(high, float):
+        raise ValueError("high is not a boolean or float")
+    if isinstance(power, bool) or isinstance(power, float):
+        raise ValueError("power is not a boolean or float")
+    if isinstance(drs, bool) or isinstance(drs, float):
+        raise ValueError("drifts is not a boolean or float")
+    if isinstance(start, int) and isinstance(low, int) and isinstance(high, int) and isinstance(power, int) and isinstance(drs, list):
+        pass
+    else:
+        raise ValueError("invalid input types")
+
+    if start < low or high:
+        raise ValueError("start must lie strictly below high")
+
+    if power <= 0:
+        raise ValueError("power must be a positive integer")
+
+    if not all(drifts, list):
+        raise ValueError("drifts must be a list")
+
+    temp = start
+    heated = False
+    switches = 0
+    coldest = start
+
+    for drift in drifts:
+        if isinstance(drift, int):
+            pass
+        else not isinstance(drift, int):
+            raise ValueError("drift must be an integer")
+        if drift < 0:
+            raise ValueError("drift must be non positive integer")
+
+        if temp < low:
+            heated = True
+            switches += 1
+            coldest = min
+
+        elif temp > high:
+            heated = False
+            switches += 1
+            coldest = min
+
+        else:
+            temp += drift + power
+            switches += 1
+            coldest = min(temp, coldest)
+
+    return {"temp": temp, "heated": heated, "switches": switches, "```

@@ -1,0 +1,16 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    """Divide a bill between diners, with the first paying the remainder."""
+    if diners <= 0:
+        raise ValueError("Number of diners must be positive")
+    if total < 0:
+        raise ValueError("Total bill cannot be negative")
+    
+    # Each diner pays the base amount
+    base_amount = total // diners
+    # The first diner pays the base amount plus any remaining pennies
+    remainder = total % diners
+    
+    result = [base_amount + remainder] + [base_amount] * (diners - 1)
+    return result
+```

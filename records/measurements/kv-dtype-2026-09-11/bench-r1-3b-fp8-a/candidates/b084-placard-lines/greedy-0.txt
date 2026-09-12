@@ -1,0 +1,38 @@
+```python
+def placard_lines(text: str, width: int) -> list:
+    """
+    Lay a notice's text into placard lines.
+    
+    Parameters:
+    - text: A non-empty string of words separated by single spaces.
+    - width: A positive integer representing the maximum width of each line.
+    
+    Returns:
+    - A list of strings, each representing a line of text.
+    
+    Raises:
+    - ValueError: If the text contains leading or trailing spaces, two spaces in a row,
+                  a word wider than the placard, or if the text is not a non-empty string or
+                  the width is not a positive integer.
+    """
+    # Validate input
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Text must be a non-empty string.")
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    if text.startswith(" ") or text.endswith(" ") or "  " in text:
+        raise ValueError("Text cannot have leading or trailing spaces, or two spaces in a row.")
+    
+    lines = []
+    line = ""
+    for word in text.split(" "):
+        if line == "":
+            line = word
+        elif len(line) + len(word) + 1 <= width:  # +1 for the joining space
+            line = line + " " + word
+        else:
+            lines.append(line)
+            line = word
+    lines.append(line)
+    return lines
+```

@@ -1,0 +1,8 @@
+```python
+def root_digit(value: int) -> int:
+    if value < 0:
+        raise ValueError("Input must be a non-negative integer.")
+    while value >= 10:
+        value = sum(int(digit) for digit in str(value))
+    return value
+```

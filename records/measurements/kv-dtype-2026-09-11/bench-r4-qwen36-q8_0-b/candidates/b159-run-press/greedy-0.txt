@@ -1,0 +1,40 @@
+```python
+def run_press(jobs: list, budget: int) -> dict:
+    """Process print jobs in queue order until budget is exhausted or a job doesn't fit."""
+    if not isinstance(jobs, list):
+        raise ValueError("jobs must be a list")
+    if not isinstance(budget, int) or isinstance(budget, bool):
+        raise ValueError("budget must be an integer")
+    if budget < 0:
+        raise ValueError("budget must be non-negative")
+
+    for job in jobs:
+        if not isinstance(job, list) or len(job) != 2:
+            raise ValueError("each job must be a two-item pair")
+        name, pages = job
+        if not isinstance(name, str) or len(name) == 0:
+            raise ValueError("job name must be a non-empty string")
+        if not isinstance(pages, int) or isinstance(pages, bool):
+            raise ValueError("page count must be an integer")
+        if pages <= 0:
+            raise ValueError("page count must be a positive whole number")
+
+    printed = []
+    waiting = []
+    pages_spent = 0
+    remaining_budget = budget
+
+    for name, pages in jobs:
+        if remaining_budget >= pages:
+            printed.append(name)
+            pages_spent += pages
+            remaining_budget -= pages
+        else:
+            waiting.append(name)
+
+    return {
+        "printed": printed,
+        "waiting": waiting,
+        "pages": pages_spent
+    }
+```

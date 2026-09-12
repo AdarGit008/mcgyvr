@@ -1,0 +1,31 @@
+```python
+def common_head(words: list) -> str:
+    """Return the longest common prefix of all words in the list."""
+    if not words:
+        return ""
+    
+    # Filter out empty strings or handle them as edge cases?
+    # The contract says "words in a list". If a word is empty, it has no characters.
+    # If the list contains an empty string, the common head must be empty because
+    # the empty string does not start with any character.
+    if any(not isinstance(w, str) for w in words):
+        raise ValueError("All elements must be strings")
+
+    if not all(words):
+        return ""
+
+    # Find the minimum length to avoid index out of bounds
+    min_len = min(len(w) for w in words)
+    
+    if min_len == 0:
+        return ""
+
+    # Compare character by character
+    for i in range(min_len):
+        first_char = words[0][i]
+        for word in words[1:]:
+            if word[i] != first_char:
+                return words[0][:i]
+    
+    return words[0][:min_len]
+```

@@ -1,0 +1,6 @@
+```python
+def rate_cap(price: int, rate: int, most: int)    if rate <        raise ValueError("Rate cannot be less than zero")
+    new_price = price * (1 + rate / 100)
+    capped_price = min(new_price, price + most)
+    return int(capped_price)
+```

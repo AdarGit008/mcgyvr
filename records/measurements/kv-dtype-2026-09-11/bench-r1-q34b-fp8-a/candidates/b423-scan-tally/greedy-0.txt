@@ -1,0 +1,56 @@
+<think>
+Okay, let's see. The user wants me to fix the scan_tally function. The problem is that the current implementation returns a list with only the final total, but the description says that scan_tally should return the running total after each instruction, but only the final one. Wait, wait. Wait, the original code for scan_tally is accumulating the total and then returning a list with just the final value. But according to the problem statement, the function is supposed to return the running total after each instruction, but the current code only returns the final one. Wait, maybe the user is saying that the current code is incorrect and needs to be fixed.
+
+Wait, the problem says: "Fix scan_tally. Return the complete fixed file." The original code for scan_tally is:
+
+def scan_tally(steps: list) -> list:
+    total = 0
+    for step in steps:
+        total += step_value(step)
+    return [total]
+
+But according to the description, scan_tally is supposed to return the running total after each instruction. But the current code only returns the final total. So the problem is that the function is not capturing the intermediate totals. For example, if there are multiple steps, the function should return a list where each element is the total after each step. But the current code only returns the final total.
+
+Wait, the original problem says that scan_tally returns the running total after each instruction, but the current code returns only the final one. So the task is to fix scan_tally to return all the intermediate totals, not just the final one.
+
+Wait, but the user's problem says that the current code returns [total], which is just the final value. But the description says that scan_tally should return the running total after each instruction. So the correct behavior is that scan_tally should return a list where each element is the total after each step. For example, if steps is ["+", "+"], then the totals would be 1, 2, so the function should return [1, 2]. But the current code returns [2].
+
+So the fix is to modify scan_tally to collect all the totals after each step, not just the final one.
+
+So the original code is wrong. The correct approach is to accumulate the total step by step, and append each step's total to a list, then return that list.
+
+So the corrected code for scan_tally would be:
+
+def scan_tally(steps: list) -> list:
+    total = 0
+    result = []
+    for step in steps:
+        total += step_value(step)
+        result.append(total)
+    return result
+
+But wait, the original code's docstring says: "The running total after each instruction." So the function should return a list of all the totals after each instruction. The current code returns only the final one. So the fix is to collect all the intermediate totals.
+
+So the correct code would be to create a list, append each total after each step, and return that list.
+
+So the original code is incorrect. The user's task is to fix this. Therefore, the corrected scan_tally function should collect all the totals, not just the final one.
+
+So the answer is to change the scan_tally function to accumulate the totals step by step and return the list of all totals.
+</think>
+
+```python
+def step_value(step: str) -> int:
+    if step == "+":
+        return 1
+    if step == "-":
+        return -1
+    return 0
+
+
+def scan_tally(steps: list) -> list:
+    """The running total after each instruction."""
+    total = 0
+    result = []
+    for step in steps:
+        total += step_value(step)
+        result

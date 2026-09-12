@@ -1,0 +1,20 @@
+```python
+from typing import Dict, List, Tuple
+
+ def _why_refused(cap:     if cap is None:
+         return "unknown"
+     return "single" if cap[1] < cap[0] else "cap"
+
+ def apply_charges(caps: Dict[str, Tuple[int, int]], charges: List[Tuple[str, int]]) -> Dict[str, List[Tuple[str, str]]]]:
+     left = {name: cap[0] for name, cap in caps.items() }
+     refused = []
+     for charge_id, bucket, amount in charges:
+         if not isinstance(amount, int) or amount <= 0:
+             raise ValueError("amount must be a positive whole number")
+         why = _why_refused(caps.get(bucket))
+         if why:
+             refused.append((charge_id, why))
+         else:
+             left[bucket] -= amount
+     return {"left": left, "refused": refused}
+```

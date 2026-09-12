@@ -1,0 +1,14 @@
+```python
+def lap_best(laps: list) -> int:
+    """Reports the quickest completed lap of a session, A lap recorded as zero means the lap was not completed and is not counted. A session with no completed laps reports zero."""
+    if not laps:
+        return 0
+    best = laps[0]
+
+
+
+    for lap in laps:
+        if lap < best:
+            best = lap
+    return best
+```

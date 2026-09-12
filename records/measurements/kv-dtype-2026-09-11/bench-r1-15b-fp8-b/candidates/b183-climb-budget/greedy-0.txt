@@ -1,0 +1,76 @@
+```python
+from typing import List, Tuple
+
+def climb_budget(tolls: List) -> int:
+    if = 0
+  for i, toll in enumerate(tolls):
+        if not toll.isdigit():
+            raise ValueError(f"Invalid toll atoll, position {g)")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g)")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g)")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g)")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g)")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g)")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            continue ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f" toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {g")
+        if toll == '0':
+            raise ValueError(f"Invalid toll(toll, position {
