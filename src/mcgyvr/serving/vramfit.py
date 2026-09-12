@@ -96,15 +96,26 @@ SCRATCH_AND_CONTEXT_MIB = 768
 #: it were available. Correcting the scan on 2026-09-06 removed that
 #: over-statement, and the allowance had been quietly absorbing it.
 #:
+#: Each reading names the ``-ub`` it was read at: the compute half of this
+#: quantity grows with ``-ub``, so a reading is used only at its own batch and
+#: a number with no batch beside it cannot be told apart from one taken at 512.
+#: qwen35moe's 512 = 316.57 MiB comes from
+#: ``records/measurements/kv-dtype-2026-09-11/results-s1-scratch.json`` (S1,
+#: the measuring-gaps Q3 method; the 256 control of 304.57 reproduces the
+#: pinned 302.7 to 0.6%). S1 read it at ``--n-cpu-moe 30 -c 16384 --parallel 2``,
+#: not the served ``ncmoe 32 / c 32768 / np 8``: the ~3 MiB placement spread is
+#: inside the 62 MiB margin the reading leaves, and it over-states rather than
+#: under-states.
+#:
 #: Absent an entry, the bound stands: an architecture nobody has probed gets
 #: the conservative number, which is the direction that costs throughput rather
 #: than the one that admits a cell that OOMs at load.
 #: -> ``records/evidence/2026-09-05-context-decomposition/``
 MEASURED_SCRATCH_MIB = {
-    "deepseek2": 259.5,
-    "gptoss": 302.1,
-    "qwen35moe": 302.7,
-    "nemotron_h_moe": 521.2,
+    "deepseek2": {256: 259.5},
+    "gptoss": {256: 302.1},
+    "qwen35moe": {256: 302.7, 512: 316.57},
+    "nemotron_h_moe": {256: 521.2},
 }
 
 #: llama.cpp pads the sliding-window cache to a multiple of this. Measured at
@@ -384,15 +395,21 @@ class Placement:
         return self.predicted_mib + self.allowance_mib
 
 
-def allowance_mib(geometry: dict[str, Any]) -> float:
+def allowance_mib(geometry: dict[str, Any], *, n_ubatch: int = 512) -> float:
     """The working room this checkpoint must have past its own prediction.
 
-    Its own measured compute buffer where one has been probed, and
-    :data:`SCRATCH_AND_CONTEXT_MIB` otherwise. See
-    :data:`MEASURED_SCRATCH_MIB` for why the bound is the wrong number to
-    judge a placement with and the right one to derive a floor from.
+    Its own measured compute buffer at exactly ``n_ubatch`` where one has been
+    probed, and :data:`SCRATCH_AND_CONTEXT_MIB` otherwise -- including a batch
+    the architecture has no reading for, because the compute half of this
+    quantity grows with ``-ub`` and a reading is only the allowance at the
+    batch it was read at. See :data:`MEASURED_SCRATCH_MIB` for why the bound is
+    the wrong number to judge a placement with and the right one to derive a
+    floor from.
     """
-    return MEASURED_SCRATCH_MIB.get(str(geometry.get("arch")), SCRATCH_AND_CONTEXT_MIB)
+    readings = MEASURED_SCRATCH_MIB.get(str(geometry.get("arch")))
+    if readings is None:
+        return SCRATCH_AND_CONTEXT_MIB
+    return readings.get(n_ubatch, SCRATCH_AND_CONTEXT_MIB)
 
 
 def explain(
@@ -421,7 +438,7 @@ def explain(
     )
     return Placement(
         predicted_mib=predicted / (1 << 20),
-        allowance_mib=allowance_mib(geometry),
+        allowance_mib=allowance_mib(geometry, n_ubatch=n_ubatch),
     )
 
 
