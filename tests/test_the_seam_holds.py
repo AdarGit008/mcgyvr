@@ -106,9 +106,6 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.fleet.ids",
     "mcgyvr.fleet.layout",
     "mcgyvr.fleet.lock",
-    "mcgyvr.fleet.observe",
-    "mcgyvr.fleet.rig",
-    "mcgyvr.fleet.unit",
     "mcgyvr.initialize",
     "mcgyvr.pool",
     "mcgyvr.propose",
@@ -133,13 +130,12 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: ``mcgyvr.pool``'s other half — a caller that sees a ladder of rungs and has
 #: not resolved one to anything that runs. The contract and the exploration
 #: that produces one (contract, orchestrator.*, docgen), the climb through the
-#: ladder (route, escalate, attempt, drive, consensus, waves, deterministic,
-#: rename, repair, verify, pending, deliver, cleanup), what a worker is sent
+#: ladder (route, escalate, drive, consensus, deterministic, rename, repair,
+#: verify, deliver, cleanup), what a worker is sent
 #: and what may be read back (worker.*), what judges the change (gate.*,
-#: scope), and what the run leaves behind for the caller (result, record,
-#: session, telemetry).
+#: scope), and what the run leaves behind for the caller (result, session,
+#: telemetry).
 ABOVE_THE_SEAM: tuple[str, ...] = (
-    "mcgyvr.attempt",
     "mcgyvr.cleanup",
     "mcgyvr.consensus",
     "mcgyvr.contract",
@@ -172,8 +168,6 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.orchestrator.repo",
     "mcgyvr.orchestrator.resolve",
     "mcgyvr.orchestrator.symbols",
-    "mcgyvr.pending",
-    "mcgyvr.record",
     "mcgyvr.rename",
     "mcgyvr.repair",
     "mcgyvr.result",
@@ -182,12 +176,10 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.session",
     "mcgyvr.telemetry",
     "mcgyvr.verify",
-    "mcgyvr.waves",
     "mcgyvr.worker",
     "mcgyvr.worker.bundle",
     "mcgyvr.worker.prompt",
     "mcgyvr.worker.reply",
-    "mcgyvr.worker.scoped",
 )
 
 #: Action 15 — the modules both halves import, written down. Each is read from

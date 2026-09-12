@@ -465,7 +465,7 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
     """The finding for source the parser will not even be handed.
 
     :func:`_read` decodes with ``surrogateescape`` deliberately — that is the
-    byte convention the rest of mcgyvr is written to (:mod:`mcgyvr.pending`),
+    byte convention the rest of mcgyvr is written to (``mcgyvr.pending``),
     and it is what lets a file with an undecodable byte reach the gate at all
     instead of raising on the way in. ``compile()`` refuses such a string:
     ``ast.parse`` answers a lone surrogate with ``UnicodeEncodeError``, which is

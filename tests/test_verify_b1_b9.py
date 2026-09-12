@@ -36,16 +36,14 @@ from mcgyvr.config import parse
 from mcgyvr.consensus import ConsensusError, best_of
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.deliver import Delivery, deliver
+from mcgyvr.deliver import deliver
 from mcgyvr.deterministic import tool_steps
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
 from mcgyvr.gate import ChangeSet, Gate, GateResult
 from mcgyvr.lines import parser_lines
-from mcgyvr.pending import resume, stash
 from mcgyvr.pool import source_map
 from mcgyvr.repair import _insert_imports, repair
 from mcgyvr.route import Verdict
-from mcgyvr.waves import run_waves
 
 KEYLESS = """
 version: 1
@@ -361,44 +359,8 @@ def test_b5_repair_does_not_write_through_a_hard_link_out_of_scope(
     )
 
 
-def test_b6_gate_rejected_bytes_do_not_reach_the_repository_through_resume(
-    tmp_path: Path,
-) -> None:
-    target = "src/pkg/fetch.py"
-    repo = make_repo(tmp_path / "work", {target: "def fetch(url):\n    return url\n"})
-    base = git(repo, "rev-parse", "HEAD").strip()
-    contract = work_contract(target)
-
-    held = UNFORMATTED  # what the caller is holding
-    (repo / target).write_text(held)
-    assert not Gate().run(ChangeSet.detect(repo, base), contract.scope).accepted
-    repair(repo=repo, contract=contract, base=base)
-    assert Gate().run(ChangeSet.detect(repo, base), contract.scope).accepted
-    git(repo, "checkout", "-q", "--", target)
-
-    stash(store=tmp_path / "store", repo=repo, contract=contract, content=held)
-    resume(
-        store=tmp_path / "store",
-        repo=repo,
-        task=contract.id,
-        verify=lambda _: True,
-        base=base,
-    )
-
-    assert Gate().run(ChangeSet.detect(repo, base), contract.scope).accepted, (
-        "what was committed is what the gate rejected"
-    )
 
 
-def test_b8_a_refused_delivery_is_not_reported_as_a_completion() -> None:
-    contract = work_contract("src/pkg/fetch.py")
-    refused = Delivery(committed=False, reason="the working tree is dirty", path="p")
-
-    run = run_waves([contract], lambda _: refused)
-
-    assert run.failed == ((contract.id, "the working tree is dirty"),), (
-        f"a refused delivery was reported as a completion: {run}"
-    )
 
 
 def test_b4_pattern_repair_does_not_splice_an_import_into_a_docstring(

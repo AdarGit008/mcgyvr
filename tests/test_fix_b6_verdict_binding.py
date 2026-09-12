@@ -43,7 +43,6 @@ from mcgyvr.consensus import ConsensusError, best_of
 from mcgyvr.contract import Contract, loads
 from mcgyvr.deliver import DeliveryError, deliver
 from mcgyvr.gate import ChangeSet, Gate, GateResult
-from mcgyvr.pending import resume, stash
 from mcgyvr.repair import repair
 from mcgyvr.sandbox import SandboxError, open_sandbox
 
@@ -245,37 +244,6 @@ def test_delivery_does_not_take_a_callers_word_for_an_acceptance(
     assert git(repo, "status", "--porcelain").strip() == ""
 
 
-def test_a_resume_does_not_finish_work_no_gate_accepted(tmp_path: Path) -> None:
-    """``pending.resume`` is the only production caller of ``deliver``.
-
-    It stashes what the caller was holding, and a recovery run hands those bytes
-    straight to delivery. Measured: the stash held the bytes the gate rejected,
-    a stub verifier approved, and the rejected bytes were committed — after
-    which the gate rejects what is in the repository.
-    """
-    target = "src/pkg/fetch.py"
-    original = "def fetch(url):\n    return url\n"
-    repo = make_repo(tmp_path / "repo", {target: original})
-    contract = contract_for(target)
-    store = tmp_path / "pending"
-
-    stash(store=store, repo=repo, contract=contract, content=UNFORMATTED)
-    head = git(repo, "rev-parse", "HEAD").strip()
-
-    recovered = resume(
-        store=store,
-        repo=repo,
-        task=contract.id,
-        verify=lambda _text: True,
-        base=head,
-    )
-
-    assert not recovered.completed, (
-        f"a resume committed bytes no gate accepted: {recovered}"
-    )
-    assert git(repo, "rev-parse", "HEAD").strip() == head
-    assert (repo / target).read_text() == original
-    assert git(repo, "status", "--porcelain").strip() == ""
 
 
 def test_the_repaired_bytes_are_the_ones_that_reach_the_repository(

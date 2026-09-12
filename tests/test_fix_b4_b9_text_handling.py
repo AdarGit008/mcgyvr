@@ -46,7 +46,6 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate import ChangeSet, Finding, Gate, GateResult
 from mcgyvr.gate.adapter import ToolFailedError
 from mcgyvr.gate.adapters import PythonAdapter
-from mcgyvr.pending import PendingError, stash
 from mcgyvr.pool import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.sandbox import Sandbox
@@ -160,55 +159,8 @@ def test_a_surrogate_escaped_reply_does_not_crash_the_cleanup(repo: Path) -> Non
     assert outcome.accepted, "a cleanup that could not run overturned the gate"
 
 
-def test_the_stash_holds_a_surrogate_escaped_reply_byte_for_byte(
-    repo: Path, contract: Contract, tmp_path: Path
-) -> None:
-    """The store's first documented property, against the bytes that motivate it.
-
-    ``utf-8``/``surrogateescape`` is what the module says it stores through, and
-    the assertion is on the bytes on disk rather than on the call returning: a
-    stash that wrote a replacement character would also "not crash", and
-    re-verifying bytes nobody gated is the failure the store exists to prevent.
-    """
-    content = _off_the_wire("\\udc80")
-    store = tmp_path / "pending"
-
-    record = stash(store=store, repo=repo, contract=contract, content=content)
-
-    want = content.encode("utf-8", "surrogateescape")
-    held = [
-        path
-        for path in sorted(store.rglob("*"))
-        if path.is_file() and path.read_bytes() == want
-    ]
-    assert held, (
-        "the stash does not hold the accepted bytes exactly; what was gated and "
-        "what would be resumed are not the same file"
-    )
-    assert record.size == len(want)
 
 
-def test_the_stash_reports_bytes_it_cannot_write_as_its_own_error(
-    repo: Path, contract: Contract, tmp_path: Path
-) -> None:
-    """A lone high surrogate has no byte form, and that is a store failure.
-
-    ``surrogateescape`` round-trips the bytes a filesystem or a decode produced
-    and cannot encode a ``\\ud800`` that only ever existed as a JSON escape. The
-    store is the module whose job is turning "this could not be written" into a
-    named error, so a caller learns which task is unstashable rather than
-    catching a codec exception from three frames down — and nothing is left
-    behind in the store on the way out.
-    """
-    content = _off_the_wire("\\ud800")
-    store = tmp_path / "pending"
-
-    with pytest.raises(PendingError):
-        stash(store=store, repo=repo, contract=contract, content=content)
-
-    assert [path for path in store.rglob("*")] == [], (
-        "a failed stash left an entry behind"
-    )
 
 
 def test_best_of_gates_the_bytes_it_returns(repo: Path, contract: Contract) -> None:

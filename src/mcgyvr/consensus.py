@@ -321,7 +321,7 @@ def _draw(
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             # `write_bytes` under `surrogateescape`, the same way
-            # :func:`mcgyvr.pending.stash` stores accepted work: `write_text`
+            # ``mcgyvr.pending.stash`` stores accepted work: `write_text`
             # encodes with the platform's preferences under `strict` and
             # translates line endings, so the draw the gate judged would not be
             # the draw returned as the winner. A verdict about a file nobody
