@@ -1908,7 +1908,7 @@ def _scan(args: argparse.Namespace) -> int:
     """
     measured = scan_module.scan()
     root = scan_module.default_root()
-    prior = scan_module.load_prior(scan_module.machine_id(measured), root)
+    prior = scan_module.load_prior(scan_module.os_machine_id(measured), root)
     drift = scan_module.compare(measured, prior)
     # Recorded before anything is reported, and recorded even when it
     # disagrees with the last scan. A mismatch is a successful measurement of a
@@ -2335,10 +2335,10 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     return resolved
 
 
-def _local_scan(scans: dict[str, Scan], machine_id: str) -> Scan | None:
+def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
     """The recorded scan of this very machine, or None if it has never run one."""
     for recorded in scans.values():
-        if recorded.machine.id == machine_id:
+        if recorded.machine.id == os_machine_id:
             return recorded
     return None
 
@@ -2512,6 +2512,41 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
         args.session = resolve(args.orchestrator)
     except SessionError as exc:
         run.error(str(exc))
+
+
+def _fleet_lock(args: argparse.Namespace) -> int:
+    """Write the fleet lock from the fleet, evidence and policy files named."""
+    import json
+
+    from mcgyvr.fleet.lock import LockRefusedError, write
+
+    root = Path(args.root)
+    fleet = json.loads(Path(args.fleet).read_text(encoding="utf-8"))
+    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    policy = None
+    if args.policy:
+        policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
+    #: Placeholder tolerances: the rule is pinned, the values are measured.
+    tolerances = {"warm_decode_pct": {"vllm": 3.0, "llama.cpp": 5.0}}
+    try:
+        write(root, fleet, evidence, policy=policy, tolerances=tolerances)
+    except LockRefusedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"locked: {root / 'records' / 'fleet'}")
+    return 0
+
+
+def _fleet_alerts(args: argparse.Namespace) -> int:
+    """List the combinations the journal holds pulled, unit and field each."""
+    from mcgyvr.fleet.alerts import pulled
+
+    journal = Path(args.journal)
+    root = Path(args.root)
+    for combination, entries in pulled(journal, root).items():
+        for entry in entries:
+            print(f"{combination} {entry['unit_id']} {entry['field']}")
+    return 0
 
 
 def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
@@ -2935,6 +2970,58 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         ),
     )
     rd.set_defaults(func=_read)
+
+    fleet = sub.add_parser(
+        "fleet",
+        help="lock a fleet, and read what the lock approves",
+    )
+    fleet_sub = fleet.add_subparsers(dest="fleet_command", required=True)
+    flock = fleet_sub.add_parser(
+        "lock",
+        help="write the fleet lock from passing dev runs (records/fleet/)",
+    )
+    flock.add_argument(
+        "--fleet",
+        required=True,
+        metavar="PATH",
+        help="fleet to lock (units, rigs, fleets) as JSON",
+    )
+    flock.add_argument(
+        "--evidence",
+        required=True,
+        metavar="PATH",
+        help="dev-run evidence (rig cards, combination validations, moves) as JSON",
+    )
+    flock.add_argument(
+        "--policy",
+        default=None,
+        metavar="PATH",
+        help="policy whose ladder must name only fleet units (JSON; default: none)",
+    )
+    flock.add_argument(
+        "--root",
+        default=".",
+        metavar="DIR",
+        help="where records/fleet/ is written (default: current directory)",
+    )
+    flock.set_defaults(func=_fleet_lock)
+    falerts = fleet_sub.add_parser(
+        "alerts",
+        help="list the combinations the journal holds pulled",
+    )
+    falerts.add_argument(
+        "--journal",
+        required=True,
+        metavar="DIR",
+        help="where the journal was filed",
+    )
+    falerts.add_argument(
+        "--root",
+        default=".",
+        metavar="DIR",
+        help="where records/fleet/ is read (default: current directory)",
+    )
+    falerts.set_defaults(func=_fleet_alerts)
 
     run = sub.add_parser(
         "run",

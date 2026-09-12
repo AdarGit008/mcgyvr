@@ -72,9 +72,12 @@ BIG = "big-7b"
 WINDOW = 4096
 
 
-def _config(compose_dir: Path, *, switch: bool = True) -> str:
+def _config(
+    compose_dir: Path, *, switch: bool = True, profile: str | None = None
+) -> str:
     return f"""
 version: 1
+{f"profile: {profile}" if profile else ""}
 sources:
   rig_lite:
     base_url: "http://{HOST}:8080"
@@ -228,7 +231,7 @@ def test_a_wake_that_cannot_say_which_spec_starts_nothing_and_says_so(
 ) -> None:
     """No door is spawned, and the operator is told why — not left with silence."""
     out, config, declare = install
-    declare(_config(out))
+    declare(_config(out, profile="dev"))
     assert _emit(out) == Exit.OK, capsys.readouterr()
     _stale(out)
 
@@ -265,7 +268,7 @@ def test_a_host_of_alternatives_is_not_no_launch_spec(
     ``emit`` had just written two launch specs for.
     """
     out, config, declare = install
-    declare(_config(out))
+    declare(_config(out, profile="dev"))
     assert _emit(out) == Exit.OK, capsys.readouterr()
 
     from mcgyvr.serving import cards

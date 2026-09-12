@@ -1,0 +1,35 @@
+```python
+def steer_forklift(aisles: int, bays: int, moves: list) -> list:
+    if not isinstance(aisles, int) or aisles <= 0:
+        raise ValueError("Aisle count must be a positive integer")
+    if not isinstance(bays, int) or bays <= 0:
+        raise ValueError("Bay count must be a positive integer")
+    
+    position = [0, 0]
+    
+    for move in moves:
+        if move == "north":
+            if position[1] > 0:
+                position[1] -= 1
+            else:
+                raise ValueError("Move would carry the forklift off the floor")
+        elif move == "south":
+            if position[1] < bays - 1:
+                position[1] += 1
+            else:
+                raise ValueError("Move would carry the forklift off the floor")
+        elif move == "east":
+            if position[0] < aisles - 1:
+                position[0] += 1
+            else:
+                raise ValueError("Move would carry the forklift off the floor")
+        elif move == "west":
+            if position[0] > 0:
+                position[0] -= 1
+            else:
+                raise ValueError("Move would carry the forklift off the floor")
+        else:
+            raise ValueError(f"Invalid move: {move}")
+    
+    return position
+```

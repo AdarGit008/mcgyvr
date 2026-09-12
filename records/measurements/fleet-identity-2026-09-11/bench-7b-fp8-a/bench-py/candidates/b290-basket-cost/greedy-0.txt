@@ -1,0 +1,20 @@
+```python
+def line_cost(price: int, quantity: int) -> int:
+    """Return the total cost for a single line of items."""
+    if price < 0 or quantity < 0:
+        raise ValueError("Price and quantity must be non or zero.")
+    return price * quantity
+
+def basket_cost(lines: list[list[int]]] -> int:
+    """Calculate the total cost for a basket of items, apply a whole-percent discount."""
+    if not all(len(line)            raise ValueError("Each line must contain exactly two elements: price and quantity.")
+    
+    total = sum(line_cost(*line) for line in lines)
+    if total == 0:
+        return 0
+    
+    discount = total // 100
+    discounted_total = total - discount
+    
+    return discounted_total
+```

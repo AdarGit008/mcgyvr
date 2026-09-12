@@ -1,0 +1,52 @@
+```python
+"""An installation order for packages under prerequisite pairs."""
+
+from typing import List
+
+def install_order(packages: List[str], requires: List[List[str]]) -> List[str]:
+    if len(set(packages)) != len(packages):
+        raise ValueError("Duplicate package names are not allowed.")
+    
+    for pkg, needed in requires:
+        if pkg not in packages or needed not in packages:
+            raise ValueError("Package names in requirements must be valid.")
+    
+    needs = {name: 0 for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, needed in requires:
+        needs[pkg] += 1
+        enables[needed].append(pkg)
+    
+    def has_cycle(start, visited, rec_stack):
+        visited.add(start)
+        rec_stack.add(start)
+        
+        for neighbor in enables[start]:
+            if neighbor not in visited:
+                if has_cycle(neighbor, visited, rec_stack):
+                    return True
+            elif neighbor in rec_stack:
+                return True
+        
+        rec_stack.remove(start)
+        return False
+    
+    visited = set()
+    for pkg in packages:
+        if pkg not in visited:
+            if has_cycle(pkg, visited, set()):
+                raise ValueError("Circular dependency detected.")
+    
+    ready = [name for name in packages if needs[name] == 0]
+    order = []
+    while ready:
+        next_name = min(sorted(ready))
+        ready.remove(next_name)
+        order.append(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                ready.append(follower)
+    
+    return order
+```

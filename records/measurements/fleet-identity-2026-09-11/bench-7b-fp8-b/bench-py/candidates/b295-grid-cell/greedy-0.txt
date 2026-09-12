@@ -1,0 +1,14 @@
+```python
+import string
+
+from typing import List
+
+def cell_name(row: int, col: int) -> str:
+    if col < 0 or row < 0:
+        raise ValueError("Row and column indices must be non-negative")
+    return ''.join(string(string.ascii_uppercase,[col // 26], chr(ord('A') + col % 26)) + str(row + 1)
+
+def grid_cells(rows: int,       cols: int) -> List[str]:
+    if rows < 0 or cols <        raise ValueError("Rows and columns must be non-negative")
+    return [cell_name(i, j) for i in range(rows) for j in range(cols)]
+```

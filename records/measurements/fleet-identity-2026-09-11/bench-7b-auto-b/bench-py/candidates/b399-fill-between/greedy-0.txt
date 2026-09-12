@@ -1,0 +1,12 @@
+```python
+def fill_between(entries: list, filler: str) -> list:
+    if len(entries) <= 1:
+        return entries
+    
+    filled = []
+    for i in range(len(entries) - 1):
+        filled.extend([entries[i], filler])
+    
+    filled.append(entries[-1])
+    return filled
+```

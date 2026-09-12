@@ -1,0 +1,218 @@
+[
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "label": "s1-qwen36-as-run-1",
+  "start": 1,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 155.11338110797806,
+   "door_unit_s": 134.3,
+   "started_at_to_ready_s": 130.9048080444336
+  },
+  "load_pgmajfault": 10808,
+  "load_pswpout": 44516,
+  "clock_offset_s": 0.4411606788635254,
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "label": "s1-qwen36-as-run-2",
+  "start": 2,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 151.98491027503042,
+   "door_unit_s": 132.3,
+   "started_at_to_ready_s": 130.4431688785553
+  },
+  "load_pgmajfault": 10649,
+  "load_pswpout": 52800,
+  "clock_offset_s": 0.4241220951080322,
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "label": "s1-qwen36-as-run-3",
+  "start": 3,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 154.19343596301042,
+   "door_unit_s": 132.9,
+   "started_at_to_ready_s": 130.47438383102417
+  },
+  "load_pgmajfault": 10568,
+  "load_pswpout": 50410,
+  "clock_offset_s": 0.4333462715148926,
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "label": "s1-ling-as-run-1",
+  "start": 1,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 83.50706840201747,
+   "door_unit_s": 64.1,
+   "started_at_to_ready_s": 63.508522510528564
+  },
+  "load_pgmajfault": 5379,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.43787717819213867,
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "label": "s1-ling-as-run-2",
+  "start": 2,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 83.42376381100621,
+   "door_unit_s": 63.8,
+   "started_at_to_ready_s": 63.73439359664917
+  },
+  "load_pgmajfault": 5254,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.43827128410339355,
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "label": "s1-ling-as-run-3",
+  "start": 3,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 82.94967594696209,
+   "door_unit_s": 63.6,
+   "started_at_to_ready_s": 63.20320177078247
+  },
+  "load_pgmajfault": 5249,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.4227285385131836,
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-alone-1",
+  "start": 1,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 117.60841324197827,
+   "door_unit_s": 98.6,
+   "started_at_to_ready_s": 96.32413363456726
+  },
+  "load_pgmajfault": 17213,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.4198474884033203,
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "label": "s2-3b-alone-1",
+  "start": 1,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 116.08853055804502,
+   "door_unit_s": 96.9,
+   "started_at_to_ready_s": 93.71478581428528
+  },
+  "load_pgmajfault": 17211,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.42357468605041504,
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "label": "s2-3b-alone-2",
+  "start": 2,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 115.20047062297817,
+   "door_unit_s": 95.6,
+   "started_at_to_ready_s": 93.40537977218628
+  },
+  "load_pgmajfault": 17213,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.4496150016784668,
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "label": "s2-3b-alone-3",
+  "start": 3,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 115.86713175900513,
+   "door_unit_s": 96.0,
+   "started_at_to_ready_s": 93.33653354644775
+  },
+  "load_pgmajfault": 17233,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.42693567276000977,
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-alone-2",
+  "start": 2,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 115.2167777120485,
+   "door_unit_s": 95.6,
+   "started_at_to_ready_s": 94.23200511932373
+  },
+  "load_pgmajfault": 17207,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.4287881851196289,
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "label": "s2-7b-alone-3",
+  "start": 3,
+  "restart_count": 0,
+  "page_cache_dropped": true,
+  "co_residents": [],
+  "clocks": {
+   "door_process_s": 115.28660324099474,
+   "door_unit_s": 96.4,
+   "started_at_to_ready_s": 95.72324323654175
+  },
+  "load_pgmajfault": 17068,
+  "load_pswpout": 0,
+  "clock_offset_s": 0.42023539543151855,
+  "uptime_since": "2026-09-01T05:20:12Z"
+ }
+]

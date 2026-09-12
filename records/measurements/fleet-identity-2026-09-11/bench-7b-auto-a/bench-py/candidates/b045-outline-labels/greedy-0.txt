@@ -1,0 +1,37 @@
+```python
+from typing import List, Mapping
+
+def number_sections(sections: List[Mapping[str, str]]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+
+    labels = []
+
+    def assign_labels(section_list: List[Mapping[str, str]], prefix: str):
+        for i, section in enumerate(section_list, start=1):
+            if not isinstance(section, dict):
+                raise ValueError("Each section must be a dictionary")
+            if 'heading' not in section or not isinstance(section['heading'], str) or not section['heading']:
+                raise ValueError("Heading must be a non-empty string")
+            if 'children' not in section or not isinstance(section['children'], list):
+                raise ValueError("Children must be a list")
+            labels.append(f"{prefix}{i} {section['heading']}")
+            assign_labels(section['children'], f"{prefix}{i}.")
+
+    assign_labels(sections, "")
+    return labels
+
+def section_count(sections: List[Mapping[str, str]]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+
+    counts = [0]
+
+    def count_sections(section_list: List[Mapping[str, str]]):
+        for _ in section_list:
+            counts[0] += 1
+            count_sections(_['children'])
+
+    count_sections(sections)
+    return counts[0]
+```

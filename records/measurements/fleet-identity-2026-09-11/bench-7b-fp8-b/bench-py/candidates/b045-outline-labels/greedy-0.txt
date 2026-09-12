@@ -1,0 +1,8 @@
+```python
+from typing import List,from collections import defaultdict
+
+def number_sections(       pass
+
+def list_count():
+    pass()
+```

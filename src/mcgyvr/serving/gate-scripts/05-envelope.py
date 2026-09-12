@@ -7,9 +7,10 @@ door READS and never executes:
     # RUN_ARTIFACTS: a.tsv [b.tsv ...]   created here; write-once
     # RUN_REWRITES:  b.tsv [...]         created here, and this step may run
                                          again over it; the existing file is
-                                         admitted only if its `### START`
-                                         carries a run_id THIS step minted, and
-                                         is moved to
+                                         admitted only if its `### START` (or,
+                                         for a JSON artifact, its `run_id`
+                                         field) carries a run_id THIS step
+                                         minted, and is moved to
                                          <name>.superseded-<run_id>.<ext> first
     # RUN_APPENDS:   c.tsv [...]         another step created it; this one adds
                                          to it, and gate 8 checks the prefix
@@ -100,8 +101,26 @@ def declarations(step_file: Path) -> dict[str, list[str]]:
 
 
 def start_run_id(path: Path) -> str | None:
-    match = START_RUN_ID.search(path.read_text(encoding="utf-8", errors="replace"))
-    return match.group(1) if match else None
+    """The run_id an artifact carries, in either of its two shapes.
+
+    A TSV opens with a `### START ... run_id=<id>` stamp; a JSON artifact
+    carries its run_id as a field. Both are written by the step the door
+    admits, and both must say which run produced them before a rewrite may
+    supersede them.
+    """
+    text = path.read_text(encoding="utf-8", errors="replace")
+    match = START_RUN_ID.search(text)
+    if match:
+        return match.group(1)
+    if path.suffix == ".json":
+        try:
+            doc = json.loads(text)
+        except ValueError:
+            return None
+        run_id = doc.get("run_id") if isinstance(doc, dict) else None
+        if isinstance(run_id, str):
+            return run_id
+    return None
 
 
 def step_of_run_id(run_id: str, campaign: str, steps: list[str]) -> str | None:

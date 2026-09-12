@@ -1,0 +1,39 @@
+```python
+from typing import List
+
+def unpack_crates(crate: List) -> List[str]:
+    """Return all item names in a flat list, preserving their order."""
+    if not isinstance(crate, list):
+        raise ValueError("Invalid entry: expected a list")
+    
+    items = []
+    for entry in crate:
+        if isinstance(entry, str):
+            if entry:
+                items.append(entry)
+            else:
+                raise ValueError("Empty string is not allowed")
+        elif isinstance(entry, list):
+            items.extend(unpack_crates(entry))
+        else:
+            raise ValueError(f"Invalid entry: {entry}")
+    
+    return items
+
+def crate_depth(crate: List) -> int:
+    """Return the deepest nesting level of the crate."""
+    if not isinstance(crate, list):
+        raise ValueError("Invalid entry: expected a list")
+    
+    max_depth = 0
+    current_depth = 1
+    
+    for entry in crate:
+        if isinstance(entry, list):
+            depth = crate_depth(entry) + 1
+            if depth > max_depth:
+                max_depth = depth
+        current_depth += 1
+    
+    return max_depth
+```

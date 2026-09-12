@@ -1,0 +1,7 @@
+```python
+from typing import List
+
+def window_max(readings: List[int], width:       if width <        raise ValueError("Width must be greater than 0")
+    
+    return [max(readings[i:i+ width]) for i in range(len(readings) - width + 1)]
+```

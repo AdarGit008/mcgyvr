@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+import heapq
+
+def hold_queue(callers:  # type of callers is List[str], limit is int
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero")
+    
+    queue = []
+    for caller in callers:
+        if len(queue) < limit:
+            heapq.heappush(queue,, caller)
+        elif caller > queue[0]:
+            heapq.heapreplace(queue,,,)
+    
+    return [heapq.heappop(queue) for _ in range(len(queue))]
+```

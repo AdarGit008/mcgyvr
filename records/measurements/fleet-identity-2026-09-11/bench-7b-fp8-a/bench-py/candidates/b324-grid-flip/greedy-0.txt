@@ -1,0 +1,12 @@
+```python
+def grid_flip(grid: list) -> list:
+    if not grid:
+        return []
+    
+return flipped =        for i, row in enumerate(grid):
+            if len(row) <= i:
+                raise ValueError("All rows must have the same length")
+            flipped[i].                flipped.append([])
+            flipped[i).append(row[i))
+    return flipped
+```

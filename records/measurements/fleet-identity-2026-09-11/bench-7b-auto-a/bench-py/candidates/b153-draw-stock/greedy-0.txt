@@ -1,0 +1,15 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    remaining_shelf = shelf.copy()
+    for item, count in order:
+        if not isinstance(item, str) or not isinstance(count, int):
+            raise ValueError("Invalid order line format")
+        if count <= 0:
+            raise ValueError("Order count must be a positive whole number")
+        if item not in remaining_shelf:
+            raise ValueError(f"Item '{item}' not found on shelf")
+        if remaining_shelf[item] < count:
+            raise ValueError(f"Not enough {item} on shelf")
+        remaining_shelf[item] -= count
+    return remaining_shelf
+```

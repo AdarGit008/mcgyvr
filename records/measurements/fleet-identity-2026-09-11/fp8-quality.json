@@ -1,0 +1,22 @@
+{
+ "cells": 257,
+ "passes": {
+  "bench-7b-auto-a": 68,
+  "bench-7b-auto-b": 68,
+  "bench-7b-fp8-a": 6,
+  "bench-7b-fp8-b": 6
+ },
+ "null_flips": {
+  "auto": 0,
+  "fp8": 0
+ },
+ "null_bound_pp": {
+  "auto": 1.4727712144075176,
+  "fp8": 1.4727712144075176
+ },
+ "flips": 62,
+ "drift_pp": 24.124513618677042,
+ "bound_pp": 1.4727712144075176,
+ "verdict": "outside null",
+ "method": "records/evidence/2026-09-03-srv1-kernel-arms/correctness.json (flips vs own-null 95% Wilson upper)"
+}

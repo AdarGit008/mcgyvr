@@ -1,0 +1,59 @@
+```python
+import re
+
+def split_segments(path: str) -> list:
+    """Split a path into segments, rejecting invalid paths."""
+    if not isinstance(path, str) or not path.startswith('/') or path == '/':
+        raise ValueError("Invalid path")
+    segments = path[1:].split('/')
+    if '' in segments or path.endswith('/'):
+        raise ValueError("Invalid path")
+    return segments
+
+def match_route(pattern: str, path: str) -> dict | None:
+    """Match a route pattern against a path, returning captures or None."""
+    segments = split_segments(path)
+    pattern_segments = split_segments(pattern)
+    
+    if '**' in pattern_segments and pattern_segments.count('**') > 1:
+        raise ValueError("Pattern cannot have more than one '**'")
+    
+    captures = {}
+    i, j = 0, 0
+    
+    while i < len(segments) and j < len(pattern_segments):
+        p_segment = pattern_segments[j]
+        
+        if p_segment == '**':
+            captures[f'**'] = '/'.join(segments[i:])
+            break
+        
+        if p_segment.startswith(':'):
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', p_segment[1:]):
+                raise ValueError(f"Invalid capture name: {p_segment}")
+            captures[p_segment[1:]] = segments[i]
+            i += 1
+        elif p_segment != segments[i]:
+            return None
+        
+        i += 1
+        j += 1
+    
+    if i != len(segments) or j != len(pattern_segments):
+        return None
+    
+    return captures
+
+def first_route(patterns: list, path: str) -> int:
+    """Find the index of the first matching route pattern."""
+    try:
+        segments = split_segments(path)
+    except ValueError:
+        return -1
+    
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path) is not None:
+            return i
+    
+    return -1
+```

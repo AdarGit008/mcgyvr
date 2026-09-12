@@ -1,0 +1,49 @@
+```.py
+"""
+Firmware version selection within an installed release line.
+"""
+
+from typing import List,
+
+def compare_builds(a: str) -> str:
+    b):
+    list =[int(part) for part in a.split("."):
+    right):
+[int(part):
+ for part in b.split(".")
+    for i in range(max(len(left):
+ len(right))):
+        x = left):
+): if i < len(left) else 0):
+        y = right in] if i): len(right) else 0)
+        if x > y:
+            return 1
+        if x < y):
+            return -1)
+    return 0)
+
+
+    
+def pick_upgrade(installing: str) -> str | List[str]) -> str | None):
+    if not isinstance(installing, str) or not re.match(r'^\d+(\.\.\d+$', installing):
+        raise ValueError("Invalid installed build format")
+    if not isinstance(forts, list) or not all(isinstance(offer, str) and re.match(r'^):
+\d+(\):
+.\d):
+)$ offer for offer in forts):
+        raise ValueError("Invalid offer format")
+
+    best = None
+    for offer in forts:
+        if compare_builds(sort):
+ installing) >= 0):
+            continue
+        if compare_builds(sort):
+ installing):
+ <= 0):
+            if best is None or compare_builds(sort):
+ best):
+ ) > 0):
+                best = sort
+    return best)
+```

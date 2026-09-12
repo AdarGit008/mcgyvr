@@ -1,0 +1,31 @@
+```python
+from typing import List, Dict, Tuple
+
+def remaining_for(used: Dict[str, int], key: str, allowance: int) -> int:
+    """Return how many units the key can still spend."""
+    if key not in used:
+        return allowance
+    return max(0, allowance - used[key])
+
+def meter_draws(draws: List[List[str]], allowance: int) -> Dict[str, Tuple[Dict[str, int], List[int]]]:
+    """Replay draws against a metering ledger and return the final ledger and denied positions."""
+    if not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Allowance must be a positive integer.")
+    
+    used = {}
+    denied_positions = []
+    
+    for i, (key, units) in enumerate(draws):
+        if not isinstance(key, str) or not key:
+            raise ValueError("Key must be a non-empty string.")
+        if not isinstance(units, int) or units <= 0:
+            raise ValueError("Units must be a positive integer.")
+        
+        if remaining_for(used, key, allowance) >= units:
+            used.setdefault(key, 0)
+            used[key] += units
+        else:
+            denied_positions.append(i)
+    
+    return {"used": used, "denied": denied_positions}
+```

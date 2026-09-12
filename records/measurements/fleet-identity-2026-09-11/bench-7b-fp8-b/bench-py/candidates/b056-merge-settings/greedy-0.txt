@@ -1,0 +1,44 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict)       if not isinstance(ours, dict) or not isinstance(theirs, dict):
+        raise ValueError("Both 'ours' and 'theirs' must be dictionaries.")
+
+    merged = {}
+    for key in set(base.keys()).union(ours.keys()).union(theirs.keys()):
+        base_value =        ours_value = ours.get(key)
+        theirs_value =        theirs.get(key)
+
+        
+        if key in base:
+            base_version = base[key]
+        else:
+            base_version = None
+        
+        if ours_value ==            ours_version = ours_value
+        else
+            ours_version = ''.join(ours_version)
+        
+        if theirs_value:
+            theirs_version = theirs_value):
+        list):
+            theirs_version = ''.join(theirs_version)
+        
+        if base_version ==ours_version and base_version !=theirs_version:
+            if base_version ==ours_version and base_version !=theirs_version:
+                merged[key] =                base_version + theirs_version
+            elif base_version ==ours_version and base_version != theirs_version:
+                merged[key]: =ours_version):
+            elif base_version !=ours_version and base_version !=theirs_version:
+                merged[key]: =                theirs_version):
+            else:
+                raise ValueError(f"Conflict: {key} {base_version}: {ours_version}: {theirs_version}")
+        elif base_version andours_version:
+            merged[key]: =                ours_version):
+        elif base_version):theirs_version:
+            merged[key]:
+                theirs_version):
+        else:
+            merged[key]:
+                base_version):
+    
+    return merged
+```

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# RUN_ARTIFACTS: serve-up.json
+# RUN_REWRITES: serve-up.json
 """The door's serve step, up: start every unit the compose file names and
 leave it running — the one step whose containers gate 7 expects to find.
 

@@ -1,0 +1,19 @@
+```python
+def link_find(line:: str, opens: str, closes:    if len(opens) != 1 or len(closes) != 1:
+        raise ValueError("Markers must be single characters")
+    
+    stack = []
+    result = []
+    
+    for char in line:
+        if char ==            if char in opens:
+                stack.append(char)
+            elif char in closes:
+                if stack and stack[-1] == opens[0]:
+                    result.append(''.join(stack[1:-1]))
+                    stack = []
+                else stack:
+                    continue
+    
+    return result
+```

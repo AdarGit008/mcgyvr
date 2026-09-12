@@ -1,0 +1,12 @@
+```python
+from typing import List, Dict
+
+import statistics
+
+def column_digest(rows: List[List[int]], idx: List[int]:
+    if idx < 0:
+        raise ValueError("Index cannot be negative")
+    
+    cells = [row[idx] for row in rows if len(row) > idx]
+    count = len(cells)
+    min_val =   ```

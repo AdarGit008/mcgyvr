@@ -1,0 +1,10 @@
+```python
+from typing import Dict,List:
+
+    def list_of(record: Dict[str,        if key not in record:
+            raise ValueError(f"Record missing required field '{: {key}")
+        return record[key]
+
+    def list_pairs(records: List[Dict[str]):
+        return sorted(records, key=lambda x: (list_of(x), records.index(x)))
+```

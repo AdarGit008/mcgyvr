@@ -116,6 +116,10 @@ MEASURED_SCRATCH_MIB = {
     "gptoss": {256: 302.1},
     "qwen35moe": {256: 302.7, 512: 316.57},
     "nemotron_h_moe": {256: 521.2},
+    #: 817-829 MiB, measured 2026-09-10 (measuring-gaps Q3,
+    #: records/measurements/measuring-gaps-2026-09-10/README.md); units run at
+    #: -ub 512 (DEFAULT_UBATCH), which is the batch this reading was taken at.
+    "qwen3next": {512: 829.0},
 }
 
 #: llama.cpp pads the sliding-window cache to a multiple of this. Measured at

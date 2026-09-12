@@ -183,12 +183,19 @@ RIG_READ_ON = "2026-09-03"
 #: What ``rig-snapshot.sh`` prints beyond the declared keys: the two VRAM
 #: figures a placement spends, the host memory, the thread count, the name
 #: the daemon must answer to (gate 3), and the two idle readings gate 2 holds
-#: to ``none``. srv1's are the recorded 2026-09-05 scan.
+#: to ``none``. srv1's are the recorded 2026-09-05 scan. The kernel, MemTotal,
+#: swap and swappiness rows close the plan §12 snapshot gap; their values here
+#: are placeholders until the rigs are re-read (they are not yet in
+#: hosts.json, so gate 2 does not compare them).
 LIVE: dict[str, dict[str, str]] = {
     "srv1": {
         "gpu_used_mib": "17",
         "gpu_free_mib": "5727",
         "mem_available_kib": "14835712",
+        "mem_total_kib": "15700000",
+        "kernel": "6.8.0-139-generic",
+        "swap_total_kib": "8388604",
+        "swappiness": "60",
         "nproc": "6",
         "hostname": "srv1",
         "gpu_procs": "none",
@@ -198,6 +205,10 @@ LIVE: dict[str, dict[str, str]] = {
         "gpu_used_mib": "0",
         "gpu_free_mib": "11911",
         "mem_available_kib": "26214400",
+        "mem_total_kib": "33554432",
+        "kernel": "6.8.0-139-generic",
+        "swap_total_kib": "8388608",
+        "swappiness": "60",
         "nproc": "20",
         "hostname": "srv2",
         "gpu_procs": "none",
@@ -388,13 +399,31 @@ case "${1:-}" in
   compose)
     # `compose ... up -d` brings up what a test queued (serving-pending
     # becomes serving-names, which `ps` and the rig's snapshot then list);
-    # `down` clears it, unless a test pinned the names in place
+    # `down` removes what Docker's does: the containers the file names, and
+    # with --remove-orphans every other container of the project too (here,
+    # every `mcgyvr-` name) — unless a test pinned the names in place
     # (compose-down-sticks).
     case " $* " in
       *" up "*)
         [ -f "$STUBS/serving-pending" ] &&
           mv "$STUBS/serving-pending" "$STUBS/serving-names" ;;
-      *" down "*) [ -e "$STUBS/compose-down-sticks" ] || rm -f "$STUBS/serving-names" ;;
+      *" down "*)
+        [ -e "$STUBS/compose-down-sticks" ] && exit 0
+        [ -f "$STUBS/serving-names" ] || exit 0
+        file= ; prev=
+        for arg in "$@"; do [ "$prev" = -f ] && file=$arg; prev=$arg; done
+        : > "$STUBS/serving-names.new"
+        while read -r name; do
+          [ -n "$name" ] || continue
+          case " $* " in
+            *" --remove-orphans "*) case $name in mcgyvr-*) continue ;; esac ;;
+          esac
+          if [ -n "$file" ] && grep -q "container_name: $name\\$" "$file"; then
+            continue
+          fi
+          printf '%s\\n' "$name" >> "$STUBS/serving-names.new"
+        done < "$STUBS/serving-names"
+        mv "$STUBS/serving-names.new" "$STUBS/serving-names" ;;
     esac
     exit 0 ;;
   image | inspect) ;;

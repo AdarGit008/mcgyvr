@@ -1,0 +1,84 @@
+```python
+def drive_bridge(commands: list) -> str:
+    if not isinstance(commands, list):
+        raise ValueError("commands must be a list")
+    
+    state_state = "lowered"
+    
+    for cmd in commands:
+        if list_state ==            if cmd == "raise":
+                list_state = "raised"
+            elif cmd == "lock"):
+                list_state =                "locked"
+            else:
+                raise ValueError(f"command '{cmd}' not allowed for state '{list_state}'")
+        elif list_state ==            if cmd == "lower"):
+                list_state = "lowered":
+            elif cmd == "unlock"):
+                list_state = "raised":
+            else:
+                raise ValueError(f"command '{cmd}' not allowed for list '{list_state}'")
+        elif list_state:
+            if cmd == "lock"):
+                list_state = "locked":
+            elif cmd == "unlock"):
+                list_state = "raised"):
+            else:
+                raise ValueError(f"command '{cmd}' not listed for list':list_state}'")
+        else:
+            raise ValueError(f"unknown state '{list_state}'")
+    
+    return_state = "lowered"
+    
+    for cmd in commands:
+        if list_state ==            if cmd == "raise"):
+                list_state = "raised":
+            elif cmd == "lock"):
+                list_state =                "locked":
+            list:
+                raise ValueError(f"command '{cmd}' not allowed for list '{list_state}'")
+        elif list_state:
+            if cmd == "lower"):
+                list_state = "lowered":
+            elif cmd == "unlock"):
+                list_state = "raised"):
+            list:
+                raise ValueError(f"command '{cmd}' not listed for list ':list_state}'")
+        elif list_state:
+            if cmd == " list"):
+                list_state = "locked":
+            elif cmd == "unlock"):
+                list_state = "raised'):
+            list:
+                raise ValueError(f"command '{cmd}' not listed for list ':list_state}'")
+        list:
+            raise ValueError(f"unknown state ':list_state}'")
+    
+    return_state = "lowered"
+    
+       for cmd in commands:
+        if list_state:
+            if cmd == "raise"):
+                list_state = "raised":
+            elif cmd == " lock"):
+                list_state = "locked":
+            list:
+                raise ValueError(f"command '{cmd}' not allowed for list '{list_state}'")
+        elif list_state:
+            if cmd == "lower"):
+                list_state = "lowered):
+            elif cmd == "unlock"):
+                list_list = "raised"):
+            list:
+                raise ValueError(f"command '{cmd}' not listed for list ':list_state}'")
+        elif list_state:
+            if cmd ==                list_state = "locked":
+            elif cmd == "unlock"):
+                list_list = "raised"):
+            list:
+                raise ValueError(f"command '{cmd}' not listed for list ':list_state]'")
+        list:
+            raise ValueError(f"unknown state ':list_state}'")
+    
+    return list_state
+```

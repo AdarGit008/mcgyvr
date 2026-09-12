@@ -1,0 +1,9 @@
+```python
+def short_num(value: int) -> str:
+    if value < 1000:
+        return str(value)
+    elif value < 1000000:
+        return f"{value // 1000}k"
+    else:
+        return f"{value // 1000000}m"
+```

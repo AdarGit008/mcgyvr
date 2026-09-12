@@ -1,0 +1,72 @@
+
+=== pin-solo-Qwen-Qwen2.5-Coder-3B-Instruct-1
+
+=== pin-solo-Qwen-Qwen2.5-Coder-3B-Instruct-2
+
+=== pin-solo-Qwen-Qwen2.5-Coder-7B-Instruct-1
+
+=== pin-solo-Qwen-Qwen2.5-Coder-3B-Instruct-1
+    ctx 117 MiB  peak 2870 MiB  P 2319 MiB  kv 12352
+
+=== pin-solo-Qwen-Qwen2.5-Coder-3B-Instruct-2
+    ctx 117 MiB  peak 2870 MiB  P 2319 MiB  kv 12352
+
+=== pin-solo-Qwen-Qwen2.5-Coder-7B-Instruct-1
+    ctx 117 MiB  peak 6772 MiB  P 6185 MiB  kv 8592
+
+=== pin-solo-Qwen-Qwen2.5-Coder-7B-Instruct-2
+    ctx 117 MiB  peak 6772 MiB  P 6185 MiB  kv 8592
+{
+ "rule": "records/plans/fleet-identity-measurements-2026-09-11.md M7 sizing rule",
+ "torch_total_bytes": 12489588736,
+ "contexts_bytes": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 122431734,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 122431734
+ },
+ "non_kv_peak_bytes": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 2431637258,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 6485825290
+ },
+ "tokens_per_unit": 32768,
+ "kv_cache_memory_bytes": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 1207959552,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 1879048192
+ },
+ "shares": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 0.3,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 0.68
+ },
+ "rooms_bytes": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 3746876621,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 8492920341
+ },
+ "margin_bytes": 67108864,
+ "today_shares": {
+  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 0.26,
+  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 0.72
+ }
+}
+
+=== pin-3b_first-1
+    {"Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {"healthy": true, "restart_count": 0, "kv_cache_memory_bytes": 1207959552, "kv_tokens": 32768, "peak_process_mib": 3446}, "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {"healthy": true, "restart_count": 0, "kv_cache_memory_bytes": 1879048192, "kv_tokens": 32768, "peak_process_mib": 7522}}
+    restart Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002: kv 32768 restarts 1
+
+=== pin-3b_first-2
+    {"Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {"healthy": true, "restart_count": 0, "kv_cache_memory_bytes": 1207959552, "kv_tokens": 32768, "peak_process_mib": 3446}, "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {"healthy": true, "restart_count": 0, "kv_cache_memory_bytes": 1879048192, "kv_tokens": 32768, "peak_process_mib": 7522}}
+
+=== pin-7b_first-1
+    {"Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {"healthy": true, "restart_count": 0, "kv_cache_memory_bytes": 1207959552, "kv_tokens": 32768, "peak_process_mib": 3446}, "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {"healthy": true, "restart_count": 0, "kv_cache_memory_bytes": 1879048192, "kv_tokens": 32768, "peak_process_mib": 7522}}
+    restart Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001: kv 32768 restarts 1
+
+=== pin-7b_first-2
+    {"Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {"healthy": true, "restart_count": 0, "kv_cache_memory_bytes": 1207959552, "kv_tokens": 32768, "peak_process_mib": 3446}, "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {"healthy": true, "restart_count": 0, "kv_cache_memory_bytes": 1879048192, "kv_tokens": 32768, "peak_process_mib": 7522}}
+
+=== pin-oversized-share
+    oversized_share: served kv 53712 err None
+
+=== pin-oversized-card
+    oversized_card: failed_at_start kv 217792 err (EngineCore pid=259) ERROR 09-11 07:06:00 [v1/engine/core.py:1330] torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 426.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 98.12 MiB 
+
+=== pin-start-gate
+    start_gate: failed_at_start kv None err (EngineCore pid=253) ERROR 09-11 07:16:16 [v1/engine/core.py:1330] ValueError: Free memory on device cuda:0 (8.15/11.63 GiB) on startup is less than desired GPU memory utilization (0.9, 10.47 GiB). De
+RUNNER srv2-pinned exit=0

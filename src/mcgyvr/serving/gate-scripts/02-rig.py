@@ -101,18 +101,21 @@ def snapshot(host: str) -> dict[str, str]:
 
 
 def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
-    """Remove the containers a displaced run left, by the name its lease gave it.
+    """Remove the containers a displaced run left, by the names that are ours.
 
     The one place the door removes a container it did not start, and the
     exception is the point: run contract §4 says a cell never repairs a
     machine it found wrong, because it cannot know what it found — here it
     can. The lease names the run, the run names its containers
-    (`<RUN_ID>-<role>`), and R1 says the live run may take the rig from it.
+    (`<RUN_ID>-<role>`), and its serve units are named
+    `mcgyvr-<host>-<service>` (`mcgyvr emit`), so both prefixes are torn
+    down: R1 says the live run may take the rig from it, and a displaced
+    dev serve must not keep holding the card.
     """
     if displaced.run_id == "none":
         print(f"{who}: the displaced run had minted no run id; nothing to tear down")
         return
-    prefix = f"{displaced.run_id}-"
+    prefixes = (f"{displaced.run_id}-", "mcgyvr-")
     try:
         listed = subprocess.run(
             ["docker", "ps", "--format", "{{.Names}}"],
@@ -126,11 +129,12 @@ def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
     if listed is None or listed.returncode != 0:
         print(
             f"{who}: the daemon on {host} could not be asked for the displaced "
-            f"run's containers; any named {prefix}* are still up",
+            f"run's containers; any named {displaced.run_id}-* or mcgyvr-* "
+            "are still up",
             file=sys.stderr,
         )
         return
-    names = [n.strip() for n in listed.stdout.splitlines() if n.startswith(prefix)]
+    names = [n.strip() for n in listed.stdout.splitlines() if n.startswith(prefixes)]
     if not names:
         print(f"{who}: nothing of the displaced run ({displaced.run_id}) is up")
         return

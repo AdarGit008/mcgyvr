@@ -1,0 +1,15 @@
+```python
+def trim_caption(text: str, limit: int)    if not isinstance(text, str)        raise ValueError("text must be a string")
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Limit must be a positive integer")
+
+    if len(text) <= limit:
+        return text
+
+    
+    truncated = text[:limit - 1]
+    if truncated[-1] != ' ':
+        return truncated.rstrip()
+    
+       last_index =        return ''.join(list_list).rstrip() + '...'
+```

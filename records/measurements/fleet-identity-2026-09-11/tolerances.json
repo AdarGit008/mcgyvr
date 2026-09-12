@@ -1,0 +1,108 @@
+{
+ "rule": "records/plans/fleet-identity-measurements-2026-09-11.md, M1 tolerance rule",
+ "classes": {
+  "cpu_experts": {
+   "tolerance_pct": 48,
+   "worst_shortfall_pct": 47.83616510669875,
+   "provisional_pct": 15
+  },
+  "llamacpp": {
+   "tolerance_pct": 1,
+   "worst_shortfall_pct": 0.5197560546050873,
+   "provisional_pct": 5
+  },
+  "vllm": {
+   "tolerance_pct": 1,
+   "worst_shortfall_pct": 0.5808294891659948,
+   "provisional_pct": 3
+  }
+ },
+ "units": {
+  "srv1/Qwen3.6-35B-A3B-UD-IQ3_XXS": {
+   "class": "cpu_experts",
+   "approved_tok_s": 31.75790463586947,
+   "baseline_tok_s": 33.133393874324135,
+   "gap_pct": 4.151368385840382,
+   "nvme": "allowed"
+  },
+  "srv1/Ling-3.0-tiny-Q4_K_M": {
+   "class": "llamacpp",
+   "approved_tok_s": 116.64320079921177,
+   "baseline_tok_s": 116.65376613252964,
+   "gap_pct": 0.009057001473803755,
+   "nvme": "allowed"
+  },
+  "srv2/Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {
+   "class": "vllm",
+   "approved_tok_s": 127.86046171893969,
+   "baseline_tok_s": 127.85054236344806,
+   "gap_pct": -0.0077585556605886475,
+   "nvme": "allowed"
+  },
+  "srv2/Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {
+   "class": "vllm",
+   "approved_tok_s": 68.87010207711886,
+   "baseline_tok_s": 68.86346844889466,
+   "gap_pct": -0.00963301496949203,
+   "nvme": "allowed"
+  }
+ },
+ "per_unit_arm": {
+  "srv1/Qwen3.6-35B-A3B-UD-IQ3_XXS/baseline": {
+   "median_tok_s": 33.133393874324135,
+   "shortfall_pct": 47.83616510669875,
+   "n": 15,
+   "min": 17.28364887514963,
+   "max": 33.26742469429194
+  },
+  "srv1/Qwen3.6-35B-A3B-UD-IQ3_XXS/as_run": {
+   "median_tok_s": 31.75790463586947,
+   "shortfall_pct": 1.4406765201886773,
+   "n": 15,
+   "min": 31.300375960476586,
+   "max": 33.24730755480525
+  },
+  "srv1/Ling-3.0-tiny-Q4_K_M/baseline": {
+   "median_tok_s": 116.65376613252964,
+   "shortfall_pct": 0.5197560546050873,
+   "n": 15,
+   "min": 116.04745112013096,
+   "max": 116.71671754142413
+  },
+  "srv1/Ling-3.0-tiny-Q4_K_M/as_run": {
+   "median_tok_s": 116.64320079921177,
+   "shortfall_pct": 0.5101114381192292,
+   "n": 15,
+   "min": 116.04819049014661,
+   "max": 116.69161426603034
+  },
+  "srv2/Qwen/Qwen2.5-Coder-3B-Instruct-AWQ/baseline": {
+   "median_tok_s": 127.85054236344806,
+   "shortfall_pct": 0.24138280555936298,
+   "n": 15,
+   "min": 127.5419331373683,
+   "max": 128.2220296879254
+  },
+  "srv2/Qwen/Qwen2.5-Coder-3B-Instruct-AWQ/as_run": {
+   "median_tok_s": 127.86046171893969,
+   "shortfall_pct": 0.5808294891659948,
+   "n": 15,
+   "min": 127.11781045229229,
+   "max": 128.91505833343075
+  },
+  "srv2/Qwen/Qwen2.5-Coder-7B-Instruct-AWQ/baseline": {
+   "median_tok_s": 68.86346844889466,
+   "shortfall_pct": 0.1919763104548906,
+   "n": 15,
+   "min": 68.73126690291521,
+   "max": 68.94891199647451
+  },
+  "srv2/Qwen/Qwen2.5-Coder-7B-Instruct-AWQ/as_run": {
+   "median_tok_s": 68.87010207711886,
+   "shortfall_pct": 0.4429125813392734,
+   "n": 15,
+   "min": 68.5650677302381,
+   "max": 69.03212610469892
+  }
+ }
+}

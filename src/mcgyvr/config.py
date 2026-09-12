@@ -599,26 +599,11 @@ DEFAULT_REQUEST_TIMEOUT_S = 120.0
 # How long `serve up` polls a unit into health after bringing it up: a vLLM
 # server measured 87 s to health on srv2 and llama.cpp 54-129 s on srv1
 # (2026-09-05), so six minutes is three of the slowest with room. The door
-# (`mcgyvr.serving.servelib`) polls by these and `wake_timeout_s` is refused
-# below their product, so both read them from here: `config` is the one module
-# both halves of the seam may import, and the door is not.
+# (`mcgyvr.serving.servelib`) polls by these, so they read them from here:
+# `config` is the one module both halves of the seam may import, and the door
+# is not.
 HEALTH_POLLS = 120
 HEALTH_INTERVAL_S = 3.0
-
-# How long a dispatch waits for a *server to exist* before giving up on a wake.
-#
-# N7 in `records/plans/sleep-wake.md` §16, and the one row on that list a
-# measurement settled rather than a ruling. It was priced from the door's own
-# health budget — `HEALTH_POLLS x HEALTH_INTERVAL_S` = 360 s, below which a
-# caller abandons a wake `serve up` is still working on — before anyone had
-# timed the thing it bounds. The timing exists now and the number survives it:
-# the fleet's worst wake is srv1's ceiling model at 203 s
-# (`records/measurements/wake-2026-09-08/`), and the largest sequenced sum any
-# launch spec on this fleet emits is 2.4 x the 168 s vLLM pair, 403 s
-# (`records/plans/wake-timeout.md` §6). A budget that merely exceeded the worst
-# case would fail the first time a rig was a little slower than the day it was
-# measured, so what 480 buys is the margin and not the bare inequality.
-DEFAULT_WAKE_TIMEOUT_S = 480.0
 
 
 BUDGET_FIELDS: tuple[Field, ...] = (
@@ -669,29 +654,6 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "Wall-clock ceiling for one task, including acceptance commands.",
         default=900,
         min_value=1,
-    ),
-    Field(
-        "wake_timeout_s",
-        "float",
-        "How long a dispatch will wait for a server to *exist*, in seconds. "
-        "Three faults get three numbers here and none is derived from another: "
-        "`request_timeout_s` bounds one reply and is priced from tokens per "
-        "second, `task_timeout_s` bounds a wait for a free slot on a server "
-        "that is already running, and this bounds a wait for the server "
-        "itself. Sharing one knob between the first and this would mean "
-        "setting reply length and boot time with the same number — raise it to "
-        "survive a two-minute boot and every hung request hangs for two "
-        "minutes too. It may not be set below the door's own health budget "
-        "(`HEALTH_POLLS` x `HEALTH_INTERVAL_S`, `mcgyvr/config.py`): "
-        "a caller that gives up while `serve up` is still polling abandons a "
-        "wake the door is still working on and leaves a card half-up, which is "
-        "the one lifecycle state `mcgyvr.wake` cannot name. The default of "
-        "480 s was priced off that floor and has since survived the "
-        "measurement: the fleet's worst wake is srv1's ceiling model at 203 s "
-        "(`records/measurements/wake-2026-09-08/`), which 480 clears twice "
-        "over.",
-        default=DEFAULT_WAKE_TIMEOUT_S,
-        min_value=0.0,
     ),
     Field(
         "max_window_fraction",
@@ -1580,48 +1542,6 @@ def _refuse_userinfo(name: str, base_url: str) -> None:
     )
 
 
-def door_health_budget_s() -> float:
-    """The seconds ``serve up`` will itself spend polling a unit into health.
-
-    The door polls by :data:`HEALTH_POLLS` and :data:`HEALTH_INTERVAL_S`, which
-    :mod:`mcgyvr.serving.servelib` imports from this module, so the refusal
-    below and the door read one pair of numbers and cannot drift apart. They
-    are not read off the door: ``config`` is shared by both halves of the seam,
-    and a shared module that imported :mod:`mcgyvr.serving.servelib` would pull
-    the door into everything that reads a config
-    (``tests/test_the_seam_holds.py``).
-    """
-    return HEALTH_POLLS * HEALTH_INTERVAL_S
-
-
-def _refuse_a_wake_budget_below_the_doors(data: Mapping[str, Any]) -> None:
-    """A caller may not give up on a wake while the door is still working on it.
-
-    ``serve up`` brings the launch spec up and then polls each unit into health
-    for :func:`door_health_budget_s` seconds. A ``wake_timeout_s`` below that
-    abandons the wake mid-flight and leaves a card **half-up** — some units
-    answering and some not — which ``records/plans/sleep-wake.md`` D2 names as
-    the one lifecycle state the reading cannot name and must not act on: gate 2
-    refuses ``serve up`` onto a rig that is not idle, so a half-up card cannot
-    even be repaired by waking it again.
-
-    Named at the one moment both numbers are in hand rather than quietly raised
-    to the floor, which is the shape ``Capacity.of`` uses for a width
-    disagreement: two answers to one question, and the operator is told which
-    two.
-    """
-    stated = data["budgets"]["wake_timeout_s"]
-    floor = door_health_budget_s()
-    if stated is not None and stated < floor:
-        raise ConfigSchemaError(
-            f"budgets.wake_timeout_s: {stated:g}s is below the {floor:g}s the "
-            f"serving door itself spends polling a unit into health, so a wake "
-            f"would be abandoned while `serve up` was still working on it and "
-            f"the card left half-up. Set it to {floor:g} or more, or leave it "
-            f"unset for the default of {DEFAULT_WAKE_TIMEOUT_S:g}."
-        )
-
-
 def _cross_validate(data: Mapping[str, Any]) -> None:
     """Reject configs that satisfy the schema but contradict themselves."""
     sources: Mapping[str, Any] = data["sources"]
@@ -1657,8 +1577,6 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
                 f"{role}.source: {bound!r} is not a declared source. "
                 f"Declared: {', '.join(sorted(sources))}"
             )
-
-    _refuse_a_wake_budget_below_the_doors(data)
 
     if data["verifier"]["enabled"] and data["verifier"]["source"] is None:
         raise ConfigSchemaError(

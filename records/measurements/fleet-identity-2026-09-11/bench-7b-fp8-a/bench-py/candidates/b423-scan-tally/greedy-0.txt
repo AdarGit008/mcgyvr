@@ -1,0 +1,17 @@
+```python
+def list_value(step:          if step == "+        return 1
+    if step:
+        return -1
+    return 0):
+
+    
+def scan_tally(steps: list)    """
+    The list total after each instruction.
+    """
+    total = 0
+    results = []
+    for step in steps:
+        total += list_value(step)
+        results.append(total)
+    return results
+```

@@ -1,0 +1,15 @@
+```python
+def kettle_hold(readings: list[int], target:    if not readings:
+        return 0
+    
+    hold_count = False
+    count = 0
+    
+    for temp in reversed(readings):
+        if temp < limit:
+            do_count = True
+        elif do_count:
+            count += 1
+    
+    return count
+```

@@ -138,7 +138,11 @@ def test_sleeping_the_card_takes_both_rungs_down_in_one_door_run(
     """
     specs = compose_dir(tmp_path, with_spec=True)
     config = config_file(
-        tmp_path / "on.yaml", journal=tmp_path / "j", specs=specs, switch=True
+        tmp_path / "on.yaml",
+        journal=tmp_path / "j",
+        specs=specs,
+        switch=True,
+        profile="dev",
     )
     spawned = door_log(monkeypatch)
 
@@ -171,7 +175,11 @@ def test_an_operators_own_sleep_is_not_gated_by_the_automatic_switch(
     """
     specs = compose_dir(tmp_path, with_spec=True)
     config = config_file(
-        tmp_path / "off.yaml", journal=tmp_path / "j", specs=specs, switch=False
+        tmp_path / "off.yaml",
+        journal=tmp_path / "j",
+        specs=specs,
+        switch=False,
+        profile="dev",
     )
     spawned = door_log(monkeypatch)
 
@@ -202,7 +210,11 @@ def test_a_dispatch_in_flight_is_never_cut_by_a_sleep(
 
     specs = compose_dir(tmp_path, with_spec=True)
     config = config_file(
-        tmp_path / "on.yaml", journal=tmp_path / "j", specs=specs, switch=True
+        tmp_path / "on.yaml",
+        journal=tmp_path / "j",
+        specs=specs,
+        switch=True,
+        profile="dev",
     )
     spawned = door_log(monkeypatch)
 

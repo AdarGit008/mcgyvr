@@ -385,7 +385,7 @@ def _over_ssh(
     return ssh(host, command, input=stdin)
 
 
-def machine_id() -> str:
+def os_machine_id() -> str:
     """What tells this machine from another with the same hostname.
 
     systemd's machine id where there is one — two cloud images or containers
@@ -497,7 +497,7 @@ class Lease:
         that machine is the one who can tell. A pid that is alive but is not
         the door — the number reused by something else since — is gone too.
         """
-        if self.machine != machine_id() or self.pid <= 0:
+        if self.machine != os_machine_id() or self.pid <= 0:
             return False
         try:
             os.kill(self.pid, 0)
@@ -527,7 +527,7 @@ def new_lease(profile: str, campaign: str, step: str, pid: int) -> Lease:
         lease_id=secrets.token_hex(8),
         profile=profile,
         holder=whoami(),
-        machine=machine_id(),
+        machine=os_machine_id(),
         pid=pid,
         started_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         campaign=campaign,

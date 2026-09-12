@@ -1,0 +1,207 @@
+{
+ "rigs": {
+  "srv1": {
+   "reserve_mib": 401,
+   "card_total_mib": 6144,
+   "contexts_mib": {
+    "Qwen3.6-35B-A3B-UD-IQ3_XXS": 95.56999999999971
+   },
+   "context_readings": [
+    {
+     "label": "s1-qwen36-verbose-1",
+     "card_net_mib": 5093,
+     "named_mib": {
+      "cuda_model": 4330.81,
+      "cuda_kv": 320.0,
+      "cuda_compute": 221.0,
+      "cuda_rs": 125.62
+     },
+     "context_mib": 95.56999999999971
+    },
+    {
+     "label": "s1-qwen36-verbose-2",
+     "card_net_mib": 5093,
+     "named_mib": {
+      "cuda_model": 4330.81,
+      "cuda_kv": 320.0,
+      "cuda_compute": 221.0,
+      "cuda_rs": 125.62
+     },
+     "context_mib": 95.56999999999971
+    }
+   ],
+   "headroom_mib": 496.5699999999997
+  },
+  "srv2": {
+   "reserve_mib": 377,
+   "card_total_mib": 12288,
+   "contexts_mib": {
+    "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 116.76000022888184,
+    "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 116.76000022888184
+   },
+   "context_readings": [
+    {
+     "label": "pin-solo-Qwen-Qwen2.5-Coder-3B-Instruct-1",
+     "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "context_bytes": 122431734,
+     "total_bytes": 12489588736,
+     "peak_process_mib": 2870,
+     "non_kv_peak_bytes": 2431637258
+    },
+    {
+     "label": "pin-solo-Qwen-Qwen2.5-Coder-3B-Instruct-2",
+     "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "context_bytes": 122431734,
+     "total_bytes": 12489588736,
+     "peak_process_mib": 2870,
+     "non_kv_peak_bytes": 2431637258
+    },
+    {
+     "label": "pin-solo-Qwen-Qwen2.5-Coder-7B-Instruct-1",
+     "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "context_bytes": 122431734,
+     "total_bytes": 12489588736,
+     "peak_process_mib": 6772,
+     "non_kv_peak_bytes": 6485825290
+    },
+    {
+     "label": "pin-solo-Qwen-Qwen2.5-Coder-7B-Instruct-2",
+     "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "context_bytes": 122431734,
+     "total_bytes": 12489588736,
+     "peak_process_mib": 6772,
+     "non_kv_peak_bytes": 6485825290
+    }
+   ],
+   "headroom_mib": 610.5200004577637
+  }
+ },
+ "srv2_proposal": {
+  "rule": "records/plans/fleet-identity-measurements-2026-09-11.md M7 sizing rule",
+  "torch_total_bytes": 12489588736,
+  "contexts_bytes": {
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 122431734,
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 122431734
+  },
+  "non_kv_peak_bytes": {
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 2431637258,
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 6485825290
+  },
+  "tokens_per_unit": 32768,
+  "kv_cache_memory_bytes": {
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 1207959552,
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 1879048192
+  },
+  "shares": {
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 0.3,
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 0.68
+  },
+  "rooms_bytes": {
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 3746876621,
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 8492920341
+  },
+  "margin_bytes": 67108864,
+  "today_shares": {
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": 0.26,
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": 0.72
+  }
+ },
+ "orders": [
+  {
+   "order": "3b_first",
+   "start": 1,
+   "label": "pin-3b_first-1",
+   "units": {
+    "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {
+     "healthy": true,
+     "restart_count": 0,
+     "kv_cache_memory_bytes": 1207959552,
+     "kv_tokens": 32768,
+     "kv_line": "Initial free memory 11.52 GiB, reserved 1.12 GiB memory for KV Cache",
+     "peak_process_mib": 3446
+    },
+    "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {
+     "healthy": true,
+     "restart_count": 0,
+     "kv_cache_memory_bytes": 1879048192,
+     "kv_tokens": 32768,
+     "kv_line": "Initial free memory 8.15 GiB, reserved 1.75 GiB memory for KV Cache",
+     "peak_process_mib": 7522
+    }
+   },
+   "neighbour_requests_sent": 4076
+  },
+  {
+   "order": "3b_first",
+   "start": 2,
+   "label": "pin-3b_first-2",
+   "units": {
+    "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {
+     "healthy": true,
+     "restart_count": 0,
+     "kv_cache_memory_bytes": 1207959552,
+     "kv_tokens": 32768,
+     "kv_line": "Initial free memory 11.52 GiB, reserved 1.12 GiB memory for KV Cache",
+     "peak_process_mib": 3446
+    },
+    "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {
+     "healthy": true,
+     "restart_count": 0,
+     "kv_cache_memory_bytes": 1879048192,
+     "kv_tokens": 32768,
+     "kv_line": "Initial free memory 8.15 GiB, reserved 1.75 GiB memory for KV Cache",
+     "peak_process_mib": 7522
+    }
+   },
+   "neighbour_requests_sent": 3978
+  },
+  {
+   "order": "7b_first",
+   "start": 1,
+   "label": "pin-7b_first-1",
+   "units": {
+    "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {
+     "healthy": true,
+     "restart_count": 0,
+     "kv_cache_memory_bytes": 1207959552,
+     "kv_tokens": 32768,
+     "kv_line": "Initial free memory 4.17 GiB, reserved 1.12 GiB memory for KV Cache",
+     "peak_process_mib": 3446
+    },
+    "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {
+     "healthy": true,
+     "restart_count": 0,
+     "kv_cache_memory_bytes": 1879048192,
+     "kv_tokens": 32768,
+     "kv_line": "Initial free memory 11.52 GiB, reserved 1.75 GiB memory for KV Cache",
+     "peak_process_mib": 7522
+    }
+   },
+   "neighbour_requests_sent": 3969
+  },
+  {
+   "order": "7b_first",
+   "start": 2,
+   "label": "pin-7b_first-2",
+   "units": {
+    "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ": {
+     "healthy": true,
+     "restart_count": 0,
+     "kv_cache_memory_bytes": 1207959552,
+     "kv_tokens": 32768,
+     "kv_line": "Initial free memory 4.17 GiB, reserved 1.12 GiB memory for KV Cache",
+     "peak_process_mib": 3446
+    },
+    "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ": {
+     "healthy": true,
+     "restart_count": 0,
+     "kv_cache_memory_bytes": 1879048192,
+     "kv_tokens": 32768,
+     "kv_line": "Initial free memory 11.52 GiB, reserved 1.75 GiB memory for KV Cache",
+     "peak_process_mib": 7522
+    }
+   },
+   "neighbour_requests_sent": 3517
+  }
+ ]
+}

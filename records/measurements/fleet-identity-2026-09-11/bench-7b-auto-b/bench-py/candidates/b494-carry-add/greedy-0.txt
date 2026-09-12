@@ -1,0 +1,22 @@
+```python
+from typing import List
+
+def carry_add(left: List[int], right: List[int]) -> List[int]:
+    """Add two counts held as runs of single figures, the weightiest figure first."""
+    result = []
+    carry = 0
+    max_len = max(len(left), len(right))
+    
+    for i in range(max_len):
+        digit_left = left[i] if i < len(left) else 0
+        digit_right = right[i] if i < len(right) else 0
+        total = digit_left + digit_right + carry
+        
+        result.append(total % 10)
+        carry = total // 10
+    
+    if carry:
+        result.append(carry)
+    
+    return result[::-1]
+```

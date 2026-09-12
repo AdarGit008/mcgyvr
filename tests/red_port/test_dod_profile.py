@@ -5,9 +5,10 @@ Dev and prod are one tree on two hosts today: the same config shape, no word
 in it saying which is which, and a run that cannot say what it was. The owner's
 rulings (2026-09-06): the default is prod — ``~/.mcgyvr/config/mcgyvr.yaml`` is
 the unnamed fallback, a ``dev.yaml`` is only ever reached through
-``$MCGYVR_CONFIG``, and forgetting the variable must land on prod. And live
-outranks dev, always: a run made under a dev config does not start or stop the
-live ladder.
+``$MCGYVR_CONFIG``, and forgetting the variable must land on prod. Live outranks
+dev on a held rig (gate 2). Since 2026-09-10 a dev run may start and stop any
+ladder (``records/plans/fleet-identity.md`` §4), and what a dev serve may do is
+pinned in ``tests/test_a_dev_round_may_serve_any_launch_spec.py``, not here.
 
 What must be observably true:
 
@@ -21,8 +22,6 @@ What must be observably true:
 * the door hands every gate and the step the profile the config declares
   (``RUN_PROFILE``), settled at gate 1 before any rig is read; with no config
   at all it is ``live``;
-* a ``serve up``/``serve down`` under a dev profile is refused at gate 1, with
-  no rig read and nothing written, naming the profile and the rule;
 * a config that is there and cannot be read is refused at gate 1 too: a run
   whose config cannot be read cannot say which profile it ran under.
 """
@@ -147,21 +146,6 @@ def test_with_no_config_at_all_the_run_is_live(tmp_path: Path) -> None:
     assert handed.get("RUN_PROFILE") == "live", handed
 
 
-def test_a_dev_profile_does_not_touch_the_live_ladder(tmp_path: Path) -> None:
-    """``serve up`` under a dev config: refused at gate 1, no rig read."""
-    from tests.test_the_door_serves_a_ladder_and_leaves_it_up import compose_file
-
-    root = onedoor.fixture_repo(tmp_path)
-    dev = _write(tmp_path, "dev.yaml", "profile: dev\n" + BASE_CONFIG)
-    result = onedoor.serve_door(
-        root, "up", compose_file(root), env_extra={CONFIG_VAR: str(dev)}
-    )
-    assert result.returncode == 2, (result.stdout, result.stderr[-1500:])
-    assert "dev" in result.stderr and "live" in result.stderr, result.stderr
-    assert onedoor.ssh_log(root) == [], "a rig was read before the refusal"
-    assert onedoor.written_under_records(root) == [], "a refused run wrote"
-
-
 def test_a_config_that_cannot_be_read_is_refused_before_any_rig(
     tmp_path: Path,
 ) -> None:
@@ -196,25 +180,6 @@ def test_a_relative_config_path_is_read_where_the_operator_typed_it(
     )
     assert done.returncode == 0, done.stderr[-1500:]
     assert onedoor.read_env_file(env_file).get("RUN_PROFILE") == "dev"
-
-
-def test_a_dev_serve_refused_at_gate_1_leaves_even_the_rounds_file_alone(
-    tmp_path: Path,
-) -> None:
-    """A tree that moved would have the round opened for it; a run refused for
-    its profile is refused before that, and writes nothing anywhere."""
-    from tests.test_the_door_serves_a_ladder_and_leaves_it_up import compose_file
-
-    root = onedoor.fixture_repo(tmp_path)
-    (root / "pyproject.toml").write_text("# moved\n", encoding="utf-8")
-    rounds = root / "tools" / "bench" / "rounds.json"
-    before = rounds.read_bytes()
-    dev = _write(tmp_path, "dev.yaml", "profile: dev\n" + BASE_CONFIG)
-    result = onedoor.serve_door(
-        root, "up", compose_file(root), env_extra={CONFIG_VAR: str(dev)}
-    )
-    assert result.returncode == 2, (result.stdout, result.stderr[-1500:])
-    assert rounds.read_bytes() == before, "the refusal opened a round"
 
 
 def test_a_config_variable_that_is_not_a_path_is_refused_not_traced_back(

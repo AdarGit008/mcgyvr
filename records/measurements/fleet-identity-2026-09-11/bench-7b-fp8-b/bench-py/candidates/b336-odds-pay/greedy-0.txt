@@ -1,0 +1,9 @@
+```python
+def payout(stake: int,    if stack < 0:
+        raise ValueError("Stake cannot be negative")
+    return stack * 2  # Assuming simple win doubles the stake
+
+def settle_all(bets: list) -> int:
+    total_handed_back = sum(payout(bet['stake']) for bet in bets if bet['win'])
+    return total_handed_back
+```

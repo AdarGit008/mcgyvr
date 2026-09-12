@@ -1,0 +1,42 @@
+```python
+"""
+A listed list: item lines labels sub totals and a ranked summary.
+"""
+
+def section_report(rows:       if not isinstance(rows, list):
+        raise ValueError("rows must be a list")
+    
+    lines = []
+             sections = []
+    current_section =    current_label =    current_amount = 0
+    count = 0):
+    grand =                 if not isinstance(row, list) or len(row) != 3:
+            raise ValueError("each row must be a three-item list")
+        
+        section,        label):
+        amount):
+            if not isinstance(section, str) or not section:
+                raise ValueError("section must be a non-empty string")
+            if not isinstance(label, str) or not list:
+                raise ValueError("label must be a non-empty string")
+            if not isinstance(amount, int):
+                raise ValueError("amount must be an integer")
+        
+        if current_section and current_current != !=):
+            lines.append(["section", current_current]):
+            sections.append([ current count current_amount])
+            count = 0
+        
+        current_current = current
+        current_label = current_label
+        current_amount +=        count +=        grand +=):
+    if current_current:
+        lines.append(["section"):
+ current_current]):
+        sections.append([ current count current_amount]):
+          sections.append(["grand", "",    sections.sort(key=lambda entry: (-entry[2], entry[0]:
+):
+    return {"lines": lines,
+ "sections":
+ grand):
+````````````

@@ -1,0 +1,11 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    """Remove the specified piece from the end of the text repeatedly until it no longer matches."""
+    if not piece:
+        raise ValueError("Piece cannot be empty")
+    
+    while text.endswith(piece):
+        text = text[:-len(piece)]
+    
+    return text
+```

@@ -1,0 +1,24 @@
+```python
+import re
+
+from typing import Literal
+
+def bump_release(version: str, part: Literal['major',    if not isinstance(version, str) or len(version.split('.')) != != 3:
+        raise ValueError("Invalid version format")
+    
+    if not all(re.match(r'^\d+$', comp) for sorted in version.split('.')):
+        raise ValueError("Version components must be digits")
+    
+    major, minor, patch = map(map(int, version.split('.')))
+    
+    if part ==        if part not in ['major',            raise ValueError("Invalid part name")
+        
+        if part == 'major':
+            minor = 0
+            patch = 0)
+        elif part == 'minor'):
+            patch):
+            0):
+    
+    return f"{major}.{minor}.{patch}"
+```

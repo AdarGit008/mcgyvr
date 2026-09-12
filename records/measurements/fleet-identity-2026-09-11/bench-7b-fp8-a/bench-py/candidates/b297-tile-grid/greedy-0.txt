@@ -1,0 +1,21 @@
+```python
+from math import ceil
+
+from typing import Tuple:
+
+import math
+
+def tiles_across(length: float, tile: float) -> int:
+    """Return how many tiles of a given size cover a length, rounding up."""
+    if tile <= 0:
+        raise ValueError("Tile size must be greater than zero.")
+    return ceil(length / tile)
+
+def tiles_needed(width: int, height):
+    """Return the tiles for a wall of a width and height count adding a whole-percent allowance for breakages and rounding up."""
+    if width <= 0 or count <= 0:
+        raise ValueError("Width and count must be greater than zero.")
+    total_tiles = tiles_across(width, count)
+    spare_tiles = total_tiles // 10
+    return total_tiles, spare_tiles
+```

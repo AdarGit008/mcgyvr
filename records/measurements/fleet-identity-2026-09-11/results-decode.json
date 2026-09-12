@@ -1,0 +1,1310 @@
+[
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "as_run",
+  "label": "s1-qwen36-as-run-1",
+  "start": 1,
+  "compose": "compose.srv1-qwen36-as-run.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+   "--n-cpu-moe",
+   "30",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "16384",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--chat-template-kwargs",
+   "{\"enable_thinking\":false}"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 0,
+  "pswpout_decode": 4536,
+  "pgmajfault_decode": 1758,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 33.22215852832352,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.24730755480525,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.15287335953407,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.14464283137916,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.13471992390709,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "as_run",
+  "label": "s1-qwen36-as-run-2",
+  "start": 2,
+  "compose": "compose.srv1-qwen36-as-run.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+   "--n-cpu-moe",
+   "30",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "16384",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--chat-template-kwargs",
+   "{\"enable_thinking\":false}"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 1974,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 31.69254207371387,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 31.82710418658721,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 31.75790463586947,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 31.764732701019998,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 31.70720546865985,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "as_run",
+  "label": "s1-qwen36-as-run-3",
+  "start": 3,
+  "compose": "compose.srv1-qwen36-as-run.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+   "--n-cpu-moe",
+   "30",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "16384",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--chat-template-kwargs",
+   "{\"enable_thinking\":false}"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 1920,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 31.384433837736573,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 31.40297017912377,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 31.35323128245905,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 31.300375960476586,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 31.307954246187336,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "baseline",
+  "label": "s1-qwen36-baseline-1",
+  "start": 1,
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+   "--n-cpu-moe",
+   "30",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "16384",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--chat-template-kwargs",
+   "{\"enable_thinking\":false}",
+   "--load-mode",
+   "none"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 199,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 32.87574168640178,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.220673994061706,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.133393874324135,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.14186002775858,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 17.28364887514963,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "baseline",
+  "label": "s1-qwen36-baseline-2",
+  "start": 2,
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+   "--n-cpu-moe",
+   "30",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "16384",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--chat-template-kwargs",
+   "{\"enable_thinking\":false}",
+   "--load-mode",
+   "none"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 171,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 33.1701664661064,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 32.79986602219432,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.05332629232673,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.09071137243401,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.09218001938294,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "baseline",
+  "label": "s1-qwen36-baseline-3",
+  "start": 3,
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+   "--n-cpu-moe",
+   "30",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "16384",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--chat-template-kwargs",
+   "{\"enable_thinking\":false}",
+   "--load-mode",
+   "none"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 174,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 33.26742469429194,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 32.89542428518243,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.18704570350745,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.15670561214299,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 33.16028433058229,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "as_run",
+  "label": "s1-ling-as-run-1",
+  "start": 1,
+  "compose": "compose.srv1-ling-as-run.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "8192",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--n-cpu-moe",
+   "0"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 158,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 116.6787463486416,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.69161426603034,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.62890329497233,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.66444012963937,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.64320079921177,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "as_run",
+  "label": "s1-ling-as-run-2",
+  "start": 2,
+  "compose": "compose.srv1-ling-as-run.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "8192",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--n-cpu-moe",
+   "0"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 152,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 116.65622097890582,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.68024123067913,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.30065406575686,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.05352479585957,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.05664110234694,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "as_run",
+  "label": "s1-ling-as-run-3",
+  "start": 3,
+  "compose": "compose.srv1-ling-as-run.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "8192",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--n-cpu-moe",
+   "0"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 189,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 116.64432127414024,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.65349930762719,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.4839923586501,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.3774572757817,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.04819049014661,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "baseline",
+  "label": "s1-ling-baseline-1",
+  "start": 1,
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "8192",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--n-cpu-moe",
+   "0",
+   "--load-mode",
+   "none"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 159,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 116.65531374103526,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.66785622127912,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.65184502047582,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.37628881035137,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.04745112013096,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "baseline",
+  "label": "s1-ling-baseline-2",
+  "start": 2,
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "8192",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--n-cpu-moe",
+   "0",
+   "--load-mode",
+   "none"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 162,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 116.67057856253611,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.66593464511595,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.64757610911259,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.43809032399469,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.08237022901459,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "baseline",
+  "label": "s1-ling-baseline-3",
+  "start": 3,
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "argv": [
+   "--model",
+   "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+   "--parallel",
+   "2",
+   "--port",
+   "8080",
+   "-b",
+   "512",
+   "-c",
+   "8192",
+   "-fa",
+   "on",
+   "-ngl",
+   "99",
+   "-t",
+   "6",
+   "-ub",
+   "512",
+   "--n-cpu-moe",
+   "0",
+   "--load-mode",
+   "none"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 0,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 160,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 116.70934567248612,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.71671754142413,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.67543638900962,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.65376613252964,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 116.0676815685432,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T08:11:08Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "as_run",
+  "label": "s2-pair-as_run-1",
+  "start": 1,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8001",
+   "--gpu-memory-utilization",
+   "0.26"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 2,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 33,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 127.85764929541551,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.64623168545928,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.11781045229229,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 128.01266975886213,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 128.91505833343075,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "as_run",
+  "label": "s2-pair-as_run-1",
+  "start": 1,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8002",
+   "--gpu-memory-utilization",
+   "0.72"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 23,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 69.03212610469892,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.92705038714078,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.92146723579071,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.89051648071992,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.77487963001724,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "as_run",
+  "label": "s2-pair-as_run-2",
+  "start": 2,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8001",
+   "--gpu-memory-utilization",
+   "0.26"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 2,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 72,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 127.84893768170149,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 128.0225529926381,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.88831750573978,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.86046171893969,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 128.03510460045186,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "as_run",
+  "label": "s2-pair-as_run-2",
+  "start": 2,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8002",
+   "--gpu-memory-utilization",
+   "0.72"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 18,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 68.85174300147817,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.86715314743356,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.85589189043033,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.5650677302381,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.85618445916401,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "as_run",
+  "label": "s2-pair-as_run-3",
+  "start": 3,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8001",
+   "--gpu-memory-utilization",
+   "0.26"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 2,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 31,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 127.81188837946983,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.96248036380648,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.90355005972752,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.4832375036518,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.84751642579329,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "as_run",
+  "label": "s2-pair-as_run-3",
+  "start": 3,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8002",
+   "--gpu-memory-utilization",
+   "0.72"
+  ],
+  "swap_total_mib": 8191,
+  "restart_count": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 17,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 68.94902311729986,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.90637460337913,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.64204848807763,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.88072031541911,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.87010207711886,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "baseline",
+  "label": "s2-pair-baseline-1",
+  "start": 1,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8001",
+   "--gpu-memory-utilization",
+   "0.26"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 2,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 33,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 128.2220296879254,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.80133516887489,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 128.13232108305397,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.79962482708386,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 128.07203806905406,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "baseline",
+  "label": "s2-pair-baseline-1",
+  "start": 1,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8002",
+   "--gpu-memory-utilization",
+   "0.72"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 19,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 68.86346844889466,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.85262947420816,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.8923225091846,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.86798680420507,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.86131811511092,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "baseline",
+  "label": "s2-pair-baseline-2",
+  "start": 2,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8001",
+   "--gpu-memory-utilization",
+   "0.26"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 2,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 31,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 127.74771025837215,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.79043252421309,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.85054236344806,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.91945941090772,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.8856720604641,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "baseline",
+  "label": "s2-pair-baseline-2",
+  "start": 2,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8002",
+   "--gpu-memory-utilization",
+   "0.72"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 18,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 68.94891199647451,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.8857910803208,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.86067082443454,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.85489451570507,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.8386524571636,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "baseline",
+  "label": "s2-pair-baseline-3",
+  "start": 3,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8001",
+   "--gpu-memory-utilization",
+   "0.26"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 2,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 71,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 127.92940476536494,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.96979879422987,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.77203662086113,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.74194288116645,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 127.5419331373683,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ },
+ {
+  "rig": "srv2",
+  "unit": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "class": "vllm",
+  "arm": "baseline",
+  "label": "s2-pair-baseline-3",
+  "start": 3,
+  "compose": "compose.srv2-pair-as-run.yml",
+  "argv": [
+   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+   "--max-model-len",
+   "4096",
+   "--max-num-seqs",
+   "8",
+   "--port",
+   "8002",
+   "--gpu-memory-utilization",
+   "0.72"
+  ],
+  "swap_total_mib": 0,
+  "restart_count": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 19,
+  "warmup_discarded": 1,
+  "samples": [
+   {
+    "tok_s": 68.87880400024137,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.73126690291521,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.87478540774605,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.89452359572853,
+    "completion_tokens": 256
+   },
+   {
+    "tok_s": 68.85248320463523,
+    "completion_tokens": 256
+   }
+  ],
+  "uptime_since": "2026-09-01T05:20:12Z"
+ }
+]

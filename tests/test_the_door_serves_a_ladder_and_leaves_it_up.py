@@ -50,6 +50,33 @@ def busy_rig(root: Path) -> None:
     )
 
 
+CONFIG_VAR = "MCGYVR_CONFIG"
+
+#: A setup under development: same rig, its own file, ``profile: dev``.
+DEV_LADDER = """
+version: 1
+sources:
+  rig:
+    base_url: "http://srv1:8001"
+    api: openai
+    engine: vllm
+    max_parallel: 1
+ladder:
+  tiers:
+    - name: only
+      source: rig
+      model: "a-model"
+sandbox:
+  mode: tempdir
+"""
+
+
+def dev_config(path: Path) -> Path:
+    """A dev config this door run reads its profile from."""
+    path.write_text("profile: dev\n" + DEV_LADDER, encoding="utf-8")
+    return path
+
+
 # --- the shape ---------------------------------------------------------------
 
 
@@ -109,9 +136,10 @@ def test_serve_up_brings_the_file_up_asks_each_unit_and_leaves_it_running(
 ) -> None:
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
+    dev = dev_config(tmp_path / "dev.yaml")
     # The daemon lists the units once compose has brought them up.
     onedoor.serving(onedoor.stubs_dir(root), UNITS)
-    result = onedoor.serve_door(root, "up", compose)
+    result = onedoor.serve_door(root, "up", compose, env_extra={CONFIG_VAR: str(dev)})
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert "not green" not in result.stderr
 
@@ -140,11 +168,12 @@ def test_serve_up_brings_the_file_up_asks_each_unit_and_leaves_it_running(
 def test_serve_up_names_a_container_it_did_not_declare(tmp_path: Path) -> None:
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
+    dev = dev_config(tmp_path / "dev.yaml")
     onedoor.serving(onedoor.stubs_dir(root), UNITS)
     stray = tmp_path / "stray-now"
     stray.touch()
     onedoor.docker_stub(onedoor.stubs_dir(root), stray_flag=stray)
-    result = onedoor.serve_door(root, "up", compose)
+    result = onedoor.serve_door(root, "up", compose, env_extra={CONFIG_VAR: str(dev)})
     assert result.returncode == 1, (result.stdout, result.stderr)
     assert STRAY_NAME in result.stderr
     for name in UNITS:
@@ -156,9 +185,10 @@ def test_serve_up_whose_unit_never_came_up_is_exit_1_and_says_which(
 ) -> None:
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
+    dev = dev_config(tmp_path / "dev.yaml")
     # Only the first unit is listed by the daemon after compose up.
     onedoor.serving(onedoor.stubs_dir(root), UNITS[:1])
-    result = onedoor.serve_door(root, "up", compose)
+    result = onedoor.serve_door(root, "up", compose, env_extra={CONFIG_VAR: str(dev)})
     assert result.returncode == 1, (result.stdout, result.stderr)
     assert UNITS[1] in result.stderr
 
@@ -166,8 +196,9 @@ def test_serve_up_whose_unit_never_came_up_is_exit_1_and_says_which(
 def test_serve_up_still_refuses_a_busy_rig(tmp_path: Path) -> None:
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
+    dev = dev_config(tmp_path / "dev.yaml")
     busy_rig(root)
-    result = onedoor.serve_door(root, "up", compose)
+    result = onedoor.serve_door(root, "up", compose, env_extra={CONFIG_VAR: str(dev)})
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "not idle" in result.stderr
     assert not any(line.startswith("compose") for line in onedoor.docker_log(root))
@@ -208,10 +239,11 @@ def test_serve_down_that_leaves_a_unit_up_is_not_green_and_names_it(
 def test_up_then_down_on_one_day_file_under_one_envelope(tmp_path: Path) -> None:
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
+    dev = dev_config(tmp_path / "dev.yaml")
     onedoor.serving(onedoor.stubs_dir(root), UNITS)
-    up = onedoor.serve_door(root, "up", compose)
+    up = onedoor.serve_door(root, "up", compose, env_extra={CONFIG_VAR: str(dev)})
     assert up.returncode == 0, (up.stdout, up.stderr)
-    down = onedoor.serve_door(root, "down", compose)
+    down = onedoor.serve_door(root, "down", compose, env_extra={CONFIG_VAR: str(dev)})
     assert down.returncode == 0, (down.stdout, down.stderr)
     envelope = onedoor.envelope(root, "live-srv1")
     assert (envelope / "serve-up.json").is_file()

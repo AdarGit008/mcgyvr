@@ -1,0 +1,41 @@
+[
+ {
+  "t": 1789109144,
+  "vram_used_mib": 10983,
+  "vram_free_mib": 929,
+  "avail_kib": 38806388,
+  "shmem_kib": 2190512,
+  "pswpout": 5028950,
+  "pgmajfault": 4326571,
+  "apps_mib": {
+   "1689506": 3446,
+   "1692202": 7522
+  }
+ },
+ {
+  "t": 1789109145,
+  "vram_used_mib": 10983,
+  "vram_free_mib": 929,
+  "avail_kib": 38811948,
+  "shmem_kib": 2190524,
+  "pswpout": 5028950,
+  "pgmajfault": 4326571,
+  "apps_mib": {
+   "1689506": 3446,
+   "1692202": 7522
+  }
+ },
+ {
+  "t": 1789109146,
+  "vram_used_mib": 10983,
+  "vram_free_mib": 929,
+  "avail_kib": 38797988,
+  "shmem_kib": 2190536,
+  "pswpout": 5028950,
+  "pgmajfault": 4326571,
+  "apps_mib": {
+   "1689506": 3446,
+   "1692202": 7522
+  }
+ }
+]

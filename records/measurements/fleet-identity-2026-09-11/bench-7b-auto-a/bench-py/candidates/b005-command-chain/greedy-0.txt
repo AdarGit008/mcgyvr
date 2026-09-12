@@ -1,0 +1,30 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    if not isinstance(person, str) or not person:
+        raise ValueError("Person must be a non-empty string")
+
+    def find_chain(node, target):
+        if node['name'] == target:
+            return [node['name']]
+        if 'reports' not in node:
+            return []
+        for report in node['reports']:
+            path = find_chain(report, target)
+            if path:
+                return [node['name']] + path
+        return []
+
+    return find_chain(root, person)
+
+
+def headcount(root: dict) -> int:
+    if 'reports' not in root:
+        return 1
+    return 1 + sum(headcount(report) for report in root['reports'])
+
+
+def widest_team(root: dict) -> int:
+    if 'reports' not in root:
+        return 0
+    return max(len(root['reports']), *(widest_team(report) for report in root['reports']))
+```

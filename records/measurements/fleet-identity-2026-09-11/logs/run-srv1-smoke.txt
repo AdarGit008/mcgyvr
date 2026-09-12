@@ -1,0 +1,7 @@
+
+=== s1-qwen36-as-run-1  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=as_run swap=on
+    ARM FAILED: srv1: ['mcgyvr-lcpp'] are up and no last-up file names their compose
+
+=== s1-qwen36-as-run-1  Qwen3.6-35B-A3B-UD-IQ3_XXS  arm=as_run swap=on
+    ARM FAILED: s1-qwen36-as-run-1: door up rc=1
+srv1 smoke rc=0

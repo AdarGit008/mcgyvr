@@ -1,0 +1,10 @@
+```python
+def warm_up(readings: list[int], floor: int)       if not readings:
+        return []
+
+    warmup_end = [r for r in readings if r >= floor]
+    if not warmup_readings:
+        return []
+
+    return warmup_readings[1:]
+```

@@ -1,0 +1,4599 @@
+[
+ {
+  "label": "s1-qwen36-as-run-1",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "as_run",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-as-run.yml",
+  "t": 1789097968.8563704,
+  "failed": "door up rc=1",
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.293899536132812,
+    "MemAvailable": 14.226325988769531,
+    "Cached": 0.14742279052734375,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.832141876220703,
+    "Shmem": 0.000118255615234375
+   },
+   "vm": {
+    "pswpin": 10210014,
+    "pswpout": 19621798,
+    "pgmajfault": 7482988
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4174373149871826
+  },
+  "up": {
+   "door_rc": 1,
+   "door_process_s": 12.537213722011074,
+   "envelope": null,
+   "ready_local": {},
+   "load_samples": 15,
+   "load_peak_used_mib": 17,
+   "load_pswpout": 0,
+   "load_pgmajfault": 382,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": -1,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-as-run-1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 12.537213722011074,
+     "door_unit_s": null,
+     "started_at_to_ready_s": null
+    },
+    "healthy": false,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  }
+ },
+ {
+  "label": "s1-qwen36-as-run-1",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "as_run",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-as-run.yml",
+  "t": 1789098031.2452428,
+  "failed": "door up rc=2",
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.290088653564453,
+    "MemAvailable": 14.223026275634766,
+    "Cached": 0.14858245849609375,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.832141876220703,
+    "Shmem": 0.00012969970703125
+   },
+   "vm": {
+    "pswpin": 10210055,
+    "pswpout": 19621798,
+    "pgmajfault": 7484092
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.41985273361206055
+  },
+  "up": {
+   "door_rc": 2,
+   "door_process_s": 9.061412491952069,
+   "envelope": null,
+   "ready_local": {},
+   "load_samples": 12,
+   "load_peak_used_mib": 17,
+   "load_pswpout": 0,
+   "load_pgmajfault": 372,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": -1,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-as-run-1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 9.061412491952069,
+     "door_unit_s": null,
+     "started_at_to_ready_s": null
+    },
+    "healthy": false,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  }
+ },
+ {
+  "label": "s1-qwen36-as-run-1",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "as_run",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-as-run.yml",
+  "t": 1789098118.4381192,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.277900695800781,
+    "MemAvailable": 14.211021423339844,
+    "Cached": 0.14895248413085938,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.832141876220703,
+    "Shmem": 0.000118255615234375
+   },
+   "vm": {
+    "pswpin": 10210094,
+    "pswpout": 19621798,
+    "pgmajfault": 7485675
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4411606788635254
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 155.11338110797806,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-as-run-1-up-1789098134",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-as-run.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 134.3,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 5110,
+     "free_mib": 634
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789098383.9122243
+   },
+   "load_samples": 251,
+   "load_peak_used_mib": 5110,
+   "load_pswpout": 44516,
+   "load_pgmajfault": 10808,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-as-run-1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 155.11338110797806,
+     "door_unit_s": 134.3,
+     "started_at_to_ready_s": 130.9048080444336
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 1.5662307739257812,
+   "MemAvailable": 13.54751968383789,
+   "Cached": 12.230308532714844,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.663722991943359,
+   "Shmem": 0.0294647216796875
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5110,
+   "reserved": 401,
+   "free": 634,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1859979,5090",
+  "swap_total_mib": 8191,
+  "process_rss_gib": 0.7784233093261719,
+  "samples": [
+   {
+    "tok_s": 33.22215852832352,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.24730755480525,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.15287335953407,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.14464283137916,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.13471992390709,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 4536,
+  "pgmajfault_decode": 1758,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-qwen36-as-run-2",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "as_run",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-as-run.yml",
+  "t": 1789098513.9357274,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.295639038085938,
+    "MemAvailable": 14.222877502441406,
+    "Cached": 0.13732147216796875,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.830108642578125,
+    "Shmem": 0.000125885009765625
+   },
+   "vm": {
+    "pswpin": 10235475,
+    "pswpout": 19670850,
+    "pgmajfault": 7508183
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4241220951080322
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 151.98491027503042,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-as-run-2-up-1789098529",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-as-run.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 132.3,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 5110,
+     "free_mib": 634
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789098850.4101555
+   },
+   "load_samples": 317,
+   "load_peak_used_mib": 5110,
+   "load_pswpout": 52800,
+   "load_pgmajfault": 10649,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-as-run-2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 151.98491027503042,
+     "door_unit_s": 132.3,
+     "started_at_to_ready_s": 130.4431688785553
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 1.63067626953125,
+   "MemAvailable": 13.605018615722656,
+   "Cached": 12.225830078125,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.6357574462890625,
+   "Shmem": 0.029537200927734375
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5110,
+   "reserved": 401,
+   "free": 634,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1870266,5090",
+  "swap_total_mib": 8191,
+  "process_rss_gib": 0.7675285339355469,
+  "samples": [
+   {
+    "tok_s": 31.69254207371387,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.82710418658721,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.75790463586947,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.764732701019998,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.70720546865985,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 1974,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-qwen36-as-run-3",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "as_run",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-as-run.yml",
+  "t": 1789099124.4952374,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.324214935302734,
+    "MemAvailable": 14.24686050415039,
+    "Cached": 0.12839126586914062,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.829601287841797,
+    "Shmem": 0.00012969970703125
+   },
+   "vm": {
+    "pswpin": 10264462,
+    "pswpout": 19723650,
+    "pgmajfault": 7531894
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4333462715148926
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 154.19343596301042,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-as-run-3-up-1789099140",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-as-run.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 132.9,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 5110,
+     "free_mib": 634
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789099283.4127808
+   },
+   "load_samples": 150,
+   "load_peak_used_mib": 5110,
+   "load_pswpout": 50410,
+   "load_pgmajfault": 10568,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-as-run-3-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 154.19343596301042,
+     "door_unit_s": 132.9,
+     "started_at_to_ready_s": 130.47438383102417
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 1.5973548889160156,
+   "MemAvailable": 13.575119018554688,
+   "Cached": 12.22586441040039,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.635196685791016,
+   "Shmem": 0.029483795166015625
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5110,
+   "reserved": 401,
+   "free": 634,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1878144,5090",
+  "swap_total_mib": 8191,
+  "process_rss_gib": 0.7680702209472656,
+  "samples": [
+   {
+    "tok_s": 31.384433837736573,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.40297017912377,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.35323128245905,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.300375960476586,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.307954246187336,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 1920,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-qwen36-baseline-1",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "baseline",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "t": 1789099570.8423676,
+  "ram_need_gib": 9.20578125,
+  "ram_available_gib": 14.231624603271484,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.206928253173828,
+    "MemAvailable": 14.134811401367188,
+    "Cached": 0.14603424072265625,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.007328033447265625
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7554039
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.434856653213501
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 147.07897976099048,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-baseline-1-up-1789099589",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-unmapped.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 127.2,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 5126,
+     "free_mib": 618
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789099728.009413
+   },
+   "load_samples": 143,
+   "load_peak_used_mib": 5126,
+   "load_pswpout": 0,
+   "load_pgmajfault": 6218,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-baseline-1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 147.07897976099048,
+     "door_unit_s": 127.2,
+     "started_at_to_ready_s": 125.17062020301819
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 3.509349822998047,
+   "MemAvailable": 5.181709289550781,
+   "Cached": 9.985706329345703,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 8.101055145263672
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5126,
+   "reserved": 401,
+   "free": 618,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1886350,5090",
+  "swap_total_mib": 0,
+  "process_rss_gib": 8.991409301757812,
+  "samples": [
+   {
+    "tok_s": 32.87574168640178,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.220673994061706,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.133393874324135,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.14186002775858,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 17.28364887514963,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 199,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-qwen36-baseline-2",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "baseline",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "t": 1789100013.0405097,
+  "ram_need_gib": 9.20578125,
+  "ram_available_gib": 14.108604431152344,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.209056854248047,
+    "MemAvailable": 14.139995574951172,
+    "Cached": 0.15146255493164062,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.007328033447265625
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7563180
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.41486477851867676
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 147.29089143598685,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-baseline-2-up-1789100029",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-unmapped.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 127.5,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 5126,
+     "free_mib": 618
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789100166.1572418
+   },
+   "load_samples": 143,
+   "load_peak_used_mib": 5126,
+   "load_pswpout": 0,
+   "load_pgmajfault": 6073,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-baseline-2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 147.29089143598685,
+     "door_unit_s": 127.5,
+     "started_at_to_ready_s": 123.94000816345215
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 3.475341796875,
+   "MemAvailable": 5.183727264404297,
+   "Cached": 10.019062042236328,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 8.101055145263672
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5126,
+   "reserved": 401,
+   "free": 618,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1894376,5090",
+  "swap_total_mib": 0,
+  "process_rss_gib": 8.991622924804688,
+  "samples": [
+   {
+    "tok_s": 33.1701664661064,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 32.79986602219432,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.05332629232673,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.09071137243401,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.09218001938294,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 171,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-qwen36-baseline-3",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "baseline",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "t": 1789100451.3731291,
+  "ram_need_gib": 9.20578125,
+  "ram_available_gib": 14.119373321533203,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.201862335205078,
+    "MemAvailable": 14.134300231933594,
+    "Cached": 0.15394973754882812,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.00731658935546875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7572158
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4565699100494385
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 145.94449206098216,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-baseline-3-up-1789100469",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-unmapped.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 126.4,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 5126,
+     "free_mib": 618
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789100606.1773472
+   },
+   "load_samples": 141,
+   "load_peak_used_mib": 5126,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5891,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-baseline-3-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 145.94449206098216,
+     "door_unit_s": 126.4,
+     "started_at_to_ready_s": 124.27346205711365
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 3.4747314453125,
+   "MemAvailable": 5.184959411621094,
+   "Cached": 10.022037506103516,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 8.101055145263672
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5126,
+   "reserved": 401,
+   "free": 618,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1902422,5090",
+  "swap_total_mib": 0,
+  "process_rss_gib": 8.991329193115234,
+  "samples": [
+   {
+    "tok_s": 33.26742469429194,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 32.89542428518243,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.18704570350745,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.15670561214299,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 33.16028433058229,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 174,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-qwen36-unmapped-n32-1",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "shmem",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-unmapped-n32.yml",
+  "t": 1789100887.6714184,
+  "ram_need_gib": 9.7175,
+  "ram_available_gib": 14.123176574707031,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.198341369628906,
+    "MemAvailable": 14.131866455078125,
+    "Cached": 0.15577316284179688,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.007328033447265625
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7581067
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4675443172454834
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 149.42975912702968,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-unmapped-n32-1-up-1789100904",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-unmapped-n32.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '32'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 129.8,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4602,
+     "free_mib": 1142
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789101043.4368615
+   },
+   "load_samples": 146,
+   "load_peak_used_mib": 4602,
+   "load_pswpout": 0,
+   "load_pgmajfault": 6164,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "32",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "32",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-unmapped-n32-1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 149.42975912702968,
+     "door_unit_s": 129.8,
+     "started_at_to_ready_s": 126.39567351341248
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 3.1245574951171875,
+   "MemAvailable": 4.663753509521484,
+   "Cached": 10.360027313232422,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 8.612773895263672
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4602,
+   "reserved": 401,
+   "free": 1142,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1910314,4566",
+  "swap_total_mib": 0,
+  "process_rss_gib": 9.503257751464844,
+  "samples": [
+   {
+    "tok_s": 31.800368510152737,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 32.48769353428649,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 32.41444112927337,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 32.40388816160162,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 22.43359063342167,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 158,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-qwen36-unmapped-n32-2",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "shmem",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-unmapped-n32.yml",
+  "t": 1789101251.601453,
+  "ram_need_gib": 9.7175,
+  "ram_available_gib": 14.123218536376953,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.19668197631836,
+    "MemAvailable": 14.130695343017578,
+    "Cached": 0.15683364868164062,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.007328033447265625
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7590073
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.43001818656921387
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 144.7274485550006,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-unmapped-n32-2-up-1789101268",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-unmapped-n32.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '32'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 125.2,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4602,
+     "free_mib": 1142
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789101405.5811715
+   },
+   "load_samples": 141,
+   "load_peak_used_mib": 4602,
+   "load_pswpout": 0,
+   "load_pgmajfault": 6135,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "32",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "32",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-unmapped-n32-2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 144.7274485550006,
+     "door_unit_s": 125.2,
+     "started_at_to_ready_s": 124.3613109588623
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 2.5669822692871094,
+   "MemAvailable": 4.632526397705078,
+   "Cached": 10.885738372802734,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 8.612773895263672
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4602,
+   "reserved": 401,
+   "free": 1142,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1918618,4566",
+  "swap_total_mib": 0,
+  "process_rss_gib": 9.50313949584961,
+  "samples": [
+   {
+    "tok_s": 31.791499626231705,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 32.43813824422153,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 32.383855619310125,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 32.39778277197716,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 23.70675028796729,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 171,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-ling-as-run-1",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "as_run",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-as-run.yml",
+  "t": 1789101565.7524223,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.18838119506836,
+    "MemAvailable": 14.123058319091797,
+    "Cached": 0.15776443481445312,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 0.00731658935546875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7599049
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.43787717819213867
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 83.50706840201747,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-ling-as-run-1-up-1789101581",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-as-run.yml",
+    "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --n-cpu-moe\n    - '0'\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 64.1,
+      "models": [
+       "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4808,
+     "free_mib": 936
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": 1789101656.7998118
+   },
+   "load_samples": 83,
+   "load_peak_used_mib": 4808,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5379,
+   "units": [
+    {
+     "service": "Ling-3.0-tiny-Q4_K_M-8080",
+     "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "8192",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--n-cpu-moe",
+      "0"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-as-run-1-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 83.50706840201747,
+     "door_unit_s": 64.1,
+     "started_at_to_ready_s": 63.508522510528564
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 8.598522186279297,
+   "MemAvailable": 13.395309448242188,
+   "Cached": 5.034511566162109,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.03087615966796875
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4808,
+   "reserved": 401,
+   "free": 936,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1926433,4788",
+  "swap_total_mib": 8191,
+  "process_rss_gib": 0.6033859252929688,
+  "samples": [
+   {
+    "tok_s": 116.6787463486416,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.69161426603034,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.62890329497233,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.66444012963937,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.64320079921177,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 158,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-ling-as-run-2",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "as_run",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-as-run.yml",
+  "t": 1789101814.9094646,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.18674087524414,
+    "MemAvailable": 14.122982025146484,
+    "Cached": 0.16013717651367188,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 0.007320404052734375
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7607255
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.43827128410339355
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 83.42376381100621,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-ling-as-run-2-up-1789101830",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-as-run.yml",
+    "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --n-cpu-moe\n    - '0'\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 63.8,
+      "models": [
+       "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4808,
+     "free_mib": 936
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": 1789101909.904903
+   },
+   "load_samples": 86,
+   "load_peak_used_mib": 4808,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5254,
+   "units": [
+    {
+     "service": "Ling-3.0-tiny-Q4_K_M-8080",
+     "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "8192",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--n-cpu-moe",
+      "0"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-as-run-2-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 83.42376381100621,
+     "door_unit_s": 63.8,
+     "started_at_to_ready_s": 63.73439359664917
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 8.620307922363281,
+   "MemAvailable": 13.409210205078125,
+   "Cached": 5.0277557373046875,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.030879974365234375
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4808,
+   "reserved": 401,
+   "free": 936,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1932798,4788",
+  "swap_total_mib": 8191,
+  "process_rss_gib": 0.5845947265625,
+  "samples": [
+   {
+    "tok_s": 116.65622097890582,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.68024123067913,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.30065406575686,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.05352479585957,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.05664110234694,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 152,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-ling-as-run-3",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "as_run",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-as-run.yml",
+  "t": 1789102066.1925032,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.182411193847656,
+    "MemAvailable": 14.11813735961914,
+    "Cached": 0.160736083984375,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 0.00732421875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7615316
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4227285385131836
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 82.94967594696209,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-ling-as-run-3-up-1789102081",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-as-run.yml",
+    "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --n-cpu-moe\n    - '0'\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 63.6,
+      "models": [
+       "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4808,
+     "free_mib": 936
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": 1789102171.479014
+   },
+   "load_samples": 96,
+   "load_peak_used_mib": 4808,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5249,
+   "units": [
+    {
+     "service": "Ling-3.0-tiny-Q4_K_M-8080",
+     "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "8192",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--n-cpu-moe",
+      "0"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-as-run-3-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 82.94967594696209,
+     "door_unit_s": 63.6,
+     "started_at_to_ready_s": 63.20320177078247
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 8.628471374511719,
+   "MemAvailable": 13.416450500488281,
+   "Cached": 5.027381896972656,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.03087615966796875
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4808,
+   "reserved": 401,
+   "free": 936,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1939174,4788",
+  "swap_total_mib": 8191,
+  "process_rss_gib": 0.6034278869628906,
+  "samples": [
+   {
+    "tok_s": 116.64432127414024,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.65349930762719,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.4839923586501,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.3774572757817,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.04819049014661,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 189,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-ling-baseline-1",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "baseline",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "t": 1789102328.5289834,
+  "ram_need_gib": 1.53,
+  "ram_available_gib": 14.094661712646484,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.183387756347656,
+    "MemAvailable": 14.120185852050781,
+    "Cached": 0.16141510009765625,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.007312774658203125
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7623410
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4231750965118408
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 88.0823557790136,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-ling-baseline-1-up-1789102345",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-unmapped.yml",
+    "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --n-cpu-moe\n    - '0'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 68.7,
+      "models": [
+       "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4808,
+     "free_mib": 936
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": 1789102434.3602407
+   },
+   "load_samples": 99,
+   "load_peak_used_mib": 4808,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5237,
+   "units": [
+    {
+     "service": "Ling-3.0-tiny-Q4_K_M-8080",
+     "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "8192",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--n-cpu-moe",
+      "0",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-baseline-1-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 88.0823557790136,
+     "door_unit_s": 68.7,
+     "started_at_to_ready_s": 65.09130835533142
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 8.494670867919922,
+   "MemAvailable": 13.282466888427734,
+   "Cached": 5.1536407470703125,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 0.15735626220703125
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4808,
+   "reserved": 401,
+   "free": 936,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1945674,4788",
+  "swap_total_mib": 0,
+  "process_rss_gib": 0.7111091613769531,
+  "samples": [
+   {
+    "tok_s": 116.65531374103526,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.66785622127912,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.65184502047582,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.37628881035137,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.04745112013096,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 159,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-ling-baseline-2",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "baseline",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "t": 1789102597.6319356,
+  "ram_need_gib": 1.53,
+  "ram_available_gib": 14.107749938964844,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.186813354492188,
+    "MemAvailable": 14.12322998046875,
+    "Cached": 0.16225051879882812,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.00731658935546875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7631468
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4291374683380127
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 88.35284915100783,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-ling-baseline-2-up-1789102614",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-unmapped.yml",
+    "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --n-cpu-moe\n    - '0'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 68.2,
+      "models": [
+       "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4808,
+     "free_mib": 936
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": 1789102703.5830638
+   },
+   "load_samples": 99,
+   "load_peak_used_mib": 4808,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5243,
+   "units": [
+    {
+     "service": "Ling-3.0-tiny-Q4_K_M-8080",
+     "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "8192",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--n-cpu-moe",
+      "0",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-baseline-2-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 88.35284915100783,
+     "door_unit_s": 68.2,
+     "started_at_to_ready_s": 65.09074306488037
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 8.478015899658203,
+   "MemAvailable": 13.26702880859375,
+   "Cached": 5.154914855957031,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 0.15735626220703125
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4808,
+   "reserved": 401,
+   "free": 936,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1952278,4788",
+  "swap_total_mib": 0,
+  "process_rss_gib": 0.7488059997558594,
+  "samples": [
+   {
+    "tok_s": 116.67057856253611,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.66593464511595,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.64757610911259,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.43809032399469,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.08237022901459,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 162,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-ling-baseline-3",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "baseline",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "t": 1789102874.8028047,
+  "ram_need_gib": 1.53,
+  "ram_available_gib": 14.085987091064453,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.152839660644531,
+    "MemAvailable": 14.1085205078125,
+    "Cached": 0.17972946166992188,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.00732421875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7639915
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4741973876953125
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 89.2704425980337,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-ling-baseline-3-up-1789102892",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-unmapped.yml",
+    "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --n-cpu-moe\n    - '0'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 67.5,
+      "models": [
+       "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4808,
+     "free_mib": 936
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": 1789102979.3729038
+   },
+   "load_samples": 97,
+   "load_peak_used_mib": 4808,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5196,
+   "units": [
+    {
+     "service": "Ling-3.0-tiny-Q4_K_M-8080",
+     "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "8192",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--n-cpu-moe",
+      "0",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-baseline-3-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 89.2704425980337,
+     "door_unit_s": 67.5,
+     "started_at_to_ready_s": 64.46098446846008
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 8.48828125,
+   "MemAvailable": 13.290573120117188,
+   "Cached": 5.166957855224609,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 0.15735626220703125
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4808,
+   "reserved": 401,
+   "free": 936,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1959110,4788",
+  "swap_total_mib": 0,
+  "process_rss_gib": 0.7299613952636719,
+  "samples": [
+   {
+    "tok_s": 116.70934567248612,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.71671754142413,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.67543638900962,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.65376613252964,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 116.0676815685432,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 160,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-ling-unmapped-n4-1",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "shmem",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-unmapped-n4.yml",
+  "t": 1789103149.1861713,
+  "ram_need_gib": 2.0529492187500002,
+  "ram_available_gib": 14.094123840332031,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.16323471069336,
+    "MemAvailable": 14.104324340820312,
+    "Cached": 0.16706085205078125,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.00732421875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7647933
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.5169832706451416
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 88.83098736498505,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-ling-unmapped-n4-1-up-1789103166",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-unmapped-n4.yml",
+    "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --n-cpu-moe\n    - '4'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 66.6,
+      "models": [
+       "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4342,
+     "free_mib": 1402
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": 1789103255.802495
+   },
+   "load_samples": 98,
+   "load_peak_used_mib": 4342,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5250,
+   "units": [
+    {
+     "service": "Ling-3.0-tiny-Q4_K_M-8080",
+     "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "8192",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--n-cpu-moe",
+      "4",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "4",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-unmapped-n4-1-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 88.83098736498505,
+     "door_unit_s": 66.6,
+     "started_at_to_ready_s": 64.95686197280884
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 7.961280822753906,
+   "MemAvailable": 12.755149841308594,
+   "Cached": 5.682697296142578,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 0.6803054809570312
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4342,
+   "reserved": 401,
+   "free": 1402,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1965678,4322",
+  "swap_total_mib": 0,
+  "process_rss_gib": 1.2688713073730469,
+  "samples": [
+   {
+    "tok_s": 106.29854300130393,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 106.19508828976349,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 104.40840966748175,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 104.44463103398137,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 104.50451336551254,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 152,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-ling-unmapped-n4-2",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "arm": "shmem",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-unmapped-n4.yml",
+  "t": 1789103425.44754,
+  "ram_need_gib": 2.0529492187500002,
+  "ram_available_gib": 14.0997314453125,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.180721282958984,
+    "MemAvailable": 14.12261962890625,
+    "Cached": 0.16784286499023438,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.00732421875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7656026
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.44913744926452637
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 88.71299646201078,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-ling-unmapped-n4-2-up-1789103443",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-ling-unmapped-n4.yml",
+    "compose": "services:\n  Ling-3.0-tiny-Q4_K_M-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --n-cpu-moe\n    - '4'\n    - --load-mode\n    - none\n    container_name: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 68.3,
+      "models": [
+       "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 4342,
+     "free_mib": 1402
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": 1789103520.9818788
+   },
+   "load_samples": 88,
+   "load_peak_used_mib": 4342,
+   "load_pswpout": 0,
+   "load_pgmajfault": 5242,
+   "units": [
+    {
+     "service": "Ling-3.0-tiny-Q4_K_M-8080",
+     "container": "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "8192",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--n-cpu-moe",
+      "4",
+      "--load-mode",
+      "none"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "4",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-unmapped-n4-2-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 88.71299646201078,
+     "door_unit_s": 68.3,
+     "started_at_to_ready_s": 64.2378900051117
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 7.953182220458984,
+   "MemAvailable": 12.747360229492188,
+   "Cached": 5.683010101318359,
+   "SwapTotal": 0.0,
+   "SwapFree": 0.0,
+   "Shmem": 0.6803054809570312
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4342,
+   "reserved": 401,
+   "free": 1402,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1972215,4322",
+  "swap_total_mib": 0,
+  "process_rss_gib": 1.2503204345703125,
+  "samples": [
+   {
+    "tok_s": 105.97318919871387,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 103.95438400097188,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 104.01820277757155,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 104.08549868586955,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 104.03016956509677,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 154,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-3b-vllm-1",
+  "rig": "srv1",
+  "arm": "host_ram",
+  "engine": "vllm",
+  "compose": "compose.srv1-3b-vllm.yml",
+  "t": 1789103687.1655202,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.171707153320312,
+    "MemAvailable": 14.114151000976562,
+    "Cached": 0.168243408203125,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 0.00732421875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7663833
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4204082489013672
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 122.67774840496713,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-3b-vllm-1-up-1789103690",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-3b-vllm.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.60'\n    - --dtype\n    - float16\n    container_name: mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 103.7,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 3112,
+     "free_mib": 2632
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789103804.0741045
+   },
+   "load_samples": 121,
+   "load_peak_used_mib": 3112,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17088,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.60",
+      "--dtype",
+      "float16"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.60",
+     "--dtype",
+     "float16"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s1-3b-vllm-1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 122.67774840496713,
+     "door_unit_s": 103.7,
+     "started_at_to_ready_s": 101.76560115814209
+    },
+    "healthy": true,
+    "kv_tokens": 22608,
+    "backend_line": "Using TRITON_ATTN attention backend out of potential backends: ['TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.52/5.61 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 7.696056365966797,
+   "MemAvailable": 11.47464370727539,
+   "Cached": 3.914295196533203,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.0211029052734375
+  },
+  "mem_up_dropped": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 11.102413177490234,
+   "MemAvailable": 11.60842514038086,
+   "Cached": 0.7403297424316406,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.0211029052734375
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 3112,
+   "reserved": 401,
+   "free": 2632,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1979202,3092",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 22.867694424975518,
+      "completion_tokens": 256,
+      "ttft_s": 0.20945525169372559
+     },
+     {
+      "tok_s": 22.882076962730185,
+      "completion_tokens": 256,
+      "ttft_s": 0.21042943000793457
+     },
+     {
+      "tok_s": 22.834788115498032,
+      "completion_tokens": 256,
+      "ttft_s": 0.20749855041503906
+     },
+     {
+      "tok_s": 22.703916530737562,
+      "completion_tokens": 256,
+      "ttft_s": 0.20712828636169434
+     },
+     {
+      "tok_s": 22.676404090450728,
+      "completion_tokens": 256,
+      "ttft_s": 0.22851777076721191
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 7
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.39654541015625
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 0
+  }
+ },
+ {
+  "label": "s1-3b-vllm-2",
+  "rig": "srv1",
+  "arm": "host_ram",
+  "engine": "vllm",
+  "compose": "compose.srv1-3b-vllm.yml",
+  "t": 1789103966.4644427,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.159656524658203,
+    "MemAvailable": 14.108901977539062,
+    "Cached": 0.17059707641601562,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 0.00731658935546875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7685814
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.4388608932495117
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 123.09451664198423,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-3b-vllm-2-up-1789103969",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-3b-vllm.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.60'\n    - --dtype\n    - float16\n    container_name: mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 103.9,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 3112,
+     "free_mib": 2632
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789104083.3817668
+   },
+   "load_samples": 121,
+   "load_peak_used_mib": 3112,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17054,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.60",
+      "--dtype",
+      "float16"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.60",
+     "--dtype",
+     "float16"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s1-3b-vllm-2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 123.09451664198423,
+     "door_unit_s": 103.9,
+     "started_at_to_ready_s": 101.80885291099548
+    },
+    "healthy": true,
+    "kv_tokens": 22608,
+    "backend_line": "Using TRITON_ATTN attention backend out of potential backends: ['TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.52/5.61 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 7.7257080078125,
+   "MemAvailable": 11.505146026611328,
+   "Cached": 3.915729522705078,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.0211029052734375
+  },
+  "mem_up_dropped": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 11.094593048095703,
+   "MemAvailable": 11.603019714355469,
+   "Cached": 0.7419815063476562,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.0211029052734375
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 3112,
+   "reserved": 401,
+   "free": 2632,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1986362,3092",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 22.883062455126478,
+      "completion_tokens": 256,
+      "ttft_s": 0.2083590030670166
+     },
+     {
+      "tok_s": 22.892666269036187,
+      "completion_tokens": 256,
+      "ttft_s": 0.21385788917541504
+     },
+     {
+      "tok_s": 22.884406445203524,
+      "completion_tokens": 256,
+      "ttft_s": 0.2120680809020996
+     },
+     {
+      "tok_s": 22.88010280635578,
+      "completion_tokens": 256,
+      "ttft_s": 0.21511006355285645
+     },
+     {
+      "tok_s": 22.7490364844514,
+      "completion_tokens": 256,
+      "ttft_s": 0.20775079727172852
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 7
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.384471893310547
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 0
+  }
+ },
+ {
+  "label": "s1-3b-vllm-3",
+  "rig": "srv1",
+  "arm": "host_ram",
+  "engine": "vllm",
+  "compose": "compose.srv1-3b-vllm.yml",
+  "t": 1789104215.917866,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.15972900390625,
+    "MemAvailable": 14.109920501708984,
+    "Cached": 0.17124557495117188,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 0.00732421875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7707606
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.42629575729370117
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 123.21223879099125,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-3b-vllm-3-up-1789104218",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-3b-vllm.yml",
+    "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8001'\n    - --gpu-memory-utilization\n    - '0.60'\n    - --dtype\n    - float16\n    container_name: mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "port": 8001,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 104.3,
+      "models": [
+       "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 3112,
+     "free_mib": 2632
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 1789104333.1159623
+   },
+   "load_samples": 121,
+   "load_peak_used_mib": 3112,
+   "load_pswpout": 0,
+   "load_pgmajfault": 17024,
+   "units": [
+    {
+     "service": "Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "container": "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+     "port": 8001,
+     "argv": [
+      "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "--max-model-len",
+      "4096",
+      "--max-num-seqs",
+      "8",
+      "--port",
+      "8001",
+      "--gpu-memory-utilization",
+      "0.60",
+      "--dtype",
+      "float16"
+     ],
+     "image": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+     "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 0,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.60",
+     "--dtype",
+     "float16"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s1-3b-vllm-3-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 123.21223879099125,
+     "door_unit_s": 104.3,
+     "started_at_to_ready_s": 102.2986671924591
+    },
+    "healthy": true,
+    "kv_tokens": 22608,
+    "backend_line": "Using TRITON_ATTN attention backend out of potential backends: ['TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.52/5.61 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 7.759380340576172,
+   "MemAvailable": 11.535797119140625,
+   "Cached": 3.912933349609375,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.021099090576171875
+  },
+  "mem_up_dropped": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 11.116718292236328,
+   "MemAvailable": 11.626239776611328,
+   "Cached": 0.74273681640625,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.999996185302734,
+   "Shmem": 0.0211029052734375
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 3112,
+   "reserved": 401,
+   "free": 2632,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "1993498,3092",
+  "swap_total_mib": 8191,
+  "decode": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "tok_s": 22.878831753295223,
+      "completion_tokens": 256,
+      "ttft_s": 0.23140430450439453
+     },
+     {
+      "tok_s": 22.87740767600784,
+      "completion_tokens": 256,
+      "ttft_s": 0.21315646171569824
+     },
+     {
+      "tok_s": 22.880217829677044,
+      "completion_tokens": 256,
+      "ttft_s": 0.2113816738128662
+     },
+     {
+      "tok_s": 22.880507106205034,
+      "completion_tokens": 256,
+      "ttft_s": 0.20821881294250488
+     },
+     {
+      "tok_s": 22.73228091055924,
+      "completion_tokens": 256,
+      "ttft_s": 0.20919227600097656
+     }
+    ],
+    "warmup_discarded": 1,
+    "pswpout_decode": 0,
+    "pgmajfault_decode": 7
+   }
+  },
+  "process_rss_gib": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2.3827590942382812
+  },
+  "restart_count_after_decode": {
+   "mcgyvr-srv1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 0
+  }
+ },
+ {
+  "label": "s1-qwen36-verbose-1",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "context",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-verbose.yml",
+  "t": 1789104465.367108,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.16024398803711,
+    "MemAvailable": 14.10849380493164,
+    "Cached": 0.1721038818359375,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.999996185302734,
+    "Shmem": 0.00731658935546875
+   },
+   "vm": {
+    "pswpin": 10314280,
+    "pswpout": 19774060,
+    "pgmajfault": 7729604
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.42817211151123047
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 155.9143989009899,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-verbose-1-up-1789104480",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-verbose.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    - --verbose\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 135.3,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 5110,
+     "free_mib": 634
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789104625.832544
+   },
+   "load_samples": 152,
+   "load_peak_used_mib": 5110,
+   "load_pswpout": 39459,
+   "load_pgmajfault": 9195,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}",
+      "--verbose"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--verbose"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-verbose-1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 155.9143989009899,
+     "door_unit_s": 135.3,
+     "started_at_to_ready_s": 132.12170910835266
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 1.3745269775390625,
+   "MemAvailable": 13.443550109863281,
+   "Cached": 12.31644058227539,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.842632293701172,
+   "Shmem": 0.0354766845703125
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5110,
+   "reserved": 401,
+   "free": 634,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "2000030,5090",
+  "swap_total_mib": 8191,
+  "process_rss_gib": 0.8097496032714844,
+  "samples": [
+   {
+    "tok_s": 31.479923030970937,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 30.77921381921521,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.48206836942269,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.198736194253364,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 30.823852681808148,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 35,
+  "pgmajfault_decode": 1534,
+  "restart_count_after_decode": 0
+ },
+ {
+  "label": "s1-qwen36-verbose-2",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "arm": "context",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-verbose.yml",
+  "t": 1789104747.2858505,
+  "idle": {
+   "uptime_since": "2026-09-01T08:11:08Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 17,
+    "reserved": 401,
+    "free": 5727,
+    "cc": "7.5",
+    "driver": "580.173.02"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032337188720703,
+    "MemFree": 14.205062866210938,
+    "MemAvailable": 14.133319854736328,
+    "Cached": 0.14286422729492188,
+    "SwapTotal": 7.999996185302734,
+    "SwapFree": 7.985546112060547,
+    "Shmem": 0.006069183349609375
+   },
+   "vm": {
+    "pswpin": 10331034,
+    "pswpout": 19813554,
+    "pgmajfault": 7748627
+   },
+   "swap_total_mib": 8191,
+   "clock_offset_s": 0.428847074508667
+  },
+  "up": {
+   "door_rc": 0,
+   "door_process_s": 153.78258602198912,
+   "envelope": {
+    "run_id": "2026-09-11-live-srv1-serve-up-s1-qwen36-verbose-2-up-1789104762",
+    "host": "srv1",
+    "mode": "up",
+    "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-verbose.yml",
+    "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    - --verbose\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+    "compose_up_exit": 0,
+    "units": [
+     {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 134.4,
+      "models": [
+       "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+     }
+    ],
+    "card_after": {
+     "used_mib": 5110,
+     "free_mib": 634
+    }
+   },
+   "ready_local": {
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": 1789104906.97714
+   },
+   "load_samples": 149,
+   "load_peak_used_mib": 5110,
+   "load_pswpout": 50880,
+   "load_pgmajfault": 9419,
+   "units": [
+    {
+     "service": "Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+     "port": 8080,
+     "argv": [
+      "--model",
+      "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+      "--n-cpu-moe",
+      "30",
+      "--parallel",
+      "2",
+      "--port",
+      "8080",
+      "-b",
+      "512",
+      "-c",
+      "16384",
+      "-fa",
+      "on",
+      "-ngl",
+      "99",
+      "-t",
+      "6",
+      "-ub",
+      "512",
+      "--chat-template-kwargs",
+      "{\"enable_thinking\":false}",
+      "--verbose"
+     ],
+     "image": "llamacpp:b10644-L3",
+     "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "depends_on": []
+    }
+   ]
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--verbose"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-verbose-2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 153.78258602198912,
+     "door_unit_s": 134.4,
+     "started_at_to_ready_s": 131.61266207695007
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "mem_up": {
+   "MemTotal": 15.032337188720703,
+   "MemFree": 1.5419654846191406,
+   "MemAvailable": 13.519142150878906,
+   "Cached": 12.230728149414062,
+   "SwapTotal": 7.999996185302734,
+   "SwapFree": 7.784332275390625,
+   "Shmem": 0.035015106201171875
+  },
+  "gpu_up": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5110,
+   "reserved": 401,
+   "free": 634,
+   "cc": "7.5",
+   "driver": "580.173.02"
+  },
+  "gpu_apps_up": "2008302,5090",
+  "swap_total_mib": 8191,
+  "process_rss_gib": 0.7188491821289062,
+  "samples": [
+   {
+    "tok_s": 30.88259925394907,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 31.326231001101576,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 30.594765847458817,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 30.65510684627113,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   },
+   {
+    "tok_s": 30.87103907922465,
+    "completion_tokens": 256,
+    "predicted_n": 256
+   }
+  ],
+  "warmup_discarded": 1,
+  "pswpout_decode": 0,
+  "pgmajfault_decode": 1857,
+  "restart_count_after_decode": 0
+ }
+]

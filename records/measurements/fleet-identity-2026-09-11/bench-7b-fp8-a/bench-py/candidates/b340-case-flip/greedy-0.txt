@@ -1,0 +1,5 @@
+```python
+def swap_case(text: str) -> str:
+    """Swap the case of every letter in the text and convert it to uppercase."""
+    return ''.join(char.upper() if char.isalpha() else char.lower() for char in text)
+```

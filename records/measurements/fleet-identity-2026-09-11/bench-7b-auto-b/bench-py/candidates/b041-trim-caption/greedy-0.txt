@@ -1,0 +1,17 @@
+```python
+def trim_caption(text: str, limit: int) -> str:
+    if not isinstance(text, str) or not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Invalid arguments")
+
+    if len(text) <= limit:
+        return text
+
+    if limit < 4:
+        return text[:limit] + '…'
+
+    truncated = text[:limit - 3]
+    if ' ' in truncated:
+        truncated = truncated.rsplit(' ', 1)[0]
+
+    return truncated.strip() + '…'
+```

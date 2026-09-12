@@ -1,0 +1,50 @@
+[
+ {
+  "rig": "srv1",
+  "uptime_since": "2026-09-01T08:11:08Z",
+  "gpu_name": "NVIDIA GeForce GTX 1660 SUPER",
+  "driver": "580.173.02",
+  "gpu_reserve_mib": 401,
+  "gpu_used_mib": 17,
+  "gpu_free_mib": 5727,
+  "gpu_total_mib": 6144,
+  "gpu_procs": "none",
+  "read_at": "2026-09-11T03:38:19Z"
+ },
+ {
+  "rig": "srv2",
+  "uptime_since": "2026-09-01T05:20:12Z",
+  "gpu_name": "NVIDIA GeForce RTX 3060",
+  "driver": "595.84",
+  "gpu_reserve_mib": 377,
+  "gpu_used_mib": 1,
+  "gpu_free_mib": 11911,
+  "gpu_total_mib": 12288,
+  "gpu_procs": "none",
+  "read_at": "2026-09-11T03:38:23Z"
+ },
+ {
+  "rig": "srv1",
+  "uptime_since": "2026-09-11T06:34:36Z",
+  "gpu_name": "NVIDIA GeForce GTX 1660 SUPER",
+  "driver": "580.173.02",
+  "gpu_reserve_mib": 399,
+  "gpu_used_mib": 1,
+  "gpu_free_mib": 5745,
+  "gpu_total_mib": 6144,
+  "gpu_procs": "none",
+  "read_at": "2026-09-11T06:35:26Z"
+ },
+ {
+  "rig": "srv2",
+  "uptime_since": "2026-09-11T07:25:46Z",
+  "gpu_name": "NVIDIA GeForce RTX 3060",
+  "driver": "595.84",
+  "gpu_reserve_mib": 377,
+  "gpu_used_mib": 1,
+  "gpu_free_mib": 11911,
+  "gpu_total_mib": 12288,
+  "gpu_procs": "none",
+  "read_at": "2026-09-11T07:26:36Z"
+ }
+]
