@@ -182,6 +182,37 @@ mem_available_kib() {
     printf '%s' "$out"
 }
 
+# The rig identity (`rig-` = H{ host, hardware, system }) hashes the kernel,
+# MemTotal, swap and swappiness: a kernel update or a swap change mints a new
+# rig on purpose (plan §1, owner's ruling). These were the snapshot's gaps.
+kernel_version() {
+    local out
+    out=$(tok "$(uname -r 2>/dev/null)")
+    [ -n "$out" ] || fail "cannot read the kernel version (uname -r)"
+    printf '%s' "$out"
+}
+
+mem_total_kib() {
+    local out
+    out=$(awk '/^MemTotal:/{print $2; exit}' /proc/meminfo 2>/dev/null) || out=
+    case ${out:-} in ''|*[!0-9]*) fail "cannot read MemTotal from /proc/meminfo" ;; esac
+    printf '%s' "$out"
+}
+
+swap_total_kib() {
+    local out
+    out=$(awk '/^SwapTotal:/{print $2; exit}' /proc/meminfo 2>/dev/null) || out=
+    case ${out:-} in ''|*[!0-9]*) fail "cannot read SwapTotal from /proc/meminfo" ;; esac
+    printf '%s' "$out"
+}
+
+swappiness() {
+    local out
+    out=$(cat /proc/sys/vm/swappiness 2>/dev/null) || out=
+    case ${out:-} in ''|*[!0-9]*) fail "cannot read swappiness (/proc/sys/vm/swappiness)" ;; esac
+    printf '%s' "$out"
+}
+
 printf 'uptime_since=%s\n' "$(uptime_since)"
 printf 'cpu_max_mhz=%s\n'  "$(cpu_max_mhz)"
 printf 'cpu_model=%s\n'    "$(cpu_model)"
@@ -190,7 +221,11 @@ printf 'pl1_uw=%s\n'       "$(power_limit pl1)"
 printf 'pl2_uw=%s\n'       "$(power_limit pl2)"
 nvidia
 printf 'docker=%s\n'          "$(docker_version)"
+printf 'kernel=%s\n'           "$(kernel_version)"
 printf 'mem_available_kib=%s\n' "$(mem_available_kib)"
+printf 'mem_total_kib=%s\n'    "$(mem_total_kib)"
+printf 'swap_total_kib=%s\n'   "$(swap_total_kib)"
+printf 'swappiness=%s\n'       "$(swappiness)"
 printf 'nproc=%s\n'           "$(nproc 2>/dev/null || echo NA)"
 printf 'hostname=%s\n'        "$(host_name)"
 printf 'gpu_procs=%s\n'       "$(gpu_procs)"
