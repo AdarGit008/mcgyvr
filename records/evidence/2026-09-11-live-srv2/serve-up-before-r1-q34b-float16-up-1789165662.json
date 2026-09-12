@@ -1,0 +1,24 @@
+{
+  "run_id": "2026-09-11-live-srv2-serve-up-r1-3b-fp8-up-1789164351",
+  "host": "srv2",
+  "mode": "up",
+  "compose_file": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/kv-dtype-2026-09-11/compose.srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-fp8.yml",
+  "compose": "services:\n  Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8002:\n    command:\n    - Qwen/Qwen2.5-Coder-3B-Instruct-AWQ\n    - --max-model-len\n    - '4096'\n    - --max-num-seqs\n    - '8'\n    - --port\n    - '8002'\n    - --gpu-memory-utilization\n    - '0.72'\n    - --kv-cache-dtype\n    - fp8\n    container_name: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8002\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      HF_HUB_OFFLINE: '1'\n    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52\n    ipc: host\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface:ro\n",
+  "compose_up_exit": 0,
+  "units": [
+    {
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8002",
+      "port": 8002,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 96.6,
+      "models": [
+        "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
+      ]
+    }
+  ],
+  "card_after": {
+    "used_mib": 8695,
+    "free_mib": 3217
+  }
+}

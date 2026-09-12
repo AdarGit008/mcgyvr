@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-09-11-live-srv1-serve-up-r4-qwen36-f16-up-1789169526",
+  "campaign": "live-srv1",
+  "step": "serve-up",
+  "host": "srv1",
+  "date": "2026-09-11",
+  "round": "r28-11-09-2026",
+  "product_sha256": "1fe415c0efe18c0f7a571481c6bf0c224bca42b2f5690d164b1b26bffef46630",
+  "profile": "live",
+  "config": "/home/adaramir/.mcgyvr/config/mcgyvr.yaml",
+  "config_digest": "cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb",
+  "mcgyvr_version": "0.1.1.dev116+g1590cdd9",
+  "started_at": "2026-09-11T23:32:14Z"
+}

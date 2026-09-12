@@ -1,8 +1,8 @@
 {
-  "run_id": "2026-09-11-live-srv1-serve-down-td-891692396-1789169239",
+  "run_id": "2026-09-11-live-srv1-serve-down-td-891625086-1789162508",
   "host": "srv1",
   "mode": "down",
-  "compose_file": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/kv-dtype-2026-09-11/compose.srv1-r4-q8_0.yml",
+  "compose_file": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/kv-dtype-2026-09-11/compose.srv1-r4-f16.yml",
   "compose_down_exit": 0,
   "expected": [
     "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080"
