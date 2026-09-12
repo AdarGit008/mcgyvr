@@ -97,6 +97,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.capability",
     "mcgyvr.capacity",
     "mcgyvr.cooldown",
+    "mcgyvr.derived",
     "mcgyvr.detect",
     "mcgyvr.emit",
     "mcgyvr.fleet",
