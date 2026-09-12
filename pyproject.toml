@@ -28,6 +28,7 @@ dev = [
     "ruff>=0.16.2",
     "mypy>=1.18",
     "types-pyyaml>=6.0.12.20260724",
+    "pytest-xdist>=3.8.0",
 ]
 # Measurement-only, and deliberately not in `dev`. #117 measures the token
 # estimator's error against real tokenizers, which needs one; the product must
@@ -212,4 +213,4 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -n auto"
