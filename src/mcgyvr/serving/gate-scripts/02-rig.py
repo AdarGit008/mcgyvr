@@ -6,7 +6,8 @@ before and after, which catches a machine that moves DURING a run and says
 nothing at all about one that moved BEFORE it. RAM moved between srv1 and srv2
 twice in six days and every artifact from that window is internally consistent
 and wrong. hosts.json[HOST].rig is the declaration — read live on its read_on
-date — and every declared key must match now.
+date — and every declared key must match now, except ``gpu_reserve_mib``,
+which a reboot moves within a small tolerance (:data:`RESERVE_TOLERANCE_MIB`).
 
 The reading is exported for gate 7, which takes a second one after the step and
 stamps any key that moved into the artifacts, because rows produced under two
@@ -57,6 +58,12 @@ HERE = Path(__file__).resolve().parent
 #: machine somebody else is using. Run contract §4 — a cell never repairs a
 #: machine it found wrong — so the refusal names them and leaves them.
 IDLE_KEYS = ("gpu_procs", "containers")
+
+#: ``gpu_reserve_mib`` is the card's ``memory.reserved``, carved by GSP
+#: firmware per boot and so not identical across boots. The M8 two-boot
+#: measurements moved srv1 399↔401 MiB (≤ 2 MiB) and left srv2 at 377 MiB,
+#: so gate 2 admits a reading within this many MiB of its declaration.
+RESERVE_TOLERANCE_MIB = 3
 
 
 def snapshot(host: str) -> dict[str, str]:
@@ -203,6 +210,26 @@ def take_lease(host: str) -> tuple[Lease, Lease | None]:
     )
 
 
+def _matches(key: str, declared: str, reading: str | None) -> bool:
+    """Whether one declared rig key matches its live reading.
+
+    Every key is compared literally except ``gpu_reserve_mib``, the card's
+    ``memory.reserved``, which GSP firmware carves per boot: see
+    :data:`RESERVE_TOLERANCE_MIB`. A value that is not an int on either side
+    falls back to the literal comparison rather than crashing.
+    """
+    if reading is None:
+        return False
+    if key == "gpu_reserve_mib":
+        try:
+            declared_int = int(declared)
+            reading_int = int(reading)
+        except (ValueError, TypeError):
+            return declared == reading
+        return abs(declared_int - reading_int) <= RESERVE_TOLERANCE_MIB
+    return declared == reading
+
+
 def main() -> int:
     door_required("gate 2")
     host = need("RUN_HOST")
@@ -238,7 +265,7 @@ def main() -> int:
     bad = [
         f"{key}: declared {value!r}, reads {live.get(key)!r}"
         for key, value in declared.items()
-        if live.get(key) != value
+        if not _matches(key, value, live.get(key))
     ]
     if bad:
         refuse(
