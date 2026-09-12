@@ -18,37 +18,28 @@ Two things this file pins:
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import subprocess
 import sys
-import types
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
 RUNGS = ["scope", "secrets", "structured", "adapters", "acceptance"]
 
 
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture(scope="module")
 def control() -> Any:
-    return _by_path("bench_control_t", REPO / "tools" / "bench" / "control.py")
+    return by_path("bench_control_t", REPO / "tools" / "bench" / "control.py")
 
 
 @pytest.fixture(scope="module")
 def report() -> Any:
-    return _by_path("bench_report_ctl_t", REPO / "tools" / "bench" / "report.py")
+    return by_path("bench_report_ctl_t", REPO / "tools" / "bench" / "report.py")
 
 
 def _manifest(model: str, tier: str, **over: Any) -> dict[str, Any]:
@@ -110,7 +101,7 @@ def test_the_re_scorer_reads_the_runs_from_the_control_it_re_scores() -> None:
     candidates under another's heading — and the output would have looked fine,
     because both runs exist and both parse.
     """
-    lintless = _by_path("bench_lintless_t", REPO / "tools" / "bench" / "lintless.py")
+    lintless = by_path("bench_lintless_t", REPO / "tools" / "bench" / "lintless.py")
     assert not hasattr(lintless, "STOCK"), "the re-scorer restates the run names"
     assert not hasattr(lintless, "NORULE")
     assert lintless.control.STOCK_RUN
@@ -186,7 +177,7 @@ def test_the_power_reports_bench_null_pools_within_a_tier_not_across(
     7B's under a label claiming it was everything — a defect that only appears
     once a second tier exists, which is the first thing check 5 does.
     """
-    power = _by_path("power_report_t", REPO / "tools" / "power" / "report.py")
+    power = by_path("power_report_t", REPO / "tools" / "power" / "report.py")
     power.bench_null()
     lines = [
         line for line in capsys.readouterr().out.splitlines() if "both arms @" in line

@@ -15,29 +15,18 @@ reader of the output could see.
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from math import comb, isclose
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
 
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-arms = _by_path("arms", REPO / "tools" / "bench" / "arms.py")
+arms = by_path("arms", REPO / "tools" / "bench" / "arms.py")
 
 
 def _pairing(both_pass: int, both_fail: int, py_only: int, ts_only: int) -> Any:

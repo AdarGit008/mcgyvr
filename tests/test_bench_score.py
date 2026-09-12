@@ -35,27 +35,19 @@ from mcgyvr.gate.adapters.python import DEFAULT_RUFF_SELECT
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.runner import Gate
 from mcgyvr.sandbox.tempdir import TempDirSandbox
+from tests._helpers import by_path
 
 REPO = Path(__file__).resolve().parent.parent
 
 
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture(scope="module")
 def score() -> Any:
-    return _by_path("bench_score_t", REPO / "tools" / "bench" / "score.py")
+    return by_path("bench_score_t", REPO / "tools" / "bench" / "score.py")
 
 
 @pytest.fixture(scope="module")
 def measure() -> types.ModuleType:
-    return _by_path("breadth_measure_s", REPO / "tools" / "breadth" / "measure.py")
+    return by_path("breadth_measure_s", REPO / "tools" / "breadth" / "measure.py")
 
 
 def _js_toolchain_ready() -> bool:
@@ -462,8 +454,8 @@ def test_the_live_instruments_share_one_acceptance_ceiling() -> None:
     asserts that admission *reads* the scorer's, so there is one number.
     """
     source = REPO / "tools" / "problems" / "admit.py"
-    admit = _by_path("problems_admit_s", source)
-    score_mod = _by_path("bench_score_ceiling", REPO / "tools" / "bench" / "score.py")
+    admit = by_path("problems_admit_s", source)
+    score_mod = by_path("bench_score_ceiling", REPO / "tools" / "bench" / "score.py")
     assert admit.TIMEOUT_S == score_mod.ACCEPTANCE_TIMEOUT_S
 
     # Equal is not enough: two literals are equal on the day they are written
@@ -491,7 +483,7 @@ def test_the_retired_rigs_ceiling_is_left_where_it_describes_its_own_rows() -> N
     at exactly that value. Raising it to match the live number would rewrite
     what those rows say they were measured under.
     """
-    retired = _by_path("bundle_measure_s", REPO / "tools" / "bundle" / "measure.py")
-    score_mod = _by_path("bench_score_retired", REPO / "tools" / "bench" / "score.py")
+    retired = by_path("bundle_measure_s", REPO / "tools" / "bundle" / "measure.py")
+    score_mod = by_path("bench_score_retired", REPO / "tools" / "bench" / "score.py")
     assert retired.ACCEPTANCE_TIMEOUT_S == 30.0
     assert retired.ACCEPTANCE_TIMEOUT_S != score_mod.ACCEPTANCE_TIMEOUT_S

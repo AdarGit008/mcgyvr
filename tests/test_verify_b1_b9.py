@@ -359,10 +359,6 @@ def test_b5_repair_does_not_write_through_a_hard_link_out_of_scope(
     )
 
 
-
-
-
-
 def test_b4_pattern_repair_does_not_splice_an_import_into_a_docstring(
     tmp_path: Path,
 ) -> None:

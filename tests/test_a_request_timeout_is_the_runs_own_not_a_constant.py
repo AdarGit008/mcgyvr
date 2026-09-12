@@ -44,15 +44,6 @@ ladder:
 """
 
 
-@pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
-    lj.claude_transcript(tmp_path / "home", "s1")
-    return tmp_path / "home"
-
-
 def _config(path: Path, journal: Path, budgets: str = "") -> Path:
     text = LADDER + budgets + f"journal:\n  dir: {journal}\n"
     path.write_text(text, encoding="utf-8")

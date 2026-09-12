@@ -13,29 +13,18 @@ Removing an entry is how a fix is proved — the same convention
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
 from pathlib import Path
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "records" / "measurements"
 
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 # `tools/` is not a package, so the rigs are loaded by path — the convention
 # `tests/test_bench_rounds.py` established for the same reason.
-eligibility = _by_path(
+eligibility = by_path(
     "bench_eligibility_t", REPO / "tools" / "bench" / "eligibility.py"
 )
 

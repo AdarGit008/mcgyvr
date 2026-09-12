@@ -16,31 +16,21 @@ checked, and every pre-round table was reading that way.
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import shutil
-import sys
-import types
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
-
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 @pytest.fixture(scope="module")
 def identity() -> Any:
-    return _by_path("bench_identity_t", REPO / "tools" / "bench" / "identity.py")
+    return by_path("bench_identity_t", REPO / "tools" / "bench" / "identity.py")
 
 
 def _manifest(**overrides: Any) -> dict[str, Any]:
@@ -86,7 +76,6 @@ OTHER: dict[str, Any] = {
     "round": "r2",
     "product_sha256": "0000dead",
 }
-
 
 # --- a mutation in any keyed field is refused -------------------------------
 
@@ -252,7 +241,7 @@ def test_drift_reads_absence_as_a_difference(identity: Any) -> None:
 
 def test_the_key_is_one_list_and_the_report_reads_it(identity: Any) -> None:
     """ADR-0027 D1 — five lists disagreed, and three lanes were queued to edit."""
-    report = _by_path("bench_report_identity_t", REPO / "tools" / "bench" / "report.py")
+    report = by_path("bench_report_identity_t", REPO / "tools" / "bench" / "report.py")
     assert report.COMPARABLE is identity.KEY or tuple(report.COMPARABLE) == tuple(
         identity.KEY
     )
@@ -493,7 +482,7 @@ def test_a_staging_failure_is_a_reason_and_not_a_traceback(identity: Any) -> Non
 
 @pytest.fixture(scope="module")
 def bench_score() -> Any:
-    return _by_path("bench_score_ti", REPO / "tools" / "bench" / "score.py")
+    return by_path("bench_score_ti", REPO / "tools" / "bench" / "score.py")
 
 
 def _js_ready() -> bool:

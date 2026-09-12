@@ -386,8 +386,6 @@ def test_the_bytes_the_gate_rejected_do_not_reach_the_repository(
     assert committed == judged, "the committed bytes are not the bytes the gate judged"
 
 
-
-
 def test_a_writer_between_the_write_and_the_commit_cannot_substitute_the_bytes(
     tmp_path: Path,
 ) -> None:

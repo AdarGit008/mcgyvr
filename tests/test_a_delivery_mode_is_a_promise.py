@@ -47,7 +47,6 @@ shipped default still has to be a value that delivers.
 from __future__ import annotations
 
 import dataclasses
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -55,6 +54,7 @@ import pytest
 from mcgyvr.config import Config, ConfigSchemaError, parse
 from mcgyvr.contract import Contract, loads
 from mcgyvr.deliver import Delivery, DeliveryError, deliver
+from tests._helpers import git
 
 CONTRACT = """
 id: fetch-retry
@@ -91,15 +91,6 @@ AFTER = 'def fetch(url):\n    """Retry."""\n    return url\n'
 #: set agrees with any answer the module gives, including one that put
 #: ``pull_request`` back.
 HONOURED = ("branch", "none")
-
-
-def git(repo: Path, *args: str) -> str:
-    done = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
-    )
-    if done.returncode != 0:
-        raise AssertionError(f"git {' '.join(args)} failed: {done.stderr.strip()}")
-    return done.stdout
 
 
 def heads(repo: Path) -> set[str]:

@@ -24,35 +24,25 @@ other figure-producing tools said nothing at all.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
-import sys
-import types
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
-
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 @pytest.fixture(scope="module")
 def mode() -> Any:
-    return _by_path("bench_mode_t", REPO / "tools" / "bench" / "mode.py")
+    return by_path("bench_mode_t", REPO / "tools" / "bench" / "mode.py")
 
 
 @pytest.fixture(scope="module")
 def product() -> Any:
-    return _by_path("bench_product_t", REPO / "tools" / "bench" / "product.py")
+    return by_path("bench_product_t", REPO / "tools" / "bench" / "product.py")
 
 
 # --- the product digest -----------------------------------------------------
@@ -588,7 +578,6 @@ CHECKED = {
     # which tier's verdicts it agrees about (#295, #231 check 6).
     "tools/bench/arms.py",
 }
-
 
 #: Directory names under the figure trees that hold CORPUS rather than tools.
 #: `reserve/` and `tasks/` are problems — an `accept.py` is a task's acceptance

@@ -159,10 +159,6 @@ def test_a_surrogate_escaped_reply_does_not_crash_the_cleanup(repo: Path) -> Non
     assert outcome.accepted, "a cleanup that could not run overturned the gate"
 
 
-
-
-
-
 def test_best_of_gates_the_bytes_it_returns(repo: Path, contract: Contract) -> None:
     """The draw the gate judged and the draw that is returned are one file.
 

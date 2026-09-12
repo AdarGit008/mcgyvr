@@ -28,38 +28,28 @@ what the canary keys on.
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
 EVIDENCE = REPO / "records" / "evidence" / "2026-08-24-resolved-config"
 
 
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture(scope="module")
 def fingerprint() -> Any:
-    return _by_path(
+    return by_path(
         "serving_fingerprint", REPO / "tools" / "bench" / "serving" / "fingerprint.py"
     )
 
 
 @pytest.fixture(scope="module")
 def identity() -> Any:
-    return _by_path("bench_identity_r", REPO / "tools" / "bench" / "identity.py")
+    return by_path("bench_identity_r", REPO / "tools" / "bench" / "identity.py")
 
 
 def _rig(fingerprint: Any, host: str, asked: dict[str, Any] | None = None) -> Any:

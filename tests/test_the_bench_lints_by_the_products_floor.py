@@ -36,11 +36,8 @@ against a bench whose applied bar was still wrong.
 
 from __future__ import annotations
 
-import importlib.util
 import subprocess
-import sys
 import tomllib
-import types
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +46,7 @@ import pytest
 from mcgyvr.gate import Gate
 from mcgyvr.gate.adapters.python import DEFAULT_RUFF_SELECT
 from mcgyvr.gate.changeset import ChangeSet
+from tests._helpers import by_path
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -72,19 +70,10 @@ UNWRAPPABLE = (
 UNUSED_IMPORT = "import json\n\n" + UNWRAPPABLE
 
 
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture(scope="module")
 def score() -> Any:
     """``tools/bench/score.py``, which is a script rather than a package."""
-    return _by_path("bench_score_floor", REPO / "tools" / "bench" / "score.py")
+    return by_path("bench_score_floor", REPO / "tools" / "bench" / "score.py")
 
 
 def _git(repo: Path, *args: str) -> None:

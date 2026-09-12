@@ -38,15 +38,6 @@ from tests import livejournal as lj
 
 
 @pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
-    lj.claude_transcript(tmp_path / "home", "s1")
-    return tmp_path / "home"
-
-
-@pytest.fixture
 def ours(tmp_path: Path) -> Path:
     """Where the corpus lives: the config's ``journal.dir``."""
     return tmp_path / "corpus"

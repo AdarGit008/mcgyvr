@@ -36,7 +36,6 @@ refusal.
 from __future__ import annotations
 
 import ast
-import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -48,6 +47,7 @@ from mcgyvr.escalate import Judgement
 from mcgyvr.gate import ChangeSet, Gate
 from mcgyvr.repair import repair
 from mcgyvr.route import Verdict
+from tests._helpers import git
 
 CONTRACT = """
 id: fetch-retry
@@ -76,15 +76,6 @@ UNFORMATTED = (
     "        time.sleep(1)\n"
     "        return url\n"
 )
-
-
-def git(repo: Path, *args: str) -> str:
-    done = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
-    )
-    if done.returncode != 0:
-        raise AssertionError(f"git {' '.join(args)} failed: {done.stderr.strip()}")
-    return done.stdout
 
 
 def make_repo(where: Path, targets: dict[str, str]) -> Path:

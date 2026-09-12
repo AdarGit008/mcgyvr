@@ -9,7 +9,6 @@ in the single-module predecessor, and each is a test below.
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import re
 import sys
@@ -19,22 +18,15 @@ from typing import Any
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
 SERVING = REPO / "tools" / "bench" / "serving"
 
 
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture(scope="module")
 def runner() -> Any:
-    return _by_path("serving_run", SERVING / "run.py")
+    return by_path("serving_run", SERVING / "run.py")
 
 
 @pytest.fixture(scope="module")
@@ -102,7 +94,7 @@ def test_a_backend_loads_without_a_sibling_priming_the_cache(name: str) -> None:
     """
     for slot in [f"serving_backend_{b}" for b in BACKENDS] + ["serving_contract"]:
         sys.modules.pop(slot, None)
-    module = _by_path(f"solo_{name}", SERVING / "backends" / f"{name}.py")
+    module = by_path(f"solo_{name}", SERVING / "backends" / f"{name}.py")
     assert name == module.NAME
     assert module.contract is not None
 
@@ -771,7 +763,7 @@ def test_an_unusable_environment_variable_name_is_refused(
     quoting would produce a name no shell would export, hiding the typo instead
     of naming it.
     """
-    backend: Any = _by_path("envcheck_vllm", SERVING / "backends" / "vllm.py")
+    backend: Any = by_path("envcheck_vllm", SERVING / "backends" / "vllm.py")
     monkeypatch.setattr(
         backend.contract, "ssh", lambda host, command, timeout=None: "launched"
     )
@@ -818,7 +810,7 @@ def test_a_pin_naming_the_wrong_field_is_refused_not_ignored(
     Parametrised over the discovered roster, so a third backend inherits the
     property the day its file lands.
     """
-    backend: Any = _by_path(f"pin_{name}", SERVING / "backends" / f"{name}.py")
+    backend: Any = by_path(f"pin_{name}", SERVING / "backends" / f"{name}.py")
     monkeypatch.setattr(backend.contract, "ssh", lambda *a, **k: None)
     with pytest.raises(backend.contract.NotCleanError, match="not this backend's pin"):
         backend.claim("h", "http://x", "m", {}, {"definitely_not_a_real_field": "x"})
@@ -842,7 +834,7 @@ def test_no_host_reading_reaches_disk_unredacted(
 
     Fixtures are assembled at runtime, never written as literals.
     """
-    vllm: Any = _by_path("leak_vllm", SERVING / "backends" / "vllm.py")
+    vllm: Any = by_path("leak_vllm", SERVING / "backends" / "vllm.py")
     token = "ghp_" + "z" * 36
     key = "AKIA" + "Q" * 16
     leak = (
@@ -953,7 +945,7 @@ def test_one_missing_digest_is_undecided_not_a_refutation(
 
 @pytest.fixture(scope="module")
 def fingerprint() -> Any:
-    return _by_path("serving_fingerprint", SERVING / "fingerprint.py")
+    return by_path("serving_fingerprint", SERVING / "fingerprint.py")
 
 
 # The four nested blocks from a live vLLM config, verbatim. A naive comma split
@@ -1050,7 +1042,7 @@ def test_the_sampler_defaults_are_semantic(fingerprint: Any) -> None:
 
 @pytest.fixture(scope="module")
 def pin_module() -> Any:
-    return _by_path("serving_pin", SERVING / "pin.py")
+    return by_path("serving_pin", SERVING / "pin.py")
 
 
 def _side(token: str | None, digest: str | None) -> dict[str, Any]:
@@ -1162,7 +1154,6 @@ def test_a_reused_pid_after_a_reboot_is_not_the_same_process(pin_module: Any) ->
 # `test_the_launcher_refuses_the_exact_failure_it_exists_for` and the vLLM
 # launch checks below hold to.
 
-
 # --- #345: the same question, asked of the engine that cannot spill ---------
 
 #: What `ps -eo pid=,ppid=,args= | grep -E '[V]LLM::EngineCore|[v]llm serve|…'`
@@ -1211,7 +1202,7 @@ def _vllm_card(
     name: str = "placement_vllm",
 ) -> Any:
     """The vLLM backend with one card and one process list under it."""
-    vllm: Any = _by_path(name, SERVING / "backends" / "vllm.py")
+    vllm: Any = by_path(name, SERVING / "backends" / "vllm.py")
 
     def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
         if "--query-compute-apps" in command:
@@ -1435,7 +1426,7 @@ def test_the_compute_apps_reading_is_declared_once_and_has_a_consumer(
 
     # And behaviourally, not only textually: the line `snapshot` records is the
     # same string the placement reading runs, because it is the same object.
-    contract_module: Any = _by_path("wiring_contract", SERVING / "contract.py")
+    contract_module: Any = by_path("wiring_contract", SERVING / "contract.py")
     monkeypatch.setattr(contract_module, "ssh", lambda h, c, timeout=None: None)
     monkeypatch.setattr(contract_module, "scrub", lambda value: value)
     recorded = contract_module.snapshot("h")["readings"]["gpu_compute_apps"]
@@ -1447,7 +1438,7 @@ def test_the_compute_apps_reading_is_declared_once_and_has_a_consumer(
 
 
 def _launcher() -> Any:
-    return _by_path("serving_launch", SERVING / "launch.py")
+    return by_path("serving_launch", SERVING / "launch.py")
 
 
 def test_the_launcher_passes_on_the_tree_it_is_launching() -> None:
@@ -1526,7 +1517,7 @@ def test_the_launched_width_is_read_off_the_host_not_off_our_own_variable(
 
     Fixtures are the two real shapes, read off srv1 and srv2 on 2026-08-19.
     """
-    vllm: Any = _by_path("width_vllm", SERVING / "backends" / "vllm.py")
+    vllm: Any = by_path("width_vllm", SERVING / "backends" / "vllm.py")
     pip_argv = (
         "adaramir 774452 /usr/bin/python3 /home/adaramir/.local/bin/vllm serve "
         "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --max-model-len 8192 "
@@ -1657,7 +1648,7 @@ def test_resume_keeps_a_refusal_but_retry_failed_drops_it(tmp_path: Path) -> Non
     Re-running it buys the same refusal for the same rig time. `--retry-failed`
     is how a caller says the conditions have changed and it wants another look.
     """
-    runner: Any = _by_path("resume_run", SERVING / "run.py")
+    runner: Any = by_path("resume_run", SERVING / "run.py")
     journal = tmp_path / "j.jsonl"
     journal.write_text(
         json.dumps({"host": "h", "label": "ok-one", "outcome": "ok"})
@@ -1681,7 +1672,7 @@ def test_a_torn_line_costs_one_sample_not_two(tmp_path: Path) -> None:
     exactly that one sample" was true of the torn row and false of the row
     after it.
     """
-    runner: Any = _by_path("torn_run", SERVING / "run.py")
+    runner: Any = by_path("torn_run", SERVING / "run.py")
     journal = tmp_path / "j.jsonl"
     journal.write_text(
         json.dumps({"host": "h", "label": "first", "outcome": "ok"})
@@ -1708,7 +1699,7 @@ def test_retry_failed_does_not_resurrect_a_superseded_measurement(
     the cell was counted done and the document reported `ok` for a cell whose
     most recent answer was a refusal — the opposite of what the flag is for.
     """
-    runner: Any = _by_path("supersede_run", SERVING / "run.py")
+    runner: Any = by_path("supersede_run", SERVING / "run.py")
     journal = tmp_path / "j.jsonl"
     journal.write_text(
         json.dumps({"host": "srv2", "label": "gpt-oss-20b", "outcome": "ok"})
@@ -1732,7 +1723,7 @@ def test_calibrate_retry_failed_does_not_resurrect_a_superseded_sample(
     was asked for. The twin in `run.py` is pinned by
     `test_retry_failed_does_not_resurrect_a_superseded_measurement`.
     """
-    cal: Any = _by_path("supersede_cal", SERVING / "calibrate.py")
+    cal: Any = by_path("supersede_cal", SERVING / "calibrate.py")
     out = tmp_path / "c.jsonl"
     sample = {"phase": "ramp", "host": "srv2", "engine": "vllm", "model": "m"}
 
@@ -1778,7 +1769,7 @@ def test_a_journal_reads_one_byte_to_heal_its_tail(tmp_path: Path) -> None:
     are lost rather than one.
     """
     for module, path in (("heal_run", "run.py"), ("heal_cal", "calibrate.py")):
-        mod: Any = _by_path(module, SERVING / path)
+        mod: Any = by_path(module, SERVING / path)
         torn = tmp_path / f"{module}.jsonl"
         torn.write_text('{"host": "srv1", "cut": tr', encoding="utf-8")
         assert mod._ends_mid_line(torn) is True
@@ -1998,7 +1989,6 @@ _OOM_TAIL = (
     "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 256.00 MiB\n"
 )
 
-
 #: srv2's four, exactly as `docker ps -a` printed them on 2026-08-23. **Two
 #: tags, one image id** (`ffb2d59b1c05` for both `:latest` and `:v0.26.0`,
 #: measured on both rigs), and exactly one of the four is ours.
@@ -2028,7 +2018,7 @@ def _vllm_stopped_box(
     for, so a foreign container can be put on the box without inventing one
     that is also ours.
     """
-    vllm: Any = _by_path(name, SERVING / "backends" / "vllm.py")
+    vllm: Any = by_path(name, SERVING / "backends" / "vllm.py")
     sent: list[str] = []
 
     def _grep(lines: tuple[str, ...], command: str) -> str:
@@ -2145,7 +2135,7 @@ def _vllm_launch(
     name: str = "launch_vllm",
 ) -> tuple[Any, list[str]]:
     """The backend on a host where a launch never becomes ready."""
-    vllm: Any = _by_path(name, SERVING / "backends" / "vllm.py")
+    vllm: Any = by_path(name, SERVING / "backends" / "vllm.py")
     sent: list[str] = []
 
     def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
