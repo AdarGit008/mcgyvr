@@ -1193,18 +1193,26 @@ def kv_cache_dtype(serve: dict[str, Any]) -> str:
 
     From ``serve["flags"]``, the list ``_start`` appends to the argv, in either
     spelling (``--kv-cache-dtype fp8`` or ``--kv-cache-dtype=fp8``). No flag is
-    vLLM's own default, ``auto``. A flag with no value, or a value this gate has
-    no element width for, is refused by name: sized at two bytes it would
-    over-declare a narrower cache and at one it would under-declare a wider one,
-    and either is a number nobody chose.
+    no answer now: a serve block that does not state one is refused, because
+    ``auto`` here is vLLM's own default, not a number the operator chose. A
+    flag with no value, or a value this gate has no element width for, is
+    refused by name: sized at two bytes it would over-declare a narrower cache
+    and at one it would under-declare a wider one, and either is a number
+    nobody chose.
     """
     flags = [str(flag) for flag in serve.get("flags") or []]
-    declared = "auto"
+    declared: str | None = None
     for index, flag in enumerate(flags):
         if flag == "--kv-cache-dtype":
             declared = flags[index + 1] if index + 1 < len(flags) else ""
         elif flag.startswith("--kv-cache-dtype="):
             declared = flag.partition("=")[2]
+    if declared is None:
+        raise contract.NotCleanError(
+            "serve launches with no --kv-cache-dtype (or kv_cache_dtype), so "
+            "this gate cannot size its KV cache. Declare one — every served "
+            "unit states which cache it runs. Nothing was measured."
+        )
     if declared not in KV_CACHE_DTYPE_BYTES:
         raise contract.NotCleanError(
             f"serve launches with --kv-cache-dtype {declared!r}, and this gate has "

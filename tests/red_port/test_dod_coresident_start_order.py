@@ -57,6 +57,7 @@ BIG = ModelSpec(
     ram_gb=0.0,
     disk_gb=5.2,
     hf_cache="/home/x/.cache/huggingface",
+    kv_cache_dtype_k="auto",
 )
 SMALL = ModelSpec(
     name="qwen2.5-coder-3b",
@@ -64,6 +65,7 @@ SMALL = ModelSpec(
     ram_gb=0.0,
     disk_gb=2.1,
     hf_cache="/home/x/.cache/huggingface",
+    kv_cache_dtype_k="auto",
 )
 
 

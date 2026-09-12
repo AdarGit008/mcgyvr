@@ -796,6 +796,7 @@ def test_an_unusable_environment_variable_name_is_refused(
                 # weights they are weighed against, or the fit check refuses
                 # before it reaches the env names.
                 "weights_bytes": 1181116006,
+                "flags": ["--kv-cache-dtype", "auto"],
                 "env": {"A; touch /tmp/x; B": "1"},
             },
         )
@@ -880,6 +881,7 @@ def test_no_host_reading_reaches_disk_unredacted(
                 {
                     "kv_cache_memory_bytes": 1879048192,
                     "weights_bytes": 1181116006,  # #354
+                    "flags": ["--kv-cache-dtype", "auto"],
                     "env": {"HF_TOKEN": token},
                 },
             ),

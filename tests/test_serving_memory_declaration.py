@@ -67,20 +67,17 @@ def _vllm_entries() -> list[tuple[Path, dict[str, Any]]]:
     return found
 
 
-#: The four entries the 2026-08-30 run launched under ``--kv-cache-dtype fp8``
-#: while pinning the fp16 size, because nothing then read the flag: each holds
-#: exactly twice the KV its shape needs at fp8. They are kept as run: these are
-#: the bytes ``records/evidence/serving-2026-08-30/vllm-srv2.json`` records each
-#: cell as started with (``claim.checks.started.serve``), and halving them here
-#: would leave the config describing a launch that run never made. So they are
+#: The one entry the 2026-08-30 run launched under ``--kv-cache-dtype fp8``
+#: while pinning the fp16 size, because nothing then read the flag: it holds
+#: exactly twice the KV its shape needs at fp8. It is kept as run: these are
+#: the bytes ``records/evidence/serving-2026-08-30/vllm-srv2.json`` records the
+#: cell as started with (``claim.checks.started.serve``), and halving it here
+#: would leave the config describing a launch that run never made. So it is
 #: written down here rather than rewritten there. Closed: the check below fails
-#: if one disappears, and nothing may join it.
+#: if it disappears, and nothing may join it.
 PINNED_AT_FP16_AS_RUN: frozenset[tuple[str, str]] = frozenset(
     {
-        ("srv-vllm-n1248-srv2.json", "q15-vllm-srv2"),
-        ("srv-vllm-n1248-srv2.json", "q3-vllm-srv2"),
         ("srv-vllm-n1248-srv2.json", "q34b-vllm-srv2"),
-        ("srv-vllm-n1248-srv2.json", "q7-vllm-srv2"),
     }
 )
 
@@ -262,6 +259,24 @@ WEIGHTS_1_5B_MIB = 1126
 PHASE0_RESIDUE_MIB = {"srv1": 3130 - 1792 - 1126, "srv2": 3183 - 1792 - 1126}
 
 
+def _with_kv_dtype(serve: dict[str, Any]) -> dict[str, Any]:
+    """The evidence entry as it launches now, with its KV dtype stated.
+
+    The phase-0 and refit campaigns predate the declaration requirement and
+    launched with no ``--kv-cache-dtype`` — the engine's default, ``auto``,
+    which sizes a token at 2 bytes an element, the width every
+    ``_bytes_per_token_note`` in these files already states. The flag is added
+    at read time rather than written into the historical record, so the
+    evidence keeps naming what was actually launched.
+    """
+    flags = [str(f) for f in (serve.get("flags") or [])]
+    if not any(
+        f == "--kv-cache-dtype" or f.startswith("--kv-cache-dtype=") for f in flags
+    ):
+        serve = {**serve, "flags": [*flags, "--kv-cache-dtype", "auto"]}
+    return serve
+
+
 def _phase0_cells() -> list[dict[str, Any]]:
     """Phase 0's seven vLLM cells: the declaration it ran, and what the card did.
 
@@ -270,7 +285,7 @@ def _phase0_cells() -> list[dict[str, Any]]:
     """
     config = json.loads((PHASE0 / "config.json").read_text(encoding="utf-8"))
     serves = {
-        (entry["hosts"][0], entry["id"]): entry["serve"]
+        (entry["hosts"][0], entry["id"]): _with_kv_dtype(entry["serve"])
         for entry in config["models"]
         if entry.get("backend") == "vllm"
     }
@@ -374,7 +389,8 @@ def _refit_cells() -> list[dict[str, Any]]:
 
     config = json.loads((REFIT / "config.json").read_text(encoding="utf-8"))
     serves = {
-        (entry["hosts"][0], entry["id"]): entry["serve"] for entry in config["models"]
+        (entry["hosts"][0], entry["id"]): _with_kv_dtype(entry["serve"])
+        for entry in config["models"]
     }
     rows = _csv.DictReader(
         (REFIT / "footprints.csv").read_text(encoding="utf-8").splitlines()
@@ -502,6 +518,7 @@ def test_the_refusal_names_both_ways_out_and_takes_neither(vllm: Any) -> None:
         "kv_cache_memory_bytes": 9663676416,
         "bytes_per_token": 147456,
         "weights_bytes": int(2.5 * 1024**3),
+        "flags": ["--kv-cache-dtype", "auto"],
     }
     before = json.dumps(serve, sort_keys=True)
     with pytest.raises(Exception) as raised:
@@ -610,6 +627,7 @@ def test_the_measured_branch_refuses_a_footprint_inside_the_reserve_window(
         serve = {
             "kv_cache_memory_bytes": 1879048192,
             "_footprint_mib": {"srv1": footprint},
+            "flags": ["--kv-cache-dtype", "auto"],
         }
         try:
             vllm.declaration_fits("srv1", "model", serve, free)
@@ -660,6 +678,7 @@ def test_the_predicted_branch_does_not_subtract_the_reserve(
         "kv_cache_memory_bytes": 8 * 11264 * 36864,
         "bytes_per_token": 36864,
         "weights_bytes": int(1.95 * 1024**3),
+        "flags": ["--kv-cache-dtype", "auto"],
     }
     predicted = (
         vllm._mib(serve["weights_bytes"])
@@ -733,6 +752,7 @@ def test_an_unreported_reserve_refuses_rather_than_assuming_zero(
     serve = {
         "kv_cache_memory_bytes": 1879048192,
         "_footprint_mib": {"srv1": 3130},  # comfortably fitting, if it were checked
+        "flags": ["--kv-cache-dtype", "auto"],
     }
     with pytest.raises(vllm.contract.NotCleanError) as raised:
         vllm.declaration_fits("srv1", "model", serve, 6144 - 17)

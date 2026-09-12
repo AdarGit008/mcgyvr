@@ -54,11 +54,27 @@ def scanned(file: str, *, ram_gb: float = 0.0) -> ModelSpec:
         ram_gb=ram_gb,
         disk_gb=0.0,
         geometry=GEOMETRY[file],
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
     )
 
 
-SMALL = ModelSpec(name="qwen2.5-coder-3b", vram_gb=2.4, ram_gb=0.0, disk_gb=2.1)
-MID = ModelSpec(name="qwen2.5-coder-14b", vram_gb=9.6, ram_gb=0.0, disk_gb=9.0)
+SMALL = ModelSpec(
+    name="qwen2.5-coder-3b",
+    vram_gb=2.4,
+    ram_gb=0.0,
+    disk_gb=2.1,
+    kv_cache_dtype_k="f16",
+    kv_cache_dtype_v="f16",
+)
+MID = ModelSpec(
+    name="qwen2.5-coder-14b",
+    vram_gb=9.6,
+    ram_gb=0.0,
+    disk_gb=9.0,
+    kv_cache_dtype_k="f16",
+    kv_cache_dtype_v="f16",
+)
 # Qwen3.6-35B-A3B at IQ3_XXS: 12.3 GiB on disk, 40 placeable expert blocks and
 # 30 recurrent ones, so a slot costs recurrent state as well as cache.
 MOE = scanned("Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf")
@@ -135,7 +151,11 @@ def test_a_unit_is_keyed_by_host_model_and_engine(scans: dict[str, Scan]) -> Non
 
 def test_a_different_engine_is_a_different_unit(scans: dict[str, Scan]) -> None:
     llama = unit_for(scans["desktop-2"], MID, engine="llama.cpp", ctx_per_slot=WINDOW)
-    served = replace(MID, hf_cache="/home/someone/.cache/huggingface")
+    served = replace(
+        MID,
+        hf_cache="/home/someone/.cache/huggingface",
+        kv_cache_dtype_k="auto",
+    )
     vllm = unit_for(scans["desktop-2"], served, engine="vllm", ctx_per_slot=WINDOW)
     assert llama.key != vllm.key
 
@@ -470,6 +490,8 @@ def test_a_model_id_with_a_slash_mounts_the_directory_the_scan_measured(
         vram_gb=5.29,
         ram_gb=0.0,
         disk_gb=5.29,
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
     )
     unit = unit_for(scans["desktop-2"], nested, engine="llama.cpp", ctx_per_slot=WINDOW)
     disk = scans["desktop-2"].disk
