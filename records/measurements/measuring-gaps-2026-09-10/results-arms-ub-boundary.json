@@ -1,0 +1,102 @@
+[
+  {
+    "host": "srv2",
+    "label": "ub-128-1",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub128.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 128,
+    "batch": 512,
+    "wake_s": 50.14199614524841,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 10692,
+    "engine": {
+      "n_ubatch": 128,
+      "n_batch": 512,
+      "cuda0_compute_mib": 19.03,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_model_mib": 8376.27,
+      "kv_cache_line": "llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 128"
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "ub-256-1",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub256.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 256,
+    "batch": 512,
+    "wake_s": 46.701937437057495,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 10712,
+    "engine": {
+      "n_ubatch": 256,
+      "n_batch": 512,
+      "cuda0_compute_mib": 38.07,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_model_mib": 8376.27,
+      "kv_cache_line": "llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 128"
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "ub-512-1",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub512.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 512,
+    "batch": 512,
+    "wake_s": 51.49289631843567,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 10750,
+    "engine": {
+      "n_ubatch": 512,
+      "n_batch": 512,
+      "cuda0_compute_mib": 76.13,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_model_mib": 8376.27,
+      "kv_cache_line": "llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 128"
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "ub-1024-1",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub1024.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 1024,
+    "batch": 512,
+    "wake_s": 51.9293270111084,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 10750,
+    "engine": {
+      "n_ubatch": 512,
+      "n_batch": 512,
+      "cuda0_compute_mib": 76.13,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_model_mib": 8376.27,
+      "kv_cache_line": "llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 128"
+    }
+  },
+  {
+    "host": "srv2",
+    "label": "ub-2048-1",
+    "compose": "/home/adaramir/claude/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub2048.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 2048,
+    "batch": 512,
+    "wake_s": 50.39546346664429,
+    "vram_idle_free_mib": 11911,
+    "vram_steady_net_mib": 10750,
+    "engine": {
+      "n_ubatch": 512,
+      "n_batch": 512,
+      "cuda0_compute_mib": 76.13,
+      "cuda0_kv_mib": 2160.0,
+      "cuda0_model_mib": 8376.27,
+      "kv_cache_line": "llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 128"
+    }
+  }
+]
