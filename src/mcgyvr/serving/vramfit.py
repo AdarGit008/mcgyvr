@@ -21,11 +21,10 @@ The split this module rests on:
     primary context, and whatever device memory the engine allocates without
     naming. Called ``C`` here. **It held across every placement measured that
     keeps expert blocks on the host**: five placements of KAT, where every term
-    held to the last printed digit and the unnamed remainder held at 144.67 MiB
-    net of idle (145.67 raw), and three of nemotron spanning 9.6 GB of experts.
-    That remainder is per-rig -- 144.67 on srv2 against 97.69 on srv1, both net
-    of the card's idle baseline -- but ``C`` itself is per (model, serve
-    config) and subsumes it.
+    held to the last printed digit, and three of nemotron spanning 9.6 GB of
+    experts. That remainder is per-rig -- net of the card's idle baseline,
+    recorded per rig in ``tools/runs/derived.json`` -- but ``C`` itself is per
+    (model, serve config) and subsumes it.
 
     **It steps when the first expert block leaves the card.** llama.cpp's
     op offload copies a host-stored expert tensor into the device compute

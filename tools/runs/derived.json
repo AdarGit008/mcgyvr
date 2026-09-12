@@ -1,0 +1,47 @@
+{
+  "_doc": "The numbers mcgyvr DERIVES on a rig by measurement, stated as data rather than as literals in code. Filed 2026-09-12 to close the gap the per-rig-numbers task named: several rig- or engine-specific measured values were hard-coded in `src/`, so the number lived where the measurement's provenance could not, and nothing would notice it drifting from the rig it described. A value here is the single source of truth; code that sizes a rig or locks a fleet looks it up, and an absent value is a named refusal, never a silent inline default. `tools/runs/hosts.json` is the sibling declaration of what each rig IS (read live by gate 2); this file states what was MEASURED on it. It is JSON and content-addressable so a reader can digest it the way it digests `hosts.json`.",
+  "declared_on": "2026-09-12",
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "_numbers_doc": "Per-host `numbers` blocks: a value derived from measurement on that rig, carried nowhere else in code. The key is read by `src/mcgyvr/derived.py`; a rig or value that is absent is refused by name.",
+  "srv1": {
+    "numbers": {
+      "runtime_resident_gb": {
+        "value": 1.53,
+        "why": "Host RAM beyond the spilled experts themselves (context, compute buffers, copy paths). Swept across six --n-cpu-moe cells on srv2 (records/measurements/serving-sweep-2026-08-25/): RSS - offloaded expert bytes sat flat at 1.52-1.53 GiB at every setting from 4 to 20 blocks, which is what makes it an intercept rather than a rate. Declared at the same 1.53 for srv1, which has no separate sweep; a differing srv1 reading would replace this value, not the lookup."
+      },
+      "card_remainder_mib": {
+        "value": 97.69,
+        "why": "The unnamed remainder of the card's non-expert constant `C` after every named term is accounted for, net of the card's idle baseline, on srv1 (src/mcgyvr/serving/vramfit.py's derivation of C; records/measurements/measuring-gaps-2026-09-10/ Q4/Q6, records/measurements/flexibility-2026-09-09/ Q11). It is recorded here because it is per-rig; `C` itself is per (model, serve config) and subsumes it."
+      }
+    }
+  },
+  "srv2": {
+    "numbers": {
+      "runtime_resident_gb": {
+        "value": 1.53,
+        "why": "Host RAM beyond the spilled experts themselves. Swept across six --n-cpu-moe cells on srv2 (records/measurements/serving-sweep-2026-08-25/): RSS - offloaded expert bytes sat flat at 1.52-1.53 GiB at every setting from 4 to 20 blocks, which is what makes it an intercept rather than a rate."
+      },
+      "card_remainder_mib": {
+        "value": 144.67,
+        "why": "The unnamed remainder of the card's non-expert constant `C` after every named term is accounted for, net of the card's idle baseline (145.67 raw), on srv2 (src/mcgyvr/serving/vramfit.py's derivation of C; records/measurements/measuring-gaps-2026-09-10/ Q4/Q6, records/measurements/flexibility-2026-09-09/ Q11). It is recorded here because it is per-rig; `C` itself is per (model, serve config) and subsumes it."
+      }
+    }
+  },
+  "engine": {
+    "_doc": "Engine-specific measured numbers, shared across rigs. Keyed by engine rather than by host because the figure belongs to the backend, not to the machine it runs on.",
+    "warm_decode_pct": {
+      "vllm": {
+        "value": 3.0,
+        "why": "How much of its no-NVMe baseline warm decode a vLLM unit may lose to NVMe before the fleet lock refuses it. The survey's provisional value; the measured class tolerance is in records/measurements/fleet-identity-2026-09-11/tolerances.json, and moving it here is a data edit, not a code edit."
+      },
+      "llama.cpp": {
+        "value": 5.0,
+        "why": "How much of its no-NVMe baseline warm decode a llama.cpp unit may lose to NVMe before the fleet lock refuses it. The survey's provisional value; the measured class tolerance is in records/measurements/fleet-identity-2026-09-11/tolerances.json, and moving it here is a data edit, not a code edit."
+      }
+    }
+  },
+  "_procedure_doc": "Read by `src/mcgyvr/derived.py`. `runtime_resident_gb` is consumed by `src/mcgyvr/serving/__init__.py` (`_host_gb`) when an MoE spills experts to host RAM; `warm_decode_pct` is consumed by `src/mcgyvr/cli.py` (`_fleet_lock`) and passed to `mcgyvr.fleet.lock.write`. `card_remainder_mib` is provenance for `src/mcgyvr/serving/vramfit.py` and is not consumed by any code path."
+}
