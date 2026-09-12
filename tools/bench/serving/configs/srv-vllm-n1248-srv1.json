@@ -10,6 +10,7 @@
   "models": [
     {
       "label": "q15-vllm-srv1",
+      "_dtype_note": "srv1 is cc 7.5; fp8 KV needs sm_86, so float16 is the only viable dtype",
       "backend": "vllm",
       "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
       "family": "qwen2.5-coder-1.5b",
@@ -25,7 +26,9 @@
         "weights_bytes": 1181116006,
         "_weights_bytes_note": "1.1 GiB, MEASURED -- this engine's own `Model loading took 1.1 GiB` line, read off a start on srv1 and srv2 2026-08-30 (ADR-0039 rule 2's idiom, extended to weights by #354). Read before the KV cache is touched, so it is the weights and nothing else. It replaces an ON-DISK sum of *.safetensors that this entry carried first: the two disagree by -4% to +37% with no constant ratio between them (1.5B 1.61 GB on disk against 1.1 GiB loaded; 7B 5.57 GB against 5.29 GiB), so no correction could have been applied to the disk figure. For the 14B this is the FULL weight, not the resident share -- `--cpu-offload-gb` is subtracted separately by `cpu_offload_mib()` so that one number stays the model's and the other stays the declaration's.",
         "flags": [
-          "--enforce-eager"
+          "--enforce-eager",
+          "--kv-cache-dtype",
+          "float16"
         ],
         "env": {
           "FLASHINFER_DISABLE_VERSION_CHECK": "1"
@@ -48,6 +51,7 @@
     },
     {
       "label": "q3-vllm-srv1",
+      "_dtype_note": "srv1 is cc 7.5; fp8 KV needs sm_86, so float16 is the only viable dtype",
       "backend": "vllm",
       "id": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
       "family": "qwen2.5-coder-3b",
@@ -63,7 +67,9 @@
         "weights_bytes": 2093796556,
         "_weights_bytes_note": "1.95 GiB, MEASURED -- this engine's own `Model loading took 1.95 GiB` line, read off a start on srv2 2026-08-30 (ADR-0039 rule 2's idiom, extended to weights by #354). Read before the KV cache is touched, so it is the weights and nothing else. It replaces an ON-DISK sum of *.safetensors that this entry carried first: the two disagree by -4% to +37% with no constant ratio between them (1.5B 1.61 GB on disk against 1.1 GiB loaded; 7B 5.57 GB against 5.29 GiB), so no correction could have been applied to the disk figure. For the 14B this is the FULL weight, not the resident share -- `--cpu-offload-gb` is subtracted separately by `cpu_offload_mib()` so that one number stays the model's and the other stays the declaration's.",
         "flags": [
-          "--enforce-eager"
+          "--enforce-eager",
+          "--kv-cache-dtype",
+          "float16"
         ],
         "env": {
           "FLASHINFER_DISABLE_VERSION_CHECK": "1"
@@ -86,6 +92,7 @@
     },
     {
       "label": "q34b-vllm-srv1",
+      "_dtype_note": "srv1 is cc 7.5; fp8 KV needs sm_86, so float16 is the only viable dtype",
       "backend": "vllm",
       "id": "thewimo/Qwen3-4B-AWQ",
       "family": "qwen3-4b",
@@ -101,7 +108,9 @@
         "weights_bytes": 2684354560,
         "_weights_bytes_note": "2.5 GiB, MEASURED -- this engine's own `Model loading took 2.5 GiB` line, read off a start on srv2 2026-08-30 (ADR-0039 rule 2's idiom, extended to weights by #354). Read before the KV cache is touched, so it is the weights and nothing else. It replaces an ON-DISK sum of *.safetensors that this entry carried first: the two disagree by -4% to +37% with no constant ratio between them (1.5B 1.61 GB on disk against 1.1 GiB loaded; 7B 5.57 GB against 5.29 GiB), so no correction could have been applied to the disk figure. For the 14B this is the FULL weight, not the resident share -- `--cpu-offload-gb` is subtracted separately by `cpu_offload_mib()` so that one number stays the model's and the other stays the declaration's.",
         "flags": [
-          "--enforce-eager"
+          "--enforce-eager",
+          "--kv-cache-dtype",
+          "float16"
         ],
         "env": {
           "FLASHINFER_DISABLE_VERSION_CHECK": "1"

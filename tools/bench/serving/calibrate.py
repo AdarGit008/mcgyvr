@@ -460,7 +460,7 @@ def _widths(
             # that this is now a deliberate, priced handicap on BOTH rigs
             # rather than a constraint one of them imposes -- so no figure this
             # function produces may be read as either rig's throughput.
-            "flags": ["--enforce-eager"],
+            "flags": ["--enforce-eager", "--kv-cache-dtype", "float16"],
             # **E10, 2026-08-19: `CUDA_HOME` is dropped, not repaired.**
             # It was `"$HOME/.local/lib/python3.14/site-packages/nvidia/
             # cu13"`, and `vllm._start` renders env values through
@@ -676,8 +676,16 @@ def sleep_state(
             emit(out, {"phase": "sleep", "host": host, "refused": "no AWQ checkpoint"})
             continue
         for arm, flags in (
-            ("control_no_flag", ["--enforce-eager"]),
-            ("enabled", ["--enforce-eager", "--enable-sleep-mode"]),
+            ("control_no_flag", ["--enforce-eager", "--kv-cache-dtype", "float16"]),
+            (
+                "enabled",
+                [
+                    "--enforce-eager",
+                    "--kv-cache-dtype",
+                    "float16",
+                    "--enable-sleep-mode",
+                ],
+            ),
         ):
             # `engine` is in the key (DE-K), and since #324 the row carries it
             # -- so the lookup must carry it too, or a finished cell is never

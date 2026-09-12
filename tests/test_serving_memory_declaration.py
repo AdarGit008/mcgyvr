@@ -67,20 +67,17 @@ def _vllm_entries() -> list[tuple[Path, dict[str, Any]]]:
     return found
 
 
-#: The four entries the 2026-08-30 run launched under ``--kv-cache-dtype fp8``
-#: while pinning the fp16 size, because nothing then read the flag: each holds
-#: exactly twice the KV its shape needs at fp8. They are kept as run: these are
-#: the bytes ``records/evidence/serving-2026-08-30/vllm-srv2.json`` records each
-#: cell as started with (``claim.checks.started.serve``), and halving them here
-#: would leave the config describing a launch that run never made. So they are
+#: The one entry the 2026-08-30 run launched under ``--kv-cache-dtype fp8``
+#: while pinning the fp16 size, because nothing then read the flag: it holds
+#: exactly twice the KV its shape needs at fp8. It is kept as run: these are
+#: the bytes ``records/evidence/serving-2026-08-30/vllm-srv2.json`` records the
+#: cell as started with (``claim.checks.started.serve``), and halving it here
+#: would leave the config describing a launch that run never made. So it is
 #: written down here rather than rewritten there. Closed: the check below fails
-#: if one disappears, and nothing may join it.
+#: if it disappears, and nothing may join it.
 PINNED_AT_FP16_AS_RUN: frozenset[tuple[str, str]] = frozenset(
     {
-        ("srv-vllm-n1248-srv2.json", "q15-vllm-srv2"),
-        ("srv-vllm-n1248-srv2.json", "q3-vllm-srv2"),
         ("srv-vllm-n1248-srv2.json", "q34b-vllm-srv2"),
-        ("srv-vllm-n1248-srv2.json", "q7-vllm-srv2"),
     }
 )
 
