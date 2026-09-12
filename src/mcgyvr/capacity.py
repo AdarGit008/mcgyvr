@@ -1285,7 +1285,10 @@ class Capacity:
         named = sorted(set(sources))
         for source in named:
             self._bounded(source)
-        wanted = sorted(bound for bound in self._bounds if bound[0] in set(named))
+        wanted = sorted(
+            (bound for bound in self._bounds if bound[0] in set(named)),
+            key=lambda bound: (bound[0], bound[1] or ""),
+        )
         taken: list[int] = []
         try:
             for source, rung in wanted:

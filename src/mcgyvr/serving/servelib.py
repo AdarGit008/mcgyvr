@@ -120,6 +120,33 @@ def containers_up() -> list[str]:
     return [line.strip() for line in done.stdout.splitlines() if line.strip()]
 
 
+def restart_count(container: str) -> int:
+    """The container's ``docker inspect`` ``RestartCount``, or 0 if unreadable.
+
+    Read through the door's shim, so it asks the rig's daemon and nothing
+    else. Restarts are held at exactly 0, and the one thing worse than
+    recording a restart is not asking; a daemon that cannot answer after a
+    successful ``compose up`` is recorded as 0 rather than as a count that
+    was never read.
+    """
+    try:
+        done = subprocess.run(
+            ["docker", "inspect", "--format", "{{.RestartCount}}", container],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return 0
+    if done.returncode != 0:
+        return 0
+    try:
+        return int(done.stdout.strip())
+    except ValueError:
+        return 0
+
+
 def models_served(host: str, port: int) -> list[str] | None:
     """The model ids a unit on ``host``:``port`` lists, or None if it does not answer.
 
@@ -267,7 +294,8 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
     second ssh per poll for two minutes buys nothing.
 
     The row carries ``sleeping`` so the envelope can tell the two failures
-    apart. A unit that never came up wants its container log read; one that is
+    apart, and ``restarts`` so it records the container's restart count.
+    A unit that never came up wants its container log read; one that is
     asleep wants a ``POST /wake_up`` and nothing else, and its log is clean.
     ``None`` is "never got an answer to that question" — nobody asked, or the
     engine cannot say — and it is deliberately not ``False``, which is an engine
@@ -287,6 +315,7 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
                 "sleeping": asleep,
                 "seconds": round(time.monotonic() - started, 1),
                 "models": ids,
+                "restarts": restart_count(service.container),
             }
         if attempt + 1 < HEALTH_POLLS:
             time.sleep(HEALTH_INTERVAL_S)
@@ -297,6 +326,7 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
         "sleeping": asleep,
         "seconds": round(time.monotonic() - started, 1),
         "models": ids or [],
+        "restarts": restart_count(service.container),
     }
 
 

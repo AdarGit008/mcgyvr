@@ -26,7 +26,7 @@ def main() -> int:
     expected = need("RUN_SERVE_EXPECTED").split()
 
     print(f"serve-down: docker compose down on {host}: {', '.join(expected)}")
-    stopped = servelib.compose(compose_file, "down")
+    stopped = servelib.compose(compose_file, "down", "--remove-orphans")
     if stopped.returncode != 0:
         print(
             f"serve-down: docker compose down failed on {host}: "
