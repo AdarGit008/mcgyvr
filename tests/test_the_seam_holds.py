@@ -187,8 +187,9 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: whole project rather than for one half of it: the package itself, the one
 #: config file (``config.py``:1), the vocabulary of what may be asked for
 #: (``catalog.py``:1), the exit codes a caller branches on (``exits.py``:1),
-#: where a line ends (``lines.py``:1), and what is safe to quote to an
-#: operator (``redact.py``:1). Being on this list is not an exemption: a
+#: where a line ends (``lines.py``:1), what is safe to quote to an
+#: operator (``redact.py``:1), and the strict YAML loader both schemas share
+#: (``strict_yaml.py``:1). Being on this list is not an exemption: a
 #: shared module is held to *both* rules below, because a shared module that
 #: reached into either half would pull that half into everything that reads
 #: it.
@@ -199,6 +200,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.exits",
     "mcgyvr.lines",
     "mcgyvr.redact",
+    "mcgyvr.strict_yaml",
 )
 
 #: The one module that is allowed to reach into both halves, because reaching
