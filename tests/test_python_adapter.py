@@ -103,6 +103,26 @@ def test_lint_attributes_to_added_lines(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(shutil.which("ruff") is None, reason="ruff not installed")
+def test_an_unsorted_import_block_is_not_demoted_with_i001(tmp_path: Path) -> None:
+    """I001 stays rejecting when its line is not a deprecated typing import.
+
+    The I001 demotion is keyed on the source line, not on the code: ruff
+    reports ``from typing import Mapping`` twice (UP035 and I001), and only
+    that I001 is style. An ordinary unsorted import block is still a lint
+    finding, so demoting I001 wholesale is the regression this pins against.
+    """
+    write(tmp_path, "s.py", "import os\nimport sys\nimport json\n")
+
+    findings = ADAPTER.lint([change("s.py", {1, 2, 3})], tmp_path)
+
+    i001 = [f for f in findings if f.code == "I001"]
+    assert i001 and all(f.check == "lint" for f in i001), (
+        f"I001 on an unsorted, non-typing import block must still reject: "
+        f"{findings}"
+    )
+
+
+@pytest.mark.skipif(shutil.which("ruff") is None, reason="ruff not installed")
 def test_format_flags_only_reflowed_added_lines(tmp_path: Path) -> None:
     write(tmp_path, "f.py", "x=1\ny = 2\n")  # line 1 needs reformatting
 
