@@ -320,8 +320,8 @@ def _draw(
         target = space.workspace / contract.target
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            # `write_bytes` under `surrogateescape`, the same way
-            # ``mcgyvr.pending.stash`` stores accepted work: `write_text`
+            # `write_bytes` under `surrogateescape`, the byte convention the
+            # rest of mcgyvr uses to store accepted work: `write_text`
             # encodes with the platform's preferences under `strict` and
             # translates line endings, so the draw the gate judged would not be
             # the draw returned as the winner. A verdict about a file nobody

@@ -31,8 +31,8 @@ reached (:meth:`Accepted.read`, which reads the bytes off the tree the gate
 judged rather than taking them from a caller). What it carries that delivery
 cannot re-establish is the *expensive* half of the verdict — the contract's
 acceptance commands and semantic resolution, which need a sandbox this seam is
-not given — and, through ``mcgyvr.pending``, the identity of the bytes across
-a store. It is a strictly additional refusal, never a licence to skip the gate
+not given — and the identity of the bytes across a store. It is a strictly
+additional refusal, never a licence to skip the gate
 run: a rejected verdict refuses, and a self-consistent forged one still has to
 survive the rungs delivery runs for itself.
 
@@ -294,8 +294,8 @@ class Accepted:
     refusal and never a licence: :func:`deliver` judges the bytes it is about to
     write whatever arrives here. What an :class:`Accepted` adds is the half of
     the verdict delivery cannot re-establish — the sandboxed rungs — and an
-    identity that survives a round trip through ``mcgyvr.pending``, which is
-    the one place ``intact`` can actually come out false.
+    identity that survives a round trip through the ``surrogateescape``
+    convention, which is the one place ``intact`` can actually come out false.
     """
 
     content: str
@@ -1331,11 +1331,11 @@ def _snapshot(path: Path) -> bytes | None:
 def _encoded(content: str) -> bytes:
     """``content`` as the bytes that go on disk, raising if it has none.
 
-    ``surrogateescape`` is the repository's convention (documented at
-    ``mcgyvr.pending``) and it is a convention about *bytes*: U+DC80..U+DCFF
+    ``surrogateescape`` is the repository's convention, and it is a convention
+    about *bytes*: U+DC80..U+DCFF
     are how a byte that is not valid UTF-8 survives a decode, and they have to
-    keep round-tripping — the pending store's entire claim is that the bytes it
-    stashed are the bytes it resumes.
+    keep round-tripping — the convention's entire claim is that the bytes a
+    string carries are the bytes it resumes.
 
     A *lone* surrogate is a different animal and does not round-trip anything.
     ``\ud800`` is a legal JSON escape, so it survives ``json.loads`` into a
