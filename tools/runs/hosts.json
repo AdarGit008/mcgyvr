@@ -18,7 +18,7 @@
       "gpu_vram_mib": "6144",
       "gpu_cc": "7.5",
       "driver": "580.173.02",
-      "gpu_reserve_mib": "399",
+      "gpu_reserve_mib": "401",
       "docker": "29.7.2"
     },
     "read_on": "2026-09-03",
