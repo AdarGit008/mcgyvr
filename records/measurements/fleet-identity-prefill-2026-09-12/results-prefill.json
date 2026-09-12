@@ -5,6 +5,14 @@
     "vllm": {
       "tolerance_pct": 22,
       "worst_shortfall_pct": 21.55
+    },
+    "llamacpp": {
+      "tolerance_pct": 1,
+      "worst_shortfall_pct": 0.37
+    },
+    "cpu_experts": {
+      "tolerance_pct": 1,
+      "worst_shortfall_pct": 0.13
     }
   },
   "per_unit": {
@@ -58,6 +66,58 @@
         13628.98,
         11639.69,
         13628.65
+      ]
+    },
+    "Ling-3.0-tiny-Q4_K_M": {
+      "model": "Ling-3.0-tiny-Q4_K_M",
+      "class": "llamacpp",
+      "n": 15,
+      "median_tok_s": 1450.28,
+      "min_tok_s": 1444.89,
+      "max_tok_s": 1453.37,
+      "shortfall_pct": 0.37,
+      "samples": [
+        1445.98,
+        1445.59,
+        1444.89,
+        1446.15,
+        1445.82,
+        1453.37,
+        1447.72,
+        1451.37,
+        1451.12,
+        1451.64,
+        1448.18,
+        1452.11,
+        1452.67,
+        1450.28,
+        1451.12
+      ]
+    },
+    "Qwen3.6-35B-A3B-UD-IQ3_XXS": {
+      "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+      "class": "cpu_experts",
+      "n": 15,
+      "median_tok_s": 370.61,
+      "min_tok_s": 370.14,
+      "max_tok_s": 371.95,
+      "shortfall_pct": 0.13,
+      "samples": [
+        371.91,
+        370.68,
+        370.49,
+        370.15,
+        370.28,
+        371.95,
+        371.75,
+        370.99,
+        370.61,
+        370.46,
+        371.82,
+        371.8,
+        370.56,
+        370.14,
+        370.4
       ]
     }
   }

@@ -60,9 +60,12 @@ def _body(model: str | None, stream: bool) -> str:
 
 
 def prefill_llamacpp(host: str, port: int) -> dict[str, Any] | None:
-    proc = rig.sh(["curl", "-s", "-m", "900", f"http://{host}:{port}/v1/chat/completions",
-                   "-H", "Content-Type: application/json", "-d", _body(None, False)],
-                  timeout=960)
+    # Raw /completion (no chat template), as measuring-gaps-2026-09-10 does, so the
+    # prompt is the full PREFILL_TEXT and prompt_per_second is a real prefill rate.
+    body = json.dumps({"prompt": PREFILL_TEXT, "n_predict": 8, "temperature": 0,
+                       "cache_prompt": False})
+    proc = rig.sh(["curl", "-s", "-m", "900", f"http://{host}:{port}/completion",
+                   "-H", "Content-Type: application/json", "-d", body], timeout=960)
     try:
         t = json.loads(proc.stdout)["timings"]
         return {"prompt_n": int(t["prompt_n"]), "tok_s": float(t["prompt_per_second"])}

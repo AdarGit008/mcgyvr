@@ -526,5 +526,719 @@
    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
   }
+ },
+ {
+  "label": "s1-ling-prefill-1",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "swap": "off",
+  "t": 1789200037.3105536,
+  "idle": {
+   "uptime_since": "2026-09-12T07:52:51Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 1,
+    "reserved": 399,
+    "free": 5745,
+    "cc": "7.5",
+    "driver": "580.178.04"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032333374023438,
+    "MemFree": 14.247692108154297,
+    "MemAvailable": 14.25054931640625,
+    "Cached": 0.22971343994140625,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.00153350830078125
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 14180
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.43579959869384766
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4824,
+   "reserved": 399,
+   "free": 922,
+   "cc": "7.5",
+   "driver": "580.178.04"
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-prefill-1-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 86.61399187799543,
+     "door_unit_s": 65.5,
+     "started_at_to_ready_s": 65.45202255249023
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "samples": [
+   {
+    "prompt_n": 2497,
+    "tok_s": 1445.984627509843
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1445.5869940011323
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1444.8910342688575
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1446.149604958492
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1445.8188505363773
+   }
+  ],
+  "warmup_discarded": 1,
+  "restart_count_after_prefill": 0
+ },
+ {
+  "label": "s1-ling-prefill-2",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "swap": "off",
+  "t": 1789200202.20433,
+  "idle": {
+   "uptime_since": "2026-09-12T07:52:51Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 1,
+    "reserved": 399,
+    "free": 5745,
+    "cc": "7.5",
+    "driver": "580.178.04"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032333374023438,
+    "MemFree": 14.226600646972656,
+    "MemAvailable": 14.230792999267578,
+    "Cached": 0.23091888427734375,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.001544952392578125
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 21940
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4594454765319824
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4824,
+   "reserved": 399,
+   "free": 922,
+   "cc": "7.5",
+   "driver": "580.178.04"
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-prefill-2-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 88.02628716500476,
+     "door_unit_s": 67.8,
+     "started_at_to_ready_s": 65.57338786125183
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "samples": [
+   {
+    "prompt_n": 2497,
+    "tok_s": 1453.3657027811844
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1447.724226218361
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1451.37459181906
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1451.1164937957071
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1451.6420647152147
+   }
+  ],
+  "warmup_discarded": 1,
+  "restart_count_after_prefill": 0
+ },
+ {
+  "label": "s1-ling-prefill-3",
+  "rig": "srv1",
+  "unit": "Ling-3.0-tiny-Q4_K_M",
+  "class": "llamacpp",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-ling-unmapped.yml",
+  "swap": "off",
+  "t": 1789200355.8143988,
+  "idle": {
+   "uptime_since": "2026-09-12T07:52:51Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 1,
+    "reserved": 399,
+    "free": 5745,
+    "cc": "7.5",
+    "driver": "580.178.04"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032333374023438,
+    "MemFree": 14.234180450439453,
+    "MemAvailable": 14.240360260009766,
+    "Cached": 0.23155593872070312,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.0015411376953125
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 29695
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4306221008300781
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 4824,
+   "reserved": 399,
+   "free": 922,
+   "cc": "7.5",
+   "driver": "580.178.04"
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "8192",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--n-cpu-moe",
+     "0",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+    "port": 8080,
+    "log": "logs/s1-ling-prefill-3-Ling-3.0-tiny-Q4_K_M-8080.log",
+    "clocks": {
+     "door_process_s": 85.31570171302883,
+     "door_unit_s": 67.3,
+     "started_at_to_ready_s": 65.13770055770874
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "samples": [
+   {
+    "prompt_n": 2497,
+    "tok_s": 1448.1767877617751
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1452.1097462326272
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1452.6689956687542
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1450.2846263440688
+   },
+   {
+    "prompt_n": 2497,
+    "tok_s": 1451.1215536589532
+   }
+  ],
+  "warmup_discarded": 1,
+  "restart_count_after_prefill": 0
+ },
+ {
+  "label": "s1-qwen36-prefill-1",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "swap": "off",
+  "t": 1789200512.8566465,
+  "idle": {
+   "uptime_since": "2026-09-12T07:52:51Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 1,
+    "reserved": 399,
+    "free": 5745,
+    "cc": "7.5",
+    "driver": "580.178.04"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032333374023438,
+    "MemFree": 14.208175659179688,
+    "MemAvailable": 14.21529769897461,
+    "Cached": 0.23230361938476562,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.001544952392578125
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 37466
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.42901134490966797
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5138,
+   "reserved": 399,
+   "free": 608,
+   "cc": "7.5",
+   "driver": "580.178.04"
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-prefill-1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 144.78725539299194,
+     "door_unit_s": 126.2,
+     "started_at_to_ready_s": 123.18037819862366
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "samples": [
+   {
+    "prompt_n": 2467,
+    "tok_s": 371.90704344000903
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.68373945515947
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.49340650890986
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.14620099763926
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.2769797886104
+   }
+  ],
+  "warmup_discarded": 1,
+  "restart_count_after_prefill": 0
+ },
+ {
+  "label": "s1-qwen36-prefill-2",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "swap": "off",
+  "t": 1789200759.8911812,
+  "idle": {
+   "uptime_since": "2026-09-12T07:52:51Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 1,
+    "reserved": 399,
+    "free": 5745,
+    "cc": "7.5",
+    "driver": "580.178.04"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032333374023438,
+    "MemFree": 14.218124389648438,
+    "MemAvailable": 14.224796295166016,
+    "Cached": 0.23144149780273438,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.0015411376953125
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 46609
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.4150424003601074
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5138,
+   "reserved": 399,
+   "free": 608,
+   "cc": "7.5",
+   "driver": "580.178.04"
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-prefill-2-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 145.33835004403954,
+     "door_unit_s": 126.4,
+     "started_at_to_ready_s": 123.47413730621338
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "samples": [
+   {
+    "prompt_n": 2467,
+    "tok_s": 371.9469106469539
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 371.745531368572
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.99362227826475
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.61296108789253
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.4560197976983
+   }
+  ],
+  "warmup_discarded": 1,
+  "restart_count_after_prefill": 0
+ },
+ {
+  "label": "s1-qwen36-prefill-3",
+  "rig": "srv1",
+  "unit": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "class": "cpu_experts",
+  "engine": "llamacpp",
+  "compose": "compose.srv1-qwen36-unmapped.yml",
+  "swap": "off",
+  "t": 1789201002.6373904,
+  "idle": {
+   "uptime_since": "2026-09-12T07:52:51Z",
+   "gpu": {
+    "name": "NVIDIA GeForce GTX 1660 SUPER",
+    "total": 6144,
+    "used": 1,
+    "reserved": 399,
+    "free": 5745,
+    "cc": "7.5",
+    "driver": "580.178.04"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 15.032333374023438,
+    "MemFree": 14.235904693603516,
+    "MemAvailable": 14.243701934814453,
+    "Cached": 0.23114776611328125,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.0015411376953125
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 54977
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.42416882514953613
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce GTX 1660 SUPER",
+   "total": 6144,
+   "used": 5138,
+   "reserved": 399,
+   "free": 608,
+   "cc": "7.5",
+   "driver": "580.178.04"
+  },
+  "per_unit": {
+   "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080": {
+    "restart_count": 0,
+    "argv": [
+     "--model",
+     "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+     "--n-cpu-moe",
+     "30",
+     "--parallel",
+     "2",
+     "--port",
+     "8080",
+     "-b",
+     "512",
+     "-c",
+     "16384",
+     "-fa",
+     "on",
+     "-ngl",
+     "99",
+     "-t",
+     "6",
+     "-ub",
+     "512",
+     "--chat-template-kwargs",
+     "{\"enable_thinking\":false}",
+     "--load-mode",
+     "none"
+    ],
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "port": 8080,
+    "log": "logs/s1-qwen36-prefill-3-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080.log",
+    "clocks": {
+     "door_process_s": 147.5888345349813,
+     "door_unit_s": 126.0,
+     "started_at_to_ready_s": 124.14214396476746
+    },
+    "healthy": true,
+    "kv_tokens": null,
+    "backend_line": null,
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": null,
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": null
+   }
+  },
+  "samples": [
+   {
+    "prompt_n": 2467,
+    "tok_s": 371.8170792600373
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 371.79819511342333
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.5608551949718
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.1418136768825
+   },
+   {
+    "prompt_n": 2467,
+    "tok_s": 370.4011773562515
+   }
+  ],
+  "warmup_discarded": 1,
+  "restart_count_after_prefill": 0
  }
 ]
