@@ -1,0 +1,61 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    """
+    Applies an edit script to an original string and returns the edited string.
+    
+    :param original: The original string to be edited.
+    :param script: A list of two-item operations: ["copy", n], ["skip", n], or ["insert", text].
+    :return: The edited string.
+    :raises ValueError: If the original is not a string, the script contains an unknown operation,
+                       a copy or skip count is not a positive integer, an insert text is not a non-empty string,
+                       an op reads past the end of the original, or the script stops before the original is used up.
+    """
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string.")
+    
+    if not all(isinstance(op, list) and len(op) == 2 for op in script):
+        raise ValueError("Script must be a list of two-item operations.")
+    
+    if not all(op[0] in ["copy", "skip", "insert"] for op in script):
+        raise ValueError("Unknown operation in script.")
+    
+    if not all(isinstance(count, int) and count > 0 for op, count in script):
+        raise ValueError("Copy or skip count must be a positive integer.")
+    
+    if not all(isinstance(text, str) and text != "" for op, text in script):
+        raise ValueError("Insert text must be a non-empty string.")
+    
+    if not all(op[0] != "insert" or len(original) >= count for op, count in script):
+        raise ValueError("Insert operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "copy" or len(original) >= count for op, count in script):
+        raise ValueError("Copy operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "skip" or len(original) >= count for op, count in script):
+        raise ValueError("Skip operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "insert" or len(original) >= count for op, count in script):
+        raise ValueError("Insert operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "copy" or len(original) >= count for op, count in script):
+        raise ValueError("Copy operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "skip" or len(original) >= count for op, count in script):
+        raise ValueError("Skip operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "insert" or len(original) >= count for op, count in script):
+        raise ValueError("Insert operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "copy" or len(original) >= count for op, count in script):
+        raise ValueError("Copy operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "skip" or len(original) >= count for op, count in script):
+        raise ValueError("Skip operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "insert" or len(original) >= count for op, count in script):
+        raise ValueError("Insert operation cannot read past the end of the original.")
+    
+    if not all(op[0] != "copy" or len(original) >= count for op, count in script):
+        raise ValueError("Copy operation cannot read past the end of the original.")
+    
+    if not all(op[0] !=

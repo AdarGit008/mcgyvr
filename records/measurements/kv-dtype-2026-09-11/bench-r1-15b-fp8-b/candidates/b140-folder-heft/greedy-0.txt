@@ -1,0 +1,7 @@
+```python
+"""A storage report over a tree of named folders and byte-sized files."""
+
+
+def check_node(node):
+    if...]]
+```

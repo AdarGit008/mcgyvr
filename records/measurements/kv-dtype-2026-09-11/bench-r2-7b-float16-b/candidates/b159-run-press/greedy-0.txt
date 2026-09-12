@@ -1,0 +1,25 @@
+```python
+def run_press(jobs: list, budget: int) -> dict:
+    if not isinstance(jobs, list) or not all(isinstance(job, list) and len(job) == 2 for job in jobs):
+        raise ValueError("jobs must be a list of [name, pages] pairs")
+    if not all(isinstance(name, str) and name and isinstance(pages, int) and pages > 0 for name, pages in jobs):
+        raise ValueError("each job must have a non-empty string name and a positive integer pages")
+    if not isinstance(budget, int) or budget < 0:
+        raise ValueError("budget must be a non-negative integer")
+
+    printed = []
+    waiting = []
+
+    for name, pages in jobs:
+        if pages <= budget:
+            printed.append(name)
+            budget -= pages
+        else:
+            waiting.append(name)
+
+    return {
+        "printed": printed,
+        "waiting": waiting,
+        "pages": sum(pages for _, pages in jobs if pages <= budget)
+    }
+```

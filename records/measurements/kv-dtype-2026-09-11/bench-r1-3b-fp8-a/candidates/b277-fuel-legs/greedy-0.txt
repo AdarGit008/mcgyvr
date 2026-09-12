@@ -1,0 +1,23 @@
+```python
+def fuel_legs(litres: int, burn: int) -> int:
+    """
+    Calculate the number of complete legs that can be run given the tank's capacity and leg burn rate.
+    
+    Parameters:
+    litres (int): The total capacity of the tank in litres.
+    burn (int): The amount of fuel burned per leg in litres.
+    
+    Returns:
+    int: The number of complete legs that can be run before refuelling.
+    
+    Raises:
+    ValueError: If the burn rate is zero or less.
+    """
+    if burn <= 0:
+        raise ValueError("Burn rate must be greater than zero.")
+    
+    # Calculate the number of complete legs
+    legs = litres // burn
+    
+    return legs
+```

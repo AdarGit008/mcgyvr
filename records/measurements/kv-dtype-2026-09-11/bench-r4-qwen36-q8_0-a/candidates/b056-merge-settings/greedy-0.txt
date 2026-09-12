@@ -1,0 +1,63 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    """Merge two settings snapshots against a base snapshot, resolving conflicts."""
+    if not isinstance(base, dict):
+        raise ValueError("base must be a dict")
+    if not isinstance(ours, dict):
+        raise ValueError("ours must be a dict")
+    if not isinstance(theirs, dict):
+        raise ValueError("theirs must be a dict")
+
+    for k, v in base.items():
+        if not isinstance(k, str) or not isinstance(v, str):
+            raise ValueError("base contains non-string key or value")
+    for k, v in ours.items():
+        if not isinstance(k, str) or not isinstance(v, str):
+            raise ValueError("ours contains non-string key or value")
+    for k, v in theirs.items():
+        if not isinstance(k, str) or not isinstance(v, str):
+            raise ValueError("theirs contains non-string key or value")
+
+    all_keys = set(base.keys()) | set(ours.keys()) | set(theirs.keys())
+    merged = {}
+
+    for key in all_keys:
+        base_val = base.get(key)
+        ours_val = ours.get(key)
+        theirs_val = theirs.get(key)
+
+        ours_changed = ours_val != base_val
+        theirs_changed = theirs_val != base_val
+
+        if not ours_changed and not theirs_changed:
+            # No changes from base on either side
+            if base_val is not None:
+                merged[key] = base_val
+            # If base_val is None (key absent in base), it remains absent
+        elif ours_changed and not theirs_changed:
+            # Only ours changed
+            if ours_val is None:
+                # Deletion by ours
+                pass
+            else:
+                merged[key] = ours_val
+        elif not ours_changed and theirs_changed:
+            # Only theirs changed
+            if theirs_val is None:
+                # Deletion by theirs
+                pass
+            else:
+                merged[key] = theirs_val
+        else:
+            # Both changed
+            if ours_val == theirs_val:
+                # Both changed to the same value (or both deleted)
+                if ours_val is not None:
+                    merged[key] = ours_val
+                # If both deleted (None), key is absent
+            else:
+                # Conflict: different changes
+                raise ValueError(f"Conflict on key '{key}'")
+
+    return merged
+```

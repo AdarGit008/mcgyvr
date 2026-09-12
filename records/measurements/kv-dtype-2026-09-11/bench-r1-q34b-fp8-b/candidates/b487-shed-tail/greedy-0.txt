@@ -1,0 +1,34 @@
+<think>
+Okay, I need to implement the shed_tail function. Let's see what the problem says. The function takes a text and a piece, and repeatedly removes the piece from the end of the text as long as the text still ends with that piece. If the text never ends with the piece, it's returned as is. Also, if the piece is empty, the text should stay the same.
+
+First, I need to understand the behavior. For example, if the text is "aaaa" and the piece is "a", then each time we remove the last 'a', so after first iteration it becomes "aaa", then "aa", then "a", then empty. But if the piece is "aa", then the text "aaaa" would have "aa" at the end, so remove it to get "aa", then again remove "aa" to get empty. So the function would return empty string.
+
+But if the text is "ab", and the piece is "a", then the text ends with "a"? No, because the last character is 'b'. Wait, no. Wait, the text is "ab", and the piece is "a". The text ends with "b", so the piece is not at the end. So the function would return "ab" as is.
+
+Wait, the problem says that the function takes a closing piece off the end as long as the text still closes with it. So, each time, check if the text ends with the piece. If yes, remove it. Repeat until it's no longer possible.
+
+But how to check if the text ends with the piece? For example, if the text is "aaaa", and the piece is "a", then each time, the text ends with "a", so we remove it. So after each iteration, the text is shorter by the length of the piece.
+
+But what if the piece is longer than the text? Like text is "a", piece is "aa". Then, the text can't end with the piece, so return the text as is.
+
+So the steps are:
+
+- While the text ends with the piece, remove the piece from the end.
+
+But how to check if the text ends with the piece? For example, text is "abcabc", piece is "abc". Then, the text ends with "abc", so remove it. Now the text is "abc", which again ends with "abc", so remove again. Now the text is empty.
+
+So the loop should continue as long as the text ends with the piece.
+
+But how to check that? In Python, the endswith() method can be used. So text.endswith(piece) would return True if the text ends with the piece.
+
+But wait, what if the piece is empty? According to the problem statement, if the piece is empty, the text should stay as is. Because the problem says that a piece holding nothing leaves the text alone. So, in that case, we should not do anything.
+
+So first, check if the piece is empty. If yes, return the original text.
+
+Otherwise, loop:
+
+While the text ends with the piece, remove the piece from the end.
+
+But how to remove it? For example, if the text is "aaaa" and the piece is "a", then each time, we remove the last character. So the text becomes "aaa", then "aa", then "a", then empty.
+
+But if the text is "aaab", and the piece is "aa", then the text ends with "aa"? No, because the last two characters are "ab". Wait, no. Wait, the text is "aaab", the piece is "aa". The text ends with "ab", so the endswith check would be false. So the

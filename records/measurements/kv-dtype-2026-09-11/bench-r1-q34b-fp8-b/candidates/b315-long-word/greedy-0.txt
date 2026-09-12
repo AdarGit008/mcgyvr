@@ -1,0 +1,48 @@
+<think>
+Okay, I need to implement the long_word function. The goal is to find the longest word in a sentence, considering that words are separated by spaces. If there's a tie, the first one wins. If there are no words, return an empty string.
+
+First, I need to parse the sentence into words. But wait, how are the words defined? The problem says that runs of spaces separate words. So, splitting on whitespace should work. But what about punctuation? The problem doesn't specify whether punctuation attached to a word counts towards its length. For example, if a word is "hello," with a comma, does the comma count as part of the word?
+
+The problem statement doesn't clarify this. But since the function is called long_word, maybe the intention is to split on spaces and take the words as they are, including any trailing punctuation. But that's ambiguous. However, the problem says that the sentence is split by runs of spaces. So, perhaps the words are the sequences of non-space characters. So, splitting on whitespace, and each word is a sequence of characters that are not spaces. So, for example, "hello,world" would be considered as one word if there's no space, but if there's a space, like "hello, world", then it's two words.
+
+Wait, but the problem says that runs of spaces separate words. So, the words are the non-space sequences. So, splitting the sentence into words by splitting on whitespace, and each word is a sequence of non-space characters. So, for example, "hello,world" would be considered a single word, but "hello, world" would split into "hello," and "world".
+
+But how to split the sentence into words? The standard way is to split on whitespace, which can be done with the split() method. However, split() without any arguments splits on any whitespace, including tabs and newlines, but in the problem, it's just spaces. But the problem says that runs of spaces separate words, so splitting on whitespace is correct.
+
+So, the first step is to split the sentence into words. Then, iterate through each word, track the longest one. If two words are the same length, the first one is chosen.
+
+So, the steps are:
+
+1. Split the sentence into words. Using split() would do that. But wait, if the sentence is empty, split() would return an empty list. So, that's handled.
+
+2. Iterate through each word in the list. For each word, check its length.
+
+3. Keep track of the maximum length found so far and the corresponding word.
+
+4. If a word has a longer length than the current max, update the max and the word.
+
+5. If a word has the same length as the current max, but comes earlier, we don't update.
+
+So, the initial max_length is 0, and the result is an empty string. Then, for each word in the list:
+
+- if the word's length is greater than max_length, update max_length and result.
+
+- else if the word's length is equal to max_length, do nothing (since the first one is already stored).
+
+So, the code would look like:
+
+def long_word(sentence: str) -> str:
+    words = sentence.split()
+    max_length = 0
+    result = ""
+    for word in words:
+        if len(word) > max_length:
+            max_length = len(word)
+            result = word
+    return result
+
+Wait, but what if the sentence is empty? For example, sentence is "", then words is an empty list. Then, the loop doesn't run, and result remains "", which is correct.
+
+Testing some cases:
+
+Case 1: sentence is "

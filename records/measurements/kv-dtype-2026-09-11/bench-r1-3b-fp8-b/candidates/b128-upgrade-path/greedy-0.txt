@@ -1,0 +1,38 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    def validate_tag(tag: str) -> bool:
+        parts = tag.split('.')
+        if len(parts) != 2:
+            return False
+        if not all(part.isdigit() for part in parts):
+            return False
+        if int(parts[0]) < 0 or int(parts[1]) < 0:
+            return False
+        if parts[0][0] == '0' or parts[1][0] == '0':
+            return False
+        return True
+
+    def parse_step(step: dict) -> tuple:
+        if not isinstance(step, dict) or len(step) != 2:
+            raise ValueError("Step must be a dictionary with keys 'tag' and 'requires'")
+        if not isinstance(step['tag'], str) or not isinstance(step['requires'], str):
+            raise ValueError("Tag and requires must be strings")
+        if not validates_tag(step['tag']) or not validates_tag(step['requires']):
+            raise ValueError("Invalid tag or requires format")
+        return (int(step['tag'].split('.')[0]), int(step['tag'].split('.')[1])), \
+               (int(step['requires'].split('.')[0]), int(step['requires'].split('.')[1]))
+
+    carried = int(installed.split('.')[0]), int(installed.split('.')[1])
+    for step in steps:
+        parsed_step = parse_step(step)
+        if carried >= parsed_step[1]:
+            raise ValueError(f"Step {parsed_step[0]} is not an upgrade from {carried}")
+        if carried <= parsed_step[0]:
+            raise ValueError(f"Step {parsed_step[0]} requires at least {parsed_step[1]}")
+        carried = parsed_step[0]
+
+    return f"{carried[0]}.{carried[1]}"
+```

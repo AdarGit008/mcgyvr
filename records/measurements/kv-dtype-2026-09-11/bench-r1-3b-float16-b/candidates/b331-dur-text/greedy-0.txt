@@ -1,0 +1,27 @@
+```python
+def dur_hours(minutes: int) -> int:
+    """
+    Returns the whole hours in a count of minutes, discarding what is left over.
+    """
+    if minutes < 0:
+        raise ValueError("Minutes cannot be negative")
+    return minutes // 60
+
+def dur_text(minutes: int) -> str:
+    """
+    Writes the count as hours and minutes joined, like 1h30m; a whole number of hours drops the minutes,
+    a count under an hour drops the hours, and zero is 0m.
+    """
+    if minutes < 0:
+        raise ValueError("Minutes cannot be negative")
+    if minutes == 0:
+        return "0m"
+    hours = minutes // 60
+    minutes %= 60
+    if hours == 0:
+        return f"{minutes}m"
+    elif minutes == 0:
+        return f"{hours}h"
+    else:
+        return f"{hours}h{minutes}m"
+```

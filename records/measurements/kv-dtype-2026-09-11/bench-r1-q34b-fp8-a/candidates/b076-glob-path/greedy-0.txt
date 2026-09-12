@@ -1,0 +1,18 @@
+<think>
+Okay, I need to implement the glob_path function. Let's think about how to approach this. The problem says that a glob pattern is matched against a slash-separated relative path. The pattern has literals, question marks, and stars. 
+
+First, the function needs to check if both pattern and path are strings. If not, raise a ValueError. Also, if the pattern is empty or the path is empty, return False. Wait, the problem says to reject those cases with an error. Wait, the task says to reject non-string pattern, non-string path, empty pattern, and empty path. So, if pattern is not a string or path is not a string, raise ValueError. Also, if pattern is empty or path is empty, return False? Or do they need to be rejected with an error? Let me check the task again.
+
+The task says: "Reject a non-string pattern, a non-string path, an empty pattern, and an empty path, with an error." So, for example, if pattern is empty, we should raise an error? Or return False? Wait, the wording is a bit confusing. Let me recheck the task.
+
+The task says: "Reject a non-string pattern, a non-string path, an empty pattern, and an empty path, with an error." So, the function should raise an error if the pattern is not a string, or the path is not a string. Also, if the pattern is empty or the path is empty, then raise an error? Or return False? Wait, the problem says "reject" those cases with an error. So, for example, if the pattern is empty, then the function should raise an error. But the function's return type is bool. Wait, but the problem says that the function should return True or False when the pattern matches, but also reject invalid inputs with an error. So, perhaps the function should first check if the pattern and path are strings, and if they are empty, raise ValueError. Otherwise, proceed.
+
+Wait, the problem says: "Reject a non-string pattern, a non-string path, an empty pattern, and an empty path, with an error." So, the function should raise ValueError if the pattern is not a string, or the path is not a string. Also, if the pattern is empty or the path is empty, then raise an error. Wait, but the function's return type is bool. So, perhaps the function is supposed to return False in those cases, but the problem says to reject them with an error. So, maybe the function should raise ValueError if the pattern is empty or the path is empty. But how to handle that?
+
+Wait, the problem says: "Reject a non-string pattern, a non-string path, an empty pattern, and an empty path, with an error." So, the function should raise an error if any of these conditions are met. So, for example, if pattern is not a string, raise ValueError. Similarly for path. Also, if pattern is empty, raise ValueError. Same for path. So, the function should first check that pattern and path are strings, and that they are not empty. If any of these conditions are not met, raise ValueError. Otherwise, proceed to check the pattern against the path.
+
+So, the first step is to validate the inputs. Then, proceed to check the pattern against the path.
+
+Now, the pattern is a glob pattern. The matching is done character by character. Let's think about how to process the pattern and the path.
+
+The pattern is split into segments by slashes. Similarly, the path is split into segments by slashes. But the pattern and path must have the same number of segments. Because the whole path must be consumed. So, for example, if

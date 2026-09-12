@@ -1,0 +1,13 @@
+```python
+def list_cost_rate(rate: int) -> int:
+       return
+
+
+    def trip_cost(hops: list, rate: int,        minimum: int) -> int:
+            """The Cost of a whole trip, never below the minimum charge."""
+            total =            0
+            for hop in hops:
+                total += max(list_cost_rate(hop,                    rate,
+                    minimum)
+            return max(total, minimum):
+```

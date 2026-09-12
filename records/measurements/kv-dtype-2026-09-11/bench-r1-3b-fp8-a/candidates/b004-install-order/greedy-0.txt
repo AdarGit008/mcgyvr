@@ -1,0 +1,40 @@
+```python
+from typing import List
+
+def install_order(packages: List[str], requires: List[List[str]]) -> List[str]:
+    def validate_packages(packages: List[str]) -> None:
+        seen = set()
+        for pkg in packages:
+            if pkg in seen:
+                raise ValueError(f"Package '{pkg}' listed twice.")
+            seen.add(pkg)
+    
+ def validate_requirements(requires: List[List[str]], packages: List[str]) -> None:
+        for pkg, needed in requires:
+            if pkg not in packages or needed not in packages:
+                raise ValueError(f"Requirement '{pkg} -> {needed}' naming a package absent from the list.")
+            if pkg == needed:
+                raise ValueError(f"Cycle detected: '{pkg}' requires itself.")
+    
+    validate_packages(packages)
+    validate_requirements(requires, packages)
+    
+    needs = {name: 0 for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, needed in requires:
+        needs[pkg] += 1
+        enables[needed].append(pkg)
+    
+    ready = [name for name in packages if needs[name] == 0]
+    order = []
+    while ready:
+        next_name = min(ready)  # Use min to ensure alphabetical order
+        orders.append(next_name)
+        ready.remove(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                ready.append(follower)
+    
+    return orders
+```

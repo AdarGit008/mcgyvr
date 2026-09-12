@@ -1,0 +1,46 @@
+```python
+def new_cache(limit: int)    """Create a recency cache with a given limit."""
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Limit must be a positive integer.")
+    return {
+        "limit": limit,
+        "keys": [],
+        "store": {}
+    }
+
+def cache_write(cache: dict, key: str, value: int) -> list:
+    """Write a value under a key in the cache."""
+    if not isinstance(key, str) or not key:
+        raise ValueError("Key must be a non-empty string.")
+    
+    if key in cache["store"]:
+        # Replace the existing value and move the key to the front
+        cache["store"][key] = value
+        cache["keys"].remove(key)
+        cache["keys"].insert(0, key)
+    else:
+        # Add the new key and value to the front
+        cache["store"][key] = value
+        cache["keys"].insert(0, key)
+        
+        # If the cache exceeds the limit, remove the least recently touched key
+        if len(cache["keys"]) > cache["limit"]:
+            spilled_key = cache["keys"].pop()
+            del cache["store"][spilled_key]
+    
+    return [spilled_key] if spilled_key else []
+
+def cache_read(cache: dict, key: str) -> int:
+    """Read a value under a key from the cache."""
+    if not isinstance(key, str) or not key:
+        raise ValueError("Key must be a non-empty string.")
+    
+    if key not in cache["store"]:
+        raise KeyError("Key not found in cache.")
+    
+    # Move the key to the front
+    cache["keys"].remove(key)
+    cache["keys"].insert(0, key)
+    
+    return cache["store"][key]
+```

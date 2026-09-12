@@ -1,0 +1,24 @@
+```python
+def draw_tree_lines(root: dict) -> list:
+    if not isinstance(root, dict) or 'name' not in root or 'children' not in root:
+        raise ValueError("Invalid root")
+    
+    def _draw(node, depth, is_last):
+        name = node['name']
+        if not isinstance(name, str) or '\n' in name:
+            raise ValueError(f"Invalid name: {name}")
+        
+        if not isinstance(node['children'], list):
+            raise ValueError("Children must be a list")
+        
+        lines = []
+        prefix = '|   ' * depth + ('|-- ' if not is_last else "'-- ")
+        lines.append(prefix + name)
+        
+        for i, child in enumerate(node['children']):
+            lines.extend(_draw(child, depth + 1, i == len(node['children']) - 1))
+        
+        return lines
+    
+    return _draw(root, 0, False)
+```

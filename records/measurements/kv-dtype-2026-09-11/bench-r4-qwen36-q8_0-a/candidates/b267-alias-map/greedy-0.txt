@@ -1,0 +1,16 @@
+```python
+def alias_resolve(aliases: dict, name: str) -> str:
+    """Resolve a name to its alias target, returning the name itself if no alias exists."""
+    if not isinstance(aliases, dict):
+        raise ValueError("aliases must be a dict")
+    if not isinstance(name, str):
+        raise ValueError("name must be a string")
+    return aliases.get(name, name)
+
+
+def alias_names(aliases: dict) -> list:
+    """Return a sorted list of all names that are defined as aliases."""
+    if not isinstance(aliases, dict):
+        raise ValueError("aliases must be a dict")
+    return sorted(aliases.keys())
+```

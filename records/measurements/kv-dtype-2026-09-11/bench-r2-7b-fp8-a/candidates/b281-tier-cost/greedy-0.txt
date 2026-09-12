@@ -1,0 +1,13 @@
+```python
+class TieredCostCalculator:
+    def __init__(self,:        pass
+
+    
+    def tier_cost(self, units: int, allowance:        if units < 0:
+            raise ValueError("Number of units cannot be less than zero")
+        
+        if units <= allowance:
+            return units * first_rate
+        
+        return allowance * first_rate + (units - allowance) * later_rate
+```

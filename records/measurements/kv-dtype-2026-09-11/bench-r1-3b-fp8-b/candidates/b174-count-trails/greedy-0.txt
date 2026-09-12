@@ -1,0 +1,39 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    """
+    Calculate the number of distinct routes from the top-left to the bottom-right cell
+    of a grid, avoiding specified blocked cells.
+    
+    :param rows: Number of rows in the grid (must be at least 1).
+    :param cols: Number of columns in the grid (must be at least 1):
+    :param blocked: List of blocked cells, each a two-item list [row, col].
+    :return: Number of distinct routes, or 0 if no route exists.
+    """
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise ValueError("Rows and cols must be integers at least 1.")
+    if not all(isinstance(block, list) and len(block) == 2 for block in blocked):
+        raise ValueError("Blocked entries must be two-item lists.")
+    for block in blocked:
+        if not (0 <= block[0] < rows and 0 <= block[1] < cols):
+            raise ValueError("Blocked cells must be within the grid boundaries.")
+    if (0, 0) in blocked or (rows - 1, cols - 1) in blocked:
+        raise ValueError("Rope cannot cross the entrance or exit cell.")
+
+    # Initialize a DP table to store the number of ways to reach each cell
+    dp = [[0] * cols for _ in range(rows)]
+    dp[0][0] = 1  # There's one way to start at the top-left corner
+
+    # Fill the DP table
+    for i in range(rows):
+        for j in range(cols):
+            if (i, j) in blocked:
+                continue
+            if i > 0:
+                dp[i][j] += dp[i - 1][j]
+            if j > 0:
+                dp[i][j] += dp[i][j - 1]
+
+    return dp[-1][-1]
+```

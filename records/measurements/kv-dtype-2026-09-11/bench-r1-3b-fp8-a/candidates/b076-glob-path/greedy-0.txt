@@ -1,0 +1,52 @@
+```python
+def glob_path(pattern: str, path: str) -> bool:
+    """
+    Match a glob pattern against a slash-separated relative path.
+    """
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Both pattern and path must be strings.")
+    if not pattern or not path:
+        raise ValueError("Pattern and path cannot be empty.")
+
+    def match_segment(pattern_segment, path_segment):
+        if pattern_segment == '*':
+            # Match zero or more characters until the next slash
+            while path_segment:
+                if path_segment[0] == '/':
+                    break
+                path_segment = path_segment[1:]
+        elif pattern_segment == '?':
+            # Match exactly one character that is not a slash
+            if not path_segment or path_segment[0] == '/':
+                return False
+            path_segment = path_segment[1:]
+        else:
+            # Match a literal character
+            if pattern_segment != path_segment:
+                return False
+            path_segment = path_segment[1:]
+
+        return True
+
+    # Split the pattern and path into segments
+    pattern_segments = pattern.split('/')
+    path_segments = path.split('/')
+
+    # If the number of segments doesn't match, return False
+    if len(pattern_segments) != len(path_segments):
+        return False
+
+    # Match each segment
+    for pattern_segment, path_segment in zip(pattern_segments, path_segments):
+        if not match_segment(pattern_segment, path_segment):
+            return False
+
+    # Check if the path has been fully consumed
+    return not path_segment
+
+# Example usage:
+# print(glob_path("a?c", "abc"))  # True
+# print(glob_path("a*c", "ab/c"))  # True
+# print(glob_path("a*c", "ab/cd"))  # False
+# print(glob_path("a*c", "a/b/c"))  # False
+```

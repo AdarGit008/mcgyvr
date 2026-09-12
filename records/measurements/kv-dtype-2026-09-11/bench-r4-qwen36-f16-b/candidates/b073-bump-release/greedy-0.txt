@@ -1,0 +1,36 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    """Advance the specified component of a semantic version string and return the new version."""
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+    if part not in ("major", "minor", "patch"):
+        raise ValueError("part must be 'major', 'minor', or 'patch'")
+
+    parts = version.split(".")
+    if len(parts) != 3:
+        raise ValueError("version must have exactly three components")
+
+    components = []
+    for p in parts:
+        if not p:
+            raise ValueError("component cannot be empty")
+        if not p.isdigit():
+            raise ValueError("component must contain only digits")
+        if len(p) > 1 and p[0] == '0':
+            raise ValueError("component has a leading zero")
+        components.append(int(p))
+
+    major, minor, patch = components
+
+    if part == "major":
+        major += 1
+        minor = 0
+        patch = 0
+    elif part == "minor":
+        minor += 1
+        patch = 0
+    elif part == "patch":
+        patch += 1
+
+    return f"{major}.{minor}.{patch}"
+```

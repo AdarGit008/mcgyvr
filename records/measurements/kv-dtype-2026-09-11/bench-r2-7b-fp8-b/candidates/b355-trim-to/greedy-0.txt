@@ -1,0 +1,15 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    if len(line)        raise ValueError("Input must be at least three characters long")
+    if len(line)<=limit:
+        return line
+    words = line.split()
+    trimmed_words = []
+    current_length = 0
+    for word in words:
+        if current_length + len(word) + 3 > limit:
+            break
+        trimmed_words.append(word)
+        current_length +=            len(word) + 3
+    return ' '.join(trimmed_words) + '...'
+```

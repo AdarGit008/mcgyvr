@@ -1,0 +1,22 @@
+```python
+from typing import List, Optional
+
+def hold_queue(callers: List[str], limit: int) -> List[str]:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero")
+    
+    if not callers:
+        return []
+    
+    if limit == 1:
+        return callers
+    
+    # Sort the callers by their arrival time (assuming arrival time is the index in the list)
+    callers.sort(key=lambda x: callers.index(x))
+    
+    # Drop the longest caller if the limit is exceeded
+    if len(callers) > limit:
+        callers = callers[:limit]
+    
+    return callers
+```

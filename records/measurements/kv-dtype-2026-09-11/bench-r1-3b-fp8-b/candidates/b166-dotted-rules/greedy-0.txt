@@ -1,0 +1,36 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+
+    def is_exact_match(rule_name, name):
+        return rule_name == name
+
+    def is_wildcard_match(rule_name, name):
+        return rule_name.endswith(".*") and name.startswith(rule_name[:-2])
+
+    def is_lone_star_match(rule_name, name):
+        return rule_name == "*" and name != ""
+
+    def find_winner(rule_names, name):
+        exact_matches = [rule_name for rule_name in rule_names if is_exact_match(rule_name, name)]
+        wildcard_matches = [rule_name for rule_name in rule_names if is_wildcard_match(rule_name, name)]
+        lone_star_match = next((rule_name for rule_name in rule_names if is_lone_star_match(rule_name, name)), None)
+
+        
+        if exact_matches:
+            return exact_matches[0]
+        elif wildcard_matches:
+            return max(wildcard_matches, key=len)
+        elif lone_star_match:
+            return lone_star_match
+        return None
+
+    if not rules:
+        return None
+
+    rule_names = list(rules.keys())
+    winner = find_winner(rule_names, name)
+
+    return rules.get(winner) if winner else None
+```

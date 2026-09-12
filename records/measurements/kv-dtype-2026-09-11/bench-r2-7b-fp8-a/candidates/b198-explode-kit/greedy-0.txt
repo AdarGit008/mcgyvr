@@ -1,0 +1,43 @@
+```python
+import math
+
+
+from typing import Dict, Tuple
+
+
+def explode_kit(catalog: Dict[str,    dict, kit: str):
+    want: int) -> Dict[str]:
+    if kit not in catalog:
+        raise ValueError(f"The catalog does not define kit {kit}")
+    
+    def consume_parts(k dict):
+        non):
+            count):
+        if isinstance(component):
+            consume_parts():
+        else:
+            totals[part]                +=                count * need // make.ceil(want)
+    
+    totals: dict):
+        for part):
+            count):
+        if isinstance(count):
+            consume_parts():
+        else:
+            totals[part]:
+                +=                count * need
+    
+    
+    consume_parts():
+        for part):
+            count):
+        if isinstance(count):
+            consume_parts():
+        else:
+            totals[part]:
+                ):
+                count * need):
+    
+    
+    return totals:
+```

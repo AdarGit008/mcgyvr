@@ -1,0 +1,27 @@
+```python
+from typing import Dict, Union
+
+def merge_settings(base: Dict[str, str], ours: Dict[str, str], theirs: Dict[str, str]) -> Dict[str, str]:
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in base.items()):
+        raise ValueError("base must be a flat mapping of string values")
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in ours.items()):
+        raise ValueError("ours must be a flat mapping of string values")
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in theirs.items()):
+        raise ValueError("theirs must be a flat mapping of string values")
+
+    merged = {}
+    for key in base:
+        if key in ours and key in theirs:
+            if ours[key] == theirs[key]:
+                merged[key] = ours[key]
+            elif ours[key] != theirs[key]:
+                merged[key] = theirs[key]
+        elif key in ours:
+            merged[key] = ours[key]
+        elif key in theirs:
+            merged[key] = theirs[key]
+        else:
+            merged[key] = None
+
+    return merged
+```

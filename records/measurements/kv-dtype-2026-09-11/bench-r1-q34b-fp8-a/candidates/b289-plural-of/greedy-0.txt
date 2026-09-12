@@ -1,0 +1,36 @@
+<think>
+Okay, I need to implement the plural_of function according to the given rules. Let me think through the requirements.
+
+The function takes a noun as a string and returns its plural form. The rules are:
+
+1. If the noun ends with 's', 'x', 'ch', or 'sh', add 'es'.
+2. If it ends with a 'y' after a consonant, remove the 'y' and add 'ies'.
+3. Otherwise, add 's'.
+
+Wait, but the problem says that nouns ending in y after a consonant lose the y and take ies. So first, check if the last letter is y. But how to determine if it's after a consonant? Because if the letter before y is a vowel, then it's not. For example, 'day' ends with y, but the previous letter is 'a' (a vowel), so we don't change it. But 'fly' ends with y, and the previous letter is 'l' (a consonant), so we remove y and add ies.
+
+So the steps are:
+
+Check the last character of the noun. 
+
+First, check if the last character is one of 's', 'x', 'ch', 'sh'. Wait, but 'ch' and 'sh' are two letters. Wait, the problem says "ending in s, x, ch or sh". So for example, if the noun ends with 'ch', like 'church', then add 'es'. Similarly, 'sh' like 'shoe' would add 'es'. But wait, the ending is 'sh', so the last two letters are 'sh'. So the function needs to check if the noun ends with any of those suffixes.
+
+Wait, the problem says "ending in s, x, ch or sh". So the noun ends with 's', 'x', 'ch', or 'sh'. So for example, 'bus' ends with 's', so add 'es'. 'box' ends with 'x', add 'es'. 'church' ends with 'ch', add 'es'. 'shoe' ends with 'sh', add 'es'.
+
+So the first check is: if the noun ends with any of those suffixes. But how to check that? For example, for 'ch', the last two letters must be 'ch'. Similarly for 'sh'.
+
+So, the first condition is: if the noun ends with 's', 'x', 'ch', or 'sh', then add 'es'.
+
+But how to check that? Let's think. For example, for a noun like 'bus', the last character is 's', so we add 'es'. For 'box', last character is 'x', add 'es'. For 'church', last two characters are 'ch', so add 'es'. For 'shoe', last two are 'sh', add 'es'.
+
+So, the first check is: check if the noun ends with 's', 'x', 'ch', or 'sh'. So, for the last character, check if it's 's' or 'x', or if the last two characters are 'ch' or 'sh'.
+
+Wait, but 'ch' is two letters. So, for example, if the noun is 'church', the last two letters are 'ch', so we add 'es'. Similarly, 'shoe' ends with 'sh', so add 'es'.
+
+So, the first condition is: check if the noun ends with 's', 'x', 'ch', or 'sh'.
+
+So, the code can check the last character and the last two characters.
+
+So, for the first condition:
+
+if the noun ends with 's' or 'x' or

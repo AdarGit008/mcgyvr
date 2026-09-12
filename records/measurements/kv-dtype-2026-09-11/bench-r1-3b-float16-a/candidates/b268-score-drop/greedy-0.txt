@@ -1,0 +1,23 @@
+```python
+def score_drop(scores: list) -> int:
+    """
+    Calculate the total of scores with the single lowest score left out.
+    If the lowest score appears more than once, only one is dropped.
+    An empty list or list with one score returns a total of zero.
+    """
+    if not scores:
+        return 0
+    
+    # Find the minimum score and its count
+    min_score = min(scores)
+    min_count = scores.count(min_score)
+    
+    # Calculate the total excluding the lowest score
+    total = sum(score for score in scores if score != min_score)
+    
+    # Adjust the total if the lowest score appears more than once
+    if min_count > 1:
+        total -= min_score
+    
+    return total
+```

@@ -1,0 +1,23 @@
+```python
+def cap_after(passage: str) -> str:
+    """Capitalize the first letter of every sentence in the passage.
+    
+    A sentence is defined as starting at the beginning of the passage
+    and after any full stop ('.'). The first letter of each sentence
+    is capitalized. Letters elsewhere are left unchanged.
+    """
+    if not passage:
+        return passage
+
+    result = []
+    # Start with the first character, capitalized if it's a letter
+    result.append(passage[0].upper())
+    
+    for char in passage[1:]:
+        if char == '.':
+            result.append(char)
+        else:
+            result.append(char)
+            
+    return "".join(result)
+```

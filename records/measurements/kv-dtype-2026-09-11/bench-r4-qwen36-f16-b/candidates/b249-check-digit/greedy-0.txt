@@ -1,0 +1,17 @@
+```python
+def check_digit(code: str) -> int:
+    """Calculate the check digit needed to make the sum of digits a multiple of 10."""
+    if not isinstance(code, str):
+        raise ValueError("code must be a string")
+    
+    total = 0
+    for char in code:
+        if not char.isdigit():
+            raise ValueError(f"Invalid character in code: '{char}'")
+        total += int(char)
+    
+    remainder = total % 10
+    if remainder == 0:
+        return 0
+    return 10 - remainder
+```

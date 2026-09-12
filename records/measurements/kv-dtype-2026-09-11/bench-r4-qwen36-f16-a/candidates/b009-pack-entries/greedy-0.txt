@@ -1,0 +1,35 @@
+```python
+def pack_entries(entries: list) -> str:
+    """Serialize a list of [key, value] pairs into a semicolon-joined string with escaping."""
+    if not isinstance(entries, list):
+        raise ValueError("entries must be a list")
+
+    seen_keys = set()
+    parts = []
+
+    for entry in entries:
+        if not isinstance(entry, list):
+            raise ValueError("each entry must be a list")
+        if len(entry) != 2:
+            raise ValueError("each entry must have exactly two elements")
+
+        key, value = entry
+
+        if not isinstance(key, str):
+            raise ValueError("key must be a string")
+        if not isinstance(value, str):
+            raise ValueError("value must be a string")
+        if len(key) == 0:
+            raise ValueError("key must not be empty")
+        if key in seen_keys:
+            raise ValueError(f"duplicate key: {key}")
+
+        seen_keys.add(key)
+
+        escaped_key = key.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+        escaped_value = value.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+
+        parts.append(f"{escaped_key}={escaped_value}")
+
+    return ";".join(parts)
+```

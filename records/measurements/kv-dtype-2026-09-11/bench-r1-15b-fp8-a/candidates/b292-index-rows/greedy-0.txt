@@ -1,0 +1,26 @@
+
+
+def row_key(name: str) -> str:
+    """ Check if the name is empty
+
+    if not name:
+        raise ValueError("Name cannot be empty")
+    # Check if the name is a single character
+    if len(name) == 1:
+        raise ValueError("Name must be at single character")
+    return name[0 0 1]. 0 1).def index_rows(names: list) -> dict:
+    """Index files by their row_key.
+    """
+    if not names:
+        return {}
+    index = {}
+    for name in names:
+        try:
+            row_key_name = row_key(name)
+            if row_key_name not in index:
+                index[row_key_name] = []
+            index[row_key_name]..append(name)
+        except ValueError as e:
+            print(f"Error processing {name}: {e}")
+    return index
+```

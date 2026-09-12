@@ -1,0 +1,47 @@
+```python
+def end_grab(cards: list) -> dict:
+    """Simulate the end-grab card game and return player totals and taken sequence."""
+    if not cards:
+        return {"first": 0, "second": 0, "taken": []}
+
+    # Work on a copy to avoid mutating the input
+    row = list(cards)
+    first_total = 0
+    second_total = 0
+    taken = []
+    
+    # Track whose turn it is: 0 for first player, 1 for second player
+    turn = 0
+    
+    while row:
+        # Determine the two ends
+        left = row[0]
+        right = row[-1]
+        
+        # Choose the card to take
+        # Rule: always the larger of the two end cards
+        # Rule: take the left one whenever the two ends carry the same number
+        if left >= right:
+            card = left
+            row.pop(0)
+        else:
+            card = right
+            row.pop()
+            
+        taken.append(card)
+        
+        # Add to the current player's total
+        if turn == 0:
+            first_total += card
+        else:
+            second_total += card
+            
+        # Switch turns
+        turn = 1 - turn
+        
+    return {
+        "first": first_total,
+        "second": second_total,
+        "taken": taken
+    }
+```

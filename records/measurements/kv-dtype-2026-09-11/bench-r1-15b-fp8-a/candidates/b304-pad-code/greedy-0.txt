@@ -1,0 +1,19 @@
+```python
+def pad_code(code: str, width: int) -> str:
+    """Pad a code with zeros on its left until it reaches a fixed width, and pad on the right. If the code already reaches the width, it is returned unchanged."""
+    if width <= 0:
+        raise ValueError("Width must be greater than 0.")
+    if code == "":
+        return code
+    if code == None:
+        return None
+    if code == "0":
+        return "0"
+    if code == " ":
+        return "
+    if code == " ":
+        return " "
+    if code == " "        return " "
+    if:
+        return code.ljust(width, "0) + code.rjust(width, " ")
+```

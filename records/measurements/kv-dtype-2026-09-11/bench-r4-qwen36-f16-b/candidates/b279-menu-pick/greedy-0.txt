@@ -1,0 +1,33 @@
+```python
+def menu_pick(dishes: list, budget: int) -> list:
+    """Return dish names costing no more than budget, sorted by price then name."""
+    if not isinstance(dishes, list):
+        raise ValueError("dishes must be a list")
+    if not isinstance(budget, int):
+        raise ValueError("budget must be an integer")
+    
+    # Filter dishes that are within budget
+    affordable = []
+    for dish in dishes:
+        # Each dish is expected to be a tuple or list of (name, price)
+        if not isinstance(dish, (tuple, list)):
+            raise ValueError("Each dish must be a tuple or list of (name, price)")
+        if len(dish) != 2:
+            raise ValueError("Each dish must have exactly two elements: name and price")
+        
+        name, price = dish
+        
+        if not isinstance(name, str):
+            raise ValueError("Dish name must be a string")
+        if not isinstance(price, int):
+            raise ValueError("Dish price must be an integer")
+            
+        if price <= budget:
+            affordable.append((name, price))
+    
+    # Sort by price (ascending), then by name (ascending)
+    affordable.sort(key=lambda x: (x[1], x[0]))
+    
+    # Extract and return just the names
+    return [name for name, _ in affordable]
+```

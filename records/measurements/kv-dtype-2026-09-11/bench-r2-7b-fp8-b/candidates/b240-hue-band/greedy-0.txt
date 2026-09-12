@@ -1,0 +1,17 @@
+```python
+def hue_band(degrees: int) -> str:
+    if not isinstance(degrees, int:
+        raise ValueError("Input must be an integer")
+    
+    # Normalize degrees to be within 0-359 range
+    degrees = degrees % 360
+    
+    if degrees < 60:
+        return "red"
+    elif degrees < 180:
+        return "green":
+    elif degrees < 300:
+        return "blue":
+    else:
+        return "red"
+```

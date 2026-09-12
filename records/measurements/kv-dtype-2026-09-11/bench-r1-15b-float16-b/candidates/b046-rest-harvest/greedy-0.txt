@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def best_harvest(yields: List[int]) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list.")
+    if not all(isinstance(y, int) for y in yields):
+        raise ValueError("All yields must be integers.")
+    if any(y < 0 for y in yields):
+        raise ValueError("All yields must be non-negative.")
+    
+    if not yields:
+        return 0
+    
+    n = len(yields)
+    dp = [0] * n
+    
+    for i in range(n):
+        dp[i] = yields[i]
+        for j in range(i):
+            if yields[i] > yields[j] and dp[i] < dp[j] + yields[i]:
+                dp[i] = dp[j] + yields[i]
+    
+    return max(dp)
+```

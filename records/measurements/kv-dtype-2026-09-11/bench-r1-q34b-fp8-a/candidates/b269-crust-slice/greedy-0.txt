@@ -1,0 +1,40 @@
+<think>
+Okay, I need to implement the crust_slice function. The goal is to take a filename and return the part before the final dot. But there are some specific cases to consider. Let me think through the requirements.
+
+First, if the name has no dot at all, we just return it as is. For example, "example" would stay "example". Then there's the case where the only dot is the first character. Like ".hidden", which is a hidden file name. According to the problem statement, that dot is part of the name, not an extension. So in that case, we should return the entire name unchanged. Wait, but the problem says that if the only dot is the first character, it's considered a hidden name, so the extension part is not present. So in that case, the function should return the whole name.
+
+So the key is to find the last occurrence of a dot in the filename. But if there are no dots, return the original. If there is at least one dot, then split the filename at the last dot. But wait, the problem says that if the last character is a dot, then the part before it is everything up to that dot. For example, "file." would return "file".
+
+But how to handle cases where there are multiple dots. For instance, "file.version.1" would split at the last dot, so the result is "file.version".
+
+So the approach is to find the last occurrence of a dot in the string. Then, take the substring up to that index. But if there are no dots, return the original string.
+
+But how to handle cases where the last character is a dot? Like "file.", then the result is "file".
+
+So the steps are:
+
+1. Check if there is at least one dot in the name.
+2. If not, return the name as is.
+3. If there is a dot, find the last occurrence of the dot.
+4. Take the substring from the start up to (but not including) that last dot.
+
+But how to find the last occurrence? In Python, we can use the rfind method. For example, name.rfind('.') gives the index of the last dot. If that index is -1, then there are no dots.
+
+So the code would be something like:
+
+def crust_slice(name: str) -> str:
+    dot_index = name.rfind('.')
+    if dot_index == -1:
+        return name
+    else:
+        return name[:dot_index]
+
+Wait, but what about cases where the last character is a dot? For example, "file." would have dot_index as len(name)-1. So name[:dot_index] would be "file", which is correct.
+
+But what about a name like "a.b.c"? The last dot is at index 3 (assuming the string is "a.b.c"), so the result is "a.b".
+
+But what about a name like ".hidden"? The rfind would return 0, so the result is name[:0], which is an empty string. Wait, that's a problem. Because according to the problem statement, if the only dot is the first character, then the name is considered a hidden name and should return the entire name. Wait, the problem says that a name whose only dot is its very first character is considered a hidden name, so the extension is not present. So in that case, the function should return the entire name.
+
+Wait, the problem says: "A name carrying no dot at all comes back unchanged, and so does a name whose only dot is its very first character, since that dot begins a hidden name rather than an extension."
+
+So for example, if the name is ".hidden", the function should return ".hidden"

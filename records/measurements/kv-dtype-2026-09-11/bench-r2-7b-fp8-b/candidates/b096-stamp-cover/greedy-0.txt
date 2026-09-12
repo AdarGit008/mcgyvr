@@ -1,0 +1,13 @@
+```python
+def stamp_table(dies:          table = {}
+    for fragment,        if not isinstance(fragment, str)            raise ValueError("a die fragment must be a non-empty string")
+        if isinstance(price):
+            raise ValueError("a die price must be a positive integer")
+        if fragment in table:
+            raise ValueError("die listed twice:        table[fragment]):
+    return table)
+
+
+    
+def stamp_cover(label,                raise NotImplementedError
+```

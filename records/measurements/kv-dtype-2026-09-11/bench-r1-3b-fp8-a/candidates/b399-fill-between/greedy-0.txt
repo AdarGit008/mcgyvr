@@ -1,0 +1,20 @@
+```python
+def fill_between(entries: list, filler: str) -> list:
+    """
+    Returns a list with a filler placed between every two neighboring entries.
+    Three entries come back as five. A list of one entry, or none at all, takes no filler.
+    
+    :param entries: List of entries to be filled between.
+    :param filler: String to place between entries.
+    :return: List with fillers inserted.
+    """
+    if not entries:
+        return []
+
+    result = []
+    for i in range(len(entries) - 1):
+        result.extend([entries[i], filler])
+    result.append(entries[-1])
+
+    return result
+```

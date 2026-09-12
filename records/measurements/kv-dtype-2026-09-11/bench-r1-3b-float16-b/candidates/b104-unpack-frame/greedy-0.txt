@@ -1,0 +1,59 @@
+```python
+from typing import List
+
+def unpack_frame(data: List[int]) -> List[int]:
+    """
+    Unpacks a sensor record frame from a list of byte values.
+    
+    Parameters:
+    data (List[int]): A list of integers representing the byte values of the frame.
+    
+    Returns:
+    List[int]: A list of integers representing the readings in the frame.
+    
+    Raises:
+    ValueError: If the input is not a list, contains invalid byte values,
+                ends inside a varint or before the trailer, has a varint
+                with a wasted zero, is longer than five bytes, has a trailer
+                that does not equal the byte sum, or has bytes left over after
+                the trailer.
+    """
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list.")
+    
+    def read_varint():
+        result = 0
+        shift = 0
+        while True:
+            byte = data.pop(0)
+            result |= (byte & 0x7F) << shift
+            shift += 7
+            if not (byte & 0x80):
+                break
+        return result
+    
+    def read_trailer():
+        trailer = read_varint()
+        if len(data) != 1 or data[0] != trailer:
+            raise ValueError("Trailer does not match the byte sum.")
+        return data.pop(0)
+    
+    if not data:
+        return []
+    
+    num_readings = read_varint()
+    if num_readings < 0:
+        raise ValueError("Invalid number of readings.")
+    
+    readings = []
+    for _ in range(num_readings):
+        reading = read_varint()
+        readings.append(reading)
+    
+    trailer_byte = read_trailer()
+    
+    if data:
+        raise ValueError("Bytes left over after the trailer.")
+    
+    return readings
+```

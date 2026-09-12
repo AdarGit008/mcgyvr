@@ -1,0 +1,72 @@
+```python
+def fork_paths(pattern: str) -> list:
+    """
+    Expand a deployment pattern with fork syntax into a list of concrete paths.
+    
+    Args:
+        pattern: A slash-separated string where segments can be literals or forks.
+        
+    Returns:
+        A list of expanded path strings.
+        
+    Raises:
+        ValueError: If the pattern is invalid.
+    """
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a string")
+    if not pattern:
+        raise ValueError("Pattern must be a non-empty string")
+        
+    # Split by '/' but we need to handle the structure carefully.
+    # The problem states "each segment between slashes".
+    # Let's split by '/'.
+    # However, we need to validate that there are no stray braces or commas inside literal segments.
+    
+    segments = pattern.split('/')
+    
+    # Validate segments and parse forks
+    parsed_segments = []
+    for seg in segments:
+        if not seg:
+            raise ValueError("Empty segment found")
+        
+        if seg.startswith('{') and seg.endswith('}'):
+            # It's a fork
+            inner = seg[1:-1]
+            if not inner:
+                raise ValueError("Empty fork options")
+            options = inner.split(',')
+            for opt in options:
+                if not opt:
+                    raise ValueError("Empty option in fork")
+                # Check for stray braces or commas inside options
+                if '{' in opt or '}' in opt or ',' in opt:
+                    raise ValueError("Invalid characters in fork option")
+            parsed_segments.append(options)
+        else:
+            # It's a literal segment
+            # Check for stray braces or commas
+            if '{' in seg or '}' in seg or ',' in seg:
+                raise ValueError("Invalid characters in literal segment")
+            parsed_segments.append([seg])
+            
+    # Now generate the cartesian product
+    # The problem states: "options appear in their written order, and an earlier fork's choice changes slower than a later one's"
+    # This means the first fork changes slowest, last fork changes fastest.
+    # This is the standard behavior of itertools.product if we iterate in order.
+    
+    import itertools
+    
+    # Create the cartesian product
+    # Each element in parsed_segments is a list of options for that segment.
+    # We want to combine them.
+    
+    # If there are no forks (all segments are singletons), we just return the joined segments.
+    # But the logic below handles that too.
+    
+    paths = []
+    for combo in itertools.product(*parsed_segments):
+        paths.append('/'.join(combo))
+        
+    return paths
+```

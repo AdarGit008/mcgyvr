@@ -1,0 +1,26 @@
+<think>
+Okay, I need to implement the split_agenda function. Let's start by understanding the problem.
+
+The function takes a list of sessions, each represented as [start, end] pairs, and a limit. The goal is to split each session into blocks that fit within the limit. If a session is longer than the limit, it's split into parts. The splitting is done by cutting at the midpoint, with the front half taking the extra minute when the length is odd. Each half is then treated the same way again until all blocks fit the limit.
+
+First, I need to validate the inputs. The problem says to reject a limit that's not a whole number, but since the limit is an integer, that's already handled. Also, check that each session's start is before end. Also, ensure that no session starts before the previous one ends. Wait, the problem says that if a session starts before the previous ends, that's an error. So I need to check that each session starts after the previous one ends.
+
+So the first step is to validate the sessions. For each session in the list, check that start < end. Also, check that the start of each session is after the end of the previous one. If any of these checks fail, raise a ValueError.
+
+Next, for each session, split it into blocks. Let's think about how to split a session. The session is [start, end], and the limit is the maximum allowed block length. The session's duration is end - start. If the duration is less than or equal to the limit, then the session is just one block. If it's longer, we need to split it.
+
+The splitting process is recursive. For example, if the session is longer than the limit, we split it into two parts. The first part is the first half (rounded up if the length is odd), and the second part is the remaining. Then each part is split again if needed.
+
+Wait, the problem says: "a longer one is cut at its midpoint, the front half taking the extra minute when the length is odd, and each half is then treated the same way again until every block fits within limit."
+
+So for a session of length L, the first split is into two parts. The first part is ceil(L / 2), and the second part is floor(L / 2). But wait, the problem says "the front half taking the extra minute when the length is odd". So for example, if the length is 5, then the first half is 3 (ceil(5/2) = 3), and the second is 2. Then each of these is split again if they are longer than the limit.
+
+So the process is to split the session into two parts, and then split each part recursively until all parts are within the limit.
+
+But how to calculate the split points?
+
+Let me think. For a given session [s, e], the duration is e - s. Let's call this duration D. The first split is into two parts: first part is D // 2 if D is even, or (D + 1) // 2 if D is odd. Wait, for D=5, (5+1)//2 = 3, which is correct. So the first part is (D + 1) // 2, and the second part is D - (D + 1) // 2.
+
+Wait, for D=5, first part is 3, second is 2. For D=4, first part is 2, second is 2. So the first part is ceil(D / 2), and the second part is floor(D / 2).
+
+So for a session, the first split is into

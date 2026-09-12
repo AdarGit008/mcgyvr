@@ -1,0 +1,76 @@
+<think>
+Okay, I need to implement the font_clamp function. Let's see the requirements. The function should take a size, smallest, and largest. The goal is to clamp the size within the allowed range. If the size is less than smallest, return smallest. If it's larger than largest, return largest. Otherwise, return the size as is. Also, the function should reject a range where smallest is greater than largest by raising a ValueError.
+
+First, I need to check if smallest is greater than largest. If that's the case, raise ValueError with a message like "smallest must be <= largest". That's straightforward.
+
+Then, for the clamping part. The size can be an integer. So, the logic is: if size < smallest, return smallest. Else if size > largest, return largest. Else return size.
+
+Wait, but what if the size is a float? The problem says the input is an integer, but the function parameters are int. Wait, the function's parameters are size: int, smallest: int, largest: int. So the inputs are all integers. So no need to handle floats. So the function is for integers only.
+
+So the steps are:
+
+1. Check if smallest > largest. If yes, raise ValueError.
+2. Else, compare size with smallest and largest.
+3. Return the clamped value.
+
+Let me think about edge cases. For example, if size is exactly smallest or largest, return as is. What if smallest and largest are the same? Then any size would be clamped to that value. But the first check would have already raised an error if smallest > largest. So if smallest equals largest, it's allowed, and the function returns size (since it's within the range).
+
+Another case: size is None? But according to the interface, the parameters are int, so None is not expected. The function should not accept None for size, smallest, or largest. But the problem says to reject a range where smallest is above largest. So the function is supposed to check that.
+
+So the code would be:
+
+def font_clamp(size: int, smallest: int, largest: int) -> int:
+    if smallest > largest:
+        raise ValueError("smallest must be <= largest")
+    return size if size >= smallest and size <= largest else (smallest if size < smallest else largest)
+
+Wait, but that's a bit complicated. Alternatively:
+
+if size < smallest:
+    return smallest
+elif size > largest:
+    return largest
+else:
+    return size
+
+That's more straightforward.
+
+So putting it all together.
+
+Wait, but in Python, the order of operations matters. Let me structure it.
+
+First, check if smallest is greater than largest. If so, raise error.
+
+Then, check if size is less than smallest: return smallest.
+
+Else, check if size is greater than largest: return largest.
+
+Else, return size.
+
+Yes.
+
+So code:
+
+def font_clamp(size: int, smallest: int, largest: int) -> int:
+    if smallest > largest:
+        raise ValueError("smallest must be <= largest")
+    if size < smallest:
+        return smallest
+    elif size > largest:
+        return largest
+    else:
+        return size
+
+That should handle all cases.
+
+Testing some examples:
+
+Case 1: size is 10, smallest 5, largest 15. Returns 10.
+
+Case 2: size is 3, smallest 5, largest 15. Returns 5.
+
+Case 3: size is 18, smallest 5, largest 15. Returns 15.
+
+Case 4: smallest 10, largest 5. Then raise error.
+
+Case 5: smallest and largest same, say 

@@ -1,0 +1,17 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    """Apply stock movements to an opening quantity, never dropping below zero."""
+    if not isinstance(opening, int):
+        raise ValueError("opening must be an integer")
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+    
+    quantity = opening
+    for move in moves:
+        if not isinstance(move, int):
+            raise ValueError("each move must be an integer")
+        quantity += move
+        if quantity < 0:
+            quantity = 0
+    return quantity
+```

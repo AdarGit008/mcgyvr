@@ -1,0 +1,14 @@
+```python
+
+def swap_keys(names: dict) -> dict:
+    """
+    Given a mapping of names to codes, return the mapping the other way around,
+    from each code to a name. When two names share one code, the name that sorts
+    first is the one kept. Names whose code is empty text is left out altogether.
+    """
+    # name, code in names.items():
+        if code:
+            names[code] = name
+    return { {name, code for code, name in names.items() if code]
+ name)
+```

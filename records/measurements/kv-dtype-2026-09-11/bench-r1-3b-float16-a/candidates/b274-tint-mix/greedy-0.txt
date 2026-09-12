@@ -1,0 +1,21 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    """
+    Calculate the strength of the mixture of two tins of paint.
+
+    :param volume_a: Volume of the first tin in millilitres.
+    :param strength_a: Strength of the first tin as a percentage.
+    :param volume_b: Volume of the second tin in millilitres.
+    :param strength_b: Strength of the second tin as a percentage.
+    :return: The strength of the mixture as a whole percent, rounded down.
+    """
+    if volume_a < 0 or volume_b < 0:
+        raise ValueError("Volume cannot be negative.")
+    if strength_a < 0 or strength_b < 0:
+        raise ValueError("Strength cannot be negative.")
+
+    total_volume = volume_a + volume_b
+    total_strength = (volume_a * strength_a + volume_b * strength_b) // total_volume
+
+    return total_strength
+```

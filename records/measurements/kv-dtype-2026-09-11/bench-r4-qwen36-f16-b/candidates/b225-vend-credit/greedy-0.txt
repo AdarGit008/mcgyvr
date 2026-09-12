@@ -1,0 +1,22 @@
+```python
+def vend_credit(coins: list, price: int) -> int:
+    """Calculate remaining credit after vending items based on inserted coins."""
+    if not isinstance(price, int) or isinstance(price, bool):
+        raise ValueError("Price must be an integer")
+    if price <= 0:
+        raise ValueError("Price must be positive")
+    if price % 5 != 0:
+        raise ValueError("Price must be a multiple of 5")
+
+    valid_coins = {5, 10, 25, 100}
+    credit = 0
+
+    for coin in coins:
+        if coin not in valid_coins:
+            raise ValueError(f"Invalid coin: {coin}")
+        credit += coin
+        while credit >= price:
+            credit -= price
+
+    return credit
+```

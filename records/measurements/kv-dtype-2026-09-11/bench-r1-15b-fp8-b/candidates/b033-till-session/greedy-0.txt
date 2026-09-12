@@ -1,0 +1,56 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "opens"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    cart = []
+    total = 0
+    change = 0
+    session = OPEN
+
+    for event in events:
+        action, item = event
+
+        if action == "scan":
+            if item not in prices:
+                raise ValueError("item must be in the price list: " + item)
+            if item in cart:
+                raise ValueError("item already in the cart: " + item)
+            cart.append(item)
+            its += prices[item]
+
+        elif action == "void":
+            if item not in cart:
+                raise ValueError("item must the cart: "            cart.remove(item)
+            its -= prices[item]
+
+        elif action == "close":
+            if            if session == OPEN:
+                raise ValueError("session must be open: "            if session == PAID:
+                raise ValueError("session already paid: ")
+
+            if session == CANCEL:
+                raise ValueError("session already cancelled: ")
+
+            if = 0
+            change = 0
+            session = CANCEL
+
+        elif action == "pay":
+            if = 0
+            change = 0            session = PAID
+
+        elif action == "cancel":
+            if session == OPEN:
+                raise ValueError("session cannot be cancelled: ")
+
+            if session == PAID:
+                raise ValueError("session cannot be cancelled: ")
+
+            if        else:
+            raise ValueError("unknown action: "```

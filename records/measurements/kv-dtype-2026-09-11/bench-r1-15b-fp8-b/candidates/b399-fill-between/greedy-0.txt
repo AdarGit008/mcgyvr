@@ -1,0 +1,24 @@
+```python
+def fill_between(entries: list, filler: str) -> list:
+    """
+    Fills in between two neighbouring entries in a list with a specified filler.
+    
+    Parameters:
+    entries (list): The list of entries to be processed.
+    filler (str): The filler to be placed between each entries.
+    
+    Returns:
+    list: A list with the filler placed between each two neighbouring entries.
+    """
+    if_entries = []
+    for i entry in entries:
+        if len(profined_entries) < 2:
+            if len(profined_entries) == 0:
+                proficient_entries.append(entry)
+            else:
+                proficient_entries.append(entry)
+                proficient_entries.append(filler)
+        else:
+            proficient_entries.append(entry)
+    return proficient_entries
+```

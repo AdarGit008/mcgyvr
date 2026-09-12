@@ -1,0 +1,23 @@
+```python
+def split_at(entries: list, marker: str) -> list:
+    """
+    Splits a list into two parts at the first occurrence of a marker.
+    
+    Parameters:
+    entries (list): The list to be split.
+    marker (str): The marker to split the list at.
+    
+    Returns:
+    list: A list containing two elements:
+         - The first element is the part of the list before the marker.
+         - The second element is the part of the list after the marker.
+         
+    Raises:
+    ValueError: If the marker is not found in the list.
+    """
+    try:
+        index = entries.index(marker)
+        return [entries[:index], entries[index+1:]]
+    except ValueError:
+        raise ValueError(f"Marker '{marker}' not found in the list.")
+```

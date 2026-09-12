@@ -1,0 +1,16 @@
+```python
+def bin_rotate(entries: list[str], places: int) -> list[str]:
+    if len(entries) == 0:
+        return []
+    # Calculate the effective shift
+    shift = places % len(entries)
+    # If shift is 0, the run remains unchanged
+    if shift == 0:
+        return entries
+    # Create a copy of the entries to avoid mutating the input
+    out = entries[:]
+    # Perform the rotation
+    for i in range(len(entries)):
+        out[i] = entries[(i + shift) % len(entries)]
+    return out
+```

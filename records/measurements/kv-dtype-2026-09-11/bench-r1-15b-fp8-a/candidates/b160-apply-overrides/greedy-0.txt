@@ -1,0 +1,33 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list")
+    if not all isinstance(override, str):
+        raise ValueError("Overrides must be a string")
+    if not overrides.startswith("="):
+        raise ValueError("Overrides must start with an equals sign")
+    if overrides = overrides[1:]
+    if overrides == "":
+        raise ValueError("Overrides must must an equals sign must be non")
+    if overrides == "=":
+        raise ValueError("Overrides must not be empty")
+    if = overrides.split("=")
+    if len(expose) != 2:
+        raise ValueError("Overrides must a name and an equals sign")
+    if,[0] not in base:
+        raise ValueError("Overrides name must be in base")
+    if expose[1] not in expose:
+        raise ValueError("Overrides value must must be in expose")
+    merged = dict(base)
+    for override in overrides:
+        expose = expose.split("=")
+        if expose[0] in base:
+            raise ValueError("Overrides name must be in base")
+        if expose[1] not in expose:
+            raise ValueError("Overrides checklist must must be in expose")
+        if expose[0] in base:
+            base[ expose[1]) = expose[1]
+ base[ expose[0]) = expose[1]
+
+    return merged
+```

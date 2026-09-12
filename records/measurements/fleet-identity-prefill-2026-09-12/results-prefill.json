@@ -1,0 +1,124 @@
+{
+  "rule": "M1 tolerance rule (worst single-sample shortfall from the unit median, ceiling'd to a whole percent, floored at 1%)",
+  "swap": "off (no-NVMe)",
+  "classes": {
+    "vllm": {
+      "tolerance_pct": 22,
+      "worst_shortfall_pct": 21.55
+    },
+    "llamacpp": {
+      "tolerance_pct": 1,
+      "worst_shortfall_pct": 0.37
+    },
+    "cpu_experts": {
+      "tolerance_pct": 1,
+      "worst_shortfall_pct": 0.13
+    }
+  },
+  "per_unit": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+      "model": "Qwen2.5-Coder-3B-Instruct-AWQ",
+      "class": "vllm",
+      "n": 15,
+      "median_tok_s": 11500.23,
+      "min_tok_s": 10596.8,
+      "max_tok_s": 13992.5,
+      "shortfall_pct": 7.86,
+      "samples": [
+        13752.17,
+        10776.38,
+        11500.23,
+        13992.5,
+        10973.28,
+        11864.57,
+        10596.8,
+        11359.39,
+        11159.65,
+        13707.96,
+        11625.29,
+        11494.96,
+        11686.39,
+        12016.78,
+        11238.07
+      ]
+    },
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+      "model": "Qwen2.5-Coder-7B-Instruct-AWQ",
+      "class": "vllm",
+      "n": 15,
+      "median_tok_s": 12058.63,
+      "min_tok_s": 9460.22,
+      "max_tok_s": 13628.98,
+      "shortfall_pct": 21.55,
+      "samples": [
+        13123.66,
+        11579.73,
+        13058.21,
+        11900.11,
+        11684.17,
+        12984.54,
+        9460.22,
+        12174.48,
+        11752.02,
+        12058.63,
+        13315.52,
+        11056.04,
+        13628.98,
+        11639.69,
+        13628.65
+      ]
+    },
+    "Ling-3.0-tiny-Q4_K_M": {
+      "model": "Ling-3.0-tiny-Q4_K_M",
+      "class": "llamacpp",
+      "n": 15,
+      "median_tok_s": 1450.28,
+      "min_tok_s": 1444.89,
+      "max_tok_s": 1453.37,
+      "shortfall_pct": 0.37,
+      "samples": [
+        1445.98,
+        1445.59,
+        1444.89,
+        1446.15,
+        1445.82,
+        1453.37,
+        1447.72,
+        1451.37,
+        1451.12,
+        1451.64,
+        1448.18,
+        1452.11,
+        1452.67,
+        1450.28,
+        1451.12
+      ]
+    },
+    "Qwen3.6-35B-A3B-UD-IQ3_XXS": {
+      "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+      "class": "cpu_experts",
+      "n": 15,
+      "median_tok_s": 370.61,
+      "min_tok_s": 370.14,
+      "max_tok_s": 371.95,
+      "shortfall_pct": 0.13,
+      "samples": [
+        371.91,
+        370.68,
+        370.49,
+        370.15,
+        370.28,
+        371.95,
+        371.75,
+        370.99,
+        370.61,
+        370.46,
+        371.82,
+        371.8,
+        370.56,
+        370.14,
+        370.4
+      ]
+    }
+  }
+}

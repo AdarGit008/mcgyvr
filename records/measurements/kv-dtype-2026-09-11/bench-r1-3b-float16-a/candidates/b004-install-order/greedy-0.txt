@@ -1,0 +1,59 @@
+```python
+from typing import List
+
+def install_order(packages: List[str], requires: List[List[str]]) -> List[str]:
+    """
+    Determine the correct installation order for packages given their prerequisites.
+    """
+    if not packages or not requires:
+        return []
+
+    # Validate input
+    if len(set(packages)) != len(packages):
+        raise ValueError("Package names must be unique.")
+    
+    for pkg, needed in requires:
+        if pkg not in packages or needed not in packages:
+            raise ValueError("Package names in requirements must exist in the list of packages.")
+    
+    # Build dependency graph
+    needs = {name: 0 for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, needed in requires:
+        needs[pkg] += 1
+        enables[needed].append(pkg)
+
+    # Detect cycles
+    visited = set()
+    stack = []
+    def has_cycle(node):
+        if node in stack:
+            return True
+        if node in visited:
+            return False
+        stack.append(node)
+        for neighbor in enables[node]:
+            if has_cycle(neighbor):
+                return True
+        stack.pop()
+        visited.add(node)
+        return False
+
+    for pkg in packages:
+        if has_cycle(pkg):
+            raise ValueError("Requirements form a cycle.")
+
+    # Topological sort
+    ready = [name for name in packages if needs[name] == 0]
+    order = []
+    while ready:
+        next_name = min(ready)  # Use min to ensure alphabetical order
+        order.append(next_name)
+        ready.remove(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                ready.append(follower)
+
+    return order
+```

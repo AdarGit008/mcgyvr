@@ -1,0 +1,27 @@
+```python
+import math
+
+
+def explode_kit(catalog, kit, want):
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    totals = {}
+    # TODO: work down from kit, turning each requirement into whole runs
+    # and charging a run's parts to its sub-kits or to the base totals.
+    # This is a recursive function that will explore all possible routes
+    # to meet the want units of the kit.
+    def explore_kit(catalog, kit, want, current_run, base_totals):
+        if want == 0:
+            return
+        if kit in base_totals:
+            base_totals[kit] += current_run
+            return
+        for component, count in catalog[kit]['parts']:
+            if component in catalog:
+                explore_kit(catalog, component, want - count, current_run + count, base_totals)
+            else:
+                raise ValueError(f"the catalog does not define {component}")
+    explore_kit(catalog, kit, want, 1, totals)
+    return totals
+```

@@ -1,0 +1,19 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    """Draw a count as that many hashes, capped at width, with '>' if cut short."""
+    if width <= 0:
+        return ""
+    
+    if count <= 0:
+        return ""
+    
+    if count >= width:
+        # If count equals width, it fits exactly, no truncation needed
+        if count == width:
+            return "#" * width
+        # If count exceeds width, truncate and mark with '>'
+        return "#" * (width - 1) + ">"
+    
+    # Count is less than width, so it fits completely
+    return "#" * count
+```

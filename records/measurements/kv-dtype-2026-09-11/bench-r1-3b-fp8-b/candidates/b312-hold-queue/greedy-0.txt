@@ -1,0 +1,26 @@
+```python
+from typing import List
+
+def hold_queue(callers: List[str], limit: int) -> List[str]:
+    """
+    Adds callers to a queue until it reaches the specified limit.
+    If the limit is exceeded, removes the caller who has been waiting longest.
+    
+    :param callers: List of callers in the order they arrived.
+    :param limit: Maximum number of callers allowed in the queue.
+    :return: The queue as it stands at the end.
+    """
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero.")
+    
+    # Use a deque to efficiently manage the queue
+    from collections import deque
+    
+    queue = deque(callers)
+    
+    # Add callers to the queue until it reaches the limit
+    while len(queue) < limit:
+        queue.append(callers.pop(0))
+    
+    return list(queue)
+```

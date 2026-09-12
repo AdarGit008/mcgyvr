@@ -1,0 +1,28 @@
+```python
+def matches_stencil(stencil: str, code: str) -> bool:
+    """Check if code matches the given stencil pattern."""
+    if not isinstance(stencil, str):
+        raise ValueError("stencil must be a string")
+    if not isinstance(code, str):
+        raise ValueError("code must be a string")
+    if len(stencil) == 0:
+        raise ValueError("stencil must not be empty")
+
+    if len(stencil) != len(code):
+        return False
+
+    for s_char, c_char in zip(stencil, code):
+        if s_char == '#':
+            if not c_char.isdigit():
+                return False
+        elif s_char == '@':
+            if not c_char.isalpha():
+                return False
+        elif s_char == '?':
+            pass  # Matches any single character
+        else:
+            if s_char != c_char:
+                return False
+
+    return True
+```

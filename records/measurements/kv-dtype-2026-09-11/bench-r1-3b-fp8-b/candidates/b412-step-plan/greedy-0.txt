@@ -1,0 +1,23 @@
+```python
+def step_allowed(start: str, end: str, allowed: list) -> bool:
+    """
+    Check if moving from start to end is among the allowed moves.
+    """
+    if start == end:
+        raise ValueError("Start and end states cannot be the same.")
+    return end in allowed
+
+def step_plan(states: list, allowed: list) -> int:
+    """
+    Find the position of the first move in the run of states that is not allowed,
+    or return -1 if every move is allowed.
+    """
+    if not states:
+        raise ValueError("Run of states cannot be empty.")
+    
+    for i in range(len(states) - 1):
+        if states[i + 1] not in allowed:
+            return i + 1
+    
+    return -1
+```

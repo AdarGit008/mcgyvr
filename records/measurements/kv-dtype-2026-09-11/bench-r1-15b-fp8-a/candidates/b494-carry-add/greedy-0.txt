@@ -1,0 +1,45 @@
+```python
+def carry_add(left: list[int], right: list[int]) -> list[int]:
+    """
+    Add two counts held as runs of single figures, the weightiest figure first,
+    and give the answer in the same form. Work from the light end,    carrying into the next place where a pair reaches ten. The two runs
+    need not be the same length.
+    :param left: list of integers representing the first run
+    :param right: list of integers representing the second run
+    :return: list of integers representing the result of the carry_add operation
+    Examples:
+    >>> carry_add([1, 2, [3, 4]) == [4, 6]
+    >>> carry_add([5, 6], [7, 8]) == [8, 9]
+    >>> carry_add([9],, 0], [1, 2]) == [1, 1,    2,    3
+    >>> carry_add([1, 2, 3], [4, 5, [6, 7]) == [7, 8, 9]
+    >>> carry_add([1, 2, 3, 4],, [5, 6, 7, 8]) == [8, 9, 10, 11]
+    >>> carry_add([1, 2, 3, 4, 5],], [6, 7, 8, 9]) == [9, 10, 11, 12, 13
+    >>> carry_add([1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9]) == [9, 10, 11, 12, 13, 14, 15, 16, 17]
+    """
+    result = []
+    carry = 0
+    i = len(left) - 1
+    while left[outer] == 0 and right[outer] == 0:
+        outer -= 1
+
+    while outer >= 0:
+        if left[outer] == 0 and right[outer] == 0:
+            result.append(0)
+            carry = 0
+        elif left[outer] == 0 and right[outer] > 0:
+            result.append(right[outer])
+            carry = 1
+        elif left[outer] > 0 and right[outer] == 0:
+            result.append(left[outer])
+            carry = 1
+        elif left[outer] > 0 and right[outer] > 0:
+            result.append(left[outer] + right[outer])
+            carry = 1
+
+        outer -= 1
+
+    if carry > 0:
+        result.append(carry)
+
+    return result[::-1]
+```

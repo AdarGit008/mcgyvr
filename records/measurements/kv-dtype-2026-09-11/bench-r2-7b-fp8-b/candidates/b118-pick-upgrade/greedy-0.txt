@@ -1,0 +1,39 @@
+```.py
+"""
+Firmware version selection within an installed release line.
+"""
+
+from typing import List,
+
+def compare_builds(a:    """
+    Compare two firmware build versions.
+    """
+    left = [int(part) for part in a.split(".")]
+    right = [int(part) for part in b.split(".")]
+    for i in range(max(len(left), len(right))):
+        x = left[i] if i < len(left) else 0):
+        y = right[i] if i < len(right) else 0)
+        if x > y:
+            return 1
+        if x < y:
+            return -1
+    return 0
+
+
+def pick_upgrade(installing: str, offers:    """
+    Select the newest firmware build that keeps the installed build's leading number and is strictly newer than whatalled.
+    """
+    if not isinstance(installing, str) or not re.match(r'^\(\d+\.\d+\.?\d*)$', installing):
+        raise ValueError("Invalid installed build format")
+    
+    if not isinstance(fers, list) or not all(isinstance(fer, str) and re.match(r'^ \d+(\.\d+\.?\d*)$',                for                    raise ValueError("Invalid offers format")
+    
+    best = None
+    for offer in offers:
+        if offer.split(".")[0] != installing.split(".")[0]:
+            continue
+        if compare_builds(offer, installed) > 0:
+            best = offer
+    
+    return best
+```

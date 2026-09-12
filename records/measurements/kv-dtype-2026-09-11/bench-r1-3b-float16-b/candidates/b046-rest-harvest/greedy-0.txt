@@ -1,0 +1,27 @@
+```python
+def best_harvest(yields: list) -> int:
+    """
+    Calculate the maximum harvest possible by picking days with non-consecutive yields.
+    
+    :param yields: List of non-negative integers representing daily yields.
+    :return: Maximum harvest possible.
+    """
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list.")
+    
+    if not all(isinstance(y, int) and y >= 0 for y in yields):
+        raise ValueError("All yields must be non-negative integers.")
+    
+    if not yields:
+        return 0
+    
+    # Initialize the maximum harvest with the first yield
+    max_harvest = yields[0]
+    
+    # Iterate through the yields starting from the second day
+    for i in range(1, len(yields)):
+        # Add the current yield to the maximum harvest if the previous day was not picked
+        max_harvest += yields[i] if i % 2 == 0 else yields[i - 1]
+    
+    return max_harvest
+```

@@ -1,0 +1,19 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    if len(first) != 2 or len(second) != 2:
+        raise ValueError("Both inputs must be exactly two characters long.")
+    return second + first
+
+def swap_all(text: str) -> str:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    # Swap pairs in the text
+    swapped_text = ''.join(swap_pair(text[i:i+2]) for i in range(0, len(text), 2))
+    
+    # If the length of the text is odd, keep the last character as is
+    if len(text) % 2 != 0:
+        swapped_text += text[-1]
+    
+    return swapped_text
+```

@@ -1,0 +1,17 @@
+```python
+def crplit(trail: str) -> list:
+    """
+    Breaks a breadcrumb trail on forward slashes and discards every
+    segments that are empty.
+    """
+    return [segment for segment in trail.split('/') if segment]
+
+
+def crplit(trail: str) -> list:
+    """
+    Joins segments of a breadcrumb trail with a single slash between
+
+    and no slash at either trails.
+    """
+    return '/'.join(segment for segment in trail.split('/') if)
+```

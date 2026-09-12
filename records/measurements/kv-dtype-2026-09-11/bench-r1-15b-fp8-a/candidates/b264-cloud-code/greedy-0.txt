@@ -1,0 +1,26 @@
+```python
+def cloud_code(table: dict, code: str) -> str:
+    """
+    Convert a short weather code into words using the provided table.
+    Codes are matched in upper case and unknown codes are represented as 'unknown'.
+    """
+    if not table:
+        raise ValueError("Table cannot be empty")
+
+    if not code:
+        raise ValueError("Code cannot be empty")
+
+    if not isinstance(table, dict):
+        raise ValueError("Table must be a dictionary")
+
+    if not isinstance(code, str):
+        raise ValueError("Code must be a string")
+
+    if not all code.isupper():
+        raise ValueError("Code must be in upper case")
+
+    if not all code in table:
+        return "unknown"
+
+    return table[code]
+```

@@ -1,0 +1,21 @@
+```python
+def field_of(record: dict, field: str) -> int:
+    """
+    Returns the value of the specified field from the record.
+    Raises ValueError if the field does not exist in the record.
+    """
+    if field not in record:
+        raise ValueError(f"Field '{field}' not found in record.")
+    return record[field]
+
+def sort_pairs(records: list, field: str) -> list:
+    """
+    Sorts a list of records by the specified field.
+    Records with the same field value are left in their original order.
+    """
+    if not records:
+        return []
+
+    # Use a stable sort to maintain relative order of equal elements
+    return sorted(records, key=lambda x: x[field])
+```

@@ -1,0 +1,53 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    """Split total cents among partners according to their weights.
+    
+    Each partner receives floor(total * weight / sum(weights)) cents initially.
+    Remaining cents are distributed one each to partners with the largest
+    discarded fractions, with ties broken in favor of earlier partners.
+    """
+    if not isinstance(total, int) or isinstance(total, bool):
+        raise ValueError("total must be whole cents")
+    if total < 0:
+        raise ValueError("total may not be negative")
+    if not isinstance(weights, list) or not weights:
+        raise ValueError("weights must be a non-empty list")
+    if not all(isinstance(w, int) and not isinstance(w, bool) and w > 0 for w in weights):
+        raise ValueError("a weight is a positive whole number")
+    
+    whole = sum(weights)
+    parts = [total * w // whole for w in weights]
+    
+    # Calculate the remainder cents that need to be distributed
+    remainder = total - sum(parts)
+    
+    if remainder == 0:
+        return parts
+    
+    # Calculate the fractional part for each partner to determine who gets the extra cents
+    # We want to sort by (fractional_part, -index) descending, so that:
+    # 1. Larger fractional parts get priority
+    # 2. Ties go to earlier partners (smaller index)
+    
+    # To avoid floating point issues, we can work with numerators:
+    # fractional_part = (total * w) % whole / whole
+    # So we compare (total * w) % whole, which is the numerator of the fraction
+    # We want to sort by numerator descending, then by index ascending
+    
+    # Create list of (numerator, index) for sorting
+    fractions = []
+    for i, w in enumerate(weights):
+        numerator = (total * w) % whole
+        fractions.append((numerator, i))
+    
+    # Sort by numerator descending, then by index ascending
+    # We take the top 'remainder' partners
+    fractions.sort(key=lambda x: (-x[0], x[1]))
+    
+    # Give one extra cent to the top 'remainder' partners
+    for i in range(remainder):
+        partner_index = fractions[i][1]
+        parts[partner_index] += 1
+    
+    return parts
+```

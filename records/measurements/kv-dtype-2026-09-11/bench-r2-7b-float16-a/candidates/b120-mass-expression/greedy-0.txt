@@ -1,0 +1,38 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not text:
+        raise ValueError("Empty tally")
+
+    units = {'g': 1, 'kg': 1000, 't': 1000000}
+    if unit not in units:
+        raise ValueError("Invalid goal unit")
+
+    terms = text.split(' ')
+    if len(terms) % 2 == 0 or terms[-1] not in units:
+        raise ValueError("Invalid tally format")
+
+    current_mass = 0
+    i = 0
+    while i < len(terms):
+        count = int(terms[i])
+        if count < 0:
+            raise ValueError("Negative count")
+        i += 1
+        op = terms[i]
+        if op != '+' and op != '-':
+            raise ValueError("Invalid operator")
+        i += 1
+        next_unit = terms[i]
+        if next_unit not in units:
+            raise ValueError("Invalid unit")
+        i += 1
+        current_mass += count * units[next_unit] if op == '+' else -count * units[next_unit]
+
+    if current_mass < 0:
+        raise ValueError("Draw dips below zero")
+
+    if current_mass % units[unit]:
+        raise ValueError("Total does not come out whole in the goal unit")
+
+    return current_mass // units[unit]
+```

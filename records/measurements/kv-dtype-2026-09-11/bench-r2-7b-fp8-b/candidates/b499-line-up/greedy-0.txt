@@ -1,0 +1,4 @@
+```python
+def line_up(links:    # This function is missing its implementation.
+    raise NotImplementedError("Implementation required")
+```

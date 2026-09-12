@@ -1,0 +1,30 @@
+<think>
+Okay, I need to implement the drain_frames function according to the problem description. Let me start by understanding the requirements.
+
+The function takes a list of chunks and a marker character. The goal is to process these chunks into frames, where a marker followed by another marker (doubled) is considered a single literal marker, and a single marker ends a frame. The result should be a dictionary with frames and pending text.
+
+First, the marker must be a single character. The current code checks that, so that's covered. Then, the chunks are joined into a buffer. The next step is to process this buffer to split into frames and determine the pending text.
+
+The key points are:
+
+1. A single marker ends the current frame and starts a new one.
+2. Two markers in a row (doubled) are treated as a single literal marker, so they don't end a frame.
+3. The pending text includes whatever comes after the last ended frame. If the buffer ends with a marker, it's considered pending unless it's part of a doubled pair.
+
+So, I need to scan the buffer and track the current frame. Let's think about the steps:
+
+- Initialize a list to hold the frames.
+- Initialize a variable to track the current state (whether we're in a frame or not).
+- Iterate through each character in the buffer.
+- When a marker is found, check if the previous character was also a marker. If so, it's a doubled marker, so we add a single marker to the pending. If not, it ends the current frame and starts a new one.
+- However, if the current character is a marker and the next character is also a marker, then the current marker is part of a doubled pair, so we don't end the frame here. Wait, no. The problem says that a marker written twice in a row stands for one literal marker. So, when two markers are consecutive, they are treated as a single marker. So, when processing, if the current character is a marker and the next is also a marker, then we add a single marker to the pending, and the current frame is not ended.
+
+Wait, the problem says that a marker written twice in a row is a single literal marker. So, when two markers are consecutive, they are considered as one marker. So, during processing, when we encounter a marker, we need to check if the next character is also a marker. If so, we treat them as a single marker and don't end the frame. Otherwise, we end the frame.
+
+But how to process this? Let's think of it as a state machine. We can iterate through the buffer, keeping track of the current position. For each position, check if the current character is the marker. If it is, check the next character. If the next is also the marker, then we add a single marker to the pending, and the current frame is not ended. If not, then the current marker ends the frame.
+
+Wait, but the problem says that a marker followed by another marker is a single literal marker. So, when two markers are consecutive, they are treated as a single marker. So, in the buffer, whenever two markers are next to each other, they are considered as a single marker. So, during processing, when we see a marker, we need to check if the next character is also a marker. If yes, then we add a single marker to the pending, and the current frame is not ended. If not, then the current marker ends the frame.
+
+But how to handle this in code. Let's think of it as:
+
+Initialize a list for frames. Also, a variable to track the current state. Let's start with a buffer that's the joined string

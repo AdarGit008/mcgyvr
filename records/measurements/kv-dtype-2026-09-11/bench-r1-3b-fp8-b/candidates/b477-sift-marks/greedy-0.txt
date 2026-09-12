@@ -1,0 +1,22 @@
+```python
+from typing import List
+
+def sift_marks(entries: List[str], mark: str) -> List[List[str]]:
+    """
+    Sifts entries into two runs: those starting with the given mark, and those that do not.
+    Returns the marked run first, followed by the non-marked run.
+    """
+    if not entries:
+        return [[], []]
+    
+    marked_run = []
+    non_marked_run = []
+    
+    for entry in entries:
+        if entry.startswith(mark):
+            marked_run.append(entry)
+        else:
+            non_marked_run.append(entry)
+    
+    return [marked_run, non_marked_run]
+```

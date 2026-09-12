@@ -1,0 +1,17 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """Return a list of 'count' consecutive integers starting from 'first'."""
+    if count < 0:
+        raise ValueError("count must be non-negative")
+    return list(range(first, first + count))
+
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Return the first missing integer from the expected sequence, or -1 if none."""
+    expected = set(steps_on(first, count))
+    seen_set = set(seen)
+    missing = expected - seen_set
+    if not missing:
+        return -1
+    return min(missing)
+```

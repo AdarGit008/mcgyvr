@@ -1,0 +1,19 @@
+```python
+def row_key(name: str) -> str:
+    """Return the first letter of a name in upper case."""
+    if not name:
+        raise ValueError("Name cannot be empty")
+    return name[0].upper()
+
+def index_rows(names: list) -> dict:
+    """Return a dictionary where keys are the first letters of names and values are lists of names in order of arrival."""
+    if not names:
+        return {}
+    index = {}
+    for name in names:
+        key = row_key(name)
+        if key not in index:
+            index[key] = []
+        index[key].append(name)
+    return index
+```

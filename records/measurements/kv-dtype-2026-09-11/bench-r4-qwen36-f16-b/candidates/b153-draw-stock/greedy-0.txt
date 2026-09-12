@@ -1,0 +1,59 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    """
+    Process an order list against a stock shelf, returning the remaining stock.
+    
+    Validates inputs and order constraints, ensuring no negative stock or invalid
+    item references occur. Returns a new dictionary representing the updated shelf.
+    """
+    if not isinstance(shelf, dict):
+        raise ValueError("shelf must be a dictionary")
+    
+    if not isinstance(order, list):
+        raise ValueError("order must be a list")
+    
+    # Create a copy of the shelf to avoid mutating the original
+    remaining = dict(shelf)
+    
+    for line in order:
+        if not isinstance(line, list):
+            raise ValueError("each order line must be a list")
+        
+        if len(line) != 2:
+            raise ValueError("each order line must contain exactly two elements: item name and count")
+        
+        item_name, count = line
+        
+        # Validate item name is a string (implied by "item name")
+        if not isinstance(item_name, str):
+            raise ValueError("item name must be a string")
+        
+        # Validate count is a non-negative whole number (integer >= 0)
+        # Note: The prompt says "positive whole number" for order lines, 
+        # but also says "Reject a shelf count that is not a non-negative whole number".
+        # Let's re-read carefully: "Reject ... a line whose count is not a positive whole number".
+        # So order line count must be > 0.
+        if not isinstance(count, int) or isinstance(count, bool):
+            raise ValueError("order line count must be an integer")
+        
+        if count <= 0:
+            raise ValueError("order line count must be a positive whole number")
+        
+        # Check if item exists on shelf
+        if item_name not in remaining:
+            raise ValueError(f"item '{item_name}' not found on shelf")
+        
+        # Check if enough stock is available
+        if remaining[item_name] < count:
+            raise ValueError(f"insufficient stock for item '{item_name}'")
+        
+        # Deduct stock
+        remaining[item_name] -= count
+        
+        # Ensure zero-count items remain in the mapping as per requirements
+        # "every shelf item still present even when its count reaches zero"
+        # Since we initialized from shelf and only subtract, if it was there, it stays.
+        # If it reaches 0, it stays as 0.
+        
+    return remaining
+```

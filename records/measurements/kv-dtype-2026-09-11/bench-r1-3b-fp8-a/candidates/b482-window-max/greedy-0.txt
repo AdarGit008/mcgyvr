@@ -1,0 +1,18 @@
+```python
+def window_max(readings: list[int], width: int) -> list[int]:
+    """
+    Returns the largest reading in every stretch of the given width.
+    """
+    if width <= 0:
+        raise ValueError("Width must be greater than zero.")
+    
+    if not readings or width > len(readings):
+        return []
+    
+    max_values = []
+    for i in range(len(readings) - width + 1):
+        max_value = max(readings[i:i + width])
+        max_values.append(max_value)
+    
+    return max_values
+```

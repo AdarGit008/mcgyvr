@@ -1,0 +1,49 @@
+<think>
+Okay, I need to implement the run_thermostat function as per the problem description. Let me start by understanding the requirements.
+
+First, the function parameters are start, low, high, power, and drifts. The function needs to simulate a thermostat's heating system. The room starts at 'start' temperature. The thermostat has a band from low to high. The heater is on if the temperature is strictly below low, and off if at or above high. Between those, the heater's state depends on previous state. 
+
+Each tick, the temperature is updated based on the drift (a list of integers) and the power (which is added if the heater is on). The function needs to track the final temperature, how many times the heater was on, the number of switches, and the coldest temperature.
+
+The initial code in solution.py has some validation checks. I need to make sure that all the input validations are in place. The problem says that the function should reject invalid inputs with ValueError. For example, if start, low, high are not integers, or low is not strictly below high, or power is not a positive integer, or drifts is not a list. The current code already checks some of these, but maybe I need to adjust it.
+
+Looking at the current code, the first part checks if start, low, high are integers. But the problem says that the function should reject if any of start, low, high is not an integer. The current code checks for each bound in (start, low, high) if it's a bool or not an int. Wait, but the problem says that the function should reject if start, low, or high is not an integer. So the current code is correct in that part.
+
+Next, the code checks if low >= high, which would be invalid. That's correct because low must be strictly below high.
+
+Then, checking power is a positive integer. The current code checks if power is not a bool and not an int, or if power is <=0. That's correct.
+
+Then, checking if drifts is a list. The current code does that.
+
+So the validation part is okay. Now, the main part is to simulate the thermostat.
+
+Let me think about the steps:
+
+Initialize variables:
+
+- current_temp = start
+- heated = 0 (number of times heater was on)
+- switches = 0 (number of times heater switched state)
+- coldest = start
+
+Then, for each drift in drifts:
+
+At each tick, first check the current temperature. 
+
+If current_temp < low: heater is on. So, the heater is on. Then, the temperature increases by drift + power. 
+
+If current_temp >= high: heater is off. So, temperature increases by drift. 
+
+Else: heater state is same as previous. So, temperature increases by drift. 
+
+But wait, the problem says that the heater is on if the temperature is strictly below low, and off if at or above high. So, during each tick, the first thing is to check the current temperature. Then, based on that, decide if the heater is on or off. Then, the temperature is updated by the drift plus power (if heater is on) or just drift (if off). 
+
+But the heater's state is determined by the current temperature. So, for each tick, the steps are:
+
+1. Check current temperature. 
+
+2. Determine heater state (on or off) based on current temperature.
+
+3. Update the temperature: current_temp += drift + (power if heater is on else 0)
+
+Wait, but the problem says that the heater is on if the temperature is strictly below low. So, during the tick, the heater is on if current_temp is < low.

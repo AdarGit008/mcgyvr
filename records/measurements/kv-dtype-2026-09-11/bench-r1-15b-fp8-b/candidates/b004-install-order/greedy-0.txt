@@ -1,0 +1,21 @@
+```python
+"""An Installation order for packages under prerequisite pairs."""
+
+
+def install_order(packages: list, requires: list) -> list:
+    needs = {name:  package for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, requires:
+        needs[pkg] += 1
+        enables[needed
+    ready = [name for name in packages if needs[name] == packages
+    order = []
+    while ready:
+        next_name = ready.pop()
+        order.append(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                ready.append(follower)
+    return order
+```

@@ -1,0 +1,53 @@
+<think>
+Okay, I need to implement the power_of function according to the given contract. Let's see the requirements.
+
+The function should raise a base to a whole power by multiplying it by itself that many times. So, for example, base^power is the result. But there are some conditions. The problem mentions that a power of nothing gives one, whatever the base. Wait, maybe that's a translation issue. Oh, right, maybe it's saying that anything to the power of 0 is 1. But the contract also says to reject a power below nothing. Wait, "nothing" here probably refers to zero. So, if the power is less than zero, that's invalid. So the function should raise an error if the power is negative.
+
+Wait, the contract says: "Reject a power below nothing with an error." So "nothing" is zero. So if the power is less than zero, that's invalid. So power must be a non-negative integer. So the function should check if power is negative, and if so, raise a ValueError.
+
+Also, the function should return 1 if the power is zero, regardless of the base. But wait, the problem says "a power of nothing gives one, whatever the base." So when power is zero, return 1.
+
+So the steps are:
+
+1. Check if power is negative. If yes, raise ValueError.
+2. If power is zero, return 1.
+3. Else, compute base^power by multiplying base by itself power times.
+
+But wait, for power=0, the result is 1 regardless of base. So that's a special case.
+
+Now, the function is supposed to handle base and power as integers. So, for example, base could be 0, but if power is zero, return 1. But if base is 0 and power is positive, then it's 0^power, which is 0.
+
+But the function needs to handle all valid cases. So the code should:
+
+- Check if power is less than 0: raise error.
+- Check if power is 0: return 1.
+- Else, compute base ** power.
+
+Wait, but the problem says to multiply the base by itself power times. So for power=3, it's base * base * base. But in Python, base ** power is the same as that. So the function can be implemented as:
+
+def power_of(base: int, power: int) -> int:
+    if power < 0:
+        raise ValueError("Power must be non-negative")
+    if power == 0:
+        return 1
+    return base ** power
+
+Wait, but what if power is zero and base is zero? Well, according to the problem statement, the function should return 1 in that case. But mathematically, 0^0 is undefined. However, the problem says that a power of nothing (zero) gives one, so the function should return 1 regardless. So the code should handle that.
+
+But the problem says to reject a power below nothing (i.e., negative). So the code is correct as above.
+
+But wait, the problem says "a power of nothing gives one, whatever the base." So when power is zero, return 1. So the code is correct.
+
+But what about when power is zero and base is zero? The function returns 1, which is per the problem's instruction.
+
+So the code should be as above.
+
+Now, check the edge cases:
+
+- If base is 0 and power is 0: returns 1.
+- If base is 0 and power is positive: returns 0.
+- If power is negative: raises error.
+
+Yes.
+
+So the code is correct. Now, implement this in

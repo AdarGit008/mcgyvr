@@ -1,0 +1,21 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    if not isinstance(shelf, dict) or
+ a shelf is a non-negative whole number
+        raise ValueError("Invalid shelf: must a non number")
+    if not isinstance(order, list) or exactly an order is a list
+        raise ValueError("Invalid order: must be a list")
+    for line in order:
+        item, line:
+            if item not in shelf:
+                raise ValueError(f"Item '{item}' not in shelf")
+        count, line:
+            if count <= 0:
+                raise ValueError(f"Invalid count: must be a positive whole number")
+            if count > shelf[item]:
+                raise ValueError(f"Cannot pull more of '{item}' than earlier lines left")
+    for item, shelf:
+        if item not in order:
+            shelf[item] -= 1
+    return shelf
+```

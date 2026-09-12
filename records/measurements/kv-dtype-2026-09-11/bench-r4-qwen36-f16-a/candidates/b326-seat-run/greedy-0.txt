@@ -1,0 +1,28 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    """Return the index of the first seat in the earliest run of free seats long enough for the party, or -1."""
+    if party <= 0:
+        raise ValueError("Party size must be a positive integer")
+    
+    if not row:
+        return -1
+    
+    # We need to find the first contiguous sequence of '.' characters of length >= party
+    # We can iterate through the string and track the current run of free seats
+    
+    current_run = 0
+    run_start = -1
+    
+    for i, char in enumerate(row):
+        if char == '.':
+            if current_run == 0:
+                run_start = i
+            current_run += 1
+            if current_run >= party:
+                return run_start
+        else:
+            current_run = 0
+            run_start = -1
+    
+    return -1
+```

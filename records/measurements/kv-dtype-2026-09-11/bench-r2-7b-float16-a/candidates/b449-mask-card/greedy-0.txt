@@ -1,0 +1,15 @@
+```python
+def last_four(number: str) -> str:
+    """Return the last four characters of a card number."""
+    if not isinstance(number, str) or not number.isdigit():
+        raise ValueError("Input must be a string representing a numeric card number.")
+    return number[-4:]
+
+def mask_card(number: str) -> str:
+    """Return the number with everything but its last four replaced by stars."""
+    if not isinstance(number, str) or not number.isdigit():
+        raise ValueError("Input must be a string representing a numeric card number.")
+    if len(number) <= 4:
+        return number
+    return '*' * (len(number) - 4) + number[-4:]
+```

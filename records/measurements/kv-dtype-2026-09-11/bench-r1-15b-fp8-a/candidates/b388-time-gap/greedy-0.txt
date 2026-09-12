@@ -1,0 +1,17 @@
+```python
+def check_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    if from_hour > 23 or_hour > 23:
+        raise ValueError("Hours must be between 0 and 23")
+
+    if from_minute > 59 or to_minute > 59:
+        raise ValueError("Minutes must are between 0 and 59")
+
+    if from_hour == to_hour:
+        return 0
+
+    if from_hour < to_hour:
+        return (to_minute - from_minute) % 60
+
+    if from_hour > to_hour:
+        return (60 - from_minute) + (to_minute - 0)
+```

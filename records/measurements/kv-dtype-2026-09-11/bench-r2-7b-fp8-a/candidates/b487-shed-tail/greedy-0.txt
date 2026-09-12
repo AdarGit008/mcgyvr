@@ -1,0 +1,10 @@
+```python
+def shed_tail_text(text:    piece: str) -> str:
+    if not piece:
+        raise ValueError("Piece cannot be empty")
+    
+    while text.endswith(piece):
+        text = text[:-len(piece)]
+    
+    return text
+```

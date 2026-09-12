@@ -1,0 +1,41 @@
+```python
+from typing import List
+
+def fleet_hops(count: int, lts: List[int], builds: List[int], hop: int)    """
+    Calculate the total number of hops required for each device in the fleet
+    to reach the newest release, considering the constraints of long-term support releases.
+    
+    :param count: Total number of releases (0 to count-1).
+    :param lts: List of long-term support release numbers
+    :param builds: List of current releases for each device
+    :param hop: Maximum number of releases a device can hop in one direction
+    :return: Total number of hops required for all devices
+    """
+    if hop == 0:
+        raise ValueError("Hop size cannot be zero.")
+    
+    # Convert lts to a set for O(1) lookups
+    lts_set = set(lts)
+    
+    def find_next_hop(build: int) -> int:
+        """Find the next hop for a device starting from the given build."""
+        if build >= count - 1:
+            return count - 1
+        
+        # Find the first long-term support release strictly above the build
+        for i in range(build + 1, count):
+            if i in lts_set:
+                return i
+        
+        # If no long-term support release is found, return the build + hop
+        return min(build + hop, count - 1)
+    
+    total_hops = 0
+    for build in builds:
+        if build < 0 or build >= count:
+            raise ValueError(f"Release {build} is out of valid range.")
+        
+        total_hops += find_next_hop(build) - build
+    
+    return total_hops
+```

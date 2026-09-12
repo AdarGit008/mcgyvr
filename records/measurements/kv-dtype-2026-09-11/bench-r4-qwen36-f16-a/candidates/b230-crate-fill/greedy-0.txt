@@ -1,0 +1,29 @@
+```python
+def crate_fill(items: int, crates: int) -> list:
+    """Spread items across crates as evenly as possible, returning sizes largest first."""
+    if items < 0:
+        raise ValueError("items must be non-negative")
+    if crates < 0:
+        raise ValueError("crates must be non-negative")
+    if crates == 0:
+        return []
+    
+    base_size = items // crates
+    remainder = items % crates
+    
+    # The first 'remainder' crates get base_size + 1, the rest get base_size.
+    # Since base_size + 1 >= base_size, the list is naturally sorted largest first.
+    result = []
+    for i in range(crates):
+        if i < remainder:
+            result.append(base_size + 1)
+        else:
+            result.append(base_size)
+            
+    return result
+
+
+def crate_total(sizes: list) -> int:
+    """Sum the sizes of the crates."""
+    return sum(sizes)
+```

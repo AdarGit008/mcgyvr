@@ -1,0 +1,29 @@
+<think>
+Okay, let's see. The user wants me to fix the unit_price function. The current code has a bug where it's dividing count by total instead of total by count. Oh right, the function is supposed to calculate the price per unit, so it's total divided by count, but the current code is doing count // total. That's the problem.
+
+So the fix is to swap the order. Instead of count divided by total, it should be total divided by count. But wait, the function is using integer division with //, which rounds down. So the correct calculation is total // count. But wait, wait. Let me think again. The function is called unit_price, which is total price divided by count. So if total is 100 and count is 4, then 100 /4 is 25. So the correct calculation is total divided by count. But the current code is count // total, which would be 4//100 = 0. So that's wrong.
+
+So the fix is to swap the order. So the function should be return total // count. But wait, what if total is zero? The problem says that count cannot be zero, but what about total? The current code doesn't check total. The user mentioned that the target is to fix the division direction and handle count zero. The original code already raises ValueError for count zero. So the fix is to swap the division order.
+
+So the corrected function would be:
+
+def unit_price(total: int, count: int) -> int:
+    """The price of one unit, in whole pence."""
+    if count == 0:
+        raise ValueError("count cannot be zero")
+    return total // count
+
+Wait, but the original code had return count // total. So swapping them would make it total // count. That's the fix. But wait, what if total is zero? The problem says that count can't be zero, but total can be zero? The user didn't mention that. But the current code doesn't check for total being zero. However, the problem says that the function is supposed to return the price per unit. If total is zero, then dividing by count (which is non-zero) would result in zero. But the problem says that a count of zero is rejected. So the function should handle total being zero? Well, the problem says that the current code is wrong in the division direction, and the count zero is already handled. So the fix is to swap the division order.
+
+So the corrected code would be as above. Let me check the edge cases. For example, if total is 100 and count is 4, then 100//4 is 25. If total is 101 and count is 4, then 101//4 is 25. If total is 3 and count is 2, then 3//2 is 1. That's correct. What if count is zero? The code raises an error. So that's handled. The problem says that the function should return the price per unit, so the division is total divided by count. So the fix is to swap the order of division.
+
+So the corrected code is as I wrote. The original code had count // total, which is wrong. The correct is total // count. So the answer is to change that line.
+</think>
+
+```python
+def unit_price(total: int, count: int) -> int:
+    """The price of one unit, in whole pence."""
+    if count == 0:
+        raise ValueError("count cannot be zero")
+    return total // count
+```

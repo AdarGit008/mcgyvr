@@ -1,0 +1,31 @@
+```python
+from typing import List, Tuple
+
+def match_at(grid: List[List[int]], row: int, column: int, value: int) -> bool:
+    """
+    Check if the cell at the specified row and column holds the given value.
+    
+    :param grid: A 2D list representing the grid.
+    :param row: The row index of the cell to check.
+    :param column: The column index of the cell to check.
+    :param value: The value to check for.
+    :return: True if the cell holds the value, False otherwise.
+    """
+    if row < 0 or row >= len(grid) or column < 0 or column >= len(grid[0]):
+        raise ValueError("Row or column index out of bounds")
+    return grid[row][column] == value
+
+def grid_find(grid: List[List[int]], value: int) -> List[int]:
+    """
+    Find the first cell in the grid that holds the given value.
+    
+    :param grid: A 2D list representing the grid.
+    :param value: The value to find.
+    :return: A list containing the row and column indices of the first cell holding the value, or None if no such cell exists.
+    """
+    for row in range(len(grid)):
+        for column in range(len(grid[0])):
+            if grid[row][column] == value:
+                return [row, column]
+    return None
+```

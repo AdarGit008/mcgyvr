@@ -1,0 +1,29 @@
+```python
+from typing import List, Mapping
+
+def pick_fields(records: List[Mapping[str, any]], fields: List[str]) -> List[List[any]]:
+    if not isinstance(fields, list) or not fields:
+        raise ValueError("fields must be a non-empty list")
+    
+    result = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        
+        row = []
+        for field in fields:
+            stem = field.rstrip('?')
+            if not stem:
+                raise ValueError("field name cannot be empty")
+            
+            if field.endswith('?'):
+                row.append(record.get(stem))
+            elif stem in record:
+                row.append(record[stem])
+            else:
+                raise ValueError(f"record missing required field: {stem}")
+        
+        result.append(row)
+    
+    return result
+```

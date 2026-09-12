@@ -1,0 +1,25 @@
+<think>
+Okay, I need to implement three functions for an organization chart. Let's start by understanding each function's requirements.
+
+First, the chain_of_command function. It takes the root of the organization chart and a person's name, then returns the list of names from the head down to that person. The head is the root. So, I need to traverse the chart starting from the root, following the reports until I find the person. If the person isn't found, it's an error. Also, each node's name must be a string, and if it's empty or not a string, that's an error. So, I'll need to check each node's name during traversal.
+
+Next, the headcount function. It returns the total number of people in the chart, including the head. So, I need to count all nodes in the tree. But how? Maybe a BFS or DFS traversal to count each node. But I have to make sure that each node is visited once, and if a node is missing (like if a reports list is missing), that's an error. Wait, the problem says that a reports list may be missing rather than empty is not stated. So, maybe the reports list can be missing, but the contract says that a node's reports is a list. Wait, the problem says that each node has a 'reports' list. So, maybe the reports list is always present. But the problem says that if a node's name is not a string or empty, it's an error. So, during traversal, I need to check each node's name.
+
+Then, the widest_team function. It returns the maximum number of direct reports any person has. So, for each node, check the length of their reports list, and find the maximum. But if a node has no reports, that's zero. So, I need to iterate through all nodes and track the maximum length of reports.
+
+Now, let's think about the implementation.
+
+For chain_of_command:
+
+- Start at the root. Check if the root's name is valid. If not, raise an error.
+- Then, perform a search to find the person. Since the structure is a tree, maybe a BFS or DFS. But since the function needs to return the path from root to the person, perhaps a BFS is better to find the shortest path, but since it's a tree, any traversal would work as long as we track the path.
+
+Wait, but the problem says that the chain_of_command visits every node. Wait, the description says that chain_of_command walks the chart from the head and returns the list of names leading from the head down to the given person, both ends included. It visits every node, and a node whose name is empty or not a string is an error wherever it sits.
+
+Wait, that's a bit confusing. Does it mean that during the traversal, every node is visited, and if any node has an invalid name, it's an error? Or does it mean that the function must traverse the entire tree, and if any node has an invalid name, it's an error?
+
+Wait, the problem says: "a node whose name is empty or not a string is an error wherever it sits." So, during the traversal, if any node's name is invalid, that's an error. So, during the traversal, we need to check each node's name. Also, if the person is not found, that's an error.
+
+So, the steps for chain_of_command:
+
+1. Check if the root is a valid node. If root is None, maybe that's an error? But the problem says that the root is the head of the chart. So, the root is a node. So, the root must have a name and reports list

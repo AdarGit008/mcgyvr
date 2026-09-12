@@ -1,0 +1,23 @@
+```python
+def check_manifest(line: dict) -> dict:
+    """
+    Vets a shipping manifest line and returns a fresh mapping with sku, count, and note.
+    Raises ValueError for invalid inputs.
+    """
+    if 'sku' not in line or 'count' not in line or 'note' not in line:
+        raise ValueError("Manifest line must contain sku, count, and note.")
+    
+    sku = line.get('sku', '').strip()
+    if not isinstance(sku, str) or not sku:
+        raise ValueError("Sku must be a non-empty string.")
+    
+    count = line.get('count', 0)
+    if not isinstance(count, int) or count <= 0:
+        raise ValueError("Count must be a positive whole number.")
+    
+    note = line.get('note', '')
+    if not isinstance(note, str):
+        raise ValueError("Note must be a string.")
+    
+    return {'sku': sku.upper(), 'count': count, 'note': note}
+```

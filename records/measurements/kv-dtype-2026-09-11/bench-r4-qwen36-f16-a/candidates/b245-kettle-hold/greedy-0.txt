@@ -1,0 +1,16 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    """Count consecutive readings at the end that are >= target."""
+    if not readings:
+        return 0
+    
+    count = 0
+    # Iterate from the end backwards
+    for reading in reversed(readings):
+        if reading >= target:
+            count += 1
+        else:
+            break
+            
+    return count
+```

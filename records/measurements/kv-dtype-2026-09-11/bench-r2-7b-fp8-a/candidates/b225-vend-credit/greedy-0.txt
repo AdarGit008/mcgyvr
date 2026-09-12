@@ -1,0 +1,16 @@
+```python
+def vend_credit(coins: list[int], price: int) -> int:
+    if not all(isinstance(c, int) and c in [5, 10, 25, 100] for c in coins):
+        raise ValueError("Invalid coin")
+    if not isinstance(price, int[int]) or not all(isinstance(p, int)                   and p > 0 and p % 5 == 0 for        raise ValueError("Invalid price")
+
+    
+    credit = 0
+    for coin in coins:
+        credit += coin
+        while credit >= price:
+            credit -= price
+            price = 0
+    
+    return credit
+```

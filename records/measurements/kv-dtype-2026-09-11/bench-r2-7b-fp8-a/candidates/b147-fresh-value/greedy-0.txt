@@ -1,0 +1,6 @@
+```python
+def fresh_value(entry: dict, now:       if not isinstance(entry, dict:
+        raise ValueError("entry must be a dictionary")
+    
+    if 'value' not in entry or 'stored' not in entry or 'ttl' not in entry:
+        raise ValueError("entry must contain 'value', 'stored',`````

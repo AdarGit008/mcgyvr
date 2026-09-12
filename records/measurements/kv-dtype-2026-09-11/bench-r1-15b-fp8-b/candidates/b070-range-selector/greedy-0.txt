@@ -1,0 +1,156 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    if ValueError:
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not values:
+        return 0
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not values:
+        return 0
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not value:
+        return 0("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not value:
+        return 0
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not value:
+        return  ValueError("Invalid values argument")
+
+    if not values:
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not value:
+        return  ValueError("Invalid value argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not value:
+        return  ValueError("Invalid value argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not value:
+        return  ValueError("Invalid value argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid values argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not value:
+        return  ValueError("Invalid value argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid value argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid value argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    if not value:
+        return  ValueError("Invalid value argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid value argument")
+
+    if not isinstance(values, list):
+        raise ValueError("Invalid value argument")
+
+    if not selector:
+        raise ValueError("Invalid selector argument")
+
+    if not isinstance(selector, str):
+        raise ValueError("Invalid selector argument")
+
+    ValueError not value:
+        return  ValueError("Invalid value argument")
+
+    if not

@@ -1,0 +1,36 @@
+<think>
+Okay, I need to implement the drift_check function. Let's see the problem statement again. The function takes a list of sensor readings and an allowed step. It should return the position of the first reading that differs from the previous one by more than the allowed step. If all are within the allowed step, return -1.
+
+So, the key is to iterate through the readings, compare each reading with the one before it. For each pair, check the absolute difference. If it's greater than the step, return the current index. If none are found, return -1.
+
+Wait, the readings are in order. So for each i starting from 1 (since we need to compare with the previous one), check the difference between readings[i] and readings[i-1]. If any of these differences exceed the step, return i. Otherwise, after checking all, return -1.
+
+But wait, the problem says "the position of the first reading". So the first occurrence where the current reading differs from the previous by more than the step. So for example, if the list is [1, 3, 5], and step is 2, then 3-1=2 which is equal to step, so not exceeding. Then 5-3=2, also equal. So return -1. But if the list is [1,4,5], step 2: 4-1=3>2, so return 1 (since index starts at 0? Wait, the function returns the position of the first reading that is the problem. So the first occurrence is at index 1 (since the first pair is 0 and 1). So if the difference is more than step, return 1. So the function should return the index of the current reading, not the previous.
+
+Wait, the problem says "the position of the first reading that differs from the one immediately before it by more than that step". So the first reading that is the problem is the current one. So for example, if the readings are [a, b, c, d], and the difference between a and b is over the step, then return 1 (the index of b). If the difference between b and c is over, return 2, etc.
+
+So the steps are:
+
+Loop from i=1 to len(readings)-1:
+
+Compare readings[i] and readings[i-1]. Compute the absolute difference.
+
+If it's greater than step, return i.
+
+If none found, return -1.
+
+So the code would be:
+
+def drift_check(readings: list, step: int) -> int:
+    for i in range(1, len(readings)):
+        if abs(readings[i] - readings[i-1]) > step:
+            return i
+    return -1
+
+Wait, but what if the readings list is empty? The problem says that the function is given sensor readings, but maybe the input can be empty. But according to the interface, the function is supposed to handle that. However, the problem says that the allowed step is given, but the function is supposed to return -1 if all are within step. So for empty list, perhaps return -1? Because there are no readings to check.
+
+But according to the problem statement, the function is supposed to return -1 when every reading is within the allowed step. So if there are no readings, then there are no differences, so return -1.
+
+But what if the list has only one element? Then there's no previous reading, so no difference. So return -1.
+
+So the code as written would handle that. Because for a list of length 1, the loop from 1 to len(readings) is 1 to 0, which doesn

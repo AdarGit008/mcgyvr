@@ -1,0 +1,69 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    """Convert amount of unit into the base unit by unwinding definition chain."""
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    if unit == base:
+        return amount
+    if unit not in defs:
+        raise ValueError(f"unit '{unit}' is not defined and is not the base unit")
+    
+    entry = defs[unit]
+    if not isinstance(entry, list) or len(entry) != 2:
+        raise ValueError("definition entry must be a list of two elements")
+    
+    factor, finer = entry
+    
+    if isinstance(factor, bool) or not isinstance(factor, int) or factor <= 0:
+        raise ValueError("factor must be a positive integer")
+    
+    # Check for loops: traverse the chain, keeping track of visited units.
+    # If we encounter a unit we've already seen in the current path, it's a loop.
+    # We also need to ensure we eventually hit 'base'.
+    
+    current_unit = unit
+    visited = set()
+    
+    while current_unit != base:
+        if current_unit in visited:
+            raise ValueError("definition chain contains a loop")
+        visited.add(current_unit)
+        
+        if current_unit not in defs:
+            raise ValueError(f"unit '{current_unit}' is not defined and is not the base unit")
+        
+        entry = defs[current_unit]
+        factor, finer = entry
+        
+        if isinstance(factor, bool) or not isinstance(factor, int) or factor <= 0:
+            raise ValueError("factor must be a positive integer")
+            
+        current_unit = finer
+    
+    # Now we have the chain of factors. We need to multiply amount by all factors.
+    # However, the problem states: "amount of unit is amount times factor of the finer unit, converted onward."
+    # This implies we multiply by the factor at each step.
+    
+    current_unit = unit
+    visited = set()
+    result = amount
+    
+    while current_unit != base:
+        if current_unit in visited:
+            raise ValueError("definition chain contains a loop")
+        visited.add(current_unit)
+        
+        if current_unit not in defs:
+            raise ValueError(f"unit '{current_unit}' is not defined and is not the base unit")
+        
+        entry = defs[current_unit]
+        factor, finer = entry
+        
+        if isinstance(factor, bool) or not isinstance(factor, int) or factor <= 0:
+            raise ValueError("factor must be a positive integer")
+            
+        result *= factor
+        current_unit = finer
+        
+    return result
+```

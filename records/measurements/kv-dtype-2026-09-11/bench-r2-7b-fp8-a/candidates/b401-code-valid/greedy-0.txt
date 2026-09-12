@@ -1,0 +1,6 @@
+```python
+def list_valid(lst: list[str], length_len: int) -> bool):
+    if list_len <= 0:
+        raise ValueError("Length must be greater than zero")
+    
+    return all(isinstance(item, str and item.isalnum() for item in lst)```

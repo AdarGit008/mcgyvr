@@ -1,0 +1,38 @@
+<think>
+Okay, I need to fix the rank_all function so that tied scores share the same rank. The current implementation assigns each unique value a rank based on their position when sorted in descending order. But when there are ties, they get different ranks. For example, if two scores are the same and are the first two in the sorted list, they should both have rank 1, but the current code would give them 1 and 2.
+
+So how do I adjust the code to make tied scores have the same rank? Let me think. The problem is that the current code uses the index in the sorted list to assign ranks, but when there are duplicates, the index increases for each occurrence. To make ties share the same rank, I need to assign the same rank to all occurrences of the same value.
+
+Wait, the rank is determined by the number of scores above it. So if multiple scores are tied, they all have the same number of scores above them. So the rank should be the same for all tied scores.
+
+So the approach is to first sort the scores in descending order, then assign ranks such that each group of identical values gets the same rank. The rank for each group is determined by the position of the first occurrence of that value in the sorted list. Then, for each value in the original list, we look up the rank based on the first occurrence of that value in the sorted list.
+
+So the steps are:
+
+1. Sort the scores in descending order.
+2. Iterate through the sorted list and group consecutive duplicates.
+3. For each group, assign the rank as the position (starting from 1) of the first element in the group.
+4. Then, for each score in the original list, find the rank by looking up the first occurrence of that value in the sorted list.
+
+Wait, but how to map each value to its rank. Let's think. For example, if the sorted list is [10, 10, 9, 8, 8, 7], then the first group is 10s. The first occurrence of 10 is at index 0, so rank is 1. The next group is 9 at index 2, rank is 3. Then 8s start at index 3, rank is 4. Then 7 at index 5, rank is 6.
+
+So for each value, the rank is the position of the first occurrence of that value in the sorted list plus 1. So the idea is to create a dictionary that maps each value to the rank, which is the position of the first occurrence of that value in the sorted list.
+
+So how to implement this. Let's process the sorted list and for each value, if it's the first occurrence, assign the rank as the index +1. Then, for subsequent same values, they get the same rank.
+
+So in code:
+
+sorted_scores = sorted(scores, reverse=True)
+rank_dict = {}
+current_rank = 1
+current_value = None
+
+for i, value in enumerate(sorted_scores):
+    if value != current_value:
+        current_value = value
+        rank_dict[value] = current_rank
+        current_rank += 1
+
+Wait, but that would assign rank 1 to the first occurrence, then 2 to the next unique value. But in the example above, the first 10s would have rank 1, then 9 would be rank 3, but according to this code, the next unique value would be 9, so current_rank is 2, then when we assign, it's 2, then current_rank becomes 3. Wait, no. Let me think again.
+
+Wait, the first value is 10. current_value is None. So

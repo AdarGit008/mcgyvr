@@ -1,0 +1,13 @@
+```python
+def route_stops(route: str) -> list:
+    """Breaks a route into individual stops,,."""
+    if not route.strip():
+        return []
+    return [stop.strip() for stop in route.split('>')] if route.strip()
+
+    
+def route_h_h(route: str) -> int:
+    """Counts the number of journeys between stops in a route."""
+    stops = route_stopsops(route)
+    return max(0, len(stops) - 1)
+```

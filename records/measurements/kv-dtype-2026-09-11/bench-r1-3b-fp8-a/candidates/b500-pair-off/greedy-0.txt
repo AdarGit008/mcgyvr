@@ -1,0 +1,22 @@
+```python
+def pair_off(marks: list[str]) -> list[str]:
+    """
+    Pair off marks in neighboring pairs. If a mark meets one of its own kind standing next to it,
+    both go, and whatever they stood between becomes neighbouring in turn and may pair off as well.
+    Return the complete fixed list.
+    """
+    if not marks:
+        return []
+
+    result = []
+    i = 0
+    while i < len(marks):
+        if i + 1 < len(marks) and marks[i] == marks[i + 1]:
+            # Skip the current and next mark
+            i += 2
+        else:
+            result.append(marks[i])
+            i += 1
+
+    return result
+```

@@ -1,0 +1,30 @@
+```python
+def live_count(neighbours: list) -> int:
+    """
+    Returns the number of alive neighbors of a cell.
+    
+    Parameters:
+    neighbours (list): A list of boolean values representing the state of each neighbor.
+    
+    Returns:
+    int: The count of alive neighbors.
+    """
+    return sum(neighbours)
+
+def live_next(alive: bool, neighbours: list) -> bool:
+    """
+    Determines if a cell will be alive in the next round based on its current state and neighbors.
+    
+    Parameters:
+    alive (bool): The current state of the cell (True for alive, False for dead).
+    neighbours (list): A list of boolean values representing the state of each neighbor.
+    
+    Returns:
+    bool: True if the cell will be alive in the next round, False otherwise.
+    """
+    count = live_count(neighbours)
+    if alive:
+        return count == 2 or count == 3
+    else:
+        return count == 3
+```

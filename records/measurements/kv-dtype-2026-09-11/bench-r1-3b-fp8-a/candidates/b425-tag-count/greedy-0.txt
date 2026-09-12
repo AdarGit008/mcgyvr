@@ -1,0 +1,27 @@
+```python
+def tag_count(line: str) -> int:
+    """
+    Returns the number of tags in the given line.
+    A tag is defined as an opening angle bracket followed by any characters
+    up to the next closing angle bracket. An unmatched closing bracket raises an error.
+    """
+    if not line:
+        return 0
+
+    stack = []
+    tag_count = 0
+
+    for char in line:
+        if char == '<':
+            stack.append(char)
+        elif char == '>':
+            if not stack:
+                raise ValueError("Unmatched closing bracket")
+            stack.pop()
+            tag_count += 1
+
+    if stack:
+        raise ValueError("Unmatched opening bracket")
+
+    return tag_count
+```

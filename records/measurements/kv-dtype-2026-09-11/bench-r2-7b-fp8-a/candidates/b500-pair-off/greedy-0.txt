@@ -1,0 +1,9 @@
+```python
+def pair_off(marks: list[str]) -> list[str]:
+    left =    for mark in marks:
+        if len(list) > 0 and list[-1] == 1] == mark:
+            list.pop()
+        else:
+            list.append(mark)
+    return
+```

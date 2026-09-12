@@ -1,0 +1,22 @@
+<think>
+Okay, let's see. The user wants me to fix the strip_ends function. The current implementation removes one character from each end if the text starts or ends with the mark. But the problem is that if there are multiple marks at the start or end, it only removes one. For example, if the text is "aaaaa" and the mark is "a", the current code would remove one 'a' from the start and one from the end, resulting in "aaa", but the correct result should be "aaa" as well. Wait, but the user says that a text made entirely of the mark should come back empty. So if the input is "aaaaa" and mark is "a", the current code would first check startswith 'a', so remove one, making "aaaa", then check endswith 'a', remove one, making "aaa". But the desired outcome is to remove all 'a's, so the result should be empty string. So the current code is not removing all instances, but only one from each end.
+
+So the problem is that the current code only removes one character from each end, but the function should remove all leading and trailing occurrences of the mark. So, for example, if the text is "aaabaaa", and the mark is 'a', the function should remove all leading 'a's and all trailing 'a's, resulting in "ab".
+
+So how to fix this? The current code uses startswith and endswith, which check for the mark at the beginning or end. But if there are multiple marks, like "aaaaa", the code only removes one from each end. So the fix is to remove all leading marks and all trailing marks.
+
+So the correct approach is to strip all leading occurrences of the mark and then strip all trailing occurrences of the mark. So, for example, for "aaaaa", stripping leading 'a's would leave nothing, then stripping trailing 'a's would also leave nothing. So the result is empty string.
+
+So how to implement this? The current code is checking if the text starts with the mark, then removes one character. But to remove all leading marks, we need to check if the first character is the mark and keep removing until it's not. Similarly for the end.
+
+Wait, but how to do that? For example, for the leading part, we can loop until the first character is not the mark. Similarly for the trailing part.
+
+Alternatively, we can use lstrip and rstrip. But the problem is that the current code is using startswith and endswith, which check for the mark at the beginning or end. But if the mark is a single character, then lstrip and rstrip would work. However, the mark could be a multi-character string. Wait, the function's parameters are text and mark. The mark is a string. So, for example, if the mark is "ab", then the code should remove all occurrences of "ab" at the start and end.
+
+Wait, but the original problem says that the function is supposed to remove the mark from both ends. So, for example, if the text is "ababab" and the mark is "ab", then the function should remove "ab" from the start and end, resulting in "ab".
+
+But the current code only removes one occurrence. So the problem is that the current code is only checking for the mark once at the start and once at the end. So the fix is to remove all leading occurrences of the mark and all trailing occurrences of the mark.
+
+So, the correct approach is to first remove all leading marks, then remove all trailing marks.
+
+So, for example, for the text "aaabaaa", mark "a", the leading part is "aaa",

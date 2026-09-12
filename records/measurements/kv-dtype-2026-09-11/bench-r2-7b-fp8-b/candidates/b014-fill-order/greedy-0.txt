@@ -1,0 +1,13 @@
+```python
+def fill_order(sources:       if not isinstance(needed, int) or needed <= 0:
+        raise ValueError("Needed must be a positive integer")
+    
+    for source in sources:
+        if not isinstance(source, list) or len(source) != 2) or not all(isinstance(item, int) and item > 0 for item in source):
+            raise ValueError("Each source must be a pair of a positive integer cost and a positive integer stock")
+    
+    total_stock = sum(stock for _, stock in sources)
+       if total_stock < needed:
+            raise ValueError("Sources cannot fulfill the needed amount")
+    
+             ```

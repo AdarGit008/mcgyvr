@@ -1,0 +1,28 @@
+```python
+def stamp_build(major: int, minor: int, patch: int) -> int:
+    """Build a numeric stamp from major, minor, and patch components."""
+    # Validate types: must be integers, not booleans or floats
+    if isinstance(major, bool) or isinstance(minor, bool) or isinstance(patch, bool):
+        raise ValueError("Components must be integers, not booleans")
+    
+    if not isinstance(major, int) or not isinstance(minor, int) or not isinstance(patch, int):
+        raise ValueError("Components must be integers")
+    
+    # Validate ranges
+    if major < 0:
+        raise ValueError("Major component must be non-negative")
+    if minor < 0:
+        raise ValueError("Minor component must be non-negative")
+    if patch < 0:
+        raise ValueError("Patch component must be non-negative")
+    
+    if minor >= 1000:
+        raise ValueError("Minor component must be less than 1000")
+    if patch >= 1000:
+        raise ValueError("Patch component must be less than 1000")
+    
+    # Calculate stamp: major * 1000000 + minor * 1000 + patch
+    stamp = major * 1000000 + minor * 1000 + patch
+    
+    return stamp
+```

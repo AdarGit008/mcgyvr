@@ -1,0 +1,21 @@
+```python
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive whole number.")
+    if not isinstance(writes, int) or writes < 0:
+        raise ValueError("Writes must be a non-negative whole number.")
+    if not isinstance(k, int) or k < 0:
+        raise ValueError("k must be a non-negative whole number.")
+    if k >= writes:
+        raise ValueError("k cannot be at or past the survivor count.")
+
+    # Calculate the number of survivors
+    survivors = min(writes, capacity)
+
+    # If there are fewer than survivors, the k-th oldest survivor is in slot k
+    if survivors <= k:
+        return k
+
+    # Calculate the slot number for the k-th oldest survivor
+    return (writes - 1 - k) % capacity
+```

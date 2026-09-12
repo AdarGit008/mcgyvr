@@ -1,0 +1,57 @@
+```python
+def run_reservoir(capacity: int, start: int, ticks: list) -> dict:
+    """Simulate an irrigation reservoir tick by tick."""
+    if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    
+    if not isinstance(start, int) or isinstance(start, bool) or start < 0 or start > capacity:
+        raise ValueError("Starting level must be an integer from 0 to the capacity")
+    
+    if not isinstance(ticks, list):
+        raise ValueError("Ticks must be a list")
+    
+    level = start
+    total_spilled = 0
+    total_served = 0
+    total_shortfall = 0
+    
+    for tick in ticks:
+        if not isinstance(tick, (list, tuple)) or len(tick) != 2:
+            raise ValueError("Each tick must be a two-item pair")
+        
+        inflow, demand = tick
+        
+        if not isinstance(inflow, int) or isinstance(inflow, bool) or inflow < 0:
+            raise ValueError("Inflow must be a non-negative integer")
+        
+        if not isinstance(demand, int) or isinstance(demand, bool) or demand < 0:
+            raise ValueError("Demand must be a non-negative integer")
+        
+        # Apply inflow
+        level += inflow
+        
+        # Spill if above capacity
+        if level > capacity:
+            spill = level - capacity
+            total_spilled += spill
+            level = capacity
+        
+        # Apply demand
+        if level >= demand:
+            served = demand
+            level -= demand
+            total_served += served
+        else:
+            served = level
+            total_served += served
+            shortfall = demand - level
+            total_shortfall += shortfall
+            level = 0
+    
+    return {
+        "level": level,
+        "spilled": total_spilled,
+        "shortfall": total_shortfall,
+        "served": total_served
+    }
+```

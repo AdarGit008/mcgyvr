@@ -1,0 +1,39 @@
+```python
+from typing import Dict, List, Union
+
+def team_headcount(chart: Dict[str, Union[str, List[str]]], name: str)    -> int:
+    """
+    Calculate the number of workers covered by a given name in a shift chart.
+    
+    Args:
+    chart (Dict[str, Union[str, List[str]]]): A dictionary representing the shift chart.
+    name (str): The name of the worker to calculate the headcount for.
+
+    Returns:
+    int: The total number of workers covered by the given name.
+
+    Raises:
+    ValueError: If the chart is not a dictionary, the name is not a key of the chart,
+                 the reports are not a list, or a report is not a string.
+    """
+    if not isinstance(chart, dict):
+        raise ValueError("Chart must be a dictionary.")
+    if name not in chart:
+        raise ValueError("Name is not a key of the chart.")
+    if not isinstance(chart[name], (str, List)):
+        raise ValueError("Reports must be a list or a string.")
+    if isinstance(chart[name], List):
+        reports = chart[name]
+        if not all(isinstance(report, str) for report in reports):
+            raise ValueError("All reports must be strings.")
+        return 1 + sum(team_headcount(chart, report) for report in reports)
+    return 1
+
+# Example usage:
+chart = {
+    "Alice": ["Bob", "Charlie"],
+    "Bob": [],
+    "Charlie": ["David"]
+}
+print(team_headcount(chart, "Alice"))  # Output: 5
+```

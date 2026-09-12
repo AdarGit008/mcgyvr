@@ -1,0 +1,37 @@
+```python
+def trim_caption(text: str, limit: int) -> str:
+    """
+    Shorten a caption to a character budget.
+    
+    Parameters:
+    - text: The caption to be trimmed.
+    - limit: The maximum number of characters allowed in the caption.
+
+    Returns:
+    - A trimmed caption, either unchanged or with an ellipsis if necessary.
+
+    Raises:
+    - ValueError: If text is not a string or limit is not a positive whole number.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Text must be a string.")
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Limit must be a positive whole number.")
+
+    if len(text) <= limit:
+        return text
+
+    # Find the last space within the first limit-1 characters
+    last_space = text.rfind(' ', 0, limit - 1)
+    if last_space == -1:
+        # If no space is found, truncate at the limit-1 character
+        return text[:limit - 1] + '…'
+
+    # Drop back to the last space and keep the part holding a space
+    return text[:last_space] + '…'
+
+# Example usage:
+# print(trim_caption("Hello world!", 10))  # Output: "Hello worl…"
+# print(trim_caption("This is a very long sentence that needs to be trimmed.", 20))
+# Output: "This is a very long sentence that needs to be tr…"
+```

@@ -1,0 +1,49 @@
+<think>
+Okay, I need to implement the scan_pairs function based on the given problem description. Let me start by understanding the requirements.
+
+First, the function scan_pairs takes a string and processes it into pairs. The helper function parse_option is already written, so I need to focus on the scan_pairs logic.
+
+The main steps for scan_pairs are:
+
+1. Validate the input: check if text is a string, not empty, and handle errors like repeated keys, unterminated quotes, etc.
+2. Split the text into segments separated by semicolons, but ignore semicolons inside quotes.
+3. For each segment, parse it using parse_option, which checks the key and value.
+4. Collect all the parsed pairs in order, ensuring no repeated keys.
+
+Let me think about how to split the text on semicolons while respecting quotes. This is a classic problem of splitting on a delimiter that's not inside quotes. I can use a state machine approach where I track whether I'm inside quotes.
+
+So, I'll iterate through each character in the text, building up the segments. When I encounter a semicolon that's not inside quotes, I split there. Also, I need to check for unterminated quotes. If a quote is opened but not closed, that's an error.
+
+Next, for each segment, I need to call parse_option. The parse_option function checks if the key is a valid identifier (starts with a letter, followed by letters, digits, or underscores). If the key is invalid, it raises an error. Also, the value is processed: if it's in quotes, strip the quotes; otherwise, keep it as is. But if the value is quoted but not closed, that's an error.
+
+Now, handling repeated keys. The problem says that a repeated key is an error. So, during processing, I need to track the keys that have been added so far. If a key is encountered again, raise an error.
+
+Let me outline the steps for scan_pairs:
+
+- Check if text is a string. If not, raise ValueError.
+- Check if text is empty. If so, raise error.
+- Initialize a list to hold the pairs.
+- Initialize a list to track keys (to detect duplicates).
+- Initialize a state variable to track whether we're inside quotes.
+- Initialize a current segment buffer.
+- Iterate through each character in the text:
+   - If not inside quotes and the character is a semicolon, split the current segment, add to the list, reset current segment, and toggle the inside quotes state.
+   - Else, add the character to the current segment.
+- After processing all characters, check if there's an open quote (untersminated) and raise error.
+- Then, process each segment:
+   - For each segment, parse it with parse_option.
+   - Check if the key is already in the keys list. If yes, raise error.
+   - Add the key to the keys list.
+- Return the list of parsed pairs.
+
+Wait, but the parse_option function may already raise errors for invalid segments. So during the splitting, if any segment is invalid, the parse_option will catch it.
+
+But the problem says that scan_pairs should reject repeated keys. So during the processing of the segments, after parsing each segment, we need to check if the key is already present.
+
+But how to handle the splitting correctly. Let me think about the splitting logic again.
+
+Another approach is to use a regular expression to split the string on semicolons that are not inside quotes. However, regular expressions can be tricky for this. Alternatively, I can process the string character by character, keeping track of whether I'm inside quotes.
+
+Let me code this step by step.
+
+First, the input validation: check if text is a string. If

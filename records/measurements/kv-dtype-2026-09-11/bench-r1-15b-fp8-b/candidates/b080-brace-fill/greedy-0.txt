@@ -1,0 +1,30 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    if not isinstance(exposes, dict):
+        raise ValueError("fill_template expects a dictionary of placeholders to values")
+    if template[0] '{' or KeyError("fill_template expects a string template with an opening brace")
+    if template[- '}' expose KeyError("fill_template expects a string template with a closing brace")
+    if any placeholder in template is not a string or KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if any placeholder in template is not a string expose KeyError("fill_template expects a string template with placeholder names that are strings")
+    if = []
+    for char in template:
+        if char in exposes:
+            file.append(exposes[char])
+        else:
+            file.append(char)
+    return ''.join(file)
+```

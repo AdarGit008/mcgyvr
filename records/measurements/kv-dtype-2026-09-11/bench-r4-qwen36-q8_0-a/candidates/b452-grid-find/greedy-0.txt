@@ -1,0 +1,31 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    """Check if the cell at the specified row and column holds the stated value."""
+    if not isinstance(grid, list):
+        raise ValueError("Grid must be a list")
+    if row < 0 or row >= len(grid):
+        raise ValueError("Row index out of bounds")
+    
+    current_row = grid[row]
+    if not isinstance(current_row, list):
+        raise ValueError("Row must be a list")
+    if column < 0 or column >= len(current_row):
+        raise ValueError("Column index out of bounds")
+        
+    return current_row[column] == value
+
+
+def grid_find(grid: list, value: int) -> list:
+    """Return the row and column of the first cell that holds the value, reading row by row."""
+    if not isinstance(grid, list):
+        raise ValueError("Grid must be a list")
+        
+    for row_idx, row in enumerate(grid):
+        if not isinstance(row, list):
+            raise ValueError("Each row must be a list")
+        for col_idx, cell_value in enumerate(row):
+            if cell_value == value:
+                return [row_idx, col_idx]
+                
+    raise ValueError("Value not found in grid")
+```

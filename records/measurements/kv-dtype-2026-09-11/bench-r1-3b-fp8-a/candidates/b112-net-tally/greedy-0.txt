@@ -1,0 +1,48 @@
+```python
+from typing import *
+from collections import *
+
+def net_tally(sheets: List[str]) -> str:
+    """
+    Calculate the net tally for each item from a list of tally sheets.
+    Each sheet is a string with newline-separated rows, skipping blank and whitespace-only rows.
+    Rows contain three pipe-separated fields: item|sold|returned, trimmed of spaces.
+    Returns a report with one line per item, sorted by item name, and a trailer.
+    """
+    if not isinstance(sheets, list):
+        raise ValueError("Input must be a list of strings.")
+    
+    def parse_row(row: str) -> Tuple[str, int, int]:
+        parts = row.strip().split('|')
+        if len(parts) != 3:
+            raise ValueError("Row must have exactly three fields.")
+        item, sold, returned = parts
+        if not item or not sold.isdigit() or not returned.isdigit():
+            raise ValueError("Item name cannot be empty and sold/returned must be digits.")
+        return item, int(sold), int(returned)
+    
+    def calculate_net(sold: int, returned: int) -> int:
+        if returned > sold:
+            raise ValueError("Returned total exceeds sold total for item.")
+        return sold - returned
+    
+    items = defaultdict(int)
+    for sheet in sheets:
+        for row in sheet.split('\n'):
+            try:
+                item, sold, returned = parse_row(row)
+                items[item] += sold
+                items[item] -= returned
+            except ValueError as e:
+                print(f"Error processing row: {row}. Skipping. Error: {e}")
+    
+    max_len = max(len(item) for item in items.keys())
+    report = []
+    for item, net in sorted(items.items()):
+        report.append(f"{item.rjust(max_len)}  {net}")
+    
+    total_net = sum(items.values())
+    report.append(f"{' ' * max_len}  {total_net}")
+    
+    return '\n'.join(report)
+```

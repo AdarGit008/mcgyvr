@@ -1,0 +1,10 @@
+```python
+def line_number(block: str) -> str:
+    """Return a block of text with each line carrying its number in front."""
+    if not block:
+        return ""
+    
+    lines = block.splitlines()
+    numbered_lines = [f"{i + 1}: {line}" for i, line in enumerate(lines)]
+    return "\n".join(numbered_lines)
+```

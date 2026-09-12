@@ -1,0 +1,44 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    """
+    Bump the specified part of a version tag.
+
+    
+    Args:
+        version (str): The version tag in the format "major.minor.patch".
+        part (str): The part to advance: "major", "minor", or "patch".
+
+    Returns:
+        str: The next version tag after bumping the specified part.
+
+    Raises:
+        ValueError: If the version is not a valid tag, the part is invalid,
+                     or the version lacks exactly three components.
+    """
+    # Validate the version
+    if not isinstance(version, str) or len(version.split('.')) != 3:
+        raise ValueError("Version must be a string with exactly three components.")
+    
+    # Validate the part
+    if part not in ["major", "minor", "patch"]:
+        raise ValueError("Part must be 'major', 'minor', or 'patch'.")
+
+    # Split the version into components
+    major, minor, patch = map(int, version.split('.'))
+
+    
+    # Advance the specified part
+    if part == "major":
+        major += 1
+        minor = 0
+        patch = 0
+    elif part == "minor":
+        minor += 1
+        patch = 0
+    else part == "patch":
+        patch += 1
+
+    # Construct the next version tag
+    next_version = f"{major}.{minor}.{patch}"
+    return next_version
+```

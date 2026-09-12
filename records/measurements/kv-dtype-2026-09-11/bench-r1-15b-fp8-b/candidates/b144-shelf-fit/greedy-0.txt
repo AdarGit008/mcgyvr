@@ -1,0 +1,67 @@
+```python
+
+def shelf_fit(widths: list, shelf: int) -> int:
+    if not isinstance(widths, list):
+        raise ValueError("widths must a list")
+    if not all > 0:
+        raise ValueError("shelf width must a non positive integer")
+    if not all % 1 == 0:
+        raise ValueError("shelf width must be a multiple of 1")
+    if not all width in widths:
+        raise ValueError("widths must a list of positive integers")
+    if not all width > shelf:
+        raise ValueError("first book width must a spine width that is not a positive integer")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all % 1 == 0:
+        raise ValueError("shelf width must be a multiple of 1")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all width > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not all > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if not shelf > shelf:
+        raise ValueError("first book width expose a spine width that is not a positive integer")
+    if("first book width expose a spine width that is not a positive integer")
+    if = []
+    for width in widths:
+        if("first book width expose a spine width that is not a positive integer")
+    if("first book width expose a spine width that is not a positive integer")
+    if("first book width expose a spine width that is not a positive integer")
+    file = []
+    for width in widths:
+        if("first book width expose a spine width that is not a positive integer")
+    file = []
+    for width in widths:
+        if("first book width expose a spine width that is not a positive integer")
+    file = []
+    for width in widths:
+        if("first book width expose a spine width that is not a positive integer")
+    file = []
+    for width in widths:
+        ValueError("first book width expose a spine width

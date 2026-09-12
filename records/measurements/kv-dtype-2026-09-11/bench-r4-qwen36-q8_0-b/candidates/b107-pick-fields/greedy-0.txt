@@ -1,0 +1,52 @@
+```python
+def pick_fields(records: list, fields: list) -> list:
+    """Pick specified fields from a list of record mappings, handling optional fields."""
+    if not isinstance(records, list):
+        raise ValueError("records must be a list")
+    if not isinstance(fields, list) or len(fields) == 0:
+        raise ValueError("fields must be a non-empty list")
+
+    stems = {}
+    for field_name in fields:
+        if not isinstance(field_name, str):
+            raise ValueError(f"Field name must be a string, got {type(field_name)}")
+        
+        is_optional = field_name.endswith('?')
+        if is_optional:
+            stem = field_name[:-1]
+        else:
+            stem = field_name
+        
+        if not stem:
+            raise ValueError(f"Field name stem cannot be empty")
+        
+        if stem in stems:
+            raise ValueError(f"Duplicate stem '{stem}' found in fields")
+        
+        stems[stem] = is_optional
+
+    result = []
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError(f"Each record must be a mapping (dict), got {type(record)}")
+        
+        row = []
+        for field_name in fields:
+            is_optional = field_name.endswith('?')
+            if is_optional:
+                stem = field_name[:-1]
+            else:
+                stem = field_name
+            
+            if stem in record:
+                row.append(record[stem])
+            else:
+                if is_optional:
+                    row.append(None)
+                else:
+                    raise ValueError(f"Record missing required field '{stem}'")
+        
+        result.append(row)
+    
+    return result
+```

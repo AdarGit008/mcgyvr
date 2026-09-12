@@ -1,0 +1,38 @@
+```python
+def wave_count(readings: list) -> int:
+    """Return how many times a run of readings changes direction.
+    
+    A change is a rise that follows a fall or a fall that follows a rise.
+    Readings that hold level neither rise nor fall and change nothing.
+    """
+    if not readings or len(readings) < 2:
+        return 0
+
+    # Filter out equal consecutive readings to get strict rises and falls
+    filtered = [readings[0]]
+    for i in range(1, len(readings)):
+        if readings[i] != readings[i - 1]:
+            filtered.append(readings[i])
+
+    if len(filtered) < 2:
+        return 0
+
+    # Determine the direction of each step: 1 for rise, -1 for fall
+    directions = []
+    for i in range(1, len(filtered)):
+        if filtered[i] > filtered[i - 1]:
+            directions.append(1)
+        else:
+            directions.append(-1)
+
+    if not directions:
+        return 0
+
+    # Count direction changes
+    count = 0
+    for i in range(1, len(directions)):
+        if directions[i] != directions[i - 1]:
+            count += 1
+
+    return count
+```

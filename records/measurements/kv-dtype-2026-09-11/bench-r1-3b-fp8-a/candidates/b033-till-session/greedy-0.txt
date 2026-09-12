@@ -1,0 +1,74 @@
+```python
+from typing import Dict, List
+
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: List[List[str]], prices: Dict[str, int]) -> Dict[str, int]:
+    if not events:
+        return {
+            "items": [],
+            "total": 0,
+            "paid": 0,
+            "change": 0
+        }
+
+    cart = {}
+    total = 0
+    paid = 0
+    state = OPEN
+
+    for event in events:
+        action = event[0]
+        payload = event[1:]
+
+        if state == OPEN:
+            if action == "scan":
+                if payload[0] in prices:
+                    if payload[0] in cart:
+                        cart[payload[0]] += 1
+                    else:
+                        cart[payload[0]] = 1
+                    total += prices[payload[0]]
+                else:
+                    raise ValueError("unknown item: " + str(payload[0]))
+            elif action == "void":
+                if payload[0] in cart:
+                    if cart[payload[0]] > 0:
+                        cart[payload[0]] -= 1
+                        if cart[payload[0]] == 0:
+                cart.pop(payload[0])
+            else:
+                raise ValueError("item not in cart: " + str(payload[0]))
+        elif state == PAYMENT:
+            if action == "pay":
+                if payload[0] >= 0:
+                    paid += payload[0]
+                    if paid >= total:
+                        change = paid - total
+                        state = PAID
+                        return {
+                            "items": sorted(cart.items()),
+                            "total": total,
+                            "paid": paid,
+                            "change": change
+                        }
+                else:
+                    raise ValueError("pay amount must be a positive integer: " + str(payload[0]))
+            elif action == "cancel":
+                state = CANCELLED
+                return {
+                    "items": [],
+                    "total": 0,
+                    "paid": 0,
+                    "change": 0
+                }
+        elif state == PAID or state == CANCELLED:
+            raise ValueError("illegal event after session is paid or cancelled")
+
+    raise ValueError("session never closed")
+```

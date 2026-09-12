@@ -1,0 +1,22 @@
+```python
+def possible_tr_trails(rows: int, cols: int, blocked: list) -> int:
+    if rows <= 0 or cols <= 0 or len(blocked) != 2 or len(blocked) != 2 or len(blocked) != 2 or len(blocked) != 2 or len(blocked) != 2:
+        raise ValueError("Invalid input")
+    if = open("solution.py", "="w")
+    file.write("def possible_tr_trails(rows: int, cols: int, blocked: list) -> int:\n")
+    file = [["." for _ in range(cols)] for _ in range(rows)]
+    for row, range(rows):
+        for col in range(cols):
+            if (row, col]) in blocked:
+                grid[row][col] "
+    file.write("    grid = [[" for _ in range(cols)] for _ in range(rows)]\n")
+    for row in range(rows):
+        for col in range(cols):
+            if (row, col]) in blocked:
+                grid[row][][
+    file.write("    for row in range(rows):\n")
+    for col in range(cols):
+        for row in range(rows):
+            if (row, col]) in blocked:
+                grid[row][]
+ "    file.write("        if (row, and col possible and grid[row][ col]) == '.' and grid[row][ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row[ col]) == '.' and grid[row

@@ -1,0 +1,63 @@
+```python
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    # Validate the span text against the part grammar and unit
+    # order, then total its parts in inches.
+    total = 0
+    parts = []
+    for part in text.split(" "):
+        if not part:
+            continue
+        if part[-2:] not in INCHES:
+            raise ValueError(f"Invalid unit: {part[-2:]}")
+        value = int(part[:-2])
+        if value < 0:
+            raise ValueError(f"Invalid value: {value}")
+        parts.append(value)
+    if len(parts) == 0:
+        raise ValueError("No parts provided")
+    if len(parts) > 1 and parts[0] == 0:
+        raise ValueError("First part cannot be zero")
+    if len(parts) > 1 and parts[1] == 0:
+        raise ValueError("Second part cannot be zero")
+    if len(parts) > 2 and parts[2] == 0:
+        raise ValueError("Third part cannot be zero")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third part cannot be greater than 12")
+    if len(parts) > 2 and parts[2] < 0:
+        raise ValueError("Third part cannot be negative")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third part cannot be greater than 12")
+    if len(parts) > 2 and parts[2] < 0:
+        raise ValueError("Third part cannot be negative")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third part cannot be greater than 12")
+    if len(parts) > 2 and parts[2] < 0:
+        raise ValueError("Third part cannot be negative")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third part cannot be greater than 12")
+    if len(parts) > 2 and parts[2] < 0:
+        raise ValueError("Third part cannot be negative")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third part cannot be greater than 12")
+    if len(parts) > 2 and parts[2] < 0:
+        raise ValueError("Third part cannot be negative")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third part cannot be greater than 12")
+    if len(parts) > 2 and parts[2] < 0:
+        raise ValueError("Third part cannot be negative")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third part cannot be greater than 12")
+    if len(parts) > 2 and parts[2] < 0:
+        raise ValueError("Third part cannot be negative")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third part cannot be greater than 12")
+    if len(parts) > 2 and parts[2] < 0:
+        raise ValueError("Third part cannot be negative")
+    if len(parts) > 2 and parts[2] > 12:
+        raise ValueError("Third

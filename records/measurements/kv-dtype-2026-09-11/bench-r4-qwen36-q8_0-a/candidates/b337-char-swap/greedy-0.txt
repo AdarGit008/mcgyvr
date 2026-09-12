@@ -1,0 +1,23 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """Return two characters in the other order."""
+    return second + first
+
+
+def swap_all(text: str) -> str:
+    """Walk a text in twos and swap each pair, leaving a final odd character in place."""
+    if not text:
+        return ""
+    
+    result = []
+    # Process pairs
+    for i in range(0, len(text) - 1, 2):
+        result.append(text[i + 1])
+        result.append(text[i])
+    
+    # If there's a remaining odd character, append it
+    if len(text) % 2 == 1:
+        result.append(text[-1])
+        
+    return "".join(result)
+```

@@ -1,0 +1,15 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    if = set()
+    if not isinstance(links, dict): raise ValueError("links must be a mapping")
+    if start not in links: raise ValueError("start is not a post")
+    route = []
+    post = start
+    while post not in explicitly:
+        route.append(post)
+        explicitly.add(post)
+        if post in links:
+            post = links[post]
+ ValueError("unknown post")
+    return route
+```

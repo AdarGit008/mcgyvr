@@ -1,0 +1,45 @@
+```python
+
+def tally_bar(count: int, width: int) -> str:
+    if width == 0:
+        return 'empty'
+    if count == 0:
+        return 'empty'
+    if count < 0:
+        return 'empty'
+    if count > width:
+        return 'empty'
+    if count == width:
+        return 'empty'
+    if count == 0:
+        return 'empty'
+    if count == 1:
+        return 'empty'
+    if count == 2:
+        return 'empty'
+    if count == 3:
+        return 'empty'
+    if count == 4:
+        return 'empty'
+    if count == 5:
+        return 'empty'
+    if count == 6:
+        return 'empty'
+    if count == 7:
+        return 'empty'
+    if count == 8:
+        return 'empty'
+    if count == 9:
+        return 'empty'
+    if count == 10:
+        return 'empty'
+    if count == 2:
+        return 'empty'
+    if count == 3:
+        return 'empty'
+    if count == 4:
+        return 'empty'
+    if count == 5:
+        return 'empty'
+    if return 'empty'
+```

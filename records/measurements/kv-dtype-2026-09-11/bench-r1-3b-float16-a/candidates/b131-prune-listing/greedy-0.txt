@@ -1,0 +1,66 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    # Validate every rule and path with split_strict
+    valid_paths = []
+    valid_rules = []
+    for path in listing:
+        try:
+            valid_paths.append(split_strict(path, "path"))
+        except ValueError as e:
+            print(f"Invalid path '{path}': {e}")
+
+    for rule in rules:
+        try:
+            valid_rules.append(split_strict(rule, "rule"))
+        except ValueError as e:
+            print(f"Invalid rule '{rule}': {e}")
+
+    # Prune the listing based on the rules
+    surviving_paths = []
+    for path in valid_paths:
+        matched_rule = None
+        for rule in valid_rules:
+            if rule[0] == "!":
+                if segment_fits(rule[1:], path):
+                    matched_rule = rule
+                    break
+            else:
+                if segment_fits(rule, path):
+                    matched_rule = rule
+                    break
+        if matched_rule is None:
+            surviving_paths.append(path)
+
+    return surviving_paths
+```

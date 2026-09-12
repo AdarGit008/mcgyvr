@@ -1,0 +1,47 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> int | None:
+    """Return the value at grid[row][column] or None if indices are out of bounds."""
+    if not isinstance(grid, list):
+        raise ValueError("grid must be a list")
+    if not isinstance(row, int) or not isinstance(column, int):
+        raise ValueError("row and column must be integers")
+    
+    num_rows = len(grid)
+    if row < 0 or row >= num_rows:
+        return None
+    
+    row_data = grid[row]
+    if not isinstance(row_data, list):
+        raise ValueError("Each row in the grid must be a list")
+    
+    num_cols = len(row_data)
+    if column < 0 or column >= num_cols:
+        return None
+    
+    return row_data[column]
+
+
+def diag_of(grid: list) -> list:
+    """Return the values along the main diagonal of the grid."""
+    if not isinstance(grid, list):
+        raise ValueError("grid must be a list")
+    
+    num_rows = len(grid)
+    result = []
+    
+    for i in range(num_rows):
+        row_data = grid[i]
+        if not isinstance(row_data, list):
+            raise ValueError("Each row in the grid must be a list")
+        
+        # Check if the column index i is valid for this row
+        if i < len(row_data):
+            result.append(row_data[i])
+        else:
+            # If the row is shorter than the diagonal index, we cannot continue
+            # or we stop. The problem implies a rectangular or square grid usually.
+            # If it's a jagged array and we hit a short row, we stop.
+            break
+            
+    return result
+```

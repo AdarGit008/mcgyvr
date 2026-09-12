@@ -1,0 +1,28 @@
+```python
+from typing import List, Tuple
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]):
+    picks = []
+    draws = []
+    shortfalls = []
+    stock = {
+        for lot in lots:
+            stock[lot[0]] lot[1], lot[2]] = 0
+    for order in orders:
+        order_id, units_purchased = order
+        while units_purchased > 0:
+            for lot in lots:
+                lot_id, use_by_date, units_on_hand = lot
+                if use_by_date <= order[1] and units_on_hand >= units_purchased:
+                    picks.append((order_id, lot_id, units_purchased))
+                    draws.append((order_id, lot_id, units_purchased))
+                    shortfalls.append((order_id, units_purchased - units_on_hand))
+                    units_purchased = 0
+                    break
+            if units_purchased > 0:
+                picks.append((order_id, None, units_purchased))
+                draws.append((order_id, None, units_purchased))
+                shortfalls.append(((order_id, units_purchased))
+                break
+    return {'picks': picks, 'draws': draws', 'shortfalls': shortfalls}
+```

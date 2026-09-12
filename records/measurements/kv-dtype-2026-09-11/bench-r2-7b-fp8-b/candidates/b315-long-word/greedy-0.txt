@@ -1,0 +1,9 @@
+```python
+def long_word(sentence: -> str) -> str:
+    if not sentence.strip():
+        return ""
+    
+words = sentence.split()
+longest_word = max(words,=len)
+return longest_word
+```

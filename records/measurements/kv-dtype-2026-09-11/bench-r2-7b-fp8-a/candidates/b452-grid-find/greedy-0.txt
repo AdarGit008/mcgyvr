@@ -1,0 +1,12 @@
+```python
+def match_at(grid: list,[int], row: int,    if not grid or not grid[] or row < len(grid):
+        raise ValueError("Invalid grid or row")
+    return grid[row]
+
+def grid_find(grid: list[list[int]], value: if not grid:
+        raise ValueError("Empty is empty")
+    for i, range(len(grid)):
+        for j in range(range(len(grid[i))):
+            if grid[i][[j] == value:
+                return [i,    raise ValueError(f"Value does not contain {value}")
+```

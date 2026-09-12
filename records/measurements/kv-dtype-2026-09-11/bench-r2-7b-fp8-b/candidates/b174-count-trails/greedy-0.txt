@@ -1,0 +1,399 @@
+```python
+from typing import List
+
+import functools
+
+def count_trails(rows: int, cols:       if not isinstance(rows, int) or not isinstance(cols, int):
+        raise ValueError("rows and cols must be integers")
+    if rows < raise ValueError("rows must be non-negative")
+    if cols < raise ValueError("cols must be non-negative")
+
+    blocked = set()
+       for if not isinstance(b), list) or len(b) != ==            raise ValueError("blocked entries must be two-item lists")
+        if b[0] < 0 or b[0] >= rows or b[1] < 0 or b[1] >= cols:
+            raise ValueError("blocked cells must be within the grid boundaries")
+        blocked.add(tuple(b))
+
+    
+       @functools.lru_cache(None)
+    def dp(r: int, col: int)        if (r,            return (col):
+                return 1
+            if (r,                return 0):
+            if (col):
+                return 0):
+            if (r,                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                return 0):
+            if (col):
+                return 0):
+            if (r):
+                ):
+                    return                        return                            )
+                                return                                   ):
+                                ):
+                                    ):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):

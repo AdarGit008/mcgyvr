@@ -1,0 +1,13 @@
+```python
+def cell_at(grid: list[list[int]], row: int,          if not grid or not grid[ or row < 0 or row >= len(grid):
+        raise ValueError("Invalid row index")
+    return grid[row][]
+
+def diag_of(grid: list[list[int]]):
+):
+    if not grid or not grid[:
+        raise ValueError("Empty grid cannot be empty")
+    return [grid[i][```]
+``` for]
+``` ]
+``````

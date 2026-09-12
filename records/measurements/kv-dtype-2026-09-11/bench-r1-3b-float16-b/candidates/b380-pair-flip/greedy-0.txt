@@ -1,0 +1,19 @@
+```python
+def flip_one(pair: list) -> list:
+    """
+    Returns a new list with the two elements of the input pair reversed.
+    
+    Raises ValueError if the input pair does not contain exactly two elements.
+    """
+    if len(pair) != 2:
+        raise ValueError("Input pair must contain exactly two elements.")
+    return [pair[1], pair[0]]
+
+def flip_all(pairs: list) -> list:
+    """
+    Returns a new list with each pair from the input list flipped.
+    
+    The order of the pairs in the output list is the same as in the input list.
+    """
+    return [flip_one(pair) for pair in pairs]
+```

@@ -1,0 +1,10 @@
+```python
+def tag_open(marker: 
+    if not marker.startswith('<')        raise ValueError("Marker must start with '<'")
+    if not marker.endswith('>'):
+        raise ValueError("Marker must end with '>'")
+    return marker[1:-1].lstrip('/')
+
+    
+def tag_pair(opening,    return tag_open(opening) ==_open(closing)
+```

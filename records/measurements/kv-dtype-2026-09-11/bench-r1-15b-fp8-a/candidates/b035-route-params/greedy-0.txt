@@ -1,0 +1,33 @@
+```python
+from typing import List, Optional
+
+
+def split_segments(path: str) -> List:
+    if not isinstance(path, str):
+        raise ValueError("path must a non-empty string")
+    if not path.startswith("/"):
+        raise ValueError("path must start with a slash")
+    if not path == "/":
+        return path.split("/")
+
+
+def first_route(patterns: list, path: str) -> int:
+    if not isinstance(patterns, list):
+        raise ValueError("patterns must be a list")
+    if not isinstance(path, str):
+        raise ValueError("path must be a non-empty string")
+    if not path == "/":
+        return -1
+    for i pattern in patterns:
+        if not isinstance(pattern, str):
+            raise ValueError("pattern must be a string")
+        if not pattern.startswith(":"):
+            raise ValueError("pattern must start with a colon")
+        if not pattern.endswith("*"):
+            raise ValueError("pattern must end with an asterisk")
+        if not pattern[1:-1]. is not None:
+            raise ValueError("pattern must contain a run of zero names")
+        if not pattern[1:-1] == path[1:-1]:
+            return patterns.index(pattern)
+    return -1
+```

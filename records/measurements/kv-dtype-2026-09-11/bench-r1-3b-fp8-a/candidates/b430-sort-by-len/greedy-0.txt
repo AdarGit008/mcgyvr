@@ -1,0 +1,16 @@
+```python
+from typing import *
+from collections import *
+
+def sort_by_len(words: List[str]) -> List[str]:
+    """
+    Sorts a list of words by their length, and alphabetically for words of the same length.
+    The original list is not modified.
+    """
+    if not words:
+        return []
+    
+    # Sort by length, then alphabetically for words of the same length
+    sorted_words = sorted(words, key=lambda x: (len(x), x.lower()))
+    return sorted_words
+```

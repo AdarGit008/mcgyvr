@@ -1,0 +1,15 @@
+ sys
+
+
+def mid_pair(values: list) -> list:
+    if not values:
+        return [None, None]
+    if len(values) == 1:
+        return [values[0], values[0
+
+    values sorted_values = sorted(values)
+    middle_index = len(sorted_values) // 2
+
+    if middle_index:
+        return [sorted_values[middle_index - 1],_values[middle_index]]
+    else [sorted_values[middle_index],

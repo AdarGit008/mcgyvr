@@ -1,0 +1,17 @@
+```python
+ sys
+
+def take_back(values: list, target: int) -> int:
+    if target is None:
+        return -1
+    if target == 0:
+        return 0
+    if target > len(values):
+        return -1
+    count = 0
+    for i in range(len(values) - 1, -1, -1):
+        count += 1
+        if values >= target:
+            return count
+    return -1
+```

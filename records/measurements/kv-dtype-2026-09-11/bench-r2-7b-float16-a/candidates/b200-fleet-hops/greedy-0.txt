@@ -1,0 +1,27 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if hop == 0:
+        raise ValueError("Hop value cannot be zero.")
+    
+    lts_set = set(lts)
+    max_release = count - 1
+    
+    def hops_for_device(current: int) -> int:
+        if current == max_release:
+            return 0
+        if current < 0 or current > max_release:
+            raise ValueError(f"Device running an invalid release: {current}")
+        
+        next_release = min(current + hop, max_release)
+        while next_release not in lts_set:
+            next_release -= 1
+            if next_release < current:
+                break
+        
+        if next_release < current:
+            return 0
+        
+        return 1 + hops_for_device(next_release)
+    
+    return sum(hops_for_device(build) for build in builds)
+```

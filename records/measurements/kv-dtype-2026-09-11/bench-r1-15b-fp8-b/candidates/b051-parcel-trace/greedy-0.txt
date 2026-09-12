@@ -1,0 +1,75 @@
+```python
+
+from typing import List
+
+def trace_parcel(events: List) -> List:
+    if not isinstance(events, list):
+        raise ValueError("Input must be a list.")
+    
+    if not all(events):
+        raise ValueError("Input cannot be an empty list.")
+    
+    if not all events:
+        raise ValueError("Input cannot be None.")
+    
+    if_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    if not all in events:
+        raise ValueError("Event must be one of ['created', 'packed', 'shipped', 'delivered', 'returned'].")
+    
+    if events[- 1] not in prose_states:
+        raise ValueError("Event must be one of ['created', 'packed', 'shipped', 'delivered', 'returned'].")
+    
+    if events[-1] not in prose_states:
+        raise ValueError("Event must be one of ['created', 'packed', 'shipped', 'delivered', 'returned'].")
+    
+    if events[-1] not in prose_states:
+        raise ValueError("Event must be one of ['created', 'packed', 'shipped', 'delivered', 'returned'].")
+    
+    if events[-1] not in prose_states:
+        raise ValueError("Event must be one of ['created', 'packed', 'shipped', 'delivered', 'returned'].")
+    
+    if events[-1] not in prose_states:
+        raise ValueError("Event must be one of ['created', 'packed', 'shipped', 'delivered', 'returned'].")
+    
+    if_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    if_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    if_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file_states = ['created', 'packed', 'shipped', 'delivered', 'returned']
+    
+    file

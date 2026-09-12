@@ -1,0 +1,31 @@
+```python
+from typing import Dict, List, Optional
+
+def chain_of_command(root: Dict[str, List[Dict[str, str]]], person: str) -> List[str]:
+    if not isinstance(person, str) or not person:
+        raise ValueError("Person must be a non-empty string.")
+    
+    def walk(node: Dict[str, List[Dict[str, str]]], path: List[str]) -> List[str]:
+        if node["name"] == person:
+            return path + [person]
+        if "reports" not in node:
+            return []
+        return [node["name"]] + sum((walk(report, path + [report["name"]]) for report in node["reports"]), [])
+    
+    return walk(root, [])
+
+def headcount(root: Dict[str, List[Dict[str, str]]]) -> int:
+    def count(node: Dict[str, List[Dict[str, str]]]) -> int:
+        if "reports" not in node:
+            return 1
+        return 1 + sum(count(report) for report in node["reports"])
+    return count(root)
+
+    
+def widest_team(root: Dict[str, List[Dict[str, str]]]) -> int:
+    def max_reports(node: Dict[str, List[Dict[str, str]]]) -> int:
+        if "reports" not in node:
+            return 0
+        return 1 + max(max_reports(report) for report in node["reports"])
+    return max_reports(root)
+```

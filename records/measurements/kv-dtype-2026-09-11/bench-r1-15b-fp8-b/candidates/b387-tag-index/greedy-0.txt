@@ -1,0 +1,21 @@
+```python
+def tags_of(line):
+    """
+    Checks a comma-separated line into its tags, trimming the spaces around each and leaving out any that come to nothing.
+    """
+    return [tag.strip() for tag in line.split(',') if tag.strip() != ''}
+
+
+def tag_index(lines):
+    """
+    Returns a mapping from each tag to the lines carrying it in the order the lines came.
+    """
+    tag_index = {}
+    for line in lines:
+        if not isinstance(line, str):
+            raise ValueError("All lines must be text")
+        for tag in tags_of(line):
+            if tag not in tag_index:
+                tag_index[tag] = []
+            tag_index[tag].].    return tag_index
+```

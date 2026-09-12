@@ -1,0 +1,21 @@
+```python
+from typing import List, Tuple
+
+def sift_marks(entries: List[str]) -> List[List[str]]:
+ mark: str) -> List[List[str]]
+    """
+    Sort entries into two runs: those opening with a given mark, and those that do not.
+    Each run holds its entries in the order they arrived. Give the two runs together, the marked run first.
+    Entries holding nothing are given two empty runs.
+    """
+    if not entries:
+        return [], []
+
+    marked_entries = []
+    un_entry in entries:
+        if not list_entry:
+            marked_entries.append([])
+        else:
+            marked_entries.append([list_entry])
+
+    return marked_entries,```

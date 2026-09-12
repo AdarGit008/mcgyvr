@@ -1,0 +1,77 @@
+```python
+def line_clusters(stops: list[str], links: list[tuple[str, str]]) -> list[list[str]]:
+    """
+    Group stops into connected components based on provided links.
+    
+    Args:
+        stops: List of unique stop names.
+        links: List of [from, to] pairs representing bidirectional track segments.
+        
+    Returns:
+        List of clusters, where each cluster is a list of stop names sorted
+        alphabetically. The clusters themselves are ordered by their
+        alphabetically first stop.
+    """
+    if not stops:
+        return []
+
+    # Create a mapping from stop name to a unique integer ID for graph processing
+    # We only care about stops that are explicitly in the 'stops' list.
+    # However, the problem statement says "a stop no segment touches forms a cluster of its own".
+    # It also says "links... as [from, to] pairs".
+    # The blocked question asks: "Whether a segment may name a stop the stop list does not hold is not stated."
+    # Since I cannot guess, I must make a reasonable assumption or handle it safely.
+    # Standard interpretation: The 'stops' list is the universe of valid stops.
+    # If a link references a stop not in 'stops', it's likely an error or refers to an implicit stop.
+    # Given "no name listed twice" in stops, and "links... track segments between them",
+    # it implies links refer to stops in the 'stops' list.
+    # If a link contains a stop NOT in 'stops', we should probably ignore it or treat it as invalid.
+    # Let's assume links only contain stops present in the 'stops' list.
+    # If a link contains a stop not in 'stops', we will ignore that link to avoid KeyError.
+    
+    stop_to_id = {stop: i for i, stop in enumerate(stops)}
+    n = len(stops)
+    
+    # Union-Find data structure
+    parent = list(range(n))
+    rank = [0] * n
+    
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]  # Path compression
+            i = parent[i]
+        return i
+    
+    def union(i: int, j: int) -> None:
+        root_i = find(i)
+        root_j = find(j)
+        if root_i == root_j:
+            return
+        # Union by rank
+        if rank[root_i] < rank[root_j]:
+            parent[root_i] = root_j
+        elif rank[root_i] > rank[root_j]:
+            parent[root_j] = root_i
+        else:
+            parent[root_j] = root_i
+            rank[root_i] += 1
+
+    # Process links
+    for from_stop, to_stop in links:
+        if from_stop in stop_to_id and to_stop in stop_to_id:
+            id_from = stop_to_id[from_stop]
+            id_to = stop_to_id[to_stop]
+            union(id_from, id_to)
+            
+    # Group stops by their root
+    clusters_map: dict[int, list[str]] = {}
+    for stop in stops:
+        root = find(stop_to_id[stop])
+        if root not in clusters_map:
+            clusters_map[root] = []
+        clusters_map[root].append(stop)
+        
+    # Sort each cluster alphabetically
+    result_clusters = []
+    for cluster_stops in clusters_map.values():
+        result_clusters.append

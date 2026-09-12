@@ -1,0 +1,34 @@
+<think>
+Okay, I need to implement two functions, number_sections and section_count, based on the given problem description. Let me start by understanding the requirements.
+
+First, the number_sections function. The goal is to generate labels for each section in the outline. The labeling follows a specific structure: top-level sections are numbered 1-based, children sections have their parent's number followed by a dot and their 1-based position. For example, a top-level section would be "1 Intro", a child of that would be "1.2 Terms", and so on.
+
+So, the approach here is to traverse the outline in a depth-first manner, keeping track of the current numbering. For each section, I need to determine its position in the hierarchy. The parent's number is needed to generate the current section's number. But how do I track the parent's number? Maybe I can use a recursive approach where each call processes a section and its children, passing along the current number.
+
+Wait, but for the top-level sections, the number starts at 1. For each child, the number is parent's number followed by a dot and the child's position in the siblings. So, for each section, I need to know its parent's number and its position among its siblings.
+
+But how to track the position among siblings? Because when processing a section, its siblings are the other children of the same parent. So, for each parent, I need to collect all its children and determine the order. But since the outline is given in document order, the children are in the order they appear. So, for each parent, the children are in the order they are listed, and each child's position is determined by their index in the list.
+
+So, the plan is:
+
+- Traverse the outline in a depth-first manner.
+- For each section, generate the number based on the parent's number and the position in the siblings.
+- The number is built as a string, then combined with the heading.
+
+But how to track the parent's number? Let's think recursively. For each section, when processing it, we can pass along the current number. For example, the root sections have their number as 1, 2, etc. Then, for each child, the number is parent's number + '.' + position in the siblings.
+
+Wait, but the position in the siblings is 1-based. So, for a parent with children [child1, child2, child3], the first child is 1, second is 2, etc.
+
+So, for each parent, when processing its children, we need to know the index of each child in the list of children. Then, the number for the child is parent's number + '.' + (index + 1).
+
+But how to track the parent's number? Let's think of it as a recursive function. For each section, when we process it, we can pass along the current number. For example, the root sections are processed with their own number (1, 2, etc.), and then their children are processed with the parent's number.
+
+So, the steps for number_sections:
+
+1. Check if the input is a list. If not, raise an error.
+2. For each section in the list, check if it's a mapping and has 'heading' and 'children' as keys. Also, check that the heading is a non-empty string.
+3. Traverse the sections in a depth-first manner, keeping track of the current number.
+4. For each section, generate the label by combining the number and the heading.
+5. Collect all the labels in the order of the sections.
+
+Wait, but the order of the sections is the document order. So, the traversal must process the sections in the order they appear

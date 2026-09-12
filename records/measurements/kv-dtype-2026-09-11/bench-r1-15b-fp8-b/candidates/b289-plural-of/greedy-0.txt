@@ -1,0 +1,21 @@
+```python
+def plural_of(n: str) -> str:
+    """
+    Return the plural of an English noun.
+    """
+    if not noun:
+        raise ValueError("Input cannot be empty")
+
+    if noun.endswith('s'):
+        return noun
+    elif noun.endswith('x'):
+        return noun + 'es'
+    elif noun.endswith('ch'):
+        return noun + 'es'
+    elif noun.endswith('sh'):
+        return noun + 'es'
+    elif noun.endswith('y') and noun[-1]. not in 'aeiou':
+        return noun[:-1] 'ies'
+    else:
+        return noun + 's'
+```

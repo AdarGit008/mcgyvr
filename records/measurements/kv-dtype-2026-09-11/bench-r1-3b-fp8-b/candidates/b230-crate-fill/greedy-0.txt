@@ -1,0 +1,40 @@
+```python
+def crate_fill(items: int, crates: int) -> list:
+    """
+    Distributes items into crates as evenly as possible.
+    
+    Args:
+        items (int): The total number of items to distribute.
+        crates (int): The number of crates to distribute them into.
+
+    Returns:
+        list: A list of crate sizes, largest first, with leftover items added to the leading crates.
+    """
+    if crates <= 0:
+        raise ValueError("Number of crates must be positive.")
+    if items < 0:
+        raise ValueError("Item count cannot be negative.")
+    
+    # Calculate the base size for each crate
+    base_size = items // crates
+    
+    # Calculate the number of crates that will have an extra item
+    extra_crates = items % crates
+    
+    # Create the list of crate sizes
+    crate_sizes = [base_size + 1] * extra_crates + [base_size] * (crates - extra_crates)
+    
+    return crate_sizes
+
+def crate_total(sizes: list) -> int:
+    """
+    Adds a list of crate sizes back up to get the total number of items.
+
+    Args:
+        sizes (list): A list of crate sizes.
+
+    Returns:
+        int: The total number of items represented by the crate sizes.
+    """
+    return sum(sizes)
+```

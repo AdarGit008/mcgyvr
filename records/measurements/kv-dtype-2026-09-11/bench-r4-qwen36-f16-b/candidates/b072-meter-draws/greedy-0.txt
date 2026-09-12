@@ -1,0 +1,53 @@
+```python
+def remaining_for(used: dict, key: str, allowance: int) -> int:
+    """Return the remaining allowance for a key based on current usage."""
+    if not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Allowance must be a positive integer")
+    if not isinstance(key, str) or len(key) == 0:
+        raise ValueError("Key must be a non-empty string")
+    
+    spent = used.get(key, 0)
+    return allowance - spent
+
+
+def meter_draws(draws: list, allowance: int) -> dict:
+    """Replay draws against a fresh ledger and return used ledger and denied positions."""
+    if not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Allowance must be a positive integer")
+    
+    used: dict = {}
+    denied: list = []
+    
+    for i, draw in enumerate(draws):
+        if not isinstance(draw, list) or len(draw) != 2:
+            raise ValueError("Each draw must be a list of [key, units]")
+        
+        key = draw[0]
+        units = draw[1]
+        
+        if not isinstance(key, str) or len(key) == 0:
+            raise ValueError("Key must be a non-empty string")
+        if not isinstance(units, int) or units <= 0:
+            raise ValueError("Units must be a positive integer")
+        
+        # Calculate remaining allowance for this key
+        spent = used.get(key, 0)
+        remaining = allowance - spent
+        
+        # Check if the draw fits within the remaining allowance
+        if units <= remaining:
+            # Draw is accepted: add units to the key's spend
+            used[key] = spent + units
+        else:
+            # Draw is refused: record position and ensure key exists in ledger with current spend
+            denied.append(i)
+            # A key enters the ledger with zero spend on its first draw even when refused
+            # However, if it already exists, we keep its current spend.
+            # The spec says: "A key enters the ledger with zero spend on its first draw even when that draw is refused."
+            # This implies that if the key is NOT in the ledger, we add it with 0 spend.
+            # If it IS in the ledger, we don't change its spend.
+            if key not in used:
+                used[key] = 0
+    
+    return {"used": used, "denied": denied}
+```

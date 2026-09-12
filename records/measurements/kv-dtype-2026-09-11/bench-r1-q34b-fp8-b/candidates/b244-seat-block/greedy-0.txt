@@ -1,0 +1,44 @@
+<think>
+Okay, I need to implement the seat_block function. Let's see the requirements. The function takes a seat label like "12C" and returns a list with the row number and the letter. The input must be a run of digits followed by exactly one capital letter. If not, it should raise an error.
+
+First, I need to split the label into the numeric part and the letter. The numeric part is all the digits at the beginning, and then the letter is the next character. So, for example, "12C" would split into "12" and "C".
+
+But how to separate them? Maybe iterate through each character in the string and check if it's a digit. Once a non-digit is found, that's the start of the letter. But wait, the letter must be exactly one capital letter. So after the digits, there should be exactly one letter, and nothing else.
+
+So the steps are:
+
+1. Check that the label starts with digits and ends with a single capital letter.
+2. Split the label into two parts: the digits and the letter.
+3. Convert the digits to an integer.
+4. Return them as a list [row_number, letter].
+
+But how to handle the splitting? Let's think. The digits part is all the leading characters that are digits. Then the next character must be a capital letter, and the rest of the string must be empty. So the entire label should be digits followed by exactly one letter.
+
+So, for example, "12A" is valid. But "12a" is invalid because the letter is lowercase. "12AB" is invalid because there are two letters. "12A3" is invalid because after the letter, there's a digit again.
+
+So the plan is:
+
+- Iterate through the characters of the label.
+- Find the first non-digit character. That should be the letter.
+- Check that this character is uppercase.
+- Ensure that after this character, there are no more characters.
+
+So, let's code this.
+
+First, check if the label is empty. If it is, raise ValueError.
+
+Then, split into digits and letter parts. Let's find the index where the digits end. For example, in "12C", the digits are "12", the letter is "C".
+
+So, loop through each character in the label. For each character, check if it's a digit. Once a non-digit is found, that's the start of the letter. Then check that the next character is a capital letter, and that there are no more characters after that.
+
+Wait, but the letter must be exactly one character. So the entire label must be digits followed by exactly one letter. So the length of the label is (number of digits) + 1.
+
+So, for example, "12C" is 3 characters: 2 digits and 1 letter. "1A" is 2 characters: 1 digit and 1 letter. "123A" is 4 characters.
+
+So, the code can be:
+
+- Check that the label is not empty.
+- Find the index where the digits end. That is, the first non-digit character.
+- Check that this index is not the last character (so there's at least one letter). Wait, no. The letter is exactly one character. So the total length of the label is (number of digits) + 1. So the length of the label must be at least 1 (but since digits can't be empty, the label must have at least 1 digit and 1 letter, so length >= 2).
+
+Wait, for example, "A" is invalid because there are no digits. So the label must have at

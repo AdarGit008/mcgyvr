@@ -1,0 +1,18 @@
+```python
+def flag_states(mask: int, catalog: list) -> dict:
+    if not isinstance(mask, int) or mask < 0:
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(c, list) or len(c) < 1:
+        raise ValueError("Catalog must a list holding at least one name")
+    if not all(isinstance(name, str) for name in catalog):
+        raise ValueError("Catalog must a list of non empty strings")
+    if not all(isinstance(name, str) for name in catalog):
+        raise ValueError("Catalog must a list of unique strings")
+    if not all(isinstance(mask, int) for name in catalog):
+        raise ValueError("Catalog must have a set bit in the mask")
+    if mask > (1 << len(catalog)) - 1:
+        raise ValueError("Mask must be within the catalog's length")
+
+    state = { mask & (1 << i(catalog)) - 1)
+    return {, {: state == 1}
+```

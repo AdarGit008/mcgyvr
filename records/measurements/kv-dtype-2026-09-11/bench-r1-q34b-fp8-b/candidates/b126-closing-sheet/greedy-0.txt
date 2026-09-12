@@ -1,0 +1,16 @@
+<think>
+Okay, I need to implement the closing_sheet function properly. Let's look at the current code and see what's missing. The existing code parses the opening sheet and then tries to apply the moves, but the TODO is incomplete. The problem is that the moves need to be processed, and each move is a string with name and quantity, like "bolt:12" or "bolt-12".
+
+First, I need to parse the moves. The moves are a string separated by semicolons. Each move is either "name+qty" or "name-qty". So for each move in the moves string, I need to split them into parts. For example, "bolt:12;washer:4" would be split into ["bolt:12", "washer:4"], but the moves are in the format "name+qty" where + is adding and - is subtracting.
+
+Wait, the moves are given as a string with semicolons, each move is like "name+qty" or "name-qty". So each move is split by semicolon, then each move is split into name and quantity. For example, "bolt:12" would be name "bolt", quantity 12 (add), and "bolt-12" would be name "bolt", quantity 12 (subtract).
+
+So the first step is to process each move in the moves string. For each move, split into name and quantity. But how to split them? The move is a string like "name+qty" or "name-qty". So the move is split into two parts: the name and the quantity. The name is the part before the '+' or '-', and the quantity is the part after. But the name can't have any colons, right? Because the name is made of lowercase letters, and the quantity is a number.
+
+So for each move in moves.split(";"), we need to split into name and quantity. For example, "bolt:12" is a move to add 12 to bolt. Wait, no, the moves are in the format "name+qty" or "name-qty". Wait, the problem says that the moves are "name+qty" or "name-qty". So the move is like "bolt+12" or "bolt-12". So the move is split into name and quantity by splitting on '+' or '-'.
+
+Wait, the problem says that the moves are "name+qty" or "name-qty". So each move is a string that has the name followed by a '+' or '-', then the quantity. So for example, "bolt+12" would be adding 12 to bolt, and "bolt-12" would be subtracting 12 from bolt.
+
+So the first step is to process each move in the moves string. For each move, split into name and quantity. But how? For each move, split on the first occurrence of '+' or '-'. For example, "bolt+12" would split into name "bolt" and quantity 12. Similarly, "bolt-12" would split into name "bolt" and quantity 12. But the quantity is a positive integer, so the '-' is part of the move, but the quantity is positive.
+
+So for each move in moves.split(";"), we need to split into name and quantity. Let's take the move string, split into parts. For example, "bolt+12" can be split into name "bolt" and quantity 12. Similarly, "bolt-12" would be name "bolt" and quantity 12. But how to split that? The move is a string that has the name followed

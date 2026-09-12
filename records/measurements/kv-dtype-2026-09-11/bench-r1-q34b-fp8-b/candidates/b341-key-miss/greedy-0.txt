@@ -1,0 +1,33 @@
+<think>
+Okay, let's see. The problem is with the look_up function. The current code uses store.get(key) or fallback. But the issue is that when the stored value is an empty string, it's returning the fallback even though the key is present. The task says that the fallback should only be used when the key is absent, not when the value is empty.
+
+So, the current code returns the stored value if it's not None, else the fallback. But if the stored value is an empty string, it's considered as an empty value, so the function should not use the fallback in that case. Wait, but the problem says that the fallback is used when the key is absent. So, the problem is that when the key is present but the value is an empty string, the function is returning the fallback instead of the empty string.
+
+So the original code is: return store.get(key) or fallback. But if store.get(key) returns an empty string, then the 'or' operator would take the fallback. But we want to return the empty string in that case, not the fallback.
+
+So the fix is to check if the stored value is None (i.e., the key is absent) then use the fallback. Otherwise, return the stored value. But how to do that?
+
+Wait, the original code is using 'store.get(key) or fallback'. So if store.get(key) is None, then it returns fallback. But if store.get(key) is an empty string, then it returns the empty string. But according to the problem, when the stored value is empty, we should not use the fallback. So the problem is that the current code returns the fallback when the stored value is empty, which is incorrect.
+
+Wait, the problem says: "the fallback when the stored value is empty text as well". So the current code is returning the fallback when the stored value is empty. But the fix is to only return the fallback when the key is absent, not when the value is empty.
+
+So the correct logic is: if the key is not present (i.e., store.get(key) is None), then return fallback. Otherwise, return the stored value. But if the stored value is an empty string, then return that, not the fallback.
+
+So the original code is incorrect because it uses 'or' which evaluates to the first truthy value. So, if store.get(key) is an empty string (which is falsy in Python?), wait, no. Wait, in Python, an empty string is considered falsy. So, for example, if store.get(key) returns "", then 'store.get(key) or fallback' would return fallback. But that's not desired. Because the key is present, but the value is empty. So the function should return the empty string, not the fallback.
+
+So the problem is that the current code is using 'or' which evaluates to the first value if it's truthy. So, the original code is returning the fallback when the stored value is an empty string (which is falsy), but the key is present. So the fix is to check if the key is absent (i.e., store.get(key) is None) then return fallback, else return the stored value.
+
+So how to do that? The original code is:
+
+return store.get(key) or fallback
+
+But that's incorrect. So the correct code should be:
+
+if store.get(key) is None:
+    return fallback
+else:
+    return store.get(key)
+
+But wait, what if the stored value is an empty string? Then store.get(key) is not None, so it returns the empty string. Which is correct.
+
+So the problem is that the original code uses 'or' which evaluates to the first value if it's truthy

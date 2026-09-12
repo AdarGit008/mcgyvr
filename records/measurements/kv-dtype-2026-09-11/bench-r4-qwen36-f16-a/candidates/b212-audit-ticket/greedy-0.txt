@@ -1,0 +1,43 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    """Audit a depot ticket for shape and check digit validity.
+    
+    Returns 'shape' if the ticket format is invalid, 'check' if the check digit
+    is incorrect, and 'ok' if the ticket is valid.
+    """
+    if not isinstance(ticket, str):
+        raise ValueError("Ticket must be a string")
+    
+    # Check shape: exactly two capital letters, hyphen, four digits, hyphen, one digit
+    # Pattern: ^[A-Z]{2}-\d{4}-\d$
+    import re
+    pattern = r'^[A-Z]{2}-\d{4}-\d$'
+    if not re.match(pattern, ticket):
+        return "shape"
+    
+    # Parse the ticket
+    letters = ticket[0:2]
+    digits = ticket[3:7]
+    check_digit = int(ticket[8])
+    
+    # Calculate the total
+    # Letters: A=1, B=2, ..., Z=26
+    letter_sum = 0
+    for char in letters:
+        letter_sum += ord(char) - ord('A') + 1
+    
+    # Digits: each digit adds its face value times its position (1-4)
+    digit_sum = 0
+    for i, char in enumerate(digits):
+        digit_sum += int(char) * (i + 1)
+    
+    total = letter_sum + digit_sum
+    
+    # Check digit is the last digit of the total
+    expected_check_digit = total % 10
+    
+    if check_digit != expected_check_digit:
+        return "check"
+    
+    return "ok"
+```

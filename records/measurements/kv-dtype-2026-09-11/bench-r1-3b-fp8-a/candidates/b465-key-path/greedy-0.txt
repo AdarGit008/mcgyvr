@@ -1,0 +1,39 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    """
+    Returns the names standing directly under the specified head in the store,
+    without the head and its stop. Names under a deeper head are left out.
+    
+    Args:
+    store (dict): A dictionary where keys are joined by full stops.
+    head (str): The head from which to extract subkeys.
+    
+    Returns:
+    list: A list of names directly under the head.
+    """
+    if not isinstance(store, dict):
+        raise ValueError("Store must be a dictionary.")
+    if not isinstance(head, str):
+        raise ValueError("Head must be a string.")
+    
+    # Split the head by full stops to get the path
+    path = head.split('.')
+    
+    # Traverse the store using the path
+    current_level = store
+    for part in path:
+        if part not in current_level:
+            raise ValueError(f"Path {path} does not exist in the store.")
+        current_level = current_level[part]
+    
+    # If the current level is a list, return its elements
+    if isinstance(current_level, list):
+        return current_level
+    
+    # If the current level is a dictionary, return its keys
+    if isinstance(current_level, dict):
+        return list(current_level.keys())
+    
+    # If the current level is neither a list nor a dictionary, return an empty list
+    return []
+```

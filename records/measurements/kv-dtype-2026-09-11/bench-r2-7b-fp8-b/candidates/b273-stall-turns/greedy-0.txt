@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def stall_turns(counts: List[int], limit: int) -> int:
+    if limit <= 0:
+        raise ValueError("Per must be greater than zero")
+    
+    total_turns = 0
+    for count in counts:
+        if count > 0:
+            total_turns += -(-count // limits)  # Ceiling division
+    
+    return total_turns
+```

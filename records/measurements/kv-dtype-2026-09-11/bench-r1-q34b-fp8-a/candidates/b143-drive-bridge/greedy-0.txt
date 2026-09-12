@@ -1,0 +1,51 @@
+<think>
+Okay, I need to implement the drive_bridge function. Let's think about the problem. The function has to process a list of commands for a canal drawbridge. The span starts in the 'lowered' state. Each command can be 'raise', 'lower', 'lock', or 'unlock'. But each state allows only certain commands.
+
+First, the initial state is 'lowered'. So the first step is to check each command in the list. For each command, we need to make sure it's one of the four allowed commands. Also, the command must be allowed based on the current state.
+
+Let me outline the states and their allowed commands:
+
+- Lowered: can only 'raise'
+- Raised: can 'lower' or 'lock'
+- Locked: can 'unlock'
+
+So, for each command in the list, we need to check if it's valid for the current state. If not, raise a ValueError. Otherwise, update the state accordingly.
+
+Let's think about the transitions:
+
+- If the current state is 'lowered' and the command is 'raise', then the state becomes 'raised'.
+- If the current state is 'raised' and the command is 'lower', it goes back to 'lowered'. If the command is 'lock', it becomes 'locked'.
+- If the current state is 'locked' and the command is 'unlock', it becomes 'raised'.
+
+Wait, the problem says that 'lock' is allowed when the state is 'raised', and 'unlock' is allowed when the state is 'locked'. Also, the 'lower' command is only allowed when the state is 'raised' (since lowering is only possible when the span is raised). Wait, no. Wait, the initial state is 'lowered'. The 'raise' command is allowed when the state is 'lowered'. Once it's raised, the 'lower' command is allowed. But when the state is 'raised', the 'lower' command is allowed. So, when the state is 'raised', you can lower it back to 'lowered' or lock it to 'locked'.
+
+So, the transitions are:
+
+- From 'lowered', 'raise' → 'raised'
+- From 'raised', 'lower' → 'lowered', 'lock' → 'locked'
+- From 'locked', 'unlock' → 'raised'
+
+So, the function needs to process each command in order, updating the state accordingly. Also, any invalid command (not in the allowed list, or not allowed for the current state) should raise a ValueError.
+
+Now, the function signature is def drive_bridge(commands: list) -> str. So, the input is a list of commands, and the output is the final state.
+
+First, check if the input is a list. If not, raise ValueError. But the problem says that the function should reject a commands argument that is not a list. So, the first check is to ensure that commands is a list. Then, for each command in the list, check if it's one of the four allowed words. If not, raise error.
+
+So, the steps are:
+
+1. Check if commands is a list. If not, raise ValueError.
+2. Initialize the state as 'lowered'.
+3. For each command in commands:
+   a. Check if the command is one of the four allowed words.
+   b. Check if the command is allowed for the current state.
+   c. If not, raise ValueError.
+   d. Update the state based on the command.
+4. Return the final state.
+
+Now, let's code this.
+
+First, the function starts with the state as 'lowered'.
+
+Then, loop through each command in the commands list.
+
+For each command, check if it is in {'raise

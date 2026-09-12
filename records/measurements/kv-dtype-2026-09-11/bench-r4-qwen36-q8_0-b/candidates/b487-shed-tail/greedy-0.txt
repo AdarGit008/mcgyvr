@@ -1,0 +1,12 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    """Remove occurrences of `piece` from the end of `text` as long as it matches."""
+    if not piece:
+        return text
+    
+    piece_len = len(piece)
+    while text.endswith(piece):
+        text = text[:-piece_len]
+    
+    return text
+```

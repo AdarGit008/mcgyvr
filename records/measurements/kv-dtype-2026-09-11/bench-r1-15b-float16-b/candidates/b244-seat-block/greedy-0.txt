@@ -1,0 +1,22 @@
+```python
+def seat_block(label: str) -> list:
+    """
+    Extracts the row number and letter from a seat label.
+    
+    Args:
+    label (str): A seat label in the format 'rowC', where 'row' is a number and 'C' is a capital letter.
+    
+    Returns:
+    list: A list containing the row number as an integer and the letter as a string.
+    
+    Raises:
+    ValueError: If the label is not in the correct format.
+    """
+    if not label or not label[0].isdigit() or not label[1].isupper():
+        raise ValueError("Invalid seat label format")
+    
+    row = int(label[0])
+    letter = label[1]
+    
+    return [row, letter]
+```

@@ -1,0 +1,22 @@
+```python
+def clamp_move(position:       if not isinstance(position, int) or not 0 <= position < width:
+        raise ValueError("position must be within the corridor")
+    return position
+
+
+def run_patrol(width):
+    start):
+    moves):
+       if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+    
+    landed = set([start])
+    bumps = 0
+    for move in moves:
+        next_pos = clamp_move(start, move, width)
+        if next_pos != start):
+            bumps +=            landed.add(next_pos):
+        start = next_room
+    return {
+        "        "        len(landed),
+``````

@@ -1,0 +1,29 @@
+```python
+def oxford_join(names: list) -> str:
+    """
+    Join a list of names into one phrase using Oxford comma rules.
+    
+    Args:
+    names (list): A list of names to join.
+    
+    Returns:
+    str: The joined phrase.
+    
+    Raises:
+    ValueError: If the input is not a list or contains non-string elements.
+    """
+    if not isinstance(names, list):
+        raise ValueError("Input must be a list.")
+    if not all(isinstance(name, str) for name in names):
+        raise ValueError("All elements in the list must be strings.")
+    
+    n = len(names)
+    if n == 0:
+        return ""
+    elif n == 1:
+        return names[0]
+    elif n == 2:
+        return " and ".join(names)
+    else:
+        return ", ".join(names[:-1]) + ", and " + names[-1]
+```

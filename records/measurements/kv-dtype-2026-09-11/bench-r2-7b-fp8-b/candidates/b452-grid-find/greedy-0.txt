@@ -1,0 +1,6 @@
+```python
+def match_at(grid: list,[int], row: int,    if not grid or not grid[] or row < len(grid):
+        raise ValueError("Invalid grid or row")
+    return grid[row][]
+
+```

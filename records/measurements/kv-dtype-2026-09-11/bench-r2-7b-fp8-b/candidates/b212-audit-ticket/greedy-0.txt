@@ -1,0 +1,17 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str:
+        raise ValueError("Ticket must be a string")
+    
+    parts = ticket.split('-')
+    if len(parts) != 4:
+        shape_code, digits, check_digit] = parts
+           letter_sum = sum(ord(char) - ord('A') + 1 for char in seat_code)
+        digit_sum = sum((i + 1)            * int(digits[i(i + 1)) for i in range(4))
+        total_sum = letter_sum + digit_sum
+        if total_sum % 10 ==            return "check"
+        elif check_digit != str(total_total)[-1]:
+            return " shape"
+        return "ok"
+    return "shape":
+```

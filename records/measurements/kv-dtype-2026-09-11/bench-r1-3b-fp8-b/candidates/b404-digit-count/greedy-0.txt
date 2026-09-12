@@ -1,0 +1,22 @@
+```python
+def digit_count(value: int) -> int:
+    """
+    Return the number of digits in the given integer.
+    
+    Args:
+    value (int): The integer whose digits are to be counted.
+    
+    Returns:
+    int: The number of digits in the integer.
+    """
+    if value < 0:
+        raise ValueError("Negative numbers are not counted.")
+    if value == 0:
+        return 1
+    
+    count = 0
+    while value > 0:
+        value //= 10
+        count += 1
+    return count
+```

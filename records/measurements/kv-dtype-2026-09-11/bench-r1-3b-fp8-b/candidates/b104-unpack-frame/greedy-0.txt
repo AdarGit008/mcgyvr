@@ -1,0 +1,64 @@
+```python
+from typing import List
+
+def unpack_frame(data: List[int]) -> List[int]:
+    """
+    Decode a sensor record frame from a list of byte values and return its readings.
+    """
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list.")
+    
+    if len(data) < 1:
+        raise ValueError("Frame must contain at least one byte.")
+    
+    def read_varint():
+        i = 0
+        result = 0
+        while True:
+            byte = data[i]
+            result |= (byte & 0x7F) << (i * 7)
+            i += 1
+            if not (byte & 0x80):
+                break
+        return result
+    
+    def read_trailer():
+        if len(data) < 2:
+            raise ValueError("Trailer byte missing.")
+        trailer = data[-1]
+        return trailer
+    
+    def validate_frame(data: List[int]):
+        if len(data) < 2:
+            raise ValueError("Frame too short.")
+        
+        # Read the number of readings
+        num_readings = read_varint()
+        
+        # Check if the number of readings matches the length of the data
+        if num_readings != len(data) - 2:
+            raise ValueError("Number of readings does not match the frame length.")
+        
+        # Read the trailer
+        trailer = read_trailer()
+        
+        # Calculate the sum of all bytes before the trailer
+        byte_sum = sum(data[:-1])
+        
+        # Validate the trailer
+        if trailer != byte_sum % 256:
+            raise ValueError("Trailer does not match the byte sum modulo 256.")
+        
+        # Validate the remaining bytes
+        if len(data) > num_readings + 2:
+            raise ValueError("Extra bytes left over after the trailer.")
+    
+    validate_frame(data)
+    
+    # Read the readings
+    readings = []
+    for _ in range(num_readings):
+        readings.append(read_varint())
+    
+    return readings
+```

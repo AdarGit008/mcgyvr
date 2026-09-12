@@ -1,0 +1,25 @@
+```python
+def code_sum(code: str) -> int:
+    """
+    Sums up all figures in a given code string.
+    
+    Args:
+    code (str): The code string to process.
+    
+    Returns:
+    int: The sum of figures in the code.
+    """
+    return sum(int(char) for char in code if char.isdigit())
+
+def good_codes(codes: list[str]) -> list[str]:
+    """
+    Filters codes whose total sum of figures is divisible by three.
+    
+    Args:
+    codes (list[str]): The list of codes to filter.
+    
+    Returns:
+    list[str]: A list of codes whose sum of figures is divisible by three.
+    """
+    return [code for code in codes if code_sum(code) % 3 == 0]
+```

@@ -1,0 +1,21 @@
+```python
+def pick_lane(queues: list[int], closed:    if not isinstance(queues, list) or not queues:
+        raise ValueError("Queues must must be a non-empty list.")
+    if not all(isinstance(queue, int) and queue >= 0 for queue in queues):
+        raise ValueError("All elements must be non-negative integers"):
+    if not isinstance(closed, list):
+        raise ValueError("Closed list must must be a list"):
+    if not all(isinstance(index) and 0 <= index < len(queues)        raise ValueError("Closed list elements must be integers pointing at valid lanes")
+    if all(lane in closed for lane in range(len(queues))):
+        raise ValueError("At least one open lane must be available")
+
+    best = -1
+    min_min_queue_length:
+ float('inf'):
+    for lane in range(len(queues)):
+        if lane not in closed and queues[lane] < list_min_queue_length:
+            list_min_queue_length = queues[lane]
+            best = lane
+        elif lane not in closed and queues[lane] == list_min_queue_length:
+            best = min(best       return best
+```

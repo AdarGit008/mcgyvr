@@ -1,0 +1,69 @@
+```python
+"""Melt a row of ice one simultaneous step at a time."""
+
+
+def thaw_row(row: str, steps: int) -> str:
+    """Simulate thawing ice cells in a row for a given number of steps.
+    
+    Args:
+        row: A string of '#' (ice) and '.' (meltwater).
+        steps: A non-negative integer representing the number of steps.
+        
+    Returns:
+        The row after exactly 'steps' thaw steps.
+        
+    Raises:
+        ValueError: If row is not a non-empty string, contains invalid characters,
+                    or steps is not a non-negative integer.
+    """
+    if not isinstance(row, str):
+        raise ValueError("row must be a string")
+    if not row:
+        raise ValueError("row must not be empty")
+    if not all(c in '#.' for c in row):
+        raise ValueError("row must contain only '#' and '.'")
+    if not isinstance(steps, int) or isinstance(steps, bool):
+        raise ValueError("steps must be a non-negative integer")
+    if steps < 0:
+        raise ValueError("steps must be non-negative")
+
+    # If no steps, return original row
+    if steps == 0:
+        return row
+
+    current_row = list(row)
+    
+    # Optimization: If the row is all water, it won't change.
+    if all(c == '.' for c in current_row):
+        return row
+
+    # Optimization: If the row is all ice, it will become all water in 1 step.
+    if all(c == '#' for c in current_row):
+        if steps >= 1:
+            return '.' * len(row)
+        else:
+            return row
+
+    for _ in range(steps):
+        # Check if any change is needed
+        changed = False
+        new_row = current_row[:]
+        
+        for i in range(len(current_row)):
+            if current_row[i] == '#':
+                # Ice melts if it's at the end or has water beside it
+                if i == 0 or i == len(current_row) - 1:
+                    new_row[i] = '.'
+                    changed = True
+                elif current_row[i - 1] == '.' or current_row[i + 1] == '.':
+                    new_row[i] = '.'
+                    changed = True
+        
+        current_row = new_row
+        
+        # If no changes occurred, the state is stable
+        if not changed:
+            break
+
+    return ''.join(current_row)
+```

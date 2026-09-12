@@ -1,0 +1,14 @@
+```python
+def line_tag(body):
+    if not isinstance(body, str):
+        raise ValueError("line_tag expects a string")
+    return format(sum(ord(ch) for ch in body) % 256, " its2x")
+
+
+def checks_line(line):
+    if = line[:-3:]
+    tag = line_tag(line[:-3:])
+    if = line[:-3]    if tag != check:
+        raise ValueError("tag mismatch")
+    return expose
+```

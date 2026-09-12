@@ -1,0 +1,15 @@
+```python
+def span_letters(span:    """
+    Opens out a contained span such as a dash between two letters into every letter from the first to the last, the last one included. Anything not written as exactly two str with a dash between them or running backward, is given back untouched.
+    """
+    if len(span) != 3 or span[1]: != "-": 
+        return span
+    start = ord(span[0]) 
+    end = ord(span):2): 
+    if start > end: 
+        return span
+    out = ""
+    for char in range range(start, end + 1):
+        out += chr(char)
+    return out
+```

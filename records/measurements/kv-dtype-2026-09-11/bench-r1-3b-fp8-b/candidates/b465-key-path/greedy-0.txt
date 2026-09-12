@@ -1,0 +1,30 @@
+```python
+from typing import *
+from collections import *
+
+def key_path(store: dict, head: str) -> list:
+    """
+    Returns the names standing directly under the specified head in the store,
+    without the head and its stop. Names under a deeper head are left out.
+    """
+    if not isinstance(store, dict):
+        raise ValueError("The store must be a dictionary.")
+    if not isinstance(head, str):
+        raise ValueError("The head must be a string.")
+    
+    # Split the head by full stops to get the hierarchy
+    parts = head.split('.')
+    
+    # Traverse the store to find the names under the head
+    current_level = store
+    for part in parts:
+        if part not in current_level:
+            return []
+        current_level = current_level[part]
+    
+    # If the current level is a list, return its elements; otherwise, return the keys
+    if isinstance(current_level, list):
+        return current_level
+    else:
+        return list(current_level.keys())
+```

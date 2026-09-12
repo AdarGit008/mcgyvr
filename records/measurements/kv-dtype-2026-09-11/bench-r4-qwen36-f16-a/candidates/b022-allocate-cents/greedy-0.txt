@@ -1,0 +1,68 @@
+```python
+"""Fixed-point money helpers: parse, format, and allocate integer cents."""
+
+import re
+
+
+def parse_amount(text: str) -> int:
+    """Convert a decimal amount string to integer cents."""
+    if not isinstance(text, str):
+        raise ValueError("amount must be a string")
+    match = re.fullmatch(r"(\d+)(?:\.(\d{2}))?", text)
+    if match is None:
+        raise ValueError(f"malformed amount: {text}")
+    whole = int(match.group(1))
+    cents = 0 if match.group(2) is None else int(match.group(2))
+    return whole * 100 + cents
+
+
+def format_amount(cents: int) -> str:
+    """Render non-negative integer cents back into dotted form with two fraction digits."""
+    if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    return f"{cents // 100}.{cents % 100:02d}"
+
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """Split total_cents across weights proportionally using largest remainder method."""
+    if not isinstance(total_cents, int) or isinstance(total_cents, bool) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not isinstance(weights, list):
+        raise ValueError("weights must be a list")
+    if len(weights) == 0:
+        raise ValueError("weights list must not be empty")
+    
+    for w in weights:
+        if isinstance(w, bool) or not isinstance(w, int) or w < 0:
+            raise ValueError("each weight must be a non-negative integer")
+    
+    sum_w = sum(weights)
+    if sum_w == 0:
+        raise ValueError("weights must sum to a positive integer")
+    
+    # Calculate base shares (floor of proportional value)
+    shares = [total_cents * w // sum_w for w in weights]
+    
+    # Calculate remainders for each share
+    # Exact value is (total_cents * w) / sum_w
+    # We want to find the fractional part: (total_cents * w) % sum_w / sum_w
+    # To avoid floating point issues, we work with numerators of the remainder
+    remainders = []
+    for i, w in enumerate(weights):
+        numerator = (total_cents * w) % sum_w
+        remainders.append((numerator, i))
+    
+    # Sort by remainder descending, then by index ascending (for ties)
+    # We need to distribute (total_cents - sum(shares)) extra cents
+    leftover = total_cents - sum(shares)
+    
+    # Sort indices by largest remainder, breaking ties by earliest index
+    # We only need to give away 'leftover' cents
+    sorted_indices = sorted(range(len(weights)), key=lambda i: (-remainders[i][0], i))
+    
+    # Give one cent to the first 'leftover' shares in sorted order
+    for i in range(leftover):
+        shares[sorted_indices[i]] += 1
+        
+    return shares
+```

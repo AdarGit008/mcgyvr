@@ -1,0 +1,30 @@
+```python
+import re
+
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str) or not isinstance(part, str):
+        raise ValueError("Invalid input types")
+    
+    if part not in ["major", "minor", "patch"]:
+        raise ValueError("Invalid part name")
+    
+    pattern = r'^(\d+)\.(\d+)\.(\d+)$'
+    match = re.match(pattern, version)
+    
+    if not match:
+        raise ValueError("Invalid version format")
+    
+    major, minor, patch = map(int, match.groups())
+    
+    if part == "major":
+        major += 1
+        minor = 0
+        patch = 0
+    elif part == "minor":
+        minor += 1
+        patch = 0
+    elif part == "patch":
+        patch += 1
+    
+    return f"{major}.{minor}.{patch}
+```

@@ -1,0 +1,8 @@
+```python
+def check_digit(code: str)    if not code.isdigit():
+        raise ValueError("Input must contain only digits")
+    
+    total = sum(int(digit) for digit in code)
+    remainder = total % 10
+    return (10 - remainder) % 10
+```

@@ -1,0 +1,39 @@
+<think>
+Okay, let's tackle this problem. The user wants me to fix the site_totals function so that it correctly aggregates the quantities per site. The current code is summing the latest row's quantity for each site, which is wrong. Also, there's a validation issue where the qty should be a positive integer, not just digits.
+
+First, I need to understand the current code. The site_totals function is using a dictionary to accumulate totals. But in the existing code, for each row, it's overwriting the total for the site with the current row's qty. That's why it's only taking the last row's quantity. So, the fix is to sum all the quantities for each site.
+
+So, the correct approach is to initialize the total for each site as 0 and then add each row's qty to that total. So, in the loop, for each row, we should check if the site is in the dictionary. If not, start with 0, then add the current row's qty.
+
+Next, the validation in load_ledger. The current code checks if raw.isdigit(), but that's not sufficient. The problem says that qty must be a positive integer. So, the validation should check that raw is a string of digits and that the integer value is greater than zero. Also, the error message needs to be adjusted to reflect that.
+
+Wait, the current code in load_ledger checks if raw.isdigit(), but that would allow strings like "0123" which is not a valid integer. Wait, no, because when converting to int, "0123" would be 123, but the problem says that qty must be a positive integer. So, the validation should check that the raw is a string of digits and that the integer is positive.
+
+So, in load_ledger, after splitting the line into parts, the code checks if raw.isdigit(). But that's not enough. Because, for example, "0" is not a positive integer. So, the code should check that raw is a string of digits and that the integer value is greater than zero.
+
+So, in the load_ledger function, after converting raw to int, we should check if it's positive. Wait, but the current code is checking if raw.isdigit(), which would allow "0", but the problem says that qty must be a positive integer. So, the validation should check that the raw is a string of digits and that the integer is greater than zero.
+
+So, in the load_ledger function, after converting raw to int, we need to check if it's positive. So, the code should be:
+
+if not raw.isdigit():
+    raise ValueError("qty must be a run of decimal digits")
+qty = int(raw)
+if qty <= 0:
+    raise ValueError("qty must be a positive integer")
+
+Wait, but the problem says that the qty must be a positive integer. So, the validation should check that the raw is a string of digits (so that it's a number) and that the integer is greater than zero.
+
+So, in the load_ledger function, after checking that raw is a digit string, we need to convert it to an integer and check if it's positive.
+
+So, the current code in load_ledger is:
+
+if not raw.isdigit():
+    raise ValueError("qty must be a run of decimal digits")
+rows.append({"site": site, "item": item, "qty": int(raw)})
+
+But the problem says that the qty must be a positive integer. So, the code should check that the raw is a digit string and that the integer is positive.
+
+So, the fix is to add a check after converting to int. So, in the code:
+
+raw = parts[2]
+if not raw.isdigit

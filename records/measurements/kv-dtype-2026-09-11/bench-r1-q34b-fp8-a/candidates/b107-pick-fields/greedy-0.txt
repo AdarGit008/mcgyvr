@@ -1,0 +1,41 @@
+<think>
+Okay, I need to implement the pick_fields function according to the given contract. Let me start by understanding the requirements.
+
+The function takes two arguments: records (a list of records) and fields (a list of field names). Each record is a mapping (like a dictionary) from field names to values. The goal is to return a list of rows, where each row is a list of values corresponding to the fields in order. 
+
+First, the function needs to validate the inputs. The problem statement lists several validation checks. Let me go through them one by one.
+
+1. records must be a list. If not, raise ValueError.
+2. Each record in records must be a mapping (like a dict). If any record is not a mapping, error.
+3. fields must be a non-empty list. If empty, error.
+4. Each element in fields must be a string. If not, error.
+5. Names ending with ? are optional. Their stem is the name without the marker. If a record lacks the stem, it's considered None in that spot. Other names are required. So, for each field name, check if it ends with '?'. If yes, the stem is the name without the '?', and the field is optional. Otherwise, it's required.
+6. Also, check that a name's stem is not empty. So, if a field name is just '?', then the stem is empty, which is invalid.
+7. Also, check that there are no duplicate stems. For example, if two names have the same stem (with or without the marker), that's invalid. Wait, the problem says "two names sharing one stem with or without the marker" is invalid. So, if two names have the same stem (even if one has the marker and the other doesn't), that's not allowed. So, for example, if fields are ['name', 'name?'], then the stems are 'name' and 'name', which is a conflict. So, the function must check that all stems (without the marker) are unique.
+
+Additionally, for each record, if a required field is missing, it's an error. So, for each field in fields, if it's required (i.e., not ending with ?), then the record must have that key. If not, error.
+
+So, the steps for the function are:
+
+1. Validate the inputs:
+   - Check that records is a list. If not, raise error.
+   - Check that each record in records is a mapping (dict). If not, error.
+   - Check that fields is a non-empty list. If empty, error.
+   - Check that each element in fields is a string. If not, error.
+   - Check that for each field name in fields, the stem (without the ?) is not empty. So, if the field name is '?', then stem is empty, which is invalid.
+   - Check that there are no duplicate stems. So, for all fields, extract the stem (name without ?), and check that they are unique.
+
+Once the inputs are validated, process each record:
+
+For each record in records:
+   For each field in fields:
+      if the field ends with '?', then the stem is the field without the '?'. The value is the record's stem value, or None if the stem is not present.
+      else, the field is required. Check that the record has the field. If not, error.
+
+So, the function needs to process each record, collect the values for the fields in order, and return the list of these lists.
+
+Now, let's think about the code structure.
+
+First, the function definition: def pick_fields(records: list, fields: list) -> list:
+
+Inside

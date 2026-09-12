@@ -1,0 +1,19 @@
+```python
+def digit_word(digit: int) -> str:
+    """Names a single digit in English, so 0 is zero and 9 is nine."""
+    if not 0 <= digit <= 9:
+        raise ValueError("Input must be a digit between 0 and 9.")
+    return "zero one two three four five six seven eight nine"[digit]
+
+def digit_words(digits: str) -> str:
+    """Names every digit of a run of digits in order, joined by single spaces, and gives empty text for a run holding none."""
+    if not digits:
+        return ""
+    result = []
+    for digit in digits:
+        if digit.isdigit():
+            result.append(digit_word(int(digit)))
+        else:
+            result.append("")
+    return " ".join(result)
+```

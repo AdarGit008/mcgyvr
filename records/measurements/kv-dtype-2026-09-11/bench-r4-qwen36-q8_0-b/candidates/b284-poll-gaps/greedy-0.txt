@@ -1,0 +1,26 @@
+```python
+def poll_gaps(minutes: list) -> list:
+    """Return the minutes between the first and last run where the monitor did not run."""
+    if not minutes or len(minutes) < 2:
+        return []
+    
+    # Deduplicate and sort to handle potential duplicates in input
+    unique_minutes = sorted(set(minutes))
+    
+    if len(unique_minutes) < 2:
+        return []
+    
+    first = unique_minutes[0]
+    last = unique_minutes[-1]
+    
+    # Create a set of actual run minutes for O(1) lookup
+    run_set = set(unique_minutes)
+    
+    # Find all minutes in the range [first, last] that are not in run_set
+    gaps = []
+    for minute in range(first, last + 1):
+        if minute not in run_set:
+            gaps.append(minute)
+            
+    return gaps
+```

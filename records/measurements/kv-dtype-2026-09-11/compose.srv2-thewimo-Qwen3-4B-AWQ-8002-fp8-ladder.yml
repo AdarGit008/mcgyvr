@@ -1,0 +1,34 @@
+services:
+  thewimo-Qwen3-4B-AWQ-8002:
+    command:
+    - --model
+    - thewimo/Qwen3-4B-AWQ
+    - --port
+    - '8002'
+    - --gpu-memory-utilization
+    - '0.9'
+    - --max-model-len
+    - '1024'
+    - --max-num-seqs
+    - '128'
+    - --served-model-name
+    - r3-ladder
+    - --kv-cache-dtype
+    - fp8
+    container_name: mcgyvr-srv2-thewimo-Qwen3-4B-AWQ-8002
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+            device_ids:
+            - '0'
+            driver: nvidia
+    environment:
+      HF_HOME: /root/.cache/huggingface
+    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+    - /home/adaramir/.cache/huggingface:/root/.cache/huggingface

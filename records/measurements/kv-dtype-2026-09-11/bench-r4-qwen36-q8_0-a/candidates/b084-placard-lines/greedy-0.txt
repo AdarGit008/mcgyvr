@@ -1,0 +1,76 @@
+```python
+"""Lay a notice's text into placard lines."""
+
+
+def placard_lines(text: str, width: int) -> list:
+    """Lay a notice's text into placard lines.
+
+    Args:
+        text: A non-empty string of words separated by single spaces.
+        width: A positive integer representing the maximum line width.
+
+    Returns:
+        A list of strings, each representing a line on the placard.
+
+    Raises:
+        ValueError: If input validation fails.
+    """
+    # Validate text type
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+
+    # Validate width type
+    if not isinstance(width, int) or isinstance(width, bool):
+        raise ValueError("width must be an integer")
+
+    # Validate width value
+    if width <= 0:
+        raise ValueError("width must be a positive integer")
+
+    # Validate text is not empty
+    if len(text) == 0:
+        raise ValueError("text must be a non-empty string")
+
+    # Validate no leading space
+    if text.startswith(" "):
+        raise ValueError("text must not have a leading space")
+
+    # Validate no trailing space
+    if text.endswith(" "):
+        raise ValueError("text must not have a trailing space")
+
+    # Validate no double spaces
+    if "  " in text:
+        raise ValueError("text must not contain two consecutive spaces")
+
+    # Split text into words
+    words = text.split(" ")
+
+    # Validate no word is wider than the placard
+    for word in words:
+        if len(word) > width:
+            raise ValueError("a word is wider than the placard")
+
+    # Layout the text into lines
+    lines = []
+    current_line = ""
+
+    for word in words:
+        # If current line is empty, just add the word
+        if current_line == "":
+            current_line = word
+        else:
+            # Check if adding the word with a space fits
+            if len(current_line) + 1 + len(word) <= width:
+                current_line = current_line + " " + word
+            else:
+                # Start a new line
+                lines.append(current_line)
+                current_line = word
+
+    # Add the last line if it's not empty
+    if current_line:
+        lines.append(current_line)
+
+    return lines
+```

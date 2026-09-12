@@ -1,0 +1,72 @@
+```python
+def stamp_build(major: int, minor: int, patch: int) -> int:
+    if major < 0:
+        raise ValueError("Major component must must be a positive integer")
+    if minor < 0:
+        raise ValueError("Minor component release must must be a positive integer")
+    if patch < 1:
+        raise ValueError("Patch component release must must be a positive integer")
+    if patch > 1:
+        raise ValueError("Patch component release must must be a positive integer")
+    if patch > 10:
+        raise ValueError("Patch component release must must be a positive integer")
+    if patch > 1 release:
+        raise ValueError("Patch component release release must must be a positive integer")
+    if patch > 1 release:
+        raise ValueError("Patch component release release must must be a positive integer")
+    if patch > 1 release:
+        raise ValueError("Patch component release release must must must be a positive integer")
+    if patch > 1 release:
+        raise ValueError("Patch component release release released must be a positive integer")
+    release patch > 1 release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > :
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > :
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer)
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer)
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer)
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")
+    release patch > release:
+        raise ValueError("Patch component release release released built be a positive integer")

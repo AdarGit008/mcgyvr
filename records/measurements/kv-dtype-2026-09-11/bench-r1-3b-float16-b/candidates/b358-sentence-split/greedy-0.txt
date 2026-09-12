@@ -1,0 +1,17 @@
+```python
+import re
+
+
+def sentence_split(passage: str) -> list:
+    """Split a passage into sentences based on '.', '?' or '!'. Trim and remove empty pieces."""
+    # Use regex to split by '.', '?' or '!', but keep the delimiters
+    pieces = re.split(r"([.!?])", passage)
+    
+    # Filter out empty pieces and strip leading/trailing spaces from each sentence
+    sentences = [piece.strip() for piece in pieces if piece.strip()]
+    
+    # Remove the delimiters that were used to split
+    sentences = [sentence[:i] + sentence[i+1:] for i in range(len(sentences)) if pieces[i] in ".!?"]
+    
+    return sentences
+```

@@ -1,0 +1,70 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+from typing import List
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    
+    def split_strict(text: str, what: str) -> List[str]:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    # Validate every rule and path with split_strict
+    valid_paths = []
+    valid_rules = []
+    for path in listing:
+        try:
+            valid_paths.append(split_strict(path, "path"))
+        except ValueError as e:
+            print(f"Invalid path '{path}': {e}")
+
+    for rule in rules:
+        try:
+            valid_rules.append(split_strict(rule, "rule"))
+        except ValueError as e:
+            print(f"Invalid rule '{rule}': {e}")
+
+    # Initialize a dictionary to store the last matching rule for each path
+    last_match = {}
+
+    # Process each rule
+    for rule in valid_rules:
+        if rule[0] == "!":
+            # Keep rule
+            for i in range(len(valid_paths)):
+                if all(segment_fits(segment, valid_paths[i][j]) for j, segment in enumerate(rule[1:])):
+                    last_match[valid_paths[i]] = rule
+        else:
+            # Drop rule
+            for i in range(len(valid_paths)):
+                if all(segment_fits(segment, valid_paths[i][j]) for j, segment in enumerate(rule)):
+                    del last_match[valid_paths[i]]
+
+    # Collect surviving paths
+    surviving_paths = [path for path in valid_paths if path in last_match]
+    return surviving_paths
+```

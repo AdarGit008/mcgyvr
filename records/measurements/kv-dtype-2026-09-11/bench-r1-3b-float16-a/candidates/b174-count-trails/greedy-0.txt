@@ -1,0 +1,38 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be integers greater than or equal to 1.")
+    
+    if not all(isinstance(block, list) and len(block) == 2 for block in blocked):
+        raise ValueError("blocked must be a list of two-item lists.")
+    
+    for block in blocked:
+        if not (0 <= block[0] < rows and 0 <= block[1] < cols):
+            raise ValueError("blocked cell outside the grid.")
+        
+        if block == [0, 0] or block == [rows - 1, cols - 1]:
+            raise ValueError("rope across the entrance or the exit cell.")
+    
+    # Create a set of blocked cells for quick lookup
+    blocked_set = {(r, c) for r, c in blocked}
+    
+    # Initialize a DP table to store the number of trails
+    dp = [[0] * cols for _ in range(rows)]
+    
+    # Start from the top-left corner
+    dp[0][0] = 1
+    
+    # Fill the DP table
+    for r in range(rows):
+        for c in range(cols):
+            if (r, c) in blocked_set:
+                continue
+            if r > 0:
+                dp[r][c] += dp[r - 1][c]
+            if c > 0:
+                dp[r][c] += dp[r][c - 1]
+    
+    return dp[-1][-1]
+```

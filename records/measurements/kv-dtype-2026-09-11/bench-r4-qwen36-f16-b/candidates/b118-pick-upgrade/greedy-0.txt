@@ -1,0 +1,65 @@
+```python
+"""Firmware build selection within an installed release line."""
+
+
+def compare_builds(a: str, b: str) -> int:
+    """Compare two dotted decimal build strings numerically position by position."""
+    left = [int(part) for part in a.split(".")]
+    right = [int(part) for part in b.split(".")]
+    for i in range(max(len(left), len(right))):
+        x = left[i] if i < len(left) else 0
+        y = right[i] if i < len(right) else 0
+        if x > y:
+            return 1
+        if x < y:
+            return -1
+    return 0
+
+
+def _validate_build(build: str) -> None:
+    """Raise ValueError if build is not a valid dotted decimal string."""
+    if not isinstance(build, str):
+        raise ValueError("Build must be a string")
+    parts = build.split(".")
+    if not parts:
+        raise ValueError("Build must not be empty")
+    for part in parts:
+        if not part:
+            raise ValueError("Build parts must not be empty")
+        if not part.isdigit():
+            raise ValueError("Build parts must be digits")
+        if len(part) > 1 and part[0] == '0':
+            raise ValueError("Build parts must not have leading zeros")
+
+
+def pick_upgrade(installed: str, offers: list) -> str | None:
+    """Return the newest offer that keeps the installed build's leading number
+    and is strictly newer than what is installed, or None when no offer qualifies.
+    """
+    if not isinstance(offers, list):
+        raise ValueError("Offers must be a list")
+    
+    _validate_build(installed)
+    
+    installed_parts = installed.split(".")
+    installed_major = int(installed_parts[0])
+    
+    best = None
+    
+    for offer in offers:
+        if not isinstance(offer, str):
+            raise ValueError("Each offer must be a string")
+        _validate_build(offer)
+        
+        offer_parts = offer.split(".")
+        offer_major = int(offer_parts[0])
+        
+        if offer_major != installed_major:
+            continue
+        
+        if compare_builds(offer, installed) > 0:
+            if best is None or compare_builds(offer, best) > 0:
+                best = offer
+                
+    return best
+```
