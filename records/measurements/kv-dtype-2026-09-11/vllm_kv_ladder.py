@@ -45,21 +45,18 @@ def make_compose(model: str, dtype: str) -> str:
     service = model.replace("/", "-") + "-8002"
     cmd = ["--model", model, "--port", "8002", "--gpu-memory-utilization", "0.9",
            "--max-model-len", "1024", "--max-num-seqs", "128", "--served-model-name",
-           "r3-ladder"]
-    if dtype == "fp8":
-        cmd += ["--kv-cache-dtype", "fp8"]
+           "r3-ladder", "--kv-cache-dtype", dtype]
     doc = {"services": {service: {
         "command": cmd, "container_name": f"mcgyvr-srv2-{service}",
         "deploy": {"resources": {"reservations": {"devices": [
             {"capabilities": ["gpu"], "device_ids": ["0"], "driver": "nvidia"}]}}},
-        "environment": {"HF_HOME": "/root/.cache/huggingface",
-                        "VLLM_ATTENTION_BACKEND": "FLASH_ATTN"},
+        "environment": {"HF_HOME": "/root/.cache/huggingface"},
         "image": IMAGE, "network_mode": "host", "restart": "unless-stopped",
         "volumes": ["/home/adaramir/.cache/huggingface:/root/.cache/huggingface"],
     }}}
     path = rig.SCR / f"compose.srv2-{service}-{dtype}-ladder.yml"
     path.write_text(__import__("yaml").safe_dump(doc, sort_keys=False))
-    return str(path)
+    return path
 
 
 def one_request(port: int) -> tuple[int, float]:
