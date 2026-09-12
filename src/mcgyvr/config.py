@@ -17,7 +17,7 @@ documented and hoped for:
    silently does something other than what it says.
 3. **Credentials are never values.** The config records only the NAME of
    the environment variable holding each key; the orchestrator process
-   resolves it, and a task sandbox never sees it (see ``SECURITY.md``).
+   resolves it, and a task sandbox never sees it (see ``archive/SECURITY.md``).
 
 ``SCHEMA`` below is declarative data, not a set of hand-written checks: it
 is what the validator walks and what the config reference is generated
