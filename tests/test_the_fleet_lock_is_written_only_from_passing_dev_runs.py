@@ -15,13 +15,13 @@ command. The Waker still judges a wake by a ratio written in code
 
 Committing them is the approval; live reads them and never writes them. What
 the lock checks comes from the fleet file and from dev: a rig's card, and each
-combination's headroom (Σ CUDA contexts of its units + driver reserve), are
+combination's overhead (Σ CUDA contexts of its units + driver reserve), are
 **measured in dev**, not declared. Locking refuses, naming what failed:
 
 * a combination no dev run passed; a listed switch whose rig move never ran, or
   ran without recording its downtime and start/wake times;
-* a combination whose headroom was never measured, or whose units' room plus its
-  headroom exceeds the card, an asleep unit's room included;
+* a combination whose overhead was never measured, or whose units' room plus its
+  overhead exceeds the card, an asleep unit's room included;
 * a vLLM unit whose KV size is not pinned (``--kv-cache-memory-bytes``);
 * a unit whose reply cannot finish inside its request timeout at its validated
   warm decode speed;
@@ -105,7 +105,7 @@ EVIDENCE: dict[str, Any] = {
             "rig": "srv2",
             "slots": FLT05,
             "passed": True,
-            "headroom_mib": 600,
+            "overhead_mib": 600,
             "restarts": {"srv2_7b": 0, "srv2_3b": 0},
             "warm_decode_tok_s": {"srv2_7b": 58.0},
             "baseline_tok_s": {"srv2_7b": 59.0},
@@ -118,7 +118,7 @@ EVIDENCE: dict[str, Any] = {
             "rig": "srv2",
             "slots": FLT02,
             "passed": True,
-            "headroom_mib": 600,
+            "overhead_mib": 600,
             "restarts": {"srv2_7b": 0, "srv2_3b": 0},
             "warm_decode_tok_s": {"srv2_7b": 57.0, "srv2_3b": 105.0},
             "baseline_tok_s": {"srv2_7b": 58.5, "srv2_3b": 107.0},
@@ -234,19 +234,19 @@ def test_a_switch_run_that_recorded_no_times_is_not_locked(tmp_path: Path) -> No
         write(lock, tmp_path, evidence=evidence)
 
 
-def test_a_combination_whose_headroom_dev_never_measured_is_not_locked(
+def test_a_combination_whose_overhead_dev_never_measured_is_not_locked(
     tmp_path: Path,
 ) -> None:
-    """Headroom is each combination's own reading, never a rig's: the CUDA
+    """Overhead is each combination's own reading, never a rig's: the CUDA
     context differs per card and per engine (plan §8)."""
     lock = _lock()
     evidence = edited(EVIDENCE)
-    del evidence["combinations"][1]["headroom_mib"]
-    with pytest.raises(lock.LockRefusedError, match="headroom"):
+    del evidence["combinations"][1]["overhead_mib"]
+    with pytest.raises(lock.LockRefusedError, match="overhead"):
         write(lock, tmp_path, evidence=evidence)
 
 
-def test_every_units_room_plus_headroom_must_fit_its_card_asleep_or_awake(
+def test_every_units_room_plus_overhead_must_fit_its_card_asleep_or_awake(
     tmp_path: Path,
 ) -> None:
     """9000 + 2800 + 600 = 12400 MiB on a 12000 MiB card: refused for flt-05
@@ -261,7 +261,7 @@ def test_every_units_room_plus_headroom_must_fit_its_card_asleep_or_awake(
     with pytest.raises(lock.LockRefusedError) as refused:
         write(lock, tmp_path, fleet=fleet, evidence=evidence)
     said = str(refused.value)
-    assert "srv2" in said and "headroom" in said, said
+    assert "srv2" in said and "overhead" in said, said
 
 
 def test_a_vllm_unit_whose_kv_size_is_not_pinned_is_not_locked(

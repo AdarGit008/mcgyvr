@@ -1,10 +1,10 @@
-"""The lock pins each combination's own headroom, card peak, backend and prefill.
+"""The lock pins each combination's own overhead, card peak, backend and prefill.
 
 RED. ``mcgyvr.fleet.lock`` does not exist. The intent is
 ``records/plans/fleet-identity.md`` §4, §5 and §8, as extended by the gaps a
 comparison of the serving terms against the plan found (owner, 2026-09-11).
 
-* **Headroom is a combination's, not a rig's.** The CUDA context differs per
+* **Overhead is a combination's, not a rig's.** The CUDA context differs per
   card and per engine: llama.cpp on srv1's GTX 1660 SUPER read 115.69 MiB where
   srv2's RTX 3060 read 146.69 for the same model and ``-ub``, though on two
   images (``records/evidence/2026-09-04-srv1-ncmoe-floor/srv1-buffer-probe.tsv:6``,
@@ -80,7 +80,7 @@ EVIDENCE_SRV1: dict[str, Any] = {
             "rig": "srv1",
             "slots": FLT11,
             "passed": True,
-            "headroom_mib": 400,
+            "overhead_mib": 400,
             "restarts": {"srv1_q36": 0},
             "warm_decode_tok_s": {"srv1_q36": 21.0},
             "baseline_tok_s": {"srv1_q36": 21.5},
@@ -113,23 +113,23 @@ def approved(root: Path, rig_id: str) -> list[dict[str, Any]]:
     ]
 
 
-def test_a_combination_is_fitted_with_its_own_headroom(tmp_path: Path) -> None:
+def test_a_combination_is_fitted_with_its_own_overhead(tmp_path: Path) -> None:
     """6800 + 2800 + 2500 = 12100 MiB on a 12000 MiB card is refused for the
     combination whose dev run read 2500, whichever of the two it is; at 2400 it
     fits exactly, and each record keeps its own reading."""
     lock = _lock()
     for heavy, fleet in ((0, "flt-05"), (1, "flt-02")):
         evidence = edited(EVIDENCE)
-        evidence["combinations"][heavy]["headroom_mib"] = 2500
+        evidence["combinations"][heavy]["overhead_mib"] = 2500
         with pytest.raises(lock.LockRefusedError) as refused:
             write(lock, tmp_path / f"heavy-{heavy}", evidence=evidence)
         said = str(refused.value)
-        assert "headroom" in said and fleet in said, said
+        assert "overhead" in said and fleet in said, said
     evidence = edited(EVIDENCE)
-    evidence["combinations"][1]["headroom_mib"] = 2400
+    evidence["combinations"][1]["overhead_mib"] = 2400
     write(lock, tmp_path / "fits", evidence=evidence)
     readings = [
-        json.loads(path.read_text(encoding="utf-8"))["headroom_mib"]
+        json.loads(path.read_text(encoding="utf-8"))["overhead_mib"]
         for path in combination_files(tmp_path / "fits")
     ]
     assert sorted(readings) == [600, 2400], readings

@@ -102,11 +102,11 @@ def _combination_record(
         )
     card_mib = card["card_mib"]
 
-    if "headroom_mib" not in comb:
+    if "overhead_mib" not in comb:
         raise LockRefusedError(
-            f"{fleet_name}: the combination on {rig_name} has no measured headroom_mib"
+            f"{fleet_name}: the combination on {rig_name} has no measured overhead_mib"
         )
-    headroom_mib = comb["headroom_mib"]
+    overhead_mib = comb["overhead_mib"]
 
     room_sum = 0
     for slot in slots:
@@ -125,10 +125,10 @@ def _combination_record(
             )
         room_sum += int(room)
 
-    if room_sum + int(headroom_mib) > int(card_mib):
+    if room_sum + int(overhead_mib) > int(card_mib):
         raise LockRefusedError(
-            f"{fleet_name}: {rig_name} units' room {room_sum} MiB plus headroom "
-            f"{headroom_mib} MiB exceeds the measured card {card_mib} MiB"
+            f"{fleet_name}: {rig_name} units' room {room_sum} MiB plus overhead "
+            f"{overhead_mib} MiB exceeds the measured card {card_mib} MiB"
         )
 
     approved: dict[str, Any] = {}
@@ -257,7 +257,7 @@ def _combination_record(
     record: dict[str, Any] = {
         "rig": rig_name,
         "card_mib": card_mib,
-        "headroom_mib": headroom_mib,
+        "overhead_mib": overhead_mib,
         "restarts": dict(restarts),
         "approved": approved,
         "validated_at": comb.get("validated_at"),

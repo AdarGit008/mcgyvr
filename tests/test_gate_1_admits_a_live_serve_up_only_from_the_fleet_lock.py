@@ -56,13 +56,13 @@ SRV1_FLEET: dict[str, Any] = {
     "fleets": {"flt-01": {"layout": {"srv1": SLOTS}, "next": []}},
 }
 SRV1_EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv1": {"card_mib": 6144, "headroom_mib": 400}},
+    "rigs": {"srv1": {"card_mib": 6144, "overhead_mib": 400}},
     "combinations": [
         {
             "rig": "srv1",
             "slots": SLOTS,
             "passed": True,
-            "headroom_mib": 400,
+            "overhead_mib": 400,
             "restarts": {"a": 0, "b": 0},
             "warm_decode_tok_s": {"a": 20.0, "b": 20.0},
             "baseline_tok_s": {"a": 20.5, "b": 20.5},
