@@ -107,7 +107,7 @@ SLOTS_TSV=srv1-moe-slots.tsv
 
 DRY_RUN=0
 STEP=
-MODELS=${LCP_MODELS:-/home/adaramir/models}
+MODELS=${LCP_MODELS:-$HOME/models}
 SERVE_ARMS="L0 L1 L2 L3 L4 A1"
 SERVE_CELLS="d3b mling"
 SERVE_LEVELS="1,4,8"
