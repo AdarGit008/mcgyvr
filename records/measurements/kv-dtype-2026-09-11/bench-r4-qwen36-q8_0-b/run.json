@@ -830,5 +830,12 @@
       ],
       "rig_revision": "30520d076891e17efe689b9006ab7903f376c4a5"
     }
-  ]
+  ],
+  "completeness": {
+    "expected": 257,
+    "recorded": 257,
+    "missing": 0,
+    "complete": true,
+    "missing_cells": []
+  }
 }

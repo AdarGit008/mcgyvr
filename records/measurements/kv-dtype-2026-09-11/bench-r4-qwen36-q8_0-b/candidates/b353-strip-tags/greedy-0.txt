@@ -1,0 +1,31 @@
+```python
+def strip_tags(line: str) -> str:
+    """Remove every HTML-like tag marker from a line of text.
+    
+    A marker is defined as an opening angle bracket '<', followed by 
+    everything up to the next closing angle bracket '>', including that bracket.
+    If an opening bracket is never closed, everything from that point to the 
+    end of the line is removed.
+    """
+    result = []
+    i = 0
+    length = len(line)
+    
+    while i < length:
+        char = line[i]
+        if char == '<':
+            # Found an opening bracket, look for the closing bracket
+            close_index = line.find('>', i + 1)
+            if close_index == -1:
+                # No closing bracket found, remove everything from here to the end
+                break
+            else:
+                # Skip the entire tag including the closing bracket
+                i = close_index + 1
+        else:
+            # Not an opening bracket, keep the character
+            result.append(char)
+            i += 1
+            
+    return ''.join(result)
+```

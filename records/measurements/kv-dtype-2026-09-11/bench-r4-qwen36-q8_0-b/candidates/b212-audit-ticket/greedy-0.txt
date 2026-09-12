@@ -1,0 +1,67 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    """Audit a depot ticket for shape and check digit validity.
+    
+    Args:
+        ticket: The ticket string to audit.
+        
+    Returns:
+        'shape' if the ticket format is invalid,
+        'check' if the format is valid but the check digit is incorrect,
+        'ok' if the ticket is valid and the check digit is correct.
+        
+    Raises:
+        ValueError: If the ticket is not a string.
+    """
+    if not isinstance(ticket, str):
+        raise ValueError("Ticket must be a string")
+    
+    # Check shape: exactly two capital letters, hyphen, four digits, hyphen, one digit
+    # Pattern: ^[A-Z]{2}-\d{4}-\d$
+    import re
+    pattern = r'^[A-Z]{2}-\d{4}-\d$'
+    if not re.match(pattern, ticket):
+        return "shape"
+    
+    # Parse the ticket
+    # Format: AB-1234-3
+    # Letters: ticket[0], ticket[1]
+    # Digits: ticket[3], ticket[4], ticket[5], ticket[6]
+    # Check digit: ticket[8]
+    
+    letter1 = ticket[0]
+    letter2 = ticket[1]
+    digit1 = int(ticket[3])
+    digit2 = int(ticket[4])
+    digit3 = int(ticket[5])
+    digit4 = int(ticket[6])
+    check_digit = int(ticket[8])
+    
+    # Calculate the total
+    # Each letter adds its place in the alphabet (A=1, B=2, ..., Z=26)
+    # Each digit adds its face value times its position (1-4)
+    
+    # Letter positions
+    pos1 = ord(letter1) - ord('A') + 1
+    pos2 = ord(letter2) - ord('B') + 1  # Wait, B is 2, so ord('B') - ord('A') + 1 = 2
+    
+    # Correct letter positions
+    pos1 = ord(letter1) - ord('A') + 1
+    pos2 = ord(letter2) - ord('A') + 1
+    
+    # Digit contributions
+    # Position 1: digit1 * 1
+    # Position 2: digit2 * 2
+    # Position 3: digit3 * 3
+    # Position 4: digit4 * 4
+    
+    total = pos1 + pos2 + digit1 * 1 + digit2 * 2 + digit3 * 3 + digit4 * 4
+    
+    # The check digit is the last digit of the total
+    expected_check_digit = total % 10
+    
+    if check_digit != expected_check_digit:
+        return "check"
+    
+    return "ok"
+```

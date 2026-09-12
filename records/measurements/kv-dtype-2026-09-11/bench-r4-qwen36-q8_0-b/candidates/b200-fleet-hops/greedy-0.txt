@@ -1,0 +1,61 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    """Calculate total hops for fleet to reach newest release."""
+    if count < 0:
+        raise ValueError("count must be non-negative")
+    if count == 0:
+        return 0
+    if hop < 0:
+        raise ValueError("hop must be non-negative")
+    
+    # Validate builds
+    for build in builds:
+        if not isinstance(build, int) or isinstance(build, bool):
+            raise ValueError(f"build must be an integer, got {type(build)}")
+        if build < 0 or build >= count:
+            raise ValueError(f"build must be between 0 and {count - 1}, got {build}")
+    
+    # LTS releases are those in lts. We need to quickly check if a release is LTS.
+    lts_set = set(lts)
+    
+    # The newest release is count - 1.
+    target = count - 1
+    
+    total_hops = 0
+    
+    for build in builds:
+        if build == target:
+            continue
+        
+        current = build
+        while current < target:
+            # Calculate the potential reach without LTS constraints
+            potential_reach = current + hop
+            
+            # If potential_reach is beyond the target, we cap it at target
+            if potential_reach >= target:
+                current = target
+            else:
+                # Check if there are any LTS releases strictly between current and potential_reach
+                # We need the lowest LTS release strictly above current and strictly below potential_reach
+                # i.e., in range (current, potential_reach)
+                
+                # Find the smallest LTS release > current
+                # Since we don't have a sorted structure for lts, and count might be large,
+                # we should be careful. However, lts is a list.
+                # Let's find all LTS releases in the range (current, potential_reach)
+                
+                candidates = [r for r in lts_set if current < r < potential_reach]
+                
+                if candidates:
+                    # Land on the lowest one
+                    next_release = min(candidates)
+                    current = next_release
+                else:
+                    # Land on potential_reach
+                    current = potential_reach
+            
+            total_hops += 1
+            
+    return total_hops
+```

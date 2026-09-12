@@ -1,0 +1,18 @@
+```python
+def crust_slice(name: str) -> str:
+    """Return the part of the filename before its final dot, respecting path rules."""
+    # Find the last dot in the string
+    last_dot_index = name.rfind('.')
+    
+    # If no dot exists, return the name unchanged
+    if last_dot_index == -1:
+        return name
+    
+    # If the only dot is at the very first character (index 0), return unchanged
+    # This handles cases like ".hidden" where the dot begins a hidden name
+    if last_dot_index == 0:
+        return name
+    
+    # Return the substring before the last dot
+    return name[:last_dot_index]
+```
