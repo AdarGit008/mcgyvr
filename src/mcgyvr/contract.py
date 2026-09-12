@@ -80,6 +80,7 @@ from mcgyvr.catalog import CatalogError, catalog
 from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
 from mcgyvr.scope import Scope
+from mcgyvr.strict_yaml import strict_loader
 
 SCHEMA_VERSION = 1
 
@@ -875,35 +876,6 @@ class Contract:
 # --- loading --------------------------------------------------------------
 
 
-class _StrictLoader(yaml.SafeLoader):
-    """A YAML loader that refuses duplicate keys.
-
-    PyYAML's default silently keeps the last of a repeated key, which in a
-    contract means a scope or a limit quietly overriding an earlier one. The
-    same guard :mod:`mcgyvr.config` applies to the config file.
-    """
-
-
-def _no_duplicates(
-    loader: yaml.SafeLoader, node: yaml.MappingNode, deep: bool = False
-) -> dict[Any, Any]:
-    mapping: dict[Any, Any] = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        if key in mapping:
-            raise ContractSchemaError(
-                f"{key!r}: duplicate key. A repeated key silently overrides "
-                f"the first, so the contract would not do what it reads as."
-            )
-        mapping[key] = loader.construct_object(value_node, deep=deep)
-    return mapping
-
-
-_StrictLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicates
-)
-
-
 def load(path: Path) -> Contract:
     """Read and validate the contract at ``path``."""
     try:
@@ -922,7 +894,7 @@ def parse(text: str, path: Path | None = None) -> Contract:
     """Validate a contract, naming the offending field on any failure."""
     where = f"{path}: " if path else ""
     try:
-        raw = yaml.load(text, Loader=_StrictLoader)
+        raw = yaml.load(text, Loader=strict_loader(ContractSchemaError))
     except yaml.YAMLError as exc:
         raise ContractFileError(f"{where}not valid YAML or JSON: {exc}") from exc
     if raw is None:

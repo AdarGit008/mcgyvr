@@ -4,6 +4,10 @@ Read at session start. Each is an owner ruling or has burned a session.
 
 **`archive/` is not read. Asked to, it is still not an authority.** 
 
+**Superseded code is archived, never deleted.** The old module or function moves
+to `archive/` with the tests that exist only to call it, in the same merge that
+supersedes it. Deleting drops the only record of what the old code claimed.
+
 **A run is expandable until its first measurement, and frozen from then on.**
 
 **A measurement run keeps both rigs working the whole window.** Owner ruling

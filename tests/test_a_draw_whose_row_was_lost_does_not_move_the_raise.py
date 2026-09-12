@@ -21,44 +21,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
-from mcgyvr.telemetry import ATTEMPT_KIND, CORRECTION_KIND, fold
 from tests import livejournal as lj
+from tests._helpers import _orphans, _rows
 
 TWO_DRAWS = "breadth:\n  draws: 2\n"
 
 #: Prompt blob, reply blob, prompt blob, reply blob — the fourth is the second
 #: draw's answer, and it is the one made unwritable.
 LAST_BLOB_OF_THE_SECOND_DRAW = 4
-
-
-@pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
-    lj.claude_transcript(tmp_path / "home", "s1")
-    return tmp_path / "home"
-
-
-def _records(journal: Path) -> list[dict[str, Any]]:
-    return [
-        record for path in sorted(journal.glob("*.jsonl")) for record in fold(path=path)
-    ]
-
-
-def _rows(journal: Path) -> list[dict[str, Any]]:
-    return sorted(
-        (r for r in _records(journal) if r.get("record_kind") == ATTEMPT_KIND),
-        key=lambda record: str(record["attempt_id"]),
-    )
-
-
-def _orphans(journal: Path) -> list[dict[str, Any]]:
-    return [r for r in _records(journal) if r.get("record_kind") == CORRECTION_KIND]
 
 
 def test_the_second_draws_unwritable_blob_still_names_the_second_draw(

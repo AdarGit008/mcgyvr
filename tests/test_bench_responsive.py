@@ -13,30 +13,19 @@ Removing an entry is how a fix is proved — the convention
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "records" / "measurements"
 
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 # `tools/` is not a package, so the rig is loaded by path.
-responsive = _by_path("bench_responsive_t", REPO / "tools" / "bench" / "responsive.py")
+responsive = by_path("bench_responsive_t", REPO / "tools" / "bench" / "responsive.py")
 
 # (tier, arm, stratum) -> (k, n), gate-scored off the committed `norule`
 # contrasts. `headroom` is the count passing under either condition — an upper
@@ -424,10 +413,10 @@ def test_the_scorer_gap_is_the_size_of_the_disagreement() -> None:
     therefore mostly the bar, not the material — which is the finding, and the
     reason the two must never be averaged.
     """
-    eligibility = _by_path(
+    eligibility = by_path(
         "bench_eligibility_rt", REPO / "tools" / "bench" / "eligibility.py"
     )
-    responsiveness = _by_path(
+    responsiveness = by_path(
         "bench_responsiveness_rt", REPO / "tools" / "bench" / "responsiveness.py"
     )
     built = responsiveness.cells(RUNS / "f1-responsiveness-15b-2026-08-11", 8)

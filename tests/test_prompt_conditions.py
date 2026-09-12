@@ -23,10 +23,7 @@ already applies to a resume across output caps.
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,21 +31,11 @@ import pytest
 
 from mcgyvr.contract import Contract, loads
 from mcgyvr.worker.prompt import build_prompt
+from tests._helpers import by_path
 
 REPO = Path(__file__).resolve().parent.parent
 
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-breadth = _by_path("breadth_measure", REPO / "tools" / "breadth" / "measure.py")
-
+breadth = by_path("breadth_measure", REPO / "tools" / "breadth" / "measure.py")
 
 SCAFFOLDED = """
 id: t001-worked-example

@@ -40,7 +40,6 @@ from mcgyvr.gate import ChangeSet, Gate, GateResult
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
-from mcgyvr.pending import resume, stash
 from mcgyvr.repair import repair
 from mcgyvr.sandbox import open_sandbox
 
@@ -385,58 +384,6 @@ def test_the_bytes_the_gate_rejected_do_not_reach_the_repository(
         "the bytes the gate rejected reached the repository"
     )
     assert committed == judged, "the committed bytes are not the bytes the gate judged"
-
-
-def test_a_verdict_does_not_travel_apart_from_the_bytes_it_was_reached_on(
-    tmp_path: Path,
-) -> None:
-    """A substitution between the verdict and the commit is refused, by name.
-
-    This statement is the one the first B6 fix could not hold. Its test built
-    ``Accepted(content=X, digest=digest_of(Y))`` by hand — a value the only
-    constructor could not produce — so the check it guarded was true of every
-    ``Accepted`` the system could make, and reverting the production code broke
-    nothing that could actually happen. Pattern D, inside the fix for it.
-
-    So the substitution here is made the way the system makes one. The verdict
-    and its digest are minted in the workspace the gate ran in and carried to a
-    recovery run through :mod:`mcgyvr.pending`, which stores the digest in
-    ``meta.json`` and the bytes in ``files/`` — two files, in a directory an
-    operator is expected to open. Editing one of them is the substitution, and
-    the edit is deliberately to bytes the gate would *accept*, so that nothing
-    but the binding can catch it.
-    """
-    target = "src/pkg/fetch.py"
-    original = "def fetch(url):\n    return url\n"
-    repo = make_repo(tmp_path / "repo", {target: original})
-    contract = contract_for(target)
-    store = tmp_path / "pending"
-    head = git(repo, "rev-parse", "HEAD").strip()
-
-    judged = "def fetch(url):\n    return url.strip()\n"
-    (repo / target).write_text(judged)
-    verdict = Gate().run(ChangeSet.detect(repo, head), contract.scope)
-    assert verdict.accepted, f"the premise did not hold: {verdict.findings}"
-    bound = Accepted.read(repo=repo, contract=contract, result=verdict)
-    git(repo, "checkout", "--", target)
-
-    entry = stash(store=store, repo=repo, contract=contract, content=bound)
-    # The substitution: valid, formatted, lint-clean Python that no gate read.
-    swapped = "def fetch(url):\n    return url.lstrip()\n"
-    (entry.entry / "files" / target).write_text(swapped)
-
-    result = resume(
-        store=store, repo=repo, task=contract.id, verify=lambda _t: True, base=head
-    )
-
-    assert not result.completed, "committed bytes no verdict was reached on"
-    assert result.delivery is not None
-    assert "verdict" in result.delivery.reason, (
-        f"the refusal must say why: {result.delivery.reason!r}"
-    )
-    assert (repo / target).read_text() == original
-    assert git(repo, "rev-parse", "HEAD").strip() == head
-    assert git(repo, "status", "--porcelain").strip() == ""
 
 
 def test_a_writer_between_the_write_and_the_commit_cannot_substitute_the_bytes(

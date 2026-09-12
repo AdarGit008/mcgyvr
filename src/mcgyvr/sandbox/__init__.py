@@ -14,7 +14,7 @@ interface (:mod:`mcgyvr.sandbox.base`):
 
 What the target repository needs to run its own checks is detected once
 (:mod:`mcgyvr.sandbox.stack`). Provider credentials never enter either mode
-(see ``SECURITY.md``).
+(see ``archive/SECURITY.md``).
 """
 
 from __future__ import annotations

@@ -106,9 +106,6 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.fleet.ids",
     "mcgyvr.fleet.layout",
     "mcgyvr.fleet.lock",
-    "mcgyvr.fleet.observe",
-    "mcgyvr.fleet.rig",
-    "mcgyvr.fleet.unit",
     "mcgyvr.initialize",
     "mcgyvr.pool",
     "mcgyvr.propose",
@@ -133,13 +130,12 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: ``mcgyvr.pool``'s other half — a caller that sees a ladder of rungs and has
 #: not resolved one to anything that runs. The contract and the exploration
 #: that produces one (contract, orchestrator.*, docgen), the climb through the
-#: ladder (route, escalate, attempt, drive, consensus, waves, deterministic,
-#: rename, repair, verify, pending, deliver, cleanup), what a worker is sent
+#: ladder (route, escalate, drive, consensus, deterministic, rename, repair,
+#: verify, deliver, cleanup), what a worker is sent
 #: and what may be read back (worker.*), what judges the change (gate.*,
-#: scope), and what the run leaves behind for the caller (result, record,
-#: session, telemetry).
+#: scope), and what the run leaves behind for the caller (result, session,
+#: telemetry).
 ABOVE_THE_SEAM: tuple[str, ...] = (
-    "mcgyvr.attempt",
     "mcgyvr.cleanup",
     "mcgyvr.consensus",
     "mcgyvr.contract",
@@ -172,8 +168,6 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.orchestrator.repo",
     "mcgyvr.orchestrator.resolve",
     "mcgyvr.orchestrator.symbols",
-    "mcgyvr.pending",
-    "mcgyvr.record",
     "mcgyvr.rename",
     "mcgyvr.repair",
     "mcgyvr.result",
@@ -182,12 +176,10 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.session",
     "mcgyvr.telemetry",
     "mcgyvr.verify",
-    "mcgyvr.waves",
     "mcgyvr.worker",
     "mcgyvr.worker.bundle",
     "mcgyvr.worker.prompt",
     "mcgyvr.worker.reply",
-    "mcgyvr.worker.scoped",
 )
 
 #: Action 15 — the modules both halves import, written down. Each is read from
@@ -195,8 +187,9 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: whole project rather than for one half of it: the package itself, the one
 #: config file (``config.py``:1), the vocabulary of what may be asked for
 #: (``catalog.py``:1), the exit codes a caller branches on (``exits.py``:1),
-#: where a line ends (``lines.py``:1), and what is safe to quote to an
-#: operator (``redact.py``:1). Being on this list is not an exemption: a
+#: where a line ends (``lines.py``:1), what is safe to quote to an
+#: operator (``redact.py``:1), and the strict YAML loader both schemas share
+#: (``strict_yaml.py``:1). Being on this list is not an exemption: a
 #: shared module is held to *both* rules below, because a shared module that
 #: reached into either half would pull that half into everything that reads
 #: it.
@@ -207,6 +200,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.exits",
     "mcgyvr.lines",
     "mcgyvr.redact",
+    "mcgyvr.strict_yaml",
 )
 
 #: The one module that is allowed to reach into both halves, because reaching

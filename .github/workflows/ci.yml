@@ -21,6 +21,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+          cache: npm
       # `ci`, not `install`: the lockfile is the pin, and the parser version is
       # part of the bar it applies.
       #
@@ -37,17 +38,14 @@ jobs:
         with:
           version: "0.11.28"
           python-version: "3.12"
-      - name: lint
-        run: make lint
-      - name: typecheck
-        run: make typecheck
-      # The config reference is rendered from config.SCHEMA, checked and
-      # deleted — no copy is kept, so the schema is the only description of
-      # the config. The /mcgyvr skill is the document that is committed, and
-      # this fails a contract-schema change that did not regenerate it. It
-      # lives in this job on purpose: `test` is a required status check, so
-      # drift cannot merge. A separate job would not be required.
-      - name: config reference renders and the skill is current
-        run: make docs-check
-      - name: test
-        run: make test
+      # One `make check` — a single `make setup`, then lint, typecheck,
+      # docs-check and test in one pass. The four leaf targets each depend on
+      # `setup`, so running them separately rebuilt the editable package four
+      # times per run; `check` builds once and reuses it. pytest runs under
+      # `-n auto` (xdist) to cut wall-clock.
+      #
+      # docs-check lives in this job on purpose: `test` is a required status
+      # check, so the config-reference / skill drift it guards cannot merge.
+      # A separate job would not be required.
+      - name: check (lint, typecheck, docs, test)
+        run: make check
