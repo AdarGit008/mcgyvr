@@ -1,0 +1,45 @@
+```python
+def fresh_value(entry: dict, now: int) -> str:
+    """Return the value from a valid, currently usable cache record."""
+    if not isinstance(entry, dict):
+        raise ValueError("entry must be a dict")
+    
+    required_keys = {"value", "stored", "ttl"}
+    if not required_keys.issubset(entry.keys()):
+        raise ValueError("entry missing required fields: value, stored, ttl")
+    
+    # Check for extra fields
+    if set(entry.keys()) != required_keys:
+        raise ValueError("entry contains extra fields")
+    
+    value = entry["value"]
+    stored = entry["stored"]
+    ttl = entry["ttl"]
+    
+    if not isinstance(value, str):
+        raise ValueError("value must be a string")
+    
+    if not isinstance(stored, int) or isinstance(stored, bool):
+        raise ValueError("stored must be an integer")
+    
+    if stored < 0:
+        raise ValueError("stored must be non-negative")
+    
+    if not isinstance(ttl, int) or isinstance(ttl, bool):
+        raise ValueError("ttl must be an integer")
+    
+    if ttl <= 0:
+        raise ValueError("ttl must be a positive integer")
+    
+    if not isinstance(now, int) or isinstance(now, bool):
+        raise ValueError("now must be an integer")
+    
+    if now < stored:
+        raise ValueError("now must be at least stored")
+    
+    # Record is usable from stored up to but not including stored + ttl
+    if now >= stored + ttl:
+        raise ValueError("record is no longer usable at now")
+    
+    return value
+```

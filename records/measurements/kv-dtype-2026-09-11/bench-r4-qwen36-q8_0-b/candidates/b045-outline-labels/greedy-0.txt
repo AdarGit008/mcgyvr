@@ -1,0 +1,83 @@
+```python
+def number_sections(sections: list) -> list:
+    """Return a list of numbered section labels in document order."""
+    if not isinstance(sections, list):
+        raise ValueError("sections must be a list")
+    
+    def validate_and_number(secs: list, prefix: str, index: int) -> tuple[list, int]:
+        """Recursively validate sections and generate labels."""
+        result = []
+        current_index = index
+        
+        for section in secs:
+            if not isinstance(section, dict):
+                raise ValueError("Each section must be a mapping (dict)")
+            
+            if "heading" not in section or "children" not in section:
+                raise ValueError("Each section must have 'heading' and 'children' keys")
+            
+            heading = section["heading"]
+            children = section["children"]
+            
+            if not isinstance(heading, str) or len(heading) == 0:
+                raise ValueError("Heading must be a non-empty string")
+            
+            if not isinstance(children, list):
+                raise ValueError("Children must be a list")
+            
+            # Determine the label for this section
+            if prefix == "":
+                # Top-level section
+                label = f"{current_index} {heading}"
+                new_prefix = str(current_index)
+            else:
+                # Nested section
+                label = f"{prefix}.{current_index} {heading}"
+                new_prefix = f"{prefix}.{current_index}"
+            
+            result.append(label)
+            
+            # Process children
+            if children:
+                child_results, _ = validate_and_number(children, new_prefix, 1)
+                result.extend(child_results)
+            
+            current_index += 1
+        
+        return result, current_index
+
+    labels, _ = validate_and_number(sections, "", 1)
+    return labels
+
+
+def section_count(sections: list) -> int:
+    """Return the total number of sections in the outline."""
+    if not isinstance(sections, list):
+        raise ValueError("sections must be a list")
+    
+    def count(secs: list) -> int:
+        """Recursively count sections."""
+        total = 0
+        for section in secs:
+            if not isinstance(section, dict):
+                raise ValueError("Each section must be a mapping (dict)")
+            
+            if "heading" not in section or "children" not in section:
+                raise ValueError("Each section must have 'heading' and 'children' keys")
+            
+            heading = section["heading"]
+            children = section["children"]
+            
+            if not isinstance(heading, str) or len(heading) == 0:
+                raise ValueError("Heading must be a non-empty string")
+            
+            if not isinstance(children, list):
+                raise ValueError("Children must be a list")
+            
+            total += 1  # Count this section
+            total += count(children)  # Add children count
+        
+        return total
+    
+    return count(sections)
+```

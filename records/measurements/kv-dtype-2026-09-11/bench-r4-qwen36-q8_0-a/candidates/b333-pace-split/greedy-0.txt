@@ -1,0 +1,33 @@
+```python
+def pace_of(seconds: int, kilometres: int) -> int:
+    """Return the seconds per kilometre for a leg, rounded down."""
+    if kilometres <= 0:
+        raise ValueError("Distance must be greater than zero")
+    return seconds // kilometres
+
+
+def pace_list(legs: list) -> list:
+    """Return the pace of every leg of a run."""
+    if not isinstance(legs, list):
+        raise ValueError("legs must be a list")
+    
+    result = []
+    for leg in legs:
+        if not isinstance(leg, (list, tuple)) or len(leg) != 2:
+            raise ValueError("Each leg must be a pair of (seconds, kilometres)")
+        
+        seconds, kilometres = leg
+        
+        if not isinstance(seconds, (int, float)):
+            raise ValueError("Seconds must be a number")
+        if not isinstance(kilometres, (int, float)):
+            raise ValueError("Kilometres must be a number")
+            
+        if kilometres <= 0:
+            raise ValueError("Distance must be greater than zero")
+            
+        pace = pace_of(int(seconds), int(kilometres))
+        result.append(pace)
+        
+    return result
+```

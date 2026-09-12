@@ -1,0 +1,21 @@
+```python
+def digit_word(digit: int) -> str:
+    """Return the English name for a single digit."""
+    if not isinstance(digit, int) or digit < 0 or digit > 9:
+        raise ValueError("digit must be an integer between 0 and 9")
+    return ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][digit]
+
+
+def digit_words(digits: str) -> str:
+    """Return the English names for each digit in the string, joined by spaces."""
+    if not isinstance(digits, str):
+        raise ValueError("digits must be a string")
+    if not digits:
+        return ""
+    words = []
+    for char in digits:
+        if not char.isdigit():
+            raise ValueError(f"Invalid character in digits string: '{char}'")
+        words.append(digit_word(int(char)))
+    return " ".join(words)
+```

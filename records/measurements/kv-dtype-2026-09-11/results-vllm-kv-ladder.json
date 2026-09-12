@@ -1,0 +1,810 @@
+[
+  {
+    "label": "r3-15b-float16-c1",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "dtype": "float16",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 200.1,
+        "p50_s": 2.369,
+        "truncated": "0/1",
+        "wall_s": 2.4
+      },
+      "n=2": {
+        "agg_tok_s": 385.2,
+        "p50_s": 2.463,
+        "truncated": "0/2",
+        "wall_s": 2.5
+      },
+      "n=4": {
+        "agg_tok_s": 768.0,
+        "p50_s": 2.469,
+        "truncated": "0/4",
+        "wall_s": 2.5
+      },
+      "n=8": {
+        "agg_tok_s": 1444.8,
+        "p50_s": 2.618,
+        "truncated": "0/8",
+        "wall_s": 2.6
+      },
+      "n=16": {
+        "agg_tok_s": 2491.1,
+        "p50_s": 2.992,
+        "truncated": "0/16",
+        "wall_s": 3.1
+      },
+      "n=32": {
+        "agg_tok_s": 3923.6,
+        "p50_s": 3.845,
+        "truncated": "0/32",
+        "wall_s": 3.9
+      },
+      "n=64": {
+        "agg_tok_s": 4854.3,
+        "p50_s": 6.147,
+        "truncated": "0/64",
+        "wall_s": 6.3
+      },
+      "n=128": {
+        "agg_tok_s": 5536.7,
+        "p50_s": 10.861,
+        "truncated": "0/128",
+        "wall_s": 11.0
+      }
+    },
+    "cold": 1
+  },
+  {
+    "label": "r3-15b-float16-c2",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "dtype": "float16",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 202.6,
+        "p50_s": 2.344,
+        "truncated": "0/1",
+        "wall_s": 2.3
+      },
+      "n=2": {
+        "agg_tok_s": 390.4,
+        "p50_s": 2.431,
+        "truncated": "0/2",
+        "wall_s": 2.4
+      },
+      "n=4": {
+        "agg_tok_s": 784.0,
+        "p50_s": 2.419,
+        "truncated": "0/4",
+        "wall_s": 2.4
+      },
+      "n=8": {
+        "agg_tok_s": 1429.5,
+        "p50_s": 2.64,
+        "truncated": "0/8",
+        "wall_s": 2.7
+      },
+      "n=16": {
+        "agg_tok_s": 2453.8,
+        "p50_s": 3.024,
+        "truncated": "0/16",
+        "wall_s": 3.1
+      },
+      "n=32": {
+        "agg_tok_s": 3903.4,
+        "p50_s": 3.852,
+        "truncated": "0/32",
+        "wall_s": 3.9
+      },
+      "n=64": {
+        "agg_tok_s": 4859.4,
+        "p50_s": 6.163,
+        "truncated": "0/64",
+        "wall_s": 6.3
+      },
+      "n=128": {
+        "agg_tok_s": 5541.5,
+        "p50_s": 10.825,
+        "truncated": "0/128",
+        "wall_s": 11.0
+      }
+    },
+    "cold": 2
+  },
+  {
+    "label": "r3-15b-fp8-c1",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "dtype": "fp8",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 188.5,
+        "p50_s": 2.519,
+        "truncated": "0/1",
+        "wall_s": 2.5
+      },
+      "n=2": {
+        "agg_tok_s": 370.3,
+        "p50_s": 2.563,
+        "truncated": "0/2",
+        "wall_s": 2.6
+      },
+      "n=4": {
+        "agg_tok_s": 725.2,
+        "p50_s": 2.552,
+        "truncated": "0/4",
+        "wall_s": 2.6
+      },
+      "n=8": {
+        "agg_tok_s": 1416.1,
+        "p50_s": 2.67,
+        "truncated": "0/8",
+        "wall_s": 2.7
+      },
+      "n=16": {
+        "agg_tok_s": 2559.9,
+        "p50_s": 2.892,
+        "truncated": "0/16",
+        "wall_s": 3.0
+      },
+      "n=32": {
+        "agg_tok_s": 3865.9,
+        "p50_s": 3.841,
+        "truncated": "0/32",
+        "wall_s": 3.9
+      },
+      "n=64": {
+        "agg_tok_s": 4971.4,
+        "p50_s": 6.058,
+        "truncated": "0/64",
+        "wall_s": 6.1
+      },
+      "n=128": {
+        "agg_tok_s": 5736.3,
+        "p50_s": 10.443,
+        "truncated": "0/128",
+        "wall_s": 10.6
+      }
+    },
+    "cold": 1
+  },
+  {
+    "label": "r3-15b-fp8-c2",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "dtype": "fp8",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 188.7,
+        "p50_s": 2.516,
+        "truncated": "0/1",
+        "wall_s": 2.5
+      },
+      "n=2": {
+        "agg_tok_s": 372.4,
+        "p50_s": 2.549,
+        "truncated": "0/2",
+        "wall_s": 2.6
+      },
+      "n=4": {
+        "agg_tok_s": 728.4,
+        "p50_s": 2.542,
+        "truncated": "0/4",
+        "wall_s": 2.6
+      },
+      "n=8": {
+        "agg_tok_s": 1408.3,
+        "p50_s": 2.691,
+        "truncated": "0/8",
+        "wall_s": 2.7
+      },
+      "n=16": {
+        "agg_tok_s": 2558.2,
+        "p50_s": 2.895,
+        "truncated": "0/16",
+        "wall_s": 3.0
+      },
+      "n=32": {
+        "agg_tok_s": 3838.5,
+        "p50_s": 3.864,
+        "truncated": "0/32",
+        "wall_s": 4.0
+      },
+      "n=64": {
+        "agg_tok_s": 4989.5,
+        "p50_s": 5.992,
+        "truncated": "0/64",
+        "wall_s": 6.1
+      },
+      "n=128": {
+        "agg_tok_s": 5705.4,
+        "p50_s": 10.42,
+        "truncated": "0/128",
+        "wall_s": 10.7
+      }
+    },
+    "cold": 2
+  },
+  {
+    "label": "r3-3b-float16-c1",
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "dtype": "float16",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 122.1,
+        "p50_s": 3.887,
+        "truncated": "0/1",
+        "wall_s": 3.9
+      },
+      "n=2": {
+        "agg_tok_s": 239.1,
+        "p50_s": 3.97,
+        "truncated": "0/2",
+        "wall_s": 4.0
+      },
+      "n=4": {
+        "agg_tok_s": 467.6,
+        "p50_s": 3.999,
+        "truncated": "0/4",
+        "wall_s": 4.1
+      },
+      "n=8": {
+        "agg_tok_s": 885.5,
+        "p50_s": 4.272,
+        "truncated": "0/8",
+        "wall_s": 4.3
+      },
+      "n=16": {
+        "agg_tok_s": 1577.5,
+        "p50_s": 4.743,
+        "truncated": "0/16",
+        "wall_s": 4.8
+      },
+      "n=32": {
+        "agg_tok_s": 2362.3,
+        "p50_s": 6.361,
+        "truncated": "0/32",
+        "wall_s": 6.4
+      },
+      "n=64": {
+        "agg_tok_s": 2817.7,
+        "p50_s": 10.692,
+        "truncated": "0/64",
+        "wall_s": 10.8
+      },
+      "n=128": {
+        "agg_tok_s": 3073.9,
+        "p50_s": 19.636,
+        "truncated": "0/128",
+        "wall_s": 19.8
+      }
+    },
+    "cold": 1
+  },
+  {
+    "label": "r3-3b-float16-c2",
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "dtype": "float16",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 122.4,
+        "p50_s": 3.881,
+        "truncated": "0/1",
+        "wall_s": 3.9
+      },
+      "n=2": {
+        "agg_tok_s": 239.2,
+        "p50_s": 3.97,
+        "truncated": "0/2",
+        "wall_s": 4.0
+      },
+      "n=4": {
+        "agg_tok_s": 467.6,
+        "p50_s": 4.003,
+        "truncated": "0/4",
+        "wall_s": 4.1
+      },
+      "n=8": {
+        "agg_tok_s": 892.9,
+        "p50_s": 4.238,
+        "truncated": "0/8",
+        "wall_s": 4.3
+      },
+      "n=16": {
+        "agg_tok_s": 1585.5,
+        "p50_s": 4.722,
+        "truncated": "0/16",
+        "wall_s": 4.8
+      },
+      "n=32": {
+        "agg_tok_s": 2350.2,
+        "p50_s": 6.366,
+        "truncated": "0/32",
+        "wall_s": 6.5
+      },
+      "n=64": {
+        "agg_tok_s": 2842.9,
+        "p50_s": 10.546,
+        "truncated": "0/64",
+        "wall_s": 10.7
+      },
+      "n=128": {
+        "agg_tok_s": 3070.3,
+        "p50_s": 19.608,
+        "truncated": "0/128",
+        "wall_s": 19.8
+      }
+    },
+    "cold": 2
+  },
+  {
+    "label": "r3-3b-fp8-c1",
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "dtype": "fp8",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 117.0,
+        "p50_s": 4.06,
+        "truncated": "0/1",
+        "wall_s": 4.1
+      },
+      "n=2": {
+        "agg_tok_s": 230.7,
+        "p50_s": 4.115,
+        "truncated": "0/2",
+        "wall_s": 4.1
+      },
+      "n=4": {
+        "agg_tok_s": 453.6,
+        "p50_s": 4.127,
+        "truncated": "0/4",
+        "wall_s": 4.2
+      },
+      "n=8": {
+        "agg_tok_s": 884.0,
+        "p50_s": 4.29,
+        "truncated": "0/8",
+        "wall_s": 4.3
+      },
+      "n=16": {
+        "agg_tok_s": 1617.4,
+        "p50_s": 4.624,
+        "truncated": "0/16",
+        "wall_s": 4.7
+      },
+      "n=32": {
+        "agg_tok_s": 2406.9,
+        "p50_s": 6.274,
+        "truncated": "0/32",
+        "wall_s": 6.3
+      },
+      "n=64": {
+        "agg_tok_s": 2890.0,
+        "p50_s": 10.404,
+        "truncated": "0/64",
+        "wall_s": 10.5
+      },
+      "n=128": {
+        "agg_tok_s": 3182.4,
+        "p50_s": 18.934,
+        "truncated": "0/128",
+        "wall_s": 19.1
+      }
+    },
+    "cold": 1
+  },
+  {
+    "label": "r3-3b-fp8-c2",
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "dtype": "fp8",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 117.3,
+        "p50_s": 4.046,
+        "truncated": "0/1",
+        "wall_s": 4.0
+      },
+      "n=2": {
+        "agg_tok_s": 231.9,
+        "p50_s": 4.096,
+        "truncated": "0/2",
+        "wall_s": 4.1
+      },
+      "n=4": {
+        "agg_tok_s": 455.6,
+        "p50_s": 4.109,
+        "truncated": "0/4",
+        "wall_s": 4.2
+      },
+      "n=8": {
+        "agg_tok_s": 886.3,
+        "p50_s": 4.268,
+        "truncated": "0/8",
+        "wall_s": 4.3
+      },
+      "n=16": {
+        "agg_tok_s": 1615.4,
+        "p50_s": 4.636,
+        "truncated": "0/16",
+        "wall_s": 4.7
+      },
+      "n=32": {
+        "agg_tok_s": 2403.0,
+        "p50_s": 6.268,
+        "truncated": "0/32",
+        "wall_s": 6.3
+      },
+      "n=64": {
+        "agg_tok_s": 2894.2,
+        "p50_s": 10.377,
+        "truncated": "0/64",
+        "wall_s": 10.5
+      },
+      "n=128": {
+        "agg_tok_s": 3188.3,
+        "p50_s": 18.877,
+        "truncated": "0/128",
+        "wall_s": 19.1
+      }
+    },
+    "cold": 2
+  },
+  {
+    "label": "r3-q34b-float16-c1",
+    "failed": "door rc=1",
+    "cold": 1
+  },
+  {
+    "label": "r3-q34b-float16-c2",
+    "failed": "door rc=1",
+    "cold": 2
+  },
+  {
+    "label": "r3-q34b-fp8-c1",
+    "model": "thewimo/Qwen3-4B-AWQ",
+    "dtype": "fp8",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 96.2,
+        "p50_s": 4.936,
+        "truncated": "0/1",
+        "wall_s": 4.9
+      },
+      "n=2": {
+        "agg_tok_s": 189.5,
+        "p50_s": 5.011,
+        "truncated": "0/2",
+        "wall_s": 5.0
+      },
+      "n=4": {
+        "agg_tok_s": 369.7,
+        "p50_s": 5.08,
+        "truncated": "0/4",
+        "wall_s": 5.1
+      },
+      "n=8": {
+        "agg_tok_s": 698.0,
+        "p50_s": 5.411,
+        "truncated": "0/8",
+        "wall_s": 5.4
+      },
+      "n=16": {
+        "agg_tok_s": 1248.6,
+        "p50_s": 5.939,
+        "truncated": "0/16",
+        "wall_s": 6.1
+      },
+      "n=32": {
+        "agg_tok_s": 1813.1,
+        "p50_s": 8.229,
+        "truncated": "0/32",
+        "wall_s": 8.4
+      },
+      "n=64": {
+        "agg_tok_s": 2140.5,
+        "p50_s": 13.949,
+        "truncated": "0/64",
+        "wall_s": 14.2
+      },
+      "n=128": {
+        "agg_tok_s": 2349.9,
+        "p50_s": 25.654,
+        "truncated": "0/128",
+        "wall_s": 25.9
+      }
+    },
+    "cold": 1
+  },
+  {
+    "label": "r3-q34b-fp8-c2",
+    "model": "thewimo/Qwen3-4B-AWQ",
+    "dtype": "fp8",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 95.9,
+        "p50_s": 4.95,
+        "truncated": "0/1",
+        "wall_s": 5.0
+      },
+      "n=2": {
+        "agg_tok_s": 188.6,
+        "p50_s": 5.035,
+        "truncated": "0/2",
+        "wall_s": 5.0
+      },
+      "n=4": {
+        "agg_tok_s": 369.1,
+        "p50_s": 5.091,
+        "truncated": "0/4",
+        "wall_s": 5.1
+      },
+      "n=8": {
+        "agg_tok_s": 702.4,
+        "p50_s": 5.394,
+        "truncated": "0/8",
+        "wall_s": 5.4
+      },
+      "n=16": {
+        "agg_tok_s": 1252.1,
+        "p50_s": 6.0,
+        "truncated": "0/16",
+        "wall_s": 6.1
+      },
+      "n=32": {
+        "agg_tok_s": 1816.2,
+        "p50_s": 8.243,
+        "truncated": "0/32",
+        "wall_s": 8.4
+      },
+      "n=64": {
+        "agg_tok_s": 2138.8,
+        "p50_s": 14.094,
+        "truncated": "0/64",
+        "wall_s": 14.2
+      },
+      "n=128": {
+        "agg_tok_s": 2350.2,
+        "p50_s": 25.73,
+        "truncated": "0/128",
+        "wall_s": 25.9
+      }
+    },
+    "cold": 2
+  },
+  {
+    "label": "r3-7b-float16-c1",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "dtype": "float16",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 67.3,
+        "p50_s": 7.061,
+        "truncated": "0/1",
+        "wall_s": 7.1
+      },
+      "n=2": {
+        "agg_tok_s": 132.5,
+        "p50_s": 7.17,
+        "truncated": "0/2",
+        "wall_s": 7.2
+      },
+      "n=4": {
+        "agg_tok_s": 258.8,
+        "p50_s": 7.291,
+        "truncated": "0/4",
+        "wall_s": 7.3
+      },
+      "n=8": {
+        "agg_tok_s": 497.7,
+        "p50_s": 7.606,
+        "truncated": "0/8",
+        "wall_s": 7.6
+      },
+      "n=16": {
+        "agg_tok_s": 924.1,
+        "p50_s": 8.167,
+        "truncated": "0/16",
+        "wall_s": 8.2
+      },
+      "n=32": {
+        "agg_tok_s": 1309.4,
+        "p50_s": 11.505,
+        "truncated": "0/32",
+        "wall_s": 11.6
+      },
+      "n=64": {
+        "agg_tok_s": 1518.1,
+        "p50_s": 19.937,
+        "truncated": "0/64",
+        "wall_s": 20.0
+      },
+      "n=128": {
+        "agg_tok_s": 1550.7,
+        "p50_s": 38.898,
+        "truncated": "0/128",
+        "wall_s": 39.2
+      }
+    },
+    "cold": 1
+  },
+  {
+    "label": "r3-7b-float16-c2",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "dtype": "float16",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 67.2,
+        "p50_s": 7.062,
+        "truncated": "0/1",
+        "wall_s": 7.1
+      },
+      "n=2": {
+        "agg_tok_s": 132.5,
+        "p50_s": 7.17,
+        "truncated": "0/2",
+        "wall_s": 7.2
+      },
+      "n=4": {
+        "agg_tok_s": 258.6,
+        "p50_s": 7.295,
+        "truncated": "0/4",
+        "wall_s": 7.3
+      },
+      "n=8": {
+        "agg_tok_s": 493.4,
+        "p50_s": 7.651,
+        "truncated": "0/8",
+        "wall_s": 7.7
+      },
+      "n=16": {
+        "agg_tok_s": 927.1,
+        "p50_s": 8.128,
+        "truncated": "0/16",
+        "wall_s": 8.2
+      },
+      "n=32": {
+        "agg_tok_s": 1307.6,
+        "p50_s": 11.537,
+        "truncated": "0/32",
+        "wall_s": 11.6
+      },
+      "n=64": {
+        "agg_tok_s": 1513.6,
+        "p50_s": 19.979,
+        "truncated": "0/64",
+        "wall_s": 20.1
+      },
+      "n=128": {
+        "agg_tok_s": 1557.6,
+        "p50_s": 38.849,
+        "truncated": "0/128",
+        "wall_s": 39.0
+      }
+    },
+    "cold": 2
+  },
+  {
+    "label": "r3-7b-fp8-c1",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "dtype": "fp8",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 65.8,
+        "p50_s": 7.222,
+        "truncated": "0/1",
+        "wall_s": 7.2
+      },
+      "n=2": {
+        "agg_tok_s": 130.1,
+        "p50_s": 7.302,
+        "truncated": "0/2",
+        "wall_s": 7.3
+      },
+      "n=4": {
+        "agg_tok_s": 256.1,
+        "p50_s": 7.361,
+        "truncated": "0/4",
+        "wall_s": 7.4
+      },
+      "n=8": {
+        "agg_tok_s": 501.0,
+        "p50_s": 7.573,
+        "truncated": "0/8",
+        "wall_s": 7.6
+      },
+      "n=16": {
+        "agg_tok_s": 927.4,
+        "p50_s": 8.119,
+        "truncated": "0/16",
+        "wall_s": 8.2
+      },
+      "n=32": {
+        "agg_tok_s": 1330.5,
+        "p50_s": 11.365,
+        "truncated": "0/32",
+        "wall_s": 11.4
+      },
+      "n=64": {
+        "agg_tok_s": 1544.5,
+        "p50_s": 19.509,
+        "truncated": "0/64",
+        "wall_s": 19.7
+      },
+      "n=128": {
+        "agg_tok_s": 1596.3,
+        "p50_s": 37.912,
+        "truncated": "0/128",
+        "wall_s": 38.1
+      }
+    },
+    "cold": 1
+  },
+  {
+    "label": "r3-7b-fp8-c2",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "dtype": "fp8",
+    "shape": "util=0.9 len=1024 seqs=128",
+    "levels": {
+      "n=1": {
+        "agg_tok_s": 65.7,
+        "p50_s": 7.228,
+        "truncated": "0/1",
+        "wall_s": 7.2
+      },
+      "n=2": {
+        "agg_tok_s": 130.1,
+        "p50_s": 7.3,
+        "truncated": "0/2",
+        "wall_s": 7.3
+      },
+      "n=4": {
+        "agg_tok_s": 256.3,
+        "p50_s": 7.36,
+        "truncated": "0/4",
+        "wall_s": 7.4
+      },
+      "n=8": {
+        "agg_tok_s": 501.0,
+        "p50_s": 7.572,
+        "truncated": "0/8",
+        "wall_s": 7.6
+      },
+      "n=16": {
+        "agg_tok_s": 927.7,
+        "p50_s": 8.123,
+        "truncated": "0/16",
+        "wall_s": 8.2
+      },
+      "n=32": {
+        "agg_tok_s": 1330.9,
+        "p50_s": 11.349,
+        "truncated": "0/32",
+        "wall_s": 11.4
+      },
+      "n=64": {
+        "agg_tok_s": 1548.3,
+        "p50_s": 19.504,
+        "truncated": "0/64",
+        "wall_s": 19.6
+      },
+      "n=128": {
+        "agg_tok_s": 1599.9,
+        "p50_s": 37.844,
+        "truncated": "0/128",
+        "wall_s": 38.0
+      }
+    },
+    "cold": 2
+  }
+]

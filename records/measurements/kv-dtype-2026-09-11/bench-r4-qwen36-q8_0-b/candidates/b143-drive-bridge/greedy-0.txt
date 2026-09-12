@@ -1,0 +1,41 @@
+```python
+def drive_bridge(commands: list) -> str:
+    """Process a list of drawbridge commands and return the final state."""
+    if not isinstance(commands, list):
+        raise ValueError("commands must be a list")
+
+    # Define valid commands and state transitions
+    # State: 'lowered', 'raised', 'locked'
+    # Transitions:
+    # lowered -> raise -> raised
+    # raised -> lower -> lowered
+    # raised -> lock -> locked
+    # locked -> unlock -> raised
+    
+    valid_commands = {'raise', 'lower', 'lock', 'unlock'}
+    current_state = 'lowered'
+    
+    for command in commands:
+        if command not in valid_commands:
+            raise ValueError(f"Invalid command: {command}")
+        
+        if current_state == 'lowered':
+            if command == 'raise':
+                current_state = 'raised'
+            else:
+                raise ValueError(f"Cannot {command} from state {current_state}")
+        elif current_state == 'raised':
+            if command == 'lower':
+                current_state = 'lowered'
+            elif command == 'lock':
+                current_state = 'locked'
+            else:
+                raise ValueError(f"Cannot {command} from state {current_state}")
+        elif current_state == 'locked':
+            if command == 'unlock':
+                current_state = 'raised'
+            else:
+                raise ValueError(f"Cannot {command} from state {current_state}")
+                
+    return current_state
+```

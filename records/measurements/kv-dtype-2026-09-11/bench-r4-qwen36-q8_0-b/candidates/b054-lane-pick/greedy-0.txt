@@ -1,0 +1,33 @@
+```python
+def pick_lane(queues: list, closed: list) -> int:
+    """Return the index of the best open lane based on queue length."""
+    if not isinstance(queues, list) or len(queues) == 0:
+        raise ValueError("queues must be a non-empty list")
+    
+    for q in queues:
+        if not isinstance(q, int) or q < 0:
+            raise ValueError("queue length must be a non-negative integer")
+    
+    if not isinstance(closed, list):
+        raise ValueError("closed must be a list")
+    
+    for c in closed:
+        if not isinstance(c, int):
+            raise ValueError("closed index must be an integer")
+        if c < 0 or c >= len(queues):
+            raise ValueError("closed index must point at a valid lane")
+    
+    closed_set = set(closed)
+    
+    open_lanes = [i for i in range(len(queues)) if i not in closed_set]
+    
+    if not open_lanes:
+        raise ValueError("every lane is closed")
+    
+    best = open_lanes[0]
+    for lane in open_lanes[1:]:
+        if queues[lane] < queues[best]:
+            best = lane
+            
+    return best
+```

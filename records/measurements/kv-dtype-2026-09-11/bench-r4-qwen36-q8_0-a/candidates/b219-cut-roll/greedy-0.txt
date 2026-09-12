@@ -1,0 +1,61 @@
+```python
+"""Cut a fabric roll for the greatest takings the price board allows."""
+
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    """Return the maximum takings and the piece lengths for a fabric roll cut."""
+    if isinstance(length, bool) or not isinstance(length, int) or length < 0:
+        raise ValueError("length must be a non-negative whole number")
+    
+    # Sort board by piece length descending to prefer longer pieces on ties
+    order = sorted(board, key=lambda entry: -entry[0])
+    
+    # best[i] stores the max price for a roll of length i
+    # taken[i] stores the length of the first piece cut from a roll of length i
+    # taken[i] = 0 means the last metre is scrapped (or roll is 0)
+    best = [0] * (length + 1)
+    taken = [0] * (length + 1)
+    
+    for metres in range(1, length + 1):
+        best[metres] = -1
+        # Try cutting each piece off the end
+        for piece, price in order:
+            if piece <= metres:
+                candidate = price + best[metres - piece]
+                # Tie-breaking: prefer cutting a piece to scrapping, 
+                # and longer piece to shorter.
+                # Since we iterate pieces from longest to shortest, 
+                # the first one that strictly beats the current best is good.
+                # However, we need to compare against the "scrap" option implicitly.
+                # The logic below handles:
+                # 1. If candidate > current best[metres], update.
+                # 2. If candidate == current best[metres], we prefer the current piece 
+                #    if it's longer than the one already stored? 
+                #    Actually, the problem says "on a tie prefer cutting a piece to scrapping, 
+                #    and the longer piece to the shorter".
+                #    Since we iterate longest pieces first, if we find a candidate equal 
+                #    to the current best, we should only update if the current best 
+                #    came from a shorter piece or scrapping.
+                #    But wait, `best[metres]` is initialized to -1.
+                #    Let's refine the comparison.
+                
+                if candidate > best[metres]:
+                    best[metres] = candidate
+                    taken[metres] = piece
+                elif candidate == best[metres]:
+                    # Tie: prefer longer piece.
+                    # Since we iterate from longest to shortest, the first match 
+                    # is the longest. If we already have a match, it was from a 
+                    # longer or equal piece. So we don't update.
+                    pass
+        
+        # Compare with scrapping the last metre (value = best[metres-1])
+        scrap_value = best[metres - 1]
+        if scrap_value > best[metres]:
+            best[metres] = scrap_value
+            taken[metres] = 0
+        elif scrap_value == best[metres]:
+            # Tie: prefer cutting a piece to scrapping.
+            # So if best[metres] was set by a cut, we keep it.
+            # If best[metres] is still -1 (no cuts fit), we take scrap.
+            # But if best[metres] is 0 (e.g. from a 0-price piece), and scrap is 0,

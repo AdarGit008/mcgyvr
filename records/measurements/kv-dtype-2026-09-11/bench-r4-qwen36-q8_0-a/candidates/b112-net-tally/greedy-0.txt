@@ -1,0 +1,92 @@
+```python
+def net_tally(sheets: list) -> str:
+    """
+    Process a list of tally sheets and return a formatted net tally report.
+    
+    Args:
+        sheets: A list of strings, each string representing a tally sheet.
+        
+    Returns:
+        A string containing the formatted report, or an empty string if no valid rows.
+        
+    Raises:
+        ValueError: If input validation fails.
+    """
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    
+    # Dictionary to accumulate sold and returned counts per item
+    item_data: dict[str, int] = {}
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("Each sheet must be a string")
+        
+        lines = sheet.split('\n')
+        for line in lines:
+            # Skip blank or whitespace-only rows
+            if not line.strip():
+                continue
+            
+            parts = line.split('|')
+            if len(parts) != 3:
+                raise ValueError("Each row must have exactly three pipe-separated fields")
+            
+            item_name = parts[0].strip()
+            sold_str = parts[1].strip()
+            returned_str = parts[2].strip()
+            
+            if not item_name:
+                raise ValueError("Item name cannot be empty")
+            
+            # Validate sold and returned are strings of decimal digits
+            if not sold_str.isdigit():
+                raise ValueError(f"Sold field '{sold_str}' is not a string of decimal digits")
+            if not returned_str.isdigit():
+                raise ValueError(f"Returned field '{returned_str}' is not a string of decimal digits")
+            
+            sold = int(sold_str)
+            returned = int(returned_str)
+            
+            if item_name not in item_data:
+                item_data[item_name] = [0, 0]
+            
+            item_data[item_name][0] += sold
+            item_data[item_name][1] += returned
+    
+    # Check for items where returned exceeds sold
+    for item_name, (sold, returned) in item_data.items():
+        if returned > sold:
+            raise ValueError(f"Returned total ({returned}) exceeds sold total ({sold}) for item '{item_name}'")
+    
+    if not item_data:
+        return ""
+    
+    # Calculate net for each item
+    items_with_net = []
+    total_net = 0
+    for item_name, (sold, returned) in item_data.items():
+        net = sold - returned
+        items_with_net.append((item_name, net))
+        total_net += net
+    
+    # Sort by item name
+    items_with_net.sort(key=lambda x: x[0])
+    
+    # Determine padding width
+    # Width is max of longest item name and length of "total"
+    max_name_len = max(len(item_name) for item_name, _ in items_with_net)
+    padding_width = max(max_name_len, len("total"))
+    
+    # Build report lines
+    report_lines = []
+    for item_name, net in items_with_net:
+        padded_name = item_name.ljust(padding_width)
+        report_lines.append(f"{padded_name}  {net}")
+    
+    # Add trailer
+    padded_total = "total".ljust(padding_width)
+    report_lines.append(f"{padded_total}  {total_net}")
+    
+    return '\n'.join(report_lines)
+```

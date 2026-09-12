@@ -568,7 +568,7 @@
   "product_sha256": "1fe415c0efe18c0f7a571481c6bf0c224bca42b2f5690d164b1b26bffef46630",
   "invocations": [
     {
-      "started": "2026-09-12T01:17:04+00:00",
+      "started": "2026-09-12T02:06:56+00:00",
       "tasks": [
         "b002-option-pairs",
         "b003-carve-shift",
@@ -828,14 +828,7 @@
         "b505-turn-tail",
         "b506-hug-text"
       ],
-      "rig_revision": "ce6a556b7e71f39da55eaa7fe5c56644e72299da"
+      "rig_revision": "30520d076891e17efe689b9006ab7903f376c4a5"
     }
-  ],
-  "completeness": {
-    "expected": 257,
-    "recorded": 257,
-    "missing": 0,
-    "complete": true,
-    "missing_cells": []
-  }
+  ]
 }

@@ -1,0 +1,24 @@
+```python
+def hex_groups(values: list, width: int) -> str:
+    """Render a list of byte values as space-separated hex groups of specified width."""
+    if not isinstance(values, list):
+        raise ValueError("values must be a list")
+    if not isinstance(width, int) or isinstance(width, bool) or width <= 0:
+        raise ValueError("width must be a positive integer")
+    
+    for byte_val in values:
+        if not isinstance(byte_val, int) or isinstance(byte_val, bool):
+            raise ValueError("each value must be an integer")
+        if byte_val < 0 or byte_val > 255:
+            raise ValueError("each value must be between 0 and 255")
+    
+    if not values:
+        return ""
+    
+    hex_str = "".join(f"{b:02x}" for b in values)
+    groups = []
+    for i in range(0, len(hex_str), width * 2):
+        groups.append(hex_str[i:i + width * 2])
+    
+    return " ".join(groups)
+```

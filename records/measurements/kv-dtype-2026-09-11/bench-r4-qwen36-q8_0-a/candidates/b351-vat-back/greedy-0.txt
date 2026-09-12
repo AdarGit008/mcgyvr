@@ -1,0 +1,28 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """Return the net price before a whole-percent tax was added, rounded down.
+    
+    Args:
+        gross: The gross price including tax.
+        rate: The tax rate as a whole percent (e.g., 20 for 20%).
+        
+    Returns:
+        The net price before tax, rounded down.
+        
+    Raises:
+        ValueError: If rate is negative.
+    """
+    if rate < 0:
+        raise ValueError("Rate cannot be negative")
+    
+    if rate == 0:
+        return gross
+    
+    # gross = net * (1 + rate/100)
+    # net = gross / (1 + rate/100)
+    # net = gross * 100 / (100 + rate)
+    # We need to round down, which is floor division for positive numbers
+    net = (gross * 100) // (100 + rate)
+    
+    return net
+```

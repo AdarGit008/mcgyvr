@@ -1,0 +1,77 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    """Merge three ledgers (base, ours, theirs) into a single merged ledger."""
+    
+    def validate_ledger(ledger: list, name: str) -> dict:
+        """Validate a ledger and return a dict mapping account -> cents."""
+        if not isinstance(ledger, list):
+            raise ValueError(f"{name} must be a list")
+        
+        result = {}
+        for i, entry in enumerate(ledger):
+            if not isinstance(entry, list):
+                raise ValueError(f"{name} entry {i} must be a list")
+            if len(entry) != 2:
+                raise ValueError(f"{name} entry {i} must be a two-item pair")
+            
+            account, cents = entry
+            
+            if not isinstance(account, str) or len(account) == 0:
+                raise ValueError(f"{name} entry {i} account must be a non-empty string")
+            
+            if not isinstance(cents, int) or isinstance(cents, bool):
+                raise ValueError(f"{name} entry {i} cents must be an integer")
+            
+            if account in result:
+                raise ValueError(f"{name} contains duplicate account: {account}")
+            
+            result[account] = cents
+        
+        return result
+    
+    base_dict = validate_ledger(base, "base")
+    ours_dict = validate_ledger(ours, "ours")
+    theirs_dict = validate_ledger(theirs, "theirs")
+    
+    # Collect all accounts
+    all_accounts = set(base_dict.keys()) | set(ours_dict.keys()) | set(theirs_dict.keys())
+    
+    merged = {}
+    
+    for account in all_accounts:
+        in_base = account in base_dict
+        in_ours = account in ours_dict
+        in_theirs = account in theirs_dict
+        
+        base_val = base_dict.get(account, 0)
+        ours_val = ours_dict.get(account, 0)
+        theirs_val = theirs_dict.get(account, 0)
+        
+        # Determine deltas
+        # If account not in base, we treat base value as 0 for delta calculation
+        # But actually, the spec says:
+        # - account present in all three: base + delta_ours + delta_theirs
+        #   where delta = copy_value - base_value
+        # - account added by exactly one copy: keep that copy's value
+        # - account added by both copies: sum of the two added values
+        # - account in base but dropped by one copy:
+        #   - if other copy left it at base value -> delete
+        #   - if other copy changed it -> keep other copy's value
+        # - account both copies dropped: delete
+        
+        # Let's think about this more carefully.
+        # The "base" ledger is the reference.
+        # "ours" and "theirs" are edits relative to base.
+        
+        # Case 1: Account in base, ours, and theirs
+        if in_base and in_ours and in_theirs:
+            base_v = base_dict[account]
+            ours_v = ours_dict[account]
+            theirs_v = theirs_dict[account]
+            delta_ours = ours_v - base_v
+            delta_theirs = theirs_v - base_v
+            merged_val = base_v + delta_ours + delta_theirs
+            merged[account] = merged_val
+            
+        # Case 2: Account in base and ours, but not in theirs
+        elif in_base and in_ours

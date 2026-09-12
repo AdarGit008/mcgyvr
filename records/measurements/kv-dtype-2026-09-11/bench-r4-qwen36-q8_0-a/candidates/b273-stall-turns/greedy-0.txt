@@ -1,0 +1,16 @@
+```python
+def stall_turns(counts: list, limit: int) -> int:
+    """Calculate the total number of turns needed to serve all customers."""
+    if limit <= 0:
+        raise ValueError("Limit must be a positive integer greater than zero.")
+    
+    total_turns = 0
+    for count in counts:
+        if count > 0:
+            # Calculate turns for this customer: ceil(count / limit)
+            # Using integer arithmetic: (count + limit - 1) // limit
+            turns_for_customer = (count + limit - 1) // limit
+            total_turns += turns_for_customer
+            
+    return total_turns
+```

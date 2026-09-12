@@ -1,0 +1,35 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    """Convert amount of unit into the base unit by unwinding definition chain."""
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    if unit == base:
+        return amount
+    
+    if unit not in defs:
+        raise ValueError(f"unit '{unit}' is not defined and is not the base unit")
+    
+    current_unit = unit
+    visited = {current_unit}
+    
+    while current_unit != base:
+        if current_unit not in defs:
+            raise ValueError(f"unit '{current_unit}' is not defined and is not the base unit")
+        
+        entry = defs[current_unit]
+        factor = entry[0]
+        finer_unit = entry[1]
+        
+        if not isinstance(factor, int) or isinstance(factor, bool) or factor <= 0:
+            raise ValueError("factor must be a positive integer")
+        
+        if finer_unit in visited:
+            raise ValueError("definition chain loops and cannot reach the base unit")
+        
+        visited.add(finer_unit)
+        amount *= factor
+        current_unit = finer_unit
+    
+    return amount
+```
