@@ -258,9 +258,7 @@ class PythonAdapter(LanguageAdapter):
                 # import block away from such a line still rejects.
                 demoted = (
                     code in STYLE_LINT_CODES and row not in unimportable.at(path)
-                ) or (
-                    code == "I001" and row in deprecated_typing.at(path)
-                )
+                ) or (code == "I001" and row in deprecated_typing.at(path))
                 findings.append(
                     Finding(
                         check=STYLE if demoted else "lint",

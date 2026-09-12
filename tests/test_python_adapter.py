@@ -117,8 +117,7 @@ def test_an_unsorted_import_block_is_not_demoted_with_i001(tmp_path: Path) -> No
 
     i001 = [f for f in findings if f.code == "I001"]
     assert i001 and all(f.check == "lint" for f in i001), (
-        f"I001 on an unsorted, non-typing import block must still reject: "
-        f"{findings}"
+        f"I001 on an unsorted, non-typing import block must still reject: {findings}"
     )
 
 
