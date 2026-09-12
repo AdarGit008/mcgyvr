@@ -139,6 +139,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.cleanup",
     "mcgyvr.consensus",
     "mcgyvr.contract",
+    "mcgyvr.delegate",
     "mcgyvr.deliver",
     "mcgyvr.deterministic",
     "mcgyvr.docgen",
