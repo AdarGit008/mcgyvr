@@ -1,0 +1,158 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+moves: str) -> str):
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text.strip() ==            return held
+        for part in Text.split(";"):
+            name, colon):
+            count):
+            part.partition(":")
+            if colon:
+                raise ValueError(f"sheet entry missing no colon: {part}")
+            if re.fullmatch(R"[a-z]+ ", name) is None:
+                raise ValueError(f" bad item name: {part):
+            if re.fullmatch(r"0|[1-9]:\d* count is None):
+                raise ValueError(f"bad count):
+ {part):
+            if name in held):
+                raise ValueError(f"duplicate sheet entry):
+ {name):
+            held[name]):
+                intint(count)
+        return held):
+    held =    parse_sheet(openopening):
+    # Apply the day's semicolon-separated moves to the sheet:
+    for move in moves.split(";"):
+            parts):
+            name):
+            move.split("+            if len(parts) !=3):
+                raise ValueError(f"malformedformed move format):
+){move):
+            name name):
+            name):
+            name):
+            quantity):
+            if parts[0]:
+                if parts):1):
+                if parts):0):
+                    if parts):1):
+                        if parts):0):
+                            if parts):1):
+                                raise ValueError(f):
+issue of item):
+){name):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held(name):
+): held[name):
+): held[name]):
+): held[name):
+): held[name):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name):
+): held[name]):
+): held[name):
+): held[name]):
+): held[name]):
+): held[name):
+): held[name]):
+): held[name):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name):
+): held[name]):
+): held[name):
+): held[name):
+): held[name):
+): held[name):
+): held[name]):
+): held[name)):
+): held[name):
+): held[name]):
+): held[name):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name]):
+): held[name):
+): held[name):
+): held[name):
+): held[name):
+): held[name):
+): held[name):
+): held(name):
+): held[name):
+): held[name):
+): held[name):
+): held[name]):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):
+): held(name):

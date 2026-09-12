@@ -1,0 +1,65 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    """Calculate total hops for fleet to reach newest release."""
+    if count < 0:
+        raise ValueError("count must be non-negative")
+    if count == 0:
+        return 0
+    if hop < 0:
+        raise ValueError("hop must be non-negative")
+    if hop == 0:
+        raise ValueError("hop must be positive")
+
+    # Validate LTS
+    if not isinstance(lts, list):
+        raise ValueError("lts must be a list")
+    for l in lts:
+        if not isinstance(l, int) or l < 0 or l >= count:
+            raise ValueError(f"Invalid LTS release: {l}")
+
+    # Validate builds
+    if not isinstance(builds, list):
+        raise ValueError("builds must be a list")
+    for b in builds:
+        if not isinstance(b, int) or b < 0 or b >= count:
+            raise ValueError(f"Invalid build: {b}")
+
+    newest = count - 1
+    lts_set = set(lts)
+
+    total_hops = 0
+    for build in builds:
+        if build == newest:
+            continue
+
+        current = build
+        while current < newest:
+            # Calculate potential reach
+            reach = current + hop
+            if reach >= newest:
+                reach = newest
+
+            # Check if there are LTS releases strictly between current and reach
+            # We need the lowest LTS release strictly above current and strictly below reach
+            # If such an LTS exists, we land on it. Otherwise, we land on reach.
+            
+            # Find LTS releases in (current, reach)
+            # Since count is likely small, we can iterate or use a sorted structure.
+            # Given constraints aren't specified for size, but typical fleet problems are manageable.
+            # Let's find the smallest LTS > current and < reach.
+            
+            candidate = None
+            for l in lts_set:
+                if l > current and l < reach:
+                    if candidate is None or l < candidate:
+                        candidate = l
+            
+            if candidate is not None:
+                current = candidate
+            else:
+                current = reach
+            
+            total_hops += 1
+
+    return total_hops
+```

@@ -1,0 +1,34 @@
+```python
+from typing import List,,, tuple,from datetime import datetime
+
+def reserve_lots(lots:    """
+    Reserve lots based of stock and orders.
+    
+    : by use-by date and lot ID.
+    """
+    if not lots or not orders:
+        return {"picks": [], "shortfalls":    
+    sorted_lots = sorted(lots, key=lambda x: (x[1], x[0]))
+    picks = []
+    shortfalls = []
+
+    for order_id units in orders:
+        remaining_units = units
+        for lot_id, use_by_date sort units_on_hand in sorted_lots:
+            if_use_by_date = datetime.strptime(use_by_date, "%Y-%m-%d")
+            if units_to_draw =                if units_to_draw = 
+                    pick = (order_id,                    remaining_units -= units_to_draw
+                    if_lots.remove((lot_id,                    picks.append((order_id units_to_draw):
+                    break
+                elif units_to_draw > units_on_hand:
+                    pick = (order_id):
+                    remaining units -=                    sorted_lots.remove((lot_id):
+                    picks.append(( order units_on_hand):
+                    units_to_draw -= units_on_hand):
+            if remaining units ==                shortfalls.append((order_id):
+                break
+        if remaining units:
+            shortfalls.append((order_id remaining units):
+
+    return {"picks":
+```

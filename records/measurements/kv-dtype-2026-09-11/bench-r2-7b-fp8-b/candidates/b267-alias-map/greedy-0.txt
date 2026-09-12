@@ -1,0 +1,15 @@
+```python
+def alias_resolve(aliases:    """
+    Turns a name into whatever it stands for, one hop and no further.
+    Hands back the name itself when it stands for nothing.
+    """
+    if name in aliases:
+        return aliases[name]
+    return name
+
+    
+def alias_names(aliases):
+          """
+    Lists every name that stands for something,       in alphabetical order.
+    """
+    return sorted(name for name in aliases if aliases[name] !=```

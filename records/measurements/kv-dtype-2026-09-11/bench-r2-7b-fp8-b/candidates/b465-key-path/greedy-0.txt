@@ -1,0 +1,24 @@
+```python
+def key_list(store: dict,) -> list:
+    if '.' not in head:
+        raise ValueError("The head name must contain a dot.")
+    
+    head_parts = list.split('.')
+    if len(head_parts) < 2:
+        raise ValueError("The head name must have at least one level below it.")
+    
+    sub_name = head_parts[0]
+    if list_name not in store:
+        raise ValueError(f"The head '{ '{list_name}' does not exist in the store.")
+    
+    sub_value = store[list_name]
+    if not isinstance(list_value, dict):
+        raise ValueError(f"The value of '{ '{ '{list_name} must be a dictionary.")
+    
+    return_parts =           if '.' in part_part:
+            raise ValueError("Names under the store cannot contain dots.")
+    
+    return_parts = [part for part in list_parts if part.startswith(head_parts[1] + '.')]
+    return_parts =    [part.split('.')[1] for part in list_parts]
+    return list_parts)
+```

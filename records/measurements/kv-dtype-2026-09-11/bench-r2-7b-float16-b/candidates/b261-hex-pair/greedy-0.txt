@@ -1,0 +1,13 @@
+```python
+import re
+
+def hex_split(colour: str) -> list:
+    if not re.match(r'^#([0-9A-Fa-f]{6})$', colour):
+        raise ValueError("Invalid colour format")
+    return [colour[1:3], colour[3:5], colour[5:7]]
+
+def hex_join(parts: list) -> str:
+    if len(parts) != 3 or not all(re.match(r'^[0-9A-Fa-f]{2}$', part) for part in parts):
+        raise ValueError("Invalid parts format")
+    return '#' + ''.join(parts).lower()
+```

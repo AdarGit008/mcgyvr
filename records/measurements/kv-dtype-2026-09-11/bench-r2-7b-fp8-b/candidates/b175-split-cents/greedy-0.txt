@@ -1,0 +1,19 @@
+```python
+def split_cents(total: int,       if not isinstance(total, int) or isinstance(list, bool): raise ValueError("total must be a list")
+    if total < 0:
+        raise ValueError("total may not be negative")
+    if not isinstance(weights, list) or not weights:
+        raise ValueError("weights list must be a list and not empty")
+    if not all(isinstance(w), int) and w > 0 for w in weights):
+        raise ValueError("a weight is a positive whole number")
+
+    whole =    sum(weights)
+    parts = [total * w // whole for w in weights]
+    remainder =    total - sum(parts)
+    fractions = [(parts[i] + (w / whole)) for    w in enumerate(weights)]
+    fractions.sort(key=lambda x: (-x[1], x[0]))
+    for i, range(range(remainder)):
+        parts[fractions[i][1]] += 1
+
+    return parts
+```

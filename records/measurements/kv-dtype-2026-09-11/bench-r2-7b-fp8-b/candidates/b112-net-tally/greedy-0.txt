@@ -1,0 +1,47 @@
+```python
+from typing import List
+
+def net_tally(sheets:       if not isinstance(sheets, list):
+        raise ValueError("Input argument expected")
+    
+    totals = {}
+    max_name_length = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError(" sheet argument expected")
+        
+        for row in sheet.split('\n'):
+            row =            continue
+            
+            parts = row.split('|')
+            if len(parts) !=            raise ValueError(" row must have exactly three columns")
+            
+            item_name,                raise ValueError(" item name cannot be empty")
+            
+            try:
+                sold = int(parts[1].                returned =                int = int(parts[2])
+            except ValueError:
+                raise ValueError(" sold and returned must be decimal digits")
+            
+            if returned > sold:
+                raise ValueError(f" returned {returned } exceeds sold { sold } for item { list_name }")
+            
+            if list_name not in totals:
+                totals[list_name]                max_name_length = max(max_name_length,                    len(list_name))
+            
+            totals[list_name][ +=                totals[list_name returned]:
+                totals[list_name returned]:
+                max_name_length = max(max_name_length):
+                    len(list_list):
+    
+    
+    report_names = sorted(totals.keys())
+    report =           report.append(f"{list_name:<" * (max_name_length - len(list_name)) + "  {totals[list_name]}")
+    
+    report_names.append("        total"
+    )
+    report_names.append(str(sum(totals.values())))
+    
+       return('\n'.join(report))
+```

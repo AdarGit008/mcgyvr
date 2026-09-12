@@ -1,0 +1,1 @@
+/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/kv-dtype-2026-09-11/compose.srv1-r4-q8_0.yml

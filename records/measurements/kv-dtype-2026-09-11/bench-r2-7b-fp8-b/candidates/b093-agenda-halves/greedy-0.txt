@@ -1,0 +1,22 @@
+```python
+def split_agenda(sessions:       if not all(isinstance(session, list and len(session)== 2 for session in sessions):
+        raise ValueError("Each session must be a list of two elements.")
+    
+    if not all(isinstance(start[0], int) and isinstance(session[1], int) forsession in sessions):
+        raise ValueError("Session times must be integers.")
+    
+    if not all(session[0] < session[1] for        raise ValueError("A session must start before it ends.")
+    
+    if not all(sessions[ii][        raise ValueError("Sessions must not overlap.")
+    
+    if not all(isinstance(limit, int) and limit > 0 for limit in limits):
+        raise ValueError("Limit must be a positive integer.")
+    
+    def split_session(session,        start,        end =        if end - start <= limit:
+            return [session ]
+        mid =        (end + start)        if (end - start) %            return [split_session([start, mid]), split_session([mid, end])]
+        else:
+            return [split_session([start, mid + 1]),            split_session([mid + 1, end])]
+    
+    return [split_session(session) for session in sessions]
+```

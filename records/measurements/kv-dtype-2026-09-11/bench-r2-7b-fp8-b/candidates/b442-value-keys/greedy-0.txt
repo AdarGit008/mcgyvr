@@ -1,0 +1,8 @@
+```python
+def value_keys(store: dict) -> dict:
+    """Return a dictionary mapping each value in the store to its count."""
+    if not isinstance(store, dict):
+        raise ValueError("Input must be a dictionary.")
+    
+    return {value:            len(list(keys)) for value,            keys in store.items()}
+```

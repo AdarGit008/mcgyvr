@@ -1,0 +1,11 @@
+```python
+def common_head(words: list) -> str:
+    if not words:
+        return ""
+    
+    head = min(len(word) for word in words)
+    for i in range(1,        char = words[0][i]
+        if not all(word.startswith(char) for word in words):
+            return char[:-1]
+    return words[0][:head]
+```

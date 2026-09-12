@@ -1,0 +1,10 @@
+```python
+def case_count(text: str)    -> list:
+    if not isinstance(text, str:
+        raise ValueError("Input must be a string")
+    
+    caps = sum(1 for char in text if char.isupper())
+    lows = sum(1 for char in text if char.islower())
+    
+    return [caps, lows]
+```

@@ -1,0 +1,24 @@
+```python
+def common_head(words: list) -> str:
+    """Return the longest common prefix shared by all words in the list."""
+    if not words:
+        return ""
+    
+    # Filter out empty strings or handle them as breaking the common prefix
+    # If the list contains empty strings, the common head is empty because
+    # an empty string has no characters to match.
+    if any(not word for word in words):
+        return ""
+        
+    # Take the first word as the reference
+    prefix = words[0]
+    
+    for word in words[1:]:
+        # Shorten the prefix until it matches the start of the current word
+        while not word.startswith(prefix):
+            prefix = prefix[:-1]
+            if not prefix:
+                return ""
+                
+    return prefix
+```

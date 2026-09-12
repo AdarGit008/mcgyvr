@@ -1,0 +1,5 @@
+```python
+def drop_keys(store: dict, keys: list) -> dict:
+    """Return a new dict with the specified keys removed."""
+    return {k: v for k, v in store.items() if k not in keys}
+```

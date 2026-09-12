@@ -1,0 +1,94 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    """Prune a file listing based on ordered drop and keep rules."""
+    
+    def segment_fits(pattern: str, text: str) -> bool:
+        """Check if a pattern segment matches a text segment using '*' wildcard."""
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list:
+        """Split a slash-separated string into non-empty segments, validating format."""
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    # Validate rules
+    parsed_rules = []
+    for rule in rules:
+        if not isinstance(rule, str):
+            raise ValueError("Rule must be a non-empty string")
+        if rule == "":
+            raise ValueError("Rule must be a non-empty string")
+        
+        # Check for bare exclamation mark
+        if rule == "!":
+            raise ValueError("Rule cannot be a bare exclamation mark")
+        
+        # Determine if it's a keep rule
+        is_keep = rule.startswith("!")
+        if is_keep:
+            pattern = rule[1:]
+            if pattern == "":
+                raise ValueError("Rule cannot be a bare exclamation mark")
+        else:
+            pattern = rule
+        
+        # Validate the pattern part
+        segments = split_strict(pattern, "Rule pattern")
+        parsed_rules.append((is_keep, segments))
+
+    # Validate and process paths
+    result = []
+    for path in listing:
+        if not isinstance(path, str):
+            raise ValueError("Path must be a non-empty string")
+        if path == "":
+            raise ValueError("Path must be a non-empty string")
+        
+        path_segments = split_strict(path, "Path")
+        
+        # Find the last matching rule
+        matched_keep = None
+        for is_keep, pattern_segments in parsed_rules:
+            # Check if the rule matches the path
+            # A rule matches if each pattern segment matches the corresponding 
+            # leading path segment. The rule can match a prefix of the path.
+            if len(pattern_segments) > len(path_segments):
+                continue
+            
+            match = True
+            for i, p_seg in enumerate(pattern_segments):
+                if not segment_fits(p_seg, path_segments[i]):
+                    match = False
+                    break
+            
+            if match:
+                matched_keep = is_keep
+        
+        # If no rule matches, the path survives (default keep)
+        # If a rule matches, the last matching rule decides:
+        #   - Keep rule (is_keep=True) -> path survives

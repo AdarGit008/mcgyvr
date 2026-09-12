@@ -1,0 +1,36 @@
+```python
+def best_harvest(yields: list) -> int:
+    """Return the maximum total yield from non-consecutive days."""
+    if not isinstance(yields, list):
+        raise ValueError("yields must be a list")
+    
+    for i, y in enumerate(yields):
+        if not isinstance(y, int):
+            raise ValueError(f"Yield on day {i} is not an integer")
+        if y < 0:
+            raise ValueError(f"Yield on day {i} is negative")
+    
+    n = len(yields)
+    if n == 0:
+        return 0
+    
+    # dp[i] represents the max yield considering days 0..i
+    # For each day i, we can either:
+    # 1. Skip day i: then the max is dp[i-1]
+    # 2. Take day i: then we can't take day i-1, so max is yields[i] + dp[i-2]
+    
+    # Base cases
+    if n == 1:
+        return yields[0]
+    
+    # dp[i-2], dp[i-1]
+    prev2 = yields[0]
+    prev1 = max(yields[0], yields[1])
+    
+    for i in range(2, n):
+        current = max(prev1, yields[i] + prev2)
+        prev2 = prev1
+        prev1 = current
+    
+    return prev1
+```

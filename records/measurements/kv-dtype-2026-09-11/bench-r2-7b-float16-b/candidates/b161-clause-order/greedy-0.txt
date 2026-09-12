@@ -1,0 +1,34 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    def parse_mark(mark: str) -> list[int]:
+        if not mark:
+            raise ValueError("Empty mark")
+        parts = mark.split('.')
+        if len(parts) > 1 and parts[-1] == '':
+            raise ValueError("Trailing dot")
+        if any(part[0] == '0' for part in parts if part != '0'):
+            raise ValueError("Leading zero in number")
+        if not all(part.isdigit() for part in parts):
+            raise ValueError("Non-digit characters in mark")
+        return [int(part) for part in parts]
+
+    try:
+        parsed_a = parse_mark(a)
+        parsed_b = parse_mark(b)
+    except ValueError as e:
+        raise ValueError(f"Invalid mark: {e}")
+
+    min_length = min(len(parsed_a), len(parsed_b))
+    for i in range(min_length):
+        if parsed_a[i] < parsed_b[i]:
+            return -1
+        elif parsed_a[i] > parsed_b[i]:
+            return 1
+
+    if len(parsed_a) < len(parsed_b):
+        return -1
+    elif len(parsed_a) > len(parsed_b):
+        return 1
+
+    return 0
+```

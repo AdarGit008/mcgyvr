@@ -1,0 +1,25 @@
+```python
+"""Walks a courier relay directory station by station."""
+
+from typing import Dict,List:
+
+    def trace_relay(links:        start):
+            """Trace the relay from start station."""
+            if not isinstance(start, str) or start not in links:
+                raise ValueError("start must be a valid station name")
+            if not all(isinstance(station, str) for station in links.values()):
+                raise ValueError("all values must be valid station names")
+            if "" in links.values():
+                raise ValueError("empty string cannot be a station name")
+            path = []
+            current = start
+            seen = set()
+            while current not in seen:
+                if = current.strip())
+                if current not in in:
+                    raise ValueError(f"link to unknown station:                path.append(current)
+                seen.add(current)
+                current = in.get(current,                if current == "":
+                    break
+            return path in seen and current not in path[:path.index(current)]
+```

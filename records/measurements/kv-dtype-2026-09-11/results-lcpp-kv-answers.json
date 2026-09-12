@@ -2,16 +2,20 @@
   {
     "label": "r4-qwen36-f16",
     "dtype": "f16",
-    "failed": "srv1: ['mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080'] are up and no last-up file names their compose"
-  },
-  {
-    "label": "r4-qwen36-q8_0",
-    "dtype": "q8_0",
-    "failed": "srv1: ['mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080'] are up and no last-up file names their compose"
-  },
-  {
-    "label": "r4-qwen36-f16",
-    "dtype": "f16",
-    "failed": "bench rc=2; see logs/bench-r4-qwen36-f16-a.log"
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "image": "llamacpp:b10644-L3",
+    "card_used_mib": 5094,
+    "card_free_mib": 652,
+    "card_reserved_mib": 399,
+    "kv_line": "llama_kv_cache: size =  320.00 MiB (  8192 cells,  10 layers,  2/2 seqs), K (f16):  160.00 MiB, V (f16):  160.00 MiB",
+    "size_mib": 320.0,
+    "cells": 8192,
+    "layers": 10,
+    "k_dtype": "f16",
+    "k_mib": 160.0,
+    "v_dtype": "f16",
+    "v_mib": 160.0,
+    "bench_a_dir": "bench-r4-qwen36-f16-a",
+    "bench_b_dir": "bench-r4-qwen36-f16-b"
   }
 ]

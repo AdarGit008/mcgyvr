@@ -1,0 +1,39 @@
+```python
+def trim_caption(text: str, limit: int) -> str:
+    """Shorten a caption to a character budget, ending with an ellipsis if truncated."""
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+        raise ValueError("limit must be a positive integer")
+
+    if len(text) <= limit:
+        return text
+
+    # We need to fit 'limit' characters total.
+    # The last character must be the ellipsis "…".
+    # So we can take at most limit - 1 characters from the original text.
+    max_chars = limit - 1
+    
+    # Take the first max_chars characters
+    truncated = text[:max_chars]
+    
+    # Check if the character just past the cut in the original text is a space.
+    # If it is not a space, and we have spaces in the truncated part,
+    # we want to drop back to the last space to avoid splitting a word.
+    # Note: The problem says "when the character of the original just past that cut is not a space".
+    # The character just past the cut is at index max_chars in the original text.
+    
+    if max_chars < len(text):
+        next_char = text[max_chars]
+        if next_char != ' ' and ' ' in truncated:
+            # Drop back to the last space
+            last_space_index = truncated.rfind(' ')
+            truncated = truncated[:last_space_index]
+    
+    # Remove any spaces left hanging before the ellipsis.
+    # This means stripping trailing spaces from the truncated part.
+    truncated = truncated.rstrip()
+    
+    # Append the ellipsis
+    return truncated + "…"
+```

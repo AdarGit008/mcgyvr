@@ -1,0 +1,11 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """Return a mapping from each code to the lexicographically first name, excluding empty codes."""
+    result = {}
+    for name, code in names.items():
+        if not code:
+            continue
+        if code not in result or name < result[code]:
+            result[code] = name
+    return result
+```

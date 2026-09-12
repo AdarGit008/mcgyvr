@@ -1,0 +1,16 @@
+```python
+def list_cost(kind: str) -> int:
+    # This function is not relevant to the current task and will not be implemented.
+    pass
+
+def list_toll(steps: list[str]) -> int:
+    if not steps:
+        return 0
+    
+    total_cost = 0
+    for i,        if (i + 1) % 3 != 0:
+            continue
+        total_cost += 1
+    
+    return total_cost
+```

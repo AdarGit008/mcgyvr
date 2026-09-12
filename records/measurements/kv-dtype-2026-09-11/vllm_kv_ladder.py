@@ -99,9 +99,9 @@ def ladder(port: int) -> dict:
 
 def tunnel(port: int):
     p = subprocess.Popen(["ssh", "-o", "BatchMode=yes", "-o", "ExitOnForwardFailure=yes",
-                          "-N", "-L", f"18002:127.0.0.1:{port}", HOST])
+                          "-N", "-L", f"18006:127.0.0.1:{port}", HOST])
     for _ in range(100):
-        code, _ = rig.http_get("127.0.0.1", 18002, "/health", timeout=2)
+        code, _ = rig.http_get("127.0.0.1", 18006, "/health", timeout=2)
         if code == "200":
             return p
         time.sleep(0.3)
@@ -129,7 +129,7 @@ def arm(prefix: str, model: str, dtype: str) -> dict:
         rig.teardown(HOST)
         return {"label": label, "failed": str(exc)}
     try:
-        levels = ladder(18002)
+        levels = ladder(18006)
     finally:
         t.terminate(); t.wait(timeout=10)
     rig.teardown(HOST)

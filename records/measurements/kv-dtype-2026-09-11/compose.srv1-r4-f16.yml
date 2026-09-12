@@ -27,6 +27,7 @@ services:
     - f16
     - -ctv
     - f16
+    - --verbose
     container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080
     deploy:
       resources:

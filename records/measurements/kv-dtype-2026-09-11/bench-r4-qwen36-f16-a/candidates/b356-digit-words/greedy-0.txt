@@ -1,0 +1,22 @@
+```python
+def digit_word(digit: int) -> str:
+    """Return the English word for a single digit (0-9)."""
+    if not isinstance(digit, int) or digit < 0 or digit > 9:
+        raise ValueError("digit must be an integer between 0 and 9")
+    words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+    return words[digit]
+
+
+def digit_words(digits: str) -> str:
+    """Join the English words for each digit character in the string."""
+    if not isinstance(digits, str):
+        raise ValueError("digits must be a string")
+    
+    word_list = []
+    for char in digits:
+        if not char.isdigit():
+            raise ValueError(f"Invalid character in digits string: '{char}'")
+        word_list.append(digit_word(int(char)))
+    
+    return " ".join(word_list)
+```

@@ -1,0 +1,30 @@
+```python
+def span_merge(spans: list) -> list:
+    """Merge overlapping or touching spans into a single list of non-overlapping spans ordered by start."""
+    if not spans:
+        return []
+
+    # Validate input spans
+    for i, span in enumerate(spans):
+        if not isinstance(span, (list, tuple)) or len(span) != 2:
+            raise ValueError(f"Span at index {i} is not a 2-element list or tuple")
+        start, end = span
+        if start > end:
+            raise ValueError(f"Span at index {i} has end preceding start")
+
+    # Sort spans by start time, then by end time
+    sorted_spans = sorted(spans, key=lambda x: (x[0], x[1]))
+
+    merged = []
+    for span in sorted_spans:
+        start, end = span
+        # If merged is empty or the current span does not overlap/touch the last merged span
+        if not merged or start > merged[-1][1]:
+            merged.append([start, end])
+        else:
+            # Overlap or touch: merge by extending the end of the last merged span
+            if end > merged[-1][1]:
+                merged[-1][1] = end
+
+    return merged
+```

@@ -1,0 +1,51 @@
+```python
+from typing import List,from collections import defaultdict:
+
+def group_batches(jobs: List[List], capacity capacity:                 if not isinstance(jobs, list):
+            raise ValueError("Jobs must be a list.")
+        if not all(isinstance(job, list and len(job) == 4 for job in jobs):
+            raise ValueError("Each job must be a list of four items):
+        if not all(isinstance(job[0], str) and len(job[0])>            raise ValueError("Job name must be a non-empty string):
+        if not all(isinstance(job[1], str) and len(job[1]):
+            raise ValueError("Group label must be a non-empty string):
+        if not all(isinstance(job[2], int) for            raise ValueError("Priority must be an integer):
+        if not all(isinstance(job[3], int) and 1 <= job[3]:
+            raise ValueError("Weight must be an integer between 1 and capacity):
+        if len(set(job(job[            raise ValueError("Duplicate job names are not allowed):
+        if capacity <= 0:
+            raise ValueError("Capacity must be a positive integer):
+
+        
+        groups_jobs = defaultdict(list)
+        for job in jobs:
+            group_jobs[job[1]].append((job[0],        
+        batches =        []
+        current_capacity = capacity
+        
+        while True:
+            eligible_heads = []
+            for group in group_jobs:
+                if group_jobs[group]:
+                    eligible_heads.append((group_jobs[group].pop(0))
+            
+            if not eligible_heads:
+                break
+            
+            eligible_heads.sort(key=lambda x:                (-x[                    2],
+                    x[
+                        1]
+                )
+            
+            batch = []
+            for head_name, _, _, _ in eligible_heads:
+                if current_capacity >= job_weight:
+                    batch.append(job_name):
+                    current_capacity -= job_weight)
+                else:
+                    break
+            
+            batches.append(batch)
+            current_capacity =                capacity
+        
+        return batches:
+``````

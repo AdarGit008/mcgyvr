@@ -1,0 +1,56 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    """Calculate the total number of workers in the team including the leader."""
+    if not isinstance(chart, dict):
+        raise ValueError("chart must be a mapping")
+    if not isinstance(name, str):
+        raise ValueError("name must be a string")
+    if name not in chart:
+        raise ValueError("name is not a key in the chart")
+
+    reports = chart[name]
+    if not isinstance(reports, list):
+        raise ValueError("reports must be a list")
+
+    # Use BFS/DFS to count all reachable nodes including the start node.
+    # We need to handle potential cycles or complex structures, but the problem
+    # implies a tree-like hierarchy where every report is also a key.
+    # However, the prompt doesn't explicitly forbid cycles.
+    # Standard interpretation of "reporting lines" usually implies a DAG or Tree.
+    # If there are cycles, we must avoid infinite loops.
+    # We will track visited nodes to prevent counting duplicates or looping.
+    
+    visited = set()
+    stack = [name]
+    
+    while stack:
+        current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        
+        # Get reports for current worker
+        # Since every name that appears as a report is itself a key,
+        # we can safely access chart[current].
+        current_reports = chart[current]
+        
+        for report in current_reports:
+            if not isinstance(report, str):
+                raise ValueError("each report must be a string")
+            if report not in chart:
+                # The problem states: "every name that appears as a report is itself a key of the chart"
+                # If this invariant is violated, it's an invalid chart state.
+                # However, the prompt only asks to reject specific types.
+                # It doesn't explicitly say to reject missing keys for reports,
+                # but logically if a report isn't a key, we can't traverse further.
+                # Given the constraint "every name that appears as a report is itself a key",
+                # we assume this holds. If it doesn't, it's likely an error in input data
+                # not covered by the explicit rejection criteria.
+                # But to be safe and robust, if a report is not in chart, we can't count its team.
+                # Let's assume the input is valid according to the description.
+                pass
+            else:
+                stack.append(report)
+                
+    return len(visited)
+```

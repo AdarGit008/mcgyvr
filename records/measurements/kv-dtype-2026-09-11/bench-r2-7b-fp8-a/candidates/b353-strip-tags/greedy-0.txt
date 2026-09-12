@@ -1,0 +1,7 @@
+```python
+import re
+
+def strip_tags(line: str) -> str:
+    """Remove every marker from a line of text."""
+    return re.sub(r'<[^>]*>', '', line)
+```

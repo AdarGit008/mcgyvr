@@ -1,0 +1,21 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    
+    n = len(yields)
+    if n == 0:
+        return 0
+    
+    # Initialize dp array where dp[i] represents the maximum harvest up to day i
+    dp = [0] * n
+    dp[0] = yields[0]
+    
+    for i in range(1, n):
+        if not isinstance(yields[i], int) or yields[i] < 0:
+            raise ValueError("Yield must be a non-negative integer")
+        
+        dp[i] = max(dp[i - 1], dp[i - 2] + yields[i])
+    
+    return dp[n - 1]
+```

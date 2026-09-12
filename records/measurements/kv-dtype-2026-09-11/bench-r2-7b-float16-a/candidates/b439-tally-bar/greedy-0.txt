@@ -1,0 +1,14 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if width <= 0:
+        raise ValueError("Width must be greater than zero")
+    
+    if count == 0:
+        return "|"
+    
+    bars = min(count, width)
+    if bars < count:
+        bars += ">"
+    
+    return "|" + "#" * bars
+```

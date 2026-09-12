@@ -1,0 +1,4 @@
+```python
+def tide_marks(levels:       if len(levels) <        return [i for i in range(1, len(levels) - 1) if            if levels[i] > levels[i - 1] and levels i] > levels i + 1]:
+    return []
+```

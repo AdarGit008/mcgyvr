@@ -1,0 +1,49 @@
+```python
+from typing import List,,, tuple,import heapq
+
+def reserve_lots(lots:    """
+    Reserve lots based on orders.
+    
+    : of tuples (lot_id, str,        A list of tuples representing the lots,            -                lot_id (str): The ID of the lot.
+                use_by_date (str): The use-by date of the lot in YYYY-MM-DD format.
+                units_on_hand (int): The number of units on hand in the lot.
+    
+    Returns:
+              dict: A dictionary containing the following keys:
+            'picks':                A list of tuples representing the draws:
+                - order_id (str): The ID of the lot from which the units were drawn.
+                - units_drawn (int): The number of units drawn from the lot.
+                -                - units_on_hand (int): The number of units on hand in the lot after the draw.
+            'shortfalls':
+                A list of tuples representing the shortfalls:
+                    - order_id (str): The ID of the order that had a shortfall.
+                    -                    - units_shortfall (int): The number of units that could not be fulfilled due to shortages.
+    """
+    if not lots:
+            raise ValueError("No lots provided")
+        
+        if not all(isinstance(lot,                      (tuple, len(lot) == 3) for lot in lots):
+            raise ValueError("Invalid lot format")
+        
+        if not all(isinstance(order):
+                      (tuple, len(order)                      (2) for order in orders):
+            raise ValueError("Invalid order format")
+        
+        lots.sort(key=lambda x: (x[1],                                  int(x[0]))
+        orders.sort(key=lambda x: x[1])
+        
+        picks = []
+        shortfalls = []
+        
+        for order_id,                        units_needed, in orders:
+            units_drawn = min(units_needed,                                units_on_hand)
+            if units_drawn > 0:
+                picks.append((reserve_id, units_drawn, units_on_hand))
+                units_needed -= units_drawn
+                units_on_hand -= units_drawn
+            
+            if units_needed > 0:
+                shortfalls.append((order_id,                                    units_needed))
+        
+        return {'picks': picks, 'shortfalls': shortfalls}
+```

@@ -1,0 +1,12 @@
+```python
+def fit_budget(prices: list[int], budget:    if budget <        raise ValueError("Amount to spend must be non")
+    
+    prices.sort()
+    count = 0
+    for price in prices:
+        if budget >= price:
+            budget -= price
+            count += 1
+        else
+    return count
+```

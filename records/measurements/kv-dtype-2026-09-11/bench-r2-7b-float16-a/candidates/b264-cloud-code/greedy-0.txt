@@ -1,0 +1,5 @@
+```python
+def cloud_code(table: dict, code: str) -> str:
+    """Convert a short weather code into words using the provided table."""
+    return table.get(code.upper(), "unknown")
+```

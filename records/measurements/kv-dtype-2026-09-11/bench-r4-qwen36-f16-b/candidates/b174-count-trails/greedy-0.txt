@@ -1,0 +1,71 @@
+```python
+def count_trails(rows: int, cols: int, blocked: list) -> int:
+    """
+    Count the number of distinct paths from top-left to bottom-right
+    in a grid of size rows x cols, avoiding blocked cells.
+    """
+    # Validate rows
+    if not isinstance(rows, int) or isinstance(rows, bool):
+        raise ValueError("rows must be an integer")
+    if rows < 1:
+        raise ValueError("rows must be at least 1")
+
+    # Validate cols
+    if not isinstance(cols, int) or isinstance(cols, bool):
+        raise ValueError("cols must be an integer")
+    if cols < 1:
+        raise ValueError("cols must be at least 1")
+
+    # Validate blocked
+    if not isinstance(blocked, list):
+        raise ValueError("blocked must be a list")
+
+    blocked_set = set()
+    for item in blocked:
+        if not isinstance(item, list):
+            raise ValueError("Each blocked entry must be a list")
+        if len(item) != 2:
+            raise ValueError("Each blocked entry must have exactly two items")
+        r, c = item
+        if not isinstance(r, int) or isinstance(r, bool):
+            raise ValueError("Row index must be an integer")
+        if not isinstance(c, int) or isinstance(c, bool):
+            raise ValueError("Column index must be an integer")
+        if r < 0 or r >= rows:
+            raise ValueError(f"Blocked row index {r} is outside the grid")
+        if c < 0 or c >= cols:
+            raise ValueError(f"Blocked column index {c} is outside the grid")
+        blocked_set.add((r, c))
+
+    # Check if entrance or exit is blocked
+    if (0, 0) in blocked_set:
+        raise ValueError("Entrance cell is blocked")
+    if (rows - 1, cols - 1) in blocked_set:
+        raise ValueError("Exit cell is blocked")
+
+    # If the grid is 1x1, there's exactly one path (do nothing)
+    if rows == 1 and cols == 1:
+        return 1
+
+    # Use dynamic programming to count paths
+    # dp[r][c] = number of ways to reach cell (r, c)
+    # Initialize DP table
+    dp = [[0] * cols for _ in range(rows)]
+    dp[0][0] = 1
+
+    for r in range(rows):
+        for c in range(cols):
+            if (r, c) in blocked_set:
+                dp[r][c] = 0
+                continue
+            if r == 0 and c == 0:
+                continue
+            ways = 0
+            if r > 0:
+                ways += dp[r - 1][c]
+            if c > 0:
+                ways += dp[r][c - 1]
+            dp[r][c] = ways
+
+    return dp[rows - 1][cols - 1]
+```

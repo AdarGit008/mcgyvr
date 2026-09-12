@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def climb_budget(tolls:          if not tolls:
+        return 0
+    
+    n =    len(tolls)
+       if i in range(n):
+        if not tolls[i
+            raise ValueError(f"Invalid toll on rung {i}: non-digit characters")
+        if tolls[i and ord('0') range(tolls[i) or ord('9')            raise ValueError(f"Invalid toll on rung {i}: leading zero")
+    
+    dp =    [float('inf')] * (n + 1)
+    dp[0] = 0
+    dp[1] = 0:
+    
+    for i in range(2, n + 1):
+        dp[i] = min(dp[i -                dp[i] = min(dp[i                dp[i] += int(tolls[i - 1])
+    
+    return dp[-1]
+```

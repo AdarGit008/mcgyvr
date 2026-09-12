@@ -1,0 +1,20 @@
+```python
+def run_decode(coded: str) -> str:
+    """Decode a run-length encoded string."""
+    decoded = []
+    i = 0
+    while i < len(coded):
+        char = coded[i]
+        if not char.isalpha():
+            raise ValueError("Invalid character in input")
+        i += 1
+        num_str = ""
+        while i < len(coded) and coded[i].isdigit():
+            num_str += coded[i]
+            i += 1
+        if not num_str:
+            raise ValueError("Missing count after character")
+        num = int(num_str)
+        decoded.extend([char] * num)
+    return "".join(decoded)
+```

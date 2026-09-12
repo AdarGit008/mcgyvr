@@ -1,0 +1,13 @@
+```python
+def cap_after(passage: str) -> str:
+    if not passage:
+        return ""
+    
+words = passage.split()
+result = []
+for i, word in enumerate(words):
+    if i == 0 or words[i - 1] == ".":
+        result.append(word.capitalize())
+    else:
+        result.append(word)
+return " ".```

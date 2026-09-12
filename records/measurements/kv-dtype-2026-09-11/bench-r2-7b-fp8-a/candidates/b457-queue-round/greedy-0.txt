@@ -1,0 +1,13 @@
+```python
+def served_by(queue: list,       if not queue:
+        raise ValueError("a queue needs somebody in it")
+       return queue[turn % len(queue)]
+
+def queue_round(queue: list):
+    """List is served on each turn List the queue coming round again."""
+    if not queue:
+        raise ValueError("a queue cannot be empty")
+    served = []
+    for turn in range(min(turns,        served.append(served_by(queue, turn)))
+          return served
+```

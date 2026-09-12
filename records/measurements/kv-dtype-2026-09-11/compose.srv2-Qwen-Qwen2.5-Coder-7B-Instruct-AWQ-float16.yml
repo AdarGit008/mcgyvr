@@ -3,9 +3,9 @@ services:
     command:
     - Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
     - --max-model-len
-    - '1024'
+    - '4096'
     - --max-num-seqs
-    - '128'
+    - '8'
     - --port
     - '8002'
     - --gpu-memory-utilization

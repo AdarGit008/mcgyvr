@@ -1,0 +1,18 @@
+```python
+from typing import Dict
+
+def add_one(tally: Dict[str, int], name:       if name not in tally:
+        raise ValueError("Name not found in tally")
+    return {**        **tally,
+        name:        tally[name] + 1
+    }
+
+def merge_tally(left:    right):
+    return {
+        **left,
+        **right,
+        key: left.get(key,            right.get(key,                left[key] + right[key]
+            else[key]:
+    }
+}
+```

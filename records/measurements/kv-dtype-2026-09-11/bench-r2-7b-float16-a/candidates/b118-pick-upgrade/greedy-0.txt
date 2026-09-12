@@ -1,0 +1,34 @@
+```python
+"""Firmware build selection within an installed release line."""
+
+from typing import List
+
+
+def compare_builds(a: str, b: str) -> int:
+    left = [int(part) for part in a.split(".")]
+    right = [int(part) for part in b.split(".")]
+    for i in range(max(len(left), len(right))):
+        x = left[i] if i < len(left) else 0
+        y = right[i] if i < len(right) else 0
+        if x > y:
+            return 1
+        if x < y:
+            return -1
+    return 0
+
+
+def pick_upgrade(installed: str, offers: List[str]) -> str | None:
+    if not isinstance(installed, str) or not all(c.isdigit() or c == '.' for c in installed):
+        raise ValueError("Installed build must be a valid dotted version string.")
+    if not isinstance(offers, list) or not all(isinstance(o, str) and all(c.isdigit() or c == '.' for c in o) for o in offers):
+        raise ValueError("Offers must be a list of valid dotted version strings.")
+
+    best = None
+    for offer in offers:
+        if offer.split(".")[0] != installed.split(".")[0]:
+            continue
+        if compare_builds(offer, installed) > 0:
+            if best is None or compare_builds(offer, best) > 0:
+                best = offer
+    return best
+```

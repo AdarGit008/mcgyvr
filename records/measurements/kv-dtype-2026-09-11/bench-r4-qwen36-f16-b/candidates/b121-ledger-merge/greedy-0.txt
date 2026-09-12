@@ -1,0 +1,79 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    """Merge three ledgers (base, ours, theirs) into a single sorted ledger."""
+    
+    def validate_ledger(ledger: list, name: str) -> dict:
+        """Validate a ledger and return a dict mapping account -> cents."""
+        if not isinstance(ledger, list):
+            raise ValueError(f"{name} must be a list")
+        
+        result = {}
+        for i, entry in enumerate(ledger):
+            if not isinstance(entry, list):
+                raise ValueError(f"{name} entry {i} must be a list")
+            if len(entry) != 2:
+                raise ValueError(f"{name} entry {i} must have exactly 2 elements")
+            
+            account = entry[0]
+            cents = entry[1]
+            
+            if not isinstance(account, str) or len(account) == 0:
+                raise ValueError(f"{name} entry {i} account must be a non-empty string")
+            
+            if not isinstance(cents, int) or isinstance(cents, bool):
+                raise ValueError(f"{name} entry {i} cents must be an integer")
+            
+            if account in result:
+                raise ValueError(f"{name} contains duplicate account: {account}")
+            
+            result[account] = cents
+        
+        return result
+
+    base_dict = validate_ledger(base, "base")
+    ours_dict = validate_ledger(ours, "ours")
+    theirs_dict = validate_ledger(theirs, "theirs")
+
+    # Get all unique accounts
+    all_accounts = set(base_dict.keys()) | set(ours_dict.keys()) | set(theirs_dict.keys())
+    
+    merged = {}
+    
+    for account in all_accounts:
+        in_base = account in base_dict
+        in_ours = account in ours_dict
+        in_theirs = account in theirs_dict
+        
+        base_val = base_dict.get(account, 0)
+        ours_val = ours_dict.get(account, 0)
+        theirs_val = theirs_dict.get(account, 0)
+        
+        # Determine deltas
+        # If account not in base, it was added by that copy
+        # Delta is value - base_value (if in base) or value (if not in base)
+        
+        if in_base:
+            base_account_val = base_dict[account]
+            ours_delta = ours_val - base_account_val if in_ours else 0
+            theirs_delta = theirs_val - base_account_val if in_theirs else 0
+        else:
+            # Account not in base, so it's an addition
+            # If in ours, delta is ours_val (since base is 0 for this account)
+            # If not in ours, delta is 0
+            ours_delta = ours_val if in_ours else 0
+            theirs_delta = theirs_val if in_theirs else 0
+        
+        # Merge logic:
+        # If both added (not in base), sum the values
+        # If one added, keep that value
+        # If both modified (in base), base_val + ours_delta + theirs_delta
+        # If one modified, other unchanged (delta 0), keep modified value
+        # If both dropped (delta 0 for both), delete
+        
+        # Let's simplify:
+        # Final value = base_val + ours_delta + theirs_delta
+        # But we need to handle the "dropped" case correctly.
+        
+        # Case 1: Account in base
+        if in_base:
+            base_val = base

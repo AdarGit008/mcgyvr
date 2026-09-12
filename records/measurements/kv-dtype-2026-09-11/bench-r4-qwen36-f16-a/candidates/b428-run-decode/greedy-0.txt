@@ -1,0 +1,48 @@
+```python
+def run_decode(coded: str) -> str:
+    """Decode a run-length encoded string into its full text representation.
+    
+    A run consists of a letter followed by an optional count. If no count is
+    provided, the letter appears once. If a count is provided, the letter
+    appears that many times.
+    
+    Args:
+        coded: The run-length encoded string.
+        
+    Returns:
+        The decoded string with letters repeated according to their counts.
+        
+    Raises:
+        ValueError: If the input contains invalid characters or formatting.
+    """
+    if not coded:
+        return ""
+    
+    result = []
+    i = 0
+    n = len(coded)
+    
+    while i < n:
+        char = coded[i]
+        i += 1
+        
+        # Check if the character is a letter
+        if not char.isalpha():
+            raise ValueError(f"Invalid character in encoded string: '{char}'")
+        
+        # Try to parse the following digits as a count
+        count_str = ""
+        while i < n and coded[i].isdigit():
+            count_str += coded[i]
+            i += 1
+        
+        if count_str:
+            count = int(count_str)
+            if count < 0:
+                raise ValueError(f"Invalid count: {count}")
+            result.append(char * count)
+        else:
+            result.append(char)
+            
+    return "".join(result)
+```

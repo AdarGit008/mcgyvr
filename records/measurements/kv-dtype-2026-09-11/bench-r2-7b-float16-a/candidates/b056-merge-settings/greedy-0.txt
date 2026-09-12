@@ -1,0 +1,33 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    if not all(isinstance(v, dict) for v in [base, ours, theirs]):
+        raise ValueError("All inputs must be dictionaries.")
+
+    result = {}
+    for key in set(base).union(ours).union(theirs):
+        if key in base:
+            base_value = base[key]
+        else:
+            base_value = None
+
+        if key in ours:
+            ours_value = ours[key]
+        else:
+            ours_value = None
+
+        if key in theirs:
+            theirs_value = theirs[key]
+        else:
+            theirs_value = None
+
+        if ours_value == theirs_value:
+            result[key] = ours_value
+        elif ours_value is None and theirs_value is not None:
+            result[key] = theirs_value
+        elif ours_value is not None and theirs_value is None:
+            result[key] = ours_value
+        else:
+            raise ValueError(f"Conflict at key {key}: {ours_value} vs {theirs_value}")
+
+    return result
+```

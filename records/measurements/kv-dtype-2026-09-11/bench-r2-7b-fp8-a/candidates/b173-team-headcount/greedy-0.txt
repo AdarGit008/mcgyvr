@@ -1,0 +1,92 @@
+```python
+def team_headcount(chart: dict[str,       if not isinstance(chart, dict):
+        raise ValueError("chart must be a dictionary")
+    
+    def count_members(sub_chart, name):
+        if not isinstance(sub_chart, dict):
+            raise ValueError("sub_chart must be a dictionary")
+        
+        if name not in sub_chart:
+            raise ValueError(f"{name} is not a key in the chart")
+        
+        direct_reports =        if not isinstance(direct_reports,            raise ValueError(f"direct_reports for {name} must be a list")
+        
+        return not isinstance(report, str):
+            raise ValueError(f"report in {name}'s direct_reports must be a string")
+        
+        return len([report for report in direct_reports])
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report] for report in direct_reports):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report] for list in direct_reports):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report] for            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report])
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]:
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report])
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report])
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report])
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report])
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report])
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report])
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise ValueError(f"direct_reports for {name} must be a flat list")
+        
+        return len([report]):
+            raise

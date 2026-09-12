@@ -1,0 +1,28 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be positive integers")
+    
+    blocked_set = set(tuple(b) for b in blocked)
+    if len(blocked_set) != len(blocked):
+        raise ValueError("blocked may not name the same cell more than once")
+    
+    if (0, 0) in blocked_set or (rows - 1, cols - 1) in blocked_set:
+        raise ValueError("a rope cannot be across the entrance or the exit cell")
+    
+    dp = [[0] * cols for _ in range(rows)]
+    dp[0][0] = 1
+    
+    for i in range(rows):
+        for j in range(cols):
+            if (i, j) in blocked_set:
+                continue
+            if i > 0:
+                dp[i][j] += dp[i - 1][j]
+            if j > 0:
+                dp[i][j] += dp[i][j - 1]
+    
+    return dp[-1][-1]
+```

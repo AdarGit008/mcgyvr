@@ -1,0 +1,10 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start > end:
+        raise ValueError("start cannot be greater than end")
+    
+    start = max(0, start % len(text))
+    end = min(len(text), end % len(text))
+    
+    return text[start:end]
+```

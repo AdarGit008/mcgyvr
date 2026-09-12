@@ -1,0 +1,54 @@
+```python
+import re
+
+
+def dose_totals(log: list) -> dict:
+    """Exact per-reagent totals of a pour log, counted in thousandths."""
+    thousandths = {}
+    places = {}
+    for reagent, amount in log:
+        written = re.fullmatch(r"-?\d+(?:\.(\d{1,3}))?", amount)
+        if written is None:
+            raise ValueError("amount is not a decimal of at most three places: " + amount)
+        digits = written.group(1) or ""
+        sign = -1 if amount.startswith("-") else 1
+        bare = amount.replace("-", "").replace(".", "")
+        thousandths[reagent] = thousandths.get(reagent, 0) + sign * int(bare) * 10 ** (3 - len(digits))
+        places[reagent] = max(places.get(reagent, 0), len(digits))
+    totals = {}
+    for reagent, total_thousandths in thousandths.items():
+        finest = places[reagent]
+        if total_thousandths < 0:
+            sign = -1
+            total_thousandths = -total_thousandths
+        else:
+            sign = 1
+        # Convert thousandths back to the finest precision
+        # total_thousandths is in units of 1/1000
+        # We want to represent it with 'finest' decimal places
+        # So we need to divide by 10^(3 - finest)
+        divisor = 10 ** (3 - finest)
+        value = total_thousandths // divisor
+        remainder = total_thousandths % divisor
+        
+        # Format the integer part
+        int_str = str(value)
+        
+        # Format the fractional part
+        if finest == 0:
+            frac_str = ""
+        else:
+            # We need to represent remainder / divisor as a string with 'finest' digits
+            # remainder is the part after the decimal point in thousandths
+            # We need to pad it with leading zeros to 'finest' digits
+            frac_str = str(remainder).zfill(finest)
+            # Remove trailing zeros? No, the spec says "as many places ... as the finest entry"
+            # So we keep exactly 'finest' places.
+        
+        if sign == -1:
+            totals[reagent] = f"-{int_str}.{frac_str}" if frac_str else f"-{int_str}"
+        else:
+            totals[reagent] = f"{int_str}.{frac_str}" if frac_str else int_str
+            
+    return totals
+```

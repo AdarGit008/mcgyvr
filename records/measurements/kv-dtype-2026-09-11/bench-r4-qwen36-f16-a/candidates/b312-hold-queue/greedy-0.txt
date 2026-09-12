@@ -1,0 +1,21 @@
+```python
+def hold_queue(callers: list, limit: int) -> list:
+    """Process a hold queue with a maximum capacity, dropping oldest callers when full."""
+    if limit <= 0:
+        raise ValueError("Limit must be a positive integer")
+    
+    queue = []
+    for caller in callers:
+        # If the caller is already in the queue, remove them to re-add at the end
+        if caller in queue:
+            queue.remove(caller)
+        
+        # Add the caller to the end of the queue
+        queue.append(caller)
+        
+        # If the queue exceeds the limit, remove the oldest caller (first element)
+        if len(queue) > limit:
+            queue.pop(0)
+            
+    return queue
+```

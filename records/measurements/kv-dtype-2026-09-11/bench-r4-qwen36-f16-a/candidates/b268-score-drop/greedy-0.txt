@@ -1,0 +1,14 @@
+```python
+def score_drop(scores: list) -> int:
+    """Return the sum of scores with the single lowest score dropped."""
+    if not scores:
+        return 0
+    
+    min_score = min(scores)
+    total = sum(scores)
+    
+    # Remove only the first occurrence of the minimum score
+    # Since we just need the sum minus one instance of the min,
+    # we can simply subtract the min value from the total.
+    return total - min_score
+```

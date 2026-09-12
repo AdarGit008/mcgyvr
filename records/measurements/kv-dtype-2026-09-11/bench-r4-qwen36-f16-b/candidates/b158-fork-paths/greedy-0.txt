@@ -1,0 +1,101 @@
+```python
+def fork_paths(pattern: str) -> list:
+    """
+    Expand a deployment pattern with fork syntax into a list of concrete paths.
+    
+    Args:
+        pattern: A slash-separated string where segments can be literals or forks.
+                 Forks are denoted by curly braces containing comma-separated options.
+    
+    Returns:
+        A list of expanded path strings.
+    
+    Raises:
+        ValueError: If the pattern is invalid (not a string, empty, contains empty segments,
+                    empty options, or misplaced braces/commas).
+    """
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a string")
+    
+    if len(pattern) == 0:
+        raise ValueError("Pattern cannot be empty")
+    
+    # Split the pattern by '/'
+    # We need to handle the case where the pattern starts or ends with '/'
+    # or has consecutive slashes, which implies empty segments.
+    segments = pattern.split('/')
+    
+    # Check for empty segments
+    for i, segment in enumerate(segments):
+        if len(segment) == 0:
+            raise ValueError("Empty segment found in pattern")
+    
+    # Parse each segment into a list of options
+    parsed_segments = []
+    for segment in segments:
+        parsed_options = _parse_segment(segment)
+        parsed_segments.append(parsed_options)
+    
+    # Generate all combinations
+    # Use iterative approach to avoid recursion depth issues
+    # Start with a list containing one empty path
+    paths = [""]
+    
+    for options in parsed_segments:
+        new_paths = []
+        for path in paths:
+            for option in options:
+                # Join with '/'
+                if path == "":
+                    new_path = option
+                else:
+                    new_path = path + "/" + option
+                new_paths.append(new_path)
+        paths = new_paths
+    
+    return paths
+
+
+def _parse_segment(segment: str) -> list:
+    """
+    Parse a single segment of the pattern into a list of options.
+    
+    Args:
+        segment: A string representing a path segment.
+        
+    Returns:
+        A list of strings representing the options for this segment.
+        
+    Raises:
+        ValueError: If the segment contains invalid syntax.
+    """
+    if len(segment) == 0:
+        raise ValueError("Empty segment")
+    
+    # Check if it's a fork
+    if segment.startswith('{') and segment.endswith('}'):
+        # It's a fork
+        inner = segment[1:-1]
+        if len(inner) == 0:
+            raise ValueError("Empty fork options")
+        
+        # Split by comma
+        options = inner.split(',')
+        
+        # Validate each option
+        for option in options:
+            if len(option) == 0:
+                raise ValueError("Empty option in fork")
+            # Check for misplaced braces or commas inside options
+            if '{' in option or '}' in option or ',' in option:
+                raise ValueError("Invalid characters in fork option")
+        
+        return options
+    
+    else:
+        # It's a literal
+        # Check for misplaced braces or commas
+        if '{' in segment or '}' in segment or ',' in segment:
+            raise ValueError("Invalid characters in literal segment")
+        return [segment]
+```

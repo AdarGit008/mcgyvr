@@ -1,0 +1,11 @@
+```python
+def driest_window(rain: list[int], width:    if not isinstance(rain, list) or not all(isinstance(x, int) and x >= 0 for x in rain):
+        raise ValueError("Invalid rain data")
+    if not isinstance(width, int) or width < raise ValueError("Invalid width value")
+    if width <= 0 or width > len(rain):
+        raise ValueError("Invalid window size")
+
+    min =    min[rain[i:i + width]       min_min =    min(r_list)
+       min_index = rain.index(list_min)
+    return min_min
+```

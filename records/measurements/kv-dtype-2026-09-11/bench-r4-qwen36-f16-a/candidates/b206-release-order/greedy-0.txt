@@ -1,0 +1,60 @@
+```python
+def order_release_tags(tags: list) -> list:
+    """Return a new list of release tags sorted in ascending release order."""
+    def parse_tag(tag: str):
+        """Parse a release tag into a sortable tuple."""
+        if not tag.startswith('v'):
+            raise ValueError(f"Invalid tag format: {tag}")
+        
+        rest = tag[1:]
+        parts = rest.split('-', 1)
+        version_part = parts[0]
+        preview_part = parts[1] if len(parts) > 1 else None
+        
+        version_numbers = version_part.split('.')
+        if len(version_numbers) != 3:
+            raise ValueError(f"Invalid tag format: {tag}")
+        
+        try:
+            major = int(version_numbers[0])
+            minor = int(version_numbers[1])
+            patch = int(version_numbers[2])
+        except ValueError:
+            raise ValueError(f"Invalid tag format: {tag}")
+        
+        preview_word = None
+        preview_number = None
+        
+        if preview_part:
+            # Preview label is a lowercase word directly on a number
+            # e.g., rc3 -> word='rc', number=3
+            # Find where the digits start
+            idx = 0
+            while idx < len(preview_part) and preview_part[idx].islower():
+                idx += 1
+            if idx == 0 or idx == len(preview_part):
+                raise ValueError(f"Invalid preview label in tag: {tag}")
+            
+            preview_word = preview_part[:idx]
+            try:
+                preview_number = int(preview_part[idx:])
+            except ValueError:
+                raise ValueError(f"Invalid preview label in tag: {tag}")
+        
+        # Sort key:
+        # 1. major
+        # 2. minor
+        # 3. patch
+        # 4. has_preview (True=1, False=0) -> preview comes before plain
+        # 5. preview_word (if exists)
+        # 6. preview_number (if exists)
+        
+        if preview_part:
+            return (major, minor, patch, 1, preview_word, preview_number)
+        else:
+            return (major, minor, patch, 0, None, None)
+    
+    parsed = [(parse_tag(tag), tag) for tag in tags]
+    parsed.sort(key=lambda x: x[0])
+    return [tag for _, tag in parsed]
+```

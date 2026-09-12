@@ -1,0 +1,24 @@
+```python
+def match_setting(rules:    name):
+        if not isinstance(name, str) or name == "" or "*" in name):
+            raise ValueError("name must be a star-free non-empty string")
+        
+        exact_match = rules.get(name)
+        if exact_match is not None:
+            return exact_match
+        
+        longest_covering = None
+        for selector,            if selector.endswith(".*"):
+                prefix = selector[:-2]
+                if name.startswith(prefix):
+                    if longest_covering is None or len(selector) > len(longest_covering):
+                        longest_covering = selector
+            
+            elif selector == "*("*"):
+                longest_covering = selector
+        
+        if longest_covering is not None:
+            return rules[longest_covering]
+        
+        return None)
+```

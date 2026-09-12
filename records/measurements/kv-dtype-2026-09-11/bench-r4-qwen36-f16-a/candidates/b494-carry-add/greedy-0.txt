@@ -1,0 +1,47 @@
+```python
+def carry_add(left: list[int], right: list[int]) -> list[int]:
+    """Add two counts held as runs of single figures, the weightiest figure first."""
+    # Handle empty inputs
+    if not left and not right:
+        return []
+    
+    # Normalize inputs: remove leading zeros, but keep at least one digit if the number is zero
+    def normalize(digits: list[int]) -> list[int]:
+        # Find the first non-zero digit
+        start = 0
+        while start < len(digits) and digits[start] == 0:
+            start += 1
+        if start == len(digits):
+            return [0]
+        return digits[start:]
+    
+    left = normalize(left)
+    right = normalize(right)
+    
+    # If both are zero after normalization
+    if not left and not right:
+        return [0]
+    
+    # Pad the shorter list with leading zeros to match lengths
+    max_len = max(len(left), len(right))
+    left = [0] * (max_len - len(left)) + left
+    right = [0] * (max_len - len(right)) + right
+    
+    # Process from the least significant digit (end of list) to the most significant
+    result = [0] * max_len
+    carry = 0
+    
+    for i in range(max_len - 1, -1, -1):
+        total = left[i] + right[i] + carry
+        result[i] = total % 10
+        carry = total // 10
+    
+    # If there's a remaining carry, prepend it
+    if carry:
+        result = [carry] + result
+    
+    # Normalize the result: remove leading zeros
+    result = normalize(result)
+    
+    return result
+```

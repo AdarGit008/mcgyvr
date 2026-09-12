@@ -1,0 +1,76 @@
+```python
+def pick_fields(records: list, fields: list) -> list:
+    """Pick specified fields from a list of record mappings.
+    
+    Args:
+        records: A list of mappings (dicts) representing records.
+        fields: A list of field name strings to extract. Names ending in '?' are optional.
+        
+    Returns:
+        A list of lists, where each inner list contains the values for the specified fields
+        for the corresponding record, in the order the fields were given.
+        
+    Raises:
+        ValueError: If inputs are invalid or records are missing required fields.
+    """
+    # Validate records type
+    if not isinstance(records, list):
+        raise ValueError("records must be a list")
+    
+    # Validate fields type
+    if not isinstance(fields, list):
+        raise ValueError("fields must be a list")
+    
+    # Validate fields is non-empty
+    if len(fields) == 0:
+        raise ValueError("fields must be a non-empty list")
+    
+    # Process field names and validate them
+    parsed_fields = []
+    stems = set()
+    
+    for field_name in fields:
+        if not isinstance(field_name, str):
+            raise ValueError(f"Field name must be a string, got {type(field_name)}")
+        
+        is_optional = False
+        stem = field_name
+        
+        if field_name.endswith('?'):
+            is_optional = True
+            stem = field_name[:-1]
+        
+        # Check if stem is empty
+        if not stem:
+            raise ValueError(f"Field name stem cannot be empty")
+        
+        # Check for duplicate stems
+        if stem in stems:
+            raise ValueError(f"Duplicate field stem: {stem}")
+        
+        stems.add(stem)
+        parsed_fields.append((stem, is_optional))
+    
+    # Process each record
+    result = []
+    for record in records:
+        if not isinstance(record, list):
+            raise ValueError("Each record must be a list")
+        
+        if not isinstance(record, dict):
+            raise ValueError("Each record must be a mapping (dict)")
+        
+        row = []
+        for stem, is_optional in parsed_fields:
+            if stem in record:
+                row.append(record[stem])
+            else:
+                if is_optional:
+                    row.append(None)
+                else:
+                    raise ValueError(f"Record missing required field: {stem}")
+        
+        result.append(row)
+    
+    return result
+```

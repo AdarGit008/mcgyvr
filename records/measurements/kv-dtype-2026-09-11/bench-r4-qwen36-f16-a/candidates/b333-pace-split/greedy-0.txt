@@ -1,0 +1,44 @@
+```python
+def pace_of(seconds: int, kilometres: int) -> int:
+    """Return the seconds per kilometre for a leg, rounded down."""
+    if kilometres <= 0:
+        raise ValueError("Distance must be greater than zero")
+    return seconds // kilometres
+
+
+def pace_list(legs: list) -> list:
+    """Return the pace of every leg of a run."""
+    if not legs:
+        return []
+    
+    paces = []
+    for leg in legs:
+        if len(leg) != 2:
+            raise ValueError("Each leg must contain exactly two elements: seconds and distance")
+        
+        seconds, distance = leg
+        
+        # Check if distance is zero or negative
+        if distance <= 0:
+            raise ValueError("Distance must be greater than zero")
+        
+        # Calculate pace: seconds per kilometre
+        # Since distance might be fractional, we need to handle it carefully
+        # The problem states "rounded down" for pace_of, so we use floor division
+        # But if distance is fractional, we need to compute seconds/kilometres properly
+        
+        # If distance is an integer, we can use floor division directly
+        # If distance is a float, we need to compute the pace as a float and then floor it
+        
+        if isinstance(distance, int):
+            pace = seconds // distance
+        else:
+            # For float distances, calculate pace as float and floor it
+            pace = int(seconds / distance)
+            # Ensure it's floored (int() truncates towards zero, which is floor for positive numbers)
+            # Since seconds and distance are positive, this is correct
+        
+        paces.append(pace)
+    
+    return paces
+```

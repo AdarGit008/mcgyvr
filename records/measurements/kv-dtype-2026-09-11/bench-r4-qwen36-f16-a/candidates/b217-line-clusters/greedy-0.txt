@@ -1,0 +1,66 @@
+```python
+def line_clusters(stops: list[str], links: list[tuple[str, str]]) -> list[list[str]]:
+    """
+    Group tram stops into connected clusters based on provided links.
+    
+    Args:
+        stops: List of unique stop names.
+        links: List of [from, to] pairs representing bidirectional track segments.
+        
+    Returns:
+        List of clusters, where each cluster is a list of stop names sorted
+        alphabetically. The clusters themselves are ordered by their
+        alphabetically first stop.
+    """
+    if not stops:
+        return []
+
+    # Initialize Union-Find structure
+    # Map each stop to itself initially
+    parent = {stop: stop for stop in stops}
+    
+    def find(node: str) -> str:
+        """Find the root of the node with path compression."""
+        if parent[node] != node:
+            parent[node] = find(parent[node])
+        return parent[node]
+    
+    def union(node1: str, node2: str) -> None:
+        """Union two nodes by connecting their roots."""
+        root1 = find(node1)
+        root2 = find(node2)
+        if root1 != root2:
+            # Always attach the lexicographically smaller root to the larger one
+            # to ensure canonical representation, or just arbitrary.
+            # Let's attach root2 to root1 if root1 < root2 to keep roots consistent
+            if root1 < root2:
+                parent[root2] = root1
+            else:
+                parent[root1] = root2
+
+    # Process links
+    for from_stop, to_stop in links:
+        # Check if both stops are in the known stops list
+        if from_stop in parent and to_stop in parent:
+            union(from_stop, to_stop)
+        # If a link references a stop not in 'stops', we ignore it as per
+        # the blocked condition interpretation that we shouldn't guess.
+        # The problem states "stops, the list of stop names it serves",
+        # implying these are the only valid stops.
+
+    # Group stops by their root
+    clusters_map: dict[str, list[str]] = {}
+    for stop in stops:
+        root = find(stop)
+        if root not in clusters_map:
+            clusters_map[root] = []
+        clusters_map[root].append(stop)
+    
+    # Sort each cluster alphabetically
+    sorted_clusters = [sorted(cluster) for cluster in clusters_map.values()]
+    
+    # Sort clusters by their first element (alphabetically first stop)
+    sorted_clusters.sort(key=lambda cluster: cluster[0])
+    
+    return sorted_clusters
+```

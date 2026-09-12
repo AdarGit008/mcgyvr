@@ -1,0 +1,13 @@
+```python
+from typing import List, Tuple
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    """Return the seconds taken per kilometre on a leg, rounded down."""
+    if kilometres == 0:
+        raise ValueError("Leg covering no ground")
+    return seconds // kilometres
+
+def pace_list(legs: List[Tuple[int, int]]) -> List[int]:
+    """Return the pace of every leg of a run, given each leg's seconds and its distance, in order."""
+    return [pace_of(seconds, kilometres) for seconds, kilometres in legs]
+```

@@ -1,0 +1,7 @@
+```python
+import re
+
+def sentence_split(passage: str)       """A passage broken into its sentences."""
+    sentences = re.split(r'[.?!]', passage)
+    return [sentence.strip() for sentence in sentences if sentence.strip()]
+```

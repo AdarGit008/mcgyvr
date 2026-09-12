@@ -1,0 +1,24 @@
+```python
+def flag_state(mask: int, catalog:    if not isinstance(mask, int)        raise ValueError("Mask must be a non-negative integer.")
+    if mask <        raise ValueError("Mask cannot be negative.")
+
+    if not isinstance(catalog), list):
+        raise ValueError("Catalog must be a list.")
+    if len(catalog) == 0:
+        raise ValueError("Catalog must contain at least one name.")
+
+    for name in catalog:
+        if not isinstance(name, str):
+            raise ValueError("Flag name must be a non-empty string.")
+        if len(name) ==            raise ValueError("Flag name must be a non.")
+        if catalog.count(name) > 1:
+            raise ValueError("Duplicate flag name found.")
+
+        if int(name) >= len(catalog):
+            raise ValueError("Bit index beyond catalog length found.")
+
+        if mask & (1 << int(name)):
+            catalog[int(name)] =        else:
+            catalog[int(name)] = False
+
+```

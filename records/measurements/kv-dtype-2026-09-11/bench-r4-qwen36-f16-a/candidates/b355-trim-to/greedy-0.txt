@@ -1,0 +1,14 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    """Cut a line down to at most `limit` characters, appending '...' if truncated."""
+    if limit < 4:
+        raise ValueError("limit must be at least 4")
+    
+    if len(line) <= limit:
+        return line
+    
+    # We need to truncate the line such that the result is exactly `limit` characters long.
+    # The last 3 characters will be "...", so we take `limit - 3` characters from the start.
+    truncated = line[:limit - 3]
+    return truncated + "..."
+```

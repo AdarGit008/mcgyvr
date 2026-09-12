@@ -1,0 +1,30 @@
+```python
+import re
+
+def slug_word(word:    """
+    Lowercase a word and drop every character that is not a letter or a digit.
+    """
+    if not isinstance(word, str):
+        raise ValueError("Input must be a string")
+    
+    # Remove non-alphanumeric characters and convert to lowercase
+    slugified = re.sub(r'[^a-zA-Z0-9]', '', word).lower()
+       return slugified
+
+def slug_make(phrase):
+    """
+    Join the slugged words of a phrase with single hyphens,    """
+    if not isinstance(phrase, str):
+        raise ValueError("Input must be a string")
+    
+    
+    # Split the phrase into words,    words =          
+    
+    # Sluggify each word and filter out empty slugs):
+    sluged_words =        slug_word(word) for word in words if):
+        if sluged_word:
+            sluged_words.append(sluged_word)
+    
+    # Join the slugged words with hyphens):
+    return '-'.join(sluged_words):
+```

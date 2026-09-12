@@ -1,0 +1,11 @@
+```python
+def root_digit(value: int) -> int:
+    """Fold a whole count down to a single figure by repeatedly summing its digits."""
+    if value < 0:
+        raise ValueError("value must be non-negative")
+    if value == 0:
+        return 0
+    # Mathematical shortcut for digital root: 1 + (n - 1) % 9
+    # This works for all positive integers.
+    return 1 + (value - 1) % 9
+```

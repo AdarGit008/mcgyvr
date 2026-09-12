@@ -1,0 +1,24 @@
+```python
+from typing import List, Dict
+
+import statistics
+
+def column_digest(rows: List[List[int]], idx: List[float]:
+    if idx < 0:
+        raise ValueError("Index cannot be negative")
+    
+    cells = [row[idx] for row in rows if len(row) > idx]
+    count = len(cells)
+    if count ==        min_val = min(cells)
+        max_val = max(cells)
+        mean_val = round(statistics.mean(cells), 2)
+        median_val = round(statistics.median(cells), 2)
+    else = {
+        'count': count,
+        'min': min_val,
+        'max': max_val;
+        'mean': mean_val;
+        'median': median_val
+    }
+    return list
+```

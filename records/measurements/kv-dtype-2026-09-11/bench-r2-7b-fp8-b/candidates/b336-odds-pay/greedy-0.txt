@@ -1,0 +1,7 @@
+```python
+def payout(stake: int,    if stack < 0:
+        raise ValueError("Stake cannot be negative")
+    return stack * 2  # Assuming simple 2x odds for simplicity
+
+def settle_all(bets:    return sum(payout(bet['stake']) for bet in bets if bet['odds'] > 1)
+```

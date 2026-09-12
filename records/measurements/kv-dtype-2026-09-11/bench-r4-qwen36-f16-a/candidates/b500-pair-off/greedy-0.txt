@@ -1,0 +1,14 @@
+```python
+def pair_off(marks: list[str]) -> list[str]:
+    """Remove adjacent duplicate pairs recursively until no more pairs exist."""
+    if not marks:
+        return []
+    
+    stack: list[str] = []
+    for mark in marks:
+        if stack and stack[-1] == mark:
+            stack.pop()
+        else:
+            stack.append(mark)
+    return stack
+```
