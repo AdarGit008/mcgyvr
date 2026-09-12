@@ -87,9 +87,9 @@ def _foreign(
 
 
 def _machine() -> str:
-    from mcgyvr.serving.gatelib import machine_id
+    from mcgyvr.serving.gatelib import os_machine_id
 
-    return machine_id()
+    return os_machine_id()
 
 
 def _dead_pid() -> int:

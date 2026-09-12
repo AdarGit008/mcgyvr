@@ -891,7 +891,7 @@ def scan(weights_dir: Path | None = None) -> Scan:
     )
 
 
-def machine_id(scan: Scan) -> str:
+def os_machine_id(scan: Scan) -> str:
     """The key a machine's scans are filed under, here and on every other host."""
     return scan.machine.id
 
@@ -918,12 +918,12 @@ def write_scan(scan: Scan, root: Path | None = None) -> Path:
     """Record a scan under its machine's id, replacing that machine's last one."""
     base = root if root is not None else default_root()
     base.mkdir(parents=True, exist_ok=True)
-    path = base / f"{machine_id(scan)}.json"
+    path = base / f"{os_machine_id(scan)}.json"
     path.write_text(scan.to_json(), encoding="utf-8")
     return path
 
 
-def load_prior(machine_id: str, root: Path | None = None) -> Scan | None:
+def load_prior(os_machine_id: str, root: Path | None = None) -> Scan | None:
     """The last scan of a machine, or None if there has never been one.
 
     A record this cannot read is treated as absent too: the caller's answer to
@@ -931,7 +931,7 @@ def load_prior(machine_id: str, root: Path | None = None) -> Scan | None:
     """
     base = root if root is not None else default_root()
     try:
-        text = (base / f"{machine_id}.json").read_text(encoding="utf-8")
+        text = (base / f"{os_machine_id}.json").read_text(encoding="utf-8")
     except OSError:
         return None
     try:

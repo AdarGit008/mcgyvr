@@ -23,7 +23,7 @@ from mcgyvr.scan import (
     Vram,
     compare,
     load_prior,
-    machine_id,
+    os_machine_id,
     scan,
     write_scan,
 )
@@ -128,20 +128,20 @@ def test_disk_free_is_measured_for_the_weights_path(
 def test_scan_is_persisted_keyed_by_machine_id(bench: Bench, tmp_path: Path) -> None:
     result = scan()
     path = write_scan(result, root=tmp_path)
-    assert path == tmp_path / f"{machine_id(result)}.json"
-    assert json.loads(path.read_text(encoding="utf-8"))["machine"]["id"] == machine_id(
-        result
-    )
+    assert path == tmp_path / f"{os_machine_id(result)}.json"
+    assert json.loads(path.read_text(encoding="utf-8"))["machine"][
+        "id"
+    ] == os_machine_id(result)
 
 
 def test_machine_id_is_stable_across_two_scans(bench: Bench) -> None:
-    assert machine_id(scan()) == machine_id(scan())
+    assert os_machine_id(scan()) == os_machine_id(scan())
 
 
 def test_a_scan_round_trips_through_disk(bench: Bench, tmp_path: Path) -> None:
     result = scan()
     write_scan(result, root=tmp_path)
-    assert load_prior(machine_id(result), root=tmp_path) == result
+    assert load_prior(os_machine_id(result), root=tmp_path) == result
 
 
 def test_mismatch_flags_ram_that_disagrees_with_the_prior(
@@ -153,7 +153,7 @@ def test_mismatch_flags_ram_that_disagrees_with_the_prior(
     bench(meminfo=MEMINFO)
     now = scan()
     assert Mismatch(field="memory.total_gb", prior=32.0, measured=47.0) in compare(
-        now, load_prior(machine_id(now), root=tmp_path)
+        now, load_prior(os_machine_id(now), root=tmp_path)
     )
 
 
@@ -167,7 +167,7 @@ def test_a_volatile_number_alone_is_not_a_mismatch(
     write_scan(scan(), root=tmp_path)
     bench(smi=SMI_IDLE)
     now = scan()
-    assert compare(now, load_prior(machine_id(now), root=tmp_path)) == ()
+    assert compare(now, load_prior(os_machine_id(now), root=tmp_path)) == ()
 
 
 def test_absence_of_a_gpu_is_an_outcome_not_an_error(bench: Bench) -> None:

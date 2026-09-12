@@ -1908,7 +1908,7 @@ def _scan(args: argparse.Namespace) -> int:
     """
     measured = scan_module.scan()
     root = scan_module.default_root()
-    prior = scan_module.load_prior(scan_module.machine_id(measured), root)
+    prior = scan_module.load_prior(scan_module.os_machine_id(measured), root)
     drift = scan_module.compare(measured, prior)
     # Recorded before anything is reported, and recorded even when it
     # disagrees with the last scan. A mismatch is a successful measurement of a
@@ -2335,10 +2335,10 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     return resolved
 
 
-def _local_scan(scans: dict[str, Scan], machine_id: str) -> Scan | None:
+def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
     """The recorded scan of this very machine, or None if it has never run one."""
     for recorded in scans.values():
-        if recorded.machine.id == machine_id:
+        if recorded.machine.id == os_machine_id:
             return recorded
     return None
 
