@@ -62,9 +62,12 @@ SRV1_EVIDENCE: dict[str, Any] = {
             "rig": "srv1",
             "slots": SLOTS,
             "passed": True,
+            "headroom_mib": 400,
             "restarts": {"a": 0, "b": 0},
             "warm_decode_tok_s": {"a": 20.0, "b": 20.0},
             "baseline_tok_s": {"a": 20.5, "b": 20.5},
+            "card_peak_mib": {"a": 2000, "b": 2000},
+            "prefill_tok_s": {"a": 1450.0, "b": 1450.0},
             "validated_at": "2026-09-11T10:00:00Z",
             "envelope": "records/evidence/2026-09-11-fleet-srv1/flt-01",
         }

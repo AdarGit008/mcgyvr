@@ -20,7 +20,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from tests import onedoor
-from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_file
+from tests.test_the_door_serves_a_ladder_and_leaves_it_up import (
+    CONFIG_VAR,
+    UNITS,
+    compose_file,
+    dev_config,
+)
 
 
 def test_a_second_serve_up_on_one_day_is_not_refused_for_the_first_ones_record(
@@ -28,16 +33,21 @@ def test_a_second_serve_up_on_one_day_is_not_refused_for_the_first_ones_record(
 ) -> None:
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
+    dev = dev_config(tmp_path / "dev.yaml")
     stubs = onedoor.stubs_dir(root)
 
     onedoor.serving(stubs, UNITS)
-    first = onedoor.serve_door(root, "up", compose, suffix="wake-1")
+    first = onedoor.serve_door(
+        root, "up", compose, suffix="wake-1", env_extra={CONFIG_VAR: str(dev)}
+    )
     assert first.returncode == 0, first.stderr[-1500:]
     down = onedoor.serve_door(root, "down", compose, suffix="sleep-1")
     assert down.returncode == 0, down.stderr[-1500:]
 
     onedoor.serving(stubs, UNITS)
-    again = onedoor.serve_door(root, "up", compose, suffix="wake-2")
+    again = onedoor.serve_door(
+        root, "up", compose, suffix="wake-2", env_extra={CONFIG_VAR: str(dev)}
+    )
 
     assert "already exists" not in again.stderr, (
         "the day's second wake was refused for the first wake's serve-up.json: "

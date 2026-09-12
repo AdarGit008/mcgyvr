@@ -151,6 +151,16 @@ def _combination_record(
         if engine is not None:
             entry["engine"] = engine
 
+        # A live gate 1 matches the compose file's container names against the
+        # lock offline, before any rig is read, so the lock records how each
+        # unit is named on the daemon and reached on the wire.
+        container = unit.get("container")
+        if isinstance(container, str) and container:
+            entry["container"] = container
+        address = unit.get("address")
+        if isinstance(address, str) and address:
+            entry["address"] = address
+
         if engine == "vllm":
             if "kv_cache_memory_bytes" not in unit:
                 raise LockRefusedError(
