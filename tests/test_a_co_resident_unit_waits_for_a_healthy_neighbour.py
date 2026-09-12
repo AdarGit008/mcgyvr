@@ -73,14 +73,18 @@ models:
   "{BIG}":
     vram_gb: 3.0
     disk_gb: 12.31
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
   "{THREE_B}":
     vram_gb: 3.49
     disk_gb: 2.15
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
   "{SEVEN_B}":
     vram_gb: 7.12
     disk_gb: 4.93
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
 ladder:
   tiers:
     - name: local_big

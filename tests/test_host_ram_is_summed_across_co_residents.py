@@ -78,7 +78,14 @@ def declared(name: str, *, ram_gb: float, disk_gb: float) -> ModelSpec:
     """A spec whose card figure an operator stated — the shape a co-resident
     pair really has on this fleet, and small enough on the card that the VRAM
     sum lets the question through to the memory one."""
-    return ModelSpec(name=name, vram_gb=3.0, ram_gb=ram_gb, disk_gb=disk_gb)
+    return ModelSpec(
+        name=name,
+        vram_gb=3.0,
+        ram_gb=ram_gb,
+        disk_gb=disk_gb,
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
+    )
 
 
 def pair(*, ram_gb: float, disk_gb: float, ports: tuple[int, int]) -> tuple[Unit, ...]:
@@ -178,6 +185,8 @@ def test_a_lone_unit_is_left_to_the_fit_that_already_admitted_it() -> None:
             ram_gb=0.0,
             disk_gb=0.0,
             geometry=GEOMETRY["Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"],
+            kv_cache_dtype_k="f16",
+            kv_cache_dtype_v="f16",
         ),
         engine="llama.cpp",
         ctx_per_slot=WINDOW,

@@ -255,24 +255,30 @@ def _card() -> Scan:
     )
 
 
-def _vllm_spec(*serve_args: str) -> ModelSpec:
+def _vllm_spec(*, kv_cache_dtype_k: str | None = None) -> ModelSpec:
     return ModelSpec(
         name=SEVEN_B,
         vram_gb=7.12,
         ram_gb=0.0,
         disk_gb=4.93,
         hf_cache=HF_CACHE,
-        serve_args=(*UTILISATION, *serve_args),
+        serve_args=UTILISATION,
+        kv_cache_dtype_k=kv_cache_dtype_k,
     )
 
 
-def _llamacpp_spec(*serve_args: str) -> ModelSpec:
+def _llamacpp_spec(
+    *,
+    kv_cache_dtype_k: str | None = None,
+    kv_cache_dtype_v: str | None = None,
+) -> ModelSpec:
     return ModelSpec(
         name="qwen2.5-coder-3b",
         vram_gb=2.4,
         ram_gb=0.0,
         disk_gb=2.1,
-        serve_args=serve_args,
+        kv_cache_dtype_k=kv_cache_dtype_k,
+        kv_cache_dtype_v=kv_cache_dtype_v,
     )
 
 
@@ -285,21 +291,21 @@ def test_a_vllm_unit_whose_model_states_no_kv_cache_dtype_is_refused_by_name() -
 
 
 @pytest.mark.parametrize(
-    ("serve_args", "missing"),
+    ("kwargs", "missing"),
     [
-        ((), (CTK_KNOB, CTV_KNOB)),
-        (("-ctk", "q8_0"), (CTV_KNOB,)),
-        (("-ctv", "q8_0"), (CTK_KNOB,)),
+        ({}, (CTK_KNOB, CTV_KNOB)),
+        ({"kv_cache_dtype_k": "q8_0"}, (CTV_KNOB,)),
+        ({"kv_cache_dtype_v": "q8_0"}, (CTK_KNOB,)),
     ],
     ids=["neither", "only-k", "only-v"],
 )
 def test_a_llamacpp_unit_whose_model_states_no_cache_types_is_refused_by_name(
-    serve_args: tuple[str, ...], missing: tuple[tuple[str, ...], ...]
+    kwargs: dict[str, str], missing: tuple[tuple[str, ...], ...]
 ) -> None:
     with pytest.raises(UnitError) as refused:
         unit_for(
             _card(),
-            _llamacpp_spec(*serve_args),
+            _llamacpp_spec(**kwargs),
             engine="llama.cpp",
             ctx_per_slot=WINDOW,
         )
@@ -317,7 +323,7 @@ def _contains(parts: tuple[str, ...], run: tuple[str, ...]) -> bool:
 def test_a_stated_kv_cache_dtype_reaches_a_vllm_argv_as_written(dtype: str) -> None:
     unit = unit_for(
         _card(),
-        _vllm_spec("--kv-cache-dtype", dtype),
+        _vllm_spec(kv_cache_dtype_k=dtype),
         engine="vllm",
         ctx_per_slot=WINDOW,
     )
@@ -327,7 +333,7 @@ def test_a_stated_kv_cache_dtype_reaches_a_vllm_argv_as_written(dtype: str) -> N
 def test_stated_cache_types_reach_a_llamacpp_argv_as_written() -> None:
     unit = unit_for(
         _card(),
-        _llamacpp_spec("-ctk", "q8_0", "-ctv", "f16"),
+        _llamacpp_spec(kv_cache_dtype_k="q8_0", kv_cache_dtype_v="f16"),
         engine="llama.cpp",
         ctx_per_slot=WINDOW,
     )

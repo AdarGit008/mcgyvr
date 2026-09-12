@@ -142,8 +142,12 @@ sources:
 models:
   "{BIG}":
     geometry_json: {geometry[BIG]}
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
   "{LITE}":
     geometry_json: {geometry[LITE]}
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
 ladder:
   tiers:
     - name: local_lite
@@ -175,10 +179,12 @@ models:
     vram_gb: 3.49
     disk_gb: 1.95
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
   "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ":
     vram_gb: 7.12
     disk_gb: 4.93
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
 ladder:
   tiers:
     - name: local_3b
@@ -225,14 +231,17 @@ models:
     vram_gb: 3.0
     disk_gb: 1.95
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
   "{BIG_A}":
     vram_gb: 8.0
     disk_gb: 9.0
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
   "{BIG_B}":
     vram_gb: 8.0
     disk_gb: 9.0
     hf_cache: "{HF_CACHE}"
+    kv_cache_dtype_k: auto
 ladder:
   tiers:
     - name: local_small

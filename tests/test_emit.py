@@ -38,8 +38,17 @@ MOE = ModelSpec(
     ram_gb=0.0,
     disk_gb=0.0,
     geometry=GEOMETRY["Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"],
+    kv_cache_dtype_k="f16",
+    kv_cache_dtype_v="f16",
 )
-SMALL = ModelSpec(name="qwen2.5-coder-3b", vram_gb=2.4, ram_gb=0.0, disk_gb=2.1)
+SMALL = ModelSpec(
+    name="qwen2.5-coder-3b",
+    vram_gb=2.4,
+    ram_gb=0.0,
+    disk_gb=2.1,
+    kv_cache_dtype_k="f16",
+    kv_cache_dtype_v="f16",
+)
 
 
 #: The window these tests were written against, stated because nothing supplies

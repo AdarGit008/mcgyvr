@@ -50,7 +50,11 @@ def _entry(width: int, levels: list[int] | None) -> dict[str, Any]:
         "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
         "backend": "vllm",
         "hosts": ["srv1"],
-        "serve": {"max_model_len": 2048, "max_num_seqs": width},
+        "serve": {
+            "max_model_len": 2048,
+            "max_num_seqs": width,
+            "flags": ["--kv-cache-dtype", "auto"],
+        },
         "concurrency": {"measure": True, "levels": levels},
     }
 

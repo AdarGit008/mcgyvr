@@ -69,6 +69,12 @@ sources:
     base_url: "http://{HOST}:8080"
     api: openai
     max_parallel: 8
+models:
+  "{MODEL}":
+    vram_gb: 2.4
+    disk_gb: 1.9
+    kv_cache_dtype_k: f16
+    kv_cache_dtype_v: f16
 ladder:
   tiers:
     - name: local_qwen2.5-coder-3b

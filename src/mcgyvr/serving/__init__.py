@@ -283,6 +283,14 @@ class ModelSpec:
     reasoning off. Both are the operator's, read off the config's ``models``
     block, and both ride on the spec because they are facts about serving
     this model and not about any machine.
+
+    ``kv_cache_dtype_k`` and ``kv_cache_dtype_v`` are the KV cache dtypes the
+    model launches with, read off the same ``models`` block. vLLM takes one
+    value for K and V (``--kv-cache-dtype``), so only the K field is read
+    there; llama.cpp takes the two independently (``-ctk``/``-ctv``). A unit
+    served by either engine that omits the declaration is refused at
+    :func:`unit_for` rather than defaulted: a dtype nobody wrote is a number
+    nobody chose.
     """
 
     name: str
@@ -293,6 +301,8 @@ class ModelSpec:
     geometry: Mapping[str, Any] | None = field(default=None, compare=False)
     hf_cache: str = ""
     serve_args: tuple[str, ...] = ()
+    kv_cache_dtype_k: str | None = None
+    kv_cache_dtype_v: str | None = None
 
     def __post_init__(self) -> None:
         if self.geometry is None:
@@ -603,6 +613,40 @@ def fit(
     )
 
 
+def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
+    """The KV cache dtypes a unit must state, refused by name when absent.
+
+    vLLM takes one value for K and V (``--kv-cache-dtype``), so only the K
+    field is required there and the V field is not read. llama.cpp takes the
+    two independently (``-ctk``/``-ctv``). Every missing knob is named in the
+    one message, so a fix that binds one does not land on the next refusal for
+    the other.
+    """
+    kv_k = spec.kv_cache_dtype_k
+    kv_v = spec.kv_cache_dtype_v
+    if engine == "vllm":
+        if kv_k is None:
+            raise UnitError(
+                f"{spec.name}: served by vLLM, which sizes its KV cache from "
+                f"the dtype the model declares, and nothing states one — set "
+                f"models.{spec.name}.kv_cache_dtype_k (`--kv-cache-dtype`)"
+            )
+        return kv_k, ""
+    missing: list[str] = []
+    if kv_k is None:
+        missing.append("kv_cache_dtype_k (`-ctk`/`cache_type_k`)")
+    if kv_v is None:
+        missing.append("kv_cache_dtype_v (`-ctv`/`cache_type_v`)")
+    if missing:
+        raise UnitError(
+            f"{spec.name}: served by llama.cpp, which sizes its cache from "
+            f"the K and V dtypes the model declares, and nothing states "
+            f"{' and '.join(missing)} — set them on models.{spec.name}"
+        )
+    assert kv_k is not None and kv_v is not None
+    return kv_k, kv_v
+
+
 def unit_for(
     scan: Scan,
     spec: ModelSpec,
@@ -628,6 +672,7 @@ def unit_for(
     ``--max-model-len`` on vLLM — and the same number priced the cache the fit
     approved, which is what makes the launch and the law one number.
     """
+    cache_type_k, cache_type_v = _require_cache_types(engine, spec)
     if engine == "vllm" and not spec.hf_cache:
         raise UnitError(
             f"{spec.name}: served by vLLM, which loads a repository id from the "
@@ -659,6 +704,7 @@ def unit_for(
             args={
                 "--max-num-seqs": str(seqs.value),
                 "--max-model-len": str(ctx_per_slot),
+                "--kv-cache-dtype": cache_type_k,
             },
             fit=sized,
             port=port,
@@ -692,6 +738,8 @@ def unit_for(
         "-fa": "on",
         "--parallel": str(chosen.value),
         "-t": str(_threads(scan)),
+        "-ctk": cache_type_k,
+        "-ctv": cache_type_v,
     }
     # A card roomy enough for every expert derives zero blocks, and
     # ``--n-cpu-moe 0`` is a no-op printed into a file a person reads: it says
@@ -1541,6 +1589,8 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             geometry=geometry,
             hf_cache=str(block.get("hf_cache") or ""),
             serve_args=tuple(str(arg) for arg in (block.get("serve_args") or ())),
+            kv_cache_dtype_k=block.get("kv_cache_dtype_k"),
+            kv_cache_dtype_v=block.get("kv_cache_dtype_v"),
         )
     return specs
 
@@ -1789,6 +1839,8 @@ def _placement(
                 slots=slots,
                 geometry=geometry,
                 n_ubatch=n_ubatch,
+                cache_type_k=spec.kv_cache_dtype_k or "f16",
+                cache_type_v=spec.kv_cache_dtype_v or "f16",
             )
             rs = vramfit.rs_bytes(geometry, n_seq_max=slots)
         except ValueError as exc:
@@ -1961,6 +2013,8 @@ def kv_bytes_for_run(
     slots: int,
     geometry: Mapping[str, Any] | None = None,
     n_ubatch: int = DEFAULT_UBATCH,
+    cache_type_k: str = "f16",
+    cache_type_v: str = "f16",
 ) -> int:
     """The cache a run's own declaration asks for, derived in one place.
 
@@ -2003,9 +2057,14 @@ def kv_bytes_for_run(
     if geometry is None:
         return extent
     return int(
-        vramfit.kv_bytes(dict(geometry), extent, n_seq_max=slots, n_ubatch=n_ubatch)[
-            "total"
-        ]
+        vramfit.kv_bytes(
+            dict(geometry),
+            extent,
+            n_seq_max=slots,
+            n_ubatch=n_ubatch,
+            cache_type_k=cache_type_k,
+            cache_type_v=cache_type_v,
+        )["total"]
     )
 
 

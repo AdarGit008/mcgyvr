@@ -56,7 +56,6 @@ def vllm() -> Any:
 @pytest.mark.parametrize(
     ("flags", "per_token"),
     [
-        ([], 147456),
         (["--kv-cache-dtype", "auto"], 147456),
         (["--kv-cache-dtype", "float16"], 147456),
         (["--kv-cache-dtype", "bfloat16"], 147456),
@@ -123,7 +122,11 @@ def test_the_cell_the_fp16_rule_refused_fits_when_sized_at_fp8(vllm: Any) -> Non
     assert fp8["kv_cache_memory_bytes"] == 4608 * 1024 * 1024
     vllm.declaration_fits("srv2", "thewimo/Qwen3-4B-AWQ", fp8, SRV2_EMPTY_FREE_MIB)
 
-    fp16 = {**shape, "kv_cache_memory_bytes": 32 * 2048 * Q34B_BYTES_PER_TOKEN}
+    fp16 = {
+        **shape,
+        "flags": ["--kv-cache-dtype", "float16"],
+        "kv_cache_memory_bytes": 32 * 2048 * Q34B_BYTES_PER_TOKEN,
+    }
     with pytest.raises(vllm.contract.NotCleanError) as raised:
         vllm.declaration_fits("srv2", "thewimo/Qwen3-4B-AWQ", fp16, SRV2_EMPTY_FREE_MIB)
     assert "Short by 222 MiB" in str(raised.value)

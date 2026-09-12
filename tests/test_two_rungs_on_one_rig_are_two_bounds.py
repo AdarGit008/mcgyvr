@@ -82,8 +82,22 @@ def test_the_ladder_implies_two_processes_on_the_one_host() -> None:
         bandwidth_gbps=27.9,
     )
     specs = (
-        ModelSpec("Qwen/Qwen2.5-Coder-3B-Instruct-AWQ", 3.49, 0.0, 1.95, hf_cache=HF),
-        ModelSpec("Qwen/Qwen2.5-Coder-7B-Instruct-AWQ", 7.12, 0.0, 4.93, hf_cache=HF),
+        ModelSpec(
+            "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+            3.49,
+            0.0,
+            1.95,
+            hf_cache=HF,
+            kv_cache_dtype_k="auto",
+        ),
+        ModelSpec(
+            "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+            7.12,
+            0.0,
+            4.93,
+            hf_cache=HF,
+            kv_cache_dtype_k="auto",
+        ),
     )
     units = units_for(
         parse(CO_RESIDENT), {"srv2": scan}, specs=specs, ctx_per_slot=WINDOW

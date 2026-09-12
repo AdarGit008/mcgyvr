@@ -64,6 +64,7 @@ SEVEN_B_SPEC = ModelSpec(
     disk_gb=4.93,
     hf_cache=HF_CACHE,
     serve_args=("--gpu-memory-utilization", "0.68"),
+    kv_cache_dtype_k="auto",
 )
 THREE_B_SPEC = ModelSpec(
     name=THREE_B,
@@ -72,6 +73,7 @@ THREE_B_SPEC = ModelSpec(
     disk_gb=1.95,
     hf_cache=HF_CACHE,
     serve_args=("--gpu-memory-utilization", "0.33"),
+    kv_cache_dtype_k="auto",
 )
 
 
@@ -134,7 +136,13 @@ def test_a_vllm_unit_renders_a_bare_vllm_serve_command() -> None:
 
 
 def test_a_vllm_unit_without_an_hf_cache_is_refused_by_name() -> None:
-    spec = ModelSpec(name=SEVEN_B, vram_gb=7.12, ram_gb=0.0, disk_gb=4.93)
+    spec = ModelSpec(
+        name=SEVEN_B,
+        vram_gb=7.12,
+        ram_gb=0.0,
+        disk_gb=4.93,
+        kv_cache_dtype_k="auto",
+    )
     with pytest.raises(UnitError, match="hf_cache"):
         unit_for(
             rig("srv2"), spec, engine="vllm", width=8, port=8002, ctx_per_slot=WINDOW
@@ -167,6 +175,8 @@ DENSE = ModelSpec(
     ram_gb=0.0,
     disk_gb=2.1,
     serve_args=THINKING_OFF,
+    kv_cache_dtype_k="f16",
+    kv_cache_dtype_v="f16",
 )
 
 
@@ -187,6 +197,8 @@ def test_a_serve_arg_with_whitespace_is_refused() -> None:
         ram_gb=0.0,
         disk_gb=2.1,
         serve_args=("--chat-template-kwargs", '{"enable_thinking": false}'),
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
     )
     unit = unit_for(
         rig("srv1", vram_mib=6144, free_mib=5727), spec, width=8, ctx_per_slot=WINDOW
@@ -216,11 +228,13 @@ models:
     disk_gb: 1.95
     hf_cache: "{HF_CACHE}"
     serve_args: ["--gpu-memory-utilization", "0.33"]
+    kv_cache_dtype_k: auto
   {SEVEN_B}:
     vram_gb: 7.12
     disk_gb: 4.93
     hf_cache: "{HF_CACHE}"
     serve_args: ["--gpu-memory-utilization", "0.68"]
+    kv_cache_dtype_k: auto
 ladder:
   tiers:
     - name: local_qwen2.5-coder-3b

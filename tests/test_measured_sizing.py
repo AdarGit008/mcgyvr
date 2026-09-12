@@ -83,6 +83,8 @@ def scanned(
         ram_gb=ram_gb,
         disk_gb=disk_gb,
         geometry=geometry,
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
     )
 
 
@@ -460,7 +462,12 @@ def test_a_source_names_the_engine_and_it_reaches_the_unit() -> None:
     # A vLLM unit loads a repository id from the rig's HF cache, so the spec
     # says where that is; without it the unit is refused by name.
     spec = ModelSpec(
-        "qwen2.5-coder:7b", 5.0, 0.0, 4.7, hf_cache="/home/someone/.cache/huggingface"
+        "qwen2.5-coder:7b",
+        5.0,
+        0.0,
+        4.7,
+        hf_cache="/home/someone/.cache/huggingface",
+        kv_cache_dtype_k="auto",
     )
     unit = units_for(config, {"localhost": srv2()}, specs=(spec,), ctx_per_slot=WINDOW)[
         0
@@ -473,7 +480,14 @@ def test_an_unstated_engine_is_still_llama_cpp() -> None:
     """A config that names no engine is bound exactly as it was before."""
     config = config_for("qwen2.5-coder:7b")
     assert config.sources["local"].engine is None
-    spec = ModelSpec("qwen2.5-coder:7b", 5.0, 0.0, 4.7)
+    spec = ModelSpec(
+        "qwen2.5-coder:7b",
+        5.0,
+        0.0,
+        4.7,
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
+    )
     unit = units_for(config, {"localhost": srv2()}, specs=(spec,), ctx_per_slot=WINDOW)[
         0
     ]
@@ -488,7 +502,12 @@ def geometry_file(tmp_path: Path) -> Path:
 
 
 def declared(geometry: Path, extra: str = "") -> str:
-    return f"models:\n  deepseek-coder-v2-16b:\n    geometry_json: {geometry}\n{extra}"
+    return (
+        f"models:\n  deepseek-coder-v2-16b:\n    geometry_json: {geometry}\n"
+        "    kv_cache_dtype_k: f16\n"
+        "    kv_cache_dtype_v: f16\n"
+        f"{extra}"
+    )
 
 
 def test_an_operator_may_serve_a_model_the_table_never_measured(
