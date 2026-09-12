@@ -1,0 +1,64 @@
+{
+  "rule": "M1 tolerance rule (worst single-sample shortfall from the unit median, ceiling'd to a whole percent, floored at 1%)",
+  "swap": "off (no-NVMe)",
+  "classes": {
+    "vllm": {
+      "tolerance_pct": 22,
+      "worst_shortfall_pct": 21.55
+    }
+  },
+  "per_unit": {
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+      "model": "Qwen2.5-Coder-3B-Instruct-AWQ",
+      "class": "vllm",
+      "n": 15,
+      "median_tok_s": 11500.23,
+      "min_tok_s": 10596.8,
+      "max_tok_s": 13992.5,
+      "shortfall_pct": 7.86,
+      "samples": [
+        13752.17,
+        10776.38,
+        11500.23,
+        13992.5,
+        10973.28,
+        11864.57,
+        10596.8,
+        11359.39,
+        11159.65,
+        13707.96,
+        11625.29,
+        11494.96,
+        11686.39,
+        12016.78,
+        11238.07
+      ]
+    },
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+      "model": "Qwen2.5-Coder-7B-Instruct-AWQ",
+      "class": "vllm",
+      "n": 15,
+      "median_tok_s": 12058.63,
+      "min_tok_s": 9460.22,
+      "max_tok_s": 13628.98,
+      "shortfall_pct": 21.55,
+      "samples": [
+        13123.66,
+        11579.73,
+        13058.21,
+        11900.11,
+        11684.17,
+        12984.54,
+        9460.22,
+        12174.48,
+        11752.02,
+        12058.63,
+        13315.52,
+        11056.04,
+        13628.98,
+        11639.69,
+        13628.65
+      ]
+    }
+  }
+}

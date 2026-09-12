@@ -1,0 +1,530 @@
+[
+ {
+  "label": "s2-pair-prefill-1",
+  "rig": "srv2",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "swap": "off",
+  "t": 1789194798.169145,
+  "idle": {
+   "uptime_since": "2026-09-11T07:25:46Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.975032806396484,
+    "MemFree": 44.87187194824219,
+    "MemAvailable": 44.70458984375,
+    "Cached": 0.27304840087890625,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.00146484375
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 252868
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.400101900100708
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 11885,
+   "reserved": 377,
+   "free": 27,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-prefill-1-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 187.06336214602925,
+     "door_unit_s": 167.4,
+     "started_at_to_ready_s": 41.54056739807129
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (3.53/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-12 06:35:10 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-prefill-1-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 187.06336214602925,
+     "door_unit_s": 2.0,
+     "started_at_to_ready_s": 44.61559581756592
+    },
+    "healthy": true,
+    "kv_tokens": 44448,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (9.76/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=205) ERROR 09-12 06:35:11 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "prefill": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.168,
+      "tok_s": 13752.166978020188
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.215,
+      "tok_s": 10776.384903005126
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.201,
+      "tok_s": 11500.226526829441
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.165,
+      "tok_s": 13992.497456515786
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.211,
+      "tok_s": 10973.276857355966
+     }
+    ],
+    "warmup_discarded": 1
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.176,
+      "tok_s": 13123.657718710423
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.2,
+      "tok_s": 11579.732051071056
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.177,
+      "tok_s": 13058.21407005846
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.195,
+      "tok_s": 11900.112826508714
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.198,
+      "tok_s": 11684.169704087613
+     }
+    ],
+    "warmup_discarded": 1
+   }
+  },
+  "restart_count_after_prefill": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ },
+ {
+  "label": "s2-pair-prefill-2",
+  "rig": "srv2",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "swap": "off",
+  "t": 1789195518.8037243,
+  "idle": {
+   "uptime_since": "2026-09-11T07:25:46Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.975032806396484,
+    "MemFree": 44.750450134277344,
+    "MemAvailable": 44.58971405029297,
+    "Cached": 0.2743949890136719,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.001495361328125
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 291924
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.41806721687316895
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 10121,
+   "reserved": 377,
+   "free": 1791,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-prefill-2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 188.82016227097483,
+     "door_unit_s": 167.2,
+     "started_at_to_ready_s": 42.48256516456604
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (5.28/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=206) ERROR 09-12 06:47:12 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-prefill-2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 188.82016227097483,
+     "door_unit_s": 2.1,
+     "started_at_to_ready_s": 44.62213706970215
+    },
+    "healthy": true,
+    "kv_tokens": 11520,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (11.52/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=205) ERROR 09-12 06:47:13 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "prefill": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.195,
+      "tok_s": 11864.574779413651
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.218,
+      "tok_s": 10596.797501246867
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.204,
+      "tok_s": 11359.390348193636
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.207,
+      "tok_s": 11159.653641840654
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.169,
+      "tok_s": 13707.959465449914
+     }
+    ],
+    "warmup_discarded": 1
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.178,
+      "tok_s": 12984.540958922062
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.245,
+      "tok_s": 9460.215435938206
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.19,
+      "tok_s": 12174.475440565227
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.197,
+      "tok_s": 11752.021253290568
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.192,
+      "tok_s": 12058.62986002531
+     }
+    ],
+    "warmup_discarded": 1
+   }
+  },
+  "restart_count_after_prefill": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ },
+ {
+  "label": "s2-pair-prefill-3",
+  "rig": "srv2",
+  "engine": "vllm",
+  "compose": "compose.srv2-pair-as-run.yml",
+  "swap": "off",
+  "t": 1789195768.2579355,
+  "idle": {
+   "uptime_since": "2026-09-11T07:25:46Z",
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 3060",
+    "total": 12288,
+    "used": 1,
+    "reserved": 377,
+    "free": 11911,
+    "cc": "8.6",
+    "driver": "595.84"
+   },
+   "gpu_apps": "none",
+   "mem": {
+    "MemTotal": 45.975032806396484,
+    "MemFree": 44.83128356933594,
+    "MemAvailable": 44.672359466552734,
+    "Cached": 0.2757987976074219,
+    "SwapTotal": 0.0,
+    "SwapFree": 0.0,
+    "Shmem": 0.001468658447265625
+   },
+   "vm": {
+    "pswpin": 0,
+    "pswpout": 0,
+    "pgmajfault": 311419
+   },
+   "swap_total_mib": 0,
+   "clock_offset_s": 0.40323686599731445
+  },
+  "up_gpu": {
+   "name": "NVIDIA GeForce RTX 3060",
+   "total": 12288,
+   "used": 11073,
+   "reserved": 377,
+   "free": 839,
+   "cc": "8.6",
+   "driver": "595.84"
+  },
+  "per_unit": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "restart_count": 2,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8001",
+     "--gpu-memory-utilization",
+     "0.26"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "port": 8001,
+    "log": "logs/s2-pair-prefill-3-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001.log",
+    "clocks": {
+     "door_process_s": 189.79063682700507,
+     "door_unit_s": 169.0,
+     "started_at_to_ready_s": 41.96319580078125
+    },
+    "healthy": true,
+    "kv_tokens": 25312,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (4.35/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-12 06:51:22 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "restart_count": 1,
+    "argv": [
+     "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+     "--max-model-len",
+     "4096",
+     "--max-num-seqs",
+     "8",
+     "--port",
+     "8002",
+     "--gpu-memory-utilization",
+     "0.72"
+    ],
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "port": 8002,
+    "log": "logs/s2-pair-prefill-3-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002.log",
+    "clocks": {
+     "door_process_s": 189.79063682700507,
+     "door_unit_s": 2.1,
+     "started_at_to_ready_s": 45.090343952178955
+    },
+    "healthy": true,
+    "kv_tokens": 29248,
+    "backend_line": "Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].",
+    "kv_line": null,
+    "init_free_gib": null,
+    "free_on_start_line": "Free memory on device (10.58/11.63 GiB) on startup",
+    "init_snapshot": null,
+    "start_gate_line": null,
+    "oom_line": "(EngineCore pid=204) ERROR 09-12 06:51:22 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
+   }
+  },
+  "prefill": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": {
+    "samples": [
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.199,
+      "tok_s": 11625.289452511399
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.201,
+      "tok_s": 11494.957701059071
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.198,
+      "tok_s": 11686.391603930842
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.193,
+      "tok_s": 12016.783920219896
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.206,
+      "tok_s": 11238.06729312474
+     }
+    ],
+    "warmup_discarded": 1
+   },
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": {
+    "samples": [
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.174,
+      "tok_s": 13315.524691104072
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.209,
+      "tok_s": 11056.041610683233
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.17,
+      "tok_s": 13628.975617561644
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.199,
+      "tok_s": 11639.685207006962
+     },
+     {
+      "prompt_n": 2315,
+      "ttft_s": 0.17,
+      "tok_s": 13628.650414902815
+     }
+    ],
+    "warmup_discarded": 1
+   }
+  },
+  "restart_count_after_prefill": {
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001": 2,
+   "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002": 1
+  }
+ }
+]
