@@ -1,0 +1,40 @@
+```python
+from typing import Dict
+
+def match_route(pattern: str, path: str) -> Dict[str, str] | None:
+    """
+    Return captured segments as a dict, or None when there is no match.
+    """
+    # Validate pattern
+    if not pattern:
+        raise ValueError("Pattern cannot be empty")
+    if "://" in pattern:
+        raise ValueError("Pattern cannot contain '://'")
+
+    pats = pattern.split("/") if pattern else []
+    parts = path.split("/") if path else []
+
+    def match_from(pi: int, si: int, caps: Dict[str, str]) -> Dict[str, str] | None:
+        if pi == len(pats):
+            return caps if si == len(parts) else None
+        seg = pats[pi]
+        if seg == "**":
+            for take in range(si, len(parts) + 1):
+                found = match_from(pi + 1, take, caps)
+                if found is not None:
+                    return found
+            return None
+        if si == len(parts):
+            return None
+        if seg.startswith(":"):
+            if ":" in seg[1:]:
+                raise ValueError("Capture segment cannot be only a colon")
+            merged = dict(caps)
+            merged[seg[1:]] = parts[si]
+            return match_from(pi + 1, si + 1, merged)
+        if seg == parts[si]:
+            return match_from(pi + 1, si + 1, caps)
+        return None
+
+    return match_from(0, 0, {})
+```

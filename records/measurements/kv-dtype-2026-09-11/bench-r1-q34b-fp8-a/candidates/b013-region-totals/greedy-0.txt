@@ -1,0 +1,26 @@
+<think>
+Okay, I need to implement the region_totals function. Let's see what the requirements are. The function takes a grid and a list of queries. Each query is a four-element list [top, left, bottom, right]. The goal is to compute the sum of the cells in each query's block.
+
+First, the grid is a list of rows, each row is a non-empty list of integers. All rows have the same length. The queries need to be validated. If any query is invalid, like top >= bottom or left >= right, or if the query is out of bounds, we need to raise an error.
+
+The solution should precompute a prefix-sum table to make repeated queries efficient. So, the plan is to create a 2D prefix sum array where each cell (i, j) contains the sum of all elements from (0,0) to (i,j). Then, for each query, we can use this prefix sum to calculate the sum of the specified rectangle.
+
+Let me think about the steps:
+
+1. Validate the grid. Check that it's non-empty, all rows are non-empty, same length, and all cells are integers. The current code already does some of this. But I need to make sure that all rows are of the same length and that each cell is an integer.
+
+2. Precompute the prefix sum. The prefix sum matrix can be built as follows: prefix[i][j] = prefix[i-1][j] + prefix[i][j-1] - prefix[i-1][j-1] + grid[i][j]. But need to handle the 0-based indices correctly.
+
+Wait, the standard 2D prefix sum formula. Let me recall. The prefix sum at (i, j) is the sum of all elements from (0,0) to (i, j). So, the formula is:
+
+prefix[i][j] = grid[i][j] + prefix[i-1][j] + prefix[i][j-1] - prefix[i-1][j-1]
+
+But need to handle the edges. So, for the first row and first column, the formula would be adjusted accordingly.
+
+But in code, we can build this as a 2D array. Let's say the grid has m rows and n columns. The prefix sum matrix will be (m+1) x (n+1) to handle the 0-based indices. Wait, maybe not. Let me think again. The standard approach is to have a (m x n) prefix sum matrix where each cell (i, j) represents the sum from (0,0) to (i-1, j-1) in the original grid. So, the original grid is 0-based, and the prefix sum is 1-based. That way, the formula for the sum from (a, b) to (c, d) is prefix[c+1][d+1] - prefix[a][d+1] - prefix[c+1][b] + prefix[a][b].
+
+So, for the grid, the prefix sum matrix is (m+1) x (n+1), where m is the number of rows and n is the number of columns.
+
+So, first, I need to create this prefix sum matrix.
+
+Once the prefix sum is built, for each query [top, left, bottom, right], we need to check if the coordinates are valid. The query's top and bottom are row indices, and left and right are column indices. But the problem says that the query is [top, left, bottom, right], where top is the starting row (inclusive), bottom is the ending row (exclusive), same for left and right. So, the actual rectangle is

@@ -1,0 +1,13 @@
+
+```python
+from typing import List, Union
+
+def mean_window(readings: List[int],, size: int) -> List[int]:
+    if size == 0:
+        return []
+    
+    if size > len(readings):
+        return []
+    
+    return [sum(readings[i)) // size for readings in readings[: size)]
+```

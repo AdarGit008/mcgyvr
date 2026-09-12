@@ -1,0 +1,28 @@
+```python
+def field_of(record: dict, field: str) -> int:
+    """Return the integer value for the named field in the record."""
+    if field not in record:
+        raise ValueError(f"Record missing field: {field}")
+    value = record[field]
+    if not isinstance(value, int):
+        raise ValueError(f"Field value is not an integer: {value}")
+    return value
+
+
+def sort_pairs(records: list, field: str) -> list:
+    """Sort records by the named field, preserving original order for ties."""
+    if not records:
+        return []
+    
+    # Attach original index to each record to ensure stable sort behavior
+    indexed_records = [(record, index) for index, record in enumerate(records)]
+    
+    # Sort by the field value, then by original index for stability
+    sorted_indexed = sorted(
+        indexed_records,
+        key=lambda x: (field_of(x[0], field), x[1])
+    )
+    
+    # Return only the records in the new order
+    return [record for record, _ in sorted_indexed]
+```

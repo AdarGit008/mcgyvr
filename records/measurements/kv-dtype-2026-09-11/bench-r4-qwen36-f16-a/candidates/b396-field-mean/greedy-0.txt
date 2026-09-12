@@ -1,0 +1,24 @@
+```python
+def field_mean(records: list, field: str) -> int:
+    """Return the floor of the mean of the named numeric field across records, ignoring missing or non-numeric values."""
+    values = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        if field not in record:
+            continue
+        value = record[field]
+        if isinstance(value, bool):
+            continue
+        if not isinstance(value, (int, float)):
+            continue
+        values.append(value)
+    
+    if not values:
+        return 0
+    
+    total = sum(values)
+    count = len(values)
+    # Use integer floor division for rounding down
+    return total // count
+```

@@ -1,0 +1,41 @@
+```python
+from typing import List, Tuple
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]) -> dict:
+    """
+    Reserves lots of stock for orders, drawing from the earliest lot that still holds units.
+    Returns a dictionary containing picks, the list of draws, and short, the list of shortfalls.
+    """
+    picks = []
+    draws = []
+    short = []
+    
+    # Sort lots by use-by date and lot id
+    lots.sort(key=lambda x: (x[1], x[0]))
+    
+    for order in orders:
+        units_wanted = order[1]
+        order_id = order[0]
+        
+        # Initialize draw units to the units wanted
+        draw_units = units_wanted
+        
+        # Iterate through lots to find the earliest lot that still holds units
+        for lot in lots:
+            if lot[2] >= draw_units:
+                picks.append((order_id, lot[0], draw_units))
+                draw_units = 0
+                break
+            else:
+                draw_units -= lot[2]
+        
+        # If draw units are still positive, record the shortfall
+        if draw_units > 0:
+            short.append((order_id, draw_units))
+    
+    return {
+        'picks': picks,
+        'draws': draws,
+        'short': short
+    }
+```

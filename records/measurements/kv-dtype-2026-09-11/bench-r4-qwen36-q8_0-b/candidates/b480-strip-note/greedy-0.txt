@@ -1,0 +1,54 @@
+```python
+def strip_note(title: str) -> str:
+    """Strip a closing note from the end of a title.
+    
+    A note is defined as a substring starting with '(' and ending with ')'
+    at the very end of the title. If such a note exists, it is removed along
+    with any trailing whitespace. Otherwise, the title is returned unchanged.
+    """
+    if not title:
+        return title
+    
+    # Find the last opening parenthesis
+    last_open = title.rfind("(")
+    if last_open == -1:
+        return title
+    
+    # Find the last closing parenthesis
+    last_close = title.rfind(")")
+    if last_close == -1:
+        return title
+    
+    # Check if the note is at the very end of the title
+    # The note must start with '(' and end with ')' at the end of the string
+    if last_close == len(title) - 1 and last_open < last_close:
+        # Ensure there are no other closing parentheses after the opening one
+        # that would make this not a valid "closing note at the end"
+        # Actually, the problem says "a round bracket opening somewhere in the title 
+        # and closing at its very end". This implies the last '(' and last ')' 
+        # form the note if the ')' is at the end.
+        # However, we need to make sure the ')' is indeed the closing of the '('
+        # and that there are no unmatched ')' in between that would invalidate it?
+        # The problem statement is slightly ambiguous: "A note is a round bracket 
+        # opening somewhere in the title and closing at its very end".
+        # This suggests we look for a '(' and then a ')' at the end.
+        # If there are multiple '(', we should probably take the last one before the end?
+        # Or the first one? Let's re-read: "strip_note takes a closing note off a title. 
+        # A note is a round bracket opening somewhere in the title and closing at its very end".
+        # This implies the structure is: ... ( ... )
+        # And the ')' is at the end.
+        # If there are multiple '(', which one is the start of the note?
+        # Usually, notes are like "Title (Note)". So the last '(' before the end is the start.
+        # Let's assume the note is the substring from the last '(' to the last ')'
+        # provided the last ')' is at the end of the string.
+        
+        # Check if the last ')' is at the end
+        if title.endswith(")"):
+            # Find the last '('
+            open_idx = title.rfind("(")
+            if open_idx != -1:
+                # Return the part before the '(' and strip trailing spaces
+                return title[:open_idx].rstrip()
+    
+    return title
+```

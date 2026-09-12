@@ -1,0 +1,11 @@
+```python
+def cloud_code(table: dict, code:    # Convert the input string to uppercase to handle case insensitivity
+    code = line.upper()
+    
+    # Look up the code in the table, default to 'unknown' if not found):
+    description = table.get(code,    
+    if description is None:
+        description = "unknown"
+    
+    return description
+```

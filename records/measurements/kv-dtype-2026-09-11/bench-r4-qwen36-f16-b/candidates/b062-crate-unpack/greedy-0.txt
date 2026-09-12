@@ -1,0 +1,40 @@
+```python
+def unpack_crates(crate: list) -> list:
+    """Flatten a nested crate structure into a list of item names."""
+    if not isinstance(crate, list):
+        raise ValueError("crate must be a list")
+    
+    result = []
+    for entry in crate:
+        if isinstance(entry, str):
+            if not entry:
+                raise ValueError("Empty string is not a valid item name")
+            result.append(entry)
+        elif isinstance(entry, list):
+            result.extend(unpack_crates(entry))
+        else:
+            raise ValueError(f"Invalid entry type: {type(entry)}")
+    return result
+
+
+def crate_depth(crate: list) -> int:
+    """Calculate the maximum nesting depth of a crate structure."""
+    if not isinstance(crate, list):
+        raise ValueError("crate must be a list")
+    
+    max_depth = 1
+    for entry in crate:
+        if isinstance(entry, str):
+            if not entry:
+                raise ValueError("Empty string is not a valid item name")
+            # Strings do not increase depth
+        elif isinstance(entry, list):
+            # Recursively calculate depth of nested crate
+            nested_depth = crate_depth(entry)
+            if nested_depth + 1 > max_depth:
+                max_depth = nested_depth + 1
+        else:
+            raise ValueError(f"Invalid entry type: {type(entry)}")
+            
+    return max_depth
+```

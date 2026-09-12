@@ -1,0 +1,27 @@
+```python
+def in_quote(ch: str) -> bool:
+    """Return True if ch is a quotation mark ('"'), otherwise False."""
+    return ch == '"'
+
+def quote_split(line: str) -> list:
+    """
+    Break a line on commas, except for a comma standing inside quotation marks,
+    and return the pieces with their quotation marks still in place.
+    """
+    pieces = []
+    in_quotation = False
+    current_piece = ""
+
+    for char in line:
+        if in_quote(char):
+            in_quotation = not in_quotation
+            current_piece += char
+        elif char == ',' and not in_quotation:
+            pieces.append(current_piece)
+            current_piece = ""
+        else:
+            current_piece += char
+
+    pieces.append(current_piece)
+    return pieces
+```

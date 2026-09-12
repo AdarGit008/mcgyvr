@@ -1,0 +1,90 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    """Walks the org chart from head to person, returning the path of names."""
+    if not isinstance(person, str) or len(person) == 0:
+        raise ValueError("person must be a non-empty string")
+    
+    if not isinstance(root, dict):
+        raise ValueError("root must be a dict")
+    
+    name = root.get("name")
+    if not isinstance(name, str) or len(name) == 0:
+        raise ValueError("Node name must be a non-empty string")
+    
+    # BFS to find the person and track the path
+    # We need to return the chain of names from root to the target person.
+    # Since we need the path, we store the path along with the node.
+    from collections import deque
+    
+    queue = deque()
+    queue.append((root, [name]))
+    
+    found_path = None
+    
+    while queue:
+        current_node, current_path = queue.popleft()
+        current_name = current_node["name"]
+        
+        if current_name == person:
+            found_path = current_path
+            break
+        
+        reports = current_node.get("reports", [])
+        for report in reports:
+            if not isinstance(report, dict):
+                raise ValueError("Report must be a dict")
+            report_name = report.get("name")
+            if not isinstance(report_name, str) or len(report_name) == 0:
+                raise ValueError("Report node name must be a non-empty string")
+            queue.append((report, current_path + [report_name]))
+            
+    if found_path is None:
+        raise ValueError(f"Person '{person}' not found in the organization chart")
+        
+    return found_path
+
+
+def headcount(root: dict) -> int:
+    """Returns the total number of people in the organization chart."""
+    if not isinstance(root, dict):
+        raise ValueError("root must be a dict")
+        
+    name = root.get("name")
+    if not isinstance(name, str) or len(name) == 0:
+        raise ValueError("Node name must be a non-empty string")
+        
+    count = 1
+    reports = root.get("reports", [])
+    for report in reports:
+        if not isinstance(report, dict):
+            raise ValueError("Report must be a dict")
+        report_name = report.get("name")
+        if not isinstance(report_name, str) or len(report_name) == 0:
+            raise ValueError("Report node name must be a non-empty string")
+        count += headcount(report)
+        
+    return count
+
+
+def widest_team(root: dict) -> int:
+    """Returns the largest count of direct reports any single person has."""
+    if not isinstance(root, dict):
+        raise ValueError("root must be a dict")
+        
+    name = root.get("name")
+    if not isinstance(name, str) or len(name) == 0:
+        raise ValueError("Node name must be a non-empty string")
+        
+    reports = root.get("reports", [])
+    max_reports = len(reports)
+    
+    for report in reports:
+        if not isinstance(report, dict):
+            raise ValueError("Report must be a dict")
+        report_name = report.get("name")
+        if not isinstance(report_name, str) or len(report_name) == 0:
+            raise ValueError("Report node name must be a non-empty string")
+        max_reports = max(max_reports, widest_team(report))
+        
+    return max_reports
+```

@@ -1,0 +1,46 @@
+<think>
+Okay, I need to implement the apply_overrides function according to the given contract. Let me start by understanding the requirements.
+
+The function takes a base dictionary and a list of overrides. Each override is a string in the format "name=value", where the name and value can contain equals signs, but only the first equals sign splits them. The task is to apply these overrides to a copy of the base, with later overrides taking precedence over earlier ones. Also, I need to validate the overrides list and each individual override.
+
+First, the function must check that the overrides is indeed a list. If not, raise a ValueError. Then, for each override in the list, check that it's a string. If any override is not a string, reject it. Also, each override must have at least one equals sign. If there's no equals sign, that's invalid. The name part (before the first equals) must be non-empty. Also, the name must exist in the base dictionary. Wait, the problem says that the override's name must be a key in the base. So, if the name is not present in the base, that's an error.
+
+So, the steps are:
+
+1. Check that overrides is a list. If not, raise ValueError.
+2. For each override in overrides:
+   a. Check it's a string. If not, error.
+   b. Split on the first equals sign. So, split into name and value parts.
+   c. Check that the name is non-empty.
+   d. Check that the name exists in the base.
+   e. Check that there's at least one equals sign. If not, error.
+3. Then, apply each override to a copy of the base. Later overrides override earlier ones.
+
+Wait, the problem says that the overrides are applied in order. So, the first override is applied, then the second, etc. So, for each override in the list, we split into name and value, then set the merged dictionary's key to the value.
+
+But the merged dictionary is a copy of the base. So, the base is not modified. The merged is a copy, and the overrides are applied in order.
+
+So, the code structure would be:
+
+- Create a merged dictionary as a copy of base.
+- Iterate over each override in the overrides list:
+   - Check if the override is a string.
+   - Split on the first equals sign.
+   - Check that the name is non-empty.
+   - Check that the name is in the base.
+   - Check that there's at least one equals sign.
+   - Then, set merged[name] = value.
+
+But how to split on the first equals sign? In Python, the split method with maxsplit=1 would split on the first occurrence. For example, "key=1=2".split('=') would split into ['key', '1=2'].
+
+So, for each override string, split into parts = override.split('=', 1). Then, name is parts[0], value is parts[1] if len(parts) >=2. If the split results in less than two parts, then there's no equals sign, which is invalid.
+
+So, for each override:
+
+- Split into name and value parts. If the split results in less than two parts, then it's invalid.
+
+Also, the name must be non-empty. So, if name is empty, that's invalid.
+
+Additionally, the name must be present in the base. Wait, the problem says: "an override whose name base does not already hold" — so the name must be a key in the base. So, the name must be in the base dictionary.
+
+So, during validation, for each override, after splitting into name and value

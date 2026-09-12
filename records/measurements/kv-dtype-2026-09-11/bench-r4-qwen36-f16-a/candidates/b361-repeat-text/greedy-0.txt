@@ -1,0 +1,9 @@
+```python
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    """Return a phrase written out a given number of times, joined by a separator."""
+    if times <= 0:
+        return ""
+    if times == 1:
+        return phrase
+    return between.join([phrase] * times)
+```

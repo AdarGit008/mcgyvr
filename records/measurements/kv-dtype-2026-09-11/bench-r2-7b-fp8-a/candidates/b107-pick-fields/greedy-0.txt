@@ -1,0 +1,26 @@
+```python
+def pick_fields(records: list[dict], field_names: list[str])          if not all_names:
+        raise ValueError("list_names cannot be empty")
+    
+    for name in list_names:
+        if not isinstance(name, str):
+            raise ValueError(f"Invalid list_name: {name}")
+        if "?" in name:
+            stem = name[:-1]
+            if not stem:
+                raise ValueError(f"Empty stem in list_name: {name}")
+            if any(n.startswith(stem) for n in list_names):
+                raise ValueError(f"Duplicate stems in list_names:``        if any(n == record for n in list_names:
+            raise ValueError(f"Record contains unexpected field_name:"):
+    results =           for record in records:
+            if not isinstance(record, dict):
+                raise ValueError(f"Invalid record:):
+            row =            for name in list_names:
+                if "?" in name:
+                    stem =                    name[:-1]:
+                    row.append(record.get(stem))
+                else:
+                    row.append(record[name])
+            lists.append(row)
+    return lists:
+```

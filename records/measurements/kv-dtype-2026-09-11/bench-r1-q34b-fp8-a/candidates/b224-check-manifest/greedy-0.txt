@@ -1,0 +1,44 @@
+<think>
+Okay, I need to implement the check_manifest function. Let's see the requirements. The function takes a dictionary and returns a fresh one with only sku, count, and note. The original keys must be checked for validity.
+
+First, the sku must be a non-empty string, uppercased, with spaces at the ends removed. So, I need to check that the sku is a string, then trim the whitespace and ensure it's not empty. Also, it should be in uppercase. Wait, the problem says the sku is filed uppercased with spaces at the two ends removed. So, the input's sku might have leading or trailing spaces, which should be stripped. But the sku itself must be a non-empty string, and after trimming, it should be non-empty. Also, the sku must be in uppercase. So, for example, if the input has "  Sku123 ", after trimming, it becomes "Sku123", which is not empty. But if it's "  ", then after trimming, it's empty, which is invalid.
+
+Next, the count must be a positive whole number. So, the count must be an integer, and greater than zero. If the count is not an integer, or if it's zero or negative, that's invalid.
+
+The note is a string, and if the key is absent, it's considered as empty string. So, for the note key, if it's present, it must be a string. If not present, it's empty. But the note is exactly as given. So, if the input has a note key, but the value is not a string, that's invalid.
+
+So, the steps are:
+
+1. Check that the input dictionary has only the keys sku, count, note. Any other keys are invalid.
+
+2. For each key, check their values:
+
+- sku: must be a string, after trimming leading/trailing spaces, it's non-empty, and uppercase.
+
+- count: must be an integer, and positive.
+
+- note: must be a string. If the key is not present, it's empty.
+
+So, the function needs to process the input line, validate each key, and return a new dictionary with the valid keys. If any validation fails, raise a ValueError with a short message.
+
+Now, how to implement this.
+
+First, the function check_manifest takes a line (dict) and returns a new dict.
+
+First, check that the line only has the allowed keys. So, for any key in line, it must be one of 'sku', 'count', 'note'. Otherwise, reject.
+
+So, for each key in line, check if it's in {'sku', 'count', 'note'}. If not, raise error.
+
+Then, process each key:
+
+For 'sku':
+
+- Check that the value is a string. If not, error.
+
+- Then, trim the value's whitespace. So, sku_str = line['sku'].strip()
+
+- Check that sku_str is not empty. If it is, error.
+
+- Also, check that the original value (before stripping) is uppercase? Wait, the problem says the sku is filed uppercased with the spaces at the two ends removed. So, the original value (before stripping) must be uppercase. Wait, no. Wait, the problem says that the sku is a non-empty string, filed uppercased with the spaces at its two ends removed. So, the input's sku is supposed to be uppercased, but maybe the input has leading/trailing spaces. So, the actual value of the sku is a string, which when stripped of leading/trailing spaces, is non-empty and uppercase.
+
+Wait, the problem says that the sku is a non-empty string, filed uppercased with

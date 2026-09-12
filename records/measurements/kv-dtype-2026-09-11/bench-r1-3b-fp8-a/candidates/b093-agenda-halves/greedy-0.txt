@@ -1,0 +1,40 @@
+```python
+from typing import List
+
+def split_agenda(sessions: List[List[int]], limit: int) -> List[List[int]]:
+    """
+    Splits a list of coaching sessions into blocks of a given maximum length.
+    
+    Parameters:
+    sessions (List[List[int]]): A list of sessions, each represented as [start, end] pairs.
+    limit (int): The maximum length of each block in minutes.
+
+    Returns:
+    List[List[int]]: A list of blocks, each represented as [start, end] pairs.
+    """
+    if not isinstance(limit, int) or limit < 1:
+        raise ValueError("Limit must be a whole number of at least one.")
+    
+    def split(session: List[int]) -> List[List[int]]:
+        start, end = session
+        if start >= end:
+            raise ValueError("Session start must precede session end.")
+        
+        if end - start <= limit:
+            return [session]
+        
+        mid = (start + end) // 2
+        if mid - start == limit:
+            return [session[:mid], session[mid:]]
+        
+        return split([start, mid]) + split([mid + 1, end])
+    
+    return [block for session in sessions for block in split(session)]
+
+# Example usage:
+sessions = [[0, 60], [-30, 0], [120, 180]]
+limit = 45
+print(split_agenda(sessions, limit))
+```
+
+This implementation defines a `split_agenda` function that takes a list of coaching sessions and a limit on the maximum block size. It uses a helper function `split` to recursively divide each session into smaller blocks until they all fit within the limit. The function raises appropriate errors for invalid inputs and returns the list of blocks.

@@ -1,0 +1,5 @@
+```python
+def root_digit(value: int) -> int:
+    while value >= 10:
+        value = sum(int(digit) for digit in str(value))
+         ```

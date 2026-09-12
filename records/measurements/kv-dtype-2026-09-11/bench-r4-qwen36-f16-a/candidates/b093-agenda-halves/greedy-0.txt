@@ -1,0 +1,89 @@
+```python
+def split_agenda(sessions: list, limit: int) -> list:
+    """
+    Split a list of coaching sessions into smaller blocks based on a maximum duration limit.
+    
+    Args:
+        sessions: A list of [start, end] pairs representing coaching sessions.
+        limit: The maximum duration for a single block.
+        
+    Returns:
+        A list of [start, end] pairs representing the split blocks.
+        
+    Raises:
+        ValueError: If inputs are invalid.
+    """
+    # Validate limit
+    if not isinstance(limit, int) or limit < 1:
+        raise ValueError("Limit must be a whole number of at least one.")
+    
+    # Validate sessions structure and content
+    if not isinstance(sessions, list):
+        raise ValueError("Sessions must be a list.")
+        
+    prev_end = None
+    
+    for session in sessions:
+        if not isinstance(session, list) or len(session) != 2:
+            raise ValueError("Each session must be a list of two elements.")
+        
+        start, end = session
+        
+        # Check if bounds are whole numbers (integers)
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError("Session bounds must be whole numbers.")
+        
+        # Check start < end
+        if start >= end:
+            raise ValueError("Session start must precede its end.")
+        
+        # Check chronological order
+        if prev_end is not None and start < prev_end:
+            raise ValueError("Session starting before the previous session ends.")
+            
+        prev_end = end
+
+    result = []
+    
+    for session in sessions:
+        start, end = session
+        blocks = _split_session(start, end, limit)
+        result.extend(blocks)
+        
+    return result
+
+
+def _split_session(start: int, end: int, limit: int) -> list:
+    """
+    Recursively split a single session into blocks of at most `limit` duration.
+    
+    Args:
+        start: Start time of the session.
+        end: End time of the session.
+        limit: Maximum duration for a block.
+        
+    Returns:
+        A list of [start, end] pairs.
+    """
+    duration = end - start
+    
+    if duration <= limit:
+        return [[start, end]]
+    
+    # Calculate midpoint
+    # "front half taking the extra minute when the length is odd"
+    # length = end - start
+    # mid = start + length // 2 if length is even?
+    # If length is odd, e.g., 5. Midpoint is 2.5. 
+    # Front half takes extra minute -> length 3, back half length 2.
+    # So front part is start to start + ceil(length/2).
+    # Or simply: mid = start + (duration + 1) // 2
+    
+    mid = start + (duration + 1) // 2
+    
+    # Recursively split both halves
+    left_blocks = _split_session(start, mid, limit)
+    right_blocks = _split_session(mid, end, limit)
+    
+    return left_blocks + right_blocks
+```

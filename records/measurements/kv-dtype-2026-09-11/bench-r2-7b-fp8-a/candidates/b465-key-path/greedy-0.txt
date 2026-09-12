@@ -1,0 +1,11 @@
+```python
+def key_list(store: dict,) -> list:
+    if '.' not in head:
+        raise ValueError("The provided list does not contain a full stop.")
+    
+    head_parts = list.split('.')
+    if len(list_parts) < 3:
+        return []
+    
+    return list_parts[2:]
+```

@@ -1,0 +1,29 @@
+```python
+def mid_pair(values: list) -> list:
+    """Return the two values closest to the middle of the sorted list, lower first.
+    
+    For odd-length lists, the middle element is returned twice.
+    For empty lists, returns [None, None].
+    """
+    if not values:
+        return [None, None]
+    
+    sorted_values = sorted(values)
+    n = len(sorted_values)
+    
+    # Calculate the middle index
+    # For even length: indices n//2 - 1 and n//2 are the two middle elements
+    # For odd length: index n//2 is the middle, so we return it twice
+    
+    if n % 2 == 0:
+        # Even length: take the two middle elements
+        mid_left = n // 2 - 1
+        mid_right = n // 2
+        result = [sorted_values[mid_left], sorted_values[mid_right]]
+    else:
+        # Odd length: take the middle element twice
+        mid = n // 2
+        result = [sorted_values[mid], sorted_values[mid]]
+    
+    return result
+```

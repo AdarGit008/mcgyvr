@@ -1,0 +1,18 @@
+```python
+def tag_trim(tag: str) -> str:
+    """Strip a leading '#' and trailing ':' from a tag if present."""
+    if not isinstance(tag, str):
+        raise ValueError("tag must be a string")
+    
+    result = tag
+    
+    # Strip leading hash if present
+    if result.startswith('#'):
+        result = result[1:]
+    
+    # Strip trailing colon if present
+    if result.endswith(':'):
+        result = result[:-1]
+        
+    return result
+```

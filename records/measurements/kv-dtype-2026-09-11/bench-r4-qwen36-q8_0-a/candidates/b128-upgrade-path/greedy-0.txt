@@ -1,0 +1,95 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+
+def _parse_tag(tag: str) -> tuple[int, int]:
+    """Parse a firmware tag string into a tuple of (line, point) integers.
+
+    Args:
+        tag: A string representing a firmware tag in the format 'line.point'.
+
+    Returns:
+        A tuple of two integers (line, point).
+
+    Raises:
+        ValueError: If the tag is not a string, does not have exactly two parts,
+                    contains non-digit characters, or has leading zeros.
+    """
+    if not isinstance(tag, str):
+        raise ValueError(f"Tag must be a string, got {type(tag).__name__}")
+
+    parts = tag.split(".")
+    if len(parts) != 2:
+        raise ValueError(f"Tag must have exactly two parts separated by '.', got '{tag}'")
+
+    line_str, point_str = parts
+
+    # Check for empty parts
+    if not line_str or not point_str:
+        raise ValueError(f"Tag parts cannot be empty: '{tag}'")
+
+    # Check for leading zeros (e.g., "01", "00", but "0" is allowed)
+    if len(line_str) > 1 and line_str[0] == '0':
+        raise ValueError(f"Tag line part has leading zero: '{line_str}'")
+    if len(point_str) > 1 and point_str[0] == '0':
+        raise ValueError(f"Tag point part has leading zero: '{point_str}'")
+
+    # Check for valid digits
+    if not line_str.isdigit() or not point_str.isdigit():
+        raise ValueError(f"Tag parts must be digits: '{tag}'")
+
+    return int(line_str), int(point_str)
+
+
+def _compare_tags(tag1: str, tag2: str) -> int:
+    """Compare two firmware tags numerically.
+
+    Args:
+        tag1: The first tag string.
+        tag2: The second tag string.
+
+    Returns:
+        -1 if tag1 < tag2, 0 if tag1 == tag2, 1 if tag1 > tag2.
+    """
+    line1, point1 = _parse_tag(tag1)
+    line2, point2 = _parse_tag(tag2)
+
+    if line1 < line2:
+        return -1
+    elif line1 > line2:
+        return 1
+    else:
+        if point1 < point2:
+            return -1
+        elif point1 > point2:
+            return 1
+        else:
+            return 0
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    """Walk a device's proposed firmware upgrade path and return the final tag.
+
+    Args:
+        installed: The currently installed firmware tag.
+        steps: A list of step dictionaries, each containing 'tag' and 'requires'.
+
+    Returns:
+        The tag carried after the final step, or the installed tag if steps is empty.
+
+    Raises:
+        ValueError: If validation fails at any point.
+    """
+    # Validate installed tag
+    _parse_tag(installed)
+
+    # Validate steps is a list
+    if not isinstance(steps, list):
+        raise ValueError("Steps must be a list")
+
+    carried = installed
+
+    for step in steps:
+        # Validate step is a dict
+        if not isinstance(step, dict):
+            raise ValueError(f"Step must be a dictionary, got {type(step).__

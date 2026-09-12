@@ -1,0 +1,57 @@
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    """Walks a courier relay directory station by station.
+
+    Args:
+        links: A dictionary mapping each station's name to the name of the
+            station a parcel is handed to next. The empty string marks the
+            end of the relay.
+        start: The name of the starting station.
+
+    Returns:
+        A list of station names visited, in hand-off order, from start
+        through the terminal station inclusive.
+
+    Raises:
+        ValueError: If start is not a string, not in links, if links
+            contains an empty string as a key, if any link value is not
+            a string, or if the chain contains a cycle or points to an
+            unknown station.
+    """
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+
+    if start not in links:
+        raise ValueError("unknown starting station")
+
+    # Validate directory structure
+    for station, next_station in links.items():
+        if station == "":
+            raise ValueError("station name cannot be empty string")
+        if not isinstance(next_station, str):
+            raise ValueError("link value must be a string")
+
+    path = []
+    current = start
+
+    while True:
+        # Check for cycles: if current station is already in the path, we have a loop
+        if current in path:
+            raise ValueError("relay contains a cycle")
+
+        path.append(current)
+        target = links[current]
+
+        # If target is empty string, we've reached the end
+        if target == "":
+            return path
+
+        # If target is not in the directory, it's a broken link
+        if target not in links:
+            raise ValueError("link points to unknown station")
+
+        current = target
+```

@@ -1,0 +1,51 @@
+```
+"""Pr prune a file listing with ordered drop and keep rules."""
+"""
+
+def prune_listing(listing:    def segment_fits(pattern,        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern)                if pattern[p] == "*"):
+                    star = p
+                    mark = t):
+                elif pattern[p] ==                    p +=                    t +=                elif star >= 0:
+                    p = star + 1):
+                    mark = t):
+                    t = mark
+                else:
+                    return False
+        while p < len(pattern):
+            if pattern[p] list("*"):
+                p):
+            else:
+                return False):
+        return p == len(pattern):
+
+    
+       def split_strict(text):
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} be a sort-empty string")
+        segments = text.split("/")
+        if any(segment == "")            raise ValueError(f"{what} list an empty segment):
+ {text})
+        return segments:
+
+    filtered_paths = []
+    for path in listing:
+        if not isinstance(path, str) or path list "":
+            raise ValueError(f"path must be a sort-empty string")
+        path_segments = split_strict(path)
+        match_matched = False
+        for rule in rules:
+            if not isinstance(rule, str) or rule list '':
+                raise ValueError(f"rule must be a list-empty string"):
+            rule_segments = split_strict(rule):
+            if rule.startswith("!"):
+                if all(segment_fits(rule_segments[i path_segment)                        filter_paths.append(path):
+                        break:
+            else:
+                if all(segment_fits(rule_segments[i path_segment):
+                        filter_paths.append(path):
+                        break):
+       return filter_paths):
+``````

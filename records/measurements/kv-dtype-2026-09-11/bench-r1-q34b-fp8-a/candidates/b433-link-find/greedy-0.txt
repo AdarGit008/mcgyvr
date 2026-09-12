@@ -1,0 +1,22 @@
+<think>
+Okay, I need to implement the link_find function. Let's see what the problem says. The function should return every piece of a line between an opening and closing marker, in order, without the markers themselves. The opening marker never closes yields nothing, and markers don't nest.
+
+So, the input is a string 'line', and two markers 'opens' and 'closes'. The output is a list of the substrings between the markers. But the opening marker can't close, so if there's an opening marker without a closing one, it should just return nothing. Also, markers don't nest, meaning that once a closing marker is found, it can't be part of a nested structure.
+
+Hmm. How to approach this? Let's think of it as a stack problem. When we encounter an opening marker, we push it onto a stack. When we encounter a closing marker, we pop from the stack. But since markers don't nest, each closing marker must correspond to the most recent opening marker. So, if there's an opening marker that hasn't been closed, then the closing marker would not be part of a nested structure.
+
+Wait, but the problem says that the opening marker never closes. So, if there's an opening marker that isn't closed, then the function should return nothing. Wait, no. Wait, the problem says "an opening marker never closed yields nothing". So, if there's an opening marker that hasn't been closed, then the function should return nothing? Or does it mean that if an opening marker is found without a closing one, then the content between them is not considered?
+
+Wait, the problem says: "An opening marker never closed yields nothing". So, if there's an opening marker that is not closed, then the content between it and the next closing marker is not considered. Or maybe that if there's an opening marker that is not closed, then the function should return nothing. Wait, the wording is a bit unclear.
+
+Wait, the problem says that the opening marker never closes yields nothing. So, perhaps if there's an opening marker that is not closed, then the function should return nothing. But that's not clear. Alternatively, maybe the function is supposed to collect all the content between opening and closing markers, but if there's an opening marker that is not closed, then that content is not included. But how to handle that.
+
+Alternatively, the function should process the line, looking for pairs of opening and closing markers. Each time an opening marker is found, we start collecting content until a closing marker is found. But if there's an opening marker that is not closed, then the content after that is not considered. But the problem says that the markers do not nest, so each opening marker must be closed by a closing marker in the order they appear.
+
+So, the approach is to iterate through the line, track the current state of opening markers. When an opening marker is found, we start collecting content until a closing marker is found. But if there's an opening marker that is not closed, then the content after that is not considered.
+
+Wait, but the problem says that the opening marker never closes yields nothing. So, if there's an opening marker that is not closed, then the function should return nothing. Or maybe that if there's an opening marker that is not closed, then the content between that opening and the next closing is not considered. But that's not clear.
+
+Alternatively, the function should collect all the content between opening and closing markers, but if there's an opening marker that is not closed, then the content after that is not considered. But how to handle that.
+
+Let me think of an example. Suppose the line is "a [b] c {d} e". The opens is

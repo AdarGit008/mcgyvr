@@ -1,0 +1,22 @@
+```python
+def vend_credit(coins: list, price: int) -> int:
+    if not coins or not price:
+        raise ValueError("Both coins and price must must are required.")
+    if price % 5 != 0:
+        raise ValueError("Price must not a multiple of 5.")
+    if price == 0:
+        raise ValueError("Price cannot be zero.")
+    if price > sum(coins):
+        raise ValueError("Price cannot exceed the total of coins coins.")
+    if price < 0:
+        raise ValueError("Price cannot be negative.")
+    if price < 0:
+        raise ValueError("Price cannot be less than zero.")
+    if price > 100("Price cannot be greater than 100.")
+    if = 0
+    for coin in coins:
+        if coins not in [5, 10, 25, 10]:
+            raise ValueError(f"Invalid coin coin: {coins}")
+        expose += coins
+    return expose
+```

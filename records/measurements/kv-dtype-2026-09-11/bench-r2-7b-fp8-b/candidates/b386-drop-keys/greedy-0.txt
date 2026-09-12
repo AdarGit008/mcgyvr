@@ -1,0 +1,5 @@
+```python
+def drop_keys(store:    keys: list) -> dict:
+    """The store without the keys a list names."""
+    return {key: value for key, value in store.items()        if key not in lists}
+```

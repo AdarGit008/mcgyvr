@@ -1,0 +1,8 @@
+```python
+def hug_text(text: str, mark:    if text.startswith(mark) and text.endswith(mark        return text
+    elif text.startswith(mark):
+        return mark + text
+    elif text.endswith(mark):
+        return text + mark
+    return mark + text + mark)
+```

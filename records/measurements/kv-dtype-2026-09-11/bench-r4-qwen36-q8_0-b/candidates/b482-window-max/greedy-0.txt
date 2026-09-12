@@ -1,0 +1,17 @@
+```python
+def window_max(readings: list[int], width: int) -> list[int]:
+    """Return the maximum value in each sliding window of the given width."""
+    if width < 1:
+        raise ValueError("width must be at least 1")
+    
+    n = len(readings)
+    if n < width:
+        return []
+    
+    result = []
+    for i in range(n - width + 1):
+        window = readings[i:i + width]
+        result.append(max(window))
+    
+    return result
+```

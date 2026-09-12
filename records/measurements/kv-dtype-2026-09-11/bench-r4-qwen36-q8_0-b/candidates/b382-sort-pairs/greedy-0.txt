@@ -1,0 +1,32 @@
+```python
+def field_of(record: dict, field: str) -> int:
+    """Return the integer value for the named field in the record."""
+    if field not in record:
+        raise ValueError(f"Record missing field: {field}")
+    value = record[field]
+    if not isinstance(value, int):
+        raise ValueError(f"Field value is not an int: {type(value)}")
+    return value
+
+
+def sort_pairs(records: list, field: str) -> list:
+    """Sort records by the named field, preserving original order for ties."""
+    if not records:
+        return []
+    
+    indexed_records = list(enumerate(records))
+    
+    def sort_key(item):
+        index, record = item
+        try:
+            value = field_of(record, field)
+        except ValueError:
+            # If a record is missing the field, it cannot be sorted by it.
+            # We'll raise an error here to be consistent with field_of behavior
+            # or handle it. The prompt implies sorting records, so all should have the field.
+            raise ValueError(f"Record at index {index} missing field: {field}")
+        return (value, index)
+    
+    sorted_indexed = sorted(indexed_records, key=sort_key)
+    return [record for _, record in sorted_indexed]
+```

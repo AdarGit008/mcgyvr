@@ -1,0 +1,16 @@
+```python
+def digit_count(value: int) -> int:
+    """
+    Return the number of digits in the given integer.
+    A minus sign is not counted as a digit.
+    """
+    if value == 0:
+        return 1
+    count = 0
+    is_negative = value < 0
+    value = abs(value)
+    while value > 0:
+        count += 1
+        value //= 10
+    return count + int(is_negative)
+```

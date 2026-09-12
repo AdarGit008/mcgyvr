@@ -91,6 +91,27 @@ stands: the compute buffer grows from `-ub 256` to `-ub 512` on all three
 archs, and qwen3next's 829 MiB is a `-ub 512` reading. Found by
 `394a48e4` (branch `red/fleet-identity-gaps`).
 
+**Ubatch boundary (committed 2026-09-12).** `ub_boundary.py` pins the clamp
+on deepseek-coder-v2-16b (srv2, all layers on card): `-b 512` held fixed while
+`-ub` sweeps {128, 256, 512, 1024, 2048}, one cold start per arm, the engine's
+own `n_ubatch` and buffer lines captured. Rows `results-arms-ub-boundary.json`,
+composes `compose.srv2-ub-boundary-deepseek-ub*.yml`:
+
+| `-ub` | reported `n_ubatch` | CUDA0 compute buffer | CUDA0 KV buffer |
+|---|---|---|---|
+| 128 | 128 | 19.03 MiB | 2,160 MiB |
+| 256 | 256 | 38.07 MiB | 2,160 MiB |
+| 512 | 512 | 76.13 MiB | 2,160 MiB |
+| 1024 | **512** (clamped) | 76.13 MiB | 2,160 MiB |
+| 2048 | **512** (clamped) | 76.13 MiB | 2,160 MiB |
+
+The clamp is exact: `n_ubatch = min(ub, b)` — anything above the batch reads
+`n_ubatch = 512` and its compute buffer is byte-identical to `-ub 512`. The
+compute buffer doubles with ubatch (19.03 → 38.07 → 76.13 MiB) and flatlines
+once clamped. KV (2,160 MiB) and model (8,376 MiB) buffers do not move with
+ubatch — they are set by `-c` and the weights. So the Q3 "`-ub 1024`" rows are
+the `-ub 512` rows read a second time, byte-for-byte.
+
 ### Q4. `C` drift — universal, but the per-block rate is per-arch
 
 deepseek-coder-v2-16b, srv2, ncmoe 0/13/26, n=2, `C` recomputed offline as

@@ -1,0 +1,23 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    """
+    Trims a line to at most the specified number of characters.
+    If the line needs to be cut, it ends in three dots.
+    Raises ValueError if the limit is less than four.
+    """
+    if limit < 4:
+        raise ValueError("Limit must be at least four.")
+    
+    if len(line) <= limit:
+        return line
+    
+    # Find the last space within the limit
+    last_space = line.rfind(' ', 0, limit - 3)
+    
+    if last_space == -1:
+        # If no space is found, truncate from the end
+        return line[:limit - 3] + '...'
+    
+    # Truncate at the last space and append three dots
+    return line[:last_space] + '...' + line[last_space + 1:]
+```

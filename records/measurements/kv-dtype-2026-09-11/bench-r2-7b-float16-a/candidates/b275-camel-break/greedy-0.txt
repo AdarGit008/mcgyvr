@@ -1,0 +1,23 @@
+```python
+def camel_break(name: str) -> list:
+    """Return the words of a camelCase identifier in lower case."""
+    if not name:
+        return []
+    
+    words = []
+    current_word = []
+    
+    for char in name:
+        if char.isupper():
+            if current_word:
+                words.append(''.join(current_word).lower())
+                current_word = []
+            current_word.append(char.lower())
+        else:
+            current_word.append(char.lower())
+    
+    if current_word:
+        words.append(''.join(current_word))
+    
+    return words
+```

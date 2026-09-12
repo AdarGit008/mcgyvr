@@ -1,0 +1,81 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    if not isinstance(a, str) or isinstance(b, str):
+        raise ValueError("Both arguments must be strings")
+    if not a or b:
+        raise ValueError("Both arguments must be non-empty strings")
+    if not a or b:
+        raise ValueError("Both arguments must be non-empty strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be non strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments must be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 b:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 file:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 file:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 file:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 file:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 file:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0 file:
+        raise ValueError("Both arguments needing be nesting strings")
+    if not a[0:
+        raise ValueError("Both arguments needing be nesting strings")
+    ValueError("Both arguments needing be nesting strings")
+    ValueError("Both arguments needing be nesting strings")
+    ValueError("Both arguments needing be nesting strings")
+    ValueError("Both arguments needing be nesting strings")
+    ValueError("Both arguments

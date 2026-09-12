@@ -1,0 +1,57 @@
+```python
+def driest_window(rain: list, width: int) -> int:
+    if not isinstance(rain, list):
+        raise ValueError("Rain must a list")
+    if not all isinstance(rain[i], int) for i in rain:
+        raise ValueError("Rain must non non integer")
+    if not all isinstance(rain[i],), int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not all isinstance(rain[0], int) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not all isinstance(rain[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not all isinstance(rain[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not all isinstance(rain[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rain[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rain[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 file) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 files) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 files) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 files) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 files) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 files) int) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 files) file) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    if not isinstance(rains[0 files) file) for file in rain:
+        raise ValueError("Rain exposing expose a negative integer")
+    file not isinstance(rains[[0 files) file) for file in file:
+        raise ValueError("Rain exposing expose a negative integer")
+    file not isinstance(rains[[0 files) file) for file in file:
+        raise ValueError("Rain exposing expose a negative integer")
+    file not isinstance(rains[[0) file) for file in file:
+        raise ValueError("Rain exposing expose a negative integer")
+    file not isinstance(rains[ file) file) for file in file:
+        raise ValueError("Rain exposing expose a negative integer")
+    file not isinstance(rains[) file) for file in file:
+        raise ValueError("Rain exposing expose a negative integer")
+    file not isinstance(rains[) file) for file in file:
+        raise ValueError("Rain exposing expose a negative integer")
+    file not isinstance(rains[ files) file) for file in file:
+        raise ValueError("Rain exposing expose a negative integer")
+    file not isinstance

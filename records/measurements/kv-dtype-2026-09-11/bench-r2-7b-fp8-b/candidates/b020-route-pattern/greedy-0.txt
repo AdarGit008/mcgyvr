@@ -1,0 +1,42 @@
+```python
+"""
+Match a slash-separated route pattern against a request path.
+"""
+
+def match_route(pattern:                 """
+        Return captured segments as a dict or None when there is no match.
+        """
+        pats = pattern.split("/")
+        parts = path.split("/")
+
+        def match_from(pi, si):
+            if pi == len(pats):
+                return caps if si == len(parts):
+                    return None
+            seg = pats[pi]
+            if seg == "**"):
+                for i in range(si, len(parts) + 1):
+                    found = match_from(pi + 1,                        i):
+                        caps):
+                    if found is not None:
+                        return caps)
+                return None)
+            if si == len(parts):
+                return None
+            if seg.startswith(":"):
+                if not seg[1:]:
+                    raise ValueError("Capture segment cannot be just a colon")
+                merged = dict(caps)
+                merged[seg[1:)]]                    parts[si):
+                return match_from(pi + 1):
+                    i + 1):
+                    merged):
+            if seg == parts[si):
+                return match_from(pi + 1):
+                    i + 1):
+                    caps)
+            return None)
+
+        return match_from(0,            0):
+            {}
+```

@@ -1,0 +1,50 @@
+<think>
+Okay, I need to implement the score_drop function. Let's see the requirements. The function takes a list of scores and returns their total with the single lowest score left out. If there are multiple lowest scores, only one is dropped. Also, if the list has one element or is empty, the total is zero.
+
+First, I need to handle edge cases. If the input is empty or has only one element, return 0. That's straightforward.
+
+Next, find the lowest score. But wait, what if all scores are the same? Like all zeros. Then dropping one of them. But according to the problem statement, when the lowest appears more than once, only one is dropped. So, even if all elements are the same, we drop one.
+
+So the steps are:
+
+1. Check if the list is empty or has one element. If so, return 0.
+2. Find the minimum score in the list.
+3. Sum all scores except one occurrence of the minimum. But if there are multiple minima, we only exclude one.
+
+Wait, how to do that? For example, if the list is [1, 2, 2, 3], the minimum is 1. So sum all except one 1. But if the list is [2, 2, 2], then sum all except one 2. So the total would be 2+2=4.
+
+So the approach is: sum all the scores, then subtract the minimum value once. Because even if there are multiple minima, we only subtract one instance of it.
+
+Wait, but that's not correct. Let's think. Suppose the list is [1, 1, 2]. The minimum is 1. The sum of all is 4. Subtract 1, so total is 3. Which is correct because we drop one 1. But if the list is [1, 1, 1], sum is 3. Subtract 1, gives 2. Which is correct because we drop one 1.
+
+Yes, that seems to work. So the formula is: total = sum(scores) - min_score.
+
+But wait, what if the list is empty? Then sum is 0, and min is undefined. But in that case, the function should return 0.
+
+So the steps are:
+
+- If the list is empty or has one element, return 0.
+- Else, compute the sum of all scores.
+- Find the minimum score.
+- Subtract the minimum from the sum. That gives the total with the lowest score dropped once.
+
+But wait, what if all elements are the same? For example, [5,5,5]. The sum is 15. Subtract 5, gives 10. Which is correct because we drop one 5, so sum is 5+5=10.
+
+Yes, that works.
+
+So the code can be structured as:
+
+def score_drop(scores: list) -> int:
+    if len(scores) <= 1:
+        return 0
+    total = sum(scores)
+    min_score = min(scores)
+    return total - min_score
+
+Wait, but what if the list has multiple minima? For example, [1, 1, 2]. The sum is 4. Subtract 1, gives 3. Which is correct. Because we drop one 1, so the sum is 1+2=3.
+
+Yes, that's correct.
+
+But what if the list is [1, 2, 1, 1]. The sum is 5. Subtract 1, gives 4. Which is correct because we drop one 1, so the sum is 1+2+1 =4.
+
+Yes.

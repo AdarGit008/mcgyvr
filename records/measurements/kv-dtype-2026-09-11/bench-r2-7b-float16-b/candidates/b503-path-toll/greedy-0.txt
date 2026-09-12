@@ -1,0 +1,18 @@
+```python
+def step_cost(kind: str) -> int:
+    """Return the cost of one step of a given kind."""
+    # Assuming each step of any kind costs 1 unit
+    return 1
+
+def path_toll(steps: list[str]) -> int:
+    """Total the cost of a path, skipping every third step starting from the first step."""
+    if not steps:
+        return 0
+    
+    total_cost = 0
+    for i, step in enumerate(steps):
+        if (i + 1) % 3 != 0:
+            total_cost += step_cost(step)
+    
+    return total_cost
+```

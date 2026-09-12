@@ -1,0 +1,26 @@
+```python
+def camel_break(name: str) -> list:
+    """Split a camelCase identifier into a list of lowercase words."""
+    if not name:
+        return []
+
+    words = []
+    current_word = []
+
+    for char in name:
+        if char.isupper():
+            # If we have accumulated characters for the current word,
+            # it means we are starting a new word.
+            if current_word:
+                words.append("".join(current_word).lower())
+                current_word = []
+            current_word.append(char)
+        else:
+            current_word.append(char)
+
+    # Append the final word
+    if current_word:
+        words.append("".join(current_word).lower())
+
+    return words
+```

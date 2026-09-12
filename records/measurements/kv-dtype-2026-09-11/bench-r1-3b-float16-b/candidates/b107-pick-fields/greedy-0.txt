@@ -1,0 +1,42 @@
+```python
+from typing import List, Mapping, Any
+
+def pick_fields(records: List[Mapping[str, Any]], fields: List[str]) -> List[List[Any]]:
+    """
+    Extracts specified fields from records, handling optional fields and required fields.
+    
+    :param records: List of dictionaries, each representing a record with field-value pairs.
+    :param fields: List of field names to extract. Names ending in '?' are optional.
+    :return: List of lists, each containing the extracted values for the specified fields.
+    """
+    if not isinstance(records, list) or not all(isinstance(record, Mapping) for record in records):
+        raise ValueError("Records must be a list of dictionaries.")
+    if not isinstance(fields, list) or not fields:
+        raise ValueError("Fields must be a non-empty list of strings.")
+    if any(not isinstance(field, str) for field in fields):
+        raise ValueError("All fields must be strings.")
+    
+    def is_optional_field(field):
+        return field.endswith('?')
+    
+    def get_stem(field):
+        return field[:-1] if is_optional_field(field) else field
+    
+    def validate_record(record):
+        required_fields = {get_stem(field) for field in fields if not is_optional_field(field)}
+        if not required_fields.issubset(record.keys()):
+            raise ValueError(f"Record is missing required fields: {required_fields - set(record.keys())}")
+    
+    def extract_values(record, field):
+        if is_optional_field(field):
+            return record.get(get_stem(field), None)
+        return record[field]
+    
+    result = []
+    for record in records:
+        validate_record(record)
+        row = [extract_values(record, field) for field in fields]
+        result.append(row)
+    
+    return result
+```

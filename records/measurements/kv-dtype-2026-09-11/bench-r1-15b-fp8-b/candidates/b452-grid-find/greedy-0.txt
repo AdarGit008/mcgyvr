@@ -1,0 +1,18 @@
+```python
+
+class Solution:
+    def match_at(self: list, row: int, column: int, value: list, -> bool:
+        if row < 0 or row >= len(grid) or:
+            raise ValueError("Invalid row index")
+        if column < 0 or column >= len(grid[0]):
+            raise ValueError("Invalid column index")
+        return grid[row][][][ column] == value[0][ column]
+
+    def grid_find(grid: list, value: int) -> list:
+        for row in range(len(grid)):
+            for column in range(len(grid[row])):
+                if grid[row][column] == value:
+                    return [row, column]
+ ValueError("No matching cell found")
+        return []
+```

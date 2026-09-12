@@ -1,0 +1,22 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    # Fold the lines first
+    folded_text = ''.join(line.strip() for line in text.splitlines())
+    
+    # Decode escapes in the folded text
+    decoded_text = []
+    i = 0
+    while i < len(folded_text):
+        if folded_text[i] == '=' and i + 2 < len(folded_text) and folded_text[i+1:i+3].isupper() and all(c in '0123456789ABCDEF' for c in folded_text[i+1:i+3]):
+            decoded_text.append(chr(int(folded_text[i+1:i+3], 16)))
+            i += 3
+        else:
+            decoded_text.append(folded_text[i])
+            i += 1
+    
+    # Handle the case where the text ends with an '='
+    if decoded_text[-1] == '=':
+        raise ValueError("Trailing '=' without following hex digits")
+    
+    return ''.join(decoded_text)
+```

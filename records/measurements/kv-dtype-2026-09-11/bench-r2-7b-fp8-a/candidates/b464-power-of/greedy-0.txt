@@ -1,0 +1,12 @@
+```python
+def power_of(base:  # : the base to a whole power by multiplying it by itself that many times
+    if power < 0:
+        raise ValueError("Power below zero is not allowed")
+    elif power == 0:
+        return 1
+    else:
+        result = 1
+        for _ in range(power):
+            result *= base
+        return result
+```

@@ -1,0 +1,20 @@
+```python
+def seat_block(label:    """
+    Split a seat label into its row number and seat letter.
+    
+    Args:
+        label (str): The seat label to split.
+    
+    Returns:
+        list: A list containing the row number and seat letter.
+    
+    Raises:
+        ValueError: If the input is not a valid seat label.
+    """
+    if len(label) < 2 or not label[:-1].isdigit() or not label[-1].isupper():
+        raise ValueError("Invalid seat label")
+    
+    row = int(label[:-1])
+    seat_letter = label[-1]
+    return [row, seat_letter]
+```

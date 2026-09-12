@@ -1,0 +1,24 @@
+<think>
+Okay, I need to implement the two functions tiles_across and tiles_needed based on the given problem description. Let me start by understanding what each function is supposed to do.
+
+First, tiles_across takes a length and a tile size, and returns how many tiles are needed to cover that length, rounding up. So if the length is exactly divisible by the tile size, it's straightforward. But if there's a remainder, we need to round up. For example, if the length is 5 and the tile is 2, 5/2 is 2.5, so we need 3 tiles. So the formula here is (length + tile - 1) // tile. That way, any remainder causes the division to round up.
+
+Next, tiles_needed calculates the number of tiles needed for a wall of given width and height, considering a tile size, and adding a spare percentage for breakages. The spare is a percentage, so I need to calculate the total area of the wall, then divide by the tile area, then add the spare percentage, and round up again.
+
+Wait, the problem says "adding a whole-percent allowance for breakages and rounding up again." So the spare is a percentage of the total tiles needed. Let me think. Let's break it down:
+
+First, calculate the number of tiles needed without considering spare: tiles_across for width and tile, multiplied by tiles_across for height and tile. Then, calculate the spare percentage. For example, if the spare is 10%, then the total tiles would be original * 1.1, then rounded up.
+
+But how to compute that? Let's say the original number of tiles is total. The spare is a percentage, so the total tiles needed is total * (1 + spare / 100). But since the spare is a whole percent, maybe it's total * (100 + spare) / 100. Then, we need to round up this value.
+
+Wait, the problem says "adding a whole-percent allowance for breakages and rounding up again." So the spare is a percentage, so for example, if the original is 100 tiles, and spare is 10%, then 100 * 1.1 = 110, but if the spare is 15%, then 115. But if the calculation results in a fractional number, we need to round up. So the formula would be: (original * (100 + spare) / 100) and then round up.
+
+But how to compute that? Let's take the original number of tiles, multiply by (100 + spare) / 100, then apply the ceiling function. But since we can't have fractions of a tile, we need to round up.
+
+So for tiles_needed, the steps are:
+
+1. Calculate the number of tiles needed for the width and height using tiles_across. So tiles_across(width, tile) * tiles_across(height, tile). Let's call this total.
+
+2. Then, calculate the spare percentage. The spare is a percentage, so the total is total * (100 + spare) / 100. But since we need to round up, we can use the same approach as tiles_across. So, (total * (100 + spare) + 99) // 100 ?
+
+Wait, no. Let me think again. The formula is (total * (100 + spare)) / 100. But since we need to round up, we can use the ceiling function. However, in Python, we can compute this as (total * (100 +

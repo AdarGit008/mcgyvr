@@ -1,0 +1,19 @@
+```python
+from typing import List
+
+def take_back(values: List[int], target: int) -> int:
+    """
+    Take entries from the end of a list toward its start, return how many must be taken
+    before their total reaches a target. Return minus one when the whole list never reaches it.
+    """
+    if not values:
+        return -1
+    
+    total = 0
+    for i, value in enumerate(reversed(values)):
+        total += value
+        if total >= target:
+            return len(values) - i - 1
+    
+    return -1
+```

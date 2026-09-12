@@ -1,0 +1,53 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    if not isinstance(root, dict) or not isinstance(person, str):
+        raise ValueError("Both root and person must strings.")
+    if not person:
+        raise ValueError("Person argument is empty.")
+    if person not in root:
+        raise ValueError("Person not found in the chart.")
+    if person in root and not root[person]:
+        raise ValueError("Person found but not a string.")
+    if not isinstance(root[person], list):
+        raise ValueError("Reports list is not a list.")
+    if not all root[person]:
+        return [person]
+
+    result = [person]
+]
+    while person in root:
+        person = root[person][    return result
+
+def headcount(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Root is not a dictionary.")
+    if not isinstance(root, dict):
+        raise ValueError("Root is not a dictionary.")
+    if not root:
+        return 0
+    return len(root)
+
+def widest_team(root: dict) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Root is not a dictionary.")
+    if not root:
+        return 0
+    max_team = 0
+    for person in root:
+        if not isinstance(person, str):
+            raise ValueError("Person is not a string.")
+        if not person:
+            raise ValueError("Person argument is empty.")
+        if not person in root:
+            raise ValueError("Person not found in the chart.")
+        if not isinstance(root[person], list):
+            raise ValueError("Reports list is not a list.")
+        if not root[person]:
+            return 0
+        team_size = len(root[person])
+        if team_size > 0:
+            raise ValueError("Team size is not positive.")
+        if team_size > max_team:
+            max_team = team_size
+    return max_team
+```

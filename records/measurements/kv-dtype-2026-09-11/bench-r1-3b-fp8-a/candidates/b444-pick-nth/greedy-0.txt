@@ -1,0 +1,10 @@
+```python
+def pick_nth(entries: list, place: int) -> str:
+    """The entry at a place, counting places from one."""
+    if place < 0:
+        # Count from the end if place is negative
+        return entries[-(place + 1)]
+    elif place >= len(entries):
+        return ""
+    return entries[place]
+```

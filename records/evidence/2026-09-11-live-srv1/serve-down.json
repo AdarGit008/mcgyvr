@@ -1,8 +1,8 @@
 {
-  "run_id": "2026-09-11-live-srv1-serve-down-td-891049918-1789104991",
+  "run_id": "2026-09-11-live-srv1-serve-down-td-891692396-1789169239",
   "host": "srv1",
   "mode": "down",
-  "compose_file": "/home/adaramir/claude/mcgyvr-measure/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-verbose.yml",
+  "compose_file": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/kv-dtype-2026-09-11/compose.srv1-r4-q8_0.yml",
   "compose_down_exit": 0,
   "expected": [
     "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080"
@@ -10,7 +10,7 @@
   "remaining": [],
   "daemon_read": true,
   "card_after": {
-    "used_mib": 17,
-    "free_mib": 5727
+    "used_mib": 1,
+    "free_mib": 5745
   }
 }

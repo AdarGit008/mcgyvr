@@ -1,0 +1,8 @@
+```python
+def order_release_tags(tags: list) -> list:
+    if not tags:
+        return []
+
+    sorted_tags = sorted(tags, lambda x: (int(x.split('.')[0]), int(x.split('.')[1]), int(x.split('.')[2]), x if_tags)
+    return sorted_tags
+```

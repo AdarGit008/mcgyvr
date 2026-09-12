@@ -1,0 +1,13 @@
+```python
+def code_sum(code: str) -> int:
+    """
+    Sums the figures in a code, ignoring non-figure characters.
+    """
+    return sum(int(char) for char in code if char.isdigit())
+
+def good_codes(codes: list[str]) -> list[str]:
+    """
+    Returns a list of codes whose total sum is divisible by three.
+    """
+    return [code for code in codes if code_sum(code) % 3 == 0]
+```

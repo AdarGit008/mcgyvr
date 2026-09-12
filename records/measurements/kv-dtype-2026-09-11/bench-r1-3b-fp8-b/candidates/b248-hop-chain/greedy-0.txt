@@ -1,0 +1,28 @@
+```python
+def hop_chain(hops: list) -> bool:
+    """
+    Determine if the given list of hops forms a continuous chain.
+    
+    Args:
+    hops: A list of tuples, where each tuple represents a hop from one location to another.
+
+    Returns:
+    True if the hops form a continuous chain, False otherwise.
+    """
+    if not hops:
+        return True
+    
+    # Create a set of all starting points and ending points
+    starts = {hop[0] for hop in hops}
+    ends = {hop[1] for hop in hops}
+    
+    # Check if the number of unique starting points equals the number of unique ending points
+    if len(starts) != len(ends):
+        return False
+    
+    # Check if the first hop starts where the last hop ends
+    if hops[0][0] != hops[-1][1]:
+        return False
+    
+    return True
+```

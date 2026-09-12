@@ -1,0 +1,21 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    """
+    Apply each stock movement in order to the opening quantity.
+    If a removal would make the quantity negative, it is set to zero.
+    Returns the final quantity after all movements.
+    """
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list of integers")
+    
+    quantity = opening
+    for move in moves:
+        if move < 0:
+            quantity += move
+        elif move > 0:
+            quantity -= move
+        if quantity < 0:
+            quantity = 0
+    
+    return quantity
+```

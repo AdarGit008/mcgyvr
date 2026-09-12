@@ -1,0 +1,79 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str):
+        raise ValueError("Ticket must be a string")
+    if len(ticket) != 10:
+        return "shape"
+    if ticket[0] not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" or ticket[1] not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        return "shape"
+    if ticket[2] not in "0123456789" or ticket[3] not in "0123456789" or ticket[4] not in "0123456789" or ticket[5] not in "0123456789":
+        return "shape"
+    if ticket[6] not in "0123456789" or ticket[7] not in "0123456789" or ticket[8] not in "0123456789" or ticket[9] not in "0123456789":
+        return "shape"
+    if ticket[6] == ticket[9]:
+        return "shape"
+    if ticket[7] == ticket[8]:
+        return "shape"
+    if ticket[8] == ticket[9]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[9] == ticket[6]:
+        return "shape"
+    if ticket[9] == ticket[7]:
+        return "shape"
+    if ticket[9] == ticket[8]:
+        return "shape"
+    if ticket[

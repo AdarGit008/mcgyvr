@@ -1,0 +1,55 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    if not readings:
+        return 0
+
+    if target < 0:
+        return 0
+
+    if target > 10:
+        return 0
+
+    if target == 0:
+        return 0
+
+    if target == 1:
+        return 0
+
+    if target == 2:
+        return 0
+
+    if target == 3:
+        return 4
+
+    if target == 4:
+        return 5
+
+    if target == 5:
+        return 6
+
+    if target == 6:
+        return 7
+
+    if target == 7:
+        return 8
+
+    if target == 8:
+        return 9
+
+    if target == 9:
+        return 10
+
+    if target == 10:
+        return 11
+
+    if = 0
+    for reading in readings:
+        if reading > target:
+            return 0
+        if reading == target:
+            return 1
+        if reading < target:
+            check += 1
+
+    return check
+```

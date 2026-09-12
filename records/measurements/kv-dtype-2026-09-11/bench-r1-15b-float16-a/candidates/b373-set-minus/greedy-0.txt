@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def set_minus(entries: List, remove: List) -> List:
+    """
+    Return the entries of one list that do not appear in another, keeping the order they came in and keeping any repeats among them.
+    Removing from an empty list gives an empty list.
+    """
+    if not entries:
+        return []
+    
+    result = []
+    for entry in entries:
+        if entry not in remove:
+            result.append(entry)
+    
+    return result
+```

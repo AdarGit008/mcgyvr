@@ -1,0 +1,28 @@
+```python
+def vend_credit(coins: list, price: int) -> int:
+    """
+    Accepts a list of coins and a price, returns the remaining credit after processing all coins.
+    Raises ValueError for invalid inputs.
+    """
+    if not isinstance(coins, list) or not all(isinstance(c, int) for c in coins):
+        raise ValueError("Coins must be a list of integers.")
+    if not isinstance(price, int) or price <= 0 or price % 5 != 0:
+        raise ValueError("Price must be a positive multiple of 5.")
+    
+    accepted_coins = [5, 10, 25, 100]
+    credit = 0
+    
+    for coin in coins:
+        if coin not in accepted_coins:
+            raise ValueError(f"Coin {coin} is not accepted.")
+        credit += coin
+    
+    while credit >= price:
+        credit -= price
+        # Assuming one item drops for each price unit
+        # This part is not specified in the task but is included here for completeness
+        # In a real scenario, you would need to implement the logic for dropping items
+        # For example, you might have a list of items and remove one from it
+    
+    return credit
+```

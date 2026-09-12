@@ -1,0 +1,51 @@
+<think>
+Okay, I need to implement the range_check function. Let's see the requirements. The function should return True if all readings in the list are between low and high, inclusive. Also, if there are no readings, it should return True. But if low is greater than high, that's an error, so I need to raise a ValueError.
+
+First, check if low is greater than high. If so, raise ValueError with a message like "low cannot be greater than high". Then, for the readings list, if it's empty, return True. Otherwise, iterate through each reading and check if it's between low and high, inclusive. If any reading is outside this range, return False. Otherwise, return True.
+
+Wait, the function is supposed to handle the case where there are no readings. So the first thing is to check if the list is empty. Then, check the low and high values. Oh right, the problem says to reject a low above high with an error. So the first step is to validate low and high.
+
+So the steps are:
+
+1. Check if low > high. If yes, raise ValueError.
+2. Check if the readings list is empty. If yes, return True.
+3. For each reading in readings:
+   a. If reading < low or reading > high, return False.
+4. If all pass, return True.
+
+Wait, but the problem says "a run holding no readings falls within any range". So empty list returns True. Also, the function should return whether every reading is between low and high. So for each reading, check if it's between low and high. If any is not, return False. Otherwise, return True.
+
+So code structure:
+
+def range_check(readings: list, low: int, high: int) -> bool:
+    if low > high:
+        raise ValueError("low cannot be greater than high")
+    if not readings:
+        return True
+    for r in readings:
+        if not (low <= r <= high):
+            return False
+    return True
+
+Wait, but what if the readings list is empty? Then return True. That's covered.
+
+Testing edge cases: empty list returns True. If low is 5 and high is 5, then all readings must be 5. If a reading is 5, it's okay. If low is 3 and high is 5, then readings 3,4,5 are okay. If there's a 2, returns False.
+
+What about if low is 10 and high is 5? Then the function raises ValueError. So that's handled.
+
+I think that's all. Let me check the interface. The function is called range_check, takes readings (list), low and high (int), returns bool. The code seems to match.
+
+Also, the code uses the correct type hints. The function is properly named. So this should be the correct implementation.
+</think>
+
+```python
+def range_check(readings: list, low: int, high: int) -> bool:
+    if low > high:
+        raise ValueError("low cannot be greater than high")
+    if not readings:
+        return True
+    for r in readings:
+        if not (low <= r <= high):
+            return False
+    return True
+```

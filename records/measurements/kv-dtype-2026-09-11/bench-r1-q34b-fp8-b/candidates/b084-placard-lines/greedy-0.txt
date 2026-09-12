@@ -1,0 +1,38 @@
+<think>
+Okay, I need to fix the placard_lines function. Let me read the problem carefully.
+
+The current code has two main issues. First, it doesn't account for the joining space when adding a word to a line. So, when a word is added, it adds a space between the existing line and the new word. But the problem says that this joining space is part of the line's width. So, the code is missing that space when checking if the line can fit.
+
+Second, there's no validation. The function should reject invalid inputs. The validation rules are: text must be a non-empty string, width must be a positive integer, no leading or trailing spaces, no double spaces, and no word wider than the placard.
+
+So, first, I need to add the validation. Let's think about each check.
+
+Check if text is a non-empty string. If text is empty or not a string, raise ValueError.
+
+Check if width is a positive integer. If not, raise error.
+
+Then, check if the text has leading or trailing spaces. So, if text starts or ends with a space, that's invalid.
+
+Also, check if there are two spaces in a row. Because the text is split by single spaces, but if there are multiple spaces, that's invalid.
+
+Wait, the text is split into words by single spaces. So, if the original text has two spaces in a row, that would create an empty string in the split, which is invalid. So, the validation needs to check that the text doesn't have any leading, trailing, or multiple spaces.
+
+So, for the text, after splitting into words, we need to ensure that the original text doesn't have any of these issues. Wait, but the text is split into words by splitting on spaces. So, if the original text has multiple spaces, the split would create empty strings. But the problem says that the text is words separated by single spaces. So, the input text should not have any leading, trailing, or multiple spaces.
+
+So, the validation steps:
+
+- text must not be empty.
+- width must be a positive integer.
+- text must not have leading or trailing spaces.
+- text must not have two spaces in a row.
+- each word in the text must not be wider than the width.
+
+So, how to check these?
+
+First, check that text is a string and not empty. Then, check that the text doesn't start or end with a space. Then, check that there are no two spaces in a row. Also, check that each word's length is <= width.
+
+But how to check for two spaces in a row? Because when you split the text into words, if there are two spaces, the split would create an empty string. For example, if the text is "a  b", splitting on " " would give ["a", "", "b"], which is invalid. So, the split words should not contain empty strings. So, the validation can check that the split words are all non-empty, and that the original text doesn't have multiple spaces.
+
+Wait, but the text is split into words by splitting on " " (single spaces). So, if the text has two spaces, the split would create an empty string. So, the split words list would have empty strings, which is invalid. So, the validation should check that the split words are all non-empty, and that the original text doesn't have any multiple spaces.
+
+But how to check that the original text doesn't have multiple spaces? Because if the text is "a  b", then splitting on " " gives ["a", "", "b"], which is invalid. So, the split words list should not have any empty strings. So, the validation can check that

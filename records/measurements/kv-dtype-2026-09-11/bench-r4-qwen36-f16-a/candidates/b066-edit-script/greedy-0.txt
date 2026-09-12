@@ -1,0 +1,46 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    """Apply an edit script to an original string to produce the edited result."""
+    if not isinstance(original, str):
+        raise ValueError("original must be a string")
+    if not isinstance(script, list):
+        raise ValueError("script must be a list")
+
+    result = []
+    original_len = len(original)
+    idx = 0
+
+    for op in script:
+        if not isinstance(op, list) or len(op) != 2:
+            raise ValueError("Each op must be a two-item list")
+
+        op_type, count = op
+
+        if op_type == "copy":
+            if not isinstance(count, int) or count <= 0:
+                raise ValueError("copy count must be a positive integer")
+            if idx + count > original_len:
+                raise ValueError("copy reads past the end of the original")
+            result.append(original[idx : idx + count])
+            idx += count
+
+        elif op_type == "skip":
+            if not isinstance(count, int) or count <= 0:
+                raise ValueError("skip count must be a positive integer")
+            if idx + count > original_len:
+                raise ValueError("skip reads past the end of the original")
+            idx += count
+
+        elif op_type == "insert":
+            if not isinstance(count, str) or len(count) == 0:
+                raise ValueError("insert text must be a non-empty string")
+            result.append(count)
+
+        else:
+            raise ValueError(f"Unknown op name: {op_type}")
+
+    if idx != original_len:
+        raise ValueError("Script does not consume the entire original string")
+
+    return "".join(result)
+```

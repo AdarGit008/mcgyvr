@@ -1,0 +1,22 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    """
+    Counts how many readings at the end of the run sat at or above the target
+    without interruption. A run that dips below the target stops the count there.
+    
+    Parameters:
+    readings (list): A list of temperature readings in the order they were taken.
+    target (int): The target temperature to hold.
+    
+    Returns:
+    int: The number of readings at the end of the run that sat at or above the target.
+    """
+    if not readings:
+        return 0
+    
+    # Find the index where the temperature drops below the target
+    drop_index = next((i for i, temp in enumerate(readings) if temp < target), len(readings))
+    
+    # Count the number of readings from the drop_index to the end
+    return len(readings) - drop_index
+```

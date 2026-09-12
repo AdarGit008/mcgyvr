@@ -1,0 +1,62 @@
+```python
+from typing import Dict
+
+def column_digest(rows: list, column: int) -> Dict[str, float]:
+    """
+    Summarize the column at the given zero-based index.
+    
+    Args:
+        rows: A list of rows, each row a list of numbers.
+        column: The zero-based index of the column to summarize.
+
+    Returns:
+        A dictionary with the following keys:
+            - 'count': The number of cells read.
+            - 'min': The smallest cell value.
+            - 'max': The largest cell value.
+            - 'mean': The average of the cell values.
+            - 'median': The median of the cell values.
+    """
+    if column < 0:
+        raise ValueError("Column index cannot be negative")
+
+    # Filter out rows that are shorter than the column index
+    filtered_rows = [row for row in rows if len(row) > column]
+
+    if not filtered_rows:
+        return {
+            'count': 0,
+            'min': 0,
+            'max': 0,
+            'mean': 0,
+            'median': 0
+        }
+
+    # Extract the specified column from the filtered rows
+    column_values = [row[column] for row in filtered_rows]
+
+    count = len(column_values)
+    min_value = min(column_values)
+    max_value = max(column_values)
+    mean_value = sum(column_values) / count
+
+    # Calculate the median
+    sorted_values = sorted(column_values)
+    mid_index = count // 2
+    if count % 2 == 0:
+        median_value = (sorted_values[mid_index - 1] + sorted_values[mid_index]) / 2
+    else:
+        median_value = sorted_values[mid_index]
+
+    # Round mean and median to two decimal places
+    mean_value = round(mean_value, 2)
+    median_value = round(median_value, 2)
+
+    return {
+        'count': count,
+        'min': min_value,
+        'max': max_value,
+        'mean': mean_value,
+        'median': median_value
+    }
+```

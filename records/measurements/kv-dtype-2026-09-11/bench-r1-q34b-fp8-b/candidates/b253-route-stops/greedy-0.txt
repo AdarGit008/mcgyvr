@@ -1,0 +1,35 @@
+<think>
+Okay, I need to implement the two functions route_stops and route_hops. Let's start with route_stops. The function takes a string that's a route where stops are joined by greater-than signs. So, for example, if the input is "A>B>C", the output should be ["A", "B", "C"]. But first, I need to split the string on the ">" characters. However, the problem mentions trimming any spaces around each stop. So each stop is split by ">", but there might be spaces before or after each stop. So, I should split the route string on ">", then strip each resulting part.
+
+Wait, but what if the route is empty? Like, if the input is an empty string, then route_stops should return an empty list. Also, if the input is something like "  A > B  ", splitting on ">" would give ["  A ", " B  "], which after stripping becomes ["A", "B"].
+
+So the steps for route_stops are: split the input string on ">", then strip each element, and filter out any empty strings that might result from splitting. For example, if the input is "A>>B", splitting gives ["A", "", "B"], stripping each gives ["A", "B"], so the list is ["A", "B"].
+
+Now for route_hops. The function counts the number of journeys between stops. The description says that hops are one fewer than the stops. So if there are n stops, there are n-1 hops. But also, if the route is blank, then hops is 0. So, for example, if the route is empty, route_hops returns 0. If the route has 3 stops, then hops is 2.
+
+But wait, the problem says "none at all for a blank route". So, if the input is an empty string, then route_hops returns 0. Otherwise, it's the length of the stops list minus 1. But wait, what if the stops list is empty? Like, if the input is "  >  ", then splitting would give ["", "  "], stripping gives ["", ""] after splitting. Then, the stops list would be empty? Or not? Wait, if the input is "  >  ", splitting on ">" gives ["  ", "  "], stripping each gives ["", ""], so the list would be ["", ""], but then we need to filter out empty strings. So the stops list would be empty. So route_hops would return 0 in that case.
+
+So the logic for route_hops is: if the stops list is empty, return 0. Otherwise, return len(stops) - 1.
+
+So putting it all together:
+
+For route_stops:
+
+Split the input on ">", then strip each part, then filter out any empty strings.
+
+For route_hops:
+
+Check the length of the stops list. If it's zero, return 0. Else, return len(stops) - 1.
+
+Now, let's code this.
+
+First, the route_stops function. Let's split the route string on ">", then process each part.
+
+But wait, the split method in Python splits on every occurrence. So for example, "A>B>C" would split into ["A", "B", "C"]. But if the input is "A>>B", splitting on ">" gives ["A", "", "B"], which after stripping becomes ["A", "B"].
+
+So the code for route_stops would be:
+
+def route_stops(route: str) -> list:
+    return [stop.strip() for stop in route.split('>') if stop.strip()]
+
+Wait, but split on ">" and

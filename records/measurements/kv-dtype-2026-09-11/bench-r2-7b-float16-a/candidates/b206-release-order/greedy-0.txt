@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    def parse_tag(tag: str) -> tuple:
+        parts = tag[1:].split('-')
+        version_parts = parts[0].split('.')
+        major, minor, patch = map(int, version_parts)
+        preview_label = '' if len(parts) == 1 else parts[1]
+        preview_word, preview_number = '', -1
+        if '-' in preview_label:
+            preview_word, preview_number = preview_label.split(' ', 1)
+            preview_number = int(preview_number)
+        return major, minor, patch, preview_word, preview_number
+
+    return sorted(tags, key=parse_tag)
+```

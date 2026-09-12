@@ -1,0 +1,58 @@
+```python
+"""Replay tile requests against a size-limited cache of fresh renders."""
+
+
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    """Serve tile requests using a cache with a fixed size and freshness window."""
+    for count in (fresh_for, size):
+        if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+            raise ValueError("fresh_for and size must be positive integers")
+    
+    # Cache stores: { name: (render_tick, name) }
+    # We need to evict the oldest render_tick, breaking ties by name.
+    # To efficiently find the eviction candidate, we can keep a separate structure
+    # or just scan since size is likely small, but let's use a heap or sorted list
+    # for eviction logic if needed. However, since we need to remove arbitrary items
+    # from the cache dict, a simple dict is good for lookup. For eviction, we need
+    # to find the min (render_tick, name).
+    
+    held = {}  # name -> render_tick
+    renders = []
+    
+    for tick, name in requests:
+        # Check if the tile is already in cache and still fresh
+        if name in held:
+            render_tick = held[name]
+            if tick < render_tick + fresh_for:
+                # Still fresh, no render needed
+                continue
+            else:
+                # Expired, need to re-render
+                del held[name]
+        
+        # Need to render
+        # If cache is full, evict
+        if len(held) >= size:
+            # Find the tile to evict: oldest render_tick, then smallest name
+            # Since we need to remove from dict, we can iterate or maintain a heap.
+            # Iterating is O(N) where N is size. Given constraints aren't specified,
+            # but typically size is small. Let's iterate for simplicity and correctness.
+            evict_name = None
+            evict_tick = None
+            for n, t in held.items():
+                if evict_name is None:
+                    evict_name = n
+                    evict_tick = t
+                else:
+                    # Compare (t, n) vs (evict_tick, evict_name)
+                    if (t, n) < (evict_tick, evict_name):
+                        evict_name = n
+                        evict_tick = t
+            del held[evict_name]
+        
+        # Store the new render
+        held[name] = tick
+        renders.append([tick, name])
+        
+    return renders
+```

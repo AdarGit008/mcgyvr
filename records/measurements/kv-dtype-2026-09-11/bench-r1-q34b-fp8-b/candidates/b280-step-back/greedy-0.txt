@@ -1,0 +1,82 @@
+<think>
+Okay, I need to implement the step_back function. Let's see the problem statement again. The walker starts at zero and follows a line of moves. Each 'F' steps forward, 'B' steps back. The function should return the furthest forward position reached at any point. If the walk never goes forward, return zero. Also, any letters that are neither F nor B are ignored.
+
+So, the steps I need to take are:
+
+First, process each character in the moves string. For each character, if it's 'F', add 1 to the current position. If it's 'B', subtract 1. Otherwise, ignore it. But also, I need to track the maximum position reached at any time during the walk.
+
+Wait, the starting position is zero. So, the initial max is zero. Then, for each move, update the current position and check if it's higher than the current max. If yes, update the max.
+
+But what about if the moves are such that the position goes negative? The problem says that the furthest forward is the maximum. So even if the position goes back, the max is the highest point reached.
+
+For example, if the moves are 'F', then the max is 1. If the moves are 'B', then the position is -1, but since it never went forward, the max is zero.
+
+Another example: 'FBBF'. Let's see:
+
+Start at 0. Max is 0.
+
+First move F: position 1, max is 1.
+
+Second move B: position 0, max remains 1.
+
+Third move B: position -1, max remains 1.
+
+Fourth move F: position 0, max remains 1. So the result is 1.
+
+Another example: 'BFFB'. Let's see:
+
+Start at 0. Max is 0.
+
+First B: position -1. Max remains 0.
+
+Second F: position 0. Max is still 0.
+
+Third F: position 1. Max is now 1.
+
+Fourth B: position 0. Max remains 1. So the result is 1.
+
+So the function needs to track the current position and the maximum position as it processes each move.
+
+Now, the steps for the code:
+
+Initialize current_position to 0 and max_position to 0.
+
+Loop through each character in the moves string:
+
+- For each char, check if it's 'F' or 'B'.
+
+- If 'F', add 1 to current_position.
+
+- If 'B', subtract 1 from current_position.
+
+- Then, after updating current_position, check if it's greater than max_position. If yes, update max_position.
+
+But wait, the problem says that any letter that is neither F nor B is ignored. So, for each character, if it's not F or B, we skip processing it.
+
+So, in code:
+
+for move in moves:
+
+    if move == 'F':
+
+        current_position += 1
+
+    elif move == 'B':
+
+        current_position -= 1
+
+    else:
+
+        continue
+
+    then check if current_position > max_position, update max.
+
+Wait, but the order is important. For example, if the current position is 0, and the first move is 'F', then the max is 1. But if the first move is 'B', then the current position is -1, but the max remains 0.
+
+So the code should process each move, update the current position, and then check if the current position is higher than the max. But the initial max is 0, which is the starting position.
+
+So the code steps:
+
+Initialize current = 0, max_pos = 0.
+
+for move in

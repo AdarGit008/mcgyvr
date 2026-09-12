@@ -1,0 +1,27 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    """Return a new tally with the amount added to the name's count."""
+    if not isinstance(tally, dict):
+        raise ValueError("tally must be a dict")
+    if not isinstance(name, str):
+        raise ValueError("name must be a string")
+    if not isinstance(amount, int):
+        raise ValueError("amount must be an int")
+    
+    new_tally = dict(tally)
+    new_tally[name] = new_tally.get(name, 0) + amount
+    return new_tally
+
+
+def merge_tally(left: dict, right: dict) -> dict:
+    """Return a new tally combining left and right, summing shared counts."""
+    if not isinstance(left, dict):
+        raise ValueError("left must be a dict")
+    if not isinstance(right, dict):
+        raise ValueError("right must be a dict")
+    
+    merged = dict(left)
+    for name, count in right.items():
+        merged[name] = merged.get(name, 0) + count
+    return merged
+```

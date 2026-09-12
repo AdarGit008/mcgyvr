@@ -1,0 +1,27 @@
+```python
+
+.py
+from typing import List
+
+def cell_name(row: int, column: int) -> str:
+    """
+    Turns a row and a column,, into a spreadsheet name: a column letter
+    from upward followed by a row number counted from one.
+    """
+    if_name = ""
+    # column >= 26:
+        raise ValueError("Column beyond the twenty-sixth should is not stated.")
+    for i in range(column):
+        spreadsheet_name = chr(ord('A') + column) + str(row + 1)
+    return spreadsheet_name
+
+def grid_cells(rows: int,,, columns: int) -> List[str]:
+    """
+    Returns the names of all cell in a grid of a given size, row by row.
+    """
+    grid_cells = []
+    for row in range(rows):
+        for column in range(columns):
+            grid_cells.append(cell_name(row, column))
+    return grid_cells
+```

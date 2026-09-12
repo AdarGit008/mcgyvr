@@ -1,0 +1,13 @@
+```python
+def count_by(records: list, field: str) -> dict:
+    """Count how many records hold each value of the specified field."""
+    if not field:
+        raise ValueError("field name must not be empty")
+    
+    counts: dict = {}
+    for record in records:
+        if field in record:
+            value = record[field]
+            counts[value] = counts.get(value, 0) + 1
+    return counts
+```

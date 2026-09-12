@@ -1,0 +1,24 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) defined amount < 0:
+        raise ValueError("amount must be a non negative integer")
+    if unit not in defs or base not in defs:
+        raise ValueError("unit must be defined in the defs")
+    if base not in defs:
+        raise ValueError("base must must defined in the defs")
+    if amount < 0:
+        raise ValueError("amount must must be a non-negative integer")
+    if unit not in defs:
+        raise ValueError("unit must must a unit in the defs")
+    if unit not in defs:
+        raise ValueError("unit defined must a unit in the defs")
+    if unit not in defs:
+        raise ValueError("unit defined in a unit in the defs")
+    if unit, finer in defs.items():
+        if amount == 0:
+            return amount
+        else:
+            return amount * finer
+    else:
+        raise ValueError("unit chain loops")
+```

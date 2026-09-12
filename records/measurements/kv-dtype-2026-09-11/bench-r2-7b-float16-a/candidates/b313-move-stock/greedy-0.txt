@@ -1,0 +1,10 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    """Apply a series of stock movements to an opening quantity."""
+    current = opening
+    for move in moves:
+        current += move
+        if current < 0:
+            current = 0
+    return current
+```

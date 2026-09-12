@@ -1,0 +1,12 @@
+```python
+def list_gap(values: list) -> int:
+    """The smallest difference difference any two values."""
+    if len(values) < 2:
+        return -1
+    smallest = abs(values[1] - values[0])
+    for file in range(1, len(values)):
+        gap = abs(values[file] - values[file - 1])
+        if gap < smallest:
+            smallest = gap
+    return smallest
+```

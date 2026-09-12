@@ -1,0 +1,67 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    """Count how many unique integers in values match at least one term in the selector."""
+    if not isinstance(selector, str) or not selector:
+        raise ValueError("selector must be a non-empty string")
+    if not isinstance(values, list):
+        raise ValueError("values must be a list")
+    for v in values:
+        if not isinstance(v, int) or isinstance(v, bool):
+            raise ValueError("values must contain only integers")
+
+    terms = selector.split(',')
+    matched_values = set()
+
+    for term in terms:
+        if not term:
+            raise ValueError("selector contains empty term")
+        
+        if '-' in term:
+            parts = term.split('-')
+            if len(parts) != 2:
+                raise ValueError("invalid range term")
+            low_str, high_str = parts
+            
+            # Check for leading zeros or plus signs which are not explicitly allowed
+            # The prompt says "neither a bare non-negative integer nor two of them joined by a hyphen"
+            # It doesn't explicitly forbid leading zeros or plus signs, but standard integer parsing
+            # usually accepts them. However, "non-negative integer" usually implies standard representation.
+            # Let's stick to strict integer parsing. If the string representation of the int doesn't match
+            # the term, it might be invalid. But the prompt says "Reject ... a term that is neither ...".
+            # It doesn't say "Reject terms with leading zeros". So we should parse them.
+            # However, if we parse "01" as 1, is it a valid term? Yes, it's an integer.
+            # But wait, if the term is "01", is it a "bare non-negative integer"? Yes.
+            # Let's just try to parse. If it fails, it's invalid.
+            
+            try:
+                low = int(low_str)
+                high = int(high_str)
+            except ValueError:
+                raise ValueError("invalid range term")
+            
+            if low > high:
+                raise ValueError("range low end exceeds high end")
+            
+            # Add all values in range [low, high] that are in values
+            # Optimization: if the range is huge, we shouldn't iterate.
+            # But we only care about values in the input list.
+            # So we can just check each value in values against this range.
+            # But we need to do this for all terms.
+            # Let's collect all matched values.
+            
+            for v in values:
+                if low <= v <= high:
+                    matched_values.add(v)
+                    
+        else:
+            # Single integer
+            try:
+                val = int(term)
+            except ValueError:
+                raise ValueError("invalid term")
+            
+            if val in values:
+                matched_values.add(val)
+
+    return len(matched_values)
+```

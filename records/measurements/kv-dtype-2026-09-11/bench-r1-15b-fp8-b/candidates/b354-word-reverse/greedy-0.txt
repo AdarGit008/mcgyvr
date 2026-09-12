@@ -1,0 +1,11 @@
+```python
+def word_reverse(line: str) -> str:
+    """
+    Reverse the order of letters in each words in a line, while keeping the order of the words themselves.
+    Any punctuation is the end of a word should move to its front is not stated.
+    """
+    words = line.split()
+    reversed_words = [word[::-1] for word in words]
+ reversed_words:
+        return ' '.join(reversed_words)
+```

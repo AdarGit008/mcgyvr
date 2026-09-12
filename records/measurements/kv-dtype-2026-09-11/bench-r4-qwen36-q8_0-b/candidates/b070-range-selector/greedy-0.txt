@@ -1,0 +1,48 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    """Count how many unique integers in values match at least one term in the selector."""
+    if not isinstance(selector, str) or not selector:
+        raise ValueError("selector must be a non-empty string")
+    if not isinstance(values, list):
+        raise ValueError("values must be a list")
+    for v in values:
+        if not isinstance(v, int) or isinstance(v, bool):
+            raise ValueError("values must contain only integers")
+
+    terms = selector.split(',')
+    matched_values = set()
+
+    for term in terms:
+        if not term:
+            raise ValueError("selector contains empty term")
+        
+        if '-' in term:
+            parts = term.split('-')
+            if len(parts) != 2:
+                raise ValueError("invalid range term")
+            try:
+                low = int(parts[0])
+                high = int(parts[1])
+            except ValueError:
+                raise ValueError("range terms must be integers")
+            
+            if low > high:
+                raise ValueError("range low end exceeds high end")
+            
+            # Check if any value in values matches this range
+            for v in values:
+                if low <= v <= high:
+                    matched_values.add(v)
+        else:
+            try:
+                val = int(term)
+            except ValueError:
+                raise ValueError("term must be an integer or range")
+            
+            # Check if any value in values matches this exact integer
+            for v in values:
+                if v == val:
+                    matched_values.add(v)
+
+    return len(matched_values)
+```

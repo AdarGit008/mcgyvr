@@ -1,0 +1,5 @@
+```python
+def every_other(entries: list) -> list:
+    """Every other entry of a list, beginning with the first."""
+    return entries[0::2]
+```

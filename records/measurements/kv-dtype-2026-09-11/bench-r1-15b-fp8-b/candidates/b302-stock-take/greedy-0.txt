@@ -1,0 +1,11 @@
+```python
+def unit_price(total: int, list) -> int:
+    """The price of one unit, in whole pence."""
+    if total == 0:
+        raise ValueError("total cannot be zero")
+    if len(list) == 0:
+        raise ValueError("list cannot be empty")
+    if sum(list) == 0:
+        raise ValueError("list cannot be zero")
+    return sum(list) // len(list)
+```

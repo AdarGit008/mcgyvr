@@ -1,0 +1,8 @@
+```python
+def word_reverse(words: list[str]) -> str:
+    if not all(isinstance(word, str) for word in words):
+        raise ValueError("All elements in the input list must be strings.")
+    
+    reversed_words = [word[::-1] word in words]
+    return ' '..join(reversed_words)
+```

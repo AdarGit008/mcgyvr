@@ -1,0 +1,48 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    if not isinstance(person, str) or not person:
+        raise ValueError("Person must be a non-empty string.")
+    
+    def walk(node, path):
+        if not isinstance(node, dict) or "name" not in node or "reports" not in node:
+            raise ValueError("Invalid node structure.")
+        
+        if node["name"] == person:
+            return path + [node["name"]]
+        
+        for report in node["reports"]:
+            try:
+                result = walk(report, path + [node["name"]])
+                if result:
+                    return result
+            except ValueError:
+                continue
+        
+        return []
+    
+    return walk(root, [])
+
+def headcount(root: dict) -> int:
+    if not isinstance(root, dict) or "name" not in root or "reports" not in root:
+        raise ValueError("Invalid root structure.")
+    
+    def count(node):
+        if not isinstance(node, dict) or "name" not in node or "reports" not in node:
+            raise ValueError("Invalid node structure.")
+        
+        return 1 + sum(count(report) for report in node["reports"])
+    
+    return count(root)
+
+def widest_team(root: dict) -> int:
+    if not isinstance(root, dict) or "name" not in root or "reports" not in root:
+        raise ValueError("Invalid root structure.")
+    
+    def max_reports(node):
+        if not isinstance(node, dict) or "name" not in node or "reports" not in node:
+            raise ValueError("Invalid node structure.")
+        
+        return 1 + max(max_reports(report) for report in node["reports"]) if node["reports"] else 0
+    
+    return max_reports(root)
+```

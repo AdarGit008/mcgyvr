@@ -1,0 +1,28 @@
+```python
+def common_head(words: list) -> str:
+    """
+    Returns the longest common prefix among all words in the list.
+    If no common prefix exists, returns an empty string.
+    """
+    if not words:
+        return ""
+    
+    # Convert all words to lowercase to ensure case insensitivity
+    words = [word.lower() for word in words]
+    
+    # Find the shortest word to limit the comparison
+    min_len = min(len(word) for word in words)
+    
+    # Initialize the common prefix
+    common_prefix = ""
+    
+    # Compare characters from the start of each word up to the minimum length
+    for i in range(min_len):
+        char = words[0][i]
+        if all(word[i] == char for word in words):
+            common_prefix += char
+        else:
+            break
+    
+    return common_prefix
+```

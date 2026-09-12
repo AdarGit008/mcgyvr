@@ -1,0 +1,10 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if diners == 0:
+        raise ValueError("Cannot split a bill with zero diners.")
+    
+    #pennies = total % diners
+    per_penny = total // diners
+    
+    return [(pennies, per_per_penny)
+```

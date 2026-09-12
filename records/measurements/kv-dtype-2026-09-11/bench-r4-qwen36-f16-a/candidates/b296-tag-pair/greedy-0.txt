@@ -1,0 +1,31 @@
+```python
+def tag_open(marker: str) -> str:
+    """Extract the tag name from an opening or closing marker, stripping a leading slash."""
+    if not (marker.startswith('<') and marker.endswith('>')):
+        raise ValueError("Marker must be wrapped in angle brackets")
+    
+    inner = marker[1:-1]
+    if inner.startswith('/'):
+        return inner[1:]
+    return inner
+
+
+def tag_pair(opening: str, closing: str) -> bool:
+    """Check if an opening marker and a closing marker name the same thing."""
+    # Validate that both are proper markers
+    if not (opening.startswith('<') and opening.endswith('>')):
+        raise ValueError("Opening marker must be wrapped in angle brackets")
+    if not (closing.startswith('<') and closing.endswith('>')):
+        raise ValueError("Closing marker must be wrapped in angle brackets")
+    
+    # Extract names, stripping leading slashes if present
+    open_name = opening[1:-1]
+    if open_name.startswith('/'):
+        open_name = open_name[1:]
+        
+    close_name = closing[1:-1]
+    if close_name.startswith('/'):
+        close_name = close_name[1:]
+        
+    return open_name == close_name
+```

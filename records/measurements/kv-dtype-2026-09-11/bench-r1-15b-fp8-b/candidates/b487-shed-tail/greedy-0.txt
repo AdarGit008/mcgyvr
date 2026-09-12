@@ -1,0 +1,11 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    if not piece:
+        return text
+    if not text:
+        return text
+    if piece == text[-len(piece):]:
+        return text[:-len(piece):]
+    else:
+        return text
+```

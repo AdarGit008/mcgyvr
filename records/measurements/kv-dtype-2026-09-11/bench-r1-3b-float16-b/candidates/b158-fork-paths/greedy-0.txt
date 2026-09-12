@@ -1,0 +1,41 @@
+```python
+def fork_paths(pattern: str) -> list:
+    """
+    Expands a deployment pattern into the full list of paths it names.
+    Each fork contributes exactly one of its options per path.
+    Options appear in their written order, and an earlier fork's choice changes slower than a later one's.
+    A pattern holding no fork yields itself alone.
+    Rejects a pattern that is not a non-empty string, an empty segment, an empty option,
+    and a curly brace or comma sitting inside a literal segment or an option.
+    """
+    if not isinstance(pattern, str) or not pattern:
+        raise ValueError("Pattern must be a non-empty string.")
+    
+    def parse_segment(segment: str) -> list:
+        if not segment:
+            raise ValueError("Segment cannot be empty.")
+        
+        if "{" in segment:
+            if "," not in segment[1:-1]:
+                raise ValueError("Fork must have at least one option.")
+            options = segment[1:-1].split(",")
+            return [f"{segment[0]}{option}{segment[-1]}" for option in options]
+        else:
+            return [segment]
+    
+    def expand_pattern(pattern: str) -> list:
+        if "{" not in pattern:
+            return [pattern]
+        
+        parts = pattern.split("/")
+        expanded_parts = []
+        for part in parts:
+            if "{" in part:
+                expanded_parts.extend(parse_segment(part))
+            else:
+                expanded_parts.append(part)
+        
+        return ["/" + "/".join(expanded_parts) for expanded_part in expanded_parts]
+    
+    return expand_pattern(pattern)
+```

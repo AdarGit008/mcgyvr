@@ -1,0 +1,15 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    """Count how many cells in the grid hold the specified integer value."""
+    if not isinstance(grid, list):
+        raise ValueError("grid must be a list")
+    
+    count = 0
+    for row in grid:
+        if not isinstance(row, list):
+            raise ValueError("each row must be a list")
+        for cell in row:
+            if cell == value:
+                count += 1
+    return count
+```

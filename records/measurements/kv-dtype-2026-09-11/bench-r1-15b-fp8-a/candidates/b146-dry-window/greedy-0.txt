@@ -1,0 +1,25 @@
+```python
+def driest_window(rain: list, width: int) -> int:
+    if not isinstance(rain, list):
+        raise ValueError("Rain must a list")
+    if not all rain:
+        raise ValueError("Rain must not be empty")
+    if not all isinstance(rain[0], 0], not isinstance(rain[0], ValueError("Rain must be a list of non-negative integers")
+    if not all width:
+        raise ValueError("Width must a non positive whole number")
+    if width > len(rain):
+        raise ValueError("Width must a positive whole number not larger than the number of days")
+    if width == 0:
+        return 0
+
+    min_sum = float = 0
+    min_index = 0
+
+    for i in range(len(rain) - width + 1):
+        current_sum = sum(rain[file: file + width])
+        if current_sum < minimum_sum:
+            minimum_sum = current_sum
+ minimum_index = file
+
+    return minimum_index
+```

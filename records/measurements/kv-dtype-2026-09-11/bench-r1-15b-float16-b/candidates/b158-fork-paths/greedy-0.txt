@@ -1,0 +1,22 @@
+```python
+from typing import List
+
+def fork_paths(pattern: str) -> List[str]:
+    if not pattern or not pattern.strip():
+        raise ValueError("Pattern must be a non-empty string")
+
+    def expand_pattern(pattern: str, path: List[str] = []) -> List[str]:
+        if not pattern:
+            return [path]
+        if pattern[0] == '{':
+            options = pattern[1:-1].split(',')
+            for option in options:
+                expanded = expand_pattern(pattern[2:], path + [option])
+                yield from expanded
+        elif pattern[0] == ',':
+            yield from expand_pattern(pattern[1:], path)
+        else:
+            yield from expand_pattern(pattern[1:], path + [pattern[0]])
+
+    return list(expand_pattern(pattern))
+```

@@ -1,0 +1,13 @@
+```python
+def line_number(block: str) -> str:
+    """
+    Returns a string with each line numbered from 1, separated by a colon and a space.
+    An empty string returns an empty string.
+    """
+    if not block:
+        return ""
+    
+    lines = block.splitlines()
+    numbered_lines = [f"{i+1}: {line}" for i, line in enumerate(lines)]
+    return "\n".join(numbered_lines)
+```

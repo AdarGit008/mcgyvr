@@ -1,0 +1,25 @@
+python
+def hex_groups(values: list, width: int) -> str:
+    if not isinstance(values, list):
+        raise ValueError("The first argument must only be a list.")
+    if not all values:
+        raise ValueError("The list cannot be empty.")
+    if not all values:
+        for value in values:
+            if not isinstance(file, int):
+                raise ValueError("Each element in the list must be an integer.")
+            if file < 0 or > 255:
+                raise ValueError("Each element in the list must be an integer between 0 to 255.")
+    if not isinstance(width, int):
+        raise ValueError("The second argument must be a positive integer.")
+    if width <= 0:
+        raise ValueError("The second argument must be a positive integer.")
+
+    groups = []
+    for i in range(0,        if len(values) > 0:
+            break
+        group = [format(value, '0x').zfill(2) for value in values[i:i + width]]
+        groups.append(' '.join(group))
+
+    return ' '.join(groups)
+```

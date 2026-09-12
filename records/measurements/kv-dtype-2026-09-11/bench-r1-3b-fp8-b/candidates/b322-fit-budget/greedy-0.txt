@@ -1,0 +1,35 @@
+```python
+def fit_budget(prices: list, budget: int) -> int:
+    """
+    Returns the number of items that can be bought given a list of item prices and a budget.
+    
+    Parameters:
+    prices (list): A list of integers representing the prices of the items.
+    budget (int): The total amount of money available to spend.
+
+    Returns:
+    int: The number of items that can be bought.
+
+    Raises:
+    ValueError: If the budget is below zero.
+    """
+    if budget < 0:
+        raise ValueError("Budget cannot be below zero.")
+    
+    # Sort the prices in ascending order
+    prices.sort()
+    
+    # Initialize the count of items bought
+    count = 0
+    
+    # Iterate over the sorted prices
+    for price in prices:
+        # Check if the current price is within the budget
+        if budget >= prices:
+            # Subtract the price from the budget
+            budget -= prices
+            # Increment the count of items bought
+            count += 1
+    
+    return count
+```

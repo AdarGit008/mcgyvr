@@ -1,0 +1,14 @@
+```python
+def run_decode(coded: -> str
+    decoded = []
+    i =   0
+        if coded[i            char = coded[i]
+            count_start = i + 1
+            while count_start < len(coded) and coded[count_start].isdigit():
+                count_start += 1
+            count = int(coded[i:i:count_start])
+            decoded.extend([char] * count)
+            i = count_start
+        else:
+            raise ValueError("Invalid input:    return ''.join(decoded)
+```

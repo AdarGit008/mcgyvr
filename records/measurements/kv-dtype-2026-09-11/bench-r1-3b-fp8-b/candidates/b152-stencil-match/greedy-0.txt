@@ -1,0 +1,37 @@
+```python
+def matches_stencil(stencil: str, code: str) -> bool:
+    """
+    Vets a code position by position against a stencil.
+    Returns True if the code matches the stencil, False otherwise.
+    Raises ValueError for invalid inputs.
+    """
+    if not isinstance(stencil, str) or not isinstance(code, str):
+        raise ValueError("Both stencil and code must be strings.")
+    if not stencil:
+        raise ValueError("Stencil cannot be empty.")
+    
+    stencil_length = len(stencil)
+    code_length = len(code)
+    
+    if code_length != stencil_length:
+        return False
+    
+    for i in range(stencil_length):
+        stencil_char = stencil[i]
+        code_char = code[i]
+        
+        if stencil_char == "#":
+            if not code_char.isdigit():
+                return False
+        elif stencil_char == "@":
+            if not code_char.isalpha():
+                return False
+        elif stencil_char == "?":
+            if not code_char.isalnum():
+                return False
+        else:
+            if stencil_char != code_char:
+                return False
+    
+    return True
+```

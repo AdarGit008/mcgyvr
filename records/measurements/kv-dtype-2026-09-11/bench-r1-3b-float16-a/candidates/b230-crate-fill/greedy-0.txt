@@ -1,0 +1,28 @@
+```python
+def crate_fill(items: int, crates: int) -> list:
+    """
+    Distributes items into crates as evenly as possible, returning the crate sizes
+    largest first and handing the leftover items one each to the leading crates.
+    Returns an empty list if asked for zero crates.
+    """
+    if crates <= 0:
+        return []
+    
+    items_per_crate = items // crates
+    leftover_items = items % crates
+    
+    # Create a list of crate sizes
+    crate_sizes = [items_per_crate] * crates
+    
+    # Distribute leftover items to the leading crates
+    for i in range(leftover_items):
+        crate_sizes[i] += 1
+    
+    return crate_sizes
+
+def crate_total(sizes: list) -> int:
+    """
+    Adds a list of crate sizes back up to get the total number of items.
+    """
+    return sum(sizes)
+```

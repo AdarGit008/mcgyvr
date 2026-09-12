@@ -1,0 +1,20 @@
+```python
+def fold_ends(values: list) -> list:
+    """Fold a list onto itself by adding symmetric elements, returning totals from outside in."""
+    if not values:
+        return []
+    
+    result = []
+    left = 0
+    right = len(values) - 1
+    
+    while left < right:
+        result.append(values[left] + values[right])
+        left += 1
+        right -= 1
+        
+    if left == right:
+        result.append(values[left])
+        
+    return result
+```

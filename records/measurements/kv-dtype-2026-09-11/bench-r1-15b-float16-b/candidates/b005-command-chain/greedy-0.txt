@@ -1,0 +1,51 @@
+```python
+from typing import List, Dict
+
+def chain_of_command(root: Dict[str, List[str]], person: str) -> List[str]:
+    if not isinstance(root, dict) or not isinstance(person, str):
+        raise ValueError("Invalid input: root must be a dictionary and person must be a string.")
+    if not person:
+        raise ValueError("Invalid input: person cannot be empty.")
+    if person not in root:
+        raise ValueError("Person not found in the chart.")
+    if not all(isinstance(name, str) for name in root[person]):
+        raise ValueError("Invalid input: all names in the reports list must be strings.")
+    
+    def traverse(node):
+        if node:
+            yield node
+            for child in node['reports']:
+                yield from traverse(child)
+    
+    return list(traverse(root[person]))
+
+def headcount(root: Dict[str, List[str]]) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid input: root must be a dictionary.")
+    if not all(isinstance(name, str) for name in root.values()):
+        raise ValueError("Invalid input: all names in the reports list must be strings.")
+    
+    return sum(1 for _ in traverse(root))
+
+def widest_team(root: Dict[str, List[str]]) -> int:
+    if not isinstance(root, dict):
+        raise ValueError("Invalid input: root must be a dictionary.")
+    if not all(isinstance(name, str) for name in root.values()):
+        raise ValueError("Invalid input: all names in the reports list must be strings.")
+    
+    def traverse(node):
+        if node:
+            yield node
+            for child in node['reports']:
+                yield from traverse(child)
+    
+    max_depth = 0
+    for node in traverse(root):
+        depth = 0
+        while node:
+            node = node['reports'][0] if node['reports'] else None
+            depth += 1
+        max_depth = max(max_depth, depth)
+    
+    return max_depth
+```

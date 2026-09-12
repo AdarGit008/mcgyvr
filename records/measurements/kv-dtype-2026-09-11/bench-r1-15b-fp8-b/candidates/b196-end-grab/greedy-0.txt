@@ -1,0 +1,18 @@
+```python
+def end_grab(cards: list) -> dict:
+    if not cards:
+        return {'first': 0, 'second': 0, 'taken': 0 }
+
+    first, second = cards[0], cards[-1]
+    taken = 0
+
+    for card in cards:
+        if card > first:
+            taken += card
+            first = card
+        elif card > second:
+            taken += card
+            second = card
+
+    return {'first': first, 'second': second, 'taken': taken}
+```

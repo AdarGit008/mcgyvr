@@ -1,0 +1,28 @@
+```python
+def unpack_crates(crate: list) -> list:
+    def unpack_crates_helper(crate, level=0):
+        if not crate:
+            return []
+        item = crate[0]
+        if isinstance(item, str):
+            return [item, unpack_crates_helper(crate[1:], level + 1))
+        elif isinstance(item, list):
+            return unpack_crates_helper(item, level)
+        else:
+            raise ValueError(f"Invalid entry: {item}")
+
+    return unpack_crates_helper(crate)
+
+def crate_depth(crate: list) -> int:
+    def crate_depth_helper(crate, level=0        if not crate:
+            return level
+        item = crate[0]
+        if isinstance(item, str):
+            return crate_depth_helper(item, level + 1)
+        elif isinstance(item, list):
+            return crate_depth_helper(item, level + 1)
+        else:
+            raise ValueError(f"Invalid entry: {item)
+
+    return crate_depth_helper(crate)
+```

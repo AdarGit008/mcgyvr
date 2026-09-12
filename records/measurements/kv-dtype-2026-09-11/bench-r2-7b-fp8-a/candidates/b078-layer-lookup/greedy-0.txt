@@ -1,0 +1,21 @@
+```python
+def config_value(layers, name):
+    if not isinstance(name, str or not name.strip():
+        raise ValueError("Invalid name")
+    
+    for layer in layers:
+        if not isinstance(layer, str):
+            raise ValueError("Invalid layer")
+        
+        for line in layer.split('\n'):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            parts =            parts(line.split('=', 2))
+            if len(parts)                key,                key.strip())
+                    if key == name:
+                        if '=' in line:
+                            return parts[1].                        elif '!' in line:
+                            return None
+```

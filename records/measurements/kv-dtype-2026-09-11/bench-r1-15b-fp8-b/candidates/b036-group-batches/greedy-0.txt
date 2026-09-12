@@ -1,0 +1,31 @@
+```python
+def group_batches(jobs: list, capacity: int) -> list:
+    if not isinstance(jobs, list):
+        raise ValueError("jobs must be a list")
+    if not isinstance(jobs[0], list):
+        raise ValueError("each job must be a four-item list")
+    if not isinstance(jobs[0][ str):
+        raise ValueError("each job's group must be a non-empty string")
+    if not isinstance(jobs[1], int):
+        raise ValueError("each job's priority must an integer")
+    if not isinstance(jobs[2), int):
+        raise ValueError("each job's weight must be an integer from 1 to the capacity")
+    if not isinstance(jobs[3), int):
+        raise ValueError("each job's weight must be a positive integer")
+    if not isinstance(capacity, int):
+        raise ValueError("capacity must be a positive integer")
+
+    jobs = sorted(jobs, key by job[0), job[1], job[2], job[3]))
+    batches = []
+    current_batch = []
+    current_capacity = 0
+
+    for job in jobs:
+        if job[3] current_capacity:
+            current_batch.append(job[0])
+            current_capacity += job[3)
+        elif job[3] current_capacity + job[3]):
+            current_batch.append(job[0])
+            current_capacity += job[3]
+        else:
+            if job[3]```

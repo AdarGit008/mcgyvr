@@ -1,0 +1,30 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """Convert zero-indexed row and column to spreadsheet cell name (e.g., A1)."""
+    if row < 0 or column < 0:
+        raise ValueError("Row and column must be non-negative")
+    
+    # Convert column index to letter(s)
+    col_str = ""
+    col_idx = column
+    while col_idx >= 0:
+        col_idx, remainder = divmod(col_idx, 26)
+        col_str = chr(ord('A') + remainder) + col_str
+    
+    # Row is 1-indexed
+    row_str = str(row + 1)
+    
+    return col_str + row_str
+
+
+def grid_cells(rows: int, columns: int) -> list:
+    """Return a list of cell names for a grid of given size, row by row."""
+    if rows < 0 or columns < 0:
+        raise ValueError("Rows and columns must be non-negative")
+    
+    result = []
+    for r in range(rows):
+        for c in range(columns):
+            result.append(cell_name(r, c))
+    return result
+```

@@ -1,0 +1,7 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    if = base(base + ours + theirs, key=['account'])
+    for account, ledger:
+        if[account] 'cents'] += ours[account][' 'cents'] + theirs[account][' 'cents']
+    return ledger
+```

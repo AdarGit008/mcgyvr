@@ -1,0 +1,52 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    if not isinstance(installed, str) or not isinstance(steps, list):
+        raise ValueError("Invalid input: installed must be a string and steps must be a list")
+
+    if not all(isinstance(step, dict) for step in steps):
+        raise ValueError("Invalid input: steps must be a list of {tag, requires} records")
+
+    if not all(isinstance(step["tag"], str) for step in steps):
+        raise ValueError("Invalid input: step['tag'] must be a string")
+
+    if not all(isinstance(step["requires"], str) for step in steps):
+        raise ValueError("Invalid input: step['requires'] must be a string")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag'] and step['requires'] must be two dot-separated numbers")
+
+    if not all(step["tag"].count(".") == 1 and step["requires"].count(".") == 1 for step in steps):
+        raise ValueError("Invalid input: step['tag

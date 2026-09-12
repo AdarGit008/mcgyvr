@@ -1,0 +1,11 @@
+
+
+
+def clip_text(text: str, start: int, end: int) -> str:
+    if start < 0 or:
+        raise ValueError("First place must be less than or")
+    if end > len(text):
+        raise ValueError("Second place must be less than or length of text")
+    if end <= start:
+        return ""
+    return text[begin:end]

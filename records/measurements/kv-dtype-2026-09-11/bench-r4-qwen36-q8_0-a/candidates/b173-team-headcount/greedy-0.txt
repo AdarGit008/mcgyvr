@@ -1,0 +1,40 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    """Calculate the total number of workers in the team including the leader."""
+    if not isinstance(chart, dict):
+        raise ValueError("chart must be a mapping")
+    if not isinstance(name, str):
+        raise ValueError("name must be a string")
+    if name not in chart:
+        raise ValueError("name is not a key in the chart")
+
+    reports = chart[name]
+    if not isinstance(reports, list):
+        raise ValueError("reports must be a list")
+
+    # Validate that all reports are strings
+    for report in reports:
+        if not isinstance(report, str):
+            raise ValueError("each report must be a string")
+
+    # Use BFS/DFS to count all descendants.
+    # We need to handle potential cycles or complex structures, but the problem
+    # implies a tree or DAG structure where every report is also a key.
+    # Since we need to count unique individuals, we track visited nodes.
+    
+    stack = list(reports)
+    visited = set(reports)
+    count = 1  # Start with the leader themselves
+    
+    while stack:
+        current = stack.pop()
+        # If the current person is in the chart, add their reports to the stack
+        if current in chart:
+            for subordinate in chart[current]:
+                if subordinate not in visited:
+                    visited.add(subordinate)
+                    stack.append(subordinate)
+                    count += 1
+    
+    return count
+```

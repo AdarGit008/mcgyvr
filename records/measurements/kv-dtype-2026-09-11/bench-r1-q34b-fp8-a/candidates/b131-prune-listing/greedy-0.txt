@@ -1,0 +1,30 @@
+<think>
+Okay, I need to implement the prune_listing function based on the given problem description. Let me start by understanding the requirements.
+
+First, the function takes a listing (a list of file paths) and a list of rules. Each rule can be a keep or drop rule, starting with an exclamation mark. The task is to determine which paths in the listing survive based on the rules.
+
+The rules are patterns where each segment is slash-separated. A star (*) in a pattern matches any number of characters in a segment. The matching is done segment by segment. If a rule matches a path, the path is kept if it's a keep rule, or dropped if it's a drop rule. The last matching rule determines the fate of the path. If no rule matches, the path is kept.
+
+The existing code has some helper functions: segment_fits and split_strict. The split_strict function checks if a string is non-empty and has no empty segments after splitting by slash. The segment_fits function seems to check if a pattern matches a text segment.
+
+But the current code is incomplete. The TODO says to validate every rule and path with split_strict, then keep each path the last matching rule allows. The current code just returns the listing as is, which is incorrect.
+
+So, the steps I need to take are:
+
+1. Validate all paths in the listing and all rules. Each must be a non-empty string, and after splitting by slash, they must not have empty segments. Also, rules can't be a bare exclamation mark.
+
+2. For each path in the listing, check all rules to see which ones match. The last matching rule determines the outcome. If a rule is a keep rule (starts with !), the path is kept. If it's a drop rule, the path is dropped. If no rule matches, the path is kept.
+
+3. The order of the rules is important. Each rule is checked in order, and the last one that matches determines the outcome.
+
+So, first, I need to process the rules. For each rule, check if it's a keep or drop rule. Also, validate the rules. For example, a rule starting with ! is a keep rule. But the problem says that a rule beginning with an exclamation mark is a keep rule; any other is a drop rule. Also, a rule can't be just "!" (bare exclamation mark).
+
+So, for each rule in the rules list, I need to check that it's a valid string, not empty, and not just "!".
+
+Then, for each path in the listing, check all rules. For each rule, check if it matches the path. The matching is done by comparing each segment of the path and the rule. The segment_fits function is supposed to do that.
+
+Wait, the segment_fits function is supposed to check if a pattern (rule) matches a text (path). But the way it's written, it's comparing the pattern and the text segment by segment. Let me look at the code.
+
+The segment_fits function takes a pattern and a text. It uses a loop to compare each segment. The pattern is split into segments, and the text is split into segments. The function seems to check if the pattern matches the text's segments. But in the current code, the split_strict function is used to split the text into segments. Wait, but in the code, the split_strict is called on the text (path) and the pattern (rule) to split into segments. But the problem says that the pattern is slash-separated segments, and each segment is matched.
+
+Wait, the rules are patterns that are slash-separated. So, for example, a rule like "a*b/c" would split into ["

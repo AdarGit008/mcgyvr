@@ -1,0 +1,25 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    if len(first) != 1 or len(second) != 1:
+        raise ValueError("Both inputs must be single characters.")
+    return second + first
+
+def swap_all(text: str) -> str:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    # Use a list to build the result to handle even and odd lengths differently
+    result = []
+    
+    # Iterate over the text in steps of 2
+    for i in range(0, len(text), 2):
+        if i + 1 < len(text):
+            # Swap the pair
+            result.append(swap_pair(text[i], text[i + 1]))
+        else:
+            # If there's an odd character left, append it as is
+            result.append(text[i])
+    
+    # Join the list into a string and return
+    return ''.join(result)
+```

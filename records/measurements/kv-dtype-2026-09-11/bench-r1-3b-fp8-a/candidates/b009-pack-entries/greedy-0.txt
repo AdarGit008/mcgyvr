@@ -1,0 +1,33 @@
+```python
+def pack_entries(entries: list) -> str:
+    """
+    Serialize a list of [key, value] pairs of strings into one line.
+    Escape backslashes, equals signs, and semicolons inside keys or values.
+    Raise ValueError for invalid inputs.
+    """
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list.")
+    
+    def escape(s: str) -> str:
+        return s.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+    
+    def validate_key(key: str) -> None:
+        if not isinstance(key, str) or not key:
+            raise ValueError("Key must be a non-empty string.")
+        if key in seen_keys:
+            raise ValueError("Duplicate key found.")
+        seen_keys.add(key)
+    
+    seen_keys = set()
+    parts = []
+    
+    for entry in entries:
+        if not isinstance(entry, list) or len(entry) != 2:
+            raise ValueError("Each entry must be a two-element list.")
+        
+        key, value = entry
+        validate_key(key)
+        parts.append(f"{escape(key)}={escape(value)}")
+    
+    return ";".join(parts)
+```

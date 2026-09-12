@@ -1,0 +1,14 @@
+```python
+def hue_band(degrees: int) -> str:
+    # Normalize the hue value to be within the range [0, 359]
+    normalized_degrees = degrees % 360
+    
+    if normalized_degrees < 60:
+        return "red"
+    elif normalized_degrees < 180:
+        return "green"
+    elif normalized_degrees < 300:
+        return "blue"
+    else:
+        return "red"
+```

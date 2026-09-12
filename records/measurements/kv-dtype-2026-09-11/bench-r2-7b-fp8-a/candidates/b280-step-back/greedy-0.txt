@@ -1,0 +1,15 @@
+```python
+def list_back(moves: str) -> int:
+    max_forward = 0
+    current_position = 0
+    
+    for move in moves:
+        if move == 'F':
+            current += 1
+            max_forward = max(max_forward,)
+        elif move == 'B':
+            current -= 1
+    
+    
+    return max_forward
+```

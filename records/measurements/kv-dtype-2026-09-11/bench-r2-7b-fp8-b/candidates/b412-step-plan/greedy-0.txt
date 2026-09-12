@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def sort_allowed(from_list: List[str], to_list:    if not from_list:
+        raise ValueError("No states to move from")
+    return to_list ==    
+def list_plan(states:    if not states:
+        raise ValueError("No states provided")
+    for i in range(len(states) - 1):
+        if not list_allowed(states[i], states[i + 1]:
+            return i
+    return -1)
+```

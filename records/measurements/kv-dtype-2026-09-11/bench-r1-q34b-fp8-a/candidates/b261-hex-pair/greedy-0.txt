@@ -1,0 +1,18 @@
+<think>
+Okay, I need to implement the hex_split and hex_join functions as per the given interface. Let me start by understanding the requirements.
+
+First, hex_split takes a color in the form of a hash followed by six hexadecimal digits and returns the three two-digit parts. The input must be exactly six hex digits, and it should not be a three-digit shorthand. Wait, the problem says that the color is a hash followed by six hex digits. So the input is something like "#RRGGBB", where RRGGBB are six hex digits. But the problem says to reject a color that is not a hash and exactly six hex digits. Wait, the exact wording is: "Reject a colour that is not a hash and exactly six hexadecimal digits with an error." So the input must be a hash (like #) followed by exactly six hex digits. So the input must be a string that starts with # and has exactly six hex digits. So for example, "#abcdef" is valid, but "abcdef" without the # is invalid. Also, if the input is something like "#12345", that's only 5 digits, which is invalid.
+
+So for hex_split, the first thing is to check that the input is a string that starts with # and has exactly six hex digits. So the length of the input should be 7 (including the #). Wait, the # is one character, then six hex digits, so total length is 7. So the input must be exactly 7 characters long, starting with #, and the rest must be hex digits.
+
+So, for example, "#000000" is valid. But if the input is "#00000", that's 6 characters (including the #), which is invalid. So the first check is to ensure the input is exactly 7 characters long, starts with #, and the rest are hex digits.
+
+Once that's confirmed, the next step is to split the six digits into three pairs. For example, "#abcdef" would split into ["ab", "cd", "ef"]. So the first two characters after # are the first part, next two the second, next two the third.
+
+So the function hex_split would process the input string, check the length and format, then split the six digits into three parts.
+
+Now, for hex_join, the function takes a list of three two-digit hex strings and combines them into a single string starting with #. Also, the output must be lower-cased. So, for example, if the parts are ["aa", "bb", "cc"], the result is "#aabbcc".
+
+But the input to hex_join is a list of three elements, each being a two-digit hex string. So the function needs to check that the list has exactly three elements, and each element is two characters long, and that they are valid hex digits. Wait, but the problem says that hex_join puts three parts back into that form. So the parts are already validated, but perhaps the function should check that each part is two characters long and valid hex digits. However, the problem says that hex_split returns the three two-digit parts, so the parts passed to hex_join are already valid. But the problem says that hex_join should put them back into the form, lower-cased. So the function should take the three parts, concatenate them with #, and make sure they are lower-cased.
+
+Wait, the problem says that hex_join should put three such parts back into that form, lower-cased. So the output is a string that starts with # followed by the three two-digit parts, all in lowercase. So for example, if the parts are ["AA", "BB", "CC"], the output is "#

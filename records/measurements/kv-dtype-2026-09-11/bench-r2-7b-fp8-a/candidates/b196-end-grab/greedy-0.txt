@@ -1,0 +1,31 @@
+```python
+from typing import Dict, List
+
+
+ 
+ def end_grab(cards: List[int]) -> Dict[str, Union[int, List[int]]]:
+     if not cards:
+         raise ValueError("The input list cannot be empty.")
+ 
+     first_total = 0
+     second_total = 0
+     taken_cards = []
+ 
+     while len(cards) > 1:
+         if cards[0] >= cards[-1]:
+             first_total += cards.pop(0)
+         else cards.pop(-1):
+             second_total += cards.pop(-1)
+         taken_cards.append(cards[0])
+ 
+     if cards:
+         taken_cards.append(cards[0])
+ 
+     return {
+         "first":         first_total,
+         "second":
+         second_total;
+         "taken":
+         taken_cards;
+     }
+```

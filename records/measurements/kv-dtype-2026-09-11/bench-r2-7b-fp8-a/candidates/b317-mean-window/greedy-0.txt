@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+import math
+
+def mean_window(readings: List[int], sizes:    if not readings or not sizes:
+        return []
+    
+    results = []
+    for size in sizes:
+        if size <= 0:
+            continue
+        if size > len(readings):
+            results.append(0)
+            continue
+        
+        for i in range(len(readings) - size + 1):
+            window = readings[ii:i+            results.append(math.floor(sum(window) / size))
+    
+    return results
+```

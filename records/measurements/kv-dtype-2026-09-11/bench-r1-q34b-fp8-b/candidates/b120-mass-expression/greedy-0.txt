@@ -1,0 +1,22 @@
+<think>
+Okay, I need to implement the mass_expression function. Let's think about the requirements. The function takes a string text and a unit, and returns the total in the specified unit. The input text is a tally made up of terms connected by + and -, each term being a count with a unit (g, kg, t). The units have specific conversions: 1 kg = 1000 g, 1 t = 1000 kg. So, 1 t is 1,000,000 g.
+
+First, I need to parse the input string into terms and operators. The terms are separated by + or -, but the operators are between terms. So, the first step is to split the text into tokens. For example, "2kg + 300g" would split into ["2kg", "300g"], with the operator being "+". But how to split the string into terms and operators?
+
+I can split the text on the operators. But since the operators are + and -, I can split the string on these. However, the split might not be straightforward because the operators can be at the start or end. Also, the terms can have multiple parts. Wait, each term is a count followed by a unit. So each term is something like "123g", "0kg", etc.
+
+So, the first step is to split the text into terms and operators. For example, "2kg + 300g - 1t" would split into terms ["2kg", "300g", "1t"] and operators ["+", "-"].
+
+But how to split the string into terms and operators? Maybe using a regular expression to find all the terms and operators. The terms can be any sequence of digits followed by a unit (g, kg, t). The operators are + or -.
+
+So, I can use a regular expression to split the string into tokens. The pattern would be something like [+-] to split on the operators. But the split would give the terms and operators. Wait, for example, splitting "2kg + 300g - 1t" on [+-] would give ["2kg ", " 300g ", " 1t"]. Then, I can strip the whitespace and process each term.
+
+But I need to make sure that the terms are properly separated by the operators. Also, the input must be a valid tally, so the terms must alternate between terms and operators. So, the number of operators must be one less than the number of terms. For example, if there are 3 terms, there must be 2 operators.
+
+So, the first step is to parse the text into a list of terms and operators. Then, validate that the structure is correct: non-empty string, terms and operators alternate, etc.
+
+Next, for each term, I need to extract the count and the unit. The count is a number (without leading zeros, except for 0), and the unit is one of g, kg, t. So, for each term, I can split it into the number part and the unit part. For example, "2kg" would be 2 and "kg", "300g" is 300 and "g".
+
+But how to split the term into the number and the unit? The unit is always one of the three, and the rest is the number. So, for each term, check that the unit is one of the three, and the rest is a valid number.
+
+So, for each term, I can check that the unit is in {'g', 'kg', 't'}, and that the rest is a valid integer.

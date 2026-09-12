@@ -1,0 +1,34 @@
+<think>
+Okay, I need to implement the meter_draws function and its helper remaining_for. Let me start by understanding the problem.
+
+First, the meter_draws function takes a list of draws (each being a [key, units] pair) and an allowance. The goal is to process each draw, checking if the key can spend the units. If yes, add to the used ledger. If not, record the position as denied. The remaining_for function calculates how much a key can still spend based on the current used ledger and the allowance.
+
+So, for remaining_for: it's allowance minus the current spend for the key in the used ledger. If the key isn't in the ledger, then the remaining is the full allowance. But if the key is in the ledger, subtract the used amount.
+
+Now, the meter_draws function needs to process each draw in order. For each draw, check if the key is valid (non-empty string), units is positive, and allowance is positive. If any of these are invalid, raise ValueError.
+
+For each draw, check the remaining_for. If the units <= remaining, then add to the used ledger. Otherwise, add the position to denied list.
+
+Wait, but the problem says that even if a draw is refused, the key is added to the ledger with zero spend. So, even if the draw is denied, the key is added to the used ledger with 0. So, for example, if a key is not in the ledger, and the draw is denied, the key is added with 0. But if the key is already in the ledger, then even if the draw is denied, the existing spend is kept.
+
+So, the steps for each draw:
+
+1. Check if the key is a non-empty string, units is positive, allowance is positive. If not, raise error.
+
+2. For the key, check remaining_for. If the units is <= remaining, then add to used (key's spend is increased by units). Else, add the position to denied.
+
+But for the key, even if the draw is denied, the key is added to the used ledger with 0 if not present. Wait, the problem says: "a key enters the ledger with zero spend on its first draw even when that draw is refused." So, if the key is not in the ledger, then even if the draw is refused, the key is added with 0. But if the key is already in the ledger, then the existing spend is kept, and the draw is denied.
+
+So, for each draw, first check the key's current spend. If the key is not in the ledger, then the remaining is the full allowance. So, if the draw's units is more than that, then it's denied, and the key is added to the ledger with 0. But if the units is less than or equal to the allowance, then add the units to the key's spend.
+
+Wait, but the problem says that the key is added to the ledger with zero spend even when the draw is refused. So, for example, if the key is not in the ledger, and the draw is refused, then the key is added with 0. But if the key is already in the ledger, then the existing spend is kept, and the draw is denied.
+
+So, the process is:
+
+For each draw in draws:
+
+- Check the key is valid (non-empty string), units is positive, allowance is positive. If not, raise error.
+
+- Check the remaining_for. If the units is <= remaining, then add to used. Else, add the position to denied.
+
+But for the key, even if the draw is denied, the key is added to the used ledger with 0 if it's not already there.

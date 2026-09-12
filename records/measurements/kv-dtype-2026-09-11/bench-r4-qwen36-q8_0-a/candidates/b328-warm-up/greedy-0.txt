@@ -1,0 +1,8 @@
+```python
+def warm_up(readings: list, floor: int) -> list:
+    """Return readings starting from the first one that meets or exceeds the floor."""
+    for i, reading in enumerate(readings):
+        if reading >= floor:
+            return readings[i:]
+    return []
+```

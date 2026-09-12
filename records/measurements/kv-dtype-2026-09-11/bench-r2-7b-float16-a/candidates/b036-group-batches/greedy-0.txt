@@ -1,0 +1,45 @@
+```python
+from typing import List
+
+def group_batches(jobs: List[List], capacity: int) -> List[List]:
+    if not isinstance(jobs, list) or not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("Jobs must be a list of four-item lists.")
+    
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    job_dict = {}
+    for job in jobs:
+        name, group, priority, weight = job
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"Job name '{name}' must be a non-empty string.")
+        if not isinstance(group, str) or not group:
+            raise ValueError(f"Group '{group}' must be a non-empty string.")
+        if not isinstance(priority, int):
+            raise ValueError(f"Priority {priority} must be an integer.")
+        if not isinstance(weight, int) or weight < 1 or weight > capacity:
+            raise ValueError(f"Weight {weight} must be an integer between 1 and capacity.")
+        
+        if name in job_dict:
+            raise ValueError(f"Duplicate job name '{name}'.")
+        
+        job_dict[name] = job
+    
+    batches = []
+    while jobs:
+        eligible_jobs = [job for job in jobs if job[2] == max(job[2] for job in jobs)]
+        eligible_jobs.sort(key=lambda x: (-x[2], jobs.index(x)))
+        
+        current_batch = []
+        remaining_capacity = capacity
+        
+        for job in eligible_jobs:
+            if job[3] <= remaining_capacity:
+                current_batch.append(job[0])
+                remaining_capacity -= job[3]
+                jobs.remove(job)
+        
+        batches.append(current_batch)
+    
+    return batches
+```

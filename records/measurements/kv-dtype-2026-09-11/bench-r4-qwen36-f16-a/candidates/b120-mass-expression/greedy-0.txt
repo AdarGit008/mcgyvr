@@ -1,0 +1,80 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    """
+    Parse a mass expression string and return the total mass in the specified unit.
+    
+    Args:
+        text: A string representing a mass expression (e.g., "2kg + 300g").
+        unit: The target unit for the result ('g', 'kg', or 't').
+        
+    Returns:
+        The total mass as an integer in the specified unit.
+        
+    Raises:
+        ValueError: If the input is invalid or the result is not whole.
+    """
+    # Validate goal unit
+    if unit not in ('g', 'kg', 't'):
+        raise ValueError(f"Invalid goal unit: {unit}")
+
+    # Validate text is a non-empty string
+    if not isinstance(text, str) or len(text) == 0:
+        raise ValueError("Text must be a non-empty string")
+
+    # Define conversion factors to grams
+    # 1 kg = 1000 g
+    # 1 t = 1000 kg = 1,000,000 g
+    to_grams = {
+        'g': 1,
+        'kg': 1000,
+        't': 1000000
+    }
+
+    # Helper to parse a single term like "2kg"
+    def parse_term(term_str: str) -> int:
+        """Parse a term string like '2kg' into grams."""
+        # Find the unit part. It must be one of the valid units.
+        # The count is everything before the unit.
+        # Valid units are 'g', 'kg', 't'.
+        
+        # Check for 't' first as it's longer, but 'kg' contains 'g'.
+        # We need to find where the unit starts.
+        # The unit must be at the end.
+        
+        if term_str.endswith('kg'):
+            count_str = term_str[:-2]
+            count = int(count_str)
+            return count * to_grams['kg']
+        elif term_str.endswith('t'):
+            count_str = term_str[:-1]
+            count = int(count_str)
+            return count * to_grams['t']
+        elif term_str.endswith('g'):
+            count_str = term_str[:-1]
+            count = int(count_str)
+            return count * to_grams['g']
+        else:
+            raise ValueError(f"Invalid term unit in: {term_str}")
+
+    # Validate count format: plain decimal integer without leading zeros (except '0')
+    def validate_count(count_str: str) -> int:
+        """Validate and parse the count string."""
+        if not count_str:
+            raise ValueError("Empty count in term")
+        
+        # Check for leading zeros
+        if len(count_str) > 1 and count_str[0] == '0':
+            raise ValueError(f"Leading zero in count: {count_str}")
+        
+        # Check for non-digit characters
+        if not count_str.isdigit():
+            raise ValueError(f"Non-digit characters in count: {count_str}")
+            
+        return int(count_str)
+
+    # Split the expression by " + " and " - "
+    # We need to parse left to right.
+    # The structure is: Term Op Term Op Term ...
+    
+    # First, let's tokenize.
+    # We can split by " + " and " - " but we need to preserve the operators.

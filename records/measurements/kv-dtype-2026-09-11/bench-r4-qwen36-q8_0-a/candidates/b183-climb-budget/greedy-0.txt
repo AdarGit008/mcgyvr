@@ -1,0 +1,65 @@
+```python
+def climb_budget(tolls: list) -> int:
+    """Calculate the minimum cost to climb a scaffold given tolls for each rung.
+
+    The climber starts below the first rung (index 0). Each move can step onto
+    the next rung or skip exactly one rung. The climb ends once the climber is
+    above the top rung.
+
+    Args:
+        tolls: A list of strings representing the cost to stand on each rung.
+               The strings must consist of ASCII digits and must not have leading
+               zeros (unless the value is "0").
+
+    Returns:
+        The minimum total cost to reach above the top rung.
+
+    Raises:
+        ValueError: If a toll string is not composed of digits or has a leading
+                    zero (except for "0" itself).
+    """
+    if not tolls:
+        return 0
+
+    n = len(tolls)
+    
+    # Validate tolls
+    for i, toll_str in enumerate(tolls):
+        if not toll_str.isdigit():
+            raise ValueError(f"Toll at position {i} is not composed of digits: '{toll_str}'")
+        if len(toll_str) > 1 and toll_str[0] == '0':
+            raise ValueError(f"Toll at position {i} has a leading zero: '{toll_str}'")
+
+    # If there's only one rung, the climber can skip it (step from ground to above top).
+    # Cost is 0.
+    if n == 1:
+        return 0
+
+    # Parse tolls into integers
+    costs = [int(t) for t in tolls]
+
+    # Dynamic Programming approach
+    # dp[i] represents the minimum cost to reach rung i (stand on it)
+    # We can reach rung i from rung i-1 (step) or rung i-2 (skip one rung)
+    
+    # Base cases
+    # To reach rung 0: Must step from ground. Cost is costs[0].
+    # To reach rung 1: Can step from ground (skip rung 0? No, "skip exactly one rung" means
+    #                   if you are at ground, you can step to rung 0 or skip rung 0 to rung 1).
+    #                   Wait, let's re-read carefully: "each move steps onto the next rung up or skips exactly one rung".
+    #                   Start: Ground (below rung 0).
+    #                   Move 1 options:
+    #                     - Step onto rung 0.
+    #                     - Skip rung 0, step onto rung 1.
+    #                   From rung i, next move options:
+    #                     - Step onto rung i+1.
+    #                     - Skip rung i+1, step onto rung i+2.
+    #                   End condition: Climber is above the top rung.
+    #                   If there are n rungs (0 to n-1), "above the top rung" means reaching index n.
+    
+    # Let dp[i] be the min cost to land on rung i.
+    # dp[0]: Only way is step from ground. Cost = costs[0].
+    # dp[1]: 
+    #   - From ground, skip rung 0, land on rung 1. Cost = costs[1].
+    #   - From rung 0, step to rung 1. Cost = dp[0] + costs[1].
+    #   So dp[1] = min(costs[1], dp[0

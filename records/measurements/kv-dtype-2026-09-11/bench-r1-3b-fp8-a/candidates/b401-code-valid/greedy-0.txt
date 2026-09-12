@@ -1,0 +1,21 @@
+```python
+def code_valid(code: str, length: int) -> bool:
+    """
+    Check if the given code is valid.
+    
+    Args:
+        code (str): The code to validate.
+        length (int): The desired length of the code.
+        
+    Returns:
+        bool: True if the code is valid, False otherwise.
+        
+    Raises:
+        ValueError: If the length is zero or less.
+    """
+    if length <= 0:
+        raise ValueError("Length must be greater than zero.")
+    
+    # Check if the code contains only capital letters and digits
+    return all(char.isalnum() for char in code) and len(code) == length
+```

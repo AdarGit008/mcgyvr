@@ -1,0 +1,88 @@
+```python
+"""A block-allocation bitmap: 32-bit words, LSB-first, a set bit is occupied."""
+
+WORD_BITS = 32
+WORD_MAX = 0xFFFFFFFF
+
+
+def _whole(value):
+    return not isinstance(value, bool) and isinstance(value, int)
+
+
+def _check_words(words):
+    for word in words:
+        if not _whole(word) or word < 0 or word > WORD_MAX:
+            raise ValueError("bitmap words must be integers from 0 to 4294967295")
+
+
+def _bit_of(words, index):
+    return (words[index // WORD_BITS] >> (index % WORD_BITS)) & 1
+
+
+def bit_at(words, index):
+    _check_words(words)
+    if not _whole(index):
+        raise ValueError("bit index must be an integer")
+    if index < 0 or index >= len(words) * WORD_BITS:
+        raise ValueError("bit index is outside the words")
+    return _bit_of(words, index)
+
+
+def occupy_run(words, start, length):
+    _check_words(words)
+    if not _whole(start) or start < 0:
+        raise ValueError("run start must be a non-negative integer")
+    if not _whole(length) or length <= 0:
+        raise ValueError("run length must be a positive integer")
+    if start + length > len(words) * WORD_BITS:
+        raise ValueError("run leaves the words")
+    for i in range(start, start + length):
+        if _bit_of(words, i) == 1:
+            raise ValueError("run touches an occupied block")
+    marked = list(words)
+    for i in range(start, start + length):
+        marked[i // WORD_BITS] |= 1 << (i % WORD_BITS)
+    return marked
+
+
+def find_free_run(words, bits, length):
+    """Find the smallest start index of a free run of given length below capacity.
+
+    Args:
+        words: List of 32-bit integers representing the bitmap.
+        bits: Capacity in blocks (must be a positive integer).
+        length: Length of the free run to find (must be a positive integer).
+
+    Returns:
+        The smallest start index of a free run, or -1 if none exists.
+
+    Raises:
+        ValueError: If inputs are invalid.
+    """
+    # Validate capacity
+    if not _whole(bits) or bits <= 0:
+        raise ValueError("capacity must be a positive integer")
+
+    # Validate length
+    if not _whole(length) or length <= 0:
+        raise ValueError("run length must be a positive integer")
+
+    # Validate words list
+    _check_words(words)
+
+    # Calculate required number of words
+    import math
+    required_words = math.ceil(bits / WORD_BITS)
+
+    # Check word count matches capacity
+    if len(words) != required_words:
+        raise ValueError("word count does not match capacity")
+
+    # Check for stray bits at or beyond capacity
+    # The capacity is 'bits', so valid indices are 0 to bits-1.
+    # Any bit at index >= bits must be 0.
+    # We need to check all bits in the words that are >= bits.
+    # The words list has exactly required_words words.
+    # The last word might have bits beyond bits-1 that are set.
+    # Specifically, bits in the last word at positions >= (bits % 32) must be 0
+    # if they correspond to indices >=

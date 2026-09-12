@@ -1,0 +1,34 @@
+<think>
+Okay, I need to implement the heavy_folders function correctly. Let's look at the existing code and the requirements.
+
+The current heavy_folders function is a stub. The target is to return a list of [path, bytes] pairs for every folder whose total bytes meet or exceed min_bytes. The folders should be reported in the same order as file_paths, which is a depth-first traversal, visiting children in reverse order (so that the first child is processed first).
+
+First, I need to make sure that the function correctly walks the tree, checking each node. The existing check_node function is already in place, so I can use that. But for heavy_folders, I need to process all folders, not just files.
+
+The existing tree_bytes function calculates the total bytes of the root. But for heavy_folders, I need to calculate the total bytes for each folder, not just the root. So, I need to traverse the tree, accumulate the total bytes for each node, and check if it meets the min_bytes.
+
+Wait, the tree_bytes function is a function that returns the total bytes of the root. But for heavy_folders, each folder's total is the sum of its children's bytes. So, the approach is to traverse the tree, and for each node, if it's a folder, calculate its total bytes (sum of children's bytes), then check if that total is >= min_bytes.
+
+But how to traverse the tree in the same order as file_paths? The file_paths function uses a stack, processing nodes and adding children in reverse order. So, for heavy_folders, I need to traverse the tree in the same order, but collect the folder nodes and their totals.
+
+So, the plan is:
+
+1. Traverse the tree in the same order as file_paths, which is a depth-first traversal, with children processed in reverse order (so that the first child is processed first).
+
+2. For each node, check if it's a folder (i.e., has children). If it is, calculate its total bytes (sum of children's bytes). But how to calculate that? Because the tree_bytes function is a recursive sum, but for each node, we need to compute the sum of its children's bytes.
+
+Wait, the tree_bytes function is a function that sums all the bytes in the tree. But for heavy_folders, each folder's total is the sum of its children's bytes. So, for a folder node, the total is the sum of the bytes of its children. But if a child is a folder, then that child's total is the sum of its children, etc.
+
+So, the approach is to traverse the tree, and for each node, if it's a folder, compute the total bytes by summing the bytes of its children. But how to do that?
+
+Alternatively, during the traversal, for each node, we can compute the total bytes of that node. For a file, it's just the bytes. For a folder, it's the sum of the bytes of its children. So, during the traversal, we can compute this.
+
+But the existing tree_bytes function is a function that does this for the root. So, perhaps for each node, we can compute the total bytes by recursively summing the children's bytes.
+
+But how to do that in the same traversal order as file_paths?
+
+Let me think. The file_paths function uses a stack, and for each node, it processes the node, then adds the children in reverse order. So, for heavy_folders, I need to process each node, and if it's a folder, compute its total bytes, then check if it meets the min_bytes.
+
+So, the steps for heavy_folders:
+
+- Traverse the tree in the same order as file_paths, which is a depth-first traversal, with children

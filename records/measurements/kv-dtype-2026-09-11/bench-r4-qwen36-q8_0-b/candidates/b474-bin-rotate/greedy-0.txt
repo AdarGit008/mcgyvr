@@ -1,0 +1,8 @@
+```python
+def bin_rotate(entries: list[str], places: int) -> list[str]:
+    """Rotate list entries forward by places, wrapping around."""
+    if len(entries) == 0:
+        return []
+    shift = places % len(entries)
+    return entries[-shift:] + entries[:-shift] if shift else list(entries)
+```

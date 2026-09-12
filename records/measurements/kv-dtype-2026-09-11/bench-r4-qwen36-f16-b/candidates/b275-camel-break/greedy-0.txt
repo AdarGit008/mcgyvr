@@ -1,0 +1,57 @@
+```python
+def camel_break(name: str) -> list:
+    """Split a camelCase identifier into its constituent lowercase words."""
+    if not name:
+        return []
+
+    words = []
+    current_word = []
+
+    for char in name:
+        if char.isupper():
+            # If we have accumulated characters for the current word,
+            # it means we are starting a new word.
+            if current_word:
+                words.append("".join(current_word))
+                current_word = []
+            current_word.append(char)
+        else:
+            current_word.append(char)
+
+    # Append the final word
+    if current_word:
+        words.append("".join(current_word))
+
+    # Process the words:
+    # 1. Lowercase all words.
+    # 2. Handle the "capital at the very start" rule:
+    #    If the first word is just a single capital letter (e.g., "A" in "Aword"),
+    #    it should not produce an empty first word. The logic above naturally
+    #    handles this because if the string starts with a capital, the first
+    #    word starts with that capital. If it's a single letter followed by
+    #    a lowercase letter (e.g., "Aword"), the first word is "A", second is "word".
+    #    Wait, let's re-read the rule: "A capital at the very start does not produce an empty first word".
+    #    This usually implies that if the identifier starts with a capital, we don't split
+    #    before it. But standard camelCase usually starts with lowercase.
+    #    Let's look at the example logic implied:
+    #    "camelCase" -> ["camel", "case"]
+    #    "CamelCase" -> ["camel", "case"]? Or ["Camel", "Case"] -> ["camel", "case"]?
+    #    The rule says: "each word after the first beginning with a capital".
+    #    This implies the first word does NOT begin with a capital in standard camelCase.
+    #    However, if it DOES begin with a capital (PascalCase), how do we handle it?
+    #    "A capital at the very start does not produce an empty first word".
+    #    This suggests that if we have "CamelCase", we shouldn't get ["", "camel", "case"].
+    #    My current logic:
+    #    "CamelCase" -> 'C' starts current_word=['C']. 'a' -> current_word=['C','a']. ... 'l' -> ['C','a','m','e','l'].
+    #    'C' -> push "Camel", current_word=['C']. 'a' -> ['C','a']. ...
+    #    Result: ["Camel", "Case"] -> lower: ["camel", "case"]. This seems correct.
+    #    
+    #    What about "XMLParser"?
+    #    'X' -> ['X']
+    #    'M' -> push "X", current_word=['M']
+    #    'L' -> push "M", current_word=['L']
+    #    'P' -> push "L", current_word=['P']
+    #    'a' -> ['P','a']
+    #    ...
+    #    Result: ["X", "M", "L", "Parser"] -> ["x", "m", "l", "parser"].
+    #    This is a common interpretation for consecutive capitals

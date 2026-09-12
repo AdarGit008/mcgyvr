@@ -1,0 +1,12 @@
+```python
+def swipe_dedupe(swipes: list) -> list:
+    if not swipes:
+        return []
+    
+return deduped_swipes =    previous_swipe = None
+    for swipe in swipes:
+        if swipe != previous_swipe:
+            deduped_swipes.append(swipe)
+            previous_swipe = swipe
+    return deduped_swipes
+```

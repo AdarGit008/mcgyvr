@@ -1,0 +1,32 @@
+```python
+def run_press(jobs:    if not isinstance(jobs, list) or not all(isinstance(job, tuple) and len(job) == 2 for job in jobs):
+        raise ValueError("Invalid jobs format")
+    
+    if not all(isinstance(job[0], str) and bool(job[0]) and isinstance(job[1], int) and job[1]        raise ValueError("Invalid job format")
+    
+    If not isinstance(budget, int) and budget >= 0:
+        raise ValueError("Invalid budget format")
+
+    
+    printed = []
+    waiting = [[j[0] for j in jobs]
+    pages_spent = 0
+    
+    for job_name name,        if budget >= job_pages:
+            printed.append(name)
+            waiting.remove(name)
+            budget -= job_pages
+            pages_spent += job_pages)
+        else:
+            break
+    
+    
+    return pages_left = sum(j[1] for j in jobs if j[0] in waiting):
+    
+    
+       return {
+        "printed": printed,
+        "waiting": waiting,
+        "pages": pages_spent
+    }
+```

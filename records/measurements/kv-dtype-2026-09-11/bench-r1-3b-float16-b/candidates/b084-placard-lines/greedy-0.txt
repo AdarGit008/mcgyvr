@@ -1,0 +1,29 @@
+```python
+"""Lay a notice's text into placard lines."""
+from typing import List
+
+
+def placard_lines(text: str, width: int) -> List[str]:
+    if not isinstance(text, str) or not isinstance(width, int):
+        raise ValueError("Text must be a non-empty string and width must be a positive integer.")
+    if text.startswith(" ") or text.endswith(" ") or "  " in text:
+        raise ValueError("Text must not have leading, trailing, or consecutive spaces.")
+    if width <= 0:
+        raise ValueError("Width must be a positive integer.")
+
+    lines = []
+    current_line = ""
+    words = text.split(" ")
+
+    for word in words:
+        if len(current_line) + len(word) + 1 > width:
+            lines.append(current_line)
+            current_line = word
+        else:
+            current_line += " " + word
+
+    if current_line:
+        lines.append(current_line)
+
+    return lines
+```

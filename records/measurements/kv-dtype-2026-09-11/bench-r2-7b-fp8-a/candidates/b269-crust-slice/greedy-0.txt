@@ -1,0 +1,7 @@
+```python
+def crust_slice(name: str) -> str:
+    """Return the part of the name before its last dot."""
+    if '.' in name:
+        return name.rsplit('.', 1)[0]
+    return name
+```

@@ -1,0 +1,38 @@
+```python
+def wire_value(value) -> str:
+    if not isinstance(value, str):
+        raise ValueError("Value must be a string")
+    if value == "":
+        return "n"
+  # Check for non-ASCII characters
+    if any(ord(c) > 127 for c in value):
+        raise ValueError("Text must contain non-ASCII characters")
+    return wire_text(value)
+
+def wire_text(text: str) -> str:
+    if not isinstance(text, str):
+        raise ValueError("Text must be a string")
+    if text == "":
+        return "s0"
+    if text == "\n":
+        raise ValueError("Text cannot contain newline characters")
+    if text == "\r":
+        raise ValueError("Text cannot contain carriage return characters")
+    if text == "\t":
+        raise ValueError("Text cannot contain tab characters")
+    if text == "\v":
+        raise ValueError("Text cannot contain vertical characters")
+    if text == "\f":
+        raise ValueError("Text cannot contain form feed characters")
+    if text == "\b":
+        raise ValueError("Text cannot contain back characters")
+    if text == "\0":
+        raise ValueError("Text cannot contain null characters")
+    if = open("temp.txt", "w")
+    file.write(text)
+    file.close()
+    with open("temp.txt", "r") as file:
+        content = file.read()
+    os.remove("temp.txt")
+    return content
+```

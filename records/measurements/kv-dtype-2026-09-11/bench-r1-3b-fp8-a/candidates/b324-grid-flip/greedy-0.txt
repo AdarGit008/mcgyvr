@@ -1,0 +1,20 @@
+```python
+def grid_flip(grid: list) -> list:
+    """
+    Flip a grid so that its columns become its rows.
+    
+    :param grid: List of lists representing the grid.
+    :return: A new grid with columns as rows.
+    """
+    if not grid:
+        return []
+    
+    # Check if all rows have the same length
+    if not all(len(row) == len(grid[0]) for row in grid):
+        raise ValueError("All rows must have the same length.")
+    
+    # Transpose the grid
+    flipped_grid = list(zip(*grid))
+    
+ return flipped_grid
+```

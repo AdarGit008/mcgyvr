@@ -1,0 +1,47 @@
+[
+  {
+    "host": "srv2",
+    "label": "ub-128",
+    "compose": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub128.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 128,
+    "batch": 512
+  },
+  {
+    "host": "srv2",
+    "label": "ub-256",
+    "compose": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub256.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 256,
+    "batch": 512
+  },
+  {
+    "host": "srv2",
+    "label": "ub-512",
+    "compose": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub512.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 512,
+    "batch": 512
+  },
+  {
+    "host": "srv2",
+    "label": "ub-1024",
+    "compose": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub1024.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 1024,
+    "batch": 512
+  },
+  {
+    "host": "srv2",
+    "label": "ub-2048",
+    "compose": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/measuring-gaps-2026-09-10/compose.srv2-ub-boundary-deepseek-ub2048.yml",
+    "container": "mcgyvr-srv2-deepseek-coder-v2-16b-8080",
+    "port": 8080,
+    "ub": 2048,
+    "batch": 512
+  }
+]

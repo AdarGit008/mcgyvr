@@ -1,0 +1,35 @@
+<think>
+Okay, I need to implement the selector_hits function. Let's start by understanding the problem.
+
+The function takes a list of values and a selector string. The selector is a comma-separated list of terms. Each term is either a single integer or a range like "10-40". The task is to count how many values in the list match at least one term in the selector.
+
+First, I need to parse the selector string. Split it by commas to get each term. Then, for each term, check if it's a single integer or a range. For ranges, split on the hyphen to get the start and end. But I need to validate that the term is properly formatted. Also, the problem says that a term can't be empty, so I need to check that each term is not empty.
+
+Wait, the problem says that the selector is a non-empty string. So, the first check is to ensure that the selector is not empty. Also, the values must be a list of integers. So, if the values are not a list of integers, we need to reject it. But how to check that? The function's parameters are given as a list, but the code needs to validate that each element is an integer.
+
+So, the steps for the function:
+
+1. Validate the inputs: check that values is a list of integers. If not, raise ValueError.
+2. Validate the selector is a non-empty string.
+3. Split the selector into terms by commas.
+4. For each term, check if it's a valid term. A term can be a single integer or a range (two integers separated by hyphen). Also, the term can't be empty. So, if a term is empty, that's invalid.
+5. For each term, parse it into a start and end. For a single integer, start and end are the same. For a range, split into start and end. Then, check that the start is <= end. If not, raise error.
+6. Once all terms are parsed, for each value in the values list, check if it matches any of the terms. If it does, count it once.
+
+So, the function needs to process each term, parse them into ranges, and then check each value against all the ranges.
+
+Let me think about the parsing. For each term in the selector:
+
+- Split the term into parts. If the term contains a hyphen, split into two parts. Otherwise, it's a single integer.
+
+But also, the term can't have leading plus signs or leading zeros, but the problem says that's not specified. So, the code should not validate that. So, the term can be like "0123" but that's allowed? Or is that a problem? The problem says that the term is either a single integer or a range. So, the code should parse the term as a string, split into parts, and check if they are valid integers.
+
+Wait, the problem says that the term is either a single non-negative integer or a range. So, the term can be like "25", which is a single integer. Or "10-40", which is a range. But the term can't be empty. Also, the term can't have a hyphen if it's not a range. So, for example, a term like "10-40" is valid, but a term like "10-40-50" is invalid.
+
+So, for each term in the selector:
+
+- Split on commas to get the terms. Then, for each term, check if it's a valid term.
+
+So, for each term in the list:
+
+- If the term contains a hyphen, split into

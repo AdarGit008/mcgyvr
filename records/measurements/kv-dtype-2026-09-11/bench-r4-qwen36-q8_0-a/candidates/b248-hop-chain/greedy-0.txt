@@ -1,0 +1,12 @@
+```python
+def hop_chain(hops: list) -> bool:
+    """Check if a list of hops forms one unbroken chain."""
+    if not hops:
+        return True
+    
+    for i in range(len(hops) - 1):
+        if hops[i][1] != hops[i + 1][0]:
+            return False
+            
+    return True
+```

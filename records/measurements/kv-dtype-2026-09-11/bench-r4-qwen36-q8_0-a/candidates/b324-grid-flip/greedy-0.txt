@@ -1,0 +1,43 @@
+```python
+def grid_flip(grid: list) -> list:
+    """Return the grid turned so that its columns become its rows.
+    
+    The first row of the result holds the first value of every row in order.
+    A grid with no rows gives an empty grid.
+    """
+    if not grid:
+        return []
+    
+    # Determine the maximum row length to handle rows of differing lengths
+    max_len = max(len(row) for row in grid)
+    
+    # Transpose the grid: for each column index, collect the element from each row
+    result = []
+    for col_idx in range(max_len):
+        new_row = []
+        for row in grid:
+            if col_idx < len(row):
+                new_row.append(row[col_idx])
+            else:
+                # If a row is shorter, we need to decide how to handle it.
+                # Since the contract doesn't specify, we'll include None or skip?
+                # Standard zip behavior stops at the shortest. But "first value of every row"
+                # implies we should handle all rows. If a row doesn't have a value at col_idx,
+                # it's ambiguous. However, typically in such problems, if rows differ in length,
+                # we might pad or truncate. Let's look at the description again:
+                # "the first row of the answer holds the first value of every row in order"
+                # This implies that if a row doesn't have a first value, it's an issue.
+                # But the contract says "Whether rows of differing lengths should be handled is not stated."
+                # So I will assume standard behavior: if a row is shorter, we just take what's there?
+                # No, that would break the "column becomes row" structure if we just skip.
+                # Let's assume we pad with None for missing values to maintain the rectangular structure
+                # of the transposed grid, or we truncate to the shortest row?
+                # Actually, the most robust interpretation of "grid" is a rectangular structure.
+                # If it's not rectangular, the output shape is ambiguous.
+                # Given the ambiguity, I'll implement a version that pads with None for missing elements,
+                # as this preserves all data.
+                new_row.append(None)
+        result.append(new_row)
+    
+    return result
+```

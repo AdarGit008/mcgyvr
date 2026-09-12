@@ -1,0 +1,7 @@
+```python
+def built_other(entries: list) -> list:
+    """Every second entry of a log, beginning with the first."""
+    if not entries:
+        return []
+    return entries[1::2]
+```

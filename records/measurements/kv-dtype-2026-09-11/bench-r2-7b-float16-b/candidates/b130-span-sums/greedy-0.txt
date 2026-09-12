@@ -1,0 +1,52 @@
+```python
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    """Converts a span text to total inches."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("text must be a non-empty string")
+
+    parts = text.split()
+    seen_units = set()
+    total = 0
+
+    for part in parts:
+        if len(part) < 2 or part[-2:] not in INCHES:
+            raise ValueError("part must end with a valid unit (yd, ft, in)")
+        if part[-2:] in seen_units:
+            raise ValueError("unit cannot be repeated")
+        seen_units.add(part[-2:])
+        value = part[:-2]
+        if not value.isdigit() or (value[0] == '0' and len(value) > 1):
+            raise ValueError("value must be a non-negative integer without leading zeros")
+        total += int(value) * INCHES[part[-2:]]
+
+    return total
+
+
+def format_span(inches: int) -> str:
+    """Formats a non-negative integer of total inches canonically."""
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("inches must be a non-negative integer")
+
+    if inches == 0:
+        return "0in"
+
+    parts = []
+    for unit in ORDER:
+        value, inches = divmod(inches, INCHES[unit])
+        if value:
+            parts.append(f"{value}{unit}")
+
+    return " ".join(parts)
+
+
+def add_spans(first: str, second: str) -> str:
+    """Adds two span texts and returns their sum in canonical form."""
+    total = parse_span(first) + parse_span(second)
+    return format_span(total)
+```

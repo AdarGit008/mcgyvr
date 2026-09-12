@@ -1,0 +1,46 @@
+```python
+from typing import List, Tuple
+
+def net_tally(sheets: List[str]) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    if not all(isinstance(sheet, str) for sheet in sheets):
+        raise ValueError("each sheet must be a string")
+    if not all(sheet.strip() and sheet.count('\n') == 1 for sheet in sheets):
+        raise ValueError("each sheet must be a single newline-separated row")
+    if not all(sheet.count('|') == 3 for sheet in sheets):
+        raise ValueError("each sheet must have exactly three fields")
+    if not all(sheet.split('|')[0].strip() for sheet in sheets):
+        raise ValueError("each item name must be non-empty")
+    if not all(isinstance(sheet.split('|')[1], str) and isinstance(sheet.split('|')[2], str) for sheet in sheets):
+        raise ValueError("each sold and returned field must be a string of decimal digits")
+    if not all(sheet.split('|')[1].isdigit() and sheet.split('|')[2].isdigit() for sheet in sheets):
+        raise ValueError("each sold and returned field must be a string of decimal digits")
+    if not all(sheet.split('|')[1] <= sheet.split('|')[2] for sheet in sheets):
+        raise ValueError("returned total must not exceed sold total")
+
+    item_net_counts = {}
+    item_total_sold = 0
+    item_total_returned = 0
+
+    for sheet in sheets:
+        for row in sheet.split('\n'):
+            if row.strip():
+                item, sold, returned = row.split('|')
+                item = item.strip()
+                sold = sold.strip()
+                returned = returned.strip()
+                if sold.isdigit() and returned.isdigit():
+                    item_net_counts[item] = int(sold) - int(returned)
+                    item_total_sold += int(sold)
+                    item_total_returned += int(returned)
+
+    if not item_net_counts:
+        return ""
+
+    item_net_counts = sorted(item_net_counts.items(), key=lambda x: len(x[0]))
+    item_net_counts = [f"{item:<{max(len(item) for item in item_net_counts)}} {item_net_counts[i][1]}" for i in range(len(item_net_counts))]
+    item_net_counts.append(f"{sum(item_net_counts, (0, 0))[0]:<{max(len(item) for item in item_net_counts)}} {sum(item_net_counts, (0, 0))[1]}")
+
+    return '\n'.join(item_net_counts)
+```

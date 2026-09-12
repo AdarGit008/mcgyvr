@@ -1,0 +1,29 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    """
+    Plan batches for a consignment of units parcels, each carried by courier runs with a maximum capacity.
+    Returns a dictionary with 'loads' (final load sizes), 'splits' (total splits performed),
+    and 'round' (depth of splitting).
+    """
+    if not isinstance(units, int) or not isinstance(capacity, int):
+        raise ValueError("Both units and capacity must be positive integers.")
+    if units <= 0 or capacity <= 0:
+        raise ValueError("Both units and capacity must be positive integers.")
+
+    def recursive_plan(units, capacity, round):
+        if units <= capacity:
+            return {'loads': [units], 'splits': 0, 'round': round}
+        else:
+            half = (units + capacity - 1) // capacity  # Round up
+            left = units - half * capacity
+            right = half * capacity
+            left_result = recursive_plan(left, capacity, round + 1)
+            right_result = recursive_plan(right, capacity, round + 1)
+            return {
+                'loads': left_result['loads'] + right_result['loads'],
+                'splits': left_result['splits'] + right_result['splits'] + 1,
+                'round': max(left_result['round'], right_result['round'])
+            }
+
+    return recursive_plan(units, capacity, 0)
+```

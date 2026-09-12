@@ -1,0 +1,19 @@
+```python
+from typing import List
+
+def fill_between(entries: List[str], filler: str) -> List[str]:
+    """
+    Returns a list with a filler placed between every two neighbouring entries, so three entries come back as five.
+    A list of one entry, or none at all, takes no filler.
+    """
+    if not entries:
+        return []
+    
+    result = []
+    for i in range(len(entries)):
+        result.append(entries[i])
+        if i < len(entries) - 1:
+            result.append(filler)
+    
+    return result
+```

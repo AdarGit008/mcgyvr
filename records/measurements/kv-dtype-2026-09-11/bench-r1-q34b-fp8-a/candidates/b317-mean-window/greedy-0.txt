@@ -1,0 +1,22 @@
+<think>
+Okay, I need to implement the mean_window function. Let's see the requirements. The function takes a list of readings and a window size, and returns the list of means of every consecutive window of that size. Each mean is the floor of the average. If the window is larger than the readings, return an empty list.
+
+First, I need to handle the case where the window size is zero. Wait, the problem says that a window size of zero should produce what? The problem statement doesn't specify, but the interface says to return a list. But the problem says that if the window is wider than the readings, return empty. But if size is zero, maybe that's invalid. But the problem says to raise ValueError for invalid arguments. Wait, the user said that if the window size is zero, what should it produce? The problem says that the function should return the mean of every run of that many consecutive readings. But if size is zero, that's not possible. So, the function should probably raise a ValueError if size is zero. Because the problem says that the window size is given, and if it's zero, it's invalid. But the problem says that the function should return the mean of every run of that many consecutive readings. So, if size is zero, there's no way to have a window of zero readings. So, the function should raise a ValueError with a message like "window size must be positive".
+
+Wait, the user's interface says that the function is called mean_window, and the parameters are readings (list) and size (int). The problem says that a window wider than the readings gives an empty list. So, for example, if the readings have length 5 and window size is 6, then the output is empty. But if the window size is zero, that's not allowed. So, the function should check that size is a positive integer. Otherwise, raise ValueError.
+
+So first, in the function, check if size is zero. If so, raise ValueError. Also, check if size is negative? Because the problem says that the window size is given, but if it's negative, then it's invalid. So, the function should check that size is a positive integer. So, in the code, first, check if size <= 0. If so, raise ValueError.
+
+Then, for the readings list, we need to compute the moving average of size consecutive elements. For each window of size, compute the average, floor it, and collect them in order.
+
+So, for example, if readings is [1,2,3,4,5], size is 2. Then the windows are [1,2], [2,3], [3,4], [4,5]. The averages are 1.5, 2.5, 3.5, 4.5. Floored to 1, 2, 3, 4. So the output is [1,2,3,4].
+
+But if the window size is 3, then the windows are [1,2,3], [2,3,4], [3,4,5]. Averages are 2, 3, 4. So output is [2,3,4].
+
+Now, the function needs to process the readings and generate these windows. So, the steps are:
+
+1. Check if size is valid (positive integer). If not, raise ValueError.
+
+2. Calculate the number of possible windows. The number of windows is len(readings) - size + 1. But if len(readings) < size, then the result is empty list.
+
+So, for example, if len(readings) is 3 and size is 3, then there is

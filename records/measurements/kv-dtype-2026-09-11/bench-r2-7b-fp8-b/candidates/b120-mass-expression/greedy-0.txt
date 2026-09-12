@@ -1,0 +1,4 @@
+```python
+def mass_expression(text: str,    raise ValueError("Invalid input")
+
+#```

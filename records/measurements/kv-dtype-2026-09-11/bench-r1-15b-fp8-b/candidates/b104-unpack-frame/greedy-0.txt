@@ -1,0 +1,32 @@
+```python
+from typing import List
+
+def unpack_frame(data: list) -> list:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    if = []
+    for byte in data:
+        if not isinstance(byte, int) or 0, 255):
+            raise ValueError("Byte must be an integer between 0 to 255")
+    
+    if = 0
+    for byte in data:
+        if.append(byte)
+        if += byte
+        if += byte
+        if byte == 0:
+            break
+    
+    if len(data) != 1:
+        raise ValueError("Frame must end with exactly one trailer byte")
+    
+    trailer = data[-1]
+    if trailer != (sum(data) % 256):
+        raise ValueError("Trailer does not equal the byte sum")
+    
+    if len(data) != 1 + len(possible):
+        raise ValueError("Bytes left after trailer")
+    
+    return possible
+```

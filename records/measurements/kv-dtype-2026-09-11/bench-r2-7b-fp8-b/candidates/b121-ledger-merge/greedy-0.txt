@@ -1,0 +1,50 @@
+```python
+from typing import List,from collections import defaultdict
+
+from operator import item
+
+from itertools import chain:
+
+def merge_ledger(base: List[List], ours: List[List], theirs: List[list]) -> List[List]:
+    if not all(isinstance(ledger, list for for entry in ledger for entry in ledger):
+        raise ValueError("Invalid ledger format")
+
+    def validate_entry(entry):
+        if len(entry) != 2:
+            raise ValueError("Invalid entry format")
+        account, cents = entry
+        if not isinstance(account, str) or not account:
+            raise ValueError("Invalid account name")
+        if not isinstance(cents, int):
+            raise ValueError("Invalid cents value")
+
+        return account, cents
+
+    base_dict = {entry[0]: entry[1] for entry in base}
+    our_dict = {entry[0]: entry[1] for entry in ours}
+    their_dict = {entry[0]: entry[1] for entry in theirs}
+
+    
+    merged_dict = defaultdict(int)
+    
+    for account in set(base_dict.keys 
+        if_value = base_dict[account]
+        if_value += = our_dict.get(account, 0)
+        merged_dict[account] += their_dict.get(account), 0)
+        
+    for account in set(our_dict):
+        if account not in base_dict:
+            merged_dict[account] += our_dict[account]
+            
+    for account in set(their_dict):
+        if account not in base_dict:
+            merged_dict[account] += their_dict[account]
+            
+    for account in set(base_dict):
+        if account not in our_dict and account not in their_dict:
+            del merged_dict[account]
+            
+    merged_list = sorted([(account, merged_dict[account]) for account in merged_dict], key=lambda x: x[0])
+    
+    return merged_list
+```

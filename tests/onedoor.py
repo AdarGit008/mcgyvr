@@ -161,7 +161,7 @@ RIG: dict[str, dict[str, str]] = {
         "gpu_vram_mib": "6144",
         "gpu_cc": "7.5",
         "driver": "580.173.02",
-        "gpu_reserve_mib": "401",
+        "gpu_reserve_mib": "399",
         "docker": "29.7.2",
     },
     "srv2": {

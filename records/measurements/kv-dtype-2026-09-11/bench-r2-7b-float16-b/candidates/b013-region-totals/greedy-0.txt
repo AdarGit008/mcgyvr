@@ -1,0 +1,39 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a non-empty list of rows")
+    width = len(grid[0]) if isinstance(grid[0], list) else 0
+    if width == 0:
+        raise ValueError("rows must be non-empty lists")
+    for row in grid:
+        if not isinstance(row, list) or len(row) != width:
+            raise ValueError("rows must all share one length")
+        for cell in row:
+            if isinstance(cell, bool) or not isinstance(cell, int):
+                raise ValueError("cells must be integers")
+
+    # Build prefix-sum table
+    height = len(grid)
+    prefix_sum = [[0] * (width + 1) for _ in range(height + 1)]
+    for i in range(1, height + 1):
+        for j in range(1, width + 1):
+            prefix_sum[i][j] = grid[i - 1][j - 1] + prefix_sum[i - 1][j] + prefix_sum[i][j - 1] - prefix_sum[i - 1][j - 1]
+
+    # Validate and answer queries
+    results = []
+    for query in queries:
+        if not isinstance(query, list) or len(query) != 4:
+            raise ValueError("each query must be a list of exactly four integers")
+        top, left, bottom, right = query
+        if not (isinstance(top, int) and isinstance(left, int) and isinstance(bottom, int) and isinstance(right, int)):
+            raise ValueError("query coordinates must be integers")
+        if top >= bottom or left >= right:
+            raise ValueError("query dimensions must be positive")
+        if top < 0 or left < 0 or bottom > height or right > width:
+            raise ValueError("query area must be within the grid boundaries")
+
+        total = prefix_sum[bottom][right] - prefix_sum[top][right] - prefix_sum[bottom][left] + prefix_sum[top][left]
+        results.append(total)
+
+    return results
+```

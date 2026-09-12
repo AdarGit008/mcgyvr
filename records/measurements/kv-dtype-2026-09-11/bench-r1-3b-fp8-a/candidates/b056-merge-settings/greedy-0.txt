@@ -1,0 +1,54 @@
+```python
+from typing import Dict, Any
+
+def merge_settings(base: Dict[str, str], ours: Dict[str, str], theirs: Dict[str, str]) -> Dict[str, str]:
+    """
+    Merge two settings snapshots into a single snapshot, resolving conflicts.
+    
+    :param base: The common ancestor settings snapshot.
+    :param ours: The settings snapshot from one side.
+    :param theirs: The settings snapshot from the other side.
+    :return: The merged settings snapshot.
+    :raises ValueError: If a side is not a flat mapping of string values,
+                        if there is a conflict of two different edits, or
+            if there is a conflict of an edit against a deletion.
+    """
+    def validate_settings(settings: Dict[str, str]) -> None:
+        if not all(isinstance(key, str) and isinstance(value, str) for key, value in settings.items()):
+            raise ValueError("All keys and values must be strings.")
+
+    def resolve_conflict(key: str, ours_value: str, theirs_value: str) -> str:
+        if ours_value == theirs_value:
+            return theirs_value
+        elif ours_value and theirs_value:
+            raise ValueError(f"Conflict: '{key}' has different edits on both sides.")
+        elif ours_value:
+            return ours_value
+        else:
+            return theirs_value
+
+    validate_settings(base)
+    validate_settings(ours)
+    validate_settings(theirs)
+
+    
+    merged = {}
+    for key in set(base.keys()).union(set(ours.keys()), set(theirs.keys())):
+        ours_value = ours.get(key)
+        theirs_value = theirs.get(key)
+        base_value = base.get(key)
+        
+        if ours_value is not None and theirs_value is not None:
+            if base_value is not None:
+                merged[key] = resolve_conflict(key, ours_value, theirs_value)
+            else:
+                merged[key] = ours_value
+        elif ours_value is not None:
+            merged[key] = ours_value
+        elif theirs_value is not None:
+            merged[key] = theirs_value
+        else:
+            merged[key] = base_value
+    
+    return merged
+```

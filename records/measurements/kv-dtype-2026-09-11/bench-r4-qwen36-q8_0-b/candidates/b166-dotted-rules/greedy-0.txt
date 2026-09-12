@@ -1,0 +1,68 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """Match a dotted option name against style rules to find the winning value."""
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    if not isinstance(rules, dict):
+        raise ValueError("rules must be a dictionary")
+        
+    exact_match = None
+    best_wildcard = None
+    best_wildcard_len = -1
+    lone_star_value = None
+    
+    for selector, value in rules.items():
+        if not isinstance(value, str):
+            raise ValueError("rule value must be a string")
+            
+        if not isinstance(selector, str):
+            raise ValueError("selector must be a string")
+            
+        # Check for misplaced stars
+        if "*" in selector:
+            if selector == "*":
+                # Lone star is valid
+                lone_star_value = value
+            elif selector.endswith(".*"):
+                # Check if there are any other stars
+                prefix_part = selector[:-2]
+                if "*" in prefix_part:
+                    raise ValueError("selector star must stand alone or end the selector")
+                # Valid prefix wildcard
+                prefix_len = len(prefix_part)
+                if name.startswith(prefix_part) and (prefix_part == "" or name.startswith(prefix_part)):
+                    # Ensure it's a proper prefix match for dotted names
+                    # "editor.*" should match "editor.font" but not "editor"
+                    # "editor.*" should match "editor.font.size"
+                    # The prefix part is "editor."
+                    # If name starts with prefix, check if it's a valid sub-key
+                    if prefix_part == "":
+                        # "*." would match everything starting with a dot? 
+                        # Actually, the spec says "editor.*" covers editor.font and editor.font.size but not editor itself.
+                        # So if prefix is "editor.", name must start with "editor."
+                        pass
+                    else:
+                        # prefix_part is like "editor."
+                        # name must start with prefix_part
+                        if not name.startswith(prefix_part):
+                            continue
+                    if prefix_len > best_wildcard_len:
+                        best_wildcard_len = prefix_len
+                        best_wildcard = value
+            else:
+                # Star is not at the end or is not lone
+                raise ValueError("selector star must stand alone or end the selector as '.*'")
+        else:
+            # Exact match
+            if selector == name:
+                exact_match = value
+                
+    if exact_match is not None:
+        return exact_match
+    if best_wildcard is not None:
+        return best_wildcard
+    if lone_star_value is not None:
+        return lone_star_value
+    return None
+```

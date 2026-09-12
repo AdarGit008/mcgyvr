@@ -1,0 +1,37 @@
+<think>
+Okay, I need to fix the span_days function so that it correctly handles leap years, especially around century years. The current code uses the rule that a year is a leap year if divisible by 4, but it's not considering the exception for century years (those divisible by 400). Also, I need to add validation to check if the start date is after the end date, and ensure that each date component is valid.
+
+First, let me look at the existing code. The _is_leap function is currently checking if the year is divisible by 4. But according to the problem statement, a century year (divisible by 100) is a leap year only if divisible by 400. So the _is_leap function should be modified to check if the year is divisible by 4, but not a century year unless it's divisible by 400.
+
+So the corrected _is_leap function should be:
+
+def _is_leap(year):
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+That way, years like 1900 (divisible by 100 but not 400) are not leap, while 2000 (divisible by 400) is.
+
+Next, the validation part. The problem says to reject if the start date is after the end date. Also, check that each date has a valid month (1-12), and that the day is valid for that month and year (including February 29 only in leap years).
+
+So, in the span_days function, before calculating, I need to validate the start and end dates. Let's think about how to do that.
+
+First, for each date (start and end), check that each component is an integer. Since the input is a list, we can check that each element is an integer. Also, check that the month is between 1 and 12. Then, check that the day is valid for that month and year.
+
+So, I need a helper function to validate a date. Let's create a function _validate_date(date) that returns True if the date is valid, else raises ValueError.
+
+In _validate_date, first check that the date has exactly 3 elements. Then check that each component is an integer. Then check that the month is between 1 and 12. Then check that the day is valid for the month and year.
+
+For the day check, the month_length function is already there, but we need to make sure that the day is within 1 to month_length.
+
+So, in the span_days function, first validate both start and end dates. Then, check if start is after end. If start is after end, return a negative value? Wait, the problem says that if start is after end, reject with an error. So, if start is after end, then the function should raise an error. Wait, the problem says: "reject with an error a start date after the end date". So, if start is after end, then the function should raise ValueError.
+
+So, in the span_days function, after validating the dates, check if start is after end. If so, raise ValueError.
+
+So, the steps are:
+
+1. Validate start and end dates.
+
+2. Check if start is after end. If yes, raise error.
+
+3. Compute the span_days as the difference between the ordinal values.
+
+But how to check if start is after end? The _to_ordinal function converts a date to an ordinal (like a day of the year, but cumulative from year 0). So, if the ordinal of start

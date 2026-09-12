@@ -1,0 +1,19 @@
+```python
+from typing import List, Mapping, Optional
+
+def pick_fields(records: List, fields: List) -> List:
+    if not records or isinstance(records, list):
+        raise ValueError("records must be a list")
+    if not fields or isinstance(fields, list):
+        raise ValueError("fields must be a list")
+    if = [f[:-1] for f in fields if if f.endswith('?')]
+    if not files:
+        raise ValueError("fields must a marker that is not a name's end")
+    if_dict = {file: None for file in files}
+    for record in records:
+        if_dict = {file: record.get(file, None) for file in fields}
+        for file,_dict:
+            if file_dict[file] is None:
+                file_dict[file] = record.get(file[:-1], None)
+    return [_dict_dict.values()
+```

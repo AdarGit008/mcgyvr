@@ -1,0 +1,72 @@
+```python
+def match_route(pattern: str, path: str) -> dict | None:
+    def split_segments(path: str) -> list:
+        if not isinstance(path, str) or not path:
+            raise ValueError("Path must be a non-empty string.")
+        if not path.startswith("/"):
+            raise ValueError("Path must start with a slash.")
+        segments = path.split("/")
+        if len(segments) == 1 and segments[0] != "":
+            return []
+        for i, segment in enumerate(segments):
+            if segment == "":
+                raise ValueError("Empty segment found in path.")
+            if i == len(segments) - 1 and segment == "":
+                raise ValueError("Trailing slash found in path.")
+        return segments
+
+    def validate_pattern(pattern: str) -> None:
+        if not isinstance(pattern, str) or not pattern:
+            raise ValueError("Pattern must be a non-empty string.")
+        if not pattern.startswith("/"):
+            raise ValueError("Pattern must start with a slash.")
+        segments = pattern.split("/")
+        if len(segments) == 1 and segments[0] != "":
+            return
+        for i, segment in enumerate(segments):
+            if segment == "":
+                raise ValueError("Empty segment found in pattern.")
+            if i == len(segments) - 1 and segment == "":
+                raise ValueError("Trailing slash found in pattern.")
+            if segment == "*":
+                continue
+            if segment == "**":
+                if i < len(segments) - 1:
+                    raise ValueError("More than one '**' in pattern.")
+                continue
+            if not segment[0].isalpha() or not segment[1:].isalnum():
+                raise ValueError("Invalid capture name in pattern.")
+
+    def match(route: str, path: str) -> dict | None:
+        route_segments = split_segments(route)
+        path_segments = split_segments(path)
+        if len(route_segments) != len(path_segments):
+            return None
+        captures = {}
+        for i, (route_segment, path_segment) in enumerate(zip(route_segments, path_segments)):
+            if route_segment == ":" + path_segment:
+                if path_segment in captures:
+                    return None
+                captures[path_segment] = path_segment
+            elif route_segment == "*" and path_segment != captures.get("*", ""):
+                return None
+            elif route_segment == "**" and path_segment != captures.get("**", ""):
+                return None
+        return captures
+
+    validate_pattern(pattern)
+    return match(pattern, path)
+
+
+def first_route(patterns: list, path: str) -> int:
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path) is not None:
+            return i
+    return -1
+
+
+# Example usage:
+# patterns = ["/users/:id", "/files/*", "/**"]
+# path = "/users/123"
+# print(first_route(patterns, path))  # Output: 0
+```

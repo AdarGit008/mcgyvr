@@ -1,0 +1,40 @@
+```python
+import math
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    
+    # Use a queue to process requirements: (component_name, quantity_needed)
+    # We accumulate base part totals in a dictionary.
+    base_totals = {}
+    queue = [(kit, want)]
+    
+    while queue:
+        current_kit, quantity_needed = queue.pop(0)
+        
+        # Get the recipe for the current kit
+        recipe = catalog[current_kit]
+        makes = recipe['makes']
+        parts = recipe['parts']
+        
+        # Calculate how many whole runs are needed
+        # runs = ceil(quantity_needed / makes)
+        runs = math.ceil(quantity_needed / makes)
+        
+        # Process each part in the recipe
+        for component, count_per_run in parts:
+            total_component_needed = runs * count_per_run
+            
+            # Check if the component is itself a kit
+            if component in catalog:
+                # Add to the queue to be processed further
+                queue.append((component, total_component_needed))
+            else:
+                # It's a base part, add to totals
+                base_totals[component] = base_totals.get(component, 0) + total_component_needed
+                
+    return base_totals
+```

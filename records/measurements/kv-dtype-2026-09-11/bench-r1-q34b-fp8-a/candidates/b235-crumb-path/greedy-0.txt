@@ -1,0 +1,48 @@
+<think>
+Okay, I need to implement the crumb_split and crumb_join functions as per the problem statement. Let me start by understanding what each function is supposed to do.
+
+First, crumb_split takes a string called trail and splits it on forward slashes. But it also discards every empty segment. For example, if the input is "/docs//api/", the split should result in ['docs', 'api']. So, the function needs to split the string by '/', then filter out any empty strings.
+
+Wait, but how does splitting work here? The input is a string like "/docs//api/". Splitting on '/' would give ['', 'docs', '', 'api', '']. Then, we need to remove the empty strings. So, the result would be ['docs', 'api'].
+
+So, the steps for crumb_split would be: split the trail into parts using '/' as the delimiter, then filter out any empty strings.
+
+For crumb_join, the function takes a list of parts and joins them with a single slash between them, without any leading or trailing slashes. Also, it should discard empty segments. So, if the parts are ['docs', 'api'], joining them would result in 'docs/api'. But if there are empty strings in the parts, they should be removed first.
+
+Wait, the problem says that crumb_join discards empty segments the same way as crumb_split. So, when joining, we need to first filter out any empty strings in the parts list, then join them with '/'.
+
+So, for crumb_join, the steps would be: take the list of parts, filter out any empty strings, then join them with '/'.
+
+But wait, what about if the parts list is empty after filtering? Then the result should be an empty string? Or maybe the function is supposed to handle that case.
+
+Now, considering edge cases. For example, if the trail is empty, then crumb_split would return an empty list. Similarly, if the parts list is empty, crumb_join would return an empty string.
+
+Another edge case: if the trail is something like "////", then splitting would result in ['', '', '', '', ''] after splitting, and filtering out empty strings would leave an empty list. So crumb_split would return an empty list.
+
+For crumb_join, if the parts list is empty, then joining would result in an empty string.
+
+Now, implementing these functions in Python.
+
+For crumb_split: split the trail on '/', then filter out empty strings. But wait, in Python, the split method with '/' would split on each occurrence. For example, "/a//b/c" would split into ['', 'a', '', 'b', 'c'].
+
+So, the code for crumb_split would be:
+
+def crumb_split(trail: str) -> list:
+    return [part for part in trail.split('/') if part]
+
+But wait, what if the trail is empty? Then trail.split('/') would be ['', ''], and after filtering, it would be empty list. Which is correct.
+
+For crumb_join: take the parts list, filter out empty strings, then join with '/'.
+
+def crumb_join(parts: list) -> str:
+    return '/'.join(part for part in parts if part)
+
+But wait, if the parts list is empty after filtering, then joining would result in an empty string. Which is correct.
+
+But what if the parts list has elements like ['a', '', 'b']? Then after filtering, it's ['a', 'b'], joined as 'a/b'.
+
+Yes, that's correct.
+
+But need to make sure that the functions are handling all cases.
+
+Testing the example given: crumb_split("/docs//api/") would split into ['', 'docs', '', '

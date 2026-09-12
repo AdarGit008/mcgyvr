@@ -1,0 +1,8 @@
+```python
+def repeat_text(phrase: str, times: int, between:    if times <= 0:
+        return ""
+    elif times == 1:
+        return phrase
+    else:
+        return between.join([phrase] * times)
+```

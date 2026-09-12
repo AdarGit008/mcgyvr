@@ -1,0 +1,33 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string")
+    if not isinstance(script, list):
+        raise ValueError("Script must be a list")
+
+    result = ""
+    i open(original, 'r') as file:
+        for line in file:
+            for op in script:
+                if len(op) != 2:
+                    raise ValueError("Each op must be a list of two items")
+                op_name, op[0]
+                op_value = op[1]
+                if op_name not in ["copy", "skip", "insert"]:
+                    raise ValueError(f"Unknown op name: {op_name}")
+                if op_name == "copy":
+                    if not isinstance(op_value, int):
+                        raise ValueError("Copy value must be an integer")
+                    if op_value <= 0:
+                        raise ValueError("Copy value must be a positive integer")
+                    result += line[op_value:]
+                elif op_name == "skip":
+                    if op_value <= 0:
+                        raise ValueError("Skipping value must be a positive integer")
+                    result += line[op_value:]
+                elif op_name == "insert":
+                    if not isinstance(op_value, str):
+                        raise ValueError("Insert text must be a non-empty string")
+                    result += op_value
+    return result
+```

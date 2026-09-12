@@ -1,0 +1,34 @@
+```python
+def vend_credit(coins: list, price: int) -> int:
+    """
+    Accepts a list of coins and a price, calculates the credit, and returns the remaining credit.
+    
+    Parameters:
+    - coins: List[int] - A list of integers representing the coins pushed in, in the order they went in.
+    - price: int - The price of one item in cents.
+
+    Returns:
+    - int: The remaining credit after handling all coins.
+
+    Raises:
+    - ValueError: If the price is not a whole number, zero or less, or not a multiple of 5.
+    """
+    if not isinstance(price, int) or price <= 0 or price % 5 != 0:
+        raise ValueError("Price must be a positive multiple of 5.")
+
+    accepted_coins = [5, 10, 25, 100]
+    credit = 0
+
+    for coin in coins:
+        if coin not in accepted_coins:
+            raise ValueError(f"Coin {coin} is not accepted.")
+        credit += coin
+
+        while credit >= price:
+            credit -= price
+            # Here you could report the number of items dropped, but the task doesn't specify this.
+
+            # print(f"Item dropped. Credit left: {credit}")
+
+    return credit
+```

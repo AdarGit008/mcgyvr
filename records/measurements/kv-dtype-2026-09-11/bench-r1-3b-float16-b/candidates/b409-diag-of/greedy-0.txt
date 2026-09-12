@@ -1,0 +1,20 @@
+```python
+def cell_at(grid: list[list[int]], row: int, column: int) -> int | None:
+    """
+    Returns the value at the specified row and column in the grid.
+    Returns None if either row or column is out of bounds.
+    """
+    if not grid or not grid[0]:
+        return None
+    if row < 0 or row >= len(grid) or column < 0 or column >= len(grid[row]):
+        return None
+    return grid[row][column]
+
+def diag_of(grid: list[list[int]]) -> list[int]:
+    """
+    Returns the values running down the grid's main diagonal from the top left.
+    """
+    if not grid or not grid[0]:
+        return []
+    return [grid[i][i] for i in range(len(grid))]
+```

@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def tide_marks(levels: List[int]) -> List:
+    if not levels:
+        return []
+
+    peaks = []
+    for i in range(1, len(levels) - 1):
+        if levels[interface] levels[interface - 1] > levels[interface + 1]:
+            peaks.append(interface)
+
+    return peaks
+```

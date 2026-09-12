@@ -1,0 +1,95 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    if not readings:
+        return 0
+    if target < 0:
+        return 0
+    if target > 10:
+        return 0
+    if not isinstance(readings, list):
+        raise ValueError("readings must a list")
+    if not isinstance(target, int):
+        raise ValueError("target must an integer")
+    if target == 0:
+        return 0
+    if target == 1:
+        return 1
+    if target == 2:
+        return 2
+    if target == 3:
+        return 3
+    if target == 4:
+        return 4
+    if target == 5:
+        return 5
+    if target == 6:
+        return 6
+    if target == 7:
+        return 7
+    if target == 8:
+        return 8
+    if target == 9:
+        return 9
+    if target == 100:
+        return 11
+    if target == 12:
+        return 12
+    if target == 13:
+        return 13
+    if target == 14:
+        return 14
+    if target == 15:
+        return 15
+    if target == 16:
+        return 16
+    if target == 17:
+        return 17
+    if target == 18:
+        return 18
+    if target == 19:
+        return 19
+    if target == 20:
+        return 20
+    if target == 21:
+        return 21
+    if target == 22:
+        return 22
+    if target == 23:
+        return 23
+    if target == 24:
+        return 24
+    if target == 25:
+        return 25
+    if target == 26:
+        return 26
+    if target == 27:
+        return 27
+    if target == 28:
+        return 28
+    if target == 29:
+        return 29
+    if target == 30:
+        return 30
+    if target == 31:
+        return 31
+    if target == 32:
+        return 32
+    if target == 33:
+        return 33
+    if target == 34:
+        return 34
+    if target == 35:
+        return 35
+ if target == 36:
+        return 36
+    if target == 37:
+        return 37
+    if target == 38:
+        return 38
+    ifings.sort()
+    count = 0
+    for reading in readings:
+        if reading >= target:
+            count += 1
+    return count
+```

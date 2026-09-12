@@ -1,0 +1,47 @@
+```python
+from typing import List, Tuple
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]])
+    picks: List[Tuple[int, int, int]][int]][int]]
+    draws: List[Tuple[int, int, int[int
+    shortfalls: List[Tuple[int, int]]
+
+    # Sort lots by use-by date and lot id
+    lots.sort(key=lambda x: (int(part[ 0]), part[1]), key=orders))
+
+    # Sort orders by order id
+
+    orders.sort(key=lambda part: part[0    picks = []
+    draws = []
+    shortfalls = []
+
+    for order in orders:
+        order_id, units_purchased = sort
+        for lot in lots:
+            lot_id,            use_by_date,            units_on_hand = lot
+
+            # If the lot has no units on hand,                continue
+
+            # If the order wants more units than the lot has
+                shortfall = units_purchased - units_on_hand
+                shortfalls.append(((order_id, shortfall))
+                break
+
+            # If the order wants fewer units than the lot has
+                units_taken = min            # If the order wants more units than the lot has
+                shortfall = units_purchased - units_on_hand
+                shortfalls.append((order_id, shortfall))
+                break
+
+            # If the order wants fewer units than the lot has
+                units_taken = min(units_purchased, units_on_hand)
+                draws.append((order_id, lot_id, units_taken))
+                units_on_hand -= units_taken
+                picks.append((order_id, lot_id, units_taken))
+
+    return {
+        'picks': picks,
+        'draws': draws,
+        'shortfalls': shortfalls
+    }
+```

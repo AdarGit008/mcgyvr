@@ -1,0 +1,30 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """Return two characters in the other order."""
+    if not isinstance(first, str) or not isinstance(second, str):
+        raise ValueError("Arguments must be strings")
+    if len(first) != 1 or len(second) != 1:
+        raise ValueError("Arguments must be single characters")
+    return second + first
+
+
+def swap_all(text: str) -> str:
+    """Walk a text in twos and swap each pair, leaving a final odd character in place."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    
+    result = []
+    length = len(text)
+    index = 0
+    
+    while index < length:
+        if index + 1 < length:
+            result.append(text[index + 1])
+            result.append(text[index])
+            index += 2
+        else:
+            result.append(text[index])
+            index += 1
+            
+    return "".join(result)
+```

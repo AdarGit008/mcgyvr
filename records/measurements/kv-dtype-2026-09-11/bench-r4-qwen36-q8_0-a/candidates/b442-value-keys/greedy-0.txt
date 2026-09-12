@@ -1,0 +1,11 @@
+```python
+def value_keys(store: dict) -> dict:
+    """Return a mapping from each value in the store to the count of keys holding that value."""
+    if not isinstance(store, dict):
+        raise ValueError("store must be a dict")
+    
+    result = {}
+    for value in store.values():
+        result[value] = result.get(value, 0) + 1
+    return result
+```

@@ -1,0 +1,40 @@
+[
+  {
+    "label": "r4-qwen36-f16",
+    "dtype": "f16",
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "image": "llamacpp:b10644-L3",
+    "card_used_mib": 5094,
+    "card_free_mib": 652,
+    "card_reserved_mib": 399,
+    "kv_line": "llama_kv_cache: size =  320.00 MiB (  8192 cells,  10 layers,  2/2 seqs), K (f16):  160.00 MiB, V (f16):  160.00 MiB",
+    "size_mib": 320.0,
+    "cells": 8192,
+    "layers": 10,
+    "k_dtype": "f16",
+    "k_mib": 160.0,
+    "v_dtype": "f16",
+    "v_mib": 160.0,
+    "bench_a_dir": "bench-r4-qwen36-f16-a",
+    "bench_b_dir": "bench-r4-qwen36-f16-b"
+  },
+  {
+    "label": "r4-qwen36-q8_0",
+    "dtype": "q8_0",
+    "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+    "image": "llamacpp:b10644-L3",
+    "card_used_mib": 4944,
+    "card_free_mib": 802,
+    "card_reserved_mib": 399,
+    "kv_line": "llama_kv_cache: size =  170.00 MiB (  8192 cells,  10 layers,  2/2 seqs), K (q8_0):   85.00 MiB, V (q8_0):   85.00 MiB",
+    "size_mib": 170.0,
+    "cells": 8192,
+    "layers": 10,
+    "k_dtype": "q8_0",
+    "k_mib": 85.0,
+    "v_dtype": "q8_0",
+    "v_mib": 85.0,
+    "bench_a_dir": "bench-r4-qwen36-q8_0-a",
+    "bench_b_dir": "bench-r4-qwen36-q8_0-b"
+  }
+]

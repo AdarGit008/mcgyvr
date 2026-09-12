@@ -1,0 +1,51 @@
+```python
+"""A sectioned sales report: item lines, subtotals, and a ranked summary."""
+
+
+def section_report(rows: list) -> dict:
+    """Build a sectioned report from rows of [section, label, amount]."""
+    if not isinstance(rows, list):
+        raise ValueError("rows must be a list")
+
+    lines = []
+    sections = []
+    grand = 0
+    current_section = None
+    current_subtotal = 0
+    current_count = 0
+
+    for row in rows:
+        if not isinstance(row, list) or len(row) != 3:
+            raise ValueError("each row must be a three-item list")
+
+        section, label, amount = row
+
+        if not isinstance(section, str) or not section:
+            raise ValueError("section must be a non-empty string")
+        if not isinstance(label, str) or not label:
+            raise ValueError("label must be a non-empty string")
+        if not isinstance(amount, int) or isinstance(amount, bool):
+            raise ValueError("amount must be an integer")
+
+        if current_section is not None and section != current_section:
+            lines.append(["section", current_section, "", current_subtotal])
+            sections.append([current_section, current_count, current_subtotal])
+            current_subtotal = 0
+            current_count = 0
+
+        current_section = section
+        lines.append(["item", section, label, amount])
+        current_subtotal += amount
+        current_count += 1
+        grand += amount
+
+    if current_section is not None:
+        lines.append(["section", current_section, "", current_subtotal])
+        sections.append([current_section, current_count, current_subtotal])
+
+    lines.append(["grand", "", "", grand])
+
+    sections.sort(key=lambda entry: (-entry[2], entry[0]))
+
+    return {"lines": lines, "sections": sections, "grand": grand}
+```

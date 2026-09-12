@@ -1,0 +1,26 @@
+<think>
+Okay, I need to implement the cap_after function. The goal is to capitalize the first letter of every sentence in the given passage. A sentence starts at the beginning of the passage and after any full stop. Other letters remain as they are.
+
+First, I need to understand how sentences are structured. A sentence typically ends with a period, but there's a mention that a question mark might also start a new sentence. However, the problem statement says that the question mark's handling isn't specified, so I should probably ignore it. The problem says to capitalize after a full stop, so I'll focus on periods.
+
+So the approach is to split the passage into sentences whenever there's a period, then capitalize the first letter of each sentence. But wait, the original passage might have multiple sentences connected by periods. For example, "Hello. How are you?" would split into "Hello." and " How are you?" but the second part starts with a space. So splitting on periods and then processing each part.
+
+But how to split the passage into sentences correctly? Maybe split on periods, but also consider that a sentence can end with a period followed by a space. So splitting on periods and then trimming any leading or trailing spaces.
+
+Wait, but the problem says that the sentences start at the beginning of the passage and after any full stop. So the first sentence starts at the beginning, and each subsequent sentence starts after a full stop. So the splitting is on each full stop, and then each part is a sentence.
+
+But the problem is that the original passage might have multiple periods, and each period is the end of a sentence. So, for example, "Hello. How are you. I am fine." would split into three sentences: "Hello.", " How are you.", " I am fine.".
+
+But when we split on periods, we need to split the string into parts separated by periods. However, the split would include the periods as separators. So, for example, "a.b.c" would split into ["a", "b", "c"], but the periods are not part of the split. Wait, no, in Python, the split method with a period would split on each period. So "a.b.c" would split into ["a", "b", "c"], but the periods are not included. Wait, no, the split method with a separator splits the string into parts, so "a.b.c".split('.') would be ['a', 'b', 'c'].
+
+But then, the first part is the first sentence, then the next parts are the next sentences. However, the original passage may have a period followed by a space, like "Hello. How are you." So splitting on periods would give "Hello" and " How are you.".
+
+So, after splitting, each part is a sentence. Then, for each part, we need to capitalize the first letter. But the first part is the first sentence, so we need to capitalize the first character. Then, for each subsequent part, we also capitalize the first character.
+
+But how to handle the splitting correctly. For example, if the passage is "Hello. How are you. I am fine.", splitting on periods would give ["Hello", " How are you", " I am fine", ""]. Wait, because the last part is an empty string if the passage ends with a period. So we need to process each of these parts, but also ensure that each part is a sentence.
+
+So the plan is:
+
+1. Split the passage into parts using the '.' as a delimiter. However, this will split the string into parts that are separated by periods. But the original sentence may have periods followed by spaces, so the split would include those.
+
+2. For each part in the split

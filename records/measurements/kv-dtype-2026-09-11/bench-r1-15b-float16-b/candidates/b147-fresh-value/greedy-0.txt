@@ -1,0 +1,18 @@
+```python
+from typing import Dict, Union
+
+def fresh_value(entry: Dict[str, Union[str, int, int, int]], now: int) -> str:
+    if not isinstance(entry, dict) or not all(key in entry for key in ["value", "stored", "ttl", "now"]):
+        raise ValueError("Invalid entry format")
+    if not isinstance(entry["value"], str):
+        raise ValueError("Value must be a string")
+    if not isinstance(entry["stored"], int) or entry["stored"] < 0:
+        raise ValueError("Stored must be a non-negative integer")
+    if not isinstance(entry["ttl"], int) or entry["ttl"] <= 0:
+        raise ValueError("TTL must be a positive integer")
+    if not isinstance(entry["now"], int) or entry["now"] < entry["stored"]:
+        raise ValueError("Now must be at least stored")
+    if entry["now"] >= entry["stored"] + entry["ttl"]:
+        raise ValueError("Record is no longer usable at now")
+    return entry["value"]
+```

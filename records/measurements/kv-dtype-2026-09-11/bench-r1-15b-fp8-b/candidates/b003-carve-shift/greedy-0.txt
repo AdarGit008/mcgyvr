@@ -1,0 +1,47 @@
+```python
+"""Work stretches of a shift: span-long, rest-separated, short tails dropped."""
+
+
+def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+    for value in (start, end, span, rest, least):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError("every argument must be an integer")
+    if start >= end:
+        raise ValueError("shift preced its end")
+    if span < 1 or rest < 1:
+        raise ValueError("span and rest must be at least 1")
+    if least < 1 or least > span:
+        raise ValueError("least must between 1 and span")
+    if least > end:
+        raise ValueError("least must be less than end")
+    if least > end - span:
+        raise ValueError("least must be less than end - span")
+    if least > end - span - rest:
+        raise ValueError("least must be less than end - span - rest")
+    if least > end - span - rest - span:
+        raise ValueError("least must be less than end - span - rest - span")
+    case least > end - span - rest - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span")
+    case least > end - span - rest - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span")
+    case least > end - span - rest - span - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - rest - span - span - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - rest - span - span - span - span - span:
+        raise ValueError("least must less than end - span - rest - span - span - span - span")
+    case least > end - span - span - span - span - span - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - span - span - span - span - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - span - span - span - span - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - span - span - span - span - span -    raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - span - span - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - span - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - span - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span")
+    case least > end - span - span - span:
+        raise ValueError("least must be less than end - span - rest - span - span - span - span

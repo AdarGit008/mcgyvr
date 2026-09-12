@@ -1,0 +1,37 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    """
+    Calculate the number of hops required to walk from the start directory to the goal directory.
+    """
+    def reduce_path(path: str) -> list:
+        segments = path.split('/')
+        reduced_segments = []
+        for segment in segments:
+            if segment == '':
+                continue
+            elif segment == '.':
+                continue
+            elif segment == '..':
+                if reduced_segments:
+                    reduced_segments.pop()
+                else:
+                    raise ValueError("Invalid path: '..' has no segment to drop.")
+            else:
+                reduced_segments.append(segment)
+        return reduced_segments
+
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+
+    
+    common_prefix_length = 0
+    for i in range(min(len(start_segments), len(goal_segments))):
+        if start_segments[i] != goal_segments[i]:
+            break
+        common_prefix_length += 1
+
+    hops_up = len(start_segments) - common_prefix_length
+    hops_down = len(goal_segments) - common_prefix_length
+
+    return hops_up + hops_down
+```

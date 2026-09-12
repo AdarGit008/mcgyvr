@@ -1,0 +1,28 @@
+```python
+from typing import List, Dict
+
+def field_mean(records: List[Dict], field: str) -> int:
+    """
+    Calculate the mean of a specified numeric field across records, rounding down.
+    
+    Args:
+    records: A list of dictionaries, where each dictionary represents a record.
+    field: The name of the numeric field to calculate the mean for.
+    
+    Returns:
+    The mean of the specified field across all records, rounded down to the nearest integer.
+    If no records contain the field or if the field contains non-numeric values, returns 0.
+    """
+    total_sum = 0
+    count = 0
+    
+    for record in records:
+        if field in record and isinstance(record[field], (int, float)):
+            total_sum += record[field]
+            count += 1
+    
+    if count == 0:
+        return 0
+    
+    return int(total_sum // count)
+```

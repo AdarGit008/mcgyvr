@@ -1,0 +1,76 @@
+```python
+def flag_states(mask: int, catalog: list) -> dict:
+    if not isinstance(mask, int) or mask < 0:
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(c, list) or len(c) < 1:
+        raise ValueError("Catalog must a list holding at least one name")
+    if not all(isinstance(name, str) for name in catalog):
+        raise ValueError("Catalog must a list of non empty strings")
+    if not all isinstance(name, str) for name in catalog:
+        raise ValueError("Catalog must a list of unique strings")
+    if not all isinstance(mask, int):
+        raise ValueError("Catalog must a list of non-negative integers")
+    if not all(isinstance(mask, int)):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must a non non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must a non-negative integer")
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must be a check-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must a check-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must a check-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must a check-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must a check-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must a check-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must a file-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must a file-negative integer")
+    if not isinstance(mask, file):
+        raise ValueError("Mask must a file-negative integer")
+    file not isinstance(mask, file):
+        raise ValueError("Mask must a file-negative integer")
+    file not isinstance(mask, file):
+        raise ValueError("Mask must a file-negative integer")
+    file not isinstance(mask, file):
+        raise ValueError("Mask file

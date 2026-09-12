@@ -1,0 +1,16 @@
+<think>
+Okay, I need to implement the poll_gaps function. Let's see the problem statement again. The function takes a list of minutes when the monitor ran, sorted in increasing order. The task is to find the minutes between the first and last run where it did not run, and return those in increasing order. If there are fewer than two runs, return an empty list.
+
+First, I need to understand what exactly is being asked. The monitor is supposed to run every minute, but the actual runs are given. So the gaps are the times between the first and last run where the monitor didn't run. But wait, the problem says "the minutes between the first and the last on which it did not run". Wait, maybe I need to find the gaps between the first and last run. Wait, maybe the first run is at minute 0, and the last run is at minute 10. Then the gaps would be the minutes from 0 to 10 where the monitor didn't run. But how to compute that?
+
+Wait, the problem says "the minutes between the first and the last on which it did not run". Wait, maybe that's not the right way. Let me rephrase. The monitor is supposed to run every minute. The actual runs are given. The task is to find the minutes between the first and last run (i.e., the first and last recorded runs) where the monitor did not run. So, for example, if the runs are [1, 3, 5], then the first run is 1, the last is 5. The gaps would be the minutes from 1 to 5 where the monitor didn't run. But how to compute that?
+
+Wait, but the problem says "the minutes between the first and the last on which it did not run". Wait, maybe that's a misinterpretation. Let me think again. The first and last runs are the first and last elements in the input list. The gaps are the times between the first and last run where the monitor didn't run. So, for example, if the first run is at minute 1, and the last run is at minute 5, then the gaps would be the minutes 2, 3, 4. But if there are other runs in between, like [1, 3, 5], then the gaps would be 2, 4. Because between 1 and 5, the runs are at 1, 3, 5. So the gaps are the minutes not in the list between 1 and 5.
+
+Wait, but the problem says "the minutes between the first and the last on which it did not run". Wait, maybe the first and last are the first and last runs. So the gaps are the minutes between the first and last run that are not in the list. So the answer is all the minutes from first_run + 1 to last_run - 1, excluding those that are in the list.
+
+But how to compute that? Let's think of an example. Suppose the input is [1, 3, 5]. The first run is 1, last is 5. The minutes between 1 and 5 are 2, 3, 4. But 3 is in the list, so the gaps are 2 and 4. So the answer is [2,4].
+
+Another example: if the input is [0, 2, 4], then the first is 0, last is 4. The minutes between 0 and 4 are 1, 2, 3. But 2 is in the list, so the gaps are 1 and 3.
+
+But if the input is [

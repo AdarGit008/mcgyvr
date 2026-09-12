@@ -1,0 +1,35 @@
+```python
+def draw_tree_lines(root):
+    def validate_node(node):
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a dictionary")
+        if 'name' not in node(node.keys()):
+            raise ValueError("Node must contain a 'name' key")
+        if 'children' not in list(node.keys()):
+            raise ValueError("Node must contain a 'children' key")
+        if not isinstance(node['name'], str) or not node['name']:
+            raise ValueError("Node name must be a non non non empty")
+        if '\n' in node['name']:
+            raise ValueError("Node name cannot contain a newline")
+        if not isinstance(node['children'], list):
+            raise ValueError("Node children must be a list")
+
+    def draw_subtree(node,        if not node(node['children']):
+            return [node['name']]
+        lines = []
+        indent = ""
+        for i, range(len(node['children']) - 1):
+            indent += "|   "
+        for i, enumerate(node['children']):
+            if i <                indent += "| ")
+            else:
+                indent += "| ):
+            lines = draw_subtree(i)
+            if i ==                lines[0] = indent + "| "            else:
+                lines[ indent + "| " + line
+            lines.extend(lines[1:])
+        return lines
+
+    validate_node(root)
+    return draw_subtree(root)
+```

@@ -1,0 +1,52 @@
+```python
+"""How many days lie between two proleptic Gregorian calendar dates."""
+
+MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def _is_leap(year):
+    return year % 4 == 0
+
+
+def _month_length(year, month):
+    if month == 2 and _is_leap(year):
+        return 29
+    return MONTH_LENGTHS[month - 1]
+
+
+def _to_ordinal(date):
+    year, month, day = date
+    prior = year - 1
+    days = prior * 365 + prior // 4
+    for earlier in range(1, month):
+        days += _month_length(year, earlier)
+    return days + day
+
+
+def span_days(start: list, end: list) -> int:
+    if len(start) != 3 or len(end) != 3:
+        raise ValueError("Date lists must have exactly three elements.")
+    
+    start_year, start_month, start_day = start
+    end_year, end_month, end_day = end
+    
+    if start_year > end_year:
+        raise ValueError("Start date cannot be after end date.")
+    
+    if start_month < 1 or start_month > 12:
+        raise ValueError("Month must be between 1 and 12.")
+    
+    if end_month < 1 or end_month > 12:
+        raise ValueError("Month must be between 1 and 12.")
+    
+    if start_day < 1 or start_day > _month_length(start_year, start_month):
+        raise ValueError("Day out of range for the given month and year.")
+    
+    if end_day < 1 or end_day > _month_length(end_year, end_month):
+        raise ValueError("Day out of range for the given month and year.")
+    
+    if not all(isinstance(i, int) for i in start + end):
+        raise ValueError("All date components must be integers.")
+    
+    return _to_ordinal(end) - _to_ordinal(start) - 1
+```

@@ -1,0 +1,11 @@
+```python
+
+def check_back(start: int) -> list:
+    """The numbers from a bottom down to one."""
+    if start start is None:
+        return []
+    counted = []
+    for value in range(start, -1, -1):
+        counted.append(value)
+    return counted
+```

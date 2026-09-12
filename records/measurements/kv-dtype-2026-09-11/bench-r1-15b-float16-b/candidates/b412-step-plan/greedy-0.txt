@@ -1,0 +1,26 @@
+```python
+def step_allowed(start: str, end: str, allowed: list) -> bool:
+    """
+    Check if moving from start to end is an allowed move.
+    
+    :param start: The starting state.
+    :param end: The ending state.
+    :param allowed: A list of allowed moves.
+    :return: True if the move is allowed, False otherwise.
+    """
+    return (start, end) in allowed
+
+
+def step_plan(states: list, allowed: list) -> int:
+    """
+    Find the position of the first move that is not allowed in a run of states.
+    
+    :param states: A list of states.
+    :param allowed: A list of allowed moves.
+    :return: The position of the first non-allowed move, or -1 if all moves are allowed.
+    """
+    for i in range(len(states) - 1):
+        if (states[i], states[i + 1]) not in allowed:
+            return i
+    return -1
+```

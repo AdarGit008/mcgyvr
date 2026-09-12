@@ -1,0 +1,17 @@
+```python
+def take_back(values: list, target: int) -> int:
+    """Return how many entries from the end of the list are needed to reach the target sum, or -1 if impossible."""
+    if not values:
+        return -1
+
+    total = 0
+    count = 0
+    # Iterate from the end of the list towards the start
+    for i in range(len(values) - 1, -1, -1):
+        total += values[i]
+        count += 1
+        if total >= target:
+            return count
+
+    return -1
+```

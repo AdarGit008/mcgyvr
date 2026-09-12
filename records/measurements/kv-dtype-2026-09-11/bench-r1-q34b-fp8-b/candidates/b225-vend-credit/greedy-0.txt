@@ -1,0 +1,28 @@
+<think>
+Okay, I need to implement the vend_credit function. Let's think about the problem. The vending machine accepts coins of 5, 10, 25, and 100 cents. The coins are given in a list, and the price is the cost of an item. The credit starts at zero. Each coin adds to the credit. Whenever the credit is at or above the price, an item is dropped, and the price is subtracted from the credit. The function should return the remaining credit after all coins are processed. Also, if the price is invalid (not a multiple of 5, zero or less, or not a whole number), it should raise an error.
+
+First, I need to validate the price. The price must be a positive integer that's a multiple of 5. So, check if price is an integer, greater than 0, and divisible by 5. If not, raise ValueError.
+
+Then, process each coin in the coins list. For each coin, add its value to the credit. But wait, the coins are 5, 10, 25, 100. So, the function should check if each coin is one of these values. If a coin is invalid (like 20 cents), the acceptor rejects it. So, in the function, if a coin is not in {5,10,25,100}, raise ValueError.
+
+Wait, the problem says "Reject a coin the acceptor does not take". So, if a coin is not one of the allowed denominations, it's rejected. So, during processing, if a coin is invalid, we need to raise an error. But the problem says to reject the coin, so maybe the function should check each coin's validity. So, in the coins list, each coin must be one of the allowed denominations. Otherwise, it's invalid.
+
+So, first step: validate the price. Then, validate each coin in the coins list.
+
+So, the steps are:
+
+1. Check if price is a positive integer and divisible by 5. If not, raise ValueError.
+
+2. For each coin in coins, check if it's 5, 10, 25, or 100. If not, raise ValueError.
+
+Then, process the coins in order. For each coin, add to the credit. Then, while the credit is >= price, subtract price and increment the count of items sold. But the problem says that each time the credit is at or above the price, an item is dropped. So, for example, if the price is 30, and the credit is 100, then 3 items are sold (each time subtracting 30, leaving 10, then 0, then -10? Wait, no. Wait, the problem says that when the credit is at or above the price, one item is dropped. So, for example, if the price is 30, and the credit is 100, then first item is sold, credit becomes 70. Then, since 70 >= 30, another item is sold, credit 40. Then again, 40 >=30, another item sold, credit 10. So total 3 items. So the remaining credit is 10.
+
+So, the process is: after adding each coin, check if the credit is >= price. If so, subtract price, and repeat until the credit is less than price.
+
+So, the algorithm is:
+
+Initialize credit = 0
+
+for each coin in coins:
+
+   if coin is not valid (5,10,25,100

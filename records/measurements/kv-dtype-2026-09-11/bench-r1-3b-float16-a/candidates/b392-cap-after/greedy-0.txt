@@ -1,0 +1,21 @@
+```python
+def cap_after(passage: str) -> str:
+    """
+    Capitalize the first letter of every sentence in the passage.
+    Sentences are defined as ending with a period.
+    """
+    if not passage:
+        return passage
+    
+    # Split the passage into sentences using regex to handle punctuation
+    import re
+    sentences = re.split(r'(?<=[.!?])\s*', passage)
+    
+    # Capitalize the first letter of each sentence
+    capitalized_sentences = [sentence.capitalize() for sentence in sentences]
+    
+    # Join the sentences back together with periods
+    result = '. '.join(capitalized_sentences)
+    
+    return result
+```

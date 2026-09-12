@@ -1,0 +1,23 @@
+```python
+def grid_flip(grid: list) -> list:
+    """
+    Given a grid written as a list of rows, return it turned so that its columns become its rows.
+    The first row of the answer holds the first value of every row in order.
+    A grid with no rows gives an empty grid.
+    """
+    if not grid:
+        return []
+    
+    # Calculate the number of columns in the grid
+    num_columns = len(grid[0])
+    
+    # Create a new grid with the same number of rows as the original
+    flipped_grid = [[0] * num_columns for _ in range(len(grid))]
+    
+    # Fill the flipped grid with the appropriate values
+    for i in range(num_columns):
+        for j in range(len(grid)):
+            flipped_grid[i][j] = grid[j][i]
+    
+    return flipped_grid
+```

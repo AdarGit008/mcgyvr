@@ -1,0 +1,45 @@
+```python
+from typing import Dict, List, Tuple
+
+def drain_lanes(plan: List[Tuple[str, int]], items: List[Tuple[str, str]]) -> Dict[str, Union[List[str], int]]:
+    # Validate the plan
+    if not plan:
+        raise ValueError("Plan cannot be empty.")
+    
+    for lane, quota in plan:
+        if not isinstance(lane, str) or not isinstance(quota, int) or quota <= 0:
+            raise ValueError("Invalid plan entry.")
+        
+        if lane in plan[:-1]:
+            raise ValueError("Lane declared twice.")
+    
+    # Validate the items
+    for label, lane in items:
+        if not isinstance(label, str) or not isinstance(lane, str):
+            raise ValueError("Invalid item entry.")
+    
+    
+        if lane not in plan:
+            raise ValueError("Item refers to a lane not declared in the plan.")
+    
+    queues = {}
+    for lane, _quota in plan:
+        queues[lane] = []
+    
+    for label, lane in items:
+        if lane in queues:
+            queues[lane].append(label)
+    
+    in_order = []
+    rounds = 0
+    while True:
+        rounds += 1
+        for lane, quota in plan:
+            queue = queues[lane]
+            taken = 0
+            while taken < quota and queue:
+                in_order.append(queue.pop(0))
+                taken += 1
+            if taken < quota:
+                return {"order": in_order, "rounds": rounds}
+```

@@ -1,0 +1,66 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    """
+    Calculate the number of hops between two slash-separated paths.
+    
+    Args:
+        start: The starting path string.
+        goal: The goal path string.
+        
+    Returns:
+        The number of hops between the two paths.
+        
+    Raises:
+        ValueError: If a path contains '..' that would climb above the root.
+    """
+    
+    def _reduce_path(path: str) -> list[str]:
+        """
+        Reduce a slash-separated path to a list of meaningful segments.
+        
+        Args:
+            path: The path string to reduce.
+            
+        Returns:
+            A list of segment strings representing the reduced path.
+            
+        Raises:
+            ValueError: If '..' appears without a preceding segment.
+        """
+        if path == "":
+            return []
+        
+        segments = path.split('/')
+        reduced = []
+        
+        for segment in segments:
+            if segment == "" or segment == ".":
+                continue
+            elif segment == "..":
+                if not reduced:
+                    raise ValueError("Path contains '..' that climbs above the root")
+                reduced.pop()
+            else:
+                reduced.append(segment)
+                
+        return reduced
+    
+    start_segments = _reduce_path(start)
+    goal_segments = _reduce_path(goal)
+    
+    # Find the length of the common prefix
+    common_length = 0
+    min_len = min(len(start_segments), len(goal_segments))
+    
+    for i in range(min_len):
+        if start_segments[i] == goal_segments[i]:
+            common_length += 1
+        else:
+            break
+            
+    # Calculate hops: steps up from start to common ancestor + steps down to goal
+    hops_up = len(start_segments) - common_length
+    hops_down = len(goal_segments) - common_length
+    
+    return hops_up + hops_down
+```

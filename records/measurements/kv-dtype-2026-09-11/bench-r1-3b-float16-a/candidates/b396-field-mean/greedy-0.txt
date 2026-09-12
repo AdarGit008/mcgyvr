@@ -1,0 +1,26 @@
+```python
+def field_mean(records: list, field: str) -> int:
+    """
+    Calculate the mean of a numeric field across records, rounding down.
+    Records without the field are ignored.
+    
+    :param records: List of dictionaries, each containing a numeric field.
+    :param field: The name of the numeric field to calculate the mean for.
+    :return: The mean of the specified field, rounded down to the nearest integer.
+    """
+    if not records:
+        return 0
+    
+    total_sum = 0
+    count = 0
+    
+    for record in records:
+        if field in record and isinstance(record[field], (int, float)):
+            total_sum += record[field]
+            count += 1
+    
+    if count == 0:
+        return 0
+    
+    return int(total_sum // count)
+```

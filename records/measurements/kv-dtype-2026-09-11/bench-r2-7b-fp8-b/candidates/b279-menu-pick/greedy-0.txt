@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+from collections import namedtuple
+
+Dish =namedtuple('Dish', ['name', 'price'])
+
+def menu_pick(dishes:    if not dishes:
+        return []
+    
+    filtered_dishes = [dish for for dish in dishes if dish.price <= budget]
+    if not filtered_dishes:
+        return []
+    
+    sorted_dishes = sorted(filtered_dishes, key=lambda x: (x.price, x.name))
+             return [dish.name for dish in sorted_dishes]
+```

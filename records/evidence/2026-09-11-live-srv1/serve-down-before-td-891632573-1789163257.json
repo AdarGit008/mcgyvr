@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-11-live-srv1-serve-down-td-891626847-1789162684",
+  "host": "srv1",
+  "mode": "down",
+  "compose_file": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/kv-dtype-2026-09-11/compose.srv1-r4-f16.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 5745
+  }
+}

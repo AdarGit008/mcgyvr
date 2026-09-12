@@ -1,0 +1,26 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    """
+    Apply each stock movement to the opening quantity, ensuring it never falls below zero.
+    
+    :param opening: Initial stock quantity.
+    :param moves: List of movements, where positive values represent additions and negative values represent removals.
+    :return: Closing stock quantity after all movements.
+    """
+    if not isinstance(moves, list):
+        raise ValueError("Moves must be a list.")
+    
+    for move in moves:
+        if move < 0:
+            # Calculate how much can be removed without going below zero
+            removal = min(-move, opening)
+            opening -= removal
+        else:
+            opening += move
+    
+    # Ensure the stock does not fall below zero
+    if opening < 0:
+        opening = 0
+    
+    return opening
+```

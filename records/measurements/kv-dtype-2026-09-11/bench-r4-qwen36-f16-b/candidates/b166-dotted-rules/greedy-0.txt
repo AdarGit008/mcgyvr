@@ -1,0 +1,82 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """Match a dotted option name against style rules to find the best setting value.
+    
+    Args:
+        rules: A dictionary mapping selector strings to string values.
+        name: A dotted option name (e.g., 'editor.font.size').
+        
+    Returns:
+        The matched value, or None if no selector covers the name.
+        
+    Raises:
+        ValueError: If name is invalid or rules contain invalid entries.
+    """
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    if not isinstance(rules, dict):
+        raise ValueError("rules must be a dictionary")
+        
+    # Validate rules and separate into categories
+    exact_matches = {}
+    wildcard_prefixes = {}
+    has_star = False
+    
+    for selector, value in rules.items():
+        if not isinstance(value, str):
+            raise ValueError("rule value must be a string")
+        if not isinstance(selector, str):
+            raise ValueError("rule selector must be a string")
+            
+        if selector == "*":
+            has_star = True
+        elif selector.endswith(".*"):
+            prefix = selector[:-2]
+            # Check for misplaced stars
+            if "*" in prefix:
+                raise ValueError(f"selector '{selector}' has misplaced star")
+            # The prefix must be a valid dotted prefix or empty
+            # e.g., "editor.*" -> prefix "editor", covers "editor.font"
+            # We need to ensure the prefix is a valid prefix of the name
+            # or that the name starts with the prefix followed by a dot
+            if prefix:
+                # Check if prefix is a valid dotted identifier part
+                # The problem statement implies standard dotted names
+                # We just store it for later matching
+                wildcard_prefixes[selector] = value
+            else:
+                # ". *" is not a valid selector based on description "dotted prefix followed by .*"
+                # But if prefix is empty, it means selector is ".*" which is weird.
+                # Let's assume standard behavior: "editor.*" means prefix "editor"
+                pass
+        elif "." in selector:
+            # Contains dots but not ending in .* -> check for stars
+            if "*" in selector:
+                raise ValueError(f"selector '{selector}' has misplaced star")
+            exact_matches[selector] = value
+        else:
+            # No dots, no star -> exact match
+            exact_matches[selector] = value
+
+    # 1. Exact match
+    if name in exact_matches:
+        return exact_matches[name]
+        
+    # 2. Longest covering prefix wildcard
+    best_wildcard_value = None
+    best_wildcard_len = -1
+    
+    for selector, value in wildcard_prefixes.items():
+        prefix = selector[:-2]
+        # Check if name starts with prefix + "."
+        if prefix and name.startswith(prefix + "."):
+            if len(prefix) > best_wildcard_len:
+                best_wildcard_len = len(prefix)
+                best_wildcard_value = value
+        elif not prefix:
+            # This case shouldn't happen with valid "dotted prefix" logic
+            # If selector was ".*", prefix is empty. Does it cover anything?
+            # The problem says "dotted prefix followed by .*". 
+            # If prefix is empty, it's just ".*". 
+            # Usually ".*" is not a valid dotted

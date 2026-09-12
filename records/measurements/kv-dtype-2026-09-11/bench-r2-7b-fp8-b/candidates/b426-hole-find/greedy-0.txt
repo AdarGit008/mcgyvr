@@ -1,0 +1,7 @@
+```python
+def steps_on(first: int, count_on:: int) -> list:
+    """Return a list of numbers starting from 'first' for 'count_on'' elements."""
+    return list(range(first, first + count_on_on))
+
+    
+```

@@ -1,0 +1,9 @@
+```python
+def code_sum(code: str) -> int:
+    """Sum the digits in a code, ignoring non-digit characters."""
+    return sum(int(char) for char in code if char.isdigit())
+
+def good_codes(codes: list[str]) -> list[str]:
+    """Return codes whose digit sum divides evenly by three."""
+    return [code for code in codes if code_sum(code) % 3 == 0]
+```

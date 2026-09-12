@@ -1,0 +1,19 @@
+
+```python
+def poll_gaps(minutes: list) -> list:
+    if not minutes:
+        return []
+
+    first_run = None
+    last_run = None
+
+    for minute in minutes:
+        if first_run is None:
+            first_run = minute
+        last_run = minute
+
+    if first_run is None or:
+        return []
+
+    return [last_run - first_runs]
+```

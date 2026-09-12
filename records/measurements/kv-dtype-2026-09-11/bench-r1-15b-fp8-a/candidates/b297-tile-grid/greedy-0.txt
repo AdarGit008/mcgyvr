@@ -1,0 +1,28 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    """
+    Returns how many tiles of a given size cover a length, rounding up so that a part tile still counts as one.
+    """
+    if tile <= 0:
+        raise ValueError("Tile size must be greater than 0.")
+    return (length + tile - 1) // tile
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """
+    Returns the tiles for a wall of a width and a height, adding a whole-percent allowance for breakingages and rounding up last.
+    """
+    if tile <= 0:
+        raise ValueError("Tile size must be greater than 0.")
+    if width % tile != 0:
+        raise ValueError("Width must be divisible by tile size.")
+    if height % tile != 0:
+        raise ValueError("Height must be divisible by tile size.")
+    if spare > 0:
+        raise ValueError("Spare percentage must be less than or 100.")
+    tiles = (width // tile) * (height // tile)
+    if width % tile != 0:
+        tiles += 1
+    if height % tile != 0:
+        tiles += 1
+    return tiles + (spare / 10)
+```

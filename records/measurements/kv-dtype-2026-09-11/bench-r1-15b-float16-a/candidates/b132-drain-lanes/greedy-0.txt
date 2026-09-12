@@ -1,0 +1,59 @@
+```python
+"""Drain labelled items across planned lanes, round by round."""
+
+
+def drain_lanes(plan: list, items: list) -> dict:
+    if not plan:
+        raise ValueError("Plan cannot be empty")
+    if not all(isinstance(item, tuple) and len(item) == 2 for item in items):
+        raise ValueError("Items must be pairs of a non-empty string lane and a positive integer quota")
+    if not all(isinstance(lane, str) for lane in plan):
+        raise ValueError("All lanes in the plan must be strings")
+    if not all(isinstance(label, str) for label in items):
+        raise ValueError("All labels in the items must be strings")
+    if not all(isinstance(quota, int) and quota > 0 for quota in plan):
+        raise ValueError("All quotas in the plan must be positive integers")
+    if not all(lane not in plan for label in items):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the plan")
+    if not all(lane not in items for label in plan):
+        raise ValueError("All items must be declared in the

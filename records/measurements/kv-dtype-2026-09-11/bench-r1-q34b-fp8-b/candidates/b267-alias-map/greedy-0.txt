@@ -1,0 +1,45 @@
+<think>
+Okay, I need to implement the alias_resolve and alias_names functions based on the given interface. Let me start by understanding the problem.
+
+First, the alias_resolve function. The task says it should turn a name into whatever it stands for, following one hop and no further. So, if the name is in the aliases dictionary, it should return the value associated with it. But if the name isn't in the aliases or if the value is None, it should return the name itself. Wait, the description says "hands back the name itself when it stands for nothing." So, if the alias for the name is None, then return the name. But what if the name is not present in the aliases? Then, the alias is nothing, so return the name.
+
+So, the function takes a dictionary of aliases and a name. Look up the name in the aliases. If it's present, return the value. But if the value is None, return the name. Wait, but maybe the aliases are structured such that each key maps to another name. So, for example, if aliases['a'] = 'b', then alias_resolve(aliases, 'a') would return 'b'. If aliases['b'] is None, then alias_resolve(aliases, 'b') would return 'b'?
+
+Wait, the problem says "following one hop and no further". So, it's a single step. So, if the name is in the aliases, we take its value. But if the value is None, then return the name. But if the name is not in the aliases, then return the name as well.
+
+So the function is:
+
+def alias_resolve(aliases: dict, name: str) -> str:
+    if name in aliases:
+        alias = aliases[name]
+        if alias is not None:
+            return alias
+        else:
+            return name
+    else:
+        return name
+
+Wait, but what if the alias is another name that's not in the aliases? For example, if aliases['a'] = 'b', and 'b' is not in the aliases. Then, alias_resolve would return 'b', since it's the value. But according to the problem statement, it's only one hop. So, even if the value is a name not in the aliases, it's still considered the result of the alias. So the function just returns the value, unless the value is None, in which case it returns the original name.
+
+So the code for alias_resolve would be:
+
+Check if the name is in the aliases. If yes, get the value. If the value is not None, return it. Otherwise, return the name. If the name is not in the aliases, return the name.
+
+Now, for alias_names, the function needs to list every name that stands for something, in alphabetical order. So, the names are those that are in the aliases and their value is not None. So, we need to collect all keys in the aliases where the value is not None, then sort them alphabetically.
+
+So, the steps are:
+
+- Iterate over all keys in the aliases dictionary.
+- For each key, check if the value is not None.
+- Collect those keys into a list.
+- Sort the list alphabetically.
+- Return the sorted list.
+
+So, the code for alias_names would be:
+
+def alias_names(aliases: dict) -> list:
+    return sorted([name for name in aliases if aliases[name] is not None])
+
+Wait, but what if the aliases dictionary has keys with None values? Those keys should not be included in the result. So, the list comprehension includes only those names where the alias is not None.
+
+But wait, the problem says "every name that stands for something". So, a name stands for

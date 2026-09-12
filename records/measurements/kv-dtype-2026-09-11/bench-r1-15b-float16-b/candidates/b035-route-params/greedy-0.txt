@@ -1,0 +1,56 @@
+```python
+from typing import List, Dict, Optional
+
+def split_segments(path: str) -> List[str]:
+    if not path or path[0] != '/':
+        raise ValueError("Invalid path")
+    segments = path.split('/')
+    if segments[-1] == '':
+        segments.pop()
+    return segments
+
+def first_route(patterns: List[str], path: str) -> int:
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path) is not None:
+            return i
+    return -1
+
+def match_route(pattern: str, path: str) -> Dict[str, str] | None:
+    if not path or path[0] != '/':
+        raise ValueError("Invalid path")
+    if not pattern or pattern[0] != '/':
+        raise ValueError("Invalid pattern")
+    if path == pattern:
+        return {}
+    segments = split_segments(path)
+    pattern_segments = split_segments(pattern)
+    if len(segments) != len(pattern_segments):
+        raise ValueError("Path and pattern must have the same number of segments")
+    capture_names = set()
+    for i, segment in enumerate(pattern_segments):
+        if segment == '**':
+            if '**' in pattern_segments:
+                raise ValueError("Pattern cannot hold '**' more than once")
+            if i == 0 or i == len(pattern_segments) - 1:
+                raise ValueError("Pattern cannot start or end with '**'")
+            continue
+        if segment == '*':
+            if i == 0 or i == len(pattern_segments) - 1:
+                raise ValueError("Pattern cannot start or end with '*'")
+            continue
+        if segment.startswith(':'):
+            capture_name = segment[1:]
+            if not capture_name.isalnum():
+                raise ValueError("Capture name must be a letter or underscore followed by letters, digits or underscores")
+            if capture_name in capture_names:
+                raise ValueError("Capture name repeated within the pattern")
+            capture_names.add(capture_name)
+            continue
+        if segment != segments[i]:
+            raise ValueError("Pattern segment does not match the path segment")
+    if '**' in pattern_segments:
+        raise ValueError("Pattern cannot hold '**' more than once")
+    if i == 0 or i == len(pattern_segments) - 1:
+        raise ValueError("Pattern cannot start or end with '**'")
+    return {capture_name: segment for capture_name, segment in zip(capture_names, segments)}
+```

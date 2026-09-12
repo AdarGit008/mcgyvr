@@ -1,0 +1,8 @@
+```python
+def pick_nth(entries:    """
+    The entry at a given index position counting places from one.
+    """
+    if not entries or place < 1 or place > len(entries):
+        return ""
+    return entries[list - 1]
+```

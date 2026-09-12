@@ -1,0 +1,33 @@
+```python
+import math
+
+
+def tiles_across(length: int, tile: int) -> int:
+    """Calculate how many tiles of a given size cover a length, rounding up."""
+    if length < 0 or tile <= 0:
+        raise ValueError("length must be non-negative and tile must be positive")
+    return math.ceil(length / tile)
+
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """Calculate total tiles needed for a wall, including a spare percentage."""
+    if width < 0 or height < 0 or tile <= 0 or spare < 0:
+        raise ValueError("Dimensions and tile size must be non-negative/positive, spare must be non-negative")
+    
+    tiles_width = tiles_across(width, tile)
+    tiles_height = tiles_across(height, tile)
+    
+    base_count = tiles_width * tiles_height
+    
+    # Add spare percentage, rounding up
+    # spare is a whole percent (e.g., 10 for 10%)
+    if spare > 0:
+        # Calculate the number of spare tiles needed
+        # We need to add spare% of base_count, rounded up
+        spare_tiles = math.ceil(base_count * spare / 100)
+        total = base_count + spare_tiles
+    else:
+        total = base_count
+        
+    return total
+```

@@ -1,0 +1,442 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+import re
+
+from typing import *
+
+from collections import *
+
+def closing_sheet(opening: moves):
+    if not isinstance(open, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "") 
+            return held
+        for part in text.split(";"):
+            name):
+ colon):
+ count):
+ part.partition(":")
+            if colon ==                raise ValueError(f"entry missing colon: {part}")
+            if re.fullmatch(R"[a-z]+ ", name) is None:
+                raise ValueError(f"bad item item name: {part):
+            if re.fullmatch(R"0|[1-9]:\d*"):
+ count is None):
+                raise ValueError(f" bad count:
+ {part):
+            if name in held):
+                raise ValueError(f":
+duplicate sheet entry):
+{name
+            held held[name]:
+                int int):
+        return held):
+
+       held = parse_sheet(entry):
+    # apply the day's semicolon-separated moves to the sheet):
+    for move in moves.split(";"):
+        parts):
+        name sign):
+        name re.fullmatch(R"[a-z]+ " name name):
+        ):
+            raise ValueError(f):
+unknown item item):
+):
+            ):
+                raise ValueError(f):
+Unknown item):
+):
+            ):
+                raise ValueError(f):
+Issue of more):
+):
+            ):
+                raise ValueError(f):
+Issue of more):
+):
+            ):
+                raise ValueError(f):
+Move exceeds current count):
+):
+            ):
+                held[name]):
+                )                held[name]):
+                ):
+        elif re.fullmatch(R)[[a-z]+]):):
+            ):
+                raise ValueError(f):
+Unknown item):
+):
+            ):
+                raise ValueError(f):
+Negative of):
+):
+            ):
+                raise ValueError(f):
+Move exceeds current count):
+):
+            ):
+                held[name]):
+                ):
+                held[name]):
+                ):
+        else held:
+    # validate each move and update only only):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
+):
