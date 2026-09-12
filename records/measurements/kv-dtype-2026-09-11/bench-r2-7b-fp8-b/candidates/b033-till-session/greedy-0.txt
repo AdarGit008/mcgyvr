@@ -1,0 +1,193 @@
+```python
+OPEN = "open"
+PAYMENT = "payment"):
+PAID = "paid":
+CANCELLED = "cancelled"):
+def run_till_session(events):
+    prices):
+    if not all(isinstance(price, int) and price > 0 for name, price in prices.items()):
+        raise ValueError("price must be a positive integer")
+    cart =    total = 0
+    paid = 0):
+    change):
+    state_state = OPEN):
+    for event in events:
+        if state_state == OPEN):
+            if event[0] ""scan"):
+                item = event[1]:
+                if item in prices:
+                    cart[item] = cart.get(item, 0) + 1):
+                else:
+                    raise ValueError(f"unknown item {item}")
+            elif event[0):
+                "void"):
+                item):
+                if item in cart:
+                    cart[item]: max(0, cart[item]):
+                else:
+                    raise ValueError(f"unknown item {item):
+            elif event[0):
+                "close":
+                if cart:
+                    total):
+                    paid_amount:
+                    if paid >= total:
+                        change):
+                        paid):
+                        state_state):
+                    else):
+                        raise ValueError(f"amount too be not a positive integer):
+                elif not cart:
+                    raise ValueError(f):
+empty cart with cannot pay):
+                else):
+                    raise ValueError(f):
+event after the session is paid or cancelled):
+                elif event[0):
+                "cancel"):
+                if cart):
+                    paid):
+                    change):
+                    state_state):
+                    ):):
+                    raise ValueError(f):
+unknown event {item):
+                ):
+                )
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):
+                ):

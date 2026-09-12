@@ -1,0 +1,48 @@
+<think>
+Okay, I need to implement the scan_pairs function based on the given problem description. Let me start by understanding the requirements.
+
+First, the function scan_pairs takes a string and processes it into pairs. The helper function parse_option is already written, so I need to focus on the scan_pairs logic.
+
+The main steps for scan_pairs are:
+
+1. Validate the input: check if text is a string, not empty, and handle errors like repeated keys, unterminated quotes, etc.
+2. Split the text into segments separated by semicolons, but ignore semicolons inside quotes.
+3. For each segment, parse it using parse_option, which checks the key and value.
+4. Collect all the pairs in order, ensuring no repeated keys.
+
+Let me think about how to split the text on semicolons while respecting quotes. This is a classic problem of splitting on a delimiter that's not inside quotes. I can use a state machine approach where I track whether I'm inside quotes.
+
+So, I'll need to iterate through each character in the text, building up the segments. When I encounter a semicolon that's not inside quotes, I split there. Also, I need to check for unterminated quotes.
+
+For the validation part:
+
+- The input text must not be empty.
+- The text must not be None (since the function expects a string).
+- Any repeated keys in the resulting pairs should raise an error.
+- If there's an unterminated quote (like a quote at the end without a closing one), that's an error.
+
+Now, how to split the text into segments. Let's think of a way to split on semicolons that are not inside quotes. One approach is to process the text character by character, keeping track of whether we are inside quotes. When a semicolon is encountered and not inside quotes, we split there.
+
+Once the segments are split, each segment is passed to parse_option. But parse_option itself checks if the key is a valid identifier (starts with a letter, followed by letters, digits, or underscores). Also, if the key is not valid, it raises an error.
+
+So, during the splitting process, I need to collect all the segments, then process each with parse_option, and check for repeated keys.
+
+Let me outline the steps for scan_pairs:
+
+1. Check if text is a string and not empty. If not, raise ValueError.
+2. Split the text into segments, handling quotes correctly.
+3. For each segment, parse it into key and value using parse_option. If any parsing error, raise ValueError.
+4. Check for repeated keys. If a key is already present, raise ValueError.
+5. Return the list of [key, value] pairs.
+
+Now, the splitting part. How to split the text into segments. Let's think of a function that can split the text on semicolons, but not inside quotes.
+
+An approach is to iterate through the text, building each segment. When a semicolon is found and not inside quotes, split there. Also, track if we are inside quotes.
+
+Let me think of code for this. For example:
+
+Initialize a list to hold the segments. Start with an empty string. Then, iterate through each character in the text:
+
+- If we are not inside quotes and the current character is a semicolon, split here. Add the current buffer to the segments, reset the buffer, and set a flag that we are inside quotes (but wait, no, the semicolon is the split point, so after splitting, the next part is the next segment. Wait, no. The split is on the semicolon, but the semicolon is part of the current segment until it's split.
+
+Wait, the segments are the parts between the semicolons, but the

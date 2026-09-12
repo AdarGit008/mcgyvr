@@ -1,0 +1,15 @@
+```python
+
+ import sys
+
+def batch_ends(count: int, size: int) -> list:
+    """The position of the last entry of each full batch."""
+    if_ends = []
+    if count == 0 or_ends.append(0)
+    elif size == 0: return []
+    else:
+        for start in range(0, count, size):
+            ends.append(start + size - 1)
+        if count % size == 0: possible_ends.append(count - 1)
+    return possible_ends
+```

@@ -1,0 +1,20 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    if not isinstance(exposes, dict):
+        raise ValueError("fill_template expects a dictionary of placeholders to values")
+    if template[0] '{' != '{':
+        raise ValueError("fill_template expects a string with an opening brace")
+    if template[-1] '}':
+        raise ValueError("fill_template expecting a string with a closing brace")
+    placeholders = [placeholder for placeholder in template if placeholder.isalpha() or placeholder.isdigit() or.get( placeholder, placeholder)
+    if len(placeholders) != len(set placeholders):
+        raise ValueError("fill_template expecting a string with placeholders that are either in the mapping")
+    for placeholder, placeholders:
+        if placeholder in exposes:
+            template = template.replace(placeholder, exposes[placeholder])
+        else:
+            raise ValueError("fill_template expecting a string with placeholders that are in the mapping")
+    return template
+```

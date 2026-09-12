@@ -1,0 +1,8 @@
+```python
+def short_name(unit:             return: str) -> str):
+    """An amount written with its string."""
+    if amount < 0:
+        raise ValueError("amount cannot be negative")
+    return str(amount) + " " + ("unit" if amount == 1 else "        return "units"
+    return str(amount) + " units"
+```

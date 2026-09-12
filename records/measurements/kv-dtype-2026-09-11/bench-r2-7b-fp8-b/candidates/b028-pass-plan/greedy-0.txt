@@ -1,0 +1,208 @@
+```python
+from typing import List, Dict
+
+
+import math
+
+def _validate_plan(trip_days:       for day in trip_days:
+        if not isinstance(day, int) or day < 1:
+            raise ValueError("trip day must be a positive integer")
+    for earlier_day, later_day in zip(trip_days,        if later_day <= earlier_day:
+            raise ValueError("trip days must be strictly increasing")
+
+def cheapest_pass_plan(trip_days: List[int], passes:    _validate_plan(trip_days)
+    n = len(trip_days)
+    dp = [[math.inf] * n for _ in range(n)]
+    for i in range(n):
+        dp[i][ range(i + 1):
+            span = trip_days[ii + 1] - trip_days[j]
+            cost = 0
+            for k in range(j,                if trip_days[k] >= trip_days[j]                    cost +=                        break
+            dp[i][ j]:
+                dp[i][                    dp[i):
+                dp[i:
+                    dp[i):
+                dp in:
+                    dp:
+                dp:
+                dp:
+                dp:
+                dp:
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp):
+                dp

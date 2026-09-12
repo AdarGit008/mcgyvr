@@ -1,0 +1,24 @@
+```python
+from typing import Dict
+
+def plan_batches(units: int, capacity: int)          if not isinstance(units, int) or units <= 0:
+        raise ValueError("Units count must be a positive integer.")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+
+    def _plan(units: int, capacity: int, depth: int =        if units <= capacity:
+            return [units], 0,        else:
+            mid = (units + capacity - 1) // capacity
+            left,                right),                    left(left + right), depth + 1)
+
+    
+    loads, splits,        rounds):
+        return {
+            "loads":            "            "splits"):
+            "rounds"):
+        }
+
+    
+    return _plan(units,        capacity):
+        0)
+```

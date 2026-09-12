@@ -1,0 +1,49 @@
+```python
+"""An installation order for packages under prerequisite pairs."""
+
+
+def install_order(packages: list, requires: list) -> list:
+    """Return a valid installation order respecting prerequisites and alphabetical tie-breaking."""
+    # Validate duplicate package names
+    seen = set()
+    for pkg in packages:
+        if pkg in seen:
+            raise ValueError(f"Duplicate package name: {pkg}")
+        seen.add(pkg)
+
+    # Validate requirement pairs reference existing packages
+    package_set = set(packages)
+    for pkg, needed in requires:
+        if pkg not in package_set:
+            raise ValueError(f"Package in requirement not found: {pkg}")
+        if needed not in package_set:
+            raise ValueError(f"Required package not found: {needed}")
+
+    # Build graph
+    needs = {name: 0 for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, needed in requires:
+        needs[pkg] += 1
+        enables[needed].append(pkg)
+
+    # Initialize ready queue with packages that have no prerequisites
+    ready = sorted([name for name in packages if needs[name] == 0])
+    order = []
+
+    while ready:
+        # Pick the alphabetically first available package
+        next_name = ready.pop(0)
+        order.append(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                # Insert into ready list maintaining sorted order
+                import bisect
+                bisect.insort(ready, follower)
+
+    # Check for cycles: if not all packages are in the order, there's a cycle
+    if len(order) != len(packages):
+        raise ValueError("Cycle detected in requirements")
+
+    return order
+```

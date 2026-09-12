@@ -1,0 +1,19 @@
+```python
+def stall_turns(counts: list, limit: int) -> int:
+    """
+    Calculate the total number of turns needed to serve all customers given the item counts and the per-turn limit.
+    
+    :param counts: List of integers representing the number of items each customer wants.
+    :param limit: Integer representing the maximum number of items that can be served in one turn.
+    :return: Total number of turns needed to serve all customers.
+    """
+    if limit <= 0:
+        raise ValueError("Per-turn limit must be greater than zero.")
+    
+    total_turns = 0
+    for count in counts:
+        if count > 0:
+            total_turns += -(-count // limit)  # Ceiling division to calculate full turns and partial turns
+    
+    return total_turns
+```

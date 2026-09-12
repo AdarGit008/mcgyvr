@@ -1,0 +1,32 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    if unit not in defs:
+        raise ValueError(f"unit '{unit}' is not defined in defs")
+    
+    if base not in defs:
+        raise ValueError(f"base '{base}' is not defined in defs")
+    
+    def get_factor(unit):
+        if unit == base:
+            return 1
+        elif unit in defs:
+            return defs[unit][0]
+        else:
+            raise ValueError(f"unit '{unit}' is not defined in defs")
+    
+    def convert(amount, unit):
+        if unit == base:
+            return amount
+        else:
+            factor = get_factor(unit)
+            finer_unit = defs[unit][1]
+            return convert(amount // factor, finer_unit) * factor
+    
+    try:
+        return convert(amount, unit)
+    except ValueError as e:
+        raise ValueError(f"Error converting amount: {e}")
+```

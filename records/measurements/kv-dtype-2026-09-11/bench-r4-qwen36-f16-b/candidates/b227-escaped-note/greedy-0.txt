@@ -1,0 +1,66 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    """Decode a mail-safe escaped note by folding lines and decoding hex escapes."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+
+    # Split into lines, handling various line endings
+    # We need to process line by line to handle the folding rules
+    # Split by \n, but handle \r\n properly
+    lines = text.split('\n')
+    
+    # Process the lines to fold them according to the rules:
+    # 1. Drop every space and tab that runs to the end of a line
+    # 2. If the text kept so far ends in '=', that '=' and the following line break disappear
+    #    and the next line continues the current one directly
+    # 3. Every other line break survives as a single line feed
+    
+    folded_lines = []
+    for line in lines:
+        # Strip trailing spaces and tabs from the current line
+        stripped_line = line.rstrip(' \t')
+        
+        if not folded_lines:
+            # First line: just add it
+            folded_lines.append(stripped_line)
+        else:
+            # Check if the previous folded line ends with '='
+            if folded_lines and folded_lines[-1].endswith('='):
+                # Remove the trailing '=' and concatenate directly
+                folded_lines[-1] = folded_lines[-1][:-1] + stripped_line
+            else:
+                # Add a newline and the current line
+                folded_lines[-1] = folded_lines[-1] + '\n' + stripped_line
+    
+    # Join the folded lines back into a single string
+    folded_text = ''.join(folded_lines)
+    
+    # Now decode escapes in the folded text
+    # An '=' followed by exactly two uppercase hexadecimal digits stands for the character
+    # whose code those digits spell
+    # Every other character is copied unchanged
+    # Reject an '=' in the folded text that is not followed by two uppercase hexadecimal digits
+    
+    result = []
+    i = 0
+    while i < len(folded_text):
+        if folded_text[i] == '=':
+            # Check if there are at least 2 more characters
+            if i + 2 >= len(folded_text):
+                raise ValueError("Invalid escape: '=' not followed by two hex digits")
+            
+            hex_chars = folded_text[i+1:i+3]
+            # Check if they are uppercase hexadecimal digits
+            if len(hex_chars) == 2 and all(c in '0123456789ABCDEF' for c in hex_chars):
+                # Convert hex to character
+                char_code = int(hex_chars, 16)
+                result.append(chr(char_code))
+                i += 3
+            else:
+                raise ValueError(f"Invalid escape: '=' not followed by two uppercase hex digits, found '{hex_chars}'")
+        else:
+            result.append(folded_text[i])
+            i += 1
+    
+    return ''.join(result)
+```

@@ -1,0 +1,19 @@
+```python
+def hold_queue(callers: list, limit: int) -> list:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero.")
+    
+    if not callers:
+        return []
+    
+    # Use a deque to efficiently manage the queue
+    from collections import deque
+    
+    queue = deque(callers)
+    
+    # If the queue exceeds the limit, remove the oldest caller
+    while len(queue) > limit:
+        queue.popleft()
+    
+    return list(queue)
+```

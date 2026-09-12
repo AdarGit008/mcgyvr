@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def menu_pick(dishes: List[tuple], budget: int) -> List[str]:
+    """Return the names of dishes costing no more than the budget, cheapest first."""
+    if budget < 0:
+        raise ValueError("Budget cannot be negative")
+    
+    filtered_dishes = [dish for dish in dishes if dish[1] <= budget]
+    sorted_dishes = sorted(filtered_dishes, key=lambda x: (x[1], x[0]))
+    return [dish[0] for dish in sorted_dishes]
+```

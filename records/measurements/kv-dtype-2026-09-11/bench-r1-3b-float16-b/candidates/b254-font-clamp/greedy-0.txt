@@ -1,0 +1,21 @@
+```python
+def font_clamp(size: int, smallest: int, largest: int) -> int:
+    """
+    Clamp a font size within a specified range.
+    
+    Parameters:
+    - size: The font size to clamp.
+    - smallest: The smallest allowed font size.
+    - largest: The largest allowed font size.
+    
+    Returns:
+    - The clamped font size.
+    
+    Raises:
+    - ValueError if the smallest size is greater than the largest size.
+    """
+    if smallest > largest:
+        raise ValueError("Smallest size cannot be greater than largest size.")
+    
+    return max(smallest, min(size, largest))
+```

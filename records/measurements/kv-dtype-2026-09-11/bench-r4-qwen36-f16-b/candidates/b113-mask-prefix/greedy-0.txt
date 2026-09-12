@@ -1,0 +1,59 @@
+```python
+def mask_from_prefix(prefix):
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    return ".".join(octets)
+
+
+def prefix_from_mask(mask):
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    parts = mask.split(".")
+    if len(parts) != 4:
+        raise ValueError("mask must have exactly four dot-separated fields")
+    
+    octets = []
+    for part in parts:
+        if not part:
+            raise ValueError("field must be decimal digits")
+        if not part.isdigit():
+            raise ValueError("field must be decimal digits")
+        if len(part) > 1 and part[0] == '0':
+            raise ValueError("leading zero not allowed except for '0'")
+        val = int(part)
+        if val > 255:
+            raise ValueError("octet above 255")
+        octets.append(val)
+    
+    # Construct the 32-bit integer
+    bits = 0
+    for o in octets:
+        bits = (bits << 8) | o
+    
+    # Count leading ones
+    if bits == 0:
+        return 0
+    
+    # Count leading ones by shifting left until we hit a 1, or counting from MSB
+    # Since it's a mask, it should be a contiguous block of 1s from the top.
+    # We can check if it's a valid mask by verifying that the bits are 11...100...0
+    # A valid mask M satisfies: M & (~M << 1) == 0 is not quite right.
+    # Valid mask: M + 1 is a power of 2 (if M != 0xFFFFFFFF) or M == 0xFFFFFFFF.
+    # Actually, simpler: iterate bit by bit from MSB.
+    
+    count = 0
+    for i in range(31, -1, -1):
+        if (bits >> i) & 1:
+            count += 1
+        else:
+            # If we encounter a 0, all subsequent bits must be 0
+            if bits & ((1 << i) - 1):
+                raise ValueError("mask has broken one bits")
+            break
+            
+    return count
+```

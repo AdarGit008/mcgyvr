@@ -1,0 +1,20 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    # Fold the line:       folded_text =           if line.strip() == == "":
+            folded_text +=                folded_text += line.lstrip()
+        else:
+            folded_text += ' '
+    
+    # Un the lines in list form and handle line breaks):
+       decoded_text = []
+    for line in folded_text.split('\n'):
+        if line.endswith('='):
+            decoded_text[-1] +=                decoded_text[-1] += line[:-1]
+        else:
+            decoded_text.append(line)
+    
+    # Decode escapes in the folded text):
+       decoded_text =        decoded_text[i            decoded_text.replace(f'= {char}', chr(int(char,(2), 16))
+    
+    return ''.join(decoded_text)
+```

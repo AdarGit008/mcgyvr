@@ -1,0 +1,80 @@
+```python
+from typing import List
+
+def unpack_frame(data: List[int]) -> List[int]:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    if not all(0 <= byte <= 255 for byte in data):
+        raise ValueError("All bytes must be in the range 0-255")
+    
+    if len(data) == 0:
+        return []
+    
+    if data[0] == 0:
+        return []
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if len(data) > 5:
+        raise ValueError("Varint longer than five bytes")
+    
+    if data[-1] == 0:
+        raise ValueError("Trailer is a wasted zero")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    
+    if data[-1] != sum(data[:-1]) % 

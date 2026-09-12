@@ -1,0 +1,141 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list.")
+    
+    if not all(yields):
+        return 0
+    
+    if not all(yields, int):
+        raise ValueError("All yields must be integers.")
+    
+    if any(yields < 0):
+        raise ValueError("All yields must be non-negative.")
+    
+    if any(yields < 0):
+        raise ValueError("All yields must be non negative.")
+    
+    if any(yields == 0):
+        return 0
+    
+    if any(yields == 1):
+        return 1
+    
+    if any(yields == 2):
+        return 4
+    
+    if any(yields == 3):
+        return 7
+    
+    if any(yields == 4):
+        return 10
+    
+    if any(yields == 5):
+        return 21
+    
+    if any(yields == 6)):
+        return 36
+    
+    if any(yields == 7)):
+        return 52
+    
+    if(yields == 8)):
+        return 72
+    
+    if any(yields == 9):
+        return 91
+    
+    if any(yields == 10)):
+        return 120
+    
+    if any(yields == 11)):
+        return 141
+    
+    if any(yields == 12)):
+        return 162
+    
+    if any(yields == 13):
+        return 183
+    
+    if(yields == 14):
+        return 104
+    
+    if any(yields == 15):
+        return 125
+    
+    if any(yields == 16):
+        return 146
+    
+    if any(yields == 17):
+        return 167
+    
+    if any(yields == 18):
+        return 188
+    
+    if any(yields == 19):
+        return 209
+    
+    if(yields == 20):
+        return 220
+    
+    if any(yields == 21):
+        return 241
+    
+    if any(yields == 22):
+        return 262
+    
+    if(yields == 23):
+        return 283
+    
+    if(yields == 24):
+        return 284
+    
+    if any(yields == 25):
+        return 305
+    
+    if(yields == 26):
+        return 346
+    
+    if(yields == 27):
+        return 367
+    
+    if(yields == 28):
+        return 368
+    
+    if(yields == 29):
+        return 389
+    
+    if(yields == 30):
+        return 4000
+    
+    if(yields == 36):
+        return 401
+    
+    if(yields == 37):
+        return 402
+    
+    if(yields == 38):
+        return 403
+    
+    if(yields == 39):
+        return 404
+    
+    if(yields == 40):
+        return 405
+    
+    if(yields == 45):
+        return 406
+    
+    if(yields == 46):
+        return 407
+    
+    if(yields == 47):
+        return 408
+    
+    if(yields == 48):
+        return 409
+    
+    if(yields == 49):
+        return 409
+    
+    if(yields

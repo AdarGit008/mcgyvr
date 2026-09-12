@@ -1,0 +1,50 @@
+```python
+from typing import List
+
+def trace_parcel(events: List[str]) -> List[str]:
+    """
+    Trace the parcel's state through the handling protocol based on the given events.
+    
+    Parameters:
+    events (List[str]): A list of event names in the order they happened.
+    
+    Returns:
+    List[str]: A list of states the parcel passes through, starting with 'created'.
+    
+    Raises:
+    ValueError: If the input is not a list, an event is not valid, or an event is fired in an invalid state.
+    """
+    if not isinstance(events, list):
+        raise ValueError("Input must be a list.")
+    
+    states = ['created']
+    current_state = 'created'
+    
+    for event in events:
+        if event not in ['pack', 'ship', 'deliver', 'bounce']:
+            raise ValueError(f"Invalid event: {event}")
+        
+        if current_state == 'created':
+            if event == 'pack':
+                current_state = 'packed'
+            else:
+                raise ValueError(f"Event '{event}' cannot be fired in state 'created'.")
+        elif current_state == 'packed':
+            if event == 'ship':
+                current_state = 'shipped'
+            else:
+                raise ValueError(f"Event '{event}' cannot be fired in state 'packed'.")
+        elif current_state == 'shipped':
+            if event == 'deliver':
+                current_state = 'delivered'
+            elif event == 'bounce':
+                current_state = 'returned'
+            else:
+                raise ValueError(f"Event '{event}' cannot be fired in state 'shipped'.")
+        elif current_state == 'delivered' or current_state == 'returned':
+            raise ValueError(f"Event '{event}' cannot be fired in state '{current_state}'.")
+        
+        states.append(current_state)
+    
+    return states
+```

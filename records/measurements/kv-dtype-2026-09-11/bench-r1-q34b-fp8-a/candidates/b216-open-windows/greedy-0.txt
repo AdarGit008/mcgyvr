@@ -1,0 +1,46 @@
+<think>
+Okay, I need to implement the open_windows function. Let's see what the problem says. The function takes a span (like "08:00-17:00") and a list of booked appointments. The goal is to find the free stretches of the day that aren't covered by any appointments. The output should be those free stretches in time order, joined by ", ", and if there are none, return "none".
+
+First, the existing code has some helper functions. The minutes function converts a time string into total minutes, and the stamp function converts total minutes back to a time string. The main function needs to process the booked appointments and find the free time slots.
+
+The current code has a TODO comment. So I need to fill that in. Let's think about the steps.
+
+First, I need to parse the span and each booked appointment into their start and end times in minutes. Then, I need to sort the booked appointments by their start time. Then, I can process the span and check for gaps between the appointments.
+
+Wait, the span is the entire day's opening stretch. So the span is a single time range. The booked appointments are all within this span. So the first step is to convert the span into start and end times. Then, the booked appointments are converted into their start and end times as well.
+
+But the booked appointments are given as a list of strings, each in the format "HH:MM-HH:MM". So the first thing is to parse each of these into start and end times. The minutes function is already handling that. So for each appointment in booked, we can get their start and end times.
+
+But the booked appointments are not sorted. So the first thing is to sort them by their start time. Then, we can process them in order.
+
+Now, the span is the entire day's opening. So the span's start and end times are the first and last times of the day. Wait, but the span is given as a single time range. For example, if the span is "08:00-17:00", then the start is 8:00 and end is 17:00. So the entire day's time is from start to end.
+
+So the process is:
+
+1. Parse the span into start and end times (in minutes).
+2. Parse each booked appointment into start and end times.
+3. Sort the booked appointments by their start time.
+4. Then, iterate through the sorted appointments and check the gaps between them and the start/end of the span.
+
+So the free stretches are the parts of the span not covered by any appointment.
+
+Let me think about the steps in code.
+
+First, the minutes function is already there. So for the span, we can get the start and end times. Then, for each booked appointment, we can get their start and end times.
+
+But the code needs to process the span and the booked appointments. So the main function should:
+
+- Convert the span into start and end times.
+- Convert each booked appointment into start and end times.
+- Sort the booked appointments by their start time.
+- Then, check the time between the start of the span and the first appointment's start. Then between each consecutive appointment, and between the last appointment and the end of the span.
+
+But how to do that?
+
+Let me think of the span as a single interval. The booked appointments are a list of intervals. The free stretches are the parts of the span that are not covered by any of the booked intervals.
+
+So the approach is similar to interval merging, but here we need to find the gaps between the booked intervals.
+
+So the steps are:
+
+- Convert the span into a single interval (start_span, end_span).

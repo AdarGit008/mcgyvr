@@ -1,0 +1,27 @@
+```python
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Distance must be positive")
+    return seconds // kilometres
+
+
+def pace_list(legs: list) -> list:
+    if not legs:
+        raise ValueError("Legs list cannot be empty")
+    if not all_legs:
+        raise ValueError("Legs list cannot contain None values")
+    if not all_duplicates:
+        raise ValueError("Legs list cannot contain duplicate values")
+    if not all_sorted:
+        raise ValueError("Legs list cannot be unsorted")
+    if not all_merges:
+        raise ValueError("Legs lists cannot be merged")
+    if not all:
+        raise ValueError("Legs lists cannot be empty")
+    if not no:
+        raise ValueError("Legs lists cannot be empty")
+    if not legs:
+        raise ValueError("Legs lists cannot be empty")
+    if:
+        return [seconds // distance for seconds, distance for seconds in legs]
+```

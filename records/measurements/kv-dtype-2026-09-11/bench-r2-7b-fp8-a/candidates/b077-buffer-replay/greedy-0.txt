@@ -1,0 +1,21 @@
+```python
+def replay_buffer(ops[str] ops,    capacity: int[int]
+       held: list[str] =          taken: list[str]:):
+    if capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+
+    for op in ops:
+        if op.startswith("add:"):
+            if len(held) >= capacity:
+                raise ValueError("buffer is full")
+            held.append(op[4:])
+        elif op == "take":
+            if not held:
+                raise ValueError("cannot take from an empty buffer")
+            taken.append(held.pop(0))
+        else:
+            raise ValueError(f"unknown operation: {op}")
+
+    
+    return {"held": held, "taken": taken):
+``````

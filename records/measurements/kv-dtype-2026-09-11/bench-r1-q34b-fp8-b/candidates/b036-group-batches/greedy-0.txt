@@ -1,0 +1,50 @@
+<think>
+Okay, I need to implement the group_batches function. Let's start by understanding the problem.
+
+The function takes a list of jobs, each with [name, group, priority, weight], and a capacity. The goal is to group these jobs into batches according to specific rules. 
+
+First, the constraints: each job must be a four-element list. The name and group must be non-empty strings. Priority and weight must be integers. The capacity must be a positive integer. Also, no duplicate job names. So, I need to validate the input first. If any of these checks fail, raise a ValueError.
+
+Next, the scheduling rules. Jobs in the same group must run in arrival order. So, for each group, the jobs are processed in the order they appear. At any time, only the earliest unscheduled job of each group is eligible.
+
+The batches are built round by round. In each round, we rank the eligible heads (the first job of each group that hasn't been scheduled yet) by priority descending. If there's a tie, the one that arrived earlier is chosen. Then, we take each head in this ranking, adding them to the current batch if there's enough capacity. If a job can't fit, we skip it. Once the ranking is exhausted, the batch is closed. Then, we start a new batch with the remaining eligible heads.
+
+Also, a job scheduled in a round frees its group's next job only for later rounds, not the same batch. So, once a job is scheduled, the next job in its group is not considered for the same batch.
+
+So, the steps I need to do:
+
+1. Validate the input jobs and capacity. Check if jobs is a list, each job is a 4-element list, and all the individual constraints (name, group, priority, weight) are valid. Also check for duplicate names.
+
+2. For each job, track their position in their group. Since the group must be processed in arrival order, we can group the jobs by their group and keep track of the current index for each group.
+
+3. For each batch, we need to collect eligible jobs. Eligible jobs are the first job in each group that hasn't been scheduled yet.
+
+4. In each round, we sort the eligible jobs by priority (descending), then by arrival time (earlier first). Then, we process them in that order, adding to the current batch if there's enough capacity.
+
+5. Once the current batch is filled (either all eligible jobs are processed or the capacity is filled), we move to the next batch.
+
+Now, how to structure the code.
+
+First, the validation. Let's think about the validation steps:
+
+- Check if jobs is a list. If not, raise error.
+
+- For each job in jobs, check if it's a list of 4 elements. If not, error.
+
+- Check that each job's name is a non-empty string. Similarly for group.
+
+- Check that priority is an integer. Check that weight is an integer between 1 and capacity.
+
+- Check that capacity is a positive integer.
+
+- Check for duplicate names. So, collect all names and check for duplicates.
+
+So, in code, first, we can loop through the jobs and perform these checks.
+
+Then, for the scheduling part.
+
+We need to process the jobs in batches. For each batch, we need to collect the eligible jobs. But how to track which jobs have been scheduled.
+
+We can have a data structure for each group, tracking the current index. For example, for each group, we have a list of jobs in order, and a pointer to the next job to consider.
+
+So, for each group, we can have a list of jobs in the order they were added. Then,

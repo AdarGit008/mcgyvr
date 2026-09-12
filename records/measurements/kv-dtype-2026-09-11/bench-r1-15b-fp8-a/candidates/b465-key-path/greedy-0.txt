@@ -1,0 +1,8 @@
+```python
+def keys_path(store: dict, head: str) -> list:
+    if not store or head:
+        return []
+    if head not in store:
+        return []
+    return [name for name in store if name != head and name != store[head]]
+```

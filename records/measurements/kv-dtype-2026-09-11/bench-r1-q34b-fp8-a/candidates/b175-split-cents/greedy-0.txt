@@ -1,0 +1,16 @@
+<think>
+Okay, I need to implement the split_cents function according to the problem description. Let me start by understanding the requirements.
+
+The function takes total cents and a list of weights. The goal is to split the total into parts based on the weights. The first step is to calculate each partner's initial share by multiplying total by their weight, then dividing by the sum of all weights, rounded down. The leftover cents from this rounding need to be distributed to the partners with the largest discarded fractions. If there's a tie, the earlier partner gets priority.
+
+Looking at the current code, the initial part is there. The problem is in the TODO part: handling the leftover cents. Let me think about how to approach this.
+
+First, the initial calculation of parts is done by [total * w // whole for w in weights]. The sum of these parts is the total divided by the sum of weights, but since it's integer division, there's a remainder. Wait, no. Wait, the sum of the parts would be total * sum(weights) // sum(weights) which is total. But since each part is floor division, the sum of the parts is total minus the remainder. Wait, no. Let me think again. For example, if total is 100, sum of weights is 10, then each part is 100 * w / 10, floored. The sum of these parts would be 100 * sum(weights) // sum(weights) = 100. But the remainder is (total * sum(weights) % sum(weights)) / sum(weights)? Wait, maybe not. Let me take an example. Suppose total is 100, weights are [1, 2, 3]. Sum is 6. Each part is 100*1//6=16, 100*2//6=33, 100*3//6=50. Sum is 16+33+50=99. The remainder is 1. So the leftover is 1 cent. That needs to be distributed.
+
+So the leftover is total - sum(parts). Which is 100 - 99 = 1. So how to distribute this 1 cent.
+
+The problem says that the leftover is the cents that are left after rounding down. So the leftover is total - sum(parts). But how to find which partners have the largest discarded fractions.
+
+Each partner's initial share is (total * w) // whole. The discarded fraction is (total * w) % whole. So for each partner, the fraction is (total * w) % whole / whole. But since we are dealing with integers, the discarded fraction is (total * w) % whole. Wait, no. The discarded fraction is the remainder when you divide total * w by whole. So for example, if total * w is 100 and whole is 6, then 100 / 6 is 16.666..., so the floor is 16, and the remainder is 4. So the discarded fraction is 4/6, which is 0.666... So the partners with higher discarded fractions get the leftover cents.
+
+So the leftover is total - sum(parts) = total - (sum of (total * w // whole for all w)). But how to compute that. Alternatively, the leftover is the sum of all the remainders (total * w % whole) divided by whole? Wait, no. Because each (total * w) // whole is floor division, so the remainder is (total * w) % whole. So the sum of all (total * w) % whole is

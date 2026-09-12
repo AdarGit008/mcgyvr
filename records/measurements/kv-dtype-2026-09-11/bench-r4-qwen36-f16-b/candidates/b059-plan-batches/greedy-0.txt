@@ -1,0 +1,53 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    """
+    Plan the splitting of a consignment of units into batches based on capacity.
+    
+    Args:
+        units: The total number of units in the consignment.
+        capacity: The maximum number of parcels a courier run can carry.
+        
+    Returns:
+        A dictionary with keys 'loads', 'splits', and 'rounds'.
+        
+    Raises:
+        ValueError: If units or capacity are not positive integers.
+    """
+    if not isinstance(units, int) or units <= 0:
+        raise ValueError("units must be a positive integer")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+
+    # Helper function to recursively split and collect loads
+    # Returns: (list_of_load_sizes, number_of_splits, depth_of_rounds)
+    def _split(current_units: int) -> tuple[list[int], int, int]:
+        if current_units <= capacity:
+            return [current_units], 0, 0
+        
+        # Split into two halves: ceil and floor
+        half_ceil = (current_units + 1) // 2
+        half_floor = current_units // 2
+        
+        # Recursively process both halves
+        loads_left, splits_left, rounds_left = _split(half_ceil)
+        loads_right, splits_right, rounds_right = _split(half_floor)
+        
+        # Combine loads: left half first, then right half
+        all_loads = loads_left + loads_right
+        
+        # Total splits for this node is 1 (for this split) + splits from children
+        total_splits = 1 + splits_left + splits_right
+        
+        # Rounds is 1 + max of children's rounds
+        total_rounds = 1 + max(rounds_left, rounds_right)
+        
+        return all_loads, total_splits, total_rounds
+
+    loads, splits, rounds = _split(units)
+    
+    return {
+        "loads": loads,
+        "splits": splits,
+        "rounds": rounds
+    }
+```

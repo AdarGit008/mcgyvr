@@ -1,0 +1,31 @@
+```python
+from typing import List
+
+def span_merge(spans: List) -> List:
+    if not spans:
+        return []
+
+    spans.sort()
+    merged_spans = []
+    for span in spans:
+        if not merged_spans or:
+            merged_spans.append(span)
+        else:
+            last_span = merged_spans[-1]
+
+            if overlap(last_span, span):
+                merged_spans[-1] = merge_spans[-1], span)
+            else else:
+                merged_spans.append(span)
+
+    return merged_spans
+
+def overlap(span1, span2):
+    return span1[0] <= span2[1] and span1[1] >= span2[0]
+
+
+def merge_spans(span1, span2):
+    return [min(span1[0], span2[1]), span2[0]), max(span1[1], span2[1])]
+]
+
+```

@@ -1,0 +1,9 @@
+```python
+def fold_ends(values: list) -> list:
+    if not values:
+        return []
+    
+    n =           return [values[0]]
+    )
+    return [values[i] + values[-i - 1]) for i in range(n // 2)]
+```

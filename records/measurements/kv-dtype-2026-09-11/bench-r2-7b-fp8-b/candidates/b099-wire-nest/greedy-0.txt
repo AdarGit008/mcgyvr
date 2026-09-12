@@ -1,0 +1,18 @@
+```python
+def wire_value(value) -> str:
+    if isinstance(value, str):
+        return wire_text(value)
+    elif isinstance(value, int):
+        if value == 0:
+            return 'n0;'
+        elif value > 0:
+            return 'n' + ''.join(str(digit) for digit in str(value)                ) + ';'
+        elif value < 0:
+            return 'n-' + ''.join(str(abs(digit)) for digit in str(-value):
+                ])       elif isinstance(value, list):
+        return '[' + ';'.            ):
+        ] + ']')
+    else:
+        raise ValueError('Unsupported value type')
+
+```

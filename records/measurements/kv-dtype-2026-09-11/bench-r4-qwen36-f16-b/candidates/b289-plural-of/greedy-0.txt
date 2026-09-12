@@ -1,0 +1,26 @@
+```python
+def plural_of(noun: str) -> str:
+    """Return the plural of an English noun based on specific suffix rules."""
+    if not noun:
+        return ""
+    
+    last_char = noun[-1]
+    
+    if last_char in ('s', 'x', 'y', 'z'):
+        if last_char == 'y':
+            # Check if the character before 'y' is a consonant
+            if len(noun) > 1 and noun[-2] not in 'aeiou':
+                return noun[:-1] + "ies"
+            else:
+                return noun + "s"
+        else:
+            return noun + "es"
+    elif last_char in ('c', 'h'):
+        # Check for 'ch' or 'sh' endings
+        if len(noun) > 1 and noun[-2] in ('c', 's'):
+            return noun + "es"
+        else:
+            return noun + "s"
+    else:
+        return noun + "s"
+```

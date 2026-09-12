@@ -1,0 +1,27 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("value must be a non-negative integer")
+    if not isinstance(width, int) or width <= 0 or width % 4 != 0 or width > 32:
+        raise ValueError("width must be a positive multiple of four and less than or equal to 32")
+
+    # Convert the value to binary and remove the '0b' prefix
+    binary_str = bin(value)[2:]
+
+    # Check if the value fits within the specified width
+    if len(binary_str) > width:
+        raise ValueError("value does not fit in width bits")
+
+    # Pad the binary string with leading zeros to the specified width
+    padded_binary_str = binary_str.zfill(width)
+
+    
+    # Split the padded binary string into groups of four bits
+    nibble_groups = [padded_binary_str[i:i+4] for i in range(0, width, 4)]
+
+    # Join the nibble groups with single spaces
+    result = ' '.join(nibble_groups)
+
+    
+    return result
+```

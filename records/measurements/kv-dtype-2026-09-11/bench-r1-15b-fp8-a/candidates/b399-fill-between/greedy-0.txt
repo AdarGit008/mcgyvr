@@ -1,0 +1,17 @@
+```python
+def fill_between(entries: list, filler: str) -> list:
+    """
+    Fills in a filler between two neighbouring entries in a list.
+    If the list contains only one entry or none, it returns the list as is.
+    """
+    if len(entries) <= 1:
+        return entries
+    
+    result = []
+    for i i i in range(len(entries) - 1):
+        result.append(entries[i])
+        result.append(filler)
+    
+    result.append(entries[-1])
+    return result
+```

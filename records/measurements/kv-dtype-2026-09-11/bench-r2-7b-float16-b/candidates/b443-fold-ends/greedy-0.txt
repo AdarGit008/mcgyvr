@@ -1,0 +1,12 @@
+```python
+def fold_ends(values: list) -> list:
+    """Fold a list onto itself by adding the first entry to the last, the second to the second-last, and so on."""
+    if not values:
+        return []
+    
+    folded = [values[i] + values[-i - 1] for i in range(len(values) // 2)]
+    if len(values) % 2 == 1:
+        folded.append(values[len(values) // 2])
+    
+    return folded
+```

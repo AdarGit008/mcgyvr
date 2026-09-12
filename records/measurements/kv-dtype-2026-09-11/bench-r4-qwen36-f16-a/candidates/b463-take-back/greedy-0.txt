@@ -1,0 +1,23 @@
+```python
+def take_back(values: list, target: int) -> int:
+    """Return how many entries from the end of the list are needed to reach the target sum.
+    
+    Returns -1 if the total sum of the list is less than the target.
+    """
+    if not values:
+        return -1
+    
+    total = sum(values)
+    if total < target:
+        return -1
+    
+    current_sum = 0
+    count = 0
+    for value in reversed(values):
+        current_sum += value
+        count += 1
+        if current_sum >= target:
+            return count
+    
+    return -1
+```

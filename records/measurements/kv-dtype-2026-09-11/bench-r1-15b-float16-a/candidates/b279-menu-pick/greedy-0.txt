@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def menu_pick(dishes: List, budget: int) -> List:
+    """
+    Return the names of every dish costing no more than a budget, cheapest first.
+    Two dishes at the same price are ordered by name.
+    A budget below every dish yields an empty list.
+    """
+    if budget < 0:
+        raise ValueError("Budget cannot be negative")
+    
+    # Filter dishes based on the budget
+    filtered_dishes = [dish for dish in dishes if dish[1] <= budget]
+    
+    # Sort dishes by price, then by name
+    sorted_dishes = sorted(filtered_dishes, key=lambda x: (x[1], x[0]))
+    
+    # Return the names of the dishes
+    return [dish[0] for dish in sorted_dishes]
+```

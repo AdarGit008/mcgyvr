@@ -1,0 +1,24 @@
+```python
+from typing import *
+from collections import *
+
+def fold_ends(values: list) -> list:
+    """
+    Fold a list onto itself by adding the first entry to the last,
+    the second to the second-last, and so on, returning the totals in that order.
+    A list of an odd length leaves its middle entry as its own total.
+    """
+    if not values:
+        return []
+    
+    n = len(values)
+    totals = []
+    
+    for i in range(n // 2):
+        totals.append(values[i] + values[n - i - 1])
+    
+    if n % 2 != 0:
+        totals.append(values[n // 2])
+    
+    return totals
+```

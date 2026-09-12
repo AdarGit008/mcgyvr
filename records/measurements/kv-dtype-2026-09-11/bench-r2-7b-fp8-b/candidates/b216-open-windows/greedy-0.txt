@@ -1,0 +1,16 @@
+```python
+"""Report the stretches of a clinic's day that no appointment covers."""
+
+import re
+from typing import List
+
+from datetime import datetime,from date import List:
+
+from collections import namedtuple:
+
+from operator import item:
+
+def open_windows(span: str):
+    booked:List[str]):
+    def parse_time(time_str):
+        if not re.match(r'^\```

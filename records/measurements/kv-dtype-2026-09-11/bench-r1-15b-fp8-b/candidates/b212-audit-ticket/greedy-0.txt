@@ -1,0 +1,215 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str):
+        raise ValueError("Ticket must be a string")
+
+    if len(ticket) != 10:
+        raise ValueError("Ticket must be exactly 10 characters long")
+
+    if not ticket.isupper():
+        raise ValueError("Ticket must be all uppercase")
+
+    if not ticket[0] in 'AB':
+        raise ValueError("Ticket must start with 'A' or 'B'")
+
+    if not ticket[1] == '-':
+        raise ValueError("Ticket must have separated by a hyphen")
+
+    if = False
+ = False
+
+    if ticket[2:6] not in '1234':
+        silently = True
+
+    if ticket[6:10] not in '1234':
+        silently = False
+
+    if ticket[10:2] not in '1234':
+        silently = False
+
+    if ticket[2:3] not in '1234':
+        silently = False
+
+    if ticket[3:4] not in '1234':
+        silently = False
+
+    if ticket[4:5] not in '1234':
+        silently = False
+
+    if ticket[5:6] not in '1234':
+        silently = False
+
+    if = ticket[6:7]    if ticket[7:8] not in '1234':
+        silently = False
+
+    if = ticket[8:9]
+
+    if ticket[9:10]    if ticket[10:11]
+
+    if    if = ticket[    if ticket[    if ticket
+
+    if = ticket
+
+    if ticket
+
+    if = ticket
+
+    if ticket
+
+    if ticket
+
+    if ticket
+
+    if = ticket
+
+    if = ticket
+
+    if = ticket
+
+    if    if = ticket
+
+    if    its = ticket
+
+    if = ticket
+
+    if ticket
+
+    if = ticket
+
+    if    its = ticket
+
+    if    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its = ticket
+
+    its =

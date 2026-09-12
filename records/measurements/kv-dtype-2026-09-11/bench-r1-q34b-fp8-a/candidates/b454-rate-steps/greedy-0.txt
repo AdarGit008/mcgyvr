@@ -1,0 +1,16 @@
+<think>
+Okay, I need to implement the two functions step_rate and rate_steps based on the given contract. Let me start by understanding what each function is supposed to do.
+
+First, the step_rate function. The description says it returns the charge for one step, which is a fixed sum plus a whole-percent share of the amount, rounded down. So the formula should be fixed plus (amount * percent) // 100. Wait, but the problem mentions a "whole-percent share". So maybe it's (amount * percent) divided by 100, but since it's a whole percent, maybe it's (amount * percent) // 100? Or maybe it's (amount * percent) / 100, but rounded down. So for example, if amount is 100, percent is 10, then 100 * 10 / 100 = 10, so fixed + 10. But if the percent is 15, then 100 * 15 / 100 is 15. So the calculation is fixed + (amount * percent) // 100? Or is it (amount * percent) divided by 100, then floored? Wait, the problem says "rounded down", so yes, integer division.
+
+But wait, the problem says "a fixed sum plus a whole-percent share of the amount, rounded down". So the whole-percent share is (amount * percent) / 100, but rounded down. So the calculation is fixed + (amount * percent) // 100. But wait, maybe the percent is a whole number, so for example, if the amount is 123 and percent is 15, then 123 * 15 = 1845, divided by 100 is 18.45, rounded down to 18. So the total charge is fixed + 18.
+
+So the step_rate function would be: take amount, fixed, percent. Compute (amount * percent) // 100, then add fixed. But wait, what if the percent is 0? Then the share is 0. But the problem says "whole-percent share", so maybe percent is a whole number, but the function should handle any integer percent. But the problem says that percent is an integer. So the function is straightforward.
+
+Now, the rate_steps function. It returns the charge for each of several amounts, in order. So for each amount in the input list, compute step_rate and return a list of those charges.
+
+But wait, the problem says that step_rate is a fixed sum plus a whole-percent share of the amount, rounded down. So for each amount in amounts, compute step_rate(amount, fixed, percent) and collect them into a list.
+
+But I need to make sure that the parameters are valid. For example, the percent should be between 0 and 100, but the problem doesn't specify. However, the contract says that the function should raise ValueError for invalid arguments. So, for example, if percent is not between 0 and 100, or if amount is negative, etc. Wait, the problem says that the function should raise ValueError for invalid arguments. So in the step_rate function, if amount is negative, or percent is not in 0-100, then raise ValueError.
+
+Wait, the problem says that the contract says that the functions should raise ValueError for invalid arguments. So in the step_rate function, if amount is not a positive integer, or percent is not between 0 and 100, then raise ValueError. But

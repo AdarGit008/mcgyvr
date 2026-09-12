@@ -1,0 +1,84 @@
+```python
+def glob_path(pattern: str, path: str) -> bool:
+    """Match a glob pattern against a slash-separated relative path.
+    
+    A literal character matches only itself, a question mark matches exactly
+    one character that is not a slash, and a star matches a run of zero or
+    more characters that stops at any slash. The whole pattern must consume
+    the whole path.
+    """
+    if not isinstance(pattern, str):
+        raise ValueError("pattern must be a string")
+    if not isinstance(path, str):
+        raise ValueError("path must be a string")
+    if not pattern:
+        raise ValueError("pattern must not be empty")
+    if not path:
+        raise ValueError("path must not be empty")
+
+    pi = 0
+    si = 0
+    plen = len(pattern)
+    slen = len(path)
+
+    while pi < plen and si < slen:
+        pc = pattern[pi]
+        sc = path[si]
+
+        if pc == '*':
+            # Star matches zero or more characters, but stops at slash.
+            # We need to find the longest match for the star that allows
+            # the rest of the pattern to match.
+            # Since star cannot cross slashes, it matches [0, N] characters
+            # where N is the index of the next slash, or end of string.
+            
+            # Find the extent of the star's potential match in the path.
+            # The star matches characters up to (but not including) the next slash.
+            next_slash = path.find('/', si)
+            if next_slash == -1:
+                # No more slashes in the remaining path.
+                # Star can match from si to end.
+                max_match = slen
+            else:
+                # Star can match from si to next_slash - 1.
+                max_match = next_slash
+            
+            # Try to match the rest of the pattern starting from each possible
+            # position in the path after the star's match.
+            # We try from the longest match to the shortest (greedy vs non-greedy).
+            # Actually, since the star cannot cross slashes, the structure is rigid.
+            # The star must match a substring of the current segment.
+            # Let's iterate through all possible end positions for the star.
+            
+            # The star matches path[si : j] where si <= j <= max_match.
+            # We need to check if glob_path(pattern[pi+1:], path[j:]) is True.
+            # However, doing this recursively might be inefficient, but given
+            # the constraints (no crossing slashes), it's manageable.
+            
+            # Optimization: If the next character in pattern is not a wildcard,
+            # we can be smarter, but let's stick to the general case first.
+            
+            for j in range(max_match, si - 1, -1):
+                if glob_path(pattern[pi + 1:], path[j:]):
+                    return True
+            return False
+
+        elif pc == '?':
+            # Question mark matches exactly one character that is not a slash.
+            if sc == '/':
+                return False
+            pi += 1
+            si += 1
+
+        else:
+            # Literal character.
+            if pc != sc:
+                return False
+            pi += 1
+            si += 1
+
+    # If both are consumed, it's a match.
+    if pi == plen and si == slen:
+        return True
+    
+    # If

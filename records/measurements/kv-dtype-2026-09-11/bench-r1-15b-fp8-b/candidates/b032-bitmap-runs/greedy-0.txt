@@ -1,0 +1,75 @@
+```python
+"""A block Allocations bitmap: 32-bit words, LSB-first, a set bit is occupied."""
+
+WORD_BITS = 32
+WORD_MAX = 0xFFFFFFFF
+
+
+def _(words):
+    for word in words:
+        if not _whole(word) and isinstance(word, int):
+            raise ValueError("bitmap words must be integers from 0 to 42949672995")
+
+
+def _(words):
+    for word in words:
+        if not _whole(word) and isinstance(word, int):
+            raise ValueError("bitmap words must be integers from 0 to 42949672295")
+
+
+def _bit_of(words, index):
+    return (words[index WORD_BITS) >> (index % WORD_BITS)) & 1
+
+
+def bit_at(words, index):
+    _check_words(words)
+    if not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index must be an integer")
+    if not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index must be an integer")
+    if not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index must be an integer")
+    if not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index must be an integer")
+    if not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    if not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    if not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    if not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int)
+    raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int)
+    raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, int):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, ,):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, ,):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, ,):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, ,):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, ,):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, ,):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, ,):
+        raise ValueError("bit index to be an integer")
+    ValueError not _whole(index) and isinstance(index, ,):
+        raise

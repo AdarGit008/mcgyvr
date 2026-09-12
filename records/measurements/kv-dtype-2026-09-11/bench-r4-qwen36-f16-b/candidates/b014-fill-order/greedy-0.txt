@@ -1,0 +1,67 @@
+```python
+def fill_order(sources: list, needed: int) -> dict:
+    """
+    Plan how an order for needed units is covered from a list of sources.
+    
+    Sources are sorted by cost (cheapest first), with ties broken by original
+    list order (earlier source preferred). Units are taken from each source
+    up to the remaining need, never exceeding the source's stock.
+    
+    Validates inputs:
+    - needed must be a positive integer.
+    - Each source must be a pair of positive integers [cost, stock].
+    - Total stock across all sources must be at least needed.
+    
+    Returns a dict with:
+    - cost: total paid.
+    - taken: list of units taken from each source (in original order).
+    - leftover: list of remaining stock in each source (in original order).
+    """
+    # Validate needed
+    if not isinstance(needed, int) or needed <= 0:
+        raise ValueError("needed must be a positive integer")
+    
+    # Validate sources
+    if not isinstance(sources, list):
+        raise ValueError("sources must be a list")
+    
+    total_stock = 0
+    for i, source in enumerate(sources):
+        if not isinstance(source, list) or len(source) != 2:
+            raise ValueError(f"Source at index {i} must be a pair [cost, stock]")
+        cost, stock = source
+        if not isinstance(cost, int) or cost <= 0:
+            raise ValueError(f"Source at index {i} has invalid cost: must be a positive integer")
+        if not isinstance(stock, int) or stock <= 0:
+            raise ValueError(f"Source at index {i} has invalid stock: must be a positive integer")
+        total_stock += stock
+    
+    if total_stock < needed:
+        raise ValueError("Total stock across all sources cannot cover the needed amount")
+    
+    # Create a list of (cost, original_index) to sort by cost, then by original index for tie-breaking
+    indexed_sources = [(sources[i][0], i) for i in range(len(sources))]
+    # Sort by cost (ascending), then by original index (ascending) for tie-breaking
+    indexed_sources.sort(key=lambda x: (x[0], x[1]))
+    
+    taken = [0] * len(sources)
+    cost = 0
+    remaining = needed
+    
+    for unit_cost, original_index in indexed_sources:
+        if remaining <= 0:
+            break
+        
+        stock = sources[original_index][1]
+        # Take as much as needed, but not more than available stock
+        take = min(remaining, stock)
+        taken[original_index] = take
+        cost += take * unit_cost
+        remaining -= take
+    
+    leftover = []
+    for i in range(len(sources)):
+        leftover.append(sources[i][1] - taken[i])
+    
+    return {"cost": cost, "taken": taken, "leftover": leftover}
+```

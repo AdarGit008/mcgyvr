@@ -1,0 +1,41 @@
+```python
+from typing import List, Tuple
+
+def group_batches(jobs: List[Tuple[str, str, int, int]], capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list):
+        raise ValueError("jobs must be a list")
+    if not all(isinstance(job, tuple) and len(job) == 4 for job in jobs):
+        raise ValueError("each job must be a four-item tuple")
+    if not all(isinstance(name, str) and name != "" for name, _, _, _ in jobs):
+        raise ValueError("job names must be non-empty strings")
+    if not all(isinstance(group, str) and group != "" for _, group, _, _ in jobs):
+        raise ValueError("group labels must be non-empty strings")
+    if not all(isinstance(priority, int) for _, _, priority, _ in jobs):
+        raise ValueError("priorities must be integers")
+    if not all(isinstance(weight, int) and 1 <= weight <= capacity for _, _, _, weight in jobs):
+        raise ValueError("weights must be integers between 1 and the capacity")
+    if not all(job[0] != job[1] for job in jobs):
+        raise ValueError("job names must be unique")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+
+    def get_heads(jobs):
+        return [(name, group, priority, weight) for name, group, priority, weight in jobs if weight <= capacity]
+
+    def sort_heads(heads):
+        return sorted(heads, key=lambda x: (-x[2], x[1]))
+
+    batches = []
+    while jobs:
+        heads = get_heads(jobs)
+        sorted_heads = sort_heads(heads)
+        for head in sorted_heads:
+            if head[3] <= capacity:
+                batches[-1].append(head[0])
+                jobs.remove(head)
+                capacity -= head[3]
+            else:
+                break
+
+    return batches
+```

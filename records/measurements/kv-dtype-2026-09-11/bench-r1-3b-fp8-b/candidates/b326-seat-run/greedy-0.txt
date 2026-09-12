@@ -1,0 +1,28 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    """
+    Find the position of the first seat of the earliest run of free seats
+    long enough to hold the party, or -1 if there is none.
+    
+    Args:
+    row (str): A string representing a row of seats, '.' for free, 'x' for taken.
+    party (int): The number of people in the party.
+
+    Returns:
+    int: The position of the first seat of the earliest run of free seats,
+         or -1 if no such run exists.
+    """
+    if party <= 0:
+        raise ValueError("Party size must be greater than zero.")
+    
+    # Split the row into individual seats
+    seats = row.split('.')
+    
+    # Iterate over the seats to find the first run of free seats
+    for i, seat in enumerate(seats):
+        if len(seat) >= party:
+            return i
+    
+    # If no such run is found, return -1
+    return -1
+```

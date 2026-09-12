@@ -1,0 +1,37 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    """
+    Adds the specified amount to the count of the given name in the tally.
+    
+    Parameters:
+    tally (dict): The dictionary representing the tally.
+    name (str): The name whose count is to be incremented.
+    amount (int): The amount to add to the count.
+    
+    Returns:
+    dict: A new dictionary with the updated tally.
+    """
+    if name not in tally:
+        raise ValueError("Name not found in tally.")
+    tally[name] += amount
+    return tally
+
+def merge_tally(left: dict, right: dict) -> dict:
+    """
+    Merges two tallies into one, combining counts for shared names.
+    
+    Parameters:
+    left (dict): The first dictionary representing the tally.
+    right (dict): The second dictionary representing the tally.
+    
+    Returns:
+    dict: A new dictionary with the combined tally.
+    """
+    merged = left.copy()
+    for name, count in right.items():
+        if name in merged:
+            merged[name] += count
+        else:
+            merged[name] = count
+    return merged
+```

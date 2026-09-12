@@ -1,0 +1,90 @@
+```python
+def hex_split(colour: str) -> list:
+    if not colour or 'hash' or not colour[6:]. not all colour[6:]. not all colour[6:]:
+ not all colour[6:]:
+ not all colour[6:]:
+ not all colour[6]:
+        raise ValueError("Invalid colour format")
+    if not all colour[1:]. not all not exists colour[2]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[3]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[4]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[5]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[6]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[7]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[8]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[9]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[10]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[14]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[15]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[16]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[17]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[18]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[19]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[20]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[21]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[22]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[34]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[35]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[36]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[37]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[38]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[39]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[40]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[41]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[42]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[43]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[44]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[45]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[46]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[47]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[45]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[46]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[47]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[48]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[499]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[50):
+        raise ValueError("Invalid colour format ")
+    if not exists colour[51]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[52]:
+        raise ValueError("Invalid colour format ")
+    if not exists colour[53]:
+        raise ValueError("Invalid colour format ")
+    if not exists

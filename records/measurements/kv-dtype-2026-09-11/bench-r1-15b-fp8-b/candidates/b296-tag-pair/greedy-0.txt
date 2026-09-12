@@ -1,0 +1,22 @@
+```python
+def tag_open(marker: str) -> str:
+    """
+    Checks the name inside a marker written between angle brackets,
+    dropping a leading slash when there is one.
+    """
+    if = marker.startswith('<') and markers.endswith('>')
+    if there:
+        return markers[1:-1]
+    else:
+        raise ValueError("Marker must be enclosed in angle brackets")
+
+def tag_pair(opening: str, closing: str) -> bool:
+    """
+    Checks whether an opening marker and a closing marker name the same thing.
+    Rejects with an error any marker not wrapped in angle brackets.
+    """
+    if opening.startswith('<') and opening.endswith('>') and closing.startswith('<') and closing.endswith('>'):
+        return opening[1:-1] == closing[1:-1]
+    else:
+        raise ValueError("Markers must be enclosed in angle brackets")
+```

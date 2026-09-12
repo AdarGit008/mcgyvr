@@ -1,0 +1,85 @@
+```python
+def column_digest(rows: list, column: int) -> dict:
+    """Summarize a column from a ragged sheet of rows."""
+    if not isinstance(rows, list):
+        raise ValueError("rows must be a list")
+    if not isinstance(column, int):
+        raise ValueError("column must be an integer")
+    
+    # Handle negative column index: treat as invalid or out of bounds
+    # Since the contract doesn't specify, we treat negative indices as 
+    # yielding no data (count 0) to be safe, or we could raise.
+    # However, standard list indexing allows negative. But "zero-based index"
+    # usually implies non-negative. Let's assume non-negative.
+    if column < 0:
+        raise ValueError("column index must be non-negative")
+
+    values = []
+    for row in rows:
+        if not isinstance(row, list):
+            raise ValueError("each row must be a list")
+        if column < len(row):
+            values.append(row[column])
+
+    count = len(values)
+    
+    if count == 0:
+        return {
+            "count": 0,
+            "min": 0,
+            "max": 0,
+            "mean": 0,
+            "median": 0
+        }
+
+    min_val = min(values)
+    max_val = max(values)
+    mean_val = sum(values) / count
+    
+    # Round mean to two decimals, rounding half up
+    mean_val = _round_half_up(mean_val, 2)
+    
+    # Calculate median
+    sorted_values = sorted(values)
+    if count % 2 == 1:
+        median_val = sorted_values[count // 2]
+    else:
+        mid1 = sorted_values[count // 2 - 1]
+        mid2 = sorted_values[count // 2]
+        median_val = (mid1 + mid2) / 2
+    
+    median_val = _round_half_up(median_val, 2)
+
+    return {
+        "count": count,
+        "min": min_val,
+        "max": max_val,
+        "mean": mean_val,
+        "median": median_val
+    }
+
+
+def _round_half_up(value: float, decimals: int) -> float:
+    """Round a value to the given number of decimals, rounding half up."""
+    if decimals < 0:
+        raise ValueError("decimals must be non-negative")
+    
+    factor = 10 ** decimals
+    # Add a small epsilon to handle floating point inaccuracies for exact halves
+    # However, standard rounding half up logic:
+    # value * factor + 0.5, then floor, then divide
+    # But due to float precision, we need to be careful.
+    # Using decimal module is safer, but let's try math approach first.
+    
+    # To ensure "halfway rounds upward", we can use:
+    # int(value * factor + 0.5) / factor
+    # But this fails for negative numbers if not careful. 
+    # The problem implies numbers are likely positive or standard behavior.
+    # Let's use the decimal module for precise rounding half up.
+    
+    from decimal import Decimal, ROUND_HALF_UP
+    
+    d = Decimal(str(value))
+    rounded = d.quantize(Decimal(10) ** -decimals, rounding=ROUND_HALF_UP)
+    return float(rounded)
+```

@@ -1,0 +1,29 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    keys, eq, raw = segment.partition("=")
+    if not segment or re:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    if not text:
+        raise ValueError("empty string argument")
+    if not all(text, r'"[^"]*"'):
+        raise ValueError("file unterminated quote")
+    if not all matches(text, r'"[^"]*"'):
+        raise ValueError("repeated key")
+    if not all matches(text, r'"[^"]*"'):
+        raise ValueError("malformed quoted value")
+    pairs = []
+    for segment in text.split(';'):
+        if segment.startswith('"') and segment.endswith('"'):
+            segment = segment[1:-1]
+        pairs.append(parse_option(segment))
+    return pairs
+```

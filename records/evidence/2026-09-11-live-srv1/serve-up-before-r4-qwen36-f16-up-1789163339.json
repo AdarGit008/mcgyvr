@@ -1,0 +1,24 @@
+{
+  "run_id": "2026-09-11-live-srv1-serve-up-r4-qwen36-q8_0-up-1789162721",
+  "host": "srv1",
+  "mode": "up",
+  "compose_file": "/home/adaramir/pi_agent/projects/mcgyvr/records/measurements/kv-dtype-2026-09-11/compose.srv1-r4-q8_0.yml",
+  "compose": "services:\n  Qwen3.6-35B-A3B-UD-IQ3_XXS-8080:\n    command:\n    - --model\n    - /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf\n    - --n-cpu-moe\n    - '30'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -c\n    - '16384'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    - -ub\n    - '512'\n    - --chat-template-kwargs\n    - '{\"enable_thinking\":false}'\n    - -ctk\n    - q8_0\n    - -ctv\n    - q8_0\n    container_name: mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models/moe:/home/adaramir/models/moe:ro\n    - /home/adaramir/models/moe:/models:ro\n",
+  "compose_up_exit": 0,
+  "units": [
+    {
+      "container": "mcgyvr-srv1-Qwen3.6-35B-A3B-UD-IQ3_XXS-8080",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 112.8,
+      "models": [
+        "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
+      ]
+    }
+  ],
+  "card_after": {
+    "used_mib": 4944,
+    "free_mib": 802
+  }
+}

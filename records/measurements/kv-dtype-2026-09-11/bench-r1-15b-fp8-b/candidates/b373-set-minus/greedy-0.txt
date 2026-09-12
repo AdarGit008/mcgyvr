@@ -1,0 +1,6 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    #_set = set(remove)
+    return [entry for entry in entries if entry not in removing_set]
+ entry in set(entries))
+```

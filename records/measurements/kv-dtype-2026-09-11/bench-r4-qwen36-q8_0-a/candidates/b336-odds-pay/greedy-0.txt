@@ -1,0 +1,36 @@
+```python
+def payout(stake: int, odds: int) -> int:
+    """Calculate the payout for a winning bet."""
+    if stake < 0:
+        raise ValueError("Stake cannot be negative")
+    return stake * odds
+
+
+def settle_all(bets: list) -> int:
+    """Calculate the total payout for a list of bets, counting only winners."""
+    if not isinstance(bets, list):
+        raise ValueError("bets must be a list")
+    
+    total = 0
+    for bet in bets:
+        if not isinstance(bet, tuple) or len(bet) != 2:
+            raise ValueError("Each bet must be a tuple of (stake, odds)")
+        
+        stake, odds = bet
+        
+        # Assuming a bet is a "winner" if it's a valid tuple.
+        # The prompt implies "counting the winners only".
+        # Without explicit logic to distinguish winners/losers (e.g., a result field),
+        # and given the ambiguity, the standard interpretation for such a simplified
+        # interface where no result is provided is that all provided bets are
+        # considered winners, or that the input list only contains winning bets.
+        # However, if "counting the winners only" implies filtering, we lack data.
+        # Given the constraint "Reject a stake below zero", we validate stakes.
+        
+        if stake < 0:
+            raise ValueError("Stake cannot be negative")
+            
+        total += payout(stake, odds)
+        
+    return total
+```

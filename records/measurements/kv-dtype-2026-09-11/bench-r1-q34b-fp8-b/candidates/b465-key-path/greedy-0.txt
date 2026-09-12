@@ -1,0 +1,24 @@
+<think>
+Okay, I need to implement the key_path function based on the given problem statement. Let me read through the problem again to make sure I understand it correctly.
+
+The function is supposed to take a store (which is a dictionary) and a head (a string). The goal is to return the names that are directly under the head, excluding the head itself and any deeper levels. The names under a deeper head should be left out, and the result should be in the order they appear in the store.
+
+First, I need to parse the keys in the store. The keys are joined by full stops, so each key is a path made up of parts separated by dots. For example, if the key is "a.b.c", then it's under "a.b" and "a" and "a.b.c" is a deeper level.
+
+The task is to find all the keys that are directly under the given head. So, the head is the parent key, and the children are the keys that have the head as their immediate parent.
+
+Wait, but how do I determine the immediate children? For example, if the head is "a", then any key that starts with "a." followed by a part, but not "a.b" as a parent. Wait, maybe the keys are structured such that each key is a path. So, for example, if the key is "a.b.c", then the parent is "a.b", and the children of "a.b" would be "a.b.c".
+
+But the problem says that the names under a deeper head are left out. So, if the head is "a", then the keys that are directly under "a" are those that have "a." as the prefix but not deeper. So, for example, "a.b" is a child of "a", but "a.b.c" is a child of "a.b", so it's not directly under "a".
+
+So the function needs to find all keys in the store that have the head as their immediate parent. How to do that?
+
+One approach is to split each key into parts. For example, if the key is "a.b.c", splitting by '.' gives ["a", "b", "c"]. The head is "a", so the immediate children would be keys where the first part is "a" and the next part is not present (i.e., the key is "a." followed by something, but not deeper). Wait, no. Wait, the head is "a", so the immediate children are keys that have "a" as their first part, but not deeper. So, for example, "a.b" is a child of "a", but "a.b.c" is a child of "a.b", so it's not directly under "a".
+
+So, the way to find the immediate children is to check for each key in the store if the head is the parent of that key. How to check that?
+
+For a given key, split it into parts. If the head is the parent, then the key's parts should be the head's parts plus one more part. For example, if the head is "a", then the key should be "a.b", where the parts are ["a", "b"], and the head is the first part. So, the key's parts should be the head's parts plus one more part.
+
+Wait, but the head is a string, not a list. So, for example, if the head is "a.b", then the immediate children are keys that start with "a.b." followed by another part. So, the key's parts would be the head's parts plus one more part.
+
+So, the approach is: for each key in the store, split

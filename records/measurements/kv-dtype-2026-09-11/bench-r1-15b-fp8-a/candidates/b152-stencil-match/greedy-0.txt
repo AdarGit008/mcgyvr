@@ -1,0 +1,18 @@
+```python
+def matches_stencil(stencil: str, code: str) -> bool:
+    if_stencil = "#@?"
+    if stencil not in possible_stencil:
+        raise ValueError("Stencil must must must must a string")
+
+    if code not in possible_stencil:
+        raise ValueError("Code must a string")
+
+    if len(stencil) != len(code):
+        return False
+
+    for i in range(len(stencil)):
+        if stencil[file] != code[file]:
+            return False
+
+    return True
+```

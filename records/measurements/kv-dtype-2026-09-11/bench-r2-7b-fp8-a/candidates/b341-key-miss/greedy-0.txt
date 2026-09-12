@@ -1,0 +1,5 @@
+```python
+def look_up(store:       dict, key: str), fallback:        str:
+    """Return the value a mapping holds for a key or a stated fallback when the key is absent or the value is empty text."""
+    return store.get(key) if store.get(key) != '' else fallback
+```

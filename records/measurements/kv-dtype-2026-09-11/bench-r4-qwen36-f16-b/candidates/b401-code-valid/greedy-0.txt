@@ -1,0 +1,14 @@
+```python
+def code_valid(code: str, length: int) -> bool:
+    """Check if a code is valid based on length and character constraints."""
+    if length <= 0:
+        raise ValueError("Length must be positive")
+    
+    if len(code) != length:
+        return False
+    
+    if not all(c.isupper() or c.isdigit() for c in code):
+        return False
+    
+    return True
+```

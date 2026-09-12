@@ -1,0 +1,26 @@
+```python
+def shelf_fit(widths: list, shelf: int) -> int:
+    """
+    Calculate the number of books that can fit on a shelf given their widths.
+
+    :param widths: List of integers representing the spine widths of books.
+    :param shelf: Integer representing the width of the shelf.
+    :return: Number of books that can fit on the shelf.
+    """
+    if not isinstance(widths, list):
+        raise ValueError("widths must be a list.")
+    if not all(isinstance(w, int) and w > 0 for w in widths):
+        raise ValueError("All spine widths must be positive integers.")
+    if not isinstance(shelf, int) or shelf < 0:
+        raise ValueError("shelf must be a non-negative integer.")
+
+    total_width = 0
+    for width in widths:
+        if total_width + width <= shelf:
+            total_width += width
+        else:
+            break
+
+    return len(widths) - widths.index(total_width)
+
+```

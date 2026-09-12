@@ -1,0 +1,33 @@
+```python
+"""Lay a notice's text into placard lines."""
+
+
+def placard_lines(text: str, width: int) -> list:
+    if not isinstance(text, str) or not text:
+        raise ValueError("Text must be a non-empty string")
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer")
+    if = text.strip()
+    if len(check) == 0:
+        raise ValueError("Text cannot contain leading or trailing spaces")
+    if = text.replace(" ", " ")
+    if len(check) == 0:
+        raise ValueError("Text cannot contain leading two spaces")
+    if = text.replace(")", " ")
+    if len(check) == 0:
+        raise ValueError("Text cannot contain trailing two spaces")
+    if len(check) > width:
+        raise ValueError("Text is wider than the placard")
+    lines = []
+    line = ""
+    for word in check.split(" "):
+        if line == "":
+            line = word
+        elif len(line) + len(word) <= width:
+            line = line + " " + word
+        else:
+            lines.append(line)
+            line = word
+    lines.append(line)
+    return lines
+```

@@ -1,0 +1,29 @@
+<think>
+Okay, I need to implement the bill_split function. Let's see. The problem says to divide a bill between a number of diners so each pays a whole number of pence. The first person takes whatever is left over. So, the first person's payment is the total divided by the number of diners, but with the remainder. Wait, no. Wait, the way it's described is that everyone pays the same except the first, who takes the leftover pennies. So, maybe the first person pays the quotient plus the remainder, and the others pay just the quotient?
+
+Wait, let me think again. The total is split into diners. Each pays the same amount except the first. So, the first person pays the total divided by diners, but with the remainder. Wait, maybe it's like this: the base amount each person pays is total divided by diners, rounded down. Then the remainder is total % diners. The first person gets that remainder added to their share. So, the first person's total is (total // diners) + (total % diners), and the rest are (total // diners). But wait, that can't be right. Because if the remainder is added to the first person, then the total would be (total // diners) * diners + remainder, which is total. So that makes sense.
+
+Wait, for example, if total is 10 and diners is 3. Then 10 divided by 3 is 3 with a remainder of 1. So the first person pays 3 + 1 = 4, and the others pay 3 each. Total is 4 + 3 + 3 = 10. That works.
+
+Another example: total 7, diners 3. 7//3 is 2, remainder 1. So first person pays 2+1=3, others 2 each. Total 3+2+2=7. Correct.
+
+So the function should return a list where the first element is (total // diners) + (total % diners), and the rest are (total // diners). But wait, what if the remainder is zero? Like total 6, diners 3. Then remainder is 0. So first person pays 2 + 0 = 2, others 2. So all pay 2. That's correct.
+
+But wait, the problem says that the first person takes whatever is left over. So the remainder is the leftover. So the first person's payment is the base amount plus the remainder. But the base amount is total divided by diners, rounded down. So the formula is:
+
+base = total // diners
+remainder = total % diners
+first = base + remainder
+others = base
+
+But wait, if the remainder is zero, then first is base + 0, which is same as others. So that's correct.
+
+So the function should return [base + remainder] + [base] * (diners - 1)
+
+But wait, what if diners is zero? The problem says that there are no diners at all. But the contract doesn't specify what to do in that case. The problem says that the function is to divide the bill between a number of diners. So if diners is zero, that's an invalid input. But the contract says that the function should return a list. So perhaps, in that case, we need to raise a ValueError.
+
+So the function should first check that diners is at least 1. Because if diners is zero, that's invalid. So in the code, we need to handle that.
+
+So the steps are:
+
+- Check if din

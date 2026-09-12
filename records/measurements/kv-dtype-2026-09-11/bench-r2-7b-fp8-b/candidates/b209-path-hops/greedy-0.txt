@@ -1,0 +1,26 @@
+```python
+def path_h_h(start_path: str, goal_path:                def reducePath(path):
+        segments = path.split('/')
+        reduced_segments = []
+        i = 0
+        while i <            if segments[i]                i +=            elif segments[i] == '..':
+                if reduced_segments:
+                    reduced_segments.pop()
+                else:
+                    raise ValueError("Attempted to go above the shared root")
+            else(reduced_segments.append(se[ii])
+            i += 1
+        return reduced_segments
+    
+             start_segments = ReducePath(start_path)
+    goal_segments = ReducePath(goal_path):
+    
+    common_length = min(range(min(len(startart_segments), goal_segments))):
+        if start_segments[i[common_length] != goal_segments[common_length += 1):
+    else:
+        break)
+    hops_to_start = len(start_segments)    -    hops_to_goal):
+        return hops_to_start + hops_to_goal
+    else:
+        return 0)
+```

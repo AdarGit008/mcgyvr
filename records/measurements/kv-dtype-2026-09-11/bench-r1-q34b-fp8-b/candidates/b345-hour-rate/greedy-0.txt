@@ -1,0 +1,37 @@
+<think>
+Okay, let's see. The user wants me to fix the week_pay function. The problem is that the current implementation might not correctly handle the overtime pay. Let me read the problem statement again.
+
+The task says that week_pay should pay the stated rate for up to 40 hours, and then half as much again for every hour beyond. Wait, no, the description says "pays that rate for up to forty hours and half as much again for every hour beyond, and it pays the higher rate on all the hours worked." Wait, maybe I need to parse that correctly.
+
+Wait, the original code is:
+
+def week_pay(hours: int, rate: int) -> int:
+    if hours > 40:
+        return hours * hour_rate(rate) * 3 // 2
+    return hours * hour_rate(rate)
+
+But the problem says that the higher rate is applied to all hours worked. Wait, maybe the original code is incorrect. Let me re-express the problem.
+
+The correct logic should be: for the first 40 hours, pay at the base rate. For any hours beyond 40, pay at 1.5 times the base rate. But the original code is multiplying hours by rate * 3//2, which is 1.5 times. But if hours is more than 40, then the code is returning hours * rate * 3//2. But that would be treating all hours as 1.5 times the rate, which is not correct. Because the first 40 hours should be at rate, and the rest at 1.5 times.
+
+Wait, the problem says that "pays that rate for up to forty hours and half as much again for every hour beyond, and it pays the higher rate on all the hours worked." Wait, maybe the description is that for hours beyond 40, each hour is paid at 1.5 times the rate. But the original code is multiplying hours by 3//2, which is 1.5, but that would be for all hours. So if hours is 50, then 50 * 1.5 * rate. But that would be 75 * rate. But the correct calculation should be 40 * rate + (10 * 1.5 * rate) = 40 + 15 = 55 * rate. So the original code is wrong.
+
+So the problem is that the original code is not splitting the hours into the base 40 and the overtime. Instead, it's treating all hours as 1.5 times the rate. So the fix is to calculate the regular hours (up to 40) and the overtime hours (if any) and apply the respective rates.
+
+So the correct approach is:
+
+If hours <= 40: pay hours * rate.
+
+Else: pay 40 * rate + (hours - 40) * 1.5 * rate.
+
+But the problem says that "anything paid is rounded down". So the result should be the floor of the calculated value.
+
+Wait, the original code is using integer division (//) but in the current code, for hours >40, it's hours * rate * 3 // 2. But that's not correct. Let me think again.
+
+The original code for hours >40 is:
+
+return hours * hour_rate(rate) * 3 // 2
+
+Which is hours * rate * 3 // 2. But that's equivalent to (hours * rate * 3) // 2. Which is the same as (hours * rate) * 1.5, but floored.
+
+But that's not the correct way to calculate the overtime

@@ -1,0 +1,83 @@
+```python
+"""Replay a notepad editing session: type, erase, replace, undo and redo."""
+
+
+def replay_notepad(commands: list) -> str:
+    """Replay a list of notepad commands and return the final buffer state."""
+    buffer = ""
+    past = []
+    future = []
+
+    for command in commands:
+        # Validate command structure: must be a list
+        if not isinstance(command, list):
+            raise ValueError("Command must be a list")
+
+        # Validate command length: must have at least 1 element (the action)
+        if len(command) < 1:
+            raise ValueError("Command must have an action")
+
+        action = command[0]
+
+        # Validate action is known
+        if action not in ("type", "erase", "replace", "undo", "redo"):
+            raise ValueError(f"Unknown action: {action}")
+
+        # Validate and process each action
+        if action == "type":
+            # type requires exactly 2 elements: ["type", text]
+            if len(command) != 2:
+                raise ValueError("type command requires exactly one argument")
+            text = command[1]
+            # Validate text is a non-empty string
+            if not isinstance(text, str) or len(text) == 0:
+                raise ValueError("type text must be a non-empty string")
+            past.append(buffer)
+            buffer += text
+            # Clear future on fresh edit
+            future = []
+
+        elif action == "erase":
+            # erase requires exactly 2 elements: ["erase", n]
+            if len(command) != 2:
+                raise ValueError("erase command requires exactly one argument")
+            n = command[1]
+            # Validate n is a positive integer
+            if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
+                raise ValueError("erase count must be a positive integer")
+            # Validate n does not exceed buffer length
+            if n > len(buffer):
+                raise ValueError("erase count exceeds buffer length")
+            past.append(buffer)
+            buffer = buffer[:len(buffer) - n]
+            # Clear future on fresh edit
+            future = []
+
+        elif action == "replace":
+            # replace requires exactly 3 elements: ["replace", old, new]
+            if len(command) != 3:
+                raise ValueError("replace command requires exactly two arguments")
+            old = command[1]
+            new = command[2]
+            # Validate old is a non-empty string
+            if not isinstance(old, str) or len(old) == 0:
+                raise ValueError("replace old text must be a non-empty string")
+            # Validate old occurs in buffer
+            if old not in buffer:
+                raise ValueError("replace old text not found in buffer")
+            past.append(buffer)
+            # Rewrite the last occurrence of old with new
+            # Find the last occurrence
+            idx = buffer.rfind(old)
+            buffer = buffer[:idx] + new + buffer[idx + len(old):]
+            # Clear future on fresh edit
+            future = []
+
+        elif action == "undo":
+            # undo requires exactly 2 elements: ["undo", k]
+            if len(command) != 2:
+                raise ValueError("undo command requires exactly one argument")
+            k = command[1]
+            # Validate k is a positive integer
+            if not isinstance(k, int) or isinstance(k, bool) or k <= 0:
+                raise ValueError("undo count must be a positive integer")

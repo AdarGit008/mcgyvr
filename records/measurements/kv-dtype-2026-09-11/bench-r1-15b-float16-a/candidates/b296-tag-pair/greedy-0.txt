@@ -1,0 +1,15 @@
+```python
+def tag_open(marker: str) -> str:
+    if not marker.startswith('<') or not marker.endswith('>'):
+        raise ValueError("Marker must be wrapped in angle brackets")
+    if marker.count('<') != marker.count('>'):
+        raise ValueError("Marker must have an equal number of opening and closing angle brackets")
+    if marker.count('<') == 1:
+        return marker[1:]
+    return marker[1:-1]
+
+def tag_pair(opening: str, closing: str) -> bool:
+    if opening != closing:
+        return False
+    return True
+```

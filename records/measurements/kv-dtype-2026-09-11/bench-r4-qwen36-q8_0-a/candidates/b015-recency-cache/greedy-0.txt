@@ -1,0 +1,58 @@
+```python
+def new_cache(limit: int) -> dict:
+    """Create a recency cache with a given maximum capacity."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+        raise ValueError("limit must be a positive integer")
+    return {
+        "limit": limit,
+        "keys": [],
+        "store": {}
+    }
+
+
+def cache_write(cache: dict, key: str, value: int) -> list:
+    """Write a value to the cache, evicting the least recently used if necessary."""
+    if not isinstance(key, str) or len(key) == 0:
+        raise ValueError("key must be a non-empty string")
+    
+    limit = cache["limit"]
+    keys = cache["keys"]
+    store = cache["store"]
+    
+    # If key exists, update value and move to end (most recently touched)
+    if key in store:
+        keys.remove(key)
+        keys.append(key)
+        store[key] = value
+        return []
+    
+    # Key is new
+    # If cache is full, evict the least recently used (first in keys list)
+    if len(keys) == limit:
+        evicted_key = keys.pop(0)
+        del store[evicted_key]
+        return [evicted_key]
+    
+    # Add new key
+    keys.append(key)
+    store[key] = value
+    return []
+
+
+def cache_read(cache: dict, key: str) -> int:
+    """Read a value from the cache, moving the key to most recently touched."""
+    if not isinstance(key, str) or len(key) == 0:
+        raise ValueError("key must be a non-empty string")
+    
+    if key not in cache["store"]:
+        raise KeyError(f"Key '{key}' not found in cache")
+    
+    keys = cache["keys"]
+    store = cache["store"]
+    
+    # Move key to end (most recently touched)
+    keys.remove(key)
+    keys.append(key)
+    
+    return store[key]
+```

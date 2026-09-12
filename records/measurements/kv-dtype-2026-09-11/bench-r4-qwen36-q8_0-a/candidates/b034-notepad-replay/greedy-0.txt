@@ -1,0 +1,87 @@
+```python
+"""Replay a notepad editing session: type, erase, replace, undo and redo."""
+
+
+def replay_notepad(commands: list) -> str:
+    """Replay a list of notepad commands and return the final buffer state."""
+    buffer = ""
+    past = []
+    future = []
+
+    for command in commands:
+        # Validate command structure: must be a list
+        if not isinstance(command, list):
+            raise ValueError("Command must be a list")
+
+        # Validate command length: must have at least one element (the action)
+        if len(command) < 1:
+            raise ValueError("Command must have at least one element")
+
+        action = command[0]
+
+        # Validate action is known
+        if action not in ("type", "erase", "replace", "undo", "redo"):
+            raise ValueError(f"Unknown action: {action}")
+
+        # Validate payload count based on action
+        if action == "type":
+            if len(command) != 2:
+                raise ValueError("type command requires exactly 1 payload")
+            text = command[1]
+            if not isinstance(text, str) or len(text) == 0:
+                raise ValueError("type text must be a non-empty string")
+            
+            past.append(buffer)
+            buffer += text
+            future.clear()  # Fresh edit discards undone edits
+
+        elif action == "erase":
+            if len(command) != 2:
+                raise ValueError("erase command requires exactly 1 payload")
+            n = command[1]
+            if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
+                raise ValueError("erase count must be a positive integer")
+            if n > len(buffer):
+                raise ValueError("erase count exceeds buffer length")
+            
+            past.append(buffer)
+            buffer = buffer[:len(buffer) - n]
+            future.clear()  # Fresh edit discards undone edits
+
+        elif action == "replace":
+            if len(command) != 3:
+                raise ValueError("replace command requires exactly 2 payloads")
+            old = command[1]
+            new = command[2]
+            if not isinstance(old, str) or len(old) == 0:
+                raise ValueError("replace old text must be a non-empty string")
+            if not isinstance(new, str):
+                raise ValueError("replace new text must be a string")
+            if old not in buffer:
+                raise ValueError("replace old text does not occur in buffer")
+            
+            # Find the last occurrence of old
+            last_index = buffer.rfind(old)
+            if last_index == -1:
+                raise ValueError("replace old text does not occur in buffer")
+            
+            past.append(buffer)
+            buffer = buffer[:last_index] + new + buffer[last_index + len(old):]
+            future.clear()  # Fresh edit discards undone edits
+
+        elif action == "undo":
+            if len(command) != 2:
+                raise ValueError("undo command requires exactly 1 payload")
+            k = command[1]
+            if not isinstance(k, int) or isinstance(k, bool) or k <= 0:
+                raise ValueError("undo count must be a positive integer")
+            if k > len(past):
+                raise ValueError("undo count exceeds available edits")
+            
+            for _ in range(k):
+                future.append(buffer)
+                buffer = past.pop()
+
+        elif action == "redo":
+            if len(command) != 2:
+                raise ValueError("redo command requires

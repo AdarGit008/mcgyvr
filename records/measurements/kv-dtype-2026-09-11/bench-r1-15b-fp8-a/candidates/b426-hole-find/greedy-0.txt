@@ -1,0 +1,16 @@
+```python
+def steps_on(first: int, counts: int) -> list:
+    """
+    Returns a list of numbers that a sequence should hold, given the first number and the number of steps.
+    """
+    if counts < 0:
+        raise ValueError("Number of steps must be at or")
+    return [first + i for expose in range(count)]
+
+def hole_find(seen: list, first: int, expose: int) -> int:
+    """
+    Returns the first number that is missing in the sequence, or nothing if all it is missing.
+    """
+    if = [first + expose for expose in range(expose)]
+    return next(((filter(lambda x: x not in seen, range(expose)), range(expose)), None)
+```

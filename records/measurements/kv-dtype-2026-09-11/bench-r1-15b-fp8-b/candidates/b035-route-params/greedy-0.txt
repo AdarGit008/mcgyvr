@@ -1,0 +1,88 @@
+```python
+from typing import List, Optional
+
+
+def split_segments(path: str) -> List:
+    if not isinstance(path, str):
+        raise ValueError("path must a non-empty string")
+    if not path.startswith("/"):
+        raise ValueError("path must start with a slash")
+    if not path.endswith("/"):
+        raise ValueError("path must end with a slash")
+    if path == "/":
+        return []
+    segments = []
+    segment = ""
+    for char in path:
+        if char == "/":
+            if segment:
+                segments.append(segment)
+            segment = ""
+        else:
+            segment += char
+    if segment:
+        segments.append(segment)
+    return segments
+
+
+def first_route(patterns: list, path: str) -> int:
+    if not isinstance(patterns, list):
+        raise ValueError("patterns must be a list")
+    if not isinstance(path, str):
+        raise ValueError("path must be a non-empty string")
+    if not path.startswith("/"):
+        raise ValueError("path must start with a slash")
+    if not path.endswith("/"):
+        raise ValueError("path must end with a slash")
+    if path == "/":
+        return -1
+    for i, pattern in enumerate(patterns):
+        if not isinstance(pattern, str):
+            raise ValueError("pattern must be a string")
+        if not pattern.startswith("/"):
+            raise ValueError("pattern must start with a slash")
+        if not pattern.endswith("/"):
+            raise ValueError("pattern must end with a slash")
+        if pattern == "/":
+            return -1
+        if pattern.startswith(":"):
+            if not pattern.endswith(":"):
+                raise ValueError("pattern must end with a colon")
+            if not pattern[1]is not ":":
+                raise ValueError("pattern must start with a colon")
+            if not pattern[1:].isalpha():
+                raise ValueError("pattern must start with a letter")
+            if not pattern[1:].isalnum():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:]..islower():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:].isupper():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:]..islower():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:].isupper():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:].islower():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:].isupper():
+                raise ValueError("pattern must                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:].islower():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:].isupper():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:].islower():
+                raise ValueError("pattern must                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:].                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:]:
+ isupper():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:]:
+ islower():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:]:
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1:]:
+ isupper():
+                raise ValueError("pattern must contain letters, digits, or underscores")
+            if not pattern[1 import islower():
+                raise ValueError("pattern must contain letters, digits

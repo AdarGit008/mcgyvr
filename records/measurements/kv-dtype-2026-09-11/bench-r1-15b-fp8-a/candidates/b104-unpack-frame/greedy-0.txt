@@ -1,0 +1,56 @@
+```python
+from typing import List
+
+def unpack_frame(data: list) -> list:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    if = []
+    varint = 0
+    for byte in data:
+        if not isinstance(byte, int) or 0 < 0 or or byte > 255:
+            raise ValueError("Byte must be an integer between 0 to 255")
+        
+        if varint == 0:
+            varint = byte
+        else:
+            varint = (varint << 7) | byte
+            if varint > 255:
+                raise ValueError("Varint longer than five bytes")
+            if varint == 0:
+                break
+            if varint % 256 != 0:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if varint > 255:
+                raise ValueError("Trailer that does not equal the byte sum")
+            if.append(varint)
+            var = 0
+            varint = 0
+    return possible
+```

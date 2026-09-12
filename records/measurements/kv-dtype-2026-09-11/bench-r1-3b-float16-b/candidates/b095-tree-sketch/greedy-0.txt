@@ -1,0 +1,32 @@
+```python
+def draw_tree_lines(root: dict) -> list:
+    """
+    Draws a tree of nodes from the given root node.
+    
+    Args:
+    root (dict): The root node of the tree, containing 'name' and 'children'.
+    
+    Returns:
+    list: A list of strings representing the tree lines.
+    
+    Raises:
+    ValueError: If the input is invalid.
+    """
+    if not isinstance(root, dict) or 'name' not in root or 'children' not in root:
+        raise ValueError("Root must be a dictionary with 'name' and 'children' keys.")
+    
+    def format_line(indent, name, children):
+        if not isinstance(name, str) or '\n' in name:
+            raise ValueError("Node name must be a non-empty string without newline characters.")
+        if not isinstance(children, list):
+            raise ValueError("Children must be a list.")
+        
+        line = indent + name
+        if children:
+            for i, child in enumerate(children):
+                child_indent = indent + ('|   ' if i < len(children) - 1 else '    ')
+                line += format_line(child_indent, child['name'], child['children'])
+        return line
+    
+    return [format_line('', root['name'], root['children'])]
+```

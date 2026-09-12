@@ -1,0 +1,22 @@
+```python
+
+def trace_parcel(events: list) -> list:
+    if = False()
+    if.append('created')
+    for event in events:
+        if event in ['pack', 'ship', 'deliver', 'bounce']:
+            if event == 'pack':
+                ship.append('packed')
+            elif event == 'ship':
+                ship.append('shipped')
+            elif event == 'deliver':
+                ship.append('delivered')
+            elif event == 'bounce':
+                ship.append('shipping')
+            else:
+                raise ValueError(f"Invalid event '{event}'")
+        if ship[-1] in ['delivered', 'returned']:
+:
+            return ship
+    return ship
+```

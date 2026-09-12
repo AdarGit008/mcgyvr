@@ -1,0 +1,35 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path: str) -> list:
+        segments = path.split('/')
+        reduced_segments = []
+        i = 0
+        while i < len(segments):
+            if segments[i] == '':
+                i += 1
+                continue
+            elif segments[i] == '.':
+                i += 1
+                continue
+            elif segments[i] == '..':
+                if i == 0:
+                    raise ValueError("Path cannot climb above the shared root")
+                reduced_segments.pop()
+                i += 1
+            else:
+                reduced_segments.append(segments[i])
+                i += 1
+        return reduced_segments
+
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+
+    common_prefix_length = 0
+    for i in range(min(len(start_segments), len(goal_segments))):
+        if start_segments[i] != goal_segments[i]:
+            break
+        common_prefix_length += 1
+
+    hops = len(start_segments) - common_prefix_length + len(goal_segments) - common_prefix_length
+    return hops
+```

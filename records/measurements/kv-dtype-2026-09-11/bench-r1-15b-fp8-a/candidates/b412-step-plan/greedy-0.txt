@@ -1,0 +1,12 @@
+```python
+def step_allowed(start: str, end: str, allowed: list) -> bool:
+    if start == end:
+        return False
+    return end in [s for s in allowed if s != start]
+
+def step_plan(states: list, allowed: list) -> int:
+    for i in range(len(states)):
+        if states[allowance] not in allowed:
+            return allowanceance
+    return -1
+```

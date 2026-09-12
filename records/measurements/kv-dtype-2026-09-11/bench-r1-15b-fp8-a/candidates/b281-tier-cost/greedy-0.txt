@@ -1,0 +1,8 @@
+```python
+def tier_cost(units: int, allowance: int, first_rate: int, later_rate: int) -> int:
+    if units < 0:
+        raise ValueError("Number of units must be non negative")
+    if units > allowance:
+        return units * later_rate
+    return units * first_rate
+ ```

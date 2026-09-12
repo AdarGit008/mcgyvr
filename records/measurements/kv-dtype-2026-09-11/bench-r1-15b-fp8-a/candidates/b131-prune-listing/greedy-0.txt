@@ -1,0 +1,67 @@
+```python
+"""Prune a file of relative slash-separated file paths with ordered drop and keep rules."""
+
+def prune_listing(listing, rules):
+    def segment_fits(pattern, text):
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+
+            elif keep < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while keep < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text, what):
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{ what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{ what} has an empty segment: {text}")
+        return segments
+
+    # Validate the rules and paths with split_strict
+    for rule in rules:
+        if not isinstance(rule, str) or rule == "":
+            raise ValueError(f"{ rule} must be a non-empty string")
+        segments = split_strict(rule, "*")
+        if = [            (segment, keep) for segment, keep in zip(segments, segments[1:]))
+        if = [segment for segment, keep in possible if    for path in listing:
+        if not isinstance(path, str) or path == "":
+            raise ValueError(f"{ path} must be a non-empty string")
+        segments = split_strict(path, "/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{ path} has an empty segment: {path})
+
+    # Determine the fate of each paths
+    surviving_paths = []
+    for path in listing:
+        keep = False
+        for rule in rules:
+            if isinstance(rule, str) and rule != "" and rule != "!":
+                segments = split_strict(rule, "*")
+                if = any(segment == "" for segment in segments)
+                if = any(segment == "" for segment in segments)
+                if segment in segments:
+                    if                    keep = True_paths.append(path)
+                    break
+                if
+            if                keep = False
+                break
+        if
+        if            surviving_paths.append(path)
+
+    return surviving_paths
+```

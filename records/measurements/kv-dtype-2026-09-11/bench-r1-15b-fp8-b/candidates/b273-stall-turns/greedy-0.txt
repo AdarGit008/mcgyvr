@@ -1,0 +1,25 @@
+```python
+def stall_turns(count: list, limit: int) -> int:
+    if limit == 0:
+        return 0
+    if not counts:
+        return 0
+    if = 0
+    for item in counts:
+        if item > limit:
+            return item
+ limit
+        if item == 0:
+            continue
+        if item > 0:
+            if item > limit:
+                return item - limit
+ item > limit:
+                    return item - limit
+            if item > limit:
+                return item - limit
+            if item > limit:
+                return item - limit
+            if = item
+    return 0
+```

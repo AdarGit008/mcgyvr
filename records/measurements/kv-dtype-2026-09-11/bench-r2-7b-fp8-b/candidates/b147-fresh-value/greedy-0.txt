@@ -1,0 +1,20 @@
+```python
+def fresh_value(entry: dict, now:       if not isinstance(entry, dict:
+        raise ValueError("entry must be a dictionary")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry must contain a 'value' field that is a string")
+    
+          if 'stored'not in entry or not isinstance(entry['stored'], int) or entry['stored'] <        raise ValueError("entry must contain a 'stored' field that is a non")
+    
+             if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl']:
+        raise ValueError("entry must contain a 'ttl' field that is a positive integer")
+    
+    if 'fresh' not in entry or not isinstance(entry['fresh'], int) or entry['fresh'] < entry['stored']:
+        raise ValueError("entry must contain a 'fresh' field that is an integer at least 'stored'")
+    
+    if entry['fresh'] >= entry['stored'] + entry['ttl']:
+        raise ValueError("record is no longer usable at now")
+    
+    return entry['value']
+```

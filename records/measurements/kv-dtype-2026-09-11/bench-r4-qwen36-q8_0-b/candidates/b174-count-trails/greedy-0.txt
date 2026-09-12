@@ -1,0 +1,52 @@
+```python
+def count_trails(rows: int, cols: int, blocked: list) -> int:
+    """Count distinct paths from top-left to bottom-right in a grid avoiding blocked cells."""
+    if not isinstance(rows, int) or isinstance(rows, bool) or rows < 1:
+        raise ValueError("rows must be an integer of at least 1")
+    if not isinstance(cols, int) or isinstance(cols, bool) or cols < 1:
+        raise ValueError("cols must be an integer of at least 1")
+    if not isinstance(blocked, list):
+        raise ValueError("blocked must be a list")
+    
+    blocked_set = set()
+    for item in blocked:
+        if not isinstance(item, list) or len(item) != 2:
+            raise ValueError("Each blocked entry must be a two-item list")
+        r, c = item
+        if not isinstance(r, int) or isinstance(r, bool) or not isinstance(c, int) or isinstance(c, bool):
+            raise ValueError("Blocked cell indices must be integers")
+        if r < 0 or r >= rows or c < 0 or c >= cols:
+            raise ValueError("Blocked cell is outside the grid")
+        blocked_set.add((r, c))
+    
+    if (0, 0) in blocked_set:
+        raise ValueError("Rope across the entrance cell")
+    if (rows - 1, cols - 1) in blocked_set:
+        raise ValueError("Rope across the exit cell")
+    
+    # DP approach: dp[r][c] = number of ways to reach (r, c)
+    # Since we only move right or down, we can iterate row by row, col by col
+    # Use a 2D array or optimize space. Given constraints aren't specified for size, 
+    # but typically grid DP is O(rows*cols).
+    
+    # Initialize DP table
+    # dp[r][c] will store the number of paths to reach cell (r, c)
+    dp = [[0] * cols for _ in range(rows)]
+    
+    # Starting point
+    dp[0][0] = 1
+    
+    for r in range(rows):
+        for c in range(cols):
+            if (r, c) in blocked_set:
+                dp[r][c] = 0
+                continue
+            
+            # If not the start, add paths from top and left
+            if r > 0:
+                dp[r][c] += dp[r-1][c]
+            if c > 0:
+                dp[r][c] += dp[r][c-1]
+                
+    return dp[rows-1][cols-1]
+```

@@ -1,0 +1,27 @@
+```python
+def common_head(words: list) -> str:
+    """
+    Returns the longest run of characters that every word in a list begins with.
+    """
+    if not words:
+        return ""
+    
+    # Convert all words to lowercase to ensure case insensitivity
+    words = [word.lower() for word in words]
+    
+    # Find the shortest word to determine the maximum possible common prefix length
+    min_word_length = min(len(word) for word in words)
+    
+    # Initialize the common prefix as an empty string
+    common_prefix = ""
+    
+    # Iterate over each character position up to the minimum word length
+    for i in range(min_word_length):
+        # Check if the current character is the same in all words
+        if all(word[i] == words[0][i] for word in words):
+            common_prefix += words[0][i]
+        else:
+            break
+    
+    return common_prefix
+```

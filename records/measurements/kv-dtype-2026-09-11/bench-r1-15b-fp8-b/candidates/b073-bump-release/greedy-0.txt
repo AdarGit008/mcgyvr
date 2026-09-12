@@ -1,0 +1,35 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str):
+        raise ValueError("Version must be a string")
+    if not isinstance(part, str):
+        raise ValueError("Part must must be a string")
+    if version.count('.') != 3:
+        raise ValueError("Version must be three dot-separated numeric components")
+    if part not in ['major', 'minor', 'patch']:
+        raise ValueError("Part must be one of 'major', 'minor', 'patch'")
+
+    parts = version.split('.')
+    if parts[0] == '0':
+        raise ValueError("Version cannot start a leading zero")
+    if parts[ 1] == '0':
+        raise ValueError("Version cannot be empty")
+    if parts[2] ' ':
+        raise ValueError("Version cannot be a string with a leading space")
+
+    if = int(parts[0])
+    if part == 'major':
+        if check == 0:
+            parts[0] = '1'
+        else:
+            parts[0] = str(check + 1)
+    elif part == 'minor':
+        if check == 0:
+            parts[1] = '1'
+        else:
+            parts[1] = str(check + 1)
+    elif part == 'patch':
+        parts[2] = '0'
+
+    return '.'.join(parts)
+```

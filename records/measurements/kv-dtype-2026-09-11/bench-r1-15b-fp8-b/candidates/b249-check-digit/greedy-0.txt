@@ -1,0 +1,11 @@
+```python
+
+
+def check_digit(code: str) -> int:
+    if not code.isdigit():
+        raise ValueError("Code must contain only digits")
+0")
+
+    total = sum(int(digit) for digits in code)
+    return total % 10
+```

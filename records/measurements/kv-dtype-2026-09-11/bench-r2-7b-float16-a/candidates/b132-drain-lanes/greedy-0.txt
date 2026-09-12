@@ -1,0 +1,42 @@
+```python
+"""Drain labelled items across planned lanes, round by round."""
+
+from typing import List, Dict, Tuple
+
+def drain_lanes(plan: List[Tuple[str, int]], items: List[Tuple[str, str]]) -> Dict[str, List]:
+    if not plan:
+        raise ValueError("Plan cannot be empty")
+    
+    for lane, quota in plan:
+        if not isinstance(lane, str) or not lane:
+            raise ValueError(f"Invalid lane '{lane}': must be a non-empty string")
+        if not isinstance(quota, int) or quota <= 0:
+            raise ValueError(f"Invalid quota {quota} for lane '{lane}': must be a positive integer")
+    
+    for i, (label, lane) in enumerate(items):
+        if not isinstance(label, str) or not label:
+            raise ValueError(f"Invalid label '{label}' at position {i}: must be a non-empty string")
+        if not isinstance(lane, str) or not lane:
+            raise ValueError(f"Invalid lane '{lane}' at position {i}: must be a non-empty string")
+    
+    if len(set(lane for _, lane in plan)) != len(plan):
+        raise ValueError("Duplicate lanes found in the plan")
+    
+    queues = {lane: [] for lane, _ in plan}
+    for label, lane in items:
+        if lane in queues:
+            queues[lane].append(label)
+    
+    order = []
+    rounds = 0
+    while True:
+        rounds += 1
+        for lane, quota in plan:
+            queue = queues[lane]
+            taken = 0
+            while taken < quota and queue:
+                order.append(queue.pop(0))
+                taken += 1
+            if taken < quota:
+                return {"order": order, "rounds": rounds}
+```

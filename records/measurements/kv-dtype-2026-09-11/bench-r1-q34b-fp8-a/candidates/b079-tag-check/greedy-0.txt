@@ -1,0 +1,21 @@
+<think>
+Okay, I need to implement the check_line function based on the given problem description. Let me start by understanding the requirements.
+
+First, the line_tag function is already written. It checks if the input is a string, computes the sum of the ASCII values of the characters modulo 256, and formats it as a two-digit lowercase hexadecimal string, zero-padded. That part seems straightforward.
+
+Now, the check_line function needs to validate a line. The line must be a string, at least three characters long. The third-from-last character must be a tilde. The last two characters are the tag, which should match the line_tag computed for the body (everything before the tilde). Also, the body can contain tildes, but the tag must match.
+
+So, the steps for check_line are:
+
+1. Check if the input line is a string. If not, raise ValueError.
+2. Check if the line's length is at least 3. If not, raise error.
+3. Find the third-from-last character. That is, the character at position len(line) - 3. It must be a tilde.
+4. The last two characters are the tag. We need to split the line into the body (everything before the tilde) and the tag. Wait, but the tag is the last two characters. So the body is everything except the last two characters, but wait, no. Wait, the third-from-last is the tilde. So the structure is: [body]~[tag], where the body is everything up to the tilde, and the tag is the last two characters.
+
+Wait, the problem says: the third-from-last character must be a tilde. So the line is structured as [body]~[tag], where the body is everything up to the tilde, and the tag is the last two characters. Wait, but the third-from-last is the tilde. Let me think: for example, if the line is "abc~12", then the length is 5. Third from last is position 5-3=2 (0-based index 2?), which is 'c'? Wait, maybe I need to think in terms of indices.
+
+Let me take an example. Suppose the line is "abc~12". The length is 6. The third-from-last character is the 3rd character from the end. The last character is '2', second last is '1', third last is '~'. So the tilde is at position len(line) - 3. So for a line of length n, the tilde is at position n-3. Then, the body is everything before that tilde, and the tag is the last two characters.
+
+Wait, but the tag is the last two characters. So the line is structured as [body]~[tag], where the body is up to the tilde, and the tag is the last two characters. But the tilde is at position n-3. So the body is from 0 to n-4, and the tag is from n-2 and n-1.
+
+Wait, let's take an example. Let's say the line is "abc~12". The length is 6. The third from last is at position 6-3=3 (0-based index 3). The character at index 3 is '~'. Then the body is the part before that, which is "abc", and the tag is the last two characters, "12". So the tag should be line_tag("abc"). Let's compute that: sum of ord('a') + ord('b') + ord('c') = 97 + 98 + 99 =

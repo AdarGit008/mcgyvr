@@ -1,0 +1,36 @@
+<think>
+Okay, I need to implement the tide_marks function. Let's see. The function takes a list of integers representing water levels in order. I have to find the positions of every local peak. A peak is a position where the level is strictly greater than both the immediate previous and next elements. Also, the first and last positions can't be peaks. The result should be a list of positions in increasing order, or empty if none.
+
+First, I need to iterate through the list, but skip the first and last elements. Because the first element has no previous, and the last has no next. So the valid positions to check are from index 1 to len(levels) - 2, inclusive.
+
+For each position i in that range, check if levels[i] > levels[i-1] and levels[i] > levels[i+1]. If both conditions are true, then add i to the result list.
+
+Wait, but the problem says that the first and last positions are never peaks. So even if the first element was a peak (but it can't be because there's no previous element), but since the first element is index 0, which is excluded. Similarly, the last element is index -1, which is also excluded.
+
+So the loop should run from i=1 to i= len(levels)-2. Because for example, if the list has 5 elements, indexes 0,1,2,3,4. The last element is 4, so the last possible peak is index 3 (since 3+1=4, which is the last element). So the range is 1 to len(levels)-2, inclusive.
+
+So, for each i in that range, check if levels[i] is greater than both neighbors.
+
+Now, how to handle edge cases. For example, if the list is empty, return empty. If the list has only one element, also return empty. If the list has two elements, then there's no possible peak because the first and last are excluded. So the result is empty.
+
+Another case: if the list has three elements. Let's say [1, 3, 2]. Then index 1 is a peak. Because 3>1 and 3>2. So the result is [1].
+
+Another case: [2, 1, 3]. Then index 1 is not a peak because 1 is less than 2. Index 2 is the last element, so excluded. So no peaks.
+
+Another case: [5, 4, 3, 2, 1]. No peaks because each element is less than the previous. So the result is empty.
+
+So the code needs to loop through the indices from 1 to len(levels)-2 (inclusive), check each for the two conditions.
+
+Now, implement this in Python.
+
+The function is called tide_marks, takes a list of integers, returns a list of integers (positions).
+
+So, code steps:
+
+- Check if the list is empty or has less than 3 elements. Because for there to be a peak, there needs to be at least three elements. Wait, no. For example, if the list has three elements, the middle one is checked. So if the list has length 2, then there's no possible peak. So, if len(levels) < 3, return empty list.
+
+Wait, len(levels) must be at least 3 to have any possible peak. Because the first and last are excluded. So for len(levels) < 3, return empty.
+
+So first, check if the list is empty or has length less than 3. If so, return empty list.
+
+Else, loop from i=1 to i= len(levels)-2 (inclusive). For each

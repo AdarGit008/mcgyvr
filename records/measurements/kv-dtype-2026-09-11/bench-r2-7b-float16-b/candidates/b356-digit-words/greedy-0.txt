@@ -1,0 +1,12 @@
+```python
+def digit_word(digit: int) -> str:
+    if not 0 <= digit <= 9:
+        raise ValueError("Input must be a single digit from 0 to 9.")
+    words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+    return words[digit]
+
+def digit_words(digits: str) -> str:
+    if not all(char.isdigit() for char in digits):
+        raise ValueError("Input must be a string containing only digits.")
+    return ' '.join(digit_word(int(char)) for char in digits)
+```

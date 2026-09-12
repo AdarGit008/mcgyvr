@@ -1,0 +1,68 @@
+```python
+def match_route(pattern: str, path: str) -> dict | None:
+    def split_segments(path: str) -> list:
+        if not isinstance(path, str) or not path:
+            raise ValueError("Path must be a non-empty string.")
+        if not path.startswith("/"):
+            raise ValueError("Path must start with a slash.")
+        
+        segments = []
+        i = 0
+        while i < len(path):
+            if path[i] == "/":
+                i += 1
+                continue
+            
+            j = i
+            while j < len(path) and path[j] != "/":
+                j += 1
+            
+            segment = path[i:j]
+            if not segment:
+                raise ValueError("Empty segment found in path.")
+            
+            if segment == "*":
+                raise ValueError("Trailing slash found in path.")
+            
+            segments.append(segment)
+            i = j
+        
+        return segments
+    
+    def match_pattern(pattern: str, path: str) -> dict | None:
+        pattern_segments = split_segments(pattern)
+        path_segments = split_segments(path)
+        
+        if len(pattern_segments) != len(path_segments):
+            return None
+        
+        captures = {}
+        for i, segment in enumerate(pattern_segments):
+            if segment == ":" + segment[1:]:
+                if segment[1:] in captures:
+                    raise ValueError(f"Capture name '{segment[1:]}' repeated in pattern.")
+                captures[segment[1:]] = path_segments[i]
+            elif segment == "*":
+                if captures:
+                    raise ValueError("Capture name '*' used multiple times in pattern.")
+                captures["*"] = path_segments[i]
+            elif segment == "**":
+                if "**" in captures:
+                    raise ValueError("Pattern '**' used multiple times in pattern.")
+                captures["**"] = path_segments[i:]
+            elif segment != path_segments[i]:
+                return None
+        
+        return captures
+    
+    try:
+        return match_pattern(pattern, path)
+    except ValueError as e:
+        return None
+
+def first_route(patterns: list, path: str) -> int:
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path):
+            return i
+    return -1
+```

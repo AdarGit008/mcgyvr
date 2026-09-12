@@ -1,0 +1,7 @@
+```python
+def grid_flip(grid: list) -> list:
+    if not grid:
+        return []
+    
+    return [list(row[i] for row in grid) for i in range(len(grid[0]))]
+```

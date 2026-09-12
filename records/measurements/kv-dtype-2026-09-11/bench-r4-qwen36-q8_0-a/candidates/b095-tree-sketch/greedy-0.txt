@@ -1,0 +1,75 @@
+```python
+def draw_tree_lines(root: dict) -> list:
+    """Draw a tree of nodes as a list of ASCII lines."""
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary")
+    
+    name = root.get("name")
+    children = root.get("children")
+    
+    if not isinstance(name, str) or len(name) == 0:
+        raise ValueError("Name must be a non-empty string")
+    if '\n' in name:
+        raise ValueError("Name must not contain a newline")
+    if children is not None and not isinstance(children, list):
+        raise ValueError("Children must be a list")
+    if children is None:
+        children = []
+    
+    lines = []
+    
+    def _draw(node: dict, ancestors: list) -> None:
+        node_name = node["name"]
+        node_children = node.get("children", [])
+        
+        # Build the prefix based on ancestors
+        prefix_parts = []
+        for ancestor in ancestors:
+            # Check if this ancestor has later siblings
+            # We need to know if the current node is the last child of its parent
+            # But the ancestors list contains the parent nodes, not the relationship info directly.
+            # Actually, the ancestors list should contain the nodes themselves.
+            # To determine if an ancestor has later siblings, we need to know if the 
+            # current node is the last child of its parent.
+            # Wait, the logic is: for each ancestor, if that ancestor has siblings 
+            # that come after it in the parent's children list, we draw "|   ", else "    ".
+            # But the ancestors list doesn't tell us if the ancestor itself has later siblings.
+            # It tells us the path.
+            # Let's re-read: "one four-character column per ancestor below the root: 
+            # '|   ' where that ancestor has later siblings and four spaces where it does not"
+            # This means for each node in the path from root to the parent of the current node,
+            # we check if that node has any siblings that come after it.
+            
+            # To do this, we need to pass more context or store it.
+            # Let's change the recursive function to accept the parent and the index of the current node in the parent's children.
+            pass
+        
+        # Let's refactor the recursion to pass the parent and the index.
+        pass
+
+    # Refactored approach
+    def _draw_recursive(node: dict, parent: dict | None, index_in_parent: int | None) -> None:
+        node_name = node["name"]
+        node_children = node.get("children", [])
+        
+        # Build prefix
+        prefix = ""
+        if parent is not None:
+            # We need to build the prefix based on the path from root to parent
+            # But we don't have the full path easily.
+            # Let's pass the prefix built so far.
+            pass
+        
+        # Actually, let's build the prefix character by character as we go down.
+        # But the prefix depends on whether each ancestor has later siblings.
+        # So we need to know for each ancestor in the path, if it has later siblings.
+        
+        # Let's pass the current prefix string.
+        pass
+
+    # Final approach: pass the current prefix string.
+    def _draw_with_prefix(node: dict, prefix: str) -> None:
+        node_name = node["name"]
+        node_children = node.get("children", [])
+        
+        # Add the

@@ -1,0 +1,21 @@
+```python
+def slug_word(word: str) -> str:
+    """
+    Lowercase a word and remove non-letter and non-digit characters.
+    """
+    if not word:
+        raise ValueError("Input must be a non-empty string.")
+    
+    # Use a generator expression to filter out non-letter and non-digit characters
+    return ''.join(char.lower() for char in word if char.isalnum())
+
+def slug_make(phrase: str) -> str:
+    """
+    Join slugged words of a phrase with single hyphens, excluding empty slugs.
+    """
+    if not phrase:
+        raise ValueError("Input must be a non-empty string.")
+    
+    # Split the phrase into words, slug each word, and join them with hyphens
+    return '-'.join(slug_word(word) for word in phrase.split() if slug_word(word))
+```

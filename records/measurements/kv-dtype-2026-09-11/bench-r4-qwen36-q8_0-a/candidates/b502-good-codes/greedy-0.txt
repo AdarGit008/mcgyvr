@@ -1,0 +1,18 @@
+```python
+def code_sum(code: str) -> int:
+    """Sum all integer digits found in the code string, ignoring non-digit characters."""
+    total = 0
+    for char in code:
+        if char.isdigit():
+            total += int(char)
+    return total
+
+
+def good_codes(codes: list[str]) -> list[str]:
+    """Return codes whose digit sum is divisible by three, preserving original order."""
+    result = []
+    for code in codes:
+        if code_sum(code) % 3 == 0:
+            result.append(code)
+    return result
+```

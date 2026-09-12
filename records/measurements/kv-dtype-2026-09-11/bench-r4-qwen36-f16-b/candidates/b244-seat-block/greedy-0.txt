@@ -1,0 +1,46 @@
+```python
+def seat_block(label: str) -> list:
+    """Parse a seat label into row number and letter.
+    
+    Args:
+        label: A string representing a seat, e.g., '12C'.
+        
+    Returns:
+        A list containing the row number (int) and the seat letter (str).
+        
+    Raises:
+        ValueError: If the label is not a valid seat format.
+    """
+    if not isinstance(label, str):
+        raise ValueError("Label must be a string")
+    
+    if not label:
+        raise ValueError("Label cannot be empty")
+        
+    # Find the split point between digits and the letter
+    # The label must end with exactly one capital letter
+    # Everything before that must be digits
+    
+    if not label[-1].isupper():
+        raise ValueError("Last character must be a capital letter")
+        
+    if len(label) < 2:
+        raise ValueError("Label must have at least one digit and one letter")
+        
+    digits_part = label[:-1]
+    letter_part = label[-1]
+    
+    if not digits_part.isdigit():
+        raise ValueError("Prefix must consist of digits only")
+        
+    # Check for empty digits part (e.g., "A" is invalid, handled by len < 2 check above, 
+    # but "A" would have digits_part="" which is not isdigit() or isdigit() returns False for empty string)
+    # Actually, "".isdigit() is False, so that's covered.
+    
+    try:
+        row = int(digits_part)
+    except ValueError:
+        raise ValueError("Invalid row number")
+        
+    return [row, letter_part]
+```

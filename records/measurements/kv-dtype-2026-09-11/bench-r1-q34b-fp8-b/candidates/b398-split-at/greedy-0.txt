@@ -1,0 +1,42 @@
+<think>
+Okay, I need to implement the split_at function. Let's see the requirements. The function should take a list called entries and a marker string. The goal is to split the list into two parts at the first occurrence of the marker. The first part is everything before the marker, and the second part is everything after. The marker itself should not be in either part. If the marker isn't in the list, then the first part is the entire list and the second is empty.
+
+Hmm, so I need to iterate through the entries list and find the first index where the element equals the marker. Once found, split the list into two parts: everything up to that index (not including the marker) and everything after. If the marker isn't found, return the whole list and an empty list.
+
+Wait, but how to handle the case where the marker is the first element? Then the first part is empty and the second is the rest. If the marker is the last element, then the first part is all elements except the last, and the second is empty.
+
+Let me think about the steps. Iterate through each element in entries with their indices. For each element, check if it's equal to the marker. The first occurrence is the split point. Then, the first part is entries[0:split_index], and the second is entries[split_index+1:].
+
+If no element is the marker, then return (entries, []).
+
+But wait, what if the marker is None? Oh, the contract says that the marker is a string. Wait, the function's parameters are entries as a list and marker as a str. So the marker is a string. So the elements in entries can be compared to this string.
+
+So, the code would be something like:
+
+def split_at(entries: list, marker: str) -> list:
+    for i, entry in enumerate(entries):
+        if entry == marker:
+            return entries[:i], entries[i+1:]
+    return entries, []
+
+Wait, but what if the entries is empty? Then, the function returns ([], []) since there's no marker. But according to the problem statement, if the list doesn't have the marker, the first part is everything and the second is nothing. So for empty list, it's ([], []).
+
+But let's test some cases. For example, entries = [1, 'a', 2, 'b'], marker is 'a'. The first occurrence is index 1. So first part is [1], second is [2, 'b'].
+
+Another case: entries = ['a', 'b', 'a'], marker is 'a'. The first occurrence is index 0. So first part is empty list, second is ['b', 'a'].
+
+If the marker is not present, like entries = [1,2,3], marker is 'x', then return [1,2,3], [].
+
+Yes, that seems right.
+
+Now, what about if the marker is in the list multiple times? The first occurrence is the split point. So the rest of the list after that is the second part.
+
+So the code should work. But need to make sure that the function returns a list of two lists. The function's return type is list, but the elements are lists. Wait, the function's return is a list of two elements, each being a list. So the return type is list of lists. But the interface says the return is list. So the function returns a list containing two lists.
+
+Yes, that's correct.
+
+Now, check for edge cases. For example, empty list: returns ([], []).
+
+If the marker is the first element, returns ([], rest).
+
+If the marker is the last element, returns (all

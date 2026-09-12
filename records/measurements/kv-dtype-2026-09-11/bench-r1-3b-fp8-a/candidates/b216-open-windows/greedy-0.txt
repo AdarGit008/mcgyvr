@@ -1,0 +1,65 @@
+```python
+"""Report the stretches of a clinic's day that no appointment covers."""
+
+import re
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def minutes(text: str) -> list[int]:
+        parts = text.split("-")
+        if len(parts) != 2 or any(re.fullmatch(r"\d{2}:\d{2}", p) is None for p in parts):
+            raise ValueError("a range must be written HH:MM-HH:MM: " + text)
+        start_hour, start_minute = map(int, parts[0].split(":"))
+        end_hour, end_minute = map(int, parts[1].split(":"))
+        return [start_hour * 60 + start_minute, end_hour * 60 + end_minute]
+
+    def stamp(at: int) -> str:
+        return f"{at // 60:02d}:{at % 60:02d}"
+
+    def merge_intervals(intervals: list[list[int]]) -> list[list[int]]:
+        intervals.sort()
+        merged = []
+        for interval in intervals:
+            if not merged or merged[-1][1] < interval[0]:
+                merged.append(interval)
+            else:
+                merged[-1][1] = max(merged[-1][1], interval[1])
+        return merged
+
+    def find_free_spans(span_minutes: list[int], booked_minutes: list[list[int]]) -> list[list[int]]:
+        span_start, span_end = span_minutes
+        booked_start, booked_end = zip(*booked_minutes)
+        booked_start = list(booked_start)
+        booked_end = list(booked_end)
+        booked_start.sort()
+        booked_end.sort()
+
+        free_spans = []
+        booked_index = 0
+        for i in range(span_start, span_end + 1):
+            if booked_index < len(booked_start) and i == booked_start[booked_index]:
+                booked_index += 1
+            elif booked_index < len(booked_start) and i < booked_start[booked_index]:
+                free_spans.append([i, booked_start[booked_index]])
+            elif booked_index < len(booked_start) and i > booked_start[booked_index]:
+                free_spans.append([booked_start[booked_index], i])
+            elif booked_index < len(booked_start) and i == booked_end[booked_index]:
+                booked_index += 1
+            elif booked_index < len(booked_start) and i < booked_end[booked_index]:
+                free_spans.append([i, booked_end[booked_index]])
+            elif booked_index < len(booked_start) and i > booked_end[booked_index]:
+                free_spans.append([booked_end[booked_index], i])
+
+        return free_spans
+
+    span_minutes = minutes(span)
+    booked_minutes = [minutes(appointment) for appointment in booked]
+    merged_booked_minutes = merge_intervals(booked_minutes)
+    free_spans = find_free_spans(span_minutes, merged_booked_minutes)
+
+    if not free_spans:
+        return "none"
+
+    free_spans.sort(key=lambda x: x[0])
+    free_spans_str = [stamp(start) + "-" + stamp(end) for start, end in free_spans]
+    return ", ".join(free_spans_str)
+```

@@ -1,0 +1,24 @@
+```python
+def hue_band(degrees: int) -> str:
+    """
+    Determine the color band based on the given hue in degrees.
+    
+    Args:
+    degrees (int): The hue value in degrees. Can be negative or exceed 360.
+
+    Returns:
+    str: The color band name ('red', 'green', 'blue').
+    """
+    # Normalize the degrees to be within 0 to 359
+    normalized_degrees = degrees % 360
+    
+    # Determine the color band based on the normalized degrees
+    if 0 <= normalized_degrees < 60:
+        return "red"
+    elif 60 <= normalized_degrees < 180:
+        return "green"
+    elif 180 <= normalized_degrees < 300:
+        return "blue"
+    else:
+        return "red"
+```

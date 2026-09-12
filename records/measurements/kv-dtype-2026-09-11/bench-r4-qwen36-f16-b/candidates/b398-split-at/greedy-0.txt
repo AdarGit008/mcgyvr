@@ -1,0 +1,19 @@
+```python
+def split_at(entries: list, marker: str) -> list:
+    """Break a list in two at the first entry equal to a marker.
+    
+    Returns a list of two parts: [before_marker, after_marker].
+    The marker itself is excluded from both parts.
+    If the marker is not found, returns [entries, []].
+    """
+    if not isinstance(entries, list):
+        raise ValueError("entries must be a list")
+    if not isinstance(marker, str):
+        raise ValueError("marker must be a string")
+
+    for i, entry in enumerate(entries):
+        if entry == marker:
+            return [entries[:i], entries[i + 1:]]
+    
+    return [entries, []]
+```

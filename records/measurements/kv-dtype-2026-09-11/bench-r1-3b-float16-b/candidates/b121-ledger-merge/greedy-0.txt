@@ -1,0 +1,57 @@
+```python
+from typing import List, Tuple
+
+def merge_ledgers(base: List[Tuple[str, int]], ours: List[Tuple[str, int]], theirs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    """
+    Merges three ledgers into one, combining accounts and handling deletions.
+    
+    :param base: The base ledger with no duplicates.
+    :param ours: The first edited copy of the ledger.
+    :param theirs: The second edited copy of the ledger.
+    :return: The merged ledger sorted by account name.
+    """
+    # Validate inputs
+    if not isinstance(base, list) or not isinstance(ours, list) or not isinstance(theirs, list):
+        raise ValueError("All inputs must be lists.")
+    
+    for ledger in [base, ours, theirs]:
+        for entry in ledger:
+            if not isinstance(entry, tuple) or len(entry) != 2:
+                raise ValueError("Each ledger entry must be a two-item tuple.")
+            if not isinstance(entry[0], str) or not entry[0]:
+                raise ValueError("Account name must be a non-empty string.")
+            if not isinstance(entry[1], int):
+                raise ValueError("Cents value must be an integer.")
+    
+    # Create a set of unique accounts
+    accounts = set()
+    for ledger in [base, ours, theirs]:
+        accounts.update(entry[0] for entry in ledger)
+    
+    # Initialize the merged ledger
+    merged_ledger = []
+    
+    # Process each account
+    for account in accounts:
+        delta_base = sum(entry[1] for entry in base if entry[0] == account)
+        delta_ours = sum(entry[1] for entry in ours if entry[0] == account)
+        delta_theirs = sum(entry[1] for entry in theirs if entry[0] == account)
+        
+        if delta_base == delta_ours == delta_theirs == 0:
+            continue  # Account not modified by any copy
+        
+        if delta_base == 0:
+            if delta_ours == 0:
+                continue  # Account dropped by both copies
+            elif delta_theirs == 0:
+                merged_ledger.append((account, ours[0][1]))  # Account added by one copy
+            else:
+                merged_ledger.append((account, theirs[0][1]))  # Account added by one copy
+        else:
+            merged_ledger.append((account, delta_base + delta_ours + delta_theirs))
+    
+    # Sort the merged ledger by account name
+    merged_ledger.sort(key=lambda x: x[0])
+    
+    return merged_ledger
+```

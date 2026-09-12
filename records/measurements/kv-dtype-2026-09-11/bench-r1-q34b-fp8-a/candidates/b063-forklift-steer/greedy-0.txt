@@ -1,0 +1,49 @@
+<think>
+Okay, I need to implement the steer_forklift function. Let's see the requirements. The function takes aisles, bays, and moves. The forklift starts at [0, 0], and each move in the moves list changes the position. The final position is returned as [aisle, bay]. But there are some validations: if the aisles or bays are not positive integers, or if any move is invalid, or if the move would take the forklift off the floor, then we need to raise an error.
+
+First, I need to check if aisles and bays are positive integers. So, in the function, I should validate that aisles and bays are both greater than zero. If not, raise ValueError.
+
+Then, for each move in the moves list, check if it's one of the four directions: north, south, east, west. If any move is invalid, raise ValueError.
+
+Next, simulate the movement. Starting at (0, 0). For each move, update the position. But also, after each move, check if the new position is still within the grid. For example, if moving north would take the bay number beyond bays-1 (since bays are rows, starting from 0?), wait, the problem says the grid is aisles columns by bays rows. Wait, the forklift starts at [0, 0], which is the northwest corner. So, the aisles are columns (east-west), and bays are rows (north-south). So, the aisle numbers go from 0 to aisles-1, and bay numbers go from 0 to bays-1. So, if the forklift moves east, the aisle increases. So, for example, if the current aisle is 0, moving east would take it to 1, and so on. Similarly for bay.
+
+So, for each move, after updating the position, check if the new aisle is between 0 and aisles-1, and the new bay is between 0 and bays-1. If not, raise an error.
+
+So, the steps are:
+
+1. Validate aisles and bays are positive integers. If not, raise error.
+
+2. Validate each move in the moves list is one of the four directions. If not, raise error.
+
+3. Initialize position as (aisle=0, bay=0).
+
+4. Iterate through each move in moves:
+
+   a. For each move, update the position.
+
+   b. Check if the new position is within the grid. If not, raise error.
+
+So, for example, if the move is 'north', the bay increases by 1. So, after moving, check if bay is less than bays.
+
+Wait, the initial position is [0, 0], which is the northwest corner. So, the aisles are columns (east-west), so aisle numbers go from 0 to aisles-1. Similarly, bays are rows (north-south), so bay numbers go from 0 to bays-1.
+
+So, for each move:
+
+- 'north' increases bay by 1.
+
+- 'south' decreases bay by 1.
+
+- 'east' increases aisle by 1.
+
+- 'west' decreases aisle by 1.
+
+So, after each move, check that the new aisle is between 0 and aisles-1, and the new bay is between 0 and bays-1.
+
+So, the code steps:
+
+First, check aisles and bays. If not positive integers, raise error.
+
+Then, for each move in moves:
+
+   Check if the move is one of the four directions. If not, raise error.
+

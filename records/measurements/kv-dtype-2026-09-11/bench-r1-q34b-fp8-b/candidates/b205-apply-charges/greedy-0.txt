@@ -1,0 +1,54 @@
+<think>
+Okay, let's see. I need to implement the apply_charges function according to the given problem statement. Let me start by understanding the requirements.
+
+The function takes a dictionary of caps and a list of charges. Each cap has a bucket name, a whole allowance, and a largest single charge. The charges are triples of charge id, bucket name, and amount. The charges are processed in order. For each charge, we need to check three conditions:
+
+1. If the bucket isn't in the caps, it's "unknown".
+2. If the amount exceeds the bucket's largest single charge, it's "single".
+3. If the amount exceeds what's left in the bucket, it's "cap".
+
+The first condition that applies determines the reason. The charge is only applied if none of these conditions are met. The refused list should collect the charge id and reason in order.
+
+Also, the amount must be a positive whole number. If not, raise ValueError.
+
+Looking at the current code in solution.py, the _why_refused function is a helper. The apply_charges function is incomplete. The current code is a placeholder that subtracts the amount from the left, but that's not correct.
+
+So, the steps I need to take:
+
+First, for each charge in charges, process it in order.
+
+For each charge, get the bucket name. Check if the bucket exists in caps. If not, add to refused with "unknown".
+
+If the bucket exists, check the amount against the cap's largest single charge. If the amount is larger than that, add to refused with "single".
+
+If not, check if the amount is larger than the current left in the bucket. If yes, add to refused with "cap".
+
+If none of these, subtract the amount from the left.
+
+But wait, the _why_refused function is supposed to handle this. Let me look at the current _why_refused function.
+
+The current _why_refused function takes cap, left, and amount. But in the problem statement, the cap is the largest single charge. So, the function is supposed to check if the amount exceeds the cap's largest single charge (cap[1]) and the left (current allowance).
+
+Wait, the function is called _why_refused, but in the current code, it's not being used correctly. Let me think.
+
+In the current code, the _why_refused function is supposed to return the reason. But in the current code, the function is not being used properly. Let me adjust that.
+
+So, for each charge, we need to:
+
+- Get the bucket name from the charge.
+
+- Check if the bucket is in caps. If not, add to refused with "unknown".
+
+- Else, get the cap for the bucket (cap[0] is the whole allowance, cap[1] is the largest single charge).
+
+- Then, check if the amount is a positive integer. If not, raise error.
+
+Wait, the problem says to reject an amount that is not a positive whole number. So, in the function, when processing each charge, we need to check if the amount is a positive integer. If not, raise ValueError.
+
+So, in the code, for each charge, first check if the amount is a positive integer. If not, raise error.
+
+But in the current code, the charges are processed as (_, bucket, amount) in the loop. So, the code is assuming that the charges are in the format (charge_id, bucket, amount). So, the first element is the charge id, second is bucket, third is amount.
+
+So, in the loop, for each charge in charges, we have charge_id, bucket, amount.
+
+So, first, check if amount is a positive integer. If not,

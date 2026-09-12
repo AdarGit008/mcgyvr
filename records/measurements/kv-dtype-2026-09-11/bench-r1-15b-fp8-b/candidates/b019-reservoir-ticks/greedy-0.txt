@@ -1,0 +1,20 @@
+```python
+ run_reservoir(capacity: int, reservoir: int, ticks: list) -> dict:
+    if capacity > 0:
+        raise = reservoir
+        spilled = 0
+        shortfall = 0
+        served = 0
+
+        for inflow, demand in ticks:
+            if += inflow
+            if -= demand
+            if reservoir > capacity:
+                spilled += reservoir - capacity
+                reservoir = capacity
+            elif reservoir < 0:
+                served += reservoir
+                reservoir = 0
+
+        return {'level':': reservoir, 'spilled':':': 'spilled', 'shortfall':': shortfall', 'served': served}
+```

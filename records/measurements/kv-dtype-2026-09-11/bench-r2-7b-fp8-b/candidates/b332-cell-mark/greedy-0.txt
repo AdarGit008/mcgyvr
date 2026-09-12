@@ -1,0 +1,7 @@
+```python
+def list_count(neighbours: list) -> int:
+    """Return the count of alive neighbors."""
+    return sum(1 for n in neighbours if n)
+
+    
+```

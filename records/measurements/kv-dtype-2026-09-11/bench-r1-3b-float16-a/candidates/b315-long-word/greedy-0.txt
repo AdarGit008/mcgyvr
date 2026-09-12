@@ -1,0 +1,17 @@
+```python
+def long_word(sentence: str) -> str:
+    """
+    Returns the longest word in a sentence, where any run of spaces separates two words.
+    If two words are equally long, the first one appears first. Returns an empty string if the sentence is empty.
+    """
+    if not sentence:
+        return ""
+    
+    # Split the sentence into words using split() which handles multiple spaces
+    words = sentence.split()
+    
+    # Use max with key=len to find the longest word
+    longest_word = max(words, key=len)
+    
+    return longest_word
+```

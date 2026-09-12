@@ -1,0 +1,21 @@
+```python
+def cloud_code(table: dict, code: str) -> str:
+    """
+    Convert a weather code into words using a provided table.
+    
+    Args:
+    table (dict): A dictionary mapping weather codes to descriptions.
+    code (str): The weather code to convert, in any case.
+    
+    Returns:
+    str: The description of the weather code, or 'unknown' if not found.
+    """
+    # Convert the code to uppercase to match the table keys
+    code_upper = code.upper()
+    
+    # Check if the code exists in the table
+    if code_upper in table:
+        return table[code_upper]
+    else:
+        return 'unknown'
+```

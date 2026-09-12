@@ -1,0 +1,24 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    """
+    Returns a tally with a stated amount added to one name's count,
+    leaving the tally it was given unchanged.
+    """
+    if name in tally:
+        tally[name] += amount
+    else:
+        tally[name] = amount
+    return tally
+
+def merge_tally(left: dict, right: dict) -> dict:
+    """
+    Returns the two tallies combined, with counts for a shared name added together.
+    """
+    merged = left.copy()
+    for name, count in right.items():
+        if name in merged:
+            merged[name] += count
+        else:
+            merged[name] = count
+    return merged
+```

@@ -1,0 +1,39 @@
+```python
+def run_press(jobs: list, budget: int) -> dict:
+    """Process print queue until budget is exhausted or a job doesn't fit."""
+    if not isinstance(jobs, list):
+        raise ValueError("jobs must be a list")
+    if not isinstance(budget, int) or isinstance(budget, bool) or budget < 0:
+        raise ValueError("budget must be a non-negative integer")
+
+    for i, job in enumerate(jobs):
+        if not isinstance(job, (list, tuple)):
+            raise ValueError(f"Job at index {i} is not a pair")
+        if len(job) != 2:
+            raise ValueError(f"Job at index {i} is not a two-item pair")
+        
+        name, pages = job
+        
+        if not isinstance(name, str) or len(name) == 0:
+            raise ValueError(f"Job at index {i} has an invalid name")
+        
+        if not isinstance(pages, int) or isinstance(pages, bool) or pages <= 0:
+            raise ValueError(f"Job at index {i} has an invalid page count")
+
+    printed_names = []
+    pages_spent = 0
+    waiting_names = []
+    
+    for name, pages in jobs:
+        if pages_spent + pages <= budget:
+            pages_spent += pages
+            printed_names.append(name)
+        else:
+            waiting_names.append(name)
+            
+    return {
+        "printed": printed_names,
+        "waiting": waiting_names,
+        "pages": pages_spent
+    }
+```

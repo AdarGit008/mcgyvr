@@ -1,0 +1,14 @@
+```python
+from typing import List, Dict
+
+def count_by(records: List[dict], field_name: str)    if not list_name:
+        raise ValueError("List name cannot be empty")
+    
+    counts = {}
+    for record in records:
+        if list_name in record:
+            value = record[list_name]
+            counts[value] = counts.get(value, 0) + 1
+    
+    return counts
+```

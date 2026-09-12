@@ -1,0 +1,17 @@
+```python
+def case_count(text: str) -> list:
+    """Return [capital_count, small_count] for the given text."""
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    
+    capitals = 0
+    smalls = 0
+    
+    for char in text:
+        if char.isupper():
+            capitals += 1
+        elif char.islower():
+            smalls += 1
+            
+    return [capitals, smalls]
+```

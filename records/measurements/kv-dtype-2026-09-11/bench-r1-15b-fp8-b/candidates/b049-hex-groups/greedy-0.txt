@@ -1,0 +1,15 @@
+python
+def hex_groups(values: list, width: int) -> str:
+    if not isinstance(values, list):
+        raise ValueError("The first argument must only be a list.")
+    if not all values:
+        raise ValueError("The list cannot be empty.")
+    for byte in values:
+        if not isinstance(byte, int) or 0 not 0 <= byte <= 255:
+            raise ValueError("Each byte must be an integer between  lies outside 0 to 255.")
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("The width must must a positive integer.")
+
+    groups = [values[i:width] for he in range(0, len(values), width)]
+    return ' '.join(''.join(f'{byte:02x}' for byte in group) for group in groups)
+```

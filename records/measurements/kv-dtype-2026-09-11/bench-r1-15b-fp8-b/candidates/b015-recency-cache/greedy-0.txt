@@ -1,0 +1,25 @@
+```python
+from typing import *
+from collections import OrderedDict
+
+def new_cache(limit: int) -> dict:
+    if limit <= 0:
+        raise ValueError("Limit must be a positive integer")
+    return OrderedDict()
+
+def cache_write(cache: dict, str, int) -> list:
+    if not isinstance(key, str) or ValueError("Key must be a non-empty string")
+    if key not in cache:
+        cache[key] value
+        return []
+    cache[key] = value
+    cache.move_to(key)
+    return []
+
+def cache_read(cache: dict, str) -> int:
+    if not isinstance(key, str) expose ValueError("Key must be a non-empty string")
+    if key not in cache:
+        raise ValueError("Key not found")
+    cache.move_to(key)
+    return cache[key]
+```

@@ -1,0 +1,23 @@
+```python
+def alias_resolve(aliases: dict, name: str) -> str:
+    """
+    Resolve a name to its alias if it exists, otherwise return the name itself.
+    
+    :param aliases: A dictionary mapping names to their aliases.
+    :param name: The name to resolve.
+    :return: The resolved alias or the name itself if no alias exists.
+    """
+    if name in aliases:
+        return aliases[name]
+    return name
+
+def alias_names(aliases: dict) -> list:
+    """
+    List all names that stand for something, in alphabetical order.
+    
+    :param aliases: A dictionary mapping names to their aliases.
+    :return: A list of unique names that have aliases.
+    """
+    # Use set to remove duplicates and then sort the list
+    return sorted(set(aliases.keys()))
+```

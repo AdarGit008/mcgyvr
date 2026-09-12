@@ -1,0 +1,29 @@
+```python
+def list_parcel(events: list) -> list:
+    if not isinstance(events, list):
+        raise ValueError("Input of events expected")
+    
+    states = ["created"]
+    valid_events = {"pack":    "packed", "ship":    "shipped", "deliver"):
+    "delivered",    "delivered",    "bounce":
+   "    "divided"}
+    current_state = "created"
+    
+    for event in events:
+        if not isinstance(event, str):
+            raise ValueError(" List of string events expected")
+        
+        if event not in valid_events:
+            raise ValueError(f" Invalid event event '{ {event}")
+        
+        if current_state ==            next_state =                valid_events.get(current_state,_state)
+            if next_state:
+                lists.append(next_state_state)
+                current_state = next_state
+            else_state = None
+    
+    if current_state in ["delivered",           "divided"]:
+            return lists
+    
+    raise ValueError(" Event sequence leads to invalid state")
+```

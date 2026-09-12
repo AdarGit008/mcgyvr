@@ -1,0 +1,30 @@
+```python
+from typing import List, Mapping
+
+def number_sections(sections: List[Mapping]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+    
+    def number_section(section: Mapping, depth: int) -> str:
+        if not isinstance(section, Mapping) or not isinstance(section['title'], str) or not isinstance(section['children'], list):
+            raise ValueError("Section must be a mapping with 'title' and 'children'")
+        
+        if depth == 0:
+            return f"{section['title']}"
+        else:
+            return f"{number_section(section['children'][0], depth - 1)}{section['title']}"
+
+    return [number_section(section, 0) for section in sections]
+
+def section_count(sections: List[Mapping]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+    
+    def count_section(section: Mapping, depth: int) -> int:
+        if not isinstance(section, Mapping) or not isinstance(section['title'], str) or not isinstance(section['children'], list):
+            raise ValueError("Section must be a mapping with 'title' and 'children'")
+        
+        return 1 + sum(count_section(child, depth + 1) for child in section['children'])
+
+    return [count_section(section, 0) for section in sections]
+```

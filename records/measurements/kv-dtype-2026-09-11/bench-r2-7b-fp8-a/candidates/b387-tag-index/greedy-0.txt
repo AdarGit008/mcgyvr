@@ -1,0 +1,22 @@
+```python
+from typing import List, Dict
+
+import re
+
+def tags_of(line: str) -> List[str]:
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string")
+    return [tag.strip() for tag in re.split(r',\', line) if tag.strip()]
+
+```
+
+```python
+def tag_index(lines: List[str]) -> Dict[str, List[int]]:
+    if not all(isinstance(line, str) for line in lines):
+        raise ValueError("All inputs must be strings")
+    index_map = {}
+    for i,        tags = tags_of(lines[i])
+        for tag in tags:
+            if tag not in index_dict:
+                in_dict[tag] =            in_dict[tag].append(i)
+         ```

@@ -1,0 +1,52 @@
+```python
+"""Replay a notepad editing session: type, erase, replace, undo and redo."""
+from typing import List
+
+
+def replay_notepad(commands: List[str]) -> str:
+    buffer = ""
+    past = []
+    future = []
+
+    def validate_command(command: List[str]) -> None:
+        if not isinstance(command, list) or len(command) != 2:
+            raise ValueError("Command must be a list of two elements.")
+        action = command[0]
+        if action not in {"type", "erase", "replace", "undo", "redo"}:
+            raise ValueError(f"Unknown action: {action}")
+        if action == "type":
+            if not isinstance(command[1], str) or not command[1]:
+                raise ValueError("Type text must be a non-empty string.")
+        elif action == "erase":
+            if not isinstance(command[1], int) or command[1] <= 0:
+                raise ValueError("Erase count must be a positive integer.")
+        elif action == "replace":
+            if not isinstance(command[1], str) or not command[2] or command[1] not in buffer:
+                raise ValueError("Replace old text must be a non-empty string and exist in the buffer.")
+        elif action == "undo" or action == "redo":
+            if not isinstance(command[1], int) or command[1] <= 0:
+                raise ValueError(f"{action.capitalize()} count must be a positive integer.")
+
+    for command in commands:
+        validate_command(command)
+        action = command[0]
+        if action == "type":
+            past.append(buffer)
+            buffer += command[1]
+        elif action == "erase":
+            past.append(buffer)
+            buffer = buffer[: len(buffer) - command[1]]
+        elif action == "replace":
+            past.append(buffer)
+            buffer = buffer.replace(command[1], command[2], 1)
+        elif action == "undo":
+            for _ in range(min(command[1], len(past))):
+                future.append(buffer)
+                buffer = past.pop()
+        elif action == "redo":
+            for _ in range(min(command[1], len(future))):
+                past.append(buffer)
+                buffer = future.pop()
+
+    return buffer
+```

@@ -1,0 +1,39 @@
+```python
+from typing import List, Dict
+
+def column_digest(rows: List[List[int]], column: int) -> Dict[str, float]:
+    if column < 0:
+        raise ValueError("Negative column index is not allowed.")
+    
+    cells = [row[column] for row in rows if len(row) > column]
+    
+    if not cells:
+        return {
+            "count": 0,
+            "min": 0,
+            "max": 0,
+            "mean": 0,
+            "median": 0
+        }
+    
+    count = len(cells)
+    total = sum(cells)
+    min_val = min(cells)
+    max_val = max(cells)
+    mean = round(total / count, 2)
+    
+    sorted_cells = sorted(cells)
+    mid = count // 2
+    if count % 2 == 0:
+        median = round((sorted_cells[mid - 1] + sorted_cells[mid]) / 2, 2)
+    else:
+        median = sorted_cells[mid]
+    
+    return {
+        "count": count,
+        "min": min_val,
+        "max": max_val,
+        "mean": mean,
+        "median": median
+    }
+```

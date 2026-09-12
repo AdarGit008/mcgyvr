@@ -1,0 +1,65 @@
+<think>
+Okay, I need to implement the count_by function. Let's see the requirements. The function takes a list of records and a field name, then returns a dictionary counting how many records have each value in that field. Also, if the field is empty, it should raise a ValueError.
+
+First, I need to check if the field is empty. So, the first step is to validate the input. If field is an empty string, raise ValueError with a message like "field name cannot be empty".
+
+Next, for each record in the records list, I need to check if the record has the specified field. If it does, I take the value of that field and increment the count in the dictionary. If the record doesn't have the field, we skip it.
+
+Wait, the problem says that records carry several named fields. So each record is a dictionary, I assume. So for each record in the list, we check if the field exists as a key. If it does, we get the value, else we ignore that record.
+
+So the steps are:
+
+1. Check if field is empty. If yes, raise error.
+2. Initialize an empty dictionary for counts.
+3. Iterate over each record in records.
+4. For each record, check if the field is present.
+5. If present, get the value, and increment the count in the dictionary.
+6. After processing all records, return the dictionary.
+
+Now, handling the field name. The function's parameter is 'field' as a string. So, for example, if the field is 'name', then for each record, we look at record['name'].
+
+But what if the records are not dictionaries? Well, the problem says that each record carries several named fields, so I think they are dictionaries. So the code can safely assume that each record is a dictionary.
+
+So, code steps:
+
+def count_by(records: list, field: str) -> dict:
+    if not field:
+        raise ValueError("field name cannot be empty")
+    counts = {}
+    for record in records:
+        if field in record:
+            value = record[field]
+            counts[value] = counts.get(value, 0) + 1
+    return counts
+
+Wait, but what if the field is not present in the record? Then we skip that record. So the code checks if the field is in the record, and only then processes it.
+
+Yes. That seems correct.
+
+Testing edge cases: empty input. If records is empty, the function returns an empty dict. That's correct.
+
+What if a record has the field but the value is None? Well, the code would count it as a separate entry. But the problem says nothing about that, so it's handled as per the code.
+
+What about duplicate values? The code counts them correctly.
+
+What if the field is not present in any record? Then the dictionary is empty.
+
+Yes. That's correct.
+
+Now, check the interface. The function is supposed to return a dict. The code returns a dict. The parameters are list and str. The code uses the field name as is, no case-insensitive handling. The problem says that the field name should not be ignored case, so the code is correct.
+
+So the code should be as written.
+</think>
+
+```python
+def count_by(records: list, field: str) -> dict:
+    """Count occurrences of each value in a specified field across records."""
+    if not field:
+        raise ValueError("field name cannot be empty")
+    counts = {}
+    for record in records:
+        if field in record:
+            value = record[field]
+            counts[value] = counts.get(value, 0) + 1
+    return counts
+```

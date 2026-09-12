@@ -1,0 +1,72 @@
+<think>
+Okay, I need to implement the move_stock function. Let's see the problem statement again. The function takes an opening quantity and a list of moves. Each move is either adding or removing stock. But if a removal would make the stock negative, it's set to zero instead. The function should return the closing quantity after applying all moves in order.
+
+So, the steps are: start with the opening quantity. For each move in the moves list, add or subtract it from the current quantity. But if subtracting would make it negative, set it to zero. So, I need to process each move sequentially.
+
+Let me think about the parameters. The opening is an integer, and moves is a list of integers. The function returns an integer.
+
+Wait, the moves could be positive (add) or negative (remove). So for each move in moves:
+
+current = current + move
+
+But if current becomes negative, set it to zero. Wait, but the move could be a subtraction. For example, if current is 5 and the move is -10, then after subtraction, it's -5. But since stock can't be below zero, it should be 0.
+
+So the logic is: for each move, add it to the current stock. Then, if the result is negative, set it to zero. But wait, maybe the move is a removal, so maybe the move is a negative value. So, the process is:
+
+current = opening
+
+for move in moves:
+
+    current += move
+
+    if current < 0:
+
+        current = 0
+
+Wait, but that's not correct. Because if the move is a removal (negative), then the stock can't go below zero. So, for example, if current is 5 and the move is -10, then after adding, it's -5. So set to 0. But if the move is -3, then current is 2, which is okay.
+
+So the logic is: after each move, check if the current is negative. If yes, set to zero.
+
+So the function would be:
+
+def move_stock(opening: int, moves: list) -> int:
+
+    current = opening
+
+    for move in moves:
+
+        current += move
+
+        if current < 0:
+
+            current = 0
+
+    return current
+
+Wait, but what if the moves list is empty? Then the current is just the opening, which is correct.
+
+Testing some examples:
+
+Example 1: opening is 10, moves is [5, -3, -10]. Let's see:
+
+Start with 10.
+
+Add 5: 15.
+
+Subtract 3: 12.
+
+Subtract 10: 2. So return 2.
+
+Another example: opening is 5, moves is [-10]. Then current becomes 5 -10 = -5, so set to 0. So return 0.
+
+Another case: opening is 0, moves is [5]. Then 0 +5=5, so return 5.
+
+Another case: opening is 3, moves is [ -3, -2]. First move: 3-3=0. Then subtract 2: 0-2 = -2, set to 0. So return 0.
+
+Yes, that seems correct.
+
+What about if the moves are in the middle of a negative step? Like opening is 5, moves [ -10, 5]. First step: 5-10 = -5 → 0. Then add 5 → 5. So return 5.
+
+So the code seems to handle that.
+
+I think this logic is correct. So the function is straightforward. Now, implement

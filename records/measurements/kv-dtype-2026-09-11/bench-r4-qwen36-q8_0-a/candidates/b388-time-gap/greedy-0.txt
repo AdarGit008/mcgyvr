@@ -1,0 +1,16 @@
+```python
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    """Calculate the minutes from the first time to the second, wrapping to the next day if needed."""
+    if not (0 <= from_hour <= 23 and 0 <= to_hour <= 23):
+        raise ValueError("Hours must be between 0 and 23")
+    if not (0 <= from_minute <= 59 and 0 <= to_minute <= 59):
+        raise ValueError("Minutes must be between 0 and 59")
+
+    from_total = from_hour * 60 + from_minute
+    to_total = to_hour * 60 + to_minute
+
+    if to_total > from_total:
+        return to_total - from_total
+    else:
+        return (24 * 60) - from_total + to_total
+```

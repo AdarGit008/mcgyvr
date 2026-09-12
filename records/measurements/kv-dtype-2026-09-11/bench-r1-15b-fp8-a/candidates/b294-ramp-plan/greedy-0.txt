@@ -1,0 +1,19 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    if step == 0:
+        raise ValueError("Step cannot be zero.")
+    if current > target:
+        raise ValueError("Current value is already past the target.")
+    return min + step
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    if step == 0:
+        raise ValueError("Step cannot be zero.")
+    if start > target:
+        raise ValueError("Starting value is already past the target.")
+    result = []
+    while start <= target:
+        result.append(start)
+        start += step
+    return result
+```

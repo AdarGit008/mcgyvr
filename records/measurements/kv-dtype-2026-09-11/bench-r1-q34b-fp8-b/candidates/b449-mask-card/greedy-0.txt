@@ -1,0 +1,22 @@
+<think>
+Okay, I need to implement two functions, last_four and mask_card, as per the given interface. Let's start with last_four. The function is supposed to return the last four characters of a card number, or the whole if it's shorter than four. So, for example, if the input is "1234", it should return "1234". If it's longer, like "123456789", then the last four are "6789".
+
+Wait, but what if the input is empty? The problem says to handle empty input. So, if the number is empty, return empty string. Also, if the number has length 0, 1, 2, or 3, return the whole string.
+
+So for the function last_four, the logic is straightforward: take the input string, check its length. If it's less than 4, return it as is. Otherwise, take the last four characters.
+
+Now, mask_card. This function needs to replace all characters except the last four with stars. Each hidden character is replaced by a star. So, for example, if the input is "1234567890", the last four are "7890", so the masked version would be "****7890". But if the input is shorter than 4, like "123", then mask_card would return "123" as well, since there's no hidden part.
+
+Wait, but the problem says "everything but its last four replaced by stars". So, regardless of the length, the last four are kept, and the rest are replaced by stars. So, for a number with length 5, the first character is replaced by a star, and the last four are kept. So "12345" becomes "*4567"? Wait, no. Wait, the input is "12345", which is 5 characters. The last four are "2345", so the first character is replaced by a star. So mask_card would be "*2345".
+
+Wait, no. Wait, the input is "12345", which is 5 characters. The last four are "2345", so the first character is replaced by a star. So the masked card would be "*2345".
+
+But how to calculate the number of stars? The number of stars is the length of the input minus 4. So, for a number with length n, the masked version is (n-4) stars followed by the last four characters.
+
+But if the input is shorter than 4, then there's no stars, so the entire string is returned.
+
+So, for example, if the input is "123", mask_card returns "123". If the input is "1234", returns "1234". If the input is "12345", returns "****2345"? Wait, no. Wait, the length is 5. So 5-4=1 star. So the first character is replaced by a star, then the last four. So "12345" becomes "*2345".
+
+Wait, but the input is "12345", which is 5 characters. The last four are "2345". So the first character is replaced by a star. So the masked string is "*2345".
+
+So the logic for mask_card is: take the input string. If its length is less than 4, return it as is. Otherwise, take the last four characters and prepend (length -4

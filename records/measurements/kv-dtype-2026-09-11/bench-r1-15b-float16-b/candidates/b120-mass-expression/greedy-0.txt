@@ -1,0 +1,51 @@
+```python
+from typing import *
+from collections import *
+
+def mass_expression(text: str, unit: str) -> int:
+    if not text or not unit:
+        raise ValueError("Invalid input: text and unit must be non-empty strings")
+    
+    if not text.isalpha() or not unit.isalpha():
+        raise ValueError("Invalid input: text and unit must be atomic values")
+    
+    if text.count(' ') != (text.count('+') + text.count('-')):
+        raise ValueError("Invalid input: terms and operators must alternate ending on a term")
+    
+    if text.count(' ') % 2 != 1:
+        raise ValueError("Invalid input: terms and operators must alternate ending on a term")
+    
+    if text.count(' ') % 2 == 1 and text[-1] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-2] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-3] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-4] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-5] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-6] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-7] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-8] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-9] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-10] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-11] not in 'kgmt':
+        raise ValueError("Invalid input: term must be a plain count directly on one of the three units")
+    
+    if text.count(' ') % 2 == 1 and text[-1] in 'kgmt' and text[-1

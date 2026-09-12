@@ -1,0 +1,37 @@
+<think>
+Okay, I need to implement the add_one and merge_tally functions as per the given interface. Let me start by understanding what each function is supposed to do.
+
+First, the add_one function. The description says that it should return a tally with a stated amount added to one name's count, leaving the original tally unchanged. So, the function takes a dictionary (tally), a name, and an amount. The goal is to create a new tally where the specified name's count is increased by the amount. But wait, the original tally should remain unchanged. So, I can't modify the original dictionary directly. Instead, I need to create a copy of the original tally, then update the count for the given name. But wait, the function is called add_one, but the amount is added to the name's count. Wait, the name's count is increased by the amount. So, for example, if the original tally has 'name' with a count of 5, and amount is 3, then the new count would be 8.
+
+But how to handle the copy? Because if I just make a copy of the original dictionary, then modify the name's value, that should work. But in Python, dictionaries are mutable, so when you do a copy, you need to make sure that the original is not modified. So, for add_one, the steps would be:
+
+1. Create a copy of the original tally. Since dictionaries are mutable, we can use the copy() method or the dict() constructor.
+2. Then, check if the name exists in the copied dictionary. If it does, add the amount to its value. If not, set it to the amount.
+3. Return the new dictionary.
+
+Wait, but the problem says that the original tally should remain unchanged. So, the function must not modify the original dictionary. So, making a copy is necessary.
+
+So, for add_one, the code would be something like:
+
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    new_tally = tally.copy()
+    new_tally[name] += amount
+    return new_tally
+
+Wait, but what if the name is not in the original tally? Then, new_tally[name] would throw a KeyError. Wait, no. Because when you do new_tally = tally.copy(), if the name is not present, then new_tally[name] would be a KeyError. But the problem says that the function should add the amount to the name's count. So, if the name is not present, then the count is set to the amount. So, in that case, we need to check if the name exists in the new_tally. If not, set it to the amount. Otherwise, add the amount.
+
+Wait, but the problem says that the function is called add_one, which suggests that the amount is added to the existing count. But if the name is not present, then the count is set to the amount. So, the correct approach is:
+
+If the name is in the new_tally, add the amount to it. Otherwise, set it to the amount.
+
+So, the code would be:
+
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    new_tally = tally.copy()
+    if name in new_tally:
+        new_tally[name] += amount
+    else:
+        new_tally[name] = amount
+    return new_tally
+
+Wait, but the problem says that the function returns a tally with the amount added to one name's count. So, if the name is not present, then the count is set to the amount. But maybe the amount is supposed to be added to the existing count,

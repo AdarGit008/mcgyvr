@@ -1,0 +1,17 @@
+```python
+"""Render a value as fixed-width unsigned binary, nibble-grouped."""
+
+
+def format_bits(value: int, width: int) -> str:
+    """Render value as unsigned binary in exactly width bits, grouped by nibbles."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("value must be a non-negative integer")
+    if not isinstance(width, int) or isinstance(width, bool) or width <= 0 or width % 4 != 0 or width > 32:
+        raise ValueError("width must be a positive multiple of four and not exceed 32")
+    max_val = (1 << width) - 1
+    if value > max_val:
+        raise ValueError("value does not fit in width bits")
+    bits = format(value, f'0{width}b')
+    groups = [bits[i:i+4] for i in range(0, width, 4)]
+    return ' '.join(groups)
+```

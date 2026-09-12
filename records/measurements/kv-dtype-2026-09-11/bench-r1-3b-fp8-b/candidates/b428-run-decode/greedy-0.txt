@@ -1,0 +1,22 @@
+```python
+def run_decode(coded: str) -> str:
+    """
+    Decode a string where each letter is followed by a number indicating how many times it repeats.
+    If a letter is followed by no count, it defaults to 1.
+    """
+    decoded = ""
+    i = 0
+    while i < len(coded):
+        if coded[i].isalpha():
+            char = coded[i]
+            count = 1
+            i += 1
+            while i < len(coded) and coded[i].isdigit():
+                count *= 10
+                count += int(coded[i])
+                i += 1
+            decoded += char * count
+        else:
+            raise ValueError("Invalid input: non-alphabetic character found.")
+    return decoded
+```

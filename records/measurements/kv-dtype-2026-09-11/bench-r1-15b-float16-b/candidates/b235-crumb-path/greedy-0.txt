@@ -1,0 +1,16 @@
+```python
+from typing import List
+
+def crumb_split(trail: str) -> List[str]:
+    """
+    Breaks a breadcrumb trail on forward slashes and discards every empty segment.
+    """
+    return [segment for segment in trail.split('/') if segment.strip()]
+
+def crumb_join(parts: List[str]) -> str:
+    """
+    Puts segments back with a single slash between them and no slash at either end,
+    discarding empty segments the same way.
+    """
+    return '/'.join(filter(None, parts))
+```

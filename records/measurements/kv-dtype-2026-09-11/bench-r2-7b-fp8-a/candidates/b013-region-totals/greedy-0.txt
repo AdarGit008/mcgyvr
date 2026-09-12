@@ -1,0 +1,100 @@
+```python
+def region_totals(grid: list[list[int],       if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a Non-empty list of list")
+    cols =           if isinstance(grid[0], list)        else cols:
+            if cols == 0:
+                raise ValueError("rows must be non-empty lists")
+            for row in grid:
+                if not isinstance(row: list) or len(row) != cols:
+                    raise ValueError("rows must all share one list")
+                for cell in row:
+                    if isinstance(cell: bool) or not isinstance(cell:                        raise ValueError("cells must be integers")
+    prefix_sum = [[        for j in range(range(cols + 1)):
+            prefix_grid.append([0]          for i in range(range(1, len(grid) + 1):
+        for j in range(range(1, len(grid[i]):
+            prefix_grid[i][][                prefix_grid[i list):
+                    prefix_grid[i list):
+                        prefix_grid[i list):
+                            prefix_grid[i list):
+                                prefix_grid in list):
+                                    prefix_grid in list):
+                                        prefix_grid in list):
+                                            prefix_grid in list):
+                                                prefix_grid in list):
+                                                    prefix_grid in list):
+                                                        prefix_grid in list):
+                                                            prefix_grid in list):
+                                                                prefix_grid in list):
+                                                                    prefix_grid in list):
+                                                                        prefix_grid in list):
+                                                                            prefix_grid in list):
+                                                                                prefix_grid in list):
+                                                                                    prefix_grid in list):
+                                                                                        prefix_grid in list):
+                                                                                            prefix_grid in list):
+                                                                                                prefix_grid in list):
+                                                                                                    prefix_grid in list):
+                                                                                                    prefix_grid in list):
+                                                                                      prefix_grid in list):
+                                                                                          prefix_grid in list):
+                                                                                              prefix_grid in list):
+                                                                                                  prefix_grid in list):
+                                                                                                      prefix_grid in list):
+                                                                                                          prefix_grid in list):
+                                                                                                              prefix_grid in list):
+                                                                                                                  prefix_grid in list):
+                                                                                                                      prefix_grid in list):
+                                                                                                                          prefix_grid in list):
+                                                                                                                              prefix_grid in list):
+                                                                                                                                  prefix_grid in list):
+                                                                                                                                      prefix_grid in list):
+                                                                                                                                          prefix_grid in list):
+                                                                                                                                              prefix_grid in list):
+                                                                                                                                              prefix_grid in list):
+                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                                                                                  prefix_grid in list):
+                                                                                                                                                                                                      prefix_grid in list):
+                                                                                                                                                                                                          prefix_grid in list):
+                                                                                                                                                                                                              prefix_grid in list):
+                                                                                                                                

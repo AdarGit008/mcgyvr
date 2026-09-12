@@ -1,0 +1,21 @@
+```python
+def sift_marks(entries: list[str], mark: str) -> list[list[str]]:
+    """
+    Sort entries into two runs: those starting with the given mark, and those that do not.
+    Each run holds its entries in the order they arrived. Return the marked run first.
+    Entries holding nothing at all give back two empty runs.
+    """
+    if not entries:
+        return [[], []]
+
+    marked_run = []
+    unmarked_run = []
+
+    for entry in entries:
+        if entry.startswith(mark):
+            marked_run.append(entry)
+        else:
+            unmarked_run.append(entry)
+
+    return [marked_run, unmarked_run]
+```

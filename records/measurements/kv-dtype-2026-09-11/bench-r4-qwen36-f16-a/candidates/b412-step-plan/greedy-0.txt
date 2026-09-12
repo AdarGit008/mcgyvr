@@ -1,0 +1,19 @@
+```python
+def step_allowed(start: str, end: str, allowed: list) -> bool:
+    """Check if a move from start to end is in the allowed list."""
+    return (start, end) in allowed
+
+
+def step_plan(states: list, allowed: list) -> int:
+    """Return the index of the first disallowed move, or -1 if all are allowed."""
+    if not states:
+        raise ValueError("states list must not be empty")
+    
+    for i in range(len(states) - 1):
+        start = states[i]
+        end = states[i + 1]
+        if not step_allowed(start, end, allowed):
+            return i
+            
+    return -1
+```

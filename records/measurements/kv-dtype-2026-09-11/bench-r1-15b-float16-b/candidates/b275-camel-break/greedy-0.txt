@@ -1,0 +1,27 @@
+```python
+def camel_break(name: str) -> list:
+    """
+    Breaks a camel case identifier into words, each starting with a capital,
+    and returns them in lower case.
+
+    :param name: The camel case identifier to break.
+    :return: A list of words in lower case.
+    """
+    if not name:
+        return []
+
+    words = []
+    current_word = ""
+    for char in name:
+        if char.isupper():
+            if current_word:
+                words.append(current_word.lower())
+                current_word = ""
+            words.append(char.lower())
+        else:
+            current_word += char
+    if current_word:
+        words.append(current_word.lower())
+
+    return words
+```

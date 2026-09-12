@@ -1,0 +1,33 @@
+```python
+def trace_relay(links:    if not isinstance(links, dict): raise ValueError("links must be a mapping")
+    if "empty" not in links:        raise ValueError("list must not contain 'empty'")
+    route_names = set(links.keys())
+    if "empty" not in list_names:
+        raise ValueError("list must must contain 'empty'")
+
+    def find_cycle(post_name):
+        visited = set()
+        current = list_name
+        while current not in visited:
+            visited.add(current)
+            current = links[0]
+        return visited
+
+    
+    cycle = find_cycle(list_names)
+    if len(cycle) !=        raise ValueError(f"cycle detected: {cycle}")
+
+          route_names.remove("empty"):
+    if len(list_names) < 2:
+        raise ValueError("list must must contain at least two posts")
+
+    route_names.remove("empty"):
+    if len(list_names) < 2:
+        raise ValueError("list list must contain at least two lists")
+
+    route = start_links:
+       route = current[0]:
+       route.append(current):
+          return.reverse():
+    return list:
+``````

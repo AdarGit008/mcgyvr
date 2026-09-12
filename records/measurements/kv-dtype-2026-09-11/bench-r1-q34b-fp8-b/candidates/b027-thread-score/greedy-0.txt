@@ -1,0 +1,40 @@
+<think>
+Okay, I need to fix the thread_score function in the given Python code. The problem is that the current implementation only adds the scores of direct replies, but not the nested ones. Also, deleted comments should contribute nothing themselves, but their replies are still counted. Let me look at the existing code.
+
+The original thread_score function starts by adding the comment's score to the total, then loops through each reply and adds their score. But that's only considering the immediate replies, not any deeper nested ones. So, the function needs to recursively traverse all replies, regardless of depth, and sum their scores, but ignore the deleted comments' own scores.
+
+Wait, the problem says that a deleted comment contributes nothing itself, but its replies still count. So, for each comment, whether it's deleted or not, we need to check all its replies (including nested ones) and sum their scores, but if the comment is deleted, we don't add its own score.
+
+So the current code is adding the comment's score, which is wrong if the comment is deleted. Also, it's only adding the direct replies, not the nested ones.
+
+So the fix for thread_score is to recursively go through all replies, regardless of depth, and sum their scores. But for each comment, if it's deleted, we don't add its own score. However, even if a comment is deleted, its replies are still processed.
+
+So the approach is to write a recursive function that, for each comment, checks if it's deleted. If it is, then we don't add its score, but we still process its replies. If it's not deleted, we add its score and process its replies.
+
+Wait, but the original code is adding the comment's score regardless of whether it's deleted. So the first step is to check if the comment is deleted. If it is, then we don't add its score. Then, for all replies, we recursively process them.
+
+So the corrected thread_score function should:
+
+- Start with total = 0
+- If the comment is not deleted, add its score to total
+- Then, for each reply in replies, recursively call thread_score on the reply and add that to total
+
+Wait, but the function is supposed to sum all the scores in the subtree, considering that deleted comments contribute nothing. So, for each comment in the subtree, if it's not deleted, add its score. Then, for each of its replies, do the same.
+
+So the correct approach is to traverse the entire tree, and for each comment, if it's not deleted, add its score. Then, for each reply, recursively process them.
+
+So the original code was adding the comment's score (regardless of being deleted) and then adding the direct replies' scores. But that's wrong. The correct approach is to check if the comment is deleted, and if not, add its score, then process all replies (including nested ones) recursively.
+
+So the function should be:
+
+def thread_score(comment: dict) -> int:
+    total = 0
+    if not comment["deleted"]:
+        total += comment["score"]
+    for reply in comment["replies"]:
+        total += thread_score(reply)
+    return total
+
+Wait, but that would sum all the scores of non-deleted comments, including their replies. But the problem says that deleted comments contribute nothing themselves, but their replies are still counted. So, for example, if a comment is deleted, its own score is not added, but its replies are processed. So the function should check if the current comment is deleted, and if not, add its score, then process all replies.
+
+Yes. So the original code was adding the comment's score regardless of being deleted, which is wrong. The new code

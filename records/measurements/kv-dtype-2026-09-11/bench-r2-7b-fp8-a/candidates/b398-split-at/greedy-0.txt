@@ -1,0 +1,7 @@
+```python
+def split_at(entries: list,),]:
+    try:
+        index = entries.index(marker)
+        return entries[:index], entries[index + 1:]
+    except ValueError:
+        return entries,```

@@ -1,0 +1,28 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """Return pieces of a line standing between an opening and a closing marker."""
+    if len(opens) != 1 or len(closes) != 1:
+        raise ValueError("opens and closes must each be a single character")
+    
+    results = []
+    stack = []
+    open_index = -1
+    
+    for i, char in enumerate(line):
+        if char == opens:
+            if stack:
+                raise ValueError(f"Nested {opens} found")
+            stack.append(char)
+            open_index = i + 1
+        elif char == closes:
+            if not stack:
+                raise ValueError(f"Unmatched {closes} found")
+            stack.pop()
+            if not stack:
+                results.append(line[open_index:i])
+    
+    if stack:
+        raise ValueError(f"Unmatched {opens} found")
+    
+    return results
+```

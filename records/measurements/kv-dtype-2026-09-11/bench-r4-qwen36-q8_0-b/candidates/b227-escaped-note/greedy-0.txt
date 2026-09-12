@@ -1,0 +1,76 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    """Decode a mail-safe escaped note by folding lines and decoding hex escapes."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+
+    # Pass 1: Fold lines
+    # Split into lines, handling \r\n, \r, and \n
+    # We need to process line by line to handle the folding rules
+    
+    # Split by \n first to handle \r\n correctly
+    raw_lines = text.split('\n')
+    
+    # Process each line to remove trailing whitespace (space and tab)
+    # Note: \r is not considered trailing whitespace for the purpose of "space and tab"
+    # based on the description "drop every space and tab that runs to the end of a line"
+    # However, if there's a \r before \n, it's part of the line content before the \n.
+    # The split('\n') will leave \r at the end of lines if the original was \r\n.
+    # We need to strip only spaces and tabs from the end of each line.
+    
+    stripped_lines = []
+    for line in raw_lines:
+        # Strip trailing spaces and tabs only
+        stripped = line.rstrip(' \t')
+        stripped_lines.append(stripped)
+    
+    # Now fold lines:
+    # Walk the lines in order.
+    # If the text kept so far ends in '=', that '=' and the following line break disappear
+    # and the next line continues the current one directly.
+    # Every other line break survives as a single line feed.
+    
+    result_lines = []
+    for line in stripped_lines:
+        if result_lines:
+            # Check if the last accumulated line ends with '='
+            if result_lines[-1].endswith('='):
+                # Remove the trailing '=' and join directly with the current line
+                result_lines[-1] = result_lines[-1][:-1] + line
+            else:
+                # Add a line feed
+                result_lines[-1] = result_lines[-1] + '\n' + line
+        else:
+            result_lines.append(line)
+    
+    folded_text = '\n'.join(result_lines)
+    
+    # Pass 2: Decode escapes
+    # An '=' followed by exactly two uppercase hexadecimal digits stands for the character
+    # whose code those digits spell.
+    # Every other character is copied unchanged.
+    # Reject an '=' in the folded text that is not followed by two uppercase hexadecimal digits.
+    
+    decoded = []
+    i = 0
+    while i < len(folded_text):
+        char = folded_text[i]
+        if char == '=':
+            # Check if followed by exactly two uppercase hex digits
+            if i + 2 < len(folded_text):
+                hex_chars = folded_text[i+1:i+3]
+                if all(c in '0123456789ABCDEF' for c in hex_chars):
+                    # Valid escape sequence
+                    code_point = int(hex_chars, 16)
+                    decoded.append(chr(code_point))
+                    i += 3
+                else:
+                    raise ValueError("Invalid escape sequence: '=' not followed by two uppercase hex digits")
+            else:
+                # '=' at the end of the string or not enough characters
+                raise ValueError("Invalid escape sequence: '=' at end of text or not followed by two uppercase hex digits")
+        else:
+            decoded.append(char)
+            i += 1
+    
+   

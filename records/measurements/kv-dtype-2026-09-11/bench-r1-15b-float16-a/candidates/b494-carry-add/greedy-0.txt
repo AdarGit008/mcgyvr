@@ -1,0 +1,28 @@
+```python
+from typing import List
+
+def carry_add(left: List[int], right: List[int]) -> List[int]:
+    """
+    Add two counts held as runs of single figures, the weightiest figure first, and give the answer in the same form.
+    Work from the light end, carrying into the next place where a pair reaches ten. The two runs need not be the same length.
+    """
+    # Ensure both lists are of the same length
+    if len(left) != len(right):
+        raise ValueError("Both lists must be of the same length")
+
+    # Initialize the result list with zeros
+    result = [0] * (len(left) + 1)
+
+    # Iterate over the lists from the light end
+    for i in range(len(left) - 1, -1, -1):
+        # Add the current digits and carry
+        carry = (left[i] + right[i]) // 10
+        result[i] = (left[i] + right[i]) % 10
+        result[i - 1] += carry
+
+    # If there is a carry left at the end, add it to the result
+    if carry > 0:
+        result[0] = carry
+
+    return result
+```

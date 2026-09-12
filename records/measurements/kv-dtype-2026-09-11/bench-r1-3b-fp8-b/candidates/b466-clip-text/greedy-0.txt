@@ -1,0 +1,17 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    """
+    Return the part of the text between start and end, inclusive of start and exclusive of end.
+    If start is greater than end, raise ValueError.
+    """
+    if start > end:
+        raise ValueError("Start cannot be greater than end.")
+    
+    # Normalize start and end to handle cases where they are out of bounds
+    text_length = len(text)
+    start = max(0, min(start, text_length))
+    end = max(0, min(end, text_length))
+    
+    # Clip the text based on the normalized start and end
+    return text[start:end]
+```

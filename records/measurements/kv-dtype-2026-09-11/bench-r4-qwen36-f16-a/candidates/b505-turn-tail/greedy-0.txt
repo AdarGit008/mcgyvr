@@ -1,0 +1,21 @@
+```python
+def turn_tail(entries: list[str], count: int) -> list[str]:
+    """Turn round the closing stretch of a run, leaving everything before it standing as it was."""
+    if count <= 0:
+        return list(entries)
+    
+    n = len(entries)
+    if count >= n:
+        return list(reversed(entries))
+    
+    # The 'stop' index marks where the tail starts (exclusive)
+    # We want to reverse the last 'count' elements
+    # Indices from n-count to n-1 are reversed
+    # Indices from 0 to n-count-1 remain unchanged
+    
+    head = entries[:n - count]
+    tail = entries[n - count:]
+    tail_reversed = list(reversed(tail))
+    
+    return head + tail_reversed
+```

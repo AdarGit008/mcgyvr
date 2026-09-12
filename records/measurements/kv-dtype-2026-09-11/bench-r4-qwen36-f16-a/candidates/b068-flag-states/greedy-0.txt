@@ -1,0 +1,41 @@
+```python
+def flag_states(mask: int, catalog: list) -> dict:
+    """Return a mapping of flag names to their boolean state based on the bit mask."""
+    if not isinstance(mask, int) or isinstance(mask, bool):
+        raise ValueError("mask must be an integer")
+    if mask < 0:
+        raise ValueError("mask must be non-negative")
+    
+    if not isinstance(catalog, list):
+        raise ValueError("catalog must be a list")
+    if len(catalog) == 0:
+        raise ValueError("catalog must contain at least one name")
+    
+    seen_names = set()
+    for name in catalog:
+        if not isinstance(name, str):
+            raise ValueError("flag name must be a string")
+        if len(name) == 0:
+            raise ValueError("flag name must be non-empty")
+        if name in seen_names:
+            raise ValueError("duplicate flag name in catalog")
+        seen_names.add(name)
+    
+    num_flags = len(catalog)
+    
+    # Check if any bit at or beyond the catalog length is set
+    # We need to check if mask has any bits set at positions >= num_flags
+    # This is equivalent to checking if mask >= (1 << num_flags) is false? 
+    # No, because mask could be large but have lower bits clear.
+    # We need to check if (mask >> num_flags) is non-zero.
+    if (mask >> num_flags) != 0:
+        raise ValueError("mask has set bits at or beyond the catalog length")
+    
+    result = {}
+    for i, name in enumerate(catalog):
+        # Check if the i-th bit is set
+        is_set = bool(mask & (1 << i))
+        result[name] = is_set
+        
+    return result
+```

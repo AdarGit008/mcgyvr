@@ -1,0 +1,15 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """Calculate the charge for one step: fixed sum plus whole-percent share of amount, rounded down."""
+    if amount < 0 or fixed < 0 or percent < 0:
+        raise ValueError("Arguments must be non-negative")
+    share = (amount * percent) // 100
+    return fixed + share
+
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    """Calculate the charge for each amount in the list, in order."""
+    if not isinstance(amounts, list):
+        raise ValueError("amounts must be a list")
+    return [step_rate(amount, fixed, percent) for amount in amounts]
+```

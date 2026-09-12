@@ -1,0 +1,20 @@
+```python
+
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    if grid is None or not grid:
+        raise ValueError("Grid cannot be None or empty")
+")
+ if row < 0 or row >= len(grid):
+        raise ValueError("Row index must be within the grid's bounds")
+ if column < 0 or column >= len(grid[0]):
+        raise ValueError("Column index must be within the grid's bounds")
+    return grid[row][][][ column] value[row][column] value
+
+def grid_find(grid: list, value: int) -> list:
+    for row in range(len(grid)):
+        for column in range(len(grid[row])):
+            if grid[row][ column] is None or not grid[row][ column]:
+                if grid[row][ column] == value:
+                    return [row, column]
+    raise ValueError("Grid does not contain the value")
+```

@@ -1,0 +1,30 @@
+```python
+"""
+An list list for packages under packages under for packages under prerequisite pairs.
+"""
+
+def install_order(packages: list[str], requires: list[list[str]]) -> list[str]:
+    if len(set(packages)) !=(packages)) != [len(packages), 0]:
+        raise ValueError("Duplicate package names")
+    
+    for pkg, needed needed in requires:
+        if pkg not in packages or needed not in packages:
+            raise ValueError("Invalid requirement pair")
+    
+    for i in range(len(lists)):
+        for j in range(i + 1,s)):
+            if pkg in lists[j]:
+                raise ValueError("Cycle detected in requirements")
+    
+    cache =    {name: 0 for name in packages}
+                    enables[needed]:
+        append.append(pkg)
+    ready = [name for in if need[name] == 0):
+):
+    order =           next_name =        ready.pop():
+        in.append(next_name):
+        for follower in enables[next_name]:
+            next[follower')            1
+            if list[follower'] ==                ready.append(follower):
+    return in
+```

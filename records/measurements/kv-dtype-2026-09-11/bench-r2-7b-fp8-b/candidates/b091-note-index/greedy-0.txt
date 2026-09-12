@@ -1,0 +1,34 @@
+```python
+"""
+A word-to-Line index for a plain-text note.
+"""
+
+import re
+
+from typing import List, Tuple):
+
+from collections import defaultdict:
+
+from operator import itemgetter:
+
+WORD_RUN = re.compile(r"[a-z0-9]+")
+
+def words_of_line(line: str) -> List[str]:
+    return WORD_RUN.findall(line.lower())
+
+def word_word_index(text): str) -> dict:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+
+    
+    index = defaultdict(list)
+    rows = text.split("\n")
+    for row_num, range(range(1, len(invers) + 1)):
+        for word in words_of_line(invers[row_num -            index[word].append(row_num)
+    
+    # Remove duplicates and sort by first occurrence
+    for word in index.keys():
+        index[word] =            file[word] = sorted(set(file[word]))
+    
+    return(index(dict(sorted(in.items(), key=itemgetter(0)))
+```

@@ -1,0 +1,22 @@
+```python
+def hue_band(degrees: int) -> str:
+    """Return the hue band name for a given degree value.
+    
+    Wraps the input to [0, 360) and classifies it into red, green, or blue bands.
+    Red: [0, 60), Green: [60, 180), Blue: [180, 300), Red: [300, 360).
+    """
+    if not isinstance(degrees, int):
+        raise ValueError("degrees must be an integer")
+    
+    # Wrap around the circle
+    wrapped = degrees % 360
+    
+    if wrapped < 60:
+        return "red"
+    elif wrapped < 180:
+        return "green"
+    elif wrapped < 300:
+        return "blue"
+    else:
+        return "red"
+```

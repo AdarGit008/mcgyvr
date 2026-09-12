@@ -1,0 +1,55 @@
+```python
+def trace_parcel(events: list) -> list:
+    """Trace the state transitions of a parcel through its handling protocol.
+    
+    Args:
+        events: A list of event names representing the sequence of actions taken on the parcel.
+        
+    Returns:
+        A list of states the parcel passes through, starting with 'created'.
+        
+    Raises:
+        ValueError: If the input is not a list, contains invalid event names,
+                    or an event is fired in an invalid state.
+    """
+    if not isinstance(events, list):
+        raise ValueError("events must be a list")
+
+    # Define the state transitions
+    # State -> Event -> Next State
+    transitions = {
+        'created': {'packed': 'packed'},
+        'packed': {'ship': 'shipped'},
+        'shipped': {'deliver': 'delivered', 'bounce': 'returned'},
+        'delivered': {},
+        'returned': {}
+    }
+
+    # Define valid events
+    valid_events = {'packed', 'ship', 'deliver', 'bounce'}
+
+    states = ['created']
+    current_state = 'created'
+
+    for event in events:
+        if not isinstance(event, str):
+            raise ValueError(f"Event must be a string, got {type(event)}")
+        
+        if event not in valid_events:
+            raise ValueError(f"Invalid event: {event}")
+        
+        # Check if current state allows the event
+        if current_state not in transitions:
+            raise ValueError(f"Invalid state: {current_state}")
+        
+        allowed_events = transitions[current_state]
+        if event not in allowed_events:
+            raise ValueError(f"Event '{event}' not allowed in state '{current_state}'")
+        
+        # Transition to next state
+        next_state = allowed_events[event]
+        states.append(next_state)
+        current_state = next_state
+
+    return states
+```

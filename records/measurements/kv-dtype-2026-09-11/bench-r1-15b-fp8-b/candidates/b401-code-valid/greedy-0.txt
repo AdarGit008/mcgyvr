@@ -1,0 +1,11 @@
+```python
+def code_valid(code: str, length: int) -> bool:
+    if length <= 0:
+        raise ValueError("Length must be greater than 0")
+    if not code.isalpha() and not code.isdigit():
+        return False
+ "Code must contain only capital letters and digits"
+    if not len(code) == length:
+        return False False "Code must be exactly {} characters long".format(length)
+    return True
+```

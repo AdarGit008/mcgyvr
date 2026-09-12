@@ -1,0 +1,30 @@
+```python
+def tier_cost(units: int, allowance: int, first_rate: int, later_rate: int) -> int:
+    """Calculate the cost of units based on tiered pricing.
+    
+    Args:
+        units: The number of units used. Must be non-negative.
+        allowance: The number of units charged at the first rate.
+        first_rate: The cost per unit within the allowance (in pence).
+        later_rate: The cost per unit beyond the allowance (in pence).
+        
+    Returns:
+        The total cost in whole pence.
+        
+    Raises:
+        ValueError: If units is negative.
+    """
+    if units < 0:
+        raise ValueError("Units cannot be negative")
+    
+    # Calculate the number of units charged at the first rate
+    units_at_first_rate = min(units, allowance)
+    
+    # Calculate the number of units charged at the later rate
+    units_at_later_rate = max(0, units - allowance)
+    
+    # Calculate total cost
+    total_cost = (units_at_first_rate * first_rate) + (units_at_later_rate * later_rate)
+    
+    return total_cost
+```

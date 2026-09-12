@@ -1,0 +1,30 @@
+<think>
+Okay, I need to implement the wire_value and wire_text functions as per the given task. Let me start by understanding the requirements.
+
+First, wire_text is supposed to take a string and return a specific format. The example given is that "a:b" becomes "s3:a:b". So, the text is the string itself, and the length is converted to decimal. But wait, the problem says that wire_text rejects a text with a newline because frames are line-delimited. So, if the input text contains a newline, that's an error. Also, if the input is not a string, wire_text should reject it.
+
+So, for wire_text, the steps are:
+1. Check if the input is a string. If not, raise ValueError.
+2. Check if the string contains a newline character. If yes, raise ValueError.
+3. Then, compute the length of the string, convert it to a decimal string.
+4. The output is "s" followed by the length, a colon, and the original string. So, "s" + str(length) + ":" + text.
+
+Next, wire_value needs to handle three types: text (using wire_text), whole numbers (as "n" followed by the number, with a minus if negative), and lists. For lists, it's a recursive process where each element is processed by wire_value, and the elements are separated by semicolons. Also, the function should reject booleans, non-integer numbers, and any other values except text, numbers, or lists.
+
+So, for wire_value:
+- If the value is a string (text), use wire_text.
+- If it's an integer, format as "n" followed by the number, with a minus if negative.
+- If it's a list, then process each element in order, recursively applying wire_value, and wrap them in square brackets.
+- Otherwise, raise ValueError.
+
+But wait, the problem says that wire_value should reject booleans, non-integer numbers, and any other values. So, for example, if the value is a boolean (True or False), that's invalid. Also, if the value is a float that's not an integer (like 3.5), that's invalid. Also, if the value is something else, like a dictionary, that's invalid.
+
+So, the steps for wire_value are:
+Check the type of the value. If it's a string, proceed with wire_text. If it's an integer, format as n followed by the number. If it's a list, process each element. Otherwise, raise an error.
+
+But how to check if a value is a whole number? For example, if the value is 5.0, that's a float, which is not allowed. So, the function should check if the value is an instance of int. If it's a float, but it's an integer (like 5.0), then it's not allowed. Wait, the problem says "a number that is not whole" is rejected. So, numbers that are not integers (like 3.5) are invalid. So, the function should check if the value is an integer. So, for example, if the value is 5, it's okay. If it's 5.0, it's not allowed. So, in code, we need to check if the value is an instance of int. Because if it's a float, even if it's an integer, like 5.0, it's not allowed.
+
+So, for the wire_value function:
+
+First, check if the value is a string. If not, check if it's an integer. If not, check if it's a list. Otherwise, raise error.
+

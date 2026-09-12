@@ -1,0 +1,21 @@
+```python
+import re
+
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str):
+        raise ValueError("Ticket must be a string")
+    
+    pattern = r'^[A-Z]{2}-\d{4}-\d$'
+    if not re.match(pattern, ticket):
+        return "shape"
+    
+    parts = ticket.split('-')
+    letter_sum = sum((ord(part[0]) - ord('A') + 1) for part in parts[:2])
+    digit_sum = sum((int(digit) * (i + 1)) for i, digit in enumerate(parts[1]))
+    total = letter_sum + digit_sum
+    
+    if int(parts[2]) != total % 10:
+        return "check"
+    
+    return "ok"
+```

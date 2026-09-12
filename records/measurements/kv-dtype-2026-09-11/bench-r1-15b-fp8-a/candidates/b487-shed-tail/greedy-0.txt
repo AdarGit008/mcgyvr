@@ -1,0 +1,91 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    if not piece:
+        return text
+    if not text:
+        return text
+    if piece not in text:
+        return text
+    if text[-1] != piece[-1]:
+        return text
+    if text[-1] piece[-1]:
+        return text
+    return text[:-1]
+ piece[-1]
+ piece[-1]:
+        return text[:-1] piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece[-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text[:-1 piece [-1]:
+        return text

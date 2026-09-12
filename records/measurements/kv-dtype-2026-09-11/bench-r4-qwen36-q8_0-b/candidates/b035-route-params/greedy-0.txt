@@ -1,0 +1,86 @@
+```python
+def split_segments(path: str) -> list:
+    """Split a path string into a list of segments, validating format."""
+    if not isinstance(path, str):
+        raise ValueError("path must be a string")
+    if not path:
+        raise ValueError("path must be a non-empty string")
+    if not path.startswith("/"):
+        raise ValueError("path must start with a slash")
+    if path.endswith("/") and len(path) > 1:
+        raise ValueError("path must not have a trailing slash")
+    
+    # If path is just "/", segments are empty list
+    if path == "/":
+        return []
+    
+    # Remove leading slash and split
+    segments = path[1:].split("/")
+    
+    # Check for empty segments (e.g., "//" or trailing slash handled above, 
+    # but internal "//" would produce empty strings)
+    for seg in segments:
+        if seg == "":
+            raise ValueError("path contains empty segment")
+            
+    return segments
+
+
+def match_route(pattern: str, path: str) -> dict | None:
+    """Match a route pattern against a path, returning captures or None."""
+    # Validate and split both
+    pattern_segments = split_segments(pattern)
+    path_segments = split_segments(path)
+    
+    # Validate pattern syntax
+    _validate_pattern(pattern_segments)
+    
+    # Perform matching
+    return _match_segments(pattern_segments, path_segments, {})
+
+
+def _validate_pattern(segments: list) -> None:
+    """Validate pattern segments for syntax errors."""
+    wildcard_double_count = 0
+    seen_captures = set()
+    
+    for seg in segments:
+        if seg == "**":
+            wildcard_double_count += 1
+        elif seg == "*":
+            pass  # Single wildcard is fine
+        elif seg.startswith(":"):
+            # It's a capture group
+            name = seg[1:]
+            if not _is_valid_capture_name(name):
+                raise ValueError(f"invalid capture name: {name}")
+            if name in seen_captures:
+                raise ValueError(f"duplicate capture name: {name}")
+            seen_captures.add(name)
+        else:
+            # Literal segment - check if it contains invalid chars?
+            # The prompt says: "Whether a literal segment may itself contain a colon or an asterisk after its first character is not stated."
+            # So we assume literal segments are just strings. If they start with ':' or '*', 
+            # they are treated as captures/wildcards based on the rules.
+            # Actually, the rules say: "a pattern segment may also be ':name', capturing... '*', matching... or '**', matching..."
+            # This implies that if a segment is not exactly ':name', '*', or '**', it is a literal.
+            # So a literal segment CAN contain ':' or '*' as long as it doesn't match the special forms.
+            pass
+            
+    if wildcard_double_count > 1:
+        raise ValueError("pattern contains '**' more than once")
+
+
+def _is_valid_capture_name(name: str) -> bool:
+    """Check if a string is a valid capture name."""
+    if not name:
+        return False
+    if not (name[0].isalpha() or name[0] == '_'):
+        return False
+    for char in name[1:]:
+        if not (char.isalnum() or char == '_'):
+            return False
+    return True
+
+
+def _match_segments(pattern: list, path: list, captures: dict) -> dict | None:

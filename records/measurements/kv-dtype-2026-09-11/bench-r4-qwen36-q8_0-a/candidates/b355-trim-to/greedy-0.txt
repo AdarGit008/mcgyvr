@@ -1,0 +1,17 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    """Cut a line down to at most `limit` characters, appending '...' if truncated."""
+    if limit < 4:
+        raise ValueError("limit must be at least 4")
+    
+    if len(line) <= limit:
+        return line
+    
+    # Calculate the length of the text part.
+    # The suffix is '...' which has length 3.
+    # So text_length = limit - 3
+    text_length = limit - 3
+    
+    # Return the substring up to text_length plus the ellipsis
+    return line[:text_length] + "..."
+```

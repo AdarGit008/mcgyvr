@@ -1,0 +1,11 @@
+```python
+def file_manifest(line: dict) -> dict:
+    if = {}
+    for key, value_value in line.items():
+        if key not in ['sku', 'count', 'note']:
+            raise ValueError(f"Invalid key key: { must { { key}")
+        if isinstance(file_value, str):
+            raise ValueError(f"Invalid file value value: file ship { { value")
+        if[key] = file_value
+    return files
+```

@@ -1,0 +1,38 @@
+<think>
+Okay, I need to implement the end_grab function. Let's see what the problem says. The function takes a list of cards and returns a dictionary with three fields: first (total for the first player), second (total for the second player), and taken (the order of cards left the row).
+
+The game is played by two players taking turns. The first player starts. On each turn, a player takes the larger of the two end cards. If both ends are the same, they take the left one. The row shrinks by one each turn until there are no cards left.
+
+So, the steps I need to model are:
+
+1. Simulate each turn, where each player takes the larger end card. If both ends are equal, take the left one.
+2. Keep track of the total each player has collected.
+3. Record the order in which cards were taken (the 'taken' list).
+
+Let me think about the data structures. The cards are in a list, and each turn, the ends are compared. The player takes one end, and the card is removed from the list. The process continues until the list is empty.
+
+Wait, but the 'taken' list is the order in which the cards were left the row. Wait, the problem says "the numbers in the order they left the row." Wait, maybe that's the order in which the cards were taken from the row. Wait, the description says that the row shrinks by one each turn. So each turn, a card is taken from one end, and the row becomes shorter by one. The 'taken' list should be the order in which the cards were removed from the row. So, for example, if the first player takes a card, then the second player takes another, etc., the 'taken' list is the sequence of cards taken in the order they were removed.
+
+So, the process is:
+
+Initialize the current list of cards. The first player (player 1) starts. On each turn, compare the first and last elements of the current list. Take the larger one. If equal, take the left (first) one. Then, remove that card from the list. Add it to the 'taken' list. Then, the next player's turn.
+
+Wait, but the problem says that the row shrinks by one each turn. So each turn, one card is removed. The 'taken' list is the order in which the cards were removed. So, the first card taken is the first in the 'taken' list, then the next, etc.
+
+So, the steps for the function:
+
+Initialize the current list as the input cards. The first player is player 1. The 'taken' list is empty. The totals for player 1 and 2 are 0.
+
+Loop until the current list is empty:
+
+- Compare the first and last elements of the current list.
+
+- If the first is larger than the last, player 1 takes the first element. Else, if the last is larger, player 2 takes the last. If equal, player 1 takes the first (since the problem says "the left one whenever the two ends carry the same number").
+
+Wait, the problem says: "the first player opening. On a turn the player takes one card from an end of the row, always the larger of the two end cards, and takes the left one whenever the two ends carry the same number; a row of one card leaves that card as both ends."
+
+So, when the two ends are equal, the left one (first) is taken. So, the player (current player) takes the left one.
+
+But the current player alternates. So, the first player starts, then the second, then first, etc.
+
+So

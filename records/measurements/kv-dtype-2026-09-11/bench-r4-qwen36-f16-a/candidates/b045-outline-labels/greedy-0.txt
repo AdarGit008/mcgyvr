@@ -1,0 +1,78 @@
+```python
+def number_sections(sections: list) -> list:
+    """Return a list of formatted section labels in document order."""
+    if not isinstance(sections, list):
+        raise ValueError("sections must be a list")
+    
+    def validate_and_number(secs: list, prefix: str, parent_index: int) -> list:
+        """Recursively validate sections and generate labels."""
+        result = []
+        for i, section in enumerate(secs):
+            if not isinstance(section, dict):
+                raise ValueError("Each section must be a mapping (dict)")
+            
+            if "heading" not in section or "children" not in section:
+                raise ValueError("Each section must have 'heading' and 'children' keys")
+            
+            heading = section["heading"]
+            children = section["children"]
+            
+            if not isinstance(heading, str) or len(heading) == 0:
+                raise ValueError("Heading must be a non-empty string")
+            
+            if not isinstance(children, list):
+                raise ValueError("Children must be a list")
+            
+            # Construct the label
+            if prefix == "":
+                # Top-level section
+                label = f"{i + 1} {heading}"
+                new_prefix = str(i + 1)
+            else:
+                # Nested section
+                label = f"{prefix}.{i + 1} {heading}"
+                new_prefix = f"{prefix}.{i + 1}"
+            
+            result.append(label)
+            
+            # Recurse into children
+            if children:
+                result.extend(validate_and_number(children, new_prefix, i))
+        
+        return result
+
+    return validate_and_number(sections, "", 0)
+
+
+def section_count(sections: list) -> int:
+    """Return the total number of sections in the outline."""
+    if not isinstance(sections, list):
+        raise ValueError("sections must be a list")
+    
+    def count(secs: list) -> int:
+        """Recursively count sections."""
+        total = 0
+        for section in secs:
+            if not isinstance(section, dict):
+                raise ValueError("Each section must be a mapping (dict)")
+            
+            if "heading" not in section or "children" not in section:
+                raise ValueError("Each section must have 'heading' and 'children' keys")
+            
+            heading = section["heading"]
+            children = section["children"]
+            
+            if not isinstance(heading, str) or len(heading) == 0:
+                raise ValueError("Heading must be a non-empty string")
+            
+            if not isinstance(children, list):
+                raise ValueError("Children must be a list")
+            
+            total += 1  # Count the current section
+            if children:
+                total += count(children)  # Add children count
+        
+        return total
+
+    return count(sections)
+```

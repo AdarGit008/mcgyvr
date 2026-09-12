@@ -1,0 +1,48 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    """Return the next value moving from current toward target by at most step."""
+    if step < 0:
+        raise ValueError("step must be non-negative")
+    if step == 0:
+        if current == target:
+            return current
+        raise ValueError("step is zero and current is not at target")
+    if current < target:
+        next_val = current + step
+        return min(next_val, target)
+    elif current > target:
+        next_val = current - step
+        return max(next_val, target)
+    return current
+
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    """Return every value visited going from start to target, both ends included."""
+    if step < 0:
+        raise ValueError("step must be non-negative")
+    if step == 0:
+        if start == target:
+            return [start]
+        raise ValueError("step is zero and start is not at target")
+    
+    if start == target:
+        return [start]
+    
+    result = [start]
+    current = start
+    
+    if start < target:
+        while current < target:
+            current += step
+            if current > target:
+                current = target
+            result.append(current)
+    else:
+        while current > target:
+            current -= step
+            if current < target:
+                current = target
+            result.append(current)
+            
+    return result
+```

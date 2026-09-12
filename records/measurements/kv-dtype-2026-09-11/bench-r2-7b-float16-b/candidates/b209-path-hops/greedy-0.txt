@@ -1,0 +1,30 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path: str) -> list[str]:
+        segments = path.split('/')
+        reduced = []
+        i = 0
+        while i < len(segments):
+            if segments[i] == '..':
+                if reduced and reduced[-1] != '..':
+                    reduced.pop()
+                elif reduced and reduced[-1] == '..':
+                    raise ValueError("Path climbs above the shared root")
+                else:
+                    raise ValueError("Invalid path format")
+            elif segments[i] not in ('', '.'):
+                reduced.append(segments[i])
+            i += 1
+        return reduced
+
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+
+    common_length = min(len(start_segments), len(goal_segments))
+    i = 0
+    while i < common_length and start_segments[i] == goal_segments[i]:
+        i += 1
+
+    hops = (len(start_segments) - i) + (len(goal_segments) - i)
+    return hops
+```

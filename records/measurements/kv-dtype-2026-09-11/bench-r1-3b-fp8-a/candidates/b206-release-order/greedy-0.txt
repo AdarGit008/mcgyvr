@@ -1,0 +1,49 @@
+```python
+from typing import List
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    """
+    Sorts a list of release tags in ascending order order based on the major, minor, and patch versions.
+    Tags with preview labels come before plain tags, and preview labels are ordered alphabetically and numerically.
+    """
+    def parse_tag(tag: str) -> tuple:
+        parts = tag.split('.')
+        major = int(parts[0])
+        minor = int(parts[1])
+        patch = int(parts[2])
+        preview_label = None
+        if '-' in parts[2]:
+            preview_label = parts[2].split('-')[1]
+        return (major, minor, patch, preview_label)
+
+    
+    def compare_tags(tag1: tuple, tag2: tuple) -> int:
+        if tag1[0] != tag2[0]:
+            return tag1[0] - tag2[0]
+        if tag1[1] != tag2[1]:
+            return tag1[1] - tag2[1]
+        if tag1[2] != tag2[2]:
+            return tag1[2] - tag2[2]
+        if tag1[3] is None and tag2[3] is not None:
+            return -1
+        if tag1[3] is not None and tag2[3] is None:
+            return 1
+        if tag1[3] == tag2[3]:
+            return 0
+    
+    # Parse all tags into tuples
+    parsed_tags = [parse_tag(tag) for tag in tags]
+    
+    # Sort the parsed tags
+    sorted_tags = sorted(parsed_tags, key=lambda x: (x[0], x[1], x[2], x[3]))
+    
+    # Convert back to string format
+    return [f"v{tag[0]}.{tag[1]}.{tag[2]}" + (f"-{tag[3]}" if tag[3] else "") for tag in sorted_tags]
+
+# Example usage:
+tags = ["v1.4.0", "v2.0.0-rc3", "v1.10.0", "v1.9.3", "v1.10.0-rc1"]
+sorted_tags = order_release_tags(tags)
+print(sorted_tags)
+```
+
+This implementation defines a function `order_release_tags` that sorts a list of release tags according to the specified criteria. It uses helper functions to parse each tag into a tuple representing its components and to compare two such tuples to determine their order. The sorting is done using Python's built-in `sorted` function with a custom key that ensures the correct ordering of tags. Finally, the sorted tuples are converted back into the original tag format.

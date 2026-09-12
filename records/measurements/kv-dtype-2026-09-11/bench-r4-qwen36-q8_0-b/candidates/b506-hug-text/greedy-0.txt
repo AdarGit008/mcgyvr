@@ -1,0 +1,7 @@
+```python
+def hug_text(text: str, mark: str) -> str:
+    """Put a mark on both ends of a text, unless it already has the mark at both ends."""
+    if text.startswith(mark) and text.endswith(mark):
+        return text
+    return mark + text + mark
+```

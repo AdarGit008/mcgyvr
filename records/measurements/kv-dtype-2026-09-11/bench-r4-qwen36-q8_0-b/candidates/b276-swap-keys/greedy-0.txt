@@ -1,0 +1,17 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """Swap keys and values in a name-to-code mapping, keeping the first name alphabetically for shared codes and excluding empty codes."""
+    if not isinstance(names, dict):
+        raise ValueError("Input must be a dictionary")
+    
+    result = {}
+    for name, code in names.items():
+        if not code:
+            continue
+        if code not in result:
+            result[code] = name
+        else:
+            if name < result[code]:
+                result[code] = name
+    return result
+```

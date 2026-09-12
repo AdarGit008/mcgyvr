@@ -1,0 +1,10 @@
+```python
+def turn_tail(entries: list[str], count: int)       if count <=        return entries
+    stop =        stop =            len(entries) if count > len(entries) else count
+            out = []
+            for i in range(stop - 1, -1):
+                out.append(entries[i)
+            for i in range(stop):
+                out.append(entries[i]):
+            return out
+```

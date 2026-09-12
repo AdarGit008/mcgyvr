@@ -1,0 +1,43 @@
+```python
+def flag_states(mask: int, catalog: list) -> dict:
+    """Return a mapping of flag names to their boolean state based on the bit mask."""
+    if not isinstance(mask, int) or isinstance(mask, bool):
+        raise ValueError("mask must be a non-negative integer")
+    if mask < 0:
+        raise ValueError("mask must be a non-negative integer")
+    
+    if not isinstance(catalog, list):
+        raise ValueError("catalog must be a list")
+    if len(catalog) == 0:
+        raise ValueError("catalog must hold at least one name")
+    
+    seen_names = set()
+    for name in catalog:
+        if not isinstance(name, str):
+            raise ValueError("flag name must be a non-empty string")
+        if len(name) == 0:
+            raise ValueError("flag name must be a non-empty string")
+        if name in seen_names:
+            raise ValueError("repeated flag name")
+        seen_names.add(name)
+    
+    num_flags = len(catalog)
+    
+    # Check if any bit at or beyond the catalog's length is set
+    # We need to check if mask has any bits set at positions >= num_flags
+    # This is equivalent to checking if mask >= (1 << num_flags) is not quite right
+    # because we only care about bits at positions >= num_flags being 0.
+    # Actually, if mask has a bit set at position i where i >= num_flags, it's invalid.
+    # So we need to ensure that all bits from num_flags upwards are 0.
+    # This means mask must be less than 2^num_flags.
+    if mask >= (1 << num_flags):
+        raise ValueError("mask has a set bit at or beyond the catalog's length")
+    
+    result = {}
+    for i, name in enumerate(catalog):
+        # Check if the i-th bit is set
+        is_set = bool(mask & (1 << i))
+        result[name] = is_set
+    
+    return result
+```

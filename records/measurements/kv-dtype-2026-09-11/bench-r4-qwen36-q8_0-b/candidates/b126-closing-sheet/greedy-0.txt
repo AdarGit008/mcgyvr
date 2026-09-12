@@ -1,0 +1,80 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+import re
+
+
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    held = parse_sheet(opening)
+
+    if moves != "":
+        for move in moves.split(";"):
+            if move == "":
+                continue
+            # Determine if it's a receive (+) or issue (-)
+            if move.endswith("+"):
+                sign = "+"
+                name_part = move[:-1]
+                is_receive = True
+            elif move.endswith("-"):
+                sign = "-"
+                name_part = move[:-1]
+                is_receive = False
+            else:
+                raise ValueError(f"malformed move: {move}")
+
+            # Parse name and qty from name_part
+            if ":" not in name_part:
+                raise ValueError(f"malformed move: {move}")
+            
+            # Split by the last colon? No, the format is name+qty or name-qty
+            # Wait, the problem says: "name+qty receives qty units" and "name-qty issues qty units"
+            # It does NOT say there is a colon in the move.
+            # Let's re-read carefully: "name+qty" and "name-qty".
+            # So the move string is literally the name concatenated with the sign and the quantity.
+            # But wait, how do we distinguish between name "a" and qty "12" in "a+12"?
+            # The name is lowercase letters. The qty is digits.
+            # So we can split by the sign character.
+            
+            # Actually, looking at the structure:
+            # move is like "bolt+12" or "washer-4"
+            # We need to split by '+' or '-'
+            
+            # Let's re-parse based on the sign being the separator between name and qty
+            # But the sign is at the end of the name? No, "name+qty".
+            # So the string is name + "+" + qty OR name + "-" + qty.
+            
+            # Find the position of the sign
+            plus_idx = move.find("+")
+            minus_idx = move.find("-")
+            
+            if plus_idx != -1 and minus_idx != -1:
+                raise ValueError(f"malformed move: {move}")
+            elif plus_idx != -1:
+                name_part = move[:plus_idx]
+                qty_str = move[plus_idx+1:]
+                is_receive = True
+            elif minus_idx != -1:
+                name_part = move[:minus_idx]
+                qty_str = move[minus_idx+1:]
+                is_receive =

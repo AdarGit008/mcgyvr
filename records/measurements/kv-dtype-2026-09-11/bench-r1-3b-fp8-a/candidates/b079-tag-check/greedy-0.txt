@@ -1,0 +1,26 @@
+```python
+def line_tag(body: str) -> str:
+    if not isinstance(body, str):
+        raise ValueError("line_tag expects a string")
+    return format(sum(ord(ch) for ch in body) % 256, "02x")
+
+
+def check_line(line: str) -> str:
+    if not isinstance(line, str):
+        raise ValueError("check_line expects a string")
+    if len(line) < 3:
+        raise ValueError("line must be at least three characters long")
+    
+    tilde_index = line.rfind('~')
+    if tilde_index == -1 or tilde_index + 2 >= len(line):
+        raise ValueError("line must have a tilde followed by two characters")
+    
+    tag = line[tilde_index + 1:tilde_index + 3]
+    computed_tag = line_tag(line[:tilde_index])
+    
+    if tag != computed_tag:
+        raise ValueError("tag does not match the computed tag")
+    
+    
+    return line[:tilde_index]
+```

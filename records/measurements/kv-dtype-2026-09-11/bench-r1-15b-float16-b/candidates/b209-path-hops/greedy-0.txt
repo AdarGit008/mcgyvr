@@ -1,0 +1,40 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path):
+        segments = path.split('/')
+        return [segment for segment in segments if segment != '' and segment != '.']
+
+    start_segments = reduce_path(start)
+    goal_segments = reduce_path(goal)
+
+    if start_segments == goal_segments:
+        return 0
+
+    if start_segments[0] != goal_segments[0]:
+        return 1
+
+    start_index = 0
+    goal_index = 0
+
+    while start_index < len(start_segments) and goal_index < len(goal_segments):
+        if start_segments[start_index] == goal_segments[goal_index]:
+            start_index += 1
+            goal_index += 1
+        else:
+            break
+
+    start_run = start_index
+    goal_run = goal_index
+
+    while start_run < len(start_segments) and goal_run < len(goal_segments):
+        if start_segments[start_run] == goal_segments[goal_run]:
+            start_run += 1
+            goal_run += 1
+        else:
+            break
+
+    start_hops = start_run - start_index
+    goal_hops = goal_run - goal_index
+
+    return start_hops + goal_hops
+```

@@ -1,0 +1,70 @@
+<think>
+Okay, I need to implement the net_tally function according to the given specifications. Let me start by understanding the problem thoroughly.
+
+The function takes a list of sheets, each sheet is a string with newline-separated rows. Each row has three fields separated by pipes: item, sold, returned. The task is to process all these rows, sum the sold and returned counts for each item across all sheets, then generate a report.
+
+First, I need to process each sheet. For each sheet in the list, split it into rows. Then, for each row, skip blank or whitespace-only rows. Then, split each row into three parts using the pipe separator. But I need to make sure that each row has exactly three fields. Also, the item name must not be empty, and sold and returned must be strings of decimal digits.
+
+So, the steps are:
+
+1. Validate the input: check if sheets is a list. If not, raise ValueError. Then, for each sheet in the list, check if it's a string. If not, raise error.
+
+2. For each sheet, process each row. Split the sheet into lines. For each line, strip whitespace. If the line is empty after stripping, skip it.
+
+3. For each non-empty line, split into three parts. Check that there are exactly three fields. If not, raise error.
+
+4. Check that the item name is not empty. If it is, raise error.
+
+5. Check that sold and returned are strings of decimal digits. If not, raise error.
+
+6. For each valid row, accumulate the sold and returned counts for the item.
+
+Once all sheets are processed, collect all items and sort them by name. Then, for each item, calculate the net (sold - returned). Also, compute the total net across all items.
+
+Now, the report needs to be generated. Each line is the item name padded to the maximum length of all item names, followed by two spaces, then the net. Then, a trailer line with the total.
+
+But first, I need to find the maximum length of the item names. So, after collecting all items, determine the maximum length. Then, for each item, pad it to that length with spaces.
+
+Also, if an item's returned total exceeds sold, that's an error. So during processing, if for any item, returned > sold, raise ValueError.
+
+So, the plan is:
+
+- Initialize a dictionary to track the total sold and returned for each item.
+
+- For each sheet in sheets:
+
+   - Split into rows (split by newline).
+
+   - For each row in the sheet:
+
+      - Strip the row. If empty, skip.
+
+      - Split into parts by pipe. Check that there are exactly three parts.
+
+      - Check that item is not empty.
+
+      - Check that sold and returned are digits.
+
+      - Convert sold and returned to integers.
+
+      - Check if returned > sold. If yes, raise error.
+
+      - Add to the item's total sold and returned.
+
+Once all sheets are processed, collect all items. Sort them by name.
+
+Compute the maximum length of the item names.
+
+Then, for each item in the sorted list:
+
+   - Create a line with the item name padded to max_length, then two spaces, then net (sold - returned).
+
+Also, compute the total net across all items.
+
+Then, the trailer line is the total name padded to max_length, two spaces, then total net.
+
+Now, the function should return the report as a single string, with each line separated by newlines. If there are no items, return an empty string.
+
+Now, let's think about the code structure.
+
+First, the function net_tally takes a list of sheets. So, the first check is if the

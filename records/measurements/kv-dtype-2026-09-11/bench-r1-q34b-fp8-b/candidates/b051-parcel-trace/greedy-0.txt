@@ -1,0 +1,82 @@
+<think>
+Okay, I need to implement the trace_parcel function. Let's think about the requirements. The function takes a list of events and returns the list of states the parcel goes through. The events are in order, and each event moves the parcel from one state to another according to the handling protocol.
+
+First, the initial state is 'created'. The events are 'pack', 'ship', 'deliver', 'bounce'. Each event transitions the parcel through specific states. The states are created, packed, shipped, delivered, returned. Once a parcel reaches delivered or returned, no more events are allowed.
+
+So, the function needs to process each event in the input list, checking if it's valid and if it's allowed in the current state. If any invalid event is encountered, a ValueError should be raised.
+
+Let me outline the steps:
+
+1. Check if the input is a list. If not, raise ValueError.
+2. Initialize the current state as 'created'.
+3. For each event in the events list:
+   a. Check if the event is one of the allowed events ('pack', 'ship', 'deliver', 'bounce').
+   b. Check if the current state allows this event.
+   c. If not, raise ValueError.
+   d. Update the current state according to the event.
+   e. Add the new state to the result list.
+4. Return the list of states.
+
+Wait, the problem says that each event moves the parcel through a state. So, for example, the first event is 'pack' which moves from 'created' to 'packed'. Then, the next event could be 'ship' moving to 'shipped', etc. Each event adds a new state to the list.
+
+So the initial state is 'created', and each event adds a new state. So even if there are no events, the result is ['created'].
+
+Now, the allowed events are 'pack', 'ship', 'deliver', 'bounce'. So, any event not in this list is invalid.
+
+Now, the state transitions:
+
+- 'created' can transition to 'packed' via 'pack'.
+- 'packed' can transition to 'shipped' via 'ship'.
+- 'shipped' can transition to 'delivered' via 'deliver' or to 'returned' via 'bounce'.
+- 'delivered' and 'returned' are final states. Any event after that is invalid.
+
+So, for each event, we need to check the current state and the event.
+
+Let me think about the possible transitions:
+
+Current state | allowed events
+created → pack
+packed → ship
+shipped → deliver, bounce
+delivered → none
+returned → none
+
+So, for example, if the current state is 'shipped', then the next event can be 'deliver' or 'bounce'. If it's 'deliver', the state becomes 'delivered'. If it's 'bounce', it becomes 'returned'.
+
+So, the function needs to track the current state and validate each event.
+
+Now, the code structure:
+
+def trace_parcel(events: list) -> list:
+
+First, check if events is a list. If not, raise ValueError.
+
+Then, initialize the states list with 'created'.
+
+current_state = 'created'
+
+for event in events:
+
+   check if event is in {'pack', 'ship', 'deliver', 'bounce'}
+
+   if not, raise ValueError.
+
+   check if current_state allows this event.
+
+   if not, raise ValueError.
+
+   else, update current_state according to the event.
+
+   append current_state to states.
+
+return states.
+
+But how to check if the current state allows the event?
+
+We can have a dictionary that maps each state to the allowed events.
+
+allowed_transitions = {
+
+    'created': ['pack'],
+
+    'packed': ['

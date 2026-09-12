@@ -1,0 +1,26 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    if not template:
+        return ""
+    result = ""
+    i = 0
+    while i < len(template):
+        if template[i] == '{':
+            if i + 1 < len(template) and template[i + 1] == '}':
+                result += template[i]
+                i += 2
+            else:
+                placeholder = template[i + 1:i + template[i:].index('}') - 1]
+                if not placeholder.isalnum() or placeholder[0] not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_':
+                    raise ValueError(f"Invalid placeholder '{placeholder}'")
+                if placeholder not in values:
+                    raise ValueError(f"Unknown placeholder '{placeholder}'")
+                result += values[placeholder]
+                i = template[i:].index('}') + 1
+        else:
+            result += template[i]
+            i += 1
+    return result
+```

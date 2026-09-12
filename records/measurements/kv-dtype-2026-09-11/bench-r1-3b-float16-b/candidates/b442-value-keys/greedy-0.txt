@@ -1,0 +1,25 @@
+```python
+from typing import Dict
+
+def value_keys(store: Dict[str, str]) -> Dict[str, int]:
+    """
+    Returns a dictionary mapping each unique value in the store to its count.
+    
+    Args:
+    store (Dict[str, str]): A dictionary where keys are strings and values are strings.
+    
+    Returns:
+    Dict[str, int]: A dictionary where keys are unique values from the store and values are their counts.
+    """
+    if not store:
+        return {}
+    
+    value_counts = {}
+    for key, value in store.items():
+        if value in value_counts:
+            value_counts[value] += 1
+        else:
+            value_counts[value] = 1
+    
+    return value_counts
+```

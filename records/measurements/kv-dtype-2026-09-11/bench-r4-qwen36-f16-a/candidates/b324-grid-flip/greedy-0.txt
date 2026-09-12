@@ -1,0 +1,64 @@
+```python
+def grid_flip(grid: list) -> list:
+    """Return the grid turned so that its columns become its rows.
+    
+    The first row of the result holds the first value of every row in order.
+    A grid with no rows gives an empty grid.
+    """
+    if not grid:
+        return []
+    
+    # Determine the maximum row length to handle ragged arrays
+    max_len = max(len(row) for row in grid)
+    
+    # Transpose the grid: for each column index, collect the element from each row
+    result = []
+    for col_idx in range(max_len):
+        new_row = []
+        for row in grid:
+            if col_idx < len(row):
+                new_row.append(row[col_idx])
+            else:
+                # If a row is shorter than the current column index,
+                # we need to decide how to handle it. Since the problem
+                # doesn't specify, we'll treat missing values as None
+                # to preserve the structure, or simply skip?
+                # Standard zip behavior truncates to the shortest.
+                # However, "first value of every row" implies we iterate over rows.
+                # If rows have differing lengths, the resulting grid will have
+                # rows of length equal to the number of original rows.
+                # But what if a row is shorter? The problem says "first value of every row".
+                # If a row doesn't have a value at col_idx, it's ambiguous.
+                # Let's assume standard matrix transposition where we only take existing values.
+                # But wait, if we have [[1, 2], [3]], col 0 -> [1, 3], col 1 -> [2].
+                # The result should be [[1, 3], [2]].
+                # If we have [[1], [2, 3]], col 0 -> [1, 2], col 1 -> [3].
+                # Result: [[1, 2], [3]].
+                # This is effectively zip_longest with fillvalue=None or just careful indexing.
+                # Given the ambiguity, the safest bet for "grid" is rectangular.
+                # But if not, we can't output a rectangular grid if we use None.
+                # Let's look at the prompt again: "first row of the answer holds the first value of every row in order".
+                # This implies the new row has length = number of old rows.
+                # If an old row is too short, it has no "first value" for that column index?
+                # No, it has no value at that index.
+                # Let's assume the input is a proper rectangular grid for simplicity unless forced otherwise.
+                # If forced to handle ragged, we might drop or pad. 
+                # Let's stick to the most common interpretation: rectangular grid.
+                # If the grid is ragged, we'll just take what's available.
+                pass 
+        result.append(new_row)
+        
+    # Re-implementing with a cleaner approach for ragged arrays if necessary,
+    # but assuming rectangular is standard for "grid".
+    # If rectangular, len(row) is constant.
+    if not grid:
+        return []
+        
+    num_rows = len(grid)
+    if num_rows == 0:
+        return []
+        
+    num_cols = len(grid[0])
+    
+    # Check if all rows are the same length (rectangular)
+    # If not, we need to handle it. Let's assume rectangular for now

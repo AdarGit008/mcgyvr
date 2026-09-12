@@ -1,0 +1,32 @@
+<think>
+Okay, I need to implement the cheapest_pass_plan function. Let's start by understanding the problem. The function needs to find the cheapest combination of passes that cover all trip days. The passes can be bought multiple times, and each pass covers a span of days starting from a certain day. The goal is to find the minimal total cost and the list of purchases in order of increasing start days.
+
+First, the input validation is already handled by the _validate_plan function. So I don't need to worry about that part. The main task is to compute the minimal cost and the purchases.
+
+Let me think about the approach. The problem resembles a dynamic programming problem where we need to cover all trip days with passes. For each trip day, we need to choose a pass that covers it, and find the combination that gives the minimal cost.
+
+But since the passes can be of different spans and costs, we need to find the optimal way to cover the trip days. Let's consider the trip days sorted, which they are according to the input validation. So the first step is to process the trip days and passes.
+
+The key is to find for each trip day, the best possible pass to cover it, considering the span and cost. However, since a pass can cover multiple days, we need to find the optimal way to cover the days with the least cost.
+
+An alternative approach is to model this as a graph problem where each node represents a day, and edges represent the cost of covering that day with a pass. But that might be too complex.
+
+Another idea is to use dynamic programming. Let's define dp[i] as the minimal cost to cover the first i days. Then, for each day i, we can look back at all possible passes that can cover day i, and find the minimal cost.
+
+Wait, but the passes can cover multiple days. So for each day, we need to find the earliest day that can be covered by a pass, and then see how far that pass can go. For example, if a pass has a span of 3, starting at day 1, it covers days 1, 2, 3. So, when processing day 1, we can choose this pass, and then the next day to cover is 4.
+
+So the dynamic programming approach could be:
+
+- For each day i in the trip days, we look for all possible passes that can cover day i. For each such pass, we can check how far it covers (i.e., the end of the pass's coverage). Then, the minimal cost up to i would be the minimal cost up to (i - span) plus the cost of the pass.
+
+Wait, but the passes can start at any day, not necessarily the current day. So maybe the approach is to find for each trip day, the earliest possible start day that can cover it, and then find the optimal way to cover the days.
+
+Alternatively, since the trip days are sorted, we can process them in order. For each trip day, we can try to cover it with the best possible pass, considering the span and cost.
+
+But how to model this? Let's think of the problem as covering the trip days with passes, where each pass covers a range of days. The goal is to select a set of passes such that every trip day is covered by at least one pass, and the total cost is minimized.
+
+This is similar to the interval covering problem, but with the added complexity of choosing the optimal set of intervals (passes) with minimal cost.
+
+Another approach is to model this as a greedy algorithm. However, since the problem requires the minimal cost, a greedy approach might not work. For example, choosing the cheapest pass that covers the current day might not lead to the optimal overall cost.
+
+Therefore,

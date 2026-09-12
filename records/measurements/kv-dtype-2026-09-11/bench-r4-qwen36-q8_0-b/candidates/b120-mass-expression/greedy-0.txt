@@ -1,0 +1,75 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    """
+    Parse a mass expression string and return the total mass in the specified unit.
+    
+    Args:
+        text: A string representing a mass tally (e.g., "2kg + 300g").
+        unit: The target unit for the result ('g', 'kg', or 't').
+        
+    Returns:
+        The total mass as an integer in the specified unit.
+        
+    Raises:
+        ValueError: If the input is invalid or the result is not whole.
+    """
+    # Validate goal unit
+    if unit not in ('g', 'kg', 't'):
+        raise ValueError("Goal unit must be 'g', 'kg', or 't'")
+    
+    # Validate text is a non-empty string
+    if not isinstance(text, str) or len(text) == 0:
+        raise ValueError("Text must be a non-empty string")
+    
+    # Define conversion factors to grams
+    # 1 kg = 1000 g
+    # 1 t = 1000 kg = 1,000,000 g
+    to_grams = {
+        'g': 1,
+        'kg': 1000,
+        't': 1000000
+    }
+    
+    # Parse the expression
+    # Terms are separated by " + " or " - "
+    # We need to split carefully to handle the operators
+    
+    # Split by " + " and " - "
+    # Since the operators are distinct strings, we can use a regex or manual parsing
+    # However, the problem states terms and operators alternate.
+    
+    # Let's split the string into tokens.
+    # A term is like "123kg". An operator is " + " or " - ".
+    
+    # We can split by " + " and " - " but we need to preserve the operators.
+    # A simple way is to replace " + " with " + " and " - " with " - " and then split?
+    # No, because " + " contains spaces.
+    
+    # Let's use a regex to find all terms and operators.
+    import re
+    
+    # Pattern for a term: digits followed by a unit
+    term_pattern = r'(\d+(?:g|kg|t))'
+    # Pattern for operators: " + " or " - "
+    # Note: The problem says "terms joined by ' + ' and ' - '".
+    # This implies the operators are surrounded by spaces.
+    
+    # Let's try to split the string by the operators.
+    # We can use re.split with a pattern that captures the delimiters.
+    
+    # The delimiters are " + " and " - ".
+    # We need to ensure we don't split inside a term.
+    
+    # Strategy:
+    # 1. Check if the string starts with a term.
+    # 2. Then expect an operator, then a term, etc.
+    
+    # Let's write a parser that iterates through the string.
+    
+    # First, validate the structure: term, (operator, term)*
+    
+    # Find all matches of terms and operators in order.
+    # We can use re.finditer to find all terms and operators.
+    
+    # Pattern for term: \d+(g|kg|t)
+    # Pattern for operator: \s*\+\s*|\s*-\s*

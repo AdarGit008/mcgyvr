@@ -1,0 +1,65 @@
+```python
+def draw_tree_lines(root: dict) -> list:
+    """Draw a tree of nodes as a list of ASCII lines."""
+    if not isinstance(root, dict):
+        raise ValueError("root must be a dictionary")
+    
+    name = root.get("name")
+    children = root.get("children")
+    
+    if not isinstance(name, str) or len(name) == 0:
+        raise ValueError("name must be a non-empty string")
+    if '\n' in name:
+        raise ValueError("name must not contain a newline")
+    if children is not None and not isinstance(children, list):
+        raise ValueError("children must be a list")
+    if children is None:
+        children = []
+    
+    lines = []
+    
+    def _draw(node: dict, ancestors: list, is_last: bool = False, parent_connector: str = ""):
+        """Recursively draw the tree."""
+        nonlocal lines
+        
+        # Validate current node
+        current_name = node.get("name")
+        current_children = node.get("children")
+        
+        if not isinstance(current_name, str) or len(current_name) == 0:
+            raise ValueError("name must be a non-empty string")
+        if '\n' in current_name:
+            raise ValueError("name must not contain a newline")
+        if current_children is not None and not isinstance(current_children, list):
+            raise ValueError("children must be a list")
+        if current_children is None:
+            current_children = []
+        
+        # Build the prefix
+        prefix_parts = []
+        for ancestor_is_last in ancestors:
+            if ancestor_is_last:
+                prefix_parts.append("    ")
+            else:
+                prefix_parts.append("|   ")
+        
+        prefix = "".join(prefix_parts)
+        
+        # Build the connector
+        if ancestors:
+            connector = "'-- " if is_last else "|-- "
+            line = prefix + connector + current_name
+        else:
+            line = current_name
+        
+        lines.append(line)
+        
+        # Process children
+        for i, child in enumerate(current_children):
+            child_is_last = (i == len(current_children) - 1)
+            _draw(child, ancestors + [is_last], child_is_last)
+    
+    _draw(root, [])
+    
+    return lines
+```

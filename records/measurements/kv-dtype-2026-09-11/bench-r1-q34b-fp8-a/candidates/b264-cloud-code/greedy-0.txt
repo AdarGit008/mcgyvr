@@ -1,0 +1,32 @@
+<think>
+Okay, I need to implement the cloud_code function. Let's see the requirements. The function takes a table (a dictionary) and a code (a string), and returns the corresponding description from the table. If the code isn't in the table, it should return 'unknown'. The code may arrive in any case, but it's matched in uppercase. So first, I need to convert the input code to uppercase before looking it up in the table.
+
+Wait, the table's keys are probably in uppercase since the problem says the codes are matched in upper case. So the function should take the input code, convert it to uppercase, then check if that key exists in the table. If it does, return the corresponding value. Otherwise, return 'unknown'.
+
+So the steps are:
+
+1. Convert the input 'code' to uppercase.
+2. Check if this uppercase code is a key in the table.
+3. If yes, return the value associated with that key.
+4. If not, return 'unknown'.
+
+But wait, what if the table has keys in lowercase? The problem says that the table is handed, but the user says that the code may arrive in any case and is matched in uppercase. So the table's keys are probably in uppercase. So the function should process the code by uppercasing it and then look it up in the table.
+
+So the code would be:
+
+def cloud_code(table: dict, code: str) -> str:
+    upper_code = code.upper()
+    return table.get(upper_code, 'unknown')
+
+Wait, but the problem says that the table is handed, and the code may not be present. So the function should return 'unknown' if the code is not in the table. The get method with default 'unknown' would handle that.
+
+Yes, that seems right. Let me check the interface. The function is called cloud_code, takes a table (dict) and code (str), returns a str. The code is converted to uppercase, then looked up in the table. If not present, return 'unknown'.
+
+I think that's all. Let me write the code.
+</think>
+
+```python
+def cloud_code(table: dict, code: str) -> str:
+    """Convert a weather code to its description, case-insensitively."""
+    return table.get(code.upper(), "unknown")
+```

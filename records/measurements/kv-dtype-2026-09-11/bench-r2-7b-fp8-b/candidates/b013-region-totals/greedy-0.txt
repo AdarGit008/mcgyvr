@@ -1,0 +1,27 @@
+```python
+def region_totals(grid: list[list[int],       if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a Non-empty list of list")
+    cols =           if isinstance(grid[0], list)        else cols:
+            if cols:
+                raise ValueError("rows must all share one list")
+            for cell in row:
+                if isinstance(cell, bool) or not isinstance(cell, int):
+                    raise ValueError("cells must be integers")
+    prefix_sum = [[        for row in grid:
+            prefix sum.append([sum[i][ j] for i in range(len(row)) for j in range(i + 1):
+                    prefix sum[i][                        prefix sum[i][                            prefix sum[i):
+                                prefix sum[i):
+       results =        top,        left,
+        bottom):
+        right):
+            if top >= bottom or left >= right:
+                raise ValueError("query out must be valid")
+            if top < bottom or left >= right):
+                raise ValueError(" list list must be valid")
+            if top < bottom or left >= right):
+                raise ValueError(" list list must be valid")
+            if top < bottom or left >= right):
+                raise ValueError(" list list must be valid")
+            results.append(sum(prefix sum[top][bottom][left:right]))
+    return results
+``````

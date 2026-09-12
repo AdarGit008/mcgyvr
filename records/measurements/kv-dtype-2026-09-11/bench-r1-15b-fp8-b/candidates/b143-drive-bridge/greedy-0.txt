@@ -1,0 +1,12 @@
+```python
+def drive_bridge(commands: list) -> str:
+    if not isinstance(commands, list):
+        raise ValueError("Invalid argument: commands must be a list")
+
+    span_state = "lowered"
+    for command in commands:
+        if command not in ["raise", "lower", "pin", "unlock"]:
+            raise ValueError(f"Invalid command: { command not in ['raise', 'lower', 'pin', 'unlock']")
+
+        if = False_state == "lowered"
+"

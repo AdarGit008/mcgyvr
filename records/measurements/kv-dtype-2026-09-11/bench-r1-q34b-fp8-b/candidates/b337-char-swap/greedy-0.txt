@@ -1,0 +1,37 @@
+<think>
+Okay, I need to implement the swap_pair and swap_all functions as per the given interface. Let me start by understanding the requirements.
+
+First, the swap_pair function takes two strings, first and second, and returns them swapped. So if the inputs are 'a' and 'b', the output should be 'ba'. That's straightforward. The function is simple, just concatenate the two strings in reverse order.
+
+Next, the swap_all function processes a text string in pairs. It swaps each pair, but if the length of the text is odd, the last character remains in place. So for example, if the text is "abcdef", it's split into "ab", "cd", "ef", each swapped to "ba", "dc", "fe", resulting in "badcfe". But if the text is "abc", the first two characters "ab" become "ba", and the last character 'c' stays, so the result is "bca".
+
+Wait, the problem says that swap_all walks the text in twos. So, it's processing the string two characters at a time. For each pair, swap them. But if there's an odd number of characters, the last one is left as is.
+
+So, for the swap_all function, the approach would be to iterate over the string in steps of two. For each even index i (0, 2, 4, ...), swap the characters at i and i+1. But if i+1 is beyond the length, leave the last character as is.
+
+But how to handle that in code? Let's think. For a string s of length n, we can loop from 0 to n-1 in steps of 2. For each i, if i+1 < n, swap s[i] and s[i+1]. Otherwise, leave s[i] as is.
+
+But since strings are immutable in Python, we need to convert the string into a list first. Then, process each pair, swap them, and then join the list back into a string.
+
+So, the steps for swap_all:
+
+1. Convert the input text into a list for mutability.
+2. Iterate over the indices from 0 to len(text) - 1 in steps of 2.
+3. For each index i:
+   a. If i+1 is within the length of the list, swap list[i] and list[i+1].
+   b. Else, do nothing (since i is the last character, and it's left as is).
+4. Join the list back into a string and return.
+
+Wait, but when i is the last index (if the length is odd), then i+1 would be beyond the list. So for example, if the length is 5, indices are 0, 1, 2, 3, 4. So when i=3, i+1 is 4, which is within the list. Then when i=4, i+1 is 5, which is beyond. So in that case, we leave the character at index 4 as is.
+
+So the loop should run for i in range(0, len(text), 2). For each i, if i+1 < len(text), swap the two characters. Otherwise, leave it.
+
+So, for the list, we can do:
+
+text_list = list(text)
+for i in range(0, len(text), 2):
+    if i + 1 < len(text):
+        text_list[i], text_list[i+1] = text_list[i+1], text_list[i]
+return ''.join(text_list)
+
+Wait, but in the case where the length is even, all pairs are swapped. For example, "abcdef" becomes "

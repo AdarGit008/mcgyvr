@@ -1,0 +1,34 @@
+<think>
+Okay, I need to implement the merge_ledgers function. Let's start by understanding the problem.
+
+The function takes three arguments: base, ours, and theirs. All are lists of [account, cents] pairs. The goal is to merge these three ledgers according to specific rules. The result should be a sorted list of the merged accounts.
+
+First, I need to validate the inputs. The base, ours, and theirs must all be lists. Each entry in these lists must be a two-item list, with the first item being a non-empty string (account name) and the second an integer (cents). Also, there should be no duplicate account names within any of the ledgers.
+
+So, the first step is to validate each of the inputs. For each ledger (base, ours, theirs), check that it's a list. Then, for each entry in the list, check that it's a two-element list, the first element is a non-empty string, and the second is an integer. Also, ensure that there are no duplicate account names in each ledger.
+
+If any of these checks fail, raise a ValueError with an appropriate message.
+
+Once the inputs are validated, the next step is to process each account across the three ledgers.
+
+The merging rules are as follows:
+
+- An account present in all three ledgers: the base value plus both copies' deltas. So, the base value is the original value, and the other two have their deltas added to it.
+
+- An account present in exactly two of the ledgers: if it's in base and ours but not theirs, then the base value plus ours' delta. If it's in base and theirs but not ours, then base plus theirs' delta. If it's in ours and theirs but not base, then the sum of the two deltas.
+
+Wait, no. Wait the problem says:
+
+"Merge them account by account: an account present in all three merges to the base value plus both copies' deltas against the base, so edits from the two sides combine; an account added by exactly one copy keeps that copy's value, and an account added by both copies merges to the sum of the two added values. An account the base holds but one copy dropped is deleted when the other copy left it at the base value, and survives at the other copy's value when that copy changed it; an account both copies dropped is deleted."
+
+Hmm, need to parse this carefully.
+
+Let me rephrase the rules:
+
+For each account:
+
+- If the account is present in all three (base, ours, theirs), then the value is base's value plus the delta from ours and theirs. Wait, no. Wait, the base is the original. So, the base's value is the original. The other two (ours and theirs) have their deltas. So, the merged value is base's value + (ours' delta) + (theirs' delta)?
+
+Wait, the problem says: "an account present in all three merges to the base value plus both copies' deltas against the base, so edits from the two sides combine". So, the base value is the original, and the two copies (ours and theirs) have their deltas added to the base. So, the merged value is base's value + ours' delta (from ours) + theirs' delta (from theirs)?
+
+But wait, the base is the original. So, if the account is in all three, then the base's value is the original, and the other two have their deltas. So, the merged value is base's value + (ours' value - base's value) + (theirs' value - base's value)? Or is it that the base's value is the original, and the other two have their deltas added to

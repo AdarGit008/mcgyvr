@@ -1,0 +1,16 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    """
+    Draw a count as many hashes as possible within the given width,
+    marking a bar that had to be cut short by ending it in a greater-than sign.
+    An empty count draws an empty bar.
+    """
+    if width <= 0:
+        raise ValueError("Width must be positive")
+    
+    if count == 0:
+        return ">" * width
+    
+    max_hashes = min(count, width)
+    return "#" * max_hashes + ">" * (width - max_hashes)
+```

@@ -1,0 +1,42 @@
+<think>
+Okay, I need to implement the audit_ticket function. Let's start by understanding the problem.
+
+The function needs to check a depot ticket in the format AB-1234-3. The ticket should be a string that exactly matches this format. If it doesn't, return "shape". If it does match but the check digit is wrong, return "check". Otherwise, return "ok".
+
+First, I need to validate the structure of the ticket. The format is two uppercase letters, followed by a hyphen, four digits, another hyphen, and one check digit. So the total length should be 9 characters. Let me check that. AB-1234-3 is 9 characters: 2 letters, 1 hyphen, 4 digits, 1 hyphen, 1 check digit. So the ticket must be exactly 9 characters long. Also, the parts must be in the correct positions.
+
+So the first step is to check the shape. If the ticket is not exactly 9 characters, or if the parts don't match the required format, return "shape".
+
+Next, check the check digit. The check digit is the last character. To compute the correct check digit, we need to sum the values of the two letters (A=1, B=2, ..., Z=26) and then sum each of the four digits multiplied by their position (1-4). Then, the check digit is the last digit of that total.
+
+So, for example, AB-1234-3: letters A and B sum to 1 + 2 = 3. The digits 1, 2, 3, 4: 1*1 + 2*2 + 3*3 + 4*4 = 1 +4 +9 +16 = 30. Total sum is 3 + 30 = 33. The last digit is 3, which matches the check digit. So it's valid.
+
+So the steps are:
+
+1. Check if the ticket is exactly 9 characters long. If not, return "shape".
+2. Check that the first two characters are uppercase letters, the third is '-', the next four are digits, the sixth is '-', and the last is a digit.
+3. If the structure is correct, compute the check digit.
+4. Compare the computed check digit with the actual one. If they match, return "ok", else "check".
+
+Now, how to implement this in Python.
+
+First, the function audit_ticket takes a string ticket. We need to check the structure.
+
+Let's start with the shape check. The ticket must be exactly 9 characters. So if len(ticket) != 9, return "shape".
+
+Then, check the format. The first two characters must be uppercase letters. The third must be '-'. The fourth to seventh must be digits. The eighth must be '-', and the ninth must be a digit.
+
+So, for example, ticket[2] should be '-', ticket[5] should be '-', and the rest should be letters and digits.
+
+So, for the first two characters: check that they are uppercase letters. We can use isalpha() and check that they are in A-Z.
+
+For the next four digits: check that they are digits. So ticket[3:7] should be all digits.
+
+Then, the last character must be a digit.
+
+So, in code:
+
+if len(ticket) != 9:
+    return "shape"
+
+if not (ticket[0].isalpha() and ticket[1].isalpha() and ticket[2] == '-' and ticket[3].isdigit() and ticket[4].isdigit() and ticket[5].isdigit() and ticket[6

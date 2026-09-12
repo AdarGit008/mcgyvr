@@ -1,0 +1,16 @@
+<think>
+Okay, I need to implement the vat_back function. Let's see. The problem says that the gross price includes a tax, and I have to find the original price before tax was added, rounded down. The rate is a whole percent. Oh right, if the rate is zero, then the price is just the gross.
+
+So, the formula here is to reverse the tax calculation. Let me think. If the original price is x, then the tax is x * rate / 100. So the gross is x + (x * rate / 100) = x * (1 + rate/100). Therefore, to get x, I need to divide the gross by (1 + rate/100) and then take the floor.
+
+But wait, how to handle the division here? Since we need to round down, maybe using integer division. But I need to be careful with the calculation. Let me think of it as gross = x * (100 + rate) / 100. So x = gross * 100 / (100 + rate). But since we need to floor it, maybe using integer division with //?
+
+But wait, if I do (gross * 100) // (100 + rate), that would give the floor of the division. But I need to make sure that the division is done correctly. For example, if gross is 120 and rate is 20, then 120 * 100 = 12000, divided by 120 (100+20) is 100. So that's correct. Another example: if gross is 110 and rate is 10, then 110 * 100 = 11000 divided by 110 is 100. So that works.
+
+But what if the division isn't exact? Like, say gross is 123 and rate is 20. Then 123 * 100 = 12300. Divided by 120 (100+20) is 102.5. So floor is 102. So the calculation would be 12300 // 120 = 102. That's correct.
+
+So the formula is (gross * 100) // (100 + rate). But wait, what if the rate is zero? Then 100 + rate is 100, so gross * 100 / 100 is gross. Which is correct.
+
+But what about when rate is zero? The problem says that a rate of nothing leaves the price as is. So that's handled.
+
+But wait, the problem says that the rate is a whole percent. So rate is an integer. But what if the rate is negative? The problem says that the rate is a whole percent, but the contract says that the function should accept rate as an integer. However, the user mentioned that whether a rate below zero should be accepted is not stated. So maybe the function should handle rate as a positive integer, but the problem says that the rate is a whole percent. Wait, the problem says that the rate is a whole percent. So maybe rate is between 0 and 100, but the problem says that the rate is a whole percent. But the function's parameters are rate: int. So maybe the function should handle rate as a positive integer, but the problem says that the rate is a whole percent. But the problem says that the rate is a whole percent

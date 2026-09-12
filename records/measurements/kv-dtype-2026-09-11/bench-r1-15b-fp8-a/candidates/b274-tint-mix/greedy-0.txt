@@ -1,0 +1,17 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if volume_a < 0 or volume_b < 0:
+        raise ValueError("Both tins must be positive.")
+    if strength_a > 100 or strength_b > 100:
+        raise ValueError("Strengths must be less than or equal to 100%.")
+    if volume_a == 0 and volume_b == 0:
+        return 0
+    if volume_a == 0 or volume_b == 0:
+        return 0
+    if volume_a == volume_b:
+        return strength_a
+    if volume_a > volume_b:
+        return (strength_a * volume_a + strength_b * volume_b) // (volume_a + volume_b)
+    else:
+        return (strength_a * volume_a + strength_b * volume_b) // (volume_a + volume_b)
+```

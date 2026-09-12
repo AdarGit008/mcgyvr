@@ -1,0 +1,13 @@
+```python
+def cloud_code(table: dict, code: str) -> str:
+    """Turn a short weather code into words using the provided table."""
+    if not isinstance(table, dict):
+        raise ValueError("table must be a dict")
+    if not isinstance(code, str):
+        raise ValueError("code must be a string")
+
+    upper_code = code.upper()
+    if upper_code in table:
+        return table[upper_code]
+    return "unknown"
+```

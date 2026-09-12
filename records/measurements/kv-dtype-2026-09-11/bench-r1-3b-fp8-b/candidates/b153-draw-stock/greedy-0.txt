@@ -1,0 +1,34 @@
+```python
+from typing import Dict, List, Tuple
+
+def draw_stock(shelf: Dict[str, int], order: List[Tuple[str, int]]) -> Dict[str, int]:
+    """
+    Draws stock from the given shelf according to the provided order.
+    
+    Parameters:
+    - shelf: A dictionary mapping item names to their counts on hand.
+    - order: A list of tuples, each representing an order line with (item, count).
+             - item: The name of the item to be drawn.
+             - count: The number of items to draw.
+    
+    Returns:
+    - A new dictionary representing the remaining stock on the shelf.
+    """
+    if not isinstance(shelf, dict):
+        raise ValueError("Shelf must be a dictionary.")
+    if not isinstance(order, list):
+        raise ValueError("Order must be a list.")
+    
+    for item, count in order order:
+        if item not in shelf:
+            raise ValueError(f"Item '{item}' not found in the shelf.")
+        if not isinstance(count, int) or count <= 0:
+            raise ValueError("Count must be a positive whole number.")
+        
+        if count > shelf[item]:
+            raise ValueError(f"Not enough '{item}' on the shelf to fulfill the order.")
+        
+        shelf[item] -= count
+    
+    return shelf
+```

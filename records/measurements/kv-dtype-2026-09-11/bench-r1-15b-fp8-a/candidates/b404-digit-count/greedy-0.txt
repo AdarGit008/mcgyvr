@@ -1,0 +1,128 @@
+```python
+def digit_count(value: int) -> int:
+    """
+    Return how many digits a whole number is written with.
+    """
+    if value == 0:
+        return 1
+    elif value < 0:
+        return 0
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value == 0:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:
+        return 1
+    elif value ==  return:

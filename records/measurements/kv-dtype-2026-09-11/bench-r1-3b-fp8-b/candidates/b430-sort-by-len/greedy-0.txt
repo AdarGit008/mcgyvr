@@ -1,0 +1,16 @@
+```python
+from typing import *
+from collections import *
+
+def sort_by_len(words: List[str]) -> List[str]:
+    """
+    Sorts a list of words by their length, and alphabetically for words of the same length.
+    
+    :param words: List of words to be sorted.
+    :return: A new list of words sorted by length and alphabetically for words of the same length.
+    """
+    # Create a list of tuples (length, word) and sort by length, then alphabetically
+    sorted_words = sorted((len(word), word) for word in words)
+    # Extract the words from the sorted tuples
+    return [word for _, word in sorted_words]
+```

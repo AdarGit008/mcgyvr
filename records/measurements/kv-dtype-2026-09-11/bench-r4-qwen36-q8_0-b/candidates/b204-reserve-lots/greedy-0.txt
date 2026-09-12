@@ -1,0 +1,79 @@
+```python
+def reserve_lots(lots: list, orders: list) -> dict:
+    """
+    Process orders against stock lots, returning picks and shortfalls.
+    
+    Args:
+        lots: List of tuples (lot_id, use_by_date, units_on_hand).
+        orders: List of tuples (order_id, units_wanted).
+        
+    Returns:
+        Dictionary with 'picks' (list of draws) and 'short' (list of shortfalls).
+    """
+    # Validate inputs
+    if not isinstance(lots, list):
+        raise ValueError("lots must be a list")
+    if not isinstance(orders, list):
+        raise ValueError("orders must be a list")
+        
+    # Parse and validate lots
+    parsed_lots = []
+    for i, lot in enumerate(lots):
+        if not isinstance(lot, tuple) or len(lot) != 3:
+            raise ValueError(f"Lot at index {i} is not a triple")
+        lot_id, use_by_date, units = lot
+        if not isinstance(lot_id, int):
+            raise ValueError(f"Lot at index {i} has invalid lot_id")
+        if not isinstance(use_by_date, str):
+            raise ValueError(f"Lot at index {i} has invalid use_by_date")
+        if not isinstance(units, int) or units < 0:
+            raise ValueError(f"Lot at index {i} has invalid units")
+        parsed_lots.append((lot_id, use_by_date, units))
+        
+    # Parse and validate orders
+    parsed_orders = []
+    for i, order in enumerate(orders):
+        if not isinstance(order, tuple) or len(order) != 2:
+            raise ValueError(f"Order at index {i} is not a pair")
+        order_id, units_wanted = order
+        if not isinstance(order_id, int):
+            raise ValueError(f"Order at index {i} has invalid order_id")
+        if not isinstance(units_wanted, int) or units_wanted < 0:
+            raise ValueError(f"Order at index {i} has invalid units_wanted")
+        parsed_orders.append((order_id, units_wanted))
+        
+    # Sort lots by use_by_date ascending, then by lot_id ascending
+    # We need to maintain a mutable state for units remaining
+    # Create a list of mutable lot states
+    lot_states = []
+    for lot_id, use_by_date, units in parsed_lots:
+        lot_states.append({
+            'lot_id': lot_id,
+            'use_by_date': use_by_date,
+            'units': units
+        })
+        
+    # Sort the lot states
+    lot_states.sort(key=lambda x: (x['use_by_date'], x['lot_id']))
+    
+    picks = []
+    short = []
+    
+    for order_id, units_wanted in parsed_orders:
+        remaining_wanted = units_wanted
+        while remaining_wanted > 0:
+            # Find the earliest lot with units
+            found = False
+            for lot in lot_states:
+                if lot['units'] > 0:
+                    # Take as much as possible
+                    take = min(remaining_wanted, lot['units'])
+                    lot['units'] -= take
+                    remaining_wanted -= take
+                    picks.append((order_id, lot['lot_id'], take))
+                    found = True
+                    break
+            if not found:
+                # Stock ran out
+                if remaining_wanted > 0:
+                    short.append((order

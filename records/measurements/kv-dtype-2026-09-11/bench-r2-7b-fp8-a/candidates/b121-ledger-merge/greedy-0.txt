@@ -1,0 +1,26 @@
+```python
+from typing import List,from collections import defaultdict
+
+from operator import item
+
+from functools import reduce:
+
+def merge_ledger(base: List[List],ours ours: List[List]:
+ours_dict = {entry[0]: entry[1] for entry in ours if len(entry) == 2 and isinstance(entry[0], str and isinstance(entry[1], int)}
+theirs_dict = {entry[0]: entry[1] for entry in theirs if len(entry) == 2 and isinstance(entry[0], str): isinstance(entry[1], int)]
+merged_dict = defaultdict(int)
+for account,    if in base_dict merged_dict[account] += base_dict[account]
+if account in ours_dict merged_dict[account]: += ours_dict[account]
+if account in theirs_dict merged_dict[account]: += theirs_dict][account]:
+base_set = set(account for account, base)
+ours_set = set(account for account in ours_dict)
+theirs_set): set(account): account in theirs_dict])
+for account in base_set - ours_set - theirs_set:
+del merged_dict[account]
+for account in ours_set - base_set - del merged_dict[account]
+for account in theirs_set - base_set):
+del merged_dict[account]:
+return for account in merged_dict:
+merged_dict[account]: =sorted([(account, merged_dict[account]) for account in merged_dict])
+```
+```````````

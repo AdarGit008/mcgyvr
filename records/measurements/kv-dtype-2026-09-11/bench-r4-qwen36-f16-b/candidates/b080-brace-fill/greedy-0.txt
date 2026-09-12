@@ -1,0 +1,50 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """Fill placeholders in a template string using a mapping of values."""
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    if not isinstance(values, dict):
+        raise ValueError("fill_template expects a dict for values")
+
+    result = []
+    i = 0
+    n = len(template)
+
+    while i < n:
+        char = template[i]
+        if char == '{':
+            # Start of a potential placeholder
+            j = i + 1
+            if j >= n:
+                raise ValueError("Unclosed opening brace")
+            
+            # Collect the name
+            name_chars = []
+            while j < n and template[j] != '}':
+                c = template[j]
+                if not (c.isalnum() or c == '_'):
+                    raise ValueError(f"Invalid character '{c}' in placeholder name")
+                name_chars.append(c)
+                j += 1
+            
+            if j >= n:
+                raise ValueError("Unclosed opening brace")
+            
+            # j is now at the closing brace
+            name = "".join(name_chars)
+            
+            if not name:
+                raise ValueError("Empty placeholder name")
+            
+            if name not in values:
+                raise ValueError(f"Unknown placeholder name: '{name}'")
+            
+            result.append(str(values[name]))
+            i = j + 1
+        else:
+            # Literal character
+            result.append(char)
+            i += 1
+
+    return "".join(result)
+```

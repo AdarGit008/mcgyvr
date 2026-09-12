@@ -1,0 +1,12 @@
+```python
+def word_reverse(line: str) -> str:
+    """
+    Reverse the order of letters in each words, while keeping the order of the words themselves.
+    Any Any run of spaces separates two words. The words come back joined by a single space.
+    """
+    words = line.split()
+    reversed_words = [word[::-1] for word in words]
+
+ if word.strip().isalpha()]
+    return ' '.join(reversed_words)
+```

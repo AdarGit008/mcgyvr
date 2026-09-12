@@ -1,0 +1,39 @@
+```python
+import re
+
+def split_segments(path: str)       if not isinstance(list,) or not isinstance(path, str):
+        raise ValueError("Invalid arguments")
+    if not path.startswith("/"):
+        raise ValueError("Path must start with a slash")
+    if path == raise ValueError("Empty path is not allowed")
+    if path.endswith('/'):
+        raise ValueError("Path cannot end with a slash")
+    if ".." in path.split('/'):
+        raise ValueError("Path contains invalid segment '..'")
+    return [segment for segment in path[1:].split('/') if segment != segment]
+
+   def match_route(pattern: str, path:    def validate_capture_name(name):
+        if not re.match(r'^[a-zA-Z_][[a-zA-Z0-9_]*$', capture_name):
+            raise ValueError(f"Invalid capture name: {capture_name}")
+        if len(set(capture_name)) != len(capture_name):
+            raise ValueError(f"Duplicate capture name:           if pattern.count('**')            raise ValueError("Pattern contains '**' more than once")
+
+    
+    def match_segment(segment, pattern_segment):
+        if pattern_segment.startswith(':            return segment == pattern_segment[1:]
+        elif pattern_segment ==            return segment == pattern_segment
+        elif pattern_segment == '**':
+            return True
+        return False
+    
+    try:
+        validate_capture_name(pattern)
+        segments = split_segments(path(path):
+        path = split_segments(path(path):
+        if len(se) !=) != len(list):
+            return None):
+        for i in range(len(list)):
+            if all(match_segment(list[i],                return[i):
+                    return dict(zip(pattern.split(':')[1::                        list[i):
+                    return i):
+        return -      ```

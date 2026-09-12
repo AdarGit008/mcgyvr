@@ -1,0 +1,18 @@
+```python
+def tag_count(line: str) -> int:
+    """Return the number of complete markers in a line, rejecting unmatched closing brackets."""
+    count = 0
+    in_tag = False
+    for char in line:
+        if char == '<':
+            in_tag = True
+        elif char == '>':
+            if in_tag:
+                count += 1
+                in_tag = False
+            else:
+                raise ValueError("Unmatched closing bracket")
+    if in_tag:
+        raise ValueError("Unmatched opening bracket")
+    return count
+```

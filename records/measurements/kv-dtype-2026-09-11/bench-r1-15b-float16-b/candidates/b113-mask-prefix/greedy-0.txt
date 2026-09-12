@@ -1,0 +1,49 @@
+```python
+def mask_from_prefix(prefix):
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    return ".".join(octets)
+
+
+def prefix_from_mask(mask):
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    # Split the four octet fields, validate each one, and count the
+    # run of leading one bits, rejecting a mask whose ones are broken.
+    if len(mask.split(".")) != 4:
+        raise ValueError("mask must have exactly four dot-separated fields")
+    for octet in mask.split("."):
+        if not octet.isdigit() or int(octet) > 255:
+            raise ValueError("octet must be a decimal digit from 0 to 255")
+    if "0" in octet for octet in mask.split("."):
+        raise ValueError("octet cannot have a leading zero other than 0 itself")
+    if "0" in octet for octet in mask.split(".") if octet != "0":
+        raise ValueError("octet cannot have a zero inside one")
+    if "0" in octet for octet in mask.split(".") if octet == "0":
+        raise ValueError("octet cannot have a zero at the end")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the start")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the end")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the start")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the end")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the start")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the end")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the start")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the end")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the start")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a zero at the end")
+    if "0" in octet for octet in mask.split(".") if octet == "255":
+        raise ValueError("octet cannot have a

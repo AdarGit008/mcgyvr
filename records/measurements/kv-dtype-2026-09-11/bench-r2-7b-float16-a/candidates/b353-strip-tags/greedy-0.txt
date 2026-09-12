@@ -1,0 +1,17 @@
+```python
+def strip_tags(line: str) -> str:
+    """Remove every marker from a line of text."""
+    result = []
+    i = 0
+    n = len(line)
+    while i < n:
+        if line[i] == '<':
+            j = line.find('>', i)
+            if j == -1:
+                break
+            i = j + 1
+        else:
+            result.append(line[i])
+            i += 1
+    return ''.join(result)
+```

@@ -1,0 +1,9 @@
+```python
+def fuel_legs(litres: int, burn: int) -> int:
+    """Return how many complete legs can be run before refuelling."""
+    if burn <= 0:
+        raise ValueError("burn must be positive")
+    if litres < 0:
+        raise ValueError("litres must be non-negative")
+    return litres // burn
+```

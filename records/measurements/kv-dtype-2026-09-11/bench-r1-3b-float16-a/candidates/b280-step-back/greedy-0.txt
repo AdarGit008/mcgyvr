@@ -1,0 +1,22 @@
+```python
+def step_back(moves: str) -> int:
+    """
+    Calculate the furthest forward position reached during a walk of moves.
+    F steps forward, B steps back. Ignore non-FB characters.
+    """
+    if not moves:
+        return 0
+    
+    max_position = 0
+    current_position = 0
+    
+    for move in moves:
+        if move == 'F':
+            current_position += 1
+            max_position = max(max_position, current_position)
+        elif move == 'B':
+            current_position -= 1
+        # Ignore other characters
+    
+    return max_position
+```
