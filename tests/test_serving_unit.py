@@ -103,12 +103,8 @@ def machine(
 @pytest.fixture
 def scans() -> dict[str, Scan]:
     return {
-        "desktop-1": machine(
-            "desktop-1", vram_mib=6144, ram_gb=48.0, free_gb=900.0, threads=10
-        ),
-        "desktop-2": machine(
-            "desktop-2", vram_mib=12288, ram_gb=16.0, free_gb=120.0, threads=20
-        ),
+        "srv1": machine("srv1", vram_mib=6144, ram_gb=48.0, free_gb=900.0, threads=10),
+        "srv2": machine("srv2", vram_mib=12288, ram_gb=16.0, free_gb=120.0, threads=20),
     }
 
 
@@ -119,21 +115,21 @@ def config_for(*tiers: Tier) -> Config:
         sources={
             "d1": Source(
                 name="d1",
-                base_url="http://desktop-1:8080",
+                base_url="http://srv1:8080",
                 api="openai",
                 max_parallel=1,
                 api_key_env=None,
             ),
             "d2": Source(
                 name="d2",
-                base_url="http://desktop-2:8080",
+                base_url="http://srv2:8080",
                 api="openai",
                 max_parallel=1,
                 api_key_env=None,
             ),
             "d1b": Source(
                 name="d1b",
-                base_url="http://desktop-1:8081",
+                base_url="http://srv1:8081",
                 api="openai",
                 max_parallel=1,
                 api_key_env=None,
@@ -144,19 +140,19 @@ def config_for(*tiers: Tier) -> Config:
 
 
 def test_a_unit_is_keyed_by_host_model_and_engine(scans: dict[str, Scan]) -> None:
-    first = unit_for(scans["desktop-1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
-    second = unit_for(scans["desktop-1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    first = unit_for(scans["srv1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    second = unit_for(scans["srv1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert first.key == second.key
 
 
 def test_a_different_engine_is_a_different_unit(scans: dict[str, Scan]) -> None:
-    llama = unit_for(scans["desktop-2"], MID, engine="llama.cpp", ctx_per_slot=WINDOW)
+    llama = unit_for(scans["srv2"], MID, engine="llama.cpp", ctx_per_slot=WINDOW)
     served = replace(
         MID,
         hf_cache="/home/someone/.cache/huggingface",
         kv_cache_dtype_k="auto",
     )
-    vllm = unit_for(scans["desktop-2"], served, engine="vllm", ctx_per_slot=WINDOW)
+    vllm = unit_for(scans["srv2"], served, engine="vllm", ctx_per_slot=WINDOW)
     assert llama.key != vllm.key
 
 
@@ -188,20 +184,20 @@ def test_every_rung_resolves_to_the_unit_that_serves_it(
 
 
 def test_moe_offload_is_tuned_per_host_not_copied(scans: dict[str, Scan]) -> None:
-    one = unit_for(scans["desktop-1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
-    two = unit_for(scans["desktop-2"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    one = unit_for(scans["srv1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    two = unit_for(scans["srv2"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert one.args["--n-cpu-moe"] != two.args["--n-cpu-moe"]
 
 
 def test_a_smaller_card_offloads_more_experts(scans: dict[str, Scan]) -> None:
-    one = unit_for(scans["desktop-1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
-    two = unit_for(scans["desktop-2"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    one = unit_for(scans["srv1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    two = unit_for(scans["srv2"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert int(one.args["--n-cpu-moe"]) > int(two.args["--n-cpu-moe"])
 
 
 def test_threads_come_from_the_scan(scans: dict[str, Scan]) -> None:
-    unit = unit_for(scans["desktop-2"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
-    cpu = scans["desktop-2"].cpu
+    unit = unit_for(scans["srv2"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    cpu = scans["srv2"].cpu
     assert cpu is not None
     assert int(unit.args["-t"]) <= cpu.threads
 
@@ -209,17 +205,17 @@ def test_threads_come_from_the_scan(scans: dict[str, Scan]) -> None:
 def test_fit_uses_ram_when_vram_alone_cannot_hold_the_model(
     scans: dict[str, Scan],
 ) -> None:
-    assert fit(scans["desktop-1"], MOE, ctx_per_slot=WINDOW).fits is True
+    assert fit(scans["srv1"], MOE, ctx_per_slot=WINDOW).fits is True
 
 
 def test_a_dense_model_larger_than_vram_does_not_fit(scans: dict[str, Scan]) -> None:
-    assert fit(scans["desktop-1"], MID, ctx_per_slot=WINDOW).fits is False
+    assert fit(scans["srv1"], MID, ctx_per_slot=WINDOW).fits is False
 
 
 def test_fit_refuses_a_model_that_needs_more_ram_than_the_host_has(
     scans: dict[str, Scan],
 ) -> None:
-    sized = fit(scans["desktop-2"], HUGE, ctx_per_slot=WINDOW)
+    sized = fit(scans["srv2"], HUGE, ctx_per_slot=WINDOW)
     assert sized.fits is False
     assert "RAM" in sized.why
 
@@ -233,7 +229,7 @@ def test_fit_refuses_a_model_that_needs_more_disk_than_is_free() -> None:
 
 def test_vram_fit_keeps_its_headroom(scans: dict[str, Scan]) -> None:
     """A scalar spec is held back from by the proposal's headroom."""
-    assert fit(scans["desktop-2"], SMALL, ctx_per_slot=WINDOW).headroom_gb == 2.0
+    assert fit(scans["srv2"], SMALL, ctx_per_slot=WINDOW).headroom_gb == 2.0
 
 
 def test_a_scanned_fit_reports_the_scratch_allowance_it_carries(
@@ -248,13 +244,13 @@ def test_a_scanned_fit_reports_the_scratch_allowance_it_carries(
     """
     from mcgyvr.serving import vramfit
 
-    sized = fit(scans["desktop-2"], MOE, ctx_per_slot=WINDOW)
+    sized = fit(scans["srv2"], MOE, ctx_per_slot=WINDOW)
     assert sized.fits is True
     assert sized.headroom_gb == vramfit.SCRATCH_AND_CONTEXT_MIB / 1024
 
 
 def test_fit_reads_free_vram_not_the_nameplate(scans: dict[str, Scan]) -> None:
-    busy = machine("desktop-2", vram_mib=12288, ram_gb=16.0, free_gb=120.0)
+    busy = machine("srv2", vram_mib=12288, ram_gb=16.0, free_gb=120.0)
     busy = busy.with_vram_used(11286)
     assert fit(busy, MID, ctx_per_slot=WINDOW).fits is False
 
@@ -267,7 +263,7 @@ def test_no_unit_is_emitted_for_an_unscanned_host(scans: dict[str, Scan]) -> Non
 
 def test_a_unit_carries_the_width_it_was_written_with(scans: dict[str, Scan]) -> None:
     unit = unit_for(
-        scans["desktop-2"], SMALL, engine="llama.cpp", width=8, ctx_per_slot=WINDOW
+        scans["srv2"], SMALL, engine="llama.cpp", width=8, ctx_per_slot=WINDOW
     )
     assert unit.width == Width(value=8, how="written")
 
@@ -298,12 +294,12 @@ def test_a_spec_without_a_geometry_is_one_slot_wide_and_says_so(
     so a scalar spec gets one slot, labelled as the default it is, and an
     operator widens it by writing ``max_parallel`` or by scanning the file.
     """
-    unit = unit_for(scans["desktop-2"], SMALL, engine="llama.cpp", ctx_per_slot=WINDOW)
+    unit = unit_for(scans["srv2"], SMALL, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert unit.width == Width(value=1, how="default")
 
 
 def test_a_unit_declares_no_queue_policy(scans: dict[str, Scan]) -> None:
-    unit = unit_for(scans["desktop-1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    unit = unit_for(scans["srv1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert not hasattr(unit, "queue")
     assert not hasattr(unit, "schedule")
 
@@ -344,9 +340,7 @@ def test_a_unit_built_without_a_ladder_takes_the_engine_default(
     scans: dict[str, Scan],
 ) -> None:
     assert (
-        unit_for(
-            scans["desktop-2"], SMALL, engine="llama.cpp", ctx_per_slot=WINDOW
-        ).port
+        unit_for(scans["srv2"], SMALL, engine="llama.cpp", ctx_per_slot=WINDOW).port
         == 8080
     )
 
@@ -363,7 +357,7 @@ def test_an_moe_is_refused_when_the_experts_it_spills_exceed_free_ram() -> None:
     The number checked here is the one the argv will carry, not a second
     opinion: whatever `unit_for` offloads is what memory is asked to hold.
     """
-    cramped = machine("desktop-4", vram_mib=6144, ram_gb=1.0, free_gb=900.0)
+    cramped = machine("srv1", vram_mib=6144, ram_gb=1.0, free_gb=900.0)
     sized = fit(cramped, SPILLER, ctx_per_slot=WINDOW)
     assert sized.fits is False
     assert "RAM" in sized.why
@@ -383,12 +377,12 @@ def test_an_moe_without_its_geometry_is_refused_and_told_where_to_scan(
     the config key -- and a guess is a compose file that fails on the rig.
     """
     unknown = replace(MOE, geometry=None)
-    sized = fit(scans["desktop-1"], unknown, ctx_per_slot=WINDOW)
+    sized = fit(scans["srv1"], unknown, ctx_per_slot=WINDOW)
     assert sized.fits is False
     assert "ggufscan" in sized.why
     assert "geometry_json" in sized.why
     with pytest.raises(UnitError, match="ggufscan"):
-        unit_for(scans["desktop-1"], unknown, engine="llama.cpp", ctx_per_slot=WINDOW)
+        unit_for(scans["srv1"], unknown, engine="llama.cpp", ctx_per_slot=WINDOW)
 
 
 def test_two_sources_on_one_host_are_two_processes(scans: dict[str, Scan]) -> None:
@@ -422,14 +416,14 @@ def test_the_derived_width_stops_before_a_slot_costs_an_expert_block(
     and that trade is an operator's to write down rather than this module's
     to make silently.
     """
-    unit = unit_for(
-        scans["desktop-2"], SPILLER, engine="llama.cpp", ctx_per_slot=WINDOW
-    )
+    unit = unit_for(scans["srv2"], SPILLER, engine="llama.cpp", ctx_per_slot=WINDOW)
     free_bytes = 12288 << 20
-    at_one = _placement(SPILLER, free_bytes, 1, ctx_per_slot=WINDOW)
-    at_width = _placement(SPILLER, free_bytes, unit.width.value, ctx_per_slot=WINDOW)
+    at_one = _placement(SPILLER, free_bytes, 1, host="srv2", ctx_per_slot=WINDOW)
+    at_width = _placement(
+        SPILLER, free_bytes, unit.width.value, host="srv2", ctx_per_slot=WINDOW
+    )
     one_wider = _placement(
-        SPILLER, free_bytes, unit.width.value + 1, ctx_per_slot=WINDOW
+        SPILLER, free_bytes, unit.width.value + 1, host="srv2", ctx_per_slot=WINDOW
     )
     assert unit.width.how == "derived"
     assert at_width.n_cpu_moe == at_one.n_cpu_moe
@@ -454,7 +448,7 @@ def test_the_argv_states_exactly_what_the_cache_law_was_fed(
     the size that was checked, and one that left ``-ub`` to the engine would
     be sized for a default the law had to guess.
     """
-    unit = unit_for(scans["desktop-1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    unit = unit_for(scans["srv1"], MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert unit.args["--parallel"] == str(unit.width.value)
     assert unit.args["-c"] == str(WINDOW * unit.width.value)
     assert unit.args["-ub"] == str(DEFAULT_UBATCH)
@@ -466,9 +460,9 @@ def test_a_written_width_recomputes_the_floor_at_that_width(
 ) -> None:
     """``--parallel`` and ``--n-cpu-moe`` are sized together or not at all."""
     unit = unit_for(
-        scans["desktop-2"], SPILLER, engine="llama.cpp", width=8, ctx_per_slot=WINDOW
+        scans["srv2"], SPILLER, engine="llama.cpp", width=8, ctx_per_slot=WINDOW
     )
-    placed = _placement(SPILLER, 12288 << 20, 8, ctx_per_slot=WINDOW)
+    placed = _placement(SPILLER, 12288 << 20, 8, host="srv2", ctx_per_slot=WINDOW)
     assert unit.args["-c"] == str(WINDOW * 8)
     assert placed.n_cpu_moe > 0
     assert unit.args["--n-cpu-moe"] == str(placed.n_cpu_moe)
@@ -493,8 +487,8 @@ def test_a_model_id_with_a_slash_mounts_the_directory_the_scan_measured(
         kv_cache_dtype_k="f16",
         kv_cache_dtype_v="f16",
     )
-    unit = unit_for(scans["desktop-2"], nested, engine="llama.cpp", ctx_per_slot=WINDOW)
-    disk = scans["desktop-2"].disk
+    unit = unit_for(scans["srv2"], nested, engine="llama.cpp", ctx_per_slot=WINDOW)
+    disk = scans["srv2"].disk
     assert disk is not None
     assert unit.weights_dir == disk.path
     assert "/" not in unit.weights.name

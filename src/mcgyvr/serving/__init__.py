@@ -18,8 +18,9 @@ A unit is a *launch spec*, which is why it can be built on a laptop for a rig
 it has never touched.
 
 Every number in it is read off a :class:`~mcgyvr.scan.Scan` or off the model's
-own GGUF header; the one declared number is ``RUNTIME_RESIDENT_GB``, a
-host-side intercept measured on 2026-08-25. Free VRAM decides a fit today; total
+own GGUF header; the one declared number is the runtime-resident intercept, a
+host-side figure measured on 2026-08-25 and stated per rig in
+``tools/runs/derived.json``. Free VRAM decides a fit today; total
 VRAM decides nothing. And a model too big for the card is not automatically a
 model the machine cannot serve: an MoE spills its experts to RAM, so fit is a
 question about a *machine* — card, memory and disk together — not about a GPU.
@@ -48,6 +49,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from mcgyvr import derived
 from mcgyvr.config import Config
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
@@ -108,15 +110,14 @@ COMPOSE_SUFFIX = ".yml"
 # the name of the file and another in the name of the container inside it.
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
-# What system memory holds beyond the offloaded experts themselves: context,
-# compute buffers, and the copy paths that do not live on the card. Measured
-# across the sweep's six ``--n-cpu-moe`` cells on srv2
-# (``records/measurements/serving-sweep-2026-08-25/``), where
-# ``RSS - offloaded expert bytes`` sat at 1.52-1.53 GiB at every setting from
-# 4 blocks to 20 — flat, which is what makes it an intercept rather than a
-# rate. It applies only where experts actually spill: a model held entirely
-# on the card is not paying it, and a dense model has no spill to pay it for.
-RUNTIME_RESIDENT_GB = 1.53
+# What system memory holds beyond the offloaded experts themselves — context,
+# compute buffers, and the copy paths that do not live on the card — is a
+# per-rig measured intercept, read from ``tools/runs/derived.json`` by
+# :func:`mcgyvr.derived.runtime_resident_gb` inside :func:`_host_gb`. It is not
+# a literal here: it applies only where experts actually spill — a model held
+# entirely on the card is not paying it, and a dense model has no spill to pay
+# it for — and a rig whose figure is absent is refused rather than sized from
+# somebody's module.
 
 # Held back from host RAM, on top of whatever the model needs, for the same
 # reason :data:`vramfit.SCRATCH_AND_CONTEXT_MIB` is held back from the card:
@@ -520,7 +521,9 @@ def fit(
         )
 
     try:
-        placed = _placement(spec, free_bytes, width, ctx_per_slot=ctx_per_slot)
+        placed = _placement(
+            spec, free_bytes, width, host=scan.machine.host, ctx_per_slot=ctx_per_slot
+        )
     except UnitError as exc:
         return Fit(fits=False, headroom_gb=_allowance_gb(spec), why=str(exc))
     # Host RAM has two arms, because how much of the model has to be resident
@@ -714,7 +717,13 @@ def unit_for(
     # The same derivation :func:`fit` just approved, not a second one that
     # agrees today: an argv whose offload differs from the one the fit checked
     # is a unit that was never sized for this machine.
-    placed = _placement(spec, gpu.vram.free_mib << 20, width, ctx_per_slot=ctx_per_slot)
+    placed = _placement(
+        spec,
+        gpu.vram.free_mib << 20,
+        width,
+        host=scan.machine.host,
+        ctx_per_slot=ctx_per_slot,
+    )
     if width is not None:
         chosen = Width(value=width, how="written")
     elif spec.geometry is not None:
@@ -1778,6 +1787,7 @@ def _placement(
     free_bytes: int,
     width: int | None = None,
     *,
+    host: str,
     ctx_per_slot: int,
     n_ubatch: int = DEFAULT_UBATCH,
 ) -> _Placement:
@@ -1884,20 +1894,28 @@ def _placement(
         n_cpu_moe=n_cpu_moe,
         width=slots,
         vram_gb=card / _BYTES_PER_GIB,
-        ram_gb=max(spec.ram_gb, _host_gb(geometry, n_cpu_moe)),
+        ram_gb=max(spec.ram_gb, _host_gb(geometry, n_cpu_moe, host=host)),
         headroom_gb=vramfit.SCRATCH_AND_CONTEXT_MIB / 1024,
     )
 
 
-def _host_gb(geometry: dict[str, Any], n_cpu_moe: int) -> float:
+def _host_gb(geometry: dict[str, Any], n_cpu_moe: int, *, host: str) -> float:
     """What system memory holds at this offload: the spilled experts, plus the
-    runtime that spilling carries — and nothing when nothing spills."""
+    runtime that spilling carries — and nothing when nothing spills.
+
+    The runtime intercept is per-rig and read from ``tools/runs/derived.json``;
+    a rig whose figure is absent is refused by name, never defaulted.
+    """
     offloaded = int(geometry["bytes_experts"]) - vramfit.experts_on_card(
         geometry, n_cpu_moe
     )
     if offloaded <= 0:
         return 0.0
-    return offloaded / _BYTES_PER_GIB + RUNTIME_RESIDENT_GB
+    try:
+        resident = derived.runtime_resident_gb(host)
+    except derived.DerivedNumbersError as exc:
+        raise UnitError(str(exc)) from exc
+    return offloaded / _BYTES_PER_GIB + resident
 
 
 def _window_for(
