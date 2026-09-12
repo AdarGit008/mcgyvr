@@ -456,6 +456,14 @@ class Waker:
         card = self._cards.get(rung)
         if card is None or card.host in self._woken:
             return False
+        # Live wakes only along a listed switch, and a switch exists only on a
+        # locked fleet. With no committed lock naming this rig there is no
+        # switch to be along, so the wake is refused before any door run.
+        if self._config.get("profile") == "live":
+            from mcgyvr.fleet.admit import host_is_locked
+
+            if not host_is_locked(Path.cwd(), card.host):
+                return False
         compose = compose_for(card)
         if compose is None:
             # `down`, not `asleep`. Waking a card mcgyvr never sized would be

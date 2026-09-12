@@ -2535,6 +2535,18 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     return 0
 
 
+def _fleet_alerts(args: argparse.Namespace) -> int:
+    """List the combinations the journal holds pulled, unit and field each."""
+    from mcgyvr.fleet.alerts import pulled
+
+    journal = Path(args.journal)
+    root = Path(args.root)
+    for combination, entries in pulled(journal, root).items():
+        for entry in entries:
+            print(f"{combination} {entry['unit_id']} {entry['field']}")
+    return 0
+
+
 def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     """The whole command line, plus the ``run`` subparser on its own.
 
@@ -2991,6 +3003,23 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help="where records/fleet/ is written (default: current directory)",
     )
     flock.set_defaults(func=_fleet_lock)
+    falerts = fleet_sub.add_parser(
+        "alerts",
+        help="list the combinations the journal holds pulled",
+    )
+    falerts.add_argument(
+        "--journal",
+        required=True,
+        metavar="DIR",
+        help="where the journal was filed",
+    )
+    falerts.add_argument(
+        "--root",
+        default=".",
+        metavar="DIR",
+        help="where records/fleet/ is read (default: current directory)",
+    )
+    falerts.set_defaults(func=_fleet_alerts)
 
     run = sub.add_parser(
         "run",
