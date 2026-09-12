@@ -2512,6 +2512,29 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
         run.error(str(exc))
 
 
+def _fleet_lock(args: argparse.Namespace) -> int:
+    """Write the fleet lock from the fleet, evidence and policy files named."""
+    import json
+
+    from mcgyvr.fleet.lock import LockRefusedError, write
+
+    root = Path(args.root)
+    fleet = json.loads(Path(args.fleet).read_text(encoding="utf-8"))
+    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    policy = None
+    if args.policy:
+        policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
+    #: Placeholder tolerances: the rule is pinned, the values are measured.
+    tolerances = {"warm_decode_pct": {"vllm": 3.0, "llama.cpp": 5.0}}
+    try:
+        write(root, fleet, evidence, policy=policy, tolerances=tolerances)
+    except LockRefusedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"locked: {root / 'records' / 'fleet'}")
+    return 0
+
+
 def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     """The whole command line, plus the ``run`` subparser on its own.
 
@@ -2933,6 +2956,41 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         ),
     )
     rd.set_defaults(func=_read)
+
+    fleet = sub.add_parser(
+        "fleet",
+        help="lock a fleet, and read what the lock approves",
+    )
+    fleet_sub = fleet.add_subparsers(dest="fleet_command", required=True)
+    flock = fleet_sub.add_parser(
+        "lock",
+        help="write the fleet lock from passing dev runs (records/fleet/)",
+    )
+    flock.add_argument(
+        "--fleet",
+        required=True,
+        metavar="PATH",
+        help="fleet to lock (units, rigs, fleets) as JSON",
+    )
+    flock.add_argument(
+        "--evidence",
+        required=True,
+        metavar="PATH",
+        help="dev-run evidence (rig cards, combination validations, moves) as JSON",
+    )
+    flock.add_argument(
+        "--policy",
+        default=None,
+        metavar="PATH",
+        help="policy whose ladder must name only fleet units (JSON; default: none)",
+    )
+    flock.add_argument(
+        "--root",
+        default=".",
+        metavar="DIR",
+        help="where records/fleet/ is written (default: current directory)",
+    )
+    flock.set_defaults(func=_fleet_lock)
 
     run = sub.add_parser(
         "run",

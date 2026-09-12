@@ -83,20 +83,6 @@ from mcgyvr.serving import Card, cards
 # from, so it is the definition and this is the reader.
 from mcgyvr.serving.gatelib import DOOR_MODULE
 
-#: What ``serve-up.json``'s reader is owed when a wake takes a different time
-#: from the one that was predicted, in either direction. A ratio and not a
-#: number of seconds, because the fleet's wakes span 0.24 s (a vLLM level-2
-#: wake) to 385 s (a squeezed llama.cpp cold start), a factor of 1,600.
-#:
-#: **Both directions warn, and the fast one is the interesting one.** Slower
-#: than predicted is the obvious case — a rig under memory pressure, a blob
-#: being re-read off swap. Faster than predicted usually means it did not load
-#: what you think it did: a warm page cache, a container the daemon reused, or
-#: the wrong model already resident behind the port. A budget that only noticed
-#: the slow direction would say nothing at all about the failure that answers
-#: with the wrong weights.
-DEVIATION_RATIO = 1.5
-
 #: What one dispatch answers with. Named so that :meth:`Waker.dispatching`
 #: hands back exactly what the call it wrapped would have, which is what lets it
 #: sit inside `drive` without `drive` learning anything about wakes.
@@ -187,30 +173,10 @@ class Wake:
     def deviation(self) -> str | None:
         """The sentence an operator is owed, or ``None`` when there is nothing.
 
-        Two sentences and not one, because the two directions mean different
-        things and an operator reading "the wake was not what was predicted"
-        would have to go and look to find out which.
+        The wake limit now comes from the fleet lock's validated wake plus its
+        tolerance, not a ratio written in code, so the ratio-based warning has
+        no number to stand on here. Judgement moves to the lock's alert path.
         """
-        if self.predicted_s is None or self.predicted_s <= 0 or not self.ok:
-            return None
-        if self.seconds > self.predicted_s * DEVIATION_RATIO:
-            return (
-                f"{self.host}: the wake took {self.seconds:.1f}s against a "
-                f"predicted {self.predicted_s:.1f}s. A wake is paid in memory "
-                f"pressure rather than in bytes, so the usual cause is a host "
-                f"short of the blob it is being asked to cache — measured "
-                f"132.9s to 385.3s on srv1's Qwen3.6 over a 0.97 GB shortfall "
-                f"(records/measurements/ram-headroom-2026-09-09/)"
-            )
-        if self.seconds * DEVIATION_RATIO < self.predicted_s:
-            return (
-                f"{self.host}: the wake took {self.seconds:.1f}s against a "
-                f"predicted {self.predicted_s:.1f}s. Faster than predicted "
-                f"usually means it did not load what you think it did — a warm "
-                f"page cache, a container the daemon reused, or another model "
-                f"already resident behind that port. Read `serve-up.json` for "
-                f"what actually came up"
-            )
         return None
 
 

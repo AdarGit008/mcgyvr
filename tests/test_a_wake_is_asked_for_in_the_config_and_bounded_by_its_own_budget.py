@@ -1,9 +1,10 @@
-"""The two keys sleep/wake is asked for by, and the budget a wake is bounded by.
+"""The two keys sleep/wake is asked for by, and where a wake's limit comes from.
 
-RED. Nothing in this file passes today, and none of it may be made to pass by
-editing a test: ``records/plans/sleep-wake.md`` is the approved design and
-``src/mcgyvr/config.py`` has no ``serving`` block and no ``budgets.wake_timeout_s``
-at all, so every config here is refused as an unknown key.
+RED. ``src/mcgyvr/config.py`` has no ``serving`` block, and the hand-set
+``budgets.wake_timeout_s`` is gone: a wake's limit now comes from the fleet
+lock — a unit's validated wake plus the lock's wake tolerance
+(``records/plans/fleet-identity.md`` §5). The two keys that ask for sleep and
+wake at all are still config keys, and they are the only two.
 
 Three decisions are pinned, and all three are the owner's rather than this
 file's:
@@ -18,19 +19,12 @@ file's:
 * **The default is off** (§14). The feature is a trade and not an improvement:
   turning it on lets ``mcgyvr run`` stop containers on a rig other people share.
   An operator who wants it asks in the one place that is recorded.
-* **A wake is bounded by a budget of its own** (§8.3). ``request_timeout_s``
+* **A wake's limit is the lock's, not a budget's** (§5). ``request_timeout_s``
   bounds one reply and is priced from tokens per second; ``task_timeout_s``
-  bounds a wait for a free slot on a server that is already running.
-  ``wake_timeout_s`` bounds a wait for a server *to exist*. One knob for three
-  faults would mean setting reply length and boot time with the same number.
-
-The *value* 480.0 was N7 in the design's §16 — the one row a measurement
-settled rather than a ruling — and the measurement was taken on 2026-09-08
-(``records/measurements/wake-2026-09-08/``). Five cold starts across both rigs:
-82 s for a single vLLM unit alone on an empty card, 50-128 s for llama.cpp on
-srv1, and **203 s** for srv1's ceiling model, which is the worst this fleet can
-produce. So the value is pinned here now, against the two things it has to
-clear: the door's own health budget, and the slowest wake anyone has measured.
+  bounds a wait for a free slot on a server that is already running. Neither
+  bounds a wait for a server *to exist*: that is the unit's validated wake plus
+  the lock's wake tolerance, because the lock is where the validated wake and
+  the tolerance are committed.
 """
 
 from __future__ import annotations
@@ -62,19 +56,6 @@ ladder:
       source: srv2_7b
       model: qwen2.5-coder-7b
 """
-
-
-def _door_health_budget() -> float:
-    """The seconds ``serve up`` will itself spend polling a unit into health.
-
-    Read from the door rather than written down here, because the whole point
-    of the refusal below is that the two numbers must not be able to drift
-    apart: a caller budget under this one abandons a wake the door is still
-    working on.
-    """
-    from mcgyvr.serving.servelib import HEALTH_INTERVAL_S, HEALTH_POLLS
-
-    return HEALTH_POLLS * HEALTH_INTERVAL_S
 
 
 def test_a_config_that_says_nothing_has_sleep_and_wake_turned_off() -> None:
@@ -132,168 +113,53 @@ def test_the_directory_this_checkout_keeps_launch_specs_in_is_a_key_of_its_own()
     assert str(config.get("serving.compose_dir")) == "/etc/mcgyvr/config"
 
 
-def test_a_wake_budget_is_neither_the_request_nor_the_task_one() -> None:
-    """Three faults, three numbers, and none of them derived from another.
+def test_a_wake_has_no_budget_of_its_own() -> None:
+    """``budgets.wake_timeout_s`` is gone; request and task budgets remain.
 
-    Stated together so that a single knob cannot satisfy this test: the three
-    are set to three different values and each must read back as the one it was
-    given. Sharing ``request_timeout_s`` with the wake would mean raising the
-    reply budget to survive a 130-second boot, after which every hung request
-    hangs for 130 seconds too; sharing ``task_timeout_s`` would make a deep
-    queue and a cold rig the same fault.
+    The wake limit is derived from the lock, not set by hand beside the other
+    two budgets. This pins the absence of the key while keeping the two budgets
+    that still answer different questions, so the removal cannot silently take
+    the whole ``budgets`` block with it.
     """
-    from mcgyvr.config import parse
+    from mcgyvr.config import field_at, parse
 
     config = parse(
-        CARD
-        + "budgets:\n"
-        + "  request_timeout_s: 30.0\n"
-        + "  task_timeout_s: 60\n"
-        + "  wake_timeout_s: 500.0\n"
+        CARD + "budgets:\n" + "  request_timeout_s: 30.0\n" + "  task_timeout_s: 60\n"
     )
 
+    assert field_at("budgets.wake_timeout_s") is None, (
+        "budgets.wake_timeout_s is still a schema key: the wake limit now comes "
+        "from the lock's validated wake plus its tolerance, not a hand-set budget"
+    )
     assert config.get("budgets.request_timeout_s") == 30.0
     assert config.get("budgets.task_timeout_s") == 60
-    assert config.get("budgets.wake_timeout_s") == 500.0
 
 
-def test_a_wake_budget_is_defaulted_and_is_not_a_re_spelling_of_the_other_two() -> None:
-    """A config that states none of the three still has all three, distinctly.
+def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:
+    """The Waker waits for a unit's validated wake plus the lock's tolerance.
 
-    What is asserted here is that it is a number, that it is the door's own
-    budget or more (the ruled relation, below), and that it did not arrive by
-    being handed one of its neighbours' defaults. The value itself is pinned
-    separately, against the measurement that settled N7.
+    The values are the measurement branch's; the rule is the lock's.
     """
-    from mcgyvr.config import parse
+    from mcgyvr.fleet.lock import wake_limit_s
 
-    config = parse(CARD)
-    wake = config.get("budgets.wake_timeout_s")
+    assert wake_limit_s(20.0, {"s": 0.5}) == pytest.approx(20.5)
+    assert wake_limit_s(0.25, {"s": 0.1}) == pytest.approx(0.35)
 
-    assert isinstance(wake, float), (
-        f"budgets.wake_timeout_s read as {wake!r}: a wake has no budget of its "
-        "own, so a caller waiting for a server to exist is bounded by nothing "
-        "or by a budget priced for something else"
+
+def test_the_doors_health_budget_is_not_a_wake_budget() -> None:
+    """The door still polls a unit into health; that no longer bounds a wake.
+
+    ``HEALTH_POLLS`` and ``HEALTH_INTERVAL_S`` describe what ``serve up`` does,
+    not how long a dispatch may wait for a server to exist. Keeping the door's
+    own budget while dropping ``budgets.wake_timeout_s`` is the point: the wake
+    limit is the lock's.
+    """
+    from mcgyvr.config import field_at
+    from mcgyvr.serving.servelib import HEALTH_INTERVAL_S, HEALTH_POLLS
+
+    assert HEALTH_POLLS * HEALTH_INTERVAL_S > 0, (
+        "the door's own health budget disappeared along with the wake budget"
     )
-    assert wake >= _door_health_budget()
-    assert wake != config.get("budgets.request_timeout_s")
-    assert wake != float(config.get("budgets.task_timeout_s"))
-
-
-def test_a_wake_budget_under_the_doors_own_health_budget_is_refused_by_name() -> None:
-    """The one relation between the two numbers the design ruled on (§8.3).
-
-    ``serve up`` polls each unit into health for ``HEALTH_POLLS``
-    times ``HEALTH_INTERVAL_S`` seconds. A caller budget below that abandons a wake
-    while the door is still working and leaves a card half-up — which D2 says
-    is the one state the reading cannot name and must not act on. So the
-    disagreement is named at the one moment both numbers are in hand, in the
-    shape of ``Capacity.of``'s width refusal, rather than quietly corrected.
-
-    The assertion is not merely that the config is refused: an unknown key is
-    refused today, and a test satisfied by that would go green on the wrong
-    behaviour and stay green. The refusal has to be *about the door's budget*.
-    """
-    from mcgyvr.config import ConfigSchemaError, parse
-
-    too_low = _door_health_budget() - 1.0
-
-    with pytest.raises(ConfigSchemaError) as caught:
-        parse(CARD + f"budgets:\n  wake_timeout_s: {too_low}\n")
-
-    message = str(caught.value)
-    assert "unknown key" not in message, (
-        "the config was refused for not having the key rather than for the "
-        "value it gave it: the schema has no wake budget to compare against "
-        f"the door's own {_door_health_budget():g}s. Refusal: {message}"
-    )
-    assert f"{_door_health_budget():g}" in message, message
-
-
-def test_a_wake_budget_at_or_above_the_doors_health_budget_is_accepted() -> None:
-    """The other side of the refusal, so it cannot be satisfied by refusing all."""
-    from mcgyvr.config import parse
-
-    config = parse(CARD + f"budgets:\n  wake_timeout_s: {_door_health_budget()}\n")
-
-    assert config.get("budgets.wake_timeout_s") == _door_health_budget()
-
-
-#: The slowest wake measured on this fleet **among placements the refusal gate
-#: permits**: srv1's ceiling model, KAT-Coder 35.5B/A3B, 16.9 GiB of blob
-#: against 15 GiB of RAM, cold to first 200 on /v1/models (2026-09-08). Every
-#: other permitted placement measured that day came in faster, the 35.7 GiB 80B
-#: on srv2 included, because a wake is paid in memory pressure and not in bytes.
-#:
-#: It is n=1, salvaged from a leg whose shell was killed, and never re-taken.
-#: The flexibility campaign takes it at n=3.
-WORST_MEASURED_WAKE_S = 203.0
-
-#: The slowest wake measured on this fleet **in any state**, permitted or not:
-#: srv1's Qwen3.6 ballooned to -0.97 GiB of clearance against its 9.2 GiB of
-#: spilled experts (`ram-headroom-2026-09-09`, "The two gates fail
-#: differently"). It is a wake that *landed* — 2.9x the baseline, 2.3 million
-#: major faults, 5.5 million pages through swap, decode at 32% — not a failure,
-#: which is what makes it the dangerous one: nothing errors, gate 7 is green,
-#: and every request is served off swap.
-#:
-#: `REFUSAL_RAM_HEADROOM_GB = 2.0` is what keeps a placement out of this state,
-#: and the cliff behind it is bracketed only to 0.63 GiB on single samples. So
-#: the budget is asserted against this number too — with a thinner margin, and
-#: deliberately so: the two facts are recorded rather than averaged into one.
-WORST_MEASURED_WAKE_ANY_STATE_S = 385.3
-
-
-def test_the_default_wake_budget_clears_the_slowest_wake_ever_measured() -> None:
-    """N7, settled by measurement rather than by ruling.
-
-    480 was priced from the door's 360 s health budget before anyone had timed
-    the thing it bounds. The timing exists now and the number survives it: the
-    fleet's worst wake is 203 s, which 480 clears twice over. A budget that
-    merely exceeded the worst case would be a budget that fails the first time a
-    rig is a little slower than the day it was measured, so the margin is what
-    is asserted, not the bare inequality.
-
-    If a future ladder holds a model this fails for, the fix is a re-measurement
-    and a new default — not a wider assertion.
-
-    **The doubled margin is asserted against permitted placements only.** A
-    ballooned rig has landed a wake at 385.3 s, which 480 clears by 1.25x and
-    not by 2 — and that is asserted separately below rather than folded in,
-    because folding it in would either weaken this margin or demand a default
-    nobody has ruled on.
-    """
-    from mcgyvr.config import parse
-
-    wake = parse(CARD).get("budgets.wake_timeout_s")
-
-    assert wake >= 2 * WORST_MEASURED_WAKE_S, (
-        f"the default wake budget is {wake!r}s against a measured worst wake of "
-        f"{WORST_MEASURED_WAKE_S:g}s. A caller that gives up near the measured "
-        "ceiling abandons wakes that were about to land, and leaves the card up"
-    )
-
-
-def test_the_default_wake_budget_also_clears_the_worst_wake_in_any_state() -> None:
-    """The worst wake on record is not a permitted one, and it still landed.
-
-    srv1 ballooned to -0.97 GiB against its experts wakes in 385.3 s and serves
-    — slowly, off swap, with gate 7 green and nothing erroring. The refusal gate
-    is what should keep a placement out of that state, and the cliff behind that
-    gate is bracketed only to 0.63 GiB on single samples.
-
-    So this is the thinner of the two margins and it is stated as such: 480
-    clears 385.3 by 1.25x. **Whether that is enough is an owner call, not this
-    test's**, and it is the one the flexibility campaign's cliff arms exist to
-    inform. What the test holds is that the default has not fallen below a wake
-    this fleet has actually completed.
-    """
-    from mcgyvr.config import parse
-
-    wake = parse(CARD).get("budgets.wake_timeout_s")
-
-    assert wake > WORST_MEASURED_WAKE_ANY_STATE_S, (
-        f"the default wake budget is {wake!r}s against a wake this fleet has "
-        f"completed in {WORST_MEASURED_WAKE_ANY_STATE_S:g}s. Below that the "
-        "budget aborts a wake that was landing, on a rig where nothing errors"
+    assert field_at("budgets.wake_timeout_s") is None, (
+        "the wake limit comes from the lock, not from the door's health budget"
     )
