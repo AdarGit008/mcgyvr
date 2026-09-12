@@ -20,6 +20,7 @@ classification, which HTTP would only obscure.
 from __future__ import annotations
 
 import email.message
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -184,24 +185,36 @@ def test_a_second_pass_over_the_same_sources_costs_nothing() -> None:
 
 
 def test_dead_sources_are_probed_concurrently() -> None:
-    """Wall clock for n dead sources is one timeout, not n.
+    """Probes overlap, so n dead sources cost one timeout, not n.
 
-    The margin is deliberately loose — this is asserting a thread pool exists,
-    not measuring one. Serial execution would take 1.2s against a bound of 0.6.
+    Wall-clock is a load-sensitive proxy and flakes under parallel test
+    runners, so concurrency is asserted structurally: more than one probe in
+    flight at once means a thread pool exists and the probes are not serial.
+    Serial execution would peak at 1.
     """
 
+    lock = threading.Lock()
+    in_flight = 0
+    peak = 0
+
     def slow(target: Endpoint, _timeout: float) -> AvailabilityVerdict:
-        time.sleep(0.2)
-        return dead(target, _timeout)
+        nonlocal in_flight, peak
+        with lock:
+            in_flight += 1
+            peak = max(peak, in_flight)
+        try:
+            time.sleep(0.05)
+            return dead(target, _timeout)
+        finally:
+            with lock:
+                in_flight -= 1
 
     availability = Availability(probe=slow)
     targets = [endpoint(f"s{i}") for i in range(6)]
 
-    started = time.monotonic()
     availability.check_all(targets)
-    elapsed = time.monotonic() - started
 
-    assert elapsed < 0.6, f"probes look serial: {elapsed:.2f}s for 6 probes of 0.2s"
+    assert peak >= 2, f"probes never overlapped: peak concurrency {peak}"
 
 
 def test_the_probe_timeout_is_far_below_the_dispatch_timeout() -> None:

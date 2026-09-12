@@ -66,7 +66,7 @@ RUN_DIR=$RUN_OUT_DIR
 NULL_TSV=srv1-aa-null.tsv
 
 DRY_RUN=0
-MODELS=${LCP_MODELS:-/home/adaramir/models}
+MODELS=${LCP_MODELS:-$HOME/models}
 ARM=L3
 CELLS="d3b mling"
 LEVELS="1,4,8"

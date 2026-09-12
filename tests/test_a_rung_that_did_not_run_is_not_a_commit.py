@@ -58,6 +58,7 @@ import pytest
 
 from mcgyvr.contract import Contract, loads
 from mcgyvr.deliver import deliver
+from tests._helpers import git
 
 CONTRACT = """
 id: fetch-strip
@@ -89,15 +90,6 @@ UNREADABLE_CONFIG = "[tool.ruff]\nnot-a-real-ruff-key = 3\n"
 
 #: The same file with nothing ruff objects to. The control's only difference.
 READABLE_CONFIG = "[tool.ruff]\nline-length = 88\n"
-
-
-def git(repo: Path, *args: str) -> str:
-    done = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
-    )
-    if done.returncode != 0:
-        raise AssertionError(f"git {' '.join(args)} failed: {done.stderr.strip()}")
-    return done.stdout
 
 
 def make_repo(where: Path, config: str) -> Path:

@@ -32,15 +32,6 @@ from tests import livejournal as lj
 TWO_DRAWS = "breadth:\n  draws: 2\n"
 
 
-@pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
-    lj.claude_transcript(tmp_path / "home", "s1")
-    return tmp_path / "home"
-
-
 def _records(journal: Path) -> list[dict[str, Any]]:
     """Every folded record of the run, whatever the writer's file was named."""
     return [

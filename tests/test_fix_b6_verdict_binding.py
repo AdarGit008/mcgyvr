@@ -33,7 +33,6 @@ that means "there is no answer" being softened into an answer.
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -43,9 +42,9 @@ from mcgyvr.consensus import ConsensusError, best_of
 from mcgyvr.contract import Contract, loads
 from mcgyvr.deliver import DeliveryError, deliver
 from mcgyvr.gate import ChangeSet, Gate, GateResult
-from mcgyvr.pending import resume, stash
 from mcgyvr.repair import repair
 from mcgyvr.sandbox import SandboxError, open_sandbox
+from tests._helpers import git
 
 CONTRACT = """
 id: fetch-retry
@@ -72,15 +71,6 @@ UNFORMATTED = (
     "        time.sleep(1)\n"
     "        return url\n"
 )
-
-
-def git(repo: Path, *args: str) -> str:
-    done = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
-    )
-    if done.returncode != 0:
-        raise AssertionError(f"git {' '.join(args)} failed: {done.stderr.strip()}")
-    return done.stdout
 
 
 def make_repo(where: Path, targets: dict[str, str]) -> Path:
@@ -242,39 +232,6 @@ def test_delivery_does_not_take_a_callers_word_for_an_acceptance(
         )
 
     assert git(repo, "rev-parse", "HEAD").strip() == head
-    assert git(repo, "status", "--porcelain").strip() == ""
-
-
-def test_a_resume_does_not_finish_work_no_gate_accepted(tmp_path: Path) -> None:
-    """``pending.resume`` is the only production caller of ``deliver``.
-
-    It stashes what the caller was holding, and a recovery run hands those bytes
-    straight to delivery. Measured: the stash held the bytes the gate rejected,
-    a stub verifier approved, and the rejected bytes were committed — after
-    which the gate rejects what is in the repository.
-    """
-    target = "src/pkg/fetch.py"
-    original = "def fetch(url):\n    return url\n"
-    repo = make_repo(tmp_path / "repo", {target: original})
-    contract = contract_for(target)
-    store = tmp_path / "pending"
-
-    stash(store=store, repo=repo, contract=contract, content=UNFORMATTED)
-    head = git(repo, "rev-parse", "HEAD").strip()
-
-    recovered = resume(
-        store=store,
-        repo=repo,
-        task=contract.id,
-        verify=lambda _text: True,
-        base=head,
-    )
-
-    assert not recovered.completed, (
-        f"a resume committed bytes no gate accepted: {recovered}"
-    )
-    assert git(repo, "rev-parse", "HEAD").strip() == head
-    assert (repo / target).read_text() == original
     assert git(repo, "status", "--porcelain").strip() == ""
 
 

@@ -20,15 +20,6 @@ from mcgyvr.result import RunResult, write
 from tests import livejournal as lj
 
 
-@pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
-    lj.claude_transcript(tmp_path / "home", "s1")
-    return tmp_path / "home"
-
-
 def test_write_leaves_no_part_file_when_the_replace_fails(tmp_path: Path) -> None:
     taken = tmp_path / "results" / "impl-1.json"
     taken.mkdir(parents=True)

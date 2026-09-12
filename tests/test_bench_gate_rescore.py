@@ -29,10 +29,7 @@ parses).
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -41,26 +38,16 @@ import pytest
 
 from mcgyvr.contract import Contract, loads
 from mcgyvr.scope import Scope
+from tests._helpers import by_path
 
 REPO = Path(__file__).resolve().parent.parent
 
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 # `tools/` is not a package, so the rig is loaded by path — the convention every
 # other `tests/test_bench_*.py` follows.
-gate_rescore = _by_path(
+gate_rescore = by_path(
     "bench_gate_rescore_t", REPO / "tools" / "bench" / "gate_rescore.py"
 )
-bundle = _by_path("bundle_measure_t", REPO / "tools" / "bundle" / "measure.py")
-
+bundle = by_path("bundle_measure_t", REPO / "tools" / "bundle" / "measure.py")
 
 # --- the fixture task ------------------------------------------------------
 #

@@ -17,7 +17,7 @@ documented and hoped for:
    silently does something other than what it says.
 3. **Credentials are never values.** The config records only the NAME of
    the environment variable holding each key; the orchestrator process
-   resolves it, and a task sandbox never sees it (see ``SECURITY.md``).
+   resolves it, and a task sandbox never sees it (see ``archive/SECURITY.md``).
 
 ``SCHEMA`` below is declarative data, not a set of hand-written checks: it
 is what the validator walks and what the config reference is generated
@@ -40,6 +40,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+
+from mcgyvr.strict_yaml import strict_loader
 
 SCHEMA_VERSION = 1
 CONFIG_FILENAME = "mcgyvr.yaml"
@@ -1276,43 +1278,6 @@ def _dig(data: Mapping[str, Any], key: str) -> Any:
     return current
 
 
-class _StrictLoader(yaml.SafeLoader):
-    """SafeLoader that refuses duplicate keys instead of taking the last one."""
-
-
-def _no_duplicate_keys(
-    loader: yaml.SafeLoader, node: yaml.nodes.MappingNode
-) -> dict[Any, Any]:
-    mapping: dict[Any, Any] = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=True)
-        try:
-            hash(key)
-        except TypeError:
-            # `[dev]: x` — a list as a key. YAML allows it; a config does
-            # not, and `key in mapping` would have raised a TypeError past
-            # every caller expecting a ConfigError.
-            mark = key_node.start_mark
-            raise ConfigSchemaError(
-                f"key {key!r} at line {mark.line + 1} is not a plain name; a "
-                "config key is one word, never a list or a mapping."
-            ) from None
-        if key in mapping:
-            mark = key_node.start_mark
-            raise ConfigSchemaError(
-                f"duplicate key {key!r} at line {mark.line + 1} — YAML would "
-                f"silently keep only the last one, so the file does not mean "
-                f"what it looks like it means."
-            )
-        mapping[key] = loader.construct_object(value_node, deep=True)
-    return mapping
-
-
-_StrictLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys
-)
-
-
 def _typename(value: object) -> str:
     if value is None:
         return "nothing"
@@ -1711,7 +1676,7 @@ def config_path() -> Path:
 def parse(text: str, path: Path | None = None) -> Config:
     """Validate a config from YAML text."""
     try:
-        raw = yaml.load(text, Loader=_StrictLoader)
+        raw = yaml.load(text, Loader=strict_loader(ConfigSchemaError))
     except yaml.YAMLError as exc:
         where = f"{path}: " if path else ""
         raise ConfigFileError(f"{where}not valid YAML: {exc}") from exc

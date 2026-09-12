@@ -29,15 +29,6 @@ CONTRACT_WITH_THREE_ATTEMPTS = lj.MODEL_CONTRACT.replace(
 )
 
 
-@pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
-    lj.claude_transcript(tmp_path / "home", "s1")
-    return tmp_path / "home"
-
-
 def test_the_history_keeps_the_judged_attempts_before_the_raise() -> None:
     config, pool = mapped(
         KEYLESS.replace(

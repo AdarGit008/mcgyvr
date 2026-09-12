@@ -23,7 +23,7 @@ Two invariants are enforced here rather than trusted to each mode:
 2. **No credential reaches a task.** The environment a command runs in is
    built from an explicit allowlist, never inherited from the host, and any
    caller-supplied variable whose name looks like a credential is dropped
-   before it can enter. ``SECURITY.md`` makes this a red-failing invariant,
+   before it can enter. ``archive/SECURITY.md`` makes this a red-failing invariant,
    so :func:`credential_env_names` is the check a test asserts against.
 """
 
@@ -116,7 +116,7 @@ def credential_env_names(env: Mapping[str, str]) -> frozenset[str]:
     """The credential-shaped names in ``env`` — empty is the required state.
 
     A task container's environment must satisfy ``credential_env_names(env)
-    == frozenset()``. This is the exact assertion ``SECURITY.md`` calls for,
+    == frozenset()``. This is the exact assertion ``archive/SECURITY.md`` calls for,
     factored out so the same check guards construction and the test.
     """
     return frozenset(name for name in env if is_credential_var(name))

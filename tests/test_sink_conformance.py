@@ -895,7 +895,6 @@ def test_every_carried_launch_field_names_a_key_that_is_really_in_the_row(
 # `archive/forensic-ollama/`. The remaining arm launches at a width it chose, so
 # `declared_slots` is what it passed, not something to go and read.
 
-
 # A5: the three ways a sleep cell used to report a verdict it had not earned.
 # Each row below is what `sleep_state` would hold at the moment the verdict is
 # computed, with one thing having gone wrong.

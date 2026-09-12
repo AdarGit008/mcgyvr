@@ -20,28 +20,17 @@ line in a record somebody has to remember to read.
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
 
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-headers = _by_path("bench_headers", REPO / "tools" / "bench" / "headers.py")
+headers = by_path("bench_headers", REPO / "tools" / "bench" / "headers.py")
 
 #: The twelve seed questions #330 files, by id. The four D6 constants
 #: (README:652-655), the four "Decision owed" blocks (README:48, 115, 150, 363)

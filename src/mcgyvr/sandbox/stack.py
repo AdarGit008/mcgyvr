@@ -31,7 +31,6 @@ used and said so.
 from __future__ import annotations
 
 import tomllib
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -95,11 +94,6 @@ class Stack:
     def install_commands(self) -> tuple[tuple[str, ...], ...]:
         """The install command of each component, in detection order."""
         return tuple(c.install for c in self.components)
-
-    @property
-    def fully_pinned(self) -> bool:
-        """Whether every component installs from a lockfile."""
-        return all(c.pinned for c in self.components)
 
 
 # Each detector returns a component when its language is present. Ordered so
@@ -303,16 +297,3 @@ def _is_python_project(pyproject: dict[str, object]) -> bool:
         return True
     tool = pyproject.get("tool")
     return isinstance(tool, dict) and "poetry" in tool
-
-
-def base_image_for(languages: Sequence[str]) -> str | None:
-    """The slim base image for a single detected language, else None.
-
-    Exposed for callers that have already narrowed the language set (the
-    image builder) and want the same mapping detection used.
-    """
-    if "python" in languages:
-        return _PYTHON_BASE
-    if "node" in languages:
-        return _NODE_BASE
-    return None

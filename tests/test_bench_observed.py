@@ -12,7 +12,6 @@ because nobody admitted it.
 from __future__ import annotations
 
 import ast
-import importlib.util
 import json
 import subprocess
 import sys
@@ -22,21 +21,14 @@ from typing import Any
 
 import pytest
 
+from tests._helpers import by_path
+
 REPO = Path(__file__).resolve().parent.parent
-
-
-def _by_path(name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 @pytest.fixture(scope="module")
 def observed() -> Any:
-    return _by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
+    return by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
 
 
 # The two documents, in the shape srv2 (ollama 0.32.5) returned them on
@@ -181,7 +173,6 @@ VLLM_METRICS = (
     'kv_cache_size_tokens="131104"} 1.0\n'
     'vllm:num_requests_running{model_name="Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ"} 0.0\n'
 )
-
 
 # --- the probe set ----------------------------------------------------------
 
@@ -628,7 +619,6 @@ def test_a_long_array_is_recorded_as_its_count_and_its_digest(
 # itself is still pinned, one check up: an elided array carries
 # `identity.digest` of what it replaced.
 
-
 # --- one capture per directory ----------------------------------------------
 
 
@@ -868,7 +858,7 @@ def test_the_long_timeout_is_spent_only_on_the_call_that_earned_it(
 
 @pytest.fixture(scope="module")
 def pin() -> Any:
-    return _by_path("serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py")
+    return by_path("serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py")
 
 
 def test_the_served_width_is_read_off_the_host_config(pin: Any) -> None:
@@ -1104,7 +1094,7 @@ def test_a_probe_that_raises_reaches_the_record_instead_of_the_floor(
     as a broken probe being indistinguishable from a machine there was nothing
     to read, which is what a bare `{}` made it.
     """
-    breadth = _by_path("breadth_measure", REPO / "tools" / "breadth" / "measure.py")
+    breadth = by_path("breadth_measure", REPO / "tools" / "breadth" / "measure.py")
 
     def explode(endpoint: str) -> dict[str, Any]:
         raise RuntimeError("pin.py would not import")
