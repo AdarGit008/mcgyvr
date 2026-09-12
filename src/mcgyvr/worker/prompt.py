@@ -1,6 +1,6 @@
 """Assembling what a worker is sent: a measured bundle and a contract.
 
-Two messages, and the split is the finding rather than a convention. CLM-0004
+Two messages, and the split is the finding rather than a convention.
 varied only the system prompt across its four conditions and kept "the contract
 is always the user message" fixed, so that is the shape reproduced here: the
 bundle is *how to work*, the contract is *what to do*, and they do not mix.
@@ -49,12 +49,12 @@ tool that was not installed are all excluded there, and rendering is all that
 happens here. The section goes last, after the output instruction, because it
 is the most specific thing in the prompt and the least useful to read first.
 
-**The estimate is injectable, and the count says which kind it was.** CLM-0011
+**The estimate is injectable, and the count says which kind it was.**
 measured the model-free proxy under-counting by up to 17.9% at the median
 depending on the vocabulary, so ``check_prompt_fits`` charges a proxy count a
 reserve and an exact count nothing. Passing a real tokenizer here — with
 ``counted_by=TOKENIZER`` to say so — is how a caller opts out of the reserve.
-The seam is also what makes the assembled prompt re-measurable: CLM-0011's band
+The seam is also what makes the assembled prompt re-measurable: the band
 was measured over prompt *content*, never over a finished prompt, because until
 now no finished prompt existed.
 """
@@ -201,7 +201,7 @@ def build_prompt(
     if contract.output_schema not in _REPLY_INSTRUCTIONS:
         raise UnsupportedSchemaError(
             f"output_schema {contract.output_schema!r} has no reply instruction "
-            f"and no parser; only {WHOLE_FILE!r} is implemented (ADR-0009). "
+            f"and no parser; only {WHOLE_FILE!r} is implemented . "
             f"Refused before dispatch rather than after it."
         )
     bundle = bundle_for(contract.target, adapters)

@@ -3,7 +3,7 @@
 Each test loads its module under ``tools/missions/`` by path, the way the bench
 rigs are loaded (``tests/test_bench_rounds.py``), and fails **by name** while
 the module does not exist — a missing file is that test's own red, not a
-sibling's (ADR-0037: a finding is a check). The properties are the five items
+sibling's (: a finding is a check). The properties are the five items
 of #365; the code that turns them green lands on the same lane.
 """
 

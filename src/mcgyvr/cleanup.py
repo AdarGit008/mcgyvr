@@ -324,7 +324,7 @@ def _cleanable(result: GateResult) -> bool:
     one where every finding came from the formatter itself, so re-running the
     formatter removes all of it. An inconclusive rung disqualifies a change even
     with no findings beside it — a rung that ran and cannot say what bar it
-    applied (ADR-0034) has not told anyone the problem is formatting, and
+    applied  has not told anyone the problem is formatting, and
     tidying on that would be answering a question that was never asked.
     """
     if result.inconclusive:

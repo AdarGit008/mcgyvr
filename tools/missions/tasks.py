@@ -24,7 +24,7 @@ were found in the store but belong to no ref, and clones move — is checked wit
 exception names the sha, the clone, and the child it was the base of, rather
 than surfacing git's ``fatal: invalid reference``. A root commit (the view
 holds two) has no base tree and is refused at :meth:`Task.from_row`, again by
-sha. A finding is a check (ADR-0037): each refusal is a named exception with
+sha. A finding is a check : each refusal is a named exception with
 the offending thing in its message.
 
 The judge's reference is the issue body (owner decision on #365: output versus

@@ -10,7 +10,7 @@ sinks, which account for the FIELDS of a row and say nothing about the VALUES
 inside it. That is why the session record could say of one of these that it
 "would not be caught today".
 
-ADR-0037 (#323) is the rule this file is the first real member of:
+ (#323) is the rule this file is the first real member of:
 
 * Rule 1 — a finding is a check, not a paragraph. Red means the defect is
   present; "is this still open?" is answered by running the suite.
@@ -692,7 +692,7 @@ def test_a_model_served_on_both_hosts_was_launched_with_the_same_geometry() -> N
     block.
 
     The ruling's second clause — the difference is declared on the contrast's
-    ignore list — is ADR-0038 D4's contrast record and is checked in
+    ignore list — is D4's contrast record and is checked in
     ``tests/test_run_contract.py``, not here. An ignore is a property of the
     claim, and the claim is built at reading time, so it cannot be a property
     of either cell.
@@ -774,7 +774,7 @@ def test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine() -> Non
     population — and ollama and vLLM are never equivalent either.
 
     Read the scope exactly. This does not forbid a cross-machine comparison:
-    ADR-0038 D1 withdrew the rigs' roles and D2 says a cross-machine question
+    D1 withdrew the rigs' roles and D2 says a cross-machine question
     authorises its own run ("which machine serves the 1.5B faster"), and both
     were Accepted the same day as this ruling. What is denied is the claim that
     the two hosts are interchangeable instruments, which is the claim a
@@ -793,7 +793,7 @@ def test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine() -> Non
 
     So the check is not a floor. It asks that every (host, model) reading this
     campaign took for a model seen on more than one host is stored as a
-    standalone cell, in the one-directory-per-cell shape ADR-0038 D5 defines,
+    standalone cell, in the one-directory-per-cell shape D5 defines,
     so a later contrast can take one up as an arm. Red today because the
     campaign writes journals and not cells — the same absence
     ``tests/test_run_contract.py`` names for D5, asked here of the specific
@@ -835,7 +835,7 @@ def test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine() -> Non
         f"{len(missing)} of {len(cross_host)} (host, model) readings bearing a "
         f"cross-host claim in {directory.name} have no standalone cell naming "
         "them: the campaign holds journals, not the one-directory-per-cell "
-        "records ADR-0038 D5 makes a contrast's arms out of, so nothing here "
+        "records D5 makes a contrast's arms out of, so nothing here "
         f"can be taken up as an arm later: {missing}"
     )
 
@@ -980,7 +980,7 @@ def test_a_serving_constant_this_project_did_not_choose_names_its_source() -> No
     An entry may satisfy it by naming the origin in its prose; it may not
     satisfy it by describing what the knob does.
 
-    **Repointed 2026-08-22 (owner sign-off, ADR-0037's amendment).** ADR-0039
+    **Repointed 2026-08-22 (owner sign-off, the amendment).**
     withdrew ``gpu_memory_utilization`` from every config in this tree, so the
     field this check named stopped existing and the check began failing on its
     own vacuity guard — asserting nothing about any value, which the amendment
@@ -996,7 +996,7 @@ def test_a_serving_constant_this_project_did_not_choose_names_its_source() -> No
     question — did we choose this number? — is answered: the declared bytes
     follow from the entry's own ``max_num_seqs * max_model_len *
     bytes_per_token``, and the footprint each declaration produces was measured
-    on both cards on 2026-08-22 (ADR-0039). The three copies this check could
+    on both cards on 2026-08-22 . The three copies this check could
     not see are down to two: ``vllm.py``'s fallback is deleted, and
     ``calibrate.py``'s two inline serve blocks are held by
     ``tests/test_serving_memory_declaration.py::test_the_calibration_probes_declare_bytes_too``,

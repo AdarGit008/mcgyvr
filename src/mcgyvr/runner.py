@@ -19,7 +19,7 @@ to ask in. The invariants #21 requires:
   issue an uncapped request and then compare the backend's own reported token
   count against the ceiling it was given. A backend that overran says so
   through :attr:`Completion.overran_cap` rather than passing for a short answer.
-* **No stop sequences are sent, by decision.** ADR-0009 settled that v1 bounds a
+* **No stop sequences are sent, by decision.**  settled that v1 bounds a
   reply with the cap and a named truncation and nothing else: a stop sequence is
   consumed by the server and stripped from the answer, so it turns a reply that
   ran long into a *shorter valid-looking file* rather than into an error. Under
@@ -203,7 +203,7 @@ class Request:
     worker's output is judged by a deterministic gate; sampling is a decision to
     be made explicitly, not inherited from a backend's default.
 
-    There is no ``stop`` field. ADR-0009 decided that v1 bounds a reply with the
+    There is no ``stop`` field.  decided that v1 bounds a reply with the
     cap and a named truncation, because a stop sequence makes a bad reply
     shorter where the cap makes it *named* — and a shorter whole-file reply is
     still valid Python that the gate will accept. Adding the field back is
@@ -427,7 +427,7 @@ class Runner(ABC):
         if stop_reason is StopReason.TRUNCATED:
             notes.append(
                 f"the reply hit the {request.max_output_tokens}-token cap and "
-                f"is incomplete. Under ADR-0009 that is a named failure, not a "
+                f"is incomplete. Under  that is a named failure, not a "
                 f"short answer: it must not be applied to a file."
             )
         if stop_reason is StopReason.UNKNOWN:

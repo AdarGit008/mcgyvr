@@ -75,8 +75,8 @@ contract, the climb's verdicts and item 3's trace of every try
 (``gate.contracts``). ``output.outcomes`` carries only the rule that ended each
 climb (:class:`~mcgyvr.escalate.Outcome`) and its counts; ``verdict`` anywhere
 else is the review's word and item 5 refuses it on read. A halted escalation is
-recorded the same way — the unrecoverable is recorded, not skipped (ADR-0026
-lens 1). So is everything that stopped a contract before or during its climb:
+recorded the same way — the unrecoverable is recorded, not skipped (lens 1).
+So is everything that stopped a contract before or during its climb:
 ``output.attempt_refusals`` names each one with its stage — a bar the proposer
 could not declare (``declare``), an attempt item 3 refused to assemble
 (``assemble``), or a dispatch that raised a :class:`~mcgyvr.runner.RunnerError`
@@ -210,7 +210,7 @@ class RecordAlreadyThere(MissionError):  # noqa: N818
 class AttemptRefusal:
     """One contract that never climbed, or stopped mid-climb, and why.
 
-    Recorded rather than skipped (ADR-0026 lens 1). ``subject`` is the
+    Recorded rather than skipped (lens 1). ``subject`` is the
     contract id — or, at :data:`STAGE_DECLARE`, the proposal's target, since
     no contract exists yet. ``rung`` and ``exception`` are set only at
     :data:`STAGE_DISPATCH`, where the finding is about a rung and not the task.
@@ -651,7 +651,7 @@ def run_task(
             except attempt_module.AttemptError as exc:
                 # Item 3 refused before a Try (no adapter, a bar that is not
                 # the task's): the unrecoverable is recorded, not skipped
-                # (ADR-0026 lens 1), and the climb for this contract never runs.
+                # (lens 1), and the climb for this contract never runs.
                 attempt_refusals.append(
                     AttemptRefusal(
                         subject=contract.id, stage=STAGE_ASSEMBLE, why=str(exc)

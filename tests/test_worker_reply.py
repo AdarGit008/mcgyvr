@@ -12,7 +12,7 @@ unverifiable, and it is withdrawn (#184).
 The population the parser actually faces is the captured one: the measurement
 rigs keep every raw reply, and ``test_reply_corpus.py`` asserts the whole set
 against pinned verdicts. #174 — a refusal shape no author here had imagined —
-is why the constructed set alone is not enough. Per ADR-0016 the split is
+is why the constructed set alone is not enough. Per  the split is
 deliberate: a shape found in a capture is pinned there as gold; a shape an
 adversarial imagination proposes lives here, marked as what it is.
 """
@@ -167,7 +167,7 @@ def test_truncation_is_checked_before_the_text_is_parsed() -> None:
 
 def test_unified_diff_is_refused_rather_than_parsed_as_a_file() -> None:
     """Parsing a patch as whole-file content applies its +-prefixed body lines
-    as source. ADR-0009 scopes v1 to whole_file."""
+    as source.  scopes v1 to whole_file."""
     error = refused(GOOD, output_schema="unified_diff")
     assert error.code == "unsupported-schema"
     assert "unified_diff" in error.message

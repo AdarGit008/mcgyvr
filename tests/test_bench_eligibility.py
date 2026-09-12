@@ -39,7 +39,7 @@ EXPECTED_STRATA = {
 
 # The committed pair the finding was derived from. ``ceiling`` is what ``m``
 # could arithmetically have reached on the eligible set — the count of cells
-# passing under either condition — and ADR-0019's wall is ``m >= 6``.
+# passing under either condition — and the wall is ``m >= 6``.
 _7B = ("bench-null-gate-7b-a-2026-08-14", "bench-control-norule-7b-2026-08-14")
 _15B = ("bench-null-gate-15b-a-2026-08-13", "bench-control-norule-15b-2026-08-13")
 
@@ -83,7 +83,7 @@ def test_the_eligible_set_cannot_reach_the_decidability_wall(
 
     A cell that passes under neither condition is concordant whatever the lever
     does, so the count that pass under *either* is an upper bound on ``m``. On
-    every committed (tier x arm) cell that bound sits far below ADR-0019's wall,
+    every committed (tier x arm) cell that bound sits far below the wall,
     which is a finding about the corpus rather than about the lever.
     """
     stock_dir, ablated_dir, arm = pair

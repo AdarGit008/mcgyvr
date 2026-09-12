@@ -1,6 +1,6 @@
 """The acceptance ceiling's evidence, and the two ways it could be read wrong.
 
-`tools/bench/ceiling.py` produces every figure ADR-0035 rests on. Two of its
+`tools/bench/ceiling.py` produces every figure  rests on. Two of its
 steps are the kind that pass silently when they are wrong:
 
 * **which rows are timeouts.** Two scorers wrote the corpus and they phrase it
@@ -116,7 +116,7 @@ def test_the_censored_rows_are_excluded_from_the_band_count(
 def test_the_recorded_measurement_still_says_what_the_decision_cites(
     ceiling: types.ModuleType,
 ) -> None:
-    """ADR-0035's four numbers, held to the record they were read off.
+    """the four numbers, held to the record they were read off.
 
     Not recomputed from the corpus here — that is a 30 s read of 32,601 rows and
     belongs in the tool, not the suite. What this catches is the record and the

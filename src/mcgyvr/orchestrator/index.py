@@ -179,7 +179,7 @@ class SymbolTable:
 
         Narrowing by ``path`` is what makes this answer "what does this file
         depend on", which is the question a decomposer asks of a target before
-        it names the dependencies a contract carries (ADR-0007).
+        it names the dependencies a contract carries.
         """
         if path is None:
             return tuple(self._imports)

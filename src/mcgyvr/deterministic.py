@@ -107,7 +107,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # where its flags end would not belong here, because a target it read as an
 # option is a target it never acted on.
 #
-# ``("js/ts", "import_sort")`` is absent on purpose. ADR-0025 holds this
+# ``("js/ts", "import_sort")`` is absent on purpose.  holds this
 # project's eslint config at `recommended`, which carries no import-order rule,
 # so no program on this machine would sort a TypeScript file's imports. Binding
 # one anyway would claim ``import_sort``'s guarantee — "imports are ordered as
@@ -133,7 +133,7 @@ IN_PROCESS: frozenset[str] = frozenset({"rename_symbol"})
 # Which task types leave work on the floor and say so with a non-zero exit —
 # and, therefore, which exit codes mean the tool is *reporting* rather than
 # *failing*. The same distinction `gate.adapter.trusted_stdout` draws for the
-# gate's own invocations (ADR-0034 clause 2: "the test is the exit code, checked
+# gate's own invocations (clause 2: "the test is the exit code, checked
 # before the output is read, against the set of codes under which the tool is
 # reporting rather than failing"), drawn here for the floor's.
 #
@@ -211,7 +211,7 @@ class Tool:
         ``Tool`` built from a command this module did not bind — a test's
         stand-in, a future entry — has no measurement behind it, and the
         direction to be wrong in is the one that stops rather than the one that
-        carries an unjudged change onward. This is ADR-0005's rule ("a bar that
+        carries an unjudged change onward. This is the rule ("a bar that
         cannot run is not a bar that passed") applied to a bar nobody has
         measured yet.
         """

@@ -23,16 +23,16 @@ one file has not carried one.
 output cap can still contain a syntactically perfect fenced block — it is the
 *rest* of the file that is missing, and nothing in the text says so. Only the
 backend's own stop reason knows, so it is required here and anything short of
-:attr:`~mcgyvr.runner.StopReason.COMPLETE` refuses. ADR-0009 chose the cap over
+:attr:`~mcgyvr.runner.StopReason.COMPLETE` refuses.  chose the cap over
 stop sequences precisely so that an over-long reply arrives *named* rather than
 silently shortened; reading that name is this module's half of the bargain.
 
-**Only ``whole_file`` parses.** ADR-0009 records it as "the default, and the
+**Only ``whole_file`` parses.**  records it as "the default, and the
 only shape #25 is scoped to". A contract declaring ``unified_diff`` is refused
 by name rather than parsed as if it were whole-file content, which would apply
 a patch's ``+``-prefixed body lines as source.
 
-**No stop sequences are derived here.** ADR-0009 rejected them for v1 while
+**No stop sequences are derived here.**  rejected them for v1 while
 naming this parser as where the derivation would belong, since the sequence
 that terminates a reply and the sequence a parser treats as the end are one
 fact. The absence is the recorded decision, not an omission.
@@ -324,7 +324,7 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
         return ReplyError(
             "unsupported-schema",
             f"output_schema {output_schema!r} has no parser; only "
-            f"{WHOLE_FILE!r} is implemented (ADR-0009)",
+            f"{WHOLE_FILE!r} is implemented ",
         )
     if stop_reason is not StopReason.COMPLETE:
         return ReplyError(

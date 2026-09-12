@@ -4,7 +4,7 @@
 The question is what makes a bench problem hard for a floor model. It was
 first asked as two separately authored cohorts and could not be answered:
 unpaired comparisons spend power like independent samples, which is
-ADR-0019's wall in a new costume (`strata.json` block 3). This reads the
+the wall in a new costume (`strata.json` block 3). This reads the
 paired form, where the same problem is dispatched under three renders:
 
 * ``stock``      — the scaffold as production ships it: plan comment + partial code
@@ -25,7 +25,7 @@ under both conditions is concordant and carries no information no matter how
 the test is designed; with one greedy draw per cell, 25 of 34 problems were
 that. Eight draws per cell turn the outcome into a count, so a problem that
 moves from 6/8 to 2/8 contributes what a binary outcome would have thrown
-away. This is ADR-0019 D6's replication, and it is the only reason the
+away. This is D6's replication, and it is the only reason the
 question is askable on this material at all.
 
 **The tests are exact and the direction is not assumed.** The sign test over
@@ -34,7 +34,7 @@ distributional assumption and its p-value is honest at the sample sizes here.
 Wilcoxon signed-rank is reported beside it (exact by enumeration when the
 number of non-zero differences allows) because it uses the size of each
 change, not only its direction. ``m`` — the count of problems that moved — is
-printed for every contrast, because ADR-0019's wall is stated in exactly that
+printed for every contrast, because the wall is stated in exactly that
 quantity: below m = 6 no result can reach significance however large the
 effect looks.
 
@@ -57,7 +57,7 @@ anyone who wants the other number with its name attached.
 used.** ``--rows as-measured`` (the default) reads what the sweep recorded on
 the day. ``--rows regraded`` reads ``tools/bench/regrade.py``'s re-score of the
 same saved completions under the checkers as they stand now — the same model
-output judged again. That is not a hypothetical: ADR-0023 found 104 bench py
+output judged again. That is not a hypothetical:  found 104 bench py
 checkers accepting only ``ValueError`` where their ts twins accept any
 ``Error``, and correcting it moved 40 py cells and no ts cell at all. Both
 numbers are real and they answer different questions, so neither is silently
@@ -103,7 +103,7 @@ CONTRASTS = (
     ("whole", "stock", "noscaffold", "both together (the confounded contrast)"),
 )
 
-# ADR-0019's wall, in the quantity it is stated in: fewer than six problems
+# the wall, in the quantity it is stated in: fewer than six problems
 # that moved and no effect size can reach two-sided significance.
 DISCORDANT_WALL = 6
 

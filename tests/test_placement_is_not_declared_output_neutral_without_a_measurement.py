@@ -1,7 +1,7 @@
 """The repo asserted in code that moving experts between CPU and GPU cannot change
 a token. On 2026-09-02 it was tested, and it is false: 9 of 257 verdicts moved
 between ``ncmoe=0`` and ``ncmoe=99`` on one build, against a 1.47pp own-null
-bound. The fiat is retired (ADR-0041); the tests below hold the retirement and
+bound. The fiat is retired ; the tests below hold the retirement and
 keep the measurement's xfail.
 
 Until 2026-09-03 ``tools/bench/serving/fingerprint.py`` put ``n_gpu_layers``,
@@ -59,7 +59,7 @@ def test_the_fiat_is_retired_and_placement_is_semantic() -> None:
     cannot is gone from the code — for all four keys it covered, because the
     argument was one argument and it is false for the one value measured. A
     placement key is semantic until a placement null on that build shows it
-    neutral (ADR-0041)."""
+    neutral ."""
     source = FINGERPRINT.read_text(encoding="utf-8")
     assert "None of them alters the token" not in source, (
         "fingerprint.py still declares placement output-neutral; the "
@@ -87,7 +87,6 @@ def test_the_llamacpp_backend_no_longer_calls_the_gap_a_classification() -> None
     assert (
         "none of them is in the fingerprint's SEMANTIC or OPERATIONAL set" not in source
     )
-    assert "ADR-0041" in source
 
 
 @pytest.mark.xfail(

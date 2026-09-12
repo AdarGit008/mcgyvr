@@ -1,6 +1,6 @@
 {
   "doctrine": {
-    "_source": "ADR-0032 (#291), which makes ADR-0018 Q3 operational; the batching clause was decided on #276 and lived only in the body of a closed issue until 2026-08-17.",
+    "_source": " (#291), which makes Q3 operational; the batching clause was decided on #276 and lived only in the body of a closed issue until 2026-08-17.",
     "_read_by": "tools/bench/product.py \u2014 load_doctrine, printed by --open. Clauses added here are stated by the tool without touching that module.",
     "clauses": [
       "A round boundary is DRAINED, not TAKEN. Every identity change waiting on a boundary lands in the same round. Landing them one at a time, with runs in between, converts one re-baseline into several rounds whose arms are comparable only within themselves \u2014 and spends the rig time once per round.",

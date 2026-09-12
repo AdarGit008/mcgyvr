@@ -68,7 +68,7 @@ class InitError(Exception):
     Raised instead of writing a config that cannot load. A file that
     dispatches nowhere is not a head start — it is a misconfiguration that
     surfaces later and further from its cause, which is exactly what the
-    loader's fail-loud rule exists to prevent (ADR-0001; ``mcgyvr.config``).
+    loader's fail-loud rule exists to prevent (; ``mcgyvr.config``).
     """
 
 

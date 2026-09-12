@@ -1,13 +1,13 @@
 """Build the #189 pilot's training set from the worker-reply corpus.
 
-The corpus (`records/corpora/worker-replies/golden.json`, ADR-0016) pins every
+The corpus (`records/corpora/worker-replies/golden.json`) pins every
 captured reply with its sha and its parse verdict; each run's `results.jsonl`
 records whether the checker passed the reply. This tool joins the two and emits
 chat-format training examples for exactly the rows that are **verified passes**:
 the reply parsed, the checker accepted it, and the bytes on disk still match the
 pinned sha.
 
-The prompt is not stored anywhere — per ADR-0016 the corpus keeps only what the
+The prompt is not stored anywhere —  the corpus keeps only what the
 parser reads — so it is **rebuilt** through the same assembly the rigs used:
 :func:`mcgyvr.worker.prompt.build_prompt` over the tier's contracts. Each run
 pinned ``sha256(prompt.system)`` as ``bundle_sha256`` at capture time; the

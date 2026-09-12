@@ -16,7 +16,7 @@ Each entry states three things the rest of the system needs:
   This is the sentence a caller is owed, and it is why some inherited types are
   not here: a type whose guarantee cannot be stated is one nothing can accept.
 * **A starting family** — where on the ladder work of this type may begin.
-  Deliberately a *family* (deterministic → local → api, ADR-0001 boundary 3)
+  Deliberately a *family* (deterministic → local → api, boundary 3)
   rather than a rung: rung names are chosen by whoever wrote the config, so a
   catalog naming rungs would only be valid on the machine it was written for. A
   family resolves against any ladder, because a rung is ``api`` exactly when its
@@ -100,7 +100,7 @@ class TaskType:
         """Whether the deterministic tier executes this type outright.
 
         Derived from the starting family rather than declared, so the two can
-        never disagree — the same move ADR-0003 makes for binding names.
+        never disagree — the same move  makes for binding names.
         """
         return self.starts_on.rank == 0
 

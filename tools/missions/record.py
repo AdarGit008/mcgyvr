@@ -8,7 +8,7 @@ review** — not on the lane, not in code, not in the record.
 **The defect this prevents.** A record that carries a verdict beside its output
 is read as judged. Nothing distinguishes a ``"verdict": "good"`` a person typed
 after a glance from one a gate computed, and once the field is on disk it is
-quoted, tallied and believed (ADR-0026 lens 3: a record states the property it
+quoted, tallied and believed (lens 3: a record states the property it
 contains, or it is worse than dead weight). The first reviewer to open sixty of
 these a month from now must find sixty outputs and sixty specs and nothing that
 tells them what to think. So the record has exactly one place a pass/fail may
@@ -112,7 +112,7 @@ class RecordDriftError(RecordError):
 
 
 class RecordExistsError(RecordError):
-    """A record is already at this path; a run is not overwritten (ADR-0026 1)."""
+    """A record is already at this path; a run is not overwritten ( 1)."""
 
 
 @dataclass(frozen=True)

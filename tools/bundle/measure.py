@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """#144 — the bundle-size condition ladder, over a JS/TS task set or a Python one.
 
-CLM-0004 measured a ~2 KB skill bundle taking qwen2.5-coder:3b from 45% to 70%
+ measured a ~2 KB skill bundle taking qwen2.5-coder:3b from 45% to 70%
 first-pass acceptance at ~2.5x the speed, and an 8 KB bundle giving ten points
 back. Its confidence note bars quoting those percentages for "other models,
 task sets or languages until re-measured", and ``src/mcgyvr/prompts/javascript.md``
@@ -16,7 +16,7 @@ a limit nothing has shown applies to it.
 
 **The conditions differ only in the system prompt.** The user message is
 :func:`~mcgyvr.worker.prompt.render_user_message` over the contract's
-``worker_view()`` in every condition, which is the shape CLM-0004 held fixed
+``worker_view()`` in every condition, which is the shape  held fixed
 ("the contract is always the user message, unchanged across conditions") and
 also the real assembly path #25 ships. c0 sends no system prompt at all.
 
@@ -29,7 +29,7 @@ discipline that keeps ``prompts/python.md`` equal to the measured ``c2.md``.
 **Dispatch is mcgyvr's own.** :class:`~mcgyvr.runner.Request` through
 :func:`~mcgyvr.runner.runner_for`, so the measurement runs through the code that
 ships rather than a benchmark's private HTTP client — including the cap, the
-refusal to send stop sequences (ADR-0009), and truncation read from the
+refusal to send stop sequences , and truncation read from the
 backend's own stop reason. Replies are parsed by
 :func:`~mcgyvr.worker.reply.parse_reply` with that real stop reason, so a reply
 this project would refuse is scored as a failure here too, by its refusal code.
@@ -39,20 +39,20 @@ measurement of the model, so a caveated source may not serve it.
 **Every reply is kept.** Raw reply text lands in ``replies/`` beside the rows,
 parseable or refused, first attempt and remediation retry alike — the JS/TS
 sweep ran the parser over 160 real replies and kept only their error codes,
-which is the discard #184 names and ADR-0016 forbids repeating.
+which is the discard #184 names and  forbids repeating.
 
 **Acceptance is the contract's, executed, never inspected.** Each task declares
 ``acceptance: ["node accept.mjs"]``; the runner writes the worker's file as
 ``solution.ts`` beside a copy of ``accept.mjs`` in a fresh temp directory and
 runs the declared command there. Node 24 executes TypeScript directly by
 stripping types, so a task needs no toolchain, no install and no network — which
-is what lets acceptance stay stdlib-only and isolated per CLM-0004's design.
+is what lets acceptance stay stdlib-only and isolated per the design.
 
 **--language selects which arm runs, and the second one exists to answer #167.**
-CLM-0012 measured the JS/TS ladder flat and could not say whether that was about
-the *language* or about the *serving stack*, because CLM-0004 drove the same
+ measured the JS/TS ladder flat and could not say whether that was about
+the *language* or about the *serving stack*, because  drove the same
 weights through bare ``llama-server`` and this rig drives them through Ollama's
-OpenAI-compatible path. The control is CLM-0004's own Python task set, recovered
+OpenAI-compatible path. The control is the own Python task set, recovered
 from local-ai under #167 and ported to mcgyvr contracts in ``python/tasks/``, run
 against the same endpoint through this same instrument — so that against the
 JS/TS arm, language is the only thing that differs. Its conditions are not a copy
@@ -181,7 +181,7 @@ identity_module = _bench_identity()
 
 
 def _bench_observed() -> Any:
-    """The `observed` block's writer (#286, ADR-0027 D7).
+    """The `observed` block's writer (#286, D7).
 
     Reached by path like the contract above. This rig refuses every live sweep
     under #240, so this writer is exercised by test rather than by dispatch —
@@ -264,17 +264,17 @@ def _host_block(endpoint: str) -> dict[str, object]:
 # The Python arm's conditions are the measured bundles themselves, not a copy of
 # them. Vendoring the same three files twice would create exactly the drift the
 # c2 check exists to catch, on the one axis where a divergence would be silent:
-# a copy that fell behind would still be a valid ladder, just not CLM-0004's.
+# a copy that fell behind would still be a valid ladder, just not the.
 VENDORED_EVIDENCE = REPO / "records" / "evidence" / "local-ai-2026-08-02"
 VENDORED_BUNDLES = VENDORED_EVIDENCE / "data" / "context_exp" / "bundles"
 
 # The ladder. c0 is the absence of a system prompt rather than an empty file:
-# CLM-0004's c0 is "none — contract only", which is also what `bundle_for`
+# the c0 is "none — contract only", which is also what `bundle_for`
 # returns for a language with no bundle, so the condition is a real production
 # state and not a control that only exists in an experiment.
 LADDER = ("c0", "c1", "c2", "c3")
 
-# CLM-0004's sampler and cap, held fixed so the only variable is the bundle.
+# the sampler and cap, held fixed so the only variable is the bundle.
 # Greedy because the gate is deterministic and a sampled worker would put
 # variance in the numerator; 768 because that is what the Python run allowed and
 # a different cap would change what "truncated" means between the two.
@@ -735,7 +735,7 @@ def rig_revision() -> str:
 
 #: Every field this rig's ``record_run`` writes, declared beside it so the
 #: resume check is over a named set rather than whatever the local dict happens
-#: to hold (#287, ADR-0027 D1). A test asserts a freshly assembled manifest's
+#: to hold (#287, D1). A test asserts a freshly assembled manifest's
 #: keys equal this tuple and that every name here is in ``identity.RECORDED``,
 #: so this rig can never again record a field the contract has not heard of —
 #: which is how ``language`` and ``conditions_sha256`` lived here for two
@@ -815,7 +815,7 @@ def record_run(
         json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
         encoding="utf-8",
     )
-    # The second block (#286, ADR-0027 D7), written on the branch that OPENS the
+    # The second block (#286, D7), written on the branch that OPENS the
     # directory and never on the resume above — see the same call in
     # `tools/breadth/measure.py` for why. Nothing in this file reads it.
     # `at_open` with its host block. This rig refuses every live sweep under
@@ -832,7 +832,7 @@ def record_run(
         when=observed_module.AT_OPEN,
         host=_host_block(worker.endpoint),
         # The width this run DISPATCHED at, read off the endpoint the
-        # runner was built from rather than typed here (ADR-0027 D4).
+        # runner was built from rather than typed here (D4).
         # It is the second of `resolve`'s two bounds on the realised
         # batch, and it is the half no probe can recover: the server
         # cannot see how many requests a client chose to keep in
@@ -871,7 +871,7 @@ def node_runs_typescript() -> bool:
 def selftest(tasks: Iterable[Task]) -> int:
     """Run every reference solution against its own acceptance script.
 
-    CLM-0004's design: "the experiment is invalid unless selftest is 100%
+    the design: "the experiment is invalid unless selftest is 100%
     green". A red row here is a defect in the task set, not a result about a
     model, and it has to be findable without a worker — so this path dispatches
     nothing.
@@ -913,7 +913,7 @@ def measure_cell(
     anything judges it — the parseable and the refused alike, the first
     attempt and the remediation retry. The replies are the parser's real
     input distribution, which the JS/TS sweep generated and threw away
-    (#184); ADR-0016 fixes what is kept as the text itself plus the sha256
+    (#184);  fixes what is kept as the text itself plus the sha256
     that ties it to this row.
     """
 
@@ -988,7 +988,7 @@ def measure_cell(
         }
 
     # One remediation round, as the Python run allowed: the acceptance output is
-    # handed back and the same rung retried once. CLM-0004 found this rescued 2
+    # handed back and the same rung retried once.  found this rescued 2
     # of 35 attempts, so it is measured rather than assumed useful.
     retry = Request(
         prompt=(
@@ -1010,7 +1010,7 @@ def measure_cell(
             "fail_output": first.output,
         }
     # The retry's stop reason is what its parse verdict is judged with; a
-    # captured retry without it could not be replayed (ADR-0016).
+    # captured retry without it could not be replayed .
     row |= {"retry_stop_reason": second.stop_reason.value} | keep(second.text, 2)
     reparsed = parse_reply(
         second.text,
@@ -1058,7 +1058,7 @@ def done_keys(rows_path: Path) -> set[tuple[str, str]]:
 
 
 def summarise(rows_path: Path) -> str:
-    """The per-condition table, in the columns CLM-0004's summary reported.
+    """The per-condition table, in the columns the summary reported.
 
     Completion tokens are carried because they are what made the Python latency
     result independent of machine-load noise: a bundle that makes a small model
@@ -1116,7 +1116,7 @@ def main() -> int:
         choices=sorted(LANGUAGES),
         default=DEFAULT_LANGUAGE.name,
         help="which arm to measure: the JS/TS task set #144 built, or the "
-        "Python one CLM-0004 measured, recovered under #167 "
+        "Python one  measured, recovered under #167 "
         f"(default: {DEFAULT_LANGUAGE.name})",
     )
     parser.add_argument(

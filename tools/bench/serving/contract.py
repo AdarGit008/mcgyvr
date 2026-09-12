@@ -495,7 +495,7 @@ PROVENANCE_DISPOSITION: dict[str, tuple[str, ...]] = {
 #: computed over the whole working tree, which a run turns ``true`` by writing
 #: its own journal under ``records/``, so every row of every future run would
 #: have read ``true`` because of its own output. A field that is ``true`` on
-#: every real run states no property (ADR-0026 lens 3), and it is the coarse
+#: every real run states no property (lens 3), and it is the coarse
 #: half of the pair that breaks, because the digest is exact.
 #:
 #: ``commit`` is deliberately absent: ``HEAD`` is the repository's, not a
@@ -768,11 +768,11 @@ HARDWARE_COMMAND = (
     "--format=csv,noheader"
 )
 
-#: Identity fields no run can answer today, each with the reason (ADR-0027 D2:
+#: Identity fields no run can answer today, each with the reason (D2:
 #: null plus a reason, never a blank and never a number copied from prose).
 HARDWARE_UNANSWERABLE: dict[str, str] = {
     "memory_bandwidth_gb_s": (
-        "not measured by any run: the 21.8 / 13.3 GB/s figures in ADR-0024:40 "
+        "not measured by any run: the 21.8 / 13.3 GB/s figures in :40 "
         "and records/evidence/calibration-2026-08-19/README.md were taken "
         "pre-XMP and never re-taken (step0-gaps.md:202); a run that wants "
         "the number declares it in its #322 header and measures it"

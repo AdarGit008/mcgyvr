@@ -4,7 +4,7 @@ GREEN by design. The thing being ported over assembles context by sending
 dependency *file bodies*, which is cheaper to write and strictly worse: it
 spends the budget on lines the worker will not change, and when a dependency
 cannot be located it degrades into an approximation nobody can tell from a fact.
-mcgyvr's answer is ADR-0007 — the decomposer names a symbol, the index states
+mcgyvr's answer is  — the decomposer names a symbol, the index states
 what it looks like, and if the index cannot state it the unit of work does not
 get emitted.
 

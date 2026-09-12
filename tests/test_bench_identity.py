@@ -1,4 +1,4 @@
-"""Run identity, and the two ways a table is refused (#265, ADR-0027).
+"""Run identity, and the two ways a table is refused (#265).
 
 The acceptance item this file exists for is *"a manifest mutated in any identity
 field is refused by the guard, proven by a test per field"* — so the parametrised
@@ -140,7 +140,7 @@ def test_the_waiver_is_a_parameter_and_never_a_default(identity: Any) -> None:
 def test_one_record_is_not_refused_for_what_it_could_not_answer(
     identity: Any,
 ) -> None:
-    """ADR-0024's consequence survives: an unknown build is still a rate.
+    """the consequence survives: an unknown build is still a rate.
 
     The defect is two records agreeing *by shared absence*. One record agrees
     with nothing, so there is no comparison to refuse — what the caller owes is
@@ -163,7 +163,7 @@ def test_the_three_states_are_distinguishable(identity: Any) -> None:
 
 
 def test_one_condition_rendered_two_ways_is_refused(identity: Any) -> None:
-    """ADR-0027 D6 — a check inside the axis needs no admission experiment."""
+    """D6 — a check inside the axis needs no admission experiment."""
     cells = [
         _manifest(condition="stock", bundle_sha256="aaa"),
         _manifest(condition="stock", bundle_sha256="bbb"),
@@ -203,7 +203,7 @@ def test_the_contrast_axis_is_never_a_keyed_field(identity: Any) -> None:
 def test_recorded_is_wider_than_keyed_and_the_gap_is_named(identity: Any) -> None:
     """#276: recording is unconditional, keying is earned by perturbation.
 
-    The three digests ADR-0026 asked for sit in `PENDING` rather than in `KEY`,
+    The three digests  asked for sit in `PENDING` rather than in `KEY`,
     and that is the correct state rather than an omission — nothing writes them
     yet, and a field in the key that nothing writes is a check that cannot fire.
     """
@@ -214,7 +214,7 @@ def test_recorded_is_wider_than_keyed_and_the_gap_is_named(identity: Any) -> Non
 
 
 def test_bundle_sha256_is_recorded_and_not_keyed_by_decision(identity: Any) -> None:
-    """ADR-0032 clause 6 (#291), which asked the question and answered it `no`.
+    """clause 6 (#291), which asked the question and answered it `no`.
 
     Unlike its neighbours in `PENDING` this one has a writer
     (`tools/breadth/measure.py:915`), so "nothing writes it" is not the reason —
@@ -240,7 +240,7 @@ def test_drift_reads_absence_as_a_difference(identity: Any) -> None:
 
 
 def test_the_key_is_one_list_and_the_report_reads_it(identity: Any) -> None:
-    """ADR-0027 D1 — five lists disagreed, and three lanes were queued to edit."""
+    """D1 — five lists disagreed, and three lanes were queued to edit."""
     report = by_path("bench_report_identity_t", REPO / "tools" / "bench" / "report.py")
     assert report.COMPARABLE is identity.KEY or tuple(report.COMPARABLE) == tuple(
         identity.KEY
@@ -259,7 +259,7 @@ def test_the_bound_key_fields_are_all_in_the_comparability_key(
 def test_the_three_tags_are_computed_from_what_the_record_carries(
     identity: Any,
 ) -> None:
-    """ADR-0027 D8 — computed on read, so a widening key demotes rather than lies."""
+    """D8 — computed on read, so a widening key demotes rather than lies."""
     assert identity.tag(_manifest()) == identity.VERIFIED
 
     incomplete = _manifest()
@@ -302,7 +302,7 @@ def test_the_inventory_skips_records_that_are_not_machine_written(
 
 
 def test_a_manifest_on_disk_can_be_read_for_its_state(identity: Any) -> None:
-    """The migration's precondition (ADR-0027 D8), run against real records.
+    """The migration's precondition (D8), run against real records.
 
     Not an assertion about how many are fingerprinted — that number is the
     campaign's to move. What is pinned is that the question is answerable from
@@ -320,7 +320,7 @@ def test_a_manifest_on_disk_can_be_read_for_its_state(identity: Any) -> None:
 
 # --- the writers (#285) -----------------------------------------------------
 #
-# ADR-0026 decided three fields change from a name to CONTENT and ADR-0027
+#  decided three fields change from a name to CONTENT and
 # shipped the shape; ten of the 27 declared fields had no writer, so `PENDING`
 # could not tell "not admitted" from "nothing computes it". These are the cases
 # for what now computes them.
@@ -440,7 +440,7 @@ def test_the_bar_digest_moves_with_the_rungs(identity: Any) -> None:
 
 
 def test_the_bar_digest_is_per_language(identity: Any) -> None:
-    """ADR-0026: no pooled figure across a stratum where the effect is
+    """: no pooled figure across a stratum where the effect is
     heterogeneous, and the two arms' bars are the case it was written from."""
     assert identity.BAR_PROBE_FILE["python"] != identity.BAR_PROBE_FILE["jsts"]
     _, why = identity.bar_digest(
@@ -627,7 +627,7 @@ def test_neither_arm_is_type_checked_and_both_say_so(
     The issue reads it as the TypeScript arm alone — no `tsconfig.json` is
     staged. True, and incomplete: `score.lint_config` renders a `pyproject.toml`
     holding `[tool.ruff]` and nothing else, so `_declares_mypy` is false and the
-    Python arm is not type-checked either. Per ADR-0006 neither is a defect. The
+    Python arm is not type-checked either. Per  neither is a defect. The
     defect was that a reader of a pass rate could not tell.
 
     Asked of the product's own adapters rather than restated, so a repository
@@ -759,7 +759,7 @@ def test_no_declared_field_is_waiting_on_a_writer(identity: Any) -> None:
 def test_a_verified_record_demotes_when_a_field_is_admitted(
     identity: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """ADR-0027 D8's whole reason for computing the tag on read.
+    """D8's whole reason for computing the tag on read.
 
     Six manifests on disk are `verified` against `KEY` as it stands. The moment
     a digest is admitted they must demote **on their own** — a tag stamped into

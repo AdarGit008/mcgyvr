@@ -29,14 +29,14 @@ Three rules, each one a function below.
    feeds. A missing required field, a wrong type, or a key ``Proposal`` does
    not have refuses the reply **by name** — the last case on purpose, because
    the key a model invents is exactly the one the seam exists to keep out
-   (ADR-0007: ``signature``, ``content``). Dropping it silently would permit
+   (: ``signature``, ``content``). Dropping it silently would permit
    the sixth field the guard did not name. One bad item refuses the reply,
    not the item: a list with a hole in it is not the plan the model stated.
 3. *The prompt is a constant, so the record can hash it.* :data:`SYSTEM` and
    :data:`USER` are module constants and :func:`prompt_digest` is their
    digest; a record that names which prompt produced its proposals is
-   comparable across a month's runs, and one that does not is not (ADR-0026
-   lens 3: a record states the property).
+   comparable across a month's runs, and one that does not is not (lens 3: a
+   record states the property).
 
 **Where the exception classes are.** Every refusal is a named exception with
 the offending thing in its message — :class:`ReplyNotJSONError`,
@@ -333,7 +333,7 @@ def render(evidence: Evidence) -> tuple[str, str]:
 
     Everything in the user half is something exploration already found — the
     candidates with their scores and the bounded reads with their line
-    ranges. Nothing here reads the tree, which is ADR-0001 boundary 2 kept on
+    ranges. Nothing here reads the tree, which is boundary 2 kept on
     this side of the seam as well.
     """
     vocabulary = "\n".join(f"- {t.name}: {t.guarantee}" for t in evidence.vocabulary)

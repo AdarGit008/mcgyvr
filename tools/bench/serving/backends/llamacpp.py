@@ -1236,7 +1236,7 @@ def placements(host: str) -> list[dict[str, Any]]:
 #:
 #: ``-ngl``, ``--n-cpu-moe`` and ``-t`` decide *where each layer is computed*,
 #: which is the axis this whole campaign varies. Since 2026-09-03 they are in
-#: the shared fingerprint's SEMANTIC set (ADR-0041: ``--n-cpu-moe`` 0 against
+#: the shared fingerprint's SEMANTIC set (: ``--n-cpu-moe`` 0 against
 #: 99 on one build moved 9 of 257 verdicts, so placement is semantic until a
 #: placement null shows otherwise). What this engine cannot do is *read* them:
 #: ``/props`` reports none of them, and a value this module typed in from the
@@ -1297,7 +1297,7 @@ def serving_config(props: dict[str, Any] | None) -> dict[str, Any]:
         "uncovered_why": (
             "-ngl, --n-cpu-moe and -t decide where each layer is computed, "
             "which is the axis this campaign varies. They are SEMANTIC in the "
-            "shared fingerprint (ADR-0041) and /props does not report them, "
+            "shared fingerprint  and /props does not report them, "
             "so this engine cannot put them in the digest: two cells differing "
             "only in expert offload share a semantic digest from this engine, "
             "and are NOT comparable on output. The launch command in "

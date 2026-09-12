@@ -46,7 +46,7 @@
 # is the behaviour working, not a bug to route around.
 #
 # Nothing here fabricates. An arm whose build nothing recorded is refused rather
-# than given a plausible string (ADR-0024: a serving build that nothing recorded
+# than given a plausible string (: a serving build that nothing recorded
 # has already moved results twice), and a bound is never written for a
 # comparison that shared no cells.
 #
@@ -190,7 +190,7 @@ if len(set(bars.values())) != 1:
     )
 gate_rungs = list(next(iter(bars.values())))
 
-# ADR-0024. Where the endpoint answers, the recorded build decides; a
+# . Where the endpoint answers, the recorded build decides; a
 # declaration that contradicts it is not quietly preferred.
 for arm in spec["arms"]:
     for run in (arm["run_a"], arm["run_b"]):

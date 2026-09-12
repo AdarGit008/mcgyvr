@@ -21,7 +21,7 @@ movement in a pass rate is attributable to the added rungs rather than to a
 different working directory. What changes is only that four cheaper rungs now
 get to reject first, and that the row records *which* one did.
 
-**The semantic rung is off, and the run manifest says so.** ADR-0011 stages the
+**The semantic rung is off, and the run manifest says so.**  stages the
 resolver rather than installing it, and #113 asks that comparability be stated
 rather than assumed. ``semantic=None`` is a declared property of a bench run,
 not an oversight — see ``gate_rungs`` in ``run.json``.
@@ -52,10 +52,10 @@ REPO = Path(__file__).resolve().parents[2]
 
 # The rungs a bench run exercises, recorded in run.json so a rate is never
 # quoted against an unstated bar. "semantic" is absent by decision, not by
-# accident (ADR-0011).
+# accident .
 GATE_RUNGS = ("scope", "secrets", "structured", "adapters", "acceptance")
 
-# The one acceptance ceiling every live instrument applies (#262, ADR-0035).
+# The one acceptance ceiling every live instrument applies (#262).
 # `tools/problems/admit.py` imports this rather than carrying its own, so a
 # checker admitted to the pool is rehearsed against the ceiling that will score
 # it. The third copy, `tools/bundle/measure.py`'s 30.0, is a retired
@@ -108,7 +108,7 @@ ESLINT_CONFIG = REPO / "eslint.config.mjs"
 #: The format half of the JS/TS bar. Before #262 there was no such file: prettier
 #: ran on its built-in defaults here and in the gate, so one arm applied a
 #: declared style and the other applied whatever its release shipped with, and
-#: no manifest recorded the difference. ADR-0035.
+#: no manifest recorded the difference. .
 PRETTIER_CONFIG = REPO / "prettier.config.mjs"
 NODE_MODULES = REPO / "node_modules"
 
@@ -232,7 +232,7 @@ class Verdict:
     #: carrying any of these was scored by fewer rungs than the arm declares,
     #: so a rate computed over it is not the rate it names. Kept separate from
     #: ``environment_issues`` because an absent tool leaves the same hole
-    #: visibly, and only this one arrives looking like a pass (ADR-0034).
+    #: visibly, and only this one arrives looking like a pass .
     inconclusive: tuple[str, ...] = ()
 
     @property
@@ -290,7 +290,7 @@ def stage_config(into: Path) -> Path:
 
     Deliberately **not** here: ``tsconfig.json`` and ``[tool.mypy]``. Neither
     arm is type-checked, both for the same reason and by the same rule
-    (ADR-0006: the type checker is the target repository's, and a repository
+    (: the type checker is the target repository's, and a repository
     declaring none is correctly not type-checked). Adding either would be a new
     rung rather than a recorded one. What #262 asks for is that a reader can
     see it, which is ``identity.bar_material``'s ``type_check`` entry.
@@ -475,7 +475,7 @@ def preflight(tasks: Any, *, gate: Gate | None = None) -> tuple[str, ...]:
 
     # The confound that matters most: two arms scored differently. Even when
     # every arm is individually explicable, a *difference* between them lands
-    # inside every paired contrast, which is ADR-0021's whole denominator.
+    # inside every paired contrast, which is the whole denominator.
     # Compared over the rungs each arm was *expected* to exercise, not over the
     # raw set the canary happened to trip. Two canaries are different code in
     # different languages and will naturally fire different extra checks — the

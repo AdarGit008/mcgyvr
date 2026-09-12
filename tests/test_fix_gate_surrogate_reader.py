@@ -256,7 +256,7 @@ def test_semantic_rung_reports_one_unreadable_file_without_losing_the_others(
     other file in it.
 
     Driven through the real rung in a real sandbox, because the driver is never
-    imported on the host (ADR-0010) and the host has no ``ghostcall``.
+    imported on the host  and the host has no ``ghostcall``.
     """
     with TempDirSandbox(repo) as sandbox:
         (sandbox.workspace / "bad.py").write_bytes(

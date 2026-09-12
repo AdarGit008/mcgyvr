@@ -78,7 +78,7 @@ with no reason cannot tell "refused" from "nothing to do":
   :class:`Accepted` carries in from where it could be run. What re-runs cheaply
   and catches what no rung could is *identity*: a substitution parses and lints,
   and only a comparison against the bytes just written can see it.
-* **A rung of that gate run that could not say what bar it applied.** ADR-0034:
+* **A rung of that gate run that could not say what bar it applied.** :
   a tool that is *absent* leaves a hole an operator can see and does not reject,
   and a tool that is present and then *fails* leaves a hole shaped exactly like
   a pass. So the commit-time gate run is read through
@@ -114,7 +114,7 @@ request — a remote, a forge token, an HTTP
 call. It is rejected because the seam that must be certain about what it writes
 would become the seam that also owns network transport, credential handling and
 one forge's API shape, all of it unreachable from any test that does not either
-mock the forge — ADR-0014, "the acceptance boundary is never mocked" — or hold a
+mock the forge — , "the acceptance boundary is never mocked" — or hold a
 real token. A branch and a printed command are checkable from a temporary
 directory, and they leave the operator holding exactly the same decision a pull
 request would have put in front of them.
@@ -434,7 +434,7 @@ class Delivery:
 
     inconclusive: tuple[InconclusiveRung, ...] = field(default=())
     """Which rungs of the commit-time gate run ran and could not say what bar
-    they applied (ADR-0034).
+    they applied .
 
     A separate field from :attr:`findings` because the two mean opposite things
     to the caller holding them. A finding is a claim about the change and is
@@ -444,9 +444,9 @@ class Delivery:
     Folding them together would put "ruff could not load your pyproject.toml"
     into the next prompt as something a model was expected to correct.
 
-    Structured rather than left to :attr:`reason` for the reason ADR-0034
-    clause 5 gives one line up in the gate: a run manifest has to answer *which
-    rung was inconclusive* per row, and a rate quoted from rows where lint could
+    Structured rather than left to :attr:`reason` for the reason clause 5 gives
+    one line up in the gate: a run manifest has to answer *which rung was
+    inconclusive* per row, and a rate quoted from rows where lint could
     not run is not the rate it claims to be. A caller re-deriving that by
     parsing a sentence is the coupling the field exists to prevent."""
 
@@ -618,14 +618,14 @@ def deliver(
                 # Findings first, and this second, because the two refusals are
                 # about different things and the reader needs the one that is
                 # about their change. A rung that faulted claims nothing about
-                # the worker (ADR-0034 clause 3); if something else already
+                # the worker (clause 3); if something else already
                 # rejected, that is the sentence worth having.
                 return call.refuse(
                     f"{rel} could not be judged in {root.name}: "
                     f"{_unjudged(verdict.inconclusive)}. Nothing is committed: a "
                     f"rung that ran and cannot say what bar it applied did not "
                     f"pass it, and a linter that reported clean while applying "
-                    f"no bar is a hole shaped exactly like a pass (ADR-0034). "
+                    f"no bar is a hole shaped exactly like a pass . "
                     f"Fix what the tool is complaining about and deliver again.",
                     inconclusive=verdict.inconclusive,
                 )
@@ -704,7 +704,7 @@ class _Call:
         The two structured channels are separate parameters rather than one,
         and every refusal but the gate's passes neither: a refusal about a dirty
         tree or a lone surrogate is not a verdict on the change, and inventing
-        an empty finding list for it would be the same conflation ADR-0034 drew
+        an empty finding list for it would be the same conflation  drew
         the line against one layer down.
         """
         return Delivery(
@@ -1261,7 +1261,7 @@ def _judged(
 
     **The whole result comes back, not its findings.** This returned
     ``result.findings`` and the call site asked ``if findings:``, which is the
-    reading of "accepted" that predates ADR-0034 — :attr:`GateResult.accepted`
+    reading of "accepted" that predates  — :attr:`GateResult.accepted`
     is ``not findings and not inconclusive``, and the dropped half is the one
     that exists precisely because a rung which crashed reports clean. With a
     repository whose ``pyproject.toml`` ruff cannot load, every ruff invocation
@@ -1296,7 +1296,7 @@ def _judged(
 def _unjudged(rungs: Sequence[InconclusiveRung]) -> str:
     """Every rung that could not say what bar it applied, in its own words.
 
-    All of them, not the first. ADR-0034 clause 6 keeps each rung being
+    All of them, not the first. clause 6 keeps each rung being
     attempted after one faults so that "an operator fixing a broken environment
     gets both complaints from one run, not one per run" — quoting only the head
     of the list here would spend that and hand back one complaint anyway.

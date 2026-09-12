@@ -9,7 +9,7 @@ that would silently spoil a run actually live:
   about a file resembling it — the same rule
   ``test_worker_prompt.py`` holds for Python's ``c2.md``. A drift here would not
   fail the sweep; it would produce numbers describing a prompt nobody ships.
-* **The ladder must stay nested.** CLM-0004's conditions are cumulative — c1 is
+* **The ladder must stay nested.** the conditions are cumulative — c1 is
   c2's opening, c2 is c3's — so a condition is *only* a size. If an edit made
   c1 differ from c2's first section in wording as well as length, the ladder
   would be measuring two variables and reporting one.
@@ -57,7 +57,7 @@ CONDITIONS = BUNDLE_TOOLS / "conditions"
 SHIPPED = REPO / "src" / "mcgyvr" / "prompts" / "javascript.md"
 
 # The composition the task set was built to, mapped onto mcgyvr's own catalog
-# vocabulary. It is not CLM-0004's composition and cannot be: the Python set
+# vocabulary. It is not the composition and cannot be: the Python set
 # used `refactor` and `edge_case`, neither of which exists in
 # `data/task-catalog.json`, so those intents are carried by the types that own
 # them here. Pinned as a test so a task added later has to state which arm it
@@ -97,7 +97,7 @@ def _condition(name: str) -> str:
 
 
 def test_the_task_set_is_twenty_tasks() -> None:
-    """CLM-0004's n. A different one would not be comparable with its rates."""
+    """the n. A different one would not be comparable with its rates."""
     assert len(_task_dirs()) == 20
 
 
@@ -215,7 +215,7 @@ def test_only_the_lower_rungs_would_pass_the_measured_ceiling() -> None:
     """c3 is over ``MAX_BUNDLE_BYTES`` on purpose — it is the degradation end.
 
     If c3 ever fit under the ceiling it would have stopped being the condition
-    CLM-0004 named, and the ladder would have no upper arm.
+     named, and the ladder would have no upper arm.
     """
     assert len(_condition("c1").encode("utf-8")) <= MAX_BUNDLE_BYTES
     assert len(_condition("c2").encode("utf-8")) <= MAX_BUNDLE_BYTES
@@ -240,7 +240,6 @@ def test_the_shipped_bundle_declares_the_null_result_it_measured() -> None:
     text = SHIPPED.read_text(encoding="utf-8")
     assert text.startswith("<!--")
     assert "NO EFFECT" in text
-    assert "CLM-0012" in text
     assert "#144" in text
     # The superseded standing must not linger in the file that now disproves it.
     assert "UNMEASURED" not in text
@@ -258,7 +257,7 @@ def test_a_measured_bundle_does_not_imply_a_bundle_that_helped() -> None:
     path — but for different reasons, and the reasons are the point. The JS/TS
     ladder measured no effect at all; the Python one measured a real effect that
     ``render_user_message`` already delivers (#167). If these ever collapse to
-    the same value, a reader starts citing CLM-0012 as if it said what CLM-0004
+    the same value, a reader starts citing  as if it said what
     said, or writes off an artifact that is worth four tasks in twenty to a
     harness without output rules of its own.
     """
@@ -838,7 +837,7 @@ def test_a_dispatch_error_is_a_row_not_an_exception(tmp_path: Path) -> None:
 
 
 def test_a_refused_reply_is_kept_verbatim_with_its_sha(tmp_path: Path) -> None:
-    """The replies the parser refuses are the corpus, not noise (ADR-0016).
+    """The replies the parser refuses are the corpus, not noise .
 
     The JS/TS sweep kept an error code and dropped the text for 160 real
     replies; the refused ones are exactly the population a hand-authored
@@ -940,7 +939,7 @@ def test_resume_skips_the_cells_already_recorded(tmp_path: Path) -> None:
 def test_every_reference_passes_its_own_acceptance() -> None:
     """The rig's ``--selftest``, run as a test. Red here invalidates a sweep.
 
-    CLM-0004's design makes this a precondition rather than a nicety: an
+    the design makes this a precondition rather than a nicety: an
     acceptance script that its own reference cannot satisfy would charge a model
     for the task set's defect, in every condition equally, and the ladder would
     still look like a ladder.

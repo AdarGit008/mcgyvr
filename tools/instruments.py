@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """#230 — which task sets are instruments, declared once and read by everyone.
 
-ADR-0018's corollary is that *the instrument is declared, and protected at the
+the corollary is that *the instrument is declared, and protected at the
 point of entry*. Before this module the declaration existed as a convention
 repeated in one place and absent from two: ``tools/problems/admit.py`` knew the
 pool must not collide with the bundle sets, while ``tools/replies/pin.py`` and

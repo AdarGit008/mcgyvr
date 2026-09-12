@@ -152,7 +152,7 @@ measurement and is wrong.
 Correcting that is worth ~2.4x in throughput.** What the floor does to the
 model's *output* is unmeasured, and "unmeasured" is not "nothing": `--n-cpu-moe`
 is a semantic key until a placement null at that value, on that build, shows it
-neutral (ADR-0041; measured 2026-09-02 on srv1, `ncmoe` 0 vs 99 flipped 9 of
+neutral (; measured 2026-09-02 on srv1, `ncmoe` 0 vs 99 flipped 9 of
 257 verdicts against a 0-flip own null). Quote a floor for fit and speed only.
 srv2, Qwen3.6-35B-A3B UD-IQ3_XXS, `np=8 ctx_slot=2048`, 2026-09-01:
 

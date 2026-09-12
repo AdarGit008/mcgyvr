@@ -208,7 +208,7 @@ def test_psi_draw_is_never_described_as_a_bound() -> None:
 
 
 def test_no_row_is_pooled_across_tiers_or_arms() -> None:
-    """ADR-0019 D2 and ADR-0026, carried from ``resolution.py`` unchanged.
+    """D2 and , carried from ``resolution.py`` unchanged.
 
     Every row names exactly one tier and one arm, and the only aggregate row is
     the arm-level one, which is labelled so it cannot be quoted as the bench's
@@ -285,7 +285,7 @@ def test_the_share_of_the_gap_that_was_the_scorer(
     On `bug_fix+scaffold` the scorer explains 7-8% of the distance between
     `psi_draw` and `headroom`; on `function_implementation` and
     `function_implementation+scaffold` it explains 58-68%. A pooled figure would
-    land between two clusters that share no members, which is ADR-0026's
+    land between two clusters that share no members, which is the
     heterogeneity objection in one table.
     """
     measured = {

@@ -1,6 +1,6 @@
 <!-- MEASURED, AND THIS PROJECT'S OWN PROMPT ALREADY DOES IT
-     (CLM-0004 for the effect, #167 for the standing). This file is the
-     context_exp c2 condition byte for byte, and CLM-0004 measured that ladder
+     ( for the effect, #167 for the standing). This file is the
+     context_exp c2 condition byte for byte, and  measured that ladder
      taking qwen2.5-coder:3b from 45% to 70% first-pass at ~2.5x the speed.
      That result stands and reproduces on Ollama (#167 arm B). What it was
      measured against is a user message with no output rule in it. mcgyvr's

@@ -71,7 +71,7 @@ breadth = _by_path("breadth_lintless", ROOT / "tools" / "breadth" / "measure.py"
 # The pre-registered pair, imported rather than restated. This file held its own
 # copy of the two run names — the same strings check 2's own tool declares — so
 # repointing the control and forgetting the re-scorer would have re-scored one
-# model's candidates under another's heading, silently. ADR-0026 lens 3: one
+# model's candidates under another's heading, silently. lens 3: one
 # definition is the source, or both are declared. Defaults, not constants:
 # #231 check 5 re-runs the battery at a second tier.
 control = _by_path("bench_control_lintless", ROOT / "tools" / "bench" / "control.py")

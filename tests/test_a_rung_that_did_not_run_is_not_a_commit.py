@@ -1,4 +1,4 @@
-"""ADR-0034 at the commit point: a rung that did not run is not a rung that passed.
+"""at the commit point: a rung that did not run is not a rung that passed.
 
 :func:`mcgyvr.deliver.deliver` runs the gate for itself, over the bytes on disk,
 inside the repository lock and immediately before staging. That re-run is the
@@ -6,13 +6,13 @@ module's stated floor — *"Nothing a caller says can make un-judged bytes into 
 commit"* — and it read one field of the gate's answer. ``_judged`` returned
 :attr:`~mcgyvr.gate.GateResult.findings` and dropped the rest, while
 :attr:`~mcgyvr.gate.GateResult.accepted` is ``not findings and not
-inconclusive``. The second half is the half ADR-0034 added; delivery was
+inconclusive``. The second half is the half  added; delivery was
 deciding on the half that predates it.
 
 What that costs is neither hypothetical nor a race. A repository whose
 ``pyproject.toml`` ruff cannot load — a key from another ruff, a half-finished
 edit, a version skew — makes every ruff invocation exit **2 with an empty
-stdout**. ADR-0034 measured precisely that, and it is why an adapter raises
+stdout**.  measured precisely that, and it is why an adapter raises
 :class:`~mcgyvr.gate.adapter.ToolFailedError` on an exit code it does not report
 under: an empty finding list must never also mean *we could not tell*. The gate
 does the right thing with it — an :class:`~mcgyvr.gate.runner.InconclusiveRung`
@@ -30,7 +30,7 @@ gate run is the only gate the bytes ever see, so a rung that did not run is not
 a degraded second opinion; it is the acceptance bar missing.
 
 **Nothing here is substituted.** The linter that cannot run is the project's own
-ruff, failing the way ADR-0034 measured it fail, against a config file this test
+ruff, failing the way  measured it fail, against a config file this test
 writes into the repository being delivered into. A stand-in adapter raising
 ``ToolFailedError`` would have proved the same refusal fires, and would also have
 proved it against a gate whose lint rung the test wrote — which is the one thing
@@ -40,7 +40,7 @@ the reproduction must not assume.
 every delivery satisfies "it did not commit" perfectly, so
 :func:`test_a_repository_whose_linter_runs_still_delivers` runs the identical
 delivery over a config ruff reads and requires the commit. And
-:func:`test_an_absent_tool_is_still_not_a_refusal` holds ADR-0034's fourth
+:func:`test_an_absent_tool_is_still_not_a_refusal` holds the fourth
 clause, which is the one this fix could most easily break by accident: a tool
 that is *missing* leaves a hole an operator can see, is recorded in
 ``environment_issues``, and must keep delivering — the keyless install (#44) is
@@ -84,7 +84,7 @@ AFTER = "def fetch(url):\n    return url.strip()\n"
 
 #: A `pyproject.toml` ruff refuses to load. `unknown field` is what ruff answers
 #: with, on **exit 2 and an empty stdout** for every one of the four invocations
-#: the adapters make — the measurement ADR-0034 turns on, re-measured here by
+#: the adapters make — the measurement  turns on, re-measured here by
 #: `test_the_premise_is_a_ruff_that_exits_2` rather than assumed.
 UNREADABLE_CONFIG = "[tool.ruff]\nnot-a-real-ruff-key = 3\n"
 
@@ -118,7 +118,7 @@ needs_ruff = pytest.mark.skipif(
 def test_the_premise_is_a_ruff_that_exits_2(tmp_path: Path) -> None:
     """The measurement the rest of this file stands on, taken rather than assumed.
 
-    ADR-0034's table is dated 2026-08-16 and the record says so on purpose:
+    the table is dated 2026-08-16 and the record says so on purpose:
     "the fix is only correct for as long as that table is". If a later ruff
     answers an unloadable config with exit 1, or with a diagnostic on stdout,
     every test below would keep passing for the wrong reason — the change would
@@ -137,7 +137,7 @@ def test_the_premise_is_a_ruff_that_exits_2(tmp_path: Path) -> None:
 
     assert done.returncode == 2, (
         f"ruff answered an unloadable config with {done.returncode}, not 2; "
-        f"ADR-0034's measured table has moved and this file's premise with it"
+        f"the measured table has moved and this file's premise with it"
     )
     assert not done.stdout.strip(), (
         f"ruff wrote {done.stdout!r} on its failure. The whole defect is that an "
@@ -155,7 +155,7 @@ def test_a_linter_that_could_not_run_does_not_get_a_commit(tmp_path: Path) -> No
     "judged ... either way". With ruff unable to load the repository's config,
     lint and format both come back inconclusive and neither comes back as a
     finding, so the only thing standing between these bytes and a commit is
-    whether delivery reads the field ADR-0034 added.
+    whether delivery reads the field  added.
 
     Asserted as "did not commit" rather than as a reason, because the reason is
     :func:`test_the_refusal_names_what_could_not_be_judged`'s and a commit that
@@ -169,7 +169,7 @@ def test_a_linter_that_could_not_run_does_not_get_a_commit(tmp_path: Path) -> No
     assert not delivery.committed, (
         "delivery committed a change whose lint and format rungs never ran. "
         "`GateResult.accepted` is `not findings and not inconclusive`, and this "
-        "seam read only the first half (ADR-0034)."
+        "seam read only the first half ."
     )
     assert git(repo, "rev-parse", "HEAD").strip() == base, (
         "a commit is on the branch, so the refusal — if there was one — did not "
@@ -182,7 +182,7 @@ def test_the_refusal_names_what_could_not_be_judged(tmp_path: Path) -> None:
     """A refusal an operator can act on names the rung, the tool and the exit code.
 
     "Rejected" would be the wrong word and an unusable one. Nothing is claimed
-    about the change here — ADR-0034 clause 3 is explicit that no finding is
+    about the change here — clause 3 is explicit that no finding is
     invented — and the operator's next move is to fix a config file, which they
     can only do if the refusal says which tool would not load it. That is what
     :class:`~mcgyvr.gate.runner.InconclusiveRung` carries, and it is asserted
@@ -200,14 +200,14 @@ def test_the_refusal_names_what_could_not_be_judged(tmp_path: Path) -> None:
     assert "lint" in delivery.reason, delivery.reason
     assert "2" in delivery.reason, delivery.reason
     assert not delivery.findings, (
-        f"the refusal invented findings: {delivery.findings}. ADR-0034 clause 3 "
+        f"the refusal invented findings: {delivery.findings}. clause 3 "
         f"— the change is not rejected, it simply did not pass a bar that never "
         f"ran — and a caller reporting these to a worker would ask it to fix "
         f"nothing it did."
     )
     assert {rung.rung for rung in delivery.inconclusive} == {"lint", "format"}, (
         f"the Delivery does not carry which rungs could not run: "
-        f"{delivery.inconclusive}. Both ruff rungs faulted, and ADR-0034 clause "
+        f"{delivery.inconclusive}. Both ruff rungs faulted, and clause "
         f"6 keeps every rung being attempted after one faults."
     )
     assert all(rung.tool == "ruff" for rung in delivery.inconclusive)
@@ -236,14 +236,14 @@ def test_a_repository_whose_linter_runs_still_delivers(tmp_path: Path) -> None:
 def test_an_absent_tool_is_still_not_a_refusal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """ADR-0034 clause 4, which this fix must not quietly repeal.
+    """clause 4, which this fix must not quietly repeal.
 
     A tool that is *absent* leaves a legible hole: it is recorded in
     ``environment_issues``, it does not reject, and the verdict is still
     reached. ``README.md`` promises a keyless install "runs local-only ... with
     the gate as the acceptance bar" (#44), and a machine without ruff is an
     ordinary machine. The two cases look alike from a distance and mean opposite
-    things, which is the whole distinction ADR-0034 was opened to draw — so the
+    things, which is the whole distinction  was opened to draw — so the
     narrowest way to get this fix wrong is to reject on both.
 
     ``require_tool`` is what the adapter asks "is this machine's ruff there", so
@@ -267,7 +267,7 @@ def test_an_absent_tool_is_still_not_a_refusal(
 
     assert delivery.committed, (
         f"a machine with no ruff could not deliver: {delivery.reason}. An absent "
-        f"tool is an environment issue, never an inconclusive rung (ADR-0034 "
+        f"tool is an environment issue, never an inconclusive rung ( "
         f"clause 4), and the keyless install is what that clause preserves."
     )
     assert not delivery.inconclusive

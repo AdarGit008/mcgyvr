@@ -7,7 +7,7 @@ things worth pinning are the refusals rather than the formatting:
   pass rate that names nothing is not a result;
 * two cells that differ in anything but their condition are not laid beside
   each other. That is the defect #189 shipped, folding a backend change into a
-  weights contrast, and the one ADR-0024 closes.
+  weights contrast, and the one  closes.
 
 And two absences must be stated rather than defaulted:
 
@@ -46,7 +46,7 @@ def _cell(
     directory = tmp_path / condition
     directory.mkdir(parents=True, exist_ok=True)
     # A complete identity block, because that is what a run now writes: under
-    # ADR-0027 a keyed field this manifest cannot answer refuses the table
+    #  a keyed field this manifest cannot answer refuses the table
     # rather than comparing equal to the next cell's silence. The tests that
     # care about an incomplete one build it by deleting from here, so what they
     # exercise is visible at the call site.
@@ -120,7 +120,7 @@ def test_an_unknown_build_is_reported_rather_than_refused(
 def test_cells_from_two_builds_are_not_laid_beside_each_other(
     report: Any, tmp_path: Path
 ) -> None:
-    """ADR-0024's confound: an ollama patch release nothing on disk recorded."""
+    """the confound: an ollama patch release nothing on disk recorded."""
     cells = [
         report.read_cell(_cell(tmp_path, "stock", 3)),
         report.read_cell(_cell(tmp_path, "planonly", 5, serving_build="0.32.4")),
@@ -170,7 +170,7 @@ def test_every_figure_declares_single_tier(report: Any, tmp_path: Path) -> None:
 
 
 def test_both_outcome_axes_are_reported(report: Any, tmp_path: Path) -> None:
-    """Pass rate alone cannot rank levers — ADR-0018's two axes."""
+    """Pass rate alone cannot rank levers — the two axes."""
     text = report.render([report.read_cell(_cell(tmp_path, "stock", 3))])
     assert "prompt" in text and "completion" in text
     assert "700" in text and "150" in text
@@ -312,7 +312,7 @@ def test_a_null_measured_under_a_different_bar_does_not_describe_this_run(
 def test_a_null_measured_on_a_different_build_does_not_describe_this_run(
     report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """ADR-0024: an ollama patch release moved results and nothing recorded it."""
+    """: an ollama patch release moved results and nothing recorded it."""
     _declare(report, monkeypatch, tmp_path, _bound(serving_build="0.32.4"))
     text = report.render([report.read_cell(_cell(tmp_path, "stock", 3))])
     assert "not declared" in text
@@ -322,7 +322,7 @@ def test_a_null_measured_on_a_different_build_does_not_describe_this_run(
 def test_a_null_from_another_tier_is_not_borrowed(
     report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """ADR-0019 D2: measured per target tier, and it does not transfer."""
+    """D2: measured per target tier, and it does not transfer."""
     _declare(report, monkeypatch, tmp_path, _bound(tier="bench-ts"))
     text = report.render([report.read_cell(_cell(tmp_path, "stock", 3))])
     assert "no null has been measured" in text

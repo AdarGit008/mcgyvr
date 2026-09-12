@@ -819,7 +819,7 @@ def worker_attempt(
         def judge_draw(space: Sandbox) -> GateResult:
             # The gate is handed the sandbox, not a bare path, because a
             # contract's acceptance commands are arbitrary shell and run inside
-            # a sandbox and nowhere else (ADR-0005). `gate_workspace` takes the
+            # a sandbox and nowhere else . `gate_workspace` takes the
             # sandbox and judges whatever is in it right now, so the draw
             # `best_of` just wrote is what the verdict is about.
             result = gate_workspace(contract, space, adapters=adapters)

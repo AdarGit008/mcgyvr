@@ -294,7 +294,7 @@ scope:
   allow: ["src/**"]
 """
 
-# A deterministic type whose floor binds no program: ADR-0025 holds eslint at
+# A deterministic type whose floor binds no program:  holds eslint at
 # `recommended`, which has no import-order rule, so nothing sorts imports in
 # js/ts. This is the contract that still reaches the empty-plan path now that
 # the floor binds tools for the types that have them.
@@ -659,7 +659,7 @@ def test_the_deterministic_family_plans_the_tool_that_does_the_work() -> None:
 def test_a_deterministic_type_with_no_program_for_its_target_still_says_why() -> None:
     """The structural reason survives, narrowed to the case that now reaches it.
 
-    ADR-0025 holds eslint at `recommended`, which has no import-order rule, so
+     holds eslint at `recommended`, which has no import-order rule, so
     there is no js/ts import sorter to bind. That is a missing *program for a
     type*, not a missing source for a rung, and the words have to send an
     operator to the right file.

@@ -24,7 +24,7 @@ that no test of the live ladder ever exercises — and the branch it left behind
 deleting things that are true: the pointers to this archive that the last test
 in this file *requires* be findable, and the provenance of measurements actually
 taken on that backend (``prompts/python.md`` "#167 arm B", ``capability.py``'s Q4
-reading, ``worker/bundle.py``'s CLM-0004 instrument, and the recorded rows under
+reading, ``worker/bundle.py``'s  instrument, and the recorded rows under
 ``tools/bench/``). A record of where a number came from is not support for a
 backend; erasing it makes the record false, which is the thing the round pin in
 ``test_dod_round_autoopen.py`` exists to prevent. So a line whose only mention is
@@ -59,11 +59,11 @@ ladder:
 OLLAMA = re.compile(r"\bollama\b", re.IGNORECASE)
 
 #: A mention that is a citation rather than a capability: a pointer into the
-#: archive, or the provenance of a measurement (an issue number, a CLM/CAV
+#: archive, or the provenance of a measurement (an issue number, a CAV
 #: study id, or a dated reading). These are records; deleting them to satisfy
 #: a word-ban would make the record false.
 CITED = re.compile(
-    r"archive/forensic-ollama|#\d{2,}|CLM-\d+|CAV-\d+|\b20\d\d-\d\d-\d\d\b",
+    r"archive/forensic-ollama|#\d{2,}|CAV-\d+|\b20\d\d-\d\d-\d\d\b",
     re.IGNORECASE,
 )
 

@@ -3,8 +3,8 @@
 
 The corpus is the raw reply files the measurement rigs already write —
 ``candidates/`` under a breadth run, ``replies/`` under a bundle run — left
-exactly where they landed. This tool does not copy or curate them; per
-ADR-0016 a curation step is a step that gets skipped, and the population the
+exactly where they landed. This tool does not copy or curate them; a curation
+step is a step that gets skipped, and the population the
 parser is measured against must be the one it actually faces. What this
 writes is ``golden.json``: for each captured reply, the inputs the parser was
 given (the stop reason from the run's own row, the output schema) and the
@@ -32,7 +32,7 @@ entry, and it is a **stamp rather than an exclusion**: every run is classified
 against ``tools/instruments.json`` and the verdict is written into the
 document, so the training path can refuse what the parser corpus must keep.
 
-Keeping it is not a compromise. ADR-0016 is explicit that the population the
+Keeping it is not a compromise.  is explicit that the population the
 parser is measured against must be the one it actually faces, and 8,432 of
 these replies came from ``d1``; dropping them to protect a *different*
 consumer would curate the parser's corpus down to the shapes that happen to be

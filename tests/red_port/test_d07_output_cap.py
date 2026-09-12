@@ -34,7 +34,7 @@ handed a bare falsy result cannot tell "your prompt is too big for this rung" fr
 first of those is repairable by re-decomposing while the others are not.
 
 That test also pins :data:`~mcgyvr.gate.preflight.ESTIMATE_RESERVE`. mcgyvr charges a
-measured 32% against the model-free estimator's under-counting tail (CLM-0011); the
+measured 32% against the model-free estimator's under-counting tail ; the
 ported budget check must inherit that reserve rather than a cheerier one, so the
 prompt it is given fits comfortably on a raw count and only fails once the reserve is
 applied. A budget check written against the raw estimate would pass every other

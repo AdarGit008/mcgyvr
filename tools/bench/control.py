@@ -65,14 +65,14 @@ report = _by_path("bench_report_control", ROOT / "tools" / "bench" / "report.py"
 # mechanism, m >= 6 or no p-value), and none of that moves with --stock.
 # Named `*_RUN` because `STOCK` is already a *condition* name in
 # `tools/breadth/measure.py` — one word for the render the matrix dispatches and
-# for the directory a render was measured into. ADR-0026 lens 3: two meanings
+# for the directory a render was measured into. lens 3: two meanings
 # under one name is a collision a reader resolves by guessing.
 STOCK_RUN = "bench-null-gate-15b-a-2026-08-13"
 SENSITIVITY_RUN = "bench-null-gate-15b-b-2026-08-13"
 NORULE_RUN = "bench-control-norule-15b-2026-08-13"
 ARMS = ("bench-py", "bench-ts")
 
-# CLM-0017, quoted as context and explicitly not as a target: different
+# , quoted as context and explicitly not as a target: different
 # material, a different harness and a different model.
 HISTORIC = {"pass": (7, 11, 20), "completion": (427.4, 121.5)}
 
@@ -181,7 +181,7 @@ def declared_bound(run: str, arm: str) -> tuple[float | None, str]:
     Looked up per (model, tier, gate_rungs, serving_build) from
     ``tools/bench/reproducibility.json`` rather than carried as a constant. This
     file held ``BOUND_PP = 1.47`` — the 1.5B's number — and reading a second
-    tier's contrast against it is exactly the borrowing ADR-0019 D2 forbids: a
+    tier's contrast against it is exactly the borrowing D2 forbids: a
     higher-pass-rate model has more cells near the boundary and therefore its
     own null. A tier with no null declared gets no "INSIDE the bound" annotation
     at all, which is the honest output; a delta smaller than an undeclared drift
@@ -297,7 +297,7 @@ def main() -> int:
 
     print("\n## The mechanism's signature — completion tokens\n")
     print(
-        f"  historic (CLM-0017, other material/harness/model): "
+        f"  historic (other material/harness/model): "
         f"{HISTORIC['completion'][1]:.1f} with the rule -> "
         f"{HISTORIC['completion'][0]:.1f} without"
         f"  ({HISTORIC['completion'][0] / HISTORIC['completion'][1]:.1f}x)"

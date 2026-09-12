@@ -780,7 +780,7 @@ def test_an_unusable_environment_variable_name_is_refused(
         backend._start(
             "h",
             "m",
-            # ADR-0039: `serve` must declare its KV cache or `_start` refuses
+            # : `serve` must declare its KV cache or `_start` refuses
             # before it reaches the env names this test is about.
             {
                 "kv_cache_memory_bytes": 1879048192,
@@ -868,7 +868,7 @@ def test_no_host_reading_reaches_disk_unredacted(
             "vllm_launch": vllm._start(
                 "h",
                 "m",
-                # ADR-0039: declared so `_start` reaches the launch record this
+                # : declared so `_start` reaches the launch record this
                 # test reads; the value is irrelevant to redaction.
                 {
                     "kv_cache_memory_bytes": 1879048192,
@@ -981,7 +981,7 @@ def test_the_two_digests_move_independently(fingerprint: Any) -> None:
 
     The semantic half is the one a guard could key on, so a change to metrics
     must leave it untouched — and a change to structured-output enforcement must
-    move it, because that changes what a reply is allowed to be (ADR-0009).
+    move it, because that changes what a reply is allowed to be .
     """
     base = fingerprint.parse_repr("Config(" + LIVE_REPR + ")")
     base.pop("_type", None)
@@ -1158,7 +1158,7 @@ def test_a_reused_pid_after_a_reboot_is_not_the_same_process(pin_module: Any) ->
 
 #: What `ps -eo pid=,ppid=,args= | grep -E '[V]LLM::EngineCore|[v]llm serve|…'`
 #: printed on srv1, 2026-08-22, with vLLM installed by pip. Verbatim, because a
-#: fixture captures what the parser reads (ADR-0016) — including the launcher's
+#: fixture captures what the parser reads  — including the launcher's
 #: own `bash -c` line, which the grep matches too.
 _SRV1_TREE = (
     "1133927       1 bash -c export VLLM_SERVER_DEV_MODE=1 "
@@ -1223,7 +1223,7 @@ def _vllm_card(
 def test_a_vllm_placement_reports_the_card_it_holds_and_refuses_the_fraction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ADR-0040 rules 1 and 2, on both rigs' real readings.
+    """rules 1 and 2, on both rigs' real readings.
 
     ollama reports `size_vram / size` because llama.cpp spills — 6.8% of a model
     on the card, `load_http=200` beside it. vLLM cannot: `requested = ceil(total
@@ -1247,10 +1247,10 @@ def test_a_vllm_placement_reports_the_card_it_holds_and_refuses_the_fraction(
         # Present and null, not absent: an absent key would say this reading
         # predates the contract, and this engine will never answer it.
         assert "fraction" in mine[0] and mine[0]["fraction"] is None
-        assert mine[0]["fraction_refused"], "ADR-0027 D2: a null carries its reason"
+        assert mine[0]["fraction_refused"], "D2: a null carries its reason"
         assert not [row for row in rows if row["fraction"] == 1.0], (
             "1.0 is true by this engine's contract and is the one value a "
-            "reader would compare against an ollama 0.068 (ADR-0038 D4)"
+            "reader would compare against an ollama 0.068 (D4)"
         )
 
 
@@ -1284,7 +1284,7 @@ def test_the_pid_that_holds_the_card_names_no_model_so_the_owner_is_the_parent(
 def test_a_card_holder_this_engine_cannot_name_is_a_row_and_not_a_silence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ADR-0040 rule 3, against the co-residency reading that motivated it.
+    """rule 3, against the co-residency reading that motivated it.
 
     srv1 held both engines on 2026-08-22: 3,126 MiB attributed to vLLM's worker
     and 1,196 MiB to a `llama-server` whose parent is `ollama serve`. Dropping
@@ -1304,7 +1304,7 @@ def test_a_card_holder_this_engine_cannot_name_is_a_row_and_not_a_silence(
 def test_a_served_model_the_driver_attributed_nothing_to_is_recorded_as_unplaced(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ADR-0040 rule 4 — the other direction of the same silence.
+    """rule 4 — the other direction of the same silence.
 
     The server answers `/v1/models` and the driver attributes no memory to it:
     a worker still starting, or one whose process the narrowed read did not
@@ -1361,7 +1361,7 @@ def test_an_unread_card_is_refused_and_never_an_empty_placement_list(
 def test_a_vllm_claim_records_where_everything_on_the_card_sits_and_gates_on_none_of_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ADR-0040 rule 5, on the claim side, where #335 put the ollama half.
+    """rule 5, on the claim side, where #335 put the ollama half.
 
     `allocation_present` is a threshold over the card's TOTAL, so it says yes to
     a card whose memory belongs to somebody else. What the claim could not say
@@ -2114,7 +2114,7 @@ def test_the_width_read_off_a_container_ignores_the_one_that_exited(
     `docker ps -a` lists the newest first — so a sweep that added `-a` here too
     would answer with the width of the run that FAILED, which is the one number
     this reading exists to get right. It answers `None` with its source instead,
-    which is ADR-0027 D2's shape: a reading that was not taken says so.
+    which is D2's shape: a reading that was not taken says so.
     """
     vllm, _, sent = _vllm_stopped_box(monkeypatch, name="width_stopped_vllm")
     width = vllm.launched_width("h")
@@ -2242,7 +2242,7 @@ def test_the_engine_log_is_read_only_where_it_is_about_to_be_lost(
 def test_a_log_the_host_would_not_give_up_is_a_reason_and_not_a_silence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ADR-0027 D2 on the failure path: the refusal survives the reading failing.
+    """D2 on the failure path: the refusal survives the reading failing.
 
     `contract.ssh` answers `None` for a host it could not reach, and a host that
     will not answer is exactly where a launch fails. A reading that could not be

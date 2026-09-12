@@ -59,7 +59,7 @@ def _js_toolchain_ready() -> bool:
     toolchain sitting in ``node_modules/.bin`` is one the gate **cannot see**:
     `npm ci` had run, the directory was there, the predicate said ready, and
     eslint read as *not installed*. Present is not reachable, which is the same
-    shape one layer down from ADR-0025's "installed is not able to reject".
+    shape one layer down from the "installed is not able to reject".
 
     So: the tools as the gate resolves them, the *pinned* parser they load (a
     global eslint with no ``typescript-eslint`` is the inert case), and a Node
@@ -107,7 +107,7 @@ def test_ci_installs_the_js_toolchain_so_the_skip_cannot_become_permanent() -> N
     assert "node_modules/.bin" in test_job and "GITHUB_PATH" in test_job, (
         "installing is not enough — `require_tool` resolves linters with "
         "shutil.which, so node_modules/.bin must be exported onto PATH or "
-        "eslint and prettier read as not installed (ADR-0025)"
+        "eslint and prettier read as not installed "
     )
 
 
@@ -230,7 +230,7 @@ def test_the_canary_is_rejected_and_the_reference_is_not(
 def test_every_declared_rung_can_reject_on_both_arms(
     score: Any, measure: types.ModuleType
 ) -> None:
-    """The claim ADR-0025 rests on, measured rather than asserted.
+    """The claim  rests on, measured rather than asserted.
 
     Until 2026-08-13 the Python arm had the test above and the TypeScript arm
     had nothing, because there was no eslint configuration in the repository to
@@ -257,7 +257,7 @@ def test_every_declared_rung_can_reject_on_both_arms(
         assert not inert, f"{language}: declared but unable to reject: {sorted(inert)}"
 
     # And therefore a paired sweep is not refused. This is the assertion that
-    # would have failed on every day before ADR-0025, for the true reason.
+    # would have failed on every day before , for the true reason.
     assert score.preflight(tasks) == ()
 
 
@@ -389,7 +389,7 @@ def test_rejected_before_acceptance_states_a_fact_not_an_inference(
     assert not score.Verdict(False, "acceptance", (), ()).rejected_before_acceptance
 
 
-# --- one bar, one ceiling (#262, ADR-0035) ----------------------------------
+# --- one bar, one ceiling (#262) ----------------------------------
 
 
 def test_the_scored_workspace_and_the_digested_one_are_the_same_workspace(

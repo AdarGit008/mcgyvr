@@ -67,7 +67,7 @@ RECORD = "run-header/1"
 
 #: Read the accumulated headers at ten and decide which fields are required.
 #: #322's number, declared 2026-08-21 with the gate rather than after it: a
-#: gate left open with no review date states no property (ADR-0026 lens 3).
+#: gate left open with no review date states no property (lens 3).
 REVIEW_AFTER = 10
 
 #: v1's four. A header that cannot say what it is asking is not a header.

@@ -864,7 +864,7 @@ def test_the_condition_the_run_records_is_the_condition_it_dispatched(
 def test_rows_drawn_against_another_serving_build_refuse_to_join_the_run(
     tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
 ) -> None:
-    """ADR-0024: the build that served the draws is identity, not a footnote.
+    """: the build that served the draws is identity, not a footnote.
 
     srv1 and srv2 were on ollama 0.32.4 and 0.32.5 while #225's scaffold
     ablation ran the 3B on one and the 7B on the other, so the campaign's one
@@ -963,7 +963,7 @@ def _no_endpoint(monkeypatch: Any) -> None:
 def test_the_manifest_carries_every_digest_field_or_a_stated_null(
     tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
 ) -> None:
-    """ADR-0027 D2: absent means "predates the contract", so a fresh run has none.
+    """D2: absent means "predates the contract", so a fresh run has none.
 
     A run made from here on writes all six fields. Where the world would not
     answer it writes `null` **and the reason**, because a bare null is a state
@@ -1088,7 +1088,7 @@ def test_the_reason_block_is_not_compared_as_identity(
     assert len(json.loads(path.read_text())["invocations"]) == 2
 
 
-# --- the second block reaches disk beside the first (#286, ADR-0027 D7) ------
+# --- the second block reaches disk beside the first (#286, D7) ------
 
 
 def test_the_observed_block_is_written_beside_the_manifest(

@@ -195,7 +195,7 @@ def test_the_prose_and_the_code_agree_on_what_is_not_yet_enforced(
     """The mismatch #289 was asked to close or record. It records it.
 
     ``reproducibility.json``'s ``matching`` states five fields; ``BOUND_MATCH``
-    is four. That is deliberate — ADR-0027 D9 added ``cells`` and #231 owns
+    is four. That is deliberate — D9 added ``cells`` and #231 owns
     enforcing it — but a deferral written down in only one of the two places a
     reader consults is indistinguishable from an oversight, and satisfiable
     twice. So the code names the pending field, and this test holds the two
@@ -256,8 +256,8 @@ def test_the_superseded_constant_is_gone_from_the_prose() -> None:
     )
 
 
-# The ADR-0027 cross-check that stood here is gone with its subject. It
-# asserted that ADR-0027's "~40 minutes each" carried the #289 amendment
+# The  cross-check that stood here is gone with its subject. It
+# asserted that the "~40 minutes each" carried the #289 amendment
 # retiring it, so the constant could not stay quotable in the record after
 # rate-card.json replaced it. The decision records were archived on
 # 2026-08-25 (archive/docs/archive/decisions/) and no longer bind anything, so

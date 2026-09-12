@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What the endpoint will answer about itself, captured once and compared by nothing.
 
-ADR-0027 **D7**, issue `#286 <https://github.com/AdarGit008/mcgyvr/issues/286>`_.
+ **D7**, issue `#286 <https://github.com/AdarGit008/mcgyvr/issues/286>`_.
 
 **Nothing reads this file for comparison, and nothing may.** ``run.json`` is the
 compared block: ``identity.KEY`` is its admitted subset, ``require_comparable``
@@ -49,7 +49,7 @@ string, and never a plausible substitute:
     card, and it matched the ``--max-model-len`` each server was launched with.
 
 ``concurrency``
-    What decides whether greedy is reproducible at all — ADR-0027 settled that
+    What decides whether greedy is reproducible at all —  settled that
     greedy decoding is not deterministic under continuous batching (vLLM #23138:
     one client deterministic over 70+ rounds, ~1/3 of pairs differing under
     concurrency), so ``verified`` never means "reproduces" and a run that did not
@@ -104,7 +104,7 @@ answers from the model card unconditionally, and it matched the
 ``--max-model-len`` each server was launched with.
 
 ``concurrency`` **is on neither engine's surface, and the lookalike is worse than
-the null.** It decides whether greedy is reproducible at all — ADR-0027 settled
+the null.** It decides whether greedy is reproducible at all —  settled
 that greedy decoding is not deterministic under continuous batching, and the
 evidence it cites *is vLLM* (#23138). The native surface did not publish the
 width its daemon was configured with. vLLM does not expose ``max_num_seqs``
@@ -141,7 +141,7 @@ would be the one place any of these three engines states its own concurrency. It
 is not implemented here because nothing has asked for it and none was running to
 verify it against; the arm it would need is the shape of the two above.
 
-**The rest of the OpenAI-compatible world.** ADR-0027 measured ``/v1/models`` as
+**The rest of the OpenAI-compatible world.**  measured ``/v1/models`` as
 identity-free on 136 of 139 manifests, and an endpoint that answers it without
 looking like vLLM is recorded as exactly that. One that answers nothing gets the
 same shape as any other: four nulls, four reasons, an empty native capture. The
@@ -203,7 +203,7 @@ def _bundle_rig() -> types.ModuleType:
     """The bundle rig, for :func:`redact` — ``tools/`` is not a package.
 
     Imported for one function, and imported rather than copied: a second
-    redactor is the shape ADR-0026 lens 3 exists to catch, and the one thing
+    redactor is the shape lens 3 exists to catch, and the one thing
     worse than a redactor with a gap is two of them with different gaps. The
     slot is the one the breadth rig fills at import time, so in a dispatch this
     is always a cache hit.
@@ -259,7 +259,7 @@ RESOLVED_SOURCE = "resolved"
 
 #: The two facts about batching, under the names they are recorded by. **Two
 #: fields, never one, and never substituted for one another** — the shape
-#: ADR-0040 settled when a per-process figure and a card total were tempting to
+#:  settled when a per-process figure and a card total were tempting to
 #: collapse. `served_width` is a ceiling the SERVER was started with;
 #: `dispatch_max_parallel` is how many requests THIS run had in flight.
 SERVED_WIDTH = "served_width"
@@ -336,7 +336,7 @@ VERIFIED_LIVE: dict[str, str] = {
 }
 
 #: Engines built from documented shapes and NOT yet exercised against a live
-#: endpoint, with what it would take to discharge each. ADR-0033's convention:
+#: endpoint, with what it would take to discharge each. the convention:
 #: the contingency is recorded where the code is, not in a PR body, and
 #: `test_every_engine_says_whether_it_has_been_run_live` fails if an engine
 #: appears in neither dict — so a third arm cannot arrive unmarked, and this one
@@ -715,7 +715,7 @@ def _server_completions(
     down in the note. **Zero difference is measured sole-clientness; anything
     else names how much else the server served.**
 
-    Three states, not two (ADR-0027 D2 applied to a claim rather than to a
+    Three states, not two (D2 applied to a claim rather than to a
     reading): a number is *measured*; a refusal on an engine with no counter is
     *looked in a way that cannot see*; a refusal at the open capture is *not
     looked yet*. None of them is a boolean.
@@ -819,7 +819,7 @@ def resolve(
     difference refuses the field, naming where the answer would be.
 
     **The dispatch side is passed in, never read from a constant here.** It is a
-    property of the endpoint the runner actually built (ADR-0027 D4: computed,
+    property of the endpoint the runner actually built (D4: computed,
     never typed); a literal in this module would describe a dispatcher it cannot
     see and would keep agreeing after that dispatcher changed.
     """
@@ -859,7 +859,7 @@ def resolve(
             "is measured sole-clientness. Where the engine serves no counter "
             "the field refuses and names where the answer would be, which is a "
             "fact about reach and not about the run. Nothing compares this "
-            "block (ADR-0027 D7)"
+            "block (D7)"
         ),
     }
 

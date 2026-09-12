@@ -1,13 +1,13 @@
-"""Invariants over the paired-power arithmetic ADR-0019 runs on.
+"""Invariants over the paired-power arithmetic  runs on.
 
 This module decides #231's fitness verdict and #225's size, so the properties
 that matter are the ones that would silently mis-size the bench:
 
 * **The exact test is exact.** ``exact_p`` is checked against the McNemar
-  p-values CLM-0017 published from an independent implementation, and against a
+  p-values  published from an independent implementation, and against a
   brute-force critical value over every small ``m``. A drift here re-labels an
   unresolvable contrast as a null.
-* **The m >= 6 wall holds.** It is the finding the ADR's headline table rests
+* **The m >= 6 wall holds.** It is the finding the headline table rests
   on: below six discordant pairs no split reaches alpha, so no effect of any
   size is detectable. An off-by-one makes eleven unresolvable contrasts look
   like ten.
@@ -57,7 +57,7 @@ def _brute_exact_p(b: int, c: int) -> float:
 
 
 def test_exact_p_matches_published_mcnemar_figures() -> None:
-    """CLM-0017 arm B, computed elsewhere and recorded as 0.45 / 0.12 / 0.07."""
+    """arm B, computed elsewhere and recorded as 0.45 / 0.12 / 0.07."""
     assert round(M.exact_p(5, 2), 2) == 0.45
     assert round(M.exact_p(4, 0), 2) == 0.12
     assert round(M.exact_p(7, 1), 2) == 0.07
@@ -76,7 +76,7 @@ def test_exact_p_survives_the_range_that_overflows_the_naive_form() -> None:
 
 
 def test_no_effect_is_detectable_below_six_discordant_pairs() -> None:
-    """The wall the ADR's headline table rests on."""
+    """The wall the headline table rests on."""
     for m in range(M.MIN_DISCORDANT):
         assert M.critical_k(m) is None
         # The most extreme split possible still cannot reach alpha.
@@ -132,7 +132,7 @@ def test_effect_can_never_exceed_the_discordance_rate() -> None:
 
 
 def test_twenty_tasks_resolve_nothing_across_the_measured_psi_range() -> None:
-    """The ADR's claim about every bundle instrument this repository owns."""
+    """The claim about every bundle instrument this repository owns."""
     for psi in (0.05, 0.10, 0.20, 0.25, 0.35):
         assert M.detectable_delta(20, psi) is None
 
@@ -167,7 +167,7 @@ def test_humaneval_sizing_reproduces_the_published_figure() -> None:
 
 
 def test_contrast_reads_the_discordance_structure_off_a_measured_table() -> None:
-    """CLM-0012's c0->c2 arm: +1 task net, and unresolvable at any split."""
+    """the c0->c2 arm: +1 task net, and unresolvable at any split."""
     k = M.Contrast("jsts c0->c2", n=20, gained=3, lost=2)
     assert k.discordant == 5
     assert k.net == 1

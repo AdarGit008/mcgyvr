@@ -1,7 +1,7 @@
 """Routing: which rung a contract is tried on, and when a family is spent (#24).
 
 The ladder is ordered cheapest to dearest in two nested ways. *Families* —
-deterministic tools, then local models, then API models (ADR-0001 boundary 3) —
+deterministic tools, then local models, then API models (boundary 3) —
 are the coarse order, and they are declared in the catalog with a rank. *Rungs*
 are the fine order inside a family, and they are whatever the operator wrote in
 the config. This module walks the fine order. It does not walk the coarse one.
@@ -38,7 +38,7 @@ raise the other. The default of 1 means a failed attempt escalates: a retry
 re-runs the same model on the same input, and the figure this rule was
 inherited with — worker-tier remediation rescued 2 of 35 failures — says that is
 usually spend without a result. **That figure is inherited from local-ai and has
-not been re-verified here** (ADR-0004, and #152 is where it gets settled), which
+not been re-verified here** (and #152 is where it gets settled), which
 is why it argues for a default rather than being quoted as a measurement of
 mcgyvr.
 
@@ -168,7 +168,7 @@ rungs a family spends being the same rungs under all three modes.
 **What is deliberately not here.** Risk floors raising where work may start are
 #16's; this module reads the type's floor from the catalog and applies nothing
 on top of it. Draws per rung — trying a rung twice at temperature and taking the
-first candidate the gate accepts — are #119's and ADR-0008's, and are a
+first candidate the gate accepts — are #119's and the, and are a
 different axis from attempts: a draw is a fresh sample, an attempt is a retry
 after a verdict. Grouping the ladder by family discards the operator's
 cross-family ordering, which is only visible in a ladder that interleaves

@@ -1,6 +1,6 @@
 // The project's JavaScript/TypeScript **format** bar, stated rather than inherited.
 //
-// The decision of record is ADR-0035, and #262 is why this file exists. Until
+// The decision of record is , and #262 is why this file exists. Until
 // it did, `eslint.config.mjs` declared the lint half of the JS/TS bar and
 // nothing at all declared the format half: prettier ran on its built-in
 // defaults, in the gate and in every bench workspace, and no manifest said so.
@@ -26,7 +26,7 @@
 //
 // **Why the numbers do not match the Python arm's.** `printWidth` is 80 and
 // `[tool.ruff] line-length` is 88. They are not reconciled here, deliberately:
-// ADR-0025 decided that the two arms' rule *sets* mirror each other in shape
+//  decided that the two arms' rule *sets* mirror each other in shape
 // rather than in content, and narrowing an 8-column difference after 32,601
 // scored candidates would re-base every JS/TS format rate on the disk for a
 // cosmetic gain. It is a real asymmetry, it is now written down, and

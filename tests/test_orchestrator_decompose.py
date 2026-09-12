@@ -2,7 +2,7 @@
 acceptance criteria — an emitted contract is accepted by the direct-mode API
 unchanged, a request that cannot be decomposed produces an explanation rather
 than a degenerate single contract, and the same prompt over the same repository
-yields the same shape — plus the boundary ADR-0007 draws through the middle of
+yields the same shape — plus the boundary  draws through the middle of
 it: the proposer names references, the index states facts.
 
 The reproducibility tests hold the one non-deterministic ingredient still by
@@ -111,7 +111,7 @@ def test_the_emitted_contract_carries_what_the_proposal_asked_for(repo: Index) -
     assert built.scope.allow == ("listing.py",)
 
 
-# --- ADR-0007: the proposer names, the index states -------------------------
+# --- : the proposer names, the index states -------------------------
 
 
 def test_the_dependency_signature_comes_from_the_index(repo: Index) -> None:
@@ -135,14 +135,13 @@ def test_the_dependency_signature_comes_from_the_index(repo: Index) -> None:
 def test_a_dependency_the_index_cannot_name_is_refused_not_described(
     repo: Index,
 ) -> None:
-    """ADR-0007's deliberate trade: a missing dep degrades, an invented one poisons."""
+    """the deliberate trade: a missing dep degrades, an invented one poisons."""
     proposal = a_fix(deps=(DepRef("pagination.py", "conjured_helper"),))
     result = decompose(repo, "fix it", propose=RecordedProposer((proposal,)))
 
     assert result.contracts == ()
     (refusal,) = result.refusals
     assert "conjured_helper" in refusal.reason
-    assert "ADR-0007" in refusal.reason
 
 
 def test_an_import_is_not_a_definition_for_dependency_purposes(repo: Index) -> None:
@@ -316,7 +315,7 @@ def test_an_unknown_task_type_names_the_vocabulary(repo: Index) -> None:
 
 
 def test_the_proposer_is_handed_the_deterministic_pass(repo: Index) -> None:
-    """ADR-0001 boundary 2 as a type: evidence is given, never fetched."""
+    """boundary 2 as a type: evidence is given, never fetched."""
     proposer = RecordedProposer((a_fix(),))
     result = decompose(repo, "the listing pager", propose=proposer)
 
@@ -547,9 +546,9 @@ def test_a_target_larger_than_the_default_ceiling_is_refused(tmp_path: Path) -> 
     assert "against a ceiling of 32768" in refusal.reason
 
 
-# --- the located type checker reaches the contract (#142, ADR-0006) ---------
+# --- the located type checker reaches the contract (#142) ---------
 #
-# ADR-0006 ends by naming the gap these cover: "the schema already demands a
+#  ends by naming the gap these cover: "the schema already demands a
 # type-check command for the one task type whose guarantee requires one, and
 # nothing yet supplies it." #114 built the locator; this is the wiring.
 
@@ -607,7 +606,7 @@ def test_the_repositorys_own_checker_becomes_the_acceptance_command(
 def test_a_repository_declaring_no_checker_emits_no_type_annotation(
     repo: Index,
 ) -> None:
-    """ADR-0006: the correct outcome arriving at the correct layer.
+    """: the correct outcome arriving at the correct layer.
 
     The contract would fail to load anyway. Refusing here is what makes the
     answer a sentence about the repository rather than a complaint about a field.
@@ -618,7 +617,6 @@ def test_a_repository_declaring_no_checker_emits_no_type_annotation(
     (refusal,) = result.refusals
     assert refusal.subject == "listing.py"
     assert "declares no type checker" in refusal.reason
-    assert "ADR-0006" in refusal.reason
     # It names both ways forward, not just the failure.
     assert "Configure a checker" in refusal.reason
     assert "declare the command" in refusal.reason

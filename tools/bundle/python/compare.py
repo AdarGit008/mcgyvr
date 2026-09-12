@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """#167 — the four readings of the bundle ladder, laid side by side.
 
-CLM-0012 measured the JS/TS bundle flat and had to scope the finding, because
+ measured the JS/TS bundle flat and had to scope the finding, because
 the data could not say which of two things it was about:
 
 * **Language** — the bundle device works in Python and not in JS/TS.
-* **Serving stack** — the device does not work *here*. CLM-0004 drove the
-  Q4_K_M blob through bare ``llama-server``; CLM-0012 drove the same blob
-  through Ollama's OpenAI-compatible path.
+* **Serving stack** — the device does not work *here*. #167 drove the
+  Q4_K_M blob through bare ``llama-server``; the JS/TS sweep drove the same
+  blob through Ollama's OpenAI-compatible path.
 
 They have opposite consequences, so the difference is worth an arm. This tool
 does no measuring; it reads rows that already exist and prints the comparison
@@ -17,7 +17,7 @@ them are what separate the readings:
 ======================  ==========  =========  ===============  =============
 row set                 task set    stack      harness          isolates
 ======================  ==========  =========  ===============  =============
-``clm0004``             Python      llama.cpp  local-ai         #167 control
+``pybundle``             Python      llama.cpp  local-ai         #167 control
 ``original``            Python      Ollama     local-ai         **stack**
 ``rig``                 Python      Ollama     mcgyvr           **harness**
 ``jsts``                JS/TS       Ollama     mcgyvr           **language**
@@ -25,9 +25,9 @@ row set                 task set    stack      harness          isolates
 
 Each row down that table changes exactly one thing from the row above it, which
 is the only reason a difference between two of them can be attributed to
-anything. ``clm0004`` → ``original`` is the control #167 was opened for.
+anything. ``pybundle`` → ``original`` is the control #167 was opened for.
 
-All four use CLM-0004's columns, so one loader reads them all.
+All four use the columns, so one loader reads them all.
 
 Usage::
 
@@ -47,8 +47,8 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 LADDER = ("c0", "c1", "c2", "c3")
 
-# n=20, one greedy seed. CLM-0004's design declares +-1 task the noise floor and
-# only direction-agreeing deltas signal; CLM-0012 then *measured* about that,
+# n=20, one greedy seed. the design declares +-1 task the noise floor and
+# only direction-agreeing deltas signal;  then *measured* about that,
 # 4 cells in 80 moving on a re-roll. Both arms here inherit it.
 NOISE_FLOOR_TASKS = 1
 
@@ -104,7 +104,7 @@ def mcnemar_exact(
 
 
 def condition_table(rows: Rows, title: str) -> str:
-    """Per-condition pass@1, in the columns CLM-0004's summary reported."""
+    """Per-condition pass@1, in the columns the summary reported."""
     lines = [
         f"**{title}**",
         "",
@@ -224,10 +224,10 @@ def main() -> int:
         "--jsts",
         type=Path,
         default=REPO / "records" / "measurements" / "jsts-bundle-2026-08-04",
-        help="the JS/TS sweep to compare against (default: CLM-0012's)",
+        help="the JS/TS sweep to compare against (default: the JS/TS sweep)",
     )
     parser.add_argument(
-        "--clm0004",
+        "--pybundle",
         type=Path,
         default=(
             REPO
@@ -238,15 +238,15 @@ def main() -> int:
             / "context_exp"
             / "results_q3b.jsonl"
         ),
-        help="the vendored rows CLM-0004 was measured on",
+        help="the vendored rows the Python sweep was measured on",
     )
     args = parser.parse_args()
 
     sets = [
         (
-            "clm0004",
-            "CLM-0004 — Python, llama-server, local-ai harness",
-            load(args.clm0004),
+            "pybundle",
+            "pybundle — Python, llama-server, local-ai harness",
+            load(args.pybundle),
         ),
         (
             "original",
@@ -256,7 +256,7 @@ def main() -> int:
         ("rig", "Arm A — Python, Ollama, mcgyvr rig", load(args.out / "results.jsonl")),
         (
             "jsts",
-            "CLM-0012 — JS/TS, Ollama, mcgyvr rig",
+            "#167 — JS/TS, Ollama, mcgyvr rig",
             load(args.jsts / "results.jsonl"),
         ),
     ]

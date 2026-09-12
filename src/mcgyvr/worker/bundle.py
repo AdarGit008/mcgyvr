@@ -1,6 +1,6 @@
 """The worker's system prompt: a small, measured skill bundle.
 
-CLM-0004 is the whole reason this module exists. A ~2 KB skill bundle took
+A measurement is the whole reason this module exists. A ~2 KB skill bundle took
 qwen2.5-coder:3b from 45% to 70% first-pass acceptance and made it ~2.5x
 faster — the speed-up because output rules stop a small model rambling, and
 completion tokens dominate wall time. An 8 KB bundle gave 10 points back. The
@@ -20,7 +20,7 @@ test holds the two files equal. Rewording it — even improving it — would mea
 the numbers above describe a file that is no longer the one being shipped. If
 the bundle should change, the change has to be measured first.
 
-**The JS/TS bundle has now been measured, and it found nothing.** CLM-0004's
+**The JS/TS bundle has now been measured, and it found nothing.** the
 confidence note barred generalising its percentages to another language until
 re-measured, and #144 re-measured: the same four-condition ladder over a JS/TS
 task set, same model, same quant, produced 45/55/50/45% first-pass acceptance
@@ -31,18 +31,19 @@ from a consistent gain. So ``prompts/javascript.md`` ships with
 was not confirmed.
 
 **Why the Python effect did not transfer is legible in the token column, and it
-is the more useful half of the result.** CLM-0004's speed-up came from output
+is the more useful half of the result.** the speed-up came from output
 rules stopping a small model rambling: 403 completion tokens at c0 against ~124
 at c2. The JS/TS run measured 167/167/169/177 — flat. The 3b was never rambling
 on this task set, so the mechanism the bundle works through had nothing to act
 on. That predicts where a bundle *will* pay: workers that over-produce without
 one, not languages as such.
 
-**#167 ran the control that says why, and it is not the language.** CLM-0012
-could not separate "the device does not work in JS/TS" from "the device does not
-work on this serving stack", because CLM-0004's Python task set had been left in
+**#167 ran the control that says why, and it is not the language.** The
+JS/TS sweep could not separate "the device does not work in JS/TS" from "the
+device does not work on this serving stack", because the Python task set had
+been left in
 another repository. It was recovered, and both readings are wrong. Re-run
-unchanged against Ollama, CLM-0004's own instrument reproduces its effect
+unchanged against Ollama, the recovered instrument reproduces its effect (#167)
 (35/50/55/65% across c0-c3, and its never-passing set exactly) — so the stack is
 not it. The same twenty tasks through *this* module's prompt assembly measure
 +1 task at p = 1.00 — so the language is not it either.
@@ -88,7 +89,7 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 # Raising it is a claim about quality and needs a measurement, not an edit.
 #
 # It stays ONE constant across languages, and #144 is why that is now a finding
-# rather than a gap. The same ladder was run on a JS/TS task set (CLM-0012) and
+# rather than a gap. The same ladder was run on a JS/TS task set and
 # no rung separated from c0 — so there is no JS/TS peak to place a different
 # ceiling at. A per-language ceiling would need a language whose curve has a
 # peak; JS/TS measured flat, which is not the same as measuring 2 KB.
@@ -117,22 +118,22 @@ class BundleStanding(StrEnum):
 
     UNMEASURED = "unmeasured"
     """No sweep has been run on this artifact. The standing python.md had
-    before CLM-0004 and javascript.md had before CLM-0012."""
+    before any sweep, and javascript.md had before any sweep."""
 
     MEASURED_BENEFIT = "measured-benefit"
     """A sweep ran and the bundle beat its absence. `python.md`: 45% to 70%
-    first-pass acceptance at ~2.5x the speed (CLM-0004)."""
+    first-pass acceptance at ~2.5x the speed."""
 
     MEASURED_NO_EFFECT = "measured-no-effect"
     """A sweep ran and no rung separated from no-bundle-at-all. `javascript.md`:
-    45/55/50/45% across c0-c3, every delta inside the stated ±1-task noise floor
-    (CLM-0012). The file still ships because measuring no benefit is not
+    45/55/50/45% across c0-c3, every delta inside the stated ±1-task noise floor.
+    The file still ships because measuring no benefit is not
     measuring harm — but nothing here licenses citing a gain."""
 
     MEASURED_REDUNDANT = "measured-redundant"
     """The bundle's effect is real, and this project's own prompt already has it.
 
-    `python.md`: CLM-0004's 45%-to-70% is not withdrawn and reproduces on the
+    `python.md`: the 45%-to-70% is not withdrawn and reproduces on the
     serving stack mcgyvr dispatches on (#167 arm B: 35/50/55/65% across c0-c3
     through the same instrument on Ollama). What it was measured against is a
     user message with no output rule in it. Through
@@ -181,7 +182,7 @@ class BundleTooLargeError(BundleError):
     def __init__(self, name: str, size: int) -> None:
         super().__init__(
             f"bundle {name!r} is {size} bytes, over the measured ceiling of "
-            f"{MAX_BUNDLE_BYTES} (CLM-0004 measured 8 KB degrading the small "
+            f"{MAX_BUNDLE_BYTES} ( measured 8 KB degrading the small "
             f"worker; the limit is evidence, not a budget). Re-measure before "
             f"raising it."
         )
@@ -214,7 +215,7 @@ class Bundle:
         """Whether this bundle is the artifact a measurement was taken on.
 
         Provenance only, and deliberately says nothing about the outcome — read
-        :attr:`standing` for that. True here means CLM-0004 or CLM-0012 covers
+        :attr:`standing` for that. True here means  or  covers
         *this file* rather than a file that inspired it, which is the property
         #144 asked to be able to assert.
         """
