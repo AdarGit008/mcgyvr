@@ -10,7 +10,7 @@ hunch on record is the opposite — "something feels off — maybe config".
 **Hardware may well be right. Nothing recorded can say so.** The journal the
 sentence was read off, `d7-ramp.jsonl`, is twelve rows of seventeen keys and
 names no card, no driver, no launcher, no engine build, no weights digest and
-no engine config; there is not a single launch row in it. Under ADR-0026 lens 3
+no engine config; there is not a single launch row in it. Under lens 3
 a claim nothing verifies is worse than dead weight, so this file makes the claim
 a predicate instead of a sentence.
 

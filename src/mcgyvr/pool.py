@@ -19,9 +19,9 @@ That division is the whole point, and it is what #20 asks for:
   the type it holds does not say. Only :meth:`SourceMap.bind` produces an
   ``Endpoint``, and only a runner should be calling it.
 * **Backend support is a protocol question, not a per-vendor integration.**
-  There are exactly two wire protocols, :class:`Protocol`. ``openai`` covers
+  There is exactly one wire protocol, :class:`Protocol`. ``openai`` covers
   vLLM, llama-server, LM Studio, TGI and the hosted providers; adding a backend
-  that speaks one of them is a config entry, not code.
+  that speaks it is a config entry, not code.
 * **An unusable source degrades the ladder rather than raising.** A rung whose
   source cannot serve it is dropped from :attr:`SourceMap.rungs` and recorded in
   :attr:`SourceMap.skipped` with a reason in words. A pool with nothing usable

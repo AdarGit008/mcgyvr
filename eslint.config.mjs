@@ -1,6 +1,6 @@
 // The project's JavaScript/TypeScript lint standard.
 //
-// The decision of record is ADR-0025 — this file binds the *gate*, not just the
+// The decision of record is  — this file binds the *gate*, not just the
 // bench, and the rule set moves in step with `[tool.ruff.lint] select`. Read it
 // before widening or narrowing anything here: changing the bar re-bases every
 // JavaScript rate measured under it.

@@ -3,7 +3,7 @@
 
 A sweep's rows are two different facts glued together: what the model wrote,
 and what the checker made of it. Only the first costs tokens. When a checker is
-found to be wrong — as ADR-0023's `ValueError` asymmetry was, where 104 bench
+found to be wrong — as the `ValueError` asymmetry was, where 104 bench
 and 106 reserve py checkers accepted only `ValueError` while their ts twins
 accept any `Error` — every rate the project has ever quoted from that arm is
 recoverable by running the corrected acceptance over candidates already on

@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # The JS half of the gate's own bar (ADR-0025). Two reasons this job needs
+      # The JS half of the gate's own bar . Two reasons this job needs
       # a Node newer than 20:
       #
       # * the JS lint rung is only a rung if it can reject, and the test that
@@ -29,7 +29,7 @@ jobs:
       # `shutil.which`, so a toolchain in `node_modules/.bin` is a toolchain the
       # gate cannot see: eslint and prettier read as *not installed*, their rungs
       # are skipped, and the preflight refuses the sweep. Installing without
-      # exporting is the same "present but unreachable" shape ADR-0025 is about.
+      # exporting is the same "present but unreachable" shape  is about.
       - name: install the pinned JS toolchain
         run: |
           npm ci

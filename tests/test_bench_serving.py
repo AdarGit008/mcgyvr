@@ -93,7 +93,7 @@ def test_the_tree_the_manifest_and_the_split_rule_agree() -> None:
 
 
 def test_the_two_arms_accept_the_same_breadth_of_rejection() -> None:
-    """ADR-0023: a checker tests what the contract states, and no more.
+    """: a checker tests what the contract states, and no more.
 
     The contracts say "reject ... with an error" and never name an exception
     type, but 104 bench and 106 reserve py checkers caught only `ValueError`

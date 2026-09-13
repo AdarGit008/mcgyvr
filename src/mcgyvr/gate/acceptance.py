@@ -335,7 +335,7 @@ def _demonstration_preflight(
     The expectation is inverted — only a command that *failed* demonstrated
     the defect — but the environment faults are the same faults, so they keep
     the same reasons as the regression list. A kill is not a verdict
-    (ADR-0014's channel discipline): a demonstration that times out at
+    (the channel discipline): a demonstration that times out at
     baseline has not failed, it has been stopped, so it too is refused rather
     than counted as demonstrating.
     """

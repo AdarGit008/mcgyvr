@@ -1,8 +1,8 @@
 """What the bench can resolve, per stratum, and never pooled.
 
 Issue: `#266 <https://github.com/AdarGit008/mcgyvr/issues/266>`_.
-Doctrine: ADR-0019 D2 (the null is measured per target tier and does not
-transfer up the ladder) and ADR-0026's consequence — *a report refuses a pooled
+Doctrine: D2 (the null is measured per target tier and does not
+transfer up the ladder) and the consequence — *a report refuses a pooled
 figure across a stratum where the effect is heterogeneous, and reports per
 stratum instead*.
 
@@ -21,7 +21,7 @@ separate objections, either sufficient:
    pooled over them describes neither instrument.
 2. **Within an arm.** Measured over the committed ``norule`` contrasts, ``psi``
    ranges **0.029 to 0.134 across task types inside a single arm** — a 4.6x
-   spread. That is the heterogeneity ADR-0026 forbids pooling over, and the
+   spread. That is the heterogeneity  forbids pooling over, and the
    pooled number is readable only because a dead stratum averaged with a live one
    lands somewhere plausible.
 
@@ -35,7 +35,7 @@ manipulation can be read at, and a new arm computes its own. There is no single
 number for "the bench".
 
 **What this module cannot key on yet.** The honest unit is a *signature* — the
-model, bar and condition as content rather than as names (#265, ADR-0026's
+model, bar and condition as content rather than as names (#265, the
 consequence). Until those digests exist, the columns below are keyed on
 ``tier`` and ``arm``, which are labels for the properties that actually differ.
 Two runs agreeing on both labels and differing in the bar would be laid side by
@@ -76,7 +76,7 @@ revision = _by_path("bench_product_res", HERE / "product.py")
 ARMS = ("py", "ts")
 
 # The wall below which no split of discordant pairs reaches significance, from
-# ADR-0019: the best-case two-sided exact p is 2 / 2**m.
+# : the best-case two-sided exact p is 2 / 2**m.
 WALL = 6
 
 
@@ -94,7 +94,7 @@ class Resolution:
 
     @property
     def reachable(self) -> bool:
-        """Whether any effect size at all could clear ADR-0019's wall here."""
+        """Whether any effect size at all could clear the wall here."""
         return self.detectable is not None
 
 
@@ -163,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     print(revision.banner(found))
     print(
         f"- psi is this lever's, not the bench's: a contrast of a different "
-        f"lever resolves differently. Wall: m >= {WALL} (ADR-0019).\n"
+        f"lever resolves differently. Wall: m >= {WALL} .\n"
     )
     print("| tier | arm | stratum | n | psi | m | detectable at 80% |")
     print("|---|---|---|---:|---:|---:|---:|")
@@ -180,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"\n**{len(live)} of {len(rows)} strata can resolve anything at all.** "
         f"psi spreads {spread:.1f}x across strata, which is why no pooled figure "
-        f"is printed (ADR-0026)."
+        f"is printed ."
     )
     return 0
 

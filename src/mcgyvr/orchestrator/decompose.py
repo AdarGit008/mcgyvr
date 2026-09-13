@@ -5,7 +5,7 @@ model's opinion becomes a document the rest of the system executes. The whole
 design question is therefore *how little* of that document the opinion is
 allowed to author.
 
-The answer is ADR-0007's, generalised. A model decides **relevance** — which
+The answer is the, generalised. A model decides **relevance** — which
 kind of work this is, which file it lands in, which of a file's forty symbols
 the target actually needs. The repository decides **fact** — what those symbols
 look like, whether the file exists at all. So the seam this module draws is not
@@ -26,11 +26,11 @@ Five properties are structural rather than remembered:
   #150 gave the contract a slot for it and #155 fills it here. There is no
   ``Proposal`` field for it and there will not be one: a proposer that could
   state a file's content could state one the repository does not hold, which is
-  the exact failure ADR-0007 draws the seam to prevent. The bytes come from the
+  the exact failure  draws the seam to prevent. The bytes come from the
   index — the same read that resolution and exploration already judged from —
   so two contracts emitted from one decomposition cannot disagree about one
   file. See :func:`_content_of`.
-* **A dependency the index cannot name is refused, never described.** ADR-0007
+* **A dependency the index cannot name is refused, never described.**
   gives up any dependency the parser cannot state — a dynamically constructed
   attribute, a re-export through a barrel file — and the asymmetry is the
   argument: a missing dep degrades a prompt, an invented one poisons it and
@@ -50,15 +50,15 @@ Five properties are structural rather than remembered:
   the honest answer is to say so by name rather than to route optimistically and
   fail at dispatch.
 * **A type whose evidence only a checker can produce is emitted with that
-  checker's command, or not emitted.** This is ADR-0006's other half, and #142's
+  checker's command, or not emitted.** This is the other half, and #142's
   whole subject; see :func:`_acceptance_for`.
 
 **The proposer seam.** :data:`Proposer` is where judgment enters, and it has no
 default binding. A caller supplies one; the tests supply a fixed one, which is
 what makes "the same prompt and repository yield the same shape" an assertion
 about this module rather than about a model's temperature. The deterministic
-pass always runs first and is handed to the proposer as evidence (ADR-0001
-boundary 2) — a proposer cannot ask for the repository, only read what
+pass always runs first and is handed to the proposer as evidence
+(boundary 2) — a proposer cannot ask for the repository, only read what
 exploration already found.
 """
 
@@ -117,7 +117,7 @@ class DepRef:
     """A reference to a dependency: where it lives and what it is called.
 
     Deliberately not a signature. The decomposer names the symbol; the index
-    states what it looks like (ADR-0007). ``note`` is the one free-text field,
+    states what it looks like . ``note`` is the one free-text field,
     because "how the target is expected to use this" is a judgement about
     relevance and there is nothing in the repository to read it off.
     """
@@ -167,7 +167,7 @@ class Evidence:
 
     Handed over rather than made available: a proposer receives what exploration
     already found and has no way to ask the repository for more. That is
-    ADR-0001 boundary 2 expressed as a type — supplied context accelerates the
+    boundary 2 expressed as a type — supplied context accelerates the
     deterministic pass and cannot replace it, and a seam that could re-read the
     tree would be a second, unbounded exploration nobody costed.
     """
@@ -393,7 +393,7 @@ def _emit(
                 proposal.target,
                 f"the index cannot state a signature for {ref.symbol!r} in "
                 f"{ref.path!r}, so the dependency would have to be described "
-                "rather than stated (ADR-0007) — omit it and let the worker "
+                "rather than stated  — omit it and let the worker "
                 "report BLOCKED, or name a symbol the parser defines there",
             )
         dependencies.append(
@@ -453,7 +453,7 @@ def _acceptance_for(
 ) -> tuple[str, ...] | Refusal:
     """The contract's acceptance list: the proposal's, or the repository's checker.
 
-    ADR-0006 ends with a gap it names precisely — "the schema already demands a
+     ends with a gap it names precisely — "the schema already demands a
     type-check command for the one task type whose guarantee requires one, and
     nothing yet supplies it. What is missing is not a step; it is whoever fills
     the list in." This is that. The locator (#114) reads what the repository
@@ -474,7 +474,7 @@ def _acceptance_for(
       not a reading of a declaration — and ``failing_test_first`` needs a
       *specific* test that fails before the change and passes after, which no
       locator can name at all.
-    * **No checker means no contract.** ADR-0006: "Where the locator returns
+    * **No checker means no contract.** : "Where the locator returns
       ``None``, the decomposer does not emit ``type_annotation`` for that
       repository — the contract would fail to load anyway, which is the correct
       outcome arriving at the correct layer." Refusing here rather than letting
@@ -499,7 +499,7 @@ def _acceptance_for(
        a tree whose ``[tool.mypy]`` excludes ``pkg/vendor/``, bare ``mypy``
        exits 0 and ``mypy pkg/vendor/bad.py`` exits 1 on the same file.
        Appending the target would type-check a file the repository said to skip
-       — inventing scope, which is the one thing ADR-0006 forbids.
+       — inventing scope, which is the one thing  forbids.
     3. The failure the question feared does not reach the worker.
        :meth:`~mcgyvr.gate.acceptance.Acceptance.precondition` runs the whole
        list against the **unchanged** tree before the first attempt, so a
@@ -538,7 +538,7 @@ def _acceptance_for(
             f"this repository declares no type checker, so {kind.name!r} is not "
             f"available here — its guarantee needs evidence only a checker can "
             f"produce, and mcgyvr runs the one the repository configured rather "
-            f"than choosing one (ADR-0006). Configure a checker in the "
+            f"than choosing one . Configure a checker in the "
             f"repository, or declare the command in the proposal's acceptance",
         )
     return (shlex.join(located),)
@@ -687,7 +687,7 @@ def _resize(
     The schema's default is a floor, never a ceiling — a small contract keeps the
     declared default rather than being given a suspiciously precise budget. No
     margin is added on top: the estimator's error band is #117's to measure, and
-    a margin invented here would be exactly the unsourceable constant ADR-0007
+    a margin invented here would be exactly the unsourceable constant
     rejected.
 
     ``ceiling`` is where the sizing stops, and #155 is why it has to exist at

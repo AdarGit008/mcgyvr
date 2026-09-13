@@ -2,14 +2,14 @@
 
 Reads the checked-in measurement records, derives the discordance structure of
 every paired contrast in them, and reports the effect each one could have
-detected. Nothing here is hand-entered: every figure in the ADR-0019 tables is
+detected. Nothing here is hand-entered: every figure in the  tables is
 recomputed by ``python tools/power/report.py`` from ``records/measurements/``,
 so a re-run is the check.
 
 Two distinct questions, and the report answers both because they get confused:
 
 *Responsiveness* — over a whole condition matrix, how many tasks ever change
-verdict at all. This is the ``13 of 20 condition-insensitive`` figure CLM-0012
+verdict at all. This is the ``13 of 20 condition-insensitive`` figure
 reports, stated the other way up.
 
 *Discordance* — for one contrast, how many tasks differ between exactly two
@@ -92,12 +92,12 @@ REPLICATES = [
 # `Gate.run` short-circuits, so a lint-rejected candidate never ran its test and
 # that figure cannot be recomputed into this bar. It read `d = 1` at a pass rate
 # of 70/257, against `d = 0` at 23/257 here: a superseded null, served as the
-# answer, in the tool ADR-0019's D2 numbers are read from. It is kept named
+# answer, in the tool the D2 numbers are read from. It is kept named
 # below rather than deleted, because a superseded measurement that vanishes
 # reads as one that was never taken.
 #
 # The 7B rows are #231 check 5 — the same battery at a second tier, no design
-# change. ADR-0019 D2 says the null is measured per target tier and does not
+# change. D2 says the null is measured per target tier and does not
 # transfer, so both tiers are listed and neither stands in for the other.
 BENCH_REPLICATES = [
     (
@@ -200,9 +200,9 @@ def contrasts() -> list[Contrast]:
 def bench_contrasts() -> list[Contrast]:
     """Per-lever discordance measured on the #225 bench itself.
 
-    Everything above is a retired instrument (ADR-0020). These rows are the
+    Everything above is a retired instrument . These rows are the
     only contrasts this project has run *on the bench*, and they matter
-    because ADR-0021's sizing table has no measured ``psi`` in it at all: its
+    because the sizing table has no measured ``psi`` in it at all: its
     rightmost column is ``psi_draw`` = 0.659, which is resampling sensitivity
     at temperature and not the discordance rate of a greedy lever contrast.
 
@@ -341,9 +341,9 @@ def null_drift() -> None:
 def bench_null() -> None:
     """The #231 null on the bench, per arm and over both arms of **one tier**.
 
-    ADR-0019's D2 asks for ``d`` **per target tier**. ``bench-py`` and
+    the D2 asks for ``d`` **per target tier**. ``bench-py`` and
     ``bench-ts`` are the two arms of a tier, and the pooled row is the same
-    number over the denominator ADR-0021's fourth amendment fixes — paired cells
+    number over the denominator the fourth amendment fixes — paired cells
     actually swept, both arms. It is reported because that is the denominator
     the sizing table uses, not because it replaces the per-arm rows.
 
@@ -404,7 +404,7 @@ def bench_null() -> None:
         )
     print(
         "\n  d is the 'worst pair' column — a count of flipped verdicts, which\n"
-        "  is ADR-0019 D1's layer 2. 'drift' is the net pass-rate spread, and\n"
+        "  is D1's layer 2. 'drift' is the net pass-rate spread, and\n"
         "  it is the smaller number because opposed flips cancel. D2's `d < b`\n"
         "  compares a bar in pp against a count, so read d as d/n; both are\n"
         "  printed above and the session record states which one is used.\n"

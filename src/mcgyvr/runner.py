@@ -1,26 +1,25 @@
-"""Dispatch — two wire protocols behind one runner interface.
+"""Dispatch — one wire protocol behind one runner interface.
 
 This is the first code *below* the seam :mod:`mcgyvr.pool` draws. A caller above
 it holds a :class:`~mcgyvr.pool.Rung` — a name and a model — and cannot say
 where work runs. Here a rung has already been resolved to an
 :class:`~mcgyvr.pool.Endpoint`, and the only remaining question is which shape
-to ask in. There are two, and #21 requires that the choice change nothing a
-caller can observe:
+to ask in. The invariants #21 requires:
 
-* **The same contract executes identically on either protocol.** Both runners
-  produce the same :class:`Completion`, assembled in one place from a small
-  per-protocol :class:`_Parsed`. A protocol supplies a URL path, a request body
-  and how to read an answer; it does not get to decide what a completion *is*.
+* **The same contract executes identically wherever it runs.** The runner
+  produces the same :class:`Completion`, assembled in one place from a small
+  :class:`_Parsed`. The protocol supplies a URL path, a request body and how to
+  read an answer; it does not get to decide what a completion *is*.
   The fields that differ between two runs of the same request are the ones that
   name where it ran — ``source``, ``protocol`` — and the measurements.
-* **The cap is sent by both, and checked afterwards.** ``max_output_tokens`` is
-  required on every :class:`Request` and is translated into each protocol's own
-  parameter (``options.num_predict``, ``max_tokens``). Nothing streams, so a
+* **The cap is sent and checked afterwards.** ``max_output_tokens`` is required
+  on every :class:`Request` and is translated into the protocol's own parameter
+  (``max_tokens``). Nothing streams, so a
   client cannot cut a response off mid-generation; what it can do is refuse to
   issue an uncapped request and then compare the backend's own reported token
   count against the ceiling it was given. A backend that overran says so
   through :attr:`Completion.overran_cap` rather than passing for a short answer.
-* **No stop sequences are sent, by decision.** ADR-0009 settled that v1 bounds a
+* **No stop sequences are sent, by decision.**  settled that v1 bounds a
   reply with the cap and a named truncation and nothing else: a stop sequence is
   consumed by the server and stripped from the answer, so it turns a reply that
   ran long into a *shorter valid-looking file* rather than into an error. Under
@@ -175,7 +174,7 @@ class StopReason(StrEnum):
     UNKNOWN = "unknown"
 
 
-# The words the two protocols and the servers that speak them actually use.
+# The words the protocol and the servers that speak it actually use.
 # Anything absent from this table becomes UNKNOWN rather than being guessed at:
 # a new backend inventing a word should surface as "it did not say", not as a
 # clean finish. `eos_token` is TGI's; `max_tokens` appears on some
@@ -196,7 +195,7 @@ class Request:
     No model and no endpoint: the model comes from the rung being dispatched to
     and the endpoint from the seam, so the same ``Request`` can be sent at any
     step of the ladder. That is what makes "the same contract executes
-    identically on either protocol" checkable rather than a claim.
+    identically wherever it runs" checkable rather than a claim.
 
     ``max_output_tokens`` has no default on purpose — an uncapped request is
     exactly the mistake CAV-03 is a record of, and a caller that has not thought
@@ -204,7 +203,7 @@ class Request:
     worker's output is judged by a deterministic gate; sampling is a decision to
     be made explicitly, not inherited from a backend's default.
 
-    There is no ``stop`` field. ADR-0009 decided that v1 bounds a reply with the
+    There is no ``stop`` field.  decided that v1 bounds a reply with the
     cap and a named truncation, because a stop sequence makes a bad reply
     shorter where the cap makes it *named* — and a shorter whole-file reply is
     still valid Python that the gate will accept. Adding the field back is
@@ -245,7 +244,7 @@ class Request:
 
 @dataclass(frozen=True)
 class Completion:
-    """What came back, how it ended, and what it cost — the same on both paths.
+    """What came back, how it ended, and what it cost — the same whatever the backend.
 
     Carries the cap it was issued under so that :attr:`overran_cap` is
     answerable from the record alone, without the request that produced it: a
@@ -254,7 +253,7 @@ class Completion:
 
     ``input_tokens`` and ``output_tokens`` are the backend's own counts and are
     ``None`` when it reported none. ``latency_s`` is measured host-side around
-    the request, which is the only quantity both protocols express the same way
+    the request, which is the only quantity every backend expresses the same way
     — a server-reported duration excludes queueing and is not comparable across
     backends.
     """
@@ -301,7 +300,7 @@ class _Parsed:
 
     Everything a protocol is allowed to decide, and nothing more. The
     completion itself is assembled once, in :meth:`Runner.generate`, which is
-    what keeps the two paths from drifting into two different meanings of
+    what keeps the one path from drifting into a different meaning of
     "truncated".
     """
 
@@ -327,7 +326,7 @@ class Runner(ABC):
     A subclass supplies three things — the path it posts to, the body it sends,
     and how to read an answer — and declares whether its path is safe to measure
     a model through. Timing, credentials, transport, the stop-reason mapping and
-    the cap check are shared, so neither protocol can quietly mean something
+    the cap check are shared, so no protocol can quietly mean something
     different by them.
     """
 
@@ -428,7 +427,7 @@ class Runner(ABC):
         if stop_reason is StopReason.TRUNCATED:
             notes.append(
                 f"the reply hit the {request.max_output_tokens}-token cap and "
-                f"is incomplete. Under ADR-0009 that is a named failure, not a "
+                f"is incomplete. Under  that is a named failure, not a "
                 f"short answer: it must not be applied to a file."
             )
         if stop_reason is StopReason.UNKNOWN:
@@ -475,7 +474,7 @@ class OpenAIRunner(Runner):
 
     One protocol rather than one integration per vendor, which is what makes
     adding a backend a config entry. It is also the path a measurement must run
-    on (CAV-01), so this is the quality-safe half of the pair.
+    on (CAV-01), so this is the quality-safe path.
     """
 
     protocol: ClassVar[Protocol] = Protocol.OPENAI
@@ -555,7 +554,7 @@ def runner_for(endpoint: Endpoint) -> Runner:
     """The runner that speaks this endpoint's protocol.
 
     The only place a protocol selects an implementation. :class:`Protocol` has
-    two members and this table has two entries; a third would be a new wire
+    one member and this table has one entry; a second would be a new wire
     shape, which is the one thing that is genuinely not a config entry.
     """
     return _RUNNERS[endpoint.protocol](endpoint)

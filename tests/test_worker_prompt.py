@@ -1,7 +1,7 @@
 """The bundle and the assembled prompt.
 
 Three properties carry the weight here. The shipped Python bundle must *be* the
-artifact CLM-0004 measured, or the numbers describe a different file. The size
+artifact  measured, or the numbers describe a different file. The size
 ceiling must be enforced by the loader rather than by a comment, since the
 measurement says an oversized bundle degrades the worker it is meant to help.
 And the assembled prompt must be reachable only through
@@ -87,7 +87,7 @@ def test_shipped_python_bundle_is_byte_identical_to_the_measured_one() -> None:
 def test_both_bundles_are_measured_and_neither_helps_on_this_path() -> None:
     """Three sweeps now, three different answers, and one flag cannot say any.
 
-    CLM-0004 covered one language, CLM-0012 the other, and #167 re-measured the
+     covered one language,  the other, and #167 re-measured the
     first through mcgyvr's own prompt assembly. ``measured`` is True throughout
     and has stopped being the interesting question. ``standing`` is what
     separates a bundle that measured nothing from one whose effect is real and
@@ -121,9 +121,7 @@ def test_the_js_bundle_states_its_null_result_in_the_file_but_not_in_the_prompt(
         / "javascript.md"
     ).read_text(encoding="utf-8")
     assert "NO EFFECT" in raw
-    assert "CLM-0012" in raw
     assert "NO EFFECT" not in load_bundle("js/ts").text
-    assert "CLM-0012" not in load_bundle("js/ts").text
 
 
 # --- the ceiling is enforced, not documented -------------------------------
@@ -342,7 +340,7 @@ def test_the_reply_instruction_names_the_target_and_the_shape() -> None:
 
 
 def test_the_bundle_is_the_system_message_and_the_contract_the_user_one() -> None:
-    """CLM-0004 varied only the system prompt; this is that shape reproduced."""
+    """varied only the system prompt; this is that shape reproduced."""
     built = build_prompt(contract(PY_CONTRACT))
     assert built.bundle is not None
     assert built.system == built.bundle.text
@@ -383,7 +381,7 @@ def test_a_prompt_over_the_ceiling_is_an_issue_not_an_exception() -> None:
 
 
 def test_the_estimate_seam_is_injectable_and_the_count_says_which_kind() -> None:
-    """CLM-0011's reserve applies to a proxy count and not to a real one, so a
+    """the reserve applies to a proxy count and not to a real one, so a
     caller with a tokenizer must be able to say so and stop paying it."""
     huge = 10_000
     tight = contract(PY_CONTRACT + "context:\n  max_input_tokens: 12000\n")

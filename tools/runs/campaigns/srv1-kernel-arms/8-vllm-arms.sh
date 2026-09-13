@@ -60,7 +60,7 @@
 # cache is whatever survives the weights, so if the two kernels' scratch buffers
 # differ the pools differ, the driver's width gate drops different rungs, and
 # the file compares two schedulers rather than two kernels. Both arms therefore
-# pass `--kv-cache-memory-bytes` (the knob ADR-0039 already uses for this exact
+# pass `--kv-cache-memory-bytes` (the knob  already uses for this exact
 # architecture: 1,879,048,192 B / 28,672 B per token = 65,536 tokens), and the
 # engine's own `GPU KV cache size:` line is compared across the arms afterwards.
 # An unequal pool does not silently become a verdict — it forces `unresolved`.

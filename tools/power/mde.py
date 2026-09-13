@@ -1,6 +1,6 @@
 """Paired-design power arithmetic for the floor bench.
 
-Every arm on the bench (ADR-0018 Q1) compares two conditions over the *same*
+Every arm on the bench (Q1) compares two conditions over the *same*
 tasks, so the test is McNemar's and the quantity that carries the power is not
 the task count. It is the number of tasks whose verdict actually *differs*
 between the two conditions — the discordant pairs. Tasks that pass under both,

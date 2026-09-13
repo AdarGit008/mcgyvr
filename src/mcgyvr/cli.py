@@ -661,7 +661,7 @@ def _index(args: argparse.Namespace) -> int:
         for symbol in defs:
             detail = f" [{symbol.detail}]" if symbol.detail else ""
             print(f"  def  {symbol.path}:{symbol.line}{detail}")
-            # The signature is what a contract would carry as a dep (ADR-0007),
+            # The signature is what a contract would carry as a dep ,
             # so showing it here is how a reviewer checks the text against the
             # file without loading the index themselves.
             for line in symbol.signature.splitlines():
@@ -1008,7 +1008,7 @@ def _run(args: argparse.Namespace) -> int:
     same config is broken in the same way).
 
     The test is the exit code, against the set of codes that invocation reports
-    under, which is ADR-0034 clause 2 one layer out from the gate. Ignoring the
+    under, which is clause 2 one layer out from the gate. Ignoring the
     exit code entirely was the cheaper alternative and is the wrong one twice
     over: it would carry an untouched change to a gate that cannot judge it, and
     it would drop the linter's own account of what it will not fix, which is

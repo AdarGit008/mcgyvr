@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """#225 — is `f1` an instrument, or is it merely in band?
 
-A band's pass rate is a statement about **level**. ADR-0019 measured what that
+A band's pass rate is a statement about **level**.  measured what that
 does and does not tell you, and the answer was severe: the bundle's Python arm A
 sat at 65-70%, dead centre of any band one would declare, with **one task in
 twenty responsive**. Nineteen were pinned under every condition the matrix ran.
@@ -11,12 +11,12 @@ as having resolution, and level cannot reveal the difference."*
 `f1` reads 38.9% greedy on the floor unit and no rule in its brief fires. This
 reads the other axis: of the cells the band is made of, how many can move at
 all? A cell that fails every draw is concordant under any lever, contributes no
-discordant mass, and under ADR-0019's ``m >= 6`` wall is worth less toward the
+discordant mass, and under the ``m >= 6`` wall is worth less toward the
 bench's 400 than its nominal count.
 
 **What is measured, and what is inferred.** The observable is variation across
 draws — one greedy draw plus N sampled at a fixed temperature, the same
-replication ADR-0019 D6 licenses as a substitute for material. A cell that
+replication D6 licenses as a substitute for material. A cell that
 varies is demonstrably reachable by this model, so a lever that shifts its odds
 has something to shift. The converse is weaker: a cell pinned across every draw
 could still be unpinned by a lever that supplies information the model lacks.
@@ -73,16 +73,16 @@ TRANCHE_SIZE = 40
 FOCUS_TRANCHE = 8
 REFERENCE_TRANCHES = (4, 5, 6, 7)
 
-# From the pre-registration, anchored in ADR-0019's measured psi range (0.05 at
+# From the pre-registration, anchored in the measured psi range (0.05 at
 # arm A, 0.45 at arm B, with 0.10-0.35 the planning prior D5's table spans).
 PSI_HEALTHY = 0.20
 PSI_WEAK = 0.10
 
 # Greedy re-runs at this model size drifted zero tasks across eight repeats
-# (ADR-0019's determinism table). Two cells is slack, not a tolerance.
+# (the determinism table). Two cells is slack, not a tolerance.
 DRIFT_ALLOWANCE = 2
 
-# The finished bench in the unit the statistic is computed in. ADR-0021's
+# The finished bench in the unit the statistic is computed in. the
 # 2026-08-12 amendment: the 400 is 400 problems each contributing both language
 # arms, so sizing is done over 800 paired cells rather than 400.
 BENCH_PROBLEMS = 400
@@ -171,7 +171,7 @@ def cells(
 def classify(cell: dict[str, Any]) -> str:
     """pinned-fail, pinned-pass, or responsive, over greedy plus the sampled draws.
 
-    The greedy draw is counted. Responsiveness in ADR-0019's sense is variation
+    The greedy draw is counted. Responsiveness in the sense is variation
     across the matrix a task was dispatched under, and the greedy condition is
     part of this one's matrix.
     """
@@ -340,7 +340,7 @@ def main() -> int:
     }
 
     # --- what that buys, against the ruled denominator ---------------------
-    # ADR-0021 was written because D5 stated 400 without stating its
+    #  was written because D5 stated 400 without stating its
     # denominator, and the same ambiguity survived one level down: `f1` counts
     # problems, the sweep dispatches cells, and a problem carries two arms. Its
     # 2026-08-12 amendment settled it — the 400 is 400 problems contributing
@@ -355,7 +355,7 @@ def main() -> int:
     sizes = (
         (n, "cells today", ""),
         (400, "if counted by problem", "  <- not the ruling"),
-        (COMPLETE_CELLS, "cells at 400 problems", "  <- ADR-0021, 2026-08-12"),
+        (COMPLETE_CELLS, "cells at 400 problems", "  <- , 2026-08-12"),
     )
     for size, unit, note in sizes:
         mde = detectable_delta(size, psi_draw)

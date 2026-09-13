@@ -6,23 +6,23 @@ and where a repository declares no runnable check at all, a contract of a type
 needing commands is rejected at load, so `function_implementation`,
 `test_scaffold` and `bug_fix` are not weakly checked but unreachable. This rung
 is what closes the first gap and what makes those task types possible in the
-second case. ADR-0010 adopts it on that coverage argument.
+second case.  adopts it on that coverage argument.
 
 It asks one question per call the worker added: **does this name resolve in the
 environment this code will actually run in?** Answering it means importing the
 target's own packages and introspecting them, which is why the rung lives
 inside the per-task sandbox and cannot live anywhere else. In the orchestrator
-process "installed" means pyyaml and three tree-sitter packages; ADR-0005
-forbids importing target code there and ADR-0010 carried that rule forward
+process "installed" means pyyaml and three tree-sitter packages;
+forbids importing target code there and  carried that rule forward
 unchanged. Under the temp-directory sandbox the resolution still happens in a
 subprocess rather than in-process — exactly the strength acceptance commands
 have in that mode, and no more.
 
-**The resolver is ghostcall's engine (CLM-0006), staged rather than installed.**
+**The resolver is ghostcall's engine , staged rather than installed.**
 The four engine files are stdlib-only and are vendored under
 ``records/evidence/`` pinned to an upstream commit with a sha256 per file; this
 rung stages them into the workspace for the length of one run and removes them
-after. That is the standing version policy #123 asked for, and ADR-0011 records
+after. That is the standing version policy #123 asked for, and  records
 why it is staging rather than an image layer: the resolver never enters the
 image, so :func:`~mcgyvr.sandbox.image.cache_key` keeps covering exactly what
 the repository declared and nothing else. The digests are checked before every

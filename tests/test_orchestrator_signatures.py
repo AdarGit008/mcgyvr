@@ -1,4 +1,4 @@
-"""ADR-0007 moves ``deps[].signature`` from a model's output to the index's, so
+"""moves ``deps[].signature`` from a model's output to the index's, so
 these tests hold the slice to what #115 makes acceptance criteria — a signature
 is reproducible from a checkout, it carries no body, both launch languages
 produce signatures and imports from the passes that already run, and a file the
@@ -272,7 +272,7 @@ def test_js_import_signature_holds_the_statement_and_the_alias() -> None:
 
 
 def test_js_re_export_is_an_export_not_an_import() -> None:
-    """ADR-0007 puts the barrel file in the "cannot name it" bucket, not this one."""
+    """puts the barrel file in the "cannot name it" bucket, not this one."""
     symbols = extract("m.js", b'export { x } from "./x"\n')
     assert [s.name for s in symbols if s.kind is SymbolKind.EXPORT] == ["x"]
     assert [s for s in symbols if s.kind is SymbolKind.IMPORT] == []

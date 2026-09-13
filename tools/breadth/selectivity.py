@@ -26,7 +26,7 @@ so the early ones are the obvious cases and the late ones the corners — which
 is how a thin real-world suite is thin.
 
 **What comes out.** For each draw budget k and checker strength s, selection is
-production's: the first draw that passes the *weak* checker wins (ADR-0008 —
+production's: the first draw that passes the *weak* checker wins ( —
 selection is the first gate pass). That winner is then judged by the *full*
 checker, which stands in for the truth. Three numbers per cell:
 

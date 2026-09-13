@@ -1,6 +1,6 @@
 """A serving memory declaration is bytes, and the bytes match the declaration.
 
-ADR-0039. ``gpu_memory_utilization = 0.85`` was never decided in this project —
+. ``gpu_memory_utilization = 0.85`` was never decided in this project —
 it is local-ai's OOM fix for a 12 GB card, applied unchanged to a 6 GB one — and
 the reason it survived is that nothing could see it was wrong. A fraction reads
 as a tuning knob. What it actually is, in vLLM's own arithmetic
@@ -17,7 +17,7 @@ The instrument could not distinguish the two instruments it was built to be.
 
 These checks hold the configs to bytes and hold ``_start`` to refusing an entry
 that declares neither or both. They are static and cost no rig time: the
-measurement is in ADR-0039 and in each entry's own ``_footprint_mib``.
+measurement is in  and in each entry's own ``_footprint_mib``.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ PINNED_AT_FP16_AS_RUN: frozenset[tuple[str, str]] = frozenset(
 def test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape(
     vllm: Any,
 ) -> None:
-    """ADR-0039 rules 1 and 2, over every vLLM entry in the tree, at each entry's
+    """rules 1 and 2, over every vLLM entry in the tree, at each entry's
     own ``--kv-cache-dtype``."""
     entries = _vllm_entries()
     assert entries, "no vLLM entry was discovered; the sweep found nothing to hold"
@@ -86,7 +86,7 @@ def test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape(
         assert "gpu_memory_utilization" not in serve, (
             f"{where} declares a fraction. A fraction is a statement about one "
             "card: the same 1,792 MiB of KV cache is 0.565 on srv1 and 0.273 on "
-            "srv2 (ADR-0039)"
+            "srv2 "
         )
         assert "kv_cache_memory_bytes" in serve, f"{where} declares no KV cache size"
         per_token = vllm.kv_bytes_per_token(serve)
@@ -113,7 +113,7 @@ def test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape(
 
 
 def test_every_declared_model_records_how_its_bytes_per_token_was_derived() -> None:
-    """ADR-0039 rule 2: the constant carries its derivation, or it is a magic
+    """rule 2: the constant carries its derivation, or it is a magic
     number with a longer name. The note must show the arithmetic AND name a
     measurement, because either alone is how 0.85 travelled."""
     for path, entry in _vllm_entries():
@@ -126,7 +126,7 @@ def test_every_declared_model_records_how_its_bytes_per_token_was_derived() -> N
         assert "2026-" in note, f"{where}: the note names no measurement date"
         footprint = serve.get("_footprint_mib")
         assert isinstance(footprint, dict) and footprint, (
-            f"{where}: no measured footprint. ADR-0039 rule 4 -- the arithmetic "
+            f"{where}: no measured footprint. rule 4 -- the arithmetic "
             "predicts the KV cache and only the card says what the process took"
         )
         assert all(isinstance(v, int) and v > 0 for v in footprint.values()), where
@@ -135,7 +135,7 @@ def test_every_declared_model_records_how_its_bytes_per_token_was_derived() -> N
 def test_there_is_no_silent_default_and_both_fields_together_are_a_refusal(
     vllm: Any,
 ) -> None:
-    """ADR-0039 rules 1 and 3, against the argument builder itself.
+    """rules 1 and 3, against the argument builder itself.
 
     Both directions, so the check can be shown to reject: a bare shape must
     raise rather than fall back, and the two fields together must raise rather
@@ -172,7 +172,7 @@ def test_there_is_no_silent_default_and_both_fields_together_are_a_refusal(
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: decided — ADR-0039 rule 1 reaches calibrate.py's two inline "
+        "2026-08-22: decided — rule 1 reaches calibrate.py's two inline "
         "serve blocks (the width sweep and the sleep arm), and converting them "
         "re-baselines every vLLM cell they produced. That is #329's arm, which "
         "already owes a width-16 measurement, and it lands there rather than "
@@ -196,7 +196,7 @@ def test_the_calibration_probes_declare_bytes_too() -> None:
 
 # --- #354: a declaration the card cannot hold -------------------------------
 #
-# ADR-0039's rule is `max_num_seqs x max_model_len x bytes_per_token`, and the
+# the rule is `max_num_seqs x max_model_len x bytes_per_token`, and the
 # three cells that refused on 2026-08-23 each computed it EXACTLY right. What
 # was missing is that a byte declaration travels across cards and travelling is
 # not the same as fitting: every vLLM figure this project held came from the
@@ -236,7 +236,7 @@ PHASE0_WEIGHTS_BYTES = {
     "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ": int(9.38 * 1024**3),
 }
 
-#: The 1.5B's weights, measured, from ADR-0039's table -- stable across all
+#: The 1.5B's weights, measured, from the table -- stable across all
 #: eight of its rows on both rigs. Used only to solve for the two rigs' non-KV,
 #: non-weights residue below.
 WEIGHTS_1_5B_MIB = 1126
@@ -417,7 +417,7 @@ def test_the_overhead_constant_is_derived_from_the_residue_and_not_chosen(
 ) -> None:
     """733 MiB is a reading plus a block, and the check re-derives both.
 
-    The first version of this constant was 910, assembled from ADR-0039's terms
+    The first version of this constant was 910, assembled from the terms
     — driver context, activation, non-torch, one allocator block. That sum
     double-counts: `nvidia-smi`'s card figure already contains the driver's
     reserve and the process's own context, so two of the four terms were being
@@ -488,7 +488,7 @@ def test_the_constant_lands_inside_the_window_every_measured_cell_allows(
 
     assert (max(floor), min(ceiling)) == (511, 1145), (
         f"the window moved to ({max(floor)}, {min(ceiling)}); the constant's "
-        "docstring and ADR-0039's amendment both quote it and must be re-read"
+        "docstring and the amendment both quote it and must be re-read"
     )
     assert max(floor) < vllm.NON_KV_OVERHEAD_MIB < min(ceiling)
 
@@ -560,9 +560,9 @@ def test_every_vllm_entry_can_be_checked_against_a_card() -> None:
     """An entry that declares bytes must give the pre-check something to work with.
 
     Either a measured `_footprint_mib` for the host it targets, or
-    `weights_bytes` with a note showing where the figure came from -- ADR-0039
-    rule 2's idiom, which makes a model whose constant is unrecorded a refusal
-    rather than a guess. Without one of the two, `declaration_fits` refuses and
+    `weights_bytes` with a note showing where the figure came from -- rule 2's
+    idiom, which makes a model whose constant is unrecorded a refusal rather
+    than a guess. Without one of the two, `declaration_fits` refuses and
     the entry is undispatchable, so this fails at check time instead of on a rig.
     """
     for path, entry in _vllm_entries():

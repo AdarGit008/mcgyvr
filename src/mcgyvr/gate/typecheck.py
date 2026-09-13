@@ -12,7 +12,7 @@ annotate a function with a return type it does not return and the gate accepts.
 configured, in whichever file that checker reads its own configuration from,
 and it runs nothing at all where the repository configured nothing — no default
 checker, no synthesised strictness, and no environment issue for the absence.
-ADR-0006 put the choice of type checker outside this project; a gate that ran
+ put the choice of type checker outside this project; a gate that ran
 one anyway would apply a bar the repository never agreed to, and one that
 recorded "no type checker" as degraded coverage would say every install that
 never wanted one is broken.
@@ -164,7 +164,7 @@ TYPECHECK_TIMEOUT_S = 300.0
 #: A checker is *reporting* on 0 (clean) and 1 (diagnostics). Both mypy and
 #: pyright reserve 2 and above for "I did not do the job", which must never be
 #: read as a clean pass — the same rule, for the same reason, as the lint rung
-#: (ADR-0034, #261).
+#: (#261).
 _REPORTING = (0, 1)
 
 #: ``path:line[:col[:end_line:end_col]]: severity: message``. The trailing

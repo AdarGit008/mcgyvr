@@ -526,7 +526,7 @@ def choose_mode(configured: str, docker_available: bool) -> _SandboxChoice:
 
     ``docker`` configured without a daemon does not fail — it falls back to
     the temp directory and says so once, because locking a user out for the
-    lack of Docker is the opposite of the intent (ADR-0001 §5). ``tempdir``
+    lack of Docker is the opposite of the intent (§5). ``tempdir``
     configured is an explicit choice and carries the same weaker-mode note.
     """
     if configured == "tempdir":

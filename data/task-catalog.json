@@ -23,7 +23,7 @@
     }
   ],
 
-  "_families_note": "Ordered cheapest to dearest, per ADR-0001 boundary 3. A family is the ladder-independent way to say where work starts: rung names are chosen by whoever wrote the config, so a catalog that named rungs would only be valid on the machine it was written for. A family resolves against any ladder — a rung is `api` when its source declares an `api_key_env` and `local` when it does not.",
+  "_families_note": "Ordered cheapest to dearest,  boundary 3. A family is the ladder-independent way to say where work starts: rung names are chosen by whoever wrote the config, so a catalog that named rungs would only be valid on the machine it was written for. A family resolves against any ladder — a rung is `api` when its source declares an `api_key_env` and `local` when it does not.",
 
   "evidence_kinds": [
     {
@@ -156,7 +156,7 @@
     },
     {
       "name": "config_edit",
-      "reason": "The gate's structural checks are Python and JS/TS only (ADR-0001 boundary 8). A YAML or TOML change has no adapter, so acceptance would rest on nothing but the file still parsing — too thin a bar for a file that decides how everything else runs. Revisit when an adapter covers the format."
+      "reason": "The gate's structural checks are Python and JS/TS only (boundary 8). A YAML or TOML change has no adapter, so acceptance would rest on nothing but the file still parsing — too thin a bar for a file that decides how everything else runs. Revisit when an adapter covers the format."
     },
     {
       "name": "multi_file_refactor",
@@ -179,7 +179,7 @@
     },
     {
       "name": "interface_design",
-      "reason": "No acceptance evidence exists for it. A designed interface has no command that can fail, so the deterministic gate cannot accept it and a model verifier would be the only judge — which spends expensive tokens to decide whether expensive tokens were well spent, and inverts the north star. Design is the calling agent's work; mcgyvr owns what is below the contract (ADR-0001)."
+      "reason": "No acceptance evidence exists for it. A designed interface has no command that can fail, so the deterministic gate cannot accept it and a model verifier would be the only judge — which spends expensive tokens to decide whether expensive tokens were well spent, and inverts the north star. Design is the calling agent's work; mcgyvr owns what is below the contract ."
     }
   ]
 }

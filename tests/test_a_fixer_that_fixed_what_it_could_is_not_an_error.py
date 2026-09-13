@@ -31,7 +31,7 @@ load its config did not apply the guarantee to anything.
 
 The test between the last two is the **exit code**, checked against the set of
 codes under which that invocation is *reporting* rather than failing. That is
-ADR-0034's clause 2 one layer out, and for the same measured reason: on a fatal
+the clause 2 one layer out, and for the same measured reason: on a fatal
 config error ruff writes an empty stdout, so nothing about the output separates
 "clean" from "never ran". "Ignore the exit code and let the gate decide" would
 have been the cheap fix and is the wrong one — it hands a change that no linter
@@ -45,7 +45,7 @@ exits non-zero except on failure (``ruff format`` answers an unparseable file
 and an unloadable config alike with 2; so does ``prettier --write``).
 
 Every measurement here is retaken by a test rather than quoted, because
-ADR-0034's own table carries the warning: the fix is only correct for as long as
+the own table carries the warning: the fix is only correct for as long as
 the table is.
 """
 
@@ -85,7 +85,7 @@ RESIDUE = "import os\n\n\ndef f():\n    l = 1\n    return l\n"
 RUFF_CONFIG = '[tool.ruff.lint]\nselect = ["E", "F"]\n'
 
 #: A `pyproject.toml` ruff refuses to load, which is the "ran and failed" case
-#: and must stay fatal. The same shape ADR-0034 measured for the gate's own
+#: and must stay fatal. The same shape  measured for the gate's own
 #: invocations, here for the floor's.
 BROKEN_CONFIG = "[tool.ruff]\nnot-a-real-ruff-key = 3\n"
 

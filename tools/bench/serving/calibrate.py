@@ -105,8 +105,8 @@ def identify(host: str, engine: str | None) -> dict[str, Any]:
 
     **#326.** The campaign's 16 ramp and sleep rows named the machine by
     `host` alone: no card, no driver, no compute capability, no engine build
-    -- the 0.32.4 / 0.32.5 split ADR-0027 records as the prior instance of
-    exactly this gap. One block on every row, ADR-0027's shape: a read the
+    -- the 0.32.4 / 0.32.5 split  records as the prior instance of
+    exactly this gap. One block on every row, the shape: a read the
     host did not answer is ``null`` with the command it ran beside it.
     """
     key = (host, engine)
@@ -968,8 +968,8 @@ LAUNCH_CHECKS_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     "allocation_present": ("allocation_present",),
     "served_models": ("served_models",),
     "engine_config": ("engine_config",),
-    # #345 / ADR-0040. Two fields, not one: the reading, and the reason it is
-    # null when it could not be taken (ADR-0027 D2).
+    # #345 / . Two fields, not one: the reading, and the reason it is
+    # null when it could not be taken (D2).
     "resident_placements": ("resident_placements",),
     "resident_placements_refused": ("resident_placements_refused",),
     "weights": (

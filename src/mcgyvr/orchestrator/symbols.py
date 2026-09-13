@@ -14,7 +14,7 @@ is a shortlist, not a semantic model: it points the expensive reader at a few
 files, and precise understanding is the reader's job, not the index's.
 
 One exception earns its keep: a definition also carries its **signature**, and an
-import is a kind of its own (#115). ADR-0007 puts ``deps[].signature`` on a
+import is a kind of its own (#115). The index puts ``deps[].signature`` on a
 contract in the parser's hands rather than a model's — the decomposer names which
 symbols a contract depends on, the index states what they look like. Both come
 out of the passes already running here, so neither costs a second parse: the
@@ -68,7 +68,7 @@ class Symbol:
     definition — ``"function"``, ``"class"``, ``"method"`` — and for an import
     the module the name comes from; it is empty for a reference or an export.
 
-    ``signature`` is the declaration without its body: the text ADR-0007 sends
+    ``signature`` is the declaration without its body: the text sent
     to a worker as ``deps[].signature``. It is populated for a definition and,
     for an import, holds the whole import statement — which is where an alias
     survives, since ``name`` records the name as depended upon rather than as
@@ -436,7 +436,7 @@ def _js_imports(path: str, node: Node) -> list[Symbol]:
     dependency).
 
     A re-export — ``export {x} from "./x"`` — is deliberately not an import
-    here. It is already recorded as an EXPORT, and ADR-0007 puts the barrel
+    here. It is already recorded as an EXPORT, and the index puts the barrel
     file in the "the index cannot name this" bucket rather than pretending to
     resolve it.
     """

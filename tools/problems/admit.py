@@ -80,7 +80,7 @@ def _bench_score() -> Any:
     return module
 
 
-# The rig's ceiling, imported rather than restated (#262, ADR-0035). Admission
+# The rig's ceiling, imported rather than restated (#262). Admission
 # rehearses the measurement, so a checker too slow for the rig is too slow for
 # the pool — and the only way that sentence stays true is if there is one
 # number. This line used to be a literal `30.0` under a comment claiming it

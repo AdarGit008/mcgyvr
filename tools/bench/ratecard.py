@@ -13,7 +13,7 @@ time* instead — 2.5x, 18%, 3.0x. Those numbers are right for a different
 quantity than the one the constant named, and the correction is the module's own
 point: state which cost a figure is a figure of.)
 
-ADR-0027's own fan-out arithmetic prices bound combinations at "~40 minutes
+the own fan-out arithmetic prices bound combinations at "~40 minutes
 each" and is amended rather than left standing, because a figure that stays
 quotable somewhere else has not been replaced.
 

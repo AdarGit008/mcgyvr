@@ -178,7 +178,7 @@ def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
     The pipe is bytes on both sides. ``text=True`` would encode with the
     process's preferred encoding under ``strict``, which raises on the
     ``surrogateescape`` characters the rest of mcgyvr uses to carry an
-    undecodable byte through a ``str`` (``mcgyvr.pending``) — a crash out of
+    undecodable byte through a ``str`` — a crash out of
     the one function in this module that promises never to raise. It would also
     translate the newlines on the way back, so a file with CRLF endings would
     come out of a *cleanup* with different ones.
@@ -324,7 +324,7 @@ def _cleanable(result: GateResult) -> bool:
     one where every finding came from the formatter itself, so re-running the
     formatter removes all of it. An inconclusive rung disqualifies a change even
     with no findings beside it — a rung that ran and cannot say what bar it
-    applied (ADR-0034) has not told anyone the problem is formatting, and
+    applied  has not told anyone the problem is formatting, and
     tidying on that would be answering a question that was never asked.
     """
     if result.inconclusive:

@@ -87,7 +87,7 @@ packages = ["src/mcgyvr"]
 [tool.hatch.build.targets.wheel.force-include]
 "data/capability-table.json" = "mcgyvr/data/capability-table.json"
 "data/task-catalog.json" = "mcgyvr/data/task-catalog.json"
-# The semantic rung's resolver engine (#123, ADR-0011). These four files are
+# The semantic rung's resolver engine (#123). These four files are
 # third-party source vendored as evidence under `records/` and pinned by
 # sha256 there and again in `gate/semantic.py`; they are *staged into the
 # sandbox* as data and are never imported by mcgyvr, so they ship as files
@@ -115,7 +115,7 @@ src = ["src", "tests"]
 # instrument, and `tests/test_python_arm.py` holds them to that copy by digest.
 # They are also what decides whether a cell passes, so reformatting them would
 # not be a tidy-up: it would change the instrument #167 exists to keep fixed,
-# and the arm would stop being CLM-0004's task set. The contracts beside them
+# and the arm would stop being the task set. The contracts beside them
 # are ours and are not excluded — YAML is not ruff's anyway.
 extend-exclude = [
     "records/measurements",

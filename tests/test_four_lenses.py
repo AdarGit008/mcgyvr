@@ -1,8 +1,8 @@
-"""The four lenses as checks rather than as reading (#251, ADR-0026).
+"""The four lenses as checks rather than as reading (#251).
 
 On 2026-08-13 one defect was found eleven times in a day, and **not one was
 found by a check** — every instance was found by a person or an agent
-re-reading. ADR-0026 states the standard; a sweep that corrects eleven
+re-reading.  states the standard; a sweep that corrects eleven
 instances and adds no check leaves the twelfth to be found the same way.
 
 So these are deliberately not assertions about the eleven. Each one computes a
@@ -24,7 +24,7 @@ Four classes, one check each:
   recomputes, so the figure and its evidence drift apart.
   ``test_estimate_reserve_is_derived``.
 
-Read ADR-0026 before adding to any allowlist here. The cost of getting this
+Read  before adding to any allowlist here. The cost of getting this
 wrong is not a missed defect; it is a published number nobody can re-derive.
 """
 
@@ -258,7 +258,7 @@ def test_duplicated_constants_are_declared() -> None:
             )
             for name in undeclared
         )
-        + "\n\nADR-0026 lens 3: either make one definition the source of the "
+        + "\n\neither make one definition the source of the "
         "other, or declare the duplication and say whether the copies must "
         "hold equal values."
     )
@@ -353,7 +353,7 @@ def _emitted_check_names(gate: Path | None = None) -> dict[str, list[str]]:
 def test_declared_rungs_name_emitted_checks() -> None:
     """Every name in the declared bar covers at least one emitted check.
 
-    ADR-0026 lens 3's strong form: a check states what it contains, or it is
+    lens 3's strong form: a check states what it contains, or it is
     worse than dead weight. ``gate_rungs`` is written byte-identically into both
     arms of every contrast, so a name in it that corresponds to nothing is a bar
     that reads as applied and was not.
@@ -384,7 +384,7 @@ def test_declared_rungs_name_emitted_checks() -> None:
     )
 
     covered = {c for checks in RUNG_COVERAGE.values() for c in checks}
-    # `semantic` is absent from the bar by decision (ADR-0011), not by accident,
+    # `semantic` is absent from the bar by decision , not by accident,
     # so it is one emitted check the bar is allowed not to cover.
     #
     # `typecheck` (D17) is the second, and it is the same shape: the rung runs
@@ -481,7 +481,7 @@ def test_recorded_task_fields_have_a_reader() -> None:
 
     new = sorted(unread - UNREAD_TASK_FIELDS - CONSTRUCTION_FIELDS)
     assert not new, (
-        f"a bench task records {new}, which no analysis tool reads. ADR-0026 "
+        f"a bench task records {new}, which no analysis tool reads.  "
         "lens 1: record what cannot be reconstructed, and join what is "
         "recorded — the capture was never the gap. If the field is consumed "
         "when the task is built rather than when it is analysed, declare it in "
@@ -518,7 +518,7 @@ def test_estimate_reserve_is_derived() -> None:
     """The shipped reserve is re-derived from the data it cites, not asserted.
 
     ``ESTIMATE_RESERVE = 0.32`` is enforced in ``check_prompt_fits`` and cited
-    to CLM-0011 as "the worst vocabulary's p05, rounded up". Until #251 the only
+     as "the worst vocabulary's p05, rounded up". Until #251 the only
     test on it asserted a band (``0.30 <= x <= 0.35``), which is a claim about
     the number rather than a derivation of it: the units could change and the
     band would still pass.
@@ -526,7 +526,7 @@ def test_estimate_reserve_is_derived() -> None:
     from mcgyvr.gate.preflight import ESTIMATE_RESERVE
 
     if not TOKEN_UNITS.is_file():  # pragma: no cover - the evidence is vendored
-        pytest.skip("CLM-0011's units are not vendored")
+        pytest.skip("the units are not vendored")
     rows = [
         json.loads(line)
         for line in TOKEN_UNITS.read_text(encoding="utf-8").splitlines()
@@ -538,14 +538,14 @@ def test_estimate_reserve_is_derived() -> None:
     )
     derived = math.ceil(abs(worst) * 100) / 100
     assert pytest.approx(derived) == ESTIMATE_RESERVE, (
-        f"ESTIMATE_RESERVE is {ESTIMATE_RESERVE}, but CLM-0011's own units give "
+        f"ESTIMATE_RESERVE is {ESTIMATE_RESERVE}, but the own units give "
         f"a worst-vocabulary p05 of {worst:.4f}, i.e. {derived}. The constant "
         "and the measurement it cites have drifted apart."
     )
 
 
-# The stratum CLM-0011's own statement calls out: "the band is language-
-# dependent". A pooled reserve over a heterogeneous stratum is what ADR-0026's
+# The stratum the own statement calls out: "the band is language-
+# dependent". A pooled reserve over a heterogeneous stratum is what the
 # consequences forbid a *report* from doing, and the same argument applies to a
 # shipped constant. These are the per-language figures the audit measured; the
 # check pins them so the gap cannot widen unnoticed while the pooled number
@@ -561,7 +561,7 @@ def test_pooled_reserve_is_recorded_against_its_strata() -> None:
     computed fact rather than a sentence in an audit nobody re-runs.
     """
     if not TOKEN_UNITS.is_file():  # pragma: no cover
-        pytest.skip("CLM-0011's units are not vendored")
+        pytest.skip("the units are not vendored")
     rows = [
         json.loads(line)
         for line in TOKEN_UNITS.read_text(encoding="utf-8").splitlines()
@@ -590,7 +590,7 @@ def test_pooled_reserve_is_recorded_against_its_strata() -> None:
 # The controls
 # --------------------------------------------------------------------------
 #
-# ADR-0026 lens 3 is two-sided: a declaration of content, *and* a positive
+# lens 3 is two-sided: a declaration of content, *and* a positive
 # control proving the declaration is live. A digest with no control records
 # precisely which inert bar was applied. Every check above therefore has a
 # canary here — a synthetic new instance it must reject. If a canary stops
@@ -665,7 +665,7 @@ def test_control_a_field_no_analysis_reads_is_rejected() -> None:
 def test_control_the_reserve_moves_with_its_evidence() -> None:
     """The reserve check rejects a constant that stopped matching its units."""
     if not TOKEN_UNITS.is_file():  # pragma: no cover
-        pytest.skip("CLM-0011's units are not vendored")
+        pytest.skip("the units are not vendored")
     rows = [
         json.loads(line)
         for line in TOKEN_UNITS.read_text(encoding="utf-8").splitlines()

@@ -1,4 +1,4 @@
-"""ADR-0016's golden corpus: every captured worker reply, asserted whole.
+"""the golden corpus: every captured worker reply, asserted whole.
 
 The corpus is the raw reply files the measurement rigs write under
 ``records/measurements/``; ``records/corpora/worker-replies/golden.json`` pins
@@ -76,7 +76,7 @@ def test_the_corpus_replays_whole(
 
 
 def test_refusals_are_corpus_not_noise(pinned: dict[str, Any]) -> None:
-    """The unhandleable shapes are the ones worth the most (#174, ADR-0016).
+    """The unhandleable shapes are the ones worth the most (#174).
 
     A corpus from which every refusal has vanished has been curated back to
     the author-imagination bound it exists to escape.

@@ -51,7 +51,7 @@
     "_removed_2026_09_06": "The build recorded here served a backend that is no longer in the product; it is in archive/forensic-ollama/ with the eleven-version jump (K6) that made it worth recording. The builds the live ladder runs are declared where they are applied: `llamacpp_image` above, and the vLLM image digest under `not_declared_here`."
   },
   "not_declared_here": {
-    "_doc": "Named so the omissions are not read as completeness — ADR-0026 lens 3.",
+    "_doc": "Named so the omissions are not read as completeness — lens 3.",
     "vllm_image_digest": "Both rigs run the same docker vLLM image, recorded in the session record as `sha256:ffb2d59b…` — ELIDED there, so the full digest exists only on the hosts. It is not written here because a truncated digest that looks like a declaration is worse than no declaration. Recovering it is a host read.",
     "gpu_memory_utilization": "#337 — the value is being measured on both rigs rather than inherited, so declaring the inherited one here would pin the number that issue exists to replace."
   },

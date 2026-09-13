@@ -41,10 +41,10 @@ report every rename contract complete without touching a file.
 
 **What is deliberately not here.** Where work runs is :mod:`mcgyvr.route` and
 :mod:`mcgyvr.escalate`; whether a change is acceptable is :mod:`mcgyvr.gate`;
-whether it lands is :mod:`mcgyvr.deliver`; what a retry is told is
-``mcgyvr.attempt``. All four existed and were reachable. What was missing is
-the two seams above, and putting policy here would give decisions the port
-already settles in one place a second place to be settled differently.
+whether it lands is :mod:`mcgyvr.deliver`; what a retry is told is held here,
+per rung. What was missing is the two seams above, and putting policy here
+would give decisions the port already settles in one place a second place to
+be settled differently.
 """
 
 from __future__ import annotations
@@ -539,9 +539,9 @@ def worker_attempt(
     one, not the last one that had something to say.**
     :func:`~mcgyvr.route.climb` owns how many attempts a rung gets, and its
     ``Result`` carries a verdict rather than notes, so the note is held here,
-    per rung, and handed to ``build_prompt``. ``mcgyvr.attempt.run`` is the
-    standalone spelling of the same loop, for a caller that is not climbing;
-    running both would be two loops counting one budget.
+    per rung, and handed to ``build_prompt``. A standalone spelling of the same
+    loop for a caller that is not climbing would be two loops counting one
+    budget.
 
     The write is unconditional and the map holds ``RetryNotes | None``, which
     is ``tools/missions/attempt.py``'s spelling and is the right one. The guard
@@ -819,7 +819,7 @@ def worker_attempt(
         def judge_draw(space: Sandbox) -> GateResult:
             # The gate is handed the sandbox, not a bare path, because a
             # contract's acceptance commands are arbitrary shell and run inside
-            # a sandbox and nowhere else (ADR-0005). `gate_workspace` takes the
+            # a sandbox and nowhere else . `gate_workspace` takes the
             # sandbox and judges whatever is in it right now, so the draw
             # `best_of` just wrote is what the verdict is about.
             result = gate_workspace(contract, space, adapters=adapters)

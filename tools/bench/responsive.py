@@ -18,7 +18,7 @@ this module reads the same runs:
    here is (model + **bar**) rather than (model + language): the arm *is* the
    bar.
 2. **Within an arm.** ``psi`` ranges 0.029 to 0.134 across task types inside a
-   single arm — a 4.6x spread, the heterogeneity ADR-0026 forbids pooling over.
+   single arm — a 4.6x spread, the heterogeneity  forbids pooling over.
 
 Arm-level rows are printed because a reader will otherwise compute them, and are
 labelled so they cannot be quoted as the bench's resolution. Nothing is ever
@@ -38,7 +38,7 @@ one it is.
                 lever, and nothing about a different bar.
 ``psi``         The measured discordance rate of a **named lever**. A property
                 of the (instrument, lever) pair, never of "the bench"
-                (ADR-0019 D5). ``delta <= psi`` is hard. Computed by
+                (D5). ``delta <= psi`` is hard. Computed by
                 ``resolution.measure``.
 ``psi_draw``    Cells whose verdict varies across sampled draws. Its own
                 module's docstring is explicit and is preserved here: **it is
@@ -65,7 +65,7 @@ cannot manufacture a draw that was never dispatched, so this one stays open and
 ``coverage_gaps`` keeps printing it.
 
 **What this module cannot key on yet.** The honest unit is a *signature* — the
-model, bar and condition as content rather than as names (#265, ADR-0026's
+model, bar and condition as content rather than as names (#265, the
 consequence). Until those digests exist, the key is (tier, arm), which are
 labels for the properties that actually differ.
 
@@ -116,14 +116,14 @@ revision = _by_path("bench_product_rf", HERE / "product.py")
 
 ARMS = ("py", "ts")
 
-# ADR-0019's wall: below six discordant pairs the exact test reaches p < 0.05 at
+# the wall: below six discordant pairs the exact test reaches p < 0.05 at
 # no effect size at all. Taken from `resolution.py` rather than restated — two
-# copies of a threshold are two chances for one of them to be edited (ADR-0026
+# copies of a threshold are two chances for one of them to be edited (
 # lens 3).
 WALL = resolution.WALL
 
-# The tiers #224 owes a band for: the floor unit, and the second tier ADR-0017's
-# P3 and ADR-0018's Q4 require. A row from any other tier is context and is not
+# The tiers #224 owes a band for: the floor unit, and the second tier the
+# P3 and the Q4 require. A row from any other tier is context and is not
 # counted as coverage — otherwise adding one reads as opening sixteen gaps.
 BAND_TIERS = ("1.5B", "7B")
 
@@ -281,7 +281,7 @@ class Row:
 
     @property
     def thin(self) -> bool:
-        """Whether the numerator is below ADR-0019's wall of six.
+        """Whether the numerator is below the wall of six.
 
         Not a validity threshold for ``psi_draw`` itself — it is a descriptive
         rate and is what it is. It is the threshold below which the *decision*
@@ -470,8 +470,8 @@ def scorer_effect() -> tuple[dict[str, Any], ...]:
     observable and what share was the bar. Now the same draws are read under
     both scorers, so the two effects separate.
 
-    Reported per (tier, bar, stratum) and never pooled — ADR-0019 D2 and
-    ADR-0026, and both of ``resolution.py``'s objections apply here unchanged.
+    Reported per (tier, bar, stratum) and never pooled — D2 and
+    , and both of ``resolution.py``'s objections apply here unchanged.
     The ``headroom`` column is drawn from the contrast at the **same** tier and
     arm, and is left absent rather than substituted when there is none: a
     ratio against another tier's ceiling would be arithmetic, not evidence.
@@ -535,7 +535,7 @@ def scorer_effect() -> tuple[dict[str, Any], ...]:
                         else None
                     ),
                     # Whether the re-scored figure carries information at all,
-                    # and whether its numerator clears ADR-0019's wall. Under a
+                    # and whether its numerator clears the wall. Under a
                     # strict bar a stratum can be driven to zero passing draws,
                     # and a `psi_draw` of 0.0 read off that is the instrument's
                     # silence rather than the material's deadness.
@@ -643,7 +643,7 @@ def report() -> list[str]:
         f"{BOUNDS[PSI_DRAW]} |",
         "",
         "No row is pooled across tiers or across arms: `bench-py` and "
-        "`bench-ts` are two bars, not a language contrast (ADR-0026, and "
+        "`bench-ts` are two bars, not a language contrast (and "
         "`resolution.py`'s docstring). Rows marked "
         f"`{ARM_ROW}` are the arm aggregate and are printed only because a "
         "reader would otherwise compute one.",
@@ -663,7 +663,7 @@ def report() -> list[str]:
             ]
         )
         lines += [
-            f"- `psi` is this lever's, not the bench's. Wall: m >= {WALL} (ADR-0019).",
+            f"- `psi` is this lever's, not the bench's. Wall: m >= {WALL} .",
             "",
             "| tier | bar | stratum | observable | n | k | fraction | scorer "
             "| coverage |",
@@ -706,7 +706,7 @@ def report() -> list[str]:
             "between `psi_draw` and `headroom` that closed when the two were "
             "put on one bar. It is **not** one figure for the bench — it ranges "
             "from a fifteenth to two thirds across the strata below, which is "
-            "why ADR-0019 D2 and ADR-0026 forbid a pooled answer here.",
+            "why D2 and  forbid a pooled answer here.",
             "",
             "| tier | bar | stratum | n | `psi_draw` acceptance | `psi_draw` "
             "`Gate.run` | scorer | share of gap | `headroom` | gap before "

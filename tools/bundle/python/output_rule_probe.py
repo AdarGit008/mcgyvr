@@ -2,11 +2,11 @@
 """#167 — is mcgyvr's high c0 its output rule, or the contracts it was ported to?
 
 The Python arm run through mcgyvr's rig is flat, and it is flat at a baseline
-that already sits where CLM-0004's *bundle* got to: c0 scores 13/20 at 111.8
+that already sits where the *bundle* got to: c0 scores 13/20 at 111.8
 completion tokens where the original harness's c0 scores 7/20 at 427.4. The
 reading is that mcgyvr's user-message assembly ends with an output rule —
 "Reply with the complete new content of solution.py, as one fenced code block
-and nothing else" — and that is the device CLM-0004 measured the bundle working
+and nothing else" — and that is the device  measured the bundle working
 through, so the bundle arrives with nothing left to do.
 
 There is an obvious competing explanation and it is not flattering: the mcgyvr

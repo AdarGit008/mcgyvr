@@ -13,8 +13,8 @@ tree that contains it. :func:`added_lines` recomputes them from the same diff
 the pinned one — that assertion is what makes "re-runs to the same number" a
 property of the code rather than a hope.
 
-**A container, always.** ADR-0005 and ADR-0010 put target code inside a
-container, and CLM-0006 turned that from a preference into a constraint: the
+**A container, always.**  and  put target code inside a
+container, and  turned that from a preference into a constraint: the
 resolver Count 3 measures imports the target's own modules, and Count 1 runs
 the target's test suite, which is arbitrary code by construction. Nothing here
 runs a target's code on the host. Host-side work is git metadata only, which is
@@ -25,7 +25,7 @@ from ``corpus.json``'s ``declared_check``, so the measurement runs what the
 repository declared rather than what a detector guessed about it. That is why
 this does not reuse :mod:`mcgyvr.sandbox`: ``detect_stack`` infers an install
 command from the manifests it finds, and substituting mcgyvr's inference for the
-repository's own declaration is precisely the error ADR-0006 names. The sandbox
+repository's own declaration is precisely the error  names. The sandbox
 is also built around a per-task workspace with a git base commit to diff a
 worker's change against, and there is no worker here. What is borrowed is its
 discipline — a per-frame container, no host environment inherited, torn down

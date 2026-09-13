@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """#121 — the first-pass index distribution: the measurement that settles breadth.
 
-ADR-0008 decided that sampling breadth is configuration policy with a default
+ decided that sampling breadth is configuration policy with a default
 of 1, and named the one measurement that would settle whether 1 is right:
 given that a gate-passing candidate exists among N draws, at what index does it
 first appear? Concentrated at index 0, breadth is retired — the first draw is
@@ -20,7 +20,7 @@ draw must sample (identical greedy draws are one draw), and moving off greedy
 temperature can lower the first draw's own pass rate before breadth pays
 anything back. So each task runs once greedy (temperature 0.0 — the anchor,
 comparable to the bundle sweep's rows) and N times sampled at temperature 0.7,
-which is the operating point DEC-6 itself proposed and ADR-0008 rejected only
+which is the operating point DEC-6 itself proposed and  rejected only
 the selection half of. The variance cost is `greedy` against `sampled` draw 0;
 the breadth benefit is draw 0 against draws 1..N-1.
 
@@ -30,7 +30,7 @@ rendered from ``worker_view()`` — so the distribution describes what productio
 would dispatch, not a condition that exists only in an experiment.
 
 **"Gate-passing" here is the contract's declared acceptance, executed.** The
-same proxy the bundle sweep used and CLM-0012 is quoted on: parse refusals are
+same proxy the bundle sweep used and  is quoted on: parse refusals are
 failures by their refusal code, and the declared ``node accept.mjs`` decides
 the rest. The full ``Gate.run`` adds scope, secrets, structured-data and
 adapter rungs plus the sandbox; for this task set those reject nothing the
@@ -179,7 +179,7 @@ mode = _bench_mode()
 
 
 def _bench_identity() -> types.ModuleType:
-    """Run identity, and the three digests it computes for us (ADR-0027, #285).
+    """Run identity, and the three digests it computes for us (#285).
 
     Shared through the ``sys.modules`` slot with the bundle rig's copy (#287):
     two loads of the contract would be the five-lists problem rebuilt one
@@ -203,7 +203,7 @@ identity_module = _bench_identity()
 
 
 def _bench_observed() -> types.ModuleType:
-    """The `observed` block's writer (#286, ADR-0027 D7).
+    """The `observed` block's writer (#286, D7).
 
     A sibling of the identity contract rather than part of it, because the two
     blocks are opposite: that one is compared and must stay diffable, this one
@@ -260,7 +260,7 @@ def _card_sampler(endpoint: str, out: str | Path) -> CardSampler | None:
     the serving *calibration* runner — so a sweep that thermally throttled for
     an hour recorded slower `latency_s` and nothing that said why. The run
     contract's §3 states the principle ("a strange number months later can be
-    traced to a throttling card instead of guessed at", ADR-0026 lens 1); this
+    traced to a throttling card instead of guessed at", lens 1); this
     is where it is implemented for the instrument that ships the numbers.
 
     **Per task, not on a timer.** A task is the unit rows are grouped by, the
@@ -344,14 +344,14 @@ def _host_block(endpoint: str) -> dict[str, object]:
 
 # The variables of this experiment, all held fixed within a run.
 #
-# DRAWS is DEC-6's own N: the proposal ADR-0008 stripped to "a rung may take
+# DRAWS is DEC-6's own N: the proposal  stripped to "a rung may take
 # more than one draw" proposed exactly five, so five is the breadth whose value
 # this measures. SAMPLED_TEMPERATURE is likewise DEC-6's 0.7 — the operating
 # point the inherited claim was made at, not a number chosen here. The cap is
 # the bundle sweep's, so "truncated" means the same thing in both instruments.
 #
 # MAX_OUTPUT_TOKENS is inherited three hops and derived at none of them:
-# from tools/bundle/measure.py, which took it from CLM-0004's local-ai
+# from tools/bundle/measure.py, which took it from the local-ai
 # instrument (records/evidence/local-ai-2026-08-02/instrument/context_exp.py),
 # where it is a bare `MAX_TOKENS = 768`. It stays the default so every existing
 # run directory keeps its identity, but it is now a parameter: #212 measured 47
@@ -1007,7 +1007,7 @@ def record_completeness(out: Path) -> list[tuple[str, str, int]] | None:
 def serving_build(endpoint: str) -> str | None:
     """The serving stack's build at ``endpoint``, or ``None`` when it won't say.
 
-    ADR-0024: two rates are only comparable if the same build produced them.
+    : two rates are only comparable if the same build produced them.
     This is not hypothetical. The 2026-08-19 scaffold ablation ran the 3B
     against srv1 and the 7B against srv2 while those two hosts sat on two
     different builds of the backend they then served (ollama 0.32.4 and 0.32.5),
@@ -1050,11 +1050,11 @@ def stage_bar(into: Path) -> None:
 def content_identity(
     tasks: Sequence[Any], *, condition: str, worker: Any
 ) -> tuple[dict[str, Any], dict[str, str]]:
-    """The three digests ADR-0026 asked for, computed by `identity` (#285).
+    """The three digests  asked for, computed by `identity` (#285).
 
     Returns ``(fields, refusals)``. Every field is always present — ``null``
     where the world would not answer, with the reason in ``refusals`` — because
-    an **absent** key means the record predates the contract (ADR-0027 D2) and a
+    an **absent** key means the record predates the contract (D2) and a
     run made from here on must never claim that about itself.
 
     Nothing here assembles a hash. This function's whole job is to hand
@@ -1107,7 +1107,7 @@ def content_identity(
 
 #: Every identity field this rig's ``record_run`` writes, declared beside it so
 #: the resume check is over a named set rather than the keys of the local dict
-#: it just assembled (#287, ADR-0027 D1). Derived from the new dict, the check
+#: it just assembled (#287, D1). Derived from the new dict, the check
 #: could never notice a field added to ``identity.GROUPS`` that this rig fails
 #: to write, nor a field ``previous`` carries that a resume no longer does — a
 #: test asserts a freshly assembled manifest's keys, minus the two annotations,
@@ -1219,7 +1219,7 @@ def record_run(
     # lives in one sibling block a reader finds where they found the null.
     if refusals:
         identity[identity_module.REFUSALS] = refusals
-    # The round, and the product revision it pins (#231 check 3, ADR-0018).
+    # The round, and the product revision it pins (#231 check 3).
     #
     # `bundle_sha256` hashes the system prompt and `tasks_sha256` the task set;
     # between them sat the user-message render, the reply parser and the whole
@@ -1227,7 +1227,7 @@ def record_run(
     # its answer passes. Two arms could be scored by two different bars and laid
     # in one table with nothing on disk to say so.
     #
-    # Bench tiers only. A round is ADR-0018's unit for *the bench*, where arms
+    # Bench tiers only. A round is the unit for *the bench*, where arms
     # are compared against each other; `d1`-`d3` and `pool-*` are other
     # instruments with their own questions, and stamping a revision they do not
     # compare across would refuse their resumes for a boundary that does not
@@ -1305,7 +1305,7 @@ def record_run(
         json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
         encoding="utf-8",
     )
-    # The second block (#286, ADR-0027 D7): everything the endpoint will answer
+    # The second block (#286, D7): everything the endpoint will answer
     # about itself, beside the block that gets compared. Written here — on the
     # branch that OPENS the directory — and not on the resume above, because it
     # describes the server the rows were started against. A resume writes
@@ -1327,7 +1327,7 @@ def record_run(
         # exists to establish.
         host=_host_block(worker.endpoint),
         # The width this run DISPATCHED at, read off the endpoint the
-        # runner was built from rather than typed here (ADR-0027 D4).
+        # runner was built from rather than typed here (D4).
         # It is the second of `resolve`'s two bounds on the realised
         # batch, and it is the half no probe can recover: the server
         # cannot see how many requests a client chose to keep in
@@ -1363,12 +1363,12 @@ def first_pass_indices(
 
 # The facts a rate has to be quoted with (#113).
 #
-# `serving_build` is deliberately NOT among them. ADR-0024 makes the build part
+# `serving_build` is deliberately NOT among them.  makes the build part
 # of a run's identity, but `serving_build()` already decided what an unreachable
 # probe means: "an endpoint that does not answer /api/version is not one this
 # project refuses to measure — it is one whose build is unknown, and None says
 # exactly that rather than inventing a value." A recorded "unknown" is a
-# statement, so the header prints it and flags the limit. The risk ADR-0024
+# statement, so the header prints it and flags the limit. The risk
 # actually guards — two builds inside one contrast — is caught where it lives,
 # in `report.require_comparable`, which refuses a table mixing them.
 REQUIRED_PROVENANCE = ("model", "endpoint", "tier", "condition")
@@ -1414,7 +1414,7 @@ def describe_run(recorded: Mapping[str, Any]) -> list[str] | None:
         lines.append(
             "- **the serving build is unknown** — the endpoint did not answer "
             "`/api/version`, so this run cannot be laid beside one from a "
-            "different build (ADR-0024)"
+            "different build "
         )
     return lines
 
@@ -1555,7 +1555,7 @@ def summarise(rows_path: Path) -> str:
             "draws)"
         )
 
-    # The second outcome axis (#113, ADR-0018): a pass rate alone cannot rank
+    # The second outcome axis (#113): a pass rate alone cannot rank
     # levers, because the levers differ far more in price than in effect. Tokens
     # rather than wall clock, because tokens are what the north star's
     # denominator counts and what transfers across rigs.
@@ -1882,7 +1882,7 @@ def main() -> int:
         when=observed_module.AT_CLOSE,
         host=_host_block(worker.endpoint),
         # The width this run DISPATCHED at, read off the endpoint the
-        # runner was built from rather than typed here (ADR-0027 D4).
+        # runner was built from rather than typed here (D4).
         # It is the second of `resolve`'s two bounds on the realised
         # batch, and it is the half no probe can recover: the server
         # cannot see how many requests a client chose to keep in

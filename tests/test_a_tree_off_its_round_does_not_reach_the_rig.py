@@ -1,7 +1,7 @@
 """Gate 1: no arm ever reaches the rig under a round that does not pin its tree.
 
 An arm measured on a tree three commits past the pin must not land in the same
-table as one measured on the pin (ADR-0018: every arm in a round runs against
+table as one measured on the pin (: every arm in a round runs against
 one revision). That property used to be held by refusing the run, and on
 2026-09-06 the owner ruled the other way: a round is a boundary in the record,
 not a permission to work. So gate 1 (``01-round.py``) calls

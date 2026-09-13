@@ -142,7 +142,7 @@ def test_higher_psi_is_worse_not_better() -> None:
 
     More discordant pairs means more variance in the net the test reads, so a
     higher discordance rate needs a *larger* effect to resolve. Reading this
-    backwards would turn ADR-0021's table upside down, and it is the one
+    backwards would turn the table upside down, and it is the one
     property of the sizing curve that surprises everyone who meets it.
     """
     at = [_pp(red.mde(426, psi)) for psi in red.PSI_CANDIDATES]
@@ -158,7 +158,7 @@ def test_more_swept_cells_resolve_more() -> None:
 
 
 def test_the_two_figures_the_record_quotes() -> None:
-    """ADR-0021's fourth amendment quotes these; a drift here silently rewrites it.
+    """the fourth amendment quotes these; a drift here silently rewrites it.
 
     426 swept cells is 400 authored at the realized 53.2% bench share. The
     second assertion is the coincidence the record names — the withdrawn 8.2pp

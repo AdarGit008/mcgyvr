@@ -10,10 +10,10 @@ that rule; this module counts it.
 **Eligibility is the cheap half.** The half that decides whether a contrast can
 be read is *headroom*: a cell that passes under no condition cannot produce a
 discordant pair whatever the lever does, so the count of eligible cells is an
-upper bound on ``m`` only if those cells can pass at all. ADR-0026's consequence
+upper bound on ``m`` only if those cells can pass at all. the consequence
 is the rule this module exists to apply — *"a stratum with no headroom is
 excluded, not reported as null. 'No effect where nothing passes' is absent
-resolution, not absent effect."* — and ADR-0019's ``m >= 6`` wall is what the
+resolution, not absent effect."* — and the ``m >= 6`` wall is what the
 answer is measured against.
 
 Both numbers are computed from the corpus and the committed runs rather than
@@ -114,7 +114,7 @@ def headroom(
     ``ceiling`` is the count of cells that pass under *either* condition — the
     arithmetic maximum ``m`` can reach on this material, because a cell failing
     both ways is concordant whatever the lever does. ``m`` is what the pair
-    actually discorded on. A ceiling below ADR-0019's wall settles the question
+    actually discorded on. A ceiling below the wall settles the question
     without any appeal to effect size.
     """
     paired = sorted(t for t in subset if t in stock and t in ablated)

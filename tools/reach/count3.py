@@ -7,7 +7,7 @@
 This is the number that decides whether the rung **blocks or only reports**. A
 resolver that flags correct code is worse than no resolver: it converts a green
 check into an argument, and the cost lands on every change rather than on the
-ones it catches. CLM-0006 established that ghostcall is real and that its engine
+ones it catches.  established that ghostcall is real and that its engine
 is stdlib-only; it deliberately did not establish that it is the right resolver,
 and nothing here should be read as having chosen it before this ran.
 
@@ -211,7 +211,7 @@ def _row(
                 totals["hallucinated_on_added_lines"] += 1 if on_added else 0
                 # EVERY flag is recorded, not only the ones on added lines. A
                 # whole-file count with no calls behind it asks the reader to
-                # take the verdict on trust, which is the thing ADR-0004 exists
+                # take the verdict on trust, which is the thing  exists
                 # to refuse — and the flags off the added lines are the only
                 # evidence this corpus yields about what the resolver actually
                 # objects to.

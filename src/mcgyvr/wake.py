@@ -77,7 +77,7 @@ from mcgyvr.serving import Card, cards
 # ``src/mcgyvr/serving/run.py`` says the seal is against.
 #
 # Imported rather than restated. It stood here as its own literal until the
-# four-lenses check named it (ADR-0026 lens 3): two spellings of one door is a
+# four-lenses check named it (lens 3): two spellings of one door is a
 # door that can be half-renamed, and the half nobody edits is the one that
 # quietly stops being the door. `gatelib` is where the gates already read it
 # from, so it is the definition and this is the reader.

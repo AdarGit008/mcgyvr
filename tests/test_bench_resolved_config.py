@@ -206,7 +206,7 @@ def test_a_policy_only_field_says_so(fingerprint: Any) -> None:
 def test_a_backend_that_was_asked_for_and_not_honoured_is_recorded(
     fingerprint: Any,
 ) -> None:
-    """ADR-0027 D2's shape: the value, and the engine's reason it is not the ask."""
+    """D2's shape: the value, and the engine's reason it is not the ask."""
     block = _rig(fingerprint, "srv1", asked={"VLLM_ATTENTION_BACKEND": "FLASHINFER"})
     assert len(block["disagreements"]) == 1
     (found,) = block["disagreements"]

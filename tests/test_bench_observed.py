@@ -1,6 +1,6 @@
 """The `observed` block: captured comprehensively, compared by nothing (#286).
 
-ADR-0027 D7. The properties here are the ones a later reader has to be able to
+D7. The properties here are the ones a later reader has to be able to
 trust without re-deriving them: every declared field is present, a null carries
 a reason, nothing on the way in reaches disk unredacted, and — the one that is
 not about content — **nothing reads this file**. That last one is a test rather
@@ -457,7 +457,7 @@ def test_two_unmatched_cards_refuse_rather_than_pick_one(
 
 
 def test_every_engine_says_whether_it_has_been_run_live(observed: Any) -> None:
-    """ADR-0033's convention: the contingency lives where the code is.
+    """the convention: the contingency lives where the code is.
 
     The vLLM arm was built from documentation because no vLLM was reachable;
     the arm that was built against a live server on 2026-08-18 went with its
@@ -673,7 +673,7 @@ def test_nothing_outside_the_writer_names_the_file() -> None:
 
     A field in this block is comprehensive *because* nobody admitted it. Wiring
     a guard to one would be a comparison on an unadmitted field — the failure
-    ADR-0027 D7 separates the two blocks to prevent — so the check is that the
+    D7 separates the two blocks to prevent — so the check is that the
     name does not spread, and the allow-list above is the thing a future lane
     has to argue with.
     """
@@ -686,7 +686,7 @@ def test_nothing_outside_the_writer_names_the_file() -> None:
     named = {line for line in found.stdout.splitlines() if line}
     assert named <= NAMES_THE_FILE, (
         f"{sorted(named - NAMES_THE_FILE)} name observed.json. Nothing reads "
-        "this block for comparison (ADR-0027 D7): a field in it is "
+        "this block for comparison (D7): a field in it is "
         "comprehensive because nobody admitted it, and promotion into "
         "identity.KEY is the owner's."
     )
@@ -929,7 +929,7 @@ def test_a_vllm_host_that_will_not_say_its_width_refuses_with_a_reason(
 def test_a_host_with_no_serving_process_still_carries_the_width_key(
     pin: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An ABSENT key means the record predates the contract (ADR-0027 D2).
+    """An ABSENT key means the record predates the contract (D2).
 
     The no-process path returns early, and that early return is exactly where a
     key quietly stops being written for one branch of one engine.
@@ -959,7 +959,7 @@ def test_the_two_widths_are_two_fields_and_neither_stands_in_for_the_other(
 ) -> None:
     """A server width of 4 dispatched at 1 must read as 4 and 1, never as one.
 
-    This is ADR-0040's rule carried across: a per-process figure is not the
+    This is the rule carried across: a per-process figure is not the
     card, and the width a server was started at is not the width a client used.
     """
     resolved = observed.resolve({"width": {"value": 4, "source": "host:n_parallel"}}, 1)

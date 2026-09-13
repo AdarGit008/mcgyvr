@@ -7,7 +7,7 @@ computation rather than against a remembered formula.
 
 The anchor worth naming: six problems that all moved the same way give
 p = 0.0312 under both tests, and that is the best a six-pair comparison can
-do. It is where ADR-0019's `m >= 6` wall comes from, and the report prints
+do. It is where the `m >= 6` wall comes from, and the report prints
 `m` for every contrast so a result below it is visibly undecidable rather
 than quietly weak.
 """
@@ -80,7 +80,7 @@ def test_wilcoxon_matches_an_independent_enumeration() -> None:
 
 
 def test_six_pairs_all_one_way_is_the_wall() -> None:
-    """ADR-0019's `m >= 6`, in the number it actually denotes."""
+    """the `m >= 6`, in the number it actually denotes."""
     _, p_wilcoxon = report.wilcoxon([1, 2, 3, 4, 5, 6])
     _, _, p_sign = report.sign_test([1, 2, 3, 4, 5, 6])
     assert abs(p_sign - 2 / 64) < 1e-12
@@ -119,7 +119,7 @@ def test_the_two_row_sources_are_read_apart(tmp_path: Path) -> None:
     `results.jsonl` is what the sweep recorded on the day, under the checker of
     the day; `regrade.jsonl` is `tools/bench/regrade.py`'s verdict under the
     checkers as they stand now. They must never be silently merged or silently
-    preferred — ADR-0023's `ValueError` fix moved 40 py cells, and a reader that
+    preferred — the `ValueError` fix moved 40 py cells, and a reader that
     chose a file on its own would make it impossible to tell which number a
     table was quoting.
     """

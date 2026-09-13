@@ -11,7 +11,7 @@ Two things this file pins:
   1.5B invocation is unchanged and a second tier needs no new file;
 * the reproducibility bound is **looked up per tier**, not carried as a
   constant. ``control.py`` held ``BOUND_PP = 1.47`` — the 1.5B's number — and
-  annotating a 7B contrast with it is precisely the borrowing ADR-0019 D2
+  annotating a 7B contrast with it is precisely the borrowing D2
   forbids. A higher-pass-rate model has more cells near the acceptance boundary
   and therefore its own null.
 """
@@ -121,7 +121,7 @@ def test_no_bound_is_hard_coded_in_the_control(control: Any) -> None:
     }
     assert not numeric, (
         f"{sorted(numeric)} are module-level numbers in a tool that must read "
-        "its bound per tier (ADR-0019 D2)"
+        "its bound per tier (D2)"
     )
     assert hasattr(control, "declared_bound")
 
@@ -140,7 +140,7 @@ def test_a_bound_matches_only_its_own_tier(report: Any) -> None:
 
 
 def test_a_bound_does_not_transfer_across_the_serving_build(report: Any) -> None:
-    """ADR-0024: a build nothing recorded has already moved results twice."""
+    """: a build nothing recorded has already moved results twice."""
     bounds = _bounds(_manifest("qwen2.5-coder:1.5b", "bench-py"))
     entry, because = report.declared_bound(
         _manifest("qwen2.5-coder:1.5b", "bench-py", serving_build="0.33.0"), bounds

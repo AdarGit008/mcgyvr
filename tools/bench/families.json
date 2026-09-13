@@ -141,5 +141,5 @@
       }
     }
   ],
-  "the_arms_still_drift_and_here_is_what_shows_it": "The b430 asymmetry above is retracted; the drift it was cited for is not. 20 of 257 python references declare nested functions against 2 of 257 on the ts arm. ADR-0023 clause 4 found the same class independently: 104 bench and 106 reserve python checkers accepted only ValueError while their TypeScript twins used assert.throws(fn, Error, ...), which any subclass satisfies, on contracts that never name a type. Both are structural drift between two renderings of one prose, and both are #295's."
+  "the_arms_still_drift_and_here_is_what_shows_it": "The b430 asymmetry above is retracted; the drift it was cited for is not. 20 of 257 python references declare nested functions against 2 of 257 on the ts arm. clause 4 found the same class independently: 104 bench and 106 reserve python checkers accepted only ValueError while their TypeScript twins used assert.throws(fn, Error, ...), which any subclass satisfies, on contracts that never name a type. Both are structural drift between two renderings of one prose, and both are #295's."
 }

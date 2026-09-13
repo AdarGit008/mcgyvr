@@ -6,7 +6,7 @@ is not a declaration. Both rigs were set that day. Nothing in this repository
 said so. The values lived in one session record's prose, no capture showed
 them, nothing set them and nothing would have noticed them regressing between
 campaigns — so the ruling was true of a Saturday afternoon rather than of the
-instrument. ADR-0037 rule 1: a finding is a check, not a paragraph.
+instrument. rule 1: a finding is a check, not a paragraph.
 
 ``tools/runs/hosts.json`` is now the declaration, and the
 checks below are the two halves the gap had:
@@ -186,7 +186,7 @@ def _unexplained(residency: dict[str, Any], names: tuple[str, ...]) -> list[str]
     Lifted out of the check above so the canary can exercise the same predicate
     on a declaration it builds. With :data:`RESIDENCY_SETTINGS` empty the check
     has nothing to iterate, and a check that cannot be shown to reject is the
-    thing ADR-0037 refuses — so the predicate is what is tested, not the loop.
+    thing  refuses — so the predicate is what is tested, not the loop.
     """
     return sorted(
         name
@@ -197,7 +197,7 @@ def _unexplained(residency: dict[str, Any], names: tuple[str, ...]) -> list[str]
 
 
 def test_the_declaration_names_what_it_does_not_declare() -> None:
-    """ADR-0026 lens 3 — silence reads as completeness unless it is named."""
+    """lens 3 — silence reads as completeness unless it is named."""
     omissions = {
         k: v for k, v in declaration()["not_declared_here"].items() if k != "_doc"
     }
@@ -210,7 +210,7 @@ def test_the_declaration_names_what_it_does_not_declare() -> None:
 
 
 def test_canary_a_declaration_missing_a_reason_is_refused(tmp_path: Path) -> None:
-    """The check above can be shown to reject — ADR-0037's price.
+    """The check above can be shown to reject — the price.
 
     Against a setting this canary invents rather than one the declaration
     holds, because it holds none: the daemon-wide settings that were here went

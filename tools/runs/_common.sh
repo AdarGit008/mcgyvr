@@ -463,7 +463,7 @@ start_stamp() {
 # `tools/bench/product.require_pinned()`
 # before anything else and exports what it returned; a step writes it straight
 # after START so a reader knows which product revision the rows were measured
-# under (ADR-0018: every arm in a round runs against one revision). Both values
+# under (: every arm in a round runs against one revision). Both values
 # come from the door or the stamp is refused — a round is checked, never guessed.
 round_stamp() {
     [ "$#" -eq 0 ] || { _fail "round_stamp: takes no arguments; it writes RUN_ROUND and RUN_PRODUCT_SHA256"; return 1; }

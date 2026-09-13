@@ -1,6 +1,6 @@
 """Run identity — one block, four groups, and the three states a field can be in.
 
-ADR-0027 — *run identity is one block, and an unreadable field is a refusal* —
+ — *run identity is one block, and an unreadable field is a refusal* —
 and issue `#265 <https://github.com/AdarGit008/mcgyvr/issues/265>`_.
 
 **Why this is a module and not a tuple in three files.** Five lists disagreed
@@ -24,7 +24,7 @@ one value and passed::
 Adding the three digests to a failing-open guard would have changed no behaviour
 at all while reading, to every later reader, as having checked. So the shape and
 the refusal land together: **a field the guard cannot read is a refusal, not a
-match** (ADR-0027 D3).
+match** (D3).
 
 **What is recorded and what is keyed are different questions.** #276 settled
 that: recording is unconditional, and a field enters the *key* only once
@@ -85,7 +85,7 @@ class IdentityError(Exception):
     """Two records cannot be laid beside each other, or one cannot be read."""
 
 
-# --- the three states (ADR-0027 D2) -----------------------------------------
+# --- the three states (D2) -----------------------------------------
 #
 # One rule, all four groups, so a reader can tell "not recorded" from "recorded
 # as unknown" from "the endpoint could not say" — and no sentinel string, which
@@ -97,9 +97,9 @@ REFUSED: State = "refused"  # null + a reason: asked, and it would not say
 ABSENT: State = "absent"  # no key: the record predates the contract
 
 
-# --- the four groups (ADR-0027 D1) ------------------------------------------
+# --- the four groups (D1) ------------------------------------------
 #
-# ADR-0026 named three fields — the bar, the model and the condition. It was one
+#  named three fields — the bar, the model and the condition. It was one
 # short. The SERVER is the missing group and it has already cost a contrast:
 # the 2026-08-19 scaffold ablation ran the 3B against srv1 and the 7B against
 # srv2 on two different builds of the backend they served, and nothing on disk
@@ -146,7 +146,7 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "conditions_sha256",
     ),
     # What served it. Observed, never assumed: two builds are two instruments
-    # (ADR-0024), and concurrency decides whether greedy is reproducible at all.
+    # , and concurrency decides whether greedy is reproducible at all.
     "server": (
         "endpoint",
         "serving_build",
@@ -167,7 +167,7 @@ GROUPS: dict[str, tuple[str, ...]] = {
     # scorer AND the scorer's configuration — `pyproject.toml`,
     # `eslint.config.mjs` and the two lockfiles that decide which checker
     # applies them. It included only the scorer when this line was written,
-    # which made the justification false for half of what it claimed; ADR-0032
+    # which made the justification false for half of what it claimed;
     # (#291) put the configuration in `product.SURFACE` and this sentence is
     # now true rather than aspirational.
     "bar": (
@@ -184,7 +184,7 @@ RECORDED: tuple[str, ...] = tuple(f for fields in GROUPS.values() for f in field
 
 
 # The axis a table is allowed to vary in. Named in the call rather than assumed,
-# so a sweep that contrasts something else says which (ADR-0027 D5).
+# so a sweep that contrasts something else says which (D5).
 CONTRAST = "condition"
 
 
@@ -222,7 +222,7 @@ KEY: tuple[str, ...] = (
     # **What it costs.** Every record written before this field existed carries
     # no value for it, so a table mixing old and new rows refuses on absence —
     # `allow_unfingerprinted=True` is how a reader takes an older record
-    # deliberately, and that waiver is exactly ADR-0027 D3's purpose.
+    # deliberately, and that waiver is exactly D3's purpose.
     "serving_resolved_sha256",
 )
 
@@ -236,7 +236,7 @@ PENDING: tuple[str, ...] = tuple(f for f in RECORDED if f not in KEY and f != CO
 # WHY each pending field is pending, which the list above could not say (#285).
 # Two different states wore one name: "#276's rule has not admitted it" and
 # "nothing in the repository computes it". Ten of the 27 declared fields were in
-# the second state when ADR-0027 shipped, so the perturbation rule had nothing
+# the second state when  shipped, so the perturbation rule had nothing
 # to perturb and the list read as though it did.
 #
 # Every pending field carries a reason, and the test suite holds this to the
@@ -253,7 +253,7 @@ PENDING: tuple[str, ...] = tuple(f for f in RECORDED if f not in KEY and f != CO
 AWAITING_ADMISSION = "awaiting #276's perturbation rule"
 CAPTURED_IN_OBSERVED = (
     "captured in observed.json (#286) and compared by nothing; promotion into "
-    "KEY is the owner's under ADR-0027 D7, not #276's perturbation rule"
+    "KEY is the owner's  D7, not #276's perturbation rule"
 )
 
 PENDING_REASON: dict[str, str] = {
@@ -307,8 +307,8 @@ PENDING_REASON: dict[str, str] = {
 
 
 # What a declared reproducibility bound must match before it may describe a run.
-# ADR-0019 D2 — the null is measured per target tier and does not transfer up the
-# ladder; ADR-0024 — a serving build nothing recorded has already moved results
+# D2 — the null is measured per target tier and does not transfer up the
+# ladder;  — a serving build nothing recorded has already moved results
 # twice; a bar that scores differently produces a different null.
 #
 # `tier` here is the LANGUAGE ARM — `bench-py` / `bench-ts`, as every run.json
@@ -324,7 +324,7 @@ PENDING_REASON: dict[str, str] = {
 # rather than pointing at a file.
 BOUND_MATCH: tuple[str, ...] = ("model", "tier", "gate_rungs", "serving_build")
 
-# Declared in the contract, not yet enforced here. ADR-0027 D9 put `cells` in
+# Declared in the contract, not yet enforced here. D9 put `cells` in
 # the matching key — a rate keyed on everything but its own denominator
 # transfers to subsets it never saw — and `reproducibility.json`'s `matching`
 # prose already states five fields against this tuple's four.
@@ -356,7 +356,7 @@ def digest(value: Any) -> str:
     already megabytes of rows, and buys a collision argument nobody wants to have
     about an identity field.
 
-    Computed here and never passed in (ADR-0027 D4). ``--condition`` was a
+    Computed here and never passed in (D4). ``--condition`` was a
     caller-supplied identity field, it reached dispatch and never ``record_run``,
     and eight manifests described a render nobody had run.
     """
@@ -366,14 +366,14 @@ def digest(value: Any) -> str:
 
 # --- the writers (#285) -----------------------------------------------------
 #
-# ADR-0026 decided that three fields change from a NAME to CONTENT. ADR-0027
+#  decided that three fields change from a NAME to CONTENT.
 # decided the record shape and shipped the module. Nothing wrote the content:
 # ten of the 27 declared fields had no writer anywhere in the repository, so
 # `PENDING` could not distinguish "#276's rule has not admitted it" from
 # "nothing computes it", and the perturbation rule had nothing to perturb.
 #
 # Every one of these is computed HERE and called by the runner with raw
-# material only (ADR-0027 D4). A runner that assembles a hash and passes it in
+# material only (D4). A runner that assembles a hash and passes it in
 # is `--condition` with a longer hex string: a caller-supplied identity field
 # that reached dispatch and never `record_run`, and eight manifests described a
 # render nobody had run.
@@ -536,7 +536,7 @@ def bar_material(
     renders a ``pyproject.toml`` holding ``[tool.ruff]`` and nothing else, so
     ``_declares_mypy`` is false and the Python arm is not type-checked either.
     The absence is **symmetric** — better news for comparability than the issue
-    assumed, and exactly as unrecorded. Per ADR-0006 neither is a defect: a
+    assumed, and exactly as unrecorded. Per  neither is a defect: a
     repository declaring no type checker is correctly not type-checked. So this
     records it rather than adding a rung.
 
@@ -580,7 +580,7 @@ def bar_digest(
     ``adapters``, ``acceptance`` — and both bench arms write the same five. They
     are byte-identical across a ruff configuration resolving 250 rules and an
     eslint one resolving 66, so **two arms scored by two different rule sets are
-    indistinguishable on disk**, and ADR-0026 measured what that costs: under
+    indistinguishable on disk**, and  measured what that costs: under
     the full bar the arms read py 8.9% / ts 12.8%, and on correctness alone they
     read py 27.3% / ts 23.9%. The bar reverses which arm leads.
 
@@ -590,12 +590,12 @@ def bar_digest(
     is one function that gathers it so the digest and the readable block in a
     manifest cannot describe two different bars.
 
-    **Per language, not per run.** ADR-0026's rule is that no figure pools
+    **Per language, not per run.** the rule is that no figure pools
     across a stratum where the effect is heterogeneous, and the two arms' bars
     are the case it was written from. A single digest over both would restate
     `gate_rungs`' defect with more hex.
 
-    **The workspace is staged by the caller** (ADR-0027 D4 in the other
+    **The workspace is staged by the caller** (D4 in the other
     direction): the bench's bar is not the repository's `make lint` bar — it is
     whatever `score.stage_config` puts in a workspace, which is a
     `pyproject.toml` rendered from the project's `[tool.ruff]` beside
@@ -849,7 +849,7 @@ def _tool_version(tool: str, workspace: Path) -> tuple[str | None, str | None]:
 def prompt_digest(rendered: Mapping[str, tuple[str, str]]) -> str:
     """The prompt **as sent**, whole, over every task the run will dispatch.
 
-    ADR-0027 D6. What exists today is ``bundle_sha256``, and it hashes
+    D6. What exists today is ``bundle_sha256``, and it hashes
     ``prompt.system`` — while the scaffold ablation edits the **user** message
     (`tools/breadth/measure.py:915`). So the field that is on disk does not move
     when the thing under test moves, and two cells that name one condition and
@@ -883,7 +883,7 @@ def unfingerprinted(
 ) -> list[str]:
     """The keyed fields this manifest cannot answer, in declaration order.
 
-    Empty is the `verified` tag's precondition (ADR-0027 D8) — necessary and not
+    Empty is the `verified` tag's precondition (D8) — necessary and not
     sufficient, since a field can be recorded and wrong.
 
     ``fields`` defaults to :data:`KEY` and is resolved **at call time**, not as a
@@ -916,7 +916,7 @@ NO_FINGERPRINT = "no_fingerprint"  # cannot say what produced it
 
 
 def tag(manifest: dict[str, Any]) -> str:
-    """The migration tag for one record (ADR-0027 D8), computed and never typed.
+    """The migration tag for one record (D8), computed and never typed.
 
     Three tags, and the middle one is the one that needs its meaning stated,
     because its name invites the wrong reading:
@@ -932,12 +932,12 @@ def tag(manifest: dict[str, Any]) -> str:
       trusted, no promotion path.
 
     Nothing is re-run to move a record between tags. Rig time goes to new runs
-    done properly rather than to repairing old ones, so CLM-0011 stays dark until
+    done properly rather than to repairing old ones, so  stays dark until
     a fresh measurement and #256 waits for that rather than for a promotion.
 
     **The tag is a function of today's key, and moves when the key does.** Six
     records are ``verified`` against :data:`KEY` as it stands, and :data:`KEY`
-    does not yet contain the three digests ADR-0026 asked for because nothing
+    does not yet contain the three digests  asked for because nothing
     writes them. When the fan-out adds a writer and #276's rule admits the field,
     those six become ``backfilled`` — which is why this is computed on read
     rather than stamped into the manifests. A stamped tag would have claimed a
@@ -955,7 +955,7 @@ def drift(
 
     Absence is not agreement here either: a manifest that does not carry a field
     is not thereby the same as one that does. The one exception a caller may
-    make is ADR-0024's — a field that did not exist when the directory was
+    make is the — a field that did not exist when the directory was
     written is adopted forward by the caller *before* this is called, so the
     adoption is visible at the call site rather than hidden in a comparison.
 
@@ -980,21 +980,21 @@ def require_comparable(
 
     * **they differ** in a keyed field — a contrast between them would vary two
       things and attribute the result to one, which is the defect #189 shipped
-      and ADR-0024 closes;
+      and  closes;
     * **a keyed field is not obtained** — absent, or ``null``. Two unknowns are
       not a match. An endpoint that would not name its build might have named
       two different builds, and a record written before the contract cannot say
       anything at all.
 
     ``allow_unfingerprinted`` exists so the second can be waived, and it is a
-    parameter rather than a default because ADR-0027 D3 permits the waiver only
+    parameter rather than a default because D3 permits the waiver only
     where it is explicit. Reading pre-contract records is a legitimate thing to
     want; doing it without saying so is what produced a shipped -3.1pp headline
     across a corpus nobody had compared.
 
     **A single record is never refused for absence.** The defect is two records
     agreeing *by shared absence*, and one record agrees with nothing. This keeps
-    ADR-0024's consequence intact — an endpoint that will not name its build
+    the consequence intact — an endpoint that will not name its build
     records ``null``, and a rate from it is still a rate — while withdrawing the
     half of it that does not survive: ``null`` is a recorded fact about a run and
     is **not** a match between two of them, because an endpoint that would not
@@ -1019,7 +1019,7 @@ def require_comparable(
                     "agreement: a field no record carries compared equal under "
                     "the old guard, which read as having checked. Tag the run "
                     "and pass allow_unfingerprinted=True to read it under the "
-                    "old key deliberately (ADR-0027 D3, D8)."
+                    "old key deliberately (D3, D8)."
                 )
 
     for field in KEY:
@@ -1028,11 +1028,11 @@ def require_comparable(
             raise IdentityError(
                 f"these records differ in {field!r}: {', '.join(sorted(seen))}. "
                 "A contrast between them would vary two things and attribute "
-                "the result to one — the defect #189 shipped and ADR-0024 "
+                "the result to one — the defect #189 shipped and  "
                 "closes. Re-run the odd record, or report them separately."
             )
 
-    # Within one condition the prompt as sent must not move (ADR-0027 D6). This
+    # Within one condition the prompt as sent must not move (D6). This
     # needs no admission experiment because the contrast is *inside* the axis
     # rather than across it: two cells that name the same condition and were
     # sent different bytes are mislabelled, whatever the effect size turns out
@@ -1040,7 +1040,7 @@ def require_comparable(
     # up to 76pp — and until the fan-out lands, `bundle_sha256` hashes the
     # system half only, so this check is weaker than it reads.
     #
-    # `bundle_sha256` stays OUT of KEY, decided rather than deferred (ADR-0032
+    # `bundle_sha256` stays OUT of KEY, decided rather than deferred (
     # clause 6). #276's rule admits a field only once perturbation shows it
     # flips more verdicts than the declared bound; no such run has been done,
     # and corollary 1 is explicit that an untested field is recorded and not
@@ -1071,7 +1071,7 @@ def inventory(root: Path) -> list[tuple[Path, str, list[str]]]:
 
     Read rather than written. A tag committed into a file goes stale the moment
     a record or the key moves, and a stale tag is worse than none — it is a
-    claim about a run that nothing re-derives. The migration ADR-0027 D8 decides
+    claim about a run that nothing re-derives. The migration D8 decides
     is therefore *tagging in place*, with this as the tag.
 
     Records that are not machine-written manifests are skipped rather than

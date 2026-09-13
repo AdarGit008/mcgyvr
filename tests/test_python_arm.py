@@ -1,13 +1,13 @@
-"""Offline invariants over #167's Python arm — the control for CLM-0012's null.
+"""Offline invariants over #167's Python arm — the control for the null.
 
-CLM-0012 measured the JS/TS bundle flat and had to scope the finding, because
-one control could not be run: CLM-0004's own Python ladder against a reachable
+ measured the JS/TS bundle flat and had to scope the finding, because
+one control could not be run: the own Python ladder against a reachable
 rig. Two readings fit the data and they have opposite consequences. Under
 *language*, ``prompts/python.md`` keeps its evidence and only the JS/TS port is
-unsupported. Under *serving stack*, CLM-0004 does not describe the stack mcgyvr
+unsupported. Under *serving stack*,  does not describe the stack mcgyvr
 dispatches on and the Python bundle's standing is no better than the JS/TS one.
 
-The arm that separates them is CLM-0004's twenty tasks, recovered from local-ai
+The arm that separates them is the twenty tasks, recovered from local-ai
 and ported to mcgyvr contracts, run through the same rig the JS/TS sweep used.
 What is checkable without a worker is whether that port is honest, and these are
 the ways it could quietly not be:
@@ -98,7 +98,7 @@ def _condition(name: str) -> str:
 
 
 def test_the_task_set_is_twenty_tasks() -> None:
-    """CLM-0004's n. A different one would not be comparable with its rates."""
+    """the n. A different one would not be comparable with its rates."""
     assert len(_task_dirs()) == 20
 
 
@@ -114,7 +114,7 @@ def test_acceptance_and_reference_are_the_recovered_ones_byte_for_byte() -> None
     structured fields and will not take a pre-rendered one — but the acceptance
     script and the reference solution are what decide whether a cell passes.
     If those were re-authored, the arm would be a new instrument wearing
-    CLM-0004's task ids, and its agreement or disagreement with the JS/TS arm
+    the task ids, and its agreement or disagreement with the JS/TS arm
     would mean nothing.
     """
     recovered = {t["id"]: t for t in _recovered()}
@@ -229,7 +229,7 @@ def test_c2_is_the_shipped_bundle_byte_for_byte() -> None:
 
 
 def test_c0_is_the_absence_of_a_system_prompt() -> None:
-    """CLM-0004's c0 is "none — contract only", not an empty file."""
+    """the c0 is "none — contract only", not an empty file."""
     measure = _measure()
     assert measure.condition_text("c0", measure.PYTHON) == ""
 

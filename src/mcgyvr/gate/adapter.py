@@ -19,7 +19,7 @@ An adapter supplies five capabilities:
   a fallback for when a contract does not declare one.
 
 Lint and format shell out to real tools, and a tool can fail the adapter in two
-distinct ways. Neither is the worker's fault, and ADR-0034 turns on telling them
+distinct ways. Neither is the worker's fault, and  turns on telling them
 apart:
 
 * **absent** — not on PATH at all. The reduction in the bar is legible from the
@@ -182,7 +182,7 @@ class LanguageAdapter(ABC):
         same sense: the contract always wins when it declares its own commands,
         so a sniff can never overrule a caller who has said what to run.
 
-        ADR-0006 is the whole of the policy, and it is a policy about restraint:
+         is the whole of the policy, and it is a policy about restraint:
         mcgyvr never chooses a type checker and never synthesises its flags. It
         finds what the repository already configured and returns that
         invocation. **Strictness is whatever the repository set** — imposing
@@ -200,7 +200,7 @@ class LanguageAdapter(ABC):
         Implementations must not import, execute or otherwise evaluate the
         target's code to answer — reading configuration is the whole of the
         permitted method. Running anything at all belongs in the sandbox
-        (ADR-0005), and this is called on the host.
+        , and this is called on the host.
         """
 
     def owned(self, changes: Sequence[FileChange]) -> list[FileChange]:

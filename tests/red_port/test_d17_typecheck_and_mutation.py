@@ -17,7 +17,7 @@ same seam. The half that says a repository declaring no checker is not failed fo
 the absence of one is **true today by accident**: there is no step, so there is
 nothing to be absent. Asserting it against today's gate would be a green test that
 holds nothing, and it would stay green through a port that shipped a checker run
-unconditionally against every repository — which is precisely ADR-0006's mistake,
+unconditionally against every repository — which is precisely the mistake,
 substituting mcgyvr's opinion for what the project wrote down. Routed through the
 missing capability, it is RED now and it is a real constraint on the port.
 
@@ -143,7 +143,7 @@ def test_a_repository_that_declares_no_checker_is_not_failed_for_the_absence(
 ) -> None:
     """No declaration, no verdict — and no complaint either.
 
-    ADR-0006 put the choice of checker outside this project. A gate that ran one
+     put the choice of checker outside this project. A gate that ran one
     anyway would apply a bar the repository never agreed to, and a gate that
     recorded "no type checker" as an environment issue would degrade every install
     that never wanted one.

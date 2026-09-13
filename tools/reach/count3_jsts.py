@@ -28,7 +28,7 @@ so a flag on it is a *presumptive* false positive, and each one is written out
 with its path and line so the presumption can be checked by hand.
 
 **The denominator does not transfer, and pretending it does would be the error.**
-CLM-0009's 358 is *resolved call chains*, because ghostcall resolves calls. A
+the 358 is *resolved call chains*, because ghostcall resolves calls. A
 TypeScript diagnostic lands on any expression — a type reference, a property
 access in a type position, an identifier in a declaration — and immer's accepted
 changes are heavily type-level, so several of them contain no call expression at
@@ -43,9 +43,9 @@ the environment is not fully provisioned:
 
 - ``target-ts`` — the frame's own ``node_modules`` installed, resolving with the
   frame's own ``typescript``. Both the environment and the checker are the
-  target's, which is the arrangement ADR-0006 describes.
+  target's, which is the arrangement  describes.
 - ``staged-ts`` — the frame's ``node_modules`` installed, resolving with a
-  version-pinned ``typescript`` staged into the container the way ADR-0011 stages
+  version-pinned ``typescript`` staged into the container the way  stages
   a resolver. The environment is the target's, the checker is ours. This is the
   arm that tests version drift.
 - ``bare`` — no ``node_modules`` at all, staged checker. This is what a rung that
@@ -89,7 +89,7 @@ SCRATCH = Path("/tmp/reach-jsts")
 JS_FRAME = "immerjs/immer"
 
 # The staged resolver, pinned by the sha512 of its published tarball and
-# verified in the container before it is unpacked. ADR-0011's rule: a resolver
+# verified in the container before it is unpacked. the rule: a resolver
 # that is staged rather than installed still has to be the bytes that were
 # measured, and the check fails closed.
 STAGED_TS_VERSION = "5.9.3"
@@ -125,7 +125,7 @@ const targets = JSON.parse(readFileSync(process.argv[3], "utf8"));
 const repo = "/work";
 
 // The repository's own tsconfig, read the way tsc reads it — the compiler
-// options are the target's, which is the half of ADR-0006 that survives here.
+// options are the target's, which is the half  that survives here.
 const configPath = ts.findConfigFile(repo, ts.sys.fileExists, "tsconfig.json");
 const configFile = configPath
   ? ts.readConfigFile(configPath, ts.sys.readFile)
@@ -689,7 +689,7 @@ def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
             if f["on_added_line"] and f["class"] != "other"
         )
         # A site touched by two changes is counted twice in the totals above —
-        # the same double-count CLM-0009 had to unpick by hand, which is why the
+        # the same double-count  had to unpick by hand, which is why the
         # deduplicated figure is computed here rather than left to the reader.
         for flag in row["flags"]:
             sites.setdefault(row["arm"], {}).setdefault(flag["class"], set()).add(

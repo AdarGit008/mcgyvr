@@ -3,7 +3,7 @@
 The bench's driver question — what actually makes a problem hard for the
 floor model — was first asked as two separately authored cohorts, and that
 design could not answer it: unpaired comparisons spend power like two
-independent samples, which is ADR-0019's wall in a new costume
+independent samples, which is the wall in a new costume
 (`tools/bench/strata.json`, block 3). The paired form asks the same question
 of *one* problem under two renders, so the discordant pairs carry the power.
 
