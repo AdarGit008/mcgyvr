@@ -86,18 +86,19 @@ def _units_names(tree: ast.AST) -> set[str]:
 
 
 def _unit_names(tree: ast.AST, units_names: set[str]) -> set[str]:
-    """Names bound to a single unit block, by loop, subscript or get."""
+    """Names bound to a single unit block, by loop, comprehension or get."""
     names: set[str] = set()
     for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.For)
-            and isinstance(node.target, ast.Tuple)
-            and len(node.target.elts) == 2
-            and _is_items_of_units(node.iter, units_names)
-        ):
-            name = _name(node.target.elts[1])
-            if name is not None:
-                names.add(name)
+        if isinstance(node, (ast.For, ast.comprehension)):
+            target = node.target
+            if (
+                isinstance(target, ast.Tuple)
+                and len(target.elts) == 2
+                and _is_items_of_units(node.iter, units_names)
+            ):
+                name = _name(target.elts[1])
+                if name is not None:
+                    names.add(name)
         if isinstance(node, ast.Assign):
             value = node.value
             if isinstance(value, ast.Subscript):
@@ -171,12 +172,48 @@ def _unit_fields_read(source: str) -> set[str]:
 
 def test_the_consumers_read_unit_fields() -> None:
     """The guard's extraction works: a broken scanner would pass vacuously."""
-    read: set[str] = set()
     for consumer in CONSUMERS:
-        read |= _unit_fields_read((SRC / consumer).read_text(encoding="utf-8"))
-    assert read, (
-        "the guard found no unit fields at all; its scanner is broken, so it "
-        "would no longer catch a field the lock reads but the loader refuses"
+        read = _unit_fields_read((SRC / consumer).read_text(encoding="utf-8"))
+        assert read, (
+            f"the guard found no unit fields in {consumer}; its scanner is "
+            "blind to this consumer, so it would no longer catch a field the "
+            "lock reads but the loader refuses"
+        )
+
+
+def _plant(source: str, field: str) -> str | None:
+    """Rename one unit-field read to ``brand_new``, if the source spells it."""
+    for pattern in (
+        f'unit["{field}"]',
+        f'unit.get("{field}")',
+        f'"{field}" in unit',
+        f'"{field}" not in unit',
+    ):
+        if pattern in source:
+            return source.replace(
+                pattern, pattern.replace(f'"{field}"', '"brand_new"'), 1
+            )
+    return None
+
+
+@pytest.mark.parametrize("consumer", CONSUMERS)
+def test_the_scanner_detects_a_field_planted_in_each_consumer(consumer: str) -> None:
+    """A field planted in any consumer is seen, so drift cannot hide."""
+    source = (SRC / consumer).read_text(encoding="utf-8")
+    original = _unit_fields_read(source)
+    assert original, (
+        f"{consumer} reads no unit fields as far as the scanner can see: the "
+        "scanner is blind to this consumer and would miss a schema addition"
+    )
+    planted: str | None = None
+    for field in sorted(original):
+        planted = _plant(source, field)
+        if planted is not None:
+            break
+    assert planted is not None, f"no unit-field read to plant into {consumer}"
+    assert "brand_new" in _unit_fields_read(planted), (
+        f"the scanner did not see brand_new planted in {consumer}, so it "
+        "cannot catch a field the loader would refuse"
     )
 
 

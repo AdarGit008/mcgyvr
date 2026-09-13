@@ -2735,7 +2735,13 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     except FleetFileError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    # Evidence stays JSON: a dev run writes it, so a bad file is named here
+    # rather than left as a traceback.
+    try:
+        evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     # Engine-specific measured tolerances, read from the derived-numbers file:
     # the rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs.
     try:
