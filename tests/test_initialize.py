@@ -19,7 +19,7 @@ import pytest
 
 from mcgyvr.capability import load as load_table
 from mcgyvr.config import load as load_config
-from mcgyvr.config import parse_legacy as parse_config
+from mcgyvr.config import parse as parse_config
 from mcgyvr.detect import Backend, Detection, Gpu
 from mcgyvr.initialize import InitError, _sources_for, build, initialize, render
 from mcgyvr.propose import propose
@@ -98,7 +98,8 @@ def test_the_generated_file_loads_without_edits(tmp_path: Path, table) -> None: 
         path = tmp_path / f"{name}.yaml"
         initialize(path, detection=detection, table=table)
         config = load_config(path)
-        assert config.data["version"] == 1
+        assert config.get("profile") == "live"
+        assert "version" not in config.data
 
 
 def test_a_machine_with_no_backend_refuses_rather_than_writing(  # type: ignore[no-untyped-def]
@@ -206,9 +207,7 @@ def test_tiers_are_named_by_role_locality_and_model(tmp_path: Path, table) -> No
 def test_rerunning_reports_a_delta_and_writes_nothing(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
     path = tmp_path / "mcgyvr.yaml"
     initialize(path, detection=KEYLESS_RIG, table=table)
-    edited = path.read_text(encoding="utf-8").replace(
-        "max_parallel: 1", "max_parallel: 4"
-    )
+    edited = path.read_text(encoding="utf-8").replace("width: 1", "width: 4")
     path.write_text(edited, encoding="utf-8")
 
     again = initialize(path, detection=KEYLESS_RIG, table=table)
@@ -229,7 +228,7 @@ def test_force_overwrites_and_says_what_changed(tmp_path: Path, table) -> None: 
     path = tmp_path / "mcgyvr.yaml"
     initialize(path, detection=KEYLESS_RIG, table=table)
     path.write_text(
-        path.read_text(encoding="utf-8").replace("max_parallel: 1", "max_parallel: 4"),
+        path.read_text(encoding="utf-8").replace("width: 1", "width: 4"),
         encoding="utf-8",
     )
     forced = initialize(path, detection=KEYLESS_RIG, table=table, force=True)
@@ -296,15 +295,17 @@ def test_the_file_carries_comments_from_the_schema(tmp_path: Path, table) -> Non
     path = tmp_path / "mcgyvr.yaml"
     initialize(path, detection=KEYLESS_RIG, table=table)
     text = path.read_text(encoding="utf-8")
-    assert "# Config schema version." in text
-    assert "# Where the source answers, including scheme and port." in text
+    assert "# Which setup this file is" in text
+    assert "# Where this unit answers, including scheme and port." in text
     prose = " ".join(
         line.lstrip().removeprefix("#").strip()
         for line in text.splitlines()
         if line.lstrip().startswith("#")
     )
     collapsed = " ".join(prose.split())
-    assert "nothing above the execution seam knows which host" in collapsed
+    assert (
+        "A unit carries every fact about what it is and can physically do" in collapsed
+    )
 
 
 def test_no_credential_is_ever_written_as_a_value(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
@@ -385,8 +386,7 @@ def test_two_rigs_running_the_same_backend_both_survive(  # type: ignore[no-unty
         sources=_sources_for(REMOTE_ONLY),
     )
     data = build(REMOTE_ONLY, proposal)
-    assert len(data["sources"]) == 2
-    assert {s["base_url"] for s in data["sources"].values()} == {
+    assert {s["address"] for s in data["units"].values()} == {
         "http://srv1:8080",
         "http://srv2:8080",
     }

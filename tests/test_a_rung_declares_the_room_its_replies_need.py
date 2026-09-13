@@ -44,7 +44,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.config import parse_legacy as parse_config
+from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.pool import Protocol, source_map
 from tests import livejournal as lj
@@ -52,23 +52,24 @@ from tests import livejournal as lj
 #: Two rungs on one rig that serves a 4096-token window. The dear rung declares
 #: the room its replies need; the cheap one declares nothing, which is how the
 #: fallback is told apart from an override that happens to agree.
-LADDER = """
-version: 1
-sources:
-  srv1:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
-    context_window: 4096
+LADDER = """\
+units:
+  local_qwen2.5-coder-3b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:3b
+    rig: srv1
+    width: 2
+    window: 4096
+  local_qwen3.6-35b-a3b:
+    address: http://localhost:11434
+    model: qwen3.6:35b-a3b
+    rig: srv1
+    width: 2
+    window: 4096
+    output_tokens: 2048
 ladder:
-  tiers:
-    - name: local_qwen2.5-coder-3b
-      source: srv1
-      model: qwen2.5-coder:3b
-    - name: local_qwen3.6-35b-a3b
-      source: srv1
-      model: qwen3.6:35b-a3b
-      output_tokens: 2048
+- local_qwen2.5-coder-3b
+- local_qwen3.6-35b-a3b
 """
 
 #: A model-executed contract whose own cap is the 1024 the live rows were

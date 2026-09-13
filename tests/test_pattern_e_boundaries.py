@@ -188,18 +188,15 @@ def test_the_orchestrators_own_rendering_still_carries_the_command(
 
 SECRET_IN_URL = "sk-canary-3d81f"
 
-CONFIG_WITH_CREDENTIALED_URL = f"""
-version: 1
-sources:
-  hosted:
-    base_url: https://user:{SECRET_IN_URL}@api.example.invalid/v1
-    api: openai
-    max_parallel: 2
+CONFIG_WITH_CREDENTIALED_URL = f"""\
+units:
+  api_large:
+    address: https://user:{SECRET_IN_URL}@api.example.invalid/v1
+    model: vendor-large
+    rig: hosted
+    width: 2
 ladder:
-  tiers:
-    - name: api_large
-      source: hosted
-      model: vendor-large
+- api_large
 """
 
 
@@ -212,7 +209,7 @@ def test_a_credential_in_a_base_url_is_refused_at_load() -> None:
     accepted silently.
     """
     from mcgyvr.config import ConfigError
-    from mcgyvr.config import parse_legacy as parse_config
+    from mcgyvr.config import parse as parse_config
 
     with pytest.raises(ConfigError) as exc:
         parse_config(CONFIG_WITH_CREDENTIALED_URL)
@@ -230,7 +227,7 @@ def test_the_refusal_does_not_fire_on_an_ordinary_url() -> None:
     every path containing one and would be removed by the first person it
     inconvenienced.
     """
-    from mcgyvr.config import parse_legacy as parse_config
+    from mcgyvr.config import parse as parse_config
 
     config = parse_config(
         CONFIG_WITH_CREDENTIALED_URL.replace(
@@ -356,28 +353,25 @@ def test_the_verifier_role_is_answered_without_handing_over_a_credential(
     which carries ``credential()``. The module imported neither forbidden name,
     which is precisely why the import guard could not see it.
     """
-    from mcgyvr.config import parse_legacy as parse_config
+    from mcgyvr.config import parse as parse_config
     from mcgyvr.pool import source_map
 
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
     pool = source_map(
         parse_config(
-            """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+            """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 verifier:
   enabled: true
-  source: workstation
   model: qwen2.5-coder:14b
+  unit: local_qwen-7b
 """
         )
     )

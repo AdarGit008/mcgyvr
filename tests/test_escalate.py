@@ -64,8 +64,7 @@ import pytest
 from mcgyvr.capacity import Capacity, run_batch
 from mcgyvr.catalog import Family, catalog
 from mcgyvr.cli import main
-from mcgyvr.config import CONFIG_PATH_ENV, Config
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import CONFIG_PATH_ENV, Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import (
@@ -90,47 +89,38 @@ from mcgyvr.pool import SourceMap, source_map
 from mcgyvr.route import RouteError, Try, Verdict
 from mcgyvr.worker.prompt import build_prompt
 
-MIXED = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
-  spare:
-    base_url: http://192.168.1.20:8000
-    api: openai
-    max_parallel: 1
-  vendor:
-    base_url: https://api.example.com/v1
-    api: openai
-    max_parallel: 4
+MIXED = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
+  local_qwen-14b:
+    address: http://192.168.1.20:8000
+    model: qwen2.5-coder:14b
+    rig: spare
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 4
     api_key_env: EXAMPLE_API_KEY
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: local_qwen-14b
-      source: spare
-      model: qwen2.5-coder:14b
-    - name: api_big
-      source: vendor
-      model: vendor-large
+- local_qwen-7b
+- local_qwen-14b
+- api_big
 """
 
-KEYLESS = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+KEYLESS = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 CONTRACT = """
@@ -193,9 +183,9 @@ def mapped(text: str) -> tuple[Config, SourceMap]:
 
 
 def with_budgets(text: str, **values: int) -> str:
-    """The same config with a budgets block set."""
-    lines = [text, "budgets:"]
-    lines.extend(f"  {name}: {value}" for name, value in values.items())
+    """The same config with the named policy ceilings set."""
+    lines = [text]
+    lines.extend(f"{name}: {value}" for name, value in values.items())
     return "\n".join(lines)
 
 
@@ -893,33 +883,28 @@ def test_capacity_reaches_every_rung_of_every_family(key: None) -> None:
 # --- where an idle ladder sends work ---------------------------------------
 
 NARROW = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 1
-  spare:
-    base_url: http://192.168.1.20:8000
-    api: openai
-    max_parallel: 1
-  vendor:
-    base_url: https://api.example.com/v1
-    api: openai
-    max_parallel: 4
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 1
+  local_qwen-14b:
+    address: http://192.168.1.20:8000
+    model: qwen2.5-coder:14b
+    rig: spare
+    width: 1
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 4
     api_key_env: EXAMPLE_API_KEY
 ladder:
-{fanout}  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: local_qwen-14b
-      source: spare
-      model: qwen2.5-coder:14b
-    - name: api_big
-      source: vendor
-      model: vendor-large
-"""
+- local_qwen-7b
+- local_qwen-14b
+- api_big
+{fanout}"""
 
 
 def narrow(mode: str = "") -> str:
@@ -936,7 +921,7 @@ def narrow(mode: str = "") -> str:
     test, and no assertion can be quietly explained by a config that also
     drifted somewhere else.
     """
-    return NARROW.format(fanout=f"  fanout: {mode}\n" if mode else "")
+    return NARROW.format(fanout=f"fanout: {mode}\n" if mode else "")
 
 
 @contextmanager
@@ -950,7 +935,7 @@ def holding(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None]:
     """
     with ExitStack() as stack:
         for rung in rungs:
-            stack.enter_context(capacity.hold(pool.bind(rung)))
+            stack.enter_context(capacity.hold(pool.bind(rung), rung=rung))
         yield
 
 
@@ -1097,7 +1082,7 @@ def test_idle_passes_over_a_rung_another_climb_has_reserved_but_not_yet_taken(
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
 
-    with capacity.reserving("workstation"):
+    with capacity.reserving("workstation", "local_qwen-7b"):
         route = ascent(config, pool, contract(), capacity=capacity)
 
         assert route.next_free_rung == "local_qwen-14b"
@@ -1382,7 +1367,7 @@ def scarce(mode: str = "idle") -> str:
     one free rung on the whole ladder, so "the cheapest rung with a free slot"
     is an answer at most one member of a batch may act on.
     """
-    return narrow(mode).replace("max_parallel: 4", "max_parallel: 1")
+    return narrow(mode).replace("width: 4", "width: 1")
 
 
 @contextmanager
@@ -1482,46 +1467,40 @@ def test_only_one_member_of_a_batch_raises_its_entry_into_one_free_api_slot(
 # way to assert that a claimed first rung leaves the escalation arithmetic where
 # it was.
 PRICED_PAIR = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 1
-  spare:
-    base_url: http://192.168.1.20:8000
-    api: openai
-    max_parallel: 1
-  vendor:
-    base_url: https://api.example.com/v1
-    api: openai
-    max_parallel: 1
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 1
+  local_qwen-14b:
+    address: http://192.168.1.20:8000
+    model: qwen2.5-coder:14b
+    rig: spare
+    width: 1
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 1
     api_key_env: EXAMPLE_API_KEY
-  vendor_big:
-    base_url: https://big.example.com/v1
-    api: openai
-    max_parallel: 4
+  api_bigger:
+    address: https://big.example.com/v1
+    model: vendor-largest
+    rig: vendor_big
+    width: 4
     api_key_env: EXAMPLE_API_KEY
 ladder:
-{fanout}  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: local_qwen-14b
-      source: spare
-      model: qwen2.5-coder:14b
-    - name: api_big
-      source: vendor
-      model: vendor-large
-    - name: api_bigger
-      source: vendor_big
-      model: vendor-largest
-"""
+- local_qwen-7b
+- local_qwen-14b
+- api_big
+- api_bigger
+{fanout}"""
 
 
 def priced(mode: str = "") -> str:
     """`PRICED_PAIR` with ``ladder.fanout`` set or left at its default."""
-    return PRICED_PAIR.format(fanout=f"  fanout: {mode}\n" if mode else "")
+    return PRICED_PAIR.format(fanout=f"fanout: {mode}\n" if mode else "")
 
 
 def test_a_raised_entry_gives_its_reservation_back_when_the_climb_fails(

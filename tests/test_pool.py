@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.pool import (
     Endpoint,
     Protocol,
@@ -28,43 +28,39 @@ from mcgyvr.pool import (
     source_map,
 )
 
-SINGLE_SOURCE = """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 3
+SINGLE_SOURCE = """\
+units:
+  cheap:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
+    width: 3
+  strong:
+    address: http://localhost:11434
+    model: qwen2.5-coder:14b
+    rig: local
+    width: 3
 ladder:
-  tiers:
-    - name: cheap
-      source: local
-      model: qwen2.5-coder:7b
-    - name: strong
-      source: local
-      model: qwen2.5-coder:14b
+- cheap
+- strong
 """
 
-TWO_SOURCES = """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 3
-  remote:
-    base_url: https://api.example.com/v1
-    api: openai
-    max_parallel: 4
+TWO_SOURCES = """\
+units:
+  cheap:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
+    width: 3
+  strong:
+    address: https://api.example.com/v1
+    model: big-model
+    rig: remote
+    width: 4
     api_key_env: MCGYVR_TEST_KEY
 ladder:
-  tiers:
-    - name: cheap
-      source: local
-      model: qwen2.5-coder:7b
-    - name: strong
-      source: remote
-      model: big-model
+- cheap
+- strong
 """
 
 
@@ -83,8 +79,15 @@ def test_a_rung_can_be_repointed_at_another_source_by_editing_config(
     assert before.bind("strong").base_url == "https://api.example.com/v1"
     assert before.bind("strong").protocol is Protocol.OPENAI
 
-    # The only thing that changes is which source the rung names.
-    after = source_map(parse(TWO_SOURCES.replace("source: remote", "source: local")))
+    # The only thing that changes is the address the rung's unit names.
+    after = source_map(
+        parse(
+            TWO_SOURCES.replace(
+                "address: https://api.example.com/v1",
+                "address: http://localhost:11434",
+            )
+        )
+    )
 
     assert after.bind("strong").base_url == "http://localhost:11434"
     assert after.bind("strong").protocol is Protocol.OPENAI
@@ -282,20 +285,17 @@ def test_every_source_unusable_is_an_empty_ladder_not_an_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    body = cfg("""
-        version: 1
-        sources:
-          remote:
-            base_url: https://api.example.com/v1
-            api: openai
-            max_parallel: 4
+    body = cfg("""\
+        units:
+          only:
+            address: https://api.example.com/v1
+            model: big-model
+            rig: remote
+            width: 4
             api_key_env: MCGYVR_TEST_KEY
         ladder:
-          tiers:
-            - name: only
-              source: remote
-              model: big-model
-    """)
+        - only
+        """)
     pool = source_map(parse(body))
 
     assert not pool
@@ -379,23 +379,20 @@ def test_an_unbound_role_is_an_ordinary_none_not_a_failure() -> None:
 
 
 def test_a_bound_role_resolves_through_the_seam_like_a_rung() -> None:
-    body = cfg("""
-        version: 1
-        sources:
-          local:
-            base_url: http://localhost:11434
-            api: openai
-            max_parallel: 3
+    body = cfg("""\
+        units:
+          cheap:
+            address: http://localhost:11434
+            model: qwen2.5-coder:7b
+            rig: local
+            width: 3
         ladder:
-          tiers:
-            - name: cheap
-              source: local
-              model: qwen2.5-coder:7b
+        - cheap
         verifier:
           enabled: true
-          source: local
           model: qwen2.5-coder:14b
-    """)
+          unit: cheap
+        """)
     binding = source_map(parse(body)).role("verifier")
 
     assert binding is not None
@@ -408,28 +405,25 @@ def test_a_role_on_an_unusable_source_says_so(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    body = cfg("""
-        version: 1
-        sources:
-          local:
-            base_url: http://localhost:11434
-            api: openai
-            max_parallel: 3
+    body = cfg("""\
+        units:
+          cheap:
+            address: http://localhost:11434
+            model: qwen2.5-coder:7b
+            rig: local
+            width: 3
           remote:
-            base_url: https://api.example.com/v1
-            api: openai
-            max_parallel: 4
+            address: https://api.example.com/v1
+            model: big-model
+            rig: remote
             api_key_env: MCGYVR_TEST_KEY
         ladder:
-          tiers:
-            - name: cheap
-              source: local
-              model: qwen2.5-coder:7b
+        - cheap
         verifier:
           enabled: true
-          source: remote
           model: big-model
-    """)
+          unit: remote
+        """)
     pool = source_map(parse(body))
 
     # The ladder still works; only the role is unavailable.

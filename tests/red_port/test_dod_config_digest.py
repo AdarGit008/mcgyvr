@@ -41,44 +41,31 @@ from tests.red_port.conftest import required
 PREFIX = "cfg-"
 
 BASE = """\
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
-    max_parallel: 1
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: "a-model"
+- only
 sandbox:
   mode: tempdir
-budgets:
-  task_timeout_s: 7
+task_timeout_s: 7
 """
 
 #: The same config: comments, blank lines, key order and a default spelled out.
 SAME = """\
-# a comment nobody ran
-budgets:
-  task_timeout_s: 7
-
-sandbox:
-  mode: tempdir   # the default sandbox
-
-ladder:
-  tiers:
-    - model: "a-model"
-      source: local
-      name: only
 profile: live
-sources:
-  local:
-    max_parallel: 1
-    api: openai
-    base_url: "http://localhost:8080"
-version: 1
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
+ladder:
+- only
+sandbox:
+  mode: tempdir
+task_timeout_s: 7
 """
 
 #: One value moved.
@@ -106,7 +93,7 @@ def _identity(config: Any) -> str:
 
 
 def _digest(text: str) -> str:
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import parse
 
     return _identity(parse(text))
 
@@ -292,8 +279,7 @@ def test_a_kept_copy_a_crash_left_short_is_replaced_not_trusted(
     """Content-addressed means the bytes hash to the name; a file under the
     right name with the wrong bytes is a copy that will never load, and
     ``exists()`` alone would keep it forever."""
-    from mcgyvr.config import CONFIGS_DIR, keep, load
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import CONFIGS_DIR, keep, load, parse
 
     config = parse(BASE)
     journal = tmp_path / "journal"
@@ -312,7 +298,11 @@ def test_a_relative_geometry_file_is_part_of_the_identity(tmp_path: Path) -> Non
     file the original did."""
     from mcgyvr.config import CONFIGS_DIR, keep, load
 
-    text = BASE + 'models:\n  m:\n    geometry_json: "geo/m.json"\n'
+    text = BASE.replace(
+        "    rig: local\n",
+        '    rig: local\n    launch:\n      geometry_json: "geo/m.json"\n',
+        1,
+    )
     a = tmp_path / "a" / "mcgyvr.yaml"
     b = tmp_path / "b" / "mcgyvr.yaml"
     for path in (a, b):

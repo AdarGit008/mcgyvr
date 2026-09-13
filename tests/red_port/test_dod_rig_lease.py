@@ -33,6 +33,7 @@ own home. Nothing reaches a machine.
 
 from __future__ import annotations
 
+import contextlib
 import getpass
 import os
 import signal
@@ -51,17 +52,13 @@ RUN_ID = f"{onedoor.RUN_DATE}-{CAMPAIGN}-probe"
 
 DEV_CONFIG = """\
 profile: dev
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
-    max_parallel: 1
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: "a-model"
+- only
 sandbox:
   mode: tempdir
 """
@@ -167,7 +164,10 @@ def test_the_lease_is_released_on_an_interrupt(
             time.sleep(0.1)
         assert onedoor.read_lease(root) is not None, "no lease during the step"
         os.killpg(proc.pid, sig)
-        _, stderr = proc.communicate(timeout=120)
+        proc.wait(timeout=90)
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        _, stderr = proc.communicate(timeout=60)
     finally:
         if proc.poll() is None:
             os.killpg(proc.pid, signal.SIGKILL)

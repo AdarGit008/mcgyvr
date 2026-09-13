@@ -48,23 +48,29 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import ConfigSchemaError, load
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import ConfigSchemaError, load, parse
 
 BASE = """\
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: a-model
+- only
 """
 
-RELATIVE = BASE + 'models:\n  a-model:\n    geometry_json: "./geometry.json"\n'
+RELATIVE = """\
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
+    launch:
+      geometry_json: "./geometry.json"
+ladder:
+- only
+"""
 
 
 def _config_beside_its_scan(directory: Path) -> Path:
@@ -96,7 +102,7 @@ def test_a_relative_geometry_json_with_nowhere_to_read_it_beside_is_refused() ->
     """
     with pytest.raises(ConfigSchemaError) as raised:
         parse(RELATIVE)
-    assert "models.a-model.geometry_json" in str(raised.value)
+    assert "units.only.launch.geometry_json" in str(raised.value)
 
 
 def test_a_config_reached_through_a_symlink_is_the_same_config(

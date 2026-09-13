@@ -45,29 +45,25 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from mcgyvr.availability import Availability, AvailabilityVerdict
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.pool import Endpoint, source_map
 
 RESIDENT = "qwen3.6-35b-a3b"
 SLEEPING = "deepseek-coder-v2-16b"
 
-LADDER = f"""
-version: 1
-sources:
-  srv1_lite:
-    base_url: "http://srv1:8080"
-    api: openai
-  srv1_big:
-    base_url: "http://srv1:8081"
-    api: openai
+LADDER = f"""\
+units:
+  local_lite:
+    address: http://srv1:8080
+    model: '{SLEEPING}'
+    rig: srv1_lite
+  local_big:
+    address: http://srv1:8081
+    model: '{RESIDENT}'
+    rig: srv1_big
 ladder:
-  tiers:
-    - name: local_lite
-      source: srv1_lite
-      model: "{SLEEPING}"
-    - name: local_big
-      source: srv1_big
-      model: "{RESIDENT}"
+- local_lite
+- local_big
 """
 
 

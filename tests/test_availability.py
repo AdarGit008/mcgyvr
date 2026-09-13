@@ -34,80 +34,73 @@ from mcgyvr.availability import (
     ProbeFn,
     probe_endpoint,
 )
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.pool import Endpoint, Protocol, SourceUnavailableError, source_map
 
-TWO_SOURCES = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
-  spare:
-    base_url: http://192.168.1.9:8000
-    api: openai
-    max_parallel: 1
+TWO_SOURCES = """\
+units:
+  local_small:
+    address: http://localhost:11434
+    model: qwen2.5-coder:1.5b
+    rig: workstation
+    width: 2
+  local_large:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
+  remote_large:
+    address: http://192.168.1.9:8000
+    model: qwen2.5-coder:32b
+    rig: spare
 ladder:
-  tiers:
-    - name: local_small
-      source: workstation
-      model: qwen2.5-coder:1.5b
-    - name: local_large
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: remote_large
-      source: spare
-      model: qwen2.5-coder:32b
+- local_small
+- local_large
+- remote_large
 """
 
 # One source is keyless and one names a credential, so the structural pass and
 # the probe each have something to do — which is what makes "a structurally
 # skipped source is never probed" a real assertion rather than a vacuous one.
-MIXED_CAUSES = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
-  spare:
-    base_url: https://api.example.com
-    api: openai
-    max_parallel: 1
+MIXED_CAUSES = """\
+units:
+  first:
+    address: http://localhost:11434
+    model: a
+    rig: workstation
+    width: 2
+  second:
+    address: https://api.example.com
+    model: b
+    rig: spare
     api_key_env: MCGYVR_AVAIL_TEST_KEY
+  third:
+    address: http://localhost:11434
+    model: c
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: first
-      source: workstation
-      model: a
-    - name: second
-      source: spare
-      model: b
-    - name: third
-      source: workstation
-      model: c
+- first
+- second
+- third
 """
 
-WITH_VERIFIER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+WITH_VERIFIER = """\
+units:
+  local_small:
+    address: http://localhost:11434
+    model: a
+    rig: workstation
+    width: 2
   spare:
-    base_url: http://192.168.1.9:8000
-    api: openai
-    max_parallel: 1
+    address: http://192.168.1.9:8000
+    model: judge
+    rig: spare
 ladder:
-  tiers:
-    - name: local_small
-      source: workstation
-      model: a
+- local_small
 verifier:
-  source: spare
   model: judge
+  unit: spare
 """
 
 

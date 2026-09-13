@@ -34,27 +34,23 @@ import pytest
 #: One card, two vLLM sources, the shape of the live srv2 (§6). Every worked
 #: example in the design is this card because it is the multi-unit one, which is
 #: the harder case; the engine on a card decides nothing (N10, ruled 2026-09-08).
-CARD = """
-version: 1
-sources:
-  srv2_3b:
-    base_url: http://srv2:8001
-    api: openai
+CARD = """\
+units:
+  local_qwen2.5-coder-3b:
+    address: http://srv2:8001
+    model: qwen2.5-coder-3b
+    rig: srv2_3b
+    width: 2
     engine: vllm
-    max_parallel: 2
-  srv2_7b:
-    base_url: http://srv2:8002
-    api: openai
+  local_qwen2.5-coder-7b:
+    address: http://srv2:8002
+    model: qwen2.5-coder-7b
+    rig: srv2_7b
+    width: 2
     engine: vllm
-    max_parallel: 2
 ladder:
-  tiers:
-    - name: local_qwen2.5-coder-3b
-      source: srv2_3b
-      model: qwen2.5-coder-3b
-    - name: local_qwen2.5-coder-7b
-      source: srv2_7b
-      model: qwen2.5-coder-7b
+- local_qwen2.5-coder-3b
+- local_qwen2.5-coder-7b
 """
 
 
@@ -66,7 +62,7 @@ def test_a_config_that_says_nothing_has_sleep_and_wake_turned_off() -> None:
     states for its own unset case. A caller reading the loaded tree must be
     able to see the answer without knowing that the key was omitted.
     """
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import parse
 
     config = parse(CARD)
 
@@ -87,7 +83,7 @@ def test_a_config_that_asks_for_sleep_and_wake_is_not_refused_as_an_unknown_key(
     rungs come into existence — two authorities, and only one of them touches a
     rig (§7.1).
     """
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import parse
 
     config = parse(CARD + "serving:\n  enable_sleep_wake: true\n")
 
@@ -106,7 +102,7 @@ def test_the_directory_this_checkout_keeps_launch_specs_in_is_a_key_of_its_own()
     source the way a ``device:`` on a source would, and a config that omits it
     has no sleeping cards at all — only down ones (D2).
     """
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import parse
 
     config = parse(CARD + "serving:\n  compose_dir: /etc/mcgyvr/config\n")
 
@@ -121,12 +117,14 @@ def test_a_wake_has_no_budget_of_its_own() -> None:
     that still answer different questions, so the removal cannot silently take
     the whole ``budgets`` block with it.
     """
-    from mcgyvr.config import field_at
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import field_at, parse
 
-    config = parse(
-        CARD + "budgets:\n" + "  request_timeout_s: 30.0\n" + "  task_timeout_s: 60\n"
+    card = CARD.replace(
+        "    width: 2\n    engine: vllm\n",
+        "    width: 2\n    engine: vllm\n    request_timeout_s: 30.0\n",
+        1,
     )
+    config = parse(card + "task_timeout_s: 60\n")
 
     assert field_at("budgets.wake_timeout_s") is None, (
         "budgets.wake_timeout_s is still a schema key: the wake limit now comes "

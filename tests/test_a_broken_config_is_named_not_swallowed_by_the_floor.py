@@ -76,14 +76,14 @@ UNPARSEABLE = "version: 1\nsources: {workstation:\n"
 NOT_UTF8 = b"\xff\xfeversion: 1\n"
 
 #: YAML that parses and is not a config: ``ladder.tiers`` names no source.
-OFF_SCHEMA = """
-version: 1
-sources: {}
+OFF_SCHEMA = """\
+units:
+  local:
+    address: ''
+    model: qwen2.5-coder:7b
+    rig: nowhere
 ladder:
-  tiers:
-    - name: local
-      source: nowhere
-      model: qwen2.5-coder:7b
+- local
 journal:
   dir: /nowhere/configured
 """

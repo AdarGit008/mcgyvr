@@ -40,7 +40,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.config import ConfigError
-from mcgyvr.config import parse_legacy as parse_config
+from mcgyvr.config import parse as parse_config
 from mcgyvr.gate import Gate
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.secrets import scan_secrets
@@ -50,18 +50,15 @@ from tests.red_port.conftest import git
 SECRET = "s3cret-pager-password"
 TARGET = Path("src") / "pkg" / "fetch.py"
 
-PERMISSIVE_CONFIG = """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 3
+PERMISSIVE_CONFIG = """\
+units:
+  cheap:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
+    width: 3
 ladder:
-  tiers:
-    - name: cheap
-      source: local
-      model: qwen2.5-coder:7b
+- cheap
 """
 
 

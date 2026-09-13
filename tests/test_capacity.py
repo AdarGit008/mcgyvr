@@ -28,7 +28,7 @@ from typing import Any
 import pytest
 
 from mcgyvr.capacity import Capacity, CapacityError, Outcome, run_batch
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.pool import Endpoint, Protocol, source_map
 
 
@@ -44,29 +44,26 @@ def isolated_lock_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-CONFIG = """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 3
-  fast:
-    base_url: http://localhost:8080
-    api: openai
-    max_parallel: 2
+CONFIG = """\
+units:
+  cheap:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
+    width: 3
+  strong:
+    address: http://localhost:8080
+    model: qwen2.5-coder:14b
+    rig: fast
+    width: 2
   spare:
-    base_url: http://localhost:9090
-    api: openai
-    max_parallel: 1
+    address: http://localhost:9000
+    model: qwen2.5-coder:1.5b
+    rig: spare
+    width: 1
 ladder:
-  tiers:
-    - name: cheap
-      source: local
-      model: qwen2.5-coder:7b
-    - name: strong
-      source: fast
-      model: qwen2.5-coder:14b
+- cheap
+- strong
 """
 
 
@@ -708,7 +705,7 @@ def test_an_endpoint_from_another_config_is_refused_by_a_probed_capacity() -> No
     make 5 look like a number that fits inside the bound.
     """
     capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
-    stale = source_map(parse(CONFIG.replace("max_parallel: 3", "max_parallel: 5")))
+    stale = source_map(parse(CONFIG.replace("width: 3", "width: 5")))
 
     with pytest.raises(CapacityError) as caught, capacity.hold(stale.bind("cheap")):
         pass  # pragma: no cover - the hold raises on the way in

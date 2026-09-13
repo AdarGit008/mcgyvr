@@ -53,7 +53,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.availability import Availability, AvailabilityVerdict
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.pool import Endpoint, source_map
 from tests import livejournal as lj
 
@@ -66,17 +66,14 @@ SERVED = f"/home/adaramir/models/{DECLARED}.gguf"
 #: The other model that rig alternates with, as a path.
 OTHER = "/home/adaramir/models/deepseek-coder-v2-16b.gguf"
 
-LADDER = f"""
-version: 1
-sources:
-  srv1_big:
-    base_url: "http://srv1:8080"
-    api: openai
+LADDER = f"""\
+units:
+  local_big:
+    address: http://srv1:8080
+    model: '{DECLARED}'
+    rig: srv1_big
 ladder:
-  tiers:
-    - name: local_big
-      source: srv1_big
-      model: "{DECLARED}"
+- local_big
 """
 
 

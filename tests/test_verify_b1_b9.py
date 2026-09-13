@@ -32,7 +32,7 @@ import pytest
 
 from mcgyvr.catalog import catalog
 from mcgyvr.cleanup import tidy
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.consensus import ConsensusError, best_of
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
@@ -45,18 +45,15 @@ from mcgyvr.pool import source_map
 from mcgyvr.repair import _insert_imports, repair
 from mcgyvr.route import Verdict
 
-KEYLESS = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+KEYLESS = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 FORMAT_CONTRACT = """
@@ -410,19 +407,15 @@ def test_b2_the_planned_command_cannot_be_read_as_an_option() -> None:
 def test_b1_pattern_an_ascent_that_can_climb_nothing_is_falsy() -> None:
     os.environ.pop("MCGYVR_NO_SUCH_KEY_FOR_VERIFICATION", None)
     config = parse(
-        """
-version: 1
-sources:
-  cloud:
-    base_url: https://api.example.invalid
-    api: openai
+        """\
+units:
+  api_big:
+    address: https://api.example.invalid
+    model: big
+    rig: cloud
     api_key_env: MCGYVR_NO_SUCH_KEY_FOR_VERIFICATION
-    max_parallel: 1
 ladder:
-  tiers:
-    - name: api_big
-      source: cloud
-      model: big
+- api_big
 """
     )
     route = ascent(config, source_map(config), load_contract(FORMAT_CONTRACT))
@@ -465,23 +458,24 @@ def test_pattern_a_consensus_reports_content_it_cannot_write_as_its_own_error(
 )
 def test_the_printed_ceiling_is_the_one_that_is_enforced() -> None:
     config = parse(
-        """
-version: 1
-sources:
-  ws:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+        """\
+units:
+  local_a:
+    address: http://localhost:11434
+    model: m1
+    rig: ws
+    width: 2
+  local_b:
+    address: http://localhost:11434
+    model: m2
+    rig: ws
+    width: 2
 ladder:
-  tiers:
-    - name: local_a
-      source: ws
-      model: m1
-      attempts: 3
-    - name: local_b
-      source: ws
-      model: m2
-      attempts: 2
+- local_a
+- local_b
+attempts:
+  local_a: 3
+  local_b: 2
 """
     )
     pool = source_map(config)

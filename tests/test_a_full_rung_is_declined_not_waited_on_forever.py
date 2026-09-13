@@ -36,20 +36,15 @@ import pytest
 
 from tests import livejournal as lj
 
-ONE_WIDE = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 1
+ONE_WIDE = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
-budgets:
-  task_timeout_s: 1
+- local_qwen-7b
+task_timeout_s: 1
 """
 
 

@@ -47,7 +47,7 @@ import pytest
 
 from mcgyvr.capacity import Capacity, run_batch
 from mcgyvr.catalog import catalog
-from mcgyvr.config import parse_legacy as parse_config
+from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
@@ -57,21 +57,21 @@ from mcgyvr.pool import Endpoint, Protocol, SourceMap, source_map
 from mcgyvr.route import Try, Verdict, plan
 from tests.red_port.conftest import CONTRACT, git
 
-CONFIG = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 3
+CONFIG = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 3
+  local_qwen-14b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:14b
+    rig: workstation
+    width: 3
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: local_qwen-14b
-      source: workstation
-      model: qwen2.5-coder:14b
+- local_qwen-7b
+- local_qwen-14b
 """
 
 WORKSTATION = Endpoint(

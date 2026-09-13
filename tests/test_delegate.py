@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.delegate import (
     NO_ORCHESTRATOR_ROLE,
     UnreadableProposalError,
@@ -41,18 +41,15 @@ from mcgyvr.runner import Completion, StopReason
 
 #: A keyless local ladder with no orchestrator block — the ordinary install
 #: that must answer "no orchestrator role" rather than fail.
-LADDER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+LADDER = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 #: The same install with the orchestrator role bound to a usable source.
@@ -60,7 +57,7 @@ ORCHESTRATOR = (
     LADDER
     + """
 orchestrator:
-  source: workstation
+  unit: local_qwen-7b
   model: qwen2.5-coder:14b
 """
 )

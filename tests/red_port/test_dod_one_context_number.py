@@ -42,24 +42,20 @@ import pytest
 
 from tests.red_port.conftest import required
 
-CONFIG = """
-version: 1
-sources:
-  rig_lcp:
-    base_url: "http://rig:8080"
-    api: openai
-    max_parallel: 4
-models:
-  "a-model":
-    vram_gb: 3.0
-    disk_gb: 2.0
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
+CONFIG = """\
+units:
+  only:
+    address: http://rig:8080
+    model: a-model
+    rig: rig_lcp
+    width: 1
+    launch:
+      vram_gb: 3.0
+      disk_gb: 2.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: only
-      source: rig_lcp
-      model: "a-model"
+- only
 """
 
 
@@ -69,7 +65,7 @@ def _emitted(window: int | None) -> Any:
     ``None`` is a run that declared nothing, which must be a refusal rather
     than a number somebody's module chose.
     """
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import parse
     from mcgyvr.serving import units_for
 
     emit_run = required(

@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from mcgyvr.capacity import Capacity, _slot_stem
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.pool import source_map
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, units_for
@@ -24,29 +24,23 @@ from mcgyvr.serving import ModelSpec, units_for
 #: the window is what the run declares, so a test is a run and declares its own.
 WINDOW = 4096
 
-CO_RESIDENT = """
-version: 1
-sources:
-  srv2_vllm_3b:
-    base_url: "http://srv2:8001"
-    api: openai
+CO_RESIDENT = """\
+units:
+  local_3b:
+    address: http://srv2:8001
+    model: Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
+    rig: srv2_vllm_3b
+    width: 8
     engine: vllm
-    max_parallel: 4
-  srv2_vllm_7b:
-    base_url: "http://srv2:8002"
-    api: openai
+  local_7b:
+    address: http://srv2:8002
+    model: Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
+    rig: srv2_vllm_7b
+    width: 8
     engine: vllm
-    max_parallel: 3
 ladder:
-  tiers:
-    - name: local_3b
-      source: srv2_vllm_3b
-      model: "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
-      max_parallel: 8
-    - name: local_7b
-      source: srv2_vllm_7b
-      model: "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
-      max_parallel: 8
+- local_3b
+- local_7b
 """
 HF = "/home/someone/.cache/huggingface"
 

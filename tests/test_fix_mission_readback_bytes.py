@@ -51,25 +51,22 @@ from typing import Any
 import pytest
 
 from mcgyvr.catalog import Family
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deliver import Accepted, digest_of
 from mcgyvr.escalate import Assurance, Delivered, Judgement
 from mcgyvr.route import Verdict
 
-KEYLESS = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+KEYLESS = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 TARGET = "src/pkg/fixture.txt"

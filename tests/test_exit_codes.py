@@ -103,9 +103,15 @@ def test_emitting_for_an_unscanned_host_exits_three(
     bench: Bench, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     (tmp_path / "mcgyvr.yaml").write_text(
-        "version: 1\n"
-        'sources:\n  d9: {base_url: "http://desktop-9:8080", api: openai}\n'
-        "ladder:\n  tiers:\n    - {name: r, source: d9, model: qwen3-coder-30b}\n",
+        """\
+units:
+  r:
+    address: http://desktop-9:8080
+    model: qwen3-coder-30b
+    rig: d9
+ladder:
+- r
+""",
         encoding="utf-8",
     )
     assert (
@@ -155,11 +161,20 @@ def test_two_models_on_one_endpoint_are_two_launch_specs(
     host = json.loads(scanned.read_text(encoding="utf-8"))["machine"]["host"]
     config = tmp_path / "two.yaml"
     config.write_text(
-        "version: 1\n"
-        f'sources:\n  d1: {{base_url: "http://{host}:8080", api: openai}}\n'
-        "ladder:\n  tiers:\n"
-        "    - {name: fast, source: d1, model: qwen2.5-coder:3b}\n"
-        "    - {name: smart, source: d1, model: qwen2.5-coder:1.5b}\n",
+        f"""\
+units:
+  fast:
+    address: http://{host}:8080
+    model: qwen2.5-coder:3b
+    rig: d1
+  smart:
+    address: http://{host}:8080
+    model: qwen2.5-coder:1.5b
+    rig: d1
+ladder:
+- fast
+- smart
+""",
         encoding="utf-8",
     )
     assert (
@@ -206,10 +221,15 @@ def test_a_loopback_source_resolves_to_the_scan_of_this_machine(
     capsys.readouterr()
     config = tmp_path / "loopback.yaml"
     config.write_text(
-        "version: 1\n"
-        'sources:\n  here: {base_url: "http://localhost:8080", api: openai}\n'
-        "ladder:\n  tiers:\n"
-        "    - {name: fast, source: here, model: qwen2.5-coder:3b}\n",
+        """\
+units:
+  fast:
+    address: http://localhost:8080
+    model: qwen2.5-coder:3b
+    rig: here
+ladder:
+- fast
+""",
         encoding="utf-8",
     )
     assert (
@@ -238,10 +258,15 @@ def test_a_loopback_address_resolves_the_same_way_a_name_does(
     for index, host in enumerate(("127.0.0.1", "[::1]")):
         config = tmp_path / f"addr{index}.yaml"
         config.write_text(
-            "version: 1\n"
-            f'sources:\n  here: {{base_url: "http://{host}:8080", api: openai}}\n'
-            "ladder:\n  tiers:\n"
-            "    - {name: fast, source: here, model: qwen2.5-coder:3b}\n",
+            f"""\
+units:
+  fast:
+    address: http://{host}:8080
+    model: qwen2.5-coder:3b
+    rig: here
+ladder:
+- fast
+""",
             encoding="utf-8",
         )
         code = main(
@@ -272,10 +297,15 @@ def test_another_machine_is_still_refused_when_this_one_is_scanned(
     capsys.readouterr()
     config = tmp_path / "elsewhere.yaml"
     config.write_text(
-        "version: 1\n"
-        'sources:\n  d9: {base_url: "http://desktop-9:8080", api: openai}\n'
-        "ladder:\n  tiers:\n"
-        "    - {name: fast, source: d9, model: qwen2.5-coder:3b}\n",
+        """\
+units:
+  fast:
+    address: http://desktop-9:8080
+    model: qwen2.5-coder:3b
+    rig: d9
+ladder:
+- fast
+""",
         encoding="utf-8",
     )
     assert (

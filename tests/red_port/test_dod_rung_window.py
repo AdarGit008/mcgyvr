@@ -38,27 +38,21 @@ from typing import Any
 from tests.red_port.conftest import required
 
 #: Two sources declaring different windows, so a constant cannot satisfy both.
-LADDER = """
-version: 1
-sources:
-  narrow:
-    base_url: "http://rig:8080"
-    api: openai
-    max_parallel: 1
-    context_window: 4096
-  wide:
-    base_url: "http://rig:8081"
-    api: openai
-    max_parallel: 1
-    context_window: 32768
+LADDER = """\
+units:
+  small:
+    address: http://rig:8080
+    model: a-model
+    rig: narrow
+    window: 4096
+  big:
+    address: http://rig:8081
+    model: a-model
+    rig: wide
+    window: 32768
 ladder:
-  tiers:
-    - name: small
-      source: narrow
-      model: "a-model"
-    - name: big
-      source: wide
-      model: "a-model"
+- small
+- big
 """
 
 BIG_CONTRACT = """
@@ -80,7 +74,7 @@ limits:
 
 def _bound(rung: str) -> Any:
     """What the pool resolves a rung to — below the seam, where the machine is."""
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import parse
     from mcgyvr.pool import source_map
 
     pool = source_map(parse(LADDER))

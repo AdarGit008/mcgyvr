@@ -437,17 +437,14 @@ def test_the_catalog_is_loaded_once() -> None:
 def _keyless_config(tmp_path: Path) -> Path:
     path = tmp_path / "mcgyvr.yaml"
     path.write_text(
-        """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:11434
-    api: openai
+        """\
+units:
+  local_qwen2.5-coder-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
 ladder:
-  tiers:
-    - name: local_qwen2.5-coder-7b
-      source: local
-      model: qwen2.5-coder:7b
+- local_qwen2.5-coder-7b
 """,
         encoding="utf-8",
     )

@@ -62,8 +62,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.capacity import Capacity, run_batch
-from mcgyvr.config import Config
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import ascent
@@ -100,33 +99,28 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
 # an intelligence rig and are never interchangeable. This is the symmetric
 # arrangement the knob exists for.
 PEERS = """
-version: 1
-sources:
-  srv1:
-    base_url: http://srv1.example.net:11434
-    api: openai
-    max_parallel: 2
-  srv2:
-    base_url: http://srv2.example.net:11434
-    api: openai
-    max_parallel: 2
-  vendor:
-    base_url: https://api.example.com/v1
-    api: openai
-    max_parallel: 4
+units:
+  local_srv1:
+    address: http://srv1.example.net:11434
+    model: qwen3-coder:30b
+    rig: srv1
+    width: 2
+  local_srv2:
+    address: http://srv2.example.net:11434
+    model: qwen3-coder:30b
+    rig: srv2
+    width: 2
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 4
     api_key_env: EXAMPLE_API_KEY
 ladder:
-{fanout}  tiers:
-    - name: local_srv1
-      source: srv1
-      model: qwen3-coder:30b
-    - name: local_srv2
-      source: srv2
-      model: qwen3-coder:30b
-    - name: api_big
-      source: vendor
-      model: vendor-large
-"""
+- local_srv1
+- local_srv2
+- api_big
+{fanout}"""
 
 CONTRACT = """
 id: fetch-retry
@@ -149,7 +143,7 @@ def peers(mode: str = "") -> str:
     test, and no assertion can be quietly explained by a config that also
     drifted somewhere else.
     """
-    return PEERS.format(fanout=f"  fanout: {mode}\n" if mode else "")
+    return PEERS.format(fanout=f"fanout: {mode}\n" if mode else "")
 
 
 def mapped(text: str | None = None) -> tuple[Config, SourceMap]:
@@ -276,17 +270,24 @@ def saturated(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None
     :meth:`Capacity.hold` refuses a thread that already holds the source — a
     caller queueing against itself is a deadlock it names rather than performs.
     """
-    endpoints = [pool.bind(rung) for rung in rungs]
+    endpoints = list(zip(rungs, [pool.bind(rung) for rung in rungs], strict=True))
     held = threading.Semaphore(0)
     release = threading.Event()
-    slots = [(e, i) for e in endpoints for i in range(capacity.limits[e.source])]
+    slots = [
+        (rung, endpoint, i)
+        for rung, endpoint in endpoints
+        for i in range(capacity.limits[endpoint.source])
+    ]
 
-    def occupy(endpoint: object) -> None:
-        with capacity.hold(endpoint):  # type: ignore[arg-type]
+    def occupy(rung: str, endpoint: object) -> None:
+        with capacity.hold(endpoint, rung=rung):  # type: ignore[arg-type]
             held.release()
             release.wait(RENDEZVOUS_TIMEOUT_S)
 
-    threads = [threading.Thread(target=occupy, args=(e,)) for e, _ in slots]
+    threads = [
+        threading.Thread(target=occupy, args=(rung, endpoint))
+        for rung, endpoint, _ in slots
+    ]
     for thread in threads:
         thread.start()
     try:

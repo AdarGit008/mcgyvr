@@ -38,18 +38,16 @@ from mcgyvr.capability import CapabilityTable
 from mcgyvr.capability import load as load_table
 from mcgyvr.config import (
     BREADTH_FIELDS,
-    BUDGET_FIELDS,
     CLEANUP_FIELDS,
     DELIVERY_FIELDS,
     JOURNAL_FIELDS,
     SCHEMA,
-    SCHEMA_VERSION,
     Config,
     ConfigError,
     Field,
 )
 from mcgyvr.config import load as load_config
-from mcgyvr.config import parse_legacy as parse_config
+from mcgyvr.config import parse as parse_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, Detection, detect, targets_for
 from mcgyvr.propose import AvailableSource, Proposal, propose
 
@@ -92,25 +90,21 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
     return (
         f"Refusing to write a config that cannot load.\n\n"
         f"{situation} With {vram}, no rung can be proposed, and a config "
-        f"with no source or no rung dispatches nowhere.\n\n"
+        f"with no unit or no ladder dispatches nowhere.\n\n"
         f"The loader would reject it with: {why}\n\n"
         f"Fix one of these, then re-run:\n"
         f"  - start a local backend (llama-server, vLLM, LM Studio, "
         f"TGI) and re-run, or\n"
         f"  - name the rig that serves your models, if it is not this one\n"
         f"    (`mcgyvr init --host srv1 --host srv2`), or\n"
-        f"  - write the file by hand and bind an API source:\n\n"
-        f"      version: 1\n"
-        f"      sources:\n"
-        f"        anthropic:\n"
-        f'          base_url: "https://api.anthropic.com"\n'
-        f"          api: openai\n"
+        f"  - write the file by hand and bind an API unit:\n\n"
+        f"      units:\n"
+        f"        api_claude-opus-5:\n"
+        f'          address: "https://api.anthropic.com"\n'
+        f"          model: claude-opus-5\n"
         f"          api_key_env: ANTHROPIC_API_KEY\n"
         f"      ladder:\n"
-        f"        tiers:\n"
-        f"          - name: api_claude-opus-5\n"
-        f"            source: anthropic\n"
-        f"            model: claude-opus-5\n"
+        f"        - api_claude-opus-5\n"
     )
 
 
@@ -262,38 +256,43 @@ def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
 
 
 def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
-    """The config data implied by what was detected and proposed."""
-    sources = {
-        backend.name: {
-            "base_url": backend.base_url,
-            # The wire protocol, asked and dispatched alike. They were once
-            # separate questions; see ``archive/forensic-ollama/`` for the
-            # backend that made them so and the measurement behind it (#164).
-            "api": backend.api,
-            "max_parallel": 1,
+    """The fleet data implied by what was detected and proposed.
+
+    A unit carries the whole fact: its address and engine, the model it
+    serves, its width, and the room it needs on the card. There is no
+    separate ``sources``/``models``/``tiers`` split to keep consistent — the
+    unit is the one term.
+    """
+    backends = {backend.name: backend for backend in detection.backends}
+    units: dict[str, Any] = {}
+    for rung in proposal.rungs:
+        backend = backends.get(rung.source)
+        unit: dict[str, Any] = {
+            "address": backend.base_url if backend is not None else "",
+            "model": rung.model,
+            "width": 1,
         }
-        for backend in detection.backends
-    }
-    tiers = [
-        {"name": rung.name, "source": rung.source, "model": rung.model}
-        for rung in proposal.rungs
-    ]
+        if backend is not None and backend.kind == "vllm":
+            unit["engine"] = "vllm"
+        unit["rig"] = backend.name if backend is not None else rung.source
+        if rung.vram_gb:
+            unit["room_mib"] = round(rung.vram_gb * 1024)
+        units[rung.name] = unit
     return {
-        "version": SCHEMA_VERSION,
         # Written at its default so the file says which setup it is. The
         # value is the schema's, never spelled here (see `_defaults`).
-        **_defaults(SCHEMA, "profile"),
-        "sources": sources,
-        "ladder": {"tiers": tiers},
-        "orchestrator": {"source": None, "model": None},
-        "verifier": {"enabled": False, "source": None, "model": None},
+        **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s"),
+        "units": units,
+        "ladder": [rung.name for rung in proposal.rungs],
+        "fanout": "none",
+        "orchestrator": {"unit": None, "model": None},
+        "verifier": {"enabled": False, "unit": None, "model": None},
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
             "image": None,
             "setup": [],
         },
         "delivery": _defaults(DELIVERY_FIELDS, "mode"),
-        "budgets": _defaults(BUDGET_FIELDS, "max_escalations", "task_timeout_s"),
         # Written out at its default rather than left for the renderer to show
         # commented. An omitted key renders as `# draws:  # unset`, which is
         # true of the file and false of the behaviour: the loader fills 1 in.

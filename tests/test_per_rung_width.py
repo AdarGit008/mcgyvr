@@ -19,49 +19,61 @@ import pytest
 
 from mcgyvr import runner
 from mcgyvr.capacity import Capacity, CapacityError
-from mcgyvr.config import ConfigSchemaError
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import ascent
 from mcgyvr.pool import source_map
 from mcgyvr.route import Result, Try, climb, plan
 from mcgyvr.runner import Request
 
-TIER_WIDTH = """
-version: 1
-sources:
-  d1: {base_url: "http://desktop-1:8080", api: openai}
+TIER_WIDTH = """\
+units:
+  local_moe:
+    address: http://desktop-1:8080
+    model: qwen3-coder-30b
+    rig: d1
+    width: 8
 ladder:
-  tiers:
-    - {name: local_moe, source: d1, model: qwen3-coder-30b, max_parallel: 8}
+- local_moe
 """
 
-TIER_OVERRIDES_SOURCE = """
-version: 1
-sources:
-  d1: {base_url: "http://desktop-1:8080", api: openai, max_parallel: 2}
+TIER_OVERRIDES_SOURCE = """\
+units:
+  local_moe:
+    address: http://desktop-1:8080
+    model: qwen3-coder-30b
+    rig: d1
+    width: 8
 ladder:
-  tiers:
-    - {name: local_moe, source: d1, model: qwen3-coder-30b, max_parallel: 8}
+- local_moe
 """
 
-TWO_WIDTHS = """
-version: 1
-sources:
-  d1: {base_url: "http://desktop-1:8080", api: openai}
+TWO_WIDTHS = """\
+units:
+  fast:
+    address: http://desktop-1:8080
+    model: qwen2.5-coder-3b
+    rig: d1
+    width: 16
+  smart:
+    address: http://desktop-1:8080
+    model: qwen3-coder-30b
+    rig: d1
+    width: 4
 ladder:
-  tiers:
-    - {name: fast, source: d1, model: qwen2.5-coder-3b, max_parallel: 16}
-    - {name: smart, source: d1, model: qwen3-coder-30b, max_parallel: 4}
+- fast
+- smart
 """
 
-NO_TIER_WIDTH = """
-version: 1
-sources:
-  d1: {base_url: "http://desktop-1:8080", api: openai, max_parallel: 3}
+NO_TIER_WIDTH = """\
+units:
+  local_moe:
+    address: http://desktop-1:8080
+    model: qwen3-coder-30b
+    rig: d1
+    width: 3
 ladder:
-  tiers:
-    - {name: local_moe, source: d1, model: qwen3-coder-30b}
+- local_moe
 """
 
 
@@ -77,13 +89,13 @@ def test_a_tier_accepts_its_own_width() -> None:
     assert parse(TIER_WIDTH).ladder.tiers[0].max_parallel == 8
 
 
-def test_a_tier_without_a_width_says_so() -> None:
-    assert parse(NO_TIER_WIDTH).ladder.tiers[0].max_parallel is None
+def test_a_unit_states_the_width_it_was_started_with() -> None:
+    assert parse(NO_TIER_WIDTH).ladder.tiers[0].max_parallel == 3
 
 
 def test_a_width_below_one_is_refused() -> None:
     with pytest.raises(ConfigSchemaError):
-        parse(TIER_WIDTH.replace("max_parallel: 8", "max_parallel: 0"))
+        parse(TIER_WIDTH.replace("width: 8", "width: 0"))
 
 
 def test_tier_width_overrides_the_source_default() -> None:
@@ -151,52 +163,75 @@ def test_the_source_level_width_still_parses() -> None:
 # only decides how long a pinned one takes to say so.
 TOGETHER_TIMEOUT_S = 2.0
 
-RUNG_WIDER_THAN_ITS_SOURCE = """
-version: 1
-sources:
-  d1: {base_url: "http://desktop-1:8080", api: openai, max_parallel: 1}
+RUNG_WIDER_THAN_ITS_SOURCE = """\
+units:
+  fast:
+    address: http://desktop-1:8080
+    model: qwen2.5-coder-3b
+    rig: d1
+    width: 4
 ladder:
-  tiers:
-    - {name: fast, source: d1, model: qwen2.5-coder-3b, max_parallel: 4}
+- fast
 """
 
-PEER_RIGS = """
-version: 1
-sources:
-  d1: {base_url: "http://desktop-1:8080", api: openai, max_parallel: 2}
-  d2: {base_url: "http://desktop-2:8080", api: openai, max_parallel: 2}
+PEER_RIGS = """\
+units:
+  local_d1:
+    address: http://desktop-1:8080
+    model: qwen3-coder-30b
+    rig: d1
+    width: 1
+  local_d2:
+    address: http://desktop-2:8080
+    model: qwen3-coder-30b
+    rig: d2
+    width: 1
 ladder:
-  fanout: full
-  tiers:
-    - {name: local_d1, source: d1, model: qwen3-coder-30b, max_parallel: 1}
-    - {name: local_d2, source: d2, model: qwen3-coder-30b, max_parallel: 1}
+- local_d1
+- local_d2
+fanout: full
 """
 
-ONE_RIG_TWO_PROCESSES = """
-version: 1
-sources:
-  d1: {base_url: "http://desktop-1:8080", api: openai, max_parallel: 4}
-  vendor:
-    base_url: "https://api.example.com/v1"
-    api: openai
-    max_parallel: 4
+ONE_RIG_TWO_PROCESSES = """\
+units:
+  fast:
+    address: http://desktop-1:8080
+    model: qwen2.5-coder-3b
+    rig: d1
+    width: 1
+  slow:
+    address: http://desktop-1:8080
+    model: qwen3-coder-30b
+    rig: d1
+    width: 1
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 4
     api_key_env: EXAMPLE_API_KEY
 ladder:
-  fanout: idle
-  tiers:
-    - {name: fast, source: d1, model: qwen2.5-coder-3b, max_parallel: 1}
-    - {name: slow, source: d1, model: qwen3-coder-30b, max_parallel: 1}
-    - {name: api_big, source: vendor, model: vendor-large}
+- fast
+- slow
+- api_big
+fanout: idle
 """
 
-WIDENED_SOURCE_NARROW_RUNG = """
-version: 1
-sources:
-  d1: {base_url: "http://desktop-1:8080", api: openai, max_parallel: 2}
+WIDENED_SOURCE_NARROW_RUNG = """\
+units:
+  fast:
+    address: http://desktop-1:8080
+    model: qwen2.5-coder-3b
+    rig: d1
+    width: 2
+  slow:
+    address: http://desktop-1:8080
+    model: qwen3-coder-30b
+    rig: d1
+    width: 2
 ladder:
-  tiers:
-    - {name: fast, source: d1, model: qwen2.5-coder-3b}
-    - {name: slow, source: d1, model: qwen3-coder-30b}
+- fast
+- slow
 """
 
 CONTRACT = """
@@ -306,17 +341,13 @@ def test_a_rungs_declared_width_is_reached_by_dispatches_to_it(
         "the rung declares four slots; a dispatch naming it must be held "
         "against those and not against its source's one"
     )
-    assert capacity.limit("d1") == 1, "and the source's own bound is untouched"
+    assert capacity.limit("d1") == 4, "and the unit's own bound is its width"
 
 
-def test_a_dispatch_to_a_rung_without_a_width_still_holds_its_sources_slot(
+def test_a_dispatch_holds_its_units_slot_for_the_length_of_the_request(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The compatibility half: a rung that declares nothing is bounded as before.
-
-    ``sources.*.max_parallel`` keeps the meaning it has always had, so naming the
-    rung must change nothing for a ladder that never declared a rung width.
-    """
+    """A unit's width is the bound a dispatch to it is held against."""
     config = parse(NO_TIER_WIDTH)
     pool = source_map(config)
     capacity = Capacity.of(config, root=tmp_path)
@@ -328,15 +359,15 @@ def test_a_dispatch_to_a_rung_without_a_width_still_holds_its_sources_slot(
         headers: dict[str, str],
         timeout: float,
     ) -> dict[str, Any]:
-        seen.append(capacity.in_use("d1"))
+        seen.append(capacity.in_flight("d1", "local_moe"))
         return ANSWER
 
     monkeypatch.setattr(runner, "_post_json", fake_post, raising=True)
 
     runner.dispatch(pool, "local_moe", ASK, capacity=capacity)
 
-    assert seen == [1], "the source's own slot, held for the length of the request"
-    assert capacity.in_use("d1") == 0
+    assert seen == [1], "the unit's own slot, held for the length of the request"
+    assert capacity.in_flight("d1", "local_moe") == 0
 
 
 def test_full_fanout_can_see_a_rung_that_is_full_of_its_own_holds(

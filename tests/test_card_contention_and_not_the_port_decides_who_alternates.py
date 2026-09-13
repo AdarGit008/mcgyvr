@@ -48,7 +48,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.emit import emit_all
 from mcgyvr.scan import Scan
 from mcgyvr.serving import UnitError, hold_together, launch_specs, units_for
@@ -110,35 +110,30 @@ def port_per_model(geometry: dict[str, Path]) -> str:
     contention the port cannot see and the card can.
     """
     return f"""
-version: 1
-sources:
-  srv1_lite:
-    base_url: "http://srv1:8080"
-    api: openai
-    context_window: 4096
-  srv1_big:
-    base_url: "http://srv1:8081"
-    api: openai
-    context_window: 4096
-models:
-  "{BIG}":
-    geometry_json: {geometry[BIG]}
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
-  "{LITE}":
-    geometry_json: {geometry[LITE]}
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
+units:
+  local_lite:
+    address: "http://srv1:8080"
+    model: "{LITE}"
+    rig: srv1_lite
+    width: 2
+    window: 4096
+    launch:
+      geometry_json: {geometry[LITE]}
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+  local_big:
+    address: "http://srv1:8081"
+    model: "{BIG}"
+    rig: srv1_big
+    width: 2
+    window: 4096
+    launch:
+      geometry_json: {geometry[BIG]}
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: local_lite
-      source: srv1_lite
-      model: "{LITE}"
-      max_parallel: 2
-    - name: local_big
-      source: srv1_big
-      model: "{BIG}"
-      max_parallel: 2
+- local_lite
+- local_big
 """
 
 
@@ -146,124 +141,101 @@ ladder:
 #: which takes the whole card. Three ports, none of them colliding. Figures are
 #: the measured ones -- 3.49 and 7.12 GiB on 2026-09-05, and the 80B at the
 #: 11,409 MiB two level-2 sleepers leave (``vllm-sleep-2026-09-09``).
-TRIO = f"""
-version: 1
-sources:
-  srv2_3b:
-    base_url: "http://srv2:8001"
-    api: openai
+TRIO = f"""\
+units:
+  local_3b:
+    address: http://srv2:8001
+    model: '{THREE_B}'
+    rig: srv2_3b
+    width: 8
+    window: 4096
     engine: vllm
-    context_window: 4096
-  srv2_7b:
-    base_url: "http://srv2:8002"
-    api: openai
+    hf_cache: '{HF_CACHE}'
+    launch:
+      vram_gb: 3.49
+      disk_gb: 1.95
+      kv_cache_dtype_k: auto
+  local_7b:
+    address: http://srv2:8002
+    model: '{SEVEN_B}'
+    rig: srv2_7b
+    width: 8
+    window: 4096
     engine: vllm
-    context_window: 4096
-  srv2_80b:
-    base_url: "http://srv2:8003"
-    api: openai
+    hf_cache: '{HF_CACHE}'
+    launch:
+      vram_gb: 7.12
+      disk_gb: 4.93
+      kv_cache_dtype_k: auto
+  local_80b:
+    address: http://srv2:8003
+    model: '{EIGHTY_B}'
+    rig: srv2_80b
+    width: 2
+    window: 4096
     engine: vllm
-    context_window: 4096
-models:
-  "{THREE_B}":
-    vram_gb: 3.49
-    disk_gb: 1.95
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
-  "{SEVEN_B}":
-    vram_gb: 7.12
-    disk_gb: 4.93
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
-  "{EIGHTY_B}":
-    vram_gb: 9.5
-    disk_gb: 35.67
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
+    hf_cache: '{HF_CACHE}'
+    launch:
+      vram_gb: 9.5
+      disk_gb: 35.67
+      kv_cache_dtype_k: auto
 ladder:
-  tiers:
-    - name: local_3b
-      source: srv2_3b
-      model: "{THREE_B}"
-      max_parallel: 8
-    - name: local_7b
-      source: srv2_7b
-      model: "{SEVEN_B}"
-      max_parallel: 8
-    - name: local_80b
-      source: srv2_80b
-      model: "{EIGHTY_B}"
-      max_parallel: 2
+- local_3b
+- local_7b
+- local_80b
 """
 
 
 #: The same card without the 80B: both live rigs as they stand, and every fleet
 #: emitted before ``d8c5cf0a``. One file, and nothing on disk moves for it.
-PAIR = (
-    TRIO.replace(
-        """  srv2_80b:
-    base_url: "http://srv2:8003"
-    api: openai
+PAIR = TRIO.replace(
+    f"""  local_80b:
+    address: http://srv2:8003
+    model: '{EIGHTY_B}'
+    rig: srv2_80b
+    width: 2
+    window: 4096
     engine: vllm
-    context_window: 4096
+    hf_cache: '{HF_CACHE}'
+    launch:
+      vram_gb: 9.5
+      disk_gb: 35.67
+      kv_cache_dtype_k: auto
 """,
-        "",
-    )
-    .replace(
-        f"""  "{EIGHTY_B}":
-    vram_gb: 9.5
-    disk_gb: 35.67
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
-""",
-        "",
-    )
-    .replace(
-        f"""    - name: local_80b
-      source: srv2_80b
-      model: "{EIGHTY_B}"
-      max_parallel: 2
-""",
-        "",
-    )
-)
+    "",
+).replace("- local_80b\n", "")
 
 #: Two units that fit the card together and cannot both have the host's memory:
 #: 3.0 + 3.0 GiB onto 12.0 free, against 6.5 + 6.5 GiB of spilled experts and
 #: 2.0 GiB of :data:`REFUSAL_RAM_HEADROOM_GB` on 14.2 available. The card is not
 #: the only thing two co-residents share (owner's ruling, 2026-09-09).
-SPILLING = """
-version: 1
-sources:
-  careful:
-    base_url: "http://srv2:8001"
-    api: openai
-    context_window: 4096
-  quick:
-    base_url: "http://srv2:8002"
-    api: openai
-    context_window: 4096
-models:
-  careful-16b:
-    vram_gb: 3.0
-    ram_gb: 6.5
-    disk_gb: 14.0
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
-  quick-16b:
-    vram_gb: 3.0
-    ram_gb: 6.5
-    disk_gb: 14.0
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
+SPILLING = """\
+units:
+  local_careful:
+    address: http://srv2:8001
+    model: careful-16b
+    rig: careful
+    window: 4096
+    launch:
+      vram_gb: 3.0
+      ram_gb: 6.5
+      disk_gb: 14.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+  local_quick:
+    address: http://srv2:8002
+    model: quick-16b
+    rig: quick
+    window: 4096
+    launch:
+      vram_gb: 3.0
+      ram_gb: 6.5
+      disk_gb: 14.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: local_careful
-      source: careful
-      model: careful-16b
-    - name: local_quick
-      source: quick
-      model: quick-16b
+- local_careful
+- local_quick
 """
 
 

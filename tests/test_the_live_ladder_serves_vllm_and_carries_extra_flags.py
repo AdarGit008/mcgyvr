@@ -32,7 +32,7 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.emit import EmitError, argv, render_command, render_compose
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
@@ -210,41 +210,36 @@ def test_a_serve_arg_with_whitespace_is_refused() -> None:
 # --- the config carries all of it -------------------------------------------
 
 LIVE = f"""
-version: 1
-sources:
-  srv2_vllm_3b:
-    base_url: "http://srv2:8001"
-    api: openai
+units:
+  local_qwen2.5-coder-3b:
+    address: "http://srv2:8001"
+    model: "{THREE_B}"
     engine: vllm
     image: "{VLLM_IMAGE}"
-  srv2_vllm_7b:
-    base_url: "http://srv2:8002"
-    api: openai
+    rig: srv2_vllm_3b
+    width: 8
+    hf_cache: "{HF_CACHE}"
+    launch:
+      vram_gb: 3.49
+      disk_gb: 1.95
+      serve_args: ["--gpu-memory-utilization", "0.33"]
+      kv_cache_dtype_k: auto
+  local_qwen2.5-coder-7b:
+    address: "http://srv2:8002"
+    model: "{SEVEN_B}"
     engine: vllm
     image: "{VLLM_IMAGE}"
-models:
-  {THREE_B}:
-    vram_gb: 3.49
-    disk_gb: 1.95
+    rig: srv2_vllm_7b
+    width: 8
     hf_cache: "{HF_CACHE}"
-    serve_args: ["--gpu-memory-utilization", "0.33"]
-    kv_cache_dtype_k: auto
-  {SEVEN_B}:
-    vram_gb: 7.12
-    disk_gb: 4.93
-    hf_cache: "{HF_CACHE}"
-    serve_args: ["--gpu-memory-utilization", "0.68"]
-    kv_cache_dtype_k: auto
+    launch:
+      vram_gb: 7.12
+      disk_gb: 4.93
+      serve_args: ["--gpu-memory-utilization", "0.68"]
+      kv_cache_dtype_k: auto
 ladder:
-  tiers:
-    - name: local_qwen2.5-coder-3b
-      source: srv2_vllm_3b
-      model: "{THREE_B}"
-      max_parallel: 8
-    - name: local_qwen2.5-coder-7b
-      source: srv2_vllm_7b
-      model: "{SEVEN_B}"
-      max_parallel: 8
+- local_qwen2.5-coder-3b
+- local_qwen2.5-coder-7b
 """
 
 

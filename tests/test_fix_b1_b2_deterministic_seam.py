@@ -39,8 +39,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.catalog import catalog
-from mcgyvr.config import Config
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import ToolStep, tool_steps
@@ -52,18 +51,15 @@ from mcgyvr.route import Result, RouteError, Step, Try, Verdict, climb, plan
 # A keyless install: one local rung above the floor, no credential anywhere.
 # The cheapest ladder a stranger can have, and the one a deterministic tool is
 # worth most on — every attempt it saves is an attempt a model would have made.
-KEYLESS = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+KEYLESS = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 # A deterministic contract *with a program bound* — the path B1 broke. A `.py`

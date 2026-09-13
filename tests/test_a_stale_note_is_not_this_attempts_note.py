@@ -53,7 +53,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import parse_legacy as parse_config
+from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
 from mcgyvr.pool import Rung, source_map
@@ -72,22 +72,19 @@ _IDENTITY = {
 #: entry nobody rendered would be a bookkeeping detail, and this is not one.
 BANNER = "PREVIOUS ATTEMPT WAS REJECTED"
 
-LADDER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+LADDER = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 verifier:
   enabled: true
-  source: workstation
   model: qwen2.5-coder:14b
+  unit: local_qwen-7b
 """
 
 CONTRACT = """

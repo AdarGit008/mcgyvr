@@ -19,6 +19,7 @@ gate 8's line follows it.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from pathlib import Path
 
@@ -126,7 +127,10 @@ def test_an_interrupt_before_gate_7_still_exits_130_and_releases_the_claim(
         run_id = onedoor.read_env_file(tmp_path / "e")["RUN_ID"]
         assert (onedoor.envelope(root, "alpha") / f".{run_id}.running").is_file()
         os.killpg(proc.pid, signal.SIGINT)
-        stdout, stderr = proc.communicate(timeout=120)
+        proc.wait(timeout=90)
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        stdout, stderr = proc.communicate(timeout=60)
     finally:
         if proc.poll() is None:
             os.killpg(proc.pid, signal.SIGKILL)

@@ -23,18 +23,14 @@ from mcgyvr.config import load as load_config
 from mcgyvr.contract import Contract
 from mcgyvr.gate.preflight import PreflightIssue, check_window_fraction
 
-CONFIG = """
-version: 1
-sources:
+CONFIG = """\
+units:
   local:
-    base_url: "http://127.0.0.1:8080"
-    api: openai
-    max_parallel: 1
+    address: http://127.0.0.1:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: local
-      source: local
-      model: a-model
+- local
 journal:
   dir: /nowhere/configured
 """
@@ -47,7 +43,7 @@ def _config(tmp_path: Path, budgets: str = "") -> Config:
 
 
 def test_a_declared_fraction_resolves(tmp_path: Path) -> None:
-    config = _config(tmp_path, "budgets:\n  max_window_fraction: 0.6\n")
+    config = _config(tmp_path, "max_window_fraction: 0.6\n")
     assert config.get("budgets.max_window_fraction") == 0.6
 
 
@@ -63,14 +59,14 @@ def test_no_fraction_declared_resolves_to_nothing(tmp_path: Path) -> None:
 def test_a_fraction_above_one_is_refused(tmp_path: Path) -> None:
     """More than the whole window is not a share of it."""
     with pytest.raises(ConfigError) as caught:
-        _config(tmp_path, "budgets:\n  max_window_fraction: 1.5\n")
+        _config(tmp_path, "max_window_fraction: 1.5\n")
     assert "max_window_fraction" in str(caught.value)
     assert "1" in str(caught.value)
 
 
 def test_a_negative_fraction_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ConfigError):
-        _config(tmp_path, "budgets:\n  max_window_fraction: -0.1\n")
+        _config(tmp_path, "max_window_fraction: -0.1\n")
 
 
 def test_a_contract_inside_its_share_passes() -> None:

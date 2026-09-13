@@ -43,7 +43,6 @@ import yaml
 
 from mcgyvr.strict_yaml import strict_loader
 
-SCHEMA_VERSION = 1
 CONFIG_FILENAME = "mcgyvr.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
 #: What a config's identity starts with (:meth:`Config.digest`), so it can
@@ -119,6 +118,8 @@ Kind = Literal[
     "enum",
     "env_name",
     "str_list",
+    "mapping",
+    "int_map",
     "block",
     "block_map",
     "block_list",
@@ -762,15 +763,286 @@ SERVING_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+UNIT_FIELDS: tuple[Field, ...] = (
+    Field(
+        "address",
+        "url",
+        "Where this unit answers, including scheme and port. One address is \
+"
+        "one process: a unit is the one term for what used to be a source.",
+        required=True,
+        bind_hint="e.g. http://srv2:8002",
+    ),
+    Field(
+        "model",
+        "str",
+        "Model identifier as the unit names it.",
+        required=True,
+    ),
+    Field(
+        "engine",
+        "enum",
+        "Which server program runs behind this address. Absent means \
+"
+        "llama.cpp.",
+        choices=("llama.cpp", "vllm"),
+        bind_hint="e.g. vllm -- leave it out for llama.cpp",
+    ),
+    Field(
+        "image",
+        "str",
+        "Container image this unit runs, as a tag or digest.",
+        bind_hint="e.g. vllm/vllm-openai@sha256:<hex>",
+    ),
+    Field(
+        "api_key_env",
+        "env_name",
+        "NAME of the environment variable holding this unit's key.",
+        bind_hint=(
+            "set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never "
+            "the key itself"
+        ),
+    ),
+    Field(
+        "rig",
+        "str",
+        "The rig this unit runs on, by the name fleet.yaml uses. Units that \
+"
+        "share a rig and an address are served by one process.",
+        bind_hint="e.g. srv2",
+    ),
+    Field(
+        "width",
+        "int",
+        "How many requests this unit may run at once. Concurrency is a \
+"
+        "property of the process, so it is a unit fact.",
+        min_value=1,
+        bind_hint="e.g. 8 -- the slot count the backend was started with",
+    ),
+    Field(
+        "window",
+        "int",
+        "Tokens this unit serves in one request. Read it back off the \
+"
+        "running process, not hoped for.",
+        min_value=1,
+        bind_hint="e.g. 4096 -- what the unit reports, not what you hoped for",
+    ),
+    Field(
+        "output_tokens",
+        "int",
+        "Room a reply on this unit is given, the `max_tokens` its backend is \
+"
+        "actually sent.",
+        min_value=1,
+        bind_hint="e.g. 2048 -- the reply length this unit needs",
+    ),
+    Field(
+        "request_timeout_s",
+        "float",
+        "How long one dispatched request to this unit may take before the \
+"
+        "transport gives up.",
+        min_value=0.0,
+        bind_hint="e.g. 180",
+    ),
+    Field(
+        "room_mib",
+        "int",
+        "The card room this unit needs, in MiB, measured or stated. Replaces \
+"
+        "the model block's vram/ram/disk sizes.",
+        min_value=0,
+        bind_hint="e.g. 7000 -- the card room this unit needs",
+    ),
+    Field(
+        "kv_cache_memory_bytes",
+        "int",
+        "The vLLM KV cache this unit pins, in bytes. Absent where the engine \
+"
+        "sizes its own cache; required before a vLLM unit is locked.",
+        min_value=0,
+        bind_hint="e.g. 34359738368",
+    ),
+    Field(
+        "attention_backend",
+        "str",
+        "The attention backend this vLLM unit pins, because the card decides \
+"
+        "what is valid.",
+        bind_hint="e.g. FLASH_ATTN, or TRITON_ATTN on cc 7.5",
+    ),
+    Field(
+        "container",
+        "str",
+        "The container name this unit runs under.",
+        bind_hint="e.g. mcgyvr-srv2-srv2_7b",
+    ),
+    Field(
+        "hf_cache",
+        "str",
+        "The HuggingFace cache on the rig holding this unit's weights, as an \
+"
+        "absolute path there. A serving fact about this unit, not a knob.",
+        bind_hint="e.g. /home/<user>/.cache/huggingface, as the rig sees it",
+    ),
+    Field(
+        "launch",
+        "mapping",
+        "The resolved launch, whole. Free-form by design: a unit hashes its \
+"
+        "whole resolved launch with no hand-kept field list (ID-2), so a flag \
+"
+        "this reader has never heard of cannot go unhashed.",
+        bind_hint="the resolved launch, e.g. serve_args, geometry_json, moe",
+    ),
+)
+
+ROLE_UNIT_FIELDS: tuple[Field, ...] = (
+    Field(
+        "unit",
+        "str",
+        "Which unit serves this role. A unit is the one term.",
+        bind_hint="name one of the units declared under `units`",
+    ),
+    Field(
+        "model",
+        "str",
+        "Model identifier as that unit names it; absent means the unit's own.",
+        bind_hint="name a model the bound unit serves",
+    ),
+)
+
+VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
+    Field(
+        "enabled",
+        "bool",
+        "Model verification of the applied diff, on top of the gate.",
+        default=False,
+    ),
+    *ROLE_UNIT_FIELDS,
+)
+
 SCHEMA: tuple[Field, ...] = (
     Field(
-        "version",
-        "int",
-        f"Config schema version. Currently {SCHEMA_VERSION}; bumped only by a "
-        "breaking change to this file's shape.",
+        "profile",
+        "enum",
+        "Which setup this file is: `live` or `dev`. A fleet fact: live \
+"
+        "outranks dev on the rigs.",
+        choices=("live", "dev"),
+        default="live",
+    ),
+    Field(
+        "units",
+        "block_map",
+        "What runs where, keyed by a name you choose. A unit carries every \
+"
+        "fact about what it is and can physically do: its address, engine, \
+"
+        "model, width, window, reply size and timeout.",
         required=True,
+        block=UNIT_FIELDS,
+    ),
+    Field(
+        "ladder",
+        "str_list",
+        "The ordered list of unit names work climbs, cheapest first.",
+        required=True,
+    ),
+    Field(
+        "fanout",
+        "enum",
+        "Whether a batch of contracts spreads across units or queues on one.",
+        default="none",
+        choices=("none", "idle", "full"),
+    ),
+    Field(
+        "attempts",
+        "int_map",
+        "How many times each unit may be tried before escalation moves on.",
+        default=None,
+        min_value=1,
+        bind_hint="e.g. {srv2_7b: 2}",
+    ),
+    Field(
+        "max_escalations",
+        "int",
+        "How many rungs a task may climb before it is handed back unfinished.",
+        default=1,
+        min_value=0,
+    ),
+    Field(
+        "max_attempts",
+        "int",
+        "Hard ceiling on how many attempts one task may spend in total.",
+        min_value=1,
+        bind_hint="set a whole number of attempts, or leave it unset",
+    ),
+    Field(
+        "task_timeout_s",
+        "int",
+        "Wall-clock ceiling for one task, including acceptance commands.",
+        default=900,
         min_value=1,
     ),
+    Field(
+        "max_window_fraction",
+        "float",
+        "The largest share of a unit's context window one contract may claim.",
+        min_value=0.0,
+        max_value=1.0,
+        bind_hint="a share between 0 and 1",
+    ),
+    Field(
+        "orchestrator",
+        "block",
+        "Which unit turns a prompt plus a repository into contracts.",
+        block=ROLE_UNIT_FIELDS,
+    ),
+    Field(
+        "verifier",
+        "block",
+        "Which unit reads an applied diff in fresh context.",
+        block=VERIFIER_UNIT_FIELDS,
+    ),
+    Field("sandbox", "block", "Where a task's commands run.", block=SANDBOX_FIELDS),
+    Field(
+        "delivery",
+        "block",
+        "How accepted work gets back to you.",
+        block=DELIVERY_FIELDS,
+    ),
+    Field(
+        "breadth",
+        "block",
+        "How many answers one attempt asks for.",
+        block=BREADTH_FIELDS,
+    ),
+    Field(
+        "cleanup",
+        "block",
+        "What may be fixed without asking a model.",
+        block=CLEANUP_FIELDS,
+    ),
+    Field(
+        "serving",
+        "block",
+        "What mcgyvr may do to the machines that serve the units. A unit's "
+        "HuggingFace cache is a fact about that unit and lives on it, not "
+        "here: only the policy of starting and stopping a card is a setting.",
+        block=SERVING_FIELDS,
+    ),
+    Field(
+        "journal",
+        "block",
+        "Where mcgyvr keeps its own record of what it dispatched.",
+        block=JOURNAL_FIELDS,
+    ),
+)
+
+LEGACY_SCHEMA: tuple[Field, ...] = (
     Field(
         "profile",
         "enum",
@@ -1187,6 +1459,9 @@ def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
                 items.append(_declared(block, raw_item, spec.block))
             if items:
                 out[name] = items
+        elif spec.kind in ("mapping", "int_map"):
+            if value:
+                out[name] = value
         elif spec.kind == "str_list":
             if value != list(spec.default or ()):
                 out[name] = value
@@ -1241,10 +1516,18 @@ def field_at(key: str) -> Field | None:
     """Find the schema field a dotted key addresses, if it names one.
 
     Segments that are a user-chosen map key or a list index are skipped —
-    ``sources.local.api_key_env`` and ``ladder.tiers.0.model`` both resolve.
+    ``units.local.api_key_env`` and ``ladder.0.model`` both resolve. The new
+    schema is searched first; the retired one is kept so an error message about
+    a legacy key still names its field.
     """
-    fields = SCHEMA
     parts = key.split(".")
+    found = _field_in(SCHEMA, parts)
+    if found is None:
+        found = _field_in(LEGACY_SCHEMA, parts)
+    return found
+
+
+def _field_in(fields: tuple[Field, ...], parts: list[str]) -> Field | None:
     index = 0
     while index < len(parts):
         found = next((f for f in fields if f.name == parts[index]), None)
@@ -1331,7 +1614,7 @@ def _mapping(raw: object, path: str) -> dict[str, Any]:
 def _default_for(spec: Field) -> Any:
     if spec.kind == "block":
         return _block({}, spec.block, "")
-    if spec.kind == "block_map":
+    if spec.kind in ("block_map", "mapping", "int_map"):
         return {}
     if spec.kind == "block_list":
         return []
@@ -1432,6 +1715,25 @@ def _value(raw: object, spec: Field, path: str) -> Any:
             _reject_credential_literal(item.strip(), f"{path}.{i}")
             out.append(item.strip())
         return out
+
+    if spec.kind == "mapping":
+        return dict(_mapping(raw, path))
+
+    if spec.kind == "int_map":
+        given = _mapping(raw, path)
+        mapped: dict[str, int] = {}
+        for name, item in given.items():
+            if not isinstance(item, int) or isinstance(item, bool):
+                raise ConfigSchemaError(
+                    f"{_join(path, name)}: expected a number, found {_typename(item)}"
+                )
+            if spec.min_value is not None and item < spec.min_value:
+                raise ConfigSchemaError(
+                    f"{_join(path, name)}: must be at least {spec.min_value}, "
+                    f"found {item}"
+                )
+            mapped[name] = item
+        return mapped
 
     if spec.kind == "block":
         return _block(raw, spec.block, path)
@@ -1607,21 +1909,17 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     was actually read from, rather than leaving the geometry relative for
     whatever comes later to interpret.
     """
-    models = data.get("models")
-    if not isinstance(models, Mapping):
-        return data
     beside = path.resolve().parent if path is not None else None
-    resolved: dict[str, Any] = {}
-    for name, block in models.items():
-        stated = block.get("geometry_json") if isinstance(block, Mapping) else None
+
+    def resolve(owner: str, block: Mapping[str, Any]) -> Mapping[str, Any]:
+        stated = block.get("geometry_json")
         if not stated:
-            resolved[name] = block
-            continue
+            return block
         where = Path(str(stated)).expanduser()
         if not where.is_absolute():
             if beside is None:
                 raise ConfigSchemaError(
-                    f"models.{name}.geometry_json: {str(stated)!r} is a "
+                    f"{owner}.geometry_json: {str(stated)!r} is a "
                     f"relative path, and this config has no location to read "
                     f"it beside. A relative geometry is the scan filed next to "
                     f"the config file, so it can only be resolved by a config "
@@ -1630,8 +1928,30 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
                     f"path=...)`, or write the geometry's path out in full."
                 )
             where = beside / where
-        resolved[name] = {**block, "geometry_json": str(where)}
-    return {**data, "models": resolved}
+        return {**block, "geometry_json": str(where)}
+
+    out = dict(data)
+    models = data.get("models")
+    if isinstance(models, Mapping):
+        out["models"] = {
+            name: resolve(f"models.{name}", block)
+            if isinstance(block, Mapping)
+            else block
+            for name, block in models.items()
+        }
+    units = data.get("units")
+    if isinstance(units, Mapping):
+        resolved_units: dict[str, Any] = {}
+        for name, block in units.items():
+            if not isinstance(block, Mapping):
+                resolved_units[name] = block
+                continue
+            launch = block.get("launch")
+            if isinstance(launch, Mapping) and launch.get("geometry_json"):
+                block = {**block, "launch": resolve(f"units.{name}.launch", launch)}
+            resolved_units[name] = block
+        out["units"] = resolved_units
+    return out
 
 
 def named_config_path() -> Path | None:
@@ -1697,6 +2017,12 @@ def _retired_vocabulary(raw: object, path: Path | None) -> None:
     if not isinstance(raw, Mapping):
         return
     where = f"{path}: " if path is not None else "config: "
+    if "version" in raw:
+        raise ConfigSchemaError(
+            f"{where}`version` is retired — a config no longer carries a "
+            f"version key. Delete it; the setup is now `fleet.yaml` (units) "
+            f"plus `policy.yaml` (the ladder)."
+        )
     for key in raw:
         hint = _RETIRED_VOCABULARY.get(str(key))
         if hint is not None:
@@ -1713,6 +2039,17 @@ def _retired_vocabulary(raw: object, path: Path | None) -> None:
                     f"{where}`ladder.{key}` is retired — {hint}. The setup is "
                     f"now `policy.yaml` (the ladder) plus `fleet.yaml` (units)."
                 )
+    units = raw.get("units")
+    if isinstance(units, Mapping):
+        for name, unit in units.items():
+            if not isinstance(unit, Mapping):
+                continue
+            for key in unit:
+                hint = _RETIRED_VOCABULARY.get(str(key))
+                if hint is not None:
+                    raise ConfigSchemaError(
+                        f"{where}`units.{name}.{key}` is retired — {hint}."
+                    )
 
 
 def _load_yaml(text: str, path: Path | None) -> object:
@@ -1727,29 +2064,99 @@ def _load_yaml(text: str, path: Path | None) -> object:
 def parse(text: str, path: Path | None = None) -> Config:
     """Validate a config from YAML text.
 
-    Repointed at the fleet vocabulary: a config that still names a retired
+    The reader is the fleet vocabulary: a config that still names a retired
     word is refused naming ``fleet.yaml``/``policy.yaml``, and a config that
-    states the new ``units``/``ladder`` shape is built from it. The legacy
-    ``sources``/``ladder.tiers`` reader is kept reachable as
-    :func:`parse_legacy` for the parts of the run path not yet moved.
+    states ``units``/``ladder`` is built from it.
     """
     raw = _load_yaml(text, path)
     _retired_vocabulary(raw, path)
-    if isinstance(raw, Mapping) and "units" in raw:
-        raw = _fleet_to_legacy(raw)
-    return _build_config(raw, path)
+    return _build_fleet(raw, path)
 
 
-def parse_legacy(text: str, path: Path | None = None) -> Config:
-    """The pre-fleet ``sources``/``ladder.tiers`` reader, unchanged.
+def _build_fleet(raw: object, path: Path | None) -> Config:
+    """Validate a fleet-vocabulary document and build its :class:`Config`."""
+    if raw is None:
+        raise ConfigSchemaError(
+            f"{path or 'config'}: is empty. Run `mcgyvr init` to generate one."
+        )
+    validated = _block(raw, SCHEMA, "")
+    _cross_validate_fleet(validated)
+    validated = _resolved_paths(validated, path)
+    legacy_raw = _fleet_to_legacy_raw(validated)
+    return _build_config(
+        legacy_raw,
+        path,
+        schema=LEGACY_SCHEMA,
+        declared_data=validated,
+        declared_raw=raw,
+        declared_schema=SCHEMA,
+    )
 
-    Kept while the run path is moved onto ``fleet.yaml``/``policy.yaml``. It
-    is not the public reader: :func:`parse` refuses the retired words.
-    """
-    return _parse_old(text, path=path)
+
+def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
+    """Reject a fleet document that satisfies the schema but contradicts itself."""
+    units: Mapping[str, Any] = data["units"]
+    if not units:
+        raise ConfigSchemaError(
+            "units: no unit is declared. mcgyvr needs at least one unit to "
+            "dispatch work to."
+        )
+
+    for name, block in units.items():
+        _refuse_userinfo(name, str(block["address"]))
+
+    seen: set[str] = set()
+    if not data["ladder"]:
+        raise ConfigSchemaError(
+            "ladder: is empty. A fleet needs at least one unit on its ladder."
+        )
+    for index, name in enumerate(data["ladder"]):
+        if name in seen:
+            raise ConfigSchemaError(
+                f"ladder.{index}: {name!r} is listed more than once. A unit is "
+                f"one step of the ladder."
+            )
+        seen.add(name)
+        if name not in units:
+            raise ConfigSchemaError(
+                f"ladder.{index}: {name!r} is not a declared unit. "
+                f"Declared: {', '.join(sorted(units))}"
+            )
+
+    attempts = data.get("attempts") or {}
+    for name in attempts:
+        if name not in units:
+            raise ConfigSchemaError(
+                f"attempts.{name}: {name!r} is not a declared unit. "
+                f"Declared: {', '.join(sorted(units))}"
+            )
+
+    for role in ("orchestrator", "verifier"):
+        bound = data[role].get("unit")
+        if bound is not None and bound not in units:
+            raise ConfigSchemaError(
+                f"{role}.unit: {bound!r} is not a declared unit. "
+                f"Declared: {', '.join(sorted(units))}"
+            )
+
+    if data["verifier"]["enabled"] and data["verifier"]["unit"] is None:
+        raise ConfigSchemaError(
+            "verifier.unit: required key is not set. Verification is enabled, "
+            "so it needs a unit to run on — bind one, or set "
+            "`verifier.enabled: false` to accept on the deterministic gate "
+            "alone."
+        )
 
 
-def _build_config(raw: object, path: Path | None) -> Config:
+def _build_config(
+    raw: object,
+    path: Path | None,
+    *,
+    schema: tuple[Field, ...] = LEGACY_SCHEMA,
+    declared_data: Mapping[str, Any] | None = None,
+    declared_raw: object = None,
+    declared_schema: tuple[Field, ...] | None = None,
+) -> Config:
     """The validated :class:`Config` for an already-parsed document."""
     if raw is None:
         raise ConfigSchemaError(
@@ -1757,16 +2164,20 @@ def _build_config(raw: object, path: Path | None) -> Config:
         )
 
     stated_version = raw.get("version") if isinstance(raw, dict) else None
-    if isinstance(stated_version, int) and stated_version != SCHEMA_VERSION:
+    if stated_version is not None:
         raise ConfigSchemaError(
-            f"unsupported config version {stated_version!r} — this build reads "
-            f"version {SCHEMA_VERSION}."
+            "version: is retired — a config no longer carries a version key. "
+            "Delete it; the setup is now `fleet.yaml` (units) plus "
+            "`policy.yaml` (the ladder)."
         )
 
-    data = _block(raw, SCHEMA, "")
+    data = _block(raw, schema, "")
     _cross_validate(data)
     data = _resolved_paths(data, path)
-    declared = _declared(data, raw, SCHEMA)
+    if declared_data is not None:
+        declared = _declared(declared_data, declared_raw, declared_schema or schema)
+    else:
+        declared = _declared(data, raw, schema)
 
     sources = {
         name: Source(
@@ -1800,108 +2211,121 @@ def _build_config(raw: object, path: Path | None) -> Config:
     )
 
 
-#: The new top-level keys a merged ``fleet.yaml``/``policy.yaml`` document
-#: states, and the old tree each becomes. A unit is the one term: its
-#: ``address`` is the old ``base_url``, its ``width`` the old ``max_parallel``,
-#: its ``window`` the old ``context_window``.
-_FLEET_TOP_LEVEL: frozenset[str] = frozenset(
-    {
-        "units",
-        "ladder",
-        "rigs",
-        "fleets",
-        "fanout",
-        "attempts",
-        "max_escalations",
-        "max_attempts",
-        "task_timeout_s",
-        "max_window_fraction",
-    }
-)
+def _fleet_to_legacy_raw(validated: Mapping[str, Any]) -> dict[str, Any]:
+    """Translate a validated fleet document into the pre-fleet raw tree.
 
-
-def _fleet_to_legacy(raw: Mapping[str, Any]) -> dict[str, Any]:
-    """Translate a merged ``units``/``ladder`` document into the tree the
-    validator is declared against, so one reader serves both vocabularies
-    while the run path moves.
-
-    A unit names its own endpoint, so it becomes one source named for the
-    unit and one tier bound to it. Policy settings that the old tree keeps
-    under ``budgets`` move there; the blocks that share a name
-    (``sandbox``, ``journal``, ...) pass through unchanged.
+    The run path below the schema reads the old tree, so it is derived here
+    once: a unit becomes one source and one tier, its ``launch`` and ``room``
+    become the model block, and the top-level policy settings move under
+    ``budgets`` where the old reader kept them. The authored document is the
+    only source; this tree exists so a consumer not yet repointed keeps
+    reading what the units say.
     """
-    units = raw.get("units")
-    if not isinstance(units, Mapping):
-        return dict(raw)
-    order_raw = raw.get("ladder")
-    order = (
-        [str(name) for name in order_raw]
-        if isinstance(order_raw, list)
-        else [str(name) for name in units]
-    )
-    attempts = raw.get("attempts")
-    attempts = attempts if isinstance(attempts, Mapping) else {}
+    units: Mapping[str, Any] = validated["units"]
+    attempts = validated.get("attempts") or {}
+    order = list(validated["ladder"])
+    # A source is one address. Units that name the same rig and answer at the
+    # same address are one source, which is how the old tree described one
+    # process shared by several models; a rig whose units answer at more than
+    # one address, or a unit with no rig, gets its own source per unit. Every
+    # unit gets one, on the ladder or not, because a role may name an off-ladder
+    # unit.
+    by_rig: dict[str, list[str]] = {}
+    for name in units:
+        key = str(units[name].get("rig") or name)
+        by_rig.setdefault(key, []).append(name)
+    source_key: dict[str, str] = {}
+    for key, names in by_rig.items():
+        if len({units[n]["address"] for n in names}) == 1:
+            source_key.update({n: key for n in names})
+        else:
+            source_key.update({n: n for n in names})
+
     sources: dict[str, Any] = {}
     tiers: list[dict[str, Any]] = []
+    models: dict[str, Any] = {}
     request_timeout: Any = None
-    for name in order:
-        unit = units.get(name)
-        if not isinstance(unit, Mapping):
+    for name in units:
+        key = source_key[name]
+        if key in sources:
             continue
+        unit = units[name]
         source: dict[str, Any] = {
-            "base_url": unit.get("address"),
+            "base_url": unit["address"],
             "api": "openai",
-            "max_parallel": unit.get("width", 1),
+            "max_parallel": unit.get("width") or 1,
         }
         for old, new in (
             ("context_window", "window"),
             ("engine", "engine"),
             ("image", "image"),
+            ("api_key_env", "api_key_env"),
         ):
             if unit.get(new) is not None:
                 source[old] = unit[new]
-        sources[name] = source
-        tier: dict[str, Any] = {
-            "name": name,
-            "source": name,
-            "model": unit.get("model"),
-        }
-        for old, new in (("max_parallel", "width"), ("output_tokens", "output_tokens")):
+        sources[key] = source
+
+    for name in order:
+        unit = units[name]
+        key = source_key[name]
+        tier: dict[str, Any] = {"name": name, "source": key, "model": unit["model"]}
+        for old, new in (
+            ("max_parallel", "width"),
+            ("output_tokens", "output_tokens"),
+        ):
             if unit.get(new) is not None:
                 tier[old] = unit[new]
         if name in attempts:
             tier["attempts"] = attempts[name]
         tiers.append(tier)
+
+        launch = dict(unit.get("launch") or {})
+        if unit.get("hf_cache") is not None:
+            launch["hf_cache"] = unit["hf_cache"]
+        if unit.get("room_mib") is not None and "vram_gb" not in launch:
+            launch["vram_gb"] = unit["room_mib"] / 1024
+        if unit.get("kv_cache_memory_bytes") is not None:
+            launch["kv_cache_memory_bytes"] = unit["kv_cache_memory_bytes"]
+        if launch:
+            models[unit["model"]] = launch
         if unit.get("request_timeout_s") is not None:
             request_timeout = unit["request_timeout_s"]
+
     legacy: dict[str, Any] = {
-        key: value for key, value in raw.items() if key not in _FLEET_TOP_LEVEL
+        "profile": validated["profile"],
+        "sources": sources,
+        "ladder": {"tiers": tiers, "fanout": validated["fanout"]},
     }
-    legacy["version"] = SCHEMA_VERSION
-    legacy["sources"] = sources
-    ladder: dict[str, Any] = {"tiers": tiers}
-    if raw.get("fanout") is not None:
-        ladder["fanout"] = raw["fanout"]
-    legacy["ladder"] = ladder
-    budgets = dict(legacy.get("budgets") or {})
+    if models:
+        legacy["models"] = models
+    for block in ("sandbox", "delivery", "breadth", "cleanup", "serving", "journal"):
+        if validated.get(block) is not None:
+            legacy[block] = validated[block]
+    orchestrator = validated.get("orchestrator") or {}
+    legacy["orchestrator"] = {
+        "source": source_key.get(str(orchestrator.get("unit"))),
+        "model": orchestrator.get("model"),
+    }
+    verifier = validated.get("verifier") or {}
+    legacy["verifier"] = {
+        "enabled": verifier.get("enabled", False),
+        "source": source_key.get(str(verifier.get("unit"))),
+        "model": verifier.get("model"),
+    }
+    budgets: dict[str, Any] = {}
     for key in (
         "max_escalations",
         "max_attempts",
         "task_timeout_s",
         "max_window_fraction",
     ):
-        if raw.get(key) is not None:
-            budgets[key] = raw[key]
+        if validated.get(key) is not None:
+            budgets[key] = validated[key]
     if request_timeout is not None:
-        budgets.setdefault("request_timeout_s", request_timeout)
+        budgets["request_timeout_s"] = request_timeout
     if budgets:
         legacy["budgets"] = budgets
     return legacy
-
-
-def _parse_old(text: str, path: Path | None = None) -> Config:
-    """Validate a config from YAML text under the retired schema."""
-    return _build_config(_load_yaml(text, path), path)
 
 
 def _absent_remedy(path: Path | None) -> str:
@@ -1969,6 +2393,5 @@ def load(path: Path | None = None) -> Config:
     except OSError as exc:
         raise ConfigFileError(f"cannot read {path}: {exc}") from exc
     raw = _load_yaml(text, path)
-    if isinstance(raw, Mapping) and "units" in raw:
-        raw = _fleet_to_legacy(raw)
-    return _build_config(raw, path)
+    _retired_vocabulary(raw, path)
+    return _build_fleet(raw, path)

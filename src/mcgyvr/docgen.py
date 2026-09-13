@@ -140,6 +140,8 @@ _KIND_LABELS: dict[str, str] = {
     "bool": "boolean",
     "env_name": "env var name",
     "str_list": "list of text",
+    "mapping": "free-form block",
+    "int_map": "map of numbers",
     "block": "block",
     "block_map": "block map",
     "block_list": "list of blocks",
@@ -177,7 +179,7 @@ def _default_label(field: Field) -> str:
     """
     if field.required:
         return "—"
-    if field.kind in ("block", "block_map", "block_list"):
+    if field.kind in ("block", "block_map", "block_list", "mapping", "int_map"):
         return "—"
     if field.kind == "str_list":
         return "`[]`" if not field.default else f"`{list(field.default)}`"
@@ -289,7 +291,7 @@ def render_reference() -> str:
 #: named here rather than described here: the bullet each one gets carries the
 #: `Field`'s own `doc`, so the levers cannot say one thing in SETUP.md and
 #: another in the schema the loader walks.
-_LEVERS: tuple[str, ...] = ("sources", "ladder", "budgets")
+_LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
 
 def render_setup() -> str:

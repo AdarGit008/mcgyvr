@@ -42,18 +42,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 
-SOURCE_ASKING_FOR_OLLAMA = """
-version: 1
-sources:
-  box:
-    base_url: "http://box:11434"
-    api: ollama
-    max_parallel: 1
+SOURCE_ASKING_FOR_OLLAMA = """\
+units:
+  only:
+    address: http://box:11434
+    model: a-model
+    rig: box
+    engine: ollama
 ladder:
-  tiers:
-    - name: only
-      source: box
-      model: "a-model"
+- only
 """
 
 OLLAMA = re.compile(r"\bollama\b", re.IGNORECASE)
@@ -162,8 +159,7 @@ def test_a_config_that_asks_for_ollama_is_refused() -> None:
     """
     import pytest
 
-    from mcgyvr.config import ConfigSchemaError
-    from mcgyvr.config import parse_legacy as parse
+    from mcgyvr.config import ConfigSchemaError, parse
 
     with pytest.raises(ConfigSchemaError) as refused:
         parse(SOURCE_ASKING_FOR_OLLAMA)

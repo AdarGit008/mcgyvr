@@ -27,7 +27,7 @@ import pytest
 
 from mcgyvr import runner as runner_module
 from mcgyvr.capacity import Capacity
-from mcgyvr.config import parse_legacy as parse
+from mcgyvr.config import parse
 from mcgyvr.pool import Endpoint, Protocol, SourceUnavailableError, UnknownRungError
 from mcgyvr.pool import source_map as build_source_map
 from mcgyvr.runner import (
@@ -596,36 +596,31 @@ def test_choices_without_string_content_is_a_protocol_error(
 # --- dispatch: the seam crossing, from a rung name -----------------------
 
 
-LADDER = """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:8081
-    api: openai
-    max_parallel: 3
-  fast:
-    base_url: http://localhost:8080
-    api: openai
-    max_parallel: 2
-  remote:
-    base_url: https://api.example.com
-    api: openai
-    max_parallel: 4
+LADDER = """\
+units:
+  cheap:
+    address: http://localhost:8081
+    model: qwen2.5-coder:7b
+    rig: local
+    width: 3
+  strong:
+    address: http://localhost:8080
+    model: qwen2.5-coder:14b
+    rig: fast
+    width: 2
+  hosted:
+    address: https://api.example.com
+    model: big-model
+    rig: remote
+    width: 4
     api_key_env: MCGYVR_TEST_KEY
 ladder:
-  tiers:
-    - name: cheap
-      source: local
-      model: qwen2.5-coder:7b
-    - name: strong
-      source: fast
-      model: qwen2.5-coder:14b
-    - name: hosted
-      source: remote
-      model: big-model
+- cheap
+- strong
+- hosted
 verifier:
-  source: fast
   model: qwen2.5-coder:14b
+  unit: strong
 """
 
 
@@ -705,13 +700,16 @@ def held_during_post(
     capacity: Capacity,
     source: str,
     answer: dict[str, Any],
+    *,
+    rung: str | None = None,
 ) -> list[int]:
-    """Record how many of ``source``'s slots were held *while* the request ran.
+    """Record how many slots were held *while* the request ran.
 
     Checking afterwards would pass on a capacity that acquired and released
     before dispatching, which is the one arrangement that would satisfy every
     other assertion and bound nothing. So the observation is made from inside
-    the transport, at the only moment the answer matters.
+    the transport, at the only moment the answer matters. A unit with a width
+    of its own is held against the rung; a role is held against the source.
     """
     seen: list[int] = []
 
@@ -721,7 +719,7 @@ def held_during_post(
         headers: dict[str, str],
         timeout: float,
     ) -> dict[str, Any]:
-        seen.append(capacity.in_use(source))
+        seen.append(capacity.in_flight(source, rung))
         return answer
 
     monkeypatch.setattr(runner_module, "_post_json", fake_post, raising=True)
@@ -734,13 +732,15 @@ def test_dispatch_holds_its_sources_slot_for_the_length_of_the_request(
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     ladder = build_source_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
-    seen = held_during_post(monkeypatch, capacity, "local", openai_answer())
+    seen = held_during_post(
+        monkeypatch, capacity, "local", openai_answer(), rung="cheap"
+    )
 
     dispatch(ladder, "cheap", ASK, capacity=capacity)
 
     assert seen == [1], "the slot must be held while the backend is answering"
-    assert capacity.in_use("local") == 0, "and given back when it has answered"
-    assert capacity.usage()[0].acquisitions == 1
+    assert capacity.in_flight("local", "cheap") == 0, "and given back when it has"
+    assert any(u.acquisitions == 1 for u in capacity.usage())
 
 
 def test_a_role_is_bounded_by_the_same_capacity_as_a_rung(
@@ -755,7 +755,7 @@ def test_a_role_is_bounded_by_the_same_capacity_as_a_rung(
     dispatch_role(ladder, "verifier", ASK, capacity=capacity)
 
     assert seen == [1]
-    assert {u.source: u.acquisitions for u in capacity.usage()}["fast"] == 1
+    assert sum(u.acquisitions for u in capacity.usage() if u.source == "fast") == 1
 
 
 def test_escalating_to_another_source_has_already_released_the_first(
@@ -781,7 +781,12 @@ def test_escalating_to_another_source_has_already_released_the_first(
         headers: dict[str, str],
         timeout: float,
     ) -> dict[str, Any]:
-        seen.append((capacity.in_use("local"), capacity.in_use("fast")))
+        seen.append(
+            (
+                capacity.in_flight("local", "cheap"),
+                capacity.in_flight("fast", "strong"),
+            )
+        )
         return openai_answer()
 
     monkeypatch.setattr(runner_module, "_post_json", fake_post, raising=True)
@@ -790,7 +795,7 @@ def test_escalating_to_another_source_has_already_released_the_first(
     dispatch(ladder, "strong", ASK, capacity=capacity)
 
     assert seen == [(1, 0), (0, 1)], "each dispatch holds its own source and only it"
-    usage = {u.source: u.acquisitions for u in capacity.usage()}
+    usage = {u.source: u.acquisitions for u in capacity.usage() if u.rung is not None}
     assert usage["local"] == usage["fast"] == 1, "one slot each, not one per task"
 
 

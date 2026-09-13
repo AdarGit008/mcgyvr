@@ -64,22 +64,17 @@ from mcgyvr.config import (
     Field,
     keep,
     load,
-)
-from mcgyvr.config import (
-    parse_legacy as parse,
+    parse,
 )
 
 LOCAL_ONLY = """\
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: a-model
+- only
 """
 
 #: An optional key of the shape that caused this: a rung-level number nobody is
