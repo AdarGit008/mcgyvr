@@ -817,7 +817,7 @@ def units_for(
     at the window it declares. The declaration is a fact about the process —
     read back off the running unit and written down — while the flag is what a
     run says when nobody has written the fact down yet, and a number that
-    reaches a rig only from a flag is a number ``Config.digest`` cannot see.
+    reaches a rig only from a flag is a number the recorded setup cannot see.
     One flag also cannot describe a fleet: srv1 serves 8192 per slot and srv2
     4096, so a single ``--ctx-per-slot`` makes one of the two look drifted
     under ``emit --check`` whichever value it takes.

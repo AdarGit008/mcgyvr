@@ -9,9 +9,9 @@ reports srv1 as drifted, at 8192 it reports srv2, and neither is true.
 
 That is the same defect `--sandbox` and the sleep/wake switch are argued
 against elsewhere: a number that reaches a rig from a flag is a number
-`Config.digest` cannot see, so two runs can share a digest and serve different
-windows. The declaration is the fact; the flag is what a run says when nobody
-has written the fact down yet.
+the recorded setup cannot see, so two runs can share one setup and serve
+different windows. The declaration is the fact; the flag is what a run says when
+nobody has written the fact down yet.
 
 So the precedence is: **a declared window wins, a flag fills a gap, and a flag
 that contradicts a declaration is refused by name** rather than silently
