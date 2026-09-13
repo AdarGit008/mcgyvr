@@ -23,11 +23,11 @@ false pass is silent in both directions: the commit looks gated and the answer
 looks clean.
 
 **Which path makes it the whole bar.** ``mcgyvr run --commit`` on the ladder
-carries an :class:`~mcgyvr.deliver.Accepted`, but ``pending.resume`` with a bare
-``str`` — and any caller that hands delivery the bytes rather than a binding —
-reaches this seam with no sandbox verdict behind it at all. There, delivery's
-gate run is the only gate the bytes ever see, so a rung that did not run is not
-a degraded second opinion; it is the acceptance bar missing.
+carries an :class:`~mcgyvr.deliver.Accepted`, but a caller that hands delivery a
+bare ``str`` rather than a binding reaches this seam with no sandbox verdict
+behind it at all. There, delivery's gate run is the only gate the bytes ever
+see, so a rung that did not run is not a degraded second opinion; it is the
+acceptance bar missing.
 
 **Nothing here is substituted.** The linter that cannot run is the project's own
 ruff, failing the way  measured it fail, against a config file this test
@@ -151,8 +151,9 @@ def test_a_linter_that_could_not_run_does_not_get_a_commit(tmp_path: Path) -> No
     """The reproduction: un-judged bytes reached a commit through delivery's own gate.
 
     The content is a bare ``str``, which is the shape that carries no verdict at
-    all — ``pending.resume``'s, and the shape delivery's docstring says is
-    "judged ... either way". With ruff unable to load the repository's config,
+    all — the shape a caller without a binding hands over, and the shape
+    delivery's docstring says is "judged ... either way". With ruff unable to
+    load the repository's config,
     lint and format both come back inconclusive and neither comes back as a
     finding, so the only thing standing between these bytes and a commit is
     whether delivery reads the field  added.

@@ -550,9 +550,9 @@ def test_a_surrogate_escaped_byte_still_delivers(tmp_path: Path) -> None:
     """The control: the convention the rest of mcgyvr uses must keep working.
 
     ``\\udcff`` is byte ``0xFF`` as ``surrogateescape`` carries it, which is how a
-    non-UTF-8 file reaches this module at all and what the pending store's
-    round trip rests on. Refusing that would trade one crash for a delivery that
-    cannot ship half the files in a repository.
+    non-UTF-8 file reaches this module at all and what its round trip rests on.
+    Refusing that would trade one crash for a delivery that cannot ship half the
+    files in a repository.
 
     The target is deliberately not Python: ``ast.parse`` cannot be handed a
     surrogate either, so the delivery-time re-parse raises on this content — a

@@ -41,10 +41,8 @@ a value minted by one is not comparable with the other.
 - `route.Verdict` — `passed` / `failed` / `declined`.
 - `verify` — the strings `"accepted"` / `"rejected"`.
 - `escalate.Outcome` — seven terminal words.
-- `record.Attempt.verdict` — a raw `str`, not the enum, so the enum and the
-  record can drift.
 
-Four spellings of "what came of this run" that a reader has to reconcile.
+Three spellings of "what came of this run" that a reader has to reconcile.
 
 ### Generic names reused for different concepts
 

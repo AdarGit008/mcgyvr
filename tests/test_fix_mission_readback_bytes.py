@@ -19,9 +19,9 @@ trace of itself.
 
 The fix is the spelling every other reader in this repository already uses —
 ``read_bytes().decode("utf-8", "surrogateescape")``, as in
-:meth:`mcgyvr.deliver.Accepted.read`, :func:`mcgyvr.pending.resume`,
-``gate.changeset``, ``orchestrator.index`` — and not, say, ``errors="replace"``
-or a ``try``/``except`` that records a placeholder. Both of those would let the
+:meth:`mcgyvr.deliver.Accepted.read`, ``gate.changeset``, ``orchestrator.index``
+— and not, say, ``errors="replace"`` or a ``try``/``except`` that records a
+placeholder. Both of those would let the
 run finish; both would also make the record's copy of the delivered file a
 different sequence of bytes from the one in the commit beside it, which is the
 substitution this whole pattern was written to close.

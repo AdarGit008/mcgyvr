@@ -394,14 +394,13 @@ def _bind(
 def _bytes_of(content: str, index: int) -> bytes:
     """One draw as the bytes that go in the workspace, or this module's error.
 
-    The other half of the ``pending.stash`` model the comment above cites: the
-    convention is ``surrogateescape``, which round-trips *bytes* a decode could
-    not read (U+DC80..U+DCFF), and a **lone** surrogate is not one of those. It
-    is a legal JSON escape, so ``\ud800`` survives ``json.loads`` into a
-    completion and reaches here as ordinary draw text — and ``stash`` was fixed
-    to answer that with its own error rather than a codec exception, for the
-    reason that applies here unchanged: a caller catching :class:`ConsensusError`
-    has decided what to do about a draw it cannot use, and a bare
+    The convention is ``surrogateescape``, which round-trips *bytes* a decode
+    could not read (U+DC80..U+DCFF), and a **lone** surrogate is not one of
+    those. It is a legal JSON escape, so ``\ud800`` survives ``json.loads``
+    into a completion and reaches here as ordinary draw text. That is answered
+    with this module's own error rather than a codec exception, for the reason
+    that applies here unchanged: a caller catching :class:`ConsensusError` has
+    decided what to do about a draw it cannot use, and a bare
     ``UnicodeEncodeError`` out of a ranking function is not a decision it can
     make.
 
