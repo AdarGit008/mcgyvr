@@ -763,7 +763,7 @@ def run_task(
             # delivered.
             #
             # Through `surrogateescape`, as every other reader in the project
-            # does (`deliver.Accepted.read`, `pending.resume`, `gate.changeset`)
+            # does (`deliver.Accepted.read`, `gate.changeset`)
             # — because `deliver._encoded` is the writer, and it refuses only a
             # *lone* surrogate. A target holding a byte that is not valid UTF-8
             # is therefore committed and then unreadable by a strict decode, and

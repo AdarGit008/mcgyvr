@@ -17,8 +17,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 #: Walked recursively, relative to the repo root. ``docs/`` is included because
-#: ``docs/conflicts.md`` cites the archived ``record.Attempt``.
-ROOTS: tuple[str, ...] = ("src", "tests", "docs")
+#: ``docs/conflicts.md`` cites the archived ``record.Attempt``; ``tools/`` is
+#: live code like ``src/`` and must be scanned too.
+ROOTS: tuple[str, ...] = ("src", "tests", "docs", "tools")
 
 #: Never scanned: history, and this file, which spells the patterns on purpose.
 EXEMPT: tuple[str, ...] = ("tests/test_no_stale_pending_citations.py",)
