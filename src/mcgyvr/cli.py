@@ -2716,6 +2716,7 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     """Write the fleet lock from the fleet, evidence and policy files named."""
     import json
 
+    from mcgyvr.derived import DerivedNumbersError, warm_decode_tolerances
     from mcgyvr.fleet.lock import LockRefusedError, write
 
     root = Path(args.root)
@@ -2724,8 +2725,13 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     policy = None
     if args.policy:
         policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
-    #: Placeholder tolerances: the rule is pinned, the values are measured.
-    tolerances = {"warm_decode_pct": {"vllm": 3.0, "llama.cpp": 5.0}}
+    # Engine-specific measured tolerances, read from the derived-numbers file:
+    # the rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs.
+    try:
+        tolerances = {"warm_decode_pct": warm_decode_tolerances()}
+    except DerivedNumbersError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     try:
         write(root, fleet, evidence, policy=policy, tolerances=tolerances)
     except LockRefusedError as exc:
