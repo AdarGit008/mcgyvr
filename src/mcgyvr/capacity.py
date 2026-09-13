@@ -84,7 +84,7 @@ describable by a single number on the source. So a tier may declare its own
 ``max_parallel``, and three things follow:
 
 * The rung's number is the bound where it is given, and the source's is the
-  fallback where it is not. ``sources.*.max_parallel`` keeps exactly the
+  fallback where it is not. ``units.*.width`` keeps exactly the
   meaning it has always had, so a config that names no rung width is bounded
   today as it was yesterday.
 * **A rung's slots are its own, not a share of the source's.** Two rungs on one
@@ -512,7 +512,7 @@ class Capacity:
                 raise CapacityError(
                     f"a declared width for source {source!r}, which this capacity "
                     f"does not bound. A declaration and a bound are two numbers "
-                    f"about one source, so there has to be a source."
+                    f"about one unit, so there has to be a unit."
                 )
             if width < 1:
                 raise CapacityError(
@@ -522,7 +522,7 @@ class Capacity:
                 )
             if width > enforced:
                 raise CapacityError(
-                    f"source {source!r} declares {width} but is bounded at "
+                    f"unit {source!r} declares width={width} but is bounded at "
                     f"{enforced}. A width is only ever widened from its "
                     f"declaration and never narrowed — :meth:`of` refuses a "
                     f"machine reporting less rather than quietly lowering the "
@@ -531,7 +531,7 @@ class Capacity:
                 )
             if width != enforced and source not in self._confirmed:
                 raise CapacityError(
-                    f"source {source!r} declares {width} and is bounded at "
+                    f"unit {source!r} declares width={width} and is bounded at "
                     f"{enforced} without a confirmation. Only a machine's own "
                     f"report may widen a declaration, so two different numbers "
                     f"with nothing confirming them are two configs rather than "
@@ -549,7 +549,7 @@ class Capacity:
                 )
             if rung.source not in self._limits:
                 raise CapacityError(
-                    f"rung {name!r} bounds source {rung.source!r}, which this "
+                    f"unit {name!r} bounds unit {rung.source!r}, which this "
                     f"capacity does not bound. A rung's width is a width of the "
                     f"rig it runs on, so the rig has to be one this capacity "
                     f"knows."
@@ -740,7 +740,7 @@ class Capacity:
 
         The one place the fallback is spelled out for a caller: a rung that
         declared a width is bounded by it, and a rung that did not is bounded by
-        its source's, which is the number ``sources.*.max_parallel`` has always
+        its unit's, which is the width ``units.*.width`` has always
         meant. A rung this capacity has never heard of is answered with its
         source's width rather than refused, because an unknown rung name is a
         dispatch that named no width, not a dispatch to an unknown rig.
@@ -1136,7 +1136,7 @@ class Capacity:
                 )
             )
             raise CapacityError(
-                f"source {name!r} is bounded at {declared} here "
+                f"unit {name!r} is bounded at {declared} here "
                 f"but the endpoint declares width="
                 f"{endpoint.max_parallel}. Two answers to one question means one "
                 f"of them is from a stale config; rebuild both from the same "
@@ -1144,9 +1144,7 @@ class Capacity:
             )
         bound = self._bound(name, rung)
         limit = self._bounds[bound]
-        where = (
-            f"rung {bound[1]!r} of source {name!r}" if bound[1] else f"source {name!r}"
-        )
+        where = f"unit {bound[1]!r} of unit {name!r}" if bound[1] else f"unit {name!r}"
         held = self._held()
         if bound in held:
             raise CapacityError(
@@ -1246,7 +1244,7 @@ class Capacity:
                 for index in range(self._bounds[(source, rung)]):
                     taken.append(
                         self._acquire_one(
-                            f"source {source!r}" + (f" rung {rung!r}" if rung else ""),
+                            f"unit {source!r}" + (f" rung {rung!r}" if rung else ""),
                             base_url,
                             rung,
                             index,

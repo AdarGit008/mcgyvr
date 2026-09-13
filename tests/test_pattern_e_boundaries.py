@@ -215,7 +215,7 @@ def test_a_credential_in_a_base_url_is_refused_at_load() -> None:
         parse_config(CONFIG_WITH_CREDENTIALED_URL)
 
     message = str(exc.value)
-    assert "base_url" in message
+    assert "units.api_large.address" in message, message
     assert "api_key_env" in message  # the message says what to do instead
     assert SECRET_IN_URL not in message  # including in the refusal itself
 

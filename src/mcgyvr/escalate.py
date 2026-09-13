@@ -862,7 +862,7 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
     queue on a full rung or climb past an empty one. A rung that declares
     nothing is answered with its source's width, which is what
     :meth:`~mcgyvr.capacity.Capacity.limit` falls back to and what
-    ``sources.*.max_parallel`` has always meant.
+    the width ``units.*.width`` has always meant.
 
     The source name is read inside this function and does not leave it: #20's
     rule is that nothing above the execution seam learns where work runs, and a

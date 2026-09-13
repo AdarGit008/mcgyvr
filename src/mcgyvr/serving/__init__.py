@@ -1434,10 +1434,10 @@ class Card:
     **A card is already modelled in this repository. It is modelled here, below
     the execution seam, and it is called a host with a GPU index.** Nothing
     above the seam learns about it: there is no ``devices:`` block, no
-    ``device:`` key on a source, and no card on a :class:`~mcgyvr.config.Tier`.
+    ``device:`` key on a unit, and no card on a :class:`~mcgyvr.config.Unit`.
     A card named up there would be a fact about a *machine* on an object whose
     whole purpose is to name no machine, and it would go stale the first time a
-    source was re-pointed — which is the argument ``Source.context_window``'s
+    unit was re-pointed — which is the argument ``Unit.window``'s
     own schema doc makes the other way round, and the same defect
     ``Capacity.of`` refuses by name when a config and a rig give two answers to
     one question.

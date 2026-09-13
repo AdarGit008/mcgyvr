@@ -728,7 +728,7 @@ def test_a_declaration_above_the_bound_is_refused() -> None:
     with pytest.raises(CapacityError) as caught:
         Capacity({"local": 3}, confirmed=["local"], declared={"local": 8})
 
-    assert "declares 8 but is bounded at 3" in str(caught.value)
+    assert "declares width=8 but is bounded at 3" in str(caught.value)
 
 
 # --- reservations: the count that exists before a slot does -----------------
