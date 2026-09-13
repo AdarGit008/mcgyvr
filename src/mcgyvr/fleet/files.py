@@ -27,16 +27,25 @@ class FleetFileError(Exception):
 
 
 #: What a unit is or can physically do. Locked: these belong in ``fleet.yaml``.
+#: Every field the lock (and live admission) reads off a unit is here: a field
+#: consumed but not accepted here can never reach the lock from ``fleet.yaml``,
+#: so the two lists are held in sync by
+#: ``tests/test_the_loader_accepts_every_field_its_consumers_read.py``.
 _UNIT_KEYS = frozenset(
     {
         "rig",
+        "unit_id",
         "address",
         "engine",
+        "container",
         "model",
         "width",
         "window",
         "output_tokens",
         "request_timeout_s",
+        "room_mib",
+        "kv_cache_memory_bytes",
+        "attention_backend",
     }
 )
 
