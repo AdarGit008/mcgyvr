@@ -179,7 +179,6 @@ SEQUENCE: tuple[Entry, ...] = (
             "RUN_PRODUCT_SHA256",
             "RUN_PROFILE",
             "RUN_CONFIG",
-            "RUN_CONFIG_DIGEST",
         ),
     ),
     Entry(

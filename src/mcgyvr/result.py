@@ -75,11 +75,6 @@ class RunResult:
     run: str = ""
     session_file: str | None = None
     journal: str | None = None
-    #: The identity of the config this run was made under
-    #: (:meth:`mcgyvr.config.Config.digest`) — the same value every journal
-    #: row of the run carries, and the name of the copy kept under
-    #: ``<journal>/configs/``. ``None`` for a run made with no config.
-    config_digest: str | None = None
     outcome: str = "error"
     detail: str = ""
     #: The rung the run came to rest on, under the same no-rename ruling as

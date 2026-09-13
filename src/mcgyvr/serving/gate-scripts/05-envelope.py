@@ -164,8 +164,7 @@ def header_record(
     """The run's identity, from what gates 1-5 established.
 
     Every value is one the door exported or minted — nothing here is read
-    from the rig or guessed — and the config's digest is the one gate 1 took
-    from the config it loaded, or ``none`` when there was none. Assembled
+    from the rig or guessed. Assembled
     before the claim is taken, so a missing export refuses with nothing to
     release.
     """
@@ -179,7 +178,6 @@ def header_record(
         "product_sha256": need("RUN_PRODUCT_SHA256"),
         "profile": need("RUN_PROFILE"),
         "config": need("RUN_CONFIG"),
-        "config_digest": need("RUN_CONFIG_DIGEST"),
         "mcgyvr_version": mcgyvr.__version__,
         "started_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }

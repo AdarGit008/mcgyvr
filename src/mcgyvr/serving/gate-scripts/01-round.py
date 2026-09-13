@@ -46,10 +46,10 @@ def default_profile() -> str:
     return spec.default
 
 
-def profile() -> tuple[str, str, str]:
-    """The run's profile, the config it was read from, and that config's digest.
+def profile() -> tuple[str, str]:
+    """The run's profile and the config it was read from.
 
-    ``none`` for the last two when there is no config at all.
+    ``none`` for the config when there is no config at all.
 
     Refuses on a config that is there and cannot be read, and on a named
     (``$MCGYVR_CONFIG``) config that is not there: both are files somebody
@@ -67,7 +67,7 @@ def profile() -> tuple[str, str, str]:
                 "not be the run that was asked for. Nothing is measured under "
                 "a profile nobody can name"
             )
-        return default_profile(), "none", "none"
+        return default_profile(), "none"
     except configlib.ConfigError as error:
         refuse(
             f"gate 1: the config cannot be read: {error}. A run whose config "
@@ -82,7 +82,7 @@ def profile() -> tuple[str, str, str]:
             f"gate 1: the config cannot be located: {error!r}. Nothing is "
             "measured under a profile nobody can name"
         )
-    return str(loaded.get("profile")), str(loaded.path), loaded.digest()
+    return str(loaded.get("profile")), str(loaded.path)
 
 
 def units_the_fleet_lock_names(rig: str) -> set[str]:
@@ -148,7 +148,7 @@ def main() -> int:
     # record, and the door's job), while a run refused for its profile should
     # leave nothing behind at all — and the profile needs nothing from the
     # round to be judged.
-    which, source, digest_of_config = profile()
+    which, source = profile()
     serve = os.environ.get("RUN_SERVE")
     if serve:
         refuse_unless_the_fleet_lock_names(serve, which)
@@ -182,14 +182,10 @@ def main() -> int:
     export("RUN_ROUND", round_id)
     export("RUN_PRODUCT_SHA256", digest)
     export("RUN_PROFILE", which)
-    # The config's identity travels with the run (R2): gate 5 files it in the
-    # envelope header and the default step stamps it, so a row can be traced
-    # to the exact setup that produced it.
     export("RUN_CONFIG", source)
-    export("RUN_CONFIG_DIGEST", digest_of_config)
     print(
         f"gate 1: round={round_id} product_sha256={digest[:16]}... "
-        f"profile={which} config={digest_of_config} ({source})"
+        f"profile={which} config={source}"
     )
     return 0
 

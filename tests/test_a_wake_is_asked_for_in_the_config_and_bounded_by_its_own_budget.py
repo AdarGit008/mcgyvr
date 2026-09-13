@@ -5,8 +5,8 @@ file's:
 
 * **The switch is a config key and not a flag** (§7.1). ``mcgyvr run --config``
   already says which rung runs is "this file's ... never a flag", and sleep/wake
-  is the stronger case for the same rule: ``Config.digest`` is what a run is
-  reproducible from, so a flag would let two runs share one digest where one of
+  is the stronger case for the same rule: the config is what a run is
+  reproducible from, so a flag would let two runs share one setup where one of
   them started and stopped containers on a shared rig. A ``store_true`` flag can
   also never lose to a key — the ``--sandbox`` comment is the worked example —
   so the flag would have to be a tri-state, which is a worse spelling of the key.
