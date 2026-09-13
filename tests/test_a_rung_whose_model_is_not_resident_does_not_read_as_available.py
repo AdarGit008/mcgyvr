@@ -1,10 +1,5 @@
 """A port that answers is not a port serving *your* model.
 
-RED. ``mcgyvr.availability`` probes a **source**, and a source is a URL. It reads
-the HTTP status of ``/v1/models`` and throws the body away, so the one fact that
-listing exists to carry — *which weights are behind this port right now* — is
-never read. Every rung on a source that answered is marked live.
-
 **Why that is a hole and not a simplification.** Two rungs that alternate on one
 card are two models and one launch spec each, and only one of them is ever up.
 Probe the one that is up and the answer is 200; probe the one that is down and,

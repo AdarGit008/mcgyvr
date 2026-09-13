@@ -1,17 +1,5 @@
 """A measured scratch reading is used only at the ``-ub`` it was read at.
 
-RED. :data:`mcgyvr.serving.vramfit.MEASURED_SCRATCH_MIB` holds one number per
-architecture — deepseek2 259.5, gptoss 302.1, qwen35moe 302.7 and
-nemotron_h_moe 521.2 MiB — and every one was read at ``-ub 256``: the probe
-passes ``-b "$UB" -ub "$UB"`` and the engine prints ``n_ubatch = 256``
-(``records/evidence/2026-09-05-context-decomposition/ctx-probe.sh:50``,
-``srv2-deepseek-coder-v2-16b/c2048-r1.log``, and the module's own comment on
-``SCRATCH_AND_CONTEXT_MIB``). Units run at ``-ub 512`` (``DEFAULT_UBATCH``,
-``src/mcgyvr/serving/__init__.py:89``). :func:`vramfit.allowance_mib` never asks
-which: :func:`vramfit.explain` and :func:`vramfit.fits_measured` take
-``n_ubatch`` and price the cache with it, then add a scratch reading taken at a
-different batch.
-
 The compute buffer grows with ``-ub``. nemotron reads 386.19 MiB at 256, 429.81
 at 512 and 517.06 at 1024
 (``records/evidence/2026-09-04-srv1-ncmoe-floor/srv2-bufprobe-nvidia_Nemotron-3-Nano-30B-A3B-IQ4_NL.tsv:5-7``),

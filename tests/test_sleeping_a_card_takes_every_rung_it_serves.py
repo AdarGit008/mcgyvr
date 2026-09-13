@@ -1,9 +1,5 @@
 """Sleep evicts the whole card, and it drains it before it does.
 
-RED. Nothing here passes today: ``mcgyvr serve sleep`` is not a command,
-``mcgyvr.serving.cards`` is not a function, and ``serving.enable_sleep_wake`` is
-not a schema key. The design is ``records/plans/sleep-wake.md``.
-
 **The owner's first ruling, and the one this file is named after: on sleep,
 mcgyvr evicts the ENTIRE GPU.** Not one model, not a share of VRAM. The design
 finds that this is not a behaviour to build but one the tree already has — the

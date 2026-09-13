@@ -1,11 +1,5 @@
 """Gate 1 lets a live ``serve up`` through only for units the fleet lock names.
 
-RED. Gate 1 (``src/mcgyvr/serving/gate-scripts/01-round.py``) settles a run's
-profile and round and asks nothing about what a live ``serve up`` starts:
-under the default profile (``live``, ruling R4, ``01-round.py:20``) it brings
-up any compose file. The intent is ``records/plans/fleet-identity.md`` §6
-(owner, 2026-09-10).
-
 A live ``serve up`` is admitted only if its units are in the fleet lock for
 that rig, and then it is admitted: a gate that refused every live up would be
 production down. A live ``serve down`` is always admitted, because stopping

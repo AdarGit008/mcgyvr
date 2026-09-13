@@ -1,9 +1,5 @@
 """The lock pins each combination's own overhead, card peak, backend and prefill.
 
-RED. ``mcgyvr.fleet.lock`` does not exist. The intent is
-``records/plans/fleet-identity.md`` §4, §5 and §8, as extended by the gaps a
-comparison of the serving terms against the plan found (owner, 2026-09-11).
-
 * **Overhead is a combination's, not a rig's.** The CUDA context differs per
   card and per engine: llama.cpp on srv1's GTX 1660 SUPER read 115.69 MiB where
   srv2's RTX 3060 read 146.69 for the same model and ``-ub``, though on two

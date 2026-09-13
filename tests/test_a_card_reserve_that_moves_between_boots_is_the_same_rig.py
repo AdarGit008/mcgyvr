@@ -19,13 +19,6 @@ every other declared key unchanged:
   ``records/measurements/fleet-identity-2026-09-11/reserve.py`` on branch
   ``red/fleet-identity-measurements``. Gate 2 then refused srv1:
   ``gpu_reserve_mib: declared '401', reads '399'``.
-
-RED. The admission test fails today because gate 2 refuses the measured
-reboot, whichever of the two readings ``hosts.json`` declares. The refusal
-test passes today and must keep passing: a reserve far from its
-declaration is still refused, and still named. How wide the bound is belongs
-to the change that makes this green. Neither test pins a number between the
-two readings.
 """
 
 from __future__ import annotations

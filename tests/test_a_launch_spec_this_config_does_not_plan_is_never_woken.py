@@ -1,9 +1,5 @@
 """A file mcgyvr no longer writes is a file mcgyvr must never start.
 
-RED. ``d8c5cf0a`` gave ``emit`` the ability to cut one host into several launch
-specs, and the day it did, three things stopped agreeing about what
-``compose.<host>.yml`` means.
-
 * ``emit`` writes ``compose.<host>.<model>.yml`` for each alternative and
   **leaves the old ``compose.<host>.yml`` on disk**. Nothing deletes it; the
   writer only writes what it plans.

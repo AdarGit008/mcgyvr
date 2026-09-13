@@ -1,9 +1,5 @@
 """A config's identity names the setup, and a kept copy names its own contents.
 
-RED. Every test here fails on this commit, and none of them is fixed here:
-this file is the specification, and what it specifies is a decision the owner
-has to make.
-
 Owner's ruling R2 (2026-09-06), quoted at ``src/mcgyvr/config.py:1003``: the
 digest is taken over "the loaded and validated tree and never over the file's
 bytes, because an identity that moved when a comment was added would name the

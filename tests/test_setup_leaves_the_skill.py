@@ -1,4 +1,4 @@
-"""RED tests: Step 0 leaves the skill; setup moves to SETUP.md.
+"""Step 0 leaves the skill; setup moves to SETUP.md.
 
 Plan v4, ruled 2026-09-09: one package, one seam, two documents. `SKILL.md`
 is what an agent reads to author a contract; `SETUP.md` is what a machine's

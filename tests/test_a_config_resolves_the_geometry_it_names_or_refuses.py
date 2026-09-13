@@ -1,7 +1,5 @@
 """A relative ``geometry_json`` is resolved once, at load, or the load fails.
 
-RED. Every test here fails on this commit.
-
 ``models.<id>.geometry_json`` may be written relative, and the live config
 writes it that way: ``~/.mcgyvr/config/mcgyvr.yaml`` line 54 says
 ``geometry_json: ./Qwen3.6-35B-A3B-UD-IQ3_XXS.geometry.json``. The line means

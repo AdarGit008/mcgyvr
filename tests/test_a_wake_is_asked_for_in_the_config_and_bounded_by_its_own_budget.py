@@ -1,11 +1,5 @@
 """The two keys sleep/wake is asked for by, and where a wake's limit comes from.
 
-RED. ``src/mcgyvr/config.py`` has no ``serving`` block, and the hand-set
-``budgets.wake_timeout_s`` is gone: a wake's limit now comes from the fleet
-lock — a unit's validated wake plus the lock's wake tolerance
-(``records/plans/fleet-identity.md`` §5). The two keys that ask for sleep and
-wake at all are still config keys, and they are the only two.
-
 Three decisions are pinned, and all three are the owner's rather than this
 file's:
 

@@ -1,7 +1,5 @@
 """``serve up`` records how many times each unit restarted.
 
-RED, against code that exists. P0 of ``records/plans/fleet-identity.md`` §11.
-
 Restarts are held at exactly 0: a restart fails a dev validation and is never
 locked, and on live it alerts and pulls its combination (plan §5). The one
 place a unit's start is recorded is ``serve-up.json``, and its rows are what

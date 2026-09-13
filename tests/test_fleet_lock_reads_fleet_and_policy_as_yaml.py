@@ -1,13 +1,4 @@
-"""`mcgyvr fleet lock` reads `fleet.yaml` and `policy.yaml`, not JSON only.
-
-RED. ``_fleet_lock`` reads ``--fleet``, ``--evidence`` and ``--policy`` with
-``json.loads`` (``src/mcgyvr/cli.py:2723-2727``), so an operator's
-``fleet.yaml`` and ``policy.yaml`` — the two files ``mcgyvr.fleet.files``
-(``load_fleet`` / ``load_policy``) already parse — never reach the lock. The
-intent is ``records/plans/fleet-identity.md`` §2 and §4: the operator authors
-the two YAML files, and ``mcgyvr fleet lock`` locks from them. Evidence stays
-JSON because a dev run produces it.
-"""
+"""`mcgyvr fleet lock` reads `fleet.yaml` and `policy.yaml`, not JSON only."""
 
 from __future__ import annotations
 

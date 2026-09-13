@@ -1,14 +1,5 @@
 """Two units alternate when their card figures will not sum, whatever ports they hold.
 
-RED. ``serving.alternatives`` groups units by ``(host, port)`` and calls
-same-port units alternatives. That catches srv1 by accident — DeepSeek-Coder-V2
-and Qwen3.6 both answer on ``:8080`` — and **misses srv2 entirely**: its vLLM
-pair sits on ``:8001`` and ``:8002`` and the 80B on ``:8003``, three ports that
-never collide, and all three contend for one RTX 3060. That is G11a in
-``records/plans/fleet-shape/evidence_and_params.md``, and it is the reason
-``serving.alternatives``' own docstring already says "port is a proxy and not
-the fact".
-
 **The owner's decision, 2026-09-09: go to port-per-model, and let the port stop
 carrying contention information.** Under port-per-model no port ever collides,
 so a port test finds nothing and every host reads as co-residents. That is not a
