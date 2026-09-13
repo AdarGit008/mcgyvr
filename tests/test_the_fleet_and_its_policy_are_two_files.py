@@ -100,7 +100,10 @@ def test_the_loader_and_the_schema_enumerate_the_same_keys() -> None:
     from mcgyvr import config
     from mcgyvr.fleet import files
 
-    assert {f.name for f in config.UNIT_FIELDS} == files._UNIT_KEYS
+    # `unit_id` is the lock's identity field: authored in fleet.yaml and read by
+    # the lock, not part of the setup schema this module presents. Everything
+    # else in the loader is a schema field and vice versa.
+    assert {f.name for f in config.UNIT_FIELDS} == files._UNIT_KEYS - {"unit_id"}
     assert {
         f.name for f in config.SCHEMA if f.name not in ("profile", "units")
     } == files._POLICY_KEYS
