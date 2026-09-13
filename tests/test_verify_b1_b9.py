@@ -32,7 +32,7 @@ import pytest
 
 from mcgyvr.catalog import catalog
 from mcgyvr.cleanup import tidy
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.consensus import ConsensusError, best_of
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract

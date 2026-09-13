@@ -19,7 +19,8 @@ import pytest
 
 from mcgyvr import runner
 from mcgyvr.capacity import Capacity, CapacityError
-from mcgyvr.config import ConfigSchemaError, parse
+from mcgyvr.config import ConfigSchemaError
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import ascent
 from mcgyvr.pool import source_map

@@ -80,7 +80,7 @@ limits:
 
 def _bound(rung: str) -> Any:
     """What the pool resolves a rung to — below the seam, where the machine is."""
-    from mcgyvr.config import parse
+    from mcgyvr.config import parse_legacy as parse
     from mcgyvr.pool import source_map
 
     pool = source_map(parse(LADDER))

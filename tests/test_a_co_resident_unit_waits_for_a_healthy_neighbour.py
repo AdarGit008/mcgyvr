@@ -24,7 +24,7 @@ from typing import Any
 
 import yaml
 
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.emit import _document
 from mcgyvr.scan import Scan
 from mcgyvr.serving import units_for

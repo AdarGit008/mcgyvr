@@ -40,7 +40,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.config import ConfigError
-from mcgyvr.config import parse as parse_config
+from mcgyvr.config import parse_legacy as parse_config
 from mcgyvr.gate import Gate
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.secrets import scan_secrets

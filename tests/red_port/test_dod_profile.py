@@ -56,7 +56,7 @@ sandbox:
 
 
 def _parse(text: str) -> Any:
-    from mcgyvr.config import parse
+    from mcgyvr.config import parse_legacy as parse
 
     return parse(text)
 

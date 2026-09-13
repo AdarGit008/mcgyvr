@@ -162,7 +162,8 @@ def test_a_config_that_asks_for_ollama_is_refused() -> None:
     """
     import pytest
 
-    from mcgyvr.config import ConfigSchemaError, parse
+    from mcgyvr.config import ConfigSchemaError
+    from mcgyvr.config import parse_legacy as parse
 
     with pytest.raises(ConfigSchemaError) as refused:
         parse(SOURCE_ASKING_FOR_OLLAMA)

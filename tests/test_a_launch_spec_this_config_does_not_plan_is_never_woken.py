@@ -55,7 +55,8 @@ import pytest
 
 from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
-from mcgyvr.config import CONFIG_PATH_ENV, load, parse
+from mcgyvr.config import CONFIG_PATH_ENV, load
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.exits import Exit
 from mcgyvr.scan import Scan
 

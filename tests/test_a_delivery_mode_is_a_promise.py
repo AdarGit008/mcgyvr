@@ -51,7 +51,8 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import Config, ConfigSchemaError, parse
+from mcgyvr.config import Config, ConfigSchemaError
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.contract import Contract, loads
 from mcgyvr.deliver import Delivery, DeliveryError, deliver
 from tests._helpers import git

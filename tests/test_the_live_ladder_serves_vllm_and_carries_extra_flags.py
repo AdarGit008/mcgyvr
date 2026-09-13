@@ -32,7 +32,7 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.emit import EmitError, argv, render_command, render_compose
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (

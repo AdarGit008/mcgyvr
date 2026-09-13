@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.scan import Scan
 from mcgyvr.serving import Unit, UnitError, units_for
 

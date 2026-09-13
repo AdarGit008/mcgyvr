@@ -64,7 +64,9 @@ from mcgyvr.config import (
     Field,
     keep,
     load,
-    parse,
+)
+from mcgyvr.config import (
+    parse_legacy as parse,
 )
 
 LOCAL_ONLY = """\

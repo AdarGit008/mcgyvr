@@ -48,7 +48,8 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import ConfigSchemaError, load, parse
+from mcgyvr.config import ConfigSchemaError, load
+from mcgyvr.config import parse_legacy as parse
 
 BASE = """\
 version: 1

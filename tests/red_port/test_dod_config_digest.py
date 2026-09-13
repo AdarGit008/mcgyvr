@@ -106,7 +106,7 @@ def _identity(config: Any) -> str:
 
 
 def _digest(text: str) -> str:
-    from mcgyvr.config import parse
+    from mcgyvr.config import parse_legacy as parse
 
     return _identity(parse(text))
 
@@ -292,7 +292,8 @@ def test_a_kept_copy_a_crash_left_short_is_replaced_not_trusted(
     """Content-addressed means the bytes hash to the name; a file under the
     right name with the wrong bytes is a copy that will never load, and
     ``exists()`` alone would keep it forever."""
-    from mcgyvr.config import CONFIGS_DIR, keep, load, parse
+    from mcgyvr.config import CONFIGS_DIR, keep, load
+    from mcgyvr.config import parse_legacy as parse
 
     config = parse(BASE)
     journal = tmp_path / "journal"

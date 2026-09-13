@@ -53,7 +53,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.availability import Availability, AvailabilityVerdict
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.pool import Endpoint, source_map
 from tests import livejournal as lj
 

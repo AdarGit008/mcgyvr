@@ -51,7 +51,7 @@ from typing import Any
 import pytest
 
 from mcgyvr.catalog import Family
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deliver import Accepted, digest_of

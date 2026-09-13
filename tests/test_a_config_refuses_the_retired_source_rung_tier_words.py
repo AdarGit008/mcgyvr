@@ -1,4 +1,5 @@
-"""`mcgyvr.config` refuses the retired `source`/`rung`/`tier` words, naming the replacement.
+"""`mcgyvr.config` refuses the retired `source`/`rung`/`tier` words, naming
+its replacement.
 
 RED. ``mcgyvr.config`` still parses ``mcgyvr.yaml`` under the words ``sources``
 and ``ladder.tiers`` (``SOURCE_FIELDS``, ``TIER_FIELDS``, ``LADDER_FIELDS``) —
@@ -28,7 +29,9 @@ ladder:
 """
 
 
-def test_a_config_with_the_retired_vocabulary_is_refused_naming_its_replacement() -> None:
+def test_a_config_with_the_retired_vocabulary_is_refused_naming_its_replacement() -> (
+    None
+):
     from mcgyvr import config
 
     with pytest.raises(config.ConfigError, match=r"fleet\.yaml|policy\.yaml|units"):

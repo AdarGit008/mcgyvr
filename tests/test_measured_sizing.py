@@ -36,7 +36,8 @@ import pytest
 
 from mcgyvr import derived
 from mcgyvr.capability import GB_PER_GIB
-from mcgyvr.config import Config, ConfigSchemaError, parse
+from mcgyvr.config import Config, ConfigSchemaError
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
     MAX_WIDTH,

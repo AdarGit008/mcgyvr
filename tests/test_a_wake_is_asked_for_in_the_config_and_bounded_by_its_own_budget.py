@@ -66,7 +66,7 @@ def test_a_config_that_says_nothing_has_sleep_and_wake_turned_off() -> None:
     states for its own unset case. A caller reading the loaded tree must be
     able to see the answer without knowing that the key was omitted.
     """
-    from mcgyvr.config import parse
+    from mcgyvr.config import parse_legacy as parse
 
     config = parse(CARD)
 
@@ -87,7 +87,7 @@ def test_a_config_that_asks_for_sleep_and_wake_is_not_refused_as_an_unknown_key(
     rungs come into existence — two authorities, and only one of them touches a
     rig (§7.1).
     """
-    from mcgyvr.config import parse
+    from mcgyvr.config import parse_legacy as parse
 
     config = parse(CARD + "serving:\n  enable_sleep_wake: true\n")
 
@@ -106,7 +106,7 @@ def test_the_directory_this_checkout_keeps_launch_specs_in_is_a_key_of_its_own()
     source the way a ``device:`` on a source would, and a config that omits it
     has no sleeping cards at all — only down ones (D2).
     """
-    from mcgyvr.config import parse
+    from mcgyvr.config import parse_legacy as parse
 
     config = parse(CARD + "serving:\n  compose_dir: /etc/mcgyvr/config\n")
 
@@ -121,7 +121,8 @@ def test_a_wake_has_no_budget_of_its_own() -> None:
     that still answer different questions, so the removal cannot silently take
     the whole ``budgets`` block with it.
     """
-    from mcgyvr.config import field_at, parse
+    from mcgyvr.config import field_at
+    from mcgyvr.config import parse_legacy as parse
 
     config = parse(
         CARD + "budgets:\n" + "  request_timeout_s: 30.0\n" + "  task_timeout_s: 60\n"

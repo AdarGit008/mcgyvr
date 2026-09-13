@@ -49,7 +49,7 @@ from mcgyvr.config import (
     Field,
 )
 from mcgyvr.config import load as load_config
-from mcgyvr.config import parse as parse_config
+from mcgyvr.config import parse_legacy as parse_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, Detection, detect, targets_for
 from mcgyvr.propose import AvailableSource, Proposal, propose
 

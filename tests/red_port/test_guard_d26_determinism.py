@@ -47,7 +47,7 @@ import pytest
 
 from mcgyvr.capacity import Capacity, run_batch
 from mcgyvr.catalog import catalog
-from mcgyvr.config import parse as parse_config
+from mcgyvr.config import parse_legacy as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate

@@ -53,7 +53,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import parse as parse_config
+from mcgyvr.config import parse_legacy as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
 from mcgyvr.pool import Rung, source_map

@@ -69,7 +69,7 @@ def _emitted(window: int | None) -> Any:
     ``None`` is a run that declared nothing, which must be a refusal rather
     than a number somebody's module chose.
     """
-    from mcgyvr.config import parse
+    from mcgyvr.config import parse_legacy as parse
     from mcgyvr.serving import units_for
 
     emit_run = required(

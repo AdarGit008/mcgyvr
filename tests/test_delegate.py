@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.delegate import (
     NO_ORCHESTRATOR_ROLE,
     UnreadableProposalError,

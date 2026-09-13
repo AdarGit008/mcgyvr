@@ -212,7 +212,7 @@ def test_a_credential_in_a_base_url_is_refused_at_load() -> None:
     accepted silently.
     """
     from mcgyvr.config import ConfigError
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
 
     with pytest.raises(ConfigError) as exc:
         parse_config(CONFIG_WITH_CREDENTIALED_URL)
@@ -230,7 +230,7 @@ def test_the_refusal_does_not_fire_on_an_ordinary_url() -> None:
     every path containing one and would be removed by the first person it
     inconvenienced.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
 
     config = parse_config(
         CONFIG_WITH_CREDENTIALED_URL.replace(
@@ -356,7 +356,7 @@ def test_the_verifier_role_is_answered_without_handing_over_a_credential(
     which carries ``credential()``. The module imported neither forbidden name,
     which is precisely why the import guard could not see it.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.pool import source_map
 
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)

@@ -148,7 +148,7 @@ def test_runner_refuses_a_credentialed_source_before_dispatch(tmp_path: Path) ->
     run = _missions_module("run", "4")
     from mcgyvr import config as cfg
 
-    local_only = cfg.parse(
+    local_only = cfg.parse_legacy(
         "version: 1\n"
         "sources:\n  srv2:\n    base_url: http://srv2:11434\n    api: openai\n"
         "ladder:\n  tiers:\n    - name: local_small\n      source: srv2\n"
@@ -157,7 +157,7 @@ def test_runner_refuses_a_credentialed_source_before_dispatch(tmp_path: Path) ->
     )
     run.require_local_only(local_only)  # passes silently
 
-    with_api = cfg.parse(
+    with_api = cfg.parse_legacy(
         "version: 1\n"
         "sources:\n  srv2:\n    base_url: http://srv2:11434\n    api: openai\n"
         "  cloud:\n    base_url: https://api.example.invalid\n    api: openai\n"

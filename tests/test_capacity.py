@@ -28,7 +28,7 @@ from typing import Any
 import pytest
 
 from mcgyvr.capacity import Capacity, CapacityError, Outcome, run_batch
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.pool import Endpoint, Protocol, source_map
 
 

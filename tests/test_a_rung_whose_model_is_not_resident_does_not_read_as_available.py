@@ -45,7 +45,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from mcgyvr.availability import Availability, AvailabilityVerdict
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.pool import Endpoint, source_map
 
 RESIDENT = "qwen3.6-35b-a3b"

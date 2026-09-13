@@ -19,7 +19,7 @@ import pytest
 
 from mcgyvr.capability import load as load_table
 from mcgyvr.config import load as load_config
-from mcgyvr.config import parse as parse_config
+from mcgyvr.config import parse_legacy as parse_config
 from mcgyvr.detect import Backend, Detection, Gpu
 from mcgyvr.initialize import InitError, _sources_for, build, initialize, render
 from mcgyvr.propose import propose

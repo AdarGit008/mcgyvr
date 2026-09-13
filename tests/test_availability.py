@@ -34,7 +34,7 @@ from mcgyvr.availability import (
     ProbeFn,
     probe_endpoint,
 )
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.pool import Endpoint, Protocol, SourceUnavailableError, source_map
 
 TWO_SOURCES = """

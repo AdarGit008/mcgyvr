@@ -29,7 +29,9 @@ from mcgyvr.config import (
     config_path,
     field_at,
     load,
-    parse,
+)
+from mcgyvr.config import (
+    parse_legacy as parse,
 )
 
 LOCAL_ONLY = """

@@ -64,7 +64,8 @@ import pytest
 from mcgyvr.capacity import Capacity, run_batch
 from mcgyvr.catalog import Family, catalog
 from mcgyvr.cli import main
-from mcgyvr.config import CONFIG_PATH_ENV, Config, parse
+from mcgyvr.config import CONFIG_PATH_ENV, Config
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import (

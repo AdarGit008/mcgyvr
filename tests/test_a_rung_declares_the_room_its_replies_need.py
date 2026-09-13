@@ -44,7 +44,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.config import parse as parse_config
+from mcgyvr.config import parse_legacy as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.pool import Protocol, source_map
 from tests import livejournal as lj

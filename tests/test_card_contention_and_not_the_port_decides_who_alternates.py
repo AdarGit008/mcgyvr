@@ -48,7 +48,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.emit import emit_all
 from mcgyvr.scan import Scan
 from mcgyvr.serving import UnitError, hold_together, launch_specs, units_for

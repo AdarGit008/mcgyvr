@@ -55,7 +55,8 @@ from typing import Any
 import pytest
 
 from mcgyvr.catalog import catalog
-from mcgyvr.config import Config, parse
+from mcgyvr.config import Config
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.pool import SourceMap, source_map

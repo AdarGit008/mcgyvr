@@ -27,7 +27,7 @@ import pytest
 
 from mcgyvr import runner as runner_module
 from mcgyvr.capacity import Capacity
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.pool import Endpoint, Protocol, SourceUnavailableError, UnknownRungError
 from mcgyvr.pool import source_map as build_source_map
 from mcgyvr.runner import (

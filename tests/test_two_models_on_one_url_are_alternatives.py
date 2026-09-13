@@ -67,7 +67,7 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.emit import emit_all
 from mcgyvr.scan import Scan
 from mcgyvr.serving import UnitError, hold_together, units_for

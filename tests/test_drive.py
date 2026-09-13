@@ -335,7 +335,7 @@ def test_the_contracts_output_cap_reaches_the_request(
     per-type table cannot make this pass by coincidence.
     """
     import mcgyvr.drive as drive
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.pool import Protocol, source_map
     from mcgyvr.runner import Completion, Request, StopReason
     from mcgyvr.worker.prompt import build_prompt
@@ -385,7 +385,7 @@ def test_a_prompt_that_does_not_fit_is_refused_rather_than_truncated() -> None:
     A binding that dispatched an over-budget prompt would make the measurement
     decorative and send a request whose reply is cut at a boundary nobody chose.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.pool import source_map
     from mcgyvr.worker.prompt import build_prompt
 
@@ -491,7 +491,7 @@ def test_one_attempt_reaches_a_judgement_over_a_real_gate(
     acceptance command runs in the sandbox, the gate reads an actual diff, and
     the verdict comes from :func:`mcgyvr.escalate.judge`.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
@@ -529,7 +529,7 @@ def test_a_driver_with_no_journal_reports_the_rows_it_did_not_write(
     while a raise out of the same attempt reported the truthful zero. One name,
     two quantities, decided by which branch the attempt left through.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
@@ -562,7 +562,7 @@ def test_a_hand_authored_contract_shows_the_target_file_in_the_prompt(
     not know what it was editing. The drive reads the base off the freshly
     reset workspace instead, so the prompt names the file and its content.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try
@@ -595,7 +595,7 @@ def test_a_rejected_attempt_tells_the_next_one_what_failed(
     judgement on the same rung, so the loop that owns "how many attempts" stays
     :func:`~mcgyvr.route.climb`'s.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
@@ -629,7 +629,7 @@ def test_the_retry_note_does_not_carry_the_acceptance_command(
     it at the one place a real second prompt is assembled, because that is where
     a regression would actually reach a model.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try
@@ -655,7 +655,7 @@ def test_an_unreadable_reply_is_a_failed_attempt_not_an_exception(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A worker that answers in prose has failed an attempt, not broken the run."""
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
@@ -685,7 +685,7 @@ def test_the_attempt_function_plugs_into_escalate(
     the real one, and the ladder walk is real: the 7b rung answers unusably and
     the 14b rung answers correctly, so the task escalates and is accepted there.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.escalate import Delivered, escalate
     from mcgyvr.pool import source_map
@@ -826,7 +826,7 @@ def test_an_attempt_is_recorded_under_the_orchestrator_that_made_it(
     value the caller constructs — never from the process, which is the
     single-orchestrator assumption §9 exists to prevent.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import Recording, worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try
@@ -867,7 +867,7 @@ def test_two_orchestrators_share_one_stream_and_stay_distinguishable(
     behind one stream. A field that is always the same value would satisfy every
     single-row assertion and none of this.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import Recording, worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try
@@ -940,7 +940,7 @@ def test_a_cooling_source_is_declined_without_a_dispatch(
     to the next rung instead of spending another attempt on a source that has
     just failed three times.
     """
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
@@ -971,7 +971,7 @@ def test_a_dispatch_failure_feeds_the_cooldown(
 ) -> None:
     """A transport failure is recorded, and three of them arm the lever."""
     import mcgyvr.drive as drive
-    from mcgyvr.config import parse as parse_config
+    from mcgyvr.config import parse_legacy as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.escalate import DispatchRaisedError
     from mcgyvr.pool import Rung, source_map

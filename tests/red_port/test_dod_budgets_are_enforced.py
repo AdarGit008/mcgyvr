@@ -60,7 +60,7 @@ budgets:
 
 
 def _config() -> Any:
-    from mcgyvr.config import parse
+    from mcgyvr.config import parse_legacy as parse
 
     return parse(CONFIG)
 

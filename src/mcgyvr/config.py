@@ -1673,14 +1673,84 @@ def config_path() -> Path:
     return user_config_path()
 
 
-def parse(text: str, path: Path | None = None) -> Config:
-    """Validate a config from YAML text."""
+#: Words the fleet vocabulary retired. One term — "unit" — replaced several
+#: (``records/plans/fleet-identity.md`` §2). A config that names one is refused
+#: naming what replaced it, exactly as ``mcgyvr.fleet.files`` refuses them.
+_RETIRED_VOCABULARY: dict[str, str] = {
+    "sources": "name what serves under `units` in fleet.yaml — a unit is the one term",
+    "source": "a unit is the one term; a unit fact belongs in fleet.yaml",
+    "rung": "a unit is the one term",
+    "rungs": "a ladder names unit names, not rungs or tiers (policy.yaml)",
+    "tier": "a unit is the one term",
+    "tiers": "a ladder names unit names, not rungs or tiers (policy.yaml)",
+}
+
+
+def _retired_vocabulary(raw: object, path: Path | None) -> None:
+    """Refuse a config that still names the retired source/rung/tier words.
+
+    The check is deliberately at the top of :func:`parse`, before the schema
+    runs, so a config that uses the old words is answered with what replaced
+    them rather than with a list of missing new keys. The same rule lives in
+    :mod:`mcgyvr.fleet.files` for the two files the vocabulary moved to.
+    """
+    if not isinstance(raw, Mapping):
+        return
+    where = f"{path}: " if path is not None else "config: "
+    for key in raw:
+        hint = _RETIRED_VOCABULARY.get(str(key))
+        if hint is not None:
+            raise ConfigSchemaError(
+                f"{where}`{key}` is retired — {hint}. The setup is now "
+                f"`fleet.yaml` (units) plus `policy.yaml` (the ladder)."
+            )
+    ladder = raw.get("ladder")
+    if isinstance(ladder, Mapping):
+        for key in ladder:
+            hint = _RETIRED_VOCABULARY.get(str(key))
+            if hint is not None:
+                raise ConfigSchemaError(
+                    f"{where}`ladder.{key}` is retired — {hint}. The setup is "
+                    f"now `policy.yaml` (the ladder) plus `fleet.yaml` (units)."
+                )
+
+
+def _load_yaml(text: str, path: Path | None) -> object:
+    """Parse YAML text with the strict loader, naming the file on failure."""
     try:
-        raw = yaml.load(text, Loader=strict_loader(ConfigSchemaError))
+        return yaml.load(text, Loader=strict_loader(ConfigSchemaError))
     except yaml.YAMLError as exc:
         where = f"{path}: " if path else ""
         raise ConfigFileError(f"{where}not valid YAML: {exc}") from exc
 
+
+def parse(text: str, path: Path | None = None) -> Config:
+    """Validate a config from YAML text.
+
+    Repointed at the fleet vocabulary: a config that still names a retired
+    word is refused naming ``fleet.yaml``/``policy.yaml``, and a config that
+    states the new ``units``/``ladder`` shape is built from it. The legacy
+    ``sources``/``ladder.tiers`` reader is kept reachable as
+    :func:`parse_legacy` for the parts of the run path not yet moved.
+    """
+    raw = _load_yaml(text, path)
+    _retired_vocabulary(raw, path)
+    if isinstance(raw, Mapping) and "units" in raw:
+        raw = _fleet_to_legacy(raw)
+    return _build_config(raw, path)
+
+
+def parse_legacy(text: str, path: Path | None = None) -> Config:
+    """The pre-fleet ``sources``/``ladder.tiers`` reader, unchanged.
+
+    Kept while the run path is moved onto ``fleet.yaml``/``policy.yaml``. It
+    is not the public reader: :func:`parse` refuses the retired words.
+    """
+    return _parse_old(text, path=path)
+
+
+def _build_config(raw: object, path: Path | None) -> Config:
+    """The validated :class:`Config` for an already-parsed document."""
     if raw is None:
         raise ConfigSchemaError(
             f"{path or 'config'}: is empty. Run `mcgyvr init` to generate one."
@@ -1728,6 +1798,110 @@ def parse(text: str, path: Path | None = None) -> Config:
     return Config(
         path=path, data=data, sources=sources, ladder=ladder, declared=declared
     )
+
+
+#: The new top-level keys a merged ``fleet.yaml``/``policy.yaml`` document
+#: states, and the old tree each becomes. A unit is the one term: its
+#: ``address`` is the old ``base_url``, its ``width`` the old ``max_parallel``,
+#: its ``window`` the old ``context_window``.
+_FLEET_TOP_LEVEL: frozenset[str] = frozenset(
+    {
+        "units",
+        "ladder",
+        "rigs",
+        "fleets",
+        "fanout",
+        "attempts",
+        "max_escalations",
+        "max_attempts",
+        "task_timeout_s",
+        "max_window_fraction",
+    }
+)
+
+
+def _fleet_to_legacy(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """Translate a merged ``units``/``ladder`` document into the tree the
+    validator is declared against, so one reader serves both vocabularies
+    while the run path moves.
+
+    A unit names its own endpoint, so it becomes one source named for the
+    unit and one tier bound to it. Policy settings that the old tree keeps
+    under ``budgets`` move there; the blocks that share a name
+    (``sandbox``, ``journal``, ...) pass through unchanged.
+    """
+    units = raw.get("units")
+    if not isinstance(units, Mapping):
+        return dict(raw)
+    order_raw = raw.get("ladder")
+    order = (
+        [str(name) for name in order_raw]
+        if isinstance(order_raw, list)
+        else [str(name) for name in units]
+    )
+    attempts = raw.get("attempts")
+    attempts = attempts if isinstance(attempts, Mapping) else {}
+    sources: dict[str, Any] = {}
+    tiers: list[dict[str, Any]] = []
+    request_timeout: Any = None
+    for name in order:
+        unit = units.get(name)
+        if not isinstance(unit, Mapping):
+            continue
+        source: dict[str, Any] = {
+            "base_url": unit.get("address"),
+            "api": "openai",
+            "max_parallel": unit.get("width", 1),
+        }
+        for old, new in (
+            ("context_window", "window"),
+            ("engine", "engine"),
+            ("image", "image"),
+        ):
+            if unit.get(new) is not None:
+                source[old] = unit[new]
+        sources[name] = source
+        tier: dict[str, Any] = {
+            "name": name,
+            "source": name,
+            "model": unit.get("model"),
+        }
+        for old, new in (("max_parallel", "width"), ("output_tokens", "output_tokens")):
+            if unit.get(new) is not None:
+                tier[old] = unit[new]
+        if name in attempts:
+            tier["attempts"] = attempts[name]
+        tiers.append(tier)
+        if unit.get("request_timeout_s") is not None:
+            request_timeout = unit["request_timeout_s"]
+    legacy: dict[str, Any] = {
+        key: value for key, value in raw.items() if key not in _FLEET_TOP_LEVEL
+    }
+    legacy["version"] = SCHEMA_VERSION
+    legacy["sources"] = sources
+    ladder: dict[str, Any] = {"tiers": tiers}
+    if raw.get("fanout") is not None:
+        ladder["fanout"] = raw["fanout"]
+    legacy["ladder"] = ladder
+    budgets = dict(legacy.get("budgets") or {})
+    for key in (
+        "max_escalations",
+        "max_attempts",
+        "task_timeout_s",
+        "max_window_fraction",
+    ):
+        if raw.get(key) is not None:
+            budgets[key] = raw[key]
+    if request_timeout is not None:
+        budgets.setdefault("request_timeout_s", request_timeout)
+    if budgets:
+        legacy["budgets"] = budgets
+    return legacy
+
+
+def _parse_old(text: str, path: Path | None = None) -> Config:
+    """Validate a config from YAML text under the retired schema."""
+    return _build_config(_load_yaml(text, path), path)
 
 
 def _absent_remedy(path: Path | None) -> str:
@@ -1794,4 +1968,7 @@ def load(path: Path | None = None) -> Config:
         ) from exc
     except OSError as exc:
         raise ConfigFileError(f"cannot read {path}: {exc}") from exc
-    return parse(text, path=path)
+    raw = _load_yaml(text, path)
+    if isinstance(raw, Mapping) and "units" in raw:
+        raw = _fleet_to_legacy(raw)
+    return _build_config(raw, path)

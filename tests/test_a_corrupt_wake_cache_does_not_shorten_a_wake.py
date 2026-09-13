@@ -53,7 +53,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.config import parse
+from mcgyvr.config import parse_legacy as parse
 from mcgyvr.serving import Card
 
 HOST = "rig"
