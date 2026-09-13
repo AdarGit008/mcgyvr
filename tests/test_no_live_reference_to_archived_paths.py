@@ -46,7 +46,8 @@ RETIRED: tuple[tuple[str, re.Pattern[str]], ...] = (
         "records/evidence/2026-08-22-coresidency-feasibility/README.md",
         re.compile(r"records/evidence/2026-08-22-coresidency-feasibility/README\.md"),
     ),
-    ("tools/problems/README.md", re.compile(r"tools/problems/README\.md")),
+    # Anchored on `archive/` so the moved file's own path is not a hit.
+    ("tools/problems/README.md", re.compile(r"(?<!archive/)tools/problems/README\.md")),
     (
         "records/sessions/lane/225/2026-08-11-f1-responsiveness-prereg",
         re.compile(r"records/sessions/lane/225/2026-08-11-f1-responsiveness-prereg"),
@@ -55,9 +56,14 @@ RETIRED: tuple[tuple[str, re.Pattern[str]], ...] = (
         "records/sessions/lane/231/2026-08-13-positive-control-prereg",
         re.compile(r"records/sessions/lane/231/2026-08-13-positive-control-prereg"),
     ),
+    # A basename with no root: anchor on the archive path's own prefix, so a
+    # repointed citation is not a hit.
     (
         "d7-sleep.aborted-run.README.md",
-        re.compile(r"d7-sleep\.aborted-run\.README\.md"),
+        re.compile(
+            r"(?<!archive/docs/archive/evidence-prose/calibration-2026-08-19/)"
+            r"d7-sleep\.aborted-run\.README\.md"
+        ),
     ),
 )
 

@@ -90,7 +90,7 @@ REPO = HERE.parents[2]
 #: `total_slots = 1` for every model it served -- has no
 #: business being offered 384 queued requests -- on srv2's deep-spill models a
 #: single level of 24 already costs 6-9 minutes per repeat
-#: (`configs/d7-campaign.json`, E13).
+#: (`archive/forensic-ollama/d7-campaign.json`, E13).
 RAMP_LEVELS: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16, 24)
 
 #: The knee ladder's continuation, in the same ~1.5x steps, for a server whose
@@ -773,7 +773,8 @@ HARDWARE_COMMAND = (
 HARDWARE_UNANSWERABLE: dict[str, str] = {
     "memory_bandwidth_gb_s": (
         "not measured by any run: the 21.8 / 13.3 GB/s figures in :40 "
-        "and records/evidence/calibration-2026-08-19/README.md were taken "
+        "and archive/docs/archive/evidence-prose/calibration-2026-08-19/"
+        "README.md were taken "
         "pre-XMP and never re-taken (step0-gaps.md:202); a run that wants "
         "the number declares it in its #322 header and measures it"
     ),
@@ -964,7 +965,8 @@ def read_level_state(host: str) -> str | None:
 
     Its cost is ``len(levels) * RAMP_REPEATS`` calls per ramp -- 18 at the
     default matrix -- each one ``ssh_step_seconds`` (p50 0.956 s, p95 1.40 s
-    on 2026-08-19, records/evidence/calibration-2026-08-19/README.md:20),
+    on 2026-08-19,
+    archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:20),
     against ramps of ~24 min on vLLM and ~8.1 min on ollama at 475 tokens
     (README.md:554). The warm-up level reads nothing. No budget is fixed
     here: the next run's record states what the calls cost beside the
