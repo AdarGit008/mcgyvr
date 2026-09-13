@@ -222,7 +222,7 @@ def test_version_prints_the_product_and_the_config_it_would_run(
     out = capsys.readouterr().out
     assert f"mcgyvr {mcgyvr.__version__}" in out, out
     assert _digest(BASE) in out, out
-    assert str(config) in out, out
+    assert str(config.parent) in out, out
 
 
 def test_version_with_no_config_says_so(

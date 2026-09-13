@@ -470,10 +470,8 @@ def test_the_family_rule_is_the_catalogs_and_is_not_restated_here() -> None:
     config, _ = mapped(MIXED)
     known = catalog()
 
-    for tier in config.ladder.tiers:
-        assert family_of(config, tier.name) == known.family_of(
-            config.sources[tier.source]
-        )
+    for name in config.ladder.names:
+        assert family_of(config, name) == known.family_of(config.units[name])
 
 
 def test_an_unknown_rung_is_a_bug_and_says_what_the_ladder_offers() -> None:
@@ -658,7 +656,7 @@ def test_an_empty_family_quotes_its_own_skipped_rungs_and_not_anothers() -> None
     the family they asked about.
     """
     config = parse(MIXED)  # $EXAMPLE_API_KEY is unset, so api_big is skipped
-    pool = source_map(config, probe=DownProbe({"workstation", "spare"}))
+    pool = source_map(config, probe=DownProbe({"local_qwen-7b", "local_qwen-14b"}))
 
     local = plan(config, pool, contract(), family=LOCAL)
     api = plan(config, pool, contract(), family=API)
@@ -1150,7 +1148,7 @@ def test_idle_stops_at_a_rung_whose_load_cannot_be_read_rather_than_stepping_ove
     not a contradicted one.
     """
     config, pool = mapped(with_fanout(MIXED, "idle"))
-    capacity = Capacity({"workstation": 2})
+    capacity = Capacity({"local_qwen-7b": 2})
     attempts = Recorder(Verdict.PASSED)
 
     with occupied(capacity, pool, "local_qwen-7b", "local_qwen-7b"):
@@ -1253,7 +1251,7 @@ def test_fanout_is_asked_once_and_the_walk_after_it_is_the_plans_own_order(
     plan, and ``local_32b`` before ``local_7b`` is a walk down a load reading.
     Ordering a whole walk by load leaves no ladder in it at all — the rung a
     failure escalates to becomes whichever machine happened to be quiet, which
-    the ``ladder.tiers`` doc in ``config.SCHEMA`` calls actively harmful.
+    the ``ladder`` doc in ``config.SCHEMA`` calls actively harmful.
 
     The rungs the start skipped are walked rather than dropped, and this test
     used to assert the reverse — that a climb starting in the middle went up
@@ -1396,15 +1394,14 @@ def test_fanout_changes_which_rung_goes_first_and_never_what_a_climb_spends(
     )
 
 
-def test_two_rungs_on_one_machine_are_one_queue() -> None:
-    """Load is a property of the box. Two names for one machine that counted
-    separately would let a fan-out spread a batch across a box it never left."""
+def test_two_units_on_one_url_are_two_queues() -> None:
+    """A unit is a process, so two units are two queues even on one box."""
     config, pool = mapped(SHARED)
 
     made = plan(config, pool, contract())
 
     assert made.rungs == ("local_qwen-7b", "local_qwen-14b")
-    assert made.climbable[0].machine is made.climbable[1].machine
+    assert made.climbable[0].machine is not made.climbable[1].machine
 
 
 def test_a_plan_can_be_asked_how_busy_a_rung_is_without_naming_the_machine(
@@ -1473,10 +1470,10 @@ def test_a_claimed_rung_goes_first_and_is_not_reserved_a_second_time(
     seen: list[tuple[str, int]] = []
 
     def attempt(this: Try) -> Result:
-        seen.append((this.rung.name, capacity.load("medium")))
+        seen.append((this.rung.name, capacity.load("local_14b")))
         return Result.failed("the gate rejected it")
 
-    capacity.reserve("medium")
+    capacity.reserve("local_14b")
     spent = exhausted(
         climb(
             plan(config, pool, contract()),
@@ -1489,7 +1486,7 @@ def test_a_claimed_rung_goes_first_and_is_not_reserved_a_second_time(
     assert seen[0] == ("local_14b", 1), "the caller's reservation, and only it"
     assert [rung for rung, _ in seen] == ["local_14b", "local_7b", "local_32b"]
     assert spent.reason is Exhaustion.RUNGS_SPENT
-    assert capacity.load("medium") == 0, "the reservation was given back"
+    assert capacity.load("local_14b") == 0, "the reservation was given back"
 
 
 def test_a_claimed_first_rung_drops_no_rung_and_spends_what_the_default_spends(
@@ -1513,7 +1510,7 @@ def test_a_claimed_first_rung_drops_no_rung_and_spends_what_the_default_spends(
     plain, plain_pool = mapped(UNEVEN)
     walked = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
 
-    capacity.reserve("medium")
+    capacity.reserve("local_14b")
     with_claim = exhausted(
         climb(
             plan(config, pool, contract()),
@@ -1547,8 +1544,8 @@ def test_a_handed_over_reservation_is_given_back_exactly_once(lock_dir: None) ->
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
 
-    capacity.reserve("medium")
-    capacity.reserve("medium")
+    capacity.reserve("local_14b")
+    capacity.reserve("local_14b")
     climb(
         plan(config, pool, contract()),
         attempts,
@@ -1557,7 +1554,7 @@ def test_a_handed_over_reservation_is_given_back_exactly_once(lock_dir: None) ->
     )
 
     assert attempts.rungs == ["local_14b"]
-    assert capacity.load("medium") == 1, "one given back, and only one"
+    assert capacity.load("local_14b") == 1, "one given back, and only one"
 
 
 def test_a_claimed_rung_this_plan_does_not_offer_selects_as_though_none_was_given(
@@ -1579,7 +1576,7 @@ def test_a_claimed_rung_this_plan_does_not_offer_selects_as_though_none_was_give
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
 
-    capacity.reserve("medium")
+    capacity.reserve("local_14b")
     spent = exhausted(
         climb(
             plan(config, pool, contract()),
@@ -1591,9 +1588,9 @@ def test_a_claimed_rung_this_plan_does_not_offer_selects_as_though_none_was_give
 
     assert attempts.rungs == ["local_7b", "local_14b", "local_32b"], "price order"
     assert spent.attempts_spent == 3, "no rung was dropped for a name nobody knows"
-    assert capacity.load("medium") == 1, "route gave back nothing it cannot name"
-    capacity.release("medium")
-    assert capacity.load("medium") == 0
+    assert capacity.load("local_14b") == 1, "route gave back nothing it cannot name"
+    capacity.release("local_14b")
+    assert capacity.load("local_14b") == 0
 
 
 # --- the shapes callers depend on -----------------------------------------

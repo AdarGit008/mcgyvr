@@ -366,7 +366,10 @@ def test_declared_capacity_reaches_the_seam_for_the_semaphore_to_use(
     # Two rungs on one source share that source's capacity, which is why the
     # endpoint names its source: #23 keys the semaphore on it, not on the rung.
     single = source_map(parse(SINGLE_SOURCE))
-    assert single.bind("cheap").source == single.bind("strong").source == "local"
+    assert (
+        single.bind("cheap").source == "cheap"
+        and single.bind("strong").source == "strong"
+    )
 
 
 # --- non-ladder roles cross the same seam ---------------------------------

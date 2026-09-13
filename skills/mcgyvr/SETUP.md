@@ -3,7 +3,7 @@
 # Setting up mcgyvr
 
 First run, once per machine. Nothing here is read to author a contract;
-this is how `mcgyvr.yaml` comes to exist and what it can say.
+this is how `fleet.yaml` and `policy.yaml` come to exist and what they can say.
 
 ```
 mcgyvr init

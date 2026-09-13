@@ -848,23 +848,23 @@ def units_for(
     #: one process is a disagreement to report rather than one to resolve.
     windows: dict[UnitKey, dict[int, list[str]]] = {}
 
-    for tier in config.ladder.tiers:
-        source = config.sources.get(tier.source)
-        if source is None:
-            raise UnitError(f"{tier.name}: no source named {tier.source!r}")
-        host = host_of(source.base_url)
+    for name in config.ladder.names:
+        unit = config.units.get(name)
+        if unit is None:
+            raise UnitError(f"{name}: no unit named {name!r}")
+        host = host_of(unit.address)
         scan = scans.get(host)
         if scan is None:
             raise UnitError(
-                f"{tier.name}: host {host!r} is unscanned — "
+                f"{name}: host {host!r} is unscanned — "
                 f"run `mcgyvr scan {host}` before emitting a unit for it"
             )
-        spec = catalogue.get(tier.model)
+        spec = catalogue.get(unit.model)
         if spec is None:
             raise UnitError(
-                f"{tier.name}: no model spec for {tier.model!r} — it is not in "
+                f"{name}: no model spec for {unit.model!r} — it is not in "
                 f"the shipped capability table, and nothing declares it under "
-                f"`models:` in the config. Sizing a unit needs what the model "
+                f"`launch` in fleet.yaml. Sizing a unit needs what the model "
                 f"costs, and mcgyvr will not invent that; state it and this "
                 f"model is served on your numbers"
             )
@@ -872,29 +872,21 @@ def units_for(
         key = UnitKey(
             host=host,
             model=spec.name,
-            # The source's, because a URL points at one process and one process
-            # runs one engine. Absent it is llama.cpp, which is what this line
-            # asserted unconditionally before the field existed — so a config
-            # that names no engine is bound exactly as it was.
-            engine=source.engine or DEFAULT_ENGINE,
-            port=port_of(source.base_url),
+            # The unit's, because a URL points at one process and one process
+            # runs one engine. Absent it is llama.cpp.
+            engine=unit.engine or DEFAULT_ENGINE,
+            port=port_of(unit.address),
         )
-        grouped.setdefault(key, []).append(tier.name)
-        if source.context_window is not None:
-            windows.setdefault(key, {}).setdefault(source.context_window, []).append(
-                source.name
-            )
+        grouped.setdefault(key, []).append(name)
+        if unit.window is not None:
+            windows.setdefault(key, {}).setdefault(unit.window, []).append(name)
         hosts.setdefault(key, scan)
         models.setdefault(key, spec)
-        images.setdefault(key, source.image)
-        if tier.max_parallel is not None:
-            # One process, one slot count. Two rungs asking for different
-            # widths get the larger, because a slot the second rung never uses
-            # costs KV cache and a slot it needs and does not have is a queue
-            # nobody declared. The source's own ``max_parallel`` is not read
-            # here: that number bounds dispatch, which is capacity.py's, and a
-            # rung that states nothing has stated nothing about this process.
-            widths[key] = max(widths.get(key, 0), tier.max_parallel)
+        images.setdefault(key, unit.image)
+        if unit.width is not None:
+            # One process, one slot count. Two units asking for different
+            # widths get the larger.
+            widths[key] = max(widths.get(key, 0), unit.width)
 
     units = tuple(
         replace(
@@ -1536,14 +1528,14 @@ def cards(config: Config) -> dict[str, Card]:
     rungs_on: dict[str, list[str]] = {}
     sources_on: dict[str, set[str]] = {}
     hosted: dict[str, str] = {}
-    for tier in config.ladder.tiers:
-        source = config.sources.get(tier.source)
-        if source is None or source.requires_credential:
+    for name in config.ladder.names:
+        unit = config.units.get(name)
+        if unit is None or unit.requires_credential:
             continue
-        host = host_of(source.base_url)
-        hosted[tier.name] = host
-        rungs_on.setdefault(host, []).append(tier.name)
-        sources_on.setdefault(host, set()).add(tier.source)
+        host = host_of(unit.address)
+        hosted[name] = host
+        rungs_on.setdefault(host, []).append(name)
+        sources_on.setdefault(host, set()).add(name)
 
     by_host = {
         host: Card(
@@ -1579,15 +1571,30 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
     without a cycle. Already in GiB: the schema says so on every size field,
     because a unit is the one thing a reader cannot check by eye.
     """
-    blocks: Mapping[str, Any] = config.data.get("models") or {}
     specs: dict[str, ModelSpec] = {}
-    for name, block in blocks.items():
+    for unit in config.units.values():
+        name = unit.model
+        if name in specs:
+            continue
+        if (
+            not unit.launch
+            and unit.hf_cache is None
+            and unit.room_mib is None
+            and unit.kv_cache_memory_bytes is None
+        ):
+            # Nothing declared: this unit takes the shipped table's row.
+            continue
+        block: dict[str, Any] = dict(unit.launch)
+        if unit.hf_cache is not None:
+            block.setdefault("hf_cache", unit.hf_cache)
+        if unit.room_mib is not None and "vram_gb" not in block:
+            block["vram_gb"] = unit.room_mib / 1024
         geometry: dict[str, Any] | None = None
         stated = block.get("geometry_json")
         if stated:
             where = Path(str(stated)).expanduser()
             if not where.is_absolute() and config.path is not None:
-                where = config.path.parent / where
+                where = config.path / where
             geometry = load_geometry(where, name=name)
         specs[name] = ModelSpec(
             name=name,

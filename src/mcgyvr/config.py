@@ -41,9 +41,14 @@ from typing import Any, Literal
 
 import yaml
 
+from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.strict_yaml import strict_loader
 
-CONFIG_FILENAME = "mcgyvr.yaml"
+#: A setup is two files in one directory. ``fleet.yaml`` is locked and holds
+#: the units, rigs and fleets — what runs where. ``policy.yaml`` is not locked
+#: and holds the ladder and the routing policy over it.
+FLEET_FILENAME = "fleet.yaml"
+POLICY_FILENAME = "policy.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
 #: What a config's identity starts with (:meth:`Config.digest`), so it can
 #: never be read as a product digest or a blob name: those are bare hex.
@@ -161,352 +166,6 @@ class Field:
     were actually getting. A retired value is still recognised, so the message
     can be specific; it is refused, so the config cannot resolve to it."""
 
-
-SOURCE_FIELDS: tuple[Field, ...] = (
-    Field(
-        "base_url",
-        "url",
-        "Where the source answers, including scheme and port.",
-        required=True,
-        bind_hint="e.g. http://localhost:8080",
-    ),
-    Field(
-        "api",
-        "enum",
-        "Wire protocol. `openai` covers vLLM, llama-server, LM Studio and "
-        "TGI, so adding a backend is a protocol question, not an "
-        "integration.",
-        required=True,
-        choices=("openai",),
-    ),
-    Field(
-        "max_parallel",
-        "int",
-        "How many requests this source may run at once. Concurrency is "
-        "capacity, not a preference: measured, three models ran concurrently "
-        "on one card in 23.6 s against ~44 s serial.",
-        default=1,
-        min_value=1,
-    ),
-    Field(
-        "context_window",
-        "int",
-        "How many tokens this source's process serves in one request. Absent "
-        "means nobody declared it and nothing is enforced against it: a "
-        "window invented here would be a number nobody measured, and the "
-        "first live day found exactly that failure — a ladder whose bottom "
-        "priced a request at twice what its top could hold. Read it back "
-        "from the running unit (`max_model_len` on vLLM, `n_ctx` on "
-        "llama.cpp) and write what it said. It belongs on the source rather "
-        "than the rung because the window is a fact about the process, and a "
-        "rung that carried one could not be re-pointed at another machine.",
-        min_value=1,
-        bind_hint="e.g. 4096 — what the unit reports, not what you hoped for",
-    ),
-    Field(
-        "api_key_env",
-        "env_name",
-        "NAME of the environment variable holding this source's key. Absent "
-        "means the source needs no credential, which is the normal case for "
-        "a local backend.",
-        bind_hint=(
-            "set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never "
-            "the key itself"
-        ),
-    ),
-    Field(
-        "engine",
-        "enum",
-        "Which server program runs behind this URL, for `mcgyvr emit` to "
-        "write a launch spec for. `api` cannot answer this: it is a wire "
-        "protocol, and vLLM and llama-server both speak `openai` while "
-        "taking entirely different argv. Absent means llama.cpp, which is "
-        "what emit assumed unconditionally before this field existed. It "
-        "belongs on the source rather than the rung because a URL points at "
-        "one process and one process runs one engine.",
-        choices=("llama.cpp", "vllm"),
-        bind_hint="leave it out unless the backend is not llama-server",
-    ),
-    Field(
-        "image",
-        "str",
-        "Container image `mcgyvr emit` writes for this source's process, as a "
-        "tag or a digest. Absent means the engine's own default, and that is a "
-        "floating tag: srv1's numbers are only valid against a stated build "
-        "(okf/must-read/touching-rigs.md), so a source that must run one "
-        "image says which here.",
-        bind_hint="e.g. vllm/vllm-openai@sha256:<hex>, or llamacpp:b10644-L3",
-    ),
-)
-
-MODEL_FIELDS: tuple[Field, ...] = (
-    Field(
-        "geometry_json",
-        "str",
-        "Path to this model's GGUF geometry: the `geometry.json` a serving-door "
-        "run leaves in its envelope, or the output of `python -m "
-        "mcgyvr.serving.ggufscan <gguf>` (a list; the row scanned from "
-        "`<model>.gguf` is the one read). Once set it is the source of truth "
-        "for the model's bytes — `disk_gb` is read from its `size_bytes`, and "
-        "the card figure, the slot count and `--n-cpu-moe` are derived from "
-        "its tensor table and cache geometry by the law in "
-        "`mcgyvr.serving.vramfit`. A stated `disk_gb` that disagrees with it "
-        "is refused, and so is a geometry scanned from a file this model does "
-        "not serve: each deviation from a scan requires a new scan. Required "
-        "for an MoE; a dense model without it is sized from `vram_gb` alone, "
-        "one slot wide. A relative path is read against the config file's own "
-        "directory, with the route to that file resolved, so an entry reached "
-        "through a symlink still names the scan filed beside it; a config with "
-        "no location on disk cannot read one beside itself and is refused.",
-        bind_hint=(
-            "on a machine holding the file, `python -m mcgyvr.serving.ggufscan "
-            "<gguf> > <model>.geometry.json`, and name that file here"
-        ),
-    ),
-    Field(
-        "vram_gb",
-        "float",
-        "Working set on the card with nothing offloaded, in GiB, for a dense "
-        "model that has no `geometry_json`. Not the weight on disk: a working "
-        "set carries buffers. Not read when `geometry_json` is set — the card "
-        "figure is then derived from the header.",
-        min_value=0.0,
-        bind_hint=(
-            "set it to what the server reports resident on the card with "
-            "-ngl 99 and no offload, converted to GiB"
-        ),
-    ),
-    Field(
-        "disk_gb",
-        "float",
-        "Weight on disk, in GiB, for a model that has no `geometry_json`. "
-        "Note the unit — a file listed as 13.2 GB by a tool using decimal "
-        "gigabytes is 12.3 GiB here. Leave it out when `geometry_json` is set: "
-        "it is then read from the scan's `size_bytes`, and a stated value that "
-        "differs from that by more than rounding to two decimals is refused.",
-        min_value=0.0,
-        bind_hint="set it to `ls -l` on the weights file divided by 1024^3",
-    ),
-    Field(
-        "ram_gb",
-        "float",
-        "A floor on what system memory may be asked to hold, in GiB. Absent "
-        "means the offload arithmetic decides it alone; state it only to "
-        "claim a demand this module cannot see.",
-        default=0.0,
-        min_value=0.0,
-    ),
-    Field(
-        "moe",
-        "bool",
-        "Whether this model has expert weights that `--n-cpu-moe` can move "
-        "off the card. Not inferable from the other numbers: it is the "
-        "difference between `does not fit` and `fits differently here`.",
-        default=False,
-    ),
-    Field(
-        "hf_cache",
-        "str",
-        "The HuggingFace cache on the rig that holds this model's weights, as "
-        "an absolute path there. Required for a model served by vLLM, which "
-        "loads a repository id from that cache rather than a file from the "
-        "weights directory; `mcgyvr emit` mounts it read-only and starts the "
-        "server offline, so nothing is downloaded on a rig at load. Not read "
-        "for a llama.cpp model.",
-        bind_hint="e.g. /home/<user>/.cache/huggingface, as the rig sees it",
-    ),
-    Field(
-        "serve_args",
-        "str_list",
-        "Arguments appended verbatim to the server's command line after the "
-        "ones mcgyvr derives, for what no scan can know: `--gpu-memory-"
-        "utilization` for vLLM (measured per rig, #337, never inherited), or "
-        "`--chat-template-kwargs` to turn a thinking model's reasoning off. "
-        "One flag or value per entry; an entry containing whitespace is "
-        "refused at emit, because the compose file and the pasted command "
-        "cannot spell it the same way.",
-        default=(),
-    ),
-    Field(
-        "kv_cache_dtype_k",
-        "str",
-        "The K KV-cache dtype this model launches with — vLLM's single "
-        "`--kv-cache-dtype` (K and V are one value) vs llama.cpp's "
-        "`-ctk`/`-ctv` (independent). The value is validated by the engine's "
-        "own gate; a model served by vLLM or llama.cpp that omits it is "
-        "refused at `unit_for`.",
-        bind_hint="e.g. f16 (llama.cpp -ctk) or auto/fp8 (vLLM --kv-cache-dtype)",
-    ),
-    Field(
-        "kv_cache_dtype_v",
-        "str",
-        "The V KV-cache dtype this model launches with — vLLM's single "
-        "`--kv-cache-dtype` (K and V are one value) vs llama.cpp's "
-        "`-ctk`/`-ctv` (independent). The value is validated by the engine's "
-        "own gate; a model served by vLLM or llama.cpp that omits it is "
-        "refused at `unit_for`.",
-        bind_hint="e.g. f16 (llama.cpp -ctv); not read by vLLM, which takes one value",
-    ),
-)
-
-TIER_FIELDS: tuple[Field, ...] = (
-    Field(
-        "name",
-        "str",
-        "How this rung is referred to elsewhere — risk floors, routing "
-        "policy, telemetry. Conventionally `<locality>_<model>`, e.g. "
-        "`local_qwen2.5-coder-7b`, which says what the rung is rather than "
-        "where it sits: a positional name silently changes meaning when a "
-        "rung is inserted above it. There is no role in the name because a "
-        "binding's role is already given by where it sits — this is the "
-        "ladder, so it is a worker.",
-        required=True,
-    ),
-    Field(
-        "source",
-        "str",
-        "Which declared source executes this rung. Resolution happens at the "
-        "execution seam only — nothing above it knows where work ran.",
-        required=True,
-    ),
-    Field("model", "str", "Model identifier as the source names it.", required=True),
-    Field(
-        "max_parallel",
-        "int",
-        "How many requests this rung may run at once, overriding its source's "
-        "`max_parallel`. Concurrency is a property of the serving process "
-        "rather than of the machine: the same weights on two rigs are two "
-        "processes started with two different slot counts, so one number on "
-        "the source cannot describe both. Unset means the source's number "
-        "stands, which is what it has always meant.",
-        min_value=1,
-        bind_hint=(
-            "set it to the slot count the rung's backend was started with "
-            "(e.g. 8), and leave it out to inherit the source's"
-        ),
-    ),
-    Field(
-        "output_tokens",
-        "int",
-        "How much room a reply on this rung is given — the `max_tokens` its "
-        "backend is actually sent. Not a second `limits.max_output_tokens`, "
-        "and deliberately not spelled like one: a contract's cap says what "
-        "this unit of work is worth, and this says what this backend needs to "
-        "finish a reply of that worth. The two are different questions about "
-        "different things, so where a rung states one it is sent and the "
-        "contract's is not — the fallback where a rung states none, which is "
-        "what `dispatch_prompt` has always sent. Measured over 358 journalled "
-        "attempts under one contract cap of 1024: the 3B rung's replies had a "
-        "p95 of 716 and the 7B rung's 465, neither within 300 tokens of the "
-        "cap, while the 35B rung's p50 was 850 and 32 of its 82 replies were "
-        "cut at 1024 — `reply[incomplete-reply]`, refused rather than applied "
-        "(`src/mcgyvr/worker/reply.py`), so the dearest rung in the ladder was "
-        "spent and produced nothing. Taking the *lower* of the two numbers, "
-        "which is what `attempts` above does, re-creates exactly that: the "
-        "contract's cap is the smaller one on every rung that needed more. "
-        "Taking the *higher* would forbid the other direction, and a rung "
-        "needs it — a rung that answers at 17 tok/s reaches 2048 tokens only "
-        "just inside the default `budgets.request_timeout_s` of 120, so this "
-        "number, the rung's `max_parallel` (which lowers per-stream rate) and "
-        "that timeout decide each other, and raising one alone buys a socket "
-        "timeout instead of a reply. What bounds a rung's number is the rung "
-        "itself: a room that does not fit its source's `context_window` "
-        "alongside the prompt is refused by name in "
-        "`mcgyvr.gate.preflight.check_contract_against_rung`, never truncated "
-        "silently. It does not excuse a contract from declaring "
-        "`limits.max_output_tokens`: `mcgyvr contract` and `mcgyvr run` still "
-        "refuse a model contract that leaves it out, because a ladder can be "
-        "re-pointed at rungs that declare nothing and the work still has to "
-        "say what it is willing to spend.",
-        min_value=1,
-        bind_hint=(
-            "set it to the reply length this rung's own journalled attempts "
-            "show it needs (e.g. 2048), and leave it out to send the "
-            "contract's cap"
-        ),
-    ),
-    Field(
-        "attempts",
-        "int",
-        "How many times this rung may be tried before escalation moves on. "
-        "The default of 1 is escalate-rather-than-retry: a second attempt "
-        "re-runs the same model on the same input, and the figure inherited "
-        "from local-ai and not re-verified here (#152) — worker-tier "
-        "remediation rescued 2 of 35 failures — says that is usually spend "
-        "without a result. Raising it is most "
-        "defensible on the dearest rung, which has nowhere to escalate to. A "
-        "contract's `limits.attempts` caps this per task; the lower of the "
-        "two applies.",
-        default=1,
-        min_value=1,
-    ),
-)
-
-LADDER_FIELDS: tuple[Field, ...] = (
-    Field(
-        "tiers",
-        "block_list",
-        "The rungs, cheapest first. A higher rung must be measurably better "
-        "than the one below or it is not a rung — binding a faster-but-weaker "
-        "model above a slower-but-stronger one inverts the ladder and makes "
-        "escalation actively harmful.",
-        required=True,
-        block=TIER_FIELDS,
-    ),
-    Field(
-        "fanout",
-        "enum",
-        "Whether a batch of contracts spreads across rungs or queues on one. "
-        "`none` is today's behaviour: the cheapest rung at or above the "
-        "contract's floor, queued behind whoever is already there. `full` "
-        "starts each climb on the cheapest rung that has a free slot, so a "
-        "batch fills every rig that can serve it instead of stacking on one — "
-        "and it never leaves the contract's floor family, so it cannot spend. "
-        "`idle` uses that same rule and then lifts the one limit: the floor is "
-        "the only bound and nothing bounds it above, so when every rung of "
-        "every cheaper family is full it enters a priced api family rather "
-        "than wait. That is the difference between the two, and it is a spend "
-        "decision the knob makes deliberately. Neither mode reorders the "
-        "ladder: load decides which rung a climb starts on and never what it "
-        "may spend, so a rung passed over for being full is still walked, and "
-        "a rung that can run now is never passed over for a dearer one with "
-        "more room. It is a knob rather than a behaviour because the right "
-        "answer is a property of the machines: two interchangeable rigs "
-        "should share a batch, but a throughput rig feeding an intelligence "
-        "rig must not — the second is sized to drain the first's failure "
-        "tail, and fanning volume onto it eats exactly the capacity that "
-        "drain needs.",
-        default="none",
-        choices=("none", "idle", "full"),
-    ),
-)
-
-ROLE_FIELDS: tuple[Field, ...] = (
-    Field(
-        "source",
-        "str",
-        "Which declared source serves this role. Unset until something needs the role.",
-        bind_hint="name one of the sources declared under `sources`",
-    ),
-    Field(
-        "model",
-        "str",
-        "Model identifier as that source names it.",
-        bind_hint="name a model the bound source can serve",
-    ),
-)
-
-VERIFIER_FIELDS: tuple[Field, ...] = (
-    Field(
-        "enabled",
-        "bool",
-        "Model verification of the applied diff, on top of the gate. Off by "
-        "default because the deterministic gate is the acceptance bar and a "
-        "keyless install is a supported configuration, not a degraded one.",
-        default=False,
-    ),
-    *ROLE_FIELDS,
-)
 
 SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
@@ -1042,108 +701,6 @@ SCHEMA: tuple[Field, ...] = (
     ),
 )
 
-LEGACY_SCHEMA: tuple[Field, ...] = (
-    Field(
-        "profile",
-        "enum",
-        "Which setup this file is: `live`, the ladder that serves for real, or "
-        "`dev`, a setup under development. The default is `live`, because the "
-        "safe value is the one you get when you say nothing: "
-        "`~/.mcgyvr/config/mcgyvr.yaml` is the unnamed fallback and is the "
-        "live setup, and a dev setup is a file you name in `MCGYVR_CONFIG` "
-        "(or a `mcgyvr.yaml` beside the work), so forgetting the variable "
-        "lands on the live setup and never the other way round. Live outranks "
-        "dev on the rigs: a run under a `dev` profile does not start or stop "
-        "the live ladder, refuses a rig another run holds, and yields the rig "
-        "to a live run that takes it.",
-        choices=("live", "dev"),
-        default="live",
-    ),
-    Field(
-        "sources",
-        "block_map",
-        "Where model work is executed, keyed by a name you choose. A source "
-        "is an endpoint with a capacity and a wire protocol — nothing above "
-        "the execution seam knows which host or backend served a request.",
-        required=True,
-        block=SOURCE_FIELDS,
-    ),
-    Field(
-        "models",
-        "block_map",
-        "Serving specs for models the shipped capability table does not "
-        "carry, or whose numbers you want to override, keyed by the model "
-        "identifier a rung names. mcgyvr sizes from what it can measure; this "
-        "is where an operator states what it cannot. A declaration here wins "
-        "over the table and is not second-guessed — a wrong one produces a "
-        "launch spec that fails on the rig, which is the operator's to make.",
-        block=MODEL_FIELDS,
-    ),
-    Field(
-        "ladder",
-        "block",
-        "The rungs work climbs, and what each is bound to.",
-        required=True,
-        block=LADDER_FIELDS,
-    ),
-    Field(
-        "orchestrator",
-        "block",
-        "The role that turns a prompt plus a repository into contracts. Only "
-        "used in delegated mode; direct mode authors contracts itself.",
-        block=ROLE_FIELDS,
-    ),
-    Field(
-        "verifier",
-        "block",
-        "The role that reads an applied diff in fresh context.",
-        block=VERIFIER_FIELDS,
-    ),
-    Field("sandbox", "block", "Where a task's commands run.", block=SANDBOX_FIELDS),
-    Field(
-        "delivery",
-        "block",
-        "How accepted work gets back to you.",
-        block=DELIVERY_FIELDS,
-    ),
-    Field(
-        "budgets",
-        "block",
-        "The ceilings that bound one task's cost.",
-        block=BUDGET_FIELDS,
-    ),
-    Field(
-        "breadth",
-        "block",
-        "How many answers one attempt asks for. Separate from `budgets` "
-        "because breadth is not a ceiling: it is what a single attempt spends, "
-        "and every budget in this file still counts that attempt once.",
-        block=BREADTH_FIELDS,
-    ),
-    Field(
-        "cleanup",
-        "block",
-        "What may be fixed without asking a model.",
-        block=CLEANUP_FIELDS,
-    ),
-    Field(
-        "serving",
-        "block",
-        "What mcgyvr may do to the machines that serve the ladder, and where "
-        "it keeps the launch specs that say how. Nothing here names a card or "
-        "a host: a rung's card is derived below the execution seam from the "
-        "URL its source states, which is what keeps a rung re-pointable by a "
-        "config edit.",
-        block=SERVING_FIELDS,
-    ),
-    Field(
-        "journal",
-        "block",
-        "Where mcgyvr keeps its own record of what it dispatched.",
-        block=JOURNAL_FIELDS,
-    ),
-)
-
 
 # Keys that would hold a credential as a value. They are unknown keys and
 # would be rejected anyway, but the generic "unknown key" message is the
@@ -1184,30 +741,46 @@ _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 @dataclass(frozen=True)
-class Source:
-    """One endpoint work can be dispatched to."""
+class Unit:
+    """One process at one address, and every fact about what it is.
+
+    A unit is the one term. It carries its own endpoint (``address``), the
+    model it serves, the width it was started with, the window it serves, the
+    reply room it needs, its timeout, its card room, and its whole resolved
+    ``launch`` as a free-form mapping (ID-2). Nothing here is a hand-kept list
+    of launch flags: ``launch`` is whatever the operator wrote, and the engine
+    gate is what validates it.
+    """
 
     name: str
-    base_url: str
-    api: str
-    max_parallel: int
-    api_key_env: str | None
+    address: str
+    model: str
     engine: str | None = None
     image: str | None = None
-    #: Tokens this source serves in one request, or ``None`` when nobody said.
-    #: ``None`` is an answer rather than a gap: every budget in mcgyvr was
-    #: spent against a number the *contract* declared, so a contract was
-    #: measured against the window it was written for and never against the
-    #: window it reached. Declaring this is what lets the gate ask the second
-    #: question; leaving it out enforces nothing, which is the honest
-    #: behaviour for a machine nobody has read back.
-    #:
-    #: It is also what `mcgyvr emit` sizes this source's unit at — ``-c`` times
-    #: the slots on llama.cpp, ``--max-model-len`` on vLLM — so a fleet serving
-    #: two windows is emitted at both and checked in one command. Where this is
-    #: declared, `--ctx-per-slot` is not needed and a *different* value on that
-    #: flag is refused rather than preferred.
-    context_window: int | None = None
+    api_key_env: str | None = None
+    rig: str | None = None
+    width: int | None = None
+    window: int | None = None
+    output_tokens: int | None = None
+    request_timeout_s: float | None = None
+    room_mib: int | None = None
+    kv_cache_memory_bytes: int | None = None
+    attention_backend: str | None = None
+    container: str | None = None
+    hf_cache: str | None = None
+    launch: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def base_url(self) -> str:
+        return self.address
+
+    @property
+    def max_parallel(self) -> int | None:
+        return self.width
+
+    @property
+    def context_window(self) -> int | None:
+        return self.window
 
     @property
     def requires_credential(self) -> bool:
@@ -1215,84 +788,46 @@ class Source:
 
 
 @dataclass(frozen=True)
-class Tier:
-    """One rung of the ladder, bound to a source and a model.
-
-    ``attempts`` is routing policy rather than a property of the binding: it is
-    how many times this rung is tried before escalation leaves it, and it lives
-    here because policy references a rung by name . It defaults to 1
-    so that the configured behaviour is to escalate rather than retry.
-
-    ``max_parallel`` is ``None`` rather than a number when the rung does not
-    state one, because "this rung was started with eight slots" and "nobody
-    said, so the source's number stands" are different facts and a rung that
-    defaulted to the source's value would be indistinguishable from a rung that
-    declared it. :meth:`mcgyvr.capacity.Capacity.limit` is where the fallback
-    happens, once, at the point the bound is actually built.
-
-    ``output_tokens`` is ``None`` on the same terms and for the same reason,
-    and its fallback is a contract's ``limits.max_output_tokens``. It is a
-    statement about the backend rather than about the work — what this model
-    needs to finish a reply, not what the work is worth — which is why it
-    replaces the contract's number rather than being bounded by it, and why it
-    travels below the seam on :class:`mcgyvr.pool.Endpoint` beside
-    ``context_window`` rather than above it on :class:`mcgyvr.pool.Rung`.
-    :func:`mcgyvr.gate.preflight.reply_cap` is where the fallback happens,
-    once.
-    """
-
-    name: str
-    source: str
-    model: str
-    max_parallel: int | None = None
-    attempts: int = 1
-    output_tokens: int | None = None
-
-
-@dataclass(frozen=True)
 class Ladder:
-    tiers: tuple[Tier, ...]
+    """The ordered unit names work climbs, and how a batch spreads."""
+
+    names: tuple[str, ...]
     fanout: str = "none"
 
-    def get(self, name: str) -> Tier | None:
-        return next((t for t in self.tiers if t.name == name), None)
+    def get(self, name: str) -> str | None:
+        return name if name in self.names else None
 
 
 @dataclass(frozen=True)
 class Config:
-    """A loaded, validated configuration.
+    """A loaded, validated setup: what runs where, and the policy over it.
 
-    ``data`` is the validated tree with defaults filled in and every
-    path-valued key resolved against the config's own location
-    (:func:`_resolved_paths`); ``sources`` and ``ladder`` are typed views over
-    the parts that are fully determined. Values that are legitimately optional
-    are reached through ``require`` and ``secret``, which fail at the point of
-    use rather than at load.
+    ``data`` is the validated tree with defaults filled in and path-valued
+    keys resolved against the config's own location (:func:`_resolved_paths`);
+    ``units`` and ``ladder`` are typed views over what runs where and in what
+    order. Values that are legitimately optional are reached through
+    ``require`` and ``secret``, which fail at the point of use rather than at
+    load.
 
     ``declared`` is the identity tree: ``data`` pruned to the settings the
     file actually stated, with every default the loader filled in left out.
-    It is what :meth:`canonical` renders, so a schema gaining an optional key
-    does not re-identify a config that never stated it, and a key spelled out
-    at its default value is not identity either — the default is what the
-    omission already meant.
+    It is what :meth:`canonical` renders.
 
-    ``path`` is where the caller found the file, kept for error messages. It
-    is not consulted after :func:`parse`: everything whose meaning depended on
-    it was settled there, so two callers holding one config cannot disagree
-    about what it says.
+    ``path`` is where the caller found the config directory, kept for error
+    messages. It is not consulted after :func:`parse`.
     """
 
     path: Path | None
     data: Mapping[str, Any]
-    sources: Mapping[str, Source]
+    units: Mapping[str, Unit]
     ladder: Ladder
     declared: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def is_local_only(self) -> bool:
-        """Whether every rung runs on a source needing no credential."""
+        """Whether every laddered unit runs on an endpoint needing no credential."""
         return not any(
-            self.sources[t.source].requires_credential for t in self.ladder.tiers
+            self.units[name].requires_credential for name in self.ladder.names
         )
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -1341,21 +876,9 @@ class Config:
         rendered over :attr:`declared` — the settings the file stated, with
         every default the loader filled in left out. Two files that load to
         the same config render to the same bytes, whatever their comments,
-        blank lines or key order, and whether a default is omitted or spelled
-        out: a defaulted key is not identity, so a schema that gains an
-        optional key does not re-identify the configs that never stated it.
-        What is NOT in it is where the file sat — ``path`` is a fact about
-        the caller, not the config — except through the one key whose meaning
-        depends on it: a relative ``geometry_json`` means the scan filed
-        beside the config, and :func:`_resolved_paths` has already written it
-        into ``data`` as the file it names, absolutely and with the route to
-        the config file resolved; a declared ``geometry_json`` keeps that
-        resolved path in ``declared``. Two copies of a config that name
-        different geometry files are two setups; two routes to one copy are
-        one setup; and a kept copy that pointed beside itself would re-select
-        a geometry that is not there. Loading this text back yields the same
-        config, and the same digest — unconditionally now, because a config
-        whose ``geometry_json`` could not be resolved never loaded.
+        blank lines or key order: a defaulted key is not identity. A relative
+        ``geometry_json`` has already been resolved into ``data`` and
+        ``declared``, so a kept copy names the file the original did.
         """
         return yaml.dump(
             _plain(self.declared),
@@ -1516,15 +1039,9 @@ def field_at(key: str) -> Field | None:
     """Find the schema field a dotted key addresses, if it names one.
 
     Segments that are a user-chosen map key or a list index are skipped —
-    ``units.local.api_key_env`` and ``ladder.0.model`` both resolve. The new
-    schema is searched first; the retired one is kept so an error message about
-    a legacy key still names its field.
+    ``units.local.api_key_env`` and ``ladder.0`` both resolve.
     """
-    parts = key.split(".")
-    found = _field_in(SCHEMA, parts)
-    if found is None:
-        found = _field_in(LEGACY_SCHEMA, parts)
-    return found
+    return _field_in(SCHEMA, key.split("."))
 
 
 def _field_in(fields: tuple[Field, ...], parts: list[str]) -> Field | None:
@@ -1809,51 +1326,6 @@ def _refuse_userinfo(name: str, base_url: str) -> None:
     )
 
 
-def _cross_validate(data: Mapping[str, Any]) -> None:
-    """Reject configs that satisfy the schema but contradict themselves."""
-    sources: Mapping[str, Any] = data["sources"]
-    if not sources:
-        raise ConfigSchemaError(
-            "sources: no source is declared. mcgyvr needs at least one "
-            "endpoint to dispatch work to."
-        )
-
-    for name, block in sources.items():
-        _refuse_userinfo(name, str(block["base_url"]))
-
-    seen: set[str] = set()
-    for index, tier in enumerate(data["ladder"]["tiers"]):
-        name = tier["name"]
-        if name in seen:
-            raise ConfigSchemaError(
-                f"ladder.tiers.{index}.name: {name!r} is used by more than one "
-                f"rung. Rung names are how tiers are referred to elsewhere, so "
-                f"they have to be unique."
-            )
-        seen.add(name)
-        if tier["source"] not in sources:
-            raise ConfigSchemaError(
-                f"ladder.tiers.{index}.source: {tier['source']!r} is not a "
-                f"declared source. Declared: {', '.join(sorted(sources))}"
-            )
-
-    for role in ("orchestrator", "verifier"):
-        bound = data[role]["source"]
-        if bound is not None and bound not in sources:
-            raise ConfigSchemaError(
-                f"{role}.source: {bound!r} is not a declared source. "
-                f"Declared: {', '.join(sorted(sources))}"
-            )
-
-    if data["verifier"]["enabled"] and data["verifier"]["source"] is None:
-        raise ConfigSchemaError(
-            "verifier.source: required key is not set. Verification is "
-            "enabled, so it needs a source to run on — bind one, or set "
-            "`verifier.enabled: false` to accept on the deterministic gate "
-            "alone."
-        )
-
-
 def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     """``data`` with every path-valued key made absolute against the config.
 
@@ -1909,7 +1381,7 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     was actually read from, rather than leaving the geometry relative for
     whatever comes later to interpret.
     """
-    beside = path.resolve().parent if path is not None else None
+    beside = path.resolve() if path is not None else None
 
     def resolve(owner: str, block: Mapping[str, Any]) -> Mapping[str, Any]:
         stated = block.get("geometry_json")
@@ -1931,14 +1403,6 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
         return {**block, "geometry_json": str(where)}
 
     out = dict(data)
-    models = data.get("models")
-    if isinstance(models, Mapping):
-        out["models"] = {
-            name: resolve(f"models.{name}", block)
-            if isinstance(block, Mapping)
-            else block
-            for name, block in models.items()
-        }
     units = data.get("units")
     if isinstance(units, Mapping):
         resolved_units: dict[str, Any] = {}
@@ -1970,25 +1434,24 @@ def named_config_path() -> Path | None:
 
 
 def user_config_path() -> Path:
-    """``~/.mcgyvr/config/mcgyvr.yaml``, expanded against the current HOME."""
-    return Path(USER_CONFIG_DIR).expanduser() / CONFIG_FILENAME
+    """``~/.mcgyvr/config``, expanded against the current HOME."""
+    return Path(USER_CONFIG_DIR).expanduser()
 
 
 def config_path() -> Path:
-    """Locate the config file: explicit override, then cwd, then the user dir.
+    """Locate the config directory: explicit override, then cwd, then HOME.
 
     The user dir is :data:`USER_CONFIG_DIR` and nothing else: the XDG config
     home was the third answer until 2026-09-05, and the owner asked for one
     directory of mcgyvr's own. A path that depends on an environment variable
     only some shells export is a config that is found from one terminal and
-    not another, which is the same file in two places as far as an operator
-    debugging it is concerned.
+    not another.
     """
     override = named_config_path()
     if override is not None:
         return override
-    local = Path.cwd() / CONFIG_FILENAME
-    if local.is_file():
+    local = Path.cwd()
+    if (local / FLEET_FILENAME).is_file():
         return local
     return user_config_path()
 
@@ -1996,101 +1459,104 @@ def config_path() -> Path:
 #: Words the fleet vocabulary retired. One term — "unit" — replaced several
 #: (``records/plans/fleet-identity.md`` §2). A config that names one is refused
 #: naming what replaced it, exactly as ``mcgyvr.fleet.files`` refuses them.
-_RETIRED_VOCABULARY: dict[str, str] = {
-    "sources": "name what serves under `units` in fleet.yaml — a unit is the one term",
-    "source": "a unit is the one term; a unit fact belongs in fleet.yaml",
-    "rung": "a unit is the one term",
-    "rungs": "a ladder names unit names, not rungs or tiers (policy.yaml)",
-    "tier": "a unit is the one term",
-    "tiers": "a ladder names unit names, not rungs or tiers (policy.yaml)",
-}
+def parse(
+    fleet_text: str,
+    policy_text: str = "",
+    path: Path | None = None,
+) -> Config:
+    """Validate a setup from the two documents that define it.
 
+    ``fleet_text`` is ``fleet.yaml`` — the units, rigs and fleets: what runs
+    where. ``policy_text`` is ``policy.yaml`` — the ladder (an ordered list of
+    unit names) and the routing policy over it. Both go through
+    :mod:`mcgyvr.fleet.files`, the one reader that knows the vocabulary and
+    refuses a key in the wrong file, so there is no second set of rules here.
 
-def _retired_vocabulary(raw: object, path: Path | None) -> None:
-    """Refuse a config that still names the retired source/rung/tier words.
-
-    The check is deliberately at the top of :func:`parse`, before the schema
-    runs, so a config that uses the old words is answered with what replaced
-    them rather than with a list of missing new keys. The same rule lives in
-    :mod:`mcgyvr.fleet.files` for the two files the vocabulary moved to.
+    A caller holding one merged document (an editor, a test) may pass it as
+    ``fleet_text`` alone: it is split into the two documents by key and each
+    half goes through the same reader. The loader itself reads two files.
     """
-    if not isinstance(raw, Mapping):
-        return
-    where = f"{path}: " if path is not None else "config: "
-    if "version" in raw:
-        raise ConfigSchemaError(
-            f"{where}`version` is retired — a config no longer carries a "
-            f"version key. Delete it; the setup is now `fleet.yaml` (units) "
-            f"plus `policy.yaml` (the ladder)."
-        )
-    for key in raw:
-        hint = _RETIRED_VOCABULARY.get(str(key))
-        if hint is not None:
-            raise ConfigSchemaError(
-                f"{where}`{key}` is retired — {hint}. The setup is now "
-                f"`fleet.yaml` (units) plus `policy.yaml` (the ladder)."
-            )
-    ladder = raw.get("ladder")
-    if isinstance(ladder, Mapping):
-        for key in ladder:
-            hint = _RETIRED_VOCABULARY.get(str(key))
-            if hint is not None:
-                raise ConfigSchemaError(
-                    f"{where}`ladder.{key}` is retired — {hint}. The setup is "
-                    f"now `policy.yaml` (the ladder) plus `fleet.yaml` (units)."
-                )
-    units = raw.get("units")
-    if isinstance(units, Mapping):
-        for name, unit in units.items():
-            if not isinstance(unit, Mapping):
-                continue
-            for key in unit:
-                hint = _RETIRED_VOCABULARY.get(str(key))
-                if hint is not None:
-                    raise ConfigSchemaError(
-                        f"{where}`units.{name}.{key}` is retired — {hint}."
-                    )
-
-
-def _load_yaml(text: str, path: Path | None) -> object:
-    """Parse YAML text with the strict loader, naming the file on failure."""
+    if not policy_text:
+        fleet_text, policy_text = _split_setup(fleet_text)
     try:
-        return yaml.load(text, Loader=strict_loader(ConfigSchemaError))
-    except yaml.YAMLError as exc:
-        where = f"{path}: " if path else ""
-        raise ConfigFileError(f"{where}not valid YAML: {exc}") from exc
+        fleet = load_fleet(fleet_text)
+        policy = load_policy(policy_text) if policy_text.strip() else {}
+    except FleetFileError as exc:
+        raise ConfigSchemaError(str(exc)) from exc
+    return _build(fleet, policy, path)
 
 
-def parse(text: str, path: Path | None = None) -> Config:
-    """Validate a config from YAML text.
+#: The keys that belong in ``fleet.yaml``. Everything else in a merged
+#: document is policy.
+_FLEET_ONLY = frozenset({"profile", "units", "rigs", "fleets"})
 
-    The reader is the fleet vocabulary: a config that still names a retired
-    word is refused naming ``fleet.yaml``/``policy.yaml``, and a config that
-    states ``units``/``ladder`` is built from it.
+
+def _split_setup(text: str) -> tuple[str, str]:
+    """One merged document as ``(fleet.yaml, policy.yaml)`` texts.
+
+    A document with no ``units`` is handed through whole: it is not a merged
+    setup, and the fleet reader is the one that should refuse whatever it is.
     """
-    raw = _load_yaml(text, path)
-    _retired_vocabulary(raw, path)
-    return _build_fleet(raw, path)
-
-
-def _build_fleet(raw: object, path: Path | None) -> Config:
-    """Validate a fleet-vocabulary document and build its :class:`Config`."""
-    if raw is None:
-        raise ConfigSchemaError(
-            f"{path or 'config'}: is empty. Run `mcgyvr init` to generate one."
-        )
-    validated = _block(raw, SCHEMA, "")
-    _cross_validate_fleet(validated)
-    validated = _resolved_paths(validated, path)
-    legacy_raw = _fleet_to_legacy_raw(validated)
-    return _build_config(
-        legacy_raw,
-        path,
-        schema=LEGACY_SCHEMA,
-        declared_data=validated,
-        declared_raw=raw,
-        declared_schema=SCHEMA,
+    try:
+        raw = yaml.load(text, Loader=strict_loader(ConfigSchemaError))
+    except yaml.YAMLError:
+        return text, ""
+    if not isinstance(raw, dict) or "units" not in raw:
+        return text, ""
+    fleet = {key: value for key, value in raw.items() if key in _FLEET_ONLY}
+    policy = {key: value for key, value in raw.items() if key not in _FLEET_ONLY}
+    return (
+        yaml.safe_dump(fleet, sort_keys=False),
+        yaml.safe_dump(policy, sort_keys=False) if policy else "",
     )
+
+
+def _build(
+    fleet: Mapping[str, Any],
+    policy: Mapping[str, Any],
+    path: Path | None,
+) -> Config:
+    """The :class:`Config` for a loaded ``fleet.yaml`` and ``policy.yaml``.
+
+    ``rigs`` and ``fleets`` are the lock's, not the run's, and are dropped
+    here rather than carried in the run's tree. Everything else is validated
+    once, with the schema filling defaults, and then read into ``units`` and
+    ``ladder``.
+    """
+    merged: dict[str, Any] = {
+        key: value
+        for key, value in {**fleet, **policy}.items()
+        if key not in ("rigs", "fleets")
+    }
+    data = _block(merged, SCHEMA, "")
+    _cross_validate_fleet(data)
+    data = _resolved_paths(data, path)
+    declared = _declared(data, merged, SCHEMA)
+
+    units = {
+        name: Unit(
+            name=name,
+            address=block["address"],
+            model=block["model"],
+            engine=block["engine"],
+            image=block["image"],
+            api_key_env=block["api_key_env"],
+            rig=block["rig"],
+            width=block["width"],
+            window=block["window"],
+            output_tokens=block["output_tokens"],
+            request_timeout_s=block["request_timeout_s"],
+            room_mib=block["room_mib"],
+            kv_cache_memory_bytes=block["kv_cache_memory_bytes"],
+            attention_backend=block["attention_backend"],
+            container=block["container"],
+            hf_cache=block["hf_cache"],
+            launch=block["launch"],
+        )
+        for name, block in data["units"].items()
+    }
+    ladder = Ladder(names=tuple(data["ladder"]), fanout=data["fanout"])
+    return Config(path=path, data=data, units=units, ladder=ladder, declared=declared)
 
 
 def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
@@ -2148,186 +1614,6 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
         )
 
 
-def _build_config(
-    raw: object,
-    path: Path | None,
-    *,
-    schema: tuple[Field, ...] = LEGACY_SCHEMA,
-    declared_data: Mapping[str, Any] | None = None,
-    declared_raw: object = None,
-    declared_schema: tuple[Field, ...] | None = None,
-) -> Config:
-    """The validated :class:`Config` for an already-parsed document."""
-    if raw is None:
-        raise ConfigSchemaError(
-            f"{path or 'config'}: is empty. Run `mcgyvr init` to generate one."
-        )
-
-    stated_version = raw.get("version") if isinstance(raw, dict) else None
-    if stated_version is not None:
-        raise ConfigSchemaError(
-            "version: is retired — a config no longer carries a version key. "
-            "Delete it; the setup is now `fleet.yaml` (units) plus "
-            "`policy.yaml` (the ladder)."
-        )
-
-    data = _block(raw, schema, "")
-    _cross_validate(data)
-    data = _resolved_paths(data, path)
-    if declared_data is not None:
-        declared = _declared(declared_data, declared_raw, declared_schema or schema)
-    else:
-        declared = _declared(data, raw, schema)
-
-    sources = {
-        name: Source(
-            name=name,
-            base_url=block["base_url"],
-            api=block["api"],
-            max_parallel=block["max_parallel"],
-            api_key_env=block["api_key_env"],
-            engine=block["engine"],
-            image=block["image"],
-            context_window=block["context_window"],
-        )
-        for name, block in data["sources"].items()
-    }
-    ladder = Ladder(
-        tiers=tuple(
-            Tier(
-                name=t["name"],
-                source=t["source"],
-                model=t["model"],
-                max_parallel=t["max_parallel"],
-                attempts=t["attempts"],
-                output_tokens=t["output_tokens"],
-            )
-            for t in data["ladder"]["tiers"]
-        ),
-        fanout=data["ladder"]["fanout"],
-    )
-    return Config(
-        path=path, data=data, sources=sources, ladder=ladder, declared=declared
-    )
-
-
-def _fleet_to_legacy_raw(validated: Mapping[str, Any]) -> dict[str, Any]:
-    """Translate a validated fleet document into the pre-fleet raw tree.
-
-    The run path below the schema reads the old tree, so it is derived here
-    once: a unit becomes one source and one tier, its ``launch`` and ``room``
-    become the model block, and the top-level policy settings move under
-    ``budgets`` where the old reader kept them. The authored document is the
-    only source; this tree exists so a consumer not yet repointed keeps
-    reading what the units say.
-    """
-    units: Mapping[str, Any] = validated["units"]
-    attempts = validated.get("attempts") or {}
-    order = list(validated["ladder"])
-    # A source is one address. Units that name the same rig and answer at the
-    # same address are one source, which is how the old tree described one
-    # process shared by several models; a rig whose units answer at more than
-    # one address, or a unit with no rig, gets its own source per unit. Every
-    # unit gets one, on the ladder or not, because a role may name an off-ladder
-    # unit.
-    by_rig: dict[str, list[str]] = {}
-    for name in units:
-        key = str(units[name].get("rig") or name)
-        by_rig.setdefault(key, []).append(name)
-    source_key: dict[str, str] = {}
-    for key, names in by_rig.items():
-        if len({units[n]["address"] for n in names}) == 1:
-            source_key.update({n: key for n in names})
-        else:
-            source_key.update({n: n for n in names})
-
-    sources: dict[str, Any] = {}
-    tiers: list[dict[str, Any]] = []
-    models: dict[str, Any] = {}
-    request_timeout: Any = None
-    for name in units:
-        key = source_key[name]
-        if key in sources:
-            continue
-        unit = units[name]
-        source: dict[str, Any] = {
-            "base_url": unit["address"],
-            "api": "openai",
-            "max_parallel": unit.get("width") or 1,
-        }
-        for old, new in (
-            ("context_window", "window"),
-            ("engine", "engine"),
-            ("image", "image"),
-            ("api_key_env", "api_key_env"),
-        ):
-            if unit.get(new) is not None:
-                source[old] = unit[new]
-        sources[key] = source
-
-    for name in order:
-        unit = units[name]
-        key = source_key[name]
-        tier: dict[str, Any] = {"name": name, "source": key, "model": unit["model"]}
-        for old, new in (
-            ("max_parallel", "width"),
-            ("output_tokens", "output_tokens"),
-        ):
-            if unit.get(new) is not None:
-                tier[old] = unit[new]
-        if name in attempts:
-            tier["attempts"] = attempts[name]
-        tiers.append(tier)
-
-        launch = dict(unit.get("launch") or {})
-        if unit.get("hf_cache") is not None:
-            launch["hf_cache"] = unit["hf_cache"]
-        if unit.get("room_mib") is not None and "vram_gb" not in launch:
-            launch["vram_gb"] = unit["room_mib"] / 1024
-        if unit.get("kv_cache_memory_bytes") is not None:
-            launch["kv_cache_memory_bytes"] = unit["kv_cache_memory_bytes"]
-        if launch:
-            models[unit["model"]] = launch
-        if unit.get("request_timeout_s") is not None:
-            request_timeout = unit["request_timeout_s"]
-
-    legacy: dict[str, Any] = {
-        "profile": validated["profile"],
-        "sources": sources,
-        "ladder": {"tiers": tiers, "fanout": validated["fanout"]},
-    }
-    if models:
-        legacy["models"] = models
-    for block in ("sandbox", "delivery", "breadth", "cleanup", "serving", "journal"):
-        if validated.get(block) is not None:
-            legacy[block] = validated[block]
-    orchestrator = validated.get("orchestrator") or {}
-    legacy["orchestrator"] = {
-        "source": source_key.get(str(orchestrator.get("unit"))),
-        "model": orchestrator.get("model"),
-    }
-    verifier = validated.get("verifier") or {}
-    legacy["verifier"] = {
-        "enabled": verifier.get("enabled", False),
-        "source": source_key.get(str(verifier.get("unit"))),
-        "model": verifier.get("model"),
-    }
-    budgets: dict[str, Any] = {}
-    for key in (
-        "max_escalations",
-        "max_attempts",
-        "task_timeout_s",
-        "max_window_fraction",
-    ):
-        if validated.get(key) is not None:
-            budgets[key] = validated[key]
-    if request_timeout is not None:
-        budgets["request_timeout_s"] = request_timeout
-    if budgets:
-        legacy["budgets"] = budgets
-    return legacy
-
-
 def _absent_remedy(path: Path | None) -> str:
     """What to do about a config that is not there, given who chose the path.
 
@@ -2359,39 +1645,53 @@ def _absent_remedy(path: Path | None) -> str:
 
 
 def load(path: Path | None = None) -> Config:
-    """Load and validate the config file.
+    """Load and validate the setup at ``path``, or the located one.
 
-    ``path`` is one the caller was pointed at on purpose — a ``--config`` flag,
-    say. ``None`` means nobody named one, and this locates the file rather than
-    the caller: that is not a convenience, it is the only way the remedy for a
-    file that is not there can be right. Which of ``$MCGYVR_CONFIG``, a flag,
-    or nothing at all put this path here is a fact about the *caller*, and a
-    caller that resolves the path itself has thrown it away before this
-    function can be asked. It was a ``named`` keyword the caller passed
-    alongside a resolved path, and four of the five commands that load a config
-    never passed it — so each shipped "set ``$MCGYVR_CONFIG``" to operators
-    whose ``$MCGYVR_CONFIG`` was the reason they were reading the message.
+    A setup is a directory holding ``fleet.yaml`` and ``policy.yaml``:
+    ``path`` names that directory, and ``None`` locates it (the environment
+    override, then the working directory, then the user config dir). A policy
+    file is optional — a fleet with one unit and no policy is the smallest
+    working install — but a fleet file is not.
     """
     chosen = path
-    if path is None:
-        path = config_path()
+    where = path if path is not None else config_path()
+    if where.is_file():
+        # A single merged document, written by an editor or a test. A setup is
+        # a directory, but this is the same content in one file and the two
+        # readers below still see their own halves.
+        try:
+            text = where.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise ConfigFileError(
+                f"cannot read {where}: it is not UTF-8 text ({exc})"
+            ) from exc
+        except OSError as exc:
+            raise ConfigFileError(f"cannot read {where}: {exc}") from exc
+        try:
+            return parse(text, path=where.resolve().parent)
+        except ConfigError as exc:
+            raise ConfigSchemaError(f"{where}: {exc}") from exc
+    fleet_path = where / FLEET_FILENAME
+    policy_path = where / POLICY_FILENAME
     try:
-        text = path.read_text(encoding="utf-8")
+        fleet_text = fleet_path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ConfigMissingError(
-            f"no config at {path}. {_absent_remedy(chosen)}"
+            f"no fleet.yaml at {fleet_path}. {_absent_remedy(chosen)}"
         ) from exc
     except UnicodeDecodeError as exc:
-        # Caught by name, not by family. It is a `ValueError`, so neither
-        # `except` below it saw it and it left `load` as a traceback — from a
-        # file that is present and unusable, which is the case every caller
-        # here already knows how to say something about. A `ConfigFileError`
-        # is what "there is a file and this run cannot use it" means.
         raise ConfigFileError(
-            f"cannot read {path}: it is not UTF-8 text ({exc})"
+            f"cannot read {fleet_path}: it is not UTF-8 text ({exc})"
         ) from exc
     except OSError as exc:
-        raise ConfigFileError(f"cannot read {path}: {exc}") from exc
-    raw = _load_yaml(text, path)
-    _retired_vocabulary(raw, path)
-    return _build_fleet(raw, path)
+        raise ConfigFileError(f"cannot read {fleet_path}: {exc}") from exc
+    try:
+        policy_text = policy_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        policy_text = ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigFileError(f"cannot read {policy_path}: {exc}") from exc
+    try:
+        return parse(fleet_text, policy_text, path=where)
+    except ConfigError as exc:
+        raise ConfigSchemaError(f"{where}: {exc}") from exc

@@ -130,8 +130,8 @@ def test_a_wake_has_no_budget_of_its_own() -> None:
         "budgets.wake_timeout_s is still a schema key: the wake limit now comes "
         "from the lock's validated wake plus its tolerance, not a hand-set budget"
     )
-    assert config.get("budgets.request_timeout_s") == 30.0
-    assert config.get("budgets.task_timeout_s") == 60
+    assert config.units["local_qwen2.5-coder-3b"].request_timeout_s == 30.0
+    assert config.get("task_timeout_s") == 60
 
 
 def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:

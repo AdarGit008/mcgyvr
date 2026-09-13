@@ -80,7 +80,7 @@ def test_a_run_that_raised_before_dispatching_still_says_it_asked_for_two(
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + TWO_DRAWS, encoding="utf-8")
+    lj.append_policy(config, TWO_DRAWS)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1
@@ -134,7 +134,7 @@ def test_a_judged_attempt_says_the_same_number_twice(
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + TWO_DRAWS, encoding="utf-8")
+    lj.append_policy(config, TWO_DRAWS)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1

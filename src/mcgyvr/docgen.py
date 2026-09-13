@@ -60,7 +60,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import contract as contract_schema
-from .config import CONFIG_FILENAME, SCHEMA, Field
+from .config import FLEET_FILENAME, POLICY_FILENAME, SCHEMA, Field
 
 # Matches CTX-08's marker pattern. It is an HTML comment so it renders as
 # nothing, but survives in the source a would-be editor is looking at.
@@ -249,7 +249,7 @@ def render_reference() -> str:
         "",
         "# Configuration reference",
         "",
-        f"Every key `{CONFIG_FILENAME}` accepts.",
+        f"Every key `{FLEET_FILENAME}` and `{POLICY_FILENAME}` accept.",
         "",
         "This page is generated from `SCHEMA` in `src/mcgyvr/config.py` — the same",
         "declaration the loader validates against. It is not a description of the",
@@ -310,7 +310,8 @@ def render_setup() -> str:
         "# Setting up mcgyvr",
         "",
         "First run, once per machine. Nothing here is read to author a contract;",
-        f"this is how `{CONFIG_FILENAME}` comes to exist and what it can say.",
+        f"this is how `{FLEET_FILENAME}` and `{POLICY_FILENAME}` come to exist "
+        f"and what they can say.",
         "",
         "```",
         "mcgyvr init",
@@ -748,7 +749,7 @@ def _keys(fields: Sequence[Field], prefix: str = "") -> list[str]:
 
 
 #: A section heading in the rendered reference: a level, and the dotted key it
-#: documents. `## `sources`` opens the block `sources`; `### `ladder.tiers``
+#: documents. `## `units`` opens the block `units`; `### `ladder``
 #: opens the block inside it. The two headings with no key — the document title
 #: and `## Value types` — do not match, which is correct: they document nothing
 #: the loader validates.

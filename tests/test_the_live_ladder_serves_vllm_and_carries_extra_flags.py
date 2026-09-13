@@ -254,8 +254,7 @@ def test_a_source_image_is_the_service_image() -> None:
     config = parse(LIVE)
     units = units_for(config, {"srv2": rig("srv2")}, specs=(), ctx_per_slot=WINDOW)
     for unit in units:
-        tier = next(t for t in config.ladder.tiers if t.name == unit.rungs[0])
-        assert unit.image == config.sources[tier.source].image
+        assert unit.image == config.units[unit.rungs[0]].image
         assert unit.image is not None and "@sha256:" in unit.image
         assert service_of(render_compose(unit))["image"] == unit.image
 

@@ -21,7 +21,7 @@ nothing checks it, and that it leaves stored evidence whose name is a false
 statement about its contents.
 
 The evidence, read out of the live journal on 2026-09-08 after
-``ladder.tiers.*.output_tokens`` merged:
+``units.*.output_tokens`` merged:
 
 * ``~/.mcgyvr/config/mcgyvr.yaml`` went ``cfg-a049…`` to ``cfg-6a01…`` with no
   edit to the file;

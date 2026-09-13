@@ -123,7 +123,7 @@ def test_a_flag_that_contradicts_a_declaration_is_refused_by_name() -> None:
             ctx_per_slot=4096,
         )
     why = str(raised.value)
-    assert "srv1_llamacpp" in why, why
+    assert "local_big" in why, why
     assert "8192" in why and "4096" in why, why
 
 

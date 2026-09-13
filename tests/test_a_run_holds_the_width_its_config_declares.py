@@ -90,7 +90,7 @@ def test_a_dispatch_is_made_under_the_capacity_the_config_declares(
         "the run dispatched with capacity=None: the ceiling `mcgyvr pool` "
         "prints was never applied to the request"
     )
-    assert capacity.limits["workstation"] == 1
+    assert capacity.limits["local_qwen-7b"] == 1
 
 
 def test_two_runs_against_a_one_wide_source_do_not_dispatch_at_once(

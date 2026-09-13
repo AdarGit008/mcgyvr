@@ -480,9 +480,9 @@ class Ceiling:
 
     @classmethod
     def of(cls, config: Config) -> Ceiling:
-        raw = config.get("budgets.max_attempts")
+        raw = config.get("max_attempts")
         return cls(
-            escalations=int(config.get("budgets.max_escalations", 1)),
+            escalations=int(config.get("max_escalations", 1)),
             attempts=None if raw is None else int(raw),
         )
 
@@ -878,9 +878,7 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
         return {}
     limits = capacity.limits
     return {
-        tier.name: capacity.limit(tier.source, tier.name)
-        for tier in config.ladder.tiers
-        if tier.source in limits
+        name: capacity.limit(name) for name in config.ladder.names if name in limits
     }
 
 
@@ -1382,7 +1380,7 @@ def _halt_detail(
         )
     if outcome is Outcome.ATTEMPT_CEILING:
         source = (
-            "budgets.max_attempts"
+            "max_attempts"
             if route.ceiling.attempts is not None
             else "the ladder's own budget"
         )
@@ -1392,7 +1390,7 @@ def _halt_detail(
         )
     if outcome is Outcome.ESCALATION_CEILING:
         return (
-            f"the task stopped at budgets.max_escalations "
+            f"the task stopped at max_escalations "
             f"({route.ceiling.escalations}), having spent {attempts_spent} "
             f"attempt(s) on {route.most_rungs} rung(s) of {climbed}."
         )
@@ -1447,7 +1445,7 @@ def disposition(outcome: Outcome) -> Disposition:
                 reassignable=True,
                 detail=(
                     "escalation_ceiling: the climb stopped at "
-                    "budgets.max_escalations with rungs of the ascent never "
+                    "max_escalations with rungs of the ascent never "
                     "entered, so nothing here says the ladder cannot do the "
                     "work — only that it was not allowed to try. Raise the "
                     "ceiling, or hand the contract to someone who can pay for "

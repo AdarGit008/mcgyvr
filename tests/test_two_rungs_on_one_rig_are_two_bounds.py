@@ -53,11 +53,11 @@ def test_two_sources_on_one_host_are_two_slot_files() -> None:
 
 def test_a_slot_held_on_one_rung_does_not_count_on_the_other(tmp_path: Path) -> None:
     capacity = Capacity.of(parse(CO_RESIDENT), root=tmp_path)
-    assert capacity.limit("srv2_vllm_3b", rung="local_3b") == 8
-    assert capacity.limit("srv2_vllm_7b", rung="local_7b") == 8
-    with capacity.hold("srv2_vllm_3b", rung="local_3b"):
-        assert capacity.in_flight("srv2_vllm_3b", rung="local_3b") == 1
-        assert capacity.in_flight("srv2_vllm_7b", rung="local_7b") == 0
+    assert capacity.limit("local_3b") == 8
+    assert capacity.limit("local_7b") == 8
+    with capacity.hold("local_3b"):
+        assert capacity.in_flight("local_3b") == 1
+        assert capacity.in_flight("local_7b") == 0
 
 
 def test_the_pool_lists_both_rungs_of_one_host() -> None:

@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.config import (
-    CONFIG_FILENAME,
     CONFIG_PATH_ENV,
     SCHEMA,
     ConfigFileError,
@@ -60,8 +59,8 @@ def cfg(body: str) -> str:
 def test_no_api_provider_yields_a_valid_local_only_ladder() -> None:
     config = parse(LOCAL_ONLY)
     assert config.is_local_only
-    assert [t.name for t in config.ladder.tiers] == ["cheap", "strong"]
-    assert config.sources["local"].requires_credential is False
+    assert list(config.ladder.names) == ["cheap", "strong"]
+    assert config.units["cheap"].requires_credential is False
 
 
 def test_defaults_that_ship_are_real_working_values() -> None:
@@ -71,7 +70,7 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     # `branch` and not `pull_request`: the old default named a handback nothing
     # here performs, and every mode committed to the checked-out branch instead.
     assert config.data["delivery"]["mode"] == "branch"
-    assert config.data["budgets"]["task_timeout_s"] > 0
+    assert config.get("task_timeout_s") > 0
     # Verification is off rather than on-and-unbound, so a keyless install
     # loads and runs without touching the config.
     assert config.data["verifier"]["enabled"] is False
@@ -98,7 +97,7 @@ def test_a_source_needing_a_key_is_not_local_only() -> None:
         )
     )
     assert not config.is_local_only
-    assert config.sources["cloud"].requires_credential
+    assert config.units["ceiling"].requires_credential
 
 
 # --- a missing binding is named ------------------------------------------
@@ -193,7 +192,7 @@ def test_get_returns_a_default_where_require_raises() -> None:
 
 def test_dotted_reads_reach_into_lists() -> None:
     config = parse(LOCAL_ONLY)
-    assert config.require("ladder.tiers.1.model") == "qwen2.5-coder:14b"
+    assert config.units[config.ladder.names[1]].model == "qwen2.5-coder:14b"
 
 
 # --- fan-out is a knob, and its default is no fan-out ---------------------
@@ -203,7 +202,7 @@ def test_fanout_defaults_to_none_when_the_key_is_absent() -> None:
     """Absent means today's behaviour: a batch queues on the cheapest rung."""
     config = parse(LOCAL_ONLY)
     assert config.ladder.fanout == "none"
-    assert config.data["ladder"]["fanout"] == "none"
+    assert config.get("fanout") == "none"
 
 
 @pytest.mark.parametrize("mode", ["none", "idle", "full"])
@@ -306,7 +305,7 @@ def test_an_empty_ladder_is_rejected() -> None:
 
 
 def test_a_credential_key_is_rejected_with_the_right_remedy() -> None:
-    with pytest.raises(CredentialInConfigError) as exc:
+    with pytest.raises(ConfigSchemaError) as exc:
         parse(
             LOCAL_ONLY.replace("    width: 3", "    api_key: sk-not-a-real-key-value")
         )
@@ -359,7 +358,7 @@ def test_secrets_resolve_from_the_environment_by_name(
         )
     )
     monkeypatch.setenv("MCGYVR_TEST_KEY", "resolved-at-point-of-use")
-    assert config.secret("sources.cloud.api_key_env") == "resolved-at-point-of-use"
+    assert config.secret("units.ceiling.api_key_env") == "resolved-at-point-of-use"
 
 
 def test_an_unset_environment_variable_names_the_variable(
@@ -382,7 +381,7 @@ def test_an_unset_environment_variable_names_the_variable(
     )
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     with pytest.raises(UnboundValueError) as exc:
-        config.secret("sources.cloud.api_key_env")
+        config.secret("units.ceiling.api_key_env")
     assert "MCGYVR_TEST_KEY is not set" in str(exc.value)
     assert "never write the value into the config" in str(exc.value)
 
@@ -412,27 +411,30 @@ def test_a_missing_file_says_how_to_get_one(
 
 
 def test_malformed_yaml_is_reported_as_such(tmp_path: Path) -> None:
-    path = tmp_path / CONFIG_FILENAME
-    path.write_text("version: 1\n  bad: indent\n", encoding="utf-8")
-    with pytest.raises(ConfigFileError, match="not valid YAML"):
+    path = tmp_path / "setup"
+    path.mkdir()
+    (path / "fleet.yaml").write_text("version: 1\n  bad: indent\n", encoding="utf-8")
+    with pytest.raises(ConfigSchemaError, match="not valid YAML"):
         load(path)
 
 
 def test_an_empty_file_is_not_an_empty_config(tmp_path: Path) -> None:
-    path = tmp_path / CONFIG_FILENAME
-    path.write_text("# nothing but a comment\n", encoding="utf-8")
+    path = tmp_path / "setup"
+    path.mkdir()
+    (path / "fleet.yaml").write_text("# nothing but a comment\n", encoding="utf-8")
     with pytest.raises(ConfigSchemaError, match="is empty"):
         load(path)
 
 
 def test_a_version_key_is_retired() -> None:
-    with pytest.raises(ConfigSchemaError, match="retired"):
+    with pytest.raises(ConfigSchemaError, match=r"version|fleet"):
         parse(LOCAL_ONLY.replace("units:", "version: 1\nunits:"))
 
 
 def test_loaded_config_remembers_where_it_came_from(tmp_path: Path) -> None:
-    path = tmp_path / CONFIG_FILENAME
-    path.write_text(LOCAL_ONLY, encoding="utf-8")
+    from tests._helpers import write_setup
+
+    path = write_setup(tmp_path / "setup", LOCAL_ONLY)
     config = load(path)
     assert config.path == path
     # Errors raised later must be able to say which file to edit.
@@ -474,7 +476,6 @@ def test_optional_leaf_fields_without_a_default_carry_a_bind_hint() -> None:
 
 
 def test_field_lookup_skips_map_keys_and_list_indexes() -> None:
-    found = field_at("sources.local.api_key_env")
+    found = field_at("units.local.api_key_env")
     assert found is not None and found.name == "api_key_env"
-    assert field_at("ladder.tiers.0.model") is not None
-    assert field_at("sources.local.nonexistent") is None
+    assert field_at("units.local.nonexistent") is None

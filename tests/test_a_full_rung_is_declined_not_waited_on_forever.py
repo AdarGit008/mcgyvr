@@ -87,7 +87,7 @@ def test_a_rung_whose_only_slot_is_taken_is_declined_within_the_task_ceiling(
     took = threading.Event()
 
     def occupy() -> None:
-        with holder.hold("workstation"):
+        with holder.hold("local_qwen-7b"):
             took.set()
             released.wait(timeout=30)
 

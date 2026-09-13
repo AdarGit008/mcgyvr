@@ -458,7 +458,7 @@ def test_the_attempt_ceiling_stops_the_task_and_names_itself(key: None) -> None:
 
     assert result.outcome is Outcome.ATTEMPT_CEILING
     assert result.attempts_spent == 2
-    assert "budgets.max_attempts" in result.detail
+    assert "max_attempts" in result.detail
     assert "api_big" not in attempts.rungs
 
 
@@ -996,7 +996,7 @@ def test_idle_crosses_into_a_priced_family_when_every_cheaper_rung_is_full(
 
         assert route.next_free_rung == "api_big"
         spent = {u.source: u.acquisitions for u in capacity.usage()}
-        assert spent["vendor"] == 0, "naming a rung buys nothing"
+        assert spent["api_big"] == 0, "naming a rung buys nothing"
 
 
 def test_idle_never_names_a_rung_below_the_floor_however_free_it_is(
@@ -1082,7 +1082,7 @@ def test_idle_passes_over_a_rung_another_climb_has_reserved_but_not_yet_taken(
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
 
-    with capacity.reserving("workstation", "local_qwen-7b"):
+    with capacity.reserving("local_qwen-7b"):
         route = ascent(config, pool, contract(), capacity=capacity)
 
         assert route.next_free_rung == "local_qwen-14b"
@@ -1100,7 +1100,7 @@ def test_a_rung_whose_load_cannot_be_read_stops_the_walk_rather_than_being_skipp
     the strength of not knowing.
     """
     config, pool = mapped(narrow("idle"))
-    capacity = Capacity({"workstation": 1})
+    capacity = Capacity({"local_qwen-7b": 1})
 
     with holding(capacity, pool, "local_qwen-7b"):
         route = ascent(config, pool, contract(), capacity=capacity)
@@ -1207,8 +1207,8 @@ def test_a_raised_entry_gives_every_reservation_back_when_the_climb_is_done(
         )
 
     assert result.rung == "api_big", "the raised entry the leak would come from"
-    assert capacity.load("vendor") == 0, "the priced source is idle again"
-    assert capacity.load("workstation") == capacity.load("spare") == 0
+    assert capacity.load("api_big") == 0, "the priced source is idle again"
+    assert capacity.load("local_qwen-7b") == capacity.load("local_qwen-14b") == 0
 
 
 def test_a_raised_entry_is_not_charged_to_the_escalation_budget(
@@ -1285,7 +1285,7 @@ def test_idle_still_runs_on_the_cheapest_rung_when_the_ladder_is_idle(
     assert result.entered == (LOCAL,)
     assert result.escalations == 0
     spent = {u.source: u.acquisitions for u in capacity.usage()}
-    assert spent["vendor"] == 0, "the priced rung was never dispatched to"
+    assert spent["api_big"] == 0, "the priced rung was never dispatched to"
 
 
 def test_the_default_queues_locally_and_never_reaches_the_api_family(
@@ -1458,7 +1458,7 @@ def test_only_one_member_of_a_batch_raises_its_entry_into_one_free_api_slot(
     )
     queued = [o.value for o in outcomes if o.value != "api_big"]
     assert set(queued) == {"local_qwen-7b"}, "the rest waited out the local queue"
-    assert capacity.load("vendor") == 0, "the priced source is idle again"
+    assert capacity.load("api_big") == 0, "the priced source is idle again"
 
 
 # Two priced rungs, so the climb after a raised entry is a walk rather than a
@@ -1525,7 +1525,7 @@ def test_a_raised_entry_gives_its_reservation_back_when_the_climb_fails(
 
     assert attempts.seen == ["api_big"], "the raised entry the leak would come from"
     assert result.outcome is Outcome.LADDER_SPENT
-    assert capacity.load("vendor") == 0, "the priced source is idle again"
+    assert capacity.load("api_big") == 0, "the priced source is idle again"
 
 
 def test_a_raised_entry_gives_its_reservation_back_when_the_attempt_raises(
@@ -1551,8 +1551,8 @@ def test_a_raised_entry_gives_its_reservation_back_when_the_attempt_raises(
         result = halted(escalate(config, pool, contract(), explode, capacity=capacity))
 
     assert result.outcome is Outcome.ERROR
-    assert capacity.load("vendor") == 0, "an exception is not a reason to keep it"
-    assert capacity.load("workstation") == capacity.load("spare") == 0
+    assert capacity.load("api_big") == 0, "an exception is not a reason to keep it"
+    assert capacity.load("local_qwen-7b") == capacity.load("local_qwen-14b") == 0
 
 
 def test_an_entry_rung_the_rebuilt_ascent_does_not_offer_is_released_here(
@@ -1592,7 +1592,7 @@ def test_an_entry_rung_the_rebuilt_ascent_does_not_offer_is_released_here(
         )
 
     assert result.rung == "api_big", "the entry was still raised"
-    assert capacity.load("vendor") == 0, "and the reservation still came back"
+    assert capacity.load("api_big") == 0, "and the reservation still came back"
 
 
 def test_a_reservation_taken_before_a_rebuild_that_raises_is_still_given_back(
@@ -1627,7 +1627,7 @@ def test_a_reservation_taken_before_a_rebuild_that_raises_is_still_given_back(
     ):
         escalate(config, pool, contract(), Recorder(), capacity=capacity)
 
-    assert capacity.load("vendor") == 0, "nothing was handed down, so nothing was kept"
+    assert capacity.load("api_big") == 0, "nothing was handed down, so nothing was kept"
 
 
 def test_an_entry_that_raises_nothing_reserves_nothing(key: None, locks: None) -> None:
@@ -1648,8 +1648,8 @@ def test_an_entry_that_raises_nothing_reserves_nothing(key: None, locks: None) -
     result = delivered(escalate(config, pool, contract(), attempts, capacity=capacity))
 
     assert result.rung == "local_qwen-7b", "the floor family, entered as it was"
-    assert capacity.load("workstation") == 0, "nothing was reserved and left behind"
-    assert capacity.load("vendor") == 0
+    assert capacity.load("local_qwen-7b") == 0, "nothing was reserved and left behind"
+    assert capacity.load("api_big") == 0
 
 
 def test_full_fanout_reserves_no_entry_rung_and_still_cannot_reach_a_priced_one(
@@ -1673,7 +1673,7 @@ def test_full_fanout_reserves_no_entry_rung_and_still_cannot_reach_a_priced_one(
     attempts = Recorder(Verdict.PASSED)
 
     with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
-        inside = capacity.load("vendor")
+        inside = capacity.load("api_big")
         result = delivered(
             escalate(config, pool, contract(), attempts, capacity=capacity)
         )
@@ -1681,9 +1681,9 @@ def test_full_fanout_reserves_no_entry_rung_and_still_cannot_reach_a_priced_one(
     assert attempts.rungs == ["local_qwen-7b"], "the cheapest rung, queued on"
     assert result.entered == (LOCAL,)
     assert inside == 0, "nothing was reserved on the priced source"
-    assert capacity.load("vendor") == 0
+    assert capacity.load("api_big") == 0
     spent = {u.source: u.acquisitions for u in capacity.usage()}
-    assert spent["vendor"] == 0, "and nothing was dispatched to it"
+    assert spent["api_big"] == 0, "and nothing was dispatched to it"
 
 
 def test_a_claimed_entry_rung_leaves_the_escalation_arithmetic_where_it_was(
@@ -1723,7 +1723,7 @@ def test_a_claimed_entry_rung_leaves_the_escalation_arithmetic_where_it_was(
     assert raised.outcome is by_hand.outcome
     assert raised.attempts_spent == by_hand.attempts_spent == 2
     assert raised.escalations == by_hand.escalations == 1
-    assert capacity.load("vendor") == 0
+    assert capacity.load("api_big") == 0
 
 
 # --- the decision is readable without running anything ---------------------
@@ -1746,7 +1746,7 @@ def test_the_pool_command_prints_the_ceilings_that_bound_a_task(
     assert "1 escalation(s)" in out
     assert "2 of these 3 rung(s)" in out
     assert "2 attempt(s)" in out
-    assert "budgets.max_attempts" in out
+    assert "max_attempts" in out
 
 
 def test_the_pool_command_says_where_an_unset_ceiling_comes_from(

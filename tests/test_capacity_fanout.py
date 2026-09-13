@@ -315,11 +315,11 @@ def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> Non
     config pinned at 1 in front of it leaves all of that unused.
     """
     config, _ = mapped()
-    reported = {"srv1": 4, "srv2": 4, "vendor": 4}
+    reported = {"local_srv1": 4, "local_srv2": 4, "api_big": 4}
 
     capacity = Capacity.of(config, probe=_ReportingProbe(reported))
 
-    assert capacity.limits["srv1"] == 4, "the config declared 2; the rig said 4"
+    assert capacity.limits["local_srv1"] == 4, "the config declared 2; the rig said 4"
     assert capacity.total == 12
 
 
@@ -337,12 +337,14 @@ def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_s
     """
     config, _ = mapped()
 
-    probe = _ReportingProbe({"srv1": None, "srv2": None})
+    probe = _ReportingProbe({"local_srv1": None, "local_srv2": None})
     capacity = Capacity.of(config, probe=probe)
 
-    assert capacity.limits["srv1"] == 2, "the declaration stands when nothing answers"
-    assert capacity.confirmed("srv1") is False
-    assert capacity.confirmed("vendor") is False
+    assert capacity.limits["local_srv1"] == 2, (
+        "the declaration stands when nothing answers"
+    )
+    assert capacity.confirmed("local_srv1") is False
+    assert capacity.confirmed("api_big") is False
 
 
 def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced() -> (
@@ -359,7 +361,7 @@ def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced(
     config, _ = mapped()
 
     with pytest.raises(Exception, match=r"srv1.*declares 2.*reports 1"):
-        Capacity.of(config, probe=_ReportingProbe({"srv1": 1}))
+        Capacity.of(config, probe=_ReportingProbe({"local_srv1": 1}))
 
 
 class _ReportingProbe:
@@ -407,8 +409,8 @@ def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
     landed = [o.value for o in outcomes]
-    assert set(landed) == {"srv1"}, "the default takes the cheapest rung, always"
-    assert observer.peak == {"srv1": 2}, "srv2 was never recruited"
+    assert set(landed) == {"local_srv1"}, "the default takes the cheapest rung, always"
+    assert observer.peak == {"local_srv1": 2}, "srv2 was never recruited"
     assert observer.peak_total == 2
 
 
@@ -439,7 +441,7 @@ def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
     outcomes = run_batch(jobs, capacity)
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
-    assert observer.peak == {"srv1": 2, "srv2": 2}
+    assert observer.peak == {"local_srv1": 2, "local_srv2": 2}
     assert observer.peak_total == 4
     assert observer.peak_total > max(observer.peak.values()), "together, not in series"
 

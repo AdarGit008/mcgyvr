@@ -161,4 +161,4 @@ def test_the_model_check_adds_no_second_request() -> None:
 
     source_map(parse(LADDER), probe=Availability(probe=probe))
 
-    assert sorted(asked) == ["srv1_big", "srv1_lite"], asked
+    assert sorted(asked) == ["local_big", "local_lite"], asked

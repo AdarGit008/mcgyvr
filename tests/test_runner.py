@@ -636,7 +636,7 @@ def test_dispatch_takes_the_model_from_the_rung_and_the_protocol_from_its_source
     cheap = dispatch(ladder, "cheap", ASK)
     assert cheap.model == "qwen2.5-coder:7b"
     assert cheap.protocol is Protocol.OPENAI
-    assert cheap.source == "local"
+    assert cheap.source == "cheap"
     assert sent.url.endswith("/v1/chat/completions")
 
     sent = stub_post(monkeypatch, openai_answer())
@@ -732,14 +732,12 @@ def test_dispatch_holds_its_sources_slot_for_the_length_of_the_request(
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     ladder = build_source_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
-    seen = held_during_post(
-        monkeypatch, capacity, "local", openai_answer(), rung="cheap"
-    )
+    seen = held_during_post(monkeypatch, capacity, "cheap", openai_answer())
 
     dispatch(ladder, "cheap", ASK, capacity=capacity)
 
     assert seen == [1], "the slot must be held while the backend is answering"
-    assert capacity.in_flight("local", "cheap") == 0, "and given back when it has"
+    assert capacity.in_flight("cheap") == 0, "and given back when it has"
     assert any(u.acquisitions == 1 for u in capacity.usage())
 
 
@@ -750,12 +748,12 @@ def test_a_role_is_bounded_by_the_same_capacity_as_a_rung(
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     ladder = build_source_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
-    seen = held_during_post(monkeypatch, capacity, "fast", openai_answer())
+    seen = held_during_post(monkeypatch, capacity, "strong", openai_answer())
 
     dispatch_role(ladder, "verifier", ASK, capacity=capacity)
 
     assert seen == [1]
-    assert sum(u.acquisitions for u in capacity.usage() if u.source == "fast") == 1
+    assert sum(u.acquisitions for u in capacity.usage() if u.source == "strong") == 1
 
 
 def test_escalating_to_another_source_has_already_released_the_first(
@@ -783,8 +781,8 @@ def test_escalating_to_another_source_has_already_released_the_first(
     ) -> dict[str, Any]:
         seen.append(
             (
-                capacity.in_flight("local", "cheap"),
-                capacity.in_flight("fast", "strong"),
+                capacity.in_flight("cheap"),
+                capacity.in_flight("strong"),
             )
         )
         return openai_answer()
@@ -795,8 +793,8 @@ def test_escalating_to_another_source_has_already_released_the_first(
     dispatch(ladder, "strong", ASK, capacity=capacity)
 
     assert seen == [(1, 0), (0, 1)], "each dispatch holds its own source and only it"
-    usage = {u.source: u.acquisitions for u in capacity.usage() if u.rung is not None}
-    assert usage["local"] == usage["fast"] == 1, "one slot each, not one per task"
+    usage = {u.source: u.acquisitions for u in capacity.usage()}
+    assert usage["cheap"] == usage["strong"] == 1, "one slot each, not one per task"
 
 
 def test_dispatch_without_a_capacity_is_unbounded_and_says_nothing(

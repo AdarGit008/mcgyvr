@@ -31,7 +31,7 @@ from mcgyvr.catalog import (
     load,
 )
 from mcgyvr.cli import main
-from mcgyvr.config import Config, Ladder, Source, Tier
+from mcgyvr.config import Config, Ladder, Unit
 from mcgyvr.contract import ContractSchemaError, loads, task_type
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src" / "mcgyvr"
@@ -43,13 +43,13 @@ def shipped() -> Catalog:
 
 
 def _config(*tiers: tuple[str, bool]) -> Config:
-    """A config whose ladder holds one rung per (name, requires_credential)."""
-    sources = {
-        name: Source(
-            name=name,
-            base_url="http://localhost:1",
-            api="openai",
-            max_parallel=1,
+    """A config whose ladder holds one unit per (name, requires_credential)."""
+    units = {
+        f"{name}_m": Unit(
+            name=f"{name}_m",
+            address="http://localhost:1",
+            model="m",
+            width=1,
             api_key_env="SOME_KEY" if keyed else None,
         )
         for name, keyed in tiers
@@ -57,10 +57,8 @@ def _config(*tiers: tuple[str, bool]) -> Config:
     return Config(
         path=None,
         data={},
-        sources=sources,
-        ladder=Ladder(
-            tiers=tuple(Tier(name=f"{n}_m", source=n, model="m") for n, _ in tiers)
-        ),
+        units=units,
+        ladder=Ladder(names=tuple(f"{name}_m" for name, _ in tiers)),
     )
 
 

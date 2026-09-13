@@ -70,7 +70,7 @@ def test_the_two_draws_before_the_raise_still_learn_how_they_landed(
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + BREADTH, encoding="utf-8")
+    lj.append_policy(config, BREADTH)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1

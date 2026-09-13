@@ -36,16 +36,21 @@ IDENTITY = {
 
 SESSION_VARS = ("CLAUDE_CODE_SESSION_ID", "PI_SESSION_FILE", "CLAUDE_CONFIG_DIR")
 
-LADDER = """\
+LADDER_FLEET = """\
 units:
   local_qwen-7b:
     address: http://localhost:11434
     model: qwen2.5-coder:7b
     rig: workstation
     width: 2
+"""
+
+LADDER_POLICY = """\
 ladder:
 - local_qwen-7b
 """
+
+LADDER = LADDER_FLEET + LADDER_POLICY
 
 MODEL_CONTRACT = """
 id: impl
@@ -89,10 +94,13 @@ def make_repo(root: Path) -> Path:
 
 
 def make_config(path: Path, *, journal_dir: Path | None = None) -> Path:
-    text = LADDER
+    """Write the two files a setup is under ``path`` (a directory), return it."""
+    path.mkdir(parents=True, exist_ok=True)
+    policy = LADDER_POLICY
     if journal_dir is not None:
-        text += f"journal:\n  dir: {journal_dir}\n"
-    path.write_text(text, encoding="utf-8")
+        policy += f"journal:\n  dir: {journal_dir}\n"
+    (path / "fleet.yaml").write_text(LADDER_FLEET, encoding="utf-8")
+    (path / "policy.yaml").write_text(policy, encoding="utf-8")
     return path
 
 
@@ -250,3 +258,10 @@ def result_path(stdout: str) -> Path:
     lines = [line for line in stdout.splitlines() if line.startswith("result: ")]
     assert len(lines) == 1, stdout
     return Path(lines[0].removeprefix("result: ").strip())
+
+
+def append_policy(config: Path, text: str) -> Path:
+    """Append policy text to a setup's ``policy.yaml``."""
+    policy = config / "policy.yaml"
+    policy.write_text(policy.read_text(encoding="utf-8") + text, encoding="utf-8")
+    return config

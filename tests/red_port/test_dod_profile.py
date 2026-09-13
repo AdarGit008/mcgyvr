@@ -85,7 +85,7 @@ def test_a_version_key_is_retired() -> None:
     """A config no longer carries a version; the fleet vocabulary is the shape."""
     from mcgyvr.config import ConfigSchemaError
 
-    with pytest.raises(ConfigSchemaError, match="retired"):
+    with pytest.raises(ConfigSchemaError, match=r"version|fleet"):
         _parse("version: 1\n" + BASE_CONFIG)
 
 

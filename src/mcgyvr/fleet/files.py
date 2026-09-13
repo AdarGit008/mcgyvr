@@ -37,7 +37,8 @@ _UNIT_KEYS = frozenset(
         "unit_id",
         "address",
         "engine",
-        "container",
+        "image",
+        "api_key_env",
         "model",
         "width",
         "window",
@@ -46,6 +47,9 @@ _UNIT_KEYS = frozenset(
         "room_mib",
         "kv_cache_memory_bytes",
         "attention_backend",
+        "container",
+        "hf_cache",
+        "launch",
     }
 )
 
@@ -65,12 +69,14 @@ _POLICY_KEYS = frozenset(
         "verifier",
         "sandbox",
         "delivery",
+        "serving",
         "journal",
     }
 )
 
-#: The three blocks ``fleet.yaml`` holds.
-_FLEET_KEYS = frozenset({"units", "rigs", "fleets"})
+#: The blocks ``fleet.yaml`` holds. ``profile`` is a fleet fact: live outranks
+#: dev on the rigs, so it belongs to what runs where.
+_FLEET_KEYS = frozenset({"profile", "units", "rigs", "fleets"})
 
 #: What a fleet block holds: its layout as room slots, and the fleets it moves to.
 _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
@@ -261,6 +267,8 @@ def load_fleet(text: str) -> dict[str, Any]:
             _refuse_policy_setting(key, "fleet.yaml")
         elif key == "units":
             data[key] = _units(value)
+        elif key == "profile":
+            data[key] = value
         elif key == "fleets":
             data[key] = _fleets(value)
         elif key == "rigs":

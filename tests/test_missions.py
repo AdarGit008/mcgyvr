@@ -180,7 +180,7 @@ ladder:
 """,
         path=tmp_path / "mcgyvr.yaml",
     )
-    with pytest.raises(run.NoApiFallback, match="cloud"):
+    with pytest.raises(run.NoApiFallback, match="api_big"):
         run.require_local_only(with_api)
 
     assert run.record_dir(REPO, "abc123") == REPO / "records" / "missions" / "abc123"

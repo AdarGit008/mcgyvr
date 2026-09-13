@@ -82,20 +82,20 @@ def table():  # type: ignore[no-untyped-def]
 def test_clean_machine_no_key_no_docker_gets_a_working_local_config(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     result = initialize(path, detection=KEYLESS_RIG, table=table)
     assert result.created and result.written
 
     config = load_config(path)
     assert config.is_local_only, "no key must be needed to run"
-    assert config.ladder.tiers, "a real local task needs at least one rung"
+    assert config.ladder.names, "a real local task needs at least one rung"
     assert config.data["sandbox"]["mode"] == "tempdir", "no Docker → the weaker mode"
 
 
 def test_the_generated_file_loads_without_edits(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
     """The whole point: init's output is the loader's input, unmodified."""
     for name, detection in (("small", SMALL_RIG), ("keyless", KEYLESS_RIG)):
-        path = tmp_path / f"{name}.yaml"
+        path = tmp_path / name
         initialize(path, detection=detection, table=table)
         config = load_config(path)
         assert config.get("profile") == "live"
@@ -111,7 +111,7 @@ def test_a_machine_with_no_backend_refuses_rather_than_writing(  # type: ignore[
     misconfiguration that surfaces later and further from its cause. So init
     writes nothing and says what to fix.
     """
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     with pytest.raises(InitError) as exc:
         initialize(path, detection=BARE, table=table)
 
@@ -143,7 +143,7 @@ def test_the_worked_example_in_the_refusal_actually_loads(  # type: ignore[no-un
         line[6:] for line in str(exc.value).splitlines() if line.startswith("      ")
     )
     config = parse_config(textwrap.dedent(block))
-    assert [t.name for t in config.ladder.tiers] == ["api_claude-opus-5"]
+    assert list(config.ladder.names) == ["api_claude-opus-5"]
     assert not config.is_local_only
 
 
@@ -168,56 +168,63 @@ def test_a_reachable_backend_with_nothing_bindable_also_refuses(  # type: ignore
 
 def test_a_refusal_never_touches_an_existing_config(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
     """Someone's working config must survive a re-run on a broken machine."""
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
-    before = path.read_text(encoding="utf-8")
+    before = (
+        (path / "fleet.yaml").read_text(encoding="utf-8"),
+        (path / "policy.yaml").read_text(encoding="utf-8"),
+    )
 
     with pytest.raises(InitError):
         initialize(path, detection=BARE, table=table, force=True)
-    assert path.read_text(encoding="utf-8") == before
+    assert (
+        (path / "fleet.yaml").read_text(encoding="utf-8"),
+        (path / "policy.yaml").read_text(encoding="utf-8"),
+    ) == before
 
 
 def test_the_small_rig_gets_the_moe_rung_written_into_the_file(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=SMALL_RIG, table=table)
     config = load_config(path)
-    models = [t.model for t in config.ladder.tiers]
+    models = [config.units[n].model for n in config.ladder.names]
     assert "qwen3-coder-30b-a3b" in models
-    moe = next(t for t in config.ladder.tiers if t.model == "qwen3-coder-30b-a3b")
-    assert moe.source == "llama-server", "bound to the backend it was measured on"
+    moe = next(u for u in config.units.values() if u.model == "qwen3-coder-30b-a3b")
+    assert moe.rig == "llama-server", "bound to the backend it was measured on"
 
 
 # --- naming convention ----------------------------------------------------
 
 
 def test_tiers_are_named_by_role_locality_and_model(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
     config = load_config(path)
-    for tier in config.ladder.tiers:
-        assert tier.name.startswith("local_")
-    assert "local_qwen2.5-coder-7b" in [t.name for t in config.ladder.tiers]
+    for name in config.ladder.names:
+        assert name.startswith("local_")
+    assert "local_qwen2.5-coder-7b" in list(config.ladder.names)
 
 
 # --- idempotence and not clobbering hand edits ---------------------------
 
 
 def test_rerunning_reports_a_delta_and_writes_nothing(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
-    edited = path.read_text(encoding="utf-8").replace("width: 1", "width: 4")
-    path.write_text(edited, encoding="utf-8")
+    fleet = path / "fleet.yaml"
+    edited = fleet.read_text(encoding="utf-8").replace("width: 1", "width: 4")
+    fleet.write_text(edited, encoding="utf-8")
 
     again = initialize(path, detection=KEYLESS_RIG, table=table)
     assert not again.written, "a hand edit must never be overwritten silently"
-    assert path.read_text(encoding="utf-8") == edited
-    assert any("max_parallel" in str(d) for d in again.deltas)
+    assert fleet.read_text(encoding="utf-8") == edited
+    assert any("width" in str(d) for d in again.deltas)
 
 
 def test_an_unchanged_config_reports_no_delta(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
     again = initialize(path, detection=KEYLESS_RIG, table=table)
     assert not again.written
@@ -225,16 +232,22 @@ def test_an_unchanged_config_reports_no_delta(tmp_path: Path, table) -> None:  #
 
 
 def test_force_overwrites_and_says_what_changed(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
-    path.write_text(
-        path.read_text(encoding="utf-8").replace("width: 1", "width: 4"),
+    fleet = path / "fleet.yaml"
+    fleet.write_text(
+        fleet.read_text(encoding="utf-8").replace("width: 1", "width: 4"),
         encoding="utf-8",
     )
     forced = initialize(path, detection=KEYLESS_RIG, table=table, force=True)
     assert forced.written and not forced.created
-    assert any("max_parallel" in str(d) for d in forced.deltas)
-    assert load_config(path).sources["llama-server"].max_parallel == 1
+    assert any("width" in str(d) for d in forced.deltas)
+    assert (
+        next(
+            u for u in load_config(path).units.values() if u.rig == "llama-server"
+        ).width
+        == 1
+    )
 
 
 def test_rendering_is_deterministic(table) -> None:  # type: ignore[no-untyped-def]
@@ -248,11 +261,14 @@ def test_rendering_is_deterministic(table) -> None:  # type: ignore[no-untyped-d
 
 def test_an_unreadable_config_is_not_silently_replaced(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
     """A corrupt file is still someone's file."""
-    path = tmp_path / "mcgyvr.yaml"
-    path.write_text("this: is: not: valid: yaml:\n  - [\n", encoding="utf-8")
+    path = tmp_path / "setup"
+    path.mkdir()
+    (path / "fleet.yaml").write_text(
+        "this: is: not: valid: yaml:\n  - [\n", encoding="utf-8"
+    )
     result = initialize(path, detection=KEYLESS_RIG, table=table)
     assert not result.written
-    assert path.read_text(encoding="utf-8").startswith("this:")
+    assert (path / "fleet.yaml").read_text(encoding="utf-8").startswith("this:")
     assert result.deltas, "it must say why it declined"
     assert "does not parse" in str(result.deltas[0])
 
@@ -263,7 +279,7 @@ def test_an_unreadable_config_is_not_silently_replaced(tmp_path: Path, table) ->
 def test_missing_pieces_are_reported_with_what_they_cost(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    result = initialize(tmp_path / "c.yaml", detection=KEYLESS_RIG, table=table)
+    result = initialize(tmp_path / "c", detection=KEYLESS_RIG, table=table)
     limits = " ".join(result.limits)
     assert "No API provider is configured" in limits
     assert "supported install" in limits
@@ -273,13 +289,13 @@ def test_missing_pieces_are_reported_with_what_they_cost(  # type: ignore[no-unt
 def test_docker_present_does_not_produce_a_docker_warning(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    result = initialize(tmp_path / "c.yaml", detection=SMALL_RIG, table=table)
+    result = initialize(tmp_path / "c", detection=SMALL_RIG, table=table)
     assert not any("weaker mode" in limit for limit in result.limits)
-    assert load_config(tmp_path / "c.yaml").data["sandbox"]["mode"] == "docker"
+    assert load_config(tmp_path / "c").data["sandbox"]["mode"] == "docker"
 
 
 def test_decisions_explain_each_binding(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
-    result = initialize(tmp_path / "c.yaml", detection=KEYLESS_RIG, table=table)
+    result = initialize(tmp_path / "c", detection=KEYLESS_RIG, table=table)
     decisions = " ".join(result.decisions)
     assert "NVIDIA GeForce RTX 3060" in decisions
     assert "HumanEval+" in decisions
@@ -292,9 +308,11 @@ def test_decisions_explain_each_binding(tmp_path: Path, table) -> None:  # type:
 
 def test_the_file_carries_comments_from_the_schema(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
     """Comments are rendered from the schema, so they cannot drift from it."""
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
-    text = path.read_text(encoding="utf-8")
+    text = (path / "fleet.yaml").read_text(encoding="utf-8") + (
+        path / "policy.yaml"
+    ).read_text(encoding="utf-8")
     assert "# Which setup this file is" in text
     assert "# Where this unit answers, including scheme and port." in text
     prose = " ".join(
@@ -309,9 +327,11 @@ def test_the_file_carries_comments_from_the_schema(tmp_path: Path, table) -> Non
 
 
 def test_no_credential_is_ever_written_as_a_value(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
-    text = path.read_text(encoding="utf-8")
+    text = (path / "fleet.yaml").read_text(encoding="utf-8") + (
+        path / "policy.yaml"
+    ).read_text(encoding="utf-8")
     assert "never written in this file" in text
     # The env-name keys ship commented, so nothing binds a secret by accident.
     assert "# api_key_env:" in text
@@ -319,9 +339,9 @@ def test_no_credential_is_ever_written_as_a_value(tmp_path: Path, table) -> None
 
 def test_values_that_need_quoting_get_it(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
     """A model id carries a colon; a URL carries a colon and slashes."""
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
-    text = path.read_text(encoding="utf-8")
+    text = (path / "fleet.yaml").read_text(encoding="utf-8")
     assert '"http://localhost:8080"' in text
     assert '"qwen2.5-coder:7b"' in text
 
@@ -366,13 +386,16 @@ def test_a_laptop_with_no_gpu_binds_the_rigs_it_can_reach(  # type: ignore[no-un
     Before #161 this took `_nothing_to_bind`: no GPU here meant no rung, even
     with two rigs answering.
     """
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     result = initialize(path, detection=REMOTE_ONLY, table=table)
 
     assert result.created and path.exists()
     config = load_config(path)
-    assert config.ladder.tiers, "a reachable rig is a bindable rig"
-    assert set(config.sources) == {"srv1_llama-server", "srv2_llama-server"}
+    assert config.ladder.names, "a reachable rig is a bindable rig"
+    assert {u.rig for u in config.units.values()} == {
+        "srv1_llama-server",
+        "srv2_llama-server",
+    }
     assert config.is_local_only, "no key is needed to reach your own machines"
 
 
@@ -434,7 +457,7 @@ def test_hosts_are_ignored_when_a_detection_is_supplied(  # type: ignore[no-unty
     result = initialize(
         tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table, hosts=("nope.invalid",)
     )
-    assert set(load_config(result.path).sources) == {
+    assert {u.rig for u in load_config(result.path).units.values()} == {
         "srv1_llama-server",
         "srv2_llama-server",
     }
@@ -447,10 +470,10 @@ def test_a_written_config_binds_ollama_on_the_uncaveated_protocol(  # type: igno
     tmp_path: Path, table
 ) -> None:
     """`detect` calls it Ollama; the config dispatches to it as OpenAI."""
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
     config = load_config(path)
-    assert config.sources["llama-server"].api == "openai"
+    assert next(iter(config.units.values())).engine is None
 
 
 def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore[no-untyped-def]
@@ -465,7 +488,7 @@ def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore
     from mcgyvr.pool import source_map
     from mcgyvr.runner import runner_for
 
-    path = tmp_path / "mcgyvr.yaml"
+    path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG, table=table)
     pool = source_map(load_config(path))
     assert pool.rungs, "this fixture is only interesting with rungs on it"
@@ -485,5 +508,5 @@ def test_detection_still_reads_the_native_model_listing(  # type: ignore[no-unty
     `/v1/models` on Ollama reports loaded models; `/api/tags` reports pulled
     ones. Proposing against the former would hide every model on disk.
     """
-    result = initialize(tmp_path / "c.yaml", detection=KEYLESS_RIG, table=table)
+    result = initialize(tmp_path / "c", detection=KEYLESS_RIG, table=table)
     assert any("already pulled" in d for d in result.decisions)

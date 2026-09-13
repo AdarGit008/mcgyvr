@@ -480,9 +480,7 @@ attempts:
     )
     pool = source_map(config)
     printed = sum(
-        tier.attempts
-        for tier in (config.ladder.get(rung.name) for rung in pool.rungs)
-        if tier is not None
+        int((config.get("attempts") or {}).get(rung.name, 1)) for rung in pool.rungs
     )
     enforced = ascent(config, pool, work_contract("src/pkg/fetch.py")).ladder_budget
 

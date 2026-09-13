@@ -948,7 +948,7 @@ def test_a_cooling_source_is_declined_without_a_dispatch(
     sent = _driven(monkeypatch, "```python\nVALUE = 1\n```")
     cooldown = _cooldown()
     for _ in range(3):
-        cooldown.record_failure("workstation")
+        cooldown.record_failure("local_qwen-7b")
 
     with TempDirSandbox(repo) as sandbox:
         attempt = worker_attempt(config, pool, contract, sandbox, cooldown=cooldown)
@@ -998,8 +998,8 @@ def test_a_dispatch_failure_feeds_the_cooldown(
 
     # One failure is a hiccup; three consecutive arm the removal.
     assert cooldown.unavailable([endpoint]) == {}
-    cooldown.record_failure("workstation")
-    cooldown.record_failure("workstation")
-    assert "workstation" in cooldown.unavailable([endpoint]), (
+    cooldown.record_failure("local_qwen-7b")
+    cooldown.record_failure("local_qwen-7b")
+    assert "local_qwen-7b" in cooldown.unavailable([endpoint]), (
         "three consecutive dispatch failures did not arm the cooldown"
     )

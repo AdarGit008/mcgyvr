@@ -235,7 +235,7 @@ def test_the_refusal_does_not_fire_on_an_ordinary_url() -> None:
             "https://api.example.invalid/v1/models@latest",
         )
     )
-    assert config.sources["hosted"].base_url.endswith("@latest")
+    assert config.units["api_large"].address.endswith("@latest")
 
 
 def test_no_runner_error_can_quote_a_credentialed_url() -> None:

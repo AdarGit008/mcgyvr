@@ -54,3 +54,19 @@ def _rows(journal: Path) -> list[dict[str, Any]]:
 
 def _orphans(journal: Path) -> list[dict[str, Any]]:
     return [r for r in _records(journal) if r.get("record_kind") == CORRECTION_KIND]
+
+
+def write_setup(directory: Path, text: str) -> Path:
+    """Write a merged config document as ``fleet.yaml`` + ``policy.yaml``.
+
+    A setup is two files in one directory. A test that holds one merged
+    document splits it by key and writes both halves, so it is read by the
+    same two readers the product uses.
+    """
+    from mcgyvr.config import _split_setup
+
+    directory.mkdir(parents=True, exist_ok=True)
+    fleet, policy = _split_setup(text)
+    (directory / "fleet.yaml").write_text(fleet, encoding="utf-8")
+    (directory / "policy.yaml").write_text(policy, encoding="utf-8")
+    return directory

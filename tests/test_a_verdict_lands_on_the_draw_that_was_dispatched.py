@@ -71,7 +71,7 @@ def test_the_journal_corrects_the_accepted_dispatch_and_not_the_unreadable_one(
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + "breadth:\n  draws: 2\n", encoding="utf-8")
+    lj.append_policy(config, "breadth:\n  draws: 2\n")
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 0

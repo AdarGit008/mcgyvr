@@ -44,7 +44,7 @@ def _config(tmp_path: Path, budgets: str = "") -> Config:
 
 def test_a_declared_fraction_resolves(tmp_path: Path) -> None:
     config = _config(tmp_path, "max_window_fraction: 0.6\n")
-    assert config.get("budgets.max_window_fraction") == 0.6
+    assert config.get("max_window_fraction") == 0.6
 
 
 def test_no_fraction_declared_resolves_to_nothing(tmp_path: Path) -> None:

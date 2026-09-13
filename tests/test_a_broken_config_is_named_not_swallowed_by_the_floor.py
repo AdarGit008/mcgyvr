@@ -75,7 +75,7 @@ UNPARSEABLE = "version: 1\nsources: {workstation:\n"
 #: which is what an editor told to save as UTF-16 leaves behind.
 NOT_UTF8 = b"\xff\xfeversion: 1\n"
 
-#: YAML that parses and is not a config: ``ladder.tiers`` names no source.
+#: YAML that parses and is not a config: the ladder names no unit.
 OFF_SCHEMA = """\
 units:
   local:

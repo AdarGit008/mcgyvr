@@ -65,7 +65,7 @@ def _two_draw_run(tmp_path: Path) -> tuple[Path, Path, Path]:
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + TWO_DRAWS, encoding="utf-8")
+    lj.append_policy(config, TWO_DRAWS)
     return repo, journal, config
 
 
