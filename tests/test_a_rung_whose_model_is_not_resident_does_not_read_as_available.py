@@ -1,10 +1,5 @@
 """A port that answers is not a port serving *your* model.
 
-RED. ``mcgyvr.availability`` probes a **source**, and a source is a URL. It reads
-the HTTP status of ``/v1/models`` and throws the body away, so the one fact that
-listing exists to carry — *which weights are behind this port right now* — is
-never read. Every rung on a source that answered is marked live.
-
 **Why that is a hole and not a simplification.** Two rungs that alternate on one
 card are two models and one launch spec each, and only one of them is ever up.
 Probe the one that is up and the answer is 200; probe the one that is down and,
@@ -51,23 +46,19 @@ from mcgyvr.pool import Endpoint, source_map
 RESIDENT = "qwen3.6-35b-a3b"
 SLEEPING = "deepseek-coder-v2-16b"
 
-LADDER = f"""
-version: 1
-sources:
-  srv1_lite:
-    base_url: "http://srv1:8080"
-    api: openai
-  srv1_big:
-    base_url: "http://srv1:8081"
-    api: openai
+LADDER = f"""\
+units:
+  local_lite:
+    address: http://srv1:8080
+    model: '{SLEEPING}'
+    rig: srv1_lite
+  local_big:
+    address: http://srv1:8081
+    model: '{RESIDENT}'
+    rig: srv1_big
 ladder:
-  tiers:
-    - name: local_lite
-      source: srv1_lite
-      model: "{SLEEPING}"
-    - name: local_big
-      source: srv1_big
-      model: "{RESIDENT}"
+- local_lite
+- local_big
 """
 
 
@@ -165,4 +156,4 @@ def test_the_model_check_adds_no_second_request() -> None:
 
     source_map(parse(LADDER), probe=Availability(probe=probe))
 
-    assert sorted(asked) == ["srv1_big", "srv1_lite"], asked
+    assert sorted(asked) == ["local_big", "local_lite"], asked

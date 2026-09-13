@@ -1,18 +1,12 @@
 """The two keys sleep/wake is asked for by, and where a wake's limit comes from.
 
-RED. ``src/mcgyvr/config.py`` has no ``serving`` block, and the hand-set
-``budgets.wake_timeout_s`` is gone: a wake's limit now comes from the fleet
-lock — a unit's validated wake plus the lock's wake tolerance
-(``records/plans/fleet-identity.md`` §5). The two keys that ask for sleep and
-wake at all are still config keys, and they are the only two.
-
 Three decisions are pinned, and all three are the owner's rather than this
 file's:
 
 * **The switch is a config key and not a flag** (§7.1). ``mcgyvr run --config``
   already says which rung runs is "this file's ... never a flag", and sleep/wake
-  is the stronger case for the same rule: ``Config.digest`` is what a run is
-  reproducible from, so a flag would let two runs share one digest where one of
+  is the stronger case for the same rule: the config is what a run is
+  reproducible from, so a flag would let two runs share one setup where one of
   them started and stopped containers on a shared rig. A ``store_true`` flag can
   also never lose to a key — the ``--sandbox`` comment is the worked example —
   so the flag would have to be a tri-state, which is a worse spelling of the key.
@@ -34,27 +28,23 @@ import pytest
 #: One card, two vLLM sources, the shape of the live srv2 (§6). Every worked
 #: example in the design is this card because it is the multi-unit one, which is
 #: the harder case; the engine on a card decides nothing (N10, ruled 2026-09-08).
-CARD = """
-version: 1
-sources:
-  srv2_3b:
-    base_url: http://srv2:8001
-    api: openai
+CARD = """\
+units:
+  local_qwen2.5-coder-3b:
+    address: http://srv2:8001
+    model: qwen2.5-coder-3b
+    rig: srv2_3b
+    width: 2
     engine: vllm
-    max_parallel: 2
-  srv2_7b:
-    base_url: http://srv2:8002
-    api: openai
+  local_qwen2.5-coder-7b:
+    address: http://srv2:8002
+    model: qwen2.5-coder-7b
+    rig: srv2_7b
+    width: 2
     engine: vllm
-    max_parallel: 2
 ladder:
-  tiers:
-    - name: local_qwen2.5-coder-3b
-      source: srv2_3b
-      model: qwen2.5-coder-3b
-    - name: local_qwen2.5-coder-7b
-      source: srv2_7b
-      model: qwen2.5-coder-7b
+- local_qwen2.5-coder-3b
+- local_qwen2.5-coder-7b
 """
 
 
@@ -123,16 +113,19 @@ def test_a_wake_has_no_budget_of_its_own() -> None:
     """
     from mcgyvr.config import field_at, parse
 
-    config = parse(
-        CARD + "budgets:\n" + "  request_timeout_s: 30.0\n" + "  task_timeout_s: 60\n"
+    card = CARD.replace(
+        "    width: 2\n    engine: vllm\n",
+        "    width: 2\n    engine: vllm\n    request_timeout_s: 30.0\n",
+        1,
     )
+    config = parse(card + "task_timeout_s: 60\n")
 
     assert field_at("budgets.wake_timeout_s") is None, (
         "budgets.wake_timeout_s is still a schema key: the wake limit now comes "
         "from the lock's validated wake plus its tolerance, not a hand-set budget"
     )
-    assert config.get("budgets.request_timeout_s") == 30.0
-    assert config.get("budgets.task_timeout_s") == 60
+    assert config.units["local_qwen2.5-coder-3b"].request_timeout_s == 30.0
+    assert config.get("task_timeout_s") == 60
 
 
 def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:

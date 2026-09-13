@@ -1,12 +1,5 @@
 """A sleeping unit answers ``/v1/models`` with 200, and must still not read as up.
 
-RED. Every test here fails today, and it fails for one reason: the door's health
-probe asks a single question — ``GET /v1/models`` — and a sleeping vLLM unit
-answers it. ``servelib.models_served`` returns the ids, ``servelib.wait_for``
-calls the unit ``healthy: True``, ``serve-up.py`` prints ``up`` and exits 0, and
-gate 7 finds every declared container running and calls the run green. The rig is
-not serving anything.
-
 **The measurement.** ``records/measurements/vllm-sleep-2026-09-09/README.md``,
 section "A sleeping unit passes a health check and then hangs", put three probes
 to a vLLM unit slept at level 2:

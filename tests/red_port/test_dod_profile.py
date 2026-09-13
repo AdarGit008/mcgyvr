@@ -39,17 +39,13 @@ from tests.red_port.conftest import required
 CONFIG_VAR = "MCGYVR_CONFIG"
 
 BASE_CONFIG = """\
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
-    max_parallel: 1
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: "a-model"
+- only
 sandbox:
   mode: tempdir
 """
@@ -85,14 +81,12 @@ def test_dev_is_read_and_a_third_value_is_refused_naming_both() -> None:
     assert "live" in said and "dev" in said, said
 
 
-def test_the_schema_version_does_not_move_for_a_key_with_a_default() -> None:
-    """A version-1 file without the key reads under version 1, and so does one
-    with it: a new optional key is readable by the existing version."""
-    from mcgyvr.config import SCHEMA_VERSION
+def test_a_version_key_is_retired() -> None:
+    """A config no longer carries a version; the fleet vocabulary is the shape."""
+    from mcgyvr.config import ConfigSchemaError
 
-    assert SCHEMA_VERSION == 1
-    assert _parse(BASE_CONFIG).get("version") == 1
-    assert _parse("profile: live\n" + BASE_CONFIG).get("version") == 1
+    with pytest.raises(ConfigSchemaError, match=r"version|fleet"):
+        _parse("version: 1\n" + BASE_CONFIG)
 
 
 def test_init_writes_the_profile_at_the_schemas_default() -> None:

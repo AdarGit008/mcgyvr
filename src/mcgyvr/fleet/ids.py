@@ -1,7 +1,7 @@
 """One primitive names a unit, a rig and a combination by what they cover.
 
-The shape is :meth:`mcgyvr.config.Config.digest` — a prefix plus the sha256 of
-a canonical YAML tree — so key order is not identity and list order is.
+The shape is a prefix plus the sha256 of a canonical YAML tree — so key order
+is not identity and list order is.
 ``unt-`` a unit, ``rig-`` a rig, ``cmb-`` a combination. Every other prefix is
 refused, so a record written under a retired design cannot pass for a current
 one.

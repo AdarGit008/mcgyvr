@@ -103,8 +103,8 @@ def test_every_key_carries_its_own_prose() -> None:
 
 def test_required_and_optional_are_distinguishable() -> None:
     rendered = docgen.render_reference()
-    # `version` is required, `sandbox` is not — a reader must be able to tell.
-    assert "| `version` | number (min 1) | **yes** |" in rendered
+    # `units` is required, `sandbox` is not — a reader must be able to tell.
+    assert "| `units` | block map | **yes** |" in rendered
     assert "| `sandbox` | block | no |" in rendered
 
 
@@ -165,7 +165,7 @@ def test_a_reference_that_drops_a_key_fails_its_check_and_is_still_deleted(
     assert docgen.main(argv) == 1
     assert not reference.exists()
     err = capsys.readouterr().err
-    assert "`version`" in err  # a required key the empty document does not name
+    assert "`units`" in err  # a required key the empty document does not name
 
 
 def test_check_mode_treats_a_missing_skill_as_drift(tmp_path: Path) -> None:

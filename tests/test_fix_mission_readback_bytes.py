@@ -19,9 +19,9 @@ trace of itself.
 
 The fix is the spelling every other reader in this repository already uses —
 ``read_bytes().decode("utf-8", "surrogateescape")``, as in
-:meth:`mcgyvr.deliver.Accepted.read`, :func:`mcgyvr.pending.resume`,
-``gate.changeset``, ``orchestrator.index`` — and not, say, ``errors="replace"``
-or a ``try``/``except`` that records a placeholder. Both of those would let the
+:meth:`mcgyvr.deliver.Accepted.read`, ``gate.changeset``, ``orchestrator.index``
+— and not, say, ``errors="replace"`` or a ``try``/``except`` that records a
+placeholder. Both of those would let the
 run finish; both would also make the record's copy of the delivered file a
 different sequence of bytes from the one in the commit beside it, which is the
 substitution this whole pattern was written to close.
@@ -58,18 +58,15 @@ from mcgyvr.deliver import Accepted, digest_of
 from mcgyvr.escalate import Assurance, Delivered, Judgement
 from mcgyvr.route import Verdict
 
-KEYLESS = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+KEYLESS = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 TARGET = "src/pkg/fixture.txt"

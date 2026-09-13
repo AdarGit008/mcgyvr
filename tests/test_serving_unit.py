@@ -13,13 +13,13 @@ model's own GGUF geometry (``tests/fixtures/gguf_geometry.json``, one
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from mcgyvr.config import Config, Ladder, Source, Tier
+from mcgyvr.config import Config, Ladder, Unit
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
     DEFAULT_UBATCH,
@@ -31,6 +31,23 @@ from mcgyvr.serving import (
     unit_for,
     units_for,
 )
+
+
+@dataclass
+class Tier:
+    """A rung as this test writes it: a name, the unit it names, a model."""
+
+    name: str
+    unit: str
+    model: str
+    attempts: int = 1
+
+
+_ADDRESSES = {
+    "d1": "http://srv1:8080",
+    "d2": "http://srv2:8080",
+    "d1b": "http://srv1:8081",
+}
 
 #: The window these tests were written against, stated because nothing supplies
 #: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
@@ -109,33 +126,24 @@ def scans() -> dict[str, Scan]:
 
 
 def config_for(*tiers: Tier) -> Config:
+    units = {
+        tier.name: Unit(
+            name=tier.name,
+            address=_ADDRESSES[tier.unit],
+            model=tier.model,
+            width=1,
+        )
+        for tier in tiers
+    }
+    data: dict[str, object] = {}
+    attempts = {t.name: t.attempts for t in tiers if t.attempts != 1}
+    if attempts:
+        data["attempts"] = attempts
     return Config(
         path=None,
-        data={},
-        sources={
-            "d1": Source(
-                name="d1",
-                base_url="http://srv1:8080",
-                api="openai",
-                max_parallel=1,
-                api_key_env=None,
-            ),
-            "d2": Source(
-                name="d2",
-                base_url="http://srv2:8080",
-                api="openai",
-                max_parallel=1,
-                api_key_env=None,
-            ),
-            "d1b": Source(
-                name="d1b",
-                base_url="http://srv1:8081",
-                api="openai",
-                max_parallel=1,
-                api_key_env=None,
-            ),
-        },
-        ladder=Ladder(tiers=tuple(tiers)),
+        data=data,
+        units=units,
+        ladder=Ladder(names=tuple(t.name for t in tiers)),
     )
 
 
@@ -158,16 +166,16 @@ def test_a_different_engine_is_a_different_unit(scans: dict[str, Scan]) -> None:
 
 def test_two_rungs_on_one_model_share_one_unit(scans: dict[str, Scan]) -> None:
     config = config_for(
-        Tier(name="local_a", source="d1", model=MOE.name),
-        Tier(name="local_b", source="d1", model=MOE.name, attempts=2),
+        Tier(name="local_a", unit="d1", model=MOE.name),
+        Tier(name="local_b", unit="d1", model=MOE.name, attempts=2),
     )
     assert len(units_for(config, scans, specs=(MOE,), ctx_per_slot=WINDOW)) == 1
 
 
 def test_the_same_model_on_two_hosts_is_two_units(scans: dict[str, Scan]) -> None:
     config = config_for(
-        Tier(name="d1_moe", source="d1", model=MOE.name),
-        Tier(name="d2_moe", source="d2", model=MOE.name),
+        Tier(name="d1_moe", unit="d1", model=MOE.name),
+        Tier(name="d2_moe", unit="d2", model=MOE.name),
     )
     assert len(units_for(config, scans, specs=(MOE,), ctx_per_slot=WINDOW)) == 2
 
@@ -176,8 +184,8 @@ def test_every_rung_resolves_to_the_unit_that_serves_it(
     scans: dict[str, Scan],
 ) -> None:
     config = config_for(
-        Tier(name="local_a", source="d1", model=MOE.name),
-        Tier(name="local_b", source="d1", model=MOE.name),
+        Tier(name="local_a", unit="d1", model=MOE.name),
+        Tier(name="local_b", unit="d1", model=MOE.name),
     )
     units = units_for(config, scans, specs=(MOE,), ctx_per_slot=WINDOW)
     assert {"local_a", "local_b"} == set(units[0].rungs)
@@ -256,7 +264,7 @@ def test_fit_reads_free_vram_not_the_nameplate(scans: dict[str, Scan]) -> None:
 
 
 def test_no_unit_is_emitted_for_an_unscanned_host(scans: dict[str, Scan]) -> None:
-    config = config_for(Tier(name="x", source="d1", model=MOE.name))
+    config = config_for(Tier(name="x", unit="d1", model=MOE.name))
     with pytest.raises(UnitError, match="unscanned"):
         units_for(config, {}, specs=(MOE,), ctx_per_slot=WINDOW)
 
@@ -329,8 +337,8 @@ def test_a_unit_listens_where_the_ladder_expects_to_reach_it(
     one. The config already holds the answer; the unit has to carry it.
     """
     config = config_for(
-        Tier(name="fast", source="d1", model="qwen2.5-coder-3b"),
-        Tier(name="smart", source="d1b", model=MOE.name),
+        Tier(name="fast", unit="d1", model="qwen2.5-coder-3b"),
+        Tier(name="smart", unit="d1b", model=MOE.name),
     )
     units = units_for(config, scans, specs=(SMALL, MOE), ctx_per_slot=WINDOW)
     assert sorted(unit.port for unit in units) == [8080, 8081]
@@ -396,8 +404,8 @@ def test_two_sources_on_one_host_are_two_processes(scans: dict[str, Scan]) -> No
     not fire either, because the two base URLs genuinely differ.
     """
     config = config_for(
-        Tier(name="fastlane", source="d1", model=MOE.name),
-        Tier(name="careful", source="d1b", model=MOE.name),
+        Tier(name="fastlane", unit="d1", model=MOE.name),
+        Tier(name="careful", unit="d1b", model=MOE.name),
     )
     units = units_for(config, scans, specs=(MOE,), ctx_per_slot=WINDOW)
     assert sorted(unit.port for unit in units) == [8080, 8081]

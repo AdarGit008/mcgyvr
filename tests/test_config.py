@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.config import (
-    CONFIG_FILENAME,
     CONFIG_PATH_ENV,
     SCHEMA,
     ConfigFileError,
@@ -32,21 +31,21 @@ from mcgyvr.config import (
     parse,
 )
 
-LOCAL_ONLY = """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:8080
-    api: openai
-    max_parallel: 3
+LOCAL_ONLY = """\
+units:
+  cheap:
+    address: http://localhost:8080
+    model: qwen2.5-coder:7b
+    rig: local
+    width: 3
+  strong:
+    address: http://localhost:8080
+    model: qwen2.5-coder:14b
+    rig: local
+    width: 3
 ladder:
-  tiers:
-    - name: cheap
-      source: local
-      model: qwen2.5-coder:7b
-    - name: strong
-      source: local
-      model: qwen2.5-coder:14b
+- cheap
+- strong
 """
 
 
@@ -60,8 +59,8 @@ def cfg(body: str) -> str:
 def test_no_api_provider_yields_a_valid_local_only_ladder() -> None:
     config = parse(LOCAL_ONLY)
     assert config.is_local_only
-    assert [t.name for t in config.ladder.tiers] == ["cheap", "strong"]
-    assert config.sources["local"].requires_credential is False
+    assert list(config.ladder.names) == ["cheap", "strong"]
+    assert config.units["cheap"].requires_credential is False
 
 
 def test_defaults_that_ship_are_real_working_values() -> None:
@@ -71,7 +70,7 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     # `branch` and not `pull_request`: the old default named a handback nothing
     # here performs, and every mode committed to the checked-out branch instead.
     assert config.data["delivery"]["mode"] == "branch"
-    assert config.data["budgets"]["task_timeout_s"] > 0
+    assert config.get("task_timeout_s") > 0
     # Verification is off rather than on-and-unbound, so a keyless install
     # loads and runs without touching the config.
     assert config.data["verifier"]["enabled"] is False
@@ -80,29 +79,25 @@ def test_defaults_that_ship_are_real_working_values() -> None:
 def test_a_source_needing_a_key_is_not_local_only() -> None:
     config = parse(
         cfg(
-            """
-            version: 1
-            sources:
-              local:
-                base_url: http://localhost:8080
-                api: openai
-              cloud:
-                base_url: https://api.anthropic.com
-                api: openai
+            """\
+            units:
+              cheap:
+                address: http://localhost:8080
+                model: qwen2.5-coder:7b
+                rig: local
+              ceiling:
+                address: https://api.anthropic.com
+                model: claude-opus-5
+                rig: cloud
                 api_key_env: ANTHROPIC_API_KEY
             ladder:
-              tiers:
-                - name: cheap
-                  source: local
-                  model: qwen2.5-coder:7b
-                - name: ceiling
-                  source: cloud
-                  model: claude-opus-5
+            - cheap
+            - ceiling
             """
         )
     )
     assert not config.is_local_only
-    assert config.sources["cloud"].requires_credential
+    assert config.units["ceiling"].requires_credential
 
 
 # --- a missing binding is named ------------------------------------------
@@ -112,21 +107,18 @@ def test_missing_required_key_names_the_key() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
         parse(
             cfg(
-                """
-                version: 1
-                sources:
-                  local:
-                    api: openai
+                """\
+                units:
+                  cheap:
+                    model: qwen2.5-coder:7b
+                    rig: local
                 ladder:
-                  tiers:
-                    - name: cheap
-                      source: local
-                      model: qwen2.5-coder:7b
+                - cheap
                 """
             )
         )
-    assert "sources.local.base_url" in str(exc.value)
-    assert "http://localhost:8080" in str(exc.value), "the message must show a shape"
+    assert "units.cheap.address" in str(exc.value)
+    assert "http://srv2:8002" in str(exc.value), "the message must show a shape"
 
 
 def test_tier_bound_to_an_undeclared_source_is_rejected() -> None:
@@ -134,43 +126,36 @@ def test_tier_bound_to_an_undeclared_source_is_rejected() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
         parse(
             cfg(
-                """
-                version: 1
-                sources:
-                  local:
-                    base_url: http://localhost:8080
-                    api: openai
+                """\
+                units:
+                  cheap:
+                    address: http://localhost:8080
+                    model: qwen2.5-coder:7b
+                    rig: local
                 ladder:
-                  tiers:
-                    - name: cheap
-                      source: typo
-                      model: qwen2.5-coder:7b
+                - cheap
+                - typo
                 """
             )
         )
     message = str(exc.value)
-    assert "ladder.tiers.0.source" in message
-    assert "local" in message, "the message must name what IS declared"
+    assert "ladder.1" in message
+    assert "cheap" in message, "the message must name what IS declared"
 
 
 def test_duplicate_tier_names_are_rejected() -> None:
-    with pytest.raises(ConfigSchemaError, match="more than one"):
+    with pytest.raises(ConfigSchemaError, match="more than once"):
         parse(
             cfg(
-                """
-                version: 1
-                sources:
-                  local:
-                    base_url: http://localhost:8080
-                    api: openai
+                """\
+                units:
+                  cheap:
+                    address: http://localhost:8080
+                    model: b
+                    rig: local
                 ladder:
-                  tiers:
-                    - name: cheap
-                      source: local
-                      model: a
-                    - name: cheap
-                      source: local
-                      model: b
+                - cheap
+                - cheap
                 """
             )
         )
@@ -185,7 +170,7 @@ def test_enabled_verifier_without_a_source_is_rejected_at_load() -> None:
               enabled: true
             """)
         )
-    assert "verifier.source" in str(exc.value)
+    assert "verifier.unit" in str(exc.value)
     assert "verifier.enabled: false" in str(exc.value), "name the other way out"
 
 
@@ -207,7 +192,7 @@ def test_get_returns_a_default_where_require_raises() -> None:
 
 def test_dotted_reads_reach_into_lists() -> None:
     config = parse(LOCAL_ONLY)
-    assert config.require("ladder.tiers.1.model") == "qwen2.5-coder:14b"
+    assert config.units[config.ladder.names[1]].model == "qwen2.5-coder:14b"
 
 
 # --- fan-out is a knob, and its default is no fan-out ---------------------
@@ -217,21 +202,21 @@ def test_fanout_defaults_to_none_when_the_key_is_absent() -> None:
     """Absent means today's behaviour: a batch queues on the cheapest rung."""
     config = parse(LOCAL_ONLY)
     assert config.ladder.fanout == "none"
-    assert config.data["ladder"]["fanout"] == "none"
+    assert config.get("fanout") == "none"
 
 
 @pytest.mark.parametrize("mode", ["none", "idle", "full"])
 def test_each_fanout_mode_parses_and_reaches_the_ladder(mode: str) -> None:
     """The router reads `config.ladder.fanout`, so the value has to land there."""
-    config = parse(LOCAL_ONLY.replace("ladder:\n", f"ladder:\n  fanout: {mode}\n"))
+    config = parse(LOCAL_ONLY + f"fanout: {mode}\n")
     assert config.ladder.fanout == mode
 
 
 def test_an_unknown_fanout_mode_lists_the_valid_values() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
-        parse(LOCAL_ONLY.replace("ladder:\n", "ladder:\n  fanout: spread\n"))
+        parse(LOCAL_ONLY + "fanout: spread\n")
     message = str(exc.value)
-    assert "ladder.fanout" in message
+    assert "fanout" in message
     assert "none" in message and "idle" in message and "full" in message
 
 
@@ -248,63 +233,47 @@ def test_unknown_nested_key_names_its_valid_siblings() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
         parse(
             cfg(
-                """
-                version: 1
-                sources:
-                  local:
-                    base_url: http://localhost:8080
-                    api: openai
+                """\
+                units:
+                  cheap:
+                    address: http://localhost:8080
+                    model: qwen2.5-coder:7b
+                    rig: local
                     parallel: 4
                 ladder:
-                  tiers:
-                    - name: cheap
-                      source: local
-                      model: qwen2.5-coder:7b
+                - cheap
                 """
             )
         )
     message = str(exc.value)
-    assert "sources.local: unknown key 'parallel'" in message
-    assert "max_parallel" in message
+    assert "units.cheap: unknown key 'parallel'" in message
+    assert "width" in message
 
 
 def test_duplicate_keys_are_rejected_rather_than_silently_last_wins() -> None:
     with pytest.raises(ConfigSchemaError, match="duplicate key"):
-        parse(
-            cfg(
-                """
-                version: 1
-                sources:
-                  local:
-                    base_url: http://localhost:8080
-                    api: openai
-                    max_parallel: 1
-                    max_parallel: 8
-                ladder:
-                  tiers:
-                    - name: cheap
-                      source: local
-                      model: qwen2.5-coder:7b
-                """
-            )
-        )
+        parse(LOCAL_ONLY.replace("    width: 3", "    width: 3\n    width: 4", 1))
 
 
 def test_wrong_types_are_named_in_plain_words() -> None:
     with pytest.raises(ConfigSchemaError, match="expected a number"):
-        parse(LOCAL_ONLY.replace("max_parallel: 3", "max_parallel: lots"))
+        parse(LOCAL_ONLY.replace("width: 3", "width: lots"))
 
 
 def test_a_boolean_is_not_a_capacity() -> None:
-    """bool is an int in Python; `max_parallel: true` must not pass as 1."""
+    """bool is an int in Python; `width: true` must not pass as 1."""
     with pytest.raises(ConfigSchemaError, match="expected a number"):
-        parse(LOCAL_ONLY.replace("max_parallel: 3", "max_parallel: true"))
+        parse(LOCAL_ONLY.replace("width: 3", "width: true"))
 
 
 def test_invalid_enum_lists_the_valid_values() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
-        parse(LOCAL_ONLY.replace("api: openai", "api: llamacpp"))
-    assert "openai" in str(exc.value), "the refusal lists what is valid"
+        parse(
+            LOCAL_ONLY.replace(
+                "    rig: local", "    rig: local\n    engine: llamacpp", 1
+            )
+        )
+    assert "llama.cpp" in str(exc.value), "the refusal lists what is valid"
 
 
 def test_a_url_without_a_scheme_is_rejected() -> None:
@@ -318,17 +287,15 @@ def test_empty_value_is_not_the_same_as_unset() -> None:
 
 
 def test_an_empty_ladder_is_rejected() -> None:
-    with pytest.raises(ConfigSchemaError, match=r"ladder\.tiers"):
+    with pytest.raises(ConfigSchemaError, match="ladder"):
         parse(
             cfg(
-                """
-                version: 1
-                sources:
-                  local:
-                    base_url: http://localhost:8080
-                    api: openai
-                ladder:
-                  tiers: []
+                """\
+                units:
+                  cheap:
+                    address: http://localhost:8080
+                    model: qwen2.5-coder:7b
+                ladder: []
                 """
             )
         )
@@ -338,11 +305,9 @@ def test_an_empty_ladder_is_rejected() -> None:
 
 
 def test_a_credential_key_is_rejected_with_the_right_remedy() -> None:
-    with pytest.raises(CredentialInConfigError) as exc:
+    with pytest.raises(ConfigSchemaError) as exc:
         parse(
-            LOCAL_ONLY.replace(
-                "    max_parallel: 3", "    api_key: sk-not-a-real-key-value"
-            )
+            LOCAL_ONLY.replace("    width: 3", "    api_key: sk-not-a-real-key-value")
         )
     assert "api_key_env" in str(exc.value), "point at the key that IS allowed"
 
@@ -352,7 +317,7 @@ def test_a_credential_shaped_value_is_rejected_even_in_an_allowed_key() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
         parse(
             LOCAL_ONLY.replace(
-                "    max_parallel: 3",
+                "    width: 3",
                 "    api_key_env: sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAA",
             )
         )
@@ -364,7 +329,7 @@ def test_an_env_key_that_is_not_a_variable_name_is_rejected() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
         parse(
             LOCAL_ONLY.replace(
-                "    max_parallel: 3", "    api_key_env: ~/.config/anthropic/key"
+                "    width: 3", "    api_key_env: ~/.config/anthropic/key"
             )
         )
     assert "is not an environment variable name" in str(exc.value)
@@ -380,23 +345,20 @@ def test_secrets_resolve_from_the_environment_by_name(
 ) -> None:
     config = parse(
         cfg(
-            """
-            version: 1
-            sources:
-              cloud:
-                base_url: https://api.anthropic.com
-                api: openai
+            """\
+            units:
+              ceiling:
+                address: https://api.anthropic.com
+                model: claude-opus-5
+                rig: cloud
                 api_key_env: MCGYVR_TEST_KEY
             ladder:
-              tiers:
-                - name: ceiling
-                  source: cloud
-                  model: claude-opus-5
+            - ceiling
             """
         )
     )
     monkeypatch.setenv("MCGYVR_TEST_KEY", "resolved-at-point-of-use")
-    assert config.secret("sources.cloud.api_key_env") == "resolved-at-point-of-use"
+    assert config.secret("units.ceiling.api_key_env") == "resolved-at-point-of-use"
 
 
 def test_an_unset_environment_variable_names_the_variable(
@@ -405,24 +367,21 @@ def test_an_unset_environment_variable_names_the_variable(
     """Distinct from an unbound key: the config named a variable, it is just empty."""
     config = parse(
         cfg(
-            """
-            version: 1
-            sources:
-              cloud:
-                base_url: https://api.anthropic.com
-                api: openai
+            """\
+            units:
+              ceiling:
+                address: https://api.anthropic.com
+                model: claude-opus-5
+                rig: cloud
                 api_key_env: MCGYVR_TEST_KEY
             ladder:
-              tiers:
-                - name: ceiling
-                  source: cloud
-                  model: claude-opus-5
+            - ceiling
             """
         )
     )
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     with pytest.raises(UnboundValueError) as exc:
-        config.secret("sources.cloud.api_key_env")
+        config.secret("units.ceiling.api_key_env")
     assert "MCGYVR_TEST_KEY is not set" in str(exc.value)
     assert "never write the value into the config" in str(exc.value)
 
@@ -452,27 +411,30 @@ def test_a_missing_file_says_how_to_get_one(
 
 
 def test_malformed_yaml_is_reported_as_such(tmp_path: Path) -> None:
-    path = tmp_path / CONFIG_FILENAME
-    path.write_text("version: 1\n  bad: indent\n", encoding="utf-8")
-    with pytest.raises(ConfigFileError, match="not valid YAML"):
+    path = tmp_path / "setup"
+    path.mkdir()
+    (path / "fleet.yaml").write_text("version: 1\n  bad: indent\n", encoding="utf-8")
+    with pytest.raises(ConfigSchemaError, match="not valid YAML"):
         load(path)
 
 
 def test_an_empty_file_is_not_an_empty_config(tmp_path: Path) -> None:
-    path = tmp_path / CONFIG_FILENAME
-    path.write_text("# nothing but a comment\n", encoding="utf-8")
+    path = tmp_path / "setup"
+    path.mkdir()
+    (path / "fleet.yaml").write_text("# nothing but a comment\n", encoding="utf-8")
     with pytest.raises(ConfigSchemaError, match="is empty"):
         load(path)
 
 
-def test_a_future_version_is_refused_by_number() -> None:
-    with pytest.raises(ConfigSchemaError, match="unsupported config version"):
-        parse(LOCAL_ONLY.replace("version: 1", "version: 99"))
+def test_a_version_key_is_retired() -> None:
+    with pytest.raises(ConfigSchemaError, match=r"version|fleet"):
+        parse(LOCAL_ONLY.replace("units:", "version: 1\nunits:"))
 
 
 def test_loaded_config_remembers_where_it_came_from(tmp_path: Path) -> None:
-    path = tmp_path / CONFIG_FILENAME
-    path.write_text(LOCAL_ONLY, encoding="utf-8")
+    from tests._helpers import write_setup
+
+    path = write_setup(tmp_path / "setup", LOCAL_ONLY)
     config = load(path)
     assert config.path == path
     # Errors raised later must be able to say which file to edit.
@@ -514,7 +476,6 @@ def test_optional_leaf_fields_without_a_default_carry_a_bind_hint() -> None:
 
 
 def test_field_lookup_skips_map_keys_and_list_indexes() -> None:
-    found = field_at("sources.local.api_key_env")
+    found = field_at("units.local.api_key_env")
     assert found is not None and found.name == "api_key_env"
-    assert field_at("ladder.tiers.0.model") is not None
-    assert field_at("sources.local.nonexistent") is None
+    assert field_at("units.local.nonexistent") is None

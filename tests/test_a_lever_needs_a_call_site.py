@@ -44,36 +44,29 @@ BASE = "def fetch(url):\n    return url\n"
 #: A ladder with one credential-free rung. `local` is the family every
 #: model-executed task type starts on, so this is the smallest install that can
 #: climb at all.
-LADDER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+LADDER = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 #: The same ladder with nothing bound below the api family, and the one source
 #: it does declare naming an environment variable that is not set. Structurally
 #: unusable, which is knowable without touching the network.
-UNBOUND_LADDER = """
-version: 1
-sources:
-  hosted:
-    base_url: https://api.example.invalid
-    api: openai
-    max_parallel: 1
+UNBOUND_LADDER = """\
+units:
+  api_big:
+    address: https://api.example.invalid
+    model: big-model
+    rig: hosted
     api_key_env: MCGYVR_TEST_KEY_THAT_IS_NOT_SET
 ladder:
-  tiers:
-    - name: api_big
-      source: hosted
-      model: big-model
+- api_big
 """
 
 MODEL_CONTRACT = f"""
@@ -753,7 +746,7 @@ VERIFYING = (
     + """
 verifier:
   enabled: true
-  source: workstation
+  unit: local_qwen-7b
   model: qwen2.5-coder:14b
 """
 )
@@ -761,35 +754,29 @@ verifier:
 #: The same install with the rung allowed a second attempt, so a refusal has
 #: somewhere to go. The default of 1 is escalate-rather-than-retry, and what is
 #: being asserted below is what the *next attempt on this rung* is told.
-VERIFYING_TWICE = VERIFYING.replace(
-    "      model: qwen2.5-coder:7b\n",
-    "      model: qwen2.5-coder:7b\n      attempts: 2\n",
-)
+VERIFYING_TWICE = VERIFYING + "attempts:\n  local_qwen-7b: 2\n"
 
 #: Verification asked for and bound to a source that cannot authenticate. The
 #: ladder is untouched — the rung still runs — so the only thing wrong with this
 #: install is the verifier, which is what makes the refusal legible.
-VERIFIER_UNUSABLE = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+VERIFIER_UNUSABLE = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
   hosted:
-    base_url: https://api.example.invalid
-    api: openai
-    max_parallel: 1
+    address: https://api.example.invalid
+    model: big-model
+    rig: hosted
     api_key_env: MCGYVR_TEST_KEY_THAT_IS_NOT_SET
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 verifier:
   enabled: true
-  source: hosted
   model: big-model
+  unit: hosted
 """
 
 

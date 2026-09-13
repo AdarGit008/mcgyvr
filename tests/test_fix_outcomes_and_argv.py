@@ -41,35 +41,28 @@ from mcgyvr.pool import SourceMap, source_map
 from mcgyvr.route import Step
 
 # A keyless install with one local rung: the cheapest ladder a stranger has.
-KEYLESS = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+KEYLESS = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 # The same ladder with its one rung unusable: no key, so no rung, so nothing to
 # climb anywhere in the ascent — the shape N5 is about.
-UNUSABLE = """
-version: 1
-sources:
-  cloud:
-    base_url: https://api.example.invalid
-    api: openai
+UNUSABLE = """\
+units:
+  api_big:
+    address: https://api.example.invalid
+    model: big
+    rig: cloud
     api_key_env: MCGYVR_NO_SUCH_KEY_FOR_THIS_TEST
-    max_parallel: 1
 ladder:
-  tiers:
-    - name: api_big
-      source: cloud
-      model: big
+- api_big
 """
 
 WORK = """

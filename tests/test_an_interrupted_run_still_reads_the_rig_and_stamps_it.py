@@ -16,6 +16,7 @@ delivers Ctrl-C; the rig reads differently once the step has run.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import signal
 import time
@@ -49,7 +50,14 @@ def test_a_signal_during_the_step_still_stamps_a_rig_that_moved(
             assert time.monotonic() < deadline, "the step never reached its hang"
             time.sleep(0.1)
         os.killpg(proc.pid, sig)
-        _, stderr = proc.communicate(timeout=120)
+        # The door ignores the signal through gates 7 and 8 and exits 130. A
+        # step that had not yet reached its own ``sleep`` can outlive it and
+        # hold the inherited pipe open, so wait for the door, then reap the
+        # group, then read what the door wrote.
+        proc.wait(timeout=90)
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        _, stderr = proc.communicate(timeout=60)
     finally:
         if proc.poll() is None:
             os.killpg(proc.pid, signal.SIGKILL)

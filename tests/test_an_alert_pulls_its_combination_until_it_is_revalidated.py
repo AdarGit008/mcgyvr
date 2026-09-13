@@ -1,11 +1,5 @@
 """An alert pulls its combination at once, until a re-validation is committed.
 
-RED. ``mcgyvr.fleet.alerts`` does not exist and ``mcgyvr fleet`` is not a
-command. The one predicted-against-observed record mcgyvr keeps is a wake time
-under ``/tmp`` (``src/mcgyvr/wake.py:217``, ``:341``). The intent is
-``records/plans/fleet-identity.md`` §5 and §7 (owner, 2026-09-10 and
-2026-09-11).
-
 * Every observation is filed under the journal, stamped with the fleet, rig,
   combination and unit it was computed for, and nothing goes under ``/tmp``.
 * **Judged:**

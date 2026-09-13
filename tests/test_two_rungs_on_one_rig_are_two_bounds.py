@@ -24,29 +24,23 @@ from mcgyvr.serving import ModelSpec, units_for
 #: the window is what the run declares, so a test is a run and declares its own.
 WINDOW = 4096
 
-CO_RESIDENT = """
-version: 1
-sources:
-  srv2_vllm_3b:
-    base_url: "http://srv2:8001"
-    api: openai
+CO_RESIDENT = """\
+units:
+  local_3b:
+    address: http://srv2:8001
+    model: Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
+    rig: srv2_vllm_3b
+    width: 8
     engine: vllm
-    max_parallel: 4
-  srv2_vllm_7b:
-    base_url: "http://srv2:8002"
-    api: openai
+  local_7b:
+    address: http://srv2:8002
+    model: Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
+    rig: srv2_vllm_7b
+    width: 8
     engine: vllm
-    max_parallel: 3
 ladder:
-  tiers:
-    - name: local_3b
-      source: srv2_vllm_3b
-      model: "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
-      max_parallel: 8
-    - name: local_7b
-      source: srv2_vllm_7b
-      model: "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
-      max_parallel: 8
+- local_3b
+- local_7b
 """
 HF = "/home/someone/.cache/huggingface"
 
@@ -59,11 +53,11 @@ def test_two_sources_on_one_host_are_two_slot_files() -> None:
 
 def test_a_slot_held_on_one_rung_does_not_count_on_the_other(tmp_path: Path) -> None:
     capacity = Capacity.of(parse(CO_RESIDENT), root=tmp_path)
-    assert capacity.limit("srv2_vllm_3b", rung="local_3b") == 8
-    assert capacity.limit("srv2_vllm_7b", rung="local_7b") == 8
-    with capacity.hold("srv2_vllm_3b", rung="local_3b"):
-        assert capacity.in_flight("srv2_vllm_3b", rung="local_3b") == 1
-        assert capacity.in_flight("srv2_vllm_7b", rung="local_7b") == 0
+    assert capacity.limit("local_3b") == 8
+    assert capacity.limit("local_7b") == 8
+    with capacity.hold("local_3b"):
+        assert capacity.in_flight("local_3b") == 1
+        assert capacity.in_flight("local_7b") == 0
 
 
 def test_the_pool_lists_both_rungs_of_one_host() -> None:

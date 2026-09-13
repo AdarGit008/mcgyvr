@@ -262,22 +262,18 @@ def require_local_only(config: Config) -> None:
     edit and not a guess.
     """
     offending: list[str] = []
-    for name in sorted(config.sources):
-        source = config.sources[name]
-        if not source.requires_credential:
+    for name in sorted(config.units):
+        unit = config.units[name]
+        if not unit.requires_credential:
             continue
-        bound = [
-            f"ladder tier {tier.name!r}"
-            for tier in config.ladder.tiers
-            if tier.source == name
-        ]
+        bound = [f"unit {rung!r}" for rung in config.ladder.names if rung == name]
         bound.extend(
             f"role {role!r}"
             for role in ("orchestrator", "verifier")
-            if (config.get(f"{role}.source") == name)
+            if config.get(f"{role}.unit") == name
         )
         where = ", ".join(bound) or "declared and unbound"
-        offending.append(f"{name} (api_key_env={source.api_key_env}; {where})")
+        offending.append(f"{name} (api_key_env={unit.api_key_env}; {where})")
     if offending:
         raise NoApiFallback(
             "#365 runs on the local pool with no API fallback, and this config "
@@ -763,7 +759,7 @@ def run_task(
             # delivered.
             #
             # Through `surrogateescape`, as every other reader in the project
-            # does (`deliver.Accepted.read`, `pending.resume`, `gate.changeset`)
+            # does (`deliver.Accepted.read`, `gate.changeset`)
             # — because `deliver._encoded` is the writer, and it refuses only a
             # *lone* surrogate. A target holding a byte that is not valid UTF-8
             # is therefore committed and then unreadable by a strict decode, and

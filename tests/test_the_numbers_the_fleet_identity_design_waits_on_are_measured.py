@@ -1,11 +1,5 @@
 """The fleet identity design approves a fleet on arithmetic no rig has measured yet.
 
-RED. Each test below states what one measurement must establish. Each fails until
-the run's record exists under ``records/measurements/fleet-identity-2026-09-11/``
-and meets the criterion. The plan that says how each record is taken is
-``records/plans/fleet-identity-measurements-2026-09-11.md``. This file is the
-authority on the scope and the criteria, and the plan follows it.
-
 Where a test recomputes a figure from the raw rows, the rule is spelled once, here.
 A derived record that disagrees with its own rows fails as surely as a missing one.
 

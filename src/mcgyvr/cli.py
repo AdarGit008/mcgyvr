@@ -21,9 +21,7 @@ from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
 from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import (
-    CONFIG_FILENAME,
     CONFIG_PATH_ENV,
-    CONFIGS_DIR,
     USER_CONFIG_DIR,
     Config,
     ConfigError,
@@ -31,7 +29,6 @@ from mcgyvr.config import (
     named_config_path,
 )
 from mcgyvr.config import config_path as resolve_config_path
-from mcgyvr.config import keep as keep_config
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
 from mcgyvr.emit import (
@@ -57,7 +54,8 @@ from mcgyvr.serving import (
 #: The three places a config is looked for, in order, as every `--config`
 #: help line states them: one sentence, so no command names a fourth.
 CONFIG_DEFAULT_HELP = (
-    f"${CONFIG_PATH_ENV}, ./{CONFIG_FILENAME} or {USER_CONFIG_DIR}/{CONFIG_FILENAME}"
+    f"${CONFIG_PATH_ENV}, ./{USER_CONFIG_DIR.rsplit('/', 1)[0]} "
+    f"or {USER_CONFIG_DIR} — a directory holding fleet.yaml and policy.yaml"
 )
 
 #: Where a machine's owner reads how to stand the ladder up. The skill is the
@@ -121,22 +119,20 @@ def _config(args: argparse.Namespace) -> int:
         return 1
 
     print(f"{config.path}: valid")
-    # The identity every row and result made under this file will carry, and
-    # the name of its copy under the journal's configs/ (R2).
-    print(f"digest: {config.digest()}\n")
-    print("Sources:")
-    for source in config.sources.values():
+    print("Units:")
+    for unit in config.units.values():
         credential = (
-            f"key from ${source.api_key_env}" if source.api_key_env else "no credential"
+            f"key from ${unit.api_key_env}" if unit.api_key_env else "no credential"
         )
+        engine = unit.engine or "llama.cpp"
         print(
-            f"  {source.name:<16} {source.api:<8} {source.base_url:<32} "
-            f"x{source.max_parallel}  ({credential})"
+            f"  {unit.name:<16} {engine:<9} {unit.address:<32} "
+            f"x{unit.width or 1}  ({credential})"
         )
 
     print("\nLadder, cheapest first:")
-    for tier in config.ladder.tiers:
-        print(f"  {tier.name:<16} {tier.model:<32} on {tier.source}")
+    for name in config.ladder.names:
+        print(f"  {name:<16} {config.units[name].model:<32}")
 
     if config.is_local_only:
         print(
@@ -175,8 +171,7 @@ def _pool(args: argparse.Namespace) -> int:
     print(f"{config.path}: {len(pool)} usable rung(s), cheapest first:\n")
     ladder_budget = 0
     for rung in pool.rungs:
-        tier = config.ladder.get(rung.name)
-        budget = tier.attempts if tier is not None else 1
+        budget = int((config.get("attempts") or {}).get(rung.name, 1))
         ladder_budget += budget
         tries = "1 attempt" if budget == 1 else f"{budget} attempts"
         family = family_of(config, rung.name)
@@ -191,7 +186,7 @@ def _pool(args: argparse.Namespace) -> int:
         ceiling = Ceiling.of(config)
         cap = min(ladder_budget, ceiling.attempts or ladder_budget)
         source = (
-            "budgets.max_attempts"
+            "max_attempts"
             if ceiling.attempts is not None
             else "the ladder's own budget"
         )
@@ -321,7 +316,7 @@ def _cap_undeclared(contract: Contract) -> str | None:
     the number. The derived figure is printed as the value to start from. A
     deterministic contract has no reply to cap and is not asked.
 
-    A ladder that declares ``ladder.tiers.*.output_tokens`` does not lift this.
+    A ladder unit that declares ``units.*.output_tokens`` does not lift this.
     The two numbers answer different questions — what this unit of work is
     worth, and what a particular backend needs to finish a reply (see
     :func:`mcgyvr.gate.preflight.reply_cap`) — so a rig owner answering the
@@ -1202,13 +1197,11 @@ def _run(args: argparse.Namespace) -> int:
             orchestrator=session.orchestrator,
             run=stamp,
             session_file=session.session_file,
-            config_digest=config.digest() if config is not None else None,
             mirrors=mirrors,
         )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    report.config_digest = recording.config_digest
     # Asked before the run rather than discovered during it. Our sink raises on
     # an unwritable path, by the rule `telemetry` opens with — but raising from
     # inside a dispatch reached the caller as a traceback with no `result:`
@@ -1226,31 +1219,6 @@ def _run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    # The config that is about to run, kept by its digest beside the journal
-    # (R2): the file every row of this run will name, and the one to hand
-    # `MCGYVR_CONFIG` to run under exactly this setup again. A copy that
-    # cannot be written is refused the way the journal is, and for the same
-    # reason: a run whose setup cannot be traced is a run recorded wrong.
-    if config is not None:
-        try:
-            keep_config(config, journal_dir)
-        except OSError as exc:
-            print(
-                f"error: the config this run is made under cannot be kept at "
-                f"{journal_dir / CONFIGS_DIR} ({exc}). Every run names its "
-                f"config by digest and that copy is what the digest resolves "
-                f"to, so this one is refused rather than run untraceable.",
-                file=sys.stderr,
-            )
-            return 1
-        # A copy of the journal is a copy of the whole of it — every line,
-        # every blob, the result, and the config those rows name — and a
-        # copy that fails is a note, as every other part of a copy is.
-        for mirror in mirrors:
-            try:
-                keep_config(config, mirror)
-            except OSError as exc:
-                recording.copy_failed(mirror, exc)
     print(f"journal: {recording.path}", file=sys.stderr)
 
     # Settled once, here, so both paths below open the same sandbox. The
@@ -1472,7 +1440,6 @@ def _floor(
                 task_type=contract.task_type,
                 session_file=recording.session_file,
                 tier=DETERMINISTIC,
-                config_digest=recording.config_digest,
                 mirrors=recording.mirrors,
                 on_copy_error=recording.copy_failed,
             )
@@ -1539,7 +1506,7 @@ def _climb(
     command does not get to second-guess. The contract's ``task_type`` names the
     family work of its kind may begin on; :func:`~mcgyvr.escalate.ascent` walks
     the catalog's families upward from there; :func:`~mcgyvr.route.plan` takes
-    each family's rungs in the order the operator wrote them into ``ladder.tiers``
+    each family's rungs in the order the operator wrote them into the ladder
     and gives each the attempts its tier declares; and ``budgets.max_escalations``
     with ``budgets.max_attempts`` bound how far the walk gets. A ``--rung`` flag
     would be a fourth party to a decision three files already settle, and the
@@ -1672,7 +1639,7 @@ def _climb(
             # The worker runs outside the sandbox and the sandbox has to be able
             # to reach it: a container with no route to the source is a task that
             # gates fine and never gets an answer to gate.
-            endpoints=tuple(source.base_url for source in config.sources.values()),
+            endpoints=tuple(unit.address for unit in config.units.values()),
         )
     except SandboxError as exc:
         return _error(report, str(exc))
@@ -2188,13 +2155,18 @@ def _serve(args: argparse.Namespace) -> int:
         else:
             card = wakelib.card_named(config, args.host)
             capacity = Capacity.of(config)
-            # `budgets.request_timeout_s` and not the task budget: a dispatch in
-            # flight either finishes inside its own transport bound or the
-            # transport has already given up on it, so waiting longer than that
-            # is waiting for something that is no longer running.
-            with capacity.drain(
-                card.sources, timeout=float(config.get("budgets.request_timeout_s"))
-            ):
+            # A dispatch in flight either finishes inside its own unit's
+            # transport bound or the transport has already given up on it, so
+            # waiting longer than that is waiting for something that is no
+            # longer running. The card may hold units with different bounds;
+            # the longest is what covers them all.
+            timeouts: list[float] = []
+            for name in card.sources:
+                unit = config.units.get(name)
+                if unit is not None and unit.request_timeout_s is not None:
+                    timeouts.append(unit.request_timeout_s)
+            timeout = max(timeouts) if timeouts else None
+            with capacity.drain(card.sources, timeout=timeout):
                 made = wakelib.sleep(config, args.host)
     except wakelib.WakeError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -2448,11 +2420,11 @@ def _scans(root: Path) -> dict[str, Scan]:
 def _hosts_wanted(config: Config) -> dict[str, str]:
     """Which machine each rung would run on — rung name to host."""
     wanted: dict[str, str] = {}
-    for tier in config.ladder.tiers:
-        source = config.sources.get(tier.source)
-        if source is None:
-            raise UnitError(f"{tier.name}: no source named {tier.source!r}")
-        wanted[tier.name] = host_of(source.base_url)
+    for name in config.ladder.names:
+        unit = config.units.get(name)
+        if unit is None:
+            raise UnitError(f"{name}: no unit named {name!r}")
+        wanted[name] = host_of(unit.address)
     return wanted
 
 
@@ -2717,14 +2689,31 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     import json
 
     from mcgyvr.derived import DerivedNumbersError, warm_decode_tolerances
+    from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
     from mcgyvr.fleet.lock import LockRefusedError, write
 
     root = Path(args.root)
-    fleet = json.loads(Path(args.fleet).read_text(encoding="utf-8"))
-    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
-    policy = None
-    if args.policy:
-        policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
+    # One authoritative parser: ``fleet.yaml`` and ``policy.yaml`` are the
+    # operator-authored files ``mcgyvr.fleet.files`` defines, so the lock reads
+    # them through it rather than guessing JSON. Evidence stays JSON: a dev run
+    # writes it.
+    try:
+        fleet = load_fleet(Path(args.fleet).read_text(encoding="utf-8"))
+        policy = (
+            load_policy(Path(args.policy).read_text(encoding="utf-8"))
+            if args.policy
+            else None
+        )
+    except FleetFileError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    # Evidence stays JSON: a dev run writes it, so a bad file is named here
+    # rather than left as a traceback.
+    try:
+        evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     # Engine-specific measured tolerances, read from the derived-numbers file:
     # the rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs.
     try:
@@ -3188,7 +3177,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "--fleet",
         required=True,
         metavar="PATH",
-        help="fleet to lock (units, rigs, fleets) as JSON",
+        help="fleet.yaml to lock (units, rigs, fleets)",
     )
     flock.add_argument(
         "--evidence",
@@ -3200,7 +3189,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "--policy",
         default=None,
         metavar="PATH",
-        help="policy whose ladder must name only fleet units (JSON; default: none)",
+        help="policy.yaml whose ladder must name only fleet units (default: none)",
     )
     flock.add_argument(
         "--root",
@@ -3445,7 +3434,7 @@ class _Version(argparse.Action):
             # not a config that cannot be read, one that cannot be found.
             print(f"config: cannot be located ({exc!r})")
         else:
-            print(f"config: {config.digest()} ({config.path})")
+            print(f"config: {config.path}")
         parser.exit(0)
 
 

@@ -42,24 +42,20 @@ import pytest
 
 from tests.red_port.conftest import required
 
-CONFIG = """
-version: 1
-sources:
-  rig_lcp:
-    base_url: "http://rig:8080"
-    api: openai
-    max_parallel: 4
-models:
-  "a-model":
-    vram_gb: 3.0
-    disk_gb: 2.0
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
+CONFIG = """\
+units:
+  only:
+    address: http://rig:8080
+    model: a-model
+    rig: rig_lcp
+    width: 1
+    launch:
+      vram_gb: 3.0
+      disk_gb: 2.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: only
-      source: rig_lcp
-      model: "a-model"
+- only
 """
 
 

@@ -1,8 +1,5 @@
 """llama.cpp answers ``/v1/models`` with a path, and the ladder declares a name.
 
-RED, and two failures in one file — the residency check as it stands is wrong
-about the fleet it was written for, and absent from the only path that matters.
-
 **1. The comparison is a string equality between two different vocabularies.**
 ``AvailabilityVerdict.models`` is what the endpoint said, and llama.cpp says the
 **path it was given**::
@@ -66,17 +63,14 @@ SERVED = f"/home/adaramir/models/{DECLARED}.gguf"
 #: The other model that rig alternates with, as a path.
 OTHER = "/home/adaramir/models/deepseek-coder-v2-16b.gguf"
 
-LADDER = f"""
-version: 1
-sources:
-  srv1_big:
-    base_url: "http://srv1:8080"
-    api: openai
+LADDER = f"""\
+units:
+  local_big:
+    address: http://srv1:8080
+    model: '{DECLARED}'
+    rig: srv1_big
 ladder:
-  tiers:
-    - name: local_big
-      source: srv1_big
-      model: "{DECLARED}"
+- local_big
 """
 
 

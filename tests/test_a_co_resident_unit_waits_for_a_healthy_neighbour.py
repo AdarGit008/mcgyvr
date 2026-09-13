@@ -52,53 +52,47 @@ SCANS = {
     "srv2": rig("srv2", vram_mib=12288, ram_gb=45.0),
 }
 
-FLEET = f"""
-version: 1
-sources:
-  srv1_llamacpp:
-    base_url: "http://srv1:8080"
-    api: openai
-    context_window: 8192
-  srv2_vllm_3b:
-    base_url: "http://srv2:8001"
-    api: openai
+FLEET = f"""\
+units:
+  local_big:
+    address: http://srv1:8080
+    model: '{BIG}'
+    rig: srv1_llamacpp
+    width: 2
+    window: 8192
+    launch:
+      vram_gb: 3.0
+      disk_gb: 12.31
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+  local_3b:
+    address: http://srv2:8001
+    model: '{THREE_B}'
+    rig: srv2_vllm_3b
+    width: 8
+    window: 4096
     engine: vllm
-    context_window: 4096
-  srv2_vllm_7b:
-    base_url: "http://srv2:8002"
-    api: openai
+    hf_cache: '{HF_CACHE}'
+    launch:
+      vram_gb: 3.49
+      disk_gb: 2.15
+      kv_cache_dtype_k: auto
+  local_7b:
+    address: http://srv2:8002
+    model: '{SEVEN_B}'
+    rig: srv2_vllm_7b
+    width: 8
+    window: 4096
     engine: vllm
-    context_window: 4096
-models:
-  "{BIG}":
-    vram_gb: 3.0
-    disk_gb: 12.31
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
-  "{THREE_B}":
-    vram_gb: 3.49
-    disk_gb: 2.15
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
-  "{SEVEN_B}":
-    vram_gb: 7.12
-    disk_gb: 4.93
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
+    hf_cache: '{HF_CACHE}'
+    launch:
+      vram_gb: 7.12
+      disk_gb: 4.93
+      kv_cache_dtype_k: auto
 ladder:
-  tiers:
-    - name: local_big
-      source: srv1_llamacpp
-      model: "{BIG}"
-      max_parallel: 2
-    - name: local_3b
-      source: srv2_vllm_3b
-      model: "{THREE_B}"
-      max_parallel: 8
-    - name: local_7b
-      source: srv2_vllm_7b
-      model: "{SEVEN_B}"
-      max_parallel: 8
+- local_big
+- local_3b
+- local_7b
 """
 
 

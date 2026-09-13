@@ -149,25 +149,38 @@ def test_runner_refuses_a_credentialed_source_before_dispatch(tmp_path: Path) ->
     from mcgyvr import config as cfg
 
     local_only = cfg.parse(
-        "version: 1\n"
-        "sources:\n  srv2:\n    base_url: http://srv2:11434\n    api: openai\n"
-        "ladder:\n  tiers:\n    - name: local_small\n      source: srv2\n"
-        "      model: qwen2.5-coder:1.5b\n",
+        """\
+units:
+  local_small:
+    address: http://srv2:11434
+    model: qwen2.5-coder:1.5b
+    rig: srv2
+ladder:
+- local_small
+""",
         path=tmp_path / "mcgyvr.yaml",
     )
     run.require_local_only(local_only)  # passes silently
 
     with_api = cfg.parse(
-        "version: 1\n"
-        "sources:\n  srv2:\n    base_url: http://srv2:11434\n    api: openai\n"
-        "  cloud:\n    base_url: https://api.example.invalid\n    api: openai\n"
-        "    api_key_env: EXAMPLE_KEY\n"
-        "ladder:\n  tiers:\n    - name: local_small\n      source: srv2\n"
-        "      model: qwen2.5-coder:1.5b\n"
-        "    - name: api_big\n      source: cloud\n      model: big\n",
+        """\
+units:
+  local_small:
+    address: http://srv2:11434
+    model: qwen2.5-coder:1.5b
+    rig: srv2
+  api_big:
+    address: https://api.example.invalid
+    model: big
+    rig: cloud
+    api_key_env: EXAMPLE_KEY
+ladder:
+- local_small
+- api_big
+""",
         path=tmp_path / "mcgyvr.yaml",
     )
-    with pytest.raises(run.NoApiFallback, match="cloud"):
+    with pytest.raises(run.NoApiFallback, match="api_big"):
         run.require_local_only(with_api)
 
     assert run.record_dir(REPO, "abc123") == REPO / "records" / "missions" / "abc123"

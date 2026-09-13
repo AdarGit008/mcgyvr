@@ -39,18 +39,14 @@ from pathlib import Path
 
 import pytest
 
-LADDER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:8080
-    api: openai
-    max_parallel: 1
+LADDER = """\
+units:
+  local:
+    address: http://localhost:8080
+    model: qwen2.5-coder:7b
+    rig: workstation
 ladder:
-  tiers:
-    - name: local
-      source: workstation
-      model: "qwen2.5-coder:7b"
+- local
 """
 
 PASSES = "python3 -c 'import sys; sys.exit(0)'"

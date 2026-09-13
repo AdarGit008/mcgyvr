@@ -56,7 +56,7 @@ def test_a_judge_that_dies_is_not_charged_to_the_last_draw(
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + TWO_DRAWS, encoding="utf-8")
+    lj.append_policy(config, TWO_DRAWS)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1
@@ -119,7 +119,7 @@ def test_a_raise_past_the_last_dispatch_is_on_no_dispatch(
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + TWO_DRAWS, encoding="utf-8")
+    lj.append_policy(config, TWO_DRAWS)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1

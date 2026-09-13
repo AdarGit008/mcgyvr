@@ -1,11 +1,5 @@
 """A rung whose port refuses the connection is woken and retried, not written off.
 
-RED. Every test in this file fails today, and it fails because the behaviour does
-not exist: ``src/mcgyvr/wake.py`` is not written, ``serving.enable_sleep_wake``
-is not a schema key, and a refused connection is charged to the rung as an
-error. The design is ``records/plans/sleep-wake.md``, approved; this file is its
-executable half.
-
 **What happens today.** ``runner._post_json`` turns any ``OSError`` — a refused
 connection included — into ``TransportError``. ``drive`` records it against
 ``mcgyvr.cooldown`` and re-raises; ``attempt`` wraps it as
@@ -91,28 +85,25 @@ def ladder(*, engine: str) -> str:
     charged the refusal has none left to answer with.
     """
     return f"""
-version: 1
-sources:
-  srv2_3b:
-    base_url: http://{HOST}:8001
-    api: openai
+units:
+  {RUNG_3B}:
+    address: http://{HOST}:8001
+    model: qwen2.5-coder-3b
     engine: {engine}
-    max_parallel: 2
-  srv2_7b:
-    base_url: http://{HOST}:8002
-    api: openai
+    rig: srv2_3b
+    width: 2
+  {RUNG_7B}:
+    address: http://{HOST}:8002
+    model: qwen2.5-coder-7b
     engine: {engine}
-    max_parallel: 2
+    rig: srv2_7b
+    width: 2
 ladder:
-  tiers:
-    - name: {RUNG_3B}
-      source: srv2_3b
-      model: qwen2.5-coder-3b
-      attempts: 1
-    - name: {RUNG_7B}
-      source: srv2_7b
-      model: qwen2.5-coder-7b
-      attempts: 1
+- {RUNG_3B}
+- {RUNG_7B}
+attempts:
+  {RUNG_3B}: 1
+  {RUNG_7B}: 1
 """
 
 

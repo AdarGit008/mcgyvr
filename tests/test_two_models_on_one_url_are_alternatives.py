@@ -133,68 +133,62 @@ def _with_free_vram(scan: Scan, free_mib: int) -> Scan:
 def alternatives(geometry: dict[str, Path]) -> str:
     """srv1's two candidates behind one URL: the owner's swap layout."""
     return f"""
-version: 1
-sources:
-  srv1_llamacpp:
-    base_url: "http://srv1:8080"
-    api: openai
-    context_window: 4096
-models:
-  "{BIG}":
-    geometry_json: {geometry[BIG]}
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
-  "{LITE}":
-    geometry_json: {geometry[LITE]}
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
+units:
+  local_lite:
+    address: "http://srv1:8080"
+    model: "{LITE}"
+    rig: srv1_llamacpp
+    width: 2
+    window: 4096
+    launch:
+      geometry_json: {geometry[LITE]}
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+  local_big:
+    address: "http://srv1:8080"
+    model: "{BIG}"
+    rig: srv1_llamacpp
+    width: 2
+    window: 4096
+    launch:
+      geometry_json: {geometry[BIG]}
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: local_lite
-      source: srv1_llamacpp
-      model: "{LITE}"
-      max_parallel: 2
-    - name: local_big
-      source: srv1_llamacpp
-      model: "{BIG}"
-      max_parallel: 2
+- local_lite
+- local_big
 """
 
 
 CO_RESIDENT = f"""
-version: 1
-sources:
-  srv2_vllm_3b:
-    base_url: "http://srv2:8001"
-    api: openai
+units:
+  local_3b:
+    address: "http://srv2:8001"
+    model: "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
     engine: vllm
-    context_window: 4096
-  srv2_vllm_7b:
-    base_url: "http://srv2:8002"
-    api: openai
+    rig: srv2_vllm_3b
+    width: 8
+    window: 4096
+    hf_cache: "{HF_CACHE}"
+    launch:
+      vram_gb: 3.49
+      disk_gb: 1.95
+      kv_cache_dtype_k: auto
+  local_7b:
+    address: "http://srv2:8002"
+    model: "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
     engine: vllm
-    context_window: 4096
-models:
-  "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ":
-    vram_gb: 3.49
-    disk_gb: 1.95
+    rig: srv2_vllm_7b
+    width: 8
+    window: 4096
     hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
-  "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ":
-    vram_gb: 7.12
-    disk_gb: 4.93
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
+    launch:
+      vram_gb: 7.12
+      disk_gb: 4.93
+      kv_cache_dtype_k: auto
 ladder:
-  tiers:
-    - name: local_3b
-      source: srv2_vllm_3b
-      model: "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
-      max_parallel: 8
-    - name: local_7b
-      source: srv2_vllm_7b
-      model: "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
-      max_parallel: 8
+- local_3b
+- local_7b
 """
 
 
@@ -209,53 +203,47 @@ BIG_A = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
 BIG_B = "Qwen/Qwen3-14B-AWQ"
 
 MIXED = f"""
-version: 1
-sources:
-  srv2_small:
-    base_url: "http://srv2:8001"
-    api: openai
+units:
+  local_small:
+    address: "http://srv2:8001"
+    model: "{SMALL}"
     engine: vllm
-    context_window: 4096
-  srv2_big_a:
-    base_url: "http://srv2:8002"
-    api: openai
+    rig: srv2_small
+    width: 8
+    window: 4096
+    hf_cache: "{HF_CACHE}"
+    launch:
+      vram_gb: 3.0
+      disk_gb: 1.95
+      kv_cache_dtype_k: auto
+  local_big_a:
+    address: "http://srv2:8002"
+    model: "{BIG_A}"
     engine: vllm
-    context_window: 4096
-  srv2_big_b:
-    base_url: "http://srv2:8003"
-    api: openai
+    rig: srv2_big_a
+    width: 8
+    window: 4096
+    hf_cache: "{HF_CACHE}"
+    launch:
+      vram_gb: 8.0
+      disk_gb: 9.0
+      kv_cache_dtype_k: auto
+  local_big_b:
+    address: "http://srv2:8003"
+    model: "{BIG_B}"
     engine: vllm
-    context_window: 4096
-models:
-  "{SMALL}":
-    vram_gb: 3.0
-    disk_gb: 1.95
+    rig: srv2_big_b
+    width: 8
+    window: 4096
     hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
-  "{BIG_A}":
-    vram_gb: 8.0
-    disk_gb: 9.0
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
-  "{BIG_B}":
-    vram_gb: 8.0
-    disk_gb: 9.0
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
+    launch:
+      vram_gb: 8.0
+      disk_gb: 9.0
+      kv_cache_dtype_k: auto
 ladder:
-  tiers:
-    - name: local_small
-      source: srv2_small
-      model: "{SMALL}"
-      max_parallel: 8
-    - name: local_big_a
-      source: srv2_big_a
-      model: "{BIG_A}"
-      max_parallel: 8
-    - name: local_big_b
-      source: srv2_big_b
-      model: "{BIG_B}"
-      max_parallel: 8
+- local_small
+- local_big_a
+- local_big_b
 """
 
 

@@ -1,4 +1,4 @@
-"""RED tests: mcgyvr packaged as a skill for Claude CLI and pi.
+"""mcgyvr is packaged as a skill for Claude CLI and pi.
 
 Zero implementation expected. Every test here fails until the skill lands at
 ``skills/mcgyvr/``. The contract is the Agent Skills standard both harnesses

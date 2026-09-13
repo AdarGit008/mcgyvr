@@ -1,12 +1,5 @@
 """The fleet lock is written only from passing dev runs, and checks what it pins.
 
-RED. ``mcgyvr.fleet.lock`` does not exist and ``mcgyvr fleet lock`` is not a
-command. The Waker still judges a wake by a ratio written in code
-(``DEVIATION_RATIO = 1.5``, ``src/mcgyvr/wake.py:98``), and
-``budgets.wake_timeout_s`` is still a hand-set budget. The intent is
-``records/plans/fleet-identity.md`` §4, §5 and §8 (owner, 2026-09-10 and
-2026-09-11).
-
 ``mcgyvr fleet lock`` writes two kinds of file:
 - ``records/fleet/<fleet>.json``: the layout's sha256, the fleet's ``next``
   list, and each switch's dev evidence;

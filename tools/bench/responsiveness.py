@@ -25,7 +25,7 @@ the cheapest available screen for dead cells, and it costs rig time rather than
 authoring. The per-lever ``psi`` stays #231's to measure.
 
 Pre-registration, fixed before the draws existed:
-``records/sessions/lane/225/2026-08-11-f1-responsiveness-prereg.md``.
+``archive/docs/archive/sessions/lane/225/2026-08-11-f1-responsiveness-prereg.md``.
 
     uv run python tools/bench/responsiveness.py --run <dir> --baseline <dir>
 """

@@ -99,33 +99,28 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
 # an intelligence rig and are never interchangeable. This is the symmetric
 # arrangement the knob exists for.
 PEERS = """
-version: 1
-sources:
-  srv1:
-    base_url: http://srv1.example.net:11434
-    api: openai
-    max_parallel: 2
-  srv2:
-    base_url: http://srv2.example.net:11434
-    api: openai
-    max_parallel: 2
-  vendor:
-    base_url: https://api.example.com/v1
-    api: openai
-    max_parallel: 4
+units:
+  local_srv1:
+    address: http://srv1.example.net:11434
+    model: qwen3-coder:30b
+    rig: srv1
+    width: 2
+  local_srv2:
+    address: http://srv2.example.net:11434
+    model: qwen3-coder:30b
+    rig: srv2
+    width: 2
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 4
     api_key_env: EXAMPLE_API_KEY
 ladder:
-{fanout}  tiers:
-    - name: local_srv1
-      source: srv1
-      model: qwen3-coder:30b
-    - name: local_srv2
-      source: srv2
-      model: qwen3-coder:30b
-    - name: api_big
-      source: vendor
-      model: vendor-large
-"""
+- local_srv1
+- local_srv2
+- api_big
+{fanout}"""
 
 CONTRACT = """
 id: fetch-retry
@@ -148,7 +143,7 @@ def peers(mode: str = "") -> str:
     test, and no assertion can be quietly explained by a config that also
     drifted somewhere else.
     """
-    return PEERS.format(fanout=f"  fanout: {mode}\n" if mode else "")
+    return PEERS.format(fanout=f"fanout: {mode}\n" if mode else "")
 
 
 def mapped(text: str | None = None) -> tuple[Config, SourceMap]:
@@ -275,17 +270,24 @@ def saturated(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None
     :meth:`Capacity.hold` refuses a thread that already holds the source — a
     caller queueing against itself is a deadlock it names rather than performs.
     """
-    endpoints = [pool.bind(rung) for rung in rungs]
+    endpoints = list(zip(rungs, [pool.bind(rung) for rung in rungs], strict=True))
     held = threading.Semaphore(0)
     release = threading.Event()
-    slots = [(e, i) for e in endpoints for i in range(capacity.limits[e.source])]
+    slots = [
+        (rung, endpoint, i)
+        for rung, endpoint in endpoints
+        for i in range(capacity.limits[endpoint.source])
+    ]
 
-    def occupy(endpoint: object) -> None:
-        with capacity.hold(endpoint):  # type: ignore[arg-type]
+    def occupy(rung: str, endpoint: object) -> None:
+        with capacity.hold(endpoint, rung=rung):  # type: ignore[arg-type]
             held.release()
             release.wait(RENDEZVOUS_TIMEOUT_S)
 
-    threads = [threading.Thread(target=occupy, args=(e,)) for e, _ in slots]
+    threads = [
+        threading.Thread(target=occupy, args=(rung, endpoint))
+        for rung, endpoint, _ in slots
+    ]
     for thread in threads:
         thread.start()
     try:
@@ -313,11 +315,11 @@ def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> Non
     config pinned at 1 in front of it leaves all of that unused.
     """
     config, _ = mapped()
-    reported = {"srv1": 4, "srv2": 4, "vendor": 4}
+    reported = {"local_srv1": 4, "local_srv2": 4, "api_big": 4}
 
     capacity = Capacity.of(config, probe=_ReportingProbe(reported))
 
-    assert capacity.limits["srv1"] == 4, "the config declared 2; the rig said 4"
+    assert capacity.limits["local_srv1"] == 4, "the config declared 2; the rig said 4"
     assert capacity.total == 12
 
 
@@ -335,12 +337,14 @@ def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_s
     """
     config, _ = mapped()
 
-    probe = _ReportingProbe({"srv1": None, "srv2": None})
+    probe = _ReportingProbe({"local_srv1": None, "local_srv2": None})
     capacity = Capacity.of(config, probe=probe)
 
-    assert capacity.limits["srv1"] == 2, "the declaration stands when nothing answers"
-    assert capacity.confirmed("srv1") is False
-    assert capacity.confirmed("vendor") is False
+    assert capacity.limits["local_srv1"] == 2, (
+        "the declaration stands when nothing answers"
+    )
+    assert capacity.confirmed("local_srv1") is False
+    assert capacity.confirmed("api_big") is False
 
 
 def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced() -> (
@@ -357,7 +361,7 @@ def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced(
     config, _ = mapped()
 
     with pytest.raises(Exception, match=r"srv1.*declares 2.*reports 1"):
-        Capacity.of(config, probe=_ReportingProbe({"srv1": 1}))
+        Capacity.of(config, probe=_ReportingProbe({"local_srv1": 1}))
 
 
 class _ReportingProbe:
@@ -405,8 +409,8 @@ def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
     landed = [o.value for o in outcomes]
-    assert set(landed) == {"srv1"}, "the default takes the cheapest rung, always"
-    assert observer.peak == {"srv1": 2}, "srv2 was never recruited"
+    assert set(landed) == {"local_srv1"}, "the default takes the cheapest rung, always"
+    assert observer.peak == {"local_srv1": 2}, "srv2 was never recruited"
     assert observer.peak_total == 2
 
 
@@ -437,7 +441,7 @@ def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
     outcomes = run_batch(jobs, capacity)
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
-    assert observer.peak == {"srv1": 2, "srv2": 2}
+    assert observer.peak == {"local_srv1": 2, "local_srv2": 2}
     assert observer.peak_total == 4
     assert observer.peak_total > max(observer.peak.values()), "together, not in series"
 

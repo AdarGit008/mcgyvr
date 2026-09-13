@@ -62,25 +62,20 @@ HOST = "rig"
 
 def _config(width: int) -> str:
     """A one-rung ladder whose tier declares ``width`` slots of its own."""
-    return f"""
-version: 1
-sources:
-  rig:
-    base_url: "http://{HOST}:8080"
-    api: openai
-    max_parallel: 8
-models:
-  "{MODEL}":
-    vram_gb: 2.4
-    disk_gb: 1.9
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
+    return f"""\
+units:
+  local_qwen2.5-coder-3b:
+    address: http://{HOST}:8080
+    model: '{MODEL}'
+    rig: rig
+    width: {width}
+    launch:
+      vram_gb: 2.4
+      disk_gb: 1.9
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: local_qwen2.5-coder-3b
-      source: rig
-      model: "{MODEL}"
-      max_parallel: {width}
+- local_qwen2.5-coder-3b
 """
 
 

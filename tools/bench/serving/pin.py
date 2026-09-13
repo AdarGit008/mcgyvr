@@ -306,7 +306,8 @@ SWEEP_PROBE = (
 #:
 #: **The recorder must not be able to damage the run it is recording.** A
 #: reading costs one ssh — measured p50 0.956 s and p95 1.40 s
-#: (records/evidence/calibration-2026-08-19/README.md:20) — and an ssh to a host
+#: (archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:20) —
+#: and an ssh to a host
 #: that has GONE AWAY costs its ``ConnectTimeout`` instead, 15 s, every single
 #: time. Over a several-hundred-task sweep that is hours of a measurement run
 #: spent learning one fact repeatedly. Three is small enough that a sweep never

@@ -1,9 +1,5 @@
 """Prefill is judged like warm decode; CUDA_Host and the backend are only recorded.
 
-RED. ``mcgyvr.fleet.alerts`` does not exist. The intent is
-``records/plans/fleet-identity.md`` §5 and §7, as extended by the gaps a
-comparison of the serving terms against the plan found (owner, 2026-09-11).
-
 * **Prefill** alerts only below its locked as-run value less tolerance: a slow
   prompt read costs every request's first token, and nothing judged it.
 * **CUDA_Host** (llama.cpp's pinned host compute buffer) is recorded beside

@@ -1,11 +1,7 @@
 """A fleet identity is a prefixed digest of what it covers, and nothing else.
 
-RED. ``mcgyvr.fleet.ids`` does not exist on this branch. The intent is
-``records/plans/fleet-identity.md`` §1.
-
-Three kinds are content-addressed and share one primitive, the shape
-``Config.digest()`` already has (``src/mcgyvr/config.py:1092``: a prefix plus
-the sha256 of a canonical tree): ``unt-`` a unit, ``rig-`` a rig and ``cmb-`` a
+Three kinds are content-addressed and share one primitive — a prefix plus
+the sha256 of a canonical tree: ``unt-`` a unit, ``rig-`` a rig and ``cmb-`` a
 combination. Content-addressed, so two processes computing the same inputs
 agree without talking, and any change to an input is a new name.
 
@@ -64,7 +60,7 @@ def test_any_changed_or_added_field_is_a_new_identity() -> None:
 
 def test_a_retired_or_unknown_prefix_is_refused() -> None:
     """``msp-``, ``rsh-`` and ``fsh-`` named the dropped design; ``cfg-`` is the
-    config's digest, which no longer keys an approval."""
+    retired config digest, which no longer keys an approval."""
     digest = _digest()
     for prefix in ("msp-", "rsh-", "fsh-", "cfg-", "flt-"):
         with pytest.raises(ValueError, match=prefix):

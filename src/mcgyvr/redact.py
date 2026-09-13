@@ -2,7 +2,7 @@
 
 A URL is the project's only structure that can carry a credential inside a
 value that is otherwise fine to print. ``https://user:key@host`` appears in
-transport errors, probe verdicts, telemetry rows and ``mcgyvr sources``, and
+transport errors, probe verdicts, telemetry rows and ``mcgyvr pool``, and
 each of those is a sink an operator reads, pastes into an issue, or ships to a
 log collector.
 

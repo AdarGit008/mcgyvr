@@ -29,23 +29,23 @@ import pytest
 
 from tests import livejournal as lj
 
-LADDER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+LADDER = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 
-def _config(path: Path, journal: Path, budgets: str = "") -> Path:
-    text = LADDER + budgets + f"journal:\n  dir: {journal}\n"
+def _config(path: Path, journal: Path, timeout: str = "") -> Path:
+    text = LADDER
+    if timeout:
+        text = text.replace("    width: 2\n", f"    width: 2\n    {timeout}\n", 1)
+    text += f"journal:\n  dir: {journal}\n"
     path.write_text(text, encoding="utf-8")
     return path
 
@@ -72,11 +72,9 @@ def _timeout_of_one_dispatch(
 def test_a_declared_request_timeout_reaches_the_request(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    declared = _timeout_of_one_dispatch(
-        tmp_path, monkeypatch, "budgets:\n  request_timeout_s: 300\n"
-    )
+    declared = _timeout_of_one_dispatch(tmp_path, monkeypatch, "request_timeout_s: 300")
     assert declared == 300.0, (
-        "the run declared `budgets.request_timeout_s: 300` and the request "
+        "the run declared `request_timeout_s: 300` on the unit and the request "
         f"went out with {declared}: a constant in the runner decided how long "
         "a reply was allowed to take, so a cap and a width the operator is "
         "free to declare can be impossible to satisfy and never say so"

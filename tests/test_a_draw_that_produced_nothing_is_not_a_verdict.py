@@ -201,18 +201,15 @@ def test_every_draw_refusing_is_a_failed_attempt_and_says_why(repo: Path) -> Non
 # The loss, as an operator would have met it
 # --------------------------------------------------------------------------
 
-LADDER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+LADDER = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 breadth:
   draws: 3
 """

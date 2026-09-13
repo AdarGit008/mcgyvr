@@ -15,7 +15,7 @@ tools/bundle/worker.local.json
 !records/evidence/**/*.log
 # ...and one exception back the other way. `d7-campaign.aborted-run.log` is 282
 # bytes whose whole content is reproduced verbatim in
-# `d7-sleep.aborted-run.README.md`, which IS tracked, and two records state it
+# `archive/docs/archive/evidence-prose/calibration-2026-08-19/d7-sleep.aborted-run.README.md`, which IS tracked, and two records state it
 # is untracked (that README's own `## The driver log, verbatim`, and the
 # 2026-08-19 session record). Nothing about it is unrecoverable, so tracking it
 # would duplicate a record rather than preserve one — and would make two

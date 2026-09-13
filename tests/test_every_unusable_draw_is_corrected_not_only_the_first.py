@@ -101,7 +101,7 @@ def test_every_row_of_an_all_refused_attempt_is_corrected(
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + BREADTH, encoding="utf-8")
+    lj.append_policy(config, BREADTH)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1

@@ -1,4 +1,4 @@
-"""RED tests: Step 0 leaves the skill; setup moves to SETUP.md.
+"""Step 0 leaves the skill; setup moves to SETUP.md.
 
 Plan v4, ruled 2026-09-09: one package, one seam, two documents. `SKILL.md`
 is what an agent reads to author a contract; `SETUP.md` is what a machine's
@@ -43,7 +43,7 @@ SETUP_VERBS: tuple[str, ...] = (
 )
 
 #: The three keys Step 0 calls "the levers" (action 5).
-LEVERS: tuple[str, ...] = ("sources", "ladder", "budgets")
+LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
 
 def _body(path: Path) -> str:

@@ -4,7 +4,7 @@ Issue: [#167](https://github.com/AdarGit008/mcgyvr/issues/167), under
 [#19](https://github.com/AdarGit008/mcgyvr/issues/19).
 Instrument: [`tools/bundle/README.md`](../../../tools/bundle/README.md) and
 [`records/evidence/local-ai-2026-08-02/instrument/`](../../evidence/local-ai-2026-08-02/instrument/README.md).
-Tables recomputed by [`tools/bundle/python/compare.py`](../../../tools/bundle/python/compare.py).
+Tables recomputed by [`archive/tools/bundle/python/compare.py`](../../../archive/tools/bundle/python/compare.py).
 
 **Neither of the two readings #167 was opened to separate is the right one.**
 CLM-0012's null is not about the language and it is not about the serving stack.

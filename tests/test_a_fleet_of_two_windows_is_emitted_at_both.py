@@ -9,9 +9,9 @@ reports srv1 as drifted, at 8192 it reports srv2, and neither is true.
 
 That is the same defect `--sandbox` and the sleep/wake switch are argued
 against elsewhere: a number that reaches a rig from a flag is a number
-`Config.digest` cannot see, so two runs can share a digest and serve different
-windows. The declaration is the fact; the flag is what a run says when nobody
-has written the fact down yet.
+the recorded setup cannot see, so two runs can share one setup and serve
+different windows. The declaration is the fact; the flag is what a run says when
+nobody has written the fact down yet.
 
 So the precedence is: **a declared window wins, a flag fills a gap, and a flag
 that contradicts a declaration is refused by name** rather than silently
@@ -56,36 +56,31 @@ SCANS = {
 def config_text(*, srv1_window: str = "", srv2_window: str = "") -> str:
     """The live fleet's shape: llama.cpp on srv1, one vLLM unit on srv2."""
     return f"""
-version: 1
-sources:
-  srv1_llamacpp:
-    base_url: "http://srv1:8080"
-    api: openai
-{srv1_window}  srv2_vllm_7b:
-    base_url: "http://srv2:8002"
-    api: openai
+units:
+  local_big:
+    address: "http://srv1:8080"
+    model: "{BIG}"
+    rig: srv1_llamacpp
+    width: 2
+{srv1_window}    launch:
+      vram_gb: 3.0
+      disk_gb: 12.31
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+  local_7b:
+    address: "http://srv2:8002"
+    model: "{SEVEN_B}"
     engine: vllm
-{srv2_window}models:
-  "{BIG}":
-    vram_gb: 3.0
-    disk_gb: 12.31
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
-  "{SEVEN_B}":
-    vram_gb: 7.12
-    disk_gb: 4.93
+    rig: srv2_vllm_7b
+    width: 8
     hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
+{srv2_window}    launch:
+      vram_gb: 7.12
+      disk_gb: 4.93
+      kv_cache_dtype_k: auto
 ladder:
-  tiers:
-    - name: local_big
-      source: srv1_llamacpp
-      model: "{BIG}"
-      max_parallel: 2
-    - name: local_7b
-      source: srv2_vllm_7b
-      model: "{SEVEN_B}"
-      max_parallel: 8
+- local_big
+- local_7b
 """
 
 
@@ -105,8 +100,8 @@ def test_two_hosts_two_declared_windows_and_no_flag_at_all() -> None:
     """
     emitted = units(
         config_text(
-            srv1_window="    context_window: 8192\n",
-            srv2_window="    context_window: 4096\n",
+            srv1_window="    window: 8192\n",
+            srv2_window="    window: 4096\n",
         ),
         ctx_per_slot=None,
     )
@@ -124,11 +119,11 @@ def test_a_flag_that_contradicts_a_declaration_is_refused_by_name() -> None:
     """
     with pytest.raises(UnitError) as raised:
         units(
-            config_text(srv1_window="    context_window: 8192\n"),
+            config_text(srv1_window="    window: 8192\n"),
             ctx_per_slot=4096,
         )
     why = str(raised.value)
-    assert "srv1_llamacpp" in why, why
+    assert "local_big" in why, why
     assert "8192" in why and "4096" in why, why
 
 
@@ -145,8 +140,8 @@ def test_a_declared_window_and_a_matching_flag_agree_silently() -> None:
     """Saying the same thing twice is not a disagreement."""
     emitted = units(
         config_text(
-            srv1_window="    context_window: 4096\n",
-            srv2_window="    context_window: 4096\n",
+            srv1_window="    window: 4096\n",
+            srv2_window="    window: 4096\n",
         ),
         ctx_per_slot=4096,
     )
@@ -169,38 +164,33 @@ def test_one_unit_behind_two_sources_that_disagree_is_refused() -> None:
     process. The unit is the same key — same host, model, engine and port — so
     one of the two windows would silently lose, and the rung pointing at the
     loser would be served a window its contracts were never priced against."""
-    text = f"""
-version: 1
-sources:
-  srv1_a:
-    base_url: "http://srv1:8080"
-    api: openai
-    context_window: 8192
-  srv1_b:
-    base_url: "http://srv1:8080"
-    api: openai
-    context_window: 4096
-models:
-  "{BIG}":
-    vram_gb: 3.0
-    disk_gb: 12.31
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
-  "{SEVEN_B}":
-    vram_gb: 7.12
-    disk_gb: 4.93
-    hf_cache: "{HF_CACHE}"
-    kv_cache_dtype_k: auto
+    text = f"""\
+units:
+  local_a:
+    address: http://srv1:8080
+    model: '{BIG}'
+    rig: srv1_a
+    width: 2
+    window: 8192
+    launch:
+      vram_gb: 3.0
+      disk_gb: 12.31
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+  local_b:
+    address: http://srv1:8080
+    model: '{BIG}'
+    rig: srv1_b
+    width: 2
+    window: 4096
+    launch:
+      vram_gb: 3.0
+      disk_gb: 12.31
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: local_a
-      source: srv1_a
-      model: "{BIG}"
-      max_parallel: 2
-    - name: local_b
-      source: srv1_b
-      model: "{BIG}"
-      max_parallel: 2
+- local_a
+- local_b
 """
     with pytest.raises(UnitError) as raised:
         units(text, ctx_per_slot=None)

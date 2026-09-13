@@ -30,7 +30,7 @@ prompt, applies a diff or runs a gate — those are #25's, #43's and E5's, and a
 routing module that did them could not be tested without a model.
 
 **Attempts are policy, and the default is to escalate rather than retry.** Two
-numbers meet: the rung's own ``attempts`` (``config.ladder.tiers[].attempts``,
+numbers meet: the rung's own ``attempts`` (the ``attempts`` map,
 default 1) and the contract's ``limits.attempts``, whose schema calls it a hard
 ceiling on one execution. The lower wins, so an operator lowering a rung's
 budget is obeyed and a contract lowering its own is obeyed, and neither can
@@ -105,7 +105,7 @@ again after each failure would order the whole *walk* by load, and a walk
 ordered by load is a walk with no ladder in it at all — the rung a failure
 escalates to would be whichever machine happened to be quiet, which inverts the
 one thing a ladder asserts, each rung being measurably better than the one
-below it, and which the ``ladder.tiers`` doc in ``config.SCHEMA`` calls actively
+below it, and which the ``ladder`` doc in ``config.SCHEMA`` calls actively
 harmful.
 
 **A start can also be handed in, already paid for.** :func:`climb`'s ``claimed``
@@ -734,11 +734,11 @@ def family_of(config: Config, rung: str) -> Family:
     for an unknown rung: a caller asking about a name the ladder does not offer
     has a bug, not a routing question.
     """
-    tier = config.ladder.get(rung)
-    if tier is None:
-        offered = ", ".join(t.name for t in config.ladder.tiers) or "none"
+    name = config.ladder.get(rung)
+    if name is None:
+        offered = ", ".join(config.ladder.names) or "none"
         raise RouteError(f"no rung named {rung!r} in the ladder. Offered: {offered}")
-    return catalog().family_of(config.sources[tier.source])
+    return catalog().family_of(config.units[name])
 
 
 def by_family(config: Config, pool: SourceMap) -> Mapping[Family, tuple[Rung, ...]]:
@@ -864,10 +864,11 @@ def fanout_of(config: Config) -> Fanout:
 
 
 def _configured_attempts(config: Config, rung: str) -> int:
-    tier = config.ladder.get(rung)
-    if tier is None:  # unreachable: the rung came from the pool, which came from here
+    if config.ladder.get(rung) is None:
+        # unreachable: the rung came from the pool, which came from here
         raise RouteError(f"no rung named {rung!r} in the ladder")
-    return tier.attempts
+    attempts = config.get("attempts") or {}
+    return int(attempts.get(rung, 1))
 
 
 def _machines(config: Config, rungs: tuple[Rung, ...]) -> Mapping[str, Machine]:
@@ -880,10 +881,10 @@ def _machines(config: Config, rungs: tuple[Rung, ...]) -> Mapping[str, Machine]:
     made: dict[str, Machine] = {}
     by_rung: dict[str, Machine] = {}
     for rung in rungs:
-        tier = config.ladder.get(rung.name)
-        if tier is None:  # unreachable: the rung came from the pool, from here
+        if config.ladder.get(rung.name) is None:
+            # unreachable: the rung came from the pool, from here
             raise RouteError(f"no rung named {rung.name!r} in the ladder")
-        by_rung[rung.name] = made.setdefault(tier.source, Machine(tier.source))
+        by_rung[rung.name] = made.setdefault(rung.name, Machine(rung.name))
     return by_rung
 
 

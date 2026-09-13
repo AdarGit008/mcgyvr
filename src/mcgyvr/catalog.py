@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.config import Config, Source
+    from mcgyvr.config import Config, Unit
 
 CATALOG_FILENAME = "task-catalog.json"
 SCHEMA_VERSION = 1
@@ -182,7 +182,7 @@ class Catalog:
             raise CatalogError(f"{name!r} is not a known family. Valid: {valid}")
         return found
 
-    def family_of(self, source: Source) -> Family:
+    def family_of(self, source: Unit) -> Family:
         """Which family a rung served by ``source`` belongs to.
 
         The one definition of the rule, so that nothing else has to restate it:
@@ -232,9 +232,9 @@ def _families_present(catalog: Catalog, config: Config) -> frozenset[str]:
     """
     present = {catalog.families[0].name}
     bound = {
-        catalog.family_of(config.sources[tier.source]).rank
-        for tier in config.ladder.tiers
-        if tier.source in config.sources
+        catalog.family_of(config.units[name]).rank
+        for name in config.ladder.names
+        if name in config.units
     }
     if bound:
         dearest = max(bound)
