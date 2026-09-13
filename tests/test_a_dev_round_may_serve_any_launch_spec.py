@@ -1,11 +1,10 @@
 """A ``dev`` round may serve any launch spec: the live ladder's, or its own.
 
-RED for the second and third tests. Gate 1
-(``src/mcgyvr/serving/gate-scripts/01-round.py:112``) lets a dev round operate
-only a spec inside the live config's ``serving.compose_dir`` and refuses any
-other before a rig is read. The owner widened sleep-wake §11.2 on 2026-09-10:
-**dev runs everything, ``serve up`` and ``down`` included** — N11 is ruled. The
-intent is ``records/plans/fleet-identity.md`` §6.
+Gate 1 (``src/mcgyvr/serving/gate-scripts/01-round.py:112``) lets a dev round
+operate only a spec inside the live config's ``serving.compose_dir`` and
+refuses any other before a rig is read. The owner widened sleep-wake §11.2 on
+2026-09-10: **dev runs everything, ``serve up`` and ``down`` included** — N11
+is ruled. The intent is ``records/plans/fleet-identity.md`` §6.
 
 **What the refused half protected, and where that went.** The composition guard
 kept a ladder nobody declared off a shared rig, so that every later live run did

@@ -14,8 +14,8 @@ from pathlib import Path
 
 TESTS = Path(__file__).resolve().parent
 
-#: A RED spec opens a paragraph with one of these markers.
-RED_SPEC = re.compile(r"^[ \t]*RED(?:\.|,| tests:)", re.MULTILINE)
+#: A RED spec opens a line with the word ``RED`` (any punctuation after it).
+RED_SPEC = re.compile(r"^[ \t]*RED\b", re.MULTILINE)
 
 
 def _opens_with_red_spec(path: Path) -> bool:

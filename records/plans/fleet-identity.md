@@ -424,23 +424,25 @@ do B81 and B82.
 files pins has landed, so the RED paragraph was removed from every module
 docstring and the assertions kept. The guard is now the general invariant in
 `tests/test_no_landed_test_opens_with_a_red_spec_docstring.py`: it scans every
-module under `tests/` for a paragraph opening with `RED.`, `RED,` or
-`RED tests:`, not a fixed name tuple and the literal `RED.`. The widened guard
-surfaced 33 files; nine escaped the old literal `RED.` guard:
+module under `tests/` for a line opening with the word `RED` (any punctuation
+after it), not a fixed name tuple and the literal `RED.`. The widened guard
+surfaced 34 files; ten escaped the old literal `RED.` guard:
 `test_a_card_can_be_woken_twice_in_one_day.py`,
+`test_a_dev_round_may_serve_any_launch_spec.py`,
 `test_a_live_run_tears_down_the_serve_units_of_the_dev_run_it_displaced.py`,
 `test_a_serve_down_removes_every_container_of_ours.py`,
 `test_a_served_path_is_the_model_that_is_resident.py`,
 `test_draining_a_source_whose_rung_declares_a_width_does_not_raise.py`,
 `test_serve_up_records_each_units_restart_count.py`,
 `test_setup_leaves_the_skill.py`, `test_skill_packaging.py` and
-`test_the_skill_does_not_explain_the_ladder.py`. The complete set of 33:
+`test_the_skill_does_not_explain_the_ladder.py`. The complete set of 34:
 
 - `test_a_card_can_be_woken_twice_in_one_day.py`
 - `test_a_card_reserve_that_moves_between_boots_is_the_same_rig.py`
 - `test_a_config_digest_names_the_setup_and_not_the_schema.py`
 - `test_a_config_resolves_the_geometry_it_names_or_refuses.py`
 - `test_a_corrupt_wake_cache_does_not_shorten_a_wake.py`
+- `test_a_dev_round_may_serve_any_launch_spec.py`
 - `test_a_fleet_id_is_a_prefixed_content_digest.py`
 - `test_a_fleet_is_a_named_layout_that_moves_only_along_its_switches.py`
 - `test_a_launch_spec_this_config_does_not_plan_is_never_woken.py`
