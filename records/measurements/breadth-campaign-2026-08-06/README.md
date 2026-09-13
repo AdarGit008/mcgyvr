@@ -2,7 +2,7 @@
 
 Issue: [#121](https://github.com/AdarGit008/mcgyvr/issues/121), under
 [#111](https://github.com/AdarGit008/mcgyvr/issues/111).
-Instrument: [`campaign.py`](../../../tools/breadth/campaign.py) driving
+Instrument: [`campaign.py`](../../../archive/tools/breadth/campaign.py) driving
 [`measure.py`](../../../tools/breadth/measure.py).
 Refinement batch beside this one: [`../breadth-batch-b-2026-08-06/`](../breadth-batch-b-2026-08-06/).
 
