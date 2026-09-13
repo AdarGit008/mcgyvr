@@ -11,6 +11,7 @@ restore the file.
 from __future__ import annotations
 
 import re
+import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -68,9 +69,28 @@ RETIRED: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+def _root_files(repo: Path) -> Iterator[Path]:
+    """Tracked files directly under the repo root (``.gitignore``, ``Makefile``).
+
+    Enumerated from ``git ls-files`` rather than ``repo.iterdir()`` so an
+    untracked worktree artifact (``run.log``, ``run.pid``) is not scanned as if
+    it were source.
+    """
+    listing = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    for rel in listing.split("\0"):
+        if rel and "/" not in rel and (repo / rel).is_file():
+            yield repo / rel
+
+
 def _files(repo: Path, roots: tuple[str, ...], *, root_files: bool) -> Iterator[Path]:
     if root_files:
-        yield from sorted(p for p in repo.iterdir() if p.is_file())
+        yield from sorted(_root_files(repo))
     for root in roots:
         top = repo / root
         for path in sorted(top.rglob("*")):
