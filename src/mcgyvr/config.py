@@ -1298,7 +1298,7 @@ def _refuse_userinfo(name: str, base_url: str) -> None:
 
     Refusing here is what makes the rule cheap everywhere else. A ``base_url``
     is interpolated into roughly a dozen operator-facing strings — every runner
-    transport error, every availability verdict, ``mcgyvr sources``, the init
+    transport error, every availability verdict, ``mcgyvr pool``, the init
     summary — and a credential that cannot be in the value cannot be in any of
     them. Scrubbing each sink instead would have to be got right once per sink
     and again for every sink added later, which is the shape of defect this
@@ -1310,7 +1310,7 @@ def _refuse_userinfo(name: str, base_url: str) -> None:
     raise ConfigSchemaError(
         f"units.{name}.address: carries credentials in the URL "
         f"({userinfo.split(':')[0]}:...@). A URL is quoted in error messages, "
-        f"probe verdicts and `mcgyvr sources`, so a key written here reaches "
+        f"probe verdicts and `mcgyvr pool`, so a key written here reaches "
         f"logs and terminals that a key in the environment never does. Remove "
         f"the `user:password@` part and name the variable holding it with "
         f"`api_key_env`."

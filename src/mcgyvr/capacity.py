@@ -510,7 +510,7 @@ class Capacity:
             enforced = self._limits.get(source)
             if enforced is None:
                 raise CapacityError(
-                    f"a declared width for source {source!r}, which this capacity "
+                    f"a declared width for unit {source!r}, which this capacity "
                     f"does not bound. A declaration and a bound are two numbers "
                     f"about one unit, so there has to be a unit."
                 )
