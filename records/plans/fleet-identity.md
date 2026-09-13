@@ -426,16 +426,17 @@ docstring and the assertions kept. The guard is now the general invariant in
 `tests/test_no_landed_test_opens_with_a_red_spec_docstring.py`: it scans every
 module under `tests/` for a line opening with the word `RED` (any punctuation
 after it), not a fixed name tuple and the literal `RED.`. The widened guard
-surfaced 34 files; ten escaped the old literal `RED.` guard:
+now covers 35 files; the old name-tuple guard missed eleven:
 `test_a_card_can_be_woken_twice_in_one_day.py`,
 `test_a_dev_round_may_serve_any_launch_spec.py`,
 `test_a_live_run_tears_down_the_serve_units_of_the_dev_run_it_displaced.py`,
 `test_a_serve_down_removes_every_container_of_ours.py`,
 `test_a_served_path_is_the_model_that_is_resident.py`,
 `test_draining_a_source_whose_rung_declares_a_width_does_not_raise.py`,
+`test_fleet_lock_reads_fleet_and_policy_as_yaml.py`,
 `test_serve_up_records_each_units_restart_count.py`,
 `test_setup_leaves_the_skill.py`, `test_skill_packaging.py` and
-`test_the_skill_does_not_explain_the_ladder.py`. The complete set of 34:
+`test_the_skill_does_not_explain_the_ladder.py`. The complete set of 35:
 
 - `test_a_card_can_be_woken_twice_in_one_day.py`
 - `test_a_card_reserve_that_moves_between_boots_is_the_same_rig.py`
@@ -458,6 +459,7 @@ surfaced 34 files; ten escaped the old literal `RED.` guard:
 - `test_an_alert_pulls_its_combination_until_it_is_revalidated.py`
 - `test_card_contention_and_not_the_port_decides_who_alternates.py`
 - `test_draining_a_source_whose_rung_declares_a_width_does_not_raise.py`
+- `test_fleet_lock_reads_fleet_and_policy_as_yaml.py`
 - `test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock.py`
 - `test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it.py`
 - `test_prefill_is_judged_and_cuda_host_and_the_backend_are_recorded.py`
