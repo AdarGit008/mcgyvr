@@ -61,3 +61,23 @@ up** from the fork's default (`70` → `120`). Tuned, it is the only way we have
 reach. Untuned (`70/186`), it is a modest +32%.
 
 Raw logs: `/tmp/arm1.log` … `/tmp/arm4.log` on srv2 (operator machine, git-ignored).
+
+## Long-context decay sweep (cache `120/256`)
+
+Decode t/s vs *actual* context (not just KV allocation) — the "long conversation" question.
+Same flags as arm 4, `-n 200` after a prefill to the target length. Prompt files
+`/tmp/prompt_{8k,32k,128k}.txt` on srv2.
+
+| actual ctx | prefill t/s | decode t/s |
+|---|---|---|
+| ~1k (arm 4) | — | 49.0 |
+| ~8k | 756.3 | 41.7 |
+| ~32k | 746.8 | 36.3 |
+| ~128k | 625.0 | 24.0 |
+
+Decode decays ~monotonically with real context: attention re-reads the full KV every
+token and the expert cache does not help attention. At 128k it is ~24 t/s — ~half the
+short-context rate, but still a regime `--n-cpu-moe 7` cannot reach at all (needs ~15.6
+GiB VRAM). Prefill stays cheap (~625–756 t/s), so long prompts are not the pain point.
+
+srv1-leverage prior-art research: see `srv1-leverage-research.md` in this folder.
