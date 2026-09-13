@@ -1,4 +1,4 @@
-"""RED tests: the skill an agent reads to author a contract stops explaining
+"""The skill an agent reads to author a contract stops explaining
 mcgyvr's local model ladder (plan v4, actions 19-26, ruled 2026-09-09).
 
 The frontmatter `description` is in every session's context whether or not

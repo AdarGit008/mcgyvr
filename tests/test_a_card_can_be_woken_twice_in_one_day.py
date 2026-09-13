@@ -1,7 +1,5 @@
 """A card can be woken twice in one day.
 
-RED, against code that exists. P0 of ``records/plans/fleet-identity.md`` §11.
-
 The Waker gives every wake a RUN_ID of its own (``--suffix``,
 ``src/mcgyvr/wake.py:128-150``). But the serve steps declare fixed artifact
 names (``# RUN_ARTIFACTS: serve-up.json`` in

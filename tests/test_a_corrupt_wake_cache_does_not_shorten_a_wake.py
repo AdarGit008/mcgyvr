@@ -1,11 +1,5 @@
 """A derived budget may never shorten or abort a wake — not even by raising.
 
-RED. The owner's ruling of 2026-09-09 is that ``wake.predicted_wake_s`` is
-**advisory**: it warns, it informs scheduling, and ``budgets.wake_timeout_s``
-remains the sole authority that gives up. A derived budget that could abort
-would abandon a wake that was about to land and leave a card half-up, which is
-the one lifecycle state D2 says the reading cannot name.
-
 ``predicted_wake_s`` breaks that ruling by accident, in the narrowest possible
 way. It catches ``OSError`` and ``ValueError`` around the read and the parse and
 then calls ``.get`` on whatever came back::

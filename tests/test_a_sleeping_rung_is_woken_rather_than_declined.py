@@ -1,11 +1,5 @@
 """A rung whose port refuses the connection is woken and retried, not written off.
 
-RED. Every test in this file fails today, and it fails because the behaviour does
-not exist: ``src/mcgyvr/wake.py`` is not written, ``serving.enable_sleep_wake``
-is not a schema key, and a refused connection is charged to the rung as an
-error. The design is ``records/plans/sleep-wake.md``, approved; this file is its
-executable half.
-
 **What happens today.** ``runner._post_json`` turns any ``OSError`` — a refused
 connection included — into ``TransportError``. ``drive`` records it against
 ``mcgyvr.cooldown`` and re-raises; ``attempt`` wraps it as

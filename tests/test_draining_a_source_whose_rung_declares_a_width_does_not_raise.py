@@ -1,13 +1,5 @@
 """Draining a source whose rung declares a width holds every slot, not raises.
 
-RED, and the one test here against code that exists. ``Capacity.drain``
-(``src/mcgyvr/capacity.py:1288``) sorts the bounds of the named sources, and
-``_bounds`` keys a source's pool ``(source, None)`` and a width-declaring rung
-``(source, rung)`` (``:568-572``). srv1's live rung ``local_qwen3.6-35b-a3b``
-declares ``max_parallel: 2``, so ``sorted()`` compares ``None`` with a ``str``
-and ``mcgyvr serve sleep`` crashes on srv1 (flexibility-2026-09-09, Defects: "`mcgyvr
-serve sleep` crashes on srv1").
-
 P0 of ``records/plans/fleet-identity.md`` §11: a switch drains a unit before
 it sleeps or stops it (§3), and on srv1 the drain cannot run.
 """

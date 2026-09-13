@@ -1,9 +1,5 @@
 """Live runs only a locked fleet on its own rigs, and cleans what is not in it.
 
-RED. ``mcgyvr.fleet.admit`` does not exist, and the Waker wakes whatever
-``serving.compose_dir`` holds (``src/mcgyvr/wake.py:368``). The intent is
-``records/plans/fleet-identity.md`` §6 (owner, 2026-09-10 and 2026-09-11).
-
 Live is production: mcgyvr delegating real code tasks. It runs a fleet the
 user picked from the locked set, and nothing else:
 

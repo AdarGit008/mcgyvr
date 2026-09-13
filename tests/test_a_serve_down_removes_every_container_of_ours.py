@@ -1,8 +1,5 @@
 """A ``serve down`` removes every container of ours, not only those its file names.
 
-RED, against code that exists. P0 of ``records/plans/fleet-identity.md`` §11,
-and a prerequisite of live's auto-clean (§6).
-
 The door runs every serve under one compose project (``-p mcgyvr``). The up
 step already passes ``--remove-orphans``
 (``src/mcgyvr/serving/gate-scripts/serve-up.py:58``); the down step does not

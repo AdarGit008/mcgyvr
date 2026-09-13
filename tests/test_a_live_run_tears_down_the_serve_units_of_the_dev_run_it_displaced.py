@@ -1,8 +1,5 @@
 """A live run that displaces a dev serve tears the dev run's units down.
 
-RED, against code that exists. P0 of ``records/plans/fleet-identity.md`` §11,
-and a prerequisite of live's auto-clean (§6).
-
 Gate 2 lets a live run take a rig a dev run holds (ruling R1) and tears down
 what it displaced by name: every container whose name starts with the
 displaced run's id (``src/mcgyvr/serving/gate-scripts/02-rig.py:108``,

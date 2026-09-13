@@ -420,6 +420,56 @@ The ruling spoke of six door tests; that six included the two `serve down` tests
 (`:179-206`). They stay live, because gate 1 always admits a live down, and so
 do B81 and B82.
 
+**Stale RED docstrings removed (2026-09-13).** The behaviour each of these
+files pins has landed, so the RED paragraph was removed from every module
+docstring and the assertions kept. The guard is now the general invariant in
+`tests/test_no_landed_test_opens_with_a_red_spec_docstring.py`: it scans every
+module under `tests/` for a paragraph opening with `RED.`, `RED,` or
+`RED tests:`, not a fixed name tuple and the literal `RED.`. The widened guard
+surfaced 33 files; nine escaped the old literal `RED.` guard:
+`test_a_card_can_be_woken_twice_in_one_day.py`,
+`test_a_live_run_tears_down_the_serve_units_of_the_dev_run_it_displaced.py`,
+`test_a_serve_down_removes_every_container_of_ours.py`,
+`test_a_served_path_is_the_model_that_is_resident.py`,
+`test_draining_a_source_whose_rung_declares_a_width_does_not_raise.py`,
+`test_serve_up_records_each_units_restart_count.py`,
+`test_setup_leaves_the_skill.py`, `test_skill_packaging.py` and
+`test_the_skill_does_not_explain_the_ladder.py`. The complete set of 33:
+
+- `test_a_card_can_be_woken_twice_in_one_day.py`
+- `test_a_card_reserve_that_moves_between_boots_is_the_same_rig.py`
+- `test_a_config_digest_names_the_setup_and_not_the_schema.py`
+- `test_a_config_resolves_the_geometry_it_names_or_refuses.py`
+- `test_a_corrupt_wake_cache_does_not_shorten_a_wake.py`
+- `test_a_fleet_id_is_a_prefixed_content_digest.py`
+- `test_a_fleet_is_a_named_layout_that_moves_only_along_its_switches.py`
+- `test_a_launch_spec_this_config_does_not_plan_is_never_woken.py`
+- `test_a_live_run_tears_down_the_serve_units_of_the_dev_run_it_displaced.py`
+- `test_a_measured_scratch_is_used_only_at_the_ubatch_it_was_read_at.py`
+- `test_a_rung_whose_model_is_not_resident_does_not_read_as_available.py`
+- `test_a_serve_down_removes_every_container_of_ours.py`
+- `test_a_served_path_is_the_model_that_is_resident.py`
+- `test_a_sleeping_rung_is_woken_rather_than_declined.py`
+- `test_a_sleeping_unit_does_not_read_as_serving.py`
+- `test_a_unit_states_its_kv_cache_dtype_or_is_refused.py`
+- `test_a_wake_is_asked_for_in_the_config_and_bounded_by_its_own_budget.py`
+- `test_an_alert_pulls_its_combination_until_it_is_revalidated.py`
+- `test_card_contention_and_not_the_port_decides_who_alternates.py`
+- `test_draining_a_source_whose_rung_declares_a_width_does_not_raise.py`
+- `test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock.py`
+- `test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it.py`
+- `test_prefill_is_judged_and_cuda_host_and_the_backend_are_recorded.py`
+- `test_serve_up_records_each_units_restart_count.py`
+- `test_setup_leaves_the_skill.py`
+- `test_skill_packaging.py`
+- `test_sleeping_a_card_takes_every_rung_it_serves.py`
+- `test_the_fleet_and_its_policy_are_two_files.py`
+- `test_the_fleet_lock_is_written_only_from_passing_dev_runs.py`
+- `test_the_lock_pins_each_combinations_headroom_card_peak_backend_and_prefill.py`
+- `test_the_numbers_the_fleet_identity_design_waits_on_are_measured.py`
+- `test_the_scratch_allowance_for_qwen3next_is_what_it_measured.py`
+- `test_the_skill_does_not_explain_the_ladder.py`
+
 ## 11. Phases
 
 | | work |

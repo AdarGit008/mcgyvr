@@ -1,17 +1,5 @@
 """A unit states its KV cache dtype, and a unit that does not is refused.
 
-RED. Owner, 2026-09-11: "make this field a knob that must be set. fail loud on
-null." Today the KV cache dtype is implicit wherever it is absent. The bench
-vLLM gate reads a missing ``--kv-cache-dtype`` as ``auto``
-(``tools/bench/serving/backends/vllm.py`` ``kv_cache_dtype``, since #442), a
-llama.cpp launch that omits ``-ctk``/``-ctv`` gets the engine's own ``f16``,
-and a product unit renders whatever ``serve_args`` happen to say. Four srv2
-bench entries state ``fp8``; every other served entry in the tree states
-nothing, and so does every model in the live config. A dtype nobody wrote is a
-number nobody chose: fp8 moves an sm_86 card off FlashAttention and changed
-the 7B's answers (7a4d048f M5), so which cache a unit runs is a decision, and
-a decision is declared.
-
 What is specified here, at the two places a launch is declared:
 
 * **The bench survey** (``tools/bench/serving/run.py`` ``check_entries``, the

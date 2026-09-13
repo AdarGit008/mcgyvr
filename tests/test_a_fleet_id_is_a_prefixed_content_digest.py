@@ -1,8 +1,5 @@
 """A fleet identity is a prefixed digest of what it covers, and nothing else.
 
-RED. ``mcgyvr.fleet.ids`` does not exist on this branch. The intent is
-``records/plans/fleet-identity.md`` §1.
-
 Three kinds are content-addressed and share one primitive, the shape
 ``Config.digest()`` already has (``src/mcgyvr/config.py:1092``: a prefix plus
 the sha256 of a canonical tree): ``unt-`` a unit, ``rig-`` a rig and ``cmb-`` a

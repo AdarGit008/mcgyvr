@@ -1,8 +1,5 @@
 """llama.cpp answers ``/v1/models`` with a path, and the ladder declares a name.
 
-RED, and two failures in one file — the residency check as it stands is wrong
-about the fleet it was written for, and absent from the only path that matters.
-
 **1. The comparison is a string equality between two different vocabularies.**
 ``AvailabilityVerdict.models`` is what the endpoint said, and llama.cpp says the
 **path it was given**::

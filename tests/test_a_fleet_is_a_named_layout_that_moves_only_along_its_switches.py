@@ -1,8 +1,5 @@
 """A fleet is a named layout, and it moves only along the switches listed for it.
 
-RED. ``mcgyvr.fleet.layout`` does not exist. The intent is
-``records/plans/fleet-identity.md`` §1 and §3 (owner, 2026-09-11).
-
 * A **combination** is one rig's **room slots**, in order. Each slot holds a
   unit, ``awake`` or ``asleep``, or is free (owner: "list position is a room
   slot"). An asleep unit keeps its room; a unit whose room is freed leaves its
