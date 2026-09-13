@@ -2717,14 +2717,31 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     import json
 
     from mcgyvr.derived import DerivedNumbersError, warm_decode_tolerances
+    from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
     from mcgyvr.fleet.lock import LockRefusedError, write
 
     root = Path(args.root)
-    fleet = json.loads(Path(args.fleet).read_text(encoding="utf-8"))
-    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
-    policy = None
-    if args.policy:
-        policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
+    # One authoritative parser: ``fleet.yaml`` and ``policy.yaml`` are the
+    # operator-authored files ``mcgyvr.fleet.files`` defines, so the lock reads
+    # them through it rather than guessing JSON. Evidence stays JSON: a dev run
+    # writes it.
+    try:
+        fleet = load_fleet(Path(args.fleet).read_text(encoding="utf-8"))
+        policy = (
+            load_policy(Path(args.policy).read_text(encoding="utf-8"))
+            if args.policy
+            else None
+        )
+    except FleetFileError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    # Evidence stays JSON: a dev run writes it, so a bad file is named here
+    # rather than left as a traceback.
+    try:
+        evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     # Engine-specific measured tolerances, read from the derived-numbers file:
     # the rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs.
     try:
@@ -3188,7 +3205,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "--fleet",
         required=True,
         metavar="PATH",
-        help="fleet to lock (units, rigs, fleets) as JSON",
+        help="fleet.yaml to lock (units, rigs, fleets)",
     )
     flock.add_argument(
         "--evidence",
@@ -3200,7 +3217,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "--policy",
         default=None,
         metavar="PATH",
-        help="policy whose ladder must name only fleet units (JSON; default: none)",
+        help="policy.yaml whose ladder must name only fleet units (default: none)",
     )
     flock.add_argument(
         "--root",
