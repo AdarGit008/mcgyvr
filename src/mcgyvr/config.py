@@ -32,10 +32,8 @@ bindings, and writing the file are separate concerns and do not live here.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import re
-import threading
 import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -53,13 +51,6 @@ from mcgyvr.strict_yaml import strict_loader
 FLEET_FILENAME = "fleet.yaml"
 POLICY_FILENAME = "policy.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
-#: What a config's identity starts with (:meth:`Config.digest`), so it can
-#: never be read as a product digest or a blob name: those are bare hex.
-DIGEST_PREFIX = "cfg-"
-#: Where the journal keeps the config each run was made under, by its digest
-#: (:func:`keep`): ``<journal.dir>/configs/<digest>.yaml``. Naming that file
-#: in ``MCGYVR_CONFIG`` re-selects the setup a result names, in one command.
-CONFIGS_DIR = "configs"
 #: The user-level config directory (owner, 2026-09-05). A literal with `~` so
 #: help text reads the same on every machine; expanded at the point of use.
 #: This is the third and last place a config is looked for, after the
@@ -243,10 +234,7 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "line moves it: it is the one place every run is, which is what makes "
         "it worth asking questions of. `mcgyvr run --record DIR` adds a second "
         "copy for your own use. Read either back with `tools/live/review.py "
-        "DIR`. The config each run was made under is kept here too, as "
-        "`configs/<digest>.yaml`, and every row and result names that "
-        "digest: `MCGYVR_CONFIG=<dir>/configs/<digest>.yaml` re-selects the "
-        "exact setup a result was produced under.",
+        "DIR`.",
         default=JOURNAL_DIR_DEFAULT,
     ),
 )
@@ -392,11 +380,11 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "by default, because the feature is a trade and not an improvement: "
         "turning it on lets `mcgyvr run` stop containers on a rig other people "
         "share. It is a key here and not a `--flag` for the reason `mcgyvr run "
-        "--config` already gives about which rung runs — `Config.digest` is "
-        "what a run is reproducible from, and a flag would let two runs share "
-        "one digest where only one of them started and stopped containers on a "
-        "shared rig, putting the rig side effect outside the only record that "
-        "explains the run. It governs the *decisions*: `mcgyvr serve "
+        "--config` already gives about which rung runs — the config a run is "
+        "made under is what a run is reproducible from, and a flag would let "
+        "two runs share one config where only one of them started and stopped "
+        "containers on a shared rig, putting the rig side effect outside the "
+        "only record that explains the run. It governs the *decisions*: `mcgyvr serve "
         "sleep|wake`, typed by a person who has therefore asked, is not gated "
         "by it. It sits here rather than under `ladder` because "
         "`ladder.fanout` decides where work goes among rungs that exist and "
@@ -800,9 +788,9 @@ class Config:
     ``require`` and ``secret``, which fail at the point of use rather than at
     load.
 
-    ``declared`` is the identity tree: ``data`` pruned to the settings the
-    file actually stated, with every default the loader filled in left out.
-    It is what :meth:`canonical` renders.
+    ``declared`` is ``data`` pruned to the settings the file actually stated,
+    with every default the loader filled in left out. It is what
+    :meth:`canonical` renders.
 
     ``path`` is where the caller found the config directory, kept for error
     messages. It is not consulted after :func:`parse`.
@@ -869,7 +857,7 @@ class Config:
         the same config render to the same bytes, whatever their comments,
         blank lines or key order: a defaulted key is not identity. A relative
         ``geometry_json`` has already been resolved into ``data`` and
-        ``declared``, so a kept copy names the file the original did.
+        ``declared``, so the rendering names the file the original did.
         """
         return yaml.dump(
             _plain(self.declared),
@@ -879,16 +867,6 @@ class Config:
             allow_unicode=True,
             width=1_000_000,
         )
-
-    def digest(self) -> str:
-        """The config's identity: ``cfg-`` and the sha256 of :meth:`canonical`.
-
-        Over the loaded and validated tree and never over the file's bytes,
-        because an identity that moved when a comment was added would name
-        the edit and not the setup (owner's ruling R2, 2026-09-06).
-        """
-        raw = self.canonical().encode("utf-8")
-        return DIGEST_PREFIX + hashlib.sha256(raw).hexdigest()
 
     def _unbound(self, key: str) -> str:
         spec = field_at(key)
@@ -929,7 +907,7 @@ def _plain(value: Any) -> Any:
 def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
     """``data`` pruned to what the file declared, and only to what it changes.
 
-    The identity tree :meth:`Config.canonical` renders. ``data`` is the
+    The tree :meth:`Config.canonical` renders. ``data`` is the
     validated tree with defaults filled in and paths resolved; ``raw`` is the
     same tree as parsed, before the loader ran. A key the file stated is kept
     only when it states something the omission did not already mean: a key
@@ -983,47 +961,6 @@ def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
             if value != spec.default:
                 out[name] = value
     return out
-
-
-def keep(config: Config, journal_dir: Path) -> Path:
-    """File ``config`` under ``journal_dir`` by its digest, and return the path.
-
-    ``<journal_dir>/configs/<digest>.yaml``, holding :meth:`Config.canonical`:
-    the one place a result's ``config_digest`` can be followed back to, and
-    the file to name in ``MCGYVR_CONFIG`` to run under exactly that setup
-    again. Content-addressed, so one that is already there and reads as the
-    text it should hold is left alone; one that reads otherwise — a copy a
-    crash left short — is replaced, because a kept copy that will not load
-    is worse than none. A new one is staged under a name unique to this
-    writer, opened exclusively, and moved into place whole, as the journal's
-    blobs are: two runs keeping the same config at once each stage their
-    own, and the last move wins with bytes identical to the first. An
-    ``OSError`` propagates: a copy that cannot be written is a result that
-    cannot be traced, and the caller says so.
-    """
-    text = config.canonical()
-    where = journal_dir / CONFIGS_DIR
-    path = where / f"{config.digest()}.yaml"
-    try:
-        if path.read_text(encoding="utf-8") == text:
-            return path
-    except (OSError, UnicodeDecodeError):
-        pass
-    where.mkdir(parents=True, exist_ok=True)
-    staging = where / f".{path.name}.{os.getpid()}-{threading.get_ident()}.part"
-    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-    try:
-        try:
-            data = text.encode("utf-8")
-            while data:
-                data = data[os.write(fd, data) :]
-        finally:
-            os.close(fd)
-        os.replace(staging, path)
-    except BaseException:
-        staging.unlink(missing_ok=True)
-        raise
-    return path
 
 
 def field_at(key: str) -> Field | None:
@@ -1326,7 +1263,7 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     ``geometry_json: ./Qwen3.6-35B-A3B-UD-IQ3_XXS.geometry.json``).
 
     Resolved **here**, once, and never again. Until 2026-09-08 the join was
-    done twice and later: by ``Config._pinned`` for the digest and by
+    done twice and later: by ``Config._pinned`` for the rendered config and by
     :func:`mcgyvr.serving.declared_models` for the file that is opened. Two
     derivations of one meaning are two answers waiting to differ, and both
     already differed from each other under a symlink. A value in ``data`` is
@@ -1339,20 +1276,21 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     **A relative path with no config location is refused, not guessed.** The
     line means "next to me", and a config parsed from text nobody filed
     (:func:`parse` with ``path=None``) has no "me". The two old sites took
-    that as permission to carry the word unresolved: the digest named
+    that as permission to carry the word unresolved: the rendered config named
     ``./x.json`` — a different file from every directory — and
     ``declared_models`` handed the bare name to ``open``, so the run read
     whatever the process's working directory held. Measured on the live config
-    on 2026-09-08: from its path ``cfg-02ab991e…``, from the same bytes with
-    no path ``cfg-68b454c9…``, the second naming a file that exists from
-    nowhere. Resolving against the working directory instead would keep both
+    on 2026-09-08: from its path the resolution read
+    ``/home/adaramir/.mcgyvr/config/Qwen3.6-….geometry.json``; from the same
+    bytes with no path it carried ``./Qwen3.6-….geometry.json``, which exists
+    from nowhere. Resolving against the working directory instead would keep both
     of those and add a third: a config whose meaning depends on where the
     operator was standing when they ran it. The remaining answer is to say so.
     This repo already answers a missing fact this way rather than inventing
     one — ``emit.py`` refuses to report an unscanned host, and
     ``check_contract_against_rung`` says an invented window "is the defect this
     function exists to end" — and :meth:`Config.canonical`'s promise that
-    loading its text back yields the same digest (``config.py:974``) is
+    loading its text back yields the same config is
     unconditional, so the case it cannot keep must not be loadable.
 
     **The route to the config file is resolved before its directory is taken.**
@@ -1360,11 +1298,10 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     its entry to the default config path. The scan sits beside the *entry*,
     because that is where the entry's author filed it; taking ``path.parent``
     through the link named the link's directory instead, so one file with one
-    set of bytes got two identities — ``cfg-25d592ef…`` and ``cfg-97b08fad…``
-    on a copy of the live config, 2026-09-08 — and one of them named a scan
-    that was never written. :meth:`Config.digest` is the config's identity, and
-    an identity that moved with the route taken to the file would name the
-    route. The cost is real and accepted: a config reached through a link whose
+    set of bytes rendered two ways on a copy of the live config, 2026-09-08 —
+    and one of them named a scan that was never written. The config's resolved
+    rendering is a property of the file and not the route taken to it. The cost
+    is real and accepted: a config reached through a link whose
     *target* directory does not hold the scan now fails loudly at the point of
     use instead of quietly reading a different file, and the remedy is one
     absolute path in that entry. ``resolve`` also settles a config named by a

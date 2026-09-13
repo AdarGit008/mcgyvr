@@ -124,7 +124,7 @@ def test_a_config_reached_through_a_symlink_is_the_same_config(
     named = Path(through_link.units["only"].launch["geometry_json"])
     assert named == entry.parent / "geometry.json"
     assert named.exists(), "the identity names a scan that is not on disk"
-    assert through_link.digest() == load(entry).digest()
+    assert through_link.canonical() == load(entry).canonical()
 
 
 def test_the_geometry_a_run_opens_is_the_one_the_identity_names(

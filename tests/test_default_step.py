@@ -254,7 +254,6 @@ class Fake:
             RUN_PRODUCT_SHA256=PRODUCT_SHA256,
             RUN_PROFILE="live",
             RUN_CONFIG="none",
-            RUN_CONFIG_DIGEST="none",
             RUN_ID=self.run_id,
             RUN_OUT_DIR=str(self.out),
             RUN_DATE="2026-09-05",

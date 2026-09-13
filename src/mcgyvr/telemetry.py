@@ -203,7 +203,6 @@ def observe[T](
     task_type: str | None = None,
     session_file: Path | None = None,
     tier: str | None = None,
-    config_digest: str | None = None,
     mirrors: Sequence[Path] = (),
     on_copy_error: CopyError | None = None,
 ) -> T:
@@ -238,10 +237,7 @@ def observe[T](
     feedback loop that wants to say "this rung fails implementations" needs
     the type beside the verdict, and a reviewer who wants the conversation
     behind an attempt needs the path beside the row. Absent, not null, when
-    the caller has neither. ``config_digest`` is identity of the same kind:
-    which setup (:meth:`mcgyvr.config.Config.digest`) the run was made under,
-    so a row can be traced to the exact config that produced it (R2) — and
-    absent on a run made with no config, as a floor run may be.
+    the caller has neither.
 
     A sink that cannot be written raises rather than being swallowed. Silence
     here is the failure this module was built to end, and an unwritable path is
@@ -304,7 +300,6 @@ def observe[T](
             task_type=task_type,
             session_file=session_file,
             tier=tier,
-            config_digest=config_digest,
         )
     except BaseException as failure:
         append(unlanded(failure))
@@ -424,7 +419,6 @@ def _identity(
     task_type: str | None,
     session_file: Path | None,
     tier: str | None = None,
-    config_digest: str | None = None,
 ) -> None:
     """What the attempt is, known before it runs and shared by both rows it can write.
 
@@ -466,8 +460,6 @@ def _identity(
         fields["session_file"] = str(session_file)
     if tier is not None:
         fields["tier"] = tier
-    if config_digest is not None:
-        fields["config_digest"] = config_digest
     fields |= _prompt_identity(store, messages)
     revision = _product_revision()
     if revision is not None:
