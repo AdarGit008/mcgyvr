@@ -19,8 +19,8 @@ loop rather than through a hand-assembled value:
   either — and the forgery asserted here is the strongest one available: an
   ``Accepted`` that is entirely self-consistent. If a self-consistent forgery
   still commits, the mechanism is a naming convention, not a check.
-* ``pending.resume`` — the only production caller of ``deliver`` — must not be
-  able to finish work no gate ever accepted.
+* A caller that hands ``deliver`` a bare ``str`` must not be able to finish
+  work no gate ever accepted.
 
 Delivery is the last seam before a human's repository, and it is the only one
 that can establish, non-negotiably, that what it is about to write passes the
@@ -316,11 +316,10 @@ def test_a_sandbox_over_a_source_with_no_revision_refuses_to_name_one(
 
 
 def test_a_draw_with_no_byte_form_is_a_consensus_error(tmp_path: Path) -> None:
-    """``_draw``'s own comment cites ``pending.stash`` as its model.
+    """A draw whose content has no byte form is a consensus error.
 
-    ``stash`` was fixed to raise ``PendingError`` for content that has no byte
-    form; ``_draw`` still let the raw ``UnicodeEncodeError`` out. A lone
-    surrogate is a legal JSON escape, so it arrives here as ordinary draw text.
+    A lone surrogate is a legal JSON escape, so it arrives here as ordinary draw
+    text; the raw ``UnicodeEncodeError`` must not escape a ranking function.
     """
     target = "src/pkg/fetch.py"
     repo = make_repo(tmp_path / "repo", {target: "def fetch(url):\n    return url\n"})

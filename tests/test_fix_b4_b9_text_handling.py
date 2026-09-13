@@ -6,10 +6,10 @@ one. Neither is caught by a type, because every one of them is ``str`` on
 both sides.
 
 **B9 — the repo's own byte convention.** mcgyvr reads and writes file content
-through ``utf-8``/``surrogateescape`` on purpose, and documents it at
-:mod:`mcgyvr.pending`. The writers the port added encoded with strict defaults
-instead, so a single undecodable byte — arriving here the way the pressure test
-says it arrives, as a ``\\udc80`` escape in a JSON reply, through
+through ``utf-8``/``surrogateescape`` on purpose. The writers the port added
+encoded with strict defaults instead, so a single undecodable byte — arriving
+here the way the pressure test says it arrives, as a ``\\udc80`` escape in a
+JSON reply, through
 :class:`~mcgyvr.runner.Completion` and
 :func:`~mcgyvr.worker.reply.parse_reply` — raised ``UnicodeEncodeError`` out of
 the writer. The wire path is what is exercised rather than a hand-built string,
