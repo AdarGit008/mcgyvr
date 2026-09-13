@@ -2,7 +2,7 @@
 
 ``limits.max_output_tokens`` exists only on the contract
 (``src/mcgyvr/contract.py:401`` ``LIMITS_FIELDS``) and reaches the wire at
-``src/mcgyvr/drive.py:281`` ``dispatch_prompt``. ``TIER_FIELDS``
+``src/mcgyvr/drive.py:281`` ``dispatch_prompt``. The unit fields
 (``src/mcgyvr/config.py:327``) has no output key at all, so one number is sent
 to every rung a contract climbs — a 3B model and a 35B reasoning model are
 given the same room to answer in.
@@ -52,23 +52,24 @@ from tests import livejournal as lj
 #: Two rungs on one rig that serves a 4096-token window. The dear rung declares
 #: the room its replies need; the cheap one declares nothing, which is how the
 #: fallback is told apart from an override that happens to agree.
-LADDER = """
-version: 1
-sources:
-  srv1:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
-    context_window: 4096
+LADDER = """\
+units:
+  local_qwen2.5-coder-3b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:3b
+    rig: srv1
+    width: 2
+    window: 4096
+  local_qwen3.6-35b-a3b:
+    address: http://localhost:11434
+    model: qwen3.6:35b-a3b
+    rig: srv1
+    width: 2
+    window: 4096
+    output_tokens: 2048
 ladder:
-  tiers:
-    - name: local_qwen2.5-coder-3b
-      source: srv1
-      model: qwen2.5-coder:3b
-    - name: local_qwen3.6-35b-a3b
-      source: srv1
-      model: qwen3.6:35b-a3b
-      output_tokens: 2048
+- local_qwen2.5-coder-3b
+- local_qwen3.6-35b-a3b
 """
 
 #: A model-executed contract whose own cap is the 1024 the live rows were
@@ -135,7 +136,7 @@ def test_a_rung_may_declare_the_room_its_replies_need() -> None:
     value would be indistinguishable from a rung that declared it.
     """
     config = parse_config(cfg(LADDER))
-    cheap, dear = config.ladder.tiers
+    cheap, dear = (config.units[n] for n in config.ladder.names)
 
     assert dear.output_tokens == 2048, (
         "a rung must be able to declare the room its replies need; without it "
@@ -244,7 +245,7 @@ def test_a_rung_room_that_does_not_fit_its_own_window_is_refused_by_name() -> No
         f"the refusal must be about the cap rather than about the prompt that "
         f"happened to be measured with it; got {issue.reason!r}"
     )
-    assert "4096" in issue.message and "srv1" in issue.message, (
+    assert "4096" in issue.message and "local_qwen3.6-35b-a3b" in issue.message, (
         f"the refusal must name the number and the rung whose window it does "
         f"not fit: {issue.message}"
     )

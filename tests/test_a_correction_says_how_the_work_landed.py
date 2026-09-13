@@ -214,7 +214,7 @@ def test_with_two_draws_the_verdict_lands_on_the_draw_it_is_about(
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    config.write_text(config.read_text() + "breadth:\n  draws: 2\n", encoding="utf-8")
+    lj.append_policy(config, "breadth:\n  draws: 2\n")
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 0

@@ -295,7 +295,7 @@ def dispatch_prompt(
     carries the bundle the target's language earned and dropping it would send a
     worker the instructions for no language at all — and the output cap is
     :func:`~mcgyvr.gate.preflight.reply_cap`'s: the rung's own
-    ``ladder.tiers.*.output_tokens`` where it declared one, and the contract's
+    ``units.*.output_tokens`` where it declared one, and the contract's
     ``limits.max_output_tokens`` where it did not, which is what this has always
     sent. That fallback is the whole of the change here; the argument for which
     of the two wins is written where the choice is made, in ``reply_cap``.
@@ -325,7 +325,7 @@ def dispatch_prompt(
         raise OutputCapTooLargeError(
             f"rung {rung!r}: a reply cap of {cap} tokens does not fit the "
             f"{window}-token window {endpoint.source!r} serves, leaving nothing "
-            f"for the prompt. Lower `ladder.tiers.{rung}.output_tokens`, or "
+            f"for the prompt. Lower `units.{rung}.output_tokens`, or "
             f"point the rung at a machine that serves more"
         )
     # ``timeout_s`` is the run's, threaded from ``budgets.request_timeout_s``
@@ -629,10 +629,9 @@ def worker_attempt(
     reviewer_model = pool.role_model(VERIFIER_ROLE) if reviewer is not None else None
     draws = int(config.get("breadth.draws", 1))
     tidying = bool(config.get("cleanup.enabled", True))
-    # Read once per driver, beside the other two budgets this function spends,
-    # so that what bounds a request is the run's declaration and not a literal
-    # in the transport. See `budgets.request_timeout_s`.
-    request_timeout = float(config.get("budgets.request_timeout_s"))
+    # Read once per driver, beside the other two budgets this function spends.
+    # The request timeout is per unit now: each dispatch reads its own unit's
+    # ``request_timeout_s`` at the call site below.
     # `None` for a config that did not ask for sleep and wake, and then every
     # dispatch below is the one it has always been. Built here rather than
     # threaded through `dispatch` as a parameter because this is the layer that
@@ -705,7 +704,11 @@ def worker_attempt(
                     prompt,
                     contract,
                     capacity=this.capacity,
-                    timeout_s=request_timeout,
+                    timeout_s=(
+                        config.units[this.rung.name].request_timeout_s
+                        if this.rung.name in config.units
+                        else None
+                    ),
                 )
 
             def asked() -> Completion:
@@ -1153,7 +1156,7 @@ def task_ceiling() -> float | None:
     from mcgyvr.config import ConfigError, load
 
     try:
-        declared = load().get("budgets.task_timeout_s")
+        declared = load().get("task_timeout_s")
     except (ConfigError, OSError):
         return None
     return float(declared) if declared is not None else None

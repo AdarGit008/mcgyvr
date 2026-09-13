@@ -309,18 +309,15 @@ scope:
 
 # --- the dispatch binding ----------------------------------------------------
 
-CONFIG = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+CONFIG = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 
@@ -418,21 +415,21 @@ scope:
 
 # --- the composition: one attempt is prompt, dispatch, parse, apply, gate ----
 
-LADDER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+LADDER = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
+  local_qwen-14b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:14b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: local_qwen-14b
-      source: workstation
-      model: qwen2.5-coder:14b
+- local_qwen-7b
+- local_qwen-14b
 """
 
 MODEL_CONTRACT = """
@@ -951,7 +948,7 @@ def test_a_cooling_source_is_declined_without_a_dispatch(
     sent = _driven(monkeypatch, "```python\nVALUE = 1\n```")
     cooldown = _cooldown()
     for _ in range(3):
-        cooldown.record_failure("workstation")
+        cooldown.record_failure("local_qwen-7b")
 
     with TempDirSandbox(repo) as sandbox:
         attempt = worker_attempt(config, pool, contract, sandbox, cooldown=cooldown)
@@ -1001,8 +998,8 @@ def test_a_dispatch_failure_feeds_the_cooldown(
 
     # One failure is a hiccup; three consecutive arm the removal.
     assert cooldown.unavailable([endpoint]) == {}
-    cooldown.record_failure("workstation")
-    cooldown.record_failure("workstation")
-    assert "workstation" in cooldown.unavailable([endpoint]), (
+    cooldown.record_failure("local_qwen-7b")
+    cooldown.record_failure("local_qwen-7b")
+    assert "local_qwen-7b" in cooldown.unavailable([endpoint]), (
         "three consecutive dispatch failures did not arm the cooldown"
     )

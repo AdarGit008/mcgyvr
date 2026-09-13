@@ -41,44 +41,31 @@ from tests.red_port.conftest import required
 PREFIX = "cfg-"
 
 BASE = """\
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
-    max_parallel: 1
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: "a-model"
+- only
 sandbox:
   mode: tempdir
-budgets:
-  task_timeout_s: 7
+task_timeout_s: 7
 """
 
 #: The same config: comments, blank lines, key order and a default spelled out.
 SAME = """\
-# a comment nobody ran
-budgets:
-  task_timeout_s: 7
-
-sandbox:
-  mode: tempdir   # the default sandbox
-
-ladder:
-  tiers:
-    - model: "a-model"
-      source: local
-      name: only
 profile: live
-sources:
-  local:
-    max_parallel: 1
-    api: openai
-    base_url: "http://localhost:8080"
-version: 1
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
+ladder:
+- only
+sandbox:
+  mode: tempdir
+task_timeout_s: 7
 """
 
 #: One value moved.
@@ -235,7 +222,7 @@ def test_version_prints_the_product_and_the_config_it_would_run(
     out = capsys.readouterr().out
     assert f"mcgyvr {mcgyvr.__version__}" in out, out
     assert _digest(BASE) in out, out
-    assert str(config) in out, out
+    assert str(config.parent) in out, out
 
 
 def test_version_with_no_config_says_so(
@@ -311,7 +298,11 @@ def test_a_relative_geometry_file_is_part_of_the_identity(tmp_path: Path) -> Non
     file the original did."""
     from mcgyvr.config import CONFIGS_DIR, keep, load
 
-    text = BASE + 'models:\n  m:\n    geometry_json: "geo/m.json"\n'
+    text = BASE.replace(
+        "    rig: local\n",
+        '    rig: local\n    launch:\n      geometry_json: "geo/m.json"\n',
+        1,
+    )
     a = tmp_path / "a" / "mcgyvr.yaml"
     b = tmp_path / "b" / "mcgyvr.yaml"
     for path in (a, b):

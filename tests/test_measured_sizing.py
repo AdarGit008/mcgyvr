@@ -36,7 +36,7 @@ import pytest
 
 from mcgyvr import derived
 from mcgyvr.capability import GB_PER_GIB
-from mcgyvr.config import Config, ConfigSchemaError, parse
+from mcgyvr.config import Config, parse
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
     MAX_WIDTH,
@@ -107,25 +107,25 @@ def srv2(*, free_mib: int = 12_000, ram_gb: float = 14.3) -> Scan:
 
 
 BASE = """\
-version: 1
-sources:
-  local:
-    base_url: http://srv2:8080
-    api: openai
-{engine}\
-ladder:
-  tiers:
-    - name: local_rung
-      source: local
-      model: {model}
+units:
+  local_rung:
+    address: http://srv2:8080
+    model: {model}
+{engine}    launch:
+{launch}ladder:
+- local_rung
 """
 
 
 def config_for(
-    model: str, *, engine: str = "", models: str = "", path: Path | None = None
+    model: str, *, engine: str = "", launch: str = "", path: Path | None = None
 ) -> Config:
-    text = BASE.format(model=model, engine=f"    engine: {engine}\n" if engine else "")
-    return parse(text + models, path=path)
+    text = BASE.format(
+        model=model,
+        engine=f"    engine: {engine}\n" if engine else "",
+        launch=launch,
+    )
+    return parse(text, path=path)
 
 
 # --------------------------------------------------------------------------
@@ -463,7 +463,7 @@ def test_the_table_is_decimal_and_the_conversion_is_explicit() -> None:
 
 def test_a_source_names_the_engine_and_it_reaches_the_unit() -> None:
     config = config_for("qwen2.5-coder:7b", engine="vllm")
-    assert config.sources["local"].engine == "vllm"
+    assert config.units["local_rung"].engine == "vllm"
     # A vLLM unit loads a repository id from the rig's HF cache, so the spec
     # says where that is; without it the unit is refused by name.
     spec = ModelSpec(
@@ -482,7 +482,7 @@ def test_a_source_names_the_engine_and_it_reaches_the_unit() -> None:
 def test_an_unstated_engine_is_still_llama_cpp() -> None:
     """A config that names no engine is bound exactly as it was before."""
     config = config_for("qwen2.5-coder:7b")
-    assert config.sources["local"].engine is None
+    assert config.units["local_rung"].engine is None
     spec = ModelSpec(
         "qwen2.5-coder:7b",
         5.0,
@@ -504,9 +504,9 @@ def geometry_file(tmp_path: Path) -> Path:
 
 def declared(geometry: Path, extra: str = "") -> str:
     return (
-        f"models:\n  deepseek-coder-v2-16b:\n    geometry_json: {geometry}\n"
-        "    kv_cache_dtype_k: f16\n"
-        "    kv_cache_dtype_v: f16\n"
+        f"      geometry_json: {geometry}\n"
+        "      kv_cache_dtype_k: f16\n"
+        "      kv_cache_dtype_v: f16\n"
         f"{extra}"
     )
 
@@ -514,7 +514,7 @@ def declared(geometry: Path, extra: str = "") -> str:
 def test_an_operator_may_serve_a_model_the_table_never_measured(
     geometry_file: Path,
 ) -> None:
-    config = config_for("deepseek-coder-v2-16b", models=declared(geometry_file))
+    config = config_for("deepseek-coder-v2-16b", launch=declared(geometry_file))
     spec = declared_models(config)["deepseek-coder-v2-16b"]
     assert spec.geometry is not None
     assert spec.disk_gb == pytest.approx(8_905_109_984 / GIB)
@@ -528,7 +528,7 @@ def test_an_operator_may_serve_a_model_the_table_never_measured(
 def test_a_declaration_overrides_the_shipped_table(geometry_file: Path) -> None:
     """Config wins. mcgyvr says what it measured, then does what it was told."""
     shipped = ModelSpec("deepseek-coder-v2-16b", 99.0, 0.0, 99.0)
-    config = config_for("deepseek-coder-v2-16b", models=declared(geometry_file))
+    config = config_for("deepseek-coder-v2-16b", launch=declared(geometry_file))
     unit = units_for(config, {"srv2": srv2()}, specs=(shipped,), ctx_per_slot=WINDOW)[0]
     assert unit.fit.fits, "the 99 GB shipped row should not have been consulted"
 
@@ -538,7 +538,7 @@ def test_a_stated_disk_gb_beside_a_geometry_must_agree_with_it(
 ) -> None:
     """A deviation from the scan is not obeyed and not corrected: it is refused."""
     config = config_for(
-        "deepseek-coder-v2-16b", models=declared(geometry_file, "    disk_gb: 8.9\n")
+        "deepseek-coder-v2-16b", launch=declared(geometry_file, "      disk_gb: 8.9\n")
     )
     with pytest.raises(UnitError, match="re-scan"):
         units_for(config, {"srv2": srv2()}, specs=(), ctx_per_slot=WINDOW)
@@ -549,8 +549,8 @@ def test_a_relative_geometry_json_is_read_beside_the_config(
 ) -> None:
     config = config_for(
         "deepseek-coder-v2-16b",
-        models=declared(Path(geometry_file.name)),
-        path=tmp_path / "mcgyvr.yaml",
+        launch=declared(Path(geometry_file.name)),
+        path=tmp_path,
     )
     assert declared_models(config)["deepseek-coder-v2-16b"].geometry is not None
 
@@ -597,21 +597,20 @@ def test_an_error_row_and_a_malformed_file_are_refused_naming_the_path(
 
 def test_a_model_nobody_declared_is_refused_with_the_fix_in_the_message() -> None:
     config = config_for("nobody-measured-this")
-    with pytest.raises(UnitError, match="models:"):
+    with pytest.raises(UnitError, match="launch"):
         units_for(config, {"srv2": srv2()}, specs=(), ctx_per_slot=WINDOW)
 
 
-def test_a_size_must_be_a_number_and_not_a_flag() -> None:
-    """`disk_gb: true` and `moe: true` must not pass the same rule."""
-    with pytest.raises(ConfigSchemaError, match="expected a number"):
-        config_for("m", models="models:\n  m:\n    disk_gb: true\n")
+def test_a_launch_key_the_reader_has_never_heard_of_is_accepted() -> None:
+    """ID-2: a unit hashes its whole resolved launch, so there is no field list
+    to be missing from — an unknown flag is carried, not refused."""
+    config = config_for("m", launch="      brand_new_engine_flag: 42\n")
+    assert config.units["local_rung"].launch["brand_new_engine_flag"] == 42
 
 
-def test_the_retired_geometry_keys_are_unknown_keys() -> None:
-    """``blocks`` and ``expert_gb`` were a block count and an averaged expert
-    mass; both are read off the geometry now, and a config still stating them
-    is a config that has not been re-pointed at a scan."""
-    with pytest.raises(ConfigSchemaError, match="blocks"):
-        config_for("m", models="models:\n  m:\n    blocks: 40\n")
-    with pytest.raises(ConfigSchemaError, match="expert_gb"):
-        config_for("m", models="models:\n  m:\n    expert_gb: 10.3\n")
+def test_a_retired_geometry_key_is_carried_in_the_launch_not_refused() -> None:
+    """``blocks`` and ``expert_gb`` are no longer schema keys; they are launch
+    entries now, and the engine gate is what reads them."""
+    for key in ("blocks: 40", "expert_gb: 10.3"):
+        config = config_for("m", launch=f"      {key}\n")
+        assert "local_rung" in config.units

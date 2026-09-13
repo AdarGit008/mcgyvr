@@ -17,7 +17,6 @@ import pytest
 
 from mcgyvr import cli
 from mcgyvr.config import (
-    CONFIG_FILENAME,
     CONFIG_PATH_ENV,
     ConfigMissingError,
     config_path,
@@ -26,7 +25,7 @@ from mcgyvr.config import (
 from mcgyvr.initialize import InitResult
 from tests import livejournal as lj
 
-USER_CONFIG = Path(".mcgyvr") / "config" / CONFIG_FILENAME
+USER_CONFIG = Path(".mcgyvr") / "config"
 
 
 @pytest.fixture
@@ -58,11 +57,11 @@ def test_xdg_config_home_moves_nothing(
 def test_the_working_directory_still_wins_over_the_user_dir(
     home: Path, tmp_path: Path
 ) -> None:
-    local = Path.cwd() / CONFIG_FILENAME
+    local = Path.cwd() / "fleet.yaml"
     local.write_text("version: 1\n", encoding="utf-8")
     (home / USER_CONFIG).parent.mkdir(parents=True)
     (home / USER_CONFIG).write_text("version: 1\n", encoding="utf-8")
-    assert config_path() == local
+    assert config_path() == Path.cwd()
 
 
 def test_the_override_still_wins_over_everything(
@@ -73,7 +72,7 @@ def test_the_override_still_wins_over_everything(
 
 
 def test_a_missing_config_is_reported_at_the_dot_mcgyvr_path(home: Path) -> None:
-    with pytest.raises(ConfigMissingError, match=r"\.mcgyvr/config/mcgyvr\.yaml"):
+    with pytest.raises(ConfigMissingError, match=r"\.mcgyvr/config/fleet\.yaml"):
         load()
 
 
@@ -98,4 +97,4 @@ def test_every_config_help_line_names_the_user_dir(
 ) -> None:
     assert lj.main([command, "--help"]) == 0
     out = capsys.readouterr().out
-    assert "~/.mcgyvr/config/mcgyvr.yaml" in out, out
+    assert "~/.mcgyvr/config" in out, out

@@ -53,19 +53,15 @@ def busy_rig(root: Path) -> None:
 CONFIG_VAR = "MCGYVR_CONFIG"
 
 #: A setup under development: same rig, its own file, ``profile: dev``.
-DEV_LADDER = """
-version: 1
-sources:
-  rig:
-    base_url: "http://srv1:8001"
-    api: openai
+DEV_LADDER = """\
+units:
+  only:
+    address: http://srv1:8001
+    model: a-model
+    rig: rig
     engine: vllm
-    max_parallel: 1
 ladder:
-  tiers:
-    - name: only
-      source: rig
-      model: "a-model"
+- only
 sandbox:
   mode: tempdir
 """

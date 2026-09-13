@@ -42,18 +42,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 
-SOURCE_ASKING_FOR_OLLAMA = """
-version: 1
-sources:
-  box:
-    base_url: "http://box:11434"
-    api: ollama
-    max_parallel: 1
+SOURCE_ASKING_FOR_OLLAMA = """\
+units:
+  only:
+    address: http://box:11434
+    model: a-model
+    rig: box
+    engine: ollama
 ladder:
-  tiers:
-    - name: only
-      source: box
-      model: "a-model"
+- only
 """
 
 OLLAMA = re.compile(r"\bollama\b", re.IGNORECASE)

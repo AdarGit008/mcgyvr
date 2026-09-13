@@ -51,19 +51,26 @@ import pytest
 from mcgyvr.config import ConfigSchemaError, load, parse
 
 BASE = """\
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: a-model
+- only
 """
 
-RELATIVE = BASE + 'models:\n  a-model:\n    geometry_json: "./geometry.json"\n'
+RELATIVE = """\
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
+    launch:
+      geometry_json: "./geometry.json"
+ladder:
+- only
+"""
 
 
 def _config_beside_its_scan(directory: Path) -> Path:
@@ -95,7 +102,7 @@ def test_a_relative_geometry_json_with_nowhere_to_read_it_beside_is_refused() ->
     """
     with pytest.raises(ConfigSchemaError) as raised:
         parse(RELATIVE)
-    assert "models.a-model.geometry_json" in str(raised.value)
+    assert "units.only.launch.geometry_json" in str(raised.value)
 
 
 def test_a_config_reached_through_a_symlink_is_the_same_config(
@@ -116,7 +123,7 @@ def test_a_config_reached_through_a_symlink_is_the_same_config(
     link.symlink_to(entry)
 
     through_link = load(link)
-    named = Path(through_link.data["models"]["a-model"]["geometry_json"])
+    named = Path(through_link.units["only"].launch["geometry_json"])
     assert named == entry.parent / "geometry.json"
     assert named.exists(), "the identity names a scan that is not on disk"
     assert through_link.digest() == load(entry).digest()
@@ -141,7 +148,7 @@ def test_the_geometry_a_run_opens_is_the_one_the_identity_names(
     link.symlink_to(entry)
 
     config = load(link)
-    named = config.data["models"]["a-model"]["geometry_json"]
+    named = config.units["only"].launch["geometry_json"]
     assert named in config.canonical()
     # The scan is an empty list: it is the right file, and it carries no row.
     # What matters is which path the refusal names.

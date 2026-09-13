@@ -38,18 +38,14 @@ import pytest
 
 from tests import livejournal as lj
 
-ONE_WIDE = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 1
+ONE_WIDE = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 
@@ -94,7 +90,7 @@ def test_a_dispatch_is_made_under_the_capacity_the_config_declares(
         "the run dispatched with capacity=None: the ceiling `mcgyvr pool` "
         "prints was never applied to the request"
     )
-    assert capacity.limits["workstation"] == 1
+    assert capacity.limits["local_qwen-7b"] == 1
 
 
 def test_two_runs_against_a_one_wide_source_do_not_dispatch_at_once(

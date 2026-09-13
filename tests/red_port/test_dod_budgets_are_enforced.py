@@ -40,22 +40,17 @@ import pytest
 
 from tests.red_port.conftest import required
 
-CONFIG = """
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
-    max_parallel: 1
+CONFIG = """\
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: "a-model"
+- only
 sandbox:
   mode: tempdir
-budgets:
-  task_timeout_s: 7
+task_timeout_s: 7
 """
 
 

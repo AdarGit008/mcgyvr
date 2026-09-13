@@ -70,17 +70,14 @@ limits:
   attempts: 5
 """
 
-LADDER = """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:11434
-    api: openai
+LADDER = """\
+units:
+  cheap:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
 ladder:
-  tiers:
-    - name: cheap
-      source: local
-      model: qwen2.5-coder:7b
+- cheap
 """
 
 BEFORE = "def fetch(url):\n    return url\n"

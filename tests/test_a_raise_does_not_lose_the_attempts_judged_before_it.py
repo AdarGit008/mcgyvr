@@ -23,18 +23,14 @@ from mcgyvr.telemetry import fold
 from tests import livejournal as lj
 from tests.test_escalate import KEYLESS, contract, halted, mapped
 
-LADDER_WITH_THREE_ATTEMPTS = lj.LADDER + "      attempts: 3\n"
+LADDER_WITH_THREE_ATTEMPTS = lj.LADDER + "attempts:\n  local_qwen-7b: 3\n"
 CONTRACT_WITH_THREE_ATTEMPTS = lj.MODEL_CONTRACT.replace(
     "  max_output_tokens: 256\n", "  max_output_tokens: 256\n  attempts: 3\n"
 )
 
 
 def test_the_history_keeps_the_judged_attempts_before_the_raise() -> None:
-    config, pool = mapped(
-        KEYLESS.replace(
-            "model: qwen2.5-coder:7b\n", "model: qwen2.5-coder:7b\n      attempts: 3\n"
-        )
-    )
+    config, pool = mapped(KEYLESS + "attempts:\n  local_qwen-7b: 3\n")
     task = contract()
 
     def flaky(this: Try) -> Judgement:

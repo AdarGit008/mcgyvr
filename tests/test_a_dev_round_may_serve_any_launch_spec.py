@@ -36,19 +36,15 @@ from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_
 CONFIG_VAR = "MCGYVR_CONFIG"
 
 #: A ladder pointing at the fixture's rig, which is srv1 under ``onedoor``.
-LADDER = """
-version: 1
-sources:
-  rig:
-    base_url: "http://srv1:8001"
-    api: openai
+LADDER = """\
+units:
+  only:
+    address: http://srv1:8001
+    model: a-model
+    rig: rig
     engine: vllm
-    max_parallel: 1
 ladder:
-  tiers:
-    - name: only
-      source: rig
-      model: "a-model"
+- only
 sandbox:
   mode: tempdir
 """

@@ -21,7 +21,7 @@ nothing checks it, and that it leaves stored evidence whose name is a false
 statement about its contents.
 
 The evidence, read out of the live journal on 2026-09-08 after
-``ladder.tiers.*.output_tokens`` merged:
+``units.*.output_tokens`` merged:
 
 * ``~/.mcgyvr/config/mcgyvr.yaml`` went ``cfg-a049…`` to ``cfg-6a01…`` with no
   edit to the file;
@@ -68,16 +68,13 @@ from mcgyvr.config import (
 )
 
 LOCAL_ONLY = """\
-version: 1
-sources:
-  local:
-    base_url: "http://localhost:8080"
-    api: openai
+units:
+  only:
+    address: http://localhost:8080
+    model: a-model
+    rig: local
 ladder:
-  tiers:
-    - name: only
-      source: local
-      model: a-model
+- only
 """
 
 #: An optional key of the shape that caused this: a rung-level number nobody is

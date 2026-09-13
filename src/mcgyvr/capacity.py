@@ -84,7 +84,7 @@ describable by a single number on the source. So a tier may declare its own
 ``max_parallel``, and three things follow:
 
 * The rung's number is the bound where it is given, and the source's is the
-  fallback where it is not. ``sources.*.max_parallel`` keeps exactly the
+  fallback where it is not. ``units.*.width`` keeps exactly the
   meaning it has always had, so a config that names no rung width is bounded
   today as it was yesterday.
 * **A rung's slots are its own, not a share of the source's.** Two rungs on one
@@ -477,7 +477,7 @@ class Capacity:
         for source, limit in limits.items():
             if limit < 1:
                 raise CapacityError(
-                    f"source {source!r} declares max_parallel={limit}, which "
+                    f"unit {source!r} declares width={limit}, which "
                     f"would admit no dispatch at all. The config schema floors "
                     f"it at 1; a source that should not be used belongs out of "
                     f"the ladder, not at zero capacity."
@@ -510,19 +510,19 @@ class Capacity:
             enforced = self._limits.get(source)
             if enforced is None:
                 raise CapacityError(
-                    f"a declared width for source {source!r}, which this capacity "
+                    f"a declared width for unit {source!r}, which this capacity "
                     f"does not bound. A declaration and a bound are two numbers "
-                    f"about one source, so there has to be a source."
+                    f"about one unit, so there has to be a unit."
                 )
             if width < 1:
                 raise CapacityError(
-                    f"source {source!r} declares max_parallel={width}, which the "
+                    f"unit {source!r} declares width={width}, which the "
                     f"config schema floors at 1. A capacity cannot be built from "
                     f"a declaration no config could have written."
                 )
             if width > enforced:
                 raise CapacityError(
-                    f"source {source!r} declares {width} but is bounded at "
+                    f"unit {source!r} declares width={width} but is bounded at "
                     f"{enforced}. A width is only ever widened from its "
                     f"declaration and never narrowed — :meth:`of` refuses a "
                     f"machine reporting less rather than quietly lowering the "
@@ -531,7 +531,7 @@ class Capacity:
                 )
             if width != enforced and source not in self._confirmed:
                 raise CapacityError(
-                    f"source {source!r} declares {width} and is bounded at "
+                    f"unit {source!r} declares width={width} and is bounded at "
                     f"{enforced} without a confirmation. Only a machine's own "
                     f"report may widen a declaration, so two different numbers "
                     f"with nothing confirming them are two configs rather than "
@@ -542,14 +542,14 @@ class Capacity:
         for name, rung in self._rungs.items():
             if rung.limit < 1:
                 raise CapacityError(
-                    f"rung {name!r} declares max_parallel={rung.limit}, which "
+                    f"unit {name!r} declares width={rung.limit}, which "
                     f"would admit no dispatch at all. The config schema floors "
                     f"it at 1; a rung that should not be used belongs out of "
                     f"the ladder, not at zero capacity."
                 )
             if rung.source not in self._limits:
                 raise CapacityError(
-                    f"rung {name!r} bounds source {rung.source!r}, which this "
+                    f"unit {name!r} bounds unit {rung.source!r}, which this "
                     f"capacity does not bound. A rung's width is a width of the "
                     f"rig it runs on, so the rig has to be one this capacity "
                     f"knows."
@@ -668,8 +668,8 @@ class Capacity:
         limits: dict[str, int] = {}
         declarations: dict[str, int] = {}
         confirmed: list[str] = []
-        for name, source in config.sources.items():
-            declared = source.max_parallel
+        for name, unit in config.units.items():
+            declared = unit.width or 1
             declarations[name] = declared
             reported = None if probe is None else _reported(probe, name, None)
             if reported is None:
@@ -679,7 +679,7 @@ class Capacity:
                 continue
             if reported < declared:
                 raise CapacityError(
-                    f"source {name!r} declares {declared} but reports "
+                    f"unit {name!r} declares {declared} but reports "
                     f"{reported}. Two answers to one question, and this time the "
                     f"machine gave one of them, so the config is the one that is "
                     f"wrong. Enforcing the declaration would not make the rig "
@@ -692,66 +692,16 @@ class Capacity:
             limits[name] = reported
             confirmed.append(name)
 
-        rungs: dict[str, RungWidth] = {}
-        for tier in config.ladder.tiers:
-            # What the *config* wrote for this rung: its own number, or its
-            # source's declared one where it wrote none. The declaration and not
-            # the enforced width, because the enforced width may already have
-            # been widened by this very probe, and a rung's report is then being
-            # measured against a number nobody wrote. One rig running a wide
-            # process behind one rung and a narrow one behind another is a
-            # coherent thing to run — it is the arrangement per-rung widths
-            # exist for — and inheriting the widest process's report as the
-            # narrow rung's written width refused it at startup, with a remedy
-            # ("declare 4 on the rung") that would not have helped, since the
-            # rung had declared nothing to be wrong about.
-            declared = (
-                tier.max_parallel
-                if tier.max_parallel is not None
-                else config.sources[tier.source].max_parallel
-            )
-            reported = (
-                None if probe is None else _reported(probe, tier.source, tier.name)
-            )
-            if reported is None:
-                # No rung bound at all where the rung declared none: falling back
-                # to the source is the *absence* of a second queue, not a copy of
-                # the first one. A copy would double the rig's admitted width.
-                if tier.max_parallel is not None:
-                    rungs[tier.name] = RungWidth(
-                        source=tier.source, limit=tier.max_parallel
-                    )
-                continue
-            if reported < declared:
-                raise CapacityError(
-                    f"rung {tier.name!r} on source {tier.source!r} is written "
-                    f"for {declared} but reports {reported}. Two answers to one "
-                    f"question, and the machine gave one of them, so the config "
-                    f"is the one that is wrong. Enforcing the written width "
-                    f"would not make the server wider: a backend handed more "
-                    f"concurrent requests than it has slots serializes them "
-                    f"rather than refusing, so the over-declaration would show "
-                    f"up as a rung that is merely slow and never as a config "
-                    f"that is merely wrong. Declare {reported} on the rung, or "
-                    f"start its backend with {declared} slots."
-                )
-            rungs[tier.name] = RungWidth(
-                source=tier.source, limit=reported, confirmed=True
-            )
-
         return cls(
             limits,
             lock_dir=root,
             confirmed=confirmed,
             declared=declarations,
-            rungs=rungs,
-            urls={name: source.base_url for name, source in config.sources.items()},
+            urls={name: unit.address for name, unit in config.units.items()},
             # No single wait may exceed the ceiling on the whole task. That
             # bounds each hold and not their sum: a climb of three rungs that
             # queued at every one of them could still wait three ceilings.
-            # Charging a climb's waits against one deadline needs a deadline
-            # threaded through the climb, which is not this seam's.
-            queue_timeout_s=float(config.get("budgets.task_timeout_s")),
+            queue_timeout_s=float(config.get("task_timeout_s")),
         )
 
     @property
@@ -790,7 +740,7 @@ class Capacity:
 
         The one place the fallback is spelled out for a caller: a rung that
         declared a width is bounded by it, and a rung that did not is bounded by
-        its source's, which is the number ``sources.*.max_parallel`` has always
+        its unit's, which is the width ``units.*.width`` has always
         meant. A rung this capacity has never heard of is answered with its
         source's width rather than refused, because an unknown rung name is a
         dispatch that named no width, not a dispatch to an unknown rig.
@@ -799,8 +749,8 @@ class Capacity:
         if limit is None:
             known = ", ".join(sorted(self._limits)) or "none"
             raise CapacityError(
-                f"no declared capacity for source {source!r}, so there is no "
-                f"width to report for it. Known sources: {known}"
+                f"no declared capacity for unit {source!r}, so there is no "
+                f"width to report for it. Known units: {known}"
             )
         return limit
 
@@ -846,10 +796,10 @@ class Capacity:
         if source not in self._limits:
             known = ", ".join(sorted(self._limits)) or "none"
             raise CapacityError(
-                f"no declared capacity for source {source!r}, so there is "
+                f"no declared capacity for unit {source!r}, so there is "
                 f"nothing about it to have confirmed. Answering False here "
-                f"would claim this capacity knows the source and merely could "
-                f"not confirm its width. Known sources: {known}"
+                f"would claim this capacity knows the unit and merely could "
+                f"not confirm its width. Known units: {known}"
             )
         bound = self._bound(source, rung)
         if bound[1] is not None:
@@ -889,7 +839,7 @@ class Capacity:
         """The most dispatches that could ever be in flight across every rig.
 
         Counted per rig rather than per bound, because a rung's own width
-        *overrides* its source's — that is what ``ladder.tiers.*.max_parallel``
+        *overrides* its source's — that is what ``units.*.width``
         is documented to do — and a superseded number is not a queue. Summing
         every bound counted it as one anyway: a rig whose source line says 1 and
         whose rung says 16 reported 17, and :func:`run_batch` sized its pool at
@@ -1169,9 +1119,9 @@ class Capacity:
         if name not in self._limits:
             known = ", ".join(sorted(self._limits)) or "none"
             raise CapacityError(
-                f"no declared capacity for source {name!r} — this capacity and "
+                f"no declared capacity for unit {name!r} — this capacity and "
                 f"the source map it is bounding were built from different "
-                f"configs. Known sources: {known}"
+                f"configs. Known units: {known}"
             )
         declared = self._declared[name]
         if endpoint is not None and endpoint.max_parallel != declared:
@@ -1186,17 +1136,15 @@ class Capacity:
                 )
             )
             raise CapacityError(
-                f"source {name!r} is bounded at {declared} here "
-                f"but the endpoint declares max_parallel="
+                f"unit {name!r} is bounded at {declared} here "
+                f"but the endpoint declares width="
                 f"{endpoint.max_parallel}. Two answers to one question means one "
                 f"of them is from a stale config; rebuild both from the same "
                 f"one.{widened}"
             )
         bound = self._bound(name, rung)
         limit = self._bounds[bound]
-        where = (
-            f"rung {bound[1]!r} of source {name!r}" if bound[1] else f"source {name!r}"
-        )
+        where = f"unit {bound[1]!r} of unit {name!r}" if bound[1] else f"unit {name!r}"
         held = self._held()
         if bound in held:
             raise CapacityError(
@@ -1296,7 +1244,7 @@ class Capacity:
                 for index in range(self._bounds[(source, rung)]):
                     taken.append(
                         self._acquire_one(
-                            f"source {source!r}" + (f" rung {rung!r}" if rung else ""),
+                            f"unit {source!r}" + (f" rung {rung!r}" if rung else ""),
                             base_url,
                             rung,
                             index,
@@ -1394,9 +1342,9 @@ class Capacity:
         if source not in self._limits:
             known = ", ".join(sorted(self._limits)) or "none"
             raise CapacityError(
-                f"no declared capacity for source {source!r} — this capacity and "
+                f"no declared capacity for unit {source!r} — this capacity and "
                 f"the caller's view of the ladder were built from different "
-                f"configs. Known sources: {known}"
+                f"configs. Known units: {known}"
             )
 
     def _held(self) -> set[_Bound]:

@@ -5,7 +5,7 @@ The frontmatter `description` is in every session's context whether or not
 the skill is invoked, so it is the highest-value line to stop naming the
 ladder from (19). `limits.max_output_tokens` keeps its one sentence on what
 the work is worth and drops the sentence about what a backend needs and
-about `ladder.tiers.*.output_tokens` overriding it -- deleted, not reworded;
+about `units.*.output_tokens` overriding it -- deleted, not reworded;
 the override itself still lives in code, at gate/preflight.py:376-378 and
 config.py:365 (20). `limits.max_window_fraction` stops saying `rung` (21).
 `verification.policy` names a fresh-context reviewer without naming
@@ -80,7 +80,7 @@ def test_frontmatter_description_does_not_name_the_local_model_ladder() -> None:
 
 def test_max_output_tokens_states_worth_without_backend_or_override() -> None:
     # Keeps the one sentence on what the work is worth; loses the sentence
-    # about what a backend needs and about `ladder.tiers.*.output_tokens`
+    # about what a backend needs and about `units.*.output_tokens`
     # overriding it. The override itself is unaffected -- it still lives in
     # gate/preflight.py:376-378 and is stated on config.py:365.
     row = _row(_body(SKILL_MD), "limits.max_output_tokens").lower()

@@ -31,7 +31,7 @@ from mcgyvr.catalog import (
     load,
 )
 from mcgyvr.cli import main
-from mcgyvr.config import Config, Ladder, Source, Tier
+from mcgyvr.config import Config, Ladder, Unit
 from mcgyvr.contract import ContractSchemaError, loads, task_type
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src" / "mcgyvr"
@@ -43,13 +43,13 @@ def shipped() -> Catalog:
 
 
 def _config(*tiers: tuple[str, bool]) -> Config:
-    """A config whose ladder holds one rung per (name, requires_credential)."""
-    sources = {
-        name: Source(
-            name=name,
-            base_url="http://localhost:1",
-            api="openai",
-            max_parallel=1,
+    """A config whose ladder holds one unit per (name, requires_credential)."""
+    units = {
+        f"{name}_m": Unit(
+            name=f"{name}_m",
+            address="http://localhost:1",
+            model="m",
+            width=1,
             api_key_env="SOME_KEY" if keyed else None,
         )
         for name, keyed in tiers
@@ -57,10 +57,8 @@ def _config(*tiers: tuple[str, bool]) -> Config:
     return Config(
         path=None,
         data={},
-        sources=sources,
-        ladder=Ladder(
-            tiers=tuple(Tier(name=f"{n}_m", source=n, model="m") for n, _ in tiers)
-        ),
+        units=units,
+        ladder=Ladder(names=tuple(f"{name}_m" for name, _ in tiers)),
     )
 
 
@@ -437,17 +435,14 @@ def test_the_catalog_is_loaded_once() -> None:
 def _keyless_config(tmp_path: Path) -> Path:
     path = tmp_path / "mcgyvr.yaml"
     path.write_text(
-        """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:11434
-    api: openai
+        """\
+units:
+  local_qwen2.5-coder-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
 ladder:
-  tiers:
-    - name: local_qwen2.5-coder-7b
-      source: local
-      model: qwen2.5-coder:7b
+- local_qwen2.5-coder-7b
 """,
         encoding="utf-8",
     )

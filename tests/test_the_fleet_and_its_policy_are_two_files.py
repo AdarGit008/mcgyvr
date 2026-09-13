@@ -1,9 +1,7 @@
 """What runs where is ``fleet.yaml``; how work moves between units is ``policy.yaml``.
 
-RED. Today one ``mcgyvr.yaml`` holds both, under the words ``sources`` and
-``ladder.tiers`` (``src/mcgyvr/config.py``: ``SOURCE_FIELDS``, ``TIER_FIELDS``),
-and ``mcgyvr.fleet.files`` does not exist. The intent is
-``records/plans/fleet-identity.md`` §2 (owner, 2026-09-10 and 2026-09-11).
+The design is ``records/plans/fleet-identity.md`` §2 (owner, 2026-09-10 and
+2026-09-11). ``mcgyvr.fleet.files`` is the one reader of both files.
 
 * ``fleet.yaml`` is locked. It holds the units, the rigs and the fleets, and a
   unit carries every fact about what it is and can physically do: model,
@@ -89,3 +87,24 @@ def test_the_retired_words_are_refused_naming_what_replaced_them() -> None:
         files.load_fleet("sources:\n  s: {base_url: 'http://srv2:8001'}\n")
     with pytest.raises(files.FleetFileError, match="unit names"):
         files.load_policy("ladder:\n  tiers:\n    - {name: r, source: s, model: m}\n")
+
+
+def test_the_loader_and_the_schema_enumerate_the_same_keys() -> None:
+    """The two key lists are one fact. A field added to either must be added to
+    the other, or the loader and the schema disagree about what a file may say.
+
+    ``fleet.files`` cannot import ``config`` (``config`` imports it), so the
+    guard is a test rather than a derivation: it fails at the moment the two
+    lists drift, in the same run that makes the change.
+    """
+    from mcgyvr import config
+    from mcgyvr.fleet import files
+
+    # `unit_id` is the lock's identity field: authored in fleet.yaml and read by
+    # the lock, not part of the setup schema this module presents. Everything
+    # else in the loader is a schema field and vice versa.
+    assert {f.name for f in config.UNIT_FIELDS} == files._UNIT_KEYS - {"unit_id"}
+    assert {
+        f.name for f in config.SCHEMA if f.name not in ("profile", "units")
+    } == files._POLICY_KEYS
+    assert {"profile", "units", "rigs", "fleets"} == files._FLEET_KEYS

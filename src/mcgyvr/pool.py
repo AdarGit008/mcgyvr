@@ -63,7 +63,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol as TypingProtocol
 
-from mcgyvr.config import Config, Source, Tier
+from mcgyvr.config import Config, Unit
 
 _ROLES = ("orchestrator", "verifier")
 
@@ -152,7 +152,7 @@ class Endpoint:
     #: standing in for a number — see
     #: :func:`mcgyvr.gate.preflight.check_contract_against_rung`.
     context_window: int | None = None
-    #: Room a reply on this *rung* is given, from ``ladder.tiers.*.
+    #: Room a reply on this *rung* is given, from ``units.*.
     #: output_tokens``, or ``None`` when the rung declared none. The one field
     #: here that is a rung's rather than its source's: a source serving four
     #: rungs is four endpoints in the map already (keyed by rung name), and
@@ -163,6 +163,10 @@ class Endpoint:
     #: ``None`` falls back to the contract's ``limits.max_output_tokens``; see
     #: :func:`mcgyvr.gate.preflight.reply_cap`, where that happens once.
     output_tokens: int | None = None
+    #: How long one dispatch to this unit may take, from the unit's own
+    #: ``request_timeout_s``, or ``None`` when it declared none. Per unit, not
+    #: per config: two units on one host are two processes with two budgets.
+    request_timeout_s: float | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -366,28 +370,28 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
     skipped: list[Skipped] = []
     endpoints: dict[str, Endpoint] = {}
 
-    for tier in config.ladder.tiers:
-        source = config.sources[tier.source]
-        reason = _unusable(source)
+    for name in config.ladder.names:
+        unit = config.units[name]
+        reason = _unusable(unit)
         if reason is not None:
-            skipped.append(Skipped(name=tier.name, model=tier.model, reason=reason))
+            skipped.append(Skipped(name=name, model=unit.model, reason=reason))
             continue
-        usable.append(Rung(name=tier.name, model=tier.model))
-        endpoints[tier.name] = _endpoint(source, tier)
+        usable.append(Rung(name=name, model=unit.model))
+        endpoints[name] = _endpoint(unit)
 
     roles: dict[str, RoleBinding] = {}
     role_skips: dict[str, str] = {}
     for role in _ROLES:
         block = config.get(role) or {}
-        bound, model = block.get("source"), block.get("model")
+        bound, model = block.get("unit"), block.get("model")
         if bound is None or model is None:
             continue
-        source = config.sources[bound]
-        reason = _unusable(source)
+        unit = config.units[bound]
+        reason = _unusable(unit)
         if reason is not None:
             role_skips[role] = reason
             continue
-        roles[role] = RoleBinding(role=role, model=model, endpoint=_endpoint(source))
+        roles[role] = RoleBinding(role=role, model=model, endpoint=_endpoint(unit))
 
     if probe is not None:
         # One endpoint per *source*, not per rung. `endpoints` is keyed by rung
@@ -458,20 +462,20 @@ def _drop_unreachable(
     already = {skip.name: skip for skip in skipped}
     kept: list[Rung] = []
     grew: list[Skipped] = []
-    for tier in config.ladder.tiers:
-        structural = already.get(tier.name)
+    for name in config.ladder.names:
+        structural = already.get(name)
         if structural is not None:
             grew.append(structural)
             continue
-        rung = by_name.get(tier.name)
+        rung = by_name.get(name)
         if rung is None:  # not usable and not skipped: cannot happen
             continue
-        reason = down.get(endpoints[tier.name].source)
+        reason = down.get(endpoints[name].source)
         if reason is None:
             kept.append(rung)
             continue
         grew.append(Skipped(name=rung.name, model=rung.model, reason=reason))
-        del endpoints[tier.name]
+        del endpoints[name]
     return kept, grew, endpoints
 
 
@@ -495,15 +499,15 @@ def _drop_wrong_model(
     already = {skip.name: skip for skip in skipped}
     kept: list[Rung] = []
     grew: list[Skipped] = []
-    for tier in config.ladder.tiers:
-        structural = already.get(tier.name)
+    for name in config.ladder.names:
+        structural = already.get(name)
         if structural is not None:
             grew.append(structural)
             continue
-        rung = by_name.get(tier.name)
+        rung = by_name.get(name)
         if rung is None:  # not usable and not skipped: cannot happen
             continue
-        endpoint = endpoints.get(tier.name)
+        endpoint = endpoints.get(name)
         reason = (
             elsewhere.get((endpoint.source, rung.model))
             if endpoint is not None
@@ -513,43 +517,39 @@ def _drop_wrong_model(
             kept.append(rung)
             continue
         grew.append(Skipped(name=rung.name, model=rung.model, reason=reason))
-        del endpoints[tier.name]
+        del endpoints[name]
     return kept, grew, endpoints
 
 
 # --- small deterministic helpers -------------------------------------------
 
 
-def _endpoint(source: Source, tier: Tier | None = None) -> Endpoint:
-    """A declared source as the endpoint a runner dispatches against.
-
-    ``tier`` is the rung this endpoint was resolved *for*, where there is one.
-    A role binding has no rung, so it passes none and carries no reply room —
-    the orchestrator and the verifier are not on the ladder and there is
-    nothing on them to declare it.
-    """
+def _endpoint(unit: Unit) -> Endpoint:
+    """A declared unit as the endpoint a runner dispatches against."""
     return Endpoint(
-        source=source.name,
-        base_url=source.base_url,
-        protocol=Protocol(source.api),
-        max_parallel=source.max_parallel,
-        credential_env=source.api_key_env,
-        context_window=source.context_window,
-        output_tokens=None if tier is None else tier.output_tokens,
+        source=unit.name,
+        base_url=unit.address,
+        protocol=Protocol.OPENAI,
+        max_parallel=unit.width or 1,
+        credential_env=unit.api_key_env,
+        context_window=unit.window,
+        output_tokens=unit.output_tokens,
+        request_timeout_s=unit.request_timeout_s,
     )
 
 
-def _unusable(source: Source) -> str | None:
-    """Why this source cannot serve anything, or ``None`` when it can.
+def _unusable(unit: Unit) -> str | None:
+    """Why this unit cannot serve anything, or ``None`` when it can.
 
-    Structural only, and knowable without the network: a source that names a
-    credential the environment does not hold cannot authenticate, so every rung
-    on it is unusable before a request is ever attempted. Whether a reachable
-    source is actually *answering* is #22's question, and needs a probe.
+    Structural only, and knowable without the network: a unit that names a
+    credential the environment does not hold cannot authenticate, so every
+    rung on it is unusable before a request is ever attempted. Whether a
+    reachable unit is actually *answering* is #22's question, and needs a
+    probe.
     """
-    if source.api_key_env and not os.environ.get(source.api_key_env):
+    if unit.api_key_env and not os.environ.get(unit.api_key_env):
         return (
-            f"source {source.name!r} needs ${source.api_key_env}, which is not "
+            f"unit {unit.name!r} needs ${unit.api_key_env}, which is not "
             f"set in the environment"
         )
     return None

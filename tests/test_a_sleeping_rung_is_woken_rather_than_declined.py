@@ -91,28 +91,25 @@ def ladder(*, engine: str) -> str:
     charged the refusal has none left to answer with.
     """
     return f"""
-version: 1
-sources:
-  srv2_3b:
-    base_url: http://{HOST}:8001
-    api: openai
+units:
+  {RUNG_3B}:
+    address: http://{HOST}:8001
+    model: qwen2.5-coder-3b
     engine: {engine}
-    max_parallel: 2
-  srv2_7b:
-    base_url: http://{HOST}:8002
-    api: openai
+    rig: srv2_3b
+    width: 2
+  {RUNG_7B}:
+    address: http://{HOST}:8002
+    model: qwen2.5-coder-7b
     engine: {engine}
-    max_parallel: 2
+    rig: srv2_7b
+    width: 2
 ladder:
-  tiers:
-    - name: {RUNG_3B}
-      source: srv2_3b
-      model: qwen2.5-coder-3b
-      attempts: 1
-    - name: {RUNG_7B}
-      source: srv2_7b
-      model: qwen2.5-coder-7b
-      attempts: 1
+- {RUNG_3B}
+- {RUNG_7B}
+attempts:
+  {RUNG_3B}: 1
+  {RUNG_7B}: 1
 """
 
 

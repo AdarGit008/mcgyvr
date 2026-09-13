@@ -37,77 +37,70 @@ from mcgyvr.availability import (
 from mcgyvr.config import parse
 from mcgyvr.pool import Endpoint, Protocol, SourceUnavailableError, source_map
 
-TWO_SOURCES = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
-  spare:
-    base_url: http://192.168.1.9:8000
-    api: openai
-    max_parallel: 1
+TWO_SOURCES = """\
+units:
+  local_small:
+    address: http://localhost:11434
+    model: qwen2.5-coder:1.5b
+    rig: workstation
+    width: 2
+  local_large:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
+  remote_large:
+    address: http://192.168.1.9:8000
+    model: qwen2.5-coder:32b
+    rig: spare
 ladder:
-  tiers:
-    - name: local_small
-      source: workstation
-      model: qwen2.5-coder:1.5b
-    - name: local_large
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: remote_large
-      source: spare
-      model: qwen2.5-coder:32b
+- local_small
+- local_large
+- remote_large
 """
 
 # One source is keyless and one names a credential, so the structural pass and
 # the probe each have something to do — which is what makes "a structurally
 # skipped source is never probed" a real assertion rather than a vacuous one.
-MIXED_CAUSES = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
-  spare:
-    base_url: https://api.example.com
-    api: openai
-    max_parallel: 1
+MIXED_CAUSES = """\
+units:
+  first:
+    address: http://localhost:11434
+    model: a
+    rig: workstation
+    width: 2
+  second:
+    address: https://api.example.com
+    model: b
+    rig: spare
     api_key_env: MCGYVR_AVAIL_TEST_KEY
+  third:
+    address: http://localhost:11434
+    model: c
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: first
-      source: workstation
-      model: a
-    - name: second
-      source: spare
-      model: b
-    - name: third
-      source: workstation
-      model: c
+- first
+- second
+- third
 """
 
-WITH_VERIFIER = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+WITH_VERIFIER = """\
+units:
+  local_small:
+    address: http://localhost:11434
+    model: a
+    rig: workstation
+    width: 2
   spare:
-    base_url: http://192.168.1.9:8000
-    api: openai
-    max_parallel: 1
+    address: http://192.168.1.9:8000
+    model: judge
+    rig: spare
 ladder:
-  tiers:
-    - name: local_small
-      source: workstation
-      model: a
+- local_small
 verifier:
-  source: spare
   model: judge
+  unit: spare
 """
 
 
@@ -446,7 +439,7 @@ def test_without_a_probe_nothing_touches_the_network() -> None:
 
 
 def test_an_unreachable_source_takes_its_rungs_with_it() -> None:
-    pool = source_map(parse(TWO_SOURCES), probe=Stub("workstation"))
+    pool = source_map(parse(TWO_SOURCES), probe=Stub("local_small", "local_large"))
 
     assert [r.name for r in pool.rungs] == ["remote_large"]
     assert [s.name for s in pool.skipped] == ["local_small", "local_large"]
@@ -455,14 +448,14 @@ def test_an_unreachable_source_takes_its_rungs_with_it() -> None:
 
 def test_the_ladder_keeps_declared_order_when_it_shortens() -> None:
     """Cheapest-first is the ladder's meaning; shortening must not reorder it."""
-    pool = source_map(parse(TWO_SOURCES), probe=Stub("spare"))
+    pool = source_map(parse(TWO_SOURCES), probe=Stub("remote_large"))
 
     assert [r.name for r in pool.rungs] == ["local_small", "local_large"]
 
 
 def test_binding_a_dropped_rung_names_the_reason() -> None:
     """The reason has to survive out of the seam, not just into a report."""
-    pool = source_map(parse(TWO_SOURCES), probe=Stub("workstation"))
+    pool = source_map(parse(TWO_SOURCES), probe=Stub("local_small", "local_large"))
 
     with pytest.raises(SourceUnavailableError, match="did not answer"):
         pool.bind("local_small")
@@ -470,7 +463,9 @@ def test_binding_a_dropped_rung_names_the_reason() -> None:
 
 def test_all_sources_down_is_an_empty_ladder_that_says_why() -> None:
     """A named failure, not an exception and not a hang."""
-    pool = source_map(parse(TWO_SOURCES), probe=Stub("workstation", "spare"))
+    pool = source_map(
+        parse(TWO_SOURCES), probe=Stub("local_small", "local_large", "remote_large")
+    )
 
     assert not pool
     assert len(pool.skipped) == 3
@@ -486,7 +481,7 @@ def test_a_structurally_skipped_source_is_never_probed(
 
     pool = source_map(parse(MIXED_CAUSES), probe=stub)
 
-    assert stub.asked == ["workstation"]
+    assert stub.asked == ["first", "third"]
     assert [s.name for s in pool.skipped] == ["second"]
     assert "MCGYVR_AVAIL_TEST_KEY" in pool.skipped[0].reason
 
@@ -498,7 +493,7 @@ def test_skipped_keeps_ladder_order_across_both_causes(
     two blocks — the order a reader is entitled to expect."""
     monkeypatch.delenv("MCGYVR_AVAIL_TEST_KEY", raising=False)
 
-    pool = source_map(parse(MIXED_CAUSES), probe=Stub("workstation"))
+    pool = source_map(parse(MIXED_CAUSES), probe=Stub("first", "third"))
 
     assert [s.name for s in pool.skipped] == ["first", "second", "third"]
     # And the two causes stay distinguishable in the words, not just the order.
@@ -520,7 +515,7 @@ def test_a_role_is_probed_alongside_the_ladder_in_one_batch() -> None:
 
     source_map(parse(WITH_VERIFIER), probe=availability)
 
-    assert sorted(counting.calls) == ["spare", "workstation"]
+    assert sorted(counting.calls) == ["local_small", "spare"]
 
 
 def test_the_probe_runs_once_for_the_whole_map() -> None:
@@ -530,4 +525,4 @@ def test_the_probe_runs_once_for_the_whole_map() -> None:
 
     source_map(parse(TWO_SOURCES), probe=availability)
 
-    assert sorted(counting.calls) == ["spare", "workstation"]
+    assert sorted(counting.calls) == ["local_large", "local_small", "remote_large"]

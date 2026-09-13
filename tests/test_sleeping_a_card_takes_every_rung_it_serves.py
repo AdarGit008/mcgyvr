@@ -117,7 +117,7 @@ def test_two_rungs_behind_one_url_pair_are_one_card_and_one_launch_spec(
     card = derived[RUNG_3B]
     assert card.host == HOST
     assert set(card.rungs) == {RUNG_3B, RUNG_7B}
-    assert set(card.sources) == {"srv2_3b", "srv2_7b"}
+    assert set(card.sources) == {RUNG_3B, RUNG_7B}
     assert card.compose_file is not None
     assert Path(card.compose_file) == (
         specs / f"{COMPOSE_PREFIX}{HOST}{COMPOSE_SUFFIX}"
@@ -225,7 +225,7 @@ def test_a_dispatch_in_flight_is_never_cut_by_a_sleep(
         finished.append(lj.main(sleep_argv(config)))
 
     thread = threading.Thread(target=sleeper, daemon=True)
-    with holder.hold("srv2_3b"):
+    with holder.hold(RUNG_3B):
         thread.start()
         time.sleep(1.0)
         held_spawns = list(spawned)

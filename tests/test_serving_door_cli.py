@@ -23,6 +23,7 @@ through fake gates that export what the real ones declare.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import signal
@@ -452,6 +453,7 @@ def test_a_signal_during_the_step_still_runs_gates_7_and_8_then_exits_130(
         f"run.GATE_SCRIPTS = Path({str(gates)!r})\n"
         "run.BIN = run.GATE_SCRIPTS / 'bin'\n"
         "signal.signal(signal.SIGTERM, run._sigterm)\n"
+        "signal.signal(signal.SIGINT, run._sigterm)\n"
         f"sys.exit(run.main({base_argv(step)!r}))\n"
     )
     proc = subprocess.Popen(
@@ -470,7 +472,10 @@ def test_a_signal_during_the_step_still_runs_gates_7_and_8_then_exits_130(
             assert time.monotonic() < deadline, "the step never reached its hang"
             time.sleep(0.05)
         os.killpg(proc.pid, sig)
-        _, stderr = proc.communicate(timeout=120)
+        proc.wait(timeout=90)
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        _, stderr = proc.communicate(timeout=60)
     finally:
         if proc.poll() is None:
             os.killpg(proc.pid, signal.SIGKILL)

@@ -1012,5 +1012,9 @@ def _sigterm(_signum: int, _frame: types.FrameType | None) -> None:
 
 
 if __name__ == "__main__":
+    # Both signals end the entry that was running; gates 7 and 8 run after,
+    # whatever arrives. Set explicitly rather than left to the default, so a
+    # parent that ignored SIGINT cannot make the door ignore Ctrl-C too.
     signal.signal(signal.SIGTERM, _sigterm)
+    signal.signal(signal.SIGINT, _sigterm)
     sys.exit(main())

@@ -323,7 +323,7 @@ def check_window_fraction(
 def reply_cap(contract: Contract, rung: ServingWindow) -> int:
     """The output cap that will actually be sent, and why the rung's one wins.
 
-    Two numbers, one wire. The rung's ``ladder.tiers.*.output_tokens`` where it
+    Two numbers, one wire. The unit's ``units.*.output_tokens`` where it
     declared one; the contract's ``limits.max_output_tokens`` where it did not.
     Written once, here, so that the fit checks below reserve the same number
     :func:`mcgyvr.drive.dispatch_prompt` puts on the request — a reserve and a
@@ -343,7 +343,7 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int:
 
     The two obvious alternatives each name a failure this one avoids.
 
-    *The lower of the two* — which is what ``ladder.tiers.*.attempts`` does
+    *The lower of the two* — which is what ``attempts.*`` does
     with ``limits.attempts``, and the reason that precedent must not simply be
     copied — re-creates the defect. Measured over 358 journalled attempts under
     one contract cap of 1024: the 3B rung's replies had a p95 of 716 and the

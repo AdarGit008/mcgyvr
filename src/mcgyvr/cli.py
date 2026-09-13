@@ -21,7 +21,6 @@ from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
 from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import (
-    CONFIG_FILENAME,
     CONFIG_PATH_ENV,
     CONFIGS_DIR,
     USER_CONFIG_DIR,
@@ -57,7 +56,8 @@ from mcgyvr.serving import (
 #: The three places a config is looked for, in order, as every `--config`
 #: help line states them: one sentence, so no command names a fourth.
 CONFIG_DEFAULT_HELP = (
-    f"${CONFIG_PATH_ENV}, ./{CONFIG_FILENAME} or {USER_CONFIG_DIR}/{CONFIG_FILENAME}"
+    f"${CONFIG_PATH_ENV}, ./{USER_CONFIG_DIR.rsplit('/', 1)[0]} "
+    f"or {USER_CONFIG_DIR} — a directory holding fleet.yaml and policy.yaml"
 )
 
 #: Where a machine's owner reads how to stand the ladder up. The skill is the
@@ -124,19 +124,20 @@ def _config(args: argparse.Namespace) -> int:
     # The identity every row and result made under this file will carry, and
     # the name of its copy under the journal's configs/ (R2).
     print(f"digest: {config.digest()}\n")
-    print("Sources:")
-    for source in config.sources.values():
+    print("Units:")
+    for unit in config.units.values():
         credential = (
-            f"key from ${source.api_key_env}" if source.api_key_env else "no credential"
+            f"key from ${unit.api_key_env}" if unit.api_key_env else "no credential"
         )
+        engine = unit.engine or "llama.cpp"
         print(
-            f"  {source.name:<16} {source.api:<8} {source.base_url:<32} "
-            f"x{source.max_parallel}  ({credential})"
+            f"  {unit.name:<16} {engine:<9} {unit.address:<32} "
+            f"x{unit.width or 1}  ({credential})"
         )
 
     print("\nLadder, cheapest first:")
-    for tier in config.ladder.tiers:
-        print(f"  {tier.name:<16} {tier.model:<32} on {tier.source}")
+    for name in config.ladder.names:
+        print(f"  {name:<16} {config.units[name].model:<32}")
 
     if config.is_local_only:
         print(
@@ -175,8 +176,7 @@ def _pool(args: argparse.Namespace) -> int:
     print(f"{config.path}: {len(pool)} usable rung(s), cheapest first:\n")
     ladder_budget = 0
     for rung in pool.rungs:
-        tier = config.ladder.get(rung.name)
-        budget = tier.attempts if tier is not None else 1
+        budget = int((config.get("attempts") or {}).get(rung.name, 1))
         ladder_budget += budget
         tries = "1 attempt" if budget == 1 else f"{budget} attempts"
         family = family_of(config, rung.name)
@@ -191,7 +191,7 @@ def _pool(args: argparse.Namespace) -> int:
         ceiling = Ceiling.of(config)
         cap = min(ladder_budget, ceiling.attempts or ladder_budget)
         source = (
-            "budgets.max_attempts"
+            "max_attempts"
             if ceiling.attempts is not None
             else "the ladder's own budget"
         )
@@ -321,7 +321,7 @@ def _cap_undeclared(contract: Contract) -> str | None:
     the number. The derived figure is printed as the value to start from. A
     deterministic contract has no reply to cap and is not asked.
 
-    A ladder that declares ``ladder.tiers.*.output_tokens`` does not lift this.
+    A ladder unit that declares ``units.*.output_tokens`` does not lift this.
     The two numbers answer different questions — what this unit of work is
     worth, and what a particular backend needs to finish a reply (see
     :func:`mcgyvr.gate.preflight.reply_cap`) — so a rig owner answering the
@@ -1539,7 +1539,7 @@ def _climb(
     command does not get to second-guess. The contract's ``task_type`` names the
     family work of its kind may begin on; :func:`~mcgyvr.escalate.ascent` walks
     the catalog's families upward from there; :func:`~mcgyvr.route.plan` takes
-    each family's rungs in the order the operator wrote them into ``ladder.tiers``
+    each family's rungs in the order the operator wrote them into the ladder
     and gives each the attempts its tier declares; and ``budgets.max_escalations``
     with ``budgets.max_attempts`` bound how far the walk gets. A ``--rung`` flag
     would be a fourth party to a decision three files already settle, and the
@@ -1672,7 +1672,7 @@ def _climb(
             # The worker runs outside the sandbox and the sandbox has to be able
             # to reach it: a container with no route to the source is a task that
             # gates fine and never gets an answer to gate.
-            endpoints=tuple(source.base_url for source in config.sources.values()),
+            endpoints=tuple(unit.address for unit in config.units.values()),
         )
     except SandboxError as exc:
         return _error(report, str(exc))
@@ -2188,13 +2188,18 @@ def _serve(args: argparse.Namespace) -> int:
         else:
             card = wakelib.card_named(config, args.host)
             capacity = Capacity.of(config)
-            # `budgets.request_timeout_s` and not the task budget: a dispatch in
-            # flight either finishes inside its own transport bound or the
-            # transport has already given up on it, so waiting longer than that
-            # is waiting for something that is no longer running.
-            with capacity.drain(
-                card.sources, timeout=float(config.get("budgets.request_timeout_s"))
-            ):
+            # A dispatch in flight either finishes inside its own unit's
+            # transport bound or the transport has already given up on it, so
+            # waiting longer than that is waiting for something that is no
+            # longer running. The card may hold units with different bounds;
+            # the longest is what covers them all.
+            timeouts: list[float] = []
+            for name in card.sources:
+                unit = config.units.get(name)
+                if unit is not None and unit.request_timeout_s is not None:
+                    timeouts.append(unit.request_timeout_s)
+            timeout = max(timeouts) if timeouts else None
+            with capacity.drain(card.sources, timeout=timeout):
                 made = wakelib.sleep(config, args.host)
     except wakelib.WakeError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -2448,11 +2453,11 @@ def _scans(root: Path) -> dict[str, Scan]:
 def _hosts_wanted(config: Config) -> dict[str, str]:
     """Which machine each rung would run on — rung name to host."""
     wanted: dict[str, str] = {}
-    for tier in config.ladder.tiers:
-        source = config.sources.get(tier.source)
-        if source is None:
-            raise UnitError(f"{tier.name}: no source named {tier.source!r}")
-        wanted[tier.name] = host_of(source.base_url)
+    for name in config.ladder.names:
+        unit = config.units.get(name)
+        if unit is None:
+            raise UnitError(f"{name}: no unit named {name!r}")
+        wanted[name] = host_of(unit.address)
     return wanted
 
 

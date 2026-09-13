@@ -44,29 +44,26 @@ def isolated_lock_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-CONFIG = """
-version: 1
-sources:
-  local:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 3
-  fast:
-    base_url: http://localhost:8080
-    api: openai
-    max_parallel: 2
+CONFIG = """\
+units:
+  cheap:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
+    width: 3
+  strong:
+    address: http://localhost:8080
+    model: qwen2.5-coder:14b
+    rig: fast
+    width: 2
   spare:
-    base_url: http://localhost:9090
-    api: openai
-    max_parallel: 1
+    address: http://localhost:9000
+    model: qwen2.5-coder:1.5b
+    rig: spare
+    width: 1
 ladder:
-  tiers:
-    - name: cheap
-      source: local
-      model: qwen2.5-coder:7b
-    - name: strong
-      source: fast
-      model: qwen2.5-coder:14b
+- cheap
+- strong
 """
 
 
@@ -435,7 +432,7 @@ def test_an_undeclared_source_is_refused_rather_than_run_unbounded() -> None:
     with pytest.raises(CapacityError) as caught, capacity.hold(FAST):
         pass  # pragma: no cover - the hold raises on the way in
 
-    assert "no declared capacity for source 'fast'" in str(caught.value)
+    assert "no declared capacity for unit 'fast'" in str(caught.value)
     assert "different configs" in str(caught.value)
 
 
@@ -447,7 +444,7 @@ def test_an_endpoint_disagreeing_about_its_own_capacity_is_refused() -> None:
         pass  # pragma: no cover - the hold raises on the way in
 
     assert "bounded at 3" in str(caught.value)
-    assert "max_parallel=8" in str(caught.value)
+    assert "width=8" in str(caught.value)
 
 
 def test_a_capacity_of_zero_is_refused_at_construction() -> None:
@@ -530,7 +527,7 @@ def test_asking_for_no_workers_is_refused() -> None:
 def test_capacity_comes_from_the_declared_config() -> None:
     capacity = Capacity.of(parse(CONFIG))
 
-    assert capacity.limits == {"local": 3, "fast": 2, "spare": 1}
+    assert capacity.limits == {"cheap": 3, "strong": 2, "spare": 1}
     assert capacity.total == 6
 
 
@@ -564,32 +561,32 @@ class Widths:
 
 def test_a_width_the_rig_reports_beats_the_one_the_config_guessed() -> None:
     """`init` writes 1 because it cannot know; a rig that says otherwise ends it."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
 
-    assert capacity.limits["local"] == 8, "the config declared 3; the rig said 8"
+    assert capacity.limits["cheap"] == 8, "the config declared 3; the rig said 8"
     assert capacity.total == 11
-    assert capacity.confirmed("local") is True
+    assert capacity.confirmed("cheap") is True
 
 
 def test_a_width_reported_the_same_as_declared_is_still_a_confirmed_one() -> None:
     """The guess being right is not the same fact as the guess being unchecked."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"fast": 2}))
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"strong": 2}))
 
-    assert capacity.limits["fast"] == 2
-    assert capacity.confirmed("fast") is True
+    assert capacity.limits["strong"] == 2
+    assert capacity.confirmed("strong") is True
 
 
 def test_a_source_that_does_not_report_keeps_its_declaration_and_says_so() -> None:
     """ollama serves its parallelism from a unit file and exposes no endpoint."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": None}))
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": None}))
 
-    assert capacity.limits["local"] == 3, "the declaration stands"
-    assert capacity.confirmed("local") is False
+    assert capacity.limits["cheap"] == 3, "the declaration stands"
+    assert capacity.confirmed("cheap") is False
 
 
 def test_a_source_the_probe_never_mentions_is_unconfirmed_not_absent() -> None:
     """Nobody asked, and the backend does not say: one state of knowledge."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
 
     assert capacity.limits["spare"] == 1
     assert capacity.confirmed("spare") is False
@@ -610,9 +607,9 @@ def test_a_declared_width_the_machine_contradicts_is_refused_by_name() -> None:
     evidence for "my config is wrong".
     """
     with pytest.raises(CapacityError) as caught:
-        Capacity.of(parse(CONFIG), probe=Widths({"local": 1}))
+        Capacity.of(parse(CONFIG), probe=Widths({"cheap": 1}))
 
-    assert "'local' declares 3 but reports 1" in str(caught.value)
+    assert "'cheap' declares 3 but reports 1" in str(caught.value)
     assert "Two answers to one question" in str(caught.value)
 
 
@@ -623,8 +620,8 @@ def test_asking_whether_an_unbounded_source_was_confirmed_is_refused() -> None:
     with pytest.raises(CapacityError) as caught:
         capacity.confirmed("nowhere")
 
-    assert "no declared capacity for source 'nowhere'" in str(caught.value)
-    assert "Known sources: fast, local, spare" in str(caught.value)
+    assert "no declared capacity for unit 'nowhere'" in str(caught.value)
+    assert "Known units: cheap, spare, strong" in str(caught.value)
 
 
 def test_a_confirmation_for_a_source_with_no_limit_is_refused() -> None:
@@ -657,7 +654,7 @@ def test_a_probed_capacity_dispatches_at_the_width_the_rig_reported() -> None:
     through a source the config declared three wide.
     """
     config = parse(CONFIG)
-    capacity = Capacity.of(config, probe=Widths({"local": 8}))
+    capacity = Capacity.of(config, probe=Widths({"cheap": 8}))
     dispatched = source_map(config).bind("cheap")
     observer = Observer()
     barrier = threading.Barrier(4)
@@ -668,17 +665,17 @@ def test_a_probed_capacity_dispatches_at_the_width_the_rig_reported() -> None:
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
     assert dispatched.max_parallel == 3, "an endpoint carries what the config said"
-    assert capacity.limits["local"] == 8, "and the rig's 8 is what is enforced"
-    assert observer.peak["local"] == 4, "four at once, which the declared 3 forbids"
+    assert capacity.limits["cheap"] == 8, "and the rig's 8 is what is enforced"
+    assert observer.peak["cheap"] == 4, "four at once, which the declared 3 forbids"
 
 
 def test_the_declared_width_stays_readable_beside_the_enforced_one() -> None:
     """Two numbers, both kept, because they answer two different questions."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
 
-    assert capacity.declared("local") == 3
-    assert capacity.limits["local"] == 8
-    assert capacity.declared("fast") == capacity.limits["fast"] == 2
+    assert capacity.declared("cheap") == 3
+    assert capacity.limits["cheap"] == 8
+    assert capacity.declared("strong") == capacity.limits["strong"] == 2
 
 
 def test_a_confirmed_source_the_probe_agreed_with_has_one_number_and_not_two() -> None:
@@ -692,12 +689,12 @@ def test_a_confirmed_source_the_probe_agreed_with_has_one_number_and_not_two() -
     The widened sources are a subset of the confirmed ones; the way to ask
     whether a source was widened is to compare the two numbers, as this does.
     """
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"fast": 2, "local": 8}))
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"strong": 2, "cheap": 8}))
 
-    assert capacity.confirmed("fast") is True, "the rig answered, and agreed"
-    assert capacity.declared("fast") == capacity.limits["fast"] == 2
-    assert capacity.confirmed("local") is True, "the rig answered, and widened"
-    assert capacity.declared("local") != capacity.limits["local"]
+    assert capacity.confirmed("strong") is True, "the rig answered, and agreed"
+    assert capacity.declared("strong") == capacity.limits["strong"] == 2
+    assert capacity.confirmed("cheap") is True, "the rig answered, and widened"
+    assert capacity.declared("cheap") != capacity.limits["cheap"]
 
 
 def test_an_endpoint_from_another_config_is_refused_by_a_probed_capacity() -> None:
@@ -707,14 +704,14 @@ def test_an_endpoint_from_another_config_is_refused_by_a_probed_capacity() -> No
     exists to catch, and a probe having widened this capacity to 8 must not
     make 5 look like a number that fits inside the bound.
     """
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
-    stale = source_map(parse(CONFIG.replace("max_parallel: 3", "max_parallel: 5")))
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
+    stale = source_map(parse(CONFIG.replace("width: 3", "width: 5")))
 
     with pytest.raises(CapacityError) as caught, capacity.hold(stale.bind("cheap")):
         pass  # pragma: no cover - the hold raises on the way in
 
     assert "bounded at 3" in str(caught.value)
-    assert "max_parallel=5" in str(caught.value)
+    assert "width=5" in str(caught.value)
     assert "probe widened this source to 8" in str(caught.value)
 
 
@@ -731,7 +728,7 @@ def test_a_declaration_above_the_bound_is_refused() -> None:
     with pytest.raises(CapacityError) as caught:
         Capacity({"local": 3}, confirmed=["local"], declared={"local": 8})
 
-    assert "declares 8 but is bounded at 3" in str(caught.value)
+    assert "declares width=8 but is bounded at 3" in str(caught.value)
 
 
 # --- reservations: the count that exists before a slot does -----------------
@@ -851,7 +848,7 @@ def test_reserving_a_source_this_capacity_does_not_bound_is_refused() -> None:
     with pytest.raises(CapacityError) as caught:
         capacity.reserve("nowhere")
 
-    assert "no declared capacity for source 'nowhere'" in str(caught.value)
+    assert "no declared capacity for unit 'nowhere'" in str(caught.value)
     assert "different configs" in str(caught.value)
 
 
@@ -877,9 +874,9 @@ def test_reading_the_slots_in_use_of_an_unbounded_source_is_refused_by_name() ->
     with pytest.raises(CapacityError) as caught:
         capacity.in_use("nowhere")
 
-    assert "no declared capacity for source 'nowhere'" in str(caught.value)
+    assert "no declared capacity for unit 'nowhere'" in str(caught.value)
     assert "different configs" in str(caught.value)
-    assert "Known sources: local" in str(caught.value)
+    assert "Known units: local" in str(caught.value)
 
 
 def test_choosing_under_deciding_spreads_a_batch_instead_of_stacking_it() -> None:

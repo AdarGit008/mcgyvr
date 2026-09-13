@@ -69,18 +69,15 @@ ONWARD = (
 
 # A keyless install: one local rung, no credential anywhere. The cheapest ladder
 # a stranger can have, and the one where a deterministic tool is worth most.
-KEYLESS = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+KEYLESS = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 DETERMINISTIC = tuple(t.name for t in catalog().task_types if t.starts_on.rank == 0)
@@ -197,19 +194,16 @@ def test_a_degradation_that_lands_nowhere_does_not_claim_a_model_paid(
     """Nothing above the floor offers a rung; the record must say so, not lie."""
     monkeypatch.delenv("MCGYVR_TEST_KEY_THAT_IS_NOT_SET", raising=False)
     config = parse(
-        """
-version: 1
-sources:
-  vendor:
-    base_url: https://api.example.com/v1
-    api: openai
-    max_parallel: 4
+        """\
+units:
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 4
     api_key_env: MCGYVR_TEST_KEY_THAT_IS_NOT_SET
 ladder:
-  tiers:
-    - name: api_big
-      source: vendor
-      model: vendor-large
+- api_big
 """
     )
     pool = source_map(config)

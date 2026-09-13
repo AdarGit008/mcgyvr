@@ -188,18 +188,15 @@ def test_the_orchestrators_own_rendering_still_carries_the_command(
 
 SECRET_IN_URL = "sk-canary-3d81f"
 
-CONFIG_WITH_CREDENTIALED_URL = f"""
-version: 1
-sources:
-  hosted:
-    base_url: https://user:{SECRET_IN_URL}@api.example.invalid/v1
-    api: openai
-    max_parallel: 2
+CONFIG_WITH_CREDENTIALED_URL = f"""\
+units:
+  api_large:
+    address: https://user:{SECRET_IN_URL}@api.example.invalid/v1
+    model: vendor-large
+    rig: hosted
+    width: 2
 ladder:
-  tiers:
-    - name: api_large
-      source: hosted
-      model: vendor-large
+- api_large
 """
 
 
@@ -218,7 +215,7 @@ def test_a_credential_in_a_base_url_is_refused_at_load() -> None:
         parse_config(CONFIG_WITH_CREDENTIALED_URL)
 
     message = str(exc.value)
-    assert "base_url" in message
+    assert "units.api_large.address" in message, message
     assert "api_key_env" in message  # the message says what to do instead
     assert SECRET_IN_URL not in message  # including in the refusal itself
 
@@ -238,7 +235,7 @@ def test_the_refusal_does_not_fire_on_an_ordinary_url() -> None:
             "https://api.example.invalid/v1/models@latest",
         )
     )
-    assert config.sources["hosted"].base_url.endswith("@latest")
+    assert config.units["api_large"].address.endswith("@latest")
 
 
 def test_no_runner_error_can_quote_a_credentialed_url() -> None:
@@ -362,22 +359,19 @@ def test_the_verifier_role_is_answered_without_handing_over_a_credential(
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
     pool = source_map(
         parse_config(
-            """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+            """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 verifier:
   enabled: true
-  source: workstation
   model: qwen2.5-coder:14b
+  unit: local_qwen-7b
 """
         )
     )

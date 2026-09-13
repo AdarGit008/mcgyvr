@@ -76,36 +76,31 @@ def _config(
     compose_dir: Path, *, switch: bool = True, profile: str | None = None
 ) -> str:
     return f"""
-version: 1
 {f"profile: {profile}" if profile else ""}
-sources:
-  rig_lite:
-    base_url: "http://{HOST}:8080"
-    api: openai
-    context_window: {WINDOW}
-  rig_big:
-    base_url: "http://{HOST}:8081"
-    api: openai
-    context_window: {WINDOW}
-models:
-  {LITE}:
-    vram_gb: 7.0
-    disk_gb: 5.0
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
-  {BIG}:
-    vram_gb: 7.0
-    disk_gb: 5.0
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
+units:
+  local_lite:
+    address: "http://{HOST}:8080"
+    model: "{LITE}"
+    rig: rig_lite
+    window: {WINDOW}
+    launch:
+      vram_gb: 7.0
+      disk_gb: 5.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+  local_big:
+    address: "http://{HOST}:8081"
+    model: "{BIG}"
+    rig: rig_big
+    window: {WINDOW}
+    launch:
+      vram_gb: 7.0
+      disk_gb: 5.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: local_lite
-      source: rig_lite
-      model: "{LITE}"
-    - name: local_big
-      source: rig_big
-      model: "{BIG}"
+- local_lite
+- local_big
 serving:
   compose_dir: {compose_dir}
   enable_sleep_wake: {"true" if switch else "false"}
@@ -116,23 +111,19 @@ serving:
 #: fleet emitted before ``d8c5cf0a`` and both live rigs today.
 def _one_unit_config(compose_dir: Path) -> str:
     return f"""
-version: 1
-sources:
-  rig_lite:
-    base_url: "http://{HOST}:8080"
-    api: openai
-    context_window: {WINDOW}
-models:
-  {LITE}:
-    vram_gb: 7.0
-    disk_gb: 5.0
-    kv_cache_dtype_k: f16
-    kv_cache_dtype_v: f16
+units:
+  local_lite:
+    address: "http://{HOST}:8080"
+    model: "{LITE}"
+    rig: rig_lite
+    window: {WINDOW}
+    launch:
+      vram_gb: 7.0
+      disk_gb: 5.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
 ladder:
-  tiers:
-    - name: local_lite
-      source: rig_lite
-      model: "{LITE}"
+- local_lite
 serving:
   compose_dir: {compose_dir}
   enable_sleep_wake: true

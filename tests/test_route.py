@@ -100,47 +100,38 @@ from mcgyvr.route import (
     plan,
 )
 
-MIXED = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
-  spare:
-    base_url: http://192.168.1.20:8000
-    api: openai
-    max_parallel: 1
-  vendor:
-    base_url: https://api.example.com/v1
-    api: openai
-    max_parallel: 4
+MIXED = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
+  local_qwen-14b:
+    address: http://192.168.1.20:8000
+    model: qwen2.5-coder:14b
+    rig: spare
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 4
     api_key_env: EXAMPLE_API_KEY
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: local_qwen-14b
-      source: spare
-      model: qwen2.5-coder:14b
-    - name: api_big
-      source: vendor
-      model: vendor-large
+- local_qwen-7b
+- local_qwen-14b
+- api_big
 """
 
-KEYLESS = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+KEYLESS = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
+- local_qwen-7b
 """
 
 CONTRACT = """
@@ -157,42 +148,37 @@ limits:
   attempts: 5
 """
 
-SHARED = """
-version: 1
-sources:
-  workstation:
-    base_url: http://localhost:11434
-    api: openai
-    max_parallel: 2
+SHARED = """\
+units:
+  local_qwen-7b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: workstation
+    width: 2
+  local_qwen-14b:
+    address: http://localhost:11434
+    model: qwen2.5-coder:14b
+    rig: workstation
+    width: 2
 ladder:
-  tiers:
-    - name: local_qwen-7b
-      source: workstation
-      model: qwen2.5-coder:7b
-    - name: local_qwen-14b
-      source: workstation
-      model: qwen2.5-coder:14b
+- local_qwen-7b
+- local_qwen-14b
 """
 
-WIDTHS = """
-version: 1
-sources:
-  wide:
-    base_url: http://wide.example.net:11434
-    api: openai
-    max_parallel: 4
-  narrow:
-    base_url: http://narrow.example.net:11434
-    api: openai
-    max_parallel: 1
+WIDTHS = """\
+units:
+  local_wide:
+    address: http://wide.example.net:11434
+    model: qwen3-coder:30b
+    rig: wide
+    width: 4
+  local_narrow:
+    address: http://narrow.example.net:11434
+    model: qwen3-coder:30b
+    rig: narrow
 ladder:
-  tiers:
-    - name: local_wide
-      source: wide
-      model: qwen3-coder:30b
-    - name: local_narrow
-      source: narrow
-      model: qwen3-coder:30b
+- local_wide
+- local_narrow
 """
 
 # A cheap narrow rung below a dear wide one, which is the shape that separates
@@ -201,25 +187,20 @@ ladder:
 # rung is free, so the first free rung is ``local_cheap`` and the roomiest is
 # ``local_dear``. Deliberately unequal widths, because equal ones would let
 # either rule stand in for the other.
-LOPSIDED = """
-version: 1
-sources:
-  narrow:
-    base_url: http://narrow.example.net:11434
-    api: openai
-    max_parallel: 1
-  wide:
-    base_url: http://wide.example.net:11434
-    api: openai
-    max_parallel: 4
+LOPSIDED = """\
+units:
+  local_cheap:
+    address: http://narrow.example.net:11434
+    model: qwen2.5-coder:7b
+    rig: narrow
+  local_dear:
+    address: http://wide.example.net:11434
+    model: qwen2.5-coder:32b
+    rig: wide
+    width: 4
 ladder:
-  tiers:
-    - name: local_cheap
-      source: narrow
-      model: qwen2.5-coder:7b
-    - name: local_dear
-      source: wide
-      model: qwen2.5-coder:32b
+- local_cheap
+- local_dear
 """
 
 # Three rungs of three different widths. Fill the cheapest rung's single slot
@@ -229,60 +210,48 @@ ladder:
 # purpose: on a ladder of equal widths "first free" and "roomiest" name the same
 # rung everywhere, so a suite without this shape could not tell which rule it
 # was running.
-UNEVEN = """
-version: 1
-sources:
-  small:
-    base_url: http://small.example.net:11434
-    api: openai
-    max_parallel: 1
-  medium:
-    base_url: http://medium.example.net:11434
-    api: openai
-    max_parallel: 1
-  large:
-    base_url: http://large.example.net:11434
-    api: openai
-    max_parallel: 4
+UNEVEN = """\
+units:
+  local_7b:
+    address: http://small.example.net:11434
+    model: qwen2.5-coder:7b
+    rig: small
+  local_14b:
+    address: http://medium.example.net:11434
+    model: qwen2.5-coder:14b
+    rig: medium
+  local_32b:
+    address: http://large.example.net:11434
+    model: qwen2.5-coder:32b
+    rig: large
+    width: 4
 ladder:
-  tiers:
-    - name: local_7b
-      source: small
-      model: qwen2.5-coder:7b
-    - name: local_14b
-      source: medium
-      model: qwen2.5-coder:14b
-    - name: local_32b
-      source: large
-      model: qwen2.5-coder:32b
+- local_7b
+- local_14b
+- local_32b
 """
 
-TRIPLE = """
-version: 1
-sources:
-  small:
-    base_url: http://small.example.net:11434
-    api: openai
-    max_parallel: 2
-  medium:
-    base_url: http://medium.example.net:11434
-    api: openai
-    max_parallel: 2
-  large:
-    base_url: http://large.example.net:11434
-    api: openai
-    max_parallel: 2
+TRIPLE = """\
+units:
+  local_7b:
+    address: http://small.example.net:11434
+    model: qwen2.5-coder:7b
+    rig: small
+    width: 2
+  local_14b:
+    address: http://medium.example.net:11434
+    model: qwen2.5-coder:14b
+    rig: medium
+    width: 2
+  local_32b:
+    address: http://large.example.net:11434
+    model: qwen2.5-coder:32b
+    rig: large
+    width: 2
 ladder:
-  tiers:
-    - name: local_7b
-      source: small
-      model: qwen2.5-coder:7b
-    - name: local_14b
-      source: medium
-      model: qwen2.5-coder:14b
-    - name: local_32b
-      source: large
-      model: qwen2.5-coder:32b
+- local_7b
+- local_14b
+- local_32b
 """
 
 DETERMINISTIC_CONTRACT = """
@@ -336,22 +305,17 @@ def mapped(text: str) -> tuple[Config, SourceMap]:
 
 
 def with_fanout(text: str, mode: str) -> str:
-    """The same config with ``ladder.fanout`` set, and nothing else moved.
+    """The same config with ``fanout`` set, and nothing else moved.
 
     One substituted line, so that no assertion about a mode can be quietly
     explained by a config that also drifted somewhere else.
     """
-    return text.replace("ladder:\n", f"ladder:\n  fanout: {mode}\n")
+    return text + f"fanout: {mode}\n"
 
 
 def with_attempts(text: str, rung: str, attempts: int) -> str:
-    """The same config with one rung's attempts policy set."""
-    lines: list[str] = []
-    for line in text.splitlines():
-        lines.append(line)
-        if line.strip() == f"- name: {rung}":
-            lines.append(f"      attempts: {attempts}")
-    return "\n".join(lines)
+    """The same config with one unit's attempts policy set."""
+    return text + f"attempts:\n  {rung}: {attempts}\n"
 
 
 def contract(text: str = CONTRACT) -> Contract:
@@ -458,7 +422,7 @@ def occupied(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None]
     release = threading.Event()
 
     def occupy(rung: str) -> None:
-        with capacity.hold(pool.bind(rung)):
+        with capacity.hold(pool.bind(rung), rung=rung):
             held.release()
             release.wait(HOLD_TIMEOUT_S)
 
@@ -506,10 +470,8 @@ def test_the_family_rule_is_the_catalogs_and_is_not_restated_here() -> None:
     config, _ = mapped(MIXED)
     known = catalog()
 
-    for tier in config.ladder.tiers:
-        assert family_of(config, tier.name) == known.family_of(
-            config.sources[tier.source]
-        )
+    for name in config.ladder.names:
+        assert family_of(config, name) == known.family_of(config.units[name])
 
 
 def test_an_unknown_rung_is_a_bug_and_says_what_the_ladder_offers() -> None:
@@ -694,7 +656,7 @@ def test_an_empty_family_quotes_its_own_skipped_rungs_and_not_anothers() -> None
     the family they asked about.
     """
     config = parse(MIXED)  # $EXAMPLE_API_KEY is unset, so api_big is skipped
-    pool = source_map(config, probe=DownProbe({"workstation", "spare"}))
+    pool = source_map(config, probe=DownProbe({"local_qwen-7b", "local_qwen-14b"}))
 
     local = plan(config, pool, contract(), family=LOCAL)
     api = plan(config, pool, contract(), family=API)
@@ -961,7 +923,7 @@ def test_load_never_reorders_a_plan_under_any_mode(lock_dir: None) -> None:
         config, pool = mapped(with_fanout(MIXED, mode))
         capacity = Capacity.of(config)
 
-        with capacity.hold(pool.bind("local_qwen-7b")):
+        with capacity.hold(pool.bind("local_qwen-7b"), rung="local_qwen-7b"):
             made = plan(config, pool, contract(), capacity=capacity)
 
         assert made.rungs == ("local_qwen-7b", "local_qwen-14b"), mode
@@ -975,7 +937,7 @@ def test_the_default_takes_the_cheapest_rung_however_busy_it_is(
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
 
-    with capacity.hold(pool.bind("local_qwen-7b")):
+    with capacity.hold(pool.bind("local_qwen-7b"), rung="local_qwen-7b"):
         climb(plan(config, pool, contract()), attempts, capacity=capacity)
 
     assert attempts.rungs == ["local_qwen-7b"]
@@ -1055,7 +1017,7 @@ def test_idle_keeps_the_cheapest_rung_while_it_still_has_a_slot_to_spare(
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
 
-    with capacity.hold(pool.bind("local_qwen-7b")):
+    with capacity.hold(pool.bind("local_qwen-7b"), rung="local_qwen-7b"):
         climb(plan(config, pool, contract()), attempts, capacity=capacity)
 
     assert attempts.rungs == ["local_qwen-7b"]
@@ -1186,7 +1148,7 @@ def test_idle_stops_at_a_rung_whose_load_cannot_be_read_rather_than_stepping_ove
     not a contradicted one.
     """
     config, pool = mapped(with_fanout(MIXED, "idle"))
-    capacity = Capacity({"workstation": 2})
+    capacity = Capacity({"local_qwen-7b": 2})
     attempts = Recorder(Verdict.PASSED)
 
     with occupied(capacity, pool, "local_qwen-7b", "local_qwen-7b"):
@@ -1289,7 +1251,7 @@ def test_fanout_is_asked_once_and_the_walk_after_it_is_the_plans_own_order(
     plan, and ``local_32b`` before ``local_7b`` is a walk down a load reading.
     Ordering a whole walk by load leaves no ladder in it at all — the rung a
     failure escalates to becomes whichever machine happened to be quiet, which
-    the ``ladder.tiers`` doc in ``config.SCHEMA`` calls actively harmful.
+    the ``ladder`` doc in ``config.SCHEMA`` calls actively harmful.
 
     The rungs the start skipped are walked rather than dropped, and this test
     used to assert the reverse — that a climb starting in the middle went up
@@ -1432,15 +1394,14 @@ def test_fanout_changes_which_rung_goes_first_and_never_what_a_climb_spends(
     )
 
 
-def test_two_rungs_on_one_machine_are_one_queue() -> None:
-    """Load is a property of the box. Two names for one machine that counted
-    separately would let a fan-out spread a batch across a box it never left."""
+def test_two_units_on_one_url_are_two_queues() -> None:
+    """A unit is a process, so two units are two queues even on one box."""
     config, pool = mapped(SHARED)
 
     made = plan(config, pool, contract())
 
     assert made.rungs == ("local_qwen-7b", "local_qwen-14b")
-    assert made.climbable[0].machine is made.climbable[1].machine
+    assert made.climbable[0].machine is not made.climbable[1].machine
 
 
 def test_a_plan_can_be_asked_how_busy_a_rung_is_without_naming_the_machine(
@@ -1458,8 +1419,8 @@ def test_a_plan_can_be_asked_how_busy_a_rung_is_without_naming_the_machine(
     for where in ("workstation", "spare", "localhost", "192.168.1.20"):
         assert where not in rendered
     assert machine.load(capacity) == 0
-    with capacity.hold(pool.bind("local_qwen-7b")):
-        assert machine.load(capacity) == 1
+    with capacity.hold(pool.bind("local_qwen-7b"), rung="local_qwen-7b"):
+        assert machine.load(capacity, "local_qwen-7b") == 1
 
 
 def test_a_step_bound_to_no_machine_is_taken_in_price_order(lock_dir: None) -> None:
@@ -1475,7 +1436,7 @@ def test_a_step_bound_to_no_machine_is_taken_in_price_order(lock_dir: None) -> N
     )
     attempts = Recorder(Verdict.PASSED)
 
-    with capacity.hold(pool.bind("local_qwen-7b")):
+    with capacity.hold(pool.bind("local_qwen-7b"), rung="local_qwen-7b"):
         climb(bare, attempts, capacity=capacity)
 
     assert attempts.rungs == ["local_qwen-7b"]
@@ -1509,10 +1470,10 @@ def test_a_claimed_rung_goes_first_and_is_not_reserved_a_second_time(
     seen: list[tuple[str, int]] = []
 
     def attempt(this: Try) -> Result:
-        seen.append((this.rung.name, capacity.load("medium")))
+        seen.append((this.rung.name, capacity.load("local_14b")))
         return Result.failed("the gate rejected it")
 
-    capacity.reserve("medium")
+    capacity.reserve("local_14b")
     spent = exhausted(
         climb(
             plan(config, pool, contract()),
@@ -1525,7 +1486,7 @@ def test_a_claimed_rung_goes_first_and_is_not_reserved_a_second_time(
     assert seen[0] == ("local_14b", 1), "the caller's reservation, and only it"
     assert [rung for rung, _ in seen] == ["local_14b", "local_7b", "local_32b"]
     assert spent.reason is Exhaustion.RUNGS_SPENT
-    assert capacity.load("medium") == 0, "the reservation was given back"
+    assert capacity.load("local_14b") == 0, "the reservation was given back"
 
 
 def test_a_claimed_first_rung_drops_no_rung_and_spends_what_the_default_spends(
@@ -1549,7 +1510,7 @@ def test_a_claimed_first_rung_drops_no_rung_and_spends_what_the_default_spends(
     plain, plain_pool = mapped(UNEVEN)
     walked = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
 
-    capacity.reserve("medium")
+    capacity.reserve("local_14b")
     with_claim = exhausted(
         climb(
             plan(config, pool, contract()),
@@ -1583,8 +1544,8 @@ def test_a_handed_over_reservation_is_given_back_exactly_once(lock_dir: None) ->
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
 
-    capacity.reserve("medium")
-    capacity.reserve("medium")
+    capacity.reserve("local_14b")
+    capacity.reserve("local_14b")
     climb(
         plan(config, pool, contract()),
         attempts,
@@ -1593,7 +1554,7 @@ def test_a_handed_over_reservation_is_given_back_exactly_once(lock_dir: None) ->
     )
 
     assert attempts.rungs == ["local_14b"]
-    assert capacity.load("medium") == 1, "one given back, and only one"
+    assert capacity.load("local_14b") == 1, "one given back, and only one"
 
 
 def test_a_claimed_rung_this_plan_does_not_offer_selects_as_though_none_was_given(
@@ -1615,7 +1576,7 @@ def test_a_claimed_rung_this_plan_does_not_offer_selects_as_though_none_was_give
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
 
-    capacity.reserve("medium")
+    capacity.reserve("local_14b")
     spent = exhausted(
         climb(
             plan(config, pool, contract()),
@@ -1627,9 +1588,9 @@ def test_a_claimed_rung_this_plan_does_not_offer_selects_as_though_none_was_give
 
     assert attempts.rungs == ["local_7b", "local_14b", "local_32b"], "price order"
     assert spent.attempts_spent == 3, "no rung was dropped for a name nobody knows"
-    assert capacity.load("medium") == 1, "route gave back nothing it cannot name"
-    capacity.release("medium")
-    assert capacity.load("medium") == 0
+    assert capacity.load("local_14b") == 1, "route gave back nothing it cannot name"
+    capacity.release("local_14b")
+    assert capacity.load("local_14b") == 0
 
 
 # --- the shapes callers depend on -----------------------------------------

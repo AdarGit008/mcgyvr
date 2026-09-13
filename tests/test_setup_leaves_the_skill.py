@@ -43,7 +43,7 @@ SETUP_VERBS: tuple[str, ...] = (
 )
 
 #: The three keys Step 0 calls "the levers" (action 5).
-LEVERS: tuple[str, ...] = ("sources", "ladder", "budgets")
+LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
 
 def _body(path: Path) -> str:

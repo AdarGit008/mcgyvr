@@ -259,7 +259,7 @@ def tools_only_config() -> Config:
     no rung bound at all is the configuration that genuinely cannot serve work a
     model has to do.
     """
-    return Config(path=None, data={}, sources={}, ladder=Ladder(tiers=()))
+    return Config(path=None, data={}, units={}, ladder=Ladder(names=()))
 
 
 def test_without_a_config_the_whole_vocabulary_is_on_offer(repo: Index) -> None:

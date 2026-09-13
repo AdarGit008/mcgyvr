@@ -58,17 +58,14 @@ from mcgyvr.serving import Card
 
 HOST = "rig"
 
-LADDER = f"""
-version: 1
-sources:
-  rig:
-    base_url: "http://{HOST}:8080"
-    api: openai
+LADDER = f"""\
+units:
+  local_one:
+    address: http://{HOST}:8080
+    model: one
+    rig: rig
 ladder:
-  tiers:
-    - name: local_one
-      source: rig
-      model: one
+- local_one
 """
 
 
