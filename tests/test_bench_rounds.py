@@ -4,7 +4,7 @@ Checks 3 and 6 of the commissioning gate. Both exist because a number on this
 bench is quotable only if a reader can tell what produced it:
 
 * **check 3** — every arm in a round runs against one product revision, and an
-  adopted change lands at the round boundary rather than mid-flight (ADR-0018).
+  adopted change lands at the round boundary rather than mid-flight .
   The bench pinned its tasks and its system prompt; the user-message render, the
   reply parser and the whole of ``Gate.run`` were unpinned, so two arms could be
   scored by two different bars and laid in one table.
@@ -127,12 +127,12 @@ def test_the_task_set_is_not_in_the_surface(product: Any) -> None:
 def test_the_bar_is_in_the_surface(product: Any) -> None:
     """#291: the pin covered the scorer and not the scorer's configuration.
 
-    Both lockfiles or neither. The arms are paired ts/py (ADR-0021, ADR-0025),
+    Both lockfiles or neither. The arms are paired ts/py ,
     so pinning ruff while eslint floats puts a language effect inside every
     contrast rather than a visible refusal.
 
     Both *halves* or neither, for the same reason. `prettier.config.mjs` joined
-    in the change that created it (#262, ADR-0035): before that the JS/TS format
+    in the change that created it (#262): before that the JS/TS format
     bar was prettier's built-in defaults and only the version could be pinned,
     so a declared config the round did not hold would restate this test's own
     defect — the pin covering the scorer and not its configuration.
@@ -256,7 +256,7 @@ def test_the_refusal_names_which_files_moved(product: Any, tmp_path: Path) -> No
         product.require_pinned(tree, path)
 
 
-# --- the batching rule (#291, ADR-0032) -------------------------------------
+# --- the batching rule (#291) -------------------------------------
 
 
 def test_the_shipped_doctrine_carries_the_batching_clause(product: Any) -> None:
@@ -409,7 +409,7 @@ def test_a_recorded_mode_is_declared_without_the_caveat(mode: Any) -> None:
 
 
 def test_the_ladder_mode_says_a_rescue_counts_as_a_pass(mode: Any) -> None:
-    """ADR-0017 P3: the second mode must not be invented under pressure."""
+    """P3: the second mode must not be invented under pressure."""
     line = mode.declare({"mode": mode.FULL_LADDER})
     assert "full-ladder" in line
     assert "rescued by a higher rung" in line
@@ -472,7 +472,7 @@ NOT_A_FIGURE = {
         "holds for the same reason"
     ),
     "tools/bench/identity.py": (
-        "run identity and its migration tag (ADR-0027). It reads every manifest "
+        "run identity and its migration tag . It reads every manifest "
         "and states what each one can and cannot say about itself; it states no "
         "pass rate and describes no outcome, so there is no mode to declare"
     ),
@@ -536,14 +536,14 @@ NOT_A_FIGURE = {
         "describes itself. It states no rate about any run"
     ),
     "tools/bench/observed.py": (
-        "the `observed` block's writer (#286, ADR-0027 D7). It captures what a "
+        "the `observed` block's writer (#286, D7). It captures what a "
         "serving endpoint says about itself and writes it beside the manifest; "
         "it reads no rows, states no rate and describes no outcome. The mode "
         "declaration would be doubly meaningless here, since nothing reads this "
         "block for comparison at all — the property its own test suite pins"
     ),
     "tools/bench/ceiling.py": (
-        "what the acceptance ceiling bounds (#262, ADR-0035). It reports "
+        "what the acceptance ceiling bounds (#262). It reports "
         "DURATIONS — the reference sweep it runs, and the `acceptance_s` field "
         "of rows already recorded — so it states no pass rate and describes no "
         "outcome. The same exemption `ratecard.py` holds, and for the same "

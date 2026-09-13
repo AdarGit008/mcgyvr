@@ -26,7 +26,7 @@ each. This tool reads it three ways.
 * **denominator** — what the instrument resolves, counted in cells that are
   actually swept. `split.py` sends ~half of every tranche to a reserve that
   `archive/docs/bench-design-2026-08-10.md` states is never swept and no rig tier
-  serves. ADR-0021's 2026-08-12 amendment fixed the `ts`/`py` denominator and
+  serves. the 2026-08-12 amendment fixed the `ts`/`py` denominator and
   did not reach this one.
 
 **A limit that cannot be argued around.** No admitted pair scores >= 0.70 —
@@ -70,7 +70,7 @@ ADMISSIONS = HERE / "admissions.jsonl"
 ARMS = ("ts", "py")
 
 # Discordance rates the sizing table is priced at. 0.10-0.45 is the range this
-# project has MEASURED, on other instruments (ADR-0019 D5's responsiveness
+# project has MEASURED, on other instruments (D5's responsiveness
 # table). 0.659 is `psi_draw` and is NOT `psi` — it is resampling sensitivity,
 # and the contrasts that matter run greedy, which is deterministic. It is
 # carried as a column because the records quote it, not because it is a

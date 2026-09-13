@@ -4,7 +4,7 @@
 `ACCEPTANCE_TIMEOUT_S` was three numbers in three files — 120.0 in
 `tools/bench/score.py`, 30.0 in `tools/bundle/measure.py`, 30.0 in
 `tools/problems/admit.py` — under two comments each asserting they matched.
-ADR-0035 reconciled the live pair to one, and this is the measurement it was
+ reconciled the live pair to one, and this is the measurement it was
 reconciled against, kept as a tool so the figure stays re-derivable rather than
 becoming a number in a docstring citing a session nobody can re-run.
 
@@ -163,7 +163,7 @@ def _band(values: list[float]) -> dict[str, float | int | None]:
 
 
 def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """The four numbers ADR-0035 rests on, plus the censoring that qualifies them.
+    """The four numbers  rests on, plus the censoring that qualifies them.
 
     `uncensored_*` is the honest caveat and is computed rather than asserted: a
     run measured at a 30 s ceiling **cannot** produce a row above it, so the

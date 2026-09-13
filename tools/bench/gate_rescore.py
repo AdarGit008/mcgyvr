@@ -11,7 +11,7 @@ the bar is a pure function of them; the difference is recoverable offline.
 
 **Why this is not** ``tools/bench/regrade.py``. That tool re-runs *acceptance
 only*, by design, and its docstring says so — it exists to recover figures after
-a **checker** was corrected (ADR-0023's ``ValueError`` asymmetry). Holding the
+a **checker** was corrected (the ``ValueError`` asymmetry). Holding the
 scorer fixed at acceptance is the property that makes its output comparable with
 the runs it re-scores. This tool does the opposite: it holds the candidate fixed
 and **changes the scorer**, from acceptance-only to the five rungs the product

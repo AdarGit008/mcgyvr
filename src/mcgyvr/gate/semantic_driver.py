@@ -3,11 +3,11 @@
 **This module is never imported by mcgyvr.** It is read as text and staged
 into the sandbox by :mod:`mcgyvr.gate.semantic`, where it runs under the
 *target's* interpreter with the target's own packages importable. That is the
-whole point of ADR-0010: resolution by import is not an implementation detail
+whole point : resolution by import is not an implementation detail
 of the check, it is the check, and the only environment in which its answer is
 true is the one the code declared. Nothing here may be imported into the
 orchestrator process — doing so would import target code on the host, which
-ADR-0005 forbids and which ADR-0010 explicitly carried forward.
+ forbids and which  explicitly carried forward.
 
 It is written to run under an *old* interpreter as well as a new one: the base
 image is ``python:3.12-slim`` today, but ``sandbox.image`` can be overridden
@@ -15,7 +15,7 @@ with anything the repository actually runs on. Annotations are deferred
 (:pep:`563`), so nothing here needs a runtime subscript, and no syntax newer
 than 3.8 is used.
 
-The engine is ghostcall's (CLM-0006, vendored and digest-pinned); this module
+The engine is ghostcall's (vendored and digest-pinned); this module
 supplies what the gate needs around it:
 
 **Only added lines are resolved.** The job carries the line numbers

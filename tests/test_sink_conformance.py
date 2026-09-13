@@ -974,7 +974,7 @@ def test_an_unmeasured_sleep_cell_is_re_done_by_a_plain_resume(
 
 
 # --------------------------------------------------------------------------
-# #324: the census. ADR-0037 rule 5 -- coverage of rule 4 is mechanical, not
+# #324: the census. rule 5 -- coverage of rule 4 is mechanical, not
 # counted. Everything above holds a sink to its producer; nothing above says
 # which sinks exist, so a new `emit()` with a dict producer and no disposition
 # shipped green. The census enumerates every write and demands each be either
@@ -1703,7 +1703,7 @@ def test_tree_dirty_answers_about_the_harness_and_not_about_the_runs_own_output(
     A run writes its journal into `records/` *while it runs*, so every row of
     every future run would have read `tree_dirty: true` caused by nothing but
     its own output -- a field true on every real run, which states no property
-    (ADR-0026 lens 3). The D7 evidence does not show it only because those rows
+    (lens 3). The D7 evidence does not show it only because those rows
     predate #325 and carry no provenance block at all.
 
     Both directions, because a check that cannot be shown to reject is the
@@ -2215,7 +2215,7 @@ def test_every_emitted_row_carries_the_identity_block(
 def test_an_identity_field_the_host_did_not_answer_is_null_with_the_command_it_ran(
     calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """ADR-0027 D2: null plus the read, never a blank, never a number from prose."""
+    """D2: null plus the read, never a blank, never a number from prose."""
     host = _Host(answers=False)
     monkeypatch.setattr(contract, "ssh", host.ssh)
     monkeypatch.setattr(contract, "get_json", lambda *a, **k: None)
@@ -2230,7 +2230,7 @@ def test_an_identity_field_the_host_did_not_answer_is_null_with_the_command_it_r
     # Bandwidth: refused today with the reason, on every row, answered by none.
     assert identity["memory_bandwidth_gb_s"] is None
     why = refusals["memory_bandwidth_gb_s"]
-    assert "step0-gaps.md:202" in why and "ADR-0024:40" in why
+    assert "step0-gaps.md:202" in why and ":40" in why
     assert "21.8" in why, "the prose figure is named as NOT the value"
     assert "" not in identity.values(), "a blank is not a refusal"
 

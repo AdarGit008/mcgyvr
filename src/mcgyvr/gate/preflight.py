@@ -46,7 +46,7 @@ class TokenCount(StrEnum):
 
 
 # How much room a proxy count must leave for its own error, as a fraction of
-# the estimate. Measured, not chosen: CLM-0011 puts the estimator's 5th-
+# the estimate. Measured, not chosen:  puts the estimator's 5th-
 # percentile error at -31.1% on the worst of the three distinct vocabularies
 # the shipped capability table's models use (DeepSeek-Coder-V2), over 2,387
 # units of the text production actually asks it to count. Rounded up to the
@@ -151,7 +151,7 @@ def check_prompt_fits(
 
     ``counted_by`` says where ``prompt_tokens`` came from, and it changes the
     arithmetic rather than only the wording. A count from the model-free proxy
-    is charged :data:`ESTIMATE_RESERVE` on top of itself, because CLM-0011
+    is charged :data:`ESTIMATE_RESERVE` on top of itself, because
     measured the proxy under-counting more often than it over-counts and the
     two directions are not interchangeable: over-estimation costs context,
     under-estimation ships a prompt the backend then rejects. A count from a
@@ -166,7 +166,7 @@ def check_prompt_fits(
         return None
     basis = (
         f"{prompt_tokens} estimated tokens, charged as {charged} to reserve "
-        f"{ESTIMATE_RESERVE:.0%} for the estimator's measured error (CLM-0011)"
+        f"{ESTIMATE_RESERVE:.0%} for the estimator's measured error "
         if counted_by is TokenCount.ESTIMATE
         else f"{prompt_tokens} tokens, counted exactly"
     )

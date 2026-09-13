@@ -14,7 +14,7 @@ because open questions dispersed over 147 session records is the state this
 record type exists to leave behind. And
 :func:`test_the_field_review_is_owed_once_ten_run_headers_exist` is the closing
 condition made mechanical — a gate left open with no review date states no
-property (ADR-0026 lens 3), so the owed state is a non-zero exit rather than a
+property (lens 3), so the owed state is a non-zero exit rather than a
 line in a record somebody has to remember to read.
 """
 

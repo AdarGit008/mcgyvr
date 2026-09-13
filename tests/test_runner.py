@@ -362,7 +362,7 @@ def test_the_stop_words_the_compatible_servers_actually_use(
 def test_no_stop_sequence_is_sent_on_either_protocol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ADR-0009, held as a property of the wire rather than as a comment.
+    """, held as a property of the wire rather than as a comment.
 
     A stop sequence is consumed by the server and stripped from the answer, so
     it converts a reply that ran long into a shorter one that still parses —
@@ -378,7 +378,7 @@ def test_no_stop_sequence_is_sent_on_either_protocol(
 
 def test_a_request_has_no_stop_field_to_fill_in() -> None:
     """The absence is the decision. A caller that reaches for one is re-opening
-    ADR-0009, and finds out here rather than in a truncated file."""
+    , and finds out here rather than in a truncated file."""
     assert "stop" not in {f.name for f in dataclasses.fields(Request)}
     with pytest.raises(TypeError):
         Request(prompt="p", max_output_tokens=8, stop=("```",))  # type: ignore[call-arg]
@@ -387,7 +387,7 @@ def test_a_request_has_no_stop_field_to_fill_in() -> None:
 def test_a_truncated_reply_is_named_as_a_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ADR-0009's other half: hitting the cap is not a short answer. The note
+    """the other half: hitting the cap is not a short answer. The note
     travels with the completion so telemetry carries the words too."""
     stub_post(monkeypatch, openai_answer(finish_reason="length"))
     done = runner_for(LOCAL_OPENAI).generate(

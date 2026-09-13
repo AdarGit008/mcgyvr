@@ -18,7 +18,7 @@ absent that is an *environment* fault, surfaced as
 distinction the Python adapter and the acceptance rung (#38) draw. When a tool
 is present but its run cannot be read, that is
 :class:`~mcgyvr.gate.adapter.ToolFailedError` and the change is refused
-(ADR-0034): eslint and prettier both answer a fatal config error with exit 2
+: eslint and prettier both answer a fatal config error with exit 2
 and an empty stdout, which every reader here would otherwise score as clean.
 
 The three grammars (JavaScript, TypeScript, TSX) are selected by extension.
@@ -76,7 +76,7 @@ _EXTENSIONS = _TS_EXTENSIONS + _TSX_EXTENSIONS + _JS_EXTENSIONS
 #
 # This has no ruff counterpart — the Python adapter counts every diagnostic it
 # is given — and the asymmetry is deliberate rather than an oversight, because
-# the two tools do not mean the same thing by a non-fatal finding. ADR-0025's
+# the two tools do not mean the same thing by a non-fatal finding. the
 # 2026-08-16 amendment is where that is argued and where it must be changed;
 # this constant is the implementation of a decision, not the decision. Under
 # the current `eslint.config.mjs` all 66 enabled rules are severity `error`, so

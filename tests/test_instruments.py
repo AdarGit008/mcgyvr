@@ -163,7 +163,7 @@ def _fixture_declaration(path: Path, **flags: Any) -> Path:
 
 
 def test_the_five_local_sets_are_retired_and_released() -> None:
-    """#240's decision, as data rather than as prose in an ADR.
+    """#240's decision, as data rather than as prose in a decision record.
 
     Scoped to the retired sets: #225's bench arms joined the declaration
     live, so "every local set" stopped being the same statement as "#240's

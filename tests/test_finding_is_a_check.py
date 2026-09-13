@@ -1,6 +1,6 @@
 """Closing a finding without fixing it is a dated, strict xfail.
 
-ADR-0037 (#323) bound prose to predicate in two places and this file was the
+ (#323) bound prose to predicate in two places and this file was the
 predicate for both. **Rule 3 is gone with its corpus.** It walked
 ``docs/decisions/0*.md`` and required every ``tests/<file>::<test>`` a record
 named to resolve to a real function. The decision records were archived on
@@ -71,7 +71,7 @@ def _undisciplined_xfails(tests: Path) -> set[tuple[str, int, str]]:
 def test_every_xfail_in_the_suite_is_strict_and_carries_a_dated_reason() -> None:
     bad = _undisciplined_xfails(TESTS)
     assert not bad, (
-        "ADR-0037 rule 2: an xfail is strict and its reason begins with the "
+        "rule 2: an xfail is strict and its reason begins with the "
         f"date it was parked: {sorted(bad)}"
     )
 

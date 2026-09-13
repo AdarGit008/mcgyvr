@@ -236,7 +236,7 @@ def test_nothing_gates_on_the_card(pin: Any) -> None:
     Whether a throttled card should REFUSE a measurement is a real question
     with a different owner, and wiring a guard to a throttle mask would answer
     it by accident. `card.jsonl` is comprehensive because nothing is admitted
-    from it — the same argument ADR-0027 D7 makes for the `observed` block.
+    from it — the same argument D7 makes for the `observed` block.
     """
     found = subprocess.run(
         ["git", "grep", "-l", "card.jsonl", "--", "src/", "tools/", "tests/"],

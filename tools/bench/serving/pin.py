@@ -35,7 +35,7 @@ and each needs its own evidence:
 configuration was not constant across the run, which is a fact *about* the
 measurement rather than an error *in* it — the rows are still real. Whether it
 should refuse a comparison is a question for ``identity.KEY``, which is the
-owner's under ADR-0027 D7 and belongs in its own change.
+owner's  D7 and belongs in its own change.
 """
 
 from __future__ import annotations
@@ -228,7 +228,7 @@ def width(
     process and the other ``--max-num-seqs`` in its own argv; the ``source``
     field is where that difference is kept.
 
-    ``value`` is ``None`` **with a reason** rather than absent (ADR-0027 D2).
+    ``value`` is ``None`` **with a reason** rather than absent (D2).
     **Two sources that disagree are refused, not resolved** — the same rule
     ``vllm.declared_slots`` already applies to its own pair, and for the same
     reason: picking one would be picking which of two contradictory facts about
@@ -325,7 +325,7 @@ def sweep_reading(raw: str | None) -> dict[str, Any]:
     a column it stops being luck. Every section is delimited, and a section
     whose delimiter is missing is a section that did not complete.
 
-    Three states per reading, as everywhere else (ADR-0027 D2): a value, or
+    Three states per reading, as everywhere else (D2): a value, or
     ``null`` **with a reason**, never a zero standing in for an unknown. In
     particular ``placements: null`` is "the card was not read" and ``[]`` is
     "the card answered and holds nothing" — the distinction the sentinel in
@@ -439,9 +439,9 @@ PROBE_FAILED = "probe_failed"
 def unread(reason: str, why: str, **extra: Any) -> dict[str, Any]:
     """A host block with no readings in it, saying WHICH of the ways it is one.
 
-    ``refused`` carries the sentence and ``reason`` the code, the pair ADR-0027
-    D2 asks for: a value, or ``null`` **with a reason**, never a silent empty.
-    An absent block still means the record predates the contract, and that is
+    ``refused`` carries the sentence and ``reason`` the code, the pair D2 asks
+    for: a value, or ``null`` **with a reason**, never a silent empty. An
+    absent block still means the record predates the contract, and that is
     now the only thing it means.
 
     ``width`` is present on every arm so the shape does not fork. A consumer

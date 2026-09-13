@@ -156,7 +156,7 @@ scope:
 """
 
 # A deterministic type whose floor binds no program, which since X07 bound the
-# floor is the only way a floor family is still empty: ADR-0025 holds eslint at
+# floor is the only way a floor family is still empty:  holds eslint at
 # `recommended`, which has no import-order rule, so nothing sorts js/ts imports.
 UNBOUND_DETERMINISTIC_CONTRACT = """
 id: tidy-imports

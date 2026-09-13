@@ -19,7 +19,7 @@ report renders that record. ``UNRECORDED`` below is what a manifest written
 before the field says, and it is answered rather than guessed at — see
 ``declare``.
 
-**Why the ladder value exists with nothing producing it.** ADR-0017's P3 says
+**Why the ladder value exists with nothing producing it.** the P3 says
 the floor can move and no tool may hard-code its tier. A vocabulary with one
 member is a vocabulary that will be widened by whoever adds the second mode,
 under time pressure, in the same change that adds escalation. Declaring both now

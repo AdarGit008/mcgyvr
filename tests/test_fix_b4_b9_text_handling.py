@@ -300,11 +300,11 @@ def test_a_rung_that_could_not_say_what_it_applied_is_not_a_formatting_problem(
 ) -> None:
     """A rejection nobody explained is not one the formatter raised.
 
-    ADR-0034's case: the lint rung's tool was there, exited, and said nothing
+    the case: the lint rung's tool was there, exited, and said nothing
     readable, so the change is rejected with no finding to point at. Tidying
     that would be treating "we do not know" as "it is only whitespace" —
     rewriting the bytes under a verdict whose remaining bar was never applied,
-    which is the hole the ADR exists to keep visible.
+    which is the hole this check exists to keep visible.
     """
 
     def raise_failed(*_args: object, **_kwargs: object) -> list[Finding]:

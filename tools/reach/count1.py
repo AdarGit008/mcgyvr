@@ -76,7 +76,7 @@ def declared_coverage(clone: Path) -> str:
     not: at ten of its twenty-seven pinned commits ``scripts.coverage`` is
     ``jest --coverage``, because the project had not migrated to vitest yet.
     Running the tip's command at those commits would be running something the
-    repository never declared *then* — the same substitution ADR-0006 forbids,
+    repository never declared *then* — the same substitution  forbids,
     arriving through time rather than through a detector. Recording the
     per-commit declaration puts that in the rows instead of in a footnote.
     """

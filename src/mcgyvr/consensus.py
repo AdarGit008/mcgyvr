@@ -6,26 +6,26 @@ rung is *almost* right: a 7B asked the same question three times gives three
 different answers, and the ladder as it stands throws two of them away unseen
 and pays for a larger model instead. Breadth is the cheapest thing on the list
 — the prompt is built, the context is assembled, the slot is held — and what it
-spends is wall clock, not the expensive tokens ADR-0001's north star counts.
+spends is wall clock, not the expensive tokens the north star counts.
 
-**ADR-0008 is the standing decision and most of it stands here.** Its case was
+** is the standing decision and most of it stands here.** Its case was
 against *consensus*: no functional majority voting over execution fingerprints,
 no generated test inputs, no ranking on a signal the gate does not own. That is
-kept exactly. The gate is the only scorer (ADR-0029), draws are judged in the
+kept exactly. The gate is the only scorer , draws are judged in the
 order they were drawn, and a tie goes to the earliest — so where the gate cannot
 tell two candidates apart, "the first candidate to pass the gate" is still what
-wins, which is ADR-0008's rule unchanged.
+wins, which is the rule unchanged.
 
-**What this changes is the early exit, and the change is deliberate.** ADR-0008
+**What this changes is the early exit, and the change is deliberate.**
 has the rung stop at the first accepted draw. Every draw is gated here instead,
-for the reason the ADR itself gives when it names the measurement that would
+for the reason the decision itself gives when it names the measurement that would
 settle breadth: "given that a gate-passing candidate exists among N, at what
 index does it first appear?" A run that stops at the first accept answers that
 only for the draws before the winner; one verdict per draw answers it outright,
 and the vector it leaves is what turns "three draws cost three gate runs and
 bought nothing" into a fact rather than a suspicion. The price is gate runs —
 wall clock against ``budgets.task_timeout_s`` — and no tokens at all. It is an
-amendment to ADR-0008 and wants recording as one.
+amendment  and wants recording as one.
 
 **Selection is not delivery, and the winner still travels bound.** No draw is
 left in a tree: the workspace each was judged in is restored after it and torn
@@ -50,7 +50,7 @@ string.
 so is the gate, for the same reason :func:`~mcgyvr.route.climb` takes an attempt
 function: the ranking rule is then assertable without a model, and a module that
 needed one could not be tested. Where a gate runs the contract's own commands
-they must run in a sandbox (ADR-0005), which is why a caller that already holds
+they must run in a sandbox , which is why a caller that already holds
 one passes it in — the draws are staged in the workspace its attempt is already
 using, against the base it is already diffing.
 
@@ -249,7 +249,7 @@ def best_of(
     ``gate(sandbox)`` judges the draw that is currently in that sandbox's
     workspace. It is handed the sandbox rather than a bare path on purpose: the
     contract's acceptance commands are arbitrary shell and run inside a sandbox
-    and nowhere else (ADR-0005), so a gate that received only a ``Path`` could
+    and nowhere else , so a gate that received only a ``Path`` could
     not run them and every real caller would have to close over a sandbox it was
     not given — the workspace is not enough to gate.
 
@@ -320,8 +320,8 @@ def _draw(
         target = space.workspace / contract.target
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            # `write_bytes` under `surrogateescape`, the same way
-            # ``mcgyvr.pending.stash`` stores accepted work: `write_text`
+            # `write_bytes` under `surrogateescape`, the byte convention the
+            # rest of mcgyvr uses to store accepted work: `write_text`
             # encodes with the platform's preferences under `strict` and
             # translates line endings, so the draw the gate judged would not be
             # the draw returned as the winner. A verdict about a file nobody
@@ -342,7 +342,7 @@ def _draw(
             # or the caller's own attempt, when the sandbox is theirs — is
             # judged in. Restoring to the entry checkpoint — the caller's own
             # state, not the base — is what makes N draws cost one workspace
-            # and N-1 restores (ADR-0008) without wiping what the caller held.
+            # and N-1 restores  without wiping what the caller held.
             if checkpoint is not None:
                 space.restore_to(checkpoint)
             else:

@@ -8,7 +8,7 @@ module's.
 
 **This engine claims the card for the life of the process, not per model.** It
 allocates its whole budget at startup — weights, then KV cache filling the rest —
-and holds it whether or not a request is in flight. Since ADR-0039 that budget
+and holds it whether or not a request is in flight. Since  that budget
 is declared in **bytes of KV cache** (:func:`_memory_args`) rather than as a
 fraction of the card, because ``requested = total_memory * util`` means one
 fraction is a different KV cache on every card it is carried to.
@@ -264,7 +264,7 @@ def _process_tree(raw: str | None) -> dict[int, dict[str, Any]]:
     """:data:`PROCESS_TREE_COMMAND`'s output as ``{pid: {"ppid", "args"}}``.
 
     A pure parser over what the host printed, so the join it feeds is testable
-    against the lines the rigs really produced (ADR-0016) rather than against a
+    against the lines the rigs really produced  rather than against a
     shape imagined for it.
     """
     tree: dict[int, dict[str, Any]] = {}
@@ -363,7 +363,7 @@ def placements(host: str) -> list[dict[str, Any]]:
     """Where every process on this card sits, as far as this engine can say.
 
     **The fraction has no analogue here, and that is a decision, not a gap**
-    (ADR-0040). An engine that loads through llama.cpp can report
+    . An engine that loads through llama.cpp can report
     ``size_vram / size`` because it *spills*: a model can be 6.8% on the card
     and answer ``200`` anyway. vLLM cannot —
     ``requested = ceil(total * util)`` with a hard ``free >= requested``
@@ -372,7 +372,7 @@ def placements(host: str) -> list[dict[str, Any]]:
     ``fraction: None`` **with the reason beside it**, rather than the ``1.0``
     that would be true by this engine's contract and would invite a reader to
     compare it against the other engine's ``0.068`` as though the two were one
-    measurement (ADR-0038 D4).
+    measurement (D4).
 
     The absolute number is reported instead, in MiB, from the driver:
 
@@ -414,7 +414,7 @@ def placements(host: str) -> list[dict[str, Any]]:
                 "fraction_refused": (
                     "this engine allocates its whole budget or refuses to "
                     "start, so a model is never partly on the card and there "
-                    "is no denominator (ADR-0040)"
+                    "is no denominator "
                 ),
                 **(
                     {}
@@ -444,7 +444,7 @@ def placements(host: str) -> list[dict[str, Any]]:
                     "fraction_refused": (
                         "this engine allocates its whole budget or refuses to "
                         "start, so a model is never partly on the card and "
-                        "there is no denominator (ADR-0040)"
+                        "there is no denominator "
                     ),
                     "unplaced": (
                         "served by this engine and attributed no memory by the "
@@ -461,7 +461,7 @@ def _recorded_placements(host: str) -> tuple[list[dict[str, Any]] | None, str | 
 
     Recording, not gating: a reading that cannot be taken must never be the
     reason a measurement does not happen, and `None` beside its reason is what
-    that looks like (ADR-0027 D2). Broad on purpose — every exception here is a
+    that looks like (D2). Broad on purpose — every exception here is a
     failure to observe, and there is no shape of it that should end a claim.
     """
     try:
@@ -840,7 +840,7 @@ def claim(
         "weights": digest,
         "weights_sha256_expected": wanted,
         "resident_placements": placed,
-        # ADR-0027 D2: null carries the reason it is null, never a blank.
+        # D2: null carries the reason it is null, never a blank.
         "resident_placements_refused": placed_refused,
         # Recorded whether or not they gated anything above: the width the
         # engine is serving at, and the pool it allocated. A curve is read
@@ -1115,7 +1115,7 @@ def launcher(host: str) -> str:
 
 
 #: The two ways an entry may state the memory it wants. **Exclusive, and
-#: neither is defaulted** (ADR-0039). This engine's own arithmetic is
+#: neither is defaulted** . This engine's own arithmetic is
 #: ``requested = total_memory * gpu_memory_utilization`` with a hard
 #: ``free >= requested`` precondition (``vllm/v1/worker/utils.py``), so a
 #: fraction is a statement about a *card*: 1,792 MiB of KV cache is 0.565 on
@@ -1125,7 +1125,7 @@ MEMORY_FIELDS: tuple[str, ...] = ("kv_cache_memory_bytes", "gpu_memory_utilizati
 
 
 def _memory_args(serve: dict[str, Any]) -> list[str]:
-    """The KV-cache declaration as CLI arguments, or a refusal (ADR-0039).
+    """The KV-cache declaration as CLI arguments, or a refusal .
 
     **There is no default.** This read ``serve.get("gpu_memory_utilization",
     0.85)``, and that fallback is how a number nobody chose -- traced to
@@ -1148,12 +1148,12 @@ def _memory_args(serve: dict[str, Any]) -> list[str]:
             f"serve declares {sorted(declared)} together. They are exclusive: "
             "vLLM ignores gpu_memory_utilization whenever kv_cache_memory_bytes "
             "is set, so carrying both records a fraction that never applied. "
-            "Declare one (ADR-0039). Nothing was measured."
+            "Declare one . Nothing was measured."
         )
     if not declared:
         raise contract.NotCleanError(
             "serve declares neither kv_cache_memory_bytes nor "
-            "gpu_memory_utilization, and there is no default (ADR-0039 rule 3). "
+            "gpu_memory_utilization, and there is no default (rule 3). "
             "Bytes are max_num_seqs * max_model_len * bytes_per_token at the "
             "launch's --kv-cache-dtype and are the same on every card; a "
             "fraction is a statement about one card and says which and why. "
@@ -1227,7 +1227,7 @@ def kv_cache_dtype(serve: dict[str, Any]) -> str:
 def kv_bytes_per_token(serve: dict[str, Any]) -> int:
     """``bytes_per_token`` at the element width this entry's cache launches with.
 
-    ADR-0039's rule is ``max_num_seqs x max_model_len x bytes_per_token``, and
+    the rule is ``max_num_seqs x max_model_len x bytes_per_token``, and
     ``bytes_per_token`` is derived at :data:`BYTES_PER_TOKEN_ELEMENT_BYTES` an
     element. Read at that width for an fp8 cache, the rule declared twice the
     KV the engine needs and the gate refused cells that fit.
@@ -1245,7 +1245,7 @@ ALLOCATOR_BLOCK_MIB = 256
 #: it declares, plus the one block it must still be able to take.
 #:
 #: **Measured, as a residue, not assembled from terms.** The first version of
-#: this constant added up ADR-0039's parts — 470 MiB driver and CUDA context,
+#: this constant added up the parts — 470 MiB driver and CUDA context,
 #: 133 MiB peak activation, 51 MiB non-torch, one 256 MiB block — and got 910.
 #: That sum double-counts: ``nvidia-smi``'s view of the card already contains
 #: the driver's reserve and the process's context, so those terms were being
@@ -1404,7 +1404,7 @@ def declaration_fits(
 ) -> None:
     """Refuse a KV declaration this card cannot hold — before the launch.
 
-    **#354.** ADR-0039's rule is
+    **#354.** the rule is
     ``max_num_seqs x max_model_len x bytes_per_token``, and it is right: three
     cells of the 2026-08-23 footprint campaign refused on an *empty* card with
     ``torch.OutOfMemoryError`` inside ``_allocate_kv_cache``, and in every one
@@ -1427,7 +1427,7 @@ def declaration_fits(
     :data:`NON_KV_OVERHEAD_MIB`. The refusal says which of the two it used, so a
     reader is never left to guess whether a number was seen or computed.
 
-    **A fraction is not checked here** (ADR-0039 rule 5 keeps one legal for a
+    **A fraction is not checked here** (rule 5 keeps one legal for a
     run whose question *is* the fraction). Under ``gpu_memory_utilization`` this
     engine enforces its own ``free >= total x util`` precondition before it
     allocates anything, so the failure is already immediate and already names
@@ -1494,7 +1494,7 @@ def declaration_fits(
                 "here can say whether the card can hold it. Declare the "
                 "weights with a note showing where the figure came from — this "
                 "engine prints `Model loading took X GiB` on every start "
-                "(ADR-0039 rule 2's idiom, extended to weights by #354). "
+                "(rule 2's idiom, extended to weights by #354). "
                 "Nothing was measured."
             )
         weights_mib = _mib(int(weights))
@@ -1528,7 +1528,7 @@ def declaration_fits(
         f"{ways_out} "
         "This picks neither: which one to give up is the entry's decision, and "
         "a launcher that quietly chose would have the run measure a "
-        "configuration nobody declared (ADR-0039 rule 2, #354). "
+        "configuration nobody declared (rule 2, #354). "
         "Nothing was measured."
     )
 
@@ -1821,7 +1821,7 @@ def build(host: str) -> dict[str, Any]:
     the row is not where the gate reads, and this is.
 
     A build string therefore names both, and two runs on the same version
-    through different launchers now differ here — which is the refusal ADR-0024
+    through different launchers now differ here — which is the refusal
     asks for. **It also means a record written before this change does not match
     one written after**, on the same host and the same engine. That is a false
     refusal, it is the safe direction, and it is stated rather than smoothed

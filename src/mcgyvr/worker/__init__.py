@@ -6,7 +6,7 @@ fenced block, and :mod:`~mcgyvr.worker.reply` is what refuses a reply that is
 not one. Splitting them across modules that do not import each other is how the
 instruction and the parser drift apart.
 
-:mod:`~mcgyvr.worker.bundle` is the measured system prompt (CLM-0004) and the
+:mod:`~mcgyvr.worker.bundle` is the measured system prompt  and the
 enforcement of the size the measurement justifies.
 
 Nothing here dispatches. Choosing a rung and escalating are #24's, bounding

@@ -6,7 +6,7 @@ cannot tell two very different instruments apart, and the whole reason
 
 * **Sampler drift** — the backend returned different text and some of it landed
   on the other side of the acceptance boundary. A property of the serving
-  stack, which is why ADR-0024 pins the build.
+  stack, which is why  pins the build.
 * **Acceptance drift** — the *same bytes* scored differently. That is the
   harness being nondeterministic, it puts a floor under every contrast the
   bench will ever run, and no number of extra problems lowers it.

@@ -1,6 +1,6 @@
 """The type-check command locator (#114), across both adapters.
 
-ADR-0006 is a decision about **restraint**: mcgyvr never chooses a type checker
+ is a decision about **restraint**: mcgyvr never chooses a type checker
 and never synthesises its flags — it locates whatever the target repository
 already declared and returns that. Every test here is a way of holding that line,
 because each way of breaking it looks locally reasonable:
@@ -10,7 +10,7 @@ because each way of breaking it looks locally reasonable:
 * adding ``--strict`` (which on an unannotated repository is not a stricter check
   but a different one, failing every change on every rung),
 * or answering the question by *running* something (which on the host is
-  ADR-0005's line, and which would resolve imports against mcgyvr's environment
+  the line, and which would resolve imports against mcgyvr's environment
   rather than the target's — measuring the wrong project).
 
 It lives in its own file rather than split across the two adapter suites because
@@ -102,7 +102,7 @@ def test_mypy_is_found_wherever_mypy_itself_looks(
 ) -> None:
     """A project with ``mypy.ini`` has declared mypy as much as one with a table.
 
-    ADR-0006 turns on what the repository declared, not on where it chose to
+     turns on what the repository declared, not on where it chose to
     write it down.
     """
     write(tmp_path, name, text)
@@ -241,7 +241,7 @@ def test_the_locator_evaluates_nothing_in_the_target(tmp_path: Path) -> None:
     """The acceptance criterion, asserted structurally rather than by inspection.
 
     Answering "which checker does this repository use" by *running* something is
-    the ADR-0005 line — and it is wrong before it is unsafe, because on the host
+    the  line — and it is wrong before it is unsafe, because on the host
     a checker resolves imports against mcgyvr's environment rather than the
     target's, so a check whose whole premise is *the project's* checker on *the
     project's* code would measure the wrong project.

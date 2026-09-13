@@ -2,7 +2,7 @@
 """What the second language arm buys, measured on verdicts already recorded.
 
 The bench authors every problem twice — one prose, a TypeScript rendering and a
-Python one — and ADR-0021's denominator is the paired cell. That doubles the
+Python one — and the denominator is the paired cell. That doubles the
 expensive axis: lane/225's record puts authoring at "160 problems" against rig
 time that "cost 65 minutes for 8x". The question this tool answers is whether
 the second arm earns it.

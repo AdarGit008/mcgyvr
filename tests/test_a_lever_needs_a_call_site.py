@@ -408,7 +408,7 @@ def test_breadth_is_asked_for_in_the_config_and_the_gate_picks_the_winner(
 ) -> None:
     """Three draws for one attempt, ranked by what the gate found, and one delivered.
 
-    ADR-0008's measurement — "given that a gate-passing candidate exists among N,
+    the measurement — "given that a gate-passing candidate exists among N,
     at what index does it first appear?" — needs a run that actually draws N. The
     two draws that miss the contract's acceptance command are gated and beaten;
     the third is what lands in the repository.
@@ -488,7 +488,7 @@ def test_an_install_that_asked_for_nothing_draws_once(
 ) -> None:
     """The default is one draw, and it is reached through the same lever.
 
-    ADR-0008's rule is unchanged for an install that configured nothing: one
+    the rule is unchanged for an install that configured nothing: one
     draw, one verdict, and the draw is the answer. What this pins is that the
     default is ``n = 1`` *through* :func:`~mcgyvr.consensus.best_of` rather than
     a second, quieter code path beside it — a lever with a branch that skips it

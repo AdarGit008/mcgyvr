@@ -1,7 +1,7 @@
 """The product revision under test, pinned as a digest, and the round it belongs to.
 
 Issue: `#231 <https://github.com/AdarGit008/mcgyvr/issues/231>`_, check 3.
-ADR-0018: *"Every arm in a round runs against one product revision; an adopted
+: *"Every arm in a round runs against one product revision; an adopted
 change lands at the round boundary, never mid-flight. Without this a winning arm
 silently re-baselines its own siblings and comparability — the entire point of
 one bench — is lost."*
@@ -26,11 +26,11 @@ sixth produced a byte-identical report. A guard that names a subset does not
 refuse what it omits — it permits it silently, which reads as having checked. So
 the surface is *the product*: every module under ``src/mcgyvr``, plus the rig
 files that dispatch and score. An unrelated edit closing a round is the cost
-ADR-0018 admitted ("one pinned revision per round means a win waits for a
+ admitted ("one pinned revision per round means a win waits for a
 boundary"); a missed edit corrupting a contrast is the failure it exists to
 prevent, and only one of those two is recoverable.
 
-**The bar is configuration as much as code, and both are in** (ADR-0032, #291).
+**The bar is configuration as much as code, and both are in** (#291).
 The surface was code-only for its first round, and the grouping in
 ``identity.py`` justified filing ``round`` and ``product_sha256`` under the *bar*
 on the ground that "the revision they pin includes the scorer". It included the
@@ -41,7 +41,7 @@ lives: ``score.lint_config`` derives the workspace ruff settings from
 whatever ``uv.lock`` and ``package-lock.json`` resolve to. A rule flipped off in
 either config file, or a checker moved by a lockfile bump, narrows what the gate
 rejects — and until this change the digest did not move and no round refused.
-Both lockfiles, never one: the arms are paired ts/py (ADR-0021, ADR-0025), and
+Both lockfiles, never one: the arms are paired ts/py , and
 pinning Python's checker while JavaScript's floats puts a language effect inside
 every contrast the bench will publish.
 
@@ -74,9 +74,9 @@ names what was adopted. Editing a closed round's digest would retroactively
 re-describe measurements already on disk, which is the failure mode this file
 exists to make impossible, so ``open_round`` only ever appends.
 
-**And every pending identity change lands in the same boundary** (ADR-0032,
-#291). The paragraph above is true and is half the rule: it says *a* change
-lands at a boundary, and a driver who reads only that concludes their own change
+**And every pending identity change lands in the same boundary** (#291). The
+paragraph above is true and is half the rule: it says *a* change lands at a
+boundary, and a driver who reads only that concludes their own change
 warrants a round of its own. It does not. Landing three identity changes
 piecemeal, with runs between them, converts one re-baseline into three
 incomparable ones — each round's arms measurable only against each other, and
@@ -133,16 +133,16 @@ SURFACE: tuple[str, ...] = (
     # call time and `score.stage_config` copies `eslint.config.mjs` and
     # `prettier.config.mjs` into every workspace, so a rule flipped in any of
     # them moves what the gate rejects without touching a line of scorer code.
-    # ADR-0025 clause 1 makes the eslint config the *project's* standard — it
+    # clause 1 makes the eslint config the *project's* standard — it
     # binds the gate, not just the bench.
     #
     # `prettier.config.mjs` joined this list in the change that created it
-    # (#262, ADR-0035). Until then the JS/TS format bar was prettier's built-in
+    # (#262). Until then the JS/TS format bar was prettier's built-in
     # defaults, pinned only through `package-lock.json` — the version was
     # covered and the settings were not, because there were none to cover. A
     # declared config that the pin did not hold would be this list's own defect
     # restated: the round would cover the scorer and not the scorer's
-    # configuration, which is what ADR-0032 closed.
+    # configuration, which is what  closed.
     "pyproject.toml",
     "eslint.config.mjs",
     "prettier.config.mjs",
@@ -151,7 +151,7 @@ SURFACE: tuple[str, ...] = (
     # a string-prefix count that swept in ten unselected linters, corrected on
     # #262) and `package-lock.json` decides which eslint, typescript-eslint and
     # prettier the workspace's linked `node_modules` supplies (66 enabled rules
-    # for a `.ts` target). ADR-0025's consequence is explicit: pinning the
+    # for a `.ts` target). the consequence is explicit: pinning the
     # toolchain makes the checker version part of the instrument.
     "uv.lock",
     "package-lock.json",
@@ -245,7 +245,7 @@ def load_rounds(path: Path = ROUNDS_FILE) -> list[dict[str, Any]]:
 
 
 def load_doctrine(path: Path = ROUNDS_FILE) -> dict[str, Any]:
-    """The rules a driver opening a round is bound by, as data (ADR-0032, #291).
+    """The rules a driver opening a round is bound by, as data (#291).
 
     Doctrine lives in ``rounds.json`` rather than only in this docstring because
     the failure it prevents is a driver who did not read the docstring. A
@@ -284,7 +284,7 @@ def require_pinned(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, st
         raise ProductError(
             f"the product has moved off round `{current['id']}`: it pins "
             f"{declared} and this tree is {measured}. Every arm in a round runs "
-            "against one revision (ADR-0018), so this dispatch would put two "
+            "against one revision , so this dispatch would put two "
             "revisions in one table. Either restore the tree, or close the "
             "round by opening the next one:\n"
             "  uv run --no-sync python tools/bench/product.py --open <id> "
@@ -293,7 +293,7 @@ def require_pinned(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, st
             "Opening a round re-baselines: arms measured under the old one are "
             "not comparable with arms measured under the new one, so every "
             "identity change waiting on a boundary lands in this one rather "
-            "than in a round of its own (ADR-0032).\n"
+            "than in a round of its own .\n"
             f"Changed: {', '.join(_moved(repo, current)) or 'unknown'}"
         )
     return str(current["id"]), measured
@@ -395,7 +395,7 @@ def declare(manifest: dict[str, Any] | Any) -> str:
     return (
         f"- round: **`{round_id}`**, product `{revision[:12]}` — every arm in "
         "this round ran against one revision, and an adopted change lands only "
-        "at the boundary (ADR-0018)"
+        "at the boundary "
     )
 
 
@@ -459,7 +459,7 @@ def _open_cli(args: argparse.Namespace) -> int:
             f"round `{args.open}` already exists; rounds are append-only"
         )
 
-    # The batching rule made operational (ADR-0032). The tool cannot know which
+    # The batching rule made operational . The tool cannot know which
     # identity changes are still open, so it does not pretend to check — it
     # refuses to close a round the driver has not said the contents of, prints
     # the doctrine it is bound by, and prints what actually moved. A named batch
@@ -469,7 +469,7 @@ def _open_cli(args: argparse.Namespace) -> int:
             "--open needs --adopted (repeatable), naming each change this "
             "boundary carries. A round boundary is drained, not taken: every "
             "identity change waiting on one lands in the same round, or one "
-            "re-baseline becomes several incomparable ones (ADR-0032, ADR-0018 "
+            "re-baseline becomes several incomparable ones ( "
             "Q3). Name them:\n"
             '  --adopted "#291 the round pin covers the bar\'s configuration"\n'
             "If the batch is one change, say so — the refusal is that nobody "
@@ -521,7 +521,7 @@ def main(argv: list[str] | None = None) -> int:
         metavar="CHANGE",
         help="one change this boundary carries; repeat for each. Required by "
         "--open: a boundary is drained of every pending identity change, not "
-        "taken by one (ADR-0032)",
+        "taken by one ",
     )
     parser.add_argument(
         "--opened", default="", help="the date the round opened (UTC, YYYY-MM-DD)"

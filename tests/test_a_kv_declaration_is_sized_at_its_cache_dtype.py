@@ -1,7 +1,7 @@
 """A KV declaration is sized at the cache dtype it launches with.
 
 ``okf/config/vllm.md`` recorded the gap in one line: nothing read
-``--kv-cache-dtype``. ADR-0039's rule is ``max_num_seqs x max_model_len x
+``--kv-cache-dtype``. the rule is ``max_num_seqs x max_model_len x
 bytes_per_token``, and every ``bytes_per_token`` in the tree is derived at two
 bytes an element -- the fp16 width of the checkpoint's K and V. Under
 ``--kv-cache-dtype fp8`` an element is one byte, so the rule overstated an fp8

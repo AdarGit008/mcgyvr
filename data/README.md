@@ -135,7 +135,7 @@ They fall into three groups:
   fail, so the gate cannot accept it and a model verifier would be the only
   judge — spending expensive tokens to decide whether expensive tokens were well
   spent. `comment_addition` has nothing the gate can distinguish from no change
-  at all. `config_edit` has no language adapter (ADR-0001 boundary 8), so
+  at all. `config_edit` has no language adapter (boundary 8), so
   acceptance would rest on the file still parsing.
 - **Not a distinct guarantee.** `algorithm_implementation` differs from
   `function_implementation` only in how hard the prompt is.

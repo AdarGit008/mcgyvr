@@ -3,7 +3,7 @@
 
 **What this closes.** `product_sha256` pins the code, `bar_sha256` pins the bar,
 `model_sha256` pins the weights — and nothing pinned *how the model is served*,
-which ADR-0024 records as having already moved results twice. Two runs against
+which  records as having already moved results twice. Two runs against
 one model, one revision and one bar can still disagree because one server had
 prefix caching on, or ran a different attention kernel, or enforced structured
 output. None of that was on disk.
@@ -36,7 +36,7 @@ that child's ``/props``. Different sources, different spellings, one normalised
 structure — so the two digests mean the same thing on either engine.
 
 **Nothing reads this for comparison.** Same discipline as the `observed` block
-(ADR-0027 D7): it records, and promotion into anything that refuses a table is
+(D7): it records, and promotion into anything that refuses a table is
 the owner's decision, visible in a diff.
 """
 
@@ -99,7 +99,7 @@ SEMANTIC: frozenset[str] = frozenset(
         # moved 9 of 257 verdicts (3.50pp, own-null bound 1.47pp). Two cells
         # of one model at two offload settings are therefore incomparable on
         # output until a placement null says otherwise, and that is the
-        # finding, not an inconvenience (ADR-0041).
+        # finding, not an inconvenience .
         "n_gpu_layers",
         "n_cpu_moe",
         "threads",
@@ -142,7 +142,7 @@ SEMANTIC: frozenset[str] = frozenset(
         "n_keep",
         "n_predict",
         "max_tokens",
-        # structured output — ADR-0009's territory: enforcement here changes
+        # structured output — the territory: enforcement here changes
         # what a reply CAN be, so a refusal stops measuring the model
         "structured_outputs_config",
         "backend",
@@ -239,7 +239,7 @@ OPERATIONAL: frozenset[str] = frozenset(
         # `--n-cpu-moe` 0 against 99 on one build changed 9 of 257 verdicts,
         # 3.50pp against the build's own 1.47pp null bound. The declaration was
         # one argument for all four keys and is false for the one measured, so
-        # all four are SEMANTIC now (ADR-0041): a placement key is operational
+        # all four are SEMANTIC now : a placement key is operational
         # only after a placement null on that build has shown it neutral.
     }
 )
@@ -376,7 +376,7 @@ def fingerprint(config: dict[str, Any]) -> dict[str, Any]:
         "note": (
             "two digests because one would move when somebody enabled a "
             "counter; the semantic half is the one a guard could key on. "
-            "Nothing reads either for comparison (ADR-0027 D7)"
+            "Nothing reads either for comparison (D7)"
         ),
     }
 
@@ -603,7 +603,7 @@ def resolved(
     the engine did not state leaves ``serving_resolved_sha256`` null with a
     reason naming it, so :func:`identity.require_comparable` refuses the row on
     absence rather than matching it against another row that also could not say.
-    Two silences are not an agreement — the defect ADR-0027 D3 exists for, one
+    Two silences are not an agreement — the defect D3 exists for, one
     level in: a digest taken over ``{"attention_backend": null}`` twice compares
     equal while the two servers run different kernels.
 
@@ -611,7 +611,7 @@ def resolved(
     compared against what the engine resolved wherever the two are in the same
     vocabulary. A disagreement is RECORDED, never repaired: a run that asked for
     ``FLASHINFER`` and got ``TRITON_ATTN`` measured the second one, and the fact
-    that it wanted the first is a fact about reach (ADR-0027 D2's shape — the
+    that it wanted the first is a fact about reach (D2's shape — the
     value, plus the reason it is not what was asked).
     """
     asked = dict(asked or {})
@@ -676,7 +676,7 @@ def resolved(
                 f"{sorted(unread)} could not be read, so no digest was computed. "
                 "A digest over a null is a value two servers can share while "
                 "running different kernels, which is the agreement-by-absence "
-                "this field exists to refuse (ADR-0027 D3)."
+                "this field exists to refuse (D3)."
             )
         ),
         "resolved": fields,

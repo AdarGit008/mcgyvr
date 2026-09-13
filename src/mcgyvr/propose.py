@@ -70,7 +70,7 @@ from mcgyvr.capability import CapabilityTable, Model
 # #189 borrowed it as the adoption bar for a fine-tune and scored +1.9pp a
 # "miss" against it. That reading is withdrawn — #219 showed the instrument
 # could not resolve +3pp in the first place, so the comparison decided nothing.
-# ADR-0019 replaces the borrowing with a reality floor plus a per-lever rule and
+#  replaces the borrowing with a reality floor plus a per-lever rule and
 # leaves this constant at its own job. Do not reuse it as an adoption threshold.
 MIN_QUALITY_GAIN = 0.03
 

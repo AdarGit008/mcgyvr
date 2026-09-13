@@ -1,6 +1,6 @@
 """The bench's null drift, and the mechanism underneath it (#231 check 1).
 
-``tools/power/report.py --section null`` prints the number ADR-0019's D2 asks
+``tools/power/report.py --section null`` prints the number the D2 asks
 for: ``d``, the count of verdicts that differ between two identical greedy runs.
 This script asks *why* it is what it is, because a null of the same size can
 come from two very different instruments:
@@ -9,7 +9,7 @@ come from two very different instruments:
 temperature 0 — batching, kv-cache reuse and floating-point non-associativity
 all do this — and some of that different text lands on the other side of the
 acceptance boundary. This is the expected mechanism, it is a property of the
-serving stack, and ADR-0024 is why the build is pinned.
+serving stack, and  is why the build is pinned.
 
 **Acceptance drift.** The *same bytes* score differently on two runs. That is
 not model noise at all; it is the harness being nondeterministic — a timeout, an
@@ -59,7 +59,7 @@ RUN_B = "bench-null-gate-15b-b-2026-08-13"
 SUPERSEDED = ("bench-null-15b-a-2026-08-12", "bench-null-15b-b-2026-08-12")
 ARMS = ("bench-py", "bench-ts")
 
-# ADR-0019's adoption bar, and #231 check 1's stop condition: if the bench's own
+# the adoption bar, and #231 check 1's stop condition: if the bench's own
 # drift reaches the smallest effect anyone would adopt on, an arm result cannot
 # be told from the instrument.
 STOP_CONDITION_PP = 3.0
@@ -204,7 +204,7 @@ def main() -> int:
                 f" ({rate * 100:.1f}%)"
             )
         # The number check 4 declares, printed where it is measured. The bound
-        # is per arm (ADR-0019 D2 keys it to one tier), and this tool used to
+        # is per arm (D2 keys it to one tier), and this tool used to
         # print only the pooled interval — so the two entries actually written
         # into `reproducibility.json` were computed by hand off-screen. The
         # upper limit, never `d/n`: a bound of 0.00pp would claim the instrument
@@ -244,7 +244,7 @@ def main() -> int:
     lo, hi = (b * 100 for b in wilson(d, n))
     print("\n## The stop condition, evaluated\n")
     print(f"  d/n          {d}/{n} = {drift_pp:.2f}pp, 95% CI [{lo:.2f}, {hi:.2f}] pp")
-    print(f"  bar          {STOP_CONDITION_PP:.1f}pp (ADR-0019's adoption bar)")
+    print(f"  bar          {STOP_CONDITION_PP:.1f}pp (the adoption bar)")
     ok = True
     if drift_pp >= STOP_CONDITION_PP:
         print(

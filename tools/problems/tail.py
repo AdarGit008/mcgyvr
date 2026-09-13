@@ -15,7 +15,7 @@ raised by :func:`mcgyvr.worker.reply.parse_reply` on the *stop reason*, before
 a single fence is scanned, so it says the backend ran out of room and says
 nothing about the text. ``no-fenced-block`` and ``ambiguous-blocks`` are the
 codes that read the reply. :func:`refusal_shape` re-reads the pinned candidate
-(ADR-0016 keeps every one) and reports what the reply actually looks like —
+( keeps every one) and reports what the reply actually looks like —
 how much prose precedes the first fence, how many fences there are, whether
 the last one closes. A refusal set that is all stop-reason and no prose is an
 output-cap finding; one with preambles and stray blocks is a reply-format

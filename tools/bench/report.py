@@ -14,10 +14,10 @@ comparable is worse than no comparison:
   which rig and which bar produced it;
 * it will not lay two cells beside each other unless they agree on model, rig,
   serving build, tier and scoring rungs. #189 folded a backend change into a
-  weights contrast, and ADR-0024 exists because two runs differed by an ollama
+  weights contrast, and  exists because two runs differed by an ollama
   patch release that nothing on disk recorded. The check is cheap and the
   failure it prevents has already happened twice.
-* it will not treat two silences as agreement (ADR-0027). A keyed field that is
+* it will not treat two silences as agreement . A keyed field that is
   absent or ``null`` used to compare equal across cells, so `round` and
   `product_sha256` — carried by 6 of the 139 manifests on disk — were checked on
   paper and not in fact. Reading such cells is still allowed and now has to be
@@ -70,7 +70,7 @@ product = _by_path("bench_product_report", HERE / "product.py")
 identity = _by_path("bench_identity_report", HERE / "identity.py")
 
 # The facts every cell in one table must agree on, and the states in which a
-# fact may be missing, now live in `identity` — ADR-0027 D1, because this list
+# fact may be missing, now live in `identity` — D1, because this list
 # was one of five that disagreed and three lanes were queued to edit it.
 #
 # The names are kept as aliases rather than retired outright: `product.py`'s
@@ -164,7 +164,7 @@ def require_comparable(
     """Refuse a table whose cells differ in anything but their condition.
 
     Two refusals now, not one. The second — a keyed field that is absent or
-    ``null`` in any cell — is what this guard did not do before ADR-0027: it
+    ``null`` in any cell — is what this guard did not do before : it
     compared ``.get(key)``, so a field no cell carried compared equal and passed.
     `round` and `product_sha256` are the live case, carried by 6 of the 139
     manifests on disk, and every pre-round table was reading as checked.
@@ -230,7 +230,7 @@ def declared_bound(
         return None, (
             f"the bound declared for this model at this tier was measured under "
             f"a different {', '.join(differs)}, and a null does not transfer "
-            f"across that (ADR-0019 D2, ADR-0024)"
+            f"across that (D2)"
         )
     return None, (
         f"no null has been measured for {manifest.get('model')} at tier "
@@ -332,7 +332,7 @@ def _unfingerprinted_line(cells: list[dict[str, Any]], allowed: bool) -> list[st
 
     Printed whenever a keyed field is absent or ``null``, and not only when the
     waiver was used: an unchecked field is a property of the figures below, and
-    ADR-0026 lens 3 is that a record states the property rather than a claim
+    lens 3 is that a record states the property rather than a claim
     about it. A single-cell table reaches here without a waiver — nothing was
     compared, so nothing was refused, and the line is the whole protection.
     """
@@ -348,7 +348,7 @@ def _unfingerprinted_line(cells: list[dict[str, Any]], allowed: bool) -> list[st
     )
     return [
         f"- **identity not checked**: {', '.join(f'`{f}`' for f in missing)} — "
-        f"absent or null on at least one cell; {how} (ADR-0027 D3). No figure "
+        f"absent or null on at least one cell; {how} (D3). No figure "
         "below is qualified against a difference in these"
     ]
 
@@ -468,7 +468,7 @@ def main() -> int:
         action="store_true",
         help="read cells whose identity fields are absent or null. Off by "
         "default: absence is not agreement, and every pre-round table was "
-        "passing this check without performing it (ADR-0027 D3)",
+        "passing this check without performing it (D3)",
     )
     args = parser.parse_args()
     try:

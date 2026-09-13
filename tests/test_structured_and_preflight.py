@@ -121,7 +121,7 @@ def test_untracked_file_makes_the_tree_dirty(tmp_path: Path) -> None:
 def test_prompt_that_fits_passes() -> None:
     assert check_prompt_fits(1000, context_window=8192) is None
     # 4000 estimated against a 4192 budget used to pass. It no longer does: the
-    # same text could really be 5280 tokens, which CLM-0011 measured rather than
+    # same text could really be 5280 tokens, which  measured rather than
     # supposed, and admitting it is how a prompt reaches a backend that refuses
     # it. Counted exactly, the same numbers still fit.
     assert check_prompt_fits(3000, context_window=8192, output_reserve=4000) is None
@@ -172,9 +172,9 @@ def test_a_rejection_is_attributable_to_the_proxy_or_to_the_prompt() -> None:
 
     assert estimated is not None and exact is not None
     assert "estimated tokens" in estimated.message
-    assert "CLM-0011" in estimated.message
+    assert "measured error" in estimated.message
     assert "counted exactly" in exact.message
-    assert "CLM-0011" not in exact.message
+    assert "measured error" not in exact.message
 
 
 def test_an_exact_count_reserves_nothing() -> None:

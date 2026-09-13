@@ -417,7 +417,7 @@ def test_the_wheel_ships_exactly_the_engine_files_that_are_pinned() -> None:
     installed mcgyvr — and a checkout would not notice, because there the
     engine is read out of `records/` where the *whole* vendored project sits,
     presentation modules and their three third-party dependencies included.
-    Only these four are stdlib-only (CLM-0006), and only these four ship.
+    Only these four are stdlib-only , and only these four ship.
     """
     pyproject = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(
@@ -481,7 +481,7 @@ def test_the_gate_reports_observations_without_rejecting(repo: Path) -> None:
 
 
 def test_the_semantic_rung_runs_before_acceptance(repo: Path) -> None:
-    """ADR-0010's ordering: a sub-second pass does not queue behind a suite."""
+    """the ordering: a sub-second pass does not queue behind a suite."""
     order: list[str] = []
 
     class _Recording(Acceptance):

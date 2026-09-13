@@ -341,7 +341,7 @@ class PythonAdapter(LanguageAdapter):
 
         Detection reads the files each checker itself reads, rather than only
         ``pyproject.toml``: a project with ``mypy.ini`` has declared mypy every
-        bit as much as one with ``[tool.mypy]``, and ADR-0006 turns on what the
+        bit as much as one with ``[tool.mypy]``, and  turns on what the
         repository declared, not on where it chose to write it down.
         """
         for command, declared in (
@@ -497,8 +497,8 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
     """The finding for source the parser will not even be handed.
 
     :func:`_read` decodes with ``surrogateescape`` deliberately — that is the
-    byte convention the rest of mcgyvr is written to (``mcgyvr.pending``),
-    and it is what lets a file with an undecodable byte reach the gate at all
+    byte convention the rest of mcgyvr is written to, and it is what lets a
+    file with an undecodable byte reach the gate at all
     instead of raising on the way in. ``compile()`` refuses such a string:
     ``ast.parse`` answers a lone surrogate with ``UnicodeEncodeError``, which is
     not a ``SyntaxError``, so it used to leave this adapter and take the whole
@@ -537,9 +537,9 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
 #
 # Each checker is looked for in the files it reads its own configuration from,
 # so "declared" means what it means to the tool. The order mypy appears in
-# before pyright is ARBITRARY and must stay that way: ADR-0004 found the
+# before pyright is ARBITRARY and must stay that way:  found the
 # benchmark #97 used to rank them traced to a single self-contradicting blog
-# post, and ADR-0006 concluded that the choice "leaves this project". A
+# post, and  concluded that the choice "leaves this project". A
 # repository configuring both is telling us it runs both; this returns one, and
 # a repository that cares which declares the command in its contract, which
 # always wins over a sniff.
@@ -569,7 +569,7 @@ def _has_toml_table(path: Path, name: str) -> bool:
     A substring test would fire on a comment, on a dependency pin naming the
     tool, or on ``[tool.ruff.lint.mypy-init-return]``. Getting this wrong
     fabricates a type-check command for a repository that runs none, which
-    under ADR-0006 is precisely the thing not to do.
+     is precisely the thing not to do.
     """
     if not path.is_file():
         return False

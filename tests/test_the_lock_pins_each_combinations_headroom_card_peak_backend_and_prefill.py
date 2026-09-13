@@ -9,8 +9,8 @@ comparison of the serving terms against the plan found (owner, 2026-09-11).
   srv2's RTX 3060 read 146.69 for the same model and ``-ub``, though on two
   images (``records/evidence/2026-09-04-srv1-ncmoe-floor/srv1-buffer-probe.tsv:6``,
   ``srv2-buffer-probe.tsv:5``), and vLLM's driver and context, on one image,
-  read 470 MiB on srv1 and 491 on srv2 (ADR-0039,
-  ``archive/docs/archive/decisions/0039-a-serving-memory-declaration-is-bytes-not-a-fraction-of-the-card.md:229-231``).
+  read 470 MiB on srv1 and 491 on srv2
+  (``archive/docs/archive/decisions/0039-a-serving-memory-declaration-is-bytes-not-a-fraction-of-the-card.md:229-231``).
   A combination's dev run measures the contexts of exactly its units on
   exactly its card, so the fit uses that reading and nothing pooled.
 * **A llama.cpp unit is locked on its measured card peak.** Its room must hold
