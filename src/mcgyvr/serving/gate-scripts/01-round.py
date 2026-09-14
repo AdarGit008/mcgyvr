@@ -35,6 +35,7 @@ import os
 import sys
 
 from mcgyvr import config as configlib
+from mcgyvr.fleet.roots import lock_root
 from mcgyvr.serving.gatelib import DEV, door_required, export, refuse, root
 
 
@@ -85,15 +86,17 @@ def profile() -> tuple[str, str]:
     return str(loaded.get("profile")), str(loaded.path)
 
 
-def units_the_fleet_lock_names(rig: str) -> set[str]:
-    """The containers the fleet lock names for ``rig``, read locally.
+def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
+    """The containers the ``which`` profile's fleet lock names for ``rig``.
 
     The lock's combination records under ``records/fleet/rigs/<rig->/`` name
-    each locked unit by its container. Gate 1 reaches no rig, so this is a
-    read of committed files only: a live serve up is matched against the lock
-    offline, before any rig time is spent.
+    each locked unit by its container, under the root the profile reads
+    (:func:`mcgyvr.fleet.roots.lock_root`: ``~/.mcgyvr`` for live) and never
+    under the run root. Gate 1 reaches no rig, so this is a read of local
+    files only: a live serve up is matched against the lock offline, before
+    any rig time is spent.
     """
-    rigs = root() / "records" / "fleet" / "rigs"
+    rigs = lock_root(which) / "records" / "fleet" / "rigs"
     if not rigs.is_dir():
         return set()
     locked: set[str] = set()
@@ -130,14 +133,15 @@ def refuse_unless_the_fleet_lock_names(serve: str, which: str) -> None:
         return
     host = os.environ.get("RUN_HOST", "")
     wanted = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
-    locked = units_the_fleet_lock_names(host)
+    locked = units_the_fleet_lock_names(host, which)
     missing = sorted(wanted - locked)
     if missing:
         refuse(
             f"gate 1: this live `serve up` names {', '.join(missing)}, which "
             f"the fleet lock for {host} does not name. A live run starts only "
-            "units the fleet lock names (records/fleet/); re-lock from a "
-            "passing dev run, or run this under a dev profile"
+            "units the live fleet lock names (~/.mcgyvr/records/fleet/); lock "
+            "them from a passing dev run and `mcgyvr fleet promote` the fleet, "
+            "or run this under a dev profile"
         )
 
 

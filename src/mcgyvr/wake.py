@@ -457,12 +457,15 @@ class Waker:
         if card is None or card.host in self._woken:
             return False
         # Live wakes only along a listed switch, and a switch exists only on a
-        # locked fleet. With no committed lock naming this rig there is no
-        # switch to be along, so the wake is refused before any door run.
+        # locked fleet. With no live lock naming this rig — the one under
+        # ~/.mcgyvr that `mcgyvr fleet promote` wrote, never whatever directory
+        # the run was started in — there is no switch to be along, so the wake
+        # is refused before any door run.
         if self._config.get("profile") == "live":
             from mcgyvr.fleet.admit import host_is_locked
+            from mcgyvr.fleet.roots import lock_root
 
-            if not host_is_locked(Path.cwd(), card.host):
+            if not host_is_locked(lock_root("live"), card.host):
                 return False
         compose = compose_for(card)
         if compose is None:

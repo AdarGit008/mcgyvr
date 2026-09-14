@@ -2691,8 +2691,17 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     from mcgyvr.derived import DerivedNumbersError, warm_decode_tolerances
     from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
     from mcgyvr.fleet.lock import LockRefusedError, write
+    from mcgyvr.fleet.roots import is_live, lock_root
 
-    root = Path(args.root)
+    root = Path(args.root) if args.root else lock_root("dev")
+    if is_live(root):
+        print(
+            f"error: {root} is the live root. A lock is written from dev runs "
+            "into the dev root and reaches live only through `mcgyvr fleet "
+            "promote`",
+            file=sys.stderr,
+        )
+        return 1
     # One authoritative parser: ``fleet.yaml`` and ``policy.yaml`` are the
     # operator-authored files ``mcgyvr.fleet.files`` defines, so the lock reads
     # them through it rather than guessing JSON. Evidence stays JSON: a dev run
@@ -2731,14 +2740,66 @@ def _fleet_lock(args: argparse.Namespace) -> int:
 
 
 def _fleet_alerts(args: argparse.Namespace) -> int:
-    """List the combinations the journal holds pulled, unit and field each."""
+    """List the combinations the journal holds pulled, unit and field each.
+
+    The lock is read from the root the config's profile names
+    (:func:`mcgyvr.fleet.roots.lock_root`) unless ``--root`` names one.
+    """
+    from mcgyvr.config import ConfigMissingError, field_at
     from mcgyvr.fleet.alerts import pulled
+    from mcgyvr.fleet.roots import lock_root
 
     journal = Path(args.journal)
-    root = Path(args.root)
+    if args.root:
+        root = Path(args.root)
+    else:
+        try:
+            profile = str(load_config(None).get("profile"))
+        except ConfigMissingError:
+            spec = field_at("profile")
+            profile = str(spec.default) if spec is not None else "live"
+        except ConfigError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        root = lock_root(profile)
     for combination, entries in pulled(journal, root).items():
         for entry in entries:
             print(f"{combination} {entry['unit_id']} {entry['field']}")
+    return 0
+
+
+def _fleet_promote(args: argparse.Namespace) -> int:
+    """Copy one fleet from the dev lock into the live root, or refuse it."""
+    from mcgyvr.fleet.files import FleetFileError, load_fleet
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote
+    from mcgyvr.fleet.roots import lock_root
+
+    try:
+        fleet = load_fleet(Path(args.fleet).read_text(encoding="utf-8"))
+    except (OSError, FleetFileError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    try:
+        written = promote(lock_root("dev"), fleet, args.name, lock_root("live"))
+    except PromoteRefusedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for path in written:
+        print(f"promoted: {path}")
+    return 0
+
+
+def _fleet_use(args: argparse.Namespace) -> int:
+    """Name the promoted fleet live runs, along its locked switches once one is live."""
+    from mcgyvr.fleet.promote import PromoteRefusedError, use
+    from mcgyvr.fleet.roots import lock_root
+
+    try:
+        path = use(lock_root("live"), args.name)
+    except PromoteRefusedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"live: {args.name} ({path})")
     return 0
 
 
@@ -3193,11 +3254,33 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     flock.add_argument(
         "--root",
-        default=".",
+        default=None,
         metavar="DIR",
-        help="where records/fleet/ is written (default: current directory)",
+        help=(
+            "where records/fleet/ is written (default: the dev root — "
+            "$MCGYVR_RUN_ROOT, else the checkout). The live root ~/.mcgyvr is "
+            "refused: a live lock comes only from `mcgyvr fleet promote`"
+        ),
     )
     flock.set_defaults(func=_fleet_lock)
+    fpromote = fleet_sub.add_parser(
+        "promote",
+        help="copy one locked fleet from the dev lock into ~/.mcgyvr (one way)",
+    )
+    fpromote.add_argument("name", metavar="FLEET", help="the fleet to promote")
+    fpromote.add_argument(
+        "--fleet",
+        required=True,
+        metavar="PATH",
+        help="the dev fleet.yaml the dev lock was written from",
+    )
+    fpromote.set_defaults(func=_fleet_promote)
+    fuse = fleet_sub.add_parser(
+        "use",
+        help="name the promoted fleet live runs (along its next once one is live)",
+    )
+    fuse.add_argument("name", metavar="FLEET", help="the promoted fleet to run live")
+    fuse.set_defaults(func=_fleet_use)
     falerts = fleet_sub.add_parser(
         "alerts",
         help="list the combinations the journal holds pulled",
@@ -3210,9 +3293,12 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     falerts.add_argument(
         "--root",
-        default=".",
+        default=None,
         metavar="DIR",
-        help="where records/fleet/ is read (default: current directory)",
+        help=(
+            "where records/fleet/ is read (default: the lock root the config's "
+            "profile names — ~/.mcgyvr for live, the dev root for dev)"
+        ),
     )
     falerts.set_defaults(func=_fleet_alerts)
 

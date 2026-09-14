@@ -158,7 +158,11 @@ def wake(
 
 
 def host_is_locked(root: Path, host: str) -> bool:
-    """Whether any committed combination record names ``host`` (a rig)."""
+    """Whether any combination record of the lock under ``root`` names ``host``.
+
+    ``root`` is the lock root the caller's profile reads
+    (:func:`mcgyvr.fleet.roots.lock_root`), never the working directory.
+    """
     rigs = root / "records" / "fleet" / "rigs"
     if not rigs.is_dir():
         return False

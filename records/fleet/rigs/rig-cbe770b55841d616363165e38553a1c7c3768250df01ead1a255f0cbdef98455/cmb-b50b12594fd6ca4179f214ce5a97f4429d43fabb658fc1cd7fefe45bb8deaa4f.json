@@ -1,0 +1,31 @@
+{
+  "approved": {
+    "srv2_3b": {
+      "address": "http://srv2:8001",
+      "attention_backend": "FLASH_ATTN",
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+      "engine": "vllm",
+      "kv_cache_memory_bytes": 1207959552,
+      "prefill_tok_s": 11500.0,
+      "warm_decode_tok_s": 126.7
+    },
+    "srv2_7b": {
+      "address": "http://srv2:8002",
+      "attention_backend": "FLASH_ATTN",
+      "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+      "engine": "vllm",
+      "kv_cache_memory_bytes": 1879048192,
+      "prefill_tok_s": 12059.0,
+      "warm_decode_tok_s": 68.3
+    }
+  },
+  "card_mib": 12288,
+  "envelope": "records/measurements/fleet-setup-2026-09-13/srv2/b-small-3b.json",
+  "overhead_mib": 610.5,
+  "restarts": {
+    "srv2_3b": 0,
+    "srv2_7b": 0
+  },
+  "rig": "srv2",
+  "validated_at": "2026-09-13T21:44:00Z"
+}

@@ -1,0 +1,20 @@
+{
+  "approved": {
+    "srv1_35b_b": {
+      "address": "http://srv1:8080",
+      "card_peak_mib": 5122,
+      "card_steady_mib": 5094,
+      "engine": "llama.cpp",
+      "prefill_tok_s": 342.18,
+      "warm_decode_tok_s": 33.28
+    }
+  },
+  "card_mib": 6144,
+  "envelope": "records/measurements/fleet-setup-2026-09-13/srv1/raw/35b-bbig.json",
+  "overhead_mib": 494.57,
+  "restarts": {
+    "srv1_35b_b": 0
+  },
+  "rig": "srv1",
+  "validated_at": "2026-09-13T21:48:11Z"
+}
