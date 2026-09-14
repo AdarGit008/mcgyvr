@@ -269,6 +269,11 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     # so the modules are imported here rather than hoped for.
     identity = by_path("bench_identity", REPO / "tools" / "bench" / "identity.py")
     observed = by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
+    # The runner reads a unit's `/metrics` beside a dispatch that ran alone, to
+    # record its prefill. A test that stubs the dispatch's `_post_json` has
+    # stubbed the request, not that read, so the read is offline here too.
+    import mcgyvr.runner as dispatch_runner
+
     # BOTH guards, because they catch different failures. Importing above fixes
     # "the module was not loaded yet". `raising=True` here fixes "the module is
     # loaded and the function was renamed" — with `raising=False` a rename would
@@ -278,5 +283,6 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
         (identity, "_get_json"),
         (identity, "_post_json"),
         (observed, "_get_text"),
+        (dispatch_runner, "_get_text"),
     ):
         monkeypatch.setattr(module, name, lambda *a, **k: None, raising=True)
