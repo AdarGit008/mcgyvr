@@ -269,9 +269,10 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     # so the modules are imported here rather than hoped for.
     identity = by_path("bench_identity", REPO / "tools" / "bench" / "identity.py")
     observed = by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
-    # The runner reads a unit's `/metrics` beside a dispatch that ran alone, to
-    # record its prefill. A test that stubs the dispatch's `_post_json` has
-    # stubbed the request, not that read, so the read is offline here too.
+    # The runner reads a keyless unit's status page (`/slots` or `/metrics`)
+    # before and after every dispatch, to record what the unit had in flight.
+    # A test that stubs the dispatch's `_post_json` has stubbed the request,
+    # not those reads, so the reads are offline here too.
     import mcgyvr.runner as dispatch_runner
 
     # BOTH guards, because they catch different failures. Importing above fixes

@@ -264,10 +264,15 @@ class Completion:
     ``timings``; ``"usage_latency"`` is ``output_tokens / latency_s``, the
     formula the vLLM units' lock was measured with; ``"metrics_ttft"`` is
     ``input_tokens`` over the ``/metrics`` time-to-first-token delta of a
-    dispatch that ran alone. ``in_flight`` is how many slots of the dispatch's
-    bound were held while it ran, itself included — the count a tolerance check
-    reads to judge only a dispatch that ran alone. Each is ``None`` when it was
-    not read: no figure here is ever estimated.
+    request the unit ran alone. ``in_flight`` is how many requests the *unit*
+    had in flight around this one, itself included: the larger of two readings
+    taken immediately before and after it, from ``/slots`` on a llama.cpp unit
+    (``in_flight_source`` ``"slots"``) or ``num_requests_running +
+    num_requests_waiting`` on a vLLM unit's ``/metrics`` (``"vllm_metrics"``).
+    The unit's count and not this process's, because separate ``mcgyvr run``
+    processes share a unit and a tolerance check judges only a dispatch the unit
+    ran alone. Each is ``None`` when it was not read: no figure here is ever
+    estimated, and no process-local count stands in for the unit's.
     """
 
     text: str
@@ -288,6 +293,7 @@ class Completion:
     prefill_tok_s: float | None = None
     prefill_source: str | None = None
     in_flight: int | None = None
+    in_flight_source: str | None = None
 
     @property
     def complete(self) -> bool:
@@ -366,20 +372,15 @@ class Runner(ABC):
     def __init__(self, endpoint: Endpoint) -> None:
         self.endpoint = endpoint
 
-    def generate(
-        self, model: str, request: Request, *, in_flight: int | None = None
-    ) -> Completion:
+    def generate(self, model: str, request: Request) -> Completion:
         """Run one request against this endpoint and return what came back.
 
-        ``in_flight`` is how many slots of this dispatch's bound are held while
-        it runs, itself included, as the caller holding them counted — ``None``
-        when nothing counted. It is recorded on the completion, and it decides
-        one read: only a dispatch that runs alone (``1``) on a keyless endpoint
-        reads ``/metrics`` before and after, because a time-to-first-token
-        delta shared with another request is not this request's prefill, and a
-        read nobody can use is a request to the rig for nothing. The read is
-        made whatever the engine, since nothing here knows it; a server with no
-        vLLM histogram answers it with a page that yields no prefill.
+        A keyless endpoint's status page is read immediately before and after
+        the request — ``/slots`` for a llama.cpp unit, ``/metrics`` for a vLLM
+        one, chosen by the unit's declared engine — to record how many requests
+        the unit had in flight and, on vLLM, the prefill of a request it ran
+        alone. A page that cannot be read costs the dispatch only those
+        figures. A keyed endpoint is a hosted provider's, and nothing is read.
 
         Raises :class:`QualityCaveatError` before sending anything when the
         request is quality-sensitive and this path is caveated,
@@ -395,24 +396,19 @@ class Runner(ABC):
             )
 
         url = _url_for(self.endpoint.base_url, self.path)
-        metrics_url = _url_for(self.endpoint.base_url, METRICS_PATH)
-        alone = in_flight == 1 and self.endpoint.credential_env is None
-        before = _ttft(_get_text(metrics_url, METRICS_TIMEOUT_S)) if alone else None
+        before = _status(self.endpoint)
         started = time.monotonic()
         document = _post_json(
             url, self._payload(model, request), self._headers(), request.timeout_s
         )
         latency_s = time.monotonic() - started
-        after = (
-            _ttft(_get_text(metrics_url, METRICS_TIMEOUT_S))
-            if before is not None
-            else None
-        )
+        after = _status(self.endpoint)
 
         parsed = self._parse(document)
         self._refuse_other_weights(model, parsed.served_model)
         stop_reason = _STOP_REASONS.get(parsed.raw_stop_reason, StopReason.UNKNOWN)
         decode_tok_s, decode_source = _decode(parsed, latency_s)
+        in_flight, in_flight_source = _in_flight(before, after)
         prefill_tok_s, prefill_source = _prefill(parsed, before, after)
         return Completion(
             text=parsed.text,
@@ -433,6 +429,7 @@ class Runner(ABC):
             prefill_tok_s=prefill_tok_s,
             prefill_source=prefill_source,
             in_flight=in_flight,
+            in_flight_source=in_flight_source,
         )
 
     def _refuse_other_weights(self, asked: str, served: str | None) -> None:
@@ -662,11 +659,7 @@ def dispatch(
     # the wait belongs to the thing that owns the bound, not to every call
     # site that has to remember to pass it.
     with capacity.hold(endpoint, rung=rung):
-        # Counted inside the hold, so the count includes this dispatch: `1` is
-        # a dispatch that ran alone on its bound, as far as this process holds.
-        return runner_for(endpoint).generate(
-            step.model, request, in_flight=capacity.in_flight(endpoint.source, rung)
-        )
+        return runner_for(endpoint).generate(step.model, request)
 
 
 def dispatch_role(
@@ -698,11 +691,7 @@ def dispatch_role(
     if capacity is None:
         return runner_for(binding.endpoint).generate(binding.model, request)
     with capacity.hold(binding.endpoint):
-        return runner_for(binding.endpoint).generate(
-            binding.model,
-            request,
-            in_flight=capacity.in_flight(binding.endpoint.source),
-        )
+        return runner_for(binding.endpoint).generate(binding.model, request)
 
 
 # --- what a dispatch measured -----------------------------------------------
@@ -714,14 +703,36 @@ DECODE_FROM_TIMINGS = "timings"
 DECODE_FROM_USAGE_LATENCY = "usage_latency"
 PREFILL_FROM_TIMINGS = "timings"
 PREFILL_FROM_METRICS_TTFT = "metrics_ttft"
+IN_FLIGHT_FROM_SLOTS = "slots"
+IN_FLIGHT_FROM_VLLM_METRICS = "vllm_metrics"
 
-#: The Prometheus page a vLLM server publishes, and how long a read of it may
-#: take. Short, and a failure is silence: a prefill that could not be read is
-#: not a dispatch that failed.
+#: The status pages each engine publishes, and how long a read of one may
+#: take. Short, and a failure is silence: a count that could not be read is not
+#: a dispatch that failed.
+SLOTS_PATH = "/slots"
 METRICS_PATH = "/metrics"
-METRICS_TIMEOUT_S = 2.0
-_METRICS_BYTES = 4 * 1024 * 1024
+STATUS_TIMEOUT_S = 2.0
+_STATUS_BYTES = 4 * 1024 * 1024
 _TTFT = "vllm:time_to_first_token_seconds"
+_RUNNING = "vllm:num_requests_running"
+_WAITING = "vllm:num_requests_waiting"
+
+
+@dataclass(frozen=True)
+class _Status:
+    """One reading of a unit's status page, taken beside a dispatch.
+
+    ``busy`` counts the requests the unit reported other than the one being
+    dispatched: before it is sent that request is not yet on the unit, and
+    after its answer has come back it no longer is. A slot still marked busy at
+    the second reading is counted as another request — the cautious direction,
+    since it can only make a dispatch look less alone than it was.
+    """
+
+    busy: int
+    source: str
+    #: vLLM's time-to-first-token totals ``(sum_s, count)``, or ``None``.
+    ttft: tuple[float, int] | None = None
 
 
 def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None]:
@@ -739,34 +750,116 @@ def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None
     return None, None
 
 
+def _in_flight(
+    before: _Status | None, after: _Status | None
+) -> tuple[int | None, str | None]:
+    """The unit's in-flight count around a dispatch, this one included.
+
+    The larger of the two readings, because a request that arrived or left
+    between them was in flight beside this one either way. Both readings are
+    required: one missing is a count nobody read, and it is left out rather
+    than half-known.
+    """
+    if before is None or after is None or before.source != after.source:
+        return None, None
+    return max(before.busy, after.busy) + 1, before.source
+
+
 def _prefill(
-    parsed: _Parsed,
-    before: tuple[float, int] | None,
-    after: tuple[float, int] | None,
+    parsed: _Parsed, before: _Status | None, after: _Status | None
 ) -> tuple[float | None, str | None]:
     """The reply's prefill rate and where it was read, or ``(None, None)``.
 
     The server's own figure first. Otherwise ``input_tokens`` over the
-    time-to-first-token the vLLM histogram added across this dispatch — and
-    only when it added exactly one observation, which is the only delta that is
+    time-to-first-token the vLLM histogram added across this dispatch — only
+    when the unit had nothing else in flight at either reading and the
+    histogram added exactly one observation, which is the only delta that is
     this request's and no other's.
     """
     if parsed.prefill_tok_s is not None:
         return parsed.prefill_tok_s, PREFILL_FROM_TIMINGS
     if before is None or after is None or not parsed.input_tokens:
         return None, None
-    seconds = after[0] - before[0]
-    if after[1] - before[1] != 1 or seconds <= 0:
+    if before.busy or after.busy or before.ttft is None or after.ttft is None:
+        return None, None
+    seconds = after.ttft[0] - before.ttft[0]
+    if after.ttft[1] - before.ttft[1] != 1 or seconds <= 0:
         return None, None
     return parsed.input_tokens / seconds, PREFILL_FROM_METRICS_TTFT
 
 
-def _ttft(page: str | None) -> tuple[float, int] | None:
-    """vLLM's time-to-first-token totals ``(sum_s, count)`` in a metrics page.
+def _status(endpoint: Endpoint) -> _Status | None:
+    """Read the unit's status page by its engine, or ``None``.
 
-    Summed over every label set, so a server naming its model or engine in the
-    labels still reads as one histogram. ``None`` when the page is missing or
-    carries no such histogram — a llama-server, or a page that failed.
+    ``vllm`` reads ``/metrics``; anything else reads ``/slots``, because a unit
+    that declares no engine is llama.cpp (``units.engine`` in
+    :mod:`mcgyvr.config`). A keyed endpoint is a hosted provider's, which
+    publishes neither, so nothing is asked of it.
+    """
+    if endpoint.credential_env is not None:
+        return None
+    if endpoint.engine == "vllm":
+        page = _get_text(_url_for(endpoint.base_url, METRICS_PATH), STATUS_TIMEOUT_S)
+        return _vllm_status(page)
+    page = _get_text(_url_for(endpoint.base_url, SLOTS_PATH), STATUS_TIMEOUT_S)
+    return _slots_status(page)
+
+
+def _slots_status(page: str | None) -> _Status | None:
+    """llama-server's ``/slots``: how many slots are ``is_processing``.
+
+    ``None`` for anything that is not a non-empty list of slots each saying
+    ``is_processing`` as a boolean — a disabled endpoint answers an error
+    object, and a half-read list is not a count.
+    """
+    if page is None:
+        return None
+    try:
+        slots = json.loads(page)
+    except ValueError:
+        return None
+    if not isinstance(slots, list) or not slots:
+        return None
+    busy = 0
+    for slot in slots:
+        processing = slot.get("is_processing") if isinstance(slot, dict) else None
+        if not isinstance(processing, bool):
+            return None
+        busy += processing
+    return _Status(busy=busy, source=IN_FLIGHT_FROM_SLOTS)
+
+
+def _vllm_status(page: str | None) -> _Status | None:
+    """vLLM's ``/metrics``: requests running plus waiting, and the TTFT totals.
+
+    ``None`` unless both request gauges are on the page. The TTFT histogram is
+    optional: without it the count still stands and only the prefill is lost.
+    """
+    totals = _prometheus_totals(
+        page, (_RUNNING, _WAITING, f"{_TTFT}_sum", f"{_TTFT}_count")
+    )
+    if totals is None or _RUNNING not in totals or _WAITING not in totals:
+        return None
+    ttft = (
+        (totals[f"{_TTFT}_sum"], int(totals[f"{_TTFT}_count"]))
+        if f"{_TTFT}_sum" in totals and f"{_TTFT}_count" in totals
+        else None
+    )
+    return _Status(
+        busy=int(totals[_RUNNING] + totals[_WAITING]),
+        source=IN_FLIGHT_FROM_VLLM_METRICS,
+        ttft=ttft,
+    )
+
+
+def _prometheus_totals(
+    page: str | None, names: tuple[str, ...]
+) -> dict[str, float] | None:
+    """The named samples in a Prometheus text page, summed over label sets.
+
+    Summed, so a server naming its model or engine in the labels still reads
+    as one series. ``None`` for a missing page or a sample whose value is not a
+    number; a name that is simply absent is absent from the result.
     """
     if page is None:
         return None
@@ -779,15 +872,13 @@ def _ttft(page: str | None) -> tuple[float, int] | None:
             tail = line[line.rindex("}") + 1 :].split()
         else:
             name, *tail = line.split()
-        if name not in (f"{_TTFT}_sum", f"{_TTFT}_count") or not tail:
+        if name not in names or not tail:
             continue
         try:
             totals[name] = totals.get(name, 0.0) + float(tail[0])
         except ValueError:
             return None
-    if f"{_TTFT}_sum" not in totals or f"{_TTFT}_count" not in totals:
-        return None
-    return totals[f"{_TTFT}_sum"], int(totals[f"{_TTFT}_count"])
+    return totals
 
 
 def _get_text(url: str, timeout: float) -> str | None:
@@ -798,7 +889,7 @@ def _get_text(url: str, timeout: float) -> str | None:
     """
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
-            raw: bytes = response.read(_METRICS_BYTES)
+            raw: bytes = response.read(_STATUS_BYTES)
     except (OSError, ValueError):
         return None
     return raw.decode("utf-8", "replace")

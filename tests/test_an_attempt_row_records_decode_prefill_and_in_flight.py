@@ -303,9 +303,7 @@ def test_another_process_on_the_unit_is_counted_where_this_process_counts_one(
     config = parse(LADDER)
     ladder, capacity = build_source_map(config), Capacity.of(config)
     stub_post(monkeypatch, answer(timings=LLAMA_TIMINGS))
-    StatusPages(
-        monkeypatch, {"/slots": [slots(2, total=4), slots(2, total=4)]}
-    )
+    StatusPages(monkeypatch, {"/slots": [slots(2, total=4), slots(2, total=4)]})
 
     done = dispatch(ladder, "llama", ASK, capacity=capacity)
 

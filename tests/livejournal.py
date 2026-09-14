@@ -179,9 +179,7 @@ def patch_backend(monkeypatch: pytest.MonkeyPatch, generate: Any) -> None:
         def __init__(self, endpoint: Any) -> None:
             self.endpoint = endpoint
 
-        def generate(
-            self, model: str, request: Any, *, in_flight: int | None = None
-        ) -> Any:
+        def generate(self, model: str, request: Any) -> Any:
             return generate(model, request)
 
     monkeypatch.setattr(runner, "runner_for", lambda endpoint: _Stub(endpoint))

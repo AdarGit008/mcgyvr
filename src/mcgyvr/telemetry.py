@@ -394,6 +394,7 @@ def _completion_fields(answer: Completion) -> Record:
         ("prefill_tok_s", answer.prefill_tok_s),
         ("prefill_source", answer.prefill_source),
         ("in_flight", answer.in_flight),
+        ("in_flight_source", answer.in_flight_source),
     ):
         if value is not None:
             fields[key] = value
