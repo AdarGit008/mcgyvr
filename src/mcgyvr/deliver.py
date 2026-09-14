@@ -504,6 +504,11 @@ def deliver(
     exclusion is per repository and held in the repository, so two deliveries
     into two repositories still run concurrently and two into one queue.
 
+    The checks made after the write are :func:`_refusal`, the same ones
+    :func:`place` makes when the change is left uncommitted. The commit stays
+    one atomic step: it lands whole, or the target, any directory the write
+    created and the index are put back as they were.
+
     Raises :class:`DeliveryError` when delivery cannot be attempted — a path that
     is not a repository, a base that is empty or does not resolve, a target that
     escapes the tree, a verdict asserted or contradicted at the call site. A
@@ -573,75 +578,9 @@ def deliver(
         try:
             _write(target, payload)
 
-            change = _delivered_change(root, resolved, rel)
-            if change is None:
-                if _ignored(root, rel):
-                    # A different fact with the same symptom, and worth its own
-                    # sentence: `ChangeSet.detect` stages with `add -A`, which
-                    # honours `.gitignore`, so an ignored target is not in the
-                    # change set — here *or* in the sandbox the gate ran in. The
-                    # bytes were therefore never judged, and "identical to base"
-                    # would send the reader looking for a diff that is not the
-                    # problem.
-                    return call.refuse(
-                        f"{rel} is ignored by {root.name}'s .gitignore, so it was "
-                        f"not in the change set the gate judged and is not in the "
-                        f"one delivery can commit. Un-ignore the path or point the "
-                        f"contract at one the repository tracks."
-                    )
-                # Freshness, in local-ai's merge-gate sense: the accepted change
-                # is no longer a change. Either the tree already holds it or the
-                # base moved under the run, and committing now would report
-                # success for work that is not in this commit.
-                return call.refuse(
-                    f"{rel} is identical to {_shown(resolved)}: the accepted change "
-                    f"is no longer present, so there is nothing to commit"
-                )
-
-            if contract.scope.violations((rel,)):
-                # Contract loading already rejects a target its own scope forbids;
-                # this re-confirms it at the commit point, where the answer is
-                # about a file that now exists rather than about a declaration.
-                return call.refuse(
-                    f"{rel} is outside the scope {contract.id} declares, so it may "
-                    f"not be committed under it"
-                )
-
-            verdict = _judged(change, root, resolved, adapters, contract)
-            if verdict.findings:
-                return call.refuse(
-                    f"{rel} does not pass the gate in {root.name}: "
-                    f"{verdict.findings[0]}",
-                    verdict.findings,
-                )
-            if verdict.inconclusive:
-                # Findings first, and this second, because the two refusals are
-                # about different things and the reader needs the one that is
-                # about their change. A rung that faulted claims nothing about
-                # the worker (clause 3); if something else already
-                # rejected, that is the sentence worth having.
-                return call.refuse(
-                    f"{rel} could not be judged in {root.name}: "
-                    f"{_unjudged(verdict.inconclusive)}. Nothing is committed: a "
-                    f"rung that ran and cannot say what bar it applied did not "
-                    f"pass it, and a linter that reported clean while applying "
-                    f"no bar is a hole shaped exactly like a pass . "
-                    f"Fix what the tool is complaining about and deliver again.",
-                    inconclusive=verdict.inconclusive,
-                )
-
-            if _snapshot(target) != payload:
-                # Identity, checked as late as this seam can check it. Between the
-                # write above and git reading the file back sit several subprocess
-                # round-trips, and a writer landing in that window substitutes
-                # content no verdict covers — invisibly, because a substitution
-                # parses and the style rungs are not re-run. The repository lock
-                # excludes another delivery; this is what catches everything else.
-                return call.refuse(
-                    f"{rel} changed between the write and the commit: what is on "
-                    f"disk is no longer the accepted content, and committing it "
-                    f"would ship bytes no verdict covers"
-                )
+            refusal = _refusal(call, contract, resolved, target, payload, adapters)
+            if refusal is not None:
+                return refusal
 
             message = _message(contract, resolved)
             if mode == ON_A_BRANCH:
@@ -1348,8 +1287,107 @@ def _encoded(content: str) -> bytes:
     return content.encode("utf-8", "surrogateescape")
 
 
+def _refusal(
+    call: _Call,
+    contract: Contract,
+    resolved: str,
+    target: Path,
+    payload: bytes,
+    adapters: Sequence[LanguageAdapter] | None,
+) -> Delivery | None:
+    """Why the bytes just written as ``target`` may not stay, or ``None``.
+
+    The one set of checks both ways out of a run take — :func:`deliver`
+    before it commits and :func:`place` before it leaves the file in the tree —
+    so what is left uncommitted and what would be committed cannot be judged
+    by two different bars. Called inside the repository lock, after the write
+    and before anything else touches the tree; the caller owns the undo.
+
+    In order: the change is still a change against ``resolved`` (and the
+    target is not ignored), the target is inside the contract's scope, the
+    gate's sandbox-free rungs find nothing and none of them faulted, and the
+    bytes on disk are still the bytes that were written.
+    """
+    root = call.root
+    rel = call.path
+    change = _delivered_change(root, resolved, rel)
+    if change is None:
+        if _ignored(root, rel):
+            # A different fact with the same symptom, and worth its own
+            # sentence: `ChangeSet.detect` stages with `add -A`, which
+            # honours `.gitignore`, so an ignored target is not in the
+            # change set — here *or* in the sandbox the gate ran in. The
+            # bytes were therefore never judged, and "identical to base"
+            # would send the reader looking for a diff that is not the
+            # problem.
+            return call.refuse(
+                f"{rel} is ignored by {root.name}'s .gitignore, so it was "
+                f"not in the change set the gate judged and is not in the "
+                f"one delivery can commit. Un-ignore the path or point the "
+                f"contract at one the repository tracks."
+            )
+        # Freshness, in local-ai's merge-gate sense: the accepted change
+        # is no longer a change. Either the tree already holds it or the
+        # base moved under the run, and committing now would report
+        # success for work that is not in this commit.
+        return call.refuse(
+            f"{rel} is identical to {_shown(resolved)}: the accepted change "
+            f"is no longer present, so there is nothing to commit"
+        )
+
+    if contract.scope.violations((rel,)):
+        # Contract loading already rejects a target its own scope forbids;
+        # this re-confirms it at the commit point, where the answer is
+        # about a file that now exists rather than about a declaration.
+        return call.refuse(
+            f"{rel} is outside the scope {contract.id} declares, so it may "
+            f"not be committed under it"
+        )
+
+    verdict = _judged(change, root, resolved, adapters, contract)
+    if verdict.findings:
+        return call.refuse(
+            f"{rel} does not pass the gate in {root.name}: {verdict.findings[0]}",
+            verdict.findings,
+        )
+    if verdict.inconclusive:
+        # Findings first, and this second, because the two refusals are
+        # about different things and the reader needs the one that is
+        # about their change. A rung that faulted claims nothing about
+        # the worker (clause 3); if something else already
+        # rejected, that is the sentence worth having.
+        return call.refuse(
+            f"{rel} could not be judged in {root.name}: "
+            f"{_unjudged(verdict.inconclusive)}. Nothing is committed: a "
+            f"rung that ran and cannot say what bar it applied did not "
+            f"pass it, and a linter that reported clean while applying "
+            f"no bar is a hole shaped exactly like a pass . "
+            f"Fix what the tool is complaining about and deliver again.",
+            inconclusive=verdict.inconclusive,
+        )
+
+    if _snapshot(target) != payload:
+        # Identity, checked as late as this seam can check it. Between the
+        # write above and git reading the file back sit several subprocess
+        # round-trips, and a writer landing in that window substitutes
+        # content no verdict covers — invisibly, because a substitution
+        # parses and the style rungs are not re-run. The repository lock
+        # excludes another delivery; this is what catches everything else.
+        return call.refuse(
+            f"{rel} changed between the write and the commit: what is on "
+            f"disk is no longer the accepted content, and committing it "
+            f"would ship bytes no verdict covers"
+        )
+    return None
+
+
 def place(
-    *, repo: Path | str, contract: Contract, content: Accepted, base: str
+    *,
+    repo: Path | str,
+    contract: Contract,
+    content: Accepted,
+    base: str,
+    adapters: Sequence[LanguageAdapter] | None = None,
 ) -> Path:
     """Leave the accepted content in the working tree as ``contract.target``.
 
@@ -1370,6 +1408,18 @@ def place(
     with no way back, refused the way :func:`deliver` refuses it (M2). The
     rest of the tree is theirs: other files that moved are not this write's
     business.
+
+    **Checked exactly as a commit would be.** Once the bytes are written, the
+    :func:`_refusal` that :func:`deliver` runs judges them where they landed: a
+    change identical to ``base`` or an ignored target, a target outside the
+    contract's scope, bytes the commit-time gate rejects or cannot judge, and
+    bytes that changed after the write. Only the commit path asked until
+    2026-09-14, when live run ``doc-structured-validators`` left a file
+    byte-identical to its base and reported it accepted. A refusal restores the
+    target, and removes any directory the write created, before
+    :class:`DeliveryError` is raised: the tree is left as it was found.
+    ``adapters`` are the language adapters those gate rungs use, as for
+    :func:`deliver`.
 
     Under the repository's delivery lock, as :func:`deliver` is: a concurrent
     ``--commit`` delivery's undo restores the target to what it snapshotted,
@@ -1407,8 +1457,23 @@ def place(
                 f"U+{ord(content.content[exc.start]):04X}, which has no UTF-8 "
                 f"encoding and stands for no byte."
             ) from exc
-        _write(target, payload)
-        return target
+        call = _Call(root=root, path=rel, base=resolved, mode=_mode(None))
+        before = _snapshot(target)
+        created = _missing_dirs(target)
+        kept = False
+        try:
+            _write(target, payload)
+            refusal = _refusal(call, contract, resolved, target, payload, adapters)
+            if refusal is not None:
+                raise DeliveryError(refusal.reason)
+            kept = True
+            return target
+        finally:
+            # A refusal, or anything raised past the write, leaves the target
+            # exactly as it was found — the invariant :func:`deliver` holds.
+            if not kept:
+                _restore(target, before)
+                _remove_created(created)
 
 
 def _moved_since(root: Path, base: str, rel: str) -> str:
