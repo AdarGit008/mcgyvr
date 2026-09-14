@@ -1,0 +1,15 @@
+0.00.955.673 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.957.029 W srv  llama_server: -----------------
+0.00.957.031 W srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+0.00.957.031 W srv  llama_server: this can be a security risk (cross-origin attacks)
+0.00.957.031 W srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+0.00.957.031 W srv  llama_server: -----------------
+0.00.959.344 I srv    load_model: loading model '/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf'
+0.01.674.375 W load: special_eos_id is not in special_eog_ids - the tokenizer config may be incorrect
+0.30.447.690 I cmn          init: llama threadpool init, n_threads = 6
+1.03.150.391 I srv    load_model: initializing, n_slots = 2, n_ctx_slot = 4096, kv_unified = 'false'
+1.03.170.132 I srv          init: chat template supports preserving reasoning, consider enabling it via --reasoning-preserve
+1.03.170.168 I srv  llama_server: model loaded
+1.03.170.171 I srv  llama_server: listening on http://0.0.0.0:8080
+1.03.170.171 W srv  llama_server: NOTICE: server default port will be changed to :9931 in a future release
+1.03.170.171 W srv  llama_server:         ref: https://github.com/ggml-org/llama.cpp/pull/26508

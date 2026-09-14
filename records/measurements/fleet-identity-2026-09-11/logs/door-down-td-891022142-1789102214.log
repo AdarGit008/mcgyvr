@@ -1,0 +1,10 @@
+gate 1: round=r27-10-09-2026 product_sha256=3ca400675f647abf... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)
+gate 2: srv1 is serving (gpu_procs=1939174,/app/llama-server,4816MiB, containers=0a6d2c7c26dd); serve down opens on it to stop that, and gate 7 requires nothing left
+gate 2: srv1 matches its declaration on 11 keys
+gate 3: docker on srv1 answers, 29.7.2 as declared
+gate 5: RUN_ID=2026-09-11-live-srv1-serve-down-td-891022142-1789102214 -> /home/adaramir/claude/mcgyvr-measure/records/evidence/2026-09-11-live-srv1
+serve-down: docker compose down on srv1: mcgyvr-srv1-Ling-3.0-tiny-Q4_K_M-8080
+gate 8: 1 artifact(s) parse
+
+--- stderr ---
+gate 6: /home/adaramir/claude/mcgyvr-measure/src/mcgyvr/serving/gate-scripts/serve-down.py --host srv1 -> /home/adaramir/claude/mcgyvr-measure/records/evidence/2026-09-11-live-srv1 (RUN_ID=2026-09-11-live-srv1-serve-down-td-891022142-1789102214)

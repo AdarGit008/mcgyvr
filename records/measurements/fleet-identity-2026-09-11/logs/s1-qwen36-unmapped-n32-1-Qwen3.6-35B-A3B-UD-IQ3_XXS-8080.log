@@ -1,0 +1,15 @@
+0.00.956.881 W Setting 'enable_thinking' via --chat-template-kwargs is deprecated. Use --reasoning on / --reasoning off instead.
+0.00.956.977 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.958.198 W srv  llama_server: -----------------
+0.00.958.200 W srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+0.00.958.200 W srv  llama_server: this can be a security risk (cross-origin attacks)
+0.00.958.200 W srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+0.00.958.200 W srv  llama_server: -----------------
+0.00.960.243 I srv    load_model: loading model '/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf'
+1.24.791.647 I cmn          init: llama threadpool init, n_threads = 6
+2.04.788.375 I srv    load_model: initializing, n_slots = 2, n_ctx_slot = 8192, kv_unified = 'false'
+2.04.796.678 I srv          init: chat template supports preserving reasoning, consider enabling it via --reasoning-preserve
+2.04.796.837 I srv  llama_server: model loaded
+2.04.796.842 I srv  llama_server: listening on http://0.0.0.0:8080
+2.04.796.842 W srv  llama_server: NOTICE: server default port will be changed to :9931 in a future release
+2.04.796.842 W srv  llama_server:         ref: https://github.com/ggml-org/llama.cpp/pull/26508
