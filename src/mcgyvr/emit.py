@@ -34,9 +34,10 @@ from __future__ import annotations
 import difflib
 import re
 import shlex
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -46,6 +47,7 @@ from mcgyvr.serving import (
     HF_CACHE_MOUNT,
     Unit,
     launch_specs,
+    port_of,
     safe_host,
     safe_model,
     spec_files,
@@ -254,17 +256,7 @@ def check_all(units: Iterable[Unit], root: Path) -> tuple[Drift, ...]:
     conjured an empty directory would report every file missing from a place
     it had just invented.
     """
-    drifted: list[Drift] = []
-    for path, document in _planned(units, root):
-        try:
-            found: str | None = path.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            found = None
-        except OSError as exc:
-            raise EmitError(f"{path}: cannot be read to compare — {exc}") from exc
-        if found != document:
-            drifted.append(Drift(path=path, emitted=document, found=found))
-    return tuple(drifted)
+    return _drifts(_planned(units, root))
 
 
 def planned_paths(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
@@ -525,19 +517,7 @@ def _service(unit: Unit) -> dict[str, object]:
                 f"{unit.weights_dir}:{unit.weights_dir}:ro",
             }
         ),
-        "deploy": {
-            "resources": {
-                "reservations": {
-                    "devices": [
-                        {
-                            "driver": "nvidia",
-                            "device_ids": [str(unit.gpu)],
-                            "capabilities": ["gpu"],
-                        }
-                    ]
-                }
-            }
-        },
+        "deploy": _reservation(unit.gpu),
     }
 
 
@@ -560,19 +540,7 @@ def _vllm_service(unit: Unit) -> dict[str, object]:
         "environment": {"HF_HUB_OFFLINE": "1"},
         "restart": "unless-stopped",
         "volumes": [f"{unit.weights_dir}:{HF_CACHE_MOUNT}:ro"],
-        "deploy": {
-            "resources": {
-                "reservations": {
-                    "devices": [
-                        {
-                            "driver": "nvidia",
-                            "device_ids": [str(unit.gpu)],
-                            "capabilities": ["gpu"],
-                        }
-                    ]
-                }
-            }
-        },
+        "deploy": _reservation(unit.gpu),
     }
 
 
@@ -608,3 +576,181 @@ def _service_name(unit: Unit) -> str:
     ``qwen2.5-coder:3b`` has a colon, which compose does not take in a name.
     """
     return f"{_UNSAFE.sub('-', unit.model)}-{unit.port}"
+
+
+class LockedLaunchError(EmitError):
+    """A locked unit does not state what its launch needs to be rendered."""
+
+
+def is_locked(fleet: Mapping[str, Any]) -> bool:
+    """Whether a parsed ``fleet.yaml`` is a locked setup: a unit carries its unit_id."""
+    units = fleet.get("units") or {}
+    return any(
+        isinstance(block, Mapping) and bool(block.get("unit_id"))
+        for block in units.values()
+    )
+
+
+def emit_locked(fleet: Mapping[str, Any], root: Path) -> tuple[Path, ...]:
+    """Write one compose file per fleet per rig of a locked ``fleet.yaml``.
+
+    A locked unit was measured, approved and hashed, so what is rendered is the
+    launch it states and not one sized here (owner, 2026-09-15): no scan, no
+    fit, no cache dtype. Every file is planned, and every refusal raised,
+    before the first one is written.
+    """
+    planned = _planned_locked(fleet, root)
+    root.mkdir(parents=True, exist_ok=True)
+    for path, document in planned:
+        path.write_text(document, encoding="utf-8")
+    return tuple(path for path, _ in planned)
+
+
+def check_locked(fleet: Mapping[str, Any], root: Path) -> tuple[Drift, ...]:
+    """Which of ``root``'s files are not what :func:`emit_locked` would write."""
+    return _drifts(_planned_locked(fleet, root))
+
+
+def planned_locked_paths(fleet: Mapping[str, Any], root: Path) -> tuple[Path, ...]:
+    """The files :func:`emit_locked` would write."""
+    return tuple(path for path, _ in _planned_locked(fleet, root))
+
+
+def unplanned_locked(fleet: Mapping[str, Any], root: Path) -> tuple[Path, ...]:
+    """Launch specs on disk for a rig a locked layout names that it does not write.
+
+    The locked counterpart of :func:`unplanned`: the ``compose.<host>.yml`` an
+    emit before the lock wrote is still where a wake would look for that rig.
+    """
+    hosts = {
+        host
+        for block in (fleet.get("fleets") or {}).values()
+        for host in (block.get("layout") or {})
+    }
+    planned = {path.name for path in planned_locked_paths(fleet, root)}
+    found: set[Path] = set()
+    for host in hosts:
+        found.update(
+            path for path in spec_files(root, host) if path.name not in planned
+        )
+    return tuple(sorted(found))
+
+
+def _drifts(planned: tuple[tuple[Path, str], ...]) -> tuple[Drift, ...]:
+    drifted: list[Drift] = []
+    for path, document in planned:
+        try:
+            found: str | None = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            found = None
+        except OSError as exc:
+            raise EmitError(f"{path}: cannot be read to compare — {exc}") from exc
+        if found != document:
+            drifted.append(Drift(path=path, emitted=document, found=found))
+    return tuple(drifted)
+
+
+def _planned_locked(
+    fleet: Mapping[str, Any], root: Path
+) -> tuple[tuple[Path, str], ...]:
+    """``compose.<host>.<fleet>.yml`` per fleet per rig, services in layout order.
+
+    The layout is the start order: each service waits for the one before it to
+    be healthy, the order the fleet was brought up in when it was validated.
+    """
+    units = fleet.get("units") or {}
+    planned: list[tuple[Path, str]] = []
+    for fleet_name, block in sorted((fleet.get("fleets") or {}).items()):
+        for host, slots in sorted((block.get("layout") or {}).items()):
+            services: dict[str, dict[str, object]] = {}
+            ahead: tuple[str, int] | None = None
+            for slot in slots:
+                name = slot[0]
+                unit = units.get(name)
+                if not isinstance(unit, Mapping):
+                    raise LockedLaunchError(
+                        f"{fleet_name}: {name} is in the {host} layout and "
+                        "fleet.yaml declares no such unit"
+                    )
+                service = _locked_service(name, unit)
+                if ahead is not None:
+                    waited_on, port = ahead
+                    service["depends_on"] = {
+                        waited_on: {"condition": "service_healthy"}
+                    }
+                    services[waited_on]["healthcheck"] = _healthcheck(port)
+                services[name] = service
+                ahead = (name, port_of(str(unit.get("address") or "")))
+            path = root / spec_name(host, fleet_name)
+            if path.resolve().parent != root.resolve():
+                raise EmitError(f"{host}: would write outside {root}")
+            document = yaml.safe_dump({"services": services}, sort_keys=True, width=200)
+            planned.append((path, document))
+    return tuple(sorted(planned, key=lambda pair: pair[0].name))
+
+
+def _locked_service(name: str, unit: Mapping[str, Any]) -> dict[str, object]:
+    """One locked unit as a compose service: its stated launch, verbatim."""
+    launch = unit.get("launch") or {}
+    argv = launch.get("argv")
+    env = launch.get("env", {})
+    volumes = launch.get("volumes")
+    engine = unit.get("engine")
+    missing: list[str] = []
+    for key in ("unit_id", "image", "container"):
+        if not isinstance(unit.get(key), str) or not unit.get(key):
+            missing.append(key)
+    if not _strings(argv) or not argv:
+        missing.append("launch.argv (a list of strings)")
+    if not isinstance(env, Mapping) or not _strings(list(env.values())):
+        missing.append("launch.env (a mapping of strings)")
+    if engine == "vllm":
+        if not isinstance(unit.get("hf_cache"), str) or not unit.get("hf_cache"):
+            missing.append("hf_cache")
+    elif engine == "llama.cpp":
+        if not _strings(volumes) or not volumes:
+            missing.append("launch.volumes (a list of strings)")
+    else:
+        missing.append("engine (llama.cpp or vllm)")
+    if missing:
+        raise LockedLaunchError(
+            f"{name}: a locked unit is rendered from what it states, and it does "
+            f"not state {', '.join(missing)}"
+        )
+    service: dict[str, object] = {
+        "image": unit["image"],
+        "container_name": unit["container"],
+        "command": list(argv or ()),
+        "environment": dict(env),
+        "network_mode": "host",
+        "restart": "unless-stopped",
+        # Card 0: each rig holds one card, and the compose files b-small was
+        # validated under reserved device 0.
+        "deploy": _reservation(0),
+    }
+    if engine == "vllm":
+        service["ipc"] = "host"
+        service["volumes"] = [f"{unit['hf_cache']}:{HF_CACHE_MOUNT}:ro"]
+    else:
+        service["volumes"] = list(volumes or ())
+    return service
+
+
+def _strings(value: object) -> bool:
+    return isinstance(value, list) and all(isinstance(part, str) for part in value)
+
+
+def _reservation(gpu: int) -> dict[str, object]:
+    return {
+        "resources": {
+            "reservations": {
+                "devices": [
+                    {
+                        "driver": "nvidia",
+                        "device_ids": [str(gpu)],
+                        "capabilities": ["gpu"],
+                    }
+                ]
+            }
+        }
+    }
