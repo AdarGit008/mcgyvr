@@ -167,6 +167,13 @@ class Endpoint:
     #: ``request_timeout_s``, or ``None`` when it declared none. Per unit, not
     #: per config: two units on one host are two processes with two budgets.
     request_timeout_s: float | None = None
+    #: The server program behind this address, from the unit's ``engine`` —
+    #: ``"llama.cpp"``, ``"vllm"``, or ``None`` where the unit declared none,
+    #: which the config reads as llama.cpp. Below the seam because it decides
+    #: which status page the runner reads beside a dispatch: llama-server
+    #: publishes ``/slots`` and answers ``/metrics`` 501 unless started with
+    #: ``--metrics``; vLLM publishes ``/metrics``.
+    engine: str | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -535,6 +542,7 @@ def _endpoint(unit: Unit) -> Endpoint:
         context_window=unit.window,
         output_tokens=unit.output_tokens,
         request_timeout_s=unit.request_timeout_s,
+        engine=unit.engine,
     )
 
 

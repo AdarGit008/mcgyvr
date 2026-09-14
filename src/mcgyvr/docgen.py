@@ -639,6 +639,7 @@ def render_skill() -> str:
         "    findings name the check a different contract has to answer.",
         "  - `delivery_refused` — judged acceptable, but the write to the tree",
         "    was refused; `detail` says what was in the way. Clear it, rerun.",
+        "  - `nothing_to_change` — a tool found nothing to do; exit 0.",
         "  - `ladder_spent` — everything this machine offers was tried and none",
         "    produced an acceptable change. Narrow the contract: raising a",
         "    number changes what it costs to fail, not whether it fails.",
