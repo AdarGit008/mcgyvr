@@ -136,9 +136,15 @@ def test_the_floor_row_carries_how_the_work_landed(
     Without ``--commit`` an accepted change is left in the target, and the
     folded outcome is the word for that, so the corpus can tell an accepted
     change that shipped from one still sitting in a working tree.
+
+    The target is committed unformatted so the floor has a change to leave: a
+    run that changes nothing is refused with or without ``--commit``
+    (``tests/test_delivery_checks_run_with_or_without_commit.py``).
     """
     lj.scripted(monkeypatch)
     repo = lj.make_repo(tmp_path / "repo")
+    (repo / "src" / "pkg" / "messy.py").write_text("x=0\n", encoding="utf-8")
+    lj.git(repo, "commit", "-qam", "unformatted")
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=ours)
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
 
