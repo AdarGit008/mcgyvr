@@ -1,0 +1,261 @@
+(APIServer pid=1) INFO 09-11 04:24:53 [api_utils.py:345] 
+(APIServer pid=1) INFO 09-11 04:24:53 [api_utils.py:345]        █     █     █▄   ▄█
+(APIServer pid=1) INFO 09-11 04:24:53 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.26.0
+(APIServer pid=1) INFO 09-11 04:24:53 [api_utils.py:345]   █▄█▀ █     █     █     █  model   Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
+(APIServer pid=1) INFO 09-11 04:24:53 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=1) INFO 09-11 04:24:53 [api_utils.py:345] 
+(APIServer pid=1) INFO 09-11 04:24:53 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen2.5-Coder-7B-Instruct-AWQ', 'port': 8002, 'model': 'Qwen/Qwen2.5-Coder-7B-Instruct-AWQ', 'max_model_len': 4096, 'gpu_memory_utilization': 0.72, 'max_num_seqs': 8}
+(APIServer pid=1) INFO 09-11 04:24:53 [arg_utils.py:779] HF_HUB_OFFLINE is True, replace model_id [Qwen/Qwen2.5-Coder-7B-Instruct-AWQ] to model_path [/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots/8e8ed243bbe6f9a5aff549a0924562fc719b2b8a]
+(APIServer pid=1) INFO 09-11 04:25:09 [model.py:623] Resolved architecture: Qwen2ForCausalLM
+(APIServer pid=1) INFO 09-11 04:25:09 [model.py:1788] Using max model len 4096
+(APIServer pid=1) INFO 09-11 04:25:10 [vllm.py:1109] Asynchronous scheduling is enabled.
+(APIServer pid=1) INFO 09-11 04:25:10 [kernel.py:295] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=205) INFO 09-11 04:25:22 [core.py:116] Initializing a V1 LLM engine (v0.26.0) with config: model='/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots/8e8ed243bbe6f9a5aff549a0924562fc719b2b8a', speculative_config=None, tokenizer='/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots/8e8ed243bbe6f9a5aff549a0924562fc719b2b8a', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.float16, max_seq_len=4096, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=auto_awq, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots/8e8ed243bbe6f9a5aff549a0924562fc719b2b8a, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'ir_enable_torch_wrap': True, 'splitting_ops': ['vllm::unified_attention_with_output', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::linear_attention', 'vllm::plamo2_mamba_mixer', 'vllm::qwen_gdn_attention_core', 'vllm::gdn_attention_core_xpu', 'vllm::olmo_hybrid_gdn_full_forward', 'vllm::kda_attention', 'vllm::sparse_attn_indexer', 'vllm::rocm_aiter_sparse_attn_indexer', 'vllm::deepseek_v4_attention', 'vllm::hpc_rope_norm_forward', 'vllm::unified_kv_cache_update', 'vllm::unified_mla_kv_cache_update'], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [2048], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2, 4, 8, 16], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 16, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=205) INFO 09-11 04:25:23 [parallel_state.py:1615] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://192.168.1.132:51681 backend=nccl
+(EngineCore pid=205) INFO 09-11 04:25:23 [parallel_state.py:1946] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=205) INFO 09-11 04:25:23 [gpu_worker.py:378] Using V2 Model Runner
+(EngineCore pid=205) INFO 09-11 04:25:23 [model_runner.py:284] Loading model from scratch...
+(EngineCore pid=205) INFO 09-11 04:25:23 [auto_awq.py:473] Using MarlinLinearKernel for AutoAWQMarlinLinearMethod
+(EngineCore pid=205) INFO 09-11 04:25:24 [cuda.py:482] Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].
+(EngineCore pid=205) INFO 09-11 04:25:24 [flash_attn.py:776] Using FlashAttention version 2
+(EngineCore pid=205) INFO 09-11 04:25:24 [weight_utils.py:869] Filesystem type for checkpoints: EXT4. Checkpoint size: 5.19 GiB. Available RAM: 36.79 GiB.
+(EngineCore pid=205) INFO 09-11 04:25:24 [weight_utils.py:892] Auto-prefetch is disabled because the filesystem (EXT4) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch.
+(EngineCore pid=205) 
+Loading safetensors checkpoint shards:   0% Completed | 0/2 [00:00<?, ?it/s]
+(EngineCore pid=205) 
+Loading safetensors checkpoint shards:  50% Completed | 1/2 [00:04<00:04,  4.43s/it]
+(EngineCore pid=205) 
+Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:05<00:00,  2.63s/it]
+(EngineCore pid=205) 
+Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:05<00:00,  2.90s/it]
+(EngineCore pid=205) 
+(EngineCore pid=205) INFO 09-11 04:25:30 [default_loader.py:430] Loading weights took 5.81 seconds
+(EngineCore pid=205) INFO 09-11 04:25:31 [model_runner.py:305] Model loading took 5.29 GiB and 8.210018 seconds
+(EngineCore pid=205) INFO 09-11 04:25:31 [topk_topp_sampler.py:55] Using FlashInfer for top-p & top-k sampling.
+(EngineCore pid=205) INFO 09-11 04:25:39 [backends.py:1094] Using cache directory: /root/.cache/vllm/torch_compile_cache/d97f1fb738/rank_0_0/backbone for vLLM's torch.compile
+(EngineCore pid=205) INFO 09-11 04:25:39 [backends.py:1155] Dynamo bytecode transform time: 7.96 s
+(EngineCore pid=205) INFO 09-11 04:25:43 [backends.py:378] Cache the graph of compile range (1, 2048) for later use
+(EngineCore pid=205) INFO 09-11 04:25:48 [backends.py:393] Compiling a graph for compile range (1, 2048) takes 8.28 s
+(EngineCore pid=205) INFO 09-11 04:25:53 [decorators.py:708] saved AOT compiled function to /root/.cache/vllm/torch_compile_cache/torch_aot_compile/17f3c3d0b368cc3c9921673f0b998d7d8e2e7c1b0c6107ccbe6e8f37b125e428/rank_0_0/model
+(EngineCore pid=205) INFO 09-11 04:25:53 [monitor.py:53] torch.compile took 21.13 s in total
+(EngineCore pid=205) INFO 09-11 04:25:55 [monitor.py:81] Initial profiling/warmup run took 1.95 s
+(EngineCore pid=205) INFO 09-11 04:25:56 [gpu_worker.py:560] Available KV cache memory: -0.75 GiB
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330] EngineCore failed to start.
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330] Traceback (most recent call last):
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1299, in run_engine_core
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]     return func(*args, **kwargs)
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1065, in __init__
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]     super().__init__(
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 136, in __init__
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]     kv_cache_config = self._initialize_kv_caches(vllm_config)
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]     return func(*args, **kwargs)
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 297, in _initialize_kv_caches
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]     kv_cache_configs = get_kv_cache_configs(
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]                        ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/core/kv_cache_utils.py", line 2132, in get_kv_cache_configs
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]     _check_enough_kv_cache_memory(
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/core/kv_cache_utils.py", line 758, in _check_enough_kv_cache_memory
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330]     raise ValueError(
+(EngineCore pid=205) ERROR 09-11 04:25:56 [core.py:1330] ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details.
+(EngineCore pid=205) Process EngineCore:
+(EngineCore pid=205) Traceback (most recent call last):
+(EngineCore pid=205)   File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+(EngineCore pid=205)     self.run()
+(EngineCore pid=205)   File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+(EngineCore pid=205)     self._target(*self._args, **self._kwargs)
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1334, in run_engine_core
+(EngineCore pid=205)     raise e
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1299, in run_engine_core
+(EngineCore pid=205)     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=205)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=205)     return func(*args, **kwargs)
+(EngineCore pid=205)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1065, in __init__
+(EngineCore pid=205)     super().__init__(
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 136, in __init__
+(EngineCore pid=205)     kv_cache_config = self._initialize_kv_caches(vllm_config)
+(EngineCore pid=205)                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=205)     return func(*args, **kwargs)
+(EngineCore pid=205)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 297, in _initialize_kv_caches
+(EngineCore pid=205)     kv_cache_configs = get_kv_cache_configs(
+(EngineCore pid=205)                        ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/core/kv_cache_utils.py", line 2132, in get_kv_cache_configs
+(EngineCore pid=205)     _check_enough_kv_cache_memory(
+(EngineCore pid=205)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/core/kv_cache_utils.py", line 758, in _check_enough_kv_cache_memory
+(EngineCore pid=205)     raise ValueError(
+(EngineCore pid=205) ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details.
+[rank0]:[W911 04:25:57.642445444 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+(APIServer pid=1) Traceback (most recent call last):
+(APIServer pid=1)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=1)     sys.exit(main())
+(APIServer pid=1)              ^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/cli/main.py", line 95, in main
+(APIServer pid=1)     args.dispatch_function(args)
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/cli/serve.py", line 148, in cmd
+(APIServer pid=1)     uvloop.run(run_server(args))
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=1)     return __asyncio.run(
+(APIServer pid=1)            ^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=1)     return runner.run(main)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=1)     return self._loop.run_until_complete(task)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=1)     return await main
+(APIServer pid=1)            ^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/openai/api_server.py", line 759, in run_server
+(APIServer pid=1)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/openai/api_server.py", line 773, in run_server_worker
+(APIServer pid=1)     async with build_async_engine_client(
+(APIServer pid=1)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=1)     return await anext(self.gen)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/openai/api_server.py", line 139, in build_async_engine_client
+(APIServer pid=1)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=1)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=1)     return await anext(self.gen)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/openai/api_server.py", line 175, in build_async_engine_client_from_engine_args
+(APIServer pid=1)     async_llm = AsyncLLM.from_vllm_config(
+(APIServer pid=1)                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/async_llm.py", line 217, in from_vllm_config
+(APIServer pid=1)     return cls(
+(APIServer pid=1)            ^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/async_llm.py", line 146, in __init__
+(APIServer pid=1)     self.engine_core = EngineCoreClient.make_async_mp_client(
+(APIServer pid=1)                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=1)     return func(*args, **kwargs)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 132, in make_async_mp_client
+(APIServer pid=1)     return AsyncMPClient(*client_args)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=1)     return func(*args, **kwargs)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 963, in __init__
+(APIServer pid=1)     super().__init__(
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 573, in __init__
+(APIServer pid=1)     with launch_core_engines(
+(APIServer pid=1)          ^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+(APIServer pid=1)     next(self.gen)
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/utils.py", line 1213, in launch_core_engines
+(APIServer pid=1)     wait_for_engine_startup(
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/utils.py", line 1272, in wait_for_engine_startup
+(APIServer pid=1)     raise RuntimeError(
+(APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+(APIServer pid=1) INFO 09-11 04:26:08 [api_utils.py:345] 
+(APIServer pid=1) INFO 09-11 04:26:08 [api_utils.py:345]        █     █     █▄   ▄█
+(APIServer pid=1) INFO 09-11 04:26:08 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.26.0
+(APIServer pid=1) INFO 09-11 04:26:08 [api_utils.py:345]   █▄█▀ █     █     █     █  model   Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
+(APIServer pid=1) INFO 09-11 04:26:08 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=1) INFO 09-11 04:26:08 [api_utils.py:345] 
+(APIServer pid=1) INFO 09-11 04:26:08 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen2.5-Coder-7B-Instruct-AWQ', 'port': 8002, 'model': 'Qwen/Qwen2.5-Coder-7B-Instruct-AWQ', 'max_model_len': 4096, 'gpu_memory_utilization': 0.72, 'max_num_seqs': 8}
+(APIServer pid=1) INFO 09-11 04:26:08 [arg_utils.py:779] HF_HUB_OFFLINE is True, replace model_id [Qwen/Qwen2.5-Coder-7B-Instruct-AWQ] to model_path [/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots/8e8ed243bbe6f9a5aff549a0924562fc719b2b8a]
+(APIServer pid=1) INFO 09-11 04:26:08 [model.py:623] Resolved architecture: Qwen2ForCausalLM
+(APIServer pid=1) INFO 09-11 04:26:08 [model.py:1788] Using max model len 4096
+(APIServer pid=1) INFO 09-11 04:26:11 [vllm.py:1109] Asynchronous scheduling is enabled.
+(APIServer pid=1) INFO 09-11 04:26:11 [kernel.py:295] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=152) INFO 09-11 04:26:22 [core.py:116] Initializing a V1 LLM engine (v0.26.0) with config: model='/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots/8e8ed243bbe6f9a5aff549a0924562fc719b2b8a', speculative_config=None, tokenizer='/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots/8e8ed243bbe6f9a5aff549a0924562fc719b2b8a', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.float16, max_seq_len=4096, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=auto_awq, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots/8e8ed243bbe6f9a5aff549a0924562fc719b2b8a, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'ir_enable_torch_wrap': True, 'splitting_ops': ['vllm::unified_attention_with_output', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::linear_attention', 'vllm::plamo2_mamba_mixer', 'vllm::qwen_gdn_attention_core', 'vllm::gdn_attention_core_xpu', 'vllm::olmo_hybrid_gdn_full_forward', 'vllm::kda_attention', 'vllm::sparse_attn_indexer', 'vllm::rocm_aiter_sparse_attn_indexer', 'vllm::deepseek_v4_attention', 'vllm::hpc_rope_norm_forward', 'vllm::unified_kv_cache_update', 'vllm::unified_mla_kv_cache_update'], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [2048], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2, 4, 8, 16], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 16, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=152) INFO 09-11 04:26:22 [parallel_state.py:1615] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://192.168.1.132:42425 backend=nccl
+(EngineCore pid=152) INFO 09-11 04:26:22 [parallel_state.py:1946] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=152) INFO 09-11 04:26:22 [gpu_worker.py:378] Using V2 Model Runner
+(EngineCore pid=152) INFO 09-11 04:26:23 [model_runner.py:284] Loading model from scratch...
+(EngineCore pid=152) INFO 09-11 04:26:23 [auto_awq.py:473] Using MarlinLinearKernel for AutoAWQMarlinLinearMethod
+(EngineCore pid=152) INFO 09-11 04:26:23 [cuda.py:482] Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].
+(EngineCore pid=152) INFO 09-11 04:26:23 [flash_attn.py:776] Using FlashAttention version 2
+(EngineCore pid=152) INFO 09-11 04:26:23 [weight_utils.py:869] Filesystem type for checkpoints: EXT4. Checkpoint size: 5.19 GiB. Available RAM: 37.56 GiB.
+(EngineCore pid=152) INFO 09-11 04:26:23 [weight_utils.py:892] Auto-prefetch is disabled because the filesystem (EXT4) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch.
+(EngineCore pid=152) 
+Loading safetensors checkpoint shards:   0% Completed | 0/2 [00:00<?, ?it/s]
+(EngineCore pid=152) 
+Loading safetensors checkpoint shards:  50% Completed | 1/2 [00:00<00:00,  1.09it/s]
+(EngineCore pid=152) 
+Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.59it/s]
+(EngineCore pid=152) 
+Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.49it/s]
+(EngineCore pid=152) 
+(EngineCore pid=152) INFO 09-11 04:26:25 [default_loader.py:430] Loading weights took 1.35 seconds
+(EngineCore pid=152) INFO 09-11 04:26:27 [model_runner.py:305] Model loading took 5.29 GiB and 4.001079 seconds
+(EngineCore pid=152) INFO 09-11 04:26:27 [topk_topp_sampler.py:55] Using FlashInfer for top-p & top-k sampling.
+(EngineCore pid=152) INFO 09-11 04:26:30 [backends.py:1094] Using cache directory: /root/.cache/vllm/torch_compile_cache/d97f1fb738/rank_0_0/backbone for vLLM's torch.compile
+(EngineCore pid=152) INFO 09-11 04:26:30 [backends.py:1155] Dynamo bytecode transform time: 3.40 s
+(EngineCore pid=152) INFO 09-11 04:26:32 [backends.py:292] Directly load the compiled graph(s) for compile range (1, 2048) from the cache, took 1.160 s
+(EngineCore pid=152) INFO 09-11 04:26:32 [decorators.py:311] Directly load AOT compilation from path /root/.cache/vllm/torch_compile_cache/torch_aot_compile/17f3c3d0b368cc3c9921673f0b998d7d8e2e7c1b0c6107ccbe6e8f37b125e428/rank_0_0/model
+(EngineCore pid=152) INFO 09-11 04:26:32 [monitor.py:53] torch.compile took 4.92 s in total
+(EngineCore pid=152) INFO 09-11 04:26:32 [monitor.py:81] Initial profiling/warmup run took 0.02 s
+(EngineCore pid=152) INFO 09-11 04:26:35 [gpu_worker.py:560] Available KV cache memory: 0.46 GiB
+(EngineCore pid=152) INFO 09-11 04:26:35 [kv_cache_utils.py:2177] GPU KV cache size: 8,592 tokens
+(EngineCore pid=152) INFO 09-11 04:26:35 [kv_cache_utils.py:2178] Maximum concurrency for 4,096 tokens per request: 2.10x
+(EngineCore pid=152) INFO 09-11 04:26:35 [cutedsl_warmup.py:101] Skipping CuTeDSL warmup because no compile units were requested.
+(EngineCore pid=152) 
+Capturing CUDA graphs (PIECEWISE):   0%|          | 0/5 [00:00<?, ?it/s]
+Capturing CUDA graphs (PIECEWISE):  60%|██████    | 3/5 [00:00<00:00, 25.53it/s]
+Capturing CUDA graphs (PIECEWISE): 100%|██████████| 5/5 [00:00<00:00, 26.41it/s]
+(EngineCore pid=152) 
+Capturing CUDA graphs (FULL):   0%|          | 0/4 [00:00<?, ?it/s]
+Capturing CUDA graphs (FULL):  50%|█████     | 2/4 [00:00<00:00, 18.61it/s]
+Capturing CUDA graphs (FULL): 100%|██████████| 4/4 [00:00<00:00, 21.96it/s]
+(EngineCore pid=152) INFO 09-11 04:26:35 [model_runner.py:747] Graph capturing finished in 1 secs, took 0.06 GiB
+(EngineCore pid=152) INFO 09-11 04:26:35 [gpu_worker.py:857] Free memory on device (11.52/11.63 GiB) on startup. Desired GPU memory utilization is (0.72, 8.37 GiB). Actual usage is 5.29 GiB for weight, 0.26 GiB for peak activation, 2.37 GiB for non-torch memory, and 0.06 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=270974116` (0.25 GiB) to fit into requested memory, or `--kv-cache-memory=3649588224` (3.4 GiB) to fully utilize gpu memory. Current kv cache memory in use is 0.46 GiB.
+(EngineCore pid=152) INFO 09-11 04:26:43 [jit_monitor.py:79] Kernel JIT monitor activated; monitored JIT compilations during inference will use mode=warn.
+(EngineCore pid=152) INFO 09-11 04:26:43 [core.py:340] init engine (profile, create kv cache, warmup model) took 16.14 s (compilation: 4.92 s)
+(EngineCore pid=152) INFO 09-11 04:26:43 [vllm.py:1109] Asynchronous scheduling is enabled.
+(EngineCore pid=152) INFO 09-11 04:26:43 [kernel.py:295] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=1) INFO 09-11 04:26:43 [api_server.py:673] Supported tasks: ['generate']
+(APIServer pid=1) WARNING 09-11 04:26:44 [model.py:1546] Default vLLM sampling parameters have been overridden by the model's `generation_config.json`: `{'repetition_penalty': 1.1, 'temperature': 0.7, 'top_k': 20, 'top_p': 0.8}`. If this is not intended, please relaunch vLLM instance with `--generation-config vllm`.
+(APIServer pid=1) INFO 09-11 04:26:44 [hf.py:540] Detected the chat template content format to be 'string'. You can set `--chat-template-content-format` to override this.
+(APIServer pid=1) INFO 09-11 04:26:44 [api_server.py:677] Starting vLLM server on http://0.0.0.0:8002
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:37] Available routes are:
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /openapi.json, Methods: GET, HEAD
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /docs, Methods: GET, HEAD
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /docs/oauth2-redirect, Methods: GET, HEAD
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /redoc, Methods: GET, HEAD
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /load, Methods: GET
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /version, Methods: GET
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /health, Methods: GET
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /metrics, Methods: GET
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /tokenize, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /detokenize, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/models, Methods: GET
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /ping, Methods: GET
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /ping, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /invocations, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/chat/completions, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/chat/completions/batch, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/responses, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/responses/{response_id}, Methods: GET
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/responses/{response_id}/cancel, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/completions, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/messages, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/messages/count_tokens, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /generative_scoring, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /scale_elastic_ep, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /is_scaling_elastic_ep, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/chat/completions/render, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/completions/render, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/chat/completions/derender, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /v1/completions/derender, Methods: POST
+(APIServer pid=1) INFO 09-11 04:26:44 [launcher.py:46] Route: /inference/v1/generate, Methods: POST
+(APIServer pid=1) INFO:     Started server process [1]
+(APIServer pid=1) INFO:     Waiting for application startup.
+(APIServer pid=1) INFO:     Application startup complete.
+(APIServer pid=1) INFO:     100.119.117.59:42388 - "GET /v1/models HTTP/1.1" 200 OK
+(APIServer pid=1) INFO:     127.0.0.1:41020 - "GET /v1/models HTTP/1.1" 200 OK
+(APIServer pid=1) INFO:     127.0.0.1:41030 - "GET /is_sleeping HTTP/1.1" 404 Not Found

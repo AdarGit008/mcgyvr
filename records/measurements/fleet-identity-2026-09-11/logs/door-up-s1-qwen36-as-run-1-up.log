@@ -1,0 +1,7 @@
+gate 1: round=r27-10-09-2026 product_sha256=3ca400675f647abf... profile=live config=cfg-4e57b7bc13aa66f6c032129cf46a502ae87e131b7a7bb68383321c585d697ebb (/home/adaramir/.mcgyvr/config/mcgyvr.yaml)
+gate 2: srv1 matches its declaration on 11 keys
+gate 3: docker on srv1 answers, 29.7.2 as declared
+
+--- stderr ---
+05-envelope.py: gate 5: 2026-09-11-live-srv1-serve-up-s1-qwen36-as-run-1-up.run.json is already in the envelope, so a run with this RUN_ID (2026-09-11-live-srv1-serve-up-s1-qwen36-as-run-1-up) has been made before. Two door invocations never share a run id: a same-day re-run takes --suffix
+run.py: REFUSED at 05-envelope.py — gate 5: the evidence directory is made, the step's declared artifacts are write-once, and RUN_ID is minted. Nothing recorded is overwritten
