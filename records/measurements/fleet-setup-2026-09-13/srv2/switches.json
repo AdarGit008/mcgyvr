@@ -1,0 +1,53 @@
+{
+  "b-big->b-small": {
+    "downtime_s": 179.57,
+    "from": [
+      [
+        "srv2_80b",
+        "awake"
+      ]
+    ],
+    "note": "stop 80B took 0.4s",
+    "passed": true,
+    "rig": "srv2",
+    "to": [
+      [
+        "srv2_3b",
+        "awake"
+      ],
+      [
+        "srv2_7b",
+        "awake"
+      ]
+    ],
+    "wake_s": {
+      "srv2_3b": 91.55,
+      "srv2_7b": 179.57
+    }
+  },
+  "b-small->b-big": {
+    "downtime_s": 70.33,
+    "from": [
+      [
+        "srv2_3b",
+        "awake"
+      ],
+      [
+        "srv2_7b",
+        "awake"
+      ]
+    ],
+    "note": "stop pair took 1.55s",
+    "passed": true,
+    "rig": "srv2",
+    "to": [
+      [
+        "srv2_80b",
+        "awake"
+      ]
+    ],
+    "wake_s": {
+      "srv2_80b": 70.33
+    }
+  }
+}

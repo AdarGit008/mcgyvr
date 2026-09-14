@@ -1,0 +1,17 @@
+{
+  "container": "mcgyvr-lidenburg (measured running); mcgyvr-ctx-35b (--verbose context probe)",
+  "image": "llamacpp-lidenburg:e85e4d9 (Id sha256:9a61823266917162c9611f110df1ea24f116909d10cb3804641db184fcd95b63)",
+  "model": "/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "argv": ["--model","/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf","-np","1","-c","262144","-fa","on","-ctk","q8_0","-ctv","q8_0","-ngl","99","-t","11","--cpu-moe","--mmap","--jinja"],
+  "env": {"GGML_EXPERT_CACHE_MAX":"120","GGML_EXPERT_RAM_CACHE_MAX":"256","GGML_OP_OFFLOAD_MIN_BATCH":"1","LLAMA_ARG_HOST":"0.0.0.0"},
+  "warm_decode_tok_s": {"samples": [43.67851588592741, 47.189522893646796, 48.19770699408976, 48.75904423130986, 48.98178164725349], "median": 48.20},
+  "prefill_tok_s": {"samples": [623.4652062495466, 629.8354904421902, 634.9757889144701], "median": 629.84},
+  "card_steady_mib": 10597,
+  "card_peak_mib": 10597,
+  "restarts": "0",
+  "vmstat_delta": {"pswpout": 295, "pgmajfault": 48, "pgpgin": 9231236, "pgpgout": 2400},
+  "named_buffers_mib": {"cuda0_model": 1596.81, "cuda0_kv": 2720.00, "cuda0_rs": 62.81, "cuda0_compute": 891.00, "cpu_mapped_model": 12189.97, "cuda_host_compute": 264.28},
+  "cuda0_context_line": "CUDA0: NVIDIA GeForce RTX 3060 (11911 MiB, 11798 MiB free) -> primary context ~113 MiB",
+  "overhead_mib": 490,
+  "overhead_derivation": "CUDA primary context 113 MiB (11911 - 11798 before load) + driver reserve 377 MiB"
+}

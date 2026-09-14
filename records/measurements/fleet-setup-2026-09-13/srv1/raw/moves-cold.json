@@ -1,0 +1,18 @@
+[
+  {
+    "downtime_s": 112.264,
+    "passed": true,
+    "source": "deepseek",
+    "stop_s": 1.094,
+    "target": "35b_b",
+    "wake_s": 111.17
+  },
+  {
+    "downtime_s": 78.242,
+    "passed": true,
+    "source": "35b_b",
+    "stop_s": 1.124,
+    "target": "deepseek",
+    "wake_s": 77.118
+  }
+]

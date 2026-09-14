@@ -61,3 +61,6 @@ graphify-out/
 # person's local permission allowlist, not project configuration — committing it
 # would hand everyone else's session a set of approvals they never granted.
 .claude/
+
+# Headless pi agent session logs (transcripts), not project artefacts.
+.pi-sessions/

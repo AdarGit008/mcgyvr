@@ -1,0 +1,91 @@
+{
+  "args": [
+    "--",
+    "--n-cpu-moe",
+    "19",
+    "--parallel",
+    "2",
+    "--port",
+    "8080",
+    "-b",
+    "512",
+    "-ub",
+    "512",
+    "-c",
+    "8192",
+    "-fa",
+    "on",
+    "-ngl",
+    "99",
+    "-t",
+    "6"
+  ],
+  "card": "5458, 288, 6144",
+  "container": "mcgyvr-srv1-deepseek",
+  "decode": [
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 32.55503812194964,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 32.5614856618371,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 32.57030267901597,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 32.552274484863446,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 32.54099207913969,
+      "prompt_n": 15
+    }
+  ],
+  "env": [],
+  "image": "llamacpp:b10644-L3",
+  "mem_kib": {
+    "MemAvailable": 14034024,
+    "MemTotal": 15762544,
+    "SwapFree": 8240688,
+    "SwapTotal": 8388604
+  },
+  "model": "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf",
+  "n_predict": 256,
+  "port": 8080,
+  "prefill": [
+    {
+      "prompt_ms": 6560.099,
+      "prompt_n": 2015,
+      "prompt_per_second": 307.15999865245936
+    },
+    {
+      "prompt_ms": 6561.142,
+      "prompt_n": 2015,
+      "prompt_per_second": 307.1111705858523
+    },
+    {
+      "prompt_ms": 6567.757,
+      "prompt_n": 2015,
+      "prompt_per_second": 306.8018503120624
+    }
+  ],
+  "restarts": "0",
+  "samples": 5,
+  "vmstat_delta": {
+    "pgmajfault": 39,
+    "pgpgin": 1616,
+    "pgpgout": 39524,
+    "pswpout": 0
+  }
+}
+---HARNESS_EXIT=0---
+mcgyvr-srv1-deepseek
+1, 5745

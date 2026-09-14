@@ -1,0 +1,62 @@
+{
+  "card": "10597, 1315, 12288",
+  "container": "mcgyvr-lidenburg",
+  "decode": [
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 43.67851588592741,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 47.189522893646796,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 48.19770699408976,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 48.75904423130986,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 48.98178164725349,
+      "prompt_n": 15
+    }
+  ],
+  "mem_kib": {
+    "MemAvailable": 32011836,
+    "MemTotal": 48208320,
+    "SwapFree": 8351508,
+    "SwapTotal": 8388604
+  },
+  "port": 8080,
+  "prefill": [
+    {
+      "prompt_ms": 3142.116,
+      "prompt_n": 1959,
+      "prompt_per_second": 623.4652062495466
+    },
+    {
+      "prompt_ms": 3110.336,
+      "prompt_n": 1959,
+      "prompt_per_second": 629.8354904421902
+    },
+    {
+      "prompt_ms": 3085.157,
+      "prompt_n": 1959,
+      "prompt_per_second": 634.9757889144701
+    }
+  ],
+  "restarts": "0",
+  "vmstat_delta": {
+    "pgmajfault": 48,
+    "pgpgin": 9231236,
+    "pgpgout": 2400,
+    "pswpout": 295
+  }
+}
