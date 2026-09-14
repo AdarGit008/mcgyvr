@@ -1,6 +1,6 @@
 # mcgyvr fleet.yaml — what runs where. LOCKED by `mcgyvr fleet lock`.
 #
-# Copy this to ~/.mcgyvr/config/fleet.yaml and edit it. The meaning of every
+# Copy this into a setup directory beside policy.yaml and edit it. The meaning of every
 # key, its type and its default is in `skills/mcgyvr/SETUP.md` (generated from
 # `src/mcgyvr/config.py` by `make docs`); this file is the smallest setup that
 # shows each shape, not the whole schema. `policy.yaml` (beside this file)

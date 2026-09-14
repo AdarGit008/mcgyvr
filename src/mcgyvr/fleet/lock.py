@@ -276,7 +276,9 @@ def write(
 ) -> None:
     """Write the fleet lock from passing dev runs, refusing what it cannot pin.
 
-    ``root`` is the repository the ``records/fleet/`` tree is written under.
+    ``root`` is the dev root the ``records/fleet/`` tree is written under — the
+    checkout, where committing the lock is the approval. A live lock is never
+    written here: ``mcgyvr fleet promote`` copies it (:mod:`mcgyvr.fleet.promote`).
     """
     units = fleet.get("units", {})
     fleets = fleet.get("fleets", {})

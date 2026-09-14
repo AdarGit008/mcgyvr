@@ -1,7 +1,7 @@
 """The shipped fleet/policy examples load, so copying one copies a valid setup.
 
 ``examples/fleet.yaml`` and ``examples/policy.yaml`` are the templates an
-operator copies to ``~/.mcgyvr/config/`` and edits. A template that does not
+operator copies into a setup directory and edits. A template that does not
 load through :mod:`mcgyvr.fleet.files` is a shape nobody checked, and the one
 thing a first run must not do is hand a stranger a file that refuses to parse
 — so both are read through the real loader here, exactly as ``mcgyvr init``

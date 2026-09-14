@@ -23,7 +23,6 @@ from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import (
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
-    USER_CONFIG_DIR,
     Config,
     ConfigError,
     ConfigMissingError,
@@ -48,6 +47,7 @@ from mcgyvr.emit import (
 )
 from mcgyvr.exits import Exit
 from mcgyvr.fleet.files import FleetFileError, load_fleet
+from mcgyvr.fleet.roots import FLEETS_SHOWN, LIVE_FILE_SHOWN
 from mcgyvr.initialize import InitError, initialize
 from mcgyvr.scan import Mismatch, Scan
 from mcgyvr.serving import (
@@ -61,8 +61,15 @@ from mcgyvr.serving import (
 #: The three places a config is looked for, in order, as every `--config`
 #: help line states them: one sentence, so no command names a fourth.
 CONFIG_DEFAULT_HELP = (
-    f"${CONFIG_PATH_ENV}, ./{USER_CONFIG_DIR.rsplit('/', 1)[0]} "
-    f"or {USER_CONFIG_DIR} — a directory holding fleet.yaml and policy.yaml"
+    f"${CONFIG_PATH_ENV}, then the working directory when it holds fleet.yaml, "
+    f"then the live fleet folder under {FLEETS_SHOWN} that {LIVE_FILE_SHOWN} "
+    f"names — a directory holding fleet.yaml and policy.yaml"
+)
+#: Where `mcgyvr init` writes when no path is given. Never a live fleet folder:
+#: those are written only by `mcgyvr fleet promote`, and never in place.
+INIT_DEFAULT_HELP = (
+    f"${CONFIG_PATH_ENV}, else the working directory — never a live fleet "
+    f"folder, which only `mcgyvr fleet promote` writes"
 )
 
 #: Where a machine's owner reads how to stand the ladder up. The skill is the
@@ -514,7 +521,9 @@ def _mib(size_bytes: int) -> str:
 
 
 def _init(args: argparse.Namespace) -> int:
-    path = Path(args.path) if args.path else resolve_config_path()
+    # Not the config resolution order: with a fleet named live, that ends in a
+    # promoted folder, and a promoted folder is never written in place.
+    path = Path(args.path) if args.path else (named_config_path() or Path.cwd())
     try:
         result = initialize(path, force=args.force, hosts=tuple(args.host or ()))
     except InitError as exc:
@@ -1525,7 +1534,8 @@ def _climb(
 
     Hence ``--config`` and no rung flag. It resolves the same way every other
     command's does — ``$MCGYVR_CONFIG``, then the working directory, then
-    ``~/.mcgyvr/config/`` — because a second resolution order for the same file is a
+    the live fleet folder ``~/.mcgyvr/live.json`` names — because a second
+    resolution order for the same file is a
     second file as far as an operator debugging one is concerned. The config is
     loaded once, in :func:`_run`, because the journal dir is read off it before
     a rung is chosen.
@@ -2791,8 +2801,19 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     from mcgyvr.derived import DerivedNumbersError, warm_decode_tolerances
     from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
     from mcgyvr.fleet.lock import LockRefusedError, write
+    from mcgyvr.fleet.roots import is_live, lock_root
 
-    root = Path(args.root)
+    dev_root = lock_root("dev")
+    assert dev_root is not None, "the dev lock root is the run root, a path"
+    root = Path(args.root) if args.root else dev_root
+    if is_live(root):
+        print(
+            f"error: {root} is the live root. A lock is written from dev runs "
+            "into the dev root and reaches live only through `mcgyvr fleet "
+            "promote`",
+            file=sys.stderr,
+        )
+        return 1
     # One authoritative parser: ``fleet.yaml`` and ``policy.yaml`` are the
     # operator-authored files ``mcgyvr.fleet.files`` defines, so the lock reads
     # them through it rather than guessing JSON. Evidence stays JSON: a dev run
@@ -2831,14 +2852,68 @@ def _fleet_lock(args: argparse.Namespace) -> int:
 
 
 def _fleet_alerts(args: argparse.Namespace) -> int:
-    """List the combinations the journal holds pulled, unit and field each."""
+    """List the combinations the journal holds pulled, unit and field each.
+
+    The lock is read from the root the config's profile names
+    (:func:`mcgyvr.fleet.roots.lock_root`) unless ``--root`` names one.
+    """
+    from mcgyvr.config import ConfigMissingError, field_at
     from mcgyvr.fleet.alerts import pulled
+    from mcgyvr.fleet.roots import LiveFleetError, lock_root
 
     journal = Path(args.journal)
-    root = Path(args.root)
+    root: Path | None
+    if args.root:
+        root = Path(args.root)
+    else:
+        try:
+            profile = str(load_config(None).get("profile"))
+        except ConfigMissingError:
+            spec = field_at("profile")
+            profile = str(spec.default) if spec is not None else "live"
+        except ConfigError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        try:
+            where = lock_root(profile)
+        except LiveFleetError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        # With no fleet named live there is no lock to clear a pull, so every
+        # pull the journal holds is listed.
+        root = where
     for combination, entries in pulled(journal, root).items():
         for entry in entries:
             print(f"{combination} {entry['unit_id']} {entry['field']}")
+    return 0
+
+
+def _fleet_promote(args: argparse.Namespace) -> int:
+    """Write a new live fleet folder from one fleet's dev lock, or refuse it."""
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote
+    from mcgyvr.fleet.roots import lock_root
+
+    dev = lock_root("dev")
+    assert dev is not None, "the dev lock root is the run root, always a path"
+    try:
+        folder = promote(dev, Path(args.setup), args.name)
+    except PromoteRefusedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"promoted: {args.name} -> {folder}")
+    return 0
+
+
+def _fleet_use(args: argparse.Namespace) -> int:
+    """Name the promoted fleet live runs, along its locked switches once one is live."""
+    from mcgyvr.fleet.promote import PromoteRefusedError, use
+
+    try:
+        path = use(args.name)
+    except PromoteRefusedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"live: {args.name} ({path})")
     return 0
 
 
@@ -3112,7 +3187,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "path",
         nargs="?",
         default=None,
-        help=f"where to write (default: {CONFIG_DEFAULT_HELP})",
+        help=f"where to write (default: {INIT_DEFAULT_HELP})",
     )
     ini.add_argument(
         "--force",
@@ -3293,11 +3368,39 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     flock.add_argument(
         "--root",
-        default=".",
+        default=None,
         metavar="DIR",
-        help="where records/fleet/ is written (default: current directory)",
+        help=(
+            "where records/fleet/ is written (default: the dev root — "
+            "$MCGYVR_RUN_ROOT, else the checkout). Anything under ~/.mcgyvr is "
+            "refused: a live fleet comes only from `mcgyvr fleet promote`"
+        ),
     )
     flock.set_defaults(func=_fleet_lock)
+    fpromote = fleet_sub.add_parser(
+        "promote",
+        help=(
+            "write a new live fleet folder ~/.mcgyvr/fleets/FLEET/ from its dev "
+            "lock (one way; never over an existing folder)"
+        ),
+    )
+    fpromote.add_argument("name", metavar="FLEET", help="the fleet to promote")
+    fpromote.add_argument(
+        "--setup",
+        required=True,
+        metavar="DIR",
+        help=(
+            "the dev setup directory (fleet.yaml and policy.yaml) the dev "
+            "lock was written from"
+        ),
+    )
+    fpromote.set_defaults(func=_fleet_promote)
+    fuse = fleet_sub.add_parser(
+        "use",
+        help="name the promoted fleet live runs, in ~/.mcgyvr/live.json",
+    )
+    fuse.add_argument("name", metavar="FLEET", help="the promoted fleet to run live")
+    fuse.set_defaults(func=_fleet_use)
     falerts = fleet_sub.add_parser(
         "alerts",
         help="list the combinations the journal holds pulled",
@@ -3310,9 +3413,13 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     falerts.add_argument(
         "--root",
-        default=".",
+        default=None,
         metavar="DIR",
-        help="where records/fleet/ is read (default: current directory)",
+        help=(
+            "where records/fleet/ is read (default: the lock root the config's "
+            "profile names — for live the fleet ~/.mcgyvr/live.json names, "
+            "for dev the dev root)"
+        ),
     )
     falerts.set_defaults(func=_fleet_alerts)
 

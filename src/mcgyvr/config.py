@@ -43,6 +43,7 @@ from typing import Any, Literal
 import yaml
 
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
+from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 from mcgyvr.strict_yaml import strict_loader
 
 #: A setup is two files in one directory. ``fleet.yaml`` is locked and holds
@@ -51,12 +52,6 @@ from mcgyvr.strict_yaml import strict_loader
 FLEET_FILENAME = "fleet.yaml"
 POLICY_FILENAME = "policy.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
-#: The user-level config directory (owner, 2026-09-05). A literal with `~` so
-#: help text reads the same on every machine; expanded at the point of use.
-#: This is the third and last place a config is looked for, after the
-#: environment override and the working directory, and where `mcgyvr init`
-#: writes when nobody names a path. `$XDG_CONFIG_HOME` is not consulted.
-USER_CONFIG_DIR = "~/.mcgyvr/config"
 
 
 class ConfigError(Exception):
@@ -407,7 +402,8 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "mcgyvr holds for that card, and with no directory there is no spec.",
         bind_hint=(
             "the directory `mcgyvr emit --out` writes to -- e.g. "
-            "~/.mcgyvr/config -- or leave it unset and this ladder has no "
+            "~/.mcgyvr/fleets/<fleet>/compose -- or leave it unset and this "
+            "ladder has no "
             "sleeping cards, only down ones"
         ),
     ),
@@ -1361,19 +1357,18 @@ def named_config_path() -> Path | None:
     return Path(override).expanduser() if override else None
 
 
-def user_config_path() -> Path:
-    """``~/.mcgyvr/config``, expanded against the current HOME."""
-    return Path(USER_CONFIG_DIR).expanduser()
-
-
 def config_path() -> Path:
-    """Locate the config directory: explicit override, then cwd, then HOME.
+    """Locate the config directory: the override, then cwd, then the live fleet.
 
-    The user dir is :data:`USER_CONFIG_DIR` and nothing else: the XDG config
-    home was the third answer until 2026-09-05, and the owner asked for one
-    directory of mcgyvr's own. A path that depends on an environment variable
-    only some shells export is a config that is found from one terminal and
-    not another.
+    The live fleet is the folder ``~/.mcgyvr/live.json`` names
+    (:func:`mcgyvr.fleet.roots.live_fleet_dir`): written by ``mcgyvr fleet
+    promote``, named by ``mcgyvr fleet use`` (owner, 2026-09-15). The user
+    dir ``~/.mcgyvr/config`` was the third answer until then, and is
+    archived. With no override, no ``fleet.yaml`` here and no fleet named
+    live, the answer is the working directory: where ``mcgyvr init`` writes
+    and where a missing config is reported. A path that depends on an
+    environment variable only some shells export is a config that is found
+    from one terminal and not another, so nothing else is consulted.
     """
     override = named_config_path()
     if override is not None:
@@ -1381,7 +1376,11 @@ def config_path() -> Path:
     local = Path.cwd()
     if (local / FLEET_FILENAME).is_file():
         return local
-    return user_config_path()
+    try:
+        live = live_fleet_dir()
+    except LiveFleetError as exc:
+        raise ConfigFileError(str(exc)) from exc
+    return live if live is not None else local
 
 
 #: Words the fleet vocabulary retired. One term — "unit" — replaced several
@@ -1588,7 +1587,8 @@ def load(path: Path | None = None) -> Config:
 
     A setup is a directory holding ``fleet.yaml`` and ``policy.yaml``:
     ``path`` names that directory, and ``None`` locates it (the environment
-    override, then the working directory, then the user config dir). A policy
+    override, then the working directory, then the live fleet folder
+    ``~/.mcgyvr/live.json`` names). A policy
     file is optional — a fleet with one unit and no policy is the smallest
     working install — but a fleet file is not.
     """
