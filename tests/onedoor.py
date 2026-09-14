@@ -173,7 +173,7 @@ RIG: dict[str, dict[str, str]] = {
         "gpu_name": "NVIDIA_GeForce_RTX_3060",
         "gpu_vram_mib": "12288",
         "gpu_cc": "8.6",
-        "driver": "595.84",
+        "driver": "595.91.07",
         "gpu_reserve_mib": "377",
         "docker": "29.7.2",
     },
