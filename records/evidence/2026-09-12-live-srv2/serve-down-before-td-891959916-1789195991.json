@@ -1,5 +1,5 @@
 {
-  "run_id": "2026-09-12-live-srv2-serve-down-td-891959916-1789195991",
+  "run_id": "2026-09-12-live-srv2-serve-down-td-891957413-1789195741",
   "host": "srv2",
   "mode": "down",
   "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-identity-2026-09-11/compose.srv2-pair-as-run.yml",

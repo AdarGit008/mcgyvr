@@ -1,5 +1,5 @@
 {
-  "run_id": "2026-09-12-live-srv1-serve-down-td-892012250-1789201225",
+  "run_id": "2026-09-12-live-srv1-serve-down-td-892009802-1789200980",
   "host": "srv1",
   "mode": "down",
   "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-unmapped.yml",
