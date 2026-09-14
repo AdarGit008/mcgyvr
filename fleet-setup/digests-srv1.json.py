@@ -4,7 +4,8 @@
 Uses mcgyvr.fleet.ids.digest (prefix + sha256 of a canonical YAML tree). Field
 sets follow records/plans/fleet-identity.md §1:
 
-  unt-  unit = H{ engine, image id (sha256:...), weights sha256, argv, env, GPU compute capability }
+  unt-  unit = H{ engine, image id (sha256:...), weights sha256, argv, env,
+    GPU compute capability }
   rig-  rig  = H{ host, hardware, system }
 
 The argv is the whole resolved launch as actually run on srv1 (long flag forms,
