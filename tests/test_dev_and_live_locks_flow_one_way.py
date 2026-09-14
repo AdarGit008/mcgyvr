@@ -241,7 +241,7 @@ def test_gate_1_admits_a_live_serve_up_only_from_the_fleet_live_json_names(
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
     onedoor.serving(onedoor.stubs_dir(root), UNITS)
-    tolerances = {"warm_decode_pct": {"llama.cpp": 5.0}}
+    tolerances = {"warm_decode_class_pct": {"llamacpp": 5.0}}
     policy = {"ladder": ["a", "b"]}
 
     def up() -> Any:

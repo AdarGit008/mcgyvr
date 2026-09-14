@@ -101,7 +101,7 @@ EVIDENCE: dict[str, Any] = {
             "overhead_mib": 600,
             "restarts": {"srv2_7b": 0, "srv2_3b": 0},
             "warm_decode_tok_s": {"srv2_7b": 58.0},
-            "baseline_tok_s": {"srv2_7b": 59.0},
+            "baseline_tok_s": {"srv2_7b": 58.4},
             "prefill_tok_s": {"srv2_7b": 1450.0},
             "attention_backend": {"srv2_7b": "FLASH_ATTN", "srv2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:00:00Z",
@@ -114,7 +114,7 @@ EVIDENCE: dict[str, Any] = {
             "overhead_mib": 600,
             "restarts": {"srv2_7b": 0, "srv2_3b": 0},
             "warm_decode_tok_s": {"srv2_7b": 57.0, "srv2_3b": 105.0},
-            "baseline_tok_s": {"srv2_7b": 58.5, "srv2_3b": 107.0},
+            "baseline_tok_s": {"srv2_7b": 57.4, "srv2_3b": 106.0},
             "prefill_tok_s": {"srv2_7b": 1420.0, "srv2_3b": 3100.0},
             "attention_backend": {"srv2_7b": "FLASH_ATTN", "srv2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:30:00Z",
@@ -143,7 +143,9 @@ EVIDENCE: dict[str, Any] = {
 
 POLICY: dict[str, Any] = {"ladder": ["srv2_3b", "srv2_7b", "cloud"]}
 #: Placeholder tolerances: the rule is pinned here, the values are measured.
-TOLERANCES: dict[str, Any] = {"warm_decode_pct": {"vllm": 3.0, "llama.cpp": 5.0}}
+TOLERANCES: dict[str, Any] = {
+    "warm_decode_class_pct": {"vllm": 3.0, "llamacpp": 5.0, "cpu_experts": 5.0}
+}
 
 
 def _lock() -> Any:
@@ -283,7 +285,7 @@ def test_a_reply_its_unit_cannot_finish_inside_its_timeout_is_not_locked(
 def test_nvme_use_is_locked_only_where_warm_decode_holds_against_its_baseline(
     tmp_path: Path,
 ) -> None:
-    """59 tok/s with nothing on NVMe, 55 as the combination runs: 6.8% slower,
+    """58.4 tok/s with nothing on NVMe, 55 as the combination runs: 5.8% slower,
     past a 3% tolerance."""
     lock = _lock()
     evidence = edited(EVIDENCE)

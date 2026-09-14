@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet.layout import combination_id, layout_sha256
+from mcgyvr.fleet.tolerance import tolerance_class
 
 
 class LockRefusedError(Exception):
@@ -49,12 +50,21 @@ def _switch_moves(
     return moves
 
 
-def _warm_decode_tolerance_pct(engine: Any, tolerances: dict[str, Any]) -> float | None:
-    """The percentage a unit's warm decode may lose to NVMe, or ``None``."""
-    by_engine = tolerances.get("warm_decode_pct")
-    if not isinstance(by_engine, dict):
+def _warm_decode_tolerance_pct(
+    unit: dict[str, Any], tolerances: dict[str, Any]
+) -> float | None:
+    """The percent ``unit``'s warm decode may lose to NVMe, or ``None``.
+
+    Read by the unit's tolerance class
+    (:func:`mcgyvr.fleet.tolerance.tolerance_class`) from
+    ``tolerances["warm_decode_class_pct"]``, the class a live probe is judged by
+    too. The engine-keyed lookup it replaced is in
+    ``archive/src/mcgyvr/fleet/lock_engine_tolerance.py``.
+    """
+    by_class = tolerances.get("warm_decode_class_pct")
+    if not isinstance(by_class, dict):
         return None
-    value = by_engine.get(engine)
+    value = by_class.get(tolerance_class(unit))
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value)
@@ -241,7 +251,7 @@ def _combination_record(
                     entry["nvme"] = "no baseline: NVMe required"
                 else:
                     entry["baseline_tok_s"] = baseline
-                    pct = _warm_decode_tolerance_pct(engine, tolerances)
+                    pct = _warm_decode_tolerance_pct(unit, tolerances)
                     if pct is not None and float(warm) < float(baseline):
                         slowdown = (float(baseline) - float(warm)) / float(baseline)
                         if slowdown > pct / 100.0:

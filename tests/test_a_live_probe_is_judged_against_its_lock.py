@@ -136,7 +136,7 @@ EVIDENCE: dict[str, Any] = {
 NOW = datetime(2026, 9, 15, 12, 0, 0, tzinfo=UTC)
 
 
-def _harness_strings(path: Path) -> dict[str, str]:
+def _harness_strings(path: Path) -> dict[str, Any]:
     """The module-level string constants a harness assigns, evaluated as written."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found: dict[str, Any] = {}
@@ -149,12 +149,12 @@ def _harness_strings(path: Path) -> dict[str, str]:
         expr = ast.Expression(node.value)
         ast.fix_missing_locations(expr)
         try:
-            value = eval(  # noqa: S307 - constant expressions from a committed file
+            value = eval(
                 compile(expr, str(path), "eval"),
                 {"__builtins__": {}},
                 dict(found),
             )
-        except Exception:  # noqa: BLE001 - only constants are wanted
+        except Exception:
             continue
         found[target.id] = value
     return {k: v for k, v in found.items() if isinstance(v, str | list)}
@@ -272,9 +272,7 @@ HOLDING |= {"ds_prefill": 307.11}
         ({"launch": {}}, "llamacpp"),
     ],
 )
-def test_each_unit_has_one_tolerance_class(
-    unit: dict[str, Any], expected: str
-) -> None:
+def test_each_unit_has_one_tolerance_class(unit: dict[str, Any], expected: str) -> None:
     from mcgyvr.fleet.tolerance import tolerance_class
 
     assert tolerance_class(unit) == expected
@@ -520,7 +518,7 @@ def test_with_no_live_fleet_the_probe_cannot_run(
     from mcgyvr.fleet import probe
 
     monkeypatch.setenv("HOME", str(tmp_path))
-    with pytest.raises(probe.ProbeError, match="live.json"):
+    with pytest.raises(probe.ProbeError, match=r"live\.json"):
         run_probe(FakeUnits(HOLDING))
 
 
