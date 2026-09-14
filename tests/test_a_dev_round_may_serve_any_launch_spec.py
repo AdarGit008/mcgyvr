@@ -52,14 +52,16 @@ sandbox:
 def live_config(specs: Path) -> Path:
     """The live config, where the unnamed fallback looks for it.
 
-    ``~/.mcgyvr/config/mcgyvr.yaml`` under the test's own HOME — every test in
-    this suite runs in a HOME of its own (``tests/conftest.py``), so this writes
-    a fixture and never the owner's install.
+    The live fleet ``~/.mcgyvr/live.json`` names, under the test's own HOME —
+    every test in this suite runs in a HOME of its own (``tests/conftest.py``),
+    so this writes a fixture and never the owner's install. One merged
+    document stands in for the folder; the loader reads it the same way.
     """
-    from mcgyvr.config import user_config_path
+    from mcgyvr.fleet.roots import fleets_dir, live_file
 
-    path = user_config_path()
+    path = fleets_dir() / "live-fixture"
     path.parent.mkdir(parents=True, exist_ok=True)
+    live_file().write_text('{"fleet": "live-fixture"}', encoding="utf-8")
     path.write_text(LADDER + f"serving:\n  compose_dir: {specs}\n", encoding="utf-8")
     return path
 

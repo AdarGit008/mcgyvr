@@ -109,10 +109,13 @@ def test_a_live_serve_up_of_units_the_fleet_lock_names_is_admitted(
         "write the fleet lock from passing dev runs, refusing what it cannot pin",
         lambda: importlib.import_module("mcgyvr.fleet.lock"),
     )
-    # The live lock is the one under ~/.mcgyvr (HOME is the test's own), never
-    # a lock under the door's run root.
+    # The live lock is the fleet folder ~/.mcgyvr/live.json names (HOME is the
+    # test's own), never a lock under the door's run root.
+    live = Path.home() / ".mcgyvr"
+    live.mkdir(parents=True, exist_ok=True)
+    (live / "live.json").write_text('{"fleet": "flt-01"}', encoding="utf-8")
     lock.write(
-        Path.home() / ".mcgyvr",
+        live / "fleets" / "flt-01",
         SRV1_FLEET,
         SRV1_EVIDENCE,
         policy={"ladder": ["a", "b"]},

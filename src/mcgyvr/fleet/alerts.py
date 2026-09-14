@@ -204,7 +204,11 @@ def _rows(journal: Path) -> Iterator[dict[str, Any]]:
                 continue
 
 
-def _validated_at(lock_root: Path, rig_id: str, combination_id: str) -> str | None:
+def _validated_at(
+    lock_root: Path | None, rig_id: str, combination_id: str
+) -> str | None:
+    if lock_root is None:
+        return None
     path = lock_root / "records" / "fleet" / "rigs" / rig_id / f"{combination_id}.json"
     if not path.is_file():
         return None
@@ -215,11 +219,12 @@ def _validated_at(lock_root: Path, rig_id: str, combination_id: str) -> str | No
         return None
 
 
-def pulled(journal: Path, lock_root: Path) -> dict[str, list[dict[str, Any]]]:
+def pulled(journal: Path, lock_root: Path | None) -> dict[str, list[dict[str, Any]]]:
     """The pulled combinations, with the unit, field and count of each pull.
 
     A combination is pulled while it has a live alert newer than its committed
     validation; a re-committed validation (a newer ``validated_at``) clears it.
+    With no ``lock_root`` — no fleet named live — nothing clears a pull.
     """
     groups: dict[str, dict[str, Any]] = {}
     for row in _rows(journal):
@@ -254,7 +259,9 @@ def pulled(journal: Path, lock_root: Path) -> dict[str, list[dict[str, Any]]]:
     return out
 
 
-def routable(units: Mapping[str, str], journal: Path, lock_root: Path) -> list[str]:
+def routable(
+    units: Mapping[str, str], journal: Path, lock_root: Path | None
+) -> list[str]:
     """The units whose combination is not pulled, or :class:`AllPulledError`."""
     pulled_combs = pulled(journal, lock_root)
     free = [
