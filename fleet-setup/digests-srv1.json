@@ -1,0 +1,133 @@
+{
+  "rig": {
+    "fields": {
+      "hardware": {
+        "cpu_max_mhz": "4600",
+        "cpu_model": "Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz",
+        "gpu_cc": "7.5",
+        "gpu_name": "NVIDIA GeForce GTX 1660 SUPER",
+        "gpu_vram_mib": 6144,
+        "pl1_uw": "95000000",
+        "pl2_uw": "120000000",
+        "ram_mt_s": "3600"
+      },
+      "host": "srv1",
+      "system": {
+        "docker": "29.7.2",
+        "driver": "580.178.04",
+        "kernel": "7.0.0-31-generic",
+        "os_machine_id": "9f01e96b66e798b2"
+      }
+    },
+    "name": "srv1",
+    "rig_id": "rig-0f7fc6ae2bf6f8bbed8ed774507ef94a04d7f18a0f81b4d7761ce5ae81d03eeb"
+  },
+  "units": {
+    "srv1_35b_b": {
+      "fields": {
+        "argv": [
+          "--model",
+          "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+          "--n-cpu-moe",
+          "30",
+          "--parallel",
+          "2",
+          "--port",
+          "8080",
+          "-b",
+          "512",
+          "-ub",
+          "512",
+          "-c",
+          "16384",
+          "-fa",
+          "on",
+          "-ngl",
+          "99",
+          "-t",
+          "6"
+        ],
+        "engine": "llama.cpp",
+        "env": {
+          "LLAMA_ARG_HOST": "0.0.0.0"
+        },
+        "gpu_cc": "7.5",
+        "image_id": "sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6",
+        "weights_sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe"
+      },
+      "unit_id": "unt-0ff8b4d1a5886ab3a77eabcb2701e02132bc521a60083d7905fa20c5c1ff77d3"
+    },
+    "srv1_35b_maxctx": {
+      "fields": {
+        "argv": [
+          "--model",
+          "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+          "--n-cpu-moe",
+          "28",
+          "--parallel",
+          "1",
+          "--port",
+          "8080",
+          "-b",
+          "512",
+          "-ub",
+          "512",
+          "-c",
+          "32768",
+          "-fa",
+          "on",
+          "-ctk",
+          "q8_0",
+          "-ctv",
+          "q8_0",
+          "-ngl",
+          "99",
+          "-t",
+          "6"
+        ],
+        "engine": "llama.cpp",
+        "env": {
+          "LLAMA_ARG_HOST": "0.0.0.0"
+        },
+        "gpu_cc": "7.5",
+        "image_id": "sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6",
+        "weights_sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe"
+      },
+      "unit_id": "unt-9caefa09e43d66df76ca38411f6295383a3c1e58f6314143fa8f6e4b4b8cc399"
+    },
+    "srv1_deepseek": {
+      "fields": {
+        "argv": [
+          "--model",
+          "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf",
+          "--n-cpu-moe",
+          "19",
+          "--parallel",
+          "2",
+          "--port",
+          "8080",
+          "-b",
+          "512",
+          "-ub",
+          "512",
+          "-c",
+          "8192",
+          "-fa",
+          "on",
+          "-ngl",
+          "99",
+          "-t",
+          "6"
+        ],
+        "engine": "llama.cpp",
+        "env": {
+          "LLAMA_ARG_HOST": "0.0.0.0"
+        },
+        "gpu_cc": "7.5",
+        "image_id": "sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6",
+        "weights_sha256": "5ff0abeeac1d2dbdd5455c0b49ba3b29a9ce3c1fb181b2eef2e948689d55d046"
+      },
+      "unit_id": "unt-e1f680726f3f937c8b0a22e26bb44199fc4c2c674d67e0da84ad540567672ea3"
+    }
+  }
+}

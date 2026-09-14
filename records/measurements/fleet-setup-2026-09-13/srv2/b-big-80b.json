@@ -1,0 +1,35 @@
+{
+  "container": "mcgyvr-80b",
+  "image": "llamacpp:b10644-L3",
+  "model": "/home/adaramir/models/moe/Qwen3-Next-80B-A3B-Instruct-Q3_K_M.gguf",
+  "args": ["--n-cpu-moe","36","--parallel","4","--port","8003","-b","512","-c","16384","-fa","on","-ngl","99","-t","10","-ub","512"],
+  "port": 8003,
+  "n_predict": 256,
+  "samples": 5,
+  "decode": [
+    {"prompt_n": 14, "predicted_n": 256, "predicted_per_second": 25.78242324244001},
+    {"prompt_n": 14, "predicted_n": 256, "predicted_per_second": 28.348127906308438},
+    {"prompt_n": 14, "predicted_n": 256, "predicted_per_second": 28.398033519702388},
+    {"prompt_n": 14, "predicted_n": 256, "predicted_per_second": 28.421227558515127},
+    {"prompt_n": 14, "predicted_n": 256, "predicted_per_second": 28.414561091974925}
+  ],
+  "prefill": [
+    {"prompt_n": 1932, "prompt_ms": 7268.124, "prompt_per_second": 265.818249661123},
+    {"prompt_n": 1932, "prompt_ms": 6877.462, "prompt_per_second": 280.9175826780286},
+    {"prompt_n": 1932, "prompt_ms": 6858.262, "prompt_per_second": 281.7040235558222}
+  ],
+  "card": "11523, 389, 12288",
+  "mem_kib": {"MemTotal": 48208320, "MemAvailable": 45309840, "SwapTotal": 8388604, "SwapFree": 8200116},
+  "vmstat_delta": {"pswpout": 0, "pgmajfault": 110307, "pgpgin": 1638072, "pgpgout": 86596},
+  "restarts": "0",
+  "peak_used_mib": 11523,
+  "measure_context": {
+    "idle_used_mib": 1,
+    "steady_used_mib": 11507,
+    "cuda0_model_mib": 9992.39,
+    "cuda0_kv_mib": 384.0,
+    "cuda0_compute_mib": 664.0,
+    "named_sum_mib": 11040.39,
+    "context_mib": 465.61
+  }
+}

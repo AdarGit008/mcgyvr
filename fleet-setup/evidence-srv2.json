@@ -1,0 +1,152 @@
+{
+  "combinations": [
+    {
+      "baseline_tok_s": {},
+      "card_peak_mib": {
+        "srv2_35b_256k": 10597
+      },
+      "card_steady_mib": {
+        "srv2_35b_256k": 10597
+      },
+      "envelope": "records/measurements/fleet-setup-2026-09-13/srv2/a-solo-running.json",
+      "overhead_mib": 490,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv2_35b_256k": 629.8
+      },
+      "restarts": {
+        "srv2_35b_256k": 0
+      },
+      "rig": "srv2",
+      "slots": [
+        [
+          "srv2_35b_256k",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-13T21:44:00Z",
+      "warm_decode_tok_s": {
+        "srv2_35b_256k": 48.2
+      }
+    },
+    {
+      "attention_backend": {
+        "srv2_3b": "FLASH_ATTN",
+        "srv2_7b": "FLASH_ATTN"
+      },
+      "baseline_tok_s": {},
+      "envelope": "records/measurements/fleet-setup-2026-09-13/srv2/b-small-3b.json",
+      "overhead_mib": 610.5,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv2_3b": 11500.0,
+        "srv2_7b": 12059.0
+      },
+      "restarts": {
+        "srv2_3b": 0,
+        "srv2_7b": 0
+      },
+      "rig": "srv2",
+      "slots": [
+        [
+          "srv2_3b",
+          "awake"
+        ],
+        [
+          "srv2_7b",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-13T21:44:00Z",
+      "warm_decode_tok_s": {
+        "srv2_3b": 126.7,
+        "srv2_7b": 68.3
+      }
+    },
+    {
+      "baseline_tok_s": {},
+      "card_peak_mib": {
+        "srv2_80b": 11523
+      },
+      "card_steady_mib": {
+        "srv2_80b": 11523
+      },
+      "envelope": "records/measurements/fleet-setup-2026-09-13/srv2/b-big-80b.json",
+      "overhead_mib": 524,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv2_80b": 280.9
+      },
+      "restarts": {
+        "srv2_80b": 0
+      },
+      "rig": "srv2",
+      "slots": [
+        [
+          "srv2_80b",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-13T21:44:00Z",
+      "warm_decode_tok_s": {
+        "srv2_80b": 28.4
+      }
+    }
+  ],
+  "moves": [
+    {
+      "downtime_s": 70.33,
+      "from": [
+        [
+          "srv2_3b",
+          "awake"
+        ],
+        [
+          "srv2_7b",
+          "awake"
+        ]
+      ],
+      "passed": true,
+      "rig": "srv2",
+      "to": [
+        [
+          "srv2_80b",
+          "awake"
+        ]
+      ],
+      "wake_s": {
+        "srv2_80b": 70.33
+      }
+    },
+    {
+      "downtime_s": 179.57,
+      "from": [
+        [
+          "srv2_80b",
+          "awake"
+        ]
+      ],
+      "passed": true,
+      "rig": "srv2",
+      "to": [
+        [
+          "srv2_3b",
+          "awake"
+        ],
+        [
+          "srv2_7b",
+          "awake"
+        ]
+      ],
+      "wake_s": {
+        "srv2_3b": 91.55,
+        "srv2_7b": 179.57
+      }
+    }
+  ],
+  "rigs": {
+    "srv2": {
+      "card_mib": 12288
+    }
+  }
+}

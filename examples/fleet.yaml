@@ -1,0 +1,55 @@
+# mcgyvr fleet.yaml — what runs where. LOCKED by `mcgyvr fleet lock`.
+#
+# Copy this to ~/.mcgyvr/config/fleet.yaml and edit it. The meaning of every
+# key, its type and its default is in `skills/mcgyvr/SETUP.md` (generated from
+# `src/mcgyvr/config.py` by `make docs`); this file is the smallest setup that
+# shows each shape, not the whole schema. `policy.yaml` (beside this file)
+# holds how work moves; fleet.yaml holds what runs where. Unknown keys are
+# refused, never ignored — a file that does not say what it means is refused
+# rather than read under the wrong rules.
+#
+# A concrete dev setup (two rigs, three fleets) lives at
+# `fleet-setup/fleet.yaml` in the mcgyvr repository.
+
+profile: dev          # live | dev — live outranks dev on the rigs
+
+units:
+  # One unit = one process at one address. The name (here `local`) is yours.
+
+  local:
+    address: "http://localhost:8080"
+    engine: llama.cpp              # llama.cpp | vllm (absent means llama.cpp)
+    model: "Qwen2.5-Coder-7B-Instruct-Q4_K_M"
+    width: 4                       # concurrent requests this process runs
+    window: 4096                   # tokens served in one request — read off the process
+    output_tokens: 2048            # max_tokens actually sent to the backend
+    request_timeout_s: 180
+    room_mib: 6144                 # card room this unit needs (MiB), measured
+    unit_id: "unt-0000000000000000"  # identity digest (fill before locking, below)
+
+  gpu:
+    address: "http://localhost:8001"
+    engine: vllm                   # vLLM needs the three keys below pinned
+    image: "vllm/vllm-openai@sha256:<hex>"   # container image, tag or digest
+    model: "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
+    width: 8
+    window: 4096
+    output_tokens: 2048
+    request_timeout_s: 180
+    room_mib: 8099
+    kv_cache_memory_bytes: 1879048192         # vLLM KV cache this unit pins (bytes)
+    attention_backend: FLASH_ATTN             # what the card's valid backend is
+    container: "mcgyvr-local-gpu"
+    unit_id: "unt-1111111111111111"
+
+rigs:
+  local:
+    # Identity digest over {host, hardware, system} — compute with
+    # `mcgyvr.fleet.ids.digest("rig-", fields)` (see records/plans/fleet-identity.md).
+    rig_id: "rig-0000000000000000"
+
+fleets:
+  solo:
+    layout:
+      local: [[local, awake]]     # rig -> slots [[unit, state], ...]; state: awake | asleep | free
+    next: []                      # fleets this one may switch to ([] = none)

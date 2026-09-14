@@ -1,0 +1,22 @@
+===== DEEPSEEK context =====
+{
+  "container": "mcgyvr-ctx-deepseek",
+  "context_mib": 87.22,
+  "cuda0_compute_mib": 151.51,
+  "cuda0_kv_mib": 2160.0,
+  "cuda0_model_mib": 3030.27,
+  "idle_used_mib": 1,
+  "named_sum_mib": 5341.78,
+  "steady_used_mib": 5430.0
+}
+===== 35B_B context =====
+{
+  "container": "mcgyvr-ctx-35b-b",
+  "context_mib": 221.19,
+  "cuda0_compute_mib": 221.0,
+  "cuda0_kv_mib": 320.0,
+  "cuda0_model_mib": 4330.81,
+  "idle_used_mib": 1,
+  "named_sum_mib": 4871.81,
+  "steady_used_mib": 5094.0
+}
