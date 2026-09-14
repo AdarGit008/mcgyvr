@@ -383,6 +383,20 @@ def _completion_fields(answer: Completion) -> Record:
     ):
         if count is not None:
             fields[key] = count
+    # The same rule for what the dispatch measured about the unit: a rate the
+    # runner could not read, and the source it would have named, stay out of
+    # the row. Each rate is written with its source because the two ways of
+    # reading one (a server's own timings, or tokens over host-side latency)
+    # are different quantities, and a tolerance check compares like with like.
+    for key, value in (
+        ("decode_tok_s", answer.decode_tok_s),
+        ("decode_source", answer.decode_source),
+        ("prefill_tok_s", answer.prefill_tok_s),
+        ("prefill_source", answer.prefill_source),
+        ("in_flight", answer.in_flight),
+    ):
+        if value is not None:
+            fields[key] = value
     return fields
 
 

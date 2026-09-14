@@ -256,6 +256,18 @@ class Completion:
     the request, which is the only quantity every backend expresses the same way
     — a server-reported duration excludes queueing and is not comparable across
     backends.
+
+    ``decode_tok_s`` and ``prefill_tok_s`` are what the dispatch measured about
+    the unit, each with the source it was read from, so a live observation can
+    be judged against a locked unit's ``warm_decode_tok_s`` and
+    ``prefill_tok_s``. ``"timings"`` is llama-server's own per-request
+    ``timings``; ``"usage_latency"`` is ``output_tokens / latency_s``, the
+    formula the vLLM units' lock was measured with; ``"metrics_ttft"`` is
+    ``input_tokens`` over the ``/metrics`` time-to-first-token delta of a
+    dispatch that ran alone. ``in_flight`` is how many slots of the dispatch's
+    bound were held while it ran, itself included — the count a tolerance check
+    reads to judge only a dispatch that ran alone. Each is ``None`` when it was
+    not read: no figure here is ever estimated.
     """
 
     text: str
@@ -271,6 +283,11 @@ class Completion:
     served_model: str | None = None
     quality_safe: bool = True
     notes: tuple[str, ...] = ()
+    decode_tok_s: float | None = None
+    decode_source: str | None = None
+    prefill_tok_s: float | None = None
+    prefill_source: str | None = None
+    in_flight: int | None = None
 
     @property
     def complete(self) -> bool:
@@ -313,6 +330,10 @@ class _Parsed:
     #: point, so a protocol that silently substituted one for the other would
     #: erase the check.
     served_model: str | None
+    #: The server's own decode and prefill rates for this one request, where it
+    #: reports them (llama-server's ``timings``), or ``None`` where it does not.
+    decode_tok_s: float | None = None
+    prefill_tok_s: float | None = None
 
 
 class Runner(ABC):
@@ -345,8 +366,20 @@ class Runner(ABC):
     def __init__(self, endpoint: Endpoint) -> None:
         self.endpoint = endpoint
 
-    def generate(self, model: str, request: Request) -> Completion:
+    def generate(
+        self, model: str, request: Request, *, in_flight: int | None = None
+    ) -> Completion:
         """Run one request against this endpoint and return what came back.
+
+        ``in_flight`` is how many slots of this dispatch's bound are held while
+        it runs, itself included, as the caller holding them counted — ``None``
+        when nothing counted. It is recorded on the completion, and it decides
+        one read: only a dispatch that runs alone (``1``) on a keyless endpoint
+        reads ``/metrics`` before and after, because a time-to-first-token
+        delta shared with another request is not this request's prefill, and a
+        read nobody can use is a request to the rig for nothing. The read is
+        made whatever the engine, since nothing here knows it; a server with no
+        vLLM histogram answers it with a page that yields no prefill.
 
         Raises :class:`QualityCaveatError` before sending anything when the
         request is quality-sensitive and this path is caveated,
@@ -362,15 +395,25 @@ class Runner(ABC):
             )
 
         url = _url_for(self.endpoint.base_url, self.path)
+        metrics_url = _url_for(self.endpoint.base_url, METRICS_PATH)
+        alone = in_flight == 1 and self.endpoint.credential_env is None
+        before = _ttft(_get_text(metrics_url, METRICS_TIMEOUT_S)) if alone else None
         started = time.monotonic()
         document = _post_json(
             url, self._payload(model, request), self._headers(), request.timeout_s
         )
         latency_s = time.monotonic() - started
+        after = (
+            _ttft(_get_text(metrics_url, METRICS_TIMEOUT_S))
+            if before is not None
+            else None
+        )
 
         parsed = self._parse(document)
         self._refuse_other_weights(model, parsed.served_model)
         stop_reason = _STOP_REASONS.get(parsed.raw_stop_reason, StopReason.UNKNOWN)
+        decode_tok_s, decode_source = _decode(parsed, latency_s)
+        prefill_tok_s, prefill_source = _prefill(parsed, before, after)
         return Completion(
             text=parsed.text,
             stop_reason=stop_reason,
@@ -385,6 +428,11 @@ class Runner(ABC):
             served_model=parsed.served_model,
             quality_safe=self.quality_safe,
             notes=self._notes(parsed, stop_reason, request),
+            decode_tok_s=decode_tok_s,
+            decode_source=decode_source,
+            prefill_tok_s=prefill_tok_s,
+            prefill_source=prefill_source,
+            in_flight=in_flight,
         )
 
     def _refuse_other_weights(self, asked: str, served: str | None) -> None:
@@ -536,12 +584,19 @@ class OpenAIRunner(Runner):
             usage = {}
         raw_stop = first.get("finish_reason") if isinstance(first, dict) else None
         served = document.get("model")
+        # llama-server adds its own per-request `timings`; vLLM and the hosted
+        # providers do not, and a reply without them measured nothing here.
+        timings = document.get("timings")
+        if not isinstance(timings, dict):
+            timings = {}
         return _Parsed(
             text=content,
             raw_stop_reason=_as_str(raw_stop),
             input_tokens=_as_int(usage.get("prompt_tokens")),
             output_tokens=_as_int(usage.get("completion_tokens")),
             served_model=served if isinstance(served, str) and served else None,
+            decode_tok_s=_as_rate(timings.get("predicted_per_second")),
+            prefill_tok_s=_as_rate(timings.get("prompt_per_second")),
         )
 
 
@@ -607,7 +662,11 @@ def dispatch(
     # the wait belongs to the thing that owns the bound, not to every call
     # site that has to remember to pass it.
     with capacity.hold(endpoint, rung=rung):
-        return runner_for(endpoint).generate(step.model, request)
+        # Counted inside the hold, so the count includes this dispatch: `1` is
+        # a dispatch that ran alone on its bound, as far as this process holds.
+        return runner_for(endpoint).generate(
+            step.model, request, in_flight=capacity.in_flight(endpoint.source, rung)
+        )
 
 
 def dispatch_role(
@@ -639,7 +698,110 @@ def dispatch_role(
     if capacity is None:
         return runner_for(binding.endpoint).generate(binding.model, request)
     with capacity.hold(binding.endpoint):
-        return runner_for(binding.endpoint).generate(binding.model, request)
+        return runner_for(binding.endpoint).generate(
+            binding.model,
+            request,
+            in_flight=capacity.in_flight(binding.endpoint.source),
+        )
+
+
+# --- what a dispatch measured -----------------------------------------------
+
+#: Where each recorded rate was read. A rate is only ever written beside its
+#: source: a server's own timings and tokens over host-side latency are two
+#: different quantities, and a tolerance check compares like with like.
+DECODE_FROM_TIMINGS = "timings"
+DECODE_FROM_USAGE_LATENCY = "usage_latency"
+PREFILL_FROM_TIMINGS = "timings"
+PREFILL_FROM_METRICS_TTFT = "metrics_ttft"
+
+#: The Prometheus page a vLLM server publishes, and how long a read of it may
+#: take. Short, and a failure is silence: a prefill that could not be read is
+#: not a dispatch that failed.
+METRICS_PATH = "/metrics"
+METRICS_TIMEOUT_S = 2.0
+_METRICS_BYTES = 4 * 1024 * 1024
+_TTFT = "vllm:time_to_first_token_seconds"
+
+
+def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None]:
+    """The reply's decode rate and where it was read, or ``(None, None)``.
+
+    The server's own figure first. Otherwise ``output_tokens / latency_s`` —
+    the formula the vLLM units' lock was measured with
+    (``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py``), so
+    a live figure and a locked one are the same quantity. No count, no rate.
+    """
+    if parsed.decode_tok_s is not None:
+        return parsed.decode_tok_s, DECODE_FROM_TIMINGS
+    if parsed.output_tokens and latency_s > 0:
+        return parsed.output_tokens / latency_s, DECODE_FROM_USAGE_LATENCY
+    return None, None
+
+
+def _prefill(
+    parsed: _Parsed,
+    before: tuple[float, int] | None,
+    after: tuple[float, int] | None,
+) -> tuple[float | None, str | None]:
+    """The reply's prefill rate and where it was read, or ``(None, None)``.
+
+    The server's own figure first. Otherwise ``input_tokens`` over the
+    time-to-first-token the vLLM histogram added across this dispatch — and
+    only when it added exactly one observation, which is the only delta that is
+    this request's and no other's.
+    """
+    if parsed.prefill_tok_s is not None:
+        return parsed.prefill_tok_s, PREFILL_FROM_TIMINGS
+    if before is None or after is None or not parsed.input_tokens:
+        return None, None
+    seconds = after[0] - before[0]
+    if after[1] - before[1] != 1 or seconds <= 0:
+        return None, None
+    return parsed.input_tokens / seconds, PREFILL_FROM_METRICS_TTFT
+
+
+def _ttft(page: str | None) -> tuple[float, int] | None:
+    """vLLM's time-to-first-token totals ``(sum_s, count)`` in a metrics page.
+
+    Summed over every label set, so a server naming its model or engine in the
+    labels still reads as one histogram. ``None`` when the page is missing or
+    carries no such histogram — a llama-server, or a page that failed.
+    """
+    if page is None:
+        return None
+    totals: dict[str, float] = {}
+    for line in page.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        if "{" in line and "}" in line:
+            name = line[: line.index("{")]
+            tail = line[line.rindex("}") + 1 :].split()
+        else:
+            name, *tail = line.split()
+        if name not in (f"{_TTFT}_sum", f"{_TTFT}_count") or not tail:
+            continue
+        try:
+            totals[name] = totals.get(name, 0.0) + float(tail[0])
+        except ValueError:
+            return None
+    if f"{_TTFT}_sum" not in totals or f"{_TTFT}_count" not in totals:
+        return None
+    return totals[f"{_TTFT}_sum"], int(totals[f"{_TTFT}_count"])
+
+
+def _get_text(url: str, timeout: float) -> str | None:
+    """GET a text page, or ``None`` when anything about the read fails.
+
+    Never raises: this reads a measurement beside a dispatch, and a page that
+    is not there must cost the dispatch nothing but the figure.
+    """
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            raw: bytes = response.read(_METRICS_BYTES)
+    except (OSError, ValueError):
+        return None
+    return raw.decode("utf-8", "replace")
 
 
 # --- transport --------------------------------------------------------------
@@ -714,6 +876,17 @@ def _url_for(base_url: str, path: str) -> str:
 def _as_str(value: object) -> str:
     """A reported word as a string, with anything else read as unreported."""
     return value if isinstance(value, str) else ""
+
+
+def _as_rate(value: object) -> float | None:
+    """A reported rate, or ``None`` when it was not reported or is not positive.
+
+    ``bool`` is excluded for the reason :func:`_as_int` gives, and a zero or
+    negative rate is a server that measured nothing, not a unit that is stalled.
+    """
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return float(value) if value > 0 else None
 
 
 def _as_int(value: object) -> int | None:

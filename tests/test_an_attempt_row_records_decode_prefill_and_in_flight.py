@@ -29,6 +29,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import textwrap
+import threading
 import types
 from pathlib import Path
 from typing import Any
@@ -247,9 +248,23 @@ def test_a_dispatch_that_did_not_run_alone_records_no_metrics_prefill(
     endpoint = ladder.bind("cheap")
     stub_post(monkeypatch, answer())
     asked = stub_metrics(monkeypatch, [metrics(1.25, 10), metrics(1.75, 11)])
+    held, release = threading.Event(), threading.Event()
 
-    with capacity.hold(endpoint, rung="cheap"):
+    def another_request() -> None:
+        # A second dispatch on the same bound, from its own thread: a thread
+        # holds at most one slot of a bound, so the neighbour cannot be nested.
+        with capacity.hold(endpoint, rung="cheap"):
+            held.set()
+            release.wait(timeout=10)
+
+    neighbour = threading.Thread(target=another_request)
+    neighbour.start()
+    try:
+        assert held.wait(timeout=10), "the neighbouring request never took its slot"
         done = dispatch(ladder, "cheap", ASK, capacity=capacity)
+    finally:
+        release.set()
+        neighbour.join(timeout=10)
 
     assert done.in_flight == 2
     assert (done.prefill_tok_s, done.prefill_source) == (None, None)

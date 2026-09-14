@@ -107,6 +107,14 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("latency_s", "REAL"),
     ("input_tokens", "INTEGER"),
     ("output_tokens", "INTEGER"),
+    # What the dispatch measured about the unit, each rate beside where it was
+    # read (`timings`, `usage_latency`, `metrics_ttft`), and how many requests
+    # held the unit while it ran — the columns a tolerance check filters on.
+    ("decode_tok_s", "REAL"),
+    ("decode_source", "TEXT"),
+    ("prefill_tok_s", "REAL"),
+    ("prefill_source", "TEXT"),
+    ("in_flight", "INTEGER"),
     ("model", "TEXT"),
     ("endpoint", "TEXT"),
     ("protocol", "TEXT"),
