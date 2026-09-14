@@ -17,7 +17,7 @@
       "gpu_name": "NVIDIA_GeForce_GTX_1660_SUPER",
       "gpu_vram_mib": "6144",
       "gpu_cc": "7.5",
-      "driver": "580.173.02",
+      "driver": "580.178.04",
       "gpu_reserve_mib": "399",
       "docker": "29.7.2"
     },

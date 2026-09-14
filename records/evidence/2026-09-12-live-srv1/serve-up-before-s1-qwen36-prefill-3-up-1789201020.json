@@ -1,5 +1,5 @@
 {
-  "run_id": "2026-09-12-live-srv1-serve-up-s1-qwen36-prefill-3-up-1789201020",
+  "run_id": "2026-09-12-live-srv1-serve-up-s1-qwen36-prefill-2-up-1789200777",
   "host": "srv1",
   "mode": "up",
   "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-identity-2026-09-11/compose.srv1-qwen36-unmapped.yml",
@@ -11,7 +11,7 @@
       "port": 8080,
       "healthy": true,
       "sleeping": null,
-      "seconds": 126.0,
+      "seconds": 126.4,
       "models": [
         "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"
       ]

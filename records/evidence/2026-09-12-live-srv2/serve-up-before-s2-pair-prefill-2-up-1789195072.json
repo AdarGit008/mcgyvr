@@ -1,5 +1,5 @@
 {
-  "run_id": "2026-09-12-live-srv2-serve-up-s2-pair-prefill-3-up-1789195785",
+  "run_id": "2026-09-12-live-srv2-serve-up-s2-pair-prefill-1-up-1789194815",
   "host": "srv2",
   "mode": "up",
   "compose_file": "/home/adaramir/claude/mcgyvr/records/measurements/fleet-identity-2026-09-11/compose.srv2-pair-as-run.yml",
@@ -11,7 +11,7 @@
       "port": 8001,
       "healthy": true,
       "sleeping": null,
-      "seconds": 169.0,
+      "seconds": 167.4,
       "models": [
         "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
       ]
@@ -21,14 +21,14 @@
       "port": 8002,
       "healthy": true,
       "sleeping": null,
-      "seconds": 2.1,
+      "seconds": 2.0,
       "models": [
         "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
       ]
     }
   ],
   "card_after": {
-    "used_mib": 10565,
-    "free_mib": 1347
+    "used_mib": 11405,
+    "free_mib": 507
   }
 }
