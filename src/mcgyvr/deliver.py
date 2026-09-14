@@ -376,6 +376,28 @@ class DeliveryError(Exception):
     """
 
 
+class DeliveryRefusedError(DeliveryError):
+    """The change was judged where it would land, and refused.
+
+    :func:`place` has no :class:`Delivery` to hand a refusal back in, so it
+    raises this, carrying the same two structured channels a refusing
+    :class:`Delivery` does. A caller catching :class:`DeliveryError` still
+    catches it; one that wants to say *which* checks refused, and not only the
+    sentence, reads ``findings`` and ``inconclusive``.
+    """
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        findings: Sequence[Finding] = (),
+        inconclusive: Sequence[InconclusiveRung] = (),
+    ) -> None:
+        super().__init__(reason)
+        self.findings: tuple[Finding, ...] = tuple(findings)
+        self.inconclusive: tuple[InconclusiveRung, ...] = tuple(inconclusive)
+
+
 @dataclass(frozen=True)
 class Delivery:
     """What delivery did, and — when it did nothing — why.
@@ -1417,7 +1439,8 @@ def place(
     2026-09-14, when live run ``doc-structured-validators`` left a file
     byte-identical to its base and reported it accepted. A refusal restores the
     target, and removes any directory the write created, before
-    :class:`DeliveryError` is raised: the tree is left as it was found.
+    :class:`DeliveryRefusedError` is raised carrying the refusal's findings: the
+    tree is left as it was found.
     ``adapters`` are the language adapters those gate rungs use, as for
     :func:`deliver`.
 
@@ -1465,7 +1488,11 @@ def place(
             _write(target, payload)
             refusal = _refusal(call, contract, resolved, target, payload, adapters)
             if refusal is not None:
-                raise DeliveryError(refusal.reason)
+                raise DeliveryRefusedError(
+                    refusal.reason,
+                    findings=refusal.findings,
+                    inconclusive=refusal.inconclusive,
+                )
             kept = True
             return target
         finally:
