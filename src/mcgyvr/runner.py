@@ -707,11 +707,17 @@ IN_FLIGHT_FROM_SLOTS = "slots"
 IN_FLIGHT_FROM_VLLM_METRICS = "vllm_metrics"
 
 #: The status pages each engine publishes, and how long a read of one may
-#: take. Short, and a failure is silence: a count that could not be read is not
-#: a dispatch that failed.
+#: take. A failure is silence: a count that could not be read is not a dispatch
+#: that failed. The ceiling is a ceiling, not a measured bound — a page slower
+#: than it is still dropped. It was 2.0 s until 2026-09-15, when a live run's
+#: escalated srv2_7b row lost in_flight and its prefill: srv2:8002 ``/metrics``
+#: took 2.666 s for the read that landed as a generation started, then
+#: 0.553 / 0.832 / 0.567 / 0.536 s during it and 0.863 / 0.598 / 0.648 s idle,
+#: and srv2:8001 ``/v1/models`` once took 4.31 s. The reads sit outside the
+#: request's ``latency_s``, so a slow page never slows the decode figure.
 SLOTS_PATH = "/slots"
 METRICS_PATH = "/metrics"
-STATUS_TIMEOUT_S = 2.0
+STATUS_TIMEOUT_S = 10.0
 _STATUS_BYTES = 4 * 1024 * 1024
 _TTFT = "vllm:time_to_first_token_seconds"
 _RUNNING = "vllm:num_requests_running"
