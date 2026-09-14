@@ -171,7 +171,7 @@ def test_every_outcome_value_is_glossed_in_escalate_pys_own_words() -> None:
     glosses = _glosses(section)
 
     literals = [member.value for member in escalate.Outcome]
-    literals += [cli.DELIVERY_REFUSED, "rejected"]
+    literals += [cli.DELIVERY_REFUSED, cli.NOTHING_TO_CHANGE, "rejected"]
     for literal in literals:
         assert literal in glosses, (
             f"`{literal}` is not glossed in SKILL.md's outcome list; an "
