@@ -37,7 +37,7 @@ def _unit_ids(fleet: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def _layout_ids(fleet: dict[str, Any], layout: dict[str, Any]) -> dict[str, str]:
+def layout_ids(fleet: dict[str, Any], layout: dict[str, Any]) -> dict[str, str]:
     """``rig id -> combination id``, the same spelling the lock pins."""
     rig_ids = {name: block["rig_id"] for name, block in fleet.get("rigs", {}).items()}
     unit_ids = _unit_ids(fleet)
@@ -79,7 +79,7 @@ def admit_live(
 
     block = fleets[fleet_name]
     layout = block.get("layout", {})
-    if layout_sha256(_layout_ids(fleet, layout)) != lock_record.get("layout_sha256"):
+    if layout_sha256(layout_ids(fleet, layout)) != lock_record.get("layout_sha256"):
         raise LiveRefusedError(
             f"{fleet_name}: the layout no longer matches its pin — re-lock"
         )
@@ -158,7 +158,11 @@ def wake(
 
 
 def host_is_locked(root: Path, host: str) -> bool:
-    """Whether any committed combination record names ``host`` (a rig)."""
+    """Whether any combination record of the lock under ``root`` names ``host``.
+
+    ``root`` is the lock root the caller's profile reads
+    (:func:`mcgyvr.fleet.roots.lock_root`), never the working directory.
+    """
     rigs = root / "records" / "fleet" / "rigs"
     if not rigs.is_dir():
         return False

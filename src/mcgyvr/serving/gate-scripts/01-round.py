@@ -15,8 +15,8 @@ appended and the one that was open keeps the digest its own arms ran against.
 
 THE PROFILE IS SETTLED HERE TOO, for the same reason: it is a fact about the
 run that costs no rig time to know and that every later gate reads. The config
-is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`, then `./mcgyvr.yaml`
-under the run root, then `~/.mcgyvr/config/mcgyvr.yaml` — and its `profile:`
+is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`, then `./fleet.yaml`,
+then the live fleet folder `~/.mcgyvr/live.json` names — and its `profile:`
 is exported as RUN_PROFILE. No config at all is `live` (owner's ruling R4: the
 default is prod, and forgetting the variable lands there); a config that is
 there and cannot be read, or a `$MCGYVR_CONFIG` naming a file that is not
@@ -35,6 +35,7 @@ import os
 import sys
 
 from mcgyvr import config as configlib
+from mcgyvr.fleet.roots import LiveFleetError, lock_root
 from mcgyvr.serving.gatelib import DEV, door_required, export, refuse, root
 
 
@@ -85,15 +86,24 @@ def profile() -> tuple[str, str]:
     return str(loaded.get("profile")), str(loaded.path)
 
 
-def units_the_fleet_lock_names(rig: str) -> set[str]:
-    """The containers the fleet lock names for ``rig``, read locally.
+def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
+    """The containers the ``which`` profile's fleet lock names for ``rig``.
 
     The lock's combination records under ``records/fleet/rigs/<rig->/`` name
-    each locked unit by its container. Gate 1 reaches no rig, so this is a
-    read of committed files only: a live serve up is matched against the lock
-    offline, before any rig time is spent.
+    each locked unit by its container, under the root the profile reads
+    (:func:`mcgyvr.fleet.roots.lock_root`: for live, the fleet folder
+    ``~/.mcgyvr/live.json`` names, and no lock at all without one) and never
+    under the run root. Gate 1 reaches no rig, so this is a read of local
+    files only: a live serve up is matched against the lock offline, before
+    any rig time is spent.
     """
-    rigs = root() / "records" / "fleet" / "rigs"
+    try:
+        where = lock_root(which)
+    except LiveFleetError as exc:
+        refuse(f"gate 1: {exc}. A live run cannot say which fleet it serves")
+    if where is None:
+        return set()
+    rigs = where / "records" / "fleet" / "rigs"
     if not rigs.is_dir():
         return set()
     locked: set[str] = set()
@@ -130,14 +140,15 @@ def refuse_unless_the_fleet_lock_names(serve: str, which: str) -> None:
         return
     host = os.environ.get("RUN_HOST", "")
     wanted = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
-    locked = units_the_fleet_lock_names(host)
+    locked = units_the_fleet_lock_names(host, which)
     missing = sorted(wanted - locked)
     if missing:
         refuse(
             f"gate 1: this live `serve up` names {', '.join(missing)}, which "
             f"the fleet lock for {host} does not name. A live run starts only "
-            "units the fleet lock names (records/fleet/); re-lock from a "
-            "passing dev run, or run this under a dev profile"
+            "units the live fleet lock names — the fleet ~/.mcgyvr/live.json "
+            "names; lock them from a passing dev run, `mcgyvr fleet promote` "
+            "and `mcgyvr fleet use` the fleet, or run this under a dev profile"
         )
 
 

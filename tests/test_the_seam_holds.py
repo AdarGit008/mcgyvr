@@ -107,6 +107,8 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.fleet.ids",
     "mcgyvr.fleet.layout",
     "mcgyvr.fleet.lock",
+    "mcgyvr.fleet.promote",
+    "mcgyvr.fleet.roots",
     "mcgyvr.initialize",
     "mcgyvr.pool",
     "mcgyvr.propose",
