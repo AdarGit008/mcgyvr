@@ -1446,16 +1446,27 @@ def _build(
 ) -> Config:
     """The :class:`Config` for a loaded ``fleet.yaml`` and ``policy.yaml``.
 
-    ``rigs`` and ``fleets`` are the lock's, not the run's, and are dropped
-    here rather than carried in the run's tree. Everything else is validated
-    once, with the schema filling defaults, and then read into ``units`` and
-    ``ladder``.
+    ``rigs``, ``fleets`` and each unit's ``unit_id`` are the lock's, not the
+    run's, and are dropped here rather than carried in the run's tree: a
+    locked ``fleet.yaml`` carries all three, and refusing them would leave
+    every locked setup unreadable by the commands that serve it. Everything
+    else is validated once, with the schema filling defaults, and then read
+    into ``units`` and ``ladder``.
     """
     merged: dict[str, Any] = {
         key: value
         for key, value in {**fleet, **policy}.items()
         if key not in ("rigs", "fleets")
     }
+    if isinstance(merged.get("units"), Mapping):
+        merged["units"] = {
+            name: (
+                {key: value for key, value in block.items() if key != "unit_id"}
+                if isinstance(block, Mapping)
+                else block
+            )
+            for name, block in merged["units"].items()
+        }
     data = _block(merged, SCHEMA, "")
     _cross_validate_fleet(data)
     data = _resolved_paths(data, path)
