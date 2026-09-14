@@ -1909,6 +1909,7 @@ def _report_run(
     reports itself and reaches :func:`_commit` directly.
     """
     from mcgyvr.deliver import Accepted, DeliveryError
+    from mcgyvr.gate.changeset import ChangeSet
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
 
@@ -1940,6 +1941,33 @@ def _report_run(
         bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
     except DeliveryError as exc:
         return _error(report, str(exc))
+    if not ChangeSet.detect(sandbox.workspace):
+        # The program ran, the gate had nothing to object to, and the tree is
+        # exactly as it was: the target already is what the task type asks for.
+        # Delivery would refuse it as a change identical to its base — which is
+        # right for a model that answered with its target unchanged, and wrong
+        # for a program that did its job and found nothing to do (owner,
+        # 2026-09-15). The floor's no-op ends on its own word, exit 0, with or
+        # without --commit, and nothing is written or committed. Checked after
+        # binding: a target that cannot be read is an error whatever changed.
+        detail = (
+            f"{contract.target} already is what {contract.task_type!r} asks for; "
+            f"nothing was written"
+        )
+        print(f"\n{contract.id}: {NOTHING_TO_CHANGE} — {detail}")
+        report.outcome = NOTHING_TO_CHANGE
+        report.detail = detail
+        if recording is not None and attempt_id is not None:
+            correct(
+                path=recording.path,
+                attempt_id=attempt_id,
+                outcome=NOTHING_TO_CHANGE,
+                detail=detail,
+                orchestrator=recording.orchestrator,
+                mirrors=recording.mirrors,
+                on_copy_error=recording.copy_failed,
+            )
+        return 0
     # Only now: `accepted` tells the caller the change is in the target, and
     # until the bytes are bound there is nothing to put there.
     report.outcome = "accepted"
@@ -1960,6 +1988,9 @@ def _report_run(
 COMMITTED = "committed"
 NOT_COMMITTED = "not_committed"
 DELIVERY_REFUSED = "delivery_refused"
+#: The floor's word for a program that found nothing to change, written by
+#: :func:`_report_run` in place of a delivery. Not a refusal: the run exits 0.
+NOTHING_TO_CHANGE = "nothing_to_change"
 #: The word for an attempt that raised instead of judging: the row says
 #: ``ok: false`` already, and the correction says the climb counted it.
 RAISED = "error"
@@ -2008,7 +2039,7 @@ def _commit(
     ``committed <sha> on <branch>`` or ``delivery_refused`` otherwise, so the
     folded outcome is how the work finally landed.
     """
-    from mcgyvr.deliver import DeliveryError, deliver, place
+    from mcgyvr.deliver import DeliveryError, DeliveryRefusedError, deliver, place
     from mcgyvr.telemetry import correct
 
     def landed(outcome: str, detail: str) -> None:
@@ -2028,6 +2059,10 @@ def _commit(
             place(repo=repo, contract=contract, content=bound, base=base)
         except DeliveryError as exc:
             landed(DELIVERY_REFUSED, str(exc))
+            if isinstance(exc, DeliveryRefusedError):
+                # The checks behind the refusal, not only its sentence — the
+                # same lines a gate rejection leaves in `findings`.
+                report.findings = [str(finding) for finding in exc.findings]
             return _error(report, str(exc), outcome=DELIVERY_REFUSED)
         print(f"\nLeft in {contract.target}, not committed (pass --commit to commit).")
         landed(NOT_COMMITTED, f"no --commit; change left in {contract.target}")
@@ -2051,6 +2086,7 @@ def _commit(
     landed(DELIVERY_REFUSED, delivery.reason)
     report.outcome = DELIVERY_REFUSED
     report.detail = delivery.reason
+    report.findings = [str(finding) for finding in delivery.findings]
     return 1
 
 
