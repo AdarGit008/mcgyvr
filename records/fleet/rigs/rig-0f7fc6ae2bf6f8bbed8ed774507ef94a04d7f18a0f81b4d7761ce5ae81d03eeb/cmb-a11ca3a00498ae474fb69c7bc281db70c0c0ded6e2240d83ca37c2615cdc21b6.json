@@ -4,6 +4,7 @@
       "address": "http://srv1:8080",
       "card_peak_mib": 5122,
       "card_steady_mib": 5094,
+      "container": "mcgyvr-srv1-35b-b",
       "engine": "llama.cpp",
       "prefill_tok_s": 342.18,
       "warm_decode_tok_s": 33.28

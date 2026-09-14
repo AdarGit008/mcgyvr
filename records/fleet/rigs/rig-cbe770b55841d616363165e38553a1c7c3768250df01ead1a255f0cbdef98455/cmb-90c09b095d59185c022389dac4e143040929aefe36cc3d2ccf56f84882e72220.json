@@ -4,6 +4,7 @@
       "address": "http://srv2:8080",
       "card_peak_mib": 10597,
       "card_steady_mib": 10597,
+      "container": "mcgyvr-lidenburg",
       "engine": "llama.cpp",
       "prefill_tok_s": 629.8,
       "warm_decode_tok_s": 48.2
