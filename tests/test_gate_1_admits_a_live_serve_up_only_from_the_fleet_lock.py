@@ -119,7 +119,7 @@ def test_a_live_serve_up_of_units_the_fleet_lock_names_is_admitted(
         SRV1_FLEET,
         SRV1_EVIDENCE,
         policy={"ladder": ["a", "b"]},
-        tolerances={"warm_decode_pct": {"llama.cpp": 5.0}},
+        tolerances={"warm_decode_class_pct": {"llamacpp": 5.0}},
     )
     onedoor.serving(onedoor.stubs_dir(root), UNITS)
 

@@ -2734,7 +2734,7 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     """Write the fleet lock from the fleet, evidence and policy files named."""
     import json
 
-    from mcgyvr.derived import DerivedNumbersError, warm_decode_tolerances
+    from mcgyvr.derived import DerivedNumbersError, class_tolerances
     from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
     from mcgyvr.fleet.lock import LockRefusedError, write
     from mcgyvr.fleet.roots import is_live, lock_root
@@ -2771,10 +2771,10 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     except (json.JSONDecodeError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    # Engine-specific measured tolerances, read from the derived-numbers file:
-    # the rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs.
+    # The measured class tolerances, read from the derived-numbers file: the
+    # rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs.
     try:
-        tolerances = {"warm_decode_pct": warm_decode_tolerances()}
+        tolerances = {"warm_decode_class_pct": class_tolerances()}
     except DerivedNumbersError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -2790,14 +2790,24 @@ def _fleet_lock(args: argparse.Namespace) -> int:
 def _fleet_alerts(args: argparse.Namespace) -> int:
     """List the combinations the journal holds pulled, unit and field each.
 
+    The journal is ``--journal``, else ``<journal.dir>/fleet`` of the live fleet
+    — where ``mcgyvr fleet probe`` files (:func:`mcgyvr.fleet.probe.journal_dir`).
     The lock is read from the root the config's profile names
     (:func:`mcgyvr.fleet.roots.lock_root`) unless ``--root`` names one.
     """
     from mcgyvr.config import ConfigMissingError, field_at
     from mcgyvr.fleet.alerts import pulled
-    from mcgyvr.fleet.roots import LiveFleetError, lock_root
+    from mcgyvr.fleet.probe import ProbeError, journal_dir
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, lock_root
 
-    journal = Path(args.journal)
+    if args.journal:
+        journal = Path(args.journal)
+    else:
+        try:
+            journal = journal_dir(live_fleet_dir())
+        except (LiveFleetError, ProbeError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
     root: Path | None
     if args.root:
         root = Path(args.root)
@@ -2851,6 +2861,36 @@ def _fleet_use(args: argparse.Namespace) -> int:
         return 1
     print(f"live: {args.name} ({path})")
     return 0
+
+
+def _fleet_probe(args: argparse.Namespace) -> int:
+    """Probe the live fleet's idle units by their lock's own method, and judge them.
+
+    Exit 1 when the probe cannot run at all or a unit's probe could not run;
+    an alert is printed and filed, and is not a failed probe
+    (:mod:`mcgyvr.fleet.probe`).
+    """
+    from mcgyvr.fleet.probe import ProbeError, run
+
+    try:
+        report = run(units=args.units or None)
+    except ProbeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for unit, figures in report.probed.items():
+        shown = ", ".join(f"{name} {value:.2f}" for name, value in figures.items())
+        print(f"probed {unit}: {shown}")
+    for unit, count in report.busy.items():
+        print(f"busy {unit}: {count} in flight, not probed")
+    for unit in report.contended:
+        print(f"contended {unit}: took work during the probe; filed, not judged")
+    for unit, (fields, reason) in report.not_read.items():
+        print(f"not read {unit}: {', '.join(fields)} ({reason})")
+    for alert in report.alerts:
+        print(f"alert {alert['unit_id']} {alert['field']}")
+    for unit, why in report.failed.items():
+        print(f"error: {unit}: {why}", file=sys.stderr)
+    return report.exit_code
 
 
 def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
@@ -3337,15 +3377,32 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     fuse.add_argument("name", metavar="FLEET", help="the promoted fleet to run live")
     fuse.set_defaults(func=_fleet_use)
+    fprobe = fleet_sub.add_parser(
+        "probe",
+        help=(
+            "judge the live fleet's idle units by their lock's own measurement, "
+            "filed under <journal.dir>/fleet"
+        ),
+    )
+    fprobe.add_argument(
+        "units",
+        nargs="*",
+        metavar="UNIT",
+        help="the awake units to probe (default: every awake unit of the live fleet)",
+    )
+    fprobe.set_defaults(func=_fleet_probe)
     falerts = fleet_sub.add_parser(
         "alerts",
         help="list the combinations the journal holds pulled",
     )
     falerts.add_argument(
         "--journal",
-        required=True,
+        default=None,
         metavar="DIR",
-        help="where the journal was filed",
+        help=(
+            "where the fleet journal was filed (default: <journal.dir>/fleet of "
+            "the live fleet, where `mcgyvr fleet probe` files)"
+        ),
     )
     falerts.add_argument(
         "--root",

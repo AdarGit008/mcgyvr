@@ -811,6 +811,29 @@ def _status(endpoint: Endpoint) -> _Status | None:
     return _slots_status(page)
 
 
+def unit_in_flight(
+    source: str, base_url: str, engine: str | None, max_parallel: int = 1
+) -> int | None:
+    """How many requests the unit itself reports in flight, or ``None`` unread.
+
+    The same reading a dispatch takes beside itself (:func:`_status`), for a
+    caller that wants the count without dispatching: a live probe
+    (:mod:`mcgyvr.fleet.probe`) measures a unit only when this is 0. Taken by
+    address and engine rather than as an :class:`~mcgyvr.pool.Endpoint`, so
+    the caller needs nothing from below the seam but this function.
+    """
+    endpoint = Endpoint(
+        source=source,
+        base_url=base_url,
+        protocol=Protocol.OPENAI,
+        max_parallel=max_parallel,
+        credential_env=None,
+        engine=engine,
+    )
+    status = _status(endpoint)
+    return None if status is None else status.busy
+
+
 def _slots_status(page: str | None) -> _Status | None:
     """llama-server's ``/slots``: how many slots are ``is_processing``.
 

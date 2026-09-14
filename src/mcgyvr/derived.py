@@ -18,6 +18,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.fleet.tolerance import CLASSES
+
 REPO = Path(__file__).resolve().parents[2]
 DERIVED = REPO / "tools" / "runs" / "derived.json"
 
@@ -82,27 +84,37 @@ def runtime_resident_gb(host: str, *, path: Path | None = None) -> float:
     )
 
 
-def warm_decode_tolerances(*, path: Path | None = None) -> dict[str, float]:
-    """Engine -> warm-decode tolerance percent, refused by name when absent.
+def class_tolerances(*, path: Path | None = None) -> dict[str, float]:
+    """Tolerance class -> the percent a unit's warm decode or prefill may fall.
 
-    What a unit may lose to NVMe against its no-NVMe warm-decode baseline
-    before the fleet lock refuses it. Engine-specific, so the whole mapping is
-    read and returned together.
+    One value per class of :data:`mcgyvr.fleet.tolerance.CLASSES`, read from
+    ``engine.warm_decode_class_pct``: what the fleet lock allows a unit to lose
+    to NVMe against its no-NVMe baseline, and what a live probe is judged
+    against (owner, 2026-09-15). Every class must be stated; an absent one is
+    refused by name, so neither judge is left to guess a number.
     """
     document = _load(path)
     engine = document.get("engine")
     if not isinstance(engine, dict):
         raise DerivedNumbersError(
-            "tools/runs/derived.json declares no `engine` block; the "
-            "engine-specific warm-decode tolerances are not stated"
+            "tools/runs/derived.json declares no `engine` block; the class "
+            "tolerances are not stated"
         )
-    by_engine = engine.get("warm_decode_pct")
-    if not isinstance(by_engine, dict) or not by_engine:
+    by_class = engine.get("warm_decode_class_pct")
+    if not isinstance(by_class, dict):
         raise DerivedNumbersError(
-            "tools/runs/derived.json.engine.warm_decode_pct states no "
-            "engine tolerances; the fleet lock will not guess one"
+            "tools/runs/derived.json.engine.warm_decode_class_pct is absent; "
+            "no class tolerance is guessed"
         )
     tolerances: dict[str, float] = {}
-    for name, body in by_engine.items():
-        tolerances[name] = _number(body, f"derived.json.engine.warm_decode_pct.{name}")
+    for name in CLASSES:
+        if name not in by_class:
+            raise DerivedNumbersError(
+                "tools/runs/derived.json.engine.warm_decode_class_pct states no "
+                f"{name!r} class; a unit of that class would be judged against "
+                "nothing"
+            )
+        tolerances[name] = _number(
+            by_class[name], f"derived.json.engine.warm_decode_class_pct.{name}"
+        )
     return tolerances

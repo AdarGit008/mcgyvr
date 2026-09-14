@@ -41,7 +41,7 @@ EVIDENCE = {
             "overhead_mib": 600,
             "restarts": {"srv2_7b": 0},
             "warm_decode_tok_s": {"srv2_7b": 58.0},
-            "baseline_tok_s": {"srv2_7b": 59.0},
+            "baseline_tok_s": {"srv2_7b": 58.4},
             "prefill_tok_s": {"srv2_7b": 1450.0},
             "attention_backend": {"srv2_7b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:00:00Z",

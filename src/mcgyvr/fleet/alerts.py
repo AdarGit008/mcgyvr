@@ -37,7 +37,41 @@ _JUDGED: dict[str, tuple[str, str]] = {
     "card_peak_mib": ("up", "abs"),
     "l2_wake_s": ("up", "s"),
     "downtime_s": ("up", "s"),
+    #: A live probe's card reading, judged against the unit's own ``room_mib``
+    #: (owner, 2026-09-15): the fit bound the lock proved, and no new number.
+    "card_mib": ("up", "room"),
 }
+
+
+def _number(value: Any) -> float | None:
+    """A plain number, or ``None`` for anything else (``bool`` included)."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return float(value)
+
+
+def _plain_hit(
+    entry: Any, entries: Mapping[str, Any], kind: str, value: float
+) -> bool | None:
+    """Whether ``value`` falls outside a lock's plain value, or ``None`` unjudged.
+
+    The lock pins a unit's figures as plain numbers (the ``approved`` block of
+    ``records/fleet/rigs/<rig->/<cmb->.json``). A probe judges them with the
+    unit's class percent, carried beside them as ``tolerance_pct``, and its
+    card against ``room_mib``. A figure with no locked value, or no stated
+    bound, is recorded and not judged.
+    """
+    if kind == "room":
+        room = _number(entries.get("room_mib"))
+        return None if room is None else value > room
+    if kind == "pct":
+        expected = _number(entry)
+        pct = _number(entries.get("tolerance_pct"))
+        if expected is None or pct is None:
+            return None
+        return value < expected * (1.0 - pct / 100.0)
+    return None
+
 
 #: A run id of the form ``run-YYYYMMDDTHHMMSS-…`` carries its own time; a pull
 #: clears against a lock validated after it.
@@ -99,23 +133,29 @@ def _judge(
     scope = observed.get(scope_key)
     if scope is None:
         return None
-    entry = (approved.get(scope) or {}).get(field)
-    if not isinstance(entry, Mapping) or "expected" not in entry:
-        return None
-
+    entries = approved.get(scope) or {}
+    entry = entries.get(field)
     direction, kind = rule
-    expected = float(entry["expected"])
-    tolerance = entry.get("tolerance") or {}
-    bound: float
-    if kind == "pct":
-        bound = expected * (1.0 - float(tolerance.get("pct", 0.0)) / 100.0)
-        hit = float(value) < bound
-    elif kind == "abs":
-        bound = expected + float(tolerance.get("abs", 0.0))
-        hit = float(value) > bound
-    else:  # "s"
-        bound = expected + float(tolerance.get("s", 0.0))
-        hit = float(value) > bound
+    if isinstance(entry, Mapping):
+        if "expected" not in entry or kind == "room":
+            return None
+        expected = float(entry["expected"])
+        tolerance = entry.get("tolerance") or {}
+        bound: float
+        if kind == "pct":
+            bound = expected * (1.0 - float(tolerance.get("pct", 0.0)) / 100.0)
+            hit = float(value) < bound
+        elif kind == "abs":
+            bound = expected + float(tolerance.get("abs", 0.0))
+            hit = float(value) > bound
+        else:  # "s"
+            bound = expected + float(tolerance.get("s", 0.0))
+            hit = float(value) > bound
+    else:
+        plain = _plain_hit(entry, entries, kind, float(value))
+        if plain is None:
+            return None
+        hit = plain
 
     if not hit:
         return None
