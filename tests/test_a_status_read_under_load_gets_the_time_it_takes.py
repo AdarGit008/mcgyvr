@@ -17,6 +17,7 @@ status page never slows the decode figure.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 
@@ -52,7 +53,7 @@ def slots(processing: int = 0) -> str:
     return json.dumps([{"id": i, "is_processing": i < processing} for i in range(2)])
 
 
-ANSWER = {
+ANSWER: dict[str, Any] = {
     "choices": [
         {
             "index": 0,
@@ -91,7 +92,7 @@ class SlowUnit:
 
         def fake_post(
             url: str, payload: object, headers: object, timeout: float
-        ) -> dict[str, object]:
+        ) -> dict[str, Any]:
             self.now += self.REPLY_S
             return ANSWER
 
