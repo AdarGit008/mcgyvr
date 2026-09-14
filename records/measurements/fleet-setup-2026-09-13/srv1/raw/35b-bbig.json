@@ -1,0 +1,91 @@
+{
+  "args": [
+    "--",
+    "--n-cpu-moe",
+    "30",
+    "--parallel",
+    "2",
+    "--port",
+    "8080",
+    "-b",
+    "512",
+    "-ub",
+    "512",
+    "-c",
+    "16384",
+    "-fa",
+    "on",
+    "-ngl",
+    "99",
+    "-t",
+    "6"
+  ],
+  "card": "5122, 624, 6144",
+  "container": "mcgyvr-srv1-35b-b",
+  "decode": [
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 33.31783727254697,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 33.278326217644164,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 33.31767620314375,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 33.28031105475355,
+      "prompt_n": 15
+    },
+    {
+      "predicted_n": 256,
+      "predicted_per_second": 33.24058991488323,
+      "prompt_n": 15
+    }
+  ],
+  "env": [],
+  "image": "llamacpp:b10644-L3",
+  "mem_kib": {
+    "MemAvailable": 13814744,
+    "MemTotal": 15762544,
+    "SwapFree": 8240560,
+    "SwapTotal": 8388604
+  },
+  "model": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "n_predict": 256,
+  "port": 8080,
+  "prefill": [
+    {
+      "prompt_ms": 5729.967,
+      "prompt_n": 1959,
+      "prompt_per_second": 341.8867857354153
+    },
+    {
+      "prompt_ms": 5711.972,
+      "prompt_n": 1959,
+      "prompt_per_second": 342.9638660693715
+    },
+    {
+      "prompt_ms": 5725.011,
+      "prompt_n": 1959,
+      "prompt_per_second": 342.1827486445004
+    }
+  ],
+  "restarts": "0",
+  "samples": 5,
+  "vmstat_delta": {
+    "pgmajfault": 181,
+    "pgpgin": 13188,
+    "pgpgout": 57604,
+    "pswpout": 0
+  }
+}
+---HARNESS_EXIT=0---
+mcgyvr-srv1-35b-b
+1, 5745

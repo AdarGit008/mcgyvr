@@ -1,0 +1,39 @@
+You are the SRV2 half of a parallel fleet-stamping run.
+cwd: /home/adaramir/pi_agent/projects/mcgyvr-measurements
+
+Read fleet-setup/run-plan.md FIRST for full context (the fleets, the lock's
+evidence contract, prior-art files to harvest, identity-digest machinery,
+guardrails). Drafts: fleet-setup/fleet.yaml, fleet-setup/policy.yaml.
+
+YOUR SCOPE IS SRV2 ONLY. Do not touch srv1, do not write fleet.yaml/policy.yaml,
+do not run `mcgyvr fleet lock`, do not write under records/fleet/. A coordinator
+merges your output with the srv1 session's afterward.
+
+TASKS (srv2, RTX 3060 12 GiB, 48 GB RAM):
+1. The Lidenburg docker image `llamacpp-lidenburg:e85e4d9` is already built on
+   srv2 — verify it is present; do not rebuild unless missing.
+2. Validate combination a-solo/srv2 = [[srv2_35b_256k, awake]]: run the Lidenburg
+   llama-server at `-c 256k` width 1 (cache 120/256 env), record warm_decode_tok_s
+   (~49 short-ctx, decays with ctx), prefill_tok_s, overhead_mib, card_peak_mib,
+   restarts. Pin the unit's window/room.
+3. Validate b-small/srv2 = [[srv2_3b, awake],[srv2_7b, awake]]: the vLLM sleep-mode
+   pair. Record warm decode (3B ~128, 7B ~68.7), prefill, overhead_mib,
+   attention_backend FLASH_ATTN, pinned kv_cache_memory_bytes, restarts. Pin rooms.
+4. Validate b-big/srv2 = [[srv2_80b, awake]]: Qwen3-Next-80B-A3B Q3_K_M at
+   --n-cpu-moe 36 width 4. Record warm decode (25-29), prefill, overhead_mib,
+   card_peak_mib, restarts.
+5. Validate the two srv2 switch moves: b-small->b-big srv2
+   (from [[srv2_3b,awake],[srv2_7b,awake]] to [[srv2_80b,awake]]) and b-big->b-small
+   srv2 (reverse). Record downtime_s + wake_s per move.
+6. Compute the srv2 rig_id and each srv2 unit_id via `mcgyvr.fleet.ids.digest`
+   (read src/mcgyvr/scan.py for rig fields; unit = its whole resolved launch per
+   fleet-identity.md §1). Write them to fleet-setup/digests-srv2.json.
+7. Write fleet-setup/evidence-srv2.json in the exact lock shape (rigs.srv2.card_mib,
+   combinations for the 3 srv2 combos, moves for the 2 srv2 moves — see the shape
+   in run-plan.md). Write fleet-setup/REPORT-srv2.md with the pinned numbers +
+   evidence paths.
+
+GUARDRAILS: dev only; tear down everything after each run (rig must be idle when
+you finish). Every number from a run you did or a cited prior-art file. Record raw
+outputs under records/measurements/fleet-setup-2026-09-13/srv2/. mcgyvr via
+`.venv/bin/mcgyvr`. SSH via ~/.ssh/config (host srv2).

@@ -1,0 +1,52 @@
+{
+  "attention_backend": "FLASH_ATTN",
+  "card": "11111, 801, 12288",
+  "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+  "decode": [
+    {
+      "completion_tokens": 256,
+      "tok_s": 126.509,
+      "wall_s": 2.024
+    },
+    {
+      "completion_tokens": 256,
+      "tok_s": 126.609,
+      "wall_s": 2.022
+    },
+    {
+      "completion_tokens": 256,
+      "tok_s": 126.7,
+      "wall_s": 2.021
+    },
+    {
+      "completion_tokens": 256,
+      "tok_s": 126.808,
+      "wall_s": 2.019
+    },
+    {
+      "completion_tokens": 256,
+      "tok_s": 126.921,
+      "wall_s": 2.017
+    }
+  ],
+  "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+  "port": 8001,
+  "prefill": [
+    {
+      "prompt_tokens": 1961,
+      "tok_s": 3223.988,
+      "ttft_s": 0.608
+    },
+    {
+      "prompt_tokens": 1961,
+      "tok_s": 13242.251,
+      "ttft_s": 0.148
+    },
+    {
+      "prompt_tokens": 1961,
+      "tok_s": 11078.767,
+      "ttft_s": 0.177
+    }
+  ],
+  "restarts": "0"
+}

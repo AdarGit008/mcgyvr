@@ -1,0 +1,10 @@
+{
+  "container": "mcgyvr-ctx-maxctx",
+  "context_mib": 161.19,
+  "cuda0_compute_mib": 245.0,
+  "cuda0_kv_mib": 340.0,
+  "cuda0_model_mib": 4854.81,
+  "idle_used_mib": 1,
+  "named_sum_mib": 5439.81,
+  "steady_used_mib": 5602.0
+}

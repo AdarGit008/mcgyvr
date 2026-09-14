@@ -1,0 +1,40 @@
+You are the SRV1 half of a parallel fleet-stamping run.
+cwd: /home/adaramir/pi_agent/projects/mcgyvr-measurements
+
+Read fleet-setup/run-plan.md FIRST for full context (the fleets, the lock's
+evidence contract, prior-art files to harvest, identity-digest machinery,
+guardrails). Drafts: fleet-setup/fleet.yaml, fleet-setup/policy.yaml.
+
+YOUR SCOPE IS SRV1 ONLY. Do not touch srv2, do not write fleet.yaml/policy.yaml,
+do not run `mcgyvr fleet lock`, do not write under records/fleet/. A coordinator
+merges your output with the srv2 session's afterward.
+
+TASKS (srv1, GTX 1660 SUPER 6 GiB sm_75, 16 GB RAM — LOCK-PRONE):
+1. Sweep the max-context unit a-solo/srv1 = [[srv1_35b_maxctx, awake]]: mainline
+   llama.cpp `llamacpp:b10644-L3`, `--n-cpu-moe 28 -fa on -ctk q8_0 -ctv q8_0`,
+   width 1, at `-c 32768` then `65536` (stop at the RAM ceiling). Record
+   warm_decode_tok_s (~33), prefill_tok_s, overhead_mib, card_peak_mib, restarts.
+   Pin the unit's window to the deepest context that fits.
+2. Validate b-small/srv1 = [[srv1_deepseek, awake]]: deepseek-coder-v2-16b at
+   --n-cpu-moe 19, width 2, -c 8192. Record warm decode (~32), prefill,
+   overhead_mib, card_peak_mib, restarts.
+3. Validate b-big/srv1 = [[srv1_35b_b, awake]]: Qwen3.6-35B-A3B at --n-cpu-moe 30,
+   width 2, -c 16384. Record warm decode (~32), prefill, overhead_mib,
+   card_peak_mib, restarts.
+4. Validate the two srv1 switch moves: b-small->b-big srv1
+   (from [[srv1_deepseek,awake]] to [[srv1_35b_b,awake]]) and b-big->b-small srv1
+   (reverse). Record downtime_s + wake_s per move.
+5. Compute the srv1 rig_id and each srv1 unit_id via `mcgyvr.fleet.ids.digest`
+   (read src/mcgyvr/scan.py for rig fields; unit = its whole resolved launch per
+   fleet-identity.md §1). Write them to fleet-setup/digests-srv1.json.
+6. Write fleet-setup/evidence-srv1.json in the exact lock shape (rigs.srv1.card_mib,
+   combinations for the 3 srv1 combos, moves for the 2 srv1 moves — see the shape
+   in run-plan.md). Write fleet-setup/REPORT-srv1.md with the pinned numbers +
+   evidence paths.
+
+GUARDRAILS: dev only; tear down everything after each run (rig must be idle when
+you finish). srv1 is lock-prone: stay at or below --n-cpu-moe 30, watch
+MemAvailable/swap, NEVER let it page. Every number from a run you did or a cited
+prior-art file. Record raw outputs under
+records/measurements/fleet-setup-2026-09-13/srv1/. mcgyvr via `.venv/bin/mcgyvr`.
+SSH via ~/.ssh/config (host srv1).

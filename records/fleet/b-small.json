@@ -1,0 +1,27 @@
+{
+  "layout_sha256": "14c966e1625a3874ea10172f9cfe2fde6caaf23ef70f018182cb4603cf5e17f1",
+  "next": [
+    "b-big"
+  ],
+  "switches": [
+    {
+      "moves": [
+        {
+          "downtime_s": 112.264,
+          "rig": "srv1",
+          "wake_s": {
+            "srv1_35b_b": 111.17
+          }
+        },
+        {
+          "downtime_s": 70.33,
+          "rig": "srv2",
+          "wake_s": {
+            "srv2_80b": 70.33
+          }
+        }
+      ],
+      "to": "b-big"
+    }
+  ]
+}
