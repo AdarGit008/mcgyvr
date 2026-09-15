@@ -23,6 +23,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -53,6 +54,10 @@ MARKER_FIELDS = ("uptime_since", "ram_mt_s", "pl1_uw", "pl2_uw")
 VMSTAT_FIELDS = ("pswpout", "pgmajfault")
 #: A placeholder in a move's shell template: ``@NAME@``.
 PLACEHOLDER = re.compile(r"@([A-Z][A-Z0-9_]*)@")
+#: What follows ``<artifact stem>.<unit>`` in the name of the file a failed
+#: start's whole ``docker logs`` is kept under (owner ruling, 2026-09-15).
+CONTAINER_LOG = ".docker.log"
+PLAIN_NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 class StepRefusedError(Exception):
@@ -425,6 +430,49 @@ def names_of(group: Side, run_id: str) -> list[str]:
     return [f"{run_id}-{unit.name}" for unit in group.units]
 
 
+def container_units(group: Side, run_id: str) -> str:
+    """``container=unit`` for each unit of a side, as the step's shell splits them."""
+    return " ".join(
+        f"{name}={unit.name}"
+        for name, unit in zip(names_of(group, run_id), group.units, strict=True)
+    )
+
+
+def container_log(artifact: str, unit: str) -> str:
+    """The file ``unit``'s whole ``docker logs`` is kept under, beside ``artifact``."""
+    return f"{artifact.removesuffix('.json')}.{unit}{CONTAINER_LOG}"
+
+
+def keep_log(source: Path, envelope: Path, artifact: str, unit: str) -> str:
+    """File ``source`` — a container's whole ``docker logs``, stdout and stderr,
+    as the step read it through the door's shim — in the envelope, and return
+    the name it is filed under (owner ruling, 2026-09-15).
+
+    The step's wrapper does not declare this file: gate 8 holds every declared
+    name to exist (``08-parse.py:182-188``), and this one exists only when a
+    start failed. Gate 5 guards only declared names (``05-envelope.py:298-306``),
+    so its two rules for an artifact are kept here: the file is written once,
+    and never through a link (``O_EXCL | O_NOFOLLOW``, in an envelope that is
+    not a link itself).
+    """
+    from mcgyvr.serving.gatelib import envelope_escape
+
+    name = container_log(artifact, unit)
+    if not PLAIN_NAME.match(name):
+        raise StepRefusedError(f"{name!r} is not a plain file name")
+    escape = envelope_escape(envelope)
+    if escape is not None:
+        raise StepRefusedError(f"{name} is not kept: {escape}")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    try:
+        handle = os.open(envelope / name, flags, 0o644)
+    except OSError as exc:
+        raise StepRefusedError(f"{name} is not kept: {exc}") from exc
+    with os.fdopen(handle, "wb") as out, source.open("rb") as log:
+        shutil.copyfileobj(log, out)
+    return name
+
+
 def render(template: str, values: Mapping[str, str]) -> str:
     """``template`` with each ``@NAME@`` replaced; an unknown name is refused."""
 
@@ -763,6 +811,8 @@ def _move_facts(
             "MOVE_TARGET_UNIT": "" if target.compose else target.units[0].name,
             "MOVE_IMAGES": " ".join(tag for tag, _ in images),
             "MOVE_ALL_NAMES": " ".join(all_names),
+            "MOVE_SOURCE_CONTAINERS": container_units(source, run_id),
+            "MOVE_TARGET_CONTAINERS": container_units(target, run_id),
             "RIG_DIR_REMOTE": remote_dir(),
             "RIG_FILE_REMOTE": remote_file(run_id, "move"),
         }
@@ -851,6 +901,8 @@ def main(argv: list[str]) -> int:
             write_unit(Path(args[0]), Path(args[1]), door)
         elif command == "write-move" and len(args) == 2:
             write_move(Path(args[0]), Path(args[1]), door)
+        elif command == "keep-log" and len(args) == 4:
+            print(keep_log(Path(args[0]), Path(args[1]), args[2], args[3]))
         else:
             print(
                 f"lockfleets.py: no command {command!r} of {len(args)}", file=sys.stderr

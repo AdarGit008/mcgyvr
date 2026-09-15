@@ -17,6 +17,14 @@
 # them); or when its image resolves to another digest than the digests file
 # recorded (image_id in one file, image in the other).
 #
+# A FAILED START KEEPS ITS WHOLE LOG (owner ruling, 2026-09-15). When the
+# container exits, or does not say ok on /health in 900 s, its whole `docker
+# logs` (stdout and stderr, every line, through the door's shim) is filed in the
+# envelope as <artifact stem>.<unit>.docker.log before anything removes it, and
+# `failure` names that file. The wrapper does not declare it: gate 8 holds each
+# declared name to exist, and this one exists only when a start failed
+# (lockfleets.keep_log writes it once, never through a link).
+#
 # The START and END markers (uptime_since, pl1_uw, pl2_uw, ram_mt_s) and the
 # rig's /proc/vmstat pswpout and pgmajfault are read at both ends. The markers
 # are teed on the rig to ~/mcgyvr-relock/<RUN_ID>.unit and read back, because a
@@ -82,6 +90,14 @@ fail() {
     exit 1
 }
 
+# The container's whole `docker logs`, filed in the envelope while it still
+# exists; prints the file's name, or that none was kept.
+keep_log() {
+    "$DOCKER" logs "$NAME" >"$STATE/docker.log" 2>&1 || true
+    _py "$LF" keep-log "$STATE/docker.log" "$RUN_OUT_DIR" "$ARTIFACT" "$UNIT" ||
+        printf 'none kept (the step output says why)\n'
+}
+
 # --- the refusals, before the rig is touched --------------------------------
 FACTS=$(_py "$LF" unit-facts "$RUN_ROOT" "$STATE" "$UNIT") ||
     refuse "the facts of $UNIT could not be read from fleet-setup/fleet.yaml and digests-$RUN_HOST.json"
@@ -120,12 +136,17 @@ while :; do
             break
             ;;
     esac
-    [ "$(date +%s)" -lt "$DEADLINE" ] || fail "$NAME did not say ok on /health in 900 s"
+    if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+        kept=$(keep_log)
+        fail "$NAME did not say ok on /health in 900 s; its whole docker logs: $kept"
+    fi
     polls=$((polls + 1))
     if [ $((polls % 10)) -eq 0 ]; then
         running=$("$DOCKER" inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null || true)
-        [ "$running" = true ] ||
-            fail "$NAME exited before /health said ok: $("$DOCKER" logs --tail 8 "$NAME" 2>&1 | tr '\n\t' '  ' | cut -c1-600)"
+        if [ "$running" != true ]; then
+            kept=$(keep_log)
+            fail "$NAME exited before /health said ok: $("$DOCKER" logs --tail 8 "$NAME" 2>&1 | tr '\n\t' '  ' | cut -c1-600); its whole docker logs: $kept"
+        fi
     fi
     sleep 1
 done

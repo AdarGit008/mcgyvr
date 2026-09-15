@@ -19,7 +19,8 @@ freezes from it. The first use is [`rig-id-relock/`](rig-id-relock/RUNS.md).
 | `tools/runs/campaigns/lock-fleets/_move.sh` | one timed switch move on one rig, through the door |
 | `tools/runs/campaigns/lock-fleets/lockfleets.py` | the facts and refusals both steps act on; renders the move's rig shell; writes their artifacts |
 | `tools/runs/campaigns/lock-fleets/<use>/NN-*.sh` | one generated wrapper per campaign run of a use |
-| `plan.py` | freezes a use's order into `<use>/RUNS.md` and writes its wrappers |
+| `plan.py` | freezes a use's order into `<use>/RUNS.md` and writes its wrappers; `retry` gives a failed entry its one retry |
+| `<use>/retries.json` | a use's retries, one per failed entry, each placed right after it in its rig's order |
 | `drive.sh RIG USE` | runs one rig's frozen order through the door, and stops to ask |
 | `assemble_evidence.py` | `check` (the stop-and-ask list), `assemble` (the lock's evidence), `tolerance` |
 
@@ -120,13 +121,49 @@ rig's idle tail; no fill work is added.
   medians), tol = max(1, ceil(max_i (L − s_i) / L × 100)), a sample above L
   counting as 0. The 2026-09-12 M1 wording took the shortfall from the unit
   median over 15 samples; this takes it from the locked value.
+- **A failed start keeps the container's full log** (2026-09-15). When a
+  container a step started exits or never says healthy — `_unit.sh`'s unit, or
+  the source or the targets of `_move.sh` — its whole `docker logs` (stdout and
+  stderr, every line, through the door's docker shim) is filed in the envelope
+  as `<artifact stem>.<unit>.docker.log` before anything removes it, and the
+  artifact's `failure` names the file after its short text. The wrapper does not
+  declare it: gate 8 holds a declared name to exist (`08-parse.py:182-188`) and
+  this file exists only when a start failed, while gate 5 guards and gate 7
+  stamps only declared names (`05-envelope.py:298-306`,
+  `07-teardown.py:231-272`). So `lockfleets.keep_log` writes it once and never
+  through a link.
+- **A failed entry gets one retry** (2026-09-15, "Fix PR, then retry srv2").
+  `plan.py retry --use U --entry E --reason "..."` refuses unless E is logged and
+  fails its check, has no retry yet and is not itself a retry; only a campaign
+  unit or move run has a wrapper of its own to retry. It lists the retry in
+  `<use>/retries.json` and writes its wrapper, `NN-<step>-retry1.sh`, declaring
+  `<artifact stem>-retry1.json`; `read_runs` places `E-retry1` right after E in
+  that rig's order, and RUNS.md is not edited. The failed run is kept as a data
+  point: `check` says it failed, retried by `E-retry1`, and the driver goes on
+  to the retry; `assemble` keeps it in `runs.json` with its reasons and counts
+  the retry among the K valid runs in its place. A failed retry stops and gets
+  no second one. `--log-from TREE` runs the check on the log, envelopes and
+  outputs of another tree with the same frozen order, for a checkout whose own
+  RUNS.md log was never written.
+- **Swap is recorded on a listed rig, not stopped on** (2026-09-15, "Record swap
+  on srv1, don't stop"). `use.json`'s `swap_recorded_not_stopped_on` names the
+  rigs; the planner refuses one no fleet places a unit on. On a listed rig a
+  campaign run's pswpout start, end and delta are filed in `runs.json`
+  (`pswpout`) and its growth is no reason to stop. Every other stop still
+  applies there — uptime_since, pl1_uw, pl2_uw or ram_mt_s moving between START
+  and END, restarts, a failure — and every other rig keeps the swap stop.
+  `rig-id-relock` lists srv1: srv1-01's 47,425 pages sit inside the
+  35,000–48,000 pages per wake that
+  `records/measurements/ram-headroom-2026-09-09/README.md` measured for that
+  blob mapped on srv1 at swappiness 60, with decode unaffected.
 
 ## Stop and ask
 
 `drive.sh` runs `assemble_evidence.py check` after every entry and stops at the
 first non-zero (`STOP <reason>`, exit 3). The list is `stops()` in
 `assemble_evidence.py`, and only there. An exit code is logged and never decided
-on.
+on. A logged failed entry with its one retry is the exception: its re-check is
+logged as failed, retried by its retry, and the retry runs next.
 
 ## The evidence, mapped
 

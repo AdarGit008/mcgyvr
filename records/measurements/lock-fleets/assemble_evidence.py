@@ -8,12 +8,15 @@
 
 * ``check`` is the stop-and-ask list for one entry of a frozen order, and it is
   defined here and nowhere else (:func:`stops`). ``drive.sh`` runs it after every
-  entry and stops at the first non-zero.
+  entry and stops at the first non-zero. A logged entry that failed and has its
+  one retry (``plan.py retry``, owner ruling 2026-09-15) is said to have failed,
+  retried by that retry, and does not stop.
 * ``assemble`` reads every entry back, refuses by name what does not prove what
   the lock needs, and writes ``fleet-setup/evidence.json`` in the shape
   ``mcgyvr.fleet.lock`` reads, for every combination and move the fleets need;
   ``<use>/runs.json`` with every run whole; and prints the fleet.yaml edits (rig
-  ids, room_mib). It never writes fleet.yaml.
+  ids, room_mib). It never writes fleet.yaml. A failed entry with its retry is
+  kept in runs.json with its reasons, and the retry counts in its place.
 * ``tolerance`` writes ``<use>/prefill-tolerance-<class>.json`` for one unit.
 
 A read's rows are in the journal the door's ``read`` files under: the live fleet's
@@ -263,6 +266,8 @@ def gather(ctx: Context, entry: Any) -> dict[str, Any]:
         "restarts": {},
         "backend": {},
     }
+    if entry.retry_of:
+        run["retry_of"] = entry.retry_of
     output = ctx.root / row["output"] if row.get("output") else None
     said = output.read_text(encoding="utf-8", errors="replace") if output and output.is_file() else ""
     refused = [line.strip() for line in DOOR_REFUSED.findall(said)]
@@ -293,6 +298,9 @@ def _gather_kind(ctx: Context, entry: Any, row: Mapping[str, str], run: dict[str
             run["markers"] = [lf.key_values(markers["start"]), lf.key_values(markers["end"])]
         vm = doc.get("vmstat") or {}
         run["vmstat"] = [vm.get("start"), vm.get("end")]
+        before, after = (vm.get("start") or {}).get("pswpout"), (vm.get("end") or {}).get("pswpout")
+        if isinstance(before, int) and isinstance(after, int):
+            run["pswpout"] = {"start": before, "end": after, "delta": after - before}
         run["sidecar"] = path.with_name(path.name + ".RIGMOVED").is_file()
         run["ended_at"] = doc.get("ended_at")
         if entry.kind == "unit":
@@ -431,11 +439,11 @@ def stops(ctx: Context, entry: Any, run: Mapping[str, Any], prior: Sequence[Mapp
         moved = [f"{k} {start.get(k)} -> {end.get(k)}" for k in lf.MARKER_FIELDS if start.get(k) != end.get(k)]
         if moved:
             out.append(f"the START and END markers differ: {', '.join(moved)}")
-    vm = run.get("vmstat")
-    if vm and all(isinstance(v, dict) for v in vm):
-        before, after = vm[0].get("pswpout"), vm[1].get("pswpout")
-        if isinstance(before, int) and isinstance(after, int) and after > before:
-            out.append(f"pswpout rose during the run ({before} -> {after})")
+    # On a rig use.json lists, swap growth is filed (run["pswpout"]) and is no
+    # reason to stop (owner ruling, 2026-09-15: "Record swap on srv1, don't stop").
+    swap = run.get("pswpout")
+    if swap and swap["delta"] > 0 and entry.rig not in ctx.use.swap_recorded_not_stopped_on:
+        out.append(f"pswpout rose during the run ({swap['start']} -> {swap['end']})")
     for name, count in run["restarts"].items():
         if count is None:
             out.append(f"{name}'s restarts were not read")
@@ -514,24 +522,30 @@ def stops(ctx: Context, entry: Any, run: Mapping[str, Any], prior: Sequence[Mapp
             out.append(f"{name} reported no attention_backend")
         elif backend != pin:
             out.append(f"{name} reported attention backend {backend}, not the pinned {pin}")
-    if entry.kind == "unit" and entry.id == _long_context_entry(ctx, entry.rig):
+    if entry.kind == "unit" and _long_context_entry(ctx, entry.rig) in (entry.id, entry.retry_of):
         load = run["loads"].get(entry.units[0])
         if load and load.get("idle_after_close") is False:
             out.append(f"{entry.units[0]} did not read idle after the {LOAD_LIMIT_S}-s close on this rig's first long-context run")
     return out
 
 
-def check(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -> list[str]:
-    """The stop-and-ask reasons for one entry; empty when it may go on."""
+def verdict(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -> tuple[list[str], str]:
+    """The stop-and-ask reasons for one entry, and what is said when there are none.
+
+    A logged entry that fails its check and has its one retry (``plan.py retry``,
+    owner ruling 2026-09-15) gives no reason to stop: it is said to have failed,
+    retried by that retry, which is the entry after it. A retry that fails stops
+    like any entry; so does an entry that passes and has a retry anyway.
+    """
     try:
         entry = ctx.runs.entry(entry_id)
     except plan.PlanRefusedError as exc:
-        return [str(exc)]
+        return [str(exc)], ""
     if entry.rig != host:
-        return [f"{entry_id} is an entry of {entry.rig}, not {host}"]
+        return [f"{entry_id} is an entry of {entry.rig}, not {host}"], ""
     row = ctx.runs.logged(entry_id)
     if run_id and row is not None and row["run id"] != run_id:
-        return [f"{entry_id}'s log row names run id {row['run id']}, not {run_id}"]
+        return [f"{entry_id}'s log row names run id {row['run id']}, not {run_id}"], ""
     prior: list[dict[str, Any]] = []
     for earlier in ctx.runs.entries:
         if earlier.id == entry_id:
@@ -541,11 +555,31 @@ def check(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -> 
                 prior.append(gather(ctx, earlier))
             except MissingError:
                 continue
+    reasons: list[str]
     try:
         run = gather(ctx, entry)
     except MissingError as exc:
-        return [str(exc)]
-    return stops(ctx, entry, run, prior)
+        reasons = [str(exc)]
+    else:
+        reasons = stops(ctx, entry, run, prior)
+    retry = ctx.runs.retry_for(entry_id)
+    if retry is None or row is None:
+        return reasons, "" if reasons else f"ok {entry_id}"
+    if not reasons:
+        return [passed_with_a_retry(entry_id, retry.id)], ""
+    return [], f"{entry_id} failed, retried by {retry.id}: {'; '.join(reasons)}"
+
+
+def passed_with_a_retry(entry_id: str, retry_id: str) -> str:
+    return (
+        f"{entry_id} passes its check, and {plan.RETRIES} names {retry_id} as its "
+        "retry: only a failed entry is retried (owner ruling, 2026-09-15)"
+    )
+
+
+def check(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -> list[str]:
+    """The stop-and-ask reasons for one entry; empty when it may go on."""
+    return verdict(ctx, host, entry_id, run_id)[0]
 
 
 def _utc(text: str) -> datetime:
@@ -575,6 +609,8 @@ class Collected:
     rooms: dict[str, int] = field(default_factory=dict)
     moves: list[dict[str, Any]] = field(default_factory=list)
     rigs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: Failed entries kept as data points, each counted by its retry instead.
+    failed: set[str] = field(default_factory=set)
 
 
 def _median_of_samples(entry: str, name: str, figures: Mapping[str, Any], median_key: str, samples_key: str) -> tuple[float, list[float]]:
@@ -597,11 +633,27 @@ def collect(ctx: Context) -> Collected:
     for rig in sorted({e.rig for e in entries}):
         prior: list[dict[str, Any]] = []
         for entry in (e for e in entries if e.rig == rig):
+            retry = ctx.runs.retry_for(entry.id)
+            row = ctx.runs.logged(entry.id)
             try:
                 run = gather(ctx, entry)
             except MissingError as exc:
-                raise AssemblyRefusedError(f"a frozen entry is missing: {exc}") from exc
-            reasons = stops(ctx, entry, run, prior)
+                if retry is None or row is None:
+                    raise AssemblyRefusedError(f"a frozen entry is missing: {exc}") from exc
+                run = {"entry": entry.id, "kind": entry.kind, "rig": entry.rig, "fleet": entry.fleet,
+                       "to": entry.to, "run": entry.run, "units": list(entry.units), "log": row}
+                reasons = [str(exc)]
+            else:
+                reasons = stops(ctx, entry, run, prior)
+            if retry is not None:
+                # A data point, and not one of the K valid runs: its retry
+                # counts in its place (owner ruling, 2026-09-15).
+                if not reasons:
+                    raise AssemblyRefusedError(passed_with_a_retry(entry.id, retry.id))
+                run |= {"retried_by": retry.id, "check": reasons}
+                out.failed.add(entry.id)
+                out.runs[entry.id] = run
+                continue
             if reasons:
                 raise AssemblyRefusedError(f"{entry.id} fails its check: {'; '.join(reasons)}")
             prior.append(run)
@@ -631,7 +683,7 @@ def collect(ctx: Context) -> Collected:
 def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> None:
     from mcgyvr.fleet.lock import _combination_id_for
 
-    entries = [e for e in ctx.runs.entries if e.rig == rig and e.kind != "move"]
+    entries = [e for e in ctx.runs.entries if e.rig == rig and e.kind != "move" and e.id not in out.failed]
     for fleet_name in dict.fromkeys(e.fleet for e in entries):
         mine = [e for e in entries if e.fleet == fleet_name]
         names = list(next(e for e in mine if e.kind in ("unit", "serve-up")).units)
@@ -735,7 +787,7 @@ def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> Non
 
 
 def _moves(ctx: Context, rig: str, out: Collected) -> None:
-    entries = [e for e in ctx.runs.entries if e.rig == rig and e.kind == "move"]
+    entries = [e for e in ctx.runs.entries if e.rig == rig and e.kind == "move" and e.id not in out.failed]
     for key in dict.fromkeys((e.fleet, e.to) for e in entries):
         mine = [e for e in entries if (e.fleet, e.to) == key]
         if len(mine) < plan.K:
@@ -912,12 +964,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         ctx = Context.load(root, args.use, args.journal or None)
         if args.command == "check":
-            reasons = check(ctx, args.host, args.entry, args.run_id or None)
+            reasons, said = verdict(ctx, args.host, args.entry, args.run_id or None)
             for reason in reasons:
                 print(reason)
             if reasons:
                 return 1
-            print(f"ok {args.entry}")
+            print(said)
         elif args.command == "assemble":
             evidence, runs, lines = assemble(ctx)
             _dump(root / "fleet-setup" / "evidence.json", evidence)
