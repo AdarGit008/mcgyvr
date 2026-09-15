@@ -247,6 +247,11 @@ ALLOWED: dict[str, str] = {
         "stub standing under RUN_BIN, and finds the move shell's `docker run -d` "
         "in the stub's call log; reaches no rig"
     ),
+    "tests/test_lock_fleets_files_an_exit_cause_and_one_diagnostic_start.py": (
+        "runs lock-fleets' unit step under a fake door with an ssh and a docker "
+        "stub standing under RUN_BIN, which answer the container's State and the "
+        "rig's kernel log from files the test writes; reaches no rig"
+    ),
 }
 
 DECILES = re.compile(r"^\s*PROMPT_DECILES\s*=")

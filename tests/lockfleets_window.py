@@ -302,6 +302,22 @@ class Window:
         self.write(self.runs.entry(made["rerun_entry"]), change, log=log)
         return made
 
+    def diagnose(
+        self, entry_id: str, change: Change | None = None, log: bool = True
+    ) -> dict[str, str]:
+        """``plan.py diagnose`` for a logged failed retry, then the diagnostic
+        start's run written as a window would leave it."""
+        made: dict[str, str] = self.plan.diagnose(
+            self.root,
+            USE,
+            entry_id,
+            "a made-up death at warm-up",
+            journal=str(self.journal),
+        )
+        self.reload()
+        self.write(self.runs.entry(made["diagnostic_entry"]), change, log=log)
+        return made
+
     def write_all(
         self,
         change: Mapping[str, Change] | None = None,

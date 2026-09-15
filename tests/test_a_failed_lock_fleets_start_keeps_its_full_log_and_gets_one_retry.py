@@ -482,7 +482,7 @@ def test_srv2_01_of_rig_id_relock_has_its_one_retry_committed() -> None:
     plan = plan_module()
     runs = plan.read_runs(REPO, "rig-id-relock")
     srv2 = [e.id for e in runs.entries if e.rig == "srv2"]
-    assert srv2[:3] == ["srv2-01", "srv2-01-retry1", "srv2-02"]
+    assert srv2[:2] == ["srv2-01", "srv2-01-retry1"]
     derived, text = plan.derive_retry("rig-id-relock", runs.entry("srv2-01"))
     assert derived == {
         "retry_entry": "srv2-01-retry1",

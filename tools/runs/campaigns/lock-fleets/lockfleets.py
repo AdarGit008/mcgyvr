@@ -606,6 +606,98 @@ def _common(state: Path, door: Door) -> dict[str, Any]:
     }
 
 
+def _rc(state: Path, name: str) -> int | None:
+    text = (_text(state, name) or "").strip()
+    return int(text) if text.lstrip("-").isdigit() else None
+
+
+def _first_line(text: object) -> str:
+    return (
+        str(text or "").strip().splitlines()[0][:300] if str(text or "").strip() else ""
+    )
+
+
+def exit_cause(state: Path) -> dict[str, Any] | None:
+    """What a unit step that failed after ``docker run`` read of why its
+    container stopped, before anything removed it (owner ruling, 2026-09-15:
+    "Fix PR, then one diagnostic start"); ``None`` when the step read nothing.
+
+    ``state`` is the container's ``docker inspect`` State, whole, as the door's
+    docker shim printed it. ``kernel_log`` is the rig's ``journalctl -k`` from
+    the START marker (``kernel_log_since``) to now, over the door's ssh shim,
+    run as ``kernel_log_command``. A read that failed is filed as
+    ``state_error`` or ``kernel_log_error``, with its exit code and what it
+    said; what journalctl said on stderr beside a log it printed (a permission
+    hint says the log is partial) is ``kernel_log_stderr``. Filed, never judged.
+    """
+    state_rc, kernel_rc = _rc(state, "exit-state-rc"), _rc(state, "kernel-log-rc")
+    if state_rc is None and kernel_rc is None:
+        return None
+    printed = (_text(state, "exit-state") or "").strip()
+    parsed: dict[str, Any] | None = None
+    state_error: str | None = None
+    if state_rc == 0:
+        try:
+            doc = json.loads(printed)
+        except ValueError:
+            doc = None
+        if isinstance(doc, dict):
+            parsed = doc
+        else:
+            state_error = f"docker inspect printed no State object: {printed[:2000]!r}"
+    else:
+        said = (_text(state, "exit-state-err") or "").strip() or printed
+        state_error = f"docker inspect exited {state_rc}: {said}"
+    log = _text(state, "kernel-log")
+    stderr = (_text(state, "kernel-log-err") or "").strip()
+    since = (_text(state, "start_epoch") or "").strip()
+    return {
+        "state": parsed,
+        "state_error": state_error,
+        "kernel_log_command": (_text(state, "kernel-log-command") or "").strip()
+        or None,
+        "kernel_log_since": (
+            datetime.fromtimestamp(int(since), UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if since.isdigit()
+            else None
+        ),
+        "kernel_log": log if kernel_rc == 0 else None,
+        "kernel_log_error": (
+            None
+            if kernel_rc == 0
+            else f"the kernel log read exited {kernel_rc}: "
+            f"{stderr or (log or '').strip()}"
+        ),
+        "kernel_log_stderr": (stderr or None) if kernel_rc == 0 else None,
+    }
+
+
+def exit_said(cause: Mapping[str, Any]) -> str:
+    """The failure line's words for an exit cause: the exit code and OOMKilled,
+    State.Error when it names one, and whether the kernel log was read."""
+    state = cause.get("state")
+    if isinstance(state, Mapping):
+        said = (
+            f"exit code {state.get('ExitCode')}, "
+            f"OOMKilled {json.dumps(state.get('OOMKilled'))}"
+        )
+        if state.get("Error"):
+            said += f", State.Error {state['Error']!r}"
+    else:
+        said = (
+            "exit code and OOMKilled not read "
+            f"({_first_line(cause.get('state_error'))})"
+        )
+    if cause.get("kernel_log_error"):
+        kernel = (
+            "the rig's kernel log since START not read "
+            f"({_first_line(cause['kernel_log_error'])})"
+        )
+    else:
+        kernel = "the rig's kernel log since START read"
+    return f"{said}; {kernel}; both filed in the artifact's exit"
+
+
 def write_unit(state: Path, out: Path, door: Door) -> None:
     """``_unit.sh``'s artifact, whole, from what the step left in ``state``."""
     facts = json.loads(_text(state, "unit.json") or "{}")
@@ -628,6 +720,7 @@ def write_unit(state: Path, out: Path, door: Door) -> None:
             "harness": _json_or_raw(_text(state, "harness.json")),
             "load": _json_or_raw(_text(state, "load.json")),
             "restarts": int(restarts) if restarts.isdigit() else None,
+            "exit": exit_cause(state),
         },
     )
 
@@ -903,6 +996,8 @@ def main(argv: list[str]) -> int:
             write_move(Path(args[0]), Path(args[1]), door)
         elif command == "keep-log" and len(args) == 4:
             print(keep_log(Path(args[0]), Path(args[1]), args[2], args[3]))
+        elif command == "exit-said" and len(args) == 1:
+            print(exit_said(exit_cause(Path(args[0])) or {}))
         else:
             print(
                 f"lockfleets.py: no command {command!r} of {len(args)}", file=sys.stderr

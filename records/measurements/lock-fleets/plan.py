@@ -38,6 +38,11 @@ ONE extra cold start for room (owner ruling, 2026-09-15), ``plan.py rerun``,
 listed under ``reruns`` in the same file and placed the same way. The entry
 stays valid for decode and prefill; its re-run gives room and the card peak.
 
+A logged failed retry of a unit entry gets ONE diagnostic start (owner ruling,
+2026-09-15: "Fix PR, then one diagnostic start"), ``plan.py diagnose``, listed
+under ``diagnostics`` and placed right after the failed retry. A passing one
+stands in for the failed entry as a passing retry would.
+
 It sits under records/measurements/ with the lock's last assembler
 (``records/measurements/fleet-setup-2026-09-13/srv2/assemble_evidence.py``) and
 the quick check's driver (``records/measurements/quick-check-2026-09-15/``):
@@ -116,11 +121,12 @@ RETRY_RULING = {
     ),
 }
 RETRIES_DOC = (
-    "One retry per failed entry of this use, and one extra cold start for room per "
-    "passing unit entry whose load was not sampled until idle. Written by "
-    "records/measurements/lock-fleets/plan.py retry and rerun, which refuse any "
-    "entry their ruling does not allow; read by plan.py read_runs, which places "
-    "each immediately after its entry in that rig's order."
+    "One retry per failed entry of this use, one extra cold start for room per "
+    "passing unit entry whose load was not sampled until idle, and one diagnostic "
+    "start per failed retry of a unit entry. Written by "
+    "records/measurements/lock-fleets/plan.py retry, rerun and diagnose, which "
+    "refuse any entry their ruling does not allow; read by plan.py read_runs, which "
+    "places each immediately after its entry in that rig's order."
 )
 #: A re-run's entry id, wrapper stem and artifact stem: the entry's, and this.
 RERUN_SUFFIX = "-rerun1"
@@ -134,6 +140,24 @@ RERUN_RULING = {
         "start, with its own wrapper and artifact. The entry stays a valid run and "
         "gives decode and prefill; its re-run, sampled until idle, gives room and "
         "the card peak, and the entry's 30-s peak is kept as a lower bound."
+    ),
+}
+#: A diagnostic start's entry id, wrapper stem and artifact stem: the retried
+#: entry's, and this.
+DIAGNOSTIC_SUFFIX = "-diag1"
+DIAGNOSTIC_RULING = {
+    "by": "owner",
+    "on": "2026-09-15",
+    "said": "Fix PR, then one diagnostic start",
+    "rule": (
+        "A logged failed retry of a unit entry gets ONE diagnostic start, "
+        "<entry>-diag1, placed immediately after the failed retry in that rig's "
+        "order: the same unit, cold start and door command, with its own wrapper "
+        "and artifact, started once a failed start files its exit cause. If it "
+        "passes its check it stands in for the failed entry exactly as a passing "
+        "retry would; if it fails, the driver stops. It gets no retry, re-run or "
+        "second diagnostic start, and the failed entry and its retry are kept as "
+        "data points."
     ),
 }
 
@@ -224,10 +248,13 @@ class Entry:
     retry_of: str = ""
     #: The passing entry this one is the extra cold start for room of, or ``""``.
     rerun_of: str = ""
+    #: The failed retry this one is the diagnostic start after, or ``""``.
+    diagnostic_of: str = ""
 
     @property
     def rig(self) -> str:
-        return (self.retry_of or self.rerun_of or self.id).rsplit("-", 1)[0]
+        retried = self.diagnostic_of.removesuffix(RETRY_SUFFIX)
+        return (self.retry_of or self.rerun_of or retried or self.id).rsplit("-", 1)[0]
 
     @property
     def wrapper(self) -> str:
@@ -714,6 +741,11 @@ class Runs:
         """The one extra cold start ``retries.json`` gives ``entry_id``, or ``None``."""
         return next((e for e in self.entries if e.rerun_of == entry_id), None)
 
+    def diagnostic_for(self, entry_id: str) -> Entry | None:
+        """The one diagnostic start ``retries.json`` gives the failed retry
+        ``entry_id``, or ``None``."""
+        return next((e for e in self.entries if e.diagnostic_of == entry_id), None)
+
 
 def _cells(line: str) -> list[str]:
     inner = line.strip()[1:-1]
@@ -780,12 +812,16 @@ def retries_path(root: Path, use: str) -> Path:
     return use_dir(root, use) / RETRIES
 
 
+#: The lists ``retries.json`` holds, each written by its own ``plan.py`` command.
+EXTRAS = ("retries", "reruns", "diagnostics")
+
+
 def load_extras(root: Path, use: str) -> dict[str, list[dict[str, str]]]:
-    """``<use>/retries.json``'s ``retries`` and ``reruns``, or none of either when
-    there is no such file."""
+    """``<use>/retries.json``'s ``retries``, ``reruns`` and ``diagnostics``, or
+    none of any when there is no such file."""
     path = retries_path(root, use)
     if not path.is_file():
-        return {"retries": [], "reruns": []}
+        return {key: [] for key in EXTRAS}
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -793,7 +829,7 @@ def load_extras(root: Path, use: str) -> dict[str, list[dict[str, str]]]:
     if not isinstance(doc, dict) or doc.get("use") != use:
         raise PlanRefusedError(f"{path} does not list the retries of use {use}")
     out: dict[str, list[dict[str, str]]] = {}
-    for key in ("retries", "reruns"):
+    for key in EXTRAS:
         records = doc.get(key, [])
         if not isinstance(records, list):
             raise PlanRefusedError(f"{path}: {key} is not a list")
@@ -801,8 +837,17 @@ def load_extras(root: Path, use: str) -> dict[str, list[dict[str, str]]]:
     return out
 
 
+def _is_a_diagnostic(entry: Entry) -> str:
+    return (
+        f"{entry.id} is itself a diagnostic start of {entry.diagnostic_of}: it gets "
+        "no retry, re-run or second diagnostic start"
+    )
+
+
 def _not_an_extra(entry: Entry) -> None:
-    """A retry or a re-run gets no retry or re-run of its own."""
+    """A retry, a re-run or a diagnostic start gets no retry or re-run of its own."""
+    if entry.diagnostic_of:
+        raise PlanRefusedError(_is_a_diagnostic(entry))
     if entry.retry_of:
         raise PlanRefusedError(
             f"{entry.id} is itself a retry of {entry.retry_of}: a failed retry gets "
@@ -816,14 +861,17 @@ def _not_an_extra(entry: Entry) -> None:
 
 
 def _extra(
-    use: str, entry: Entry, suffix: str, key: str, said: str
+    use: str, entry: Entry, suffix: str, key: str, said: str, *, strip: str = ""
 ) -> tuple[dict[str, str], str]:
     """An extra entry of ``entry``: its id, artifact and wrapper path under
-    ``suffix``, and the wrapper's text. Same entry, same bytes."""
+    ``suffix``, named from ``entry``'s with ``strip`` taken off, and the
+    wrapper's text. Same entry, same bytes."""
     wrapper = Path(entry.wrapper)
-    step = wrapper.with_name(f"{wrapper.stem}{suffix}{wrapper.suffix}")
-    artifact = f"{Path(entry.artifact).stem}{suffix}.json"
-    extra_id = f"{entry.id}{suffix}"
+    step = wrapper.with_name(
+        f"{wrapper.stem.removesuffix(strip)}{suffix}{wrapper.suffix}"
+    )
+    artifact = f"{Path(entry.artifact).stem.removesuffix(strip)}{suffix}.json"
+    extra_id = f"{entry.id.removesuffix(strip)}{suffix}"
     text, body, args = _step_words(
         entry.kind, entry.rig, entry.run, entry.fleet, entry.to, entry.units[0]
     )
@@ -865,49 +913,109 @@ def derive_rerun(use: str, entry: Entry) -> tuple[dict[str, str], str]:
     )
 
 
+def derive_diagnostic(use: str, entry: Entry) -> tuple[dict[str, str], str]:
+    """The one diagnostic start after the failed retry ``entry`` (owner ruling,
+    2026-09-15: "Fix PR, then one diagnostic start"), as :func:`derive_retry`
+    gives a retry: ``<retried entry>-diag1``, its wrapper and artifact named from
+    the retried entry's. Same retry, same bytes.
+
+    Only a retry of a unit entry gets one; any other entry, a re-run and a
+    diagnostic start get none.
+    """
+    if entry.diagnostic_of:
+        raise PlanRefusedError(_is_a_diagnostic(entry))
+    if not entry.retry_of:
+        raise PlanRefusedError(
+            f"{entry.id} is not a retry: only a failed retry gets a diagnostic start"
+        )
+    if entry.kind != "unit":
+        raise PlanRefusedError(
+            f"{entry.id} is a {entry.kind} entry: only a failed retry of a unit entry "
+            "gets a diagnostic start"
+        )
+    return _extra(
+        use,
+        entry,
+        DIAGNOSTIC_SUFFIX,
+        "diagnostic_entry",
+        "the one diagnostic start after the failed retry",
+        strip=RETRY_SUFFIX,
+    )
+
+
+def _named_as_derived(
+    record: Mapping[str, str], derived: Mapping[str, str], entry_id: str
+) -> None:
+    named = {name: record.get(name) for name in derived}
+    if named != derived:
+        raise PlanRefusedError(
+            f"{RETRIES} names {named} for {entry_id}, and plan.py derives {derived}"
+        )
+
+
+def _extra_entry(entry: Entry, derived: Mapping[str, str], **of: str) -> Entry:
+    """The extra entry ``derived`` names, placed after ``entry``: its door command
+    with only the step path changed."""
+    argv = list(entry.argv)
+    argv[argv.index("--step") + 1] = derived["step"]
+    return Entry(
+        id=next(derived[k] for k in ("retry_entry", "rerun_entry", "diagnostic_entry") if k in derived),
+        kind=entry.kind,
+        fleet=entry.fleet,
+        to=entry.to,
+        units=entry.units,
+        run=entry.run,
+        artifact=derived["artifact"],
+        argv=tuple(argv),
+        **of,
+    )
+
+
 def _with_extras(
     runs: Runs, extras: Mapping[str, Sequence[Mapping[str, str]]], use: str
 ) -> list[Entry]:
-    """The frozen order with each retry or re-run right after its entry."""
+    """The frozen order with each retry or re-run right after its entry, and each
+    diagnostic start right after its failed retry."""
     derive = {"retries": derive_retry, "reruns": derive_rerun}
     placed: dict[str, tuple[str, dict[str, str]]] = {}
-    for key, records in extras.items():
-        for record in records:
+    for key in ("retries", "reruns"):
+        for record in extras.get(key, ()):
             entry = runs.entry(record.get("entry", ""))
             derived, _ = derive[key](use, entry)
             if entry.id in placed:
                 raise PlanRefusedError(
                     f"{RETRIES} names {entry.id} twice: one retry or re-run per entry"
                 )
-            named = {name: record.get(name) for name in derived}
-            if named != derived:
-                raise PlanRefusedError(
-                    f"{RETRIES} names {named} for {entry.id}, and plan.py derives {derived}"
-                )
+            _named_as_derived(record, derived, entry.id)
             placed[entry.id] = (key, derived)
     out: list[Entry] = []
     for entry in runs.entries:
         out.append(entry)
-        if entry.id not in placed:
-            continue
-        key, derived = placed[entry.id]
-        argv = list(entry.argv)
-        argv[argv.index("--step") + 1] = derived["step"]
-        out.append(
-            Entry(
-                id=derived.get("retry_entry") or derived["rerun_entry"],
-                kind=entry.kind,
-                fleet=entry.fleet,
-                to=entry.to,
-                units=entry.units,
-                run=entry.run,
-                artifact=derived["artifact"],
-                argv=tuple(argv),
-                retry_of=entry.id if key == "retries" else "",
-                rerun_of=entry.id if key == "reruns" else "",
+        if entry.id in placed:
+            key, derived = placed[entry.id]
+            of = {"retry_of" if key == "retries" else "rerun_of": entry.id}
+            out.append(_extra_entry(entry, derived, **of))
+    diagnosed: dict[str, dict[str, str]] = {}
+    for record in extras.get("diagnostics", ()):
+        wanted = record.get("entry", "")
+        retry = next((e for e in out if e.id == wanted), None)
+        if retry is None:
+            raise PlanRefusedError(f"{runs.path} has no entry {wanted}")
+        derived, _ = derive_diagnostic(use, retry)
+        if retry.id in diagnosed:
+            raise PlanRefusedError(
+                f"{RETRIES} names {retry.id} twice: one diagnostic start per failed retry"
             )
-        )
-    return out
+        _named_as_derived(record, derived, retry.id)
+        diagnosed[retry.id] = derived
+    final: list[Entry] = []
+    for entry in out:
+        final.append(entry)
+        if entry.id in diagnosed:
+            final.append(
+                _extra_entry(entry, diagnosed[entry.id], diagnostic_of=entry.id)
+            )
+    return final
 
 
 def insert_row(path: Path, section: str, cells: Sequence[str]) -> None:
@@ -1075,6 +1183,46 @@ def rerun(
     return _write_extra(root, use, "reruns", record, text)
 
 
+def diagnose(
+    root: Path,
+    use: str,
+    entry_id: str,
+    reason: str,
+    *,
+    log_from: Path | None = None,
+    journal: str | None = None,
+) -> dict[str, str]:
+    """Give the logged failed retry ``entry_id`` its one diagnostic start (owner
+    ruling, 2026-09-15: "Fix PR, then one diagnostic start").
+
+    Refused unless the entry is a retry of a unit entry (:func:`derive_diagnostic`),
+    has no diagnostic start yet, is logged and fails ``assemble_evidence.py
+    check``. Writes ``<use>/retries.json``'s ``diagnostics`` and the diagnostic
+    start's wrapper under ``root``; ``log_from`` is as :func:`retry` reads it.
+    """
+    if not reason.strip():
+        raise PlanRefusedError("a diagnostic start names its reason (--reason)")
+    runs = read_runs(root, use)
+    entry = runs.entry(entry_id)
+    derived, text = derive_diagnostic(use, entry)
+    existing = runs.diagnostic_for(entry_id)
+    if existing is not None:
+        raise PlanRefusedError(
+            f"{entry_id} already has a diagnostic start, {existing.id}: one per "
+            "failed retry"
+        )
+    asm, ctx = _logged_context(
+        root, use, runs, entry_id, log_from, journal, "a diagnostic start"
+    )
+    reasons, _ = asm.verdict(ctx, entry.rig, entry_id)
+    if not reasons:
+        raise PlanRefusedError(
+            f"{entry_id} passes its check: only a failed retry gets a diagnostic start"
+        )
+    record = {"entry": entry_id, "reason": reason, **derived}
+    return _write_extra(root, use, "diagnostics", record, text)
+
+
 def _logged_context(
     root: Path,
     use: str,
@@ -1093,11 +1241,21 @@ def _logged_context(
     except asm.AssemblyRefusedError as exc:
         raise PlanRefusedError(str(exc)) from exc
     if log_from is not None:
-        ours = [astuple(e) for e in runs.entries if not (e.retry_of or e.rerun_of)]
-        theirs = [
-            astuple(e) for e in ctx.runs.entries if not (e.retry_of or e.rerun_of)
+        ours = [
+            astuple(e)
+            for e in runs.entries
+            if not (e.retry_of or e.rerun_of or e.diagnostic_of)
         ]
-        there = ctx.runs.retry_for(entry_id) or ctx.runs.rerun_for(entry_id)
+        theirs = [
+            astuple(e)
+            for e in ctx.runs.entries
+            if not (e.retry_of or e.rerun_of or e.diagnostic_of)
+        ]
+        there = (
+            ctx.runs.retry_for(entry_id)
+            or ctx.runs.rerun_for(entry_id)
+            or ctx.runs.diagnostic_for(entry_id)
+        )
         if ours != theirs or there is not None:
             raise PlanRefusedError(
                 f"the log in {where} is of another frozen order of {use} than "
@@ -1126,6 +1284,8 @@ def _write_extra(
         "retries": extras["retries"],
         "rerun_ruling": RERUN_RULING,
         "reruns": extras["reruns"],
+        "diagnostic_ruling": DIAGNOSTIC_RULING,
+        "diagnostics": extras["diagnostics"],
     }
     wrapper.write_text(text, encoding="utf-8")
     wrapper.chmod(0o755)
@@ -1191,6 +1351,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     one.add_argument("--journal", default="")
     one = sub.add_parser("rerun")
+    for name in ("--use", "--entry", "--reason"):
+        one.add_argument(name, required=True)
+    one.add_argument("--log-from", default="")
+    one.add_argument("--journal", default="")
+    one = sub.add_parser("diagnose")
     for name in ("--use", "--entry", "--reason"):
         one.add_argument(name, required=True)
     one.add_argument("--log-from", default="")
@@ -1267,6 +1432,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"{made['entry']} passed with a load not sampled until idle; its one "
                 f"extra cold start for room {made['rerun_entry']} is the entry after "
                 f"it: {made['step']} declares {made['artifact']}"
+            )
+        elif args.command == "diagnose":
+            made = diagnose(
+                root,
+                args.use,
+                args.entry,
+                args.reason,
+                log_from=Path(args.log_from) if args.log_from else None,
+                journal=args.journal or None,
+            )
+            print(
+                f"{made['entry']} is a failed retry; its one diagnostic start "
+                f"{made['diagnostic_entry']} is the entry after it: {made['step']} "
+                f"declares {made['artifact']}"
             )
     except PlanRefusedError as exc:
         print(f"plan.py: REFUSED — {exc}", file=sys.stderr)
