@@ -329,6 +329,8 @@ class Recorded:
 
     observed: Observed
     probed: dict[str, dict[str, float]] = field(default_factory=dict)
+    #: unit name -> every sample its probe took, by field (owner ruling N7).
+    samples: dict[str, dict[str, list[float]]] = field(default_factory=dict)
     busy: dict[str, int] = field(default_factory=dict)
     contended: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
@@ -569,7 +571,13 @@ def _measure_probe(
         why = answer.get("error")
         done.failed[name] = f"the harness on the rig could not measure: {why}"
         return None
-    done.probed[name] = {str(k): float(v) for k, v in answer["figures"].items()}
+    figures = answer["figures"]
+    done.probed[name] = {
+        str(k): float(v) for k, v in figures.items() if not isinstance(v, list)
+    }
+    done.samples[name] = {
+        str(k): [float(s) for s in v] for k, v in figures.items() if isinstance(v, list)
+    }
     return answer
 
 
@@ -586,7 +594,14 @@ def _file_probe(
     unit_id = str(unit["unit_id"])
     figures = filing.done.probed[name]
     after = status_busy(engine_of(unit), answer.get("after_page"))
-    if after is None or after > 0:
+    contended = after is None or after > 0
+    # Every sample beside its median (owner ruling N7): filed, never judged.
+    for field_name, samples in filing.done.samples.get(name, {}).items():
+        values: dict[str, Any] = {"field": field_name, "observed": samples}
+        if contended:
+            values |= {"contended": True, "in_flight_after": after}
+        filing.record(unit_id, values)
+    if contended:
         filing.done.contended.append(name)
         for field_name, value in figures.items():
             filing.record(

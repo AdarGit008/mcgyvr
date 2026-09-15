@@ -30,7 +30,7 @@ import time
 import urllib.request
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol, overload
 
 #: The word the door's ``read --probe`` names this harness by on the rig.
 HARNESS_WORD = "mcgyvr-harness"
@@ -123,10 +123,38 @@ def _timing(body: Any, key: str) -> float | None:
     return float(value)
 
 
+@overload
 def measure_vllm(
-    address: str, transport: Transport, clock: Callable[[], float]
-) -> dict[str, float]:
-    """``measure_vllm.py``'s decode and prefill, asked of the unit at ``address``."""
+    address: str,
+    transport: Transport,
+    clock: Callable[[], float],
+    *,
+    with_samples: Literal[False] = ...,
+) -> dict[str, float]: ...
+
+
+@overload
+def measure_vllm(
+    address: str,
+    transport: Transport,
+    clock: Callable[[], float],
+    *,
+    with_samples: Literal[True],
+) -> dict[str, Any]: ...
+
+
+def measure_vllm(
+    address: str,
+    transport: Transport,
+    clock: Callable[[], float],
+    *,
+    with_samples: bool = False,
+) -> dict[str, Any]:
+    """``measure_vllm.py``'s decode and prefill, asked of the unit at ``address``.
+
+    With ``with_samples``, every sample is kept beside its median, in the order
+    taken (owner ruling N7): ``decode_samples`` and ``prefill_samples``.
+    """
     base = address.rstrip("/")
     listing = transport.get(f"{base}/v1/models", MODELS_TIMEOUT_S)
     try:
@@ -171,14 +199,36 @@ def measure_vllm(
         if tokens is not None and seconds > 0:
             prefill.append(tokens / seconds)
 
-    return {
+    figures: dict[str, Any] = {
         "warm_decode_tok_s": _median(decode, "decode"),
         "prefill_tok_s": _median(prefill, "prefill"),
     }
+    if with_samples:
+        figures["decode_samples"] = list(decode)
+        figures["prefill_samples"] = list(prefill)
+    return figures
 
 
-def measure_llamacpp(address: str, transport: Transport) -> dict[str, float]:
-    """``harness_llama.py``'s decode and prefill, asked of the unit at ``address``."""
+@overload
+def measure_llamacpp(
+    address: str, transport: Transport, *, with_samples: Literal[False] = ...
+) -> dict[str, float]: ...
+
+
+@overload
+def measure_llamacpp(
+    address: str, transport: Transport, *, with_samples: Literal[True]
+) -> dict[str, Any]: ...
+
+
+def measure_llamacpp(
+    address: str, transport: Transport, *, with_samples: bool = False
+) -> dict[str, Any]:
+    """``harness_llama.py``'s decode and prefill, asked of the unit at ``address``.
+
+    With ``with_samples``, every sample is kept beside its median, in the order
+    taken (owner ruling N7): ``decode_samples`` and ``prefill_samples``.
+    """
     url = f"{address.rstrip('/')}/completion"
     transport.post(
         url,
@@ -215,10 +265,14 @@ def measure_llamacpp(address: str, transport: Transport) -> dict[str, float]:
         rate = _timing(body, "prompt_per_second")
         if rate is not None:
             prefill.append(rate)
-    return {
+    figures: dict[str, Any] = {
         "warm_decode_tok_s": _median(decode, "decode"),
         "prefill_tok_s": _median(prefill, "prefill"),
     }
+    if with_samples:
+        figures["decode_samples"] = list(decode)
+        figures["prefill_samples"] = list(prefill)
+    return figures
 
 
 def _page(url: str) -> str | None:
@@ -242,9 +296,9 @@ def on_the_rig(spec: Mapping[str, Any]) -> dict[str, Any]:
     address = f"http://127.0.0.1:{port}"
     transport = HttpTransport()
     if engine == "vllm":
-        figures = measure_vllm(address, transport, time.perf_counter)
+        figures = measure_vllm(address, transport, time.perf_counter, with_samples=True)
     else:
-        figures = measure_llamacpp(address, transport)
+        figures = measure_llamacpp(address, transport, with_samples=True)
     path = STATUS_PATHS.get(engine, STATUS_PATHS["llama.cpp"])
     return {"figures": figures, "after_page": _page(f"{address}{path}")}
 
