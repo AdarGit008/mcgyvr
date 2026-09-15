@@ -2,15 +2,20 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com).
 
+Paths in older entries are where files were when the entry was written.
+`docs/` moved to `archive/docs/` (#395); most of `archive/` and
+`records/plans/` now live in the private repository AdarGit008/mcgyvr-lab,
+under the same paths.
+
 ## [Unreleased]
 
 ### Added
 - Repo founded. Scope of record is the issue tree; forks and rationale in
-  `docs/decisions/`.
+  `archive/docs/archive/decisions/`.
 - Decision `0001-founding-scope-and-boundaries` — what mcgyvr is, the
   boundaries it holds, and what it deliberately does not do.
 - Vendored `baseline-skill` 2.5.0 at `tools/baseline/`, pinned by
-  `tools/baseline.lock.json`.
+  `tools/baseline.lock.json`. Both were removed in fc7cf9f0.
 - Capability table (`data/capability-table.json`) — measured local-model
   quality and throughput, with per-measurement provenance and the harness
   caveats that make some published numbers unusable.
