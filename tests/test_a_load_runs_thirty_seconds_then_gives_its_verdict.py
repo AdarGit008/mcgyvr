@@ -33,6 +33,16 @@ seconds from the close (or the finish) to the first idle reading; ``idle_after``
 stays the final reading. A status page that cannot be read at all is filed as
 ``idle_error`` and ends the wait.
 
+Owner ruling, 2026-09-15: "Sample the card until idle". Closing a request at
+30 s did not stop llama.cpp b10644: ``rig-id-relock``'s srv1-01 read idle 104.3 s
+after the close, and all 58 of its card samples were taken before it. So after
+the close the card is sampled beside every status reading, up to and including
+the first idle one. ``samples`` holds every sample, ``samples_before_close`` is
+how many came before the close, and ``sampled_until_idle`` says whether they run
+through to an idle reading; an unreadable status page still ends the wait, short
+of idle. The verdict is the peak over every sample, and the peak of the samples
+before the close is filed beside it as ``peak_before_close_mib``.
+
 So nothing outside the load holds it either (R1, under NB5 and NBc): the door's
 ssh that runs a load's harness on the rig carries no timeout, while a probe's
 keeps ``PROBE_TIMEOUT_S`` and the rig reading keeps ``READ_TIMEOUT_S``.
@@ -48,7 +58,7 @@ import importlib.util
 import json
 import subprocess
 import threading
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import ModuleType
@@ -204,8 +214,31 @@ def spec(pace_path: str | None = "/metrics", engine: str = "vllm") -> dict[str, 
     }
 
 
+class RisingCard:
+    """The card as the rig reads it, the container holding more once the close
+    has not stopped the unit's work: ``before`` MiB for the first ``closed_at``
+    readings, ``after`` MiB from then on."""
+
+    def __init__(self, before: int, after: int, closed_at: int) -> None:
+        self.mibs = (before, after)
+        self.closed_at = closed_at
+        self.readings = 0
+
+    def __call__(self, *args: str) -> str:
+        if args[0] != "--card-holders":
+            return "0\n"
+        self.readings += 1
+        mib = self.mibs[self.readings > self.closed_at]
+        return f"gpu_app=4242,{mib},{C_3B},python3\n"
+
+
 def run_load(
-    clock: Clock, starter: Starter, pages: Pages, unit: Unit | None = None, **more: Any
+    clock: Clock,
+    starter: Starter,
+    pages: Pages,
+    unit: Unit | None = None,
+    card: Callable[..., str] | None = None,
+    **more: Any,
 ) -> dict[str, Any]:
     from mcgyvr.fleet import harness
 
@@ -213,7 +246,7 @@ def run_load(
         spec(**more),
         transport=unit or Unit(),
         fetch=pages,
-        poll=poll,
+        poll=card or poll,
         start=starter,
         clock=clock,
         sleep=clock.sleep,
@@ -234,7 +267,9 @@ def test_a_load_still_running_at_thirty_seconds_is_closed_there() -> None:
     assert body["limit_s"] == 30
     assert (body["completed"], body["closed_unfinished"]) == (0, WIDTH)
     assert body["errors"] == []
-    assert len(body["samples"]) == 61, "a sample every 0.5 s over 30 s, both ends"
+    assert body["samples_before_close"] == 61, "every 0.5 s over 30 s, both ends"
+    assert len(body["samples"]) == 62, "and one beside the idle reading after"
+    assert body["sampled_until_idle"] is True
     assert body["pace_seconds"] == 30.0
     assert COUNTER in body["pace_start_page"] and "182901.0" in body["pace_start_page"]
     assert "302901.0" in body["pace_end_page"]
@@ -249,7 +284,8 @@ def test_a_load_whose_requests_finish_sooner_ends_when_they_finish() -> None:
 
     assert starter.batch is not None and starter.batch.closed_after is None
     assert (body["completed"], body["closed_unfinished"]) == (WIDTH, 0)
-    assert len(body["samples"]) == 25
+    assert body["samples_before_close"] == 25
+    assert len(body["samples"]) == 26
     assert body["pace_seconds"] == 12.0
 
 
@@ -356,6 +392,33 @@ def test_an_unreadable_status_page_is_filed_and_ends_the_wait() -> None:
     assert body["idle_after_close"] is None and body["idle_after_s"] is None
 
 
+def test_after_the_close_the_card_is_sampled_until_the_first_idle_reading() -> None:
+    clock = Clock()
+    starter = Starter(clock, finish_after=None)
+    card = RisingCard(3500, 3900, closed_at=61)
+
+    body = run_load(clock, starter, Pages(0.0, 1.0, statuses=(2, 1, 0)), card=card)
+
+    assert body["samples_before_close"] == 61
+    assert len(body["samples"]) == 61 + 3, "one beside each status reading, idle too"
+    assert body["sampled_until_idle"] is True
+    assert all(",3500," in sample for sample in body["samples"][:61])
+    assert all(",3900," in sample for sample in body["samples"][61:])
+    assert (body["idle_after_close"], body["idle_after_s"]) == (False, 1.0)
+    assert (body["closed_unfinished"], body["completed"]) == (WIDTH, 0)
+    assert body["status_readings"] == 3 and body["idle_error"] is None
+
+
+def test_an_unreadable_status_page_keeps_the_samples_taken_short_of_idle() -> None:
+    clock = Clock()
+    starter = Starter(clock, finish_after=None)
+
+    body = run_load(clock, starter, Pages(0.0, 1.0, statuses=(1, None)))
+
+    assert body["idle_error"] and body["sampled_until_idle"] is False
+    assert (body["samples_before_close"], len(body["samples"])) == (61, 63)
+
+
 class _Holding(BaseHTTPRequestHandler):
     """A unit that takes a request and never answers it."""
 
@@ -412,6 +475,9 @@ def load_answer(
     idle_after_close: bool | None = True,
     idle_after_s: float | None = 0.0,
     idle_error: str | None = None,
+    samples: Sequence[str] | None = None,
+    samples_before_close: int = 1,
+    sampled_until_idle: bool = True,
 ) -> dict[str, Any]:
     return {
         "prompt_tokens": 4032,
@@ -422,9 +488,11 @@ def load_answer(
         "errors": list(errors),
         "started_at": "2026-09-15T12:00:05",
         "finished_at": "2026-09-15T12:00:35",
-        "samples": [
-            f"gpu_app=4242,{mib},{C_3B},python3\ngpu_app=4343,7800,{C_7B},python3\n"
-        ],
+        "samples": list(samples)
+        if samples is not None
+        else [f"gpu_app=4242,{mib},{C_3B},python3\ngpu_app=4343,7800,{C_7B},python3\n"],
+        "samples_before_close": samples_before_close,
+        "sampled_until_idle": sampled_until_idle,
         "restarts_before": "0",
         "restarts_after": "0",
         "pace_path": "/metrics",
@@ -521,6 +589,32 @@ def test_a_unit_still_busy_after_the_close_files_how_long_it_took_to_read_idle(
     assert row["idle_after_close"] is False
     assert row["idle_after_s"] == 4.5
     assert row["idle_after"] is True and row["in_flight_after"] == 0
+
+
+def test_the_verdict_is_the_peak_over_every_sample_up_to_idle(tmp_path: Path) -> None:
+    journal = go_live(tmp_path)
+    before = f"gpu_app=4242,3500,{C_3B},python3\n"
+    after = f"gpu_app=4242,3600,{C_3B},python3\n"
+
+    read_srv2(LoadRig(samples=[before, before, after], samples_before_close=2))
+
+    (row,) = _load_rows(journal)
+    assert row["peak_mib"] == row["observed"] == 3600
+    assert row["peak_before_close_mib"] == 3500
+    assert (row["samples_before_close"], row["sampled_until_idle"]) == (2, True)
+    assert row["alert"] is True, "3600 MiB after the close is over the 3573 MiB room"
+
+
+def test_a_load_filed_before_sampling_until_idle_says_so(tmp_path: Path) -> None:
+    journal = go_live(tmp_path)
+    rig = LoadRig()
+    del rig.answer["samples_before_close"], rig.answer["sampled_until_idle"]
+
+    read_srv2(rig)
+
+    (row,) = _load_rows(journal)
+    assert row["sampled_until_idle"] is False
+    assert row["peak_before_close_mib"] == row["peak_mib"] == 3500
 
 
 def test_an_unreadable_status_page_after_a_load_is_filed_and_the_verdict_stands(
