@@ -101,6 +101,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from collections.abc import Iterator
@@ -368,12 +369,37 @@ def ensure_open(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, str]:
         "moved": moved,
         "files": {line.split(" ")[0]: line.split(" ")[1] for line in _lines(repo)},
     }
+    _write_rounds(path, doctrine, [*rounds, entry])
+    return str(entry["id"]), measured
+
+
+def _write_rounds(
+    path: Path, doctrine: dict[str, Any], rounds: list[dict[str, Any]]
+) -> None:
+    """Write the rounds file whole: a reader never sees half of it.
+
+    Telemetry stamping a row, the live index and gate 1 all read this file, and
+    ``write_text`` empties it at open before it fills it — so a reader in
+    between got a prefix and failed on the JSON. The document is staged beside
+    the file and swapped in by :func:`os.replace`, which a reader sees as the
+    old file or the new one. The staging name is this writer's own, as
+    ``telemetry._store_one`` stages a blob, so two doors appending at once never
+    fill one staging file between them.
+    """
     payload: dict[str, Any] = {}
     if doctrine:
         payload["doctrine"] = doctrine
-    payload["rounds"] = [*rounds, entry]
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    return str(entry["id"]), measured
+    payload["rounds"] = rounds
+    staging = path.with_name(f".{path.name}.{os.getpid()}.part")
+    try:
+        staging.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        os.replace(staging, path)
+    except BaseException:
+        # Only the file this call staged: the failure that matters is the one
+        # about to propagate, and a `.part` left in tools/bench is a file in
+        # somebody's checkout.
+        staging.unlink(missing_ok=True)
+        raise
 
 
 def declare(manifest: dict[str, Any] | Any) -> str:
@@ -491,11 +517,7 @@ def _open_cli(args: argparse.Namespace) -> int:
         "adopted": list(args.adopted),
         "files": {line.split(" ")[0]: line.split(" ")[1] for line in _lines(repo)},
     }
-    payload: dict[str, Any] = {}
-    if doctrine:
-        payload["doctrine"] = doctrine
-    payload["rounds"] = [*rounds, entry]
-    rounds_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    _write_rounds(rounds_file, doctrine, [*rounds, entry])
     print(f"opened round `{entry['id']}` at {entry['product_sha256']}")
     print(f"{len(entry['files'])} files in the surface")
     print(f"{len(entry['adopted'])} change(s) adopted at this boundary")
