@@ -15,7 +15,9 @@ that alert pulled srv1's combination.
 * A value after ``--n-cpu-moe`` that is missing or not an integer does not
   count, as a non-positive or non-int ``n_cpu_moe`` does not. It is
   ``llamacpp``, never a crash.
-* The probe's judge and the lock's NVMe check read that one class.
+* The probe's judge and the lock's NVMe check read that one class. Each judged
+  field then has its own percent for it: prefill is 1% for both llama.cpp
+  classes (owner, 2026-09-15), so the class shows in decode's 1% against 48%.
 """
 
 from __future__ import annotations
@@ -157,23 +159,28 @@ def test_a_vllm_unit_is_vllm_whatever_its_argv_holds() -> None:
 # --- its two judges ---------------------------------------------------------
 
 
-def test_the_probe_judges_b_smalls_deepseek_prefill_at_cpu_experts(
+def test_the_probe_judges_b_smalls_deepseek_decode_at_cpu_experts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """291.55 against a locked 307.11 is 5.1% under: inside CPU-experts' 48%.
-    The first live probe alerted on exactly this, at llama.cpp's 1%."""
+    """30.93 against a locked 32.56 is 5.0% under: inside CPU-experts decode's
+    48%, past llama.cpp decode's 1%. Prefill no longer tells the two apart: since
+    the owner's 2026-09-15 ruling both llama.cpp classes judge prefill at 1%, so
+    the first live probe's 291.55 alerts whichever class the argv names
+    (``tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py``)."""
     monkeypatch.setattr(probed, "FLEET", _fleet_with(B_SMALL_ARGV))
     journal = probed.live_home(tmp_path, monkeypatch)
-    report = probed.run_probe(probed.FakeUnits(probed.HOLDING | {"ds_prefill": 291.55}))
+    report = probed.run_probe(probed.FakeUnits(probed.HOLDING | {"ds_decode": 30.93}))
 
     assert report.failed == {}
     assert report.alerts == []
-    prefill = [
+    decode = [
         r
         for r in probed.rows(journal / "fleet")
-        if r["unit_id"] == probed.UNIT_DS and r["field"] == "prefill_tok_s"
+        if r["unit_id"] == probed.UNIT_DS and r["field"] == "warm_decode_tok_s"
     ]
-    assert [(r["observed"], r["alert"]) for r in prefill] == [(291.55, False)]
+    assert [(r["observed"], r["alert"], r["tolerance_pct"]) for r in decode] == [
+        (30.93, False, 48.0)
+    ]
 
 
 def test_the_locks_nvme_check_reads_cpu_experts_from_the_argv(tmp_path: Path) -> None:
