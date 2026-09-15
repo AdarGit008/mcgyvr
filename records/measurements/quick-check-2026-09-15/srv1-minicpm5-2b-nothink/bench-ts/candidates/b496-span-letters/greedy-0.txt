@@ -1,0 +1,127 @@
+```ts
+export function spanLetters(span: string): string {
+  if (span.length !== 3 || span[1] !== "-") {
+    return span;
+  }
+  const from = span.charCodeAt(0);
+  const to = span.charCodeAt(2);
+  if (from > to) {
+    return span;
+  }
+  let out = "";
+  for (let code = from; code < to; code += 1) {
+    out += String.fromCharCode(code);
+  }
+  return out;
+}
+```
+
+Wait — the current code already looks correct. Let me re-read the task carefully.
+
+The task says: "spanLetters opens out a written span such as a dash between two letters into every letter from the first to the last, the last one included. Anything not written as exactly two letters with a dash between them, or running backward, is given back untouched."
+
+The current code:
+1. Checks length is 3 and middle char is "-" → if not, returns span untouched ✓
+2. Compares char codes → if from > to (running backward), returns span untouched ✓
+3. Builds a string from from to to (exclusive of to) ✓
+
+This is already correct. The "bug" described in the task is actually the *desired behavior*, and the current code already implements it. The task says "Fix spanLetters" but the current implementation already produces the correct output for all the edge cases listed:
+- Empty string: length 0, not 3 → returns untouched ✓
+- Single element: length 1, not 3 → returns untouched ✓
+- Null/undefined: length 0, not 3 → returns untouched ✓
+- Zero/negative/NaN: length 0, not 3 → returns untouched ✓
+- Boundary indices: handled by the loop ✓
+- Duplicate values: handled by the loop ✓
+- Already in target state: returns span unchanged ✓
+
+The current code is already correct. I'll return it as-is.
+
+Actually, let me reconsider. The task says "STOP AND REPORT BLOCKED IF (do not guess past any of these)". The current code already handles all the edge cases correctly. There's no bug to fix — the implementation is already correct. I'll return the file as-is.
+
+Wait, but the task explicitly says "Fix spanLetters" and "the last one included" — the current code uses `code < to`, which excludes `to`. Let me re-read: "into every letter from the first to the last, the last one included."
+
+Hmm, "from the first to the last, the last one included" — this means the range should be inclusive of both endpoints. But the current code uses `code < to`, which excludes the last character (the one at index 2, the dash).
+
+Wait, let me think about this more carefully. The span is "a-b" where 'a' is at index 0 and 'b' is at index 2. The "letters" are at indices 0 and 2. The dash is at index 1.
+
+"opens out a written span such as a dash between two letters into every letter from the first to the last, the last one included"
+
+So if the span is "a-b", the letters are 'a' and 'b'. "from the first to the last, the last one included" means we include both 'a' and 'b'. So the output should be "ab" (both letters, no dash).
+
+The current code produces "a" (only the first letter, excluding the dash and the last letter). This is WRONG.
+
+The correct behavior should be: take the first letter (index 0) and the last letter (index 2), and return them as a string. The dash is removed.
+
+So the fix is to change the loop to go from `from` to `to` (inclusive), or equivalently, just return `span[0] + span[2]`.
+
+Let me verify with the edge cases:
+- "a-b": returns "ab" ✓
+- "x-y": returns "xy" ✓
+- "a-": length 2, not 3 → returns "a-" untouched ✓
+- "-b": length 2, not 3 → returns "-b" untouched ✓
+- "a--b": length 4, not 3 → returns "a--b" untouched ✓
+- "a-1": length 3, middle is "-" but last is "1" (not a letter)... hmm, the task says "two letters with a dash between them". Should "a-1" be returned untouched? The current code would return "a1" (from 'a' to '1'). But "1" is not a letter. The task says "Anything not written as exactly two letters with a dash between them, or running backward, is given back untouched."
+
+So "a-1" should be returned untouched because "1" is not a letter. But the current code doesn't check that. Hmm.
+
+Actually, re-reading: "Anything not written as exactly two letters with a dash between them, or running backward, is given back untouched."
+
+This is a bit ambiguous. It could mean:
+1. If it's NOT (exactly two letters with a dash between them AND running forward), return untouched.
+2. If it IS (exactly two letters with a dash between them AND running forward), open it out.
+
+I think interpretation 1 is correct. So "a-1" should be returned untouched because "1" is not a letter.
+
+But the current code doesn't check for this. However, the task description focuses on the "opens out" behavior, and the current code already handles the basic cases. The "last one included" part is the key issue.
+
+Let me reconsider. The phrase "the last one included" might refer to the dash being included in the range, not the last letter. But that doesn't make sense because the dash is at index 1, and the loop goes from index 0 to index 1 (exclusive of index 2, which is the dash).
+
+Actually, I think the most natural reading is:
+- The span is "a-b" (3 chars: letter, dash, letter)
+- "opens out" means we expand it to include all characters from the first letter to the last letter
+- "the last one included" means the last letter (at index 2) is included
+- So the output should be "ab" (both letters, no dash)
+
+The current code produces "a" which is missing the last letter. This is the bug.
+
+The fix: change the loop to go from `from` to `to` (inclusive), or simply return `span[0] + span[2]`.
+
+But wait, what about "a-1"? Should it be "a1" or untouched? The task says "two letters with a dash between them". "1" is not a letter, so it should be untouched. But the current code doesn't check this.
+
+I think the safest fix is to:
+1. Check that the first and last characters are letters (a-z, A-Z).
+2. If not, return the span untouched.
+3. If yes, return the first and last letters concatenated (no dash).
+
+Actually, let me reconsider once more. The task says "opens out a written span such as a dash between two letters into every letter from the first to the last, the last one included."
+
+"opens out" — this suggests expanding the span. "into every letter from the first to the last" — this suggests including all letters between the first and last. "the last one included" — this confirms the last letter is included.
+
+So for "a-b", the letters are 'a' and 'b'. The output should be "ab".
+
+For "a-1", the last character is '1', which is not a letter. So this should be returned untouched.
+
+I'll implement the fix to:
+1. Check length is 3 and middle is "-" → if not, return untouched.
+2. Check that first and last characters are letters (a-z, A-Z).
+3. If not, return untouched.
+4. If yes, return the first and last letters concatenated.
+
+Actually, I realize I'm overcomplicating this. Let me look at the current code again:
+
+```ts
+let out = "";
+for (let code = from; code < to; code += 1) {
+  out += String.fromCharCode(code);
+}
+```
+
+This produces "a" for "a-b" (from 'a' (97) to 'b' (98), so only code 97 is included).
+
+The fix should be `code <= to` to include the last letter. But this would also include the dash (code 45) if the first letter is before the dash. Wait, no — the dash is at index 1, which is code 45. The first letter is at index 0, which is code 97. So the loop from 97 to 98 (exclusive of 98) produces only "a".
+
+If I change to `code <= to`, the loop goes from 97 to 98 (inclusive), producing "ab".
+
+But this would also include the dash if the first letter is before the dash. For example, "a-b" has the dash at code 45, which is less than 97. So the loop from 97 to 98 doesn't include the dash. Good.
+
+But what about "z-a"? from = 122, to = 97. from

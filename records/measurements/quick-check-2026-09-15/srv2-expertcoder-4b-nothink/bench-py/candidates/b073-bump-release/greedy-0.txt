@@ -1,0 +1,27 @@
+assistant
+[FINISHING]
+Task complete.
+The correct solution is:
+```python
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+    if not isinstance(part, str):
+        raise ValueError("part must be a string")
+    if part not in ("major", "minor", "patch"):
+        raise ValueError("part must be 'major', 'minor', or 'patch'")
+    comps = version.split(".")
+    if len(comps) != 3:
+        raise ValueError("version must have exactly three dot-separated components")
+    for c in comps:
+        if not c or not c.isdigit() or len(c) > 1 and c[0] == "0":
+            raise ValueError("each component must be a non-empty non-zero-prefixed decimal integer")
+    if part == "major":
+        comps[1] = "0"
+        comps[2] = "0"
+    elif part == "minor":
+        comps[2] = "0"
+    else:
+        comps[2] = str(int(comps[2]) + 1)
+    return ".".join(comps)
+```

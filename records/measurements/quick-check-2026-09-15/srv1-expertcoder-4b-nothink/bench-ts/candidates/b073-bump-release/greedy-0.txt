@@ -1,0 +1,40 @@
+assistant
+[FINAL ANSWER]
+---
+name: bumpRelease
+description: Increments a semantic versioning release tag.
+---
+
+```ts
+function parseVersion(version: string): { major: bigint, minor: bigint, patch: bigint } {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return { major: 0n, minor: 0n, patch: 0n };
+  return {
+    major: BigInt(match[1]),
+    minor: BigInt(match[2]),
+    patch: BigInt(match[3]),
+  };
+}
+
+export function bumpRelease(version: string, part: string): string {
+  if (typeof version !== "string" || typeof part !== "string") return "";
+  const v = parseVersion(version);
+  if (v.major === 0n && v.minor === 0n && v.patch === 0n) return "";
+  const parts = part.toLowerCase();
+  if (parts !== "major" && parts !== "minor" && parts !== "patch") return "";
+  let newMajor = v.major;
+  let newMinor = v.minor;
+  let newPatch = v.patch;
+  if (parts === "major") {
+    newMajor = v.major + 1n;
+    newMinor = 0n;
+    newPatch = 0n;
+  } else if (parts === "minor") {
+    newMinor = v.minor + 1n;
+    newPatch = 0n;
+  } else {
+    newPatch = v.patch + 1n;
+  }
+  return `${newMajor.toString()}.${newMinor.toString()}.${newPatch.toString()}`;
+}
+```

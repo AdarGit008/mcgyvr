@@ -1,0 +1,26 @@
+```python
+def span_merge(spans: list) -> list:
+    if not spans:
+        return []
+    
+    # Sort spans by start time
+    sorted_spans = sorted(spans, key=lambda x: x[0])
+    
+    # Initialize result with the first span
+    result = [sorted_spans[0]]
+    
+    # Iterate over the rest of the spans
+    for current_start, current_end in sorted_spans[1:]:
+        # Get the last span in result
+        last_start, last_end = result[-1]
+        
+        # If current span overlaps or touches the last span in result
+        if current_start <= last_end:
+            # Merge them by extending the end of the last span
+            result[-1] = (last_start, max(last_end, current_end))
+        else:
+            # No overlap, add current span as a new span
+            result.append((current_start, current_end))
+    
+    return result
+```

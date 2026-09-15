@@ -1,0 +1,45 @@
+```ts
+function bumpRelease(version: string, part: string): string {
+    // Check if the input is a string
+    if (typeof version !== 'string') {
+        throw new Error('Input must be a string');
+    }
+
+    // Check if the input is exactly three components
+    if (version.split('.').length !== 3) {
+        throw new Error('Input must be exactly three components');
+    }
+
+    // Check if the component value has an upper bound
+    if (part === 'major' && version.split('.').includes('9')) {
+        throw new Error('Cannot advance major on 2.9.4');
+    } else if (part === 'minor' && version.split('.').includes('9')) {
+        throw new Error('Cannot advance minor on 2.9.4');
+    } else if (part === 'patch' && version.split('.').includes('9')) {
+        throw new Error('Cannot advance patch on 2.9.4');
+    }
+
+    // Check if the part name is valid
+    if (part !== 'major' && part !== 'minor' && part !== 'patch') {
+        throw new Error('Part name must be one of the three above');
+    }
+
+    // Split the version into parts
+    const parts = version.split('.');
+    const major = parseInt(parts[0], 10);
+    const minor = parseInt(parts[1], 10);
+    const patch = parseInt(parts[2], 10);
+
+    // Advance the part
+    if (part === 'major') {
+        minor = 0;
+    } else if (part === 'minor') {
+        patch = 0;
+    } else if (part === 'patch') {
+        // No change needed
+    }
+
+    // Return the new version
+    return `${major}.${minor}.${patch}`;
+}
+```

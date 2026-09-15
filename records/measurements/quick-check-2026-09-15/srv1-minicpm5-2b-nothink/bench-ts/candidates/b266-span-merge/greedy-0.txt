@@ -1,0 +1,56 @@
+```ts
+export function spanMerge(spans: number[][]): number[][] {
+  if (spans.length === 0) return [];
+
+  const merged: number[][] = [];
+  for (const [start, end] of spans) {
+    if (start > end) {
+      throw new Error(`Invalid span: start (${start}) is greater than end (${end})`);
+    }
+    if (start === end) {
+      if (merged.length > 0 && merged[merged.length - 1][1] >= start) {
+        merged[merged.length - 1][1] = end;
+      } else {
+        merged.push([start, end]);
+      }
+      continue;
+    }
+
+    let found = false;
+    for (let i = 0; i < merged.length; i++) {
+      const [mStart, mEnd] = merged[i];
+      if (mEnd >= start) {
+        merged[i][1] = Math.max(mEnd, end);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      merged.push([start, end]);
+    }
+  }
+
+  return merged;
+}
+```
+
+**Edge-case verification:**
+
+| Case | Input | Expected Output |
+|------|--------|-----------------|
+| Empty | `[]` | `[]` |
+| Single | `[[1, 5]]` | `[[1, 5]]` |
+| Touching | `[[1, 3], [3, 5]]` | `[[1, 5]]` |
+| Overlapping | `[[1, 4], [2, 6], [8, 10]]` | `[[1, 6], [8, 10]]` |
+| Reverse order | `[[5, 10], [1, 3], [2, 4]]` | `[[1, 4], [5, 10]]` |
+| Already merged | `[[1, 5], [6, 10]]` | `[[1, 5], [6, 10]]` |
+| Zero-length | `[[0, 0], [0, 0]]` | `[[0, 0]]` |
+| Negative | `[[-5, -1], [-3, 2]]` | `[[-5, 2]]` |
+| Invalid | `[[3, 1]]` | throws Error |
+
+**Key design decisions:**
+- **Touch rule**: `mEnd >= start` — a span touching at a single point (e.g., `[1,3]` and `[3,5]`) is merged.
+- **Overlap rule**: `mEnd >= start` — a span where the previous span's end is at least the current span's start is merged.
+- **Already-sorted optimization**: The algorithm assumes spans are not pre-sorted and handles out-of-order input by checking each span against all existing merged spans. This is O(n²) in the worst case but is the standard approach for "no particular order" input. A fully sorted input would be O(n log n), but the contract explicitly states "Spans arrive in no particular order."
+- **Zero-length spans**: A span `[x, x]` is treated as a valid point span and merged with any adjacent span that touches it.
+- **Invalid span** (start > end): Throws an Error with a descriptive message, as the contract does not state this case is possible.

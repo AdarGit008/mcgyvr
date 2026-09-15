@@ -1,0 +1,11 @@
+```python
+def span_letters(span: str) -> str:
+    """Expand a letter-dash-letter span into all letters in between."""
+    if len(span) != 3 or span[1] != "-":
+        return span
+    start = ord(span[0])
+    end = ord(span[2])
+    if start > end:
+        return span
+    return "".join(chr(code) for code in range(start, end + 1))
+```

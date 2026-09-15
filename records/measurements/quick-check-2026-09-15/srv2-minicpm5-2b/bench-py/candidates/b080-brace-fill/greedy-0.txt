@@ -1,0 +1,61 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    if not isinstance(values, dict):
+        raise ValueError("fill_template expects a dict of values")
+
+    result: list[str] = []
+    i = 0
+    n = len(template)
+    brace_balance = 0
+
+    while i < n:
+        char = template[i]
+
+        if char == '{':
+            brace_balance += 1
+            i += 1
+            if brace_balance == 0:
+                # No closing brace found
+                raise ValueError("unterminated placeholder")
+
+            # Find the matching closing brace
+            end = i
+            while end < n and brace_balance > 0:
+                if template[end] == '{':
+                    brace_balance += 1
+                elif template[end] == '}':
+                    brace_balance -= 1
+                end += 1
+
+            if brace_balance != 0:
+                raise ValueError("unterminated placeholder")
+
+            name = template[i:end]
+            i = end
+
+            if not name:
+                raise ValueError("empty placeholder name")
+            if not all(c.isalnum() or c == '_' for c in name):
+                raise ValueError("placeholder name contains invalid characters")
+            if name not in values:
+                raise ValueError(f"placeholder name '{name}' not found in values")
+
+            result.append(values[name])
+
+        else:
+            result.append(char)
+            i += 1
+
+    return ''.join(result)
+```
+
+This implementation:
+- Walks the template once with a single while loop (O(n) time)
+- Tracks brace balance to detect unterminated placeholders
+- Validates placeholder names are non-empty and contain only letters, digits, or underscores
+- Raises `ValueError` with a short message for each error case
+- Passes through literal characters including standalone `{` and `}`
+- Handles duplicate placeholder names correctly (each occurrence is replaced independently)
+- Handles empty template and empty values dict gracefully

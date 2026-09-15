@@ -1,0 +1,15 @@
+```ts
+export function vatBack(gross: number, rate: number): number {
+  if (rate < 0) {
+    throw new Error("Rate must be non-negative");
+  }
+  return Math.floor(gross / (1 + rate));
+}
+```
+
+This implementation:
+- Returns `Math.floor(gross / (1 + rate))`, which is the pre-tax price rounded down
+- Handles the zero-rate case correctly (returns gross unchanged)
+- Throws an Error for negative rates (since the task says to stop and report if not stated)
+- Uses a guard clause for the negative rate check
+- Uses `Math.floor` for proper rounding down (handles both positive and negative results correctly)

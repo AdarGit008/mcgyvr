@@ -1,0 +1,26 @@
+The contract says `scanTally` returns "the running total after each instruction" — plural. The current implementation returns a single-element array `[total]`, which is the final total, not the running totals.
+
+The fix is to return an array of all running totals, including the initial total before any instruction.
+
+```ts
+export function stepValue(step: string): number {
+  if (step === "+") {
+    return 1;
+  }
+  if (step === "-") {
+    return -1;
+  }
+  return 0;
+}
+
+/** The running total after each instruction. */
+export function scanTally(steps: string[]): number[] {
+  let total = 0;
+  const results: number[] = [];
+  for (const step of steps) {
+    total += stepValue(step);
+    results.push(total);
+  }
+  return results;
+}
+```

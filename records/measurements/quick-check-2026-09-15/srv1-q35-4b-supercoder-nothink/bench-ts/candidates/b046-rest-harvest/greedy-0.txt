@@ -1,0 +1,45 @@
+Looking at this problem:
+
+- We need to find the maximum sum of non-consecutive elements
+- This is a classic DP problem: for each element, decide whether to include it or not
+- `dp[i]` = max harvest using elements up to index `i`
+- For element `i`: either skip it (`dp[i-1]`) or take it (`yields[i] + dp[i-2]`)
+- Base cases: `dp[0] = yields[0]`, `dp[1] = max(yields[0], yields[1])`
+
+The constraint "no upper bound on the number of days or the yield size" means this is an O(n) problem with no closed-form solution.
+
+```typescript
+/**
+ * Find the maximum harvest from a list of daily yields, where no two
+ * consecutive days are worked.
+ *
+ * @param yields - daily yields in kilos, one non-negative integer per day
+ * @returns the largest total harvest possible
+ */
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) {
+    throw new Error('yields must be an array');
+  }
+
+  for (const yieldVal of yields) {
+    if (typeof yieldVal !== 'number' || !Number.isInteger(yieldVal) || yieldVal < 0) {
+      throw new Error(`invalid yield value: ${yieldVal}`);
+    }
+  }
+
+  const n = yields.length;
+  if (n === 0) return 0;
+  if (n === 1) return yields[0];
+
+  let prev2 = yields[0];
+  let prev1 = Math.max(yields[0], yields[1]);
+
+  for (let i = 2; i < n; i++) {
+    const current = Math.max(prev1, prev2 + yields[i]);
+    prev2 = prev1;
+    prev1 = current;
+  }
+
+  return prev1;
+}
+```

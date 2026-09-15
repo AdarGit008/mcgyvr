@@ -1,0 +1,11 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    # Calculate the tax amount
+    tax = gross * rate / 100
+    
+    # Calculate the price before tax
+    price_before_tax = gross - tax
+    
+    # Return the price before tax rounded down
+    return int(price_before_tax)
+```

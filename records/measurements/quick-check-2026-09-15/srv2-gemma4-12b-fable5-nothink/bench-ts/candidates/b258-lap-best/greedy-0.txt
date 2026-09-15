@@ -1,0 +1,10 @@
+```ts
+/** The quickest completed lap of a session. */
+export function lapBest(laps: number[]): number {
+  const completedLaps = laps.filter((lap) => lap !== 0);
+  if (completedLaps.length === 0) {
+    return 0;
+  }
+  return Math.min(...completedLaps);
+}
+```

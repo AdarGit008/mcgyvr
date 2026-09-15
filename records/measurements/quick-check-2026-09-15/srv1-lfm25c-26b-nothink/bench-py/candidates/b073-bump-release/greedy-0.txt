@@ -1,0 +1,61 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    """Bump a release tag.
+
+    A release tag is three dot-separated numeric components, major.minor.patch,
+    each written as a plain decimal integer with no leading zero, zero itself
+    written as 0. Given a tag and the name of the part to advance — major,
+    minor or patch — return the next tag: advancing major sends minor and patch
+    back to 0, advancing minor keeps major and sends patch back to 0, and
+    advancing patch changes nothing else, so bumping minor on 2.9.4 gives
+    2.10.0.
+
+    Reject a tag that is not a string, a tag without exactly three components,
+    a component that is empty, carries a leading zero or holds anything but
+    digits, and a part name other than the three above, with an error.
+    """
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+
+    parts = version.split(".")
+    if len(parts) != 3:
+        raise ValueError("version must have exactly three components")
+
+    major, minor, patch = map(int, parts)
+
+    if major < 0 or minor < 0 or patch < 0:
+        raise ValueError("version components must be non-negative integers")
+
+    if major == 0 and minor == 0 and patch == 0:
+        raise ValueError("version cannot be 0.0.0")
+
+    if part not in ("major", "minor", "patch"):
+        raise ValueError("part must be 'major', 'minor' or 'patch'")
+
+    if major == 0:
+        if part == "major":
+            major = 1
+            minor = 0
+            patch = 0
+        elif part == "minor":
+            minor = 1
+            patch = 0
+        else:  # part == "patch"
+            patch = 1
+    elif minor == 0:
+        if part == "minor":
+            minor = 1
+            patch = 0
+        else:  # part == "major"
+            major = 1
+            minor = 0
+            patch = 0
+    else:
+        if part == "minor":
+            minor += 1
+            patch = 0
+        else:  # part == "patch"
+            patch += 1
+
+    return f"{major}.{minor}.{patch}"
+```

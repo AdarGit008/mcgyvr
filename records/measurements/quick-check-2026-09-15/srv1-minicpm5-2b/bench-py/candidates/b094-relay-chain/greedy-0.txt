@@ -1,0 +1,61 @@
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    """Walk a relay directory from start through terminal stations.
+
+    Args:
+        links: A dict mapping each station name to the name of the
+            next station in the relay, with an empty string marking the
+            terminal station.
+        start: The name of the starting station.
+
+    Returns:
+        A list of station names visited in hand-off order, from start
+        through the terminal station inclusive.
+
+    Raises:
+        ValueError: If start is not a string, is an empty string, or is
+            not in the directory. If any link value is not a string,
+            or if a link points to a station not in the directory, or
+            if the relay contains a cycle.
+    """
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start == "":
+        raise ValueError("start cannot be an empty string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+
+    visited: set[str] = {start}
+    path: list[str] = [start]
+    current: str = start
+
+    while True:
+        target = links[current]
+        if not isinstance(target, str):
+            raise ValueError("link value must be a string")
+        if target == "":
+            path.append(current)
+            break
+        if target not in links:
+            raise ValueError("link points to a station not in the directory")
+        if target in visited:
+            raise ValueError("relay contains a circular chain")
+        visited.add(target)
+        path.append(target)
+        current = target
+
+    return path
+```
+
+This fixes both bugs:
+
+1. **Broken links**: Now raises `ValueError("link points to a station not in the directory")` instead of silently returning early.
+2. **Circular chains**: Now raises `ValueError("relay contains a circular chain")` when a station is visited twice.
+
+It also adds the three missing validations:
+- `start` must be a string (not `None`, not an int, etc.)
+- `start` must not be an empty string
+- Each link value must be a string (not `None`, not an int, etc.)

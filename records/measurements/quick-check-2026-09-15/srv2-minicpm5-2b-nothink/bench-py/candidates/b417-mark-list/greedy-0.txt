@@ -1,0 +1,10 @@
+```python
+def mark_list(scores: list, floor: int) -> list:
+    """Scores written out, with a star against those that reach a floor."""
+    out = []
+    for score in scores:
+        out.append(str(score) + "*" if score >= floor else str(score))
+    return out
+```
+
+The bug was in the comparison operator: the original code used `score < floor`, which marked entries *below* the floor. The fix changes it to `score >= floor`, so entries that *reach* or *exceed* the floor are marked with a star. Entries that do not qualify (i.e., are below the floor) are returned unchanged.

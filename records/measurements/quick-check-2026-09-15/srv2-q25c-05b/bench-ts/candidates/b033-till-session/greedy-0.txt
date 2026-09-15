@@ -1,0 +1,30 @@
+```ts
+/**
+ * One point-of-sale till session, replayed from its events.
+ */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+  // TODO: replay the events over the open/payment/paid/cancelled states,
+  // maintain the cart, fix the total at close, accumulate payments and
+  // compute the change, rejecting every unlawful event.
+  throw new Error("not implemented");
+}
+```

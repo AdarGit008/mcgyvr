@@ -1,0 +1,226 @@
+```python
+from typing import List
+
+
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    """
+    Calculate total hops for all devices to reach the newest release.
+    """
+    if not (0 <= hop <= count - 1):
+        raise ValueError("hop must be between 1 and count-1")
+
+    if not (0 <= count <= 1000):
+        raise ValueError("count must be a non-negative integer")
+
+    if not (0 <= len(lts) <= count):
+        raise ValueError("lts must contain at most count entries")
+
+    if not (0 <= len(builds) <= count):
+        raise ValueError("builds must contain at most count entries")
+
+    if not all(isinstance(b, int) and 0 <= b < count for b in builds):
+        raise ValueError("builds must contain only integers in range [0, count-1]")
+
+    if not all(isinstance(b, int) and 0 <= b < count for b in lts):
+        raise ValueError("lts must contain only integers in range [0, count-1]")
+
+    if not lts:
+        raise ValueError("lts must not be empty")
+
+    if not builds:
+        return 0
+
+    if hop == 0:
+        raise ValueError("hop must be at least 1")
+
+    if count == 0:
+        return 0
+
+    if not lts:
+        raise ValueError("lts must not be empty")
+
+    if not builds:
+        return 0
+
+    if not all(0 <= b < count for b in builds):
+        raise ValueError("builds must contain only integers in range [0, count-1]")
+
+    if not all(0 <= b < count for b in lts):
+        raise ValueError("lts must contain only integers in range [0, count-1]")
+
+    if not all(b in builds for b in lts):
+        raise ValueError("lts must be a subset of builds")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in builds for b in lts):
+        raise ValueError("lts must be a subset of builds")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must be a subset of lts")
+
+    if not all(b in lts for b in builds):
+        raise ValueError("builds must

@@ -1,0 +1,49 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    
+    result = []
+    i = 0
+    n = len(template)
+    
+    while i < n:
+        char = template[i]
+        
+        if char == '{':
+            # Find the matching closing brace
+            j = i + 1
+            brace_count = 1
+            
+            while j < n and brace_count > 0:
+                if template[j] == '{':
+                    brace_count += 1
+                elif template[j] == '}':
+                    brace_count -= 1
+                j += 1
+            
+            if brace_count > 0:
+                # Unterminated placeholder
+                raise ValueError("unterminated placeholder")
+            
+            # Extract the placeholder name
+            name = template[i+1:j-1]
+            
+            # Validate name: non-empty and only letters, digits, underscores
+            if not name:
+                raise ValueError("placeholder name cannot be empty")
+            if not all(c.isalnum() or c == '_' for c in name):
+                raise ValueError("placeholder name contains invalid characters")
+            
+            # Get the value from mapping
+            if name not in values:
+                raise ValueError(f"unknown placeholder name: {name}")
+            
+            result.append(values[name])
+            i = j
+        else:
+            result.append(char)
+            i += 1
+    
+    return ''.join(result)
+```

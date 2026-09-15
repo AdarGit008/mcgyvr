@@ -1,0 +1,40 @@
+```ts
+export function bumpRelease(version: string, part: string): string {
+  // Validate input
+  if (typeof version !== "string") {
+    throw new Error("Tag must be a string");
+  }
+
+  const components = version.split(".").filter((c) => c !== "");
+  if (components.length !== 3) {
+    throw new Error("Tag must have exactly three components");
+  }
+
+  const [major, minor, patch] = components;
+
+  // Validate each component
+  if (!/^\d+$/.test(major) || !/^\d+$/.test(minor) || !/^\d+$/.test(patch)) {
+    throw new Error("Each component must be a plain decimal integer with no leading zero");
+  }
+
+  // Validate part name
+  if (part !== "major" && part !== "minor" && part !== "patch") {
+    throw new Error("Part name must be 'major', 'minor', or 'patch'");
+  }
+
+  // Parse integers
+  const majorNum = parseInt(major, 10);
+  const minorNum = parseInt(minor, 10);
+  const patchNum = parseInt(patch, 10);
+
+  // Advance the specified part
+  switch (part) {
+    case "major":
+      return `${majorNum + 1}.0.0`;
+    case "minor":
+      return `${majorNum}.${minorNum + 1}.0`;
+    case "patch":
+      return `${majorNum}.${minorNum}.${patchNum + 1}`;
+  }
+}
+```

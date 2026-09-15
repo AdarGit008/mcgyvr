@@ -1,0 +1,55 @@
+```ts
+/**
+ * Cent-exact money helpers for order totals.
+ */
+
+export function splitEvenly(totalCents: number, ways: number): number[] {
+  if (!Number.isInteger(totalCents) || totalCents < 0) {
+    throw new Error("totalCents must be a non-negative integer");
+  }
+  if (!Number.isInteger(ways) || ways <= 0) {
+    throw new Error("ways must be a positive integer");
+  }
+
+  const base = Math.floor(totalCents / ways);
+  const remainder = totalCents % ways;
+  const parts: number[] = new Array(ways);
+  for (let i = 0; i < ways; i++) {
+    parts[i] = base + (i < remainder ? 1 : 0);
+  }
+  return parts;
+}
+
+export function applyBps(cents: number, bps: number): number {
+  if (!Number.isInteger(cents) || cents < 0) {
+    throw new Error("cents must be a non-negative integer");
+  }
+  if (!Number.isInteger(bps) || bps < 0) {
+    throw new Error("bps must be a non-negative integer");
+  }
+  return Math.floor((cents * bps + 5000) / 10000);
+}
+
+export function sumParts(parts: number[]): number {
+  let total = 0;
+  for (const part of parts) {
+    if (!Number.isInteger(part)) {
+      throw new Error("parts must be integers");
+    }
+    total += part;
+  }
+  return total;
+}
+```
+
+**Key fixes:**
+
+1. **`splitEvenly`** — Replaced `Math.round` per-part with a single division and remainder. Each part is `base + 1` for the first `remainder` indices (which are the *earliest* parts, ensuring non-increasing order), and `base` for the rest. This guarantees:
+   - Parts sum to exactly `totalCents` (no rounding drift).
+   - No two parts differ by more than 1 cent.
+   - Parts are in non-increasing order (extra cents land on earliest parts).
+   - Added validation: `totalCents` must be a non-negative integer, `ways` must be a positive integer.
+
+2. **`applyBps`** — Unchanged (already correct).
+
+3. **`sumParts`** — Unchanged (already correct).

@@ -1,0 +1,59 @@
+```typescript
+/**
+ * Net tally: aggregate sold/returned counts across sheets, report by item.
+ */
+export function netTally(sheets: string[]): string {
+  const itemTotals: Record<string, { sold: number; returned: number }> = {};
+  const maxNameLen = 0;
+
+  for (const sheet of sheets) {
+    if (!Array.isArray(sheet)) {
+      throw new Error('sheets must be an array');
+    }
+    for (const row of sheet) {
+      if (typeof row !== 'string') {
+        throw new Error('each sheet must be a string');
+      }
+      const fields = row.split('|');
+      if (fields.length !== 3) {
+        throw new Error('each row must have exactly three pipe-separated fields');
+      }
+      const [item, soldStr, retStr] = fields.map((f) => f.trim());
+      if (item === '') {
+        throw new Error('item name must not be empty');
+      }
+      if (!/^[0-9]*$/.test(soldStr)) {
+        throw new Error(`sold field must be a string of decimal digits: ${soldStr}`);
+      }
+      if (!/^[0-9]*$/.test(retStr)) {
+        throw new Error(`returned field must be a string of decimal digits: ${retStr}`);
+      }
+      const sold = Number(soldStr);
+      const returned = Number(retStr);
+      if (returned > sold) {
+        throw new Error(`returned total (${returned}) exceeds sold total (${sold}) for item ${item}`);
+      }
+      if (!itemTotals[item]) {
+        itemTotals[item] = { sold, returned };
+        maxNameLen = Math.max(maxNameLen, item.length);
+      } else {
+        itemTotals[item].sold += sold;
+        itemTotals[item].returned += returned;
+      }
+    }
+  }
+
+  const items = Object.entries(itemTotals);
+  items.sort((a, b) => a[0].localeCompare(b[0]));
+
+  const totalNet = items.reduce((acc, [, { sold, returned }]) => acc + (sold - returned), 0);
+
+  return items
+    .map(([name, { sold, returned }]) => {
+      const net = sold - returned;
+      const pad = ' '.repeat(maxNameLen - name.length);
+      return `${name}${pad}  ${net}`;
+    })
+    .join('\n') + '\n' + 'total'.padEnd(maxNameLen, ' ') + '  ' + totalNet;
+}
+```

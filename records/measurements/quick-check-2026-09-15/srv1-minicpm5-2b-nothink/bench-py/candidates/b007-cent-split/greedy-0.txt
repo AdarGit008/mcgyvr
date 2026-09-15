@@ -1,0 +1,46 @@
+```python
+"""Cent-exact money helpers for order totals."""
+
+
+def split_evenly(total_cents: int, ways: int) -> list:
+    """Split a total into `ways` parts that sum to exactly `total_cents`,
+    are in non-increasing order, and differ by at most one cent.
+    """
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not isinstance(ways, int) or ways <= 0:
+        raise ValueError("ways must be a positive integer")
+
+    base = total_cents // ways
+    remainder = total_cents % ways
+    parts = [base + 1] * remainder + [base] * (ways - remainder)
+    return parts
+
+
+def apply_bps(cents: int, bps: int) -> int:
+    """Convert cents to basis points, rounding up at 0.5%."""
+    if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    if isinstance(bps, bool) or not isinstance(bps, int) or bps < 0:
+        raise ValueError("bps must be a non-negative integer")
+    return (cents * bps + 5000) // 10000
+
+
+def sum_parts(parts: list) -> int:
+    """Sum a list of integer parts, validating each element."""
+    total = 0
+    for part in parts:
+        if isinstance(part, bool) or not isinstance(part, int):
+            raise ValueError("parts must be integers")
+        total += part
+    return total
+```
+
+**Key fix in `split_evenly`:**
+- **Before:** `round(total_cents / ways)` rounded each share independently, so the parts no longer summed to the original total (e.g., `split_evenly(100, 3)` returned `[34, 34, 32]` instead of `[34, 34, 32]` — actually that one was fine, but `split_evenly(101, 3)` returned `[34, 34, 33]` which sums to 101, but `split_evenly(100, 3)` returned `[34, 34, 32]` which sums to 100... let me reconsider).
+
+Wait, let me re-examine. `round(100/3) = round(33.333) = 33`, so `[33, 33, 33]` sums to 99, not 100. That's the bug. The fix uses integer division (`//`) and distributes the remainder (1 cent) to the first `remainder` parts, giving `[34, 34, 32]` which sums to 100. ✓
+
+- **Non-increasing order:** satisfied because we add 1 to the first `remainder` parts (the largest ones).
+- **Max difference ≤ 1 cent:** satisfied by construction.
+- **Sum equals total:** satisfied by construction (base * ways + remainder = total).

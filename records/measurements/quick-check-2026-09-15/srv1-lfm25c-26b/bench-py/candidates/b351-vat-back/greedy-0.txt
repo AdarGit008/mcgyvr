@@ -1,0 +1,17 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """
+    Calculate the original price before tax was added.
+    
+    The gross price already includes a tax rate. The original price is
+    calculated as gross / (1 + rate/100), rounded down.
+    
+    Args:
+        gross: The gross price including tax.
+        rate: The tax rate as a percentage (e.g., 10 for 10%).
+    
+    Returns:
+        The original price before tax was added, rounded down.
+    """
+    return gross * 100 // (100 + rate)
+```

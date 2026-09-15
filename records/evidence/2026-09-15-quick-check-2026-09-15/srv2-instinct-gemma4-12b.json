@@ -1,0 +1,63 @@
+{
+ "argv": "-m /home/adaramir/models/.incoming/projectj_Instinct-Python-Coder-Gemma4-12B-GLM5.2/Instinct-Python-Coder-Gemma4-12B-GLM5.2-Q8_0.gguf --alias srv2-instinct-gemma4-12b --host 0.0.0.0 --port 8090 --parallel 1 -c 8192 -ngl 99 -fa on --reasoning-budget 0 --chat-template-kwargs {\"enable_thinking\":false}",
+ "digest": "ghcr.io/ggml-org/llama.cpp@sha256:9f0a986a78ab9261afc3266c807c16933ee4c26c62cb063f0c17f8da890f6c7e",
+ "draws": 0,
+ "healthy": false,
+ "host": "srv2",
+ "ids": [
+  "b007-cent-split",
+  "b030-date-span",
+  "b094-relay-chain",
+  "b258-lap-best",
+  "b345-hour-rate",
+  "b379-hide-values",
+  "b417-mark-list",
+  "b423-scan-tally",
+  "b488-root-digit",
+  "b496-span-letters",
+  "b033-till-session",
+  "b046-rest-harvest",
+  "b073-bump-release",
+  "b080-brace-fill",
+  "b112-net-tally",
+  "b200-fleet-hops",
+  "b266-span-merge",
+  "b281-tier-cost",
+  "b351-vat-back",
+  "b443-fold-ends"
+ ],
+ "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644",
+ "max_output_tokens": 2048,
+ "model": "/home/adaramir/models/.incoming/projectj_Instinct-Python-Coder-Gemma4-12B-GLM5.2/Instinct-Python-Coder-Gemma4-12B-GLM5.2-Q8_0.gguf",
+ "product_sha256": "1ce8b045a4ce9f27da0d571e3ca87c3117700feffadc63cfa665d69b273128cd",
+ "reason": "container exited: 0.11.869.193 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 12067.72 MiB on device 0: cudaMalloc failed: out of memory 0.11.869.199 E alloc_tensor_range: failed to allocate CUDA0 buffer of size 12653917568 0.12.024.570 E llama_model_load: error loading model: unable to allocate CUDA0 buffer 0.12.024.576 E llama_model_load_from_file_impl: failed to load model 0.12.024.582 E cmn  common_init_: failed to load model '/home/adaramir/models/.incoming/projectj_Instinct-Python-Coder-Gemma4-12B-GLM5.2/Instinct-Python-Coder-Gemma4-12B-GLM5.2-Q8_0.gguf' 0.12.024.586 E srv    load_model: failed ",
+ "round": "r29-15-09-2026",
+ "run_id": "2026-09-15-quick-check-2026-09-15-srv2-instinct-gemma4-12b-r4",
+ "thinking": "off",
+ "tiers": {
+  "bench-py": {
+   "by_type": {},
+   "mean_completion_tokens": null,
+   "mean_latency_s": null,
+   "measure_rc": "NA",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv2-instinct-gemma4-12b-nothink/bench-py",
+   "overran_cap": 0,
+   "parse_refused": 0,
+   "passed": 0,
+   "rows": 0,
+   "truncated": 0
+  },
+  "bench-ts": {
+   "by_type": {},
+   "mean_completion_tokens": null,
+   "mean_latency_s": null,
+   "measure_rc": "NA",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv2-instinct-gemma4-12b-nothink/bench-ts",
+   "overran_cap": 0,
+   "parse_refused": 0,
+   "passed": 0,
+   "rows": 0,
+   "truncated": 0
+  }
+ }
+}

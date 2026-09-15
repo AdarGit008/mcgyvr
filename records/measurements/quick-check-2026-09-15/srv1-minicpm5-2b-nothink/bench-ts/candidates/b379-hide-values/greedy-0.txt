@@ -1,0 +1,39 @@
+```ts
+/**
+ * A store with every value starred out. */
+export function hideValues(
+  store: Record<string, string>,
+): Record<string, string> {
+  const hidden: Record<string, string> = {};
+  for (const key of Object.keys(store)) {
+    hidden["*".repeat(key.length)] = store[key];
+  }
+  return hidden;
+}
+```
+
+Wait — the current code already looks correct. Let me re-read the task carefully.
+
+The task says: "hideValues returns a store with every value starred out, one star for each character it held, and it stars out the keys instead."
+
+So the bug is: it stars out the **keys** (using `key.length`) instead of the **values** (using `store[key].length`). The fix is to use `store[key].length` instead of `key.length`.
+
+Also, "A store holding nothing comes back holding nothing" — the current code already handles this correctly (empty loop, returns empty object).
+
+Let me fix the key to be the value length.
+
+```ts
+/**
+ * A store with every value starred out. */
+export function hideValues(
+  store: Record<string, string>,
+): Record<string, string> {
+  const hidden: Record<string, string> = {};
+  for (const key of Object.keys(store)) {
+    hidden["*".repeat(store[key].length)] = store[key];
+  }
+  return hidden;
+}
+```
+
+This fixes the bug: instead of using `key.length` (the length of the key), it now uses `store[key].length` (the length of the value), which is what the task requires.

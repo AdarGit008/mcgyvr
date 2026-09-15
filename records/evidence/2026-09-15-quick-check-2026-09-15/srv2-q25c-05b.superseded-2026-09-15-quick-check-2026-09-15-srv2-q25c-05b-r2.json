@@ -1,0 +1,63 @@
+{
+ "argv": "-m /home/adaramir/models/.incoming/Qwen_Qwen2.5-Coder-0.5B-Instruct-GGUF/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf --alias srv2-q25c-05b --host 0.0.0.0 --port 8090 --parallel 1 -c 8192 -ngl 99 -fa on",
+ "digest": "ghcr.io/ggml-org/llama.cpp@sha256:9f0a986a78ab9261afc3266c807c16933ee4c26c62cb063f0c17f8da890f6c7e",
+ "draws": 0,
+ "healthy": true,
+ "host": "srv2",
+ "ids": [
+  "b007-cent-split",
+  "b030-date-span",
+  "b094-relay-chain",
+  "b258-lap-best",
+  "b345-hour-rate",
+  "b379-hide-values",
+  "b417-mark-list",
+  "b423-scan-tally",
+  "b488-root-digit",
+  "b496-span-letters",
+  "b033-till-session",
+  "b046-rest-harvest",
+  "b073-bump-release",
+  "b080-brace-fill",
+  "b112-net-tally",
+  "b200-fleet-hops",
+  "b266-span-merge",
+  "b281-tier-cost",
+  "b351-vat-back",
+  "b443-fold-ends"
+ ],
+ "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644",
+ "max_output_tokens": 2048,
+ "model": "/home/adaramir/models/.incoming/Qwen_Qwen2.5-Coder-0.5B-Instruct-GGUF/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+ "product_sha256": "1ce8b045a4ce9f27da0d571e3ca87c3117700feffadc63cfa665d69b273128cd",
+ "reason": "",
+ "round": "r29-15-09-2026",
+ "run_id": "2026-09-15-quick-check-2026-09-15-srv2-q25c-05b-r2",
+ "tiers": {
+  "bench-py": {
+   "by_type": {
+    "bug_fix": "0/10",
+    "function_implementation": "0/10"
+   },
+   "mean_completion_tokens": 227.9,
+   "mean_latency_s": 0.82,
+   "measure_rc": "0",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv2-q25c-05b/bench-py",
+   "overran_cap": 0,
+   "parse_refused": 1,
+   "passed": 0,
+   "rows": 20
+  },
+  "bench-ts": {
+   "by_type": {},
+   "mean_completion_tokens": null,
+   "mean_latency_s": null,
+   "measure_rc": "2",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv2-q25c-05b/bench-ts",
+   "overran_cap": 0,
+   "parse_refused": 0,
+   "passed": 0,
+   "rows": 0
+  }
+ }
+}

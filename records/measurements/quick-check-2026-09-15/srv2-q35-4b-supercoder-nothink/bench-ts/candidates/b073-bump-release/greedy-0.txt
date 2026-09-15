@@ -1,0 +1,35 @@
+```typescript
+/**
+ * Advances a semantic version tag by the given part.
+ *
+ * @param version - The tag in the form major.minor.patch.
+ * @param part    - The part to advance: "major", "minor", or "patch".
+ *
+ * @returns The next tag.
+ *
+ * @throws Error if the tag is invalid or the part is not one of the three allowed.
+ */
+export function bumpRelease(version: string, part: string): string {
+  const parts = version.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Invalid tag: must have exactly three dot-separated components.');
+  }
+
+  const [major, minor, patch] = parts.map((p) => {
+    if (p === '') {
+      throw new Error('Invalid tag: a component must not be empty.');
+    }
+    if (p[0] === '0' && p.length > 1) {
+      throw new Error('Invalid tag: a component must not have a leading zero.');
+    }
+    if (!/^0[0-9]*$/.test(p)) {
+      throw new Error('Invalid tag: a component must be a non-empty decimal integer.');
+    }
+    return parseInt(p, 10);
+  });
+
+  const [nm, mp] = part === 'major' ? [minor, patch] : part === 'minor' ? [patch, 0] : [0, 0];
+
+  return `${major}.${nm}.${mp}`;
+}
+```

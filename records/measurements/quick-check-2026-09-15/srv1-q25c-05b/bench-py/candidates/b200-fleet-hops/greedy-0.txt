@@ -1,0 +1,18 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    # Initialize the hop count
+    hop_count = 0
+    
+    # Iterate through the builds list
+    for build in builds:
+        # Check if the build is a whole number
+        if build % 1 == 0:
+            # Check if the build is not the latest release
+            if build > lts[-1]:
+                # Calculate the hop count for the build
+                hop_count += 1
+                # Update the latest release
+                lts.append(build)
+    
+    return hop_count
+```

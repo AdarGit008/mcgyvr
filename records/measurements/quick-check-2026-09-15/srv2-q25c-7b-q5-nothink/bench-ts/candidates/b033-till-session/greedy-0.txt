@@ -1,0 +1,104 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state: string = OPEN;
+  let cart: Record<string, number> = {};
+  let total: number = 0;
+  let paid: number = 0;
+  let change: number = 0;
+
+  for (const event of events) {
+    if (event.length !== 2) {
+      throw new Error("event must be a list of its action and exactly its payload");
+    }
+
+    const [action, payload] = event;
+
+    switch (action) {
+      case "scan":
+        if (state !== OPEN) {
+          throw new Error("scan is unlawful in the current state");
+        }
+        if (typeof payload !== "string" || !prices[payload]) {
+          throw new Error("scan of an item absent from the price list");
+        }
+        cart[payload] = (cart[payload] || 0) + 1;
+        break;
+
+      case "void":
+        if (state !== OPEN) {
+          throw new Error("void is unlawful in the current state");
+        }
+        if (typeof payload !== "string" || !cart[payload]) {
+          throw new Error("void of an item not in the cart");
+        }
+        cart[payload]--;
+        if (cart[payload] === 0) {
+          delete cart[payload];
+        }
+        break;
+
+      case "close":
+        if (state !== OPEN) {
+          throw new Error("close is unlawful in the current state");
+        }
+        if (Object.keys(cart).length === 0) {
+          throw new Error("close with an empty cart");
+        }
+        state = PAYMENT;
+        total = Object.keys(cart).reduce((acc, item) => acc + cart[item] * prices[item], 0);
+        break;
+
+      case "pay":
+        if (state !== PAYMENT) {
+          throw new Error("pay is unlawful in the current state");
+        }
+        if (typeof payload !== "number" || payload <= 0 || !Number.isInteger(payload)) {
+          throw new Error("pay amount must be a positive integer");
+        }
+        paid += payload;
+        change = paid - total;
+        if (change < 0) {
+          throw new Error("insufficient payment");
+        }
+        state = PAID;
+        break;
+
+      case "cancel":
+        state = CANCELLED;
+        break;
+
+      default:
+        throw new Error("unknown action");
+    }
+  }
+
+  return {
+    state,
+    items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change,
+  };
+}
+```

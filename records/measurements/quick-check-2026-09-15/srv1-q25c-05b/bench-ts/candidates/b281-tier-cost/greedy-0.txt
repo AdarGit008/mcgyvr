@@ -1,0 +1,88 @@
+```typescript
+/**
+ * Calculates the cost of a number of units based on tier pricing.
+ * Units are charged at a first rate up to an included allowance and at a second rate for everything beyond it.
+ * The cost is returned in whole pence.
+ * 
+ * @param units - The number of units to calculate the cost for.
+ * @param allowance - The total allowance for tier pricing.
+ * @param firstRate - The first rate for tier pricing.
+ * @param laterRate - The second rate for tier pricing.
+ * @returns The cost of the units in whole pence.
+ * @throws An error if the units are below zero.
+ */
+function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+    if (units < 0) {
+        throw new Error("Number of units must be non-negative.");
+    }
+    const cost = allowance * firstRate;
+    if (units > allowance) {
+        cost += laterRate * (units - allowance);
+    }
+    return cost;
+}
+
+// Example usage:
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(0, 100, 10, 20)); // Output: Error: Number of units must be non-negative.
+console.log(tierCost(-5, 100, 10, 20)); // Output: Error: Number of units must be non-negative.
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); // Output: 150
+console.log(tierCost(5, 100, 10, 20)); //

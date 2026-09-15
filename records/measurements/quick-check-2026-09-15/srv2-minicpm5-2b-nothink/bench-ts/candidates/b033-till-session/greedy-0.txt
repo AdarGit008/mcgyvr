@@ -1,0 +1,148 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  const cart: Map<string, number> = new Map();
+  let total = 0;
+  let paid = 0;
+  let state = OPEN;
+
+  for (const event of events) {
+    if (state === PAID || state === CANCELLED) {
+      throw new Error("event after session is paid or cancelled");
+    }
+
+    if (event.length === 0) {
+      throw new Error("empty event");
+    }
+
+    const [action, ...payload] = event;
+
+    if (action === "scan") {
+      if (payload.length !== 1) {
+        throw new Error("scan event must have exactly one payload");
+      }
+      const item = payload[0];
+      if (!prices[item]) {
+        throw new Error("scan of unknown item: " + item);
+      }
+      if (cart.has(item)) {
+        cart.set(item, cart.get(item) + 1);
+      } else {
+        cart.set(item, 1);
+      }
+      total += prices[item];
+    } else if (action === "void") {
+      if (payload.length !== 1) {
+        throw new Error("void event must have exactly one payload");
+      }
+      const item = payload[0];
+      if (!cart.has(item)) {
+        throw new Error("void of item not in cart: " + item);
+      }
+      const qty = cart.get(item);
+      if (qty <= 0) {
+        throw new Error("void of item with zero or negative quantity: " + item);
+      }
+      if (qty === 1) {
+        cart.delete(item);
+      } else {
+        cart.set(item, qty - 1);
+      }
+      total -= prices[item];
+    } else if (action === "close") {
+      if (cart.size === 0) {
+        throw new Error("close with empty cart");
+      }
+      state = PAID;
+      total = 0;
+      paid = 0;
+    } else if (action === "pay") {
+      if (payload.length !== 1) {
+        throw new Error("pay event must have exactly one payload");
+      }
+      const cents = payload[0];
+      if (!Number.isInteger(cents) || cents <= 0) {
+        throw new Error("pay amount must be a positive integer: " + cents);
+      }
+      if (state !== PAYMENT) {
+        throw new Error("pay event not allowed in " + state);
+      }
+      paid += cents;
+      if (paid >= total) {
+        state = PAID;
+        paid = paid - total;
+        total = 0;
+      }
+    } else if (action === "cancel") {
+      state = CANCELLED;
+    } else {
+      throw new Error("unknown action: " + action);
+    }
+  }
+
+  const items: [string, number][] = Array.from(cart.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, qty]) => [name, qty]);
+
+  return {
+    state,
+    items,
+    total,
+    paid,
+    change: paid - total,
+  };
+}
+```
+
+**Edge-case verification:**
+
+| Case | Behavior |
+|------|-----------|
+| Empty events | Returns `{ state: "open", items: [], total: 0, paid: 0, change: 0 }` |
+| Single scan | Cart has 1 item, total = price |
+| Void of 1 unit | Item removed, total -= price |
+| Void of 2 units | Quantity decremented, total -= price |
+| Close with empty cart | Throws "close with empty cart" |
+| Pay exactly total | `state` becomes `"paid"`, `change = 0` |
+| Pay exceeds total | `state` becomes `"paid"`, `change = excess` |
+| Pay after paid | Throws "event after session is paid or cancelled" |
+| Cancel | `state` becomes `"cancelled"`, no further events allowed |
+| Scan unknown item | Throws "scan of unknown item" |
+| Void of missing item | Throws "void of item not in cart" |
+| Void of zero qty | Throws "void of item with zero or negative quantity" |
+| Pay non-positive | Throws "pay amount must be a positive integer" |
+| Pay in open state | Throws "pay event not allowed in open" |
+| Non-integer price | Throws "price must be a positive integer" |
+| Negative price | Throws "price must be a positive integer" |
+| NaN price | Throws "price must be a positive integer" |
+| Zero price | Throws "price must be a positive integer" |
+| Negative pay | Throws "pay amount must be a positive integer" |
+| Empty event | Throws "empty event" |
+| Scan with 2 payloads | Throws "scan event must have exactly one payload" |
+| Void with 2 payloads | Throws "void event must have exactly one payload" |
+| Pay with 2 payloads | Throws "pay event must have exactly one payload" |
+| Unknown action | Throws "unknown action" |
+| Close with empty cart | Throws "close with empty cart" |
+| Event after paid/cancelled | Throws "event after session is paid or cancelled" |
+
+**Note on the no-price-list case:** The function iterates over `Object.keys(prices)` and throws on the first non-positive-integer price. If the price list is empty, the loop body never executes, and the function proceeds to replay events — which will immediately throw on the first scan of an unknown item. This is the only stated behavior; the contract does not specify a special no-entry case.

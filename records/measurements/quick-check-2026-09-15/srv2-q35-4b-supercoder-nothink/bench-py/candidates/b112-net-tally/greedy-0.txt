@@ -1,0 +1,55 @@
+```python
+def net_tally(sheets: list) -> str:
+    """Aggregate sold/returned counts across sheets and return a formatted report."""
+    if not isinstance(sheets, list):
+        raise TypeError("sheets must be a list")
+
+    max_name_width = 0
+    item_totals: dict[str, tuple[int, int]] = {}
+
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise TypeError("each sheet must be a string")
+
+        for row in sheet.splitlines():
+            row = row.strip()
+            if not row:
+                continue
+
+            parts = row.split("|")
+            if len(parts) != 3:
+                raise ValueError("row must have exactly three pipe-separated fields")
+
+            item, sold, returned = parts
+            if not item:
+                raise ValueError("item name must not be empty")
+
+            if not sold or not returned:
+                raise ValueError("sold and returned fields must be non-empty strings of decimal digits")
+
+            if not sold.isdigit() or not returned.isdigit():
+                raise ValueError("sold and returned fields must be strings of decimal digits")
+
+            max_name_width = max(max_name_width, len(item))
+
+            sold_count = int(sold)
+            returned_count = int(returned)
+
+            if returned_count > sold_count:
+                raise ValueError(f"returned ({returned_count}) exceeds sold ({sold_count}) for item '{item}'")
+
+            if item in item_totals:
+                item_totals[item] = (item_totals[item][0] + sold_count, item_totals[item][1] + returned_count)
+            else:
+                item_totals[item] = (sold_count, returned_count)
+
+    report_lines = []
+    for item, (sold, returned) in sorted(item_totals.items()):
+        net = sold - returned
+        report_lines.append(f"{item:<{max_name_width}}  {net}")
+
+    total_net = sum(net for _, net in report_lines)
+    report_lines.append(f"{'total':<{max_name_width}}  {total_net}")
+
+    return "\n".join(report_lines)
+```

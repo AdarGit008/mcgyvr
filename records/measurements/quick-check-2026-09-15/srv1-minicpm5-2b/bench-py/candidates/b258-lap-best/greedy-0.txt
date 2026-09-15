@@ -1,0 +1,10 @@
+```python
+def lap_best(laps: list) -> int:
+    """The quickest completed lap of a session."""
+    return min((lap for lap in laps if lap > 0), default=0)
+```
+
+This fix:
+- Filters out any lap with a time of 0 (never completed) or negative (physically impossible, also treated as uncompleted).
+- Uses `min()` with a `default=0` guard clause so that an empty filtered result returns 0 instead of raising `ValueError`.
+- Handles all edge cases: empty input, all zeros, single zero, single positive, mixed, all negatives.

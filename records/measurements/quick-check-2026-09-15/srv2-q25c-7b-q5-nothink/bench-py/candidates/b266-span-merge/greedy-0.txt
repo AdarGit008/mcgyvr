@@ -1,0 +1,17 @@
+```python
+def span_merge(spans: list) -> list:
+    if not spans:
+        return []
+
+    spans.sort(key=lambda x: x[0])
+    merged = [spans[0]]
+
+    for start, end in spans[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+
+    return merged
+```

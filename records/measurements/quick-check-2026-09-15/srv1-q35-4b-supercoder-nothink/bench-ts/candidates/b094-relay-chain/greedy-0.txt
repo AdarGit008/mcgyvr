@@ -1,0 +1,41 @@
+The current implementation has several bugs:
+
+1. **Broken links are silently treated as terminal** — `if (next === "" || !(next in links))` returns early. A link to a station not in the directory should throw an error.
+
+2. **Circular chains are truncated** — the loop runs exactly `bound` steps, so a chain that circles back to an earlier station is cut off. The function should detect when a station is visited twice and throw.
+
+3. **Missing validation** — `start` must be a string and must be in the directory. Empty string among station names is not rejected.
+
+4. **Link value must be a string** — not validated.
+
+Here is the fixed file:
+
+```ts
+/** Walks a courier relay directory station by station. */
+
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof start !== "string" || !(start in links)) {
+    throw new Error("unknown starting station");
+  }
+
+  const path: string[] = [];
+  let current = start;
+  const bound = Object.keys(links).length;
+  const visited = new Set<string>();
+
+  for (let step = 0; step < bound; step++) {
+    path.push(current);
+    if (visited.has(current)) {
+      throw new Error("circular relay");
+    }
+    visited.add(current);
+    const next = links[current];
+    if (next === "" || typeof next !== "string" || !(next in links)) {
+      throw new Error("broken relay");
+    }
+    current = next;
+  }
+
+  return path;
+}
+```

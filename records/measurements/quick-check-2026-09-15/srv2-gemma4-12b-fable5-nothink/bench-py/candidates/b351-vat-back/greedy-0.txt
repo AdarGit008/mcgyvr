@@ -1,0 +1,9 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """Return the pre-tax price rounded down after removing a whole-percent tax."""
+    if rate == 0:
+        return gross
+    if rate < 0:
+        raise ValueError("Rate must be non-negative")
+    return gross // (100 + rate)
+```

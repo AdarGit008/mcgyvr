@@ -1,0 +1,63 @@
+```ts
+/**
+ * How many days lie between two proleptic Gregorian calendar dates.
+ */
+
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeap(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function monthLength(year: number, month: number): number {
+  if (month === 2 && isLeap(year)) {
+    return 29;
+  }
+  return MONTH_LENGTHS[month - 1];
+}
+
+function toOrdinal(date: number[]): number {
+  const [year, month, day] = date;
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    throw new Error("All date components must be integers.");
+  }
+  if (month < 1 || month > 12) {
+    throw new Error("Month must be between 1 and 12.");
+  }
+  if (day < 1 || day > monthLength(year, month)) {
+    throw new Error(`Day ${day} is invalid for month ${month} in year ${year}.`);
+  }
+  const prior = year - 1;
+  let days = prior * 365;
+  days += Math.floor(prior / 4);
+  for (let m = 1; m < month; m += 1) {
+    days += monthLength(year, m);
+  }
+  return days + day;
+}
+
+export function spanDays(start: number[], end: number[]): number {
+  if (start.length !== 3 || end.length !== 3) {
+    throw new Error("Each date must be a [year, month, day] triple.");
+  }
+  if (start[0] > end[0] || start[0] === end[0] && start[1] > end[1] || start[0] === end[0] && start[1] === end[1] && start[2] > end[2]) {
+    throw new Error("Start date cannot be after end date.");
+  }
+  return toOrdinal(end) - toOrdinal(start);
+}
+```
+
+**Key fixes applied:**
+
+1. **Leap year rule** — Changed from `year % 4 === 0` to `year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)`, correctly handling century years (1900 → 28 days, 2000 → 29 days).
+
+2. **Validation** — Added checks for:
+   - Non-integer components (throws `Error`)
+   - Month outside 1–12 (throws `Error`)
+   - Day outside the real length of its month in its year (throws `Error`)
+   - Start date after end date (throws `Error`)
+   - Wrong-length date arrays (throws `Error`)
+
+3. **No-op case** — Equal dates span zero (e.g., `spanDays([2020, 2, 29], [2020, 2, 29])` returns 0).
+
+4. **No empty catch block** — Errors are thrown directly; no swallowing.

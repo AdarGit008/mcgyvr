@@ -1,0 +1,79 @@
+```python
+from typing import List, Dict, Tuple
+
+
+def net_tally(sheets: list) -> str:
+    """Compute a net tally report from a list of tally sheet strings."""
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    if not all(isinstance(s, str) for s in sheets):
+        raise ValueError("sheets must be a list of strings")
+
+    item_totals: Dict[str, Tuple[int, int]] = {}
+
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("sheets must be a list of strings")
+        for line in sheet.splitlines():
+            fields = line.split("|")
+            if len(fields) != 3:
+                raise ValueError("row must have exactly three pipe-separated fields")
+            item, sold, returned = fields
+            item = item.strip()
+            sold = sold.strip()
+            returned = returned.strip()
+
+            if not item:
+                raise ValueError("item name cannot be empty")
+            if not sold.isdigit():
+                raise ValueError("sold must be a string of decimal digits")
+            if not returned.isdigit():
+                raise ValueError("returned must be a string of decimal digits")
+
+            sold_count = int(sold)
+            returned_count = int(returned)
+
+            if returned_count > sold_count:
+                raise ValueError("returned count cannot exceed sold count for an item")
+
+            if item in item_totals:
+                prev_sold, prev_returned = item_totals[item]
+                item_totals[item] = (prev_sold + sold_count, prev_returned + returned_count)
+            else:
+                item_totals[item] = (sold_count, returned_count)
+
+    if not item_totals:
+        return ""
+
+    sorted_items = sorted(item_totals.keys())
+    max_name_len = max(len(name) for name in sorted_items)
+    pad_width = max(max_name_len, 8)
+
+    lines: List[str] = []
+    for name in sorted_items:
+        sold, returned = item_totals[name]
+        net = sold - returned
+        name_padded = name.ljust(pad_width)
+        lines.append(f"{name_padded}  {net}")
+
+    total_sold = sum(item_totals[name][0] for name in sorted_items)
+    total_returned = sum(item_totals[name][1] for name in sorted_items)
+    total_net = total_sold - total_returned
+    total_padded = "total".ljust(pad_width)
+    lines.append(f"{total_padded}  {total_net}")
+
+    return "\n".join(lines)
+```
+
+**Edge-case verification:**
+- Empty input → `""` (no rows, no trailer)
+- Single-element sheet with one row → one report line + trailer
+- Duplicate items across sheets → counts summed correctly
+- Already-sorted input → still produces correct output
+- Item with returned > sold → raises `ValueError`
+- Row with empty item name → raises `ValueError`
+- Row with non-digit sold/returned → raises `ValueError`
+- Row with wrong field count → raises `ValueError`
+- Non-list or non-string sheet → raises `ValueError`
+- Whitespace-only rows → skipped
+- Case-sensitive item names → treated as distinct (not stated to be merged)

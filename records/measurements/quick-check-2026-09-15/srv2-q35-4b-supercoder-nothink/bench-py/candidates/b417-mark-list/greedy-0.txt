@@ -1,0 +1,10 @@
+The bug is that the condition is inverted: `score < floor` should be `score >= floor`. The current code marks entries below the floor, but the docstring says "reach a floor" (i.e., equal or above).
+
+```python
+def mark_list(scores: list, floor: int) -> list:
+    """Scores written out, with a star against those that reach a floor."""
+    out = []
+    for score in scores:
+        out.append(str(score) + "*" if score >= floor else str(score))
+    return out
+```

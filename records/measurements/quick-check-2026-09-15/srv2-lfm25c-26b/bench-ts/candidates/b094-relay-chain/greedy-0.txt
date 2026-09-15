@@ -1,0 +1,35 @@
+```typescript
+/**
+ * Walks a courier relay directory station by station.
+ */
+
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  // Validate start is a string
+  if (typeof start !== "string") {
+    throw new Error("start must be a string");
+  }
+
+  // Validate start is in the directory
+  if (!(start in links)) {
+    throw new Error("unknown starting station");
+  }
+
+  // Validate no empty string station exists in the directory
+  for (const station of Object.keys(links)) {
+    if (station === "") {
+      throw new Error("empty string station not allowed");
+    }
+  }
+
+  // Validate all link values are strings
+  for (const link of Object.values(links)) {
+    if (typeof link !== "string") {
+      throw new Error("link value must be a string");
+    }
+  }
+
+  const path: string[] = [];
+  let current = start;
+  const visited = new Set<string>();
+
+  while

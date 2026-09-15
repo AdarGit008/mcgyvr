@@ -1,0 +1,8 @@
+assistant
+[STOP — input validation missing]
+- template is a string, but what if it contains a placeholder that is never closed?
+- What if a placeholder has an empty name (e.g. "{}")?
+- What if a placeholder has a name that is not alphanumeric or underscore?
+- What if a placeholder has a name that is not in the values dict?
+- What if a placeholder has a name that is not in the values dict?
+- What if a placeholder has a name that is not in the values dict?

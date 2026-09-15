@@ -1,0 +1,53 @@
+```ts
+/**
+ * Computes the net tally of items from a list of tally sheets.
+ * @param sheets - List of tally sheets, each a string with newline-separated rows.
+ * @returns A report string with one line per distinct item, sorted by item name, and a trailer.
+ * @throws Error if input is invalid.
+ */
+export function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) {
+    throw new Error('Input must be an array of strings.');
+  }
+
+  const itemCounts: { [key: string]: { sold: number; returned: number } } = {};
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== 'string') {
+      throw new Error('Each sheet must be a string.');
+    }
+
+    for (const row of sheet.split('\n').filter(row => row.trim() !== '')) {
+      const parts = row.split('|').map(part => part.trim());
+      if (parts.length !== 3) {
+        throw new Error('Each row must have exactly three fields.');
+      }
+
+      const [item, sold, returned] = parts;
+      if (!item || isNaN(Number(sold)) || isNaN(Number(returned))) {
+        throw new Error('Invalid item name or non-numeric sold/returned values.');
+      }
+
+      if (Number(returned) > Number(sold)) {
+        throw new Error('Returned count cannot exceed sold count.');
+      }
+
+      if (!itemCounts[item]) {
+        itemCounts[item] = { sold: 0, returned: 0 };
+      }
+
+      itemCounts[item].sold += Number(sold);
+      itemCounts[item].returned += Number(returned);
+    }
+  }
+
+  const maxLength = Math.max(...Object.keys(itemCounts).map(item => item.length), 'total'.length);
+  const reportLines = Object.keys(itemCounts)
+    .sort()
+    .map(item => `${item.padEnd(maxLength)}  ${itemCounts[item].sold - itemCounts[item].returned}`);
+  const total = Object.values(itemCounts).reduce((sum, { sold, returned }) => sum + (sold - returned), 0);
+  reportLines.push(`${'total'.padEnd(maxLength)}  ${total}`);
+
+  return reportLines.join('\n');
+}
+```

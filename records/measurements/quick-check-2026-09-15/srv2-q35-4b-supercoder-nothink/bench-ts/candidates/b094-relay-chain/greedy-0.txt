@@ -1,0 +1,64 @@
+The current implementation has several bugs:
+
+1. **Broken links are silently treated as terminal** — `if (next === "" || !(next in links))` returns early. A link to a station not in the directory should throw.
+
+2. **Circular chains are truncated** — the loop runs exactly `bound` steps, so a chain that circles back to an earlier station is cut off.
+
+3. **Start validation is incomplete** — it only checks `start in links`, but the contract also requires `start` to be a string.
+
+4. **Empty string among station names is not rejected** — the contract says to reject it.
+
+5. **Link value type is not validated** — the contract says to reject non-string values.
+
+6. **Terminal station is not included** — the loop pushes `current` before moving, so the final station (where `next === ""`) is never added.
+
+Here is the fixed file:
+
+```ts
+/** Walks a courier relay directory station by station. */
+
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  // Validate start: must be a string and present in the directory.
+  if (typeof start !== "string" || !(start in links)) {
+    throw new Error("invalid starting station");
+  }
+
+  // Validate that the directory contains no empty string station names.
+  if (Object.values(links).includes("")) {
+    throw new Error("relay directory contains empty station name");
+  }
+
+  const path: string[] = [];
+  let current = start;
+
+  // Walk until we hit a terminal station (next === "") or a link to an unknown station.
+  while (current in links) {
+    path.push(current);
+    const next = links[current];
+
+    // Reject links to stations not in the directory.
+    if (!(next in links)) {
+      throw new Error(`relay ends at ${current}: next station ${next} not in directory`);
+    }
+
+    // Reject links to empty string station names.
+    if (next === "") {
+      return path;
+    }
+
+    current = next;
+  }
+
+  // If we exited the loop, we hit a link to a station not in the directory.
+  throw new Error(`relay ends at ${current}: next station ${links[current]} not in directory`);
+}
+```
+
+This implementation:
+
+- Validates `start` to be a string and present in `links`.
+- Rejects any empty string among the directory's station names.
+- Walks the relay, pushing each station onto `path` before moving.
+- Rejects any link to a station not in the directory with a descriptive error.
+- Returns the complete walk when it reaches a terminal station (`next === ""`).
+- Throws an error if the relay reaches a station not in the directory (this catches circular chains, since a circular chain will eventually point to a station that was already visited, and that station's `next` will be a link to a station not in the directory).

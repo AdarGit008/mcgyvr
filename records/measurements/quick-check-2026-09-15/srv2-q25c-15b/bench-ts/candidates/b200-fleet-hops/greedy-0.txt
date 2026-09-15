@@ -1,0 +1,252 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (hop < 0) {
+    throw new Error("Hop must be non-negative");
+  }
+
+  if (count < 0 || count > 1000000) {
+    throw new Error("Count must be between 0 and 1000000");
+  }
+
+  if (lts.length === 0) {
+    throw new Error("LTS array must not be empty");
+  }
+
+  if (builds.length === 0) {
+    throw new Error("Builds array must not be empty");
+  }
+
+  if (hop === 0) {
+    return 0;
+  }
+
+  let totalHops = 0;
+  let currentBuild = builds[0];
+
+  for (let i = 0; i < count; i++) {
+    if (currentBuild === lts[0]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[lts.length - 1]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 2)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 4)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 8)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 16)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 32)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 64)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 128)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 256)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 512)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 1024)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 2048)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 4096)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 8192)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 16384)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 32768)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 65536)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 131072)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 262144)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 524288)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 1048576)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 2097152)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 4194304)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 8388608)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 16777216)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 33554432)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 67108832)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 134217728)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 268435456)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 536870912)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 1073741824)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 2147483648)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 4294967296)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 8589934592)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 17179869184)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 34359738368)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 68719476736)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 137438953472)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 274877906960)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 549755813888)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 1099511627776)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 2199023255552)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 4398046511104)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 8796093018416)]) {
+      totalHops += lts.length - 1;
+      break;
+    }
+
+    if (currentBuild === lts[Math.floor(lts.length / 17592186

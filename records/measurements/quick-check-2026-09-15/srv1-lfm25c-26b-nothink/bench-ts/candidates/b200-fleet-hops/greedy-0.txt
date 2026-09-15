@@ -1,0 +1,31 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (count <= 0) {
+    return 0;
+  }
+
+  if (hop <= 0) {
+    throw new Error('hop must be a positive integer');
+  }
+
+  if (count !== lts.length) {
+    throw new Error('count must equal lts.length');
+  }
+
+  if (builds.length !== count) {
+    throw new Error('builds must have the same length as count');
+  }
+
+  const ltsSet = new Set(lts);
+  let hops = 0;
+
+  for (let i = 0; i < count; i++) {
+    if (builds[i] === ltsSet.size) {
+      hops++;
+      break;
+    }
+  }
+
+  return hops;
+}
+```

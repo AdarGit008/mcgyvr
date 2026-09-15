@@ -1,0 +1,51 @@
+```ts
+/**
+ * How many days lie between two proleptic Gregorian calendar dates.
+ * Each date is a [year, month, day] triple.
+ * The result is how many days lie from the start date to the end date,
+ * the start day counted and the end day not, so equal dates span zero.
+ * A leap year is one divisible by 4, except that century years are leap only when divisible by 400.
+ * Rejects with an error if the start date is after the end date, a month outside 1 to 12,
+ * a day outside the real length of its month in its year, or a date component that is not an integer.
+ */
+
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeap(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function monthLength(year: number, month: number): number {
+  if (month === 2 && isLeap(year)) {
+    return 29;
+  }
+  return MONTH_LENGTHS[month - 1];
+}
+
+function toOrdinal(date: number[]): number {
+  const [year, month, day] = date;
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    throw new Error('Date components must be integers');
+  }
+  if (month < 1 || month > 12) {
+    throw new Error('Month must be between 1 and 12');
+  }
+  if (day < 1 || day > monthLength(year, month)) {
+    throw new Error('Day must be within the valid range for the given month and year');
+  }
+  const prior = year - 1;
+  let days = prior * 365;
+  days += Math.floor(prior / 4) - Math.floor(prior / 100) + Math.floor(prior / 400);
+  for (let m = 1; m < month; m += 1) {
+    days += monthLength(year, m);
+  }
+  return days + day;
+}
+
+export function spanDays(start: number[], end: number[]): number {
+  if (start[0] > end[0] || (start[0] === end[0] && (start[1] > end[1] || (start[1] === end[1] && start[2] >= end[2])))) {
+    throw new Error('Start date must be before end date');
+  }
+  return toOrdinal(end) - toOrdinal(start);
+}
+```

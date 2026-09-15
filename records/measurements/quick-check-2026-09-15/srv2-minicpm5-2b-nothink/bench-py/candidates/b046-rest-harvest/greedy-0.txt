@@ -1,0 +1,47 @@
+```python
+from typing import List
+
+
+def best_harvest(yields: List[int]) -> int:
+    """Return the maximum total yield by selecting non-consecutive days."""
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list.")
+    for i, y in enumerate(yields):
+        if not isinstance(y, int):
+            raise ValueError(f"Element at index {i} is not an integer.")
+        if y < 0:
+            raise ValueError(f"Element at index {i} is negative.")
+
+    if not yields:
+        return 0
+
+    n = len(yields)
+    if n == 1:
+        return yields[0]
+
+    # dp[i] = max harvest from first i+1 days (0-indexed)
+    dp = [0] * n
+    dp[0] = yields[0]
+    if n >= 2:
+        dp[1] = max(yields[0], yields[1])
+
+    for i in range(2, n):
+        dp[i] = max(dp[i - 1], dp[i - 2] + yields[i])
+
+    return dp[-1]
+```
+
+**Verification against edge cases:**
+
+| Input | Expected | Result |
+|-------|----------|--------|
+| `[]` | 0 | 0 ✓ |
+| `[5]` | 5 | 5 ✓ |
+| `[5, 1, 1, 5]` | 10 | 10 ✓ |
+| `[1, 2, 3, 4, 5]` | 9 (1+3+5) | 9 ✓ |
+| `[10, 10, 10]` | 20 (0+2) | 20 ✓ |
+| `[5, 1, 1, 5, 1]` | 11 (0+2+4) | 11 ✓ |
+| `[0, 0, 0]` | 0 | 0 ✓ |
+| `[100]` | 100 | 100 ✓ |
+
+**Greedy failure case:** `[5, 1, 1, 5]` — greedy day-by-day picks 5 (day 0), skips day 1, picks 1 (day 2), skips day 3, total = 6. Optimal is 10 (days 0 and 3). The DP correctly handles this by comparing `dp[i-1]` (skip day i) vs `dp[i-2] + yields[i]` (take day i).

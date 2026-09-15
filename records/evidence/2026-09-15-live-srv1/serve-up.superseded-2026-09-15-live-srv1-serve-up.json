@@ -1,0 +1,25 @@
+{
+  "run_id": "2026-09-15-live-srv1-serve-up",
+  "host": "srv1",
+  "mode": "up",
+  "compose_file": "/home/adaramir/.local/state/mcgyvr/compose/b-small/compose.srv1.b-small.yml",
+  "compose": "services:\n  srv1_deepseek:\n    command:\n    - --model\n    - /home/adaramir/models/moe/deepseek-coder-v2-16b.gguf\n    - --n-cpu-moe\n    - '19'\n    - --parallel\n    - '2'\n    - --port\n    - '8080'\n    - -b\n    - '512'\n    - -ub\n    - '512'\n    - -c\n    - '8192'\n    - -fa\n    - 'on'\n    - -ngl\n    - '99'\n    - -t\n    - '6'\n    container_name: mcgyvr-srv1-deepseek\n    deploy:\n      resources:\n        reservations:\n          devices:\n          - capabilities:\n            - gpu\n            device_ids:\n            - '0'\n            driver: nvidia\n    environment:\n      LLAMA_ARG_HOST: 0.0.0.0\n    image: llamacpp:b10644-L3\n    network_mode: host\n    restart: unless-stopped\n    volumes:\n    - /home/adaramir/models:/models:ro\n    - /home/adaramir/models:/home/adaramir/models:ro\n",
+  "compose_up_exit": 0,
+  "units": [
+    {
+      "container": "mcgyvr-srv1-deepseek",
+      "port": 8080,
+      "healthy": true,
+      "sleeping": null,
+      "seconds": 30.3,
+      "models": [
+        "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf"
+      ],
+      "restarts": 0
+    }
+  ],
+  "card_after": {
+    "used_mib": 5430,
+    "free_mib": 316
+  }
+}

@@ -1,0 +1,69 @@
+```ts
+export function netTally(sheets: string[]): string {
+  const result: Record<string, { sold: number; returned: number }> = {};
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== 'string') {
+      throw new Error('sheets must be an array of strings');
+    }
+
+    const lines = sheet.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.length === 0) continue;
+
+      const parts = trimmed.split('|');
+      if (parts.length !== 3) continue;
+
+      const item = parts[0].trim();
+      if (item.length === 0) continue;
+
+      const soldStr = parts[1].trim();
+      const returnedStr = parts[2].trim();
+
+      if (!/^\d+$/.test(soldStr) || !/^\d+$/.test(returnedStr)) {
+        throw new Error('sold and returned fields must be strings of decimal digits');
+      }
+
+      const sold = parseInt(soldStr, 10);
+      const returned = parseInt(returnedStr, 10);
+
+      if (sold < 0 || returned < 0) {
+        throw new Error('sold and returned must be non-negative numbers');
+      }
+
+      if (returned > sold) {
+        throw new Error('returned total cannot exceed sold total for an item');
+      }
+
+      if (!result[item]) {
+        result[item] = { sold, returned };
+      } else {
+        result[item].sold += sold;
+        result[item].returned += returned;
+      }
+    }
+  }
+
+  if (Object.keys(result).length === 0) {
+    return '';
+  }
+
+  const sortedItems = Object.keys(result).sort();
+  const maxNameLength = Math.max(...sortedItems.map((name) => name.length));
+  const totalWidth = Math.max(maxNameLength, 6); // at least "total" (5) + 1 space
+
+  const lines: string[] = [];
+
+  for (const item of sortedItems) {
+    const net = result[item].sold - result[item].returned;
+    const line = `${item.padEnd(totalWidth)}  ${net}`;
+    lines.push(line);
+  }
+
+  const total = Object.values(result).reduce((sum, item) => sum + (item.sold - item.returned), 0);
+  lines.push(`total ${total}`);
+
+  return lines.join('\n');
+}
+```

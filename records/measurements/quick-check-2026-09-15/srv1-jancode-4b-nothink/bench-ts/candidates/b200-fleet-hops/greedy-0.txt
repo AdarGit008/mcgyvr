@@ -1,0 +1,92 @@
+```ts
+/**
+ * Calculates the total number of hops for a fleet of devices to reach the newest release.
+ * 
+ * @param count - The total number of releases (0 to count-1).
+ * @param lts - Array of release numbers that have long-term support.
+ * @param builds - Array of current release numbers for each device in the fleet.
+ * @param hop - Maximum hop distance (how far a device can jump in one hop).
+ * @returns Total number of hops required for all devices to reach the newest release.
+ * @throws Error if any build is not a valid release number (not in 0..count-1).
+ */
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  // Validate input
+  if (count <= 0 || hop < 0) {
+    throw new Error("Invalid input: count must be positive and hop must be non-negative");
+  }
+
+  // Validate each build is a valid release number
+  for (const build of builds) {
+    if (!Number.isInteger(build) || build < 0 || build >= count) {
+      throw new Error("Invalid build release: must be a whole number between 0 and count-1");
+    }
+  }
+
+  // If hop is zero, no movement is possible
+  if (hop === 0) {
+    // All devices are already at their current release, so no hops needed
+    // But if any device is not at the newest release, it cannot move
+    // So we only count hops if the device is not already at the newest release
+    // However, if hop is zero, no hops are ever made
+    return 0;
+  }
+
+  // Find the next LTS release strictly above current build and strictly below build + hop
+  // If no such LTS exists, then the device moves to build + hop (but not beyond count-1)
+  // If build is already at count-1, no hop is needed
+  let totalHops = 0;
+
+  for (const build of builds) {
+    if (build === count - 1) {
+      // Already at the newest release
+      continue;
+    }
+
+    // The device can reach at most build + hop
+    const maxReach = Math.min(build + hop, count - 1);
+
+    // Find the lowest LTS release strictly above build and strictly below maxReach
+    let nextLts = -1;
+    for (const ltsRelease of lts) {
+      if (ltsRelease > build && ltsRelease < maxReach) {
+        nextLts = ltsRelease;
+        break;
+      }
+    }
+
+    // If we found an LTS release, the device lands on it
+    if (nextLts !== -1) {
+      // The device hops from build to nextLts
+      totalHops += nextLts - build;
+      // After landing on LTS, we recursively process from nextLts
+      // But we must avoid infinite recursion by ensuring we don't go beyond count-1
+      // So we continue the process from nextLts until we reach count-1
+      let current = nextLts;
+      while (current < count - 1) {
+        const nextMaxReach = Math.min(current + hop, count - 1);
+        let nextNextLts = -1;
+        for (const ltsRelease of lts) {
+          if (ltsRelease > current && ltsRelease < nextMaxReach) {
+            nextNextLts = ltsRelease;
+            break;
+          }
+        }
+        if (nextNextL-1 === -1) {
+          // No LTS found, so move to nextMaxReach
+          current = nextMaxReach;
+          totalHops += current - current; // This is 0, so no change
+          break;
+        } else {
+          current = nextNextLts;
+          totalHops += current - current; // This is 0, so no change
+        }
+      }
+    } else {
+      // No LTS found in range, so move to maxReach
+      totalHops += maxReach - build;
+    }
+  }
+
+  return totalHops;
+}
+```

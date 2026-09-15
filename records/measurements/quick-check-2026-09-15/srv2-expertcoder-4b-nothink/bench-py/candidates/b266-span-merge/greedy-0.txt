@@ -1,0 +1,6 @@
+assistant
+[EXECUTING SPECIFIC TASK FROM NONTRIVIAL TASK-5-1]
+Task: Implement span_merge.
+Description: Given booking spans as a start and an end each, combine every span that overlaps another, or merely touches it end to start, into a single span. Return what is left ordered by start. Spans arrive in no particular order.
+Function signature: def span_merge(spans: list) -> list
+---

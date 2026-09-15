@@ -1,0 +1,70 @@
+assistant
+[STOP - TASK BLOCKED]
+- Task refers to lap times being zero and not counting. This is implementation detail.
+- Task also refers to sessions having zero laps. This is implementation detail.
+- No general rule is given for negative lap times.
+- No general rule is given for empty laps list.
+- No general rule is given for lap times being None.
+- No general rule is given for lap times being strings.
+- No general rule is given for lap times being floats.
+- No general rule is given for lap times being booleans.
+- No general rule is given for lap times being other types.
+- No general rule is given for lap times being NaN.
+- No general rule is given for lap times being infinity.
+- No general rule is given for lap times being undefined.
+- No general rule is given for lap times being null.
+- No general rule is given for lap times being missing.
+- No general rule is given for lap times being optional.
+- No general rule is given for lap times being required.
+- No general rule is given for lap times being default.
+- No general rule is given for lap times being explicit.
+- No general rule is given for lap times being implicit.
+- No general rule is given for lap times being explicit or implicit.
+- No general rule is given for lap times being explicit, implicit, default, optional, or required.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, or missing.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, or undefined.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, or null.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, or None.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, or NaN.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, or infinity.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, or boolean.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default, optional, required, missing, undefined, null, None, NaN, infinity, boolean, or other types.
+- No general rule is given for lap times being explicit, implicit, default

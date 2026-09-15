@@ -1,0 +1,93 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state = OPEN;
+  const cart = new Map<string, number>();
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("event must be a list of action and payload");
+    }
+
+    const [action, payload] = event;
+
+    if (state === PAID || state === CANCELLED) {
+      throw new Error("cannot process event after session is paid or cancelled");
+    }
+
+    switch (action) {
+      case "scan":
+        if (typeof payload !== "string") throw new Error("scan payload must be a string");
+        const price = prices[payload];
+        if (price === undefined) throw new Error("item absent from price list");
+        cart.set(payload, (cart.get(payload) ?? 0) + 1);
+        break;
+
+      case "void":
+        if (typeof payload !== "string") throw new Error("void payload must be a string");
+        const quantity = cart.get(payload);
+        if (quantity === undefined) throw new Error("item not in cart");
+        if (quantity === 1) cart.delete(payload);
+        else cart.set(payload, quantity - 1);
+        break;
+
+      case "close":
+        if (cart.size === 0) throw new Error("close with an empty cart");
+        state = PAYMENT;
+        total = Array.from(cart.entries()).reduce((acc, [name, qty]) => acc + prices[name] * qty, 0);
+        break;
+
+      case "pay":
+        if (typeof payload !== "number" || !Number.isInteger(payload) || payload <= 0) {
+          throw new Error("pay amount must be a positive integer");
+        }
+        paid += payload;
+        if (paid >= total) {
+          state = PAID;
+          change = paid - total;
+        }
+        break;
+
+      case "cancel":
+        state = CANCELLED;
+        break;
+
+      default:
+        throw new Error("unknown action");
+    }
+  }
+
+  const items = Array.from(cart.entries()).map(([name, qty]) => [name, qty]).sort((a, b) => a[0].localeCompare(b[0]));
+
+  return {
+    state,
+    items,
+    total,
+    paid,
+    change,
+  };
+}
+```

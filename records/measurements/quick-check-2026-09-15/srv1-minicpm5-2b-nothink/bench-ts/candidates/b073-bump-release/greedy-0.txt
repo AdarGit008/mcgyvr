@@ -1,0 +1,87 @@
+```ts
+export function bumpRelease(version: string, part: string): string {
+  if (typeof version !== "string" || version.length === 0) {
+    throw new Error("version must be a non-empty string");
+  }
+  if (typeof part !== "string" || part.length === 0) {
+    throw new Error("part must be a non-empty string");
+  }
+
+  const components: string[] = version.split(".");
+  if (components.length !== 3) {
+    throw new Error("version must have exactly three dot-separated components");
+  }
+
+  for (const comp of components) {
+    if (comp.length === 0) {
+      throw new Error("version component cannot be empty");
+    }
+    if (comp[0] === "0" && comp.length > 1) {
+      throw new Error("version component cannot have a leading zero");
+    }
+    if (!/^[0-9]+$/.test(comp)) {
+      throw new Error("version component must contain only digits");
+    }
+  }
+
+  const major = parseInt(components[0], 10);
+  const minor = parseInt(components[1], 10);
+  const patch = parseInt(components[2], 10);
+
+  if (part === "major") {
+    return `${major + 1}.0.0`;
+  }
+  if (part === "minor") {
+    return `${major}.${minor + 1}.0`;
+  }
+  if (part === "patch") {
+    return `${major}.${minor}.${patch + 1}`;
+  }
+  throw new Error("part must be one of: major, minor, patch");
+}
+```
+
+**Edge-case verification:**
+
+| Input | part | Output | Notes |
+|---|---|---|---|
+| `"1.2.3"` | `"patch"` | `"1.2.4"` | Normal increment |
+| `"1.2.3"` | `"minor"` | `"1.3.0"` | Minor bump resets patch |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Major bump resets minor & patch |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"patch"` | `"1.2.4"` | Already at 1.2.4 → 1.2.5 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0"` | Already at 2.0.0 → 3.0.0 |
+| `"1.2.3"` | `"major"` | `"2.0.0

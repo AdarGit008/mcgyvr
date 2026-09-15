@@ -1,0 +1,21 @@
+```ts
+export function stepValue(step: string): number {
+  if (step === "+") {
+    return 1;
+  }
+  if (step === "-") {
+    return -1;
+  }
+  return 0;
+}
+
+/** The running total after each instruction. */
+export function scanTally(steps: string[]): number[] {
+  return steps.reduce((total, step) => {
+    total += stepValue(step);
+    return [total];
+  }, []);
+}
+```
+
+The bug was that `scanTally` returned a single-element array `[total]` containing only the final running total, rather than an array of running totals after each instruction. The fix uses `reduce` to accumulate the running total after each step and push it onto the result array.

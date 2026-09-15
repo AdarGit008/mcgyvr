@@ -1,0 +1,78 @@
+```ts
+/**
+ * Processes tally sheets and produces a formatted net count report.
+ */
+export function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) {
+    throw new Error("sheets must be an array");
+  }
+
+  const itemStats: Record<string, { sold: number; returned: number }> = {};
+  let totalNet = 0;
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== "string") {
+      throw new Error("each sheet must be a string");
+    }
+
+    const rows = sheet
+      .split("\n")
+      .map((row) => row.trim())
+      .filter((row) => row.length > 0);
+
+    for (const row of rows) {
+      const parts = row.split("|").map((part) => part.trim());
+      if (parts.length !== 3) {
+        throw new Error("row must have exactly three fields");
+      }
+
+      const [itemName, soldStr, returnedStr] = parts;
+
+      if (!itemName) {
+        throw new Error("item name cannot be empty");
+      }
+
+      const sold = parseInt(soldStr, 10);
+      const returned = parseInt(returnedStr, 10);
+
+      if (isNaN(sold) || !/^\d+$/.test(soldStr)) {
+        throw new Error("sold must be a string of decimal digits");
+      }
+      if (isNaN(returned) || !/^\d+$/.test(returnedStr)) {
+        throw new Error("returned must be a string of decimal digits");
+      }
+
+      const stats = itemStats[itemName] || { sold: 0, returned: 0 };
+      stats.sold += sold;
+      stats.returned += returned;
+      itemStats[itemName] = stats;
+    }
+  }
+
+  const items = Object.keys(itemStats).sort();
+  if (items.length === 0) {
+    return "";
+  }
+
+  let maxNameLength = 0;
+  for (const name of items) {
+    maxNameLength = Math.max(maxNameLength, name.length);
+  }
+  maxNameLength = Math.max(maxNameLength, "total".length);
+
+  const reportLines: string[] = [];
+  for (const name of items) {
+    const stats = itemStats[name];
+    if (stats.returned > stats.sold) {
+      throw new Error("returned total exceeds sold total");
+    }
+    const net = stats.sold - stats.returned;
+    totalNet += net;
+    reportLines.push(`${name.padEnd(maxNameLength)}  ${net}`);
+  }
+
+  reportLines.push(`total${" ".repeat(maxNameLength - 4)}  ${totalNet}`);
+
+  return reportLines.join("\n");
+}
+```

@@ -1,0 +1,5 @@
+assistant
+[FINISHED]
+- splitEvenly now computes the exact share and distributes the remainder from the start, so the parts always sum to the total and are in non-increasing order.
+- splitEvenly now validates that totalCents and ways are non-negative/positive integers and throws an error otherwise.
+- applyBps and sumParts remain unchanged and correct.

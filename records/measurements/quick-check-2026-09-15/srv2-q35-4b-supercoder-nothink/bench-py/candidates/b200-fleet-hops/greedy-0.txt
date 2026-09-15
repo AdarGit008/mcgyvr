@@ -1,0 +1,25 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    """Total hops for the fleet to reach the newest release."""
+    if not lts:
+        return 0
+    lts = sorted(lts)
+    if not builds:
+        return 0
+    for b in builds:
+        if not isinstance(b, int) or b < 0 or b >= count:
+            raise ValueError(f"Invalid build: {b!r} is not a valid release number.")
+    newest = count - 1
+    total = 0
+    for b in builds:
+        if b == newest:
+            continue
+        reach = min(b + hop, newest)
+        if reach < b:
+            raise ValueError(f"Cannot reach newest release from {b!r} with hop {hop}.")
+        if reach in lts:
+            reach = lts[reach]
+        if reach > b:
+            total += reach - b
+    return total
+```

@@ -1,0 +1,70 @@
+assistant
+[FINAL ANSWER]
+---
+name: solution
+description: Net tally calculation
+---
+
+```python
+def net_tally(sheets: list) -> str:
+    """Process multiple tally sheets and produce a formatted report."""
+    if not isinstance(sheets, list):
+        raise TypeError("sheets must be a list")
+    for i, sheet in enumerate(sheets):
+        if not isinstance(sheet, str):
+            raise TypeError(f"sheet {i} must be a string")
+        for j, row in enumerate(sheet.split("\n")):
+            if not row.strip():
+                continue
+            fields = row.split("|")
+            if len(fields) != 3:
+                raise ValueError(f"row {j} must have exactly 3 fields")
+            item, sold_str, returned_str = [f.strip() for f in fields]
+            if not item:
+                raise ValueError(f"row {j} has empty item name")
+            try:
+                sold = int(sold_str)
+                returned = int(returned_str)
+            except ValueError:
+                raise ValueError(f"row {j} has invalid sold or returned field")
+            if returned > sold:
+                raise ValueError(f"row {j}: returned {returned} > sold {sold}")
+            _accumulate(item, sold, returned)
+
+    items = _accumulate_items()
+    if not items:
+        return ""
+    max_width = max(len(n) for n in items)
+    total_net = sum(i["net"] for i in items.values())
+    lines = []
+    for name in sorted(items.keys()):
+        lines.append(f"{name:<{max_width}}  {items[name]['net']}")
+    lines.append(f"{'total':>{max_width}}  {total_net}")
+    return "\n".join(lines)
+
+
+def _accumulate_items() -> dict:
+    """Collect item data from sheets."""
+    items = {}
+    sheets = _get_sheets()
+    for sheet in sheets:
+        for row in sheet.split("\n"):
+            if not row.strip():
+                continue
+            fields = row.split("|")
+            if len(fields) != 3:
+                continue
+            item, sold_str, returned_str = [f.strip() for f in fields]
+            if not item:
+                continue
+            try:
+                sold = int(sold_str)
+                returned = int(returned_str)
+            except ValueError:
+                continue
+            if item not in items:
+                items[item] = {"sold": 0, "returned": 0}
+            items[item]["sold"] += sold
+            items[item]["returned"] += returned
+    return items
+```

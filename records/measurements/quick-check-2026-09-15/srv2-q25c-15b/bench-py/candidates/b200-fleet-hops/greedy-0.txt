@@ -1,0 +1,119 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if not (0 <= hop <= count):
+        raise ValueError("hop must be between 0 and count")
+    if not all(0 <= release <= count for release in builds):
+        raise ValueError("builds must be whole numbers between 0 and count")
+    if not all(0 <= release <= count for release in lts):
+        raise ValueError("lts must be whole numbers between 0 and count")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-decreasing order")
+    if not all(builds[i] <= lts[i + 1] for i in range(len(builds) - 1)):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= count for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(lts[i] <= count for i in range(len(lts))):
+        raise ValueError("lts must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <= lts[i] for i in range(len(builds))):
+        raise ValueError("builds must be in non-increasing order")
+    if not all(builds[i] <=

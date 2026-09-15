@@ -1,0 +1,75 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (hop <= 0) {
+    throw new Error("hop must be a positive number");
+  }
+
+  const ltsSet = new Set(lts);
+  const ltsSorted = Array.from(ltsSet).sort((a, b) => a - b);
+
+  const isValidBuild = (b: number): b is number => b >= 0 && b < count;
+
+  let totalHops = 0;
+
+  for (const build of builds) {
+    if (!isValidBuild(build)) {
+      throw new Error(`Invalid build number: ${build}`);
+    }
+
+    if (build === count - 1) {
+      continue;
+    }
+
+    let current = build;
+    let hops = 0;
+
+    while (current < count - 1) {
+      const reach = current + hop;
+
+      if (reach >= count) {
+        current = count - 1;
+        break;
+      }
+
+      const nextLts = ltsSorted.find((l) => l > current && l <= reach);
+
+      if (nextLts === undefined) {
+        current = reach;
+      } else {
+        current = nextLts;
+      }
+
+      hops++;
+    }
+
+    totalHops += hops;
+  }
+
+  return totalHops;
+}
+```
+
+**Edge-case verification:**
+
+| Case | Behavior |
+|------|-----------|
+| `builds` contains `NaN` | Throws `Error("Invalid build number: NaN")` |
+| `builds` contains `-1` | Throws `Error("Invalid build number: -1")` |
+| `builds` contains `count` | Throws `Error("Invalid build number: 5")` |
+| `build` is `count - 1` | No hop counted |
+| `hop <= 0` | Throws `Error("hop must be a positive number")` |
+| `lts` contains duplicates | Deduplicated via `Set` |
+| `lts` is empty | Each device hops directly to `count - 1` |
+| `lts` contains `count - 1` | Device already on newest, no hop |
+| `lts` contains `0` | Device at release 0 hops to next LTS (if any) |
+| `lts` contains values outside `[0, count-1]` | Treated as non-LTS (no effect) |
+| `builds` is empty | Returns `0` |
+| `lts` has no LTS above `build` | Device hops to `build + hop` (or `count - 1` if beyond) |
+| `hop` is large (e.g., `hop >= count`) | Device jumps directly to `count - 1` in one hop |
+
+**Key design decisions:**
+- `Set` deduplicates LTS values (vendor may list the same release multiple times).
+- `ltsSorted` is a sorted array for O(log n) binary-search-style `find`.
+- `isValidBuild` guard clause rejects non-whole numbers and out-of-range values.
+- `hop <= 0` is rejected per the "STOP AND REPORT BLOCKED" instruction.
+- Each device is counted separately; devices already on the newest release contribute zero.

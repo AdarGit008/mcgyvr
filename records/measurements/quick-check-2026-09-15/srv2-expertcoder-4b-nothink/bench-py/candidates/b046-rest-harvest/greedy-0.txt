@@ -1,0 +1,10 @@
+assistant
+[1.10.258] - function_implementation (best_harvest):
+The picker may work any set of days, except that a worked day always forces
+the next day off. Return the largest total; an empty list yields zero.
+Greedy day-by-day choices are not enough: for the yields 5, 1, 1, 5 the
+answer is 10, from the first and the last day. Reject an argument that is
+not a list, a yield that is not an integer, and a negative yield, with an
+error.
+
+---

@@ -1,0 +1,20 @@
+```python
+def hour_rate(rate: int) -> int:
+    """Return the hourly rate."""
+    return rate
+
+
+def week_pay(hours: int, rate: int) -> int:
+    """Pay for a week, with overtime beyond forty hours.
+
+    Pays the regular rate for the first 40 hours and 1.5x the rate
+    for each hour beyond 40. All amounts are rounded down.
+    """
+    if hours <= 40:
+        return hours * hour_rate(rate)
+    regular = 40 * hour_rate(rate)
+    overtime = (hours - 40) * hour_rate(rate) * 3 // 2
+    return regular + overtime
+```
+
+The bug in the original `week_pay` was that it paid the *regular* rate for all hours worked, instead of paying the *higher* (overtime) rate for hours beyond 40. The fix splits the pay into two parts: 40 hours at the regular rate, plus any hours beyond 40 at 1.5x the rate (using floor division for the "rounded down" requirement).

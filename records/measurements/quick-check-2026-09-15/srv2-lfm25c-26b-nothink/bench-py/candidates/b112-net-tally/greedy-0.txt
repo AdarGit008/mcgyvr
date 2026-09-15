@@ -1,0 +1,61 @@
+```python
+def net_tally(sheets: list) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+
+    totals: dict[str, dict[str, int]] = {}
+
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("each sheet must be a string")
+
+        lines = sheet.splitlines()
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            parts = line.split("|")
+            if len(parts) != 3:
+                raise ValueError("each row must have exactly three fields")
+
+            item, sold_str, returned_str = parts
+
+            if not item.strip():
+                raise ValueError("item name cannot be empty")
+
+            item = item.strip()
+
+            try:
+                sold = int(sold_str)
+                returned = int(returned_str)
+            except ValueError:
+                raise ValueError("sold and returned must be strings of decimal digits")
+
+            if returned > sold:
+                raise ValueError("returned total cannot exceed sold total")
+
+            if item not in totals:
+                totals[item] = {"sold": 0, "returned": 0}
+
+            totals[item]["sold"] += sold
+            totals[item]["returned"] += returned
+
+    if not totals:
+        return ""
+
+    # Determine padding width
+    max_name_len = max(len(name) for name in totals)
+    total_width = max(max_name_len, len("total"))
+
+    lines: list[str] = []
+    for item, counts in sorted(totals.items()):
+        net = counts["sold"] - counts["returned"]
+        line = f"{item.ljust(total_width)}  {net}"
+        lines.append(line)
+
+    total_net = sum(counts["sold"] - counts["returned"] for counts in totals.values())
+    lines.append(f"{total_width * 2 + 1}total {total_net}")
+
+    return "\n".join(lines)
+```

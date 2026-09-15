@@ -1,0 +1,21 @@
+```typescript
+function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+    if (count < 0 || count > count - 1 || lts.length < 0 || lts.length > count - 1 || builds.length < 0 || builds.length > count - 1) {
+        throw new Error("Invalid input");
+    }
+
+    let hops = 0;
+    let currentRelease = 0;
+
+    for (let i = 0; i < count; i++) {
+        if (currentRelease === lts[i]) {
+            hops++;
+            currentRelease++;
+        } else {
+            currentRelease = lts[i];
+        }
+    }
+
+    return hops;
+}
+```

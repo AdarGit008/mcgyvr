@@ -1,0 +1,46 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (hop < 0) {
+    throw new Error("hop must be non-negative");
+  }
+
+  if (count < 0 || count > 1000000) {
+    throw new Error("count must be between 0 and 1000000");
+  }
+
+  if (lts.length === 0) {
+    throw new Error("lts must not be empty");
+  }
+
+  if (builds.length === 0) {
+    throw new Error("builds must not be empty");
+  }
+
+  if (hop === 0) {
+    return 0;
+  }
+
+  let totalHops = 0;
+  let currentBuild = builds[0];
+
+  for (let i = 0; i < count; i++) {
+    if (currentBuild === count) {
+      break;
+    }
+
+    if (lts.includes(currentBuild)) {
+      currentBuild = lts[lts.indexOf(currentBuild) + 1];
+    } else {
+      currentBuild += hop;
+    }
+
+    if (currentBuild > count) {
+      currentBuild = count;
+    }
+
+    totalHops++;
+  }
+
+  return totalHops;
+}
+```

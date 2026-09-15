@@ -1,0 +1,34 @@
+```ts
+/**
+ * Calculates the maximum harvest a picker can achieve from an orchard's daily yields.
+ * The picker can work any set of days, except that a worked day always forces the next day off.
+ * 
+ * @param yields - An array of non-negative integers representing the daily yields in kilos.
+ * @returns The largest total the picker can take.
+ * @throws Error if the input is not a valid list of non-negative integers.
+ */
+export function bestHarvest(yields: number[]): number {
+    if (!Array.isArray(yields)) {
+        throw new Error('Input must be a list of yields.');
+    }
+
+    if (yields.some(yield => !Number.isInteger(yield) || yield < 0)) {
+        throw new Error('All yields must be non-negative integers.');
+    }
+
+    if (yields.length === 0) {
+        return 0;
+    }
+
+    let include = yields[0];
+    let exclude = 0;
+
+    for (let i = 1; i < yields.length; i++) {
+        const temp = exclude;
+        exclude = Math.max(exclude, include);
+        include = temp + yields[i];
+    }
+
+    return Math.max(exclude, include);
+}
+```

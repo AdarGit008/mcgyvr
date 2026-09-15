@@ -1,0 +1,2 @@
+assistant
+[STOP — task is ambiguous and cannot be resolved without guessing. The current code puts a star against entries BELOW the floor (score < floor), but the comment says "against those that reach a floor". Entries ABOVE the floor are left unchanged. The comment is wrong, or the code is wrong. Without clarification, I cannot know which is the intended behavior. Blocking as instructed.]

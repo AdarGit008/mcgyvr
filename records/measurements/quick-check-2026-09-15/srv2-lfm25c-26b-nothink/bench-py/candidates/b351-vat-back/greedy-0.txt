@@ -1,0 +1,12 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """Return the pre-tax price given a gross price and tax rate.
+
+    The gross price already includes the tax. The tax rate is applied to the
+    pre-tax price to produce the gross price. Solving for the pre-tax price
+    gives: pre_tax = gross / (1 + rate).
+
+    The result is rounded down (floor division).
+    """
+    return gross // (rate + 1)
+```

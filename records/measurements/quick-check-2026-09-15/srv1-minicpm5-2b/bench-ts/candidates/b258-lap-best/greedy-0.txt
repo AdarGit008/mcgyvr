@@ -1,0 +1,24 @@
+```ts
+/**
+ * The quickest completed lap of a session.
+ * Lap times of 0 are treated as uncompleted and excluded.
+ */
+export function lapBest(laps: number[]): number {
+  let best = Infinity;
+  for (const lap of laps) {
+    if (lap !== 0) {
+      if (lap < best) {
+        best = lap;
+      }
+    }
+  }
+  return best === Infinity ? 0 : best;
+}
+```
+
+This fix:
+- Skips any lap with a value of `0` (using strict `=== 0` to catch both `0` and `0.0`).
+- Uses `Infinity` as the initial best value so a valid lap time of `Infinity` (if any) wouldn't be incorrectly treated as "no completed lap."
+- Returns `0` if no non-zero laps were found (empty input, all zeros, or all zeros with no completed lap).
+- Does not mutate the input array.
+- Handles all edge cases: empty array, single element, all zeros, mixed zeros/non-zeros, already-sorted input, duplicate values.

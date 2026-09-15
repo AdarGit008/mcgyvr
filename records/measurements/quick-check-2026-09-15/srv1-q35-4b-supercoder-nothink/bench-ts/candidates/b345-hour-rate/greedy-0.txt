@@ -1,0 +1,15 @@
+The contract is clear: overtime beyond 40 hours is paid at 1.5x the regular rate. The current code multiplies by 3 instead of 1.5.
+
+```ts
+export function hourRate(rate: number): number {
+  return rate;
+}
+
+/** Pay for a week, with overtime beyond forty hours. */
+export function weekPay(hours: number, rate: number): number {
+  if (hours > 40) {
+    return Math.floor((hours * rate * 3) / 2);
+  }
+  return hours * rate;
+}
+```

@@ -1,0 +1,1 @@
+measure.py: ssh to srv1 refused: this process was not started by the door — it was started outside mcgyvr.serving.run, and nothing reaches a rig or reads a run outside it (a RUN_* variable set by hand does not stand in for the door). Start the run as `python -m mcgyvr.serving.run --host H --campaign C --step PATH --model M` (okf/must-read/touching-rigs.md)
