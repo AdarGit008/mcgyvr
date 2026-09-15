@@ -13,7 +13,7 @@ the lock's quantity.
   over wall seconds). A llama.cpp unit gets
   ``records/measurements/fleet-setup-2026-09-13/srv1/harness_llama.py``:
   ``/completion`` with ``timings``. Both take the median, as the lock did
-  (``fleet-setup/REPORT-srv1.md``, ``REPORT-srv2.md``).
+  (``mcgyvr-lab/fleet-setup/REPORT-srv1.md``, ``REPORT-srv2.md``).
 * **It probes only an idle unit.** It reads the unit's own count first and
   again after; a unit busy before is not probed, and one busy after is filed
   as contended and not judged.

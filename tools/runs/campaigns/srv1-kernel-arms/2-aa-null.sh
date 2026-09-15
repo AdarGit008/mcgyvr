@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/2-aa-null.sh — step 2 of the srv1 kernel-arms run
 # (`archive/docs/srv1-kernel-arms-PLAN.md:116`), written against
-# `archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` §5.6.
+# `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` §5.6.
 #
 # Produces `records/evidence/2026-09-02-srv1-kernel-arms/srv1-aa-null.tsv`.
 #

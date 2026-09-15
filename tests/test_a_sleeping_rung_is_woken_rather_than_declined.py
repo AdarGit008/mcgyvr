@@ -147,7 +147,7 @@ def config_file(
 
     ``profile=None`` writes no ``profile:`` key, which loads as ``live``. The
     tests that act on a card pass ``"dev"``: under
-    ``records/plans/fleet-identity.md`` a live config that holds launch specs
+    ``mcgyvr-lab/records/plans/fleet-identity.md`` a live config that holds launch specs
     acts only on an approved fleet shape, and these tests pin the wake
     mechanism, which a dev run may exercise freely.
 

@@ -1290,7 +1290,7 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     unconditional, so the case it cannot keep must not be loadable.
 
     **The route to the config file is resolved before its directory is taken.**
-    ``records/plans/config-library.md`` §6/D5 selects a ladder by symlinking
+    ``mcgyvr-lab/records/plans/config-library.md`` §6/D5 selects a ladder by symlinking
     its entry to the default config path. The scan sits beside the *entry*,
     because that is where the entry's author filed it; taking ``path.parent``
     through the link named the link's directory instead, so one file with one
@@ -1384,8 +1384,8 @@ def config_path() -> Path:
 
 
 #: Words the fleet vocabulary retired. One term — "unit" — replaced several
-#: (``records/plans/fleet-identity.md`` §2). A config that names one is refused
-#: naming what replaced it, exactly as ``mcgyvr.fleet.files`` refuses them.
+#: (``mcgyvr-lab/records/plans/fleet-identity.md`` §2). A config that names one is
+#: refused naming what replaced it, exactly as ``mcgyvr.fleet.files`` refuses them.
 def parse(
     fleet_text: str,
     policy_text: str = "",

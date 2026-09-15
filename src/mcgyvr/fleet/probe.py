@@ -16,9 +16,9 @@ lock's quantity, and the probe asks the lock's own question instead:
   with ``cache_prompt`` off.
 
 Both take the median, as the lock's numbers were taken
-(``fleet-setup/REPORT-srv1.md``, ``fleet-setup/REPORT-srv2.md``). Unlike the
-harnesses, the probe does not run on the rig: it asks the unit at its address,
-so a vLLM wall time carries a network round trip the on-rig measurement did
+(``mcgyvr-lab/fleet-setup/REPORT-srv1.md``, ``mcgyvr-lab/fleet-setup/REPORT-srv2.md``).
+Unlike the harnesses, the probe does not run on the rig: it asks the unit at its
+address, so a vLLM wall time carries a network round trip the on-rig measurement did
 not.
 
 **Only an idle unit is probed.** The unit's own in-flight count

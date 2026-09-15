@@ -47,8 +47,8 @@ did not start" (:mod:`mcgyvr.serving.run`), and ``tests/test_one_door.py`` bans
 the way round it. :func:`spawn_door` is therefore the whole of this module's
 contact with a machine, which is what lets a test own all of it.
 
-The design is ``records/plans/sleep-wake.md``, approved; the budget argument is
-``records/plans/wake-timeout.md``.
+The design is ``mcgyvr-lab/records/plans/sleep-wake.md``, approved; the budget argument
+is ``mcgyvr-lab/records/plans/wake-timeout.md``.
 """
 
 from __future__ import annotations
@@ -237,8 +237,8 @@ def predicted_wake_s(card: Card) -> float | None:
     """How long this card took to wake last time, or ``None`` the first time.
 
     **The last actual is the prediction, and that is a deliberate refusal to
-    fit a curve.** ``records/plans/wake-timeout.md`` §3 derives a per-unit form
-    — ``blob x r(host, engine) x clearance penalty``, summed over the units a
+    fit a curve.** ``mcgyvr-lab/records/plans/wake-timeout.md`` §3 derives a per-unit
+    form — ``blob x r(host, engine) x clearance penalty``, summed over the units a
     launch spec sequences — and §4 then says how weak every coefficient in it
     is: ``r(srv1)`` is two points, one of them n=1, and the only line through
     them has an unphysical negative intercept; ``r(srv2)`` is a single point,
@@ -337,9 +337,9 @@ def compose_for(card: Card) -> Path | None:
     **One, or none, and never a choice.** A card whose directory holds several
     of mcgyvr's launch specs is a card mcgyvr cannot bring back, because
     ``serve up`` starts one file and nothing in a config says which of them is
-    the current one (D2, ``records/plans/sleep-wake.md``). Picking is not a
+    the current one (D2, ``mcgyvr-lab/records/plans/sleep-wake.md``). Picking is not a
     tie-break to be got right later; it is the fleet-shape controller's question
-    (``records/plans/fleet-shape/``) and no line of it is implemented.
+    (``mcgyvr-lab/records/plans/fleet-shape/``) and no line of it is implemented.
 
     Declining is not conservatism for its own sake. The file a name-based choice
     picked was reliably the **wrong** one: ``emit`` deletes nothing, so the day

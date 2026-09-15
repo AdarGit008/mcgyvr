@@ -34,7 +34,7 @@ to ask in. The invariants #21 requires:
   conform to. The OpenAI-compatible path sends it as ``response_format``, and a
   server that implements it answers with the object instead of prose — a whole
   class of parse failure that then never happens
-  (``archive/docs/port-from-local-ai.md``, D13). A path that cannot carry one
+  (``mcgyvr-lab/archive/docs/port-from-local-ai.md``, D13). A path that cannot carry one
   still runs a pinned request and still answers; it answers in prose, and the
   completion says so in a note rather than leaving a caller to infer it from
   the shape of the text.
