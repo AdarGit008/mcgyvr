@@ -386,11 +386,12 @@ def test_a_gate_run_by_hand_exits_2(env: dict[str, str], script: str) -> None:
 
 
 def test_every_entry_in_sequence_is_a_shipped_script() -> None:
-    """Every shipped .py under gate-scripts is a gate the door runs, one of
-    the door's own serve steps, or the lease release the door spawns on its
-    way out — nothing shipped there is reachable by no run."""
+    """Every shipped .py under gate-scripts is a gate the door runs (the read
+    run's two included), one of the door's own serve steps, or the lease release
+    the door spawns on its way out — nothing shipped there is reachable by no run."""
     steps = [path.name for path in run.SERVE_STEPS.values()]
-    owned = [*(e.script for e in (*run.SEQUENCE, *run.ALWAYS)), *steps]
+    sequences = (*run.SEQUENCE, *run.ALWAYS, *run.READ_SEQUENCE)
+    owned = [*(e.script for e in sequences), *steps]
     assert sorted([*owned, run.LEASE_RELEASE.script]) == GATES
 
 
@@ -408,7 +409,7 @@ def fake_gates(where: Path, out_dir: Path, flag: Path) -> Path:
     where.mkdir(parents=True)
     shutil.copytree(BIN, where / "bin")
     values = {"RUN_ID": "2026-09-02-alpha-probe", "RUN_OUT_DIR": str(out_dir)}
-    for entry in (*run.SEQUENCE, *run.ALWAYS):
+    for entry in (*run.SEQUENCE, *run.ALWAYS, *run.READ_SEQUENCE):
         lines = [
             "#!/usr/bin/env python3",
             "import os, sys, time",

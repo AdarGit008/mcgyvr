@@ -94,12 +94,18 @@ def make_repo(root: Path) -> Path:
 
 
 def make_config(path: Path, *, journal_dir: Path | None = None) -> Path:
-    """Write the two files a setup is under ``path`` (a directory), return it."""
+    """Write the two files a setup is under ``path`` (a directory), return it.
+
+    Declared ``profile: dev``: these runs are about the climb and its journal,
+    and a live ``mcgyvr run`` is admitted only by a read of its fleet's rigs —
+    one with no fleet named is refused before it starts
+    (``tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py``).
+    """
     path.mkdir(parents=True, exist_ok=True)
     policy = LADDER_POLICY
     if journal_dir is not None:
         policy += f"journal:\n  dir: {journal_dir}\n"
-    (path / "fleet.yaml").write_text(LADDER_FLEET, encoding="utf-8")
+    (path / "fleet.yaml").write_text("profile: dev\n" + LADDER_FLEET, encoding="utf-8")
     (path / "policy.yaml").write_text(policy, encoding="utf-8")
     return path
 

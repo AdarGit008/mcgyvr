@@ -16,8 +16,9 @@ lock's quantity, and the probe asks the lock's own question instead:
   with ``cache_prompt`` off.
 
 Both take the median, as the lock's numbers were taken
-(``fleet-setup/REPORT-srv1.md``, ``fleet-setup/REPORT-srv2.md``). Unlike the
-harnesses, the probe does not run on the rig: it asks the unit at its address.
+(``mcgyvr-lab/fleet-setup/REPORT-srv1.md``, ``mcgyvr-lab/fleet-setup/REPORT-srv2.md``).
+Unlike the harnesses, the probe does not run on the rig: it asks the unit at its
+address.
 
 **A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM stopwatch
 on the rig; record till then". ``measure_vllm.py`` timed its requests on the
@@ -39,11 +40,16 @@ before is not probed. A unit busy after — or whose count cannot be read after 
 took work during the probe: its figures are filed as ``contended`` and not
 judged.
 
-**Card memory and restarts are not read here.** Both are rig reads, and a rig
-is reached only behind the door (``python -m mcgyvr.serving.run``,
-``tests/test_one_door.py``). The judge holds their rules — card at most the
-unit's ``room_mib``, restarts exactly 0 (:mod:`mcgyvr.fleet.alerts`) — and the
-report names both as not read until a door step reads them.
+**Card memory and restarts are read through the door.** Both are rig reads,
+and a rig is reached only behind the door (``tests/test_one_door.py``). Given a
+``reader`` — ``mcgyvr fleet probe`` passes :func:`mcgyvr.fleet.read.spawn_read`
+(owner, 2026-09-15, F2b) — the probe reads each rig first with
+``python -m mcgyvr.serving.run read``, which files and judges both by their
+rules, card at most the unit's ``room_mib`` and restarts exactly 0. The same
+read runs a vLLM unit's measurement on the rig (``read --probe``), where the
+lock's stopwatch ran, and judges it there. A rig whose read filed nothing — or a
+probe given no reader — names both figures as not read, and times its vLLM units
+off the rig, recorded and not judged, as above.
 
 Every figure is stamped with the live fleet, rig, rig id, combination id and
 unit id, and filed under ``<journal.dir>/fleet/`` with ``at``, the moment its
@@ -59,20 +65,27 @@ from __future__ import annotations
 
 import json
 import secrets
-import statistics
 import time
-import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from mcgyvr.config import JOURNAL_DIR_DEFAULT
 from mcgyvr.derived import DerivedNumbersError, class_tolerances
 from mcgyvr.fleet import alerts
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
+from mcgyvr.fleet.harness import LLAMA_LONG_PROMPT as LLAMA_LONG_PROMPT
+from mcgyvr.fleet.harness import LLAMA_SHORT_PROMPT as LLAMA_SHORT_PROMPT
+from mcgyvr.fleet.harness import VLLM_LONG as VLLM_LONG
+from mcgyvr.fleet.harness import VLLM_SHORT as VLLM_SHORT
+from mcgyvr.fleet.harness import HarnessError as _UnitError
+from mcgyvr.fleet.harness import HttpTransport as HttpTransport
+from mcgyvr.fleet.harness import Transport as Transport
+from mcgyvr.fleet.harness import measure_llamacpp as measure_llamacpp
+from mcgyvr.fleet.harness import measure_vllm as measure_vllm
 from mcgyvr.fleet.roots import (
     LIVE_FILE_SHOWN,
     LiveFleetError,
@@ -84,33 +97,11 @@ from mcgyvr.fleet.tolerance import CLASS_VLLM, tolerance_class
 #: Where the probe files, under the config's ``journal.dir``.
 JOURNAL_SUBDIR = "fleet"
 
-#: The two harnesses the lock's numbers were measured with.
+#: The two harnesses the lock's numbers were measured with. Their method is
+#: :mod:`mcgyvr.fleet.harness`, which the probe asks of a unit at its address and
+#: the door's ``read --probe`` runs on the rig.
 VLLM_HARNESS = "records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py"
 LLAMA_HARNESS = "records/measurements/fleet-setup-2026-09-13/srv1/harness_llama.py"
-
-_SHORT_TEXT = "Write a Python function that reverses a singly linked list in place.\n"
-_LONG_BLOCK = (
-    "You are a precise software engineer. Explain step by step how to compute "
-    "the size in bytes of every expert weight in a GGUF file, then write a "
-    "Python function that opens the file, walks the metadata, and prints a "
-    "table of tensor name, shape, and byte size for every tensor that has an "
-    "expert dimension. Be complete and correct.\n\n"
-)
-#: ``measure_vllm.py``'s ``SHORT`` and ``LONG``, as written there.
-VLLM_SHORT: list[dict[str, str]] = [{"role": "user", "content": _SHORT_TEXT}]
-VLLM_LONG = _LONG_BLOCK * 28
-#: ``harness_llama.py``'s ``SHORT_PROMPT`` and ``LONG_PROMPT``, as written there.
-LLAMA_SHORT_PROMPT = _SHORT_TEXT
-LLAMA_LONG_PROMPT = (_LONG_BLOCK * 28).strip()
-
-WARMUP_TOKENS = 64
-DECODE_TOKENS = 256
-PREFILL_TOKENS = 16
-DECODE_SAMPLES = 5
-PREFILL_SAMPLES = 3
-#: The harnesses' own request timeouts: 10 s for the model list, 900 s a sample.
-MODELS_TIMEOUT_S = 10.0
-REQUEST_TIMEOUT_S = 900.0
 
 #: The figures a probe cannot read from a unit's HTTP face.
 NOT_READ_ON_THE_RIG: tuple[str, ...] = ("card_mib", "restarts")
@@ -129,40 +120,6 @@ InFlight = Callable[[str, Mapping[str, Any]], int | None]
 
 class ProbeError(Exception):
     """The probe cannot run at all: no fleet is live, or its folder is unreadable."""
-
-
-class _UnitError(Exception):
-    """One unit's probe could not run."""
-
-
-class Transport(Protocol):
-    """JSON over HTTP to a unit's address."""
-
-    def get(self, url: str, timeout: float) -> Any:
-        """The JSON document at ``url``."""
-
-    def post(self, url: str, payload: dict[str, Any], timeout: float) -> Any:
-        """The JSON answer to ``payload`` posted at ``url``."""
-
-
-class HttpTransport:
-    """The harnesses' own requests, sent to a unit's address with ``urllib``."""
-
-    def get(self, url: str, timeout: float) -> Any:
-        """The JSON document at ``url``."""
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
-
-    def post(self, url: str, payload: dict[str, Any], timeout: float) -> Any:
-        """The JSON answer to ``payload`` posted at ``url``."""
-        request = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
 
 
 @dataclass
@@ -224,126 +181,6 @@ def unit_in_flight(name: str, unit: Mapping[str, Any]) -> int | None:
     )
 
 
-def _median(samples: list[float], what: str) -> float:
-    if not samples:
-        raise _UnitError(f"no {what} sample could be read")
-    return float(statistics.median(samples))
-
-
-def _count(body: Any, key: str) -> int | None:
-    usage = body.get("usage") if isinstance(body, Mapping) else None
-    value = usage.get(key) if isinstance(usage, Mapping) else None
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        return None
-    return value
-
-
-def _timing(body: Any, key: str) -> float | None:
-    timings = body.get("timings") if isinstance(body, Mapping) else None
-    value = timings.get(key) if isinstance(timings, Mapping) else None
-    if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
-        return None
-    return float(value)
-
-
-def measure_vllm(
-    address: str, transport: Transport, clock: Callable[[], float]
-) -> dict[str, float]:
-    """``measure_vllm.py``'s decode and prefill, asked of the unit at ``address``."""
-    base = address.rstrip("/")
-    listing = transport.get(f"{base}/v1/models", MODELS_TIMEOUT_S)
-    try:
-        model = listing["data"][0]["id"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise _UnitError(f"{base}/v1/models names no model") from exc
-    url = f"{base}/v1/chat/completions"
-    warmup = {"max_tokens": WARMUP_TOKENS, "temperature": 0, "ignore_eos": False}
-    transport.post(
-        url, {"model": model, "messages": VLLM_SHORT, **warmup}, REQUEST_TIMEOUT_S
-    )
-
-    decode: list[float] = []
-    for _ in range(DECODE_SAMPLES):
-        payload = {
-            "model": model,
-            "messages": VLLM_SHORT,
-            "max_tokens": DECODE_TOKENS,
-            "temperature": 0,
-            "ignore_eos": True,
-        }
-        started = clock()
-        body = transport.post(url, payload, REQUEST_TIMEOUT_S)
-        seconds = clock() - started
-        tokens = _count(body, "completion_tokens")
-        if tokens is not None and seconds > 0:
-            decode.append(tokens / seconds)
-
-    prefill: list[float] = []
-    for _ in range(PREFILL_SAMPLES):
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": VLLM_LONG}],
-            "max_tokens": PREFILL_TOKENS,
-            "temperature": 0,
-            "ignore_eos": False,
-        }
-        started = clock()
-        body = transport.post(url, payload, REQUEST_TIMEOUT_S)
-        seconds = clock() - started
-        tokens = _count(body, "prompt_tokens")
-        if tokens is not None and seconds > 0:
-            prefill.append(tokens / seconds)
-
-    return {
-        "warm_decode_tok_s": _median(decode, "decode"),
-        "prefill_tok_s": _median(prefill, "prefill"),
-    }
-
-
-def measure_llamacpp(address: str, transport: Transport) -> dict[str, float]:
-    """``harness_llama.py``'s decode and prefill, asked of the unit at ``address``."""
-    url = f"{address.rstrip('/')}/completion"
-    transport.post(
-        url,
-        {"prompt": LLAMA_SHORT_PROMPT, "n_predict": WARMUP_TOKENS, "temperature": 0},
-        REQUEST_TIMEOUT_S,
-    )
-    decode: list[float] = []
-    for _ in range(DECODE_SAMPLES):
-        body = transport.post(
-            url,
-            {
-                "prompt": LLAMA_SHORT_PROMPT,
-                "n_predict": DECODE_TOKENS,
-                "temperature": 0,
-                "cache_prompt": False,
-            },
-            REQUEST_TIMEOUT_S,
-        )
-        rate = _timing(body, "predicted_per_second")
-        if rate is not None:
-            decode.append(rate)
-    prefill: list[float] = []
-    for _ in range(PREFILL_SAMPLES):
-        body = transport.post(
-            url,
-            {
-                "prompt": LLAMA_LONG_PROMPT,
-                "n_predict": PREFILL_TOKENS,
-                "temperature": 0,
-                "cache_prompt": False,
-            },
-            REQUEST_TIMEOUT_S,
-        )
-        rate = _timing(body, "prompt_per_second")
-        if rate is not None:
-            prefill.append(rate)
-    return {
-        "warm_decode_tok_s": _median(decode, "decode"),
-        "prefill_tok_s": _median(prefill, "prefill"),
-    }
-
-
 def _approved(
     folder: Path,
     rig_id: str,
@@ -398,6 +235,60 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
     return name, folder, fleet
 
 
+#: A read of one rig through the door: ``(rig, run id, units to probe) -> exit``.
+Reader = Callable[[str, str, Sequence[str]], int]
+#: Why a rig's figures are not read when its read through the door filed none.
+UNREAD_RIG_REASON = "the door's read of {rig} exited {code} and filed no reading"
+#: Why a figure the door's reader could not read is not read.
+UNREAD_BY_THE_READER = "the door's reader on the rig could not read them"
+
+
+def _read_rigs(
+    reader: Reader | None,
+    fleet: Mapping[str, Any],
+    awake: Sequence[tuple[str, str]],
+    run_id: str,
+    journal: Path,
+    report: Report,
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    """Each rig's read through the door, filed under ``run_id``, and why not."""
+    filed: dict[str, dict[str, Any]] = {}
+    unread: dict[str, str] = {}
+    if reader is None:
+        return filed, unread
+    from mcgyvr.fleet import read
+
+    for rig in sorted({rig for rig, _ in awake}):
+        on_the_rig = [
+            unit
+            for where, unit in awake
+            if where == rig and tolerance_class(fleet["units"][unit]) == CLASS_VLLM
+        ]
+        code = reader(rig, run_id, on_the_rig)
+        row = read.observations(journal, run_id).get(rig) if code == 0 else None
+        if row is None:
+            unread[rig] = UNREAD_RIG_REASON.format(rig=rig, code=code)
+        else:
+            filed[rig] = row
+    report.alerts.extend(read.judged(journal, run_id))
+    return filed, unread
+
+
+def _from_the_rig(report: Report, unit: str, row: Mapping[str, Any]) -> None:
+    """What ``read --probe`` measured of ``unit`` on the rig, into the report."""
+    probed = (row.get("probed") or {}).get(unit)
+    if isinstance(probed, Mapping):
+        report.probed[unit] = {str(k): float(v) for k, v in probed.items()}
+    busy = (row.get("busy") or {}).get(unit)
+    if isinstance(busy, int):
+        report.busy[unit] = busy
+    if unit in (row.get("contended") or []):
+        report.contended.append(unit)
+    failed = (row.get("failed") or {}).get(unit)
+    if failed:
+        report.failed[unit] = str(failed)
+
+
 def run(
     *,
     transport: Transport | None = None,
@@ -405,12 +296,14 @@ def run(
     clock: Callable[[], float] = time.perf_counter,
     units: Sequence[str] | None = None,
     now: datetime | None = None,
+    reader: Reader | None = None,
 ) -> Report:
     """Probe the live fleet's awake units, file every figure, judge the solo ones.
 
     Raises :class:`ProbeError` when nothing can be probed at all (no live
     fleet, an unreadable folder, a unit named that is not awake in it); a unit
-    whose own probe cannot run is in :attr:`Report.failed`.
+    whose own probe cannot run is in :attr:`Report.failed`. With ``reader``,
+    every rig is read through the door first (module docstring).
     """
     name, folder, fleet = _live(units)
     transport = transport if transport is not None else HttpTransport()
@@ -443,10 +336,21 @@ def run(
     journal = journal_dir(folder)
     profile = str(fleet.get("profile", "live"))
     report = Report()
+    filed, unread = _read_rigs(reader, fleet, awake, run_id, journal, report)
 
     for rig, unit_name in awake:
         unit = fleet["units"][unit_name]
-        report.not_read[unit_name] = (NOT_READ_ON_THE_RIG, NOT_READ_REASON)
+        row = filed.get(rig)
+        if row is None:
+            reason = unread.get(rig, NOT_READ_REASON)
+            report.not_read[unit_name] = (NOT_READ_ON_THE_RIG, reason)
+        else:
+            missing = tuple((row.get("not_read") or {}).get(unit_name) or ())
+            if missing:
+                report.not_read[unit_name] = (missing, UNREAD_BY_THE_READER)
+            if tolerance_class(unit) == CLASS_VLLM:
+                _from_the_rig(report, unit_name, row)
+                continue
         before = in_flight(unit_name, unit)
         if before is None:
             report.failed[unit_name] = (

@@ -13,7 +13,7 @@ the lock's quantity.
   over wall seconds). A llama.cpp unit gets
   ``records/measurements/fleet-setup-2026-09-13/srv1/harness_llama.py``:
   ``/completion`` with ``timings``. Both take the median, as the lock did
-  (``fleet-setup/REPORT-srv1.md``, ``REPORT-srv2.md``).
+  (``mcgyvr-lab/fleet-setup/REPORT-srv1.md``, ``REPORT-srv2.md``).
 * **It probes only an idle unit.** It reads the unit's own count first and
   again after; a unit busy before is not probed, and one busy after is filed
   as contended and not judged.
@@ -512,11 +512,15 @@ def test_fleet_probe_prints_a_vllm_unit_as_recorded_not_judged(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from mcgyvr import cli
-    from mcgyvr.fleet import probe
+    from mcgyvr.fleet import probe, read
 
     live_home(tmp_path, monkeypatch)
     fake = FakeUnits(HOLDING | {"3b_decode": 60.0})
     measured = probe.run
+    # `fleet probe` reads each rig through the door first, and times a vLLM unit
+    # on the rig from that read. A rig the door cannot read is the case this
+    # line is about: its vLLM unit is timed off the rig, recorded, not judged.
+    monkeypatch.setattr(read, "spawn_read", lambda host, run_id, probe=(): 2)
 
     def faked(**kwargs: Any) -> Any:
         return measured(

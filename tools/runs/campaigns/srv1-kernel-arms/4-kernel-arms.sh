@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh — steps 4 (serve) and 7 (crash) of the srv1
 # kernel-arms run (`archive/docs/srv1-kernel-arms-PLAN.md:111-128`), written against
-# `archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md`.
+# `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md`.
 #
 # It drives `tools/runs/drivers/lcp_sweep.py` over `tools/runs/workload.py` —
 # the workload the whole campaign shares —

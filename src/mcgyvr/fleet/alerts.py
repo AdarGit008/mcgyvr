@@ -6,7 +6,7 @@ computed for. A live alert pulls its combination and warns once (the journal is
 the memory, so a repeat warns nowhere); a dev run with an alert fails. A pull
 clears only when the combination's validation is re-committed; ``rejudge``
 re-checks the journal under a tighter rule and pulls nothing.
-(``records/plans/fleet-identity.md`` §5 and §7.)
+(``mcgyvr-lab/records/plans/fleet-identity.md`` §5 and §7.)
 """
 
 from __future__ import annotations
@@ -42,6 +42,9 @@ _JUDGED: dict[str, tuple[str, str]] = {
     #: A live probe's card reading, judged against the unit's own ``room_mib``
     #: (owner, 2026-09-15): the fit bound the lock proved, and no new number.
     "card_mib": ("up", "room"),
+    #: A read's load peak of the unit's process, judged against ``room_mib`` like
+    #: the card (owner, 2026-09-15, B1): room is the measured process peak (B3).
+    "load_peak_mib": ("up", "room"),
 }
 
 

@@ -15,7 +15,7 @@ file**: the exact card overcommit ``hold_together`` used to refuse at emit time,
 launched on a rig, with nothing having said a word. On srv1's own figures that
 is 11.83 GiB asked of a 6.00 GiB card — two servers racing for one card, the
 second crash-looping under ``restart: unless-stopped`` while the door reports
-``NOT ANSWERING`` (``records/plans/handoff.md``, "rig gotchas").
+``NOT ANSWERING`` (``mcgyvr-lab/records/plans/handoff.md``, "rig gotchas").
 
 **What this file pins**
 

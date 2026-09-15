@@ -64,6 +64,7 @@ SERVED = f"/home/adaramir/models/{DECLARED}.gguf"
 OTHER = "/home/adaramir/models/deepseek-coder-v2-16b.gguf"
 
 LADDER = f"""\
+profile: dev
 units:
   local_big:
     address: http://srv1:8080

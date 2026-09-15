@@ -1,11 +1,14 @@
-"""No live file points at a path that moved into `archive/`.
+"""No live file points at a path that moved into `archive/` or mcgyvr-lab.
 
 Several prose, session and README paths moved to ``archive/`` (``docs/archive/
 evidence-prose``, ``docs/archive/sessions``, ``tools/*/README.md``,
-``forensic-ollama``). A live reference to the old path is a pointer at a file
-that is no longer there. History is exempt (``archive/``, ``records/``,
-``okf/``); the fix is to repoint the citation at its ``archive/`` path, not to
-restore the file.
+``forensic-ollama``), and on 2026-09-15 most of ``archive/`` moved on to
+AdarGit008/mcgyvr-lab under the same paths (``okf/must-read/always.md``). A live
+reference to the old path is a pointer at a file that is no longer there.
+History is exempt (``archive/``, ``records/``, ``okf/``); the fix is to repoint
+the citation at the file's ``archive/`` path while it is still in this
+repository, or at ``mcgyvr-lab/<path>`` once it is in the lab, not to restore
+the file.
 """
 
 from __future__ import annotations
@@ -124,6 +127,7 @@ def offenders(
 def test_no_live_reference_to_a_path_moved_into_archive() -> None:
     hits = offenders(REPO)
     assert not hits, (
-        f"{len(hits)} live reference(s) to paths that moved into archive/, each "
-        f"path:line: name. Repoint at the archive/ path: {hits}"
+        f"{len(hits)} live reference(s) to paths that moved into archive/ or "
+        f"mcgyvr-lab, each path:line: name. Repoint at the archive/ path, or at "
+        f"mcgyvr-lab/<path> if the file is in the lab: {hits}"
     )

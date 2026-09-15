@@ -45,7 +45,7 @@ units:
 rigs:
   local:
     # Identity digest over {host, hardware, system} — compute with
-    # `mcgyvr.fleet.ids.digest("rig-", fields)` (see records/plans/fleet-identity.md).
+    # `mcgyvr.fleet.ids.digest("rig-", fields)` (see mcgyvr-lab/records/plans/fleet-identity.md).
     rig_id: "rig-0000000000000000"
 
 fleets:

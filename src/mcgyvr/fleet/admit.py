@@ -4,7 +4,7 @@ Live is production: mcgyvr delegating real code tasks. It runs a fleet the
 operator picked from the locked set, and nothing else. ``admit_live`` checks the
 lock, the pin, the rig and the holders of the card, and returns what to clean
 and what to restore. ``wake`` finds the one listed switch that wakes a unit.
-(``records/plans/fleet-identity.md`` §6.)
+(``mcgyvr-lab/records/plans/fleet-identity.md`` §6.)
 """
 
 from __future__ import annotations

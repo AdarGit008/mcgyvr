@@ -60,3 +60,44 @@ def digest(prefix: str, fields: dict[str, Any]) -> str:
         )
     raw = _canonical_dump(fields).encode("utf-8")
     return prefix + hashlib.sha256(raw).hexdigest()
+
+
+#: A rig's hardware, as ``rig-snapshot.sh`` names each reading.
+RIG_HARDWARE: tuple[str, ...] = (
+    "cpu_model",
+    "cpu_max_mhz",
+    "ram_mt_s",
+    "pl1_uw",
+    "pl2_uw",
+    "gpu_name",
+    "gpu_vram_mib",
+    "gpu_cc",
+)
+#: A rig's system, as ``rig-snapshot.sh`` names each reading.
+RIG_SYSTEM: tuple[str, ...] = ("os_machine_id", "kernel", "driver", "docker")
+
+
+def rig_id(snapshot: Mapping[str, str]) -> str:
+    """``rig-`` = H{ host, hardware, system } over one ``rig-snapshot.sh`` reading.
+
+    Owner, 2026-09-15 (D1): the values are hashed exactly as the snapshot prints
+    them — tokenized strings, ``host`` its ``hostname=`` — and nowhere else is a
+    rig id spelled, so the lock and live admission name a rig the same way. A
+    reading missing a field is refused by name and never hashed
+    (``mcgyvr-lab/records/plans/fleet-identity.md`` §1, ID-1).
+    """
+    wanted = ("hostname", *RIG_HARDWARE, *RIG_SYSTEM)
+    missing = [key for key in wanted if not str(snapshot.get(key) or "").strip()]
+    if missing:
+        raise ValueError(
+            f"the rig snapshot does not read {', '.join(missing)}, and a rig id "
+            "is never hashed over a field that was not read"
+        )
+    return digest(
+        "rig-",
+        {
+            "host": str(snapshot["hostname"]),
+            "hardware": {key: str(snapshot[key]) for key in RIG_HARDWARE},
+            "system": {key: str(snapshot[key]) for key in RIG_SYSTEM},
+        },
+    )

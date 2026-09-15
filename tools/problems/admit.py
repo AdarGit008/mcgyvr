@@ -4,8 +4,8 @@
 A pool problem is two arms of the same problem (``tasks/ts/<id>/`` and
 ``tasks/py/<id>/``), each a contract plus a reference solution plus a checker,
 and it enters the pool only through this gate. The checks are the ones
-`archive/tools/problems/README.md` states, in its order: structure, contract validity,
-selftest, failing-first for ``bug_fix``, anti-triviality stubs, checker floor,
+`mcgyvr-lab/archive/tools/problems/README.md` states, in its order: structure, contract
+validity, selftest, failing-first for ``bug_fix``, anti-triviality stubs, checker floor,
 HumanEval entry-point overlap, near-duplicate screen.
 
 Two of these deserve their one-line why here rather than only in the README:

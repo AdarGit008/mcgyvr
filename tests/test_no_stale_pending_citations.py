@@ -1,11 +1,11 @@
 """No live code or test cites the archived `pending` / `record` modules as live.
 
-``mcgyvr/pending.py`` and ``mcgyvr/record.py`` moved to ``archive/src/mcgyvr/``.
-A docstring or comment that cites ``mcgyvr.pending``, ``pending.stash``,
-``pending.resume``, "the pending store", or ``record.Attempt`` is a pointer at a
-module that is not there. History is exempt (``archive/``, ``records/``,
-``okf/``); the fix is to reword the prose to the live ``surrogateescape`` /
-``deliver`` convention, never to resurrect the module.
+``mcgyvr/pending.py`` and ``mcgyvr/record.py`` moved to
+``mcgyvr-lab/archive/src/mcgyvr/``. A docstring or comment that cites
+``mcgyvr.pending``, ``pending.stash``, ``pending.resume``, "the pending store", or
+``record.Attempt`` is a pointer at a module that is not there. History is exempt
+(``archive/``, ``records/``, ``okf/``); the fix is to reword the prose to the live
+``surrogateescape`` / ``deliver`` convention, never to resurrect the module.
 """
 
 from __future__ import annotations

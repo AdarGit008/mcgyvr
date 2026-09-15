@@ -26,7 +26,7 @@ situations, and each answers differently:
    same bytes" — a relative name written through the canonical text
    re-resolves against a different directory on the way back in.
 
-2. **The path goes through a symlink.** ``records/plans/config-library.md``
+2. **The path goes through a symlink.** ``mcgyvr-lab/records/plans/config-library.md``
    §6/D5 proposes selecting a ladder by linking it to the default config path.
    Reached through the link, ``self.path.parent`` is the link's directory and
    not the entry's, so one file with one set of bytes renders two ways, and
@@ -108,8 +108,8 @@ def test_a_config_reached_through_a_symlink_is_the_same_config(
     """Identity is a property of the config, not of the route taken to it.
 
     A ladder selected by symlinking its entry to the default path (the design
-    in ``records/plans/config-library.md`` §6/D5) is read through the link. The
-    scan sits beside the entry, because that is where the entry's author filed
+    in ``mcgyvr-lab/records/plans/config-library.md`` §6/D5) is read through the link.
+    The scan sits beside the entry, because that is where the entry's author filed
     it — so "beside me" is the entry's directory, and reaching the same bytes
     two ways must not produce two setups, one of which names a file that was
     never written.
