@@ -247,14 +247,20 @@ def test_a_unit_with_work_in_flight_is_neither_probed_nor_loaded(
     assert _load_rows(journal) == []
 
 
-def test_a_load_that_did_not_complete_is_filed_and_not_judged(tmp_path: Path) -> None:
+def test_a_load_that_did_not_complete_every_request_is_still_judged(
+    tmp_path: Path,
+) -> None:
+    """Owner ruling NB5: a load that reached its limit with requests unfinished is
+    judged on its peak. Only an error other than that close, or no sample of the
+    container, leaves a load unjudged
+    (``tests/test_a_load_runs_thirty_seconds_then_gives_its_verdict.py``)."""
     journal = go_live(tmp_path)
 
     record(rig_text(), "live", Rig(load_mib=(3600,), completed=5), load=LOAD)
 
     (row,) = _load_rows(journal)
     assert row["completed"] == 5 and row["peak_mib"] == 3600
-    assert "alert" not in row, "a load that did not fill its window proves no peak"
+    assert row["alert"] is True, "3600 MiB is over the 3573 MiB room"
 
 
 def test_read_load_is_a_door_flag_that_needs_a_probe_and_a_w_x_n_spec(
