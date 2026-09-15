@@ -4,7 +4,7 @@ Format: [Keep a Changelog](https://keepachangelog.com).
 
 Paths in older entries are where files were when the entry was written.
 `docs/` moved to `archive/docs/` (#395); most of `archive/` and
-`records/plans/` now live in the private repository AdarGit008/mcgyvr-lab,
+`records/plans/` now live in the repository AdarGit008/mcgyvr-lab,
 under the same paths.
 
 ## [Unreleased]

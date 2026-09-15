@@ -240,8 +240,8 @@ flowchart LR
 | [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), [`LICENSE`](LICENSE) | changes, how to report a vulnerability, MIT license |
 
 Research notes, plans, session logs and superseded code moved to
-[AdarGit008/mcgyvr-lab](https://github.com/AdarGit008/mcgyvr-lab), a private
-repository, under unchanged paths. A comment here that cites
+[AdarGit008/mcgyvr-lab](https://github.com/AdarGit008/mcgyvr-lab), under
+unchanged paths. A comment here that cites
 `mcgyvr-lab/<path>` points at that file there.
 
 ## Development
