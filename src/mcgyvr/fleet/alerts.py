@@ -18,6 +18,8 @@ from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.fleet.admit import layout_ids
+
 
 class AlertError(Exception):
     """A dev run produced an alert, and a dev run must not."""
@@ -297,6 +299,76 @@ def pulled(journal: Path, lock_root: Path | None) -> dict[str, list[dict[str, An
             for (unit, field), count in entry["pulls"].items()
         ]
     return out
+
+
+class PullsUnreadableError(Exception):
+    """The live fleet, its journal or its lock cannot be read for pulls."""
+
+
+def pulled_units(
+    fleet: dict[str, Any], fleet_name: str, journal: Path, lock_root: Path | None
+) -> dict[str, list[dict[str, Any]]]:
+    """``unit name -> the pulls of its combination``, for ``fleet_name``'s units.
+
+    A unit is pulled when the combination its rig holds in the fleet's layout
+    is pulled (:func:`pulled`). Every pull of that combination is listed against
+    it, as :func:`pulled` gives it plus ``unit``, the name of the unit that
+    alerted (its id where the fleet names no such unit). A unit whose
+    combination is not pulled is absent.
+    """
+    units = fleet.get("units", {})
+    names = {
+        block.get("unit_id"): name
+        for name, block in units.items()
+        if isinstance(block, Mapping)
+    }
+    layout = fleet["fleets"][fleet_name].get("layout", {})
+    rig_ids = {rig: block["rig_id"] for rig, block in fleet.get("rigs", {}).items()}
+    combinations = layout_ids(fleet, layout)
+    pulls = pulled(journal, lock_root)
+    out: dict[str, list[dict[str, Any]]] = {}
+    for rig, slots in layout.items():
+        entries = pulls.get(combinations[rig_ids[rig]])
+        if not entries:
+            continue
+        named = [
+            {**entry, "unit": names.get(entry["unit_id"], entry["unit_id"])}
+            for entry in entries
+        ]
+        for slot in slots:
+            if slot is not None:
+                out[str(slot[0])] = named
+    return out
+
+
+def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
+    """:func:`pulled_units` for the fleet ``~/.mcgyvr/live.json`` names.
+
+    The journal and the lock are the two ``mcgyvr fleet alerts`` reads: the
+    live fleet's ``<journal.dir>/fleet``, where ``mcgyvr fleet probe`` files
+    (:func:`mcgyvr.fleet.probe.journal_dir`), and ``lock_root("live")``. With no
+    fleet named live there is no layout to pull a unit from, so ``{}``. Anything
+    that stops the pulls being read — ``live.json``, ``fleet.yaml``,
+    ``policy.yaml``, a journal file — raises :class:`PullsUnreadableError`.
+    """
+    from mcgyvr.fleet.probe import ProbeError, _live, journal_dir
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, lock_root
+
+    try:
+        if live_fleet_dir() is None:
+            return {}
+        name, folder, fleet = _live(None)
+        return pulled_units(fleet, name, journal_dir(folder), lock_root("live"))
+    except (
+        LiveFleetError,
+        ProbeError,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+    ) as exc:
+        raise PullsUnreadableError(f"{type(exc).__name__}: {exc}") from exc
 
 
 def routable(
