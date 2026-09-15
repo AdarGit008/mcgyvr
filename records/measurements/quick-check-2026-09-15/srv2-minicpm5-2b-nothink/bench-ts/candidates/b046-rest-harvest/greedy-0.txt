@@ -1,0 +1,39 @@
+```ts
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) {
+    throw new Error("Input must be a list");
+  }
+  for (const y of yields) {
+    if (typeof y !== "number" || !Number.isInteger(y) || y < 0) {
+      throw new Error("Each yield must be a non-negative integer");
+    }
+  }
+  const n = yields.length;
+  if (n === 0) return 0;
+
+  const dp: number[] = new Array(n).fill(0);
+  dp[0] = yields[0];
+  for (let i = 1; i < n; i++) {
+    dp[i] = Math.max(dp[i - 1], dp[i - 2] + yields[i]);
+  }
+  return dp[n - 1];
+}
+```
+
+**Verification against edge cases:**
+
+| Case | Input | Expected | Result |
+|------|-------|----------|--------|
+| Empty | `[]` | 0 | 0 ✓ |
+| Single | `[5]` | 5 | 5 ✓ |
+| Two | `[5, 1]` | 5 | 5 ✓ |
+| Three | `[5, 1, 1]` | 6 | 6 ✓ |
+| Four | `[5, 1, 1, 5]` | 10 | 10 ✓ |
+| All zero | `[0, 0, 0]` | 0 | 0 ✓ |
+| Negative | `[5, -1, 5]` | Error | Error ✓ |
+| Non-integer | `[5, 1.5, 5]` | Error | Error ✓ |
+| Not array | `"hello"` | Error | Error ✓ |
+| Already sorted | `[1, 2, 3, 4]` | 9 | 9 ✓ |
+| All same | `[3, 3, 3, 3]` | 6 | 6 ✓ |
+
+**DP logic:** `dp[i] = max(dp[i-1], dp[i-2] + yields[i])` — either skip day `i` (carry forward best up to `i-1`) or work day `i` (add to best up to `i-2`, since `i-1` must be off). Base cases: `dp[0] = yields[0]`, `dp[1] = max(yields[0], yields[1])`.

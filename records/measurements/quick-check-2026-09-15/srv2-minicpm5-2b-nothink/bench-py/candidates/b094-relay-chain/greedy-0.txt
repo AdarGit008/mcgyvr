@@ -1,0 +1,313 @@
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return path
+```
+
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return path
+```
+
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return path
+```
+
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return path
+```
+
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return path
+```
+
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return path
+```
+
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return path
+```
+
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return path
+```
+
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    if "" in links:
+        raise ValueError("empty string found in directory")
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+
+    path: list[str] = []
+    current: str = start
+    visited: set[str] = set()
+
+    while True:
+        if current in visited:
+            raise ValueError("relay contains a circular chain")
+        if current not in links:
+            raise ValueError("link to a station not in the directory")
+        if not isinstance(links[current], str):
+            raise ValueError("link value must be a string")
+        path.append(current)
+        visited.add(current)
+        target = links[current]
+        if target == "":
+            break
+        current = target
+
+    return

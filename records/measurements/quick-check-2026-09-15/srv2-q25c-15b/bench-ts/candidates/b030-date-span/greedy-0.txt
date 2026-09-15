@@ -1,0 +1,49 @@
+```ts
+/** How many days lie between two proleptic Gregorian calendar dates. */
+
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeap(year: number): boolean {
+  return year % 4 === 0;
+}
+
+function monthLength(year: number, month: number): number {
+  if (month === 2 && isLeap(year)) {
+    return 29;
+  }
+  return MONTH_LENGTHS[month - 1];
+}
+
+function toOrdinal(date: number[]): number {
+  const [year, month, day] = date;
+  const prior = year - 1;
+  let days = prior * 365;
+  days += Math.floor(prior / 4);
+  for (let m = 1; m < month; m += 1) {
+    days += monthLength(year, m);
+  }
+  return days + day;
+}
+
+export function spanDays(start: number[], end: number[]): number {
+  if (start.length !== 3 || end.length !== 3) {
+    throw new Error("Invalid date list length");
+  }
+  if (start[0] > end[0]) {
+    throw new Error("Start date after end date");
+  }
+  if (start[1] < 1 || start[1] > 12) {
+    throw new Error("Month out of range");
+  }
+  if (start[2] < 1 || start[2] > monthLength(start[0], start[1])) {
+    throw new Error("Day out of range");
+  }
+  if (end[1] < 1 || end[1] > 12) {
+    throw new Error("Month out of range");
+  }
+  if (end[2] < 1 || end[2] > monthLength(end[0], end[1])) {
+    throw new Error("Day out of range");
+  }
+  return toOrdinal(end) - toOrdinal(start);
+}
+```

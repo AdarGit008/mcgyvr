@@ -1,0 +1,14 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list) or not all(isinstance(y, int) for y in yields):
+        raise ValueError("Input must be a list of integers.")
+    
+    if not yields:
+        return 0
+    
+    max_total = 0
+    for i in range(len(yields) - 1):
+        max_total = max(max_total, yields[i] + yields[i + 1])
+    
+    return max_total
+```

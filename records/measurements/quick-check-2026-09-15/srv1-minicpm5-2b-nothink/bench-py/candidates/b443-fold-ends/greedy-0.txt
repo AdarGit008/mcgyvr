@@ -1,0 +1,26 @@
+```python
+from typing import List
+
+
+def fold_ends(values: list) -> list:
+    """Fold a list onto itself by pairing first and last elements.
+
+    Returns a list of totals where each total is the sum of a pair
+    from the opposite ends of the input list. If the list has an
+    odd length, the middle element is returned as its own total.
+    """
+    n = len(values)
+    result: List[int] = []
+    for i in range(n // 2):
+        result.append(values[i] + values[n - 1 - i])
+    if n % 2 == 1:
+        result.append(values[n // 2])
+    return result
+```
+
+**Edge-case verification:**
+- `""` → `[]` (empty, returns empty list)
+- `[5]` → `[5]` (single element, middle is itself)
+- `[1, 2, 3, 4]` → `[5, 6]` (1+4, 2+3)
+- `[1, 2, 3]` → `[4, 3]` (1+3, middle 2)
+- `[1, 2, 3, 4, 5]` → `[6, 7, 5]` (1+5, 2+4, middle 3)

@@ -1,0 +1,43 @@
+```ts
+function netTally(sheets: string[]): string {
+    if (!Array.isArray(sheets) || !sheets.every(item => typeof item === 'string')) {
+        throw new Error('Input must be a list of strings');
+    }
+
+    const itemCounts: { [key: string]: number } = {};
+
+    sheets.forEach(sheet => {
+        const lines = sheet.split('\n');
+        lines.forEach(line => {
+            const [item, sold, returned] = line.trim().split('|');
+            if (!item || !sold || !returned) {
+                throw new Error('Each line must contain exactly three fields');
+            }
+
+            if (itemCounts[item]) {
+                itemCounts[item]++;
+            } else {
+                itemCounts[item] = 1;
+            }
+
+            if (!Number.isInteger(sold) || !Number.isInteger(returned)) {
+                throw new Error('Sold and returned counts must be integers');
+            }
+
+            if (sold > returned) {
+                throw new Error('Sold total exceeds returned total');
+            }
+        });
+    });
+
+    const sortedItems = Object.keys(itemCounts).sort((a, b) => a.localeCompare(b));
+
+    const report = sortedItems.map(item => {
+        const itemCount = itemCounts[item];
+        const netCount = itemCount * soldCount - itemCount * returnedCount;
+        return `${item.padStart(10, ' ')}${netCount.padStart(10, ' ')}`;
+    });
+
+    return report.join('\n');
+}
+```

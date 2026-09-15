@@ -1,0 +1,24 @@
+```ts
+export function rootDigit(value: number): number {
+  let left = value;
+  if (left >= 10) {
+    let sum = 0;
+    while (left > 0) {
+      sum += left % 10;
+      left = Math.floor(left / 10);
+    }
+    left = sum;
+  }
+  while (left >= 10) {
+    let sum = 0;
+    while (left > 0) {
+      sum += left % 10;
+      left = Math.floor(left / 10);
+    }
+    left = sum;
+  }
+  return left;
+}
+```
+
+This fixes the bug by adding a second `while (left >= 10)` loop that continues summing digits until only a single digit remains. The first loop handles the initial fold, and the second loop handles repeated folding until convergence.

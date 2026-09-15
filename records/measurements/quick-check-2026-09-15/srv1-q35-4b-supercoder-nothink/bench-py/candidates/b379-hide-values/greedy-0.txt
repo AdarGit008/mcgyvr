@@ -1,0 +1,12 @@
+The current implementation has two bugs:
+1. It stars out the keys instead of the values
+2. It returns the original `hidden` dict instead of the new `store` dict
+
+Here is the fixed file:
+
+```python
+def hide_values(store: dict) -> dict:
+    """A store with every value starred out."""
+    store = {key: "*" * len(value) for key, value in store.items()}
+    return store
+```

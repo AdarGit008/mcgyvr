@@ -1,0 +1,110 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    # Validate price list: all prices must be positive integers
+    for name, price in prices.items():
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError(f"price must be a positive integer: {name}")
+
+    # Initialize state
+    cart: dict[str, int] = {}
+    session_state: str = OPEN
+    total: int = 0
+    paid: int = 0
+    change: int = 0
+
+    # Process events sequentially
+    for event in events:
+        if not isinstance(event, list) or len(event) == 0:
+            raise ValueError("each event must be a non-empty list of [action, payload]")
+
+        action = event[0]
+        payload = event[1]
+
+        # Validate action
+        if action not in (OPEN, PAYMENT, PAID, CANCELLED):
+            raise ValueError(f"unknown action: {action}")
+
+        # Validate payload type and value based on action
+        if action == OPEN:
+            # Opening a session: must be the first event or session must be open
+            if session_state != OPEN:
+                raise ValueError("open session must be first event")
+            session_state = OPEN
+            cart.clear()
+            total = 0
+            paid = 0
+            change = 0
+
+        elif action == CANCELLED:
+            # Canceling a session: must be open or payment
+            if session_state not in (OPEN, PAYMENT):
+                raise ValueError("cancel only allowed in open or payment session")
+            # Canceling an empty cart is allowed (no-op)
+            if not cart:
+                # No-op cancel: session remains open
+                continue
+            # Canceling a non-empty cart: session becomes cancelled
+            session_state = CANCELLED
+            # No change to total, paid, or change
+
+        elif action == PAYMENT:
+            # Paying: must be during payment or paid session
+            if session_state not in (PAYMENT, PAID):
+                raise ValueError("pay only allowed during payment or paid session")
+            # Pay amount must be positive integer
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("pay amount must be a positive integer")
+            # Accumulate payment
+            paid += payload
+            # If payment reaches or exceeds total, session is paid
+            if paid >= total:
+                change = paid - total
+                session_state = PAID
+                # No further events allowed after this
+                break
+
+        elif action == CLOSE:
+            # Closing a session: must be open or payment
+            if session_state not in (OPEN, PAYMENT):
+                raise ValueError("close only allowed in open or payment session")
+            # Closing an empty cart is allowed (no-op)
+            if not cart:
+                # No-op close: session remains open
+                continue
+            # Closing a non-empty cart: move to payment and fix total
+            # Add all items to cart (if not already present)
+            for name, price in prices.items():
+                if name not in cart:
+                    cart[name] = 0
+            # Fix total: sum of all item prices
+            total = sum(cart.values())
+            # Move to payment state
+            session_state = PAYMENT
+            # No further events allowed after this
+            break
+
+        # If session is already paid or cancelled, reject any further events
+        if session_state in (PAID, CANCELLED):
+            raise ValueError("no further events allowed after session is paid or cancelled")
+
+    # Build result mapping
+    # items: sorted list of [name, quantity] pairs
+    items: list[list[str, int]] = []
+    for name, qty in sorted(cart.items()):
+        items.append([name, qty])
+
+    return {
+        "items": items,
+        "total": total,
+        "paid": paid,
+        "change": change,
+    }
+```

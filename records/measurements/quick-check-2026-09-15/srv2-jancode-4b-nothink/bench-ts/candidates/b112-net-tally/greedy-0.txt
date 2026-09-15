@@ -1,0 +1,66 @@
+```ts
+export function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) {
+    throw new Error("sheets argument must be a list");
+  }
+
+  const itemNetTally: Map<string, { sold: number; returned: number }> = new Map();
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== "string") {
+      throw new Error("each sheet must be a string");
+    }
+
+    const rows = sheet.split("\n").map(row => row.trim());
+    for (const row of rows) {
+      if (!row) continue;
+
+      const fields = row.split("|").map(field => field.trim());
+      if (fields.length !== 3) {
+        throw new Error("each row must have exactly three fields");
+      }
+
+      const [item, sold, returned] = fields;
+      if (!item || !sold || !returned) {
+        throw new Error("item name, sold, or returned field must be non-empty");
+      }
+
+      if (!/^\d*\.?\d*$/.test(sold) || !/^\d*\.?\d*$/.test(returned)) {
+        throw new Error("sold and returned fields must be strings of decimal digits");
+      }
+
+      const soldNum = parseFloat(sold);
+      const returnedNum = parseFloat(returned);
+
+      if (returnedNum > soldNum) {
+        throw new Error("returned total cannot exceed sold total for any item");
+      }
+
+      const net = soldNum - returnedNum;
+
+      if (!itemNetTally.has(item)) {
+        itemNetTally.set(item, { sold: 0, returned: 0 });
+      }
+
+      const current = itemNetTally.get(item)!;
+      current.sold += soldNum;
+      current.returned += returnedNum;
+    }
+  }
+
+  const items = Array.from(itemNet
+    .keys())
+    .sort();
+
+  const maxItemNameLength = items.reduce((max, item) => Math.max(max, item.length), 0);
+  const totalNet = Array.from(itemNetTally.values()).reduce((sum, { sold, returned }) => sum + (sold - returned), 0);
+
+  const reportLines = items.map(item => {
+    const itemNet = itemNetTally.get(item)!;
+    const net = itemNet.sold - itemNet.returned;
+    return `${item.padEnd(maxItemNameLength)}  ${net}`;
+  });
+
+  return reportLines.join("\n") + "\n" + `total${" ".repeat(maxItemNameLength)}  ${totalNet}`;
+}
+```

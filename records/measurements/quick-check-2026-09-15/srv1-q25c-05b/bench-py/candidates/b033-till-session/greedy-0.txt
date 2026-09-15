@@ -1,0 +1,15 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events, prices):
+    # TODO: replay the events over the open/payment/paid/cancelled states,
+    # maintain the cart, fix the total at close, accumulate payments and
+    # compute the change, rejecting every unlawful event.
+    raise NotImplementedError
+```

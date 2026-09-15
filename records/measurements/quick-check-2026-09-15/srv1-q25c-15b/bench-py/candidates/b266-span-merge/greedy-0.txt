@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def span_merge(spans: List[List[int]]) -> List[List[int]]:
+    if not spans:
+        return []
+
+    spans.sort()
+    merged = [spans[0]]
+
+    for span in spans[1:]:
+        if span[0] <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], span[1])
+        else:
+            merged.append(span)
+
+    return merged
+```

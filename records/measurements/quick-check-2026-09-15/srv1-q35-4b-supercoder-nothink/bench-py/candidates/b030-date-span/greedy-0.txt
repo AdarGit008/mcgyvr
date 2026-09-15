@@ -1,0 +1,64 @@
+The current code has several bugs:
+1. `_is_leap` only checks `year % 4 == 0`, missing the century-year exception (divisible by 400)
+2. `_month_length` uses `month - 1` indexing but the function signature uses `month` as a parameter — this is fine, but the docstring should clarify
+3. `_to_ordinal` has a bug: it uses `year - 1` for the prior year, but if `year` is 1, `year - 1` is 0, and `0 * 365 + 0 // 4` gives 0, which is correct. But the loop `range(1, month)` is wrong — it should be `range(1, month + 1)` to include the current month's days
+4. No validation for: wrong date list length, non-integer components, month outside 1-12, day outside month length, start after end
+
+Here is the fixed file:
+```python
+"""How many days lie between two proleptic Gregorian calendar dates."""
+
+MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def _is_leap(year: int) -> bool:
+    """Return True if year is a leap year in the proleptic Gregorian calendar."""
+    return year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
+
+
+def _month_length(year: int, month: int) -> int:
+    """Return the number of days in month of year."""
+    if month == 2 and _is_leap(year):
+        return 29
+    return MONTH_LENGTHS[month - 1]
+
+
+def _to_ordinal(date: list) -> int:
+    """Return the ordinal day of the date (1-based, from year 1)."""
+    year, month, day = date
+    prior = year - 1
+    days = prior * 365 + prior // 4
+    for earlier in range(1, month + 1):
+        days += _month_length(year, earlier)
+    return days + day
+
+
+def span_days(start: list, end: list) -> int:
+    """Return the number of days from start to end, start day counted, end day not.
+
+    start and end must be [year, month, day] triples of the proleptic Gregorian
+    calendar. The result is the number of days between the two dates, where
+    equal dates span zero days.
+
+    Raises:
+        ValueError: if start is after end, or any date component is invalid.
+    """
+    if len(start) != 3 or len(end) != 3:
+        raise ValueError("Both dates must be [year, month, day] triples")
+
+    for date in (start, end):
+        year, month, day = date
+        if not isinstance(year, int) or not isinstance(month, int) or not isinstance(day, int):
+            raise ValueError("All date components must be integers")
+        if month < 1 or month > 12:
+            raise ValueError("Month must be between 1 and 12")
+        if day < 1:
+            raise ValueError("Day must be positive")
+        if day > _month_length(year, month):
+            raise ValueError(f"Day {day} is not valid for month {month} in year {year}")
+
+    if _to_ordinal(start) > _to_ordinal(end):
+        raise ValueError("start date must not be after the end date")
+
+    return _to_ordinal(end) - _to_ordinal(start)
+```

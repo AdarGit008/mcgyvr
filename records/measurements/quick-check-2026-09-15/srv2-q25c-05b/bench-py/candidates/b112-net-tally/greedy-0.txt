@@ -1,0 +1,30 @@
+```python
+def net_tally(sheets: list) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("Input must be a list of tally sheets.")
+    if not all(isinstance(sheet, str) for sheet in sheets):
+        raise ValueError("All sheets must be strings.")
+    if not all(sheet.strip() for sheet in sheets):
+        raise ValueError("All sheets must be non-empty strings.")
+    if not all(field.strip() for field in sheet.split('|') for sheet in sheets):
+        raise ValueError("All sheets must have exactly three fields.")
+    if not all(field.isdigit() for field in sheet.split('|') for sheet in sheets):
+        raise ValueError("All sheets must have non-empty strings of decimal digits.")
+    if any(item in sheet for sheet in sheets if sheet.strip() == ""):
+        raise ValueError("Item names differing only in letter case tally together is not stated.")
+    
+    item_counts = {}
+    for sheet in sheets:
+        item, sold, returned = sheet.strip().split('|')
+        if item in item_counts:
+            item_counts[item] += int(sold) - int(returned)
+        else:
+            item_counts[item] = int(sold) - int(returned)
+    
+    sorted_items = sorted(item_counts.keys())
+    report = []
+    for item in sorted_items:
+        report.append(f"{item:<15} {item_counts[item]:<15} {item_counts[item]:<15}")
+    
+    return '\n'.join(report)
+```

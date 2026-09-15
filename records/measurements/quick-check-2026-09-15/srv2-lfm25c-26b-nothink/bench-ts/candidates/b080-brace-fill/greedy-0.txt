@@ -1,0 +1,47 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  const openBraceIndex = template.indexOf('{');
+  let result = '';
+  let i = 0;
+
+  while (i < template.length) {
+    const char = template[i];
+
+    if (char === '{') {
+      const openIndex = i;
+      let nameStart = i + 1;
+      let nameEnd = i + 1;
+
+      while (nameEnd < template.length && (template[nameEnd] === '{' || template[nameEnd] === '}' || template[nameEnd] === ':')) {
+        nameEnd++;
+      }
+
+      if (nameEnd <= nameStart) {
+        throw new Error("fillTemplate: unterminated placeholder");
+      }
+
+      const name = template.substring(nameStart, nameEnd);
+      if (name.length === 0 || !/^[a-zA-Z0-9_]+$/.test(name)) {
+        throw new Error("fillTemplate: placeholder name is empty or malformed");
+      }
+
+      if (values.hasOwnProperty(name)) {
+        result += values[name];
+      } else {
+        throw new Error("fillTemplate: unknown placeholder name");
+      }
+
+      i = nameEnd;
+    } else {
+      result += char;
+      i++;
+    }
+  }
+
+  return result;
+}
+```

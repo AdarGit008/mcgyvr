@@ -1,0 +1,65 @@
+Looking at this problem:
+
+- Input: list of non-negative integers (daily yields)
+- Constraint: if day i is worked, day i+1 must be off
+- Goal: maximize total yield
+- Output: maximum total (integer)
+
+The key insight: this is a classic "maximum sum with no two adjacent elements" problem. The greedy approach of "always pick the larger of the two neighbors" doesn't work because picking a large middle element can force you to skip two large neighbors.
+
+The correct approach: dynamic programming. For each day, compute the maximum you can get ending on that day:
+- Either skip the day: best_harvest(yields[:i])
+- Or pick the day: yields[i] + best_harvest(yields[:i-2])
+
+Base cases:
+- Empty list: 0
+- Single element: that element
+
+Let me trace through the example: yields = [5, 1, 1, 5]
+- i=0: max(0, 5 + 0) = 5
+- i=1: max(5, 1 + 0) = 5
+- i=2: max(5, 1 + 5) = 6
+- i=3: max(6, 5 + 5) = 10 ✓
+
+The DP approach works because the decision at each step only depends on decisions made two steps back, and the state space is O(n) with O(1) space if we fold the two previous values.
+
+One thing to verify: the problem says "reject an argument that is not a list, a yield that is not an integer, and a negative yield". So I need to check:
+- yields is a list
+- every element is an integer (not a float like 5.0)
+- every element is >= 0
+
+I'll use isinstance for the list check and isinstance for the integer check. The integer check should reject floats — Python's isinstance(x, int) returns False for floats, which is correct.
+
+One edge case: what if yields is empty? The loop won't execute, dp[0] = 0, dp[1] = 0, and we return dp[2] = 0. That's correct.
+
+What if yields has one element? dp[0] = 0, dp[1] = yields[0], dp[2] = max(dp[1], dp[0]) = yields[0]. Correct.
+
+What if yields has two elements? dp[0] = 0, dp[1] = yields[0], dp[2] = max(dp[1], dp[0]) = yields[0]. Correct — you can't pick both.
+
+I think the solution is solid. Let me write it.
+</think>
+
+```python
+def best_harvest(yields: list) -> int:
+    """Return the maximum total yield from a non-consecutive subset of days."""
+    if not isinstance(yields, list):
+        raise TypeError("yields must be a list")
+    for v in yields:
+        if not isinstance(v, int):
+            raise TypeError("all yields must be integers")
+        if v < 0:
+            raise ValueError("all yields must be non-negative")
+
+    n = len(yields)
+    if n == 0:
+        return 0
+    if n == 1:
+        return yields[0]
+
+    dp0 = 0
+    dp1 = yields[0]
+    for i in range(2, n):
+        dp2 = max(dp1, dp0 + yields[i - 1])
+        dp0, dp1 = dp1, dp2
+    return dp1
+```

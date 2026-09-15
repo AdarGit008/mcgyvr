@@ -1,0 +1,70 @@
+```ts
+export function foldEnds(values: number[]): number[] {
+  const result: number[] = [];
+  const n = values.length;
+
+  if (n === 0) {
+    return result;
+  }
+
+  for (let i = 0; i < Math.floor(n / 2); i++) {
+    result.push(values[i] + values[n - 1 - i]);
+  }
+
+  if (n % 2 === 1) {
+    result.push(values[Math.floor(n / 2)]);
+  }
+
+  return result;
+}
+```
+
+```ts
+export function foldEnds(values: number[]): number[] {
+  const result: number[] = [];
+  const n = values.length;
+
+  if (n === 0) {
+    return result;
+  }
+
+  for (let i = 0; i < Math.floor(n / 2); i++) {
+    result.push(values[i] + values[n - 1 - i]);
+  }
+
+  if (n % 2 === 1) {
+    result.push(values[Math.floor(n / 2)]);
+  }
+
+  return result;
+}
+```
+
+Wait, I accidentally duplicated the function. Let me provide the correct single file.
+
+```ts
+export function foldEnds(values: number[]): number[] {
+  const result: number[] = [];
+  const n = values.length;
+
+  if (n === 0) {
+    return result;
+  }
+
+  for (let i = 0; i < Math.floor(n / 2); i++) {
+    result.push(values[i] + values[n - 1 - i]);
+  }
+
+  if (n % 2 === 1) {
+    result.push(values[Math.floor(n / 2)]);
+  }
+
+  return result;
+}
+```
+
+This correctly handles all edge cases:
+- Empty array → `[]`
+- Single element → `[element]`
+- Even length → n/2 totals from first to last
+- Odd length → (n-1)/2 totals from first to middle, plus the middle element as its own total

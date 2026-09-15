@@ -1,0 +1,66 @@
+{
+ "argv": "-m /home/adaramir/models/.incoming/Schnuckade_LFM-2.5-Coder-2.6B/LFM2.5-2.6B.Q4_K_M.gguf --alias srv2-lfm25c-26b --host 0.0.0.0 --port 8090 --parallel 1 -c 8192 -ngl 99 -fa on",
+ "digest": "ghcr.io/ggml-org/llama.cpp@sha256:9f0a986a78ab9261afc3266c807c16933ee4c26c62cb063f0c17f8da890f6c7e",
+ "draws": 0,
+ "healthy": true,
+ "host": "srv2",
+ "ids": [
+  "b007-cent-split",
+  "b030-date-span",
+  "b094-relay-chain",
+  "b258-lap-best",
+  "b345-hour-rate",
+  "b379-hide-values",
+  "b417-mark-list",
+  "b423-scan-tally",
+  "b488-root-digit",
+  "b496-span-letters",
+  "b033-till-session",
+  "b046-rest-harvest",
+  "b073-bump-release",
+  "b080-brace-fill",
+  "b112-net-tally",
+  "b200-fleet-hops",
+  "b266-span-merge",
+  "b281-tier-cost",
+  "b351-vat-back",
+  "b443-fold-ends"
+ ],
+ "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644",
+ "max_output_tokens": 2048,
+ "model": "/home/adaramir/models/.incoming/Schnuckade_LFM-2.5-Coder-2.6B/LFM2.5-2.6B.Q4_K_M.gguf",
+ "product_sha256": "1ce8b045a4ce9f27da0d571e3ca87c3117700feffadc63cfa665d69b273128cd",
+ "reason": "",
+ "round": "r29-15-09-2026",
+ "run_id": "2026-09-15-quick-check-2026-09-15-srv2-lfm25c-26b-r3",
+ "tiers": {
+  "bench-py": {
+   "by_type": {
+    "bug_fix": "6/10",
+    "function_implementation": "3/10"
+   },
+   "mean_completion_tokens": 1462.8,
+   "mean_latency_s": 10.02,
+   "measure_rc": "0",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv2-lfm25c-26b/bench-py",
+   "overran_cap": 0,
+   "parse_refused": 8,
+   "passed": 9,
+   "rows": 20
+  },
+  "bench-ts": {
+   "by_type": {
+    "bug_fix": "5/10",
+    "function_implementation": "1/10"
+   },
+   "mean_completion_tokens": 1468.2,
+   "mean_latency_s": 10.07,
+   "measure_rc": "0",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv2-lfm25c-26b/bench-ts",
+   "overran_cap": 0,
+   "parse_refused": 8,
+   "passed": 6,
+   "rows": 20
+  }
+ }
+}

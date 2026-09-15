@@ -1,0 +1,7 @@
+assistant
+[STOP — required input validation missing]
+- split_evenly does not validate that total_cents is a non-negative integer or that ways is a positive integer.
+- apply_bps validates that cents and bps are non-negative, but does not validate that the result is a reasonable number (e.g. not exceeding the total).
+- sum_parts does not validate that parts is a list or that all parts are integers.
+
+The task says to fix split_evenly and add the missing validation for total_cents and ways. The other helpers are correct and their behaviour must not change.

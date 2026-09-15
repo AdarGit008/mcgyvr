@@ -1,0 +1,90 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    if not prices:
+        raise ValueError("price list must have at least one entry")
+
+    # Validate prices
+    for name, price in prices.items():
+        if not isinstance(price, int) or price <= 0:
+            raise ValueError(f"price must be a positive integer: {name}")
+
+    # Initialize session state
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+    state = OPEN
+
+    # Process each event
+    for event in events:
+        if not isinstance(event, list) or len(event) < 2:
+            raise ValueError("event must be a list with at least two elements")
+
+        action = event[0]
+        payload = event[1]
+
+        if action == "scan":
+            if not isinstance(payload, str):
+                raise ValueError("scan action must have a string item name")
+            if payload not in prices:
+                raise ValueError(f"scan of unknown item: {payload}")
+            if state != OPEN:
+                raise ValueError("scan is only lawful when session is open")
+            cart[payload] = cart.get(payload, 0) + 1
+            total = sum(prices[item] * quantity for item, quantity in cart.items())
+
+        elif action == "void":
+            if not isinstance(payload, str):
+                raise ValueError("void action must have a string item name")
+            if state != OPEN:
+                raise ValueError("void is only lawful when session is open")
+            if payload not in cart:
+                raise ValueError(f"void of item not in cart: {payload}")
+            cart[payload] = cart.get(payload, 0) - 1
+            if cart[payload] == 
+            total = sum(prices[item] * quantity for item, quantity in cart.items())
+
+        elif action == "close":
+            if state != OPEN:
+                raise ValueError("close is only lawful when session is open")
+            if not cart:
+                raise ValueError("close requires a non-empty cart")
+            state = PAYMENT
+            total = sum(prices[item] * quantity for item, quantity in cart.items())
+
+        elif action == "pay":
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("pay amount must be a positive integer")
+            if state != PAYMENT:
+                raise ValueError("pay is only lawful during payment")
+            paid += payload
+            if paid >= total:
+                change = paid - total
+                state = PAID
+            # If session is already paid or cancelled, no further events are allowed
+
+        elif action == "cancel":
+            if state == PAID or state == CANCELLED:
+                raise ValueError("cancel is only lawful when session is open or in payment")
+            state = CANCELLED
+
+        else:
+            raise ValueError(f"unknown action: {action}")
+
+    # Final state output
+    items = sorted([(name, cart[name]) for name in cart], key=lambda x: x[0])
+    return {
+        "items": items,
+        "total": total if state == PAYMENT or state == PAID else 0,
+        "paid": paid,
+        "change": change if state == PAID else 0
+    }
+```

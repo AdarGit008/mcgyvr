@@ -1,0 +1,18 @@
+The current implementation has a bug: it only handles spans of exactly 3 characters, but the contract says "anything not written as exactly two letters with a dash between them" should be returned untouched. This means spans like "A-B-C" (3 letters) or "A-B-C-D" (4 letters) should also be handled.
+
+The fix: check `len(span) != 2` instead of `len(span) != 3`, and handle the case where the dash is not at position 1 (i.e., `span[1] != "-"`).
+
+```python
+def span_letters(span: str) -> str:
+    """Open a written span such as a dash between two letters into every letter from the first to the last, the last one included. Anything not written as exactly two letters with a dash between them, or running backward, is given back untouched."""
+    if len(span) != 2 or span[1] != "-":
+        return span
+    start = ord(span[0])
+    end = ord(span[2])
+    if start > end:
+        return span
+    out = ""
+    for code in range(start, end + 1):
+        out += chr(code)
+    return out
+```

@@ -1,0 +1,73 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (hop <= 0) {
+    throw new Error("hop must be a positive number");
+  }
+
+  const ltsSet = new Set(lts);
+  const ltsSorted = Array.from(ltsSet).sort((a, b) => a - b);
+
+  const isValidBuild = (b: number): b is number => b >= 0 && b < count;
+
+  let totalHops = 0;
+
+  for (const build of builds) {
+    if (!isValidBuild(build)) {
+      throw new Error(`Invalid build number: ${build}`);
+    }
+
+    if (build === count - 1) {
+      continue;
+    }
+
+    let current = build;
+    let hops = 0;
+
+    while (current < count - 1) {
+      const next = current + hop;
+
+      if (next >= count) {
+        current = count - 1;
+        break;
+      }
+
+      if (ltsSorted.length === 0) {
+        current = next;
+        hops++;
+        continue;
+      }
+
+      const ltsAbove = ltsSorted.find((x) => x > current);
+      const ltsBelow = ltsSorted.find((x) => x < next);
+
+      if (ltsAbove === undefined) {
+        current = next;
+        hops++;
+        continue;
+      }
+
+      if (ltsBelow === undefined) {
+        current = ltsAbove;
+        hops++;
+        continue;
+      }
+
+      if (ltsAbove < ltsBelow) {
+        current = ltsAbove;
+        hops++;
+        continue;
+      }
+
+      current = next;
+      hops++;
+    }
+
+    totalHops += hops;
+  }
+
+  return totalHops;
+}
+```
+
+**Time complexity:** O(n · m · h) where n = number of devices, m = number of LTS releases, and h is the number of hops per device (bounded by count/hop).  
+**Space complexity:** O(m) for the sorted LTS set.

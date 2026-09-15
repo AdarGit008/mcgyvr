@@ -1,0 +1,47 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  const result: string[] = [];
+  let i = 0;
+  const templateLen = template.length;
+
+  while (i < templateLen) {
+    if (template[i] === '{') {
+      i++;
+      let name = '';
+      // Collect name until we hit a closing brace
+      while (i < templateLen && template[i] !== '}') {
+        const char = template[i];
+        if (!/^[a-zA-Z0-9_]$/.test(char)) {
+          throw new Error("Placeholder name contains invalid character");
+        }
+        name += char;
+        i++;
+      }
+
+      if (i >= templateLen) {
+        throw new Error("Unterminated placeholder");
+      }
+
+      if (name === '') {
+        throw new Error("Placeholder name is empty");
+      }
+
+      if (!(name in values)) {
+        throw new Error(`Mapping does not hold value for name: ${name}`);
+      }
+
+      result.push(values[name]);
+      i++; // Skip the closing brace
+    } else {
+      result.push(template[i]);
+      i++;
+    }
+  }
+
+  return result.join('');
+}
+```

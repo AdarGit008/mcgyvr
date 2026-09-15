@@ -1,0 +1,9 @@
+assistant
+[STOP — TASK BLOCKED]
+The following task is blocked because it depends on a missing pre-condition that is not stated in the task description:
+
+> Whether the total before any instruction should be reported is not stated.
+
+The current implementation returns `[total]` (only the final total), but the task description does not explicitly state whether the initial total (before any instruction) should also be included. This is an important detail that affects the correctness of the implementation.
+
+Please clarify whether the initial total should be included in the result, and I will fix the implementation accordingly.

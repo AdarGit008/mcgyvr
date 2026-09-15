@@ -1,0 +1,17 @@
+```ts
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) {
+    throw new Error("Number of units cannot be below zero");
+  }
+
+  if (allowance < 0) {
+    allowance = 0;
+  }
+
+  if (units <= allowance) {
+    return units * firstRate;
+  } else {
+    return allowance * firstRate + (units - allowance) * laterRate;
+  }
+}
+```

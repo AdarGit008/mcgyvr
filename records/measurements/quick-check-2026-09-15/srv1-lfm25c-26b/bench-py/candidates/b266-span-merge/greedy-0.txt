@@ -1,0 +1,30 @@
+```python
+def span_merge(spans: list) -> list:
+    """
+    Merge overlapping or touching spans into a single span.
+    
+    Spans are represented as tuples (start, end) where start <= end.
+    Overlapping or touching spans are merged into a single span.
+    The result is ordered by start.
+    """
+    if not spans:
+        return []
+    
+    # Sort spans by start
+    sorted_spans = sorted(spans, key=lambda s: s[0])
+    
+    merged = [sorted_spans[0]]
+    
+    for i in range(1, len(sorted_spans)):
+        current_start, current_end = sorted_spans[i]
+        last_start, last_end = merged[-1]
+        
+        # If current starts before or at the end of the last merged span, merge
+        if current_start <= last_end:
+            # Extend the last span if needed
+            merged[-1] = (last_start, max(last_end, current_end))
+        else:
+            merged.append((current_start, current_end))
+    
+    return merged
+```

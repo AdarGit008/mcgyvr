@@ -1,0 +1,40 @@
+```python
+from typing import List, Union
+
+def net_tally(sheets: List[str]) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    
+    report = []
+    total_net = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("sheet must be a string")
+        
+        rows = sheet.split('\n')
+        for row in rows:
+            if len(row.split('|')) != 3:
+                raise ValueError("row must have exactly three fields")
+            
+            item, sold, returned = row.split('|')
+            sold = sold.strip()
+            returned = returned.strip()
+            
+            if not sold.isdigit() or not returned.isdigit():
+                raise ValueError("sold and returned fields must be strings of decimal digits")
+            
+            if int(returned) > int(sold):
+                raise ValueError("returned total cannot exceed sold total")
+            
+            net = int(sold) - int(returned)
+            total_net += net
+            
+            report.append(f"{item:<{len(max(item for item in report))}}  {net}")
+    
+    if not report:
+        return ""
+    
+    report.append(f"{total_net:<{len(max(item for item in report))}}  {total_net}")
+    return '\n'.join(report)
+```

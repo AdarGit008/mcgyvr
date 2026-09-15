@@ -1,0 +1,44 @@
+```
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  let result = "";
+  let index = 0;
+
+  while (index < template.length) {
+    const char = template[index];
+    if (char === "{") {
+      // Start of a placeholder
+      let name = "";
+      let value = "";
+
+      while (index < template.length && template[index] !== "}") {
+        if (char === "{") {
+          // Start of a name
+          name += char;
+        } else if (char === "}") {
+          // End of a name
+          value = values[name];
+          break;
+        }
+        index++;
+      }
+
+      if (name === "") {
+        throw new Error("fillTemplate: placeholder name cannot be empty");
+      }
+
+      result += value;
+      index++;
+    } else {
+      // Literal character
+      result += char;
+      index++;
+    }
+  }
+
+  return result;
+}
+```

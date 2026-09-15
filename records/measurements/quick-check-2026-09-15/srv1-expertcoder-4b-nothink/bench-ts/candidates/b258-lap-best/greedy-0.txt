@@ -1,0 +1,20 @@
+detailed_response
+Fixing (solution.ts - bug lapBest reports the quickest lap of a session, where a lap recorded as zero means the lap was never completed and must not count. It counts those zeros and so calls every session zero. Fix it. A session with no completed lap at all reports zero. Return the complete fixed file.):
+- Zero lap times are treated as completed (the bug).
+- A session with no completed lap should report zero.
+
+```typescript
+/** The quickest completed lap of a session. */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = Infinity;
+  for (const lap of laps) {
+    if (lap > 0 && lap < best) {
+      best = lap;
+    }
+  }
+  return best === Infinity ? 0 : best;
+}
+```

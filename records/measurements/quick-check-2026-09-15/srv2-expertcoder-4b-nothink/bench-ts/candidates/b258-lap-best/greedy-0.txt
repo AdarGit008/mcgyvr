@@ -1,0 +1,2 @@
+assistant
+[STOP — specific task received: TASK (bug_fix): lapBest reports the quickest lap of a session, where a lap recorded as zero means the lap was never completed and must not count. It counts those zeros and so calls every session zero. Fix it. A session with no completed lap at all reports zero. Return the complete fixed file. A session with no completed lap at all reports zero. Return the complete fixed file. A session with no completed lap at all reports zero. Return the complete fixed file.]

@@ -1,0 +1,3 @@
+assistant
+[STOP — TASK INCOMPLETE]
+The current code does not match the specification. The current code puts a star against entries that reach a floor, and it marks the entries below the floor instead. The specification says the opposite: a star against entries that reach a floor, and it marks the entries below the floor instead. The current code is backwards.

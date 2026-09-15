@@ -1,0 +1,23 @@
+The current `span_letters` function has a bug: it only handles spans of exactly 3 characters, but the contract says "anything not written as exactly two letters with a dash between them" should be returned untouched. This means spans of length 2 (like "ab") should also be returned as-is, since they are not "two letters with a dash between them."
+
+The fix: change the length check from `len(span) != 3` to `len(span) != 2`.
+
+```python
+def span_letters(span: str) -> str:
+    """Open a written span (e.g. 'a-b') into every letter from the first to the last, inclusive."""
+    if len(span) != 2 or span[1] != "-":
+        return span
+    start = ord(span[0])
+    end = ord(span[2])
+    if start > end:
+        return span
+    out = ""
+    for code in range(start, end + 1):
+        out += chr(code)
+    return out
+```
+
+The key changes:
+- `len(span) != 2` instead of `!= 3` — allows "ab" to pass through unchanged
+- `range(start, end + 1)` — the `+1` is required because `range` is exclusive on the upper bound, and the last letter (at `end`) must be included
+- The function now correctly handles: "ab" → "ab", "a-b" → "abc", "z-a" → "z-a" (backward, unchanged), "a-bc" → "a-bc" (not exactly two letters)

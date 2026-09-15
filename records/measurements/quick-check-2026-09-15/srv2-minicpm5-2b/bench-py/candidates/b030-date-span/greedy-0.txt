@@ -1,0 +1,71 @@
+```python
+"""How many days lie between two proleptic Gregorian calendar dates."""
+
+MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def _is_leap(year: int) -> bool:
+    """Return True if year is a leap year in the proleptic Gregorian calendar."""
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+
+def _month_length(year: int, month: int) -> int:
+    """Return the number of days in the given month of the given year."""
+    if month == 2 and _is_leap(year):
+        return 29
+    return MONTH_LENGTHS[month - 1]
+
+
+def _validate_date(date: list) -> None:
+    """Validate that a date is a valid [year, month, day] triple.
+
+    Raises ValueError if any component is not an integer, month is
+    outside 1-12, or day is outside the valid range for that month
+    and year.
+    """
+    if not isinstance(date, list) or len(date) != 3:
+        raise ValueError("Date must be a list of three integers [year, month, day].")
+    year, month, day = date
+    if not (isinstance(year, int) and isinstance(month, int) and isinstance(day, int)):
+        raise ValueError("All date components must be integers.")
+    if month < 1 or month > 12:
+        raise ValueError("Month must be between 1 and 12.")
+    max_day = _month_length(year, month)
+    if day < 1 or day > max_day:
+        raise ValueError(
+            f"Day {day} is invalid for month {month} in year {year} "
+            f"(valid range: 1-{max_day})."
+        )
+
+
+def _to_ordinal(date: list) -> int:
+    """Convert a [year, month, day] date to its 1-indexed ordinal day of the year."""
+    year, month, day = date
+    prior = year - 1
+    days = prior * 365 + prior // 4
+    for earlier in range(1, month):
+        days += _month_length(year, earlier)
+    return days + day
+
+
+def span_days(start: list, end: list) -> int:
+    """Return the number of days from start to end (start counted, end not).
+
+    Each date is a [year, month, day] triple in the proleptic Gregorian
+    calendar. A span of zero occurs when start and end are equal.
+
+    Raises ValueError if start is after end, month is outside 1-12,
+    day is outside the valid range for that month and year, or any
+    component is not an integer.
+    """
+    _validate_date(start)
+    _validate_date(end)
+    if start > end:
+        raise ValueError("Start date cannot be after end date.")
+    return _to_ordinal(end) - _to_ordinal(start)
+```
+
+Key fixes from the original:
+1. **Leap year rule**: Changed `_is_leap` from `year % 4 == 0` to `year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)`, correctly handling century years (1900 is not a leap year, 2000 is).
+2. **Validation**: Added `_validate_date` that checks all three components are integers, month is in 1-12, and day is within the valid range for that month/year (Feb 29 only in leap years).
+3. **Span semantics**: The existing `_to_ordinal` approach naturally gives 0 for equal dates (start counted, end not counted), so no change needed there.

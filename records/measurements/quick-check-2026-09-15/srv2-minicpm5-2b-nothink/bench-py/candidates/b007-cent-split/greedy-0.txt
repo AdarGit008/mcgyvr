@@ -1,0 +1,43 @@
+```python
+"""Cent-exact money helpers for order totals."""
+
+
+def split_evenly(total_cents: int, ways: int) -> list:
+    """Split a total into `ways` parts that sum to exactly `total_cents`,
+    are in non-increasing order, and differ by at most one cent.
+    """
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not isinstance(ways, int) or ways <= 0:
+        raise ValueError("ways must be a positive integer")
+
+    base = total_cents // ways
+    remainder = total_cents % ways
+    parts = [base + 1] * remainder + [base] * (ways - remainder)
+    return parts
+
+
+def apply_bps(cents: int, bps: int) -> int:
+    """Convert cents to basis points, rounding up at 0.5%."""
+    if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    if isinstance(bps, bool) or not isinstance(bps, int) or bps < 0:
+        raise ValueError("bps must be a non-negative integer")
+    return (cents * bps + 5000) // 10000
+
+
+def sum_parts(parts: list) -> int:
+    """Sum a list of integer parts, validating each element."""
+    total = 0
+    for part in parts:
+        if isinstance(part, bool) or not isinstance(part, int):
+            raise ValueError("parts must be integers")
+        total += part
+    return total
+```
+
+Key fixes to `split_evenly`:
+- Replaced `round(total_cents / ways)` (which rounds each share independently and can cause the parts to not sum to the total) with integer division `total_cents // ways` plus a remainder distribution.
+- The `remainder` extra cents are distributed one each to the *earliest* (largest) parts, ensuring non-increasing order and exact summation.
+- Added validation for `total_cents` (non-negative integer) and `ways` (positive integer), raising `ValueError` with a short message for invalid inputs.
+- `apply_bps` and `sum_parts` are unchanged.

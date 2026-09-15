@@ -1,0 +1,29 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+    if (hop === 0) {
+        throw new Error('Hop must be greater than zero');
+    }
+
+    const ltsSet = new Set(lts);
+    let totalHops = 0;
+
+    for (const build of builds) {
+        if (build < 0 || build >= count || !Number.isInteger(build)) {
+            throw new Error('Invalid build number');
+        }
+
+        if (build === count - 1) {
+            continue;
+        }
+
+        let target = build + hop;
+        while (target < count - 1 && !ltsSet.has(target)) {
+            target++;
+        }
+
+        totalHops += target - build;
+    }
+
+    return totalHops;
+}
+```

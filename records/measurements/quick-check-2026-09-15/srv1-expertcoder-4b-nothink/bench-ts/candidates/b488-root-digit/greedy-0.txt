@@ -1,0 +1,6 @@
+detailed-response
+Task: (solution.ts - bug_fix)
+- `rootDigit` should fold a whole count down to a single figure by adding its figures together, then adding the figures of that answer, again and again until one figure is left.
+- A count already standing as one figure is given back as it is.
+
+---

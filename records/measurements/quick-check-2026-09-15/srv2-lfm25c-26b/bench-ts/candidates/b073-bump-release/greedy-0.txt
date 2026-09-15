@@ -1,0 +1,38 @@
+```typescript
+export function bumpRelease(version: string, part: string): string {
+  if (typeof version !== 'string') {
+    throw new Error('version must be a string');
+  }
+
+  const components = version.split('.');
+  if (components.length !== 3) {
+    throw new Error('version must have exactly three components');
+  }
+
+  const [major, minor, patch] = components.map(part => part.trim());
+
+  if (major === '' || minor === '' || patch === '') {
+    throw new Error('component cannot be empty');
+  }
+
+  const isNumeric = (str: string) => /^\d+$/.test(str);
+  if (!isNumeric(major) || !isNumeric(minor) || !isNumeric(patch)) {
+    throw new Error('component must be a non-empty numeric string');
+  }
+
+  const num = parseInt(major, 10);
+  const numMinor = parseInt(minor, 10);
+  const numPatch = parseInt(patch, 10);
+
+  switch (part) {
+    case 'major':
+      return `${num + 1}.0.0`;
+    case 'minor':
+      return `${major}.${numMinor + 1}.0`;
+    case 'patch':
+      return `${major}.${minor}.${numPatch + 1}`;
+    default:
+      throw new Error('part must be "major", "minor", or "patch"');
+  }
+}
+```

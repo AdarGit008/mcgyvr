@@ -1,0 +1,22 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    if any(not isinstance(y, int) or y < 0 for y in yields):
+        raise ValueError("All yields must be non-negative integers")
+    
+    if not yields:
+        return 0
+    if len(yields) == 1:
+        return yields[0]
+    
+    include = max(yields[0], yields[1])
+    exclude = 0
+    
+    for i in range(2, len(yields)):
+        new_exclude = max(exclude, include)
+        include = exclude + yields[i]
+        exclude = new_exclude
+    
+    return max(include, exclude)
+```

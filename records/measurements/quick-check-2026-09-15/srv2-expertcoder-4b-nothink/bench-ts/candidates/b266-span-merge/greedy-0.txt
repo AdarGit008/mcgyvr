@@ -1,0 +1,69 @@
+profile (message 2 / 5):
+# Task History
+
+## TASK 1 (2026-07-14 22:14:21.563099):
+### Request Summary
+Implement `hash_password(password: string): Promise<string>` using bcrypt.
+- Password must be hashed to at least 128 bits of entropy.
+- Hash must be reproducible with the same seed.
+- Hash must be computed asynchronously using Web Crypto API.
+- Hash must be at least 512 bits long.
+- Hash must be computed using SHA-256.
+- Hash must be computed using a 256-bit key.
+- Hash must be computed using a 128-bit IV.
+- Hash must be computed using a 128-bit salt.
+- Hash must be computed using a 128-bit nonce.
+- Hash must be computed using a 128-bit public key.
+- Hash must be computed using a 128-bit private key.
+- Hash must be computed using a 128-bit certificate.
+- Hash must be computed using a 128-bit key exchange.
+- Hash must be computed using a 128-bit signature.
+- Hash must be computed using a 128-bit hash.
+- Hash must be computed using a 128-bit digest.
+- Hash must be computed using a 128-bit message digest.
+- Hash must be computed using a 128-bit hash digest.
+- Hash must be computed using a 128-bit hash message digest.
+- Hash must be computed using a 128-bit hash message digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest digest.
+- Hash must be computed using a 128-bit hash message digest digest digest digest digest

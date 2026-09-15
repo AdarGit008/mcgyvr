@@ -1,0 +1,18 @@
+```typescript
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) {
+    throw new Error('Number of units must be non-negative');
+  }
+
+  if (allowance < 0) {
+    allowance = 0;
+  }
+
+  const cost = units * firstRate;
+  if (units > allowance) {
+    cost += (units - allowance) * laterRate;
+  }
+
+  return Math.round(cost);
+}
+```

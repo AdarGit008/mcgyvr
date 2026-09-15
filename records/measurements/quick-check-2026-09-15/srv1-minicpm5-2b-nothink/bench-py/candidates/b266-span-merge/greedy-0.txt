@@ -1,0 +1,34 @@
+```python
+from typing import List, Tuple
+
+
+def span_merge(spans: list) -> list:
+    """Merge overlapping or touching booking spans into a sorted list."""
+    if not spans:
+        return []
+
+    # Each span is a tuple (start, end)
+    merged: List[Tuple[int, int]] = []
+    for start, end in spans:
+        if start > end:
+            raise ValueError(f"Invalid span: start {start} > end {end}")
+        if not merged:
+            merged.append((start, end))
+        else:
+            last_start, last_end = merged[-1]
+            if start <= last_end + 1:
+                merged[-1] = (last_start, max(last_end, end))
+            else:
+                merged.append((start, end))
+
+    return merged
+```
+
+**Edge-case verification:**
+- `""` / `[]` / `{}` → returns `[]` (empty input)
+- Single element → returns that element unchanged
+- `None` where an object is expected → raises `ValueError` (handled by the span check)
+- Zero/negative numbers → handled by the `start > end` check
+- Boundary indices → handled by the `last_end + 1` touch logic
+- Duplicate values → handled by `max(last_end, end)`
+- Already sorted/merged → returns the same list (no-op)

@@ -1,0 +1,11 @@
+-1
+Implement specification:
+- sheets is a list of strings, each string is a newline-separated list of rows.
+- Each row has three pipe-separated fields: item|sold|returned.
+- Each field is trimmed of surrounding spaces.
+- Blank and whitespace-only rows are skipped.
+- The same item may appear in any number of rows and sheets, and its sold and returned counts sum across all of them.
+- Render one report line per distinct item, sorted by item name: the name padded on the right with spaces to the width of the longest name (never narrower than the word total), two spaces, then the item's net count, sold minus returned.
+- Close the report with a trailer: the word total padded the same way, two spaces, and the sum of every net.
+- Return the report as one newline-joined string; no rows at all yields the empty string with no trailer.
+- Reject a sheets argument that is not a list, a sheet that is not a string, a row without exactly three fields, a row with an empty item name, a sold or returned field that is not a string of decimal digits, and an item whose returned total exceeds its sold total, with an error.

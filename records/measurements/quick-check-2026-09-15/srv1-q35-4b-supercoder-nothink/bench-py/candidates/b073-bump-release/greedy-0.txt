@@ -1,0 +1,34 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    """Return the next release tag after advancing the given part."""
+    if not isinstance(version, str):
+        raise TypeError("version must be a string")
+    if not isinstance(part, str):
+        raise TypeError("part must be a string")
+    if part not in ("major", "minor", "patch"):
+        raise ValueError("part must be 'major', 'minor', or 'patch'")
+
+    components = version.split(".")
+    if len(components) != 3:
+        raise ValueError("version must have exactly three dot-separated components")
+
+    for c in components:
+        if c == "":
+            raise ValueError("empty component")
+        if not c.isdigit():
+            raise ValueError("component must be a plain decimal integer")
+        if len(c) > 1 and c[0] == "0":
+            raise ValueError("component must not have a leading zero")
+
+    if part == "major":
+        components[0] = str(int(components[0]) + 1)
+        components[1] = "0"
+        components[2] = "0"
+    elif part == "minor":
+        components[1] = str(int(components[1]) + 1)
+        components[2] = "0"
+    elif part == "patch":
+        components[2] = str(int(components[2]) + 1)
+
+    return ".".join(components)
+```

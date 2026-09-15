@@ -1,0 +1,76 @@
+The current code has several bugs:
+1. `_is_leap` only checks `year % 4 == 0`, missing the century-year exception (divisible by 400)
+2. `_month_length` uses `year` but never actually uses it — it should call `_is_leap(year)`
+3. `_to_ordinal` uses `year - 1` which is wrong for year 0 (should be `year - 1` only if year > 0)
+4. No validation for month, day, or date order
+
+Here is the fixed file:
+
+```python
+"""How many days lie between two proleptic Gregorian calendar dates."""
+
+MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def _is_leap(year: int) -> bool:
+    """Return True if year is a leap year in the proleptic Gregorian calendar."""
+    return year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
+
+
+def _month_length(year: int, month: int) -> int:
+    """Return the number of days in month of year."""
+    if month == 2 and _is_leap(year):
+        return 29
+    return MONTH_LENGTHS[month - 1]
+
+
+def _to_ordinal(date: list) -> int:
+    """Return the ordinal day of the date (days since year 0)."""
+    year, month, day = date
+    if year < 0:
+        year = -year
+        day = -day
+    prior = year - 1
+    days = prior * 365 + prior // 4
+    for earlier in range(1, month):
+        days += _month_length(year, earlier)
+    return days + day
+
+
+def span_days(start: list, end: list) -> int:
+    """Return the number of days from start to end, start day counted, end day not.
+
+    start and end must be [year, month, day] triples of the proleptic Gregorian
+    calendar. The result is the number of days between the two dates, with the
+    start day counted and the end day not counted. For example, a span from
+    2024-03-01 to 2024-03-01 is zero days.
+
+    Raises:
+        ValueError: if start is after end, or if any date component is invalid.
+    """
+    if len(start) != 3 or len(end) != 3:
+        raise ValueError("start and end must be [year, month, day] triples")
+
+    start_year, start_month, start_day = start
+    end_year, end_month, end_day = end
+
+    if start_year < 0:
+        start_year = -start_year
+        start_day = -start_day
+    if end_year < 0:
+        end_year = -end_year
+        end_day = -end_day
+
+    if start_year > end_year:
+        raise ValueError("start date is after end date")
+
+    if start_year == end_year:
+        if start_month > end_month:
+            raise ValueError("start date is after end date")
+        if start_month == end_month and start_day > end_day:
+            raise ValueError("start date is after end date")
+
+    start_ordinal = _to_ordinal(start)
+    end_ordinal = _to_ordinal(end)
+    return end_ordinal - start_ordinal
+```

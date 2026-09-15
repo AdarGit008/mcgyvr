@@ -1,0 +1,70 @@
+Looking at this problem:
+
+- Input: list of non-negative integers (daily yields)
+- Constraint: can't work two consecutive days
+- Goal: maximize total harvest
+- Output: maximum total
+
+The key insight is that this is a classic "maximum weight independent set on a path graph" problem. For each day, I have two choices:
+- Work it: add its yield to the best total from the previous day
+- Skip it: take the best total from the previous day (which could have been from working the day before)
+
+This gives a clean DP recurrence:
+```
+dp[i] = max(dp[i-1], dp[i-2] + yields[i-1])
+```
+
+Base cases:
+- Empty list: 0
+- One element: that element
+- Two elements: max of the two
+
+Let me verify with the example: yields = [5, 1, 1, 5]
+- dp[0] = 5
+- dp[1] = max(5, 1) = 5
+- dp[2] = max(5, 5 + 1) = 6
+- dp[3] = max(6, 5 + 5) = 10 ✓
+
+Now I'll write the complete solution.
+</think>
+
+```python
+def best_harvest(yields: list) -> int:
+    """Return the maximum harvest from a non-consecutive-days schedule.
+
+    Args:
+        yields: list of non-negative integers, one per day.
+
+    Returns:
+        Maximum total harvest achievable.
+
+    Raises:
+        TypeError: if yields is not a list.
+        ValueError: if yields contains non-integers, negatives, or is not a list.
+    """
+    if not isinstance(yields, list):
+        raise TypeError("yields must be a list")
+
+    if not all(isinstance(y, int) for y in yields):
+        raise ValueError("all yields must be integers")
+
+    if any(y < 0 for y in yields):
+        raise ValueError("all yields must be non-negative")
+
+    n = len(yields)
+    if n == 0:
+        return 0
+    if n == 1:
+        return yields[0]
+    if n == 2:
+        return max(yields[0], yields[1])
+
+    dp = [0] * n
+    dp[0] = yields[0]
+    dp[1] = max(yields[0], yields[1])
+
+    for i in range(2, n):
+        dp[i] = max(dp[i - 1], dp[i - 2] + yields[i])
+
+    return dp[-1]
+```

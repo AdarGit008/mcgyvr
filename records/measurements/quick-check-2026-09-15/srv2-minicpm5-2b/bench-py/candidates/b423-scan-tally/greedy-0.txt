@@ -1,0 +1,21 @@
+```python
+def step_value(step: str) -> int:
+    """The value added by a single instruction."""
+    if step == "+":
+        return 1
+    if step == "-":
+        return -1
+    return 0
+
+
+def scan_tally(steps: list) -> list:
+    """The running total after each instruction."""
+    total = 0
+    result: list[int] = []
+    for step in steps:
+        total += step_value(step)
+        result.append(total)
+    return result
+```
+
+The bug was that `scan_tally` returned only the final total as a single-element list, ignoring all intermediate running totals. The fix collects each running total after each instruction into a list and returns it.

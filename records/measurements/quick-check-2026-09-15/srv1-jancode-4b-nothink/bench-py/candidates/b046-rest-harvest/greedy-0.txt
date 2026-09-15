@@ -1,0 +1,22 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    if len(yields) == 0:
+        return 0
+    for yield_val in yields:
+        if not isinstance(yield_val, int) or yield_val < 0:
+            raise ValueError("All yields must be non-negative integers")
+    if len(yields) == 1:
+        return yields[0]
+    # Dynamic programming: at each day, decide whether to take the yield or skip
+    # We can't take two consecutive days, so we use a DP array where dp[i] is the max harvest up to day i
+    dp = [0] * len(yields)
+    dp[0] = yields[0]
+    if len(yields) > 1:
+        dp[1] = max(yields[0], yields[1])
+    for i in range(2, len(yields)):
+        # Either take current day (add to harvest of day i-2) or skip (take harvest of day i-1)
+        dp[i] = max(dp[i-1], dp[i-2] + yields[i])
+    return dp[-1]
+```

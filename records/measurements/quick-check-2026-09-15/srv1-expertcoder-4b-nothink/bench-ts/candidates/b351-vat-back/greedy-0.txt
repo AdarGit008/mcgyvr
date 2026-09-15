@@ -1,0 +1,19 @@
+-1
+Implement vatBack:
+    gross = €118, rate = 18% → back = €100
+    gross = €118, rate = 0 → back = €118
+    gross = €118, rate = -18 → back = €142 (negative rate means the gross
+    already includes a discount; the formula still applies)
+*/
+
+export function vatBack(gross: number, rate: number): number {
+  if (typeof gross !== "number" || typeof rate !== "number") {
+    throw new Error("Both arguments must be numbers");
+  }
+
+  if (!isFinite(gross) || !isFinite(rate)) {
+    throw new Error("Both arguments must be finite numbers");
+  }
+
+  return Math.floor(gross / (1 + rate / 100));
+}

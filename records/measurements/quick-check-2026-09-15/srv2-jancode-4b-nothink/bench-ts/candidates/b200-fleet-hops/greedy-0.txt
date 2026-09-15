@@ -1,0 +1,77 @@
+```ts
+/**
+ * Calculates the total number of hops for a fleet of devices to reach the newest release.
+ * 
+ * @param count - The total number of releases (0 to count-1).
+ * @param lts - Array of release numbers that have long-term support.
+ * @param builds - Array of current release numbers for each device in the fleet.
+ * @param hop - Maximum hop distance (how far a device can jump in one hop).
+ * @returns Total number of hops required for all devices to reach the newest release.
+ * @throws Error if any build is not a valid release number (not in 0..count-1).
+ */
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  // Validate inputs
+  if (count <= 0 || hop < 0) {
+    throw new Error("Invalid input: count must be positive and hop must be non-negative");
+  }
+
+  // Validate each build is a valid release number
+  for (const build of builds) {
+    if (!Number.isInteger(build) || build < 0 || build >= count) {
+      throw new Error("Invalid build release: must be a whole number between 0 and count-1");
+    }
+  }
+
+  // If hop is zero, no movement is possible
+  if (hop === 0) {
+    // All devices are already at their current release
+    // Only the newest release needs to be reached, so if any device is not at count-1, it can't move
+    // But since hop is zero, no hops are made
+    return 0;
+  }
+
+  // Find the next LTS release strictly above current build and strictly below build + hop
+  // If no such LTS exists, then the device moves to build + hop (but not beyond count-1)
+  const maxRelease = count - 1;
+
+  let totalHops = 0;
+
+  for (const build of builds) {
+    let current = build;
+    let target = maxRelease;
+
+    // If already at the newest release, no hop needed
+    if (current === target) {
+      totalHops += 0;
+      continue;
+    }
+
+    // Device moves in hops until it reaches the newest release
+    while (current < target) {
+      // Calculate the next hop destination (at most current + hop)
+      const next = Math.min(current + hop, target);
+
+      // Find the lowest LTS release strictly above current and strictly below next
+      let ltsCandidate = -1;
+      for (const ltsRelease of lts) {
+        if (ltsRelease > current && ltsRelease < next) {
+          ltsCandidate = ltsRelease;
+          break;
+        }
+      }
+
+      // If such an LTS exists, land on it
+      if (ltsCandidate !== -1) {
+        current = ltsCandidate;
+      } else {
+        // Otherwise, move to next (but not beyond target)
+        current = next;
+      }
+
+      totalHops += 1;
+    }
+  }
+
+  return totalH
+}
+```

@@ -1,0 +1,16 @@
+```python
+def hour_rate(rate: int) -> int:
+    """Return the hourly rate."""
+    return rate
+
+
+def week_pay(hours: int, rate: int) -> int:
+    """Pay for a week, with overtime beyond forty hours."""
+    if hours <= 0:
+        return 0
+    if hours <= 40:
+        return hours * rate
+    overtime_hours = hours - 40
+    overtime_rate = rate // 2
+    return (40 * rate) + (overtime_hours * overtime_rate)
+```

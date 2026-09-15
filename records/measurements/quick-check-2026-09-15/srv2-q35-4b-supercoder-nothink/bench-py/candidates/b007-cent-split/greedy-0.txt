@@ -1,0 +1,38 @@
+```python
+"""Cent-exact money helpers for order totals."""
+
+
+def split_evenly(total_cents: int, ways: int) -> list:
+    """Split total_cents into ways parts, each differing by at most 1 cent,
+    in non-increasing order, so the sum equals total_cents exactly."""
+    if not isinstance(total_cents, int) or isinstance(total_cents, bool) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not isinstance(ways, int) or isinstance(ways, bool) or ways <= 0:
+        raise ValueError("ways must be a positive integer")
+
+    base = total_cents // ways
+    remainder = total_cents % ways
+    parts = [base + 1] * remainder + [base] * (ways - remainder)
+    return parts
+
+
+def apply_bps(cents: int, bps: int) -> int:
+    """Apply a BPS (binary point shift) to cents: cents * bps / 10000."""
+    if not isinstance(cents, int) or isinstance(cents, bool) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    if not isinstance(bps, int) or isinstance(bps, bool) or bps < 0:
+        raise ValueError("bps must be a non-negative integer")
+    return (cents * bps + 5000) // 10000
+
+
+def sum_parts(parts: list) -> int:
+    """Sum a list of integer parts."""
+    if not isinstance(parts, list):
+        raise ValueError("parts must be a list")
+    total = 0
+    for part in parts:
+        if not isinstance(part, int) or isinstance(part, bool):
+            raise ValueError("parts must be integers")
+        total += part
+    return total
+```

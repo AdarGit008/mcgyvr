@@ -1,0 +1,69 @@
+{
+ "argv": "-m /home/adaramir/models/.incoming/janhq_Jan-code-4b-gguf/Jan-code-4b-Q4_K_M.gguf --alias srv1-jancode-4b --host 0.0.0.0 --port 8090 --parallel 1 -c 8192 -ngl 99 -fa on --reasoning-budget 0 --chat-template-kwargs {\"enable_thinking\":false}",
+ "digest": "llamacpp@sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6",
+ "draws": 0,
+ "healthy": true,
+ "host": "srv1",
+ "ids": [
+  "b007-cent-split",
+  "b030-date-span",
+  "b094-relay-chain",
+  "b258-lap-best",
+  "b345-hour-rate",
+  "b379-hide-values",
+  "b417-mark-list",
+  "b423-scan-tally",
+  "b488-root-digit",
+  "b496-span-letters",
+  "b033-till-session",
+  "b046-rest-harvest",
+  "b073-bump-release",
+  "b080-brace-fill",
+  "b112-net-tally",
+  "b200-fleet-hops",
+  "b266-span-merge",
+  "b281-tier-cost",
+  "b351-vat-back",
+  "b443-fold-ends"
+ ],
+ "image": "llamacpp:b10644-L3",
+ "max_output_tokens": 2048,
+ "model": "/home/adaramir/models/.incoming/janhq_Jan-code-4b-gguf/Jan-code-4b-Q4_K_M.gguf",
+ "product_sha256": "1ce8b045a4ce9f27da0d571e3ca87c3117700feffadc63cfa665d69b273128cd",
+ "reason": "",
+ "round": "r29-15-09-2026",
+ "run_id": "2026-09-15-quick-check-2026-09-15-srv1-jancode-4b-r4",
+ "thinking": "off",
+ "tiers": {
+  "bench-py": {
+   "by_type": {
+    "bug_fix": "4/10",
+    "function_implementation": "1/10"
+   },
+   "mean_completion_tokens": 232.8,
+   "mean_latency_s": 4.22,
+   "measure_rc": "0",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv1-jancode-4b-nothink/bench-py",
+   "overran_cap": 0,
+   "parse_refused": 0,
+   "passed": 5,
+   "rows": 20,
+   "truncated": 0
+  },
+  "bench-ts": {
+   "by_type": {
+    "bug_fix": "6/10",
+    "function_implementation": "1/10"
+   },
+   "mean_completion_tokens": 294.4,
+   "mean_latency_s": 5.02,
+   "measure_rc": "0",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv1-jancode-4b-nothink/bench-ts",
+   "overran_cap": 0,
+   "parse_refused": 0,
+   "passed": 7,
+   "rows": 20,
+   "truncated": 0
+  }
+ }
+}

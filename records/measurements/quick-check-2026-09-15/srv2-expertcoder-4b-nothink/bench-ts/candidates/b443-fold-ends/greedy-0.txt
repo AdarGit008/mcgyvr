@@ -1,0 +1,21 @@
+-1
+Implement specification for (solution.ts - foldEnds):
+> Fold a list onto itself by adding the first entry to the last, the second to the second-last, and so on, returning the totals in that order. A list of an odd length leaves its middle entry as its own total.
+
+```ts
+export function foldEnds(values: number[]): number[] {
+  const n = values.length;
+  const result: number[] = [];
+  let i = 0;
+  let j = n - 1;
+  while (i < j) {
+    result.push(values[i] + values[j]);
+    i++;
+    j--;
+  }
+  if (i === j) {
+    result.push(values[i]);
+  }
+  return result;
+}
+```

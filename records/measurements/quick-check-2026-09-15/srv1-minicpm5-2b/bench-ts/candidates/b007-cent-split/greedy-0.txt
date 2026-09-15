@@ -1,0 +1,52 @@
+```ts
+/** Cent-exact money helpers for order totals. */
+
+export function splitEvenly(totalCents: number, ways: number): number[] {
+  if (!Number.isInteger(totalCents) || totalCents < 0) {
+    throw new Error("totalCents must be a non-negative integer");
+  }
+  if (!Number.isInteger(ways) || ways <= 0) {
+    throw new Error("ways must be a positive integer");
+  }
+
+  const baseShare = Math.floor(totalCents / ways);
+  const remainder = totalCents % ways;
+
+  const parts: number[] = [];
+  for (let i = 0; i < remainder; i++) {
+    parts.push(baseShare + 1);
+  }
+  for (let i = remainder; i < ways; i++) {
+    parts.push(baseShare);
+  }
+
+  return parts;
+}
+
+export function applyBps(cents: number, bps: number): number {
+  if (!Number.isInteger(cents) || cents < 0) {
+    throw new Error("cents must be a non-negative integer");
+  }
+  if (!Number.isInteger(bps) || bps < 0) {
+    throw new Error("bps must be a non-negative integer");
+  }
+  return Math.floor((cents * bps + 5000) / 10000);
+}
+
+export function sumParts(parts: number[]): number {
+  let total = 0;
+  for (const part of parts) {
+    if (!Number.isInteger(part)) {
+      throw new Error("parts must be integers");
+    }
+    total += part;
+  }
+  return total;
+}
+```
+
+Key changes to `splitEvenly`:
+- **Validation added**: Rejects non-integer or negative `totalCents`, and non-positive `ways`.
+- **Exact sum**: Uses `Math.floor` for the base share and distributes the remainder as `+1` cents to the first `remainder` parts, so the total is exactly `totalCents`.
+- **Max difference ≤ 1 cent**: The `+1` cents are only added to the first `remainder` parts, so no two parts differ by more than 1.
+- **Non-increasing order**: Parts with `+1` come first, followed by parts with `baseShare`, so the array is sorted in non-increasing order.

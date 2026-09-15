@@ -1,0 +1,4 @@
+{
+  "_doc": "Read by gate 2b of the door. The quick elimination check of the checkpoints staged under ~/models/.incoming on 2026-09-15 starts llama-server itself from hosts.json's image and drives tools/breadth/measure.py, never the serving harness, so it is not held to that harness's markers.",
+  "serving": false
+}

@@ -1,0 +1,13 @@
+```typescript
+/** The quickest completed lap of a session. */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  const nonZeroLaps = laps.filter(lap => lap > 0);
+  if (nonZeroLaps.length === 0) {
+    return 0;
+  }
+  return Math.min(...nonZeroLaps);
+}
+```

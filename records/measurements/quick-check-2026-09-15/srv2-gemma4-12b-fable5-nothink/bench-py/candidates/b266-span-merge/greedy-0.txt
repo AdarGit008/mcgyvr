@@ -1,0 +1,30 @@
+```python
+def span_merge(spans):
+    """Merge overlapping or adjacent booking spans and return them ordered by start."""
+    if not spans:
+        return []
+
+    # Sort by start time so we can merge in one linear pass
+    sorted_spans = sorted(spans, key=lambda x: x[0])
+    merged = []
+
+    for start, end in sorted_spans:
+        if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
+            raise ValueError("Span coordinates must be numeric")
+        if end < start:
+            raise ValueError("End must be greater than or equal to start")
+
+        if not merged:
+            merged.append([start, end])
+            continue
+
+        last_start, last_end = merged[-1]
+
+        # Merge if current span starts at or before the previous span ends
+        if start <= last_end:
+            merged[-1][1] = max(last_end, end)
+        else:
+            merged.append([start, end])
+
+    return merged
+```

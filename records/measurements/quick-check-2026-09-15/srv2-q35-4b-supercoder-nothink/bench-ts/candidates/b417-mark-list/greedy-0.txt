@@ -1,0 +1,12 @@
+The bug is that the function marks entries BELOW the floor instead of ABOVE. The condition `score < floor` should be `score > floor`.
+
+```ts
+/** Scores written out, with a star against those that reach a floor. */
+export function markList(scores: number[], floor: number): string[] {
+  const out: string[] = [];
+  for (const score of scores) {
+    out.push(score > floor ? String(score) + "*" : String(score));
+  }
+  return out;
+}
+```

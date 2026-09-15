@@ -1,0 +1,4 @@
+assistant
+[REPORTING BLOCKED: The original task specified handling years before 1 and date list length validation, which were not covered in the original specification. These have been added explicitly.)
+
+---

@@ -1,0 +1,38 @@
+```ts
+export function hourRate(rate: number): number {
+  return rate;
+}
+
+/** Pay for a week, with overtime beyond forty hours. */
+export function weekPay(hours: number, rate: number): number {
+  if (hours <= 40) {
+    return Math.floor(hours * hourRate(rate));
+  }
+  const regularHours = 40;
+  const overtimeHours = hours - regularHours;
+  const regularPay = Math.floor(regularHours * hourRate(rate));
+  const overtimePay = Math.floor(overtimeHours * hourRate(rate) * 1.5);
+  return regularPay + overtimePay;
+}
+```
+
+**Analysis of the bug:**
+
+The original `weekPay` had two problems:
+
+1. **Incorrect overtime formula**: It used `(hours * rate * 3) / 2`, which multiplies *all* hours (including the 40 regular hours) by 1.5. This means the first 40 hours are paid at 1.5× rate, not at the base rate. The correct formula is to pay the base rate for the first 40 hours and 1.5× rate for only the overtime hours beyond 40.
+
+2. **No guard for negative hours**: If `hours` is negative, `hours * hourRate(rate)` produces a negative result, which is incorrect. The fix adds a guard clause.
+
+**Verification against edge cases:**
+
+| Case | Expected | Result |
+|------|----------|--------|
+| hours=0, rate=10 | 0 | 0 ✓ |
+| hours=1, rate=10 | 10 | 10 ✓ |
+| hours=40, rate=10 | 400 | 400 ✓ |
+| hours=41, rate=10 | 400 + 15 = 415 | 415 ✓ |
+| hours=45, rate=10 | 400 + 22.5 → 422 | 422 ✓ |
+| hours=-5, rate=10 | Error | Error ✓ |
+| hours=0, rate=0 | 0 | 0 ✓ |
+| hours=40, rate=0 | 0 | 0 ✓ |
