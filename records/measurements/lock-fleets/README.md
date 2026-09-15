@@ -19,8 +19,8 @@ freezes from it. The first use is [`rig-id-relock/`](rig-id-relock/RUNS.md).
 | `tools/runs/campaigns/lock-fleets/_move.sh` | one timed switch move on one rig, through the door |
 | `tools/runs/campaigns/lock-fleets/lockfleets.py` | the facts and refusals both steps act on; renders the move's rig shell; writes their artifacts |
 | `tools/runs/campaigns/lock-fleets/<use>/NN-*.sh` | one generated wrapper per campaign run of a use |
-| `plan.py` | freezes a use's order into `<use>/RUNS.md` and writes its wrappers; `retry` gives a failed entry its one retry |
-| `<use>/retries.json` | a use's retries, one per failed entry, each placed right after it in its rig's order |
+| `plan.py` | freezes a use's order into `<use>/RUNS.md` and writes its wrappers; `retry` gives a failed entry its one retry, and `diagnose` a failed retry its one diagnostic start |
+| `<use>/retries.json` | a use's retries, one per failed entry, and its diagnostic starts, one per failed retry, each placed right after its entry in its rig's order |
 | `drive.sh RIG USE` | runs one rig's frozen order through the door, and stops to ask |
 | `assemble_evidence.py` | `check` (the stop-and-ask list), `assemble` (the lock's evidence), `tolerance` |
 
@@ -185,6 +185,47 @@ rig's idle tail; no fill work is added.
   prefill take E, while room and `card_peak_mib` take `E-rerun1`, and E's 30-s
   peak is kept as a lower bound. `check` passes E and its re-run runs next.
   `rig-id-relock` re-runs srv1-01.
+- **A failed start files its exit cause** (2026-09-15, "Fix PR, then one
+  diagnostic start"). srv2-01's retry exited before `/health` said ok, 42 s in,
+  as srv2-01 had. Its artifact
+  (`records/evidence/2026-09-15-lock-fleets/rig-id-relock-srv2-c1-srv2_35b_256k-retry1.json`)
+  files that and no cause, and its whole docker log
+  (`rig-id-relock-srv2-c1-srv2_35b_256k-retry1.srv2_35b_256k.docker.log`, beside
+  it) ends at "warming up the model" and `[expert cache] io_uring_queue_init
+  failed: Operation not permitted`, a line known not to be fatal (on 09-13 it
+  fell back to the RAM tier). `_unit.sh` then removed the container, so its exit
+  code, OOMKilled flag and State.Error, and the rig's kernel log, were never
+  filed. Now, whenever a unit step fails after `docker run` — the container
+  exited before `/health` said ok, said no ok in 900 s, or anything later failed
+  while it exists — it files, before anything removes the container, the
+  artifact's `exit`: `state`, the container's whole `docker inspect` State
+  through the door's docker shim (ExitCode, OOMKilled, Error, StartedAt,
+  FinishedAt and Status among it), and `kernel_log`, the rig's `journalctl -k`
+  from the START marker (`kernel_log_since`) to now through the door's ssh shim,
+  with `kernel_log_command` as run. A read that fails is filed as `state_error`
+  or `kernel_log_error`, its exit code and what it said, and what journalctl says
+  on stderr beside a log it printed as `kernel_log_stderr`; neither is a stop.
+  `failure` names the exit code and OOMKilled. The cause is data: `check` still
+  fails the entry for exiting and does not judge why. `_move.sh` is unchanged: a
+  move's failed start keeps its whole docker logs, as above.
+- **A failed retry gets one diagnostic start** (2026-09-15, "Fix PR, then one
+  diagnostic start"). `plan.py diagnose --use U --entry E --reason "..."
+  [--log-from TREE]` refuses unless E is a retry of a unit entry, has no
+  diagnostic start yet, is logged and fails its check. It lists the diagnostic
+  start under `diagnostics` in `<use>/retries.json`, beside its own ruling, and
+  writes its wrapper, `NN-<step>-diag1.sh`, declaring `<artifact stem>-diag1.json`,
+  both named from the retried entry's; `read_runs` places `<entry>-diag1` right
+  after the failed retry in that rig's order, with the same unit, cold start and
+  door command, and only the step path and artifact name differ. `check` says the
+  retry failed, diagnosed by `<entry>-diag1`, and the driver goes on to the
+  diagnostic start. **If the diagnostic start passes its check, it stands in for
+  the failed entry exactly as a passing retry would**: `assemble` keeps the entry
+  and its retry in `runs.json` with their reasons (`retried_by`, `diagnosed_by`)
+  and counts the diagnostic start among the K valid runs in their place. If it
+  fails, the driver stops as for any entry, with its exit cause filed. A
+  diagnostic start gets no retry, re-run or second diagnostic start.
+  `rig-id-relock` gives srv2-01-retry1 its diagnostic start, `srv2-01-diag1`;
+  running it waits on the owner's ruling.
 
 ## Stop and ask
 
@@ -192,7 +233,9 @@ rig's idle tail; no fill work is added.
 first non-zero (`STOP <reason>`, exit 3). The list is `stops()` in
 `assemble_evidence.py`, and only there. An exit code is logged and never decided
 on. A logged failed entry with its one retry is the exception: its re-check is
-logged as failed, retried by its retry, and the retry runs next.
+logged as failed, retried by its retry, and the retry runs next. So is a logged
+failed retry with its one diagnostic start: logged as failed, diagnosed by it,
+and the diagnostic start runs next.
 
 ## The evidence, mapped
 

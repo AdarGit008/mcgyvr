@@ -10,7 +10,9 @@
   defined here and nowhere else (:func:`stops`). ``drive.sh`` runs it after every
   entry and stops at the first non-zero. A logged entry that failed and has its
   one retry (``plan.py retry``, owner ruling 2026-09-15) is said to have failed,
-  retried by that retry, and does not stop.
+  retried by that retry, and does not stop; nor does a logged failed retry with
+  its one diagnostic start (``plan.py diagnose``), said to have failed,
+  diagnosed by it.
 * ``assemble`` reads every entry back, refuses by name what does not prove what
   the lock needs, and writes ``fleet-setup/evidence.json`` in the shape
   ``mcgyvr.fleet.lock`` reads, for every combination and move the fleets need;
@@ -284,6 +286,8 @@ def gather(ctx: Context, entry: Any) -> dict[str, Any]:
         run["retry_of"] = entry.retry_of
     if entry.rerun_of:
         run["rerun_of"] = entry.rerun_of
+    if entry.diagnostic_of:
+        run["diagnostic_of"] = entry.diagnostic_of
     output = ctx.root / row["output"] if row.get("output") else None
     said = output.read_text(encoding="utf-8", errors="replace") if output and output.is_file() else ""
     refused = [line.strip() for line in DOOR_REFUSED.findall(said)]
@@ -538,8 +542,11 @@ def verdict(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -
 
     A logged entry that fails its check and has its one retry (``plan.py retry``,
     owner ruling 2026-09-15) gives no reason to stop: it is said to have failed,
-    retried by that retry, which is the entry after it. A retry that fails stops
-    like any entry; so does an entry that passes and has a retry anyway.
+    retried by that retry, which is the entry after it. A logged failed retry
+    with its one diagnostic start (``plan.py diagnose``, owner ruling 2026-09-15:
+    "Fix PR, then one diagnostic start") is said to have failed, diagnosed by it.
+    A retry or a diagnostic start that fails stops like any entry; so does an
+    entry that passes and has a retry or a diagnostic start anyway.
     """
     try:
         entry = ctx.runs.entry(entry_id)
@@ -571,6 +578,11 @@ def verdict(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -
         if not reasons:
             return [passed_with_a_retry(entry_id, retry.id)], ""
         return [], f"{entry_id} failed, retried by {retry.id}: {'; '.join(reasons)}"
+    diagnostic = ctx.runs.diagnostic_for(entry_id)
+    if diagnostic is not None and row is not None:
+        if not reasons:
+            return [passed_with_a_diagnostic(entry_id, diagnostic.id)], ""
+        return [], f"{entry_id} failed, diagnosed by {diagnostic.id}: {'; '.join(reasons)}"
     if reasons:
         return reasons, ""
     rerun = ctx.runs.rerun_for(entry_id)
@@ -583,6 +595,13 @@ def passed_with_a_retry(entry_id: str, retry_id: str) -> str:
     return (
         f"{entry_id} passes its check, and {plan.RETRIES} names {retry_id} as its "
         "retry: only a failed entry is retried (owner ruling, 2026-09-15)"
+    )
+
+
+def passed_with_a_diagnostic(entry_id: str, diagnostic_id: str) -> str:
+    return (
+        f"{entry_id} passes its check, and {plan.RETRIES} names {diagnostic_id} as its "
+        "diagnostic start: only a failed retry is diagnosed (owner ruling, 2026-09-15)"
     )
 
 
@@ -643,23 +662,31 @@ def collect(ctx: Context) -> Collected:
         prior: list[dict[str, Any]] = []
         for entry in (e for e in entries if e.rig == rig):
             retry = ctx.runs.retry_for(entry.id)
+            diagnostic = ctx.runs.diagnostic_for(entry.id)
             row = ctx.runs.logged(entry.id)
             try:
                 run = gather(ctx, entry)
             except MissingError as exc:
-                if retry is None or row is None:
+                if (retry is None and diagnostic is None) or row is None:
                     raise AssemblyRefusedError(f"a frozen entry is missing: {exc}") from exc
                 run = {"entry": entry.id, "kind": entry.kind, "rig": entry.rig, "fleet": entry.fleet,
                        "to": entry.to, "run": entry.run, "units": list(entry.units), "log": row}
                 reasons = [str(exc)]
             else:
                 reasons = stops(ctx, entry, run, prior)
-            if retry is not None:
-                # A data point, and not one of the K valid runs: its retry
-                # counts in its place (owner ruling, 2026-09-15).
-                if not reasons:
-                    raise AssemblyRefusedError(passed_with_a_retry(entry.id, retry.id))
-                run |= {"retried_by": retry.id, "check": reasons}
+            if retry is not None or diagnostic is not None:
+                # A data point, and not one of the K valid runs: its retry, or the
+                # failed retry's diagnostic start, counts in its place (owner
+                # rulings, 2026-09-15: "Fix PR, then retry srv2", "Fix PR, then one
+                # diagnostic start").
+                if retry is not None:
+                    if not reasons:
+                        raise AssemblyRefusedError(passed_with_a_retry(entry.id, retry.id))
+                    run |= {"retried_by": retry.id, "check": reasons}
+                else:
+                    if not reasons:
+                        raise AssemblyRefusedError(passed_with_a_diagnostic(entry.id, diagnostic.id))
+                    run |= {"diagnosed_by": diagnostic.id, "check": reasons}
                 out.failed.add(entry.id)
                 out.runs[entry.id] = run
                 continue
@@ -695,8 +722,9 @@ def collect(ctx: Context) -> Collected:
 def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> None:
     from mcgyvr.fleet.lock import _combination_id_for
 
-    # A failed entry with its retry, and a re-run, are not cycles of their own:
-    # the retry stands in for its entry, and a re-run gives only room.
+    # A failed entry with its retry, a failed retry with its diagnostic start, and
+    # a re-run are not cycles of their own: the retry, or the diagnostic start,
+    # stands in for the entry, and a re-run gives only room.
     entries = [
         e for e in ctx.runs.entries
         if e.rig == rig and e.kind != "move" and e.id not in out.failed and not e.rerun_of

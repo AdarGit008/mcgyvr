@@ -25,6 +25,18 @@
 # declared name to exist, and this one exists only when a start failed
 # (lockfleets.keep_log writes it once, never through a link).
 #
+# A FAILED START FILES ITS EXIT CAUSE (owner ruling, 2026-09-15: "Fix PR, then
+# one diagnostic start"). Whenever the step fails after `docker run` — the
+# container exited before /health said ok, said no ok in 900 s, or anything later
+# failed while it exists — the container's whole State (`docker inspect`, through
+# the door's docker shim: ExitCode, OOMKilled, Error, StartedAt, FinishedAt,
+# Status and the rest) and the rig's kernel log from the START marker to now
+# (`journalctl -k`, through the door's ssh shim) are filed in the artifact's
+# `exit` before anything removes the container, and `failure` names the exit
+# code and OOMKilled. A read that fails is filed as what it said; it is never a
+# stop. The cause is data: assemble_evidence.py check fails the entry for
+# exiting, and does not judge why.
+#
 # The START and END markers (uptime_since, pl1_uw, pl2_uw, ram_mt_s) and the
 # rig's /proc/vmstat pswpout and pgmajfault are read at both ends. The markers
 # are teed on the rig to ~/mcgyvr-relock/<RUN_ID>.unit and read back, because a
@@ -66,11 +78,19 @@ date -u +%Y-%m-%dT%H:%M:%SZ >"$STATE/started_at"
 finish() {
     local rc=$?
     trap - EXIT
+    if [ ! -f "$OUT" ]; then
+        [ -s "$STATE/failure" ] || printf 'the step exited %s before it wrote its artifact\n' "$rc" >"$STATE/failure"
+    fi
     if [ -n "$STARTED" ]; then
+        # A failure after `docker run` that has not filed the exit cause yet.
+        if [ "$rc" -ne 0 ] && [ ! -f "$OUT" ] && [ ! -e "$STATE/exit-said" ]; then
+            file_exit
+            printf '%s; %s\n' "$(cat "$STATE/failure")" "$(cat "$STATE/exit-said")" >"$STATE/failure.said" &&
+                mv -f "$STATE/failure.said" "$STATE/failure" || true
+        fi
         "$DOCKER" rm -f "$NAME" >/dev/null 2>&1 || true
     fi
     if [ ! -f "$OUT" ]; then
-        [ -s "$STATE/failure" ] || printf 'the step exited %s before it wrote its artifact\n' "$rc" >"$STATE/failure"
         _py "$LF" write-unit "$STATE" "$OUT" || true
     fi
     rm -rf "$STATE"
@@ -98,6 +118,23 @@ keep_log() {
         printf 'none kept (the step output says why)\n'
 }
 
+# The container's exit cause, filed while it still exists: its State through the
+# door's docker shim, and the rig's kernel log from the START marker to now
+# through the door's ssh shim. Neither read is a stop: one that fails is filed as
+# its exit code and what it said. Leaves the failure line's words — the exit
+# code and OOMKilled — in $STATE/exit-said.
+file_exit() {
+    local rc
+    if "$DOCKER" inspect --format '{{json .State}}' "$NAME" >"$STATE/exit-state" 2>"$STATE/exit-state-err"; then rc=0; else rc=$?; fi
+    printf '%s\n' "$rc" >"$STATE/exit-state-rc"
+    printf 'journalctl -k --utc --no-pager -o short-iso-precise --since @%s --until now\n' \
+        "$(cat "$STATE/start_epoch" 2>/dev/null)" >"$STATE/kernel-log-command"
+    if "$SSH" "$RUN_HOST" "$(cat "$STATE/kernel-log-command")" >"$STATE/kernel-log" 2>"$STATE/kernel-log-err" </dev/null; then rc=0; else rc=$?; fi
+    printf '%s\n' "$rc" >"$STATE/kernel-log-rc"
+    _py "$LF" exit-said "$STATE" >"$STATE/exit-said" ||
+        printf 'the exit cause could not be put in words; what was read is in the artifact\n' >"$STATE/exit-said"
+}
+
 # --- the refusals, before the rig is touched --------------------------------
 FACTS=$(_py "$LF" unit-facts "$RUN_ROOT" "$STATE" "$UNIT") ||
     refuse "the facts of $UNIT could not be read from fleet-setup/fleet.yaml and digests-$RUN_HOST.json"
@@ -109,6 +146,8 @@ printf '%s\n' "$DIGEST" >"$STATE/digest"
     refuse "image $UNIT_IMAGE resolves to $DIGEST on $RUN_HOST, and digests-$RUN_HOST.json records $UNIT_RECORDED_IMAGE"
 
 # --- 1. START marker and vmstat ---------------------------------------------
+# The START marker's time: a failed start's kernel log is read from it.
+date -u +%s >"$STATE/start_epoch"
 start_stamp >"$STATE/marker-start" || fail "$RUN_HOST could not be read for the START marker"
 printf '%s\n' "$RUN_RIG_START" >"$STATE/snap-start"
 "$SSH" "$RUN_HOST" "mkdir -p $RIG_DIR_REMOTE && cat >> $RIG_FILE_REMOTE" <"$STATE/marker-start" ||
@@ -138,14 +177,16 @@ while :; do
     esac
     if [ "$(date +%s)" -ge "$DEADLINE" ]; then
         kept=$(keep_log)
-        fail "$NAME did not say ok on /health in 900 s; its whole docker logs: $kept"
+        file_exit
+        fail "$NAME did not say ok on /health in 900 s; its whole docker logs: $kept; $(cat "$STATE/exit-said")"
     fi
     polls=$((polls + 1))
     if [ $((polls % 10)) -eq 0 ]; then
         running=$("$DOCKER" inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null || true)
         if [ "$running" != true ]; then
             kept=$(keep_log)
-            fail "$NAME exited before /health said ok: $("$DOCKER" logs --tail 8 "$NAME" 2>&1 | tr '\n\t' '  ' | cut -c1-600); its whole docker logs: $kept"
+            file_exit
+            fail "$NAME exited before /health said ok: $("$DOCKER" logs --tail 8 "$NAME" 2>&1 | tr '\n\t' '  ' | cut -c1-600); its whole docker logs: $kept; $(cat "$STATE/exit-said")"
         fi
     fi
     sleep 1
