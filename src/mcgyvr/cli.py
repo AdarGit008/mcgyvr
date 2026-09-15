@@ -22,6 +22,7 @@ from mcgyvr.availability import PROBE_TIMEOUT_S
 from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import (
     CONFIG_PATH_ENV,
+    FLEET_FILENAME,
     Config,
     ConfigError,
     ConfigMissingError,
@@ -33,18 +34,24 @@ from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
 from mcgyvr.emit import (
     Drift,
     EmitError,
+    LockedLaunchError,
     check_all,
+    check_locked,
     emit_all,
+    emit_locked,
+    is_locked,
+    planned_locked_paths,
     planned_paths,
     unplanned,
+    unplanned_locked,
 )
 from mcgyvr.exits import Exit
+from mcgyvr.fleet.files import FleetFileError, load_fleet
 from mcgyvr.fleet.roots import FLEETS_SHOWN, LIVE_FILE_SHOWN
 from mcgyvr.initialize import InitError, initialize
 from mcgyvr.scan import Mismatch, Scan
 from mcgyvr.serving import (
     ModelSpec,
-    Unit,
     UnitError,
     hold_together,
     host_of,
@@ -2247,6 +2254,16 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
+    # A locked setup is rendered from what it states and never sized, so it is
+    # decided before a scan is read: a locked unit needs none (owner, 2026-09-15).
+    try:
+        fleet = _locked_fleet(config)
+    except (FleetFileError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    if fleet is not None:
+        return _emit_locked(fleet, args)
+
     scans = _scans(scan_module.default_root())
     try:
         hosts = _hosts_wanted(config)
@@ -2338,7 +2355,7 @@ def _emit(args: argparse.Namespace) -> int:
         except (EmitError, OSError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return Exit.ERROR
-        return _report_drift(drifted, out, units)
+        return _report_drift(drifted, unplanned(units, out), planned_paths(units, out))
 
     try:
         written = emit_all(units, root=out)
@@ -2365,7 +2382,55 @@ def _emit(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
-def _report_drift(drifted: Sequence[Drift], out: Path, units: Sequence[Unit]) -> Exit:
+def _locked_fleet(config: Config) -> dict[str, Any] | None:
+    """The config's ``fleet.yaml`` when it is a locked setup, else ``None``.
+
+    Read with :mod:`mcgyvr.fleet.files`, because the run config drops
+    ``fleets`` and ``unit_id`` as the lock's, and those are what a locked emit
+    is cut by.
+    """
+    if config.path is None:
+        return None
+    where = config.path / FLEET_FILENAME
+    if not where.is_file():
+        return None
+    fleet = load_fleet(where.read_text(encoding="utf-8"))
+    return fleet if is_locked(fleet) else None
+
+
+def _emit_locked(fleet: dict[str, Any], args: argparse.Namespace) -> int:
+    """Emit a locked setup: each unit's stated launch, one file per fleet per rig."""
+    if args.ctx_per_slot is not None:
+        print(
+            "refused: a locked unit serves the window its launch.argv states, "
+            "so --ctx-per-slot has nothing to set",
+            file=sys.stderr,
+        )
+        return Exit.REFUSED
+    out = Path(args.out) if args.out else Path.cwd()
+    try:
+        if args.check:
+            return _report_drift(
+                check_locked(fleet, out),
+                unplanned_locked(fleet, out),
+                planned_locked_paths(fleet, out),
+            )
+        written = emit_locked(fleet, out)
+    except LockedLaunchError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return Exit.REFUSED
+    except (EmitError, UnitError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    for compose in written:
+        print(f"wrote {compose}")
+    print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")
+    return Exit.OK
+
+
+def _report_drift(
+    drifted: Sequence[Drift], leftover: Sequence[Path], planned: Sequence[Path]
+) -> Exit:
     """Say which compose files stopped matching the config, and stop.
 
     Nothing here writes: an operator re-emits and then restarts the container,
@@ -2389,13 +2454,12 @@ def _report_drift(drifted: Sequence[Drift], out: Path, units: Sequence[Unit]) ->
     is the other one, and the sentence says so — a drifted file is re-emitted,
     this one is deleted.
     """
-    leftover = unplanned(units, out)
     if not drifted and not leftover:
         # The files this config would write, asked of the function that writes
         # them. Spelled here as `compose.<host>.yml` it was a name nothing had
         # emitted for a host of alternatives, so a clean check named a file
         # that was not there — reassuring, about the wrong path.
-        for path in planned_paths(units, out):
+        for path in planned:
             print(f"{path.name} is what this config emits")
         return Exit.OK
 

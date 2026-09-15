@@ -2,6 +2,8 @@
 # Values pinned from the srv1/srv2 parallel dev runs (REPORT-srv1.md, REPORT-srv2.md).
 # Digests computed via mcgyvr.fleet.ids.digest over the resolved launch
 # (digests-srv1.json / digests-srv2.json carry the exact hashed fields).
+# Each unit's launch.argv and launch.env are those hashed fields, verbatim, and
+# `mcgyvr emit` renders them as they are; container is the name its dev run used.
 
 profile: dev
 
@@ -18,16 +20,19 @@ units:
     output_tokens: 2048
     request_timeout_s: 180
     room_mib: 10597                               # measured card peak (cache 120/256)
+    container: "mcgyvr-lidenburg"
     unit_id: "unt-87384c127bc1554097e40bad7f3c0174c292dbb7b254026817915d1dbb3252b3"
     launch:
+      argv: ["--model", "/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf", "-np", "1",
+             "-c", "262144", "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0",
+             "-ngl", "99", "-t", "11", "--cpu-moe", "--mmap", "--jinja"]
       env:
         GGML_EXPERT_CACHE_MAX: "120"
         GGML_EXPERT_RAM_CACHE_MAX: "256"
         GGML_OP_OFFLOAD_MIN_BATCH: "1"
         LLAMA_ARG_HOST: "0.0.0.0"
-      flags: ["--model", "/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf", "-np", "1",
-              "-c", "262144", "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0",
-              "-ngl", "99", "-t", "11", "--cpu-moe", "--mmap", "--jinja"]
+      volumes: ["/home/adaramir/models:/models:ro",
+                "/home/adaramir/models:/home/adaramir/models:ro"]
 
   srv1_35b_maxctx:
     rig: srv1
@@ -40,11 +45,17 @@ units:
     output_tokens: 2048
     request_timeout_s: 180
     room_mib: 5630                                # measured card peak at -c 32768
+    container: "mcgyvr-srv1-maxctx-32768"
     unit_id: "unt-9caefa09e43d66df76ca38411f6295383a3c1e58f6314143fa8f6e4b4b8cc399"
     launch:
-      n_cpu_moe: 28
-      flags: ["-b", "512", "-ub", "512", "-c", "32768", "-fa", "on",
-              "-ctk", "q8_0", "-ctv", "q8_0", "-ngl", "99", "-t", "6"]
+      argv: ["--model", "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+             "--n-cpu-moe", "28", "--parallel", "1", "--port", "8080",
+             "-b", "512", "-ub", "512", "-c", "32768", "-fa", "on",
+             "-ctk", "q8_0", "-ctv", "q8_0", "-ngl", "99", "-t", "6"]
+      env:
+        LLAMA_ARG_HOST: "0.0.0.0"
+      volumes: ["/home/adaramir/models:/models:ro",
+                "/home/adaramir/models:/home/adaramir/models:ro"]
 
   # ---- fleet (b): throughput ----
   srv2_3b:
@@ -64,9 +75,12 @@ units:
     hf_cache: "/home/adaramir/.cache/huggingface"
     unit_id: "unt-507267b8eaf983cf530b2841f824d4bd0856ac6d1ee576d9d666c961b41aeba4"
     launch:
-      gpu_memory_utilization: 0.30
-      max_model_len: 4096
-      max_num_seqs: 8
+      argv: ["Qwen/Qwen2.5-Coder-3B-Instruct-AWQ", "--max-model-len", "4096",
+             "--max-num-seqs", "8", "--port", "8001",
+             "--gpu-memory-utilization", "0.30", "--kv-cache-memory-bytes", "1207959552"]
+      env:
+        HF_HUB_OFFLINE: "1"
+        VLLM_LOGGING_LEVEL: "DEBUG"
 
   srv2_7b:
     rig: srv2
@@ -85,9 +99,12 @@ units:
     hf_cache: "/home/adaramir/.cache/huggingface"
     unit_id: "unt-17f274caba402438930c0d11795adb57cfe8611ce6c23a7a42473f9bb9d20a48"
     launch:
-      gpu_memory_utilization: 0.68
-      max_model_len: 4096
-      max_num_seqs: 8
+      argv: ["Qwen/Qwen2.5-Coder-7B-Instruct-AWQ", "--max-model-len", "4096",
+             "--max-num-seqs", "8", "--port", "8002",
+             "--gpu-memory-utilization", "0.68", "--kv-cache-memory-bytes", "1879048192"]
+      env:
+        HF_HUB_OFFLINE: "1"
+        VLLM_LOGGING_LEVEL: "DEBUG"
 
   srv2_80b:
     rig: srv2
@@ -100,11 +117,17 @@ units:
     output_tokens: 2048
     request_timeout_s: 180
     room_mib: 11523                               # measured card peak at -c 16384 width 4
+    container: "mcgyvr-80b"
     unit_id: "unt-1dde4df84e0bc1a1e3b693b89c02f83783a56c2398e18359eb8ce227ec5834f7"
     launch:
-      n_cpu_moe: 36
-      flags: ["-b", "512", "-ub", "512", "-c", "16384", "-fa", "on",
-              "-ngl", "99", "-t", "10"]
+      argv: ["--model", "/home/adaramir/models/moe/Qwen3-Next-80B-A3B-Instruct-Q3_K_M.gguf",
+             "--n-cpu-moe", "36", "--parallel", "4", "--port", "8003",
+             "-b", "512", "-c", "16384", "-fa", "on", "-ngl", "99", "-t", "10",
+             "-ub", "512"]
+      env:
+        LLAMA_ARG_HOST: "0.0.0.0"
+      volumes: ["/home/adaramir/models:/models:ro",
+                "/home/adaramir/models:/home/adaramir/models:ro"]
 
   srv1_deepseek:
     rig: srv1
@@ -117,11 +140,17 @@ units:
     output_tokens: 2048
     request_timeout_s: 180
     room_mib: 5458                                # measured card peak
+    container: "mcgyvr-srv1-deepseek"
     unit_id: "unt-e1f680726f3f937c8b0a22e26bb44199fc4c2c674d67e0da84ad540567672ea3"
     launch:
-      n_cpu_moe: 19
-      flags: ["-b", "512", "-ub", "512", "-c", "8192", "-fa", "on",
-              "-ngl", "99", "-t", "6"]
+      argv: ["--model", "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf",
+             "--n-cpu-moe", "19", "--parallel", "2", "--port", "8080",
+             "-b", "512", "-ub", "512", "-c", "8192", "-fa", "on",
+             "-ngl", "99", "-t", "6"]
+      env:
+        LLAMA_ARG_HOST: "0.0.0.0"
+      volumes: ["/home/adaramir/models:/models:ro",
+                "/home/adaramir/models:/home/adaramir/models:ro"]
 
   srv1_35b_b:
     rig: srv1
@@ -134,11 +163,17 @@ units:
     output_tokens: 2048
     request_timeout_s: 180
     room_mib: 5122                                # measured card peak (ncmoe 30, -c 16384, np 2)
+    container: "mcgyvr-srv1-35b-b"
     unit_id: "unt-0ff8b4d1a5886ab3a77eabcb2701e02132bc521a60083d7905fa20c5c1ff77d3"
     launch:
-      n_cpu_moe: 30
-      flags: ["-b", "512", "-ub", "512", "-c", "16384", "-fa", "on",
-              "-ngl", "99", "-t", "6"]
+      argv: ["--model", "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+             "--n-cpu-moe", "30", "--parallel", "2", "--port", "8080",
+             "-b", "512", "-ub", "512", "-c", "16384", "-fa", "on",
+             "-ngl", "99", "-t", "6"]
+      env:
+        LLAMA_ARG_HOST: "0.0.0.0"
+      volumes: ["/home/adaramir/models:/models:ro",
+                "/home/adaramir/models:/home/adaramir/models:ro"]
 
 rigs:
   srv1:
