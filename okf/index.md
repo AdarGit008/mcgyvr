@@ -16,7 +16,8 @@ Three hand-authored trees live here beside the generated concept bundle.
 Claims are atomic and carry a path. **The path is where the reasoning lives, not
 where the authority lives** — a claim is true because something was measured,
 and `records/evidence/` and the journals are how you check that. `archive/`
-is not read, and is not an authority when it is → `must-read/always.md`.
+and mcgyvr-lab are not read, and are not an authority when they are →
+`must-read/always.md`.
 
 ## `models/` — sizing concepts
 
@@ -56,13 +57,14 @@ is the reason `--n-cpu-moe` is a no-op on `Qwen3.8-27B-UD-IQ3_XXS`.
 
 ## Archive
 
-Locator only. The `archive/` rows are not opened unasked, and carry no
-authority when they are → `must-read/always.md`.
+Locator only. The `mcgyvr-lab/` rows are in AdarGit008/mcgyvr-lab; they are
+not opened unasked, and carry no authority when they are →
+`must-read/always.md`.
 
 | what | where |
 |---|---|
-| board rulings, 3 seats, 10 contested items | `archive/docs/board-findings-2026-08-31.md` |
-| next-run plan (vLLM n=16/32, co-residency, MoE) | `archive/docs/serving-vllm-n32-plan-2026-08-31.md` |
+| board rulings, 3 seats, 10 contested items | `mcgyvr-lab/archive/docs/board-findings-2026-08-31.md` |
+| next-run plan (vLLM n=16/32, co-residency, MoE) | `mcgyvr-lab/archive/docs/serving-vllm-n32-plan-2026-08-31.md` |
 | rig inventory + vLLM offload measurements | `records/evidence/2026-08-31-inventory/` |
 | the 2026-08-30 concurrency grid + runbook | `records/evidence/serving-2026-08-30/` |
 | MoE expert-offload sweep | `records/evidence/2026-08-25-moe-expert-offload/` |
