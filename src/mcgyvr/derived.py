@@ -84,14 +84,26 @@ def runtime_resident_gb(host: str, *, path: Path | None = None) -> float:
     )
 
 
-def class_tolerances(*, path: Path | None = None) -> dict[str, float]:
-    """Tolerance class -> the percent a unit's warm decode or prefill may fall.
+#: A judged field -> the ``engine`` entry of ``tools/runs/derived.json`` that
+#: states its percent per tolerance class. Each field has its own measured
+#: classes (owner, 2026-09-15): prefill is not judged by warm decode's.
+CLASS_PCT_ENTRIES: dict[str, str] = {
+    "warm_decode_tok_s": "warm_decode_class_pct",
+    "prefill_tok_s": "prefill_class_pct",
+}
 
-    One value per class of :data:`mcgyvr.fleet.tolerance.CLASSES`, read from
-    ``engine.warm_decode_class_pct``: what the fleet lock allows a unit to lose
-    to NVMe against its no-NVMe baseline, and what a live probe is judged
-    against (owner, 2026-09-15). Every class must be stated; an absent one is
-    refused by name, so neither judge is left to guess a number.
+
+def class_tolerances(*, path: Path | None = None) -> dict[str, dict[str, float]]:
+    """Judged field -> tolerance class -> the percent that field may fall.
+
+    ``warm_decode_tok_s`` is read from ``engine.warm_decode_class_pct``: what
+    the fleet lock allows a unit's warm decode to lose to NVMe against its
+    no-NVMe baseline, and what a live probe judges its warm decode against.
+    ``prefill_tok_s`` is read from ``engine.prefill_class_pct``: what a live
+    probe judges its prefill against (owner, 2026-09-15). Each entry must state
+    every class of :data:`mcgyvr.fleet.tolerance.CLASSES`; an absent entry or
+    class is refused by name, so no judge guesses a number or borrows another
+    field's.
     """
     document = _load(path)
     engine = document.get("engine")
@@ -100,21 +112,27 @@ def class_tolerances(*, path: Path | None = None) -> dict[str, float]:
             "tools/runs/derived.json declares no `engine` block; the class "
             "tolerances are not stated"
         )
-    by_class = engine.get("warm_decode_class_pct")
+    return {
+        field: _class_pct(engine, entry) for field, entry in CLASS_PCT_ENTRIES.items()
+    }
+
+
+def _class_pct(engine: dict[str, Any], entry: str) -> dict[str, float]:
+    """One ``engine`` entry's percent for each tolerance class, refused by name."""
+    by_class = engine.get(entry)
     if not isinstance(by_class, dict):
         raise DerivedNumbersError(
-            "tools/runs/derived.json.engine.warm_decode_class_pct is absent; "
-            "no class tolerance is guessed"
+            f"tools/runs/derived.json.engine.{entry} is absent; no class "
+            "tolerance is guessed"
         )
     tolerances: dict[str, float] = {}
     for name in CLASSES:
         if name not in by_class:
             raise DerivedNumbersError(
-                "tools/runs/derived.json.engine.warm_decode_class_pct states no "
-                f"{name!r} class; a unit of that class would be judged against "
-                "nothing"
+                f"tools/runs/derived.json.engine.{entry} states no {name!r} "
+                "class; a unit of that class would be judged against nothing"
             )
         tolerances[name] = _number(
-            by_class[name], f"derived.json.engine.warm_decode_class_pct.{name}"
+            by_class[name], f"derived.json.engine.{entry}.{name}"
         )
     return tolerances

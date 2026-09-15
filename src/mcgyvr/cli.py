@@ -2886,9 +2886,10 @@ def _fleet_lock(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     # The measured class tolerances, read from the derived-numbers file: the
-    # rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs.
+    # rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs. The
+    # lock weighs only warm decode against NVMe, so it reads decode's classes.
     try:
-        tolerances = {"warm_decode_class_pct": class_tolerances()}
+        tolerances = {"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]}
     except DerivedNumbersError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
