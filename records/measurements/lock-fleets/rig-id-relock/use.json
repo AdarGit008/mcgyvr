@@ -1,0 +1,15 @@
+{
+  "_doc": "The first use of lock-fleets (owner, 2026-09-15). Read by plan.py (why, the checks it adds), drive.sh (the live compose the emitted dev compose must equal) and assemble_evidence.py (the rig pins that must not change). Everything else the use runs comes from fleet-setup/ and tools/runs/hosts.json.",
+  "use": "rig-id-relock",
+  "why": [
+    "srv1's rig id changed under the product rig-id spelling (#483, D1): `mcgyvr.fleet.ids.rig_id` hashes `rig-snapshot.sh`'s own spelling, srv1's snapshot names `rig-3c89f35d…`, and fleet.yaml pins `rig-0f7fc6ae…`, which no rig read prints. Until srv1 is re-locked under the id its snapshot names, every live run is refused.",
+    "A rig id is part of every combination id on its rig and every fleet here places a unit on srv1, so all three fleets re-lock: a-solo, b-small and b-big. Owner, 2026-09-15: \"we are using it on our private case (16b -> 35b srv1, 3b + 7b ->80b srv2)\".",
+    "srv2's id already reproduces from its snapshot, so its pin must not change (`keep_rig_pins`). b-small's srv2 pair is what live serves, so the dev compose emitted for it must be the live file byte for byte (`compose_must_match_live`).",
+    "The window date is recorded in the log when it runs."
+  ],
+  "keep_rig_pins": ["srv2"],
+  "unit_caps_on": ["srv2"],
+  "compose_must_match_live": {
+    "b-small": "~/.local/state/mcgyvr/compose/b-small"
+  }
+}

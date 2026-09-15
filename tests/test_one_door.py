@@ -490,8 +490,24 @@ def test_nothing_under_tools_or_src_names_its_own_daemon() -> None:
     )
 
 
+#: Campaign files whose loopback is the RIG's: shell text sent over the door's
+#: ssh and run on the rig, never on this machine. Path -> why.
+LOOPBACK_ON_THE_RIG: dict[str, str] = {
+    "tools/runs/campaigns/lock-fleets/_move.sh": (
+        "the move stopwatch: ONE ssh argv, run on the rig, polls each target unit "
+        "at the rig's own 127.0.0.1 and stamps it with the rig's clock (owner "
+        "ruling 2026-09-15, lock-fleets); the step itself polls nothing here"
+    ),
+}
+
+
 def test_no_driver_or_campaign_step_measures_loopback() -> None:
     hits = _hits(LOOPBACK, ("tools/runs/drivers", "tools/runs/campaigns"))
+    for rel in LOOPBACK_ON_THE_RIG:
+        assert (REPO / rel).is_file(), (
+            f"{rel} is allowed the rig's loopback and is gone"
+        )
+        hits.pop(rel, None)
     assert not hits, (
         "the container runs on the rig (the door's `docker` lands there), so a "
         f"client polling this machine's loopback measures nothing: {hits}"
