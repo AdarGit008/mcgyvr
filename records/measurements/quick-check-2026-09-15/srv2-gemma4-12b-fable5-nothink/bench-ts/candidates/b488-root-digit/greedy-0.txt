@@ -1,0 +1,18 @@
+```ts
+/**
+ * Reduces a number to a single digit by repeatedly summing its digits.
+ */
+export function rootDigit(value: number): number {
+  let result = value;
+  while (result >= 10) {
+    let sum = 0;
+    let temp = result;
+    while (temp > 0) {
+      sum += temp % 10;
+      temp = Math.floor(temp / 10);
+    }
+    result = sum;
+  }
+  return result;
+}
+```

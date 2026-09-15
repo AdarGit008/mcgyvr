@@ -1,0 +1,7 @@
+detailed-response:
+---
+# Task (bug_fix - rootDigit):
+
+`rootDigit` folds a whole count down to a single figure by adding its figures together, then adding the figures of that answer, again and again until one figure is left. A count already standing as one figure is given back as it is. Return the complete fixed file.
+
+---

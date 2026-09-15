@@ -1,0 +1,31 @@
+```ts
+export function rootDigit(value: number): number {
+  if (value < 0) {
+    throw new Error("value must be non-negative");
+  }
+  if (value === 0) {
+    return 0;
+  }
+  let left = value;
+  while (left >= 10) {
+    let sum = 0;
+    while (left > 0) {
+      sum += left % 10;
+      left = Math.floor(left / 10);
+    }
+    left = sum;
+  }
+  return left;
+}
+```
+
+**Analysis of the bug:**
+
+The original implementation only performs **one** pass of digit-summing. For example:
+- `rootDigit(38)` → `3+8=11` → returns `11` (still two digits, not a single figure)
+- `rootDigit(999)` → `9+9+9=27` → returns `27` (still two digits)
+
+The correct algorithm must **repeat** the digit-summing process until a single digit remains. The fix wraps the inner loop in a `while (left >= 10)` loop so it continues folding until one figure is left. Edge cases handled:
+- `value === 0` → returns `0` immediately (avoids an infinite loop since `0 < 10` is false)
+- `value < 0` → throws an error (negative numbers have no digit sum in this context)
+- Single-digit input → returns it unchanged (no-op)

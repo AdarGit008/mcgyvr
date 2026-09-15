@@ -1,0 +1,31 @@
+```ts
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) {
+    throw new Error("Input must be a list");
+  }
+  for (const y of yields) {
+    if (typeof y !== "number" || !Number.isInteger(y)) {
+      throw new Error("All yields must be integers");
+    }
+    if (y < 0) {
+      throw new Error("All yields must be non-negative");
+    }
+  }
+  if (yields.length === 0) {
+    return 0;
+  }
+  if (yields.length === 1) {
+    return yields[0];
+  }
+  let prev2 = yields[0];
+  let prev1 = Math.max(yields[0], yields[1]);
+  for (let i = 2; i < yields.length; i++) {
+    const current = Math.max(prev1, prev2 + yields[i]);
+    prev2 = prev1;
+    prev1 = current;
+  }
+  return prev1;
+}
+```
+
+This implements the classic House Robber DP: `dp[i] = max(dp[i-1], dp[i-2] + yields[i])`. It correctly handles the 5, 1, 1, 5 case (returns 10 instead of the greedy 6), validates all inputs per the contract, and uses O(1) extra space.

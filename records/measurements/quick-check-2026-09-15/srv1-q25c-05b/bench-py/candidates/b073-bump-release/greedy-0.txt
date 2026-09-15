@@ -1,0 +1,22 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str) or not isinstance(part, str) or len(version.split('.')) != 3 or not version.split('.')[0].isdigit() or not version.split('.')[1].isdigit() or not version.split('.')[2].isdigit():
+        raise ValueError("Invalid tag format")
+    
+    parts = version.split('.')
+    major = int(parts[0])
+    minor = int(parts[1])
+    patch = int(parts[2])
+    
+    if part == 'major':
+        major += 1
+        minor = 0
+        patch = 0
+    elif part == 'minor':
+        minor += 1
+        patch = 0
+    elif part == 'patch':
+        patch += 1
+    
+    return f"{major}.{minor}.{patch}"
+```

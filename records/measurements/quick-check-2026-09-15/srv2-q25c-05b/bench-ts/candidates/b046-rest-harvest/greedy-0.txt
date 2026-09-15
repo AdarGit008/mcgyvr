@@ -1,0 +1,20 @@
+```typescript
+function bestHarvest(yields: number[]): number {
+    if (!Array.isArray(yields) || !yields.every(y => typeof y === 'number' && y >= 0)) {
+        throw new Error('Input must be a list of non-negative integers.');
+    }
+
+    let maxTotal = 0;
+    let currentTotal = 0;
+
+    for (let i = 0; i < yields.length; i++) {
+        currentTotal += yields[i];
+        if (i > 0 && yields[i] !== yields[i - 1]) {
+            maxTotal = Math.max(maxTotal, currentTotal);
+            currentTotal = 0;
+        }
+    }
+
+    return maxTotal;
+}
+```

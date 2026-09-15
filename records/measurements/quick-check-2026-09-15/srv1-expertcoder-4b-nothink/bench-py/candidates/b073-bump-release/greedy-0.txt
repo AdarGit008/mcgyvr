@@ -1,0 +1,42 @@
+assistant
+[FINAL ANSWER]
+---
+name: solution.py
+description: "Bump release version"
+---
+
+```python
+def bump_release(version: str, part: str) -> str:
+    """Bump a release version tag.
+
+    The version is a string of three dot-separated decimal integers.
+    Advancing major resets minor and patch to zero; advancing minor
+    resets patch to zero; advancing patch leaves the other components
+    unchanged. Raises ValueError for invalid input.
+    """
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+    if not isinstance(part, str):
+        raise ValueError("part must be a string")
+
+    if part not in ("major", "minor", "patch"):
+        raise ValueError("part must be 'major', 'minor', or 'patch'")
+
+    components = version.split(".")
+    if len(components) != 3:
+        raise ValueError("version must have exactly three dot-separated components")
+
+    for i, comp in enumerate(components):
+        if comp == "" or comp[0] == "0" or not comp.isdigit():
+            raise ValueError("each component must be a non-empty decimal integer")
+
+    if part == "major":
+        components[1] = "0"
+        components[2] = "0"
+    elif part == "minor":
+        components[2] = "0"
+    else:
+        components[2] = str(int(components[2]) + 1)
+
+    return ".".join(components)
+```

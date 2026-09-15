@@ -1,0 +1,21 @@
+```typescript
+export function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) {
+    throw new Error('sheets must be an array');
+  }
+
+  const itemTotals: Record<string, { sold: number; returned: number }> = {};
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== 'string') {
+      throw new Error('each sheet must be a string');
+    }
+
+    const lines = sheet.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === '') continue;
+
+      const fields = trimmed.split('|');
+      if (fields.length !== 3) {
+        throw new Error('

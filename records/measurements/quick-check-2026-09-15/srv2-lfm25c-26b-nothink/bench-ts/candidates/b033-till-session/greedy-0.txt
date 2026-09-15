@@ -1,0 +1,197 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  // Validate price list: all prices must be positive integers
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  // Initialize state
+  const cart: [string, number][] = [];
+  const total = 0;
+  const paid = 0;
+  let state = OPEN;
+
+  // Helper to validate and get price
+  const getPrice = (name: string): number | undefined => {
+    const price = prices[name];
+    if (price === undefined) {
+      throw new Error(`price not found for item: ${name}`);
+    }
+    return price;
+  };
+
+  // Helper to add item to cart
+  const addItem = (name: string, quantity: number): void => {
+    const price = getPrice(name);
+    if (price === undefined) {
+      throw new Error(`price not found for item: ${name}`);
+    }
+    const existing = cart.find(([itemName, qty]) => itemName === name);
+    if (existing) {
+      existing[1] += quantity;
+    } else {
+      cart.push([name, quantity]);
+    }
+  };
+
+  // Helper to remove item from cart
+  const removeItem = (name: string): void => {
+    const price = getPrice(name);
+    if (price === undefined) {
+      throw new Error(`price not found for item: ${name}`);
+    }
+    const index = cart.findIndex(([itemName, _]) => itemName === name);
+    if (index === -1) {
+      throw new Error(`item not in cart: ${name}`);
+    }
+    cart.splice(index, 1);
+  };
+
+  // Helper to get cart items sorted by name
+  const getSortedCart = (): [string, number][] => {
+    return cart.map(([name, qty]) => [name, qty]).sort((a, b) => a[0].localeCompare(b[0]));
+  };
+
+  // Helper to compute total from cart
+  const computeTotal = (): number => {
+    return cart.reduce((sum, [name, qty]) => sum + (prices[name] * qty), 0);
+  };
+
+  // Helper to compute change
+  const computeChange = (): number => {
+    return paid - total;
+  };
+
+  // Process events
+  for (const event of events) {
+    const action = event[0];
+
+    // Reject unknown action
+    if (action !== OPEN && action !== PAYMENT && action !== PAID && action !== CANCELLED && action !== CLOSE) {
+      throw new Error(`unknown action: ${action}`);
+    }
+
+    // Reject close with empty cart
+    if (action === CLOSE) {
+      if (cart.length === 0) {
+        throw new Error("close with empty cart");
+      }
+      state = PAID;
+      total = computeTotal();
+      break;
+    }
+
+    // Reject close with non-empty cart (should not happen per contract, but handle)
+    if (action === CLOSE && cart.length > 0) {
+      throw new Error("close with non-empty cart");
+    }
+
+    // Reject pay with non-positive amount
+    if (action === PAYMENT) {
+      const amount = event[1];
+      if (typeof amount !== "number" || amount <= 0 || !Number.isInteger(amount)) {
+        throw new Error("pay amount must be a positive integer");
+      }
+    }
+
+    // Reject pay with amount exceeding total
+    if (action === PAYMENT) {
+      const currentTotal = computeTotal();
+      if (amount > currentTotal) {
+        throw new Error("pay amount exceeds total");
+      }
+    }
+
+    // Reject scan of item not in cart
+    if (action === SCAN) {
+      const item = event[1];
+      if (cart.length === 0) {
+        throw new Error("scan of item absent from cart");
+      }
+      removeItem(item);
+    }
+
+    // Reject void of item not in cart
+    if (action === VOID) {
+      const item = event[1];
+      if (cart.length === 0) {
+        throw new Error("void of item not in cart");
+      }
+      removeItem(item);
+    }
+
+    // Reject scan of item not in price list
+    if (action === SCAN) {
+      const item = event[1];
+      if (prices[item] === undefined) {
+        throw new Error(`price not found for item: ${item}`);
+      }
+    }
+
+    // Reject void of item not in price list
+    if (action === VOID) {
+      const item = event[1];
+      if (prices[item] === undefined) {
+        throw new Error(`price not found for item: ${item}`);
+      }
+    }
+
+    // Reject pay with unknown action (already checked above)
+    // Reject scan with unknown action (already checked above)
+
+    // Process the event
+    switch (action) {
+      case SCAN:
+        addItem(event[1], 1);
+        break;
+      case VOID:
+        removeItem(event[1]);
+        break;
+      case PAYMENT:
+        const amount = event[1];
+        paid += amount;
+        break;
+      case PAID:
+        // Already handled in close
+        break;
+      case CANCELLED:
+        // Already handled in close
+        break;
+      case CLOSE:
+        // Already handled in close
+        break;
+    }
+  }
+
+  // If session is still open after processing all events, close it
+  if (state === OPEN) {
+    state = PAID;
+    total = computeTotal();
+  }
+
+  return {
+    state,
+    items: getSortedCart(),
+    total,
+    paid,
+    change: computeChange(),
+  };
+}
+```

@@ -1,0 +1,1078 @@
+{
+  "endpoint": "http://srv2:8090",
+  "protocol": "openai",
+  "model": "srv2-minicpm5-2b",
+  "serving_build": null,
+  "tier": "bench-ts",
+  "draws": 0,
+  "greedy_temperature": 0.0,
+  "sampled_temperature": 0.7,
+  "max_output_tokens": 2048,
+  "condition": "stock",
+  "gate_rungs": [
+    "scope",
+    "secrets",
+    "structured",
+    "adapters",
+    "acceptance"
+  ],
+  "gate_semantic": false,
+  "mode": "single-tier",
+  "bundle_sha256": "001c23ece0a6297212ba48c18121c3a5dc9b52096ab93f7c8ea3bae05562bd01",
+  "tasks_sha256": {
+    "b002-option-pairs": "43460c47d988fac10127b64ce1526c837027cc40179ec948cb8aff994d974a3a",
+    "b003-carve-shift": "3f918840b4b56a74874a76c6fc0c92a0ddfa153f2f961a7e3424af837f7702b6",
+    "b004-install-order": "45e9d5e73a9fa985d4936905bef0ee91a271a9e0865d491f1c2492073a558aa7",
+    "b005-command-chain": "0d0971dd1778f647a8bba22330f64fbeaeaab5766d6532cd6b10854e03675e52",
+    "b007-cent-split": "61aa568c254a353538859275f584c2d60351867674a3edab7799adc12f767fd3",
+    "b009-pack-entries": "76d09a92937aaf717ce5200d8933fe61448b3b2bbc986f191c64e99f8fcad0bf",
+    "b013-region-totals": "6763af464fb1946ca368d41ca0eb5d08626c72d7ee3224079d1977543d56df0b",
+    "b014-fill-order": "b9feb638ea85741f6f7b6fc5ca4f91b0e2d0f702d0b55aa0aa85cd0136e72dbb",
+    "b015-recency-cache": "aed4cd06ba2524a00a2d85ef556ee1b73d7a81c4919f417e3d38bf65e1879898",
+    "b017-site-totals": "9fb4095162151c2f71416bad0c7334bedb7d6dfc2a15474a550ad7c703b9a081",
+    "b019-reservoir-ticks": "aaae0ef4ba29faac3b0a78c911ee6be0e003883885520b577ef445ee983d63bf",
+    "b020-route-pattern": "96a3b4c28c5f3e2a141033c8e66cc4503df173a11bc81a6b8ccead49eff23d95",
+    "b022-allocate-cents": "6a7531013d040f25d87aa4da1c37b35dbee8d73f974e8732990ea3473db7e47d",
+    "b027-thread-score": "70d474eb1b6f16d3d339ae6fbe1ad216a614b83e03baf8c31c45042156cd5148",
+    "b028-pass-plan": "7a620de05186e29f8621c695e232bb5f23531f2f0dbbe394361f5373a702dba7",
+    "b030-date-span": "35b37cbb762a84e9fa4e5f1ac98d6d4d89ec8cc4710193f6b28f8924bd3e856b",
+    "b032-bitmap-runs": "ab2eb6d1cedacbe85428e4cbb5ac19a03d7db6be5f41d995d9ae2c5d472f0455",
+    "b033-till-session": "40a73fd3015346ba90b7f41dc53a60673978024a1656007d4d57afab04e9d602",
+    "b034-notepad-replay": "d4c954ee1e588dd3282d8413d8d34cedab43987ed0ca40f95bcbdd552d57b8f4",
+    "b035-route-params": "5eb4e798f19803d26acab1d47c24a53ead1acb83ccd16a7e0a5f0ca7f4f7496b",
+    "b036-group-batches": "90e779e3d9d2095dccd01c4914f3414f0a8d1209cf881b1af5a019fce27fb4a6",
+    "b037-lift-sweep": "f2f56bd9450e5e606c027baba58eb1b8672965e625302e81e98276ee38ef1bbf",
+    "b041-trim-caption": "1e4d36feddb5e08dd6e34abb164435d7b6ea9ac71eade7095583755522d811e2",
+    "b045-outline-labels": "65500515cfebe409ea9af4a30953a2564c727d8f6731979dddf02c3df12e5101",
+    "b046-rest-harvest": "2da71af670fa6e76cbbce34529b41103e7ad8ec51649ed4438456cd9e1542af0",
+    "b049-hex-groups": "24ab19b2e99ddb3108d4c3c3f5ff56727c4dfd127fe733666ad4f4cf0f881dc5",
+    "b051-parcel-trace": "37d154fc4ceb56b23c99266b5d6300dae171ab8bd9ddba55225436a78a7901ce",
+    "b054-lane-pick": "5af3f07eb21c92f6db4b46d9cce0ee23f5ae0fff93b7d12a497f847092228017",
+    "b056-merge-settings": "59750e3c8def80fce9b63c5a54473b60c1b5fab120aaff744d18753b01997a8c",
+    "b058-nibble-groups": "a950e5b30a7bc2120a468e77561ffcf46a4c22be02123f6b1db28fcd8f7d7829",
+    "b059-plan-batches": "60092961a8c8e22f5a80d5d8797ca4ed5ea3f5d5c274ddd044dda215de113142",
+    "b062-crate-unpack": "989638e46a79be6949345c66c2e2e5bd7764a21e5b77f54fab6eb91e4b3662d2",
+    "b063-forklift-steer": "ac9abb62d1fa28c4317e545ab212e23a054c5548da3a5b6c8e2b4c474ed7c060",
+    "b065-slot-hits": "528f08b0a190d4188098ccdfccb7496f67b109c368841417da2ad09f0b833be0",
+    "b066-edit-script": "f13a28a108a08a2d6f2b57437c6579ba2842e1391d37e67a46ceba1739c93388",
+    "b068-flag-states": "77e509e8e3ee2a867ea869e77a7c05e7b866ed2e4fcb9b7b3ae0d3203685006d",
+    "b069-patrol-bot": "7805babf728a2a71a188d45b71b3fc4429404171ff6122758a309673c4b557e0",
+    "b070-range-selector": "8f8f57de63e0231768c59d693151a2cbb4a29478e053bc08dd986b8901c0ad78",
+    "b072-meter-draws": "28ae566f76cba23d1965bb6180a9aca14ee01529737016b44d0d7fafa8dbe242",
+    "b073-bump-release": "e0f346bd069bdcc27dda2c3ee82290aa27ec75affe0d2dd087519b124539d6a0",
+    "b076-glob-path": "b7b15d773a61bbc70172cedfe0234d27c99e82f96fda8b4b3f0bba6d475a89b8",
+    "b077-buffer-replay": "6ecbccee106424c4fd38c06bf1cd5412a97e3642713c4c6a5d5f69102d3128b4",
+    "b078-layer-lookup": "7490eed1e5f3c7d427849d840623fb3c8ab34a7a02cb0ba582c8e9059327ecc6",
+    "b079-tag-check": "029324c173c42d83916129b984b4ba462647ed8782bc472e918d257cfc6fb405",
+    "b080-brace-fill": "b06fff4cfb5f96a035d5ba1ce06cb96d39846e215640f6f3a74c2cfde73b4453",
+    "b084-placard-lines": "3027af47125b4ea34ada44a4885daae9c381137aa446aeeb7d9cea587380da25",
+    "b091-note-index": "e4a58b06efe525e014ced0fa75b65ada34144e7f051e10c102b2277c6570dcae",
+    "b093-agenda-halves": "86d76fccd47823180d2f0da2be1bdeae0af92ec6ce41df027fb085da63330d3d",
+    "b094-relay-chain": "835252af0b1e0a0abcacaeffa501b3d5af31f006a1d2ecad249ceec73a1488f4",
+    "b095-tree-sketch": "b9947d71e8cfba1032a62dc2138ac82d418d910c4a071a1451ed3532047a86ce",
+    "b096-stamp-cover": "4b692bc621bfe97fea6a400ca1fdf168ed224ea759ddf659a2b3793291a3650d",
+    "b099-wire-nest": "bd943918ca90b440f6398b24909b43aee4176e38f7c163a5838e4d2ab757045b",
+    "b104-unpack-frame": "5705384db72a0c308cd08a81c2ec097f8126bf0b50d2c2742271ccabcc70eb66",
+    "b107-pick-fields": "47348dc1d0f3a865e4abd6203b2980bdf3d7103ee1c8b1efc7d18c1cfc2e0f15",
+    "b108-stamp-canvas": "acbfbb26547272e46e4407615f3ee79d4deeea32be74382112bd179759d9b161",
+    "b112-net-tally": "8f0f4dce8d5dda4b4a6401d9df999b971ed701c9482593e07fb44bd5e170e23b",
+    "b113-mask-prefix": "f57434d414e5ee7de9de0d64adc528d83d6093143cfbe8bded36c8e92e14c51b",
+    "b114-heat-band": "6c6ffdcbfe610094c86a615eabbdde47862e5fb910872de03761c4ba309477c7",
+    "b118-pick-upgrade": "66282f0f3452795d516417444faa6d8f1fe3132bd49a48145e5c288e8309a4bf",
+    "b120-mass-expression": "83c290214cc0c2b12eb3d03c9c9d3ff53b9840426f8d9a2508284cb9e12f19c8",
+    "b121-ledger-merge": "0d00cbad59905759d280c79ad6abd216202020e8cebc590f7698065918434c66",
+    "b122-section-report": "0dd1d7c1245444b93ae71fafdece31d98337a209eee6be2e50eee81b9a1bc4e8",
+    "b126-closing-sheet": "b11412110657e110ec5bae083b15d0bdd1acdee767165fcc6a66c7a80edd5271",
+    "b128-upgrade-path": "28634565c14ae770aaab8761aeb581af3ba23738cd5f6b49029309275875f2f9",
+    "b130-span-sums": "a9e4e637d752335989e060b9384078f28245b007e1ff9d75ad2f8a71769415ee",
+    "b131-prune-listing": "b1915b3307b89934e8a3df266f0a64bb66ccfc06336dfb6cbfedbc28d88d1770",
+    "b132-drain-lanes": "b0392144d92d51a1577d40259254c1d0089d9974c4fc669af5bb683e6df0a024",
+    "b140-folder-heft": "f87ee5f1e5371d7321546f62004236373913eb9e49bfe6adca6379c42f258882",
+    "b143-drive-bridge": "3f576781132637fd4cc929082aa8c2f95c09e1b9ea28d2087a25c9bed401acea",
+    "b144-shelf-fit": "f4ae746eec5656900af0aa0763af7fd7ad146c3a22f2669611c4617a358ae59d",
+    "b146-dry-window": "5d104c3e5a507006200fded6d0b4c1279f9ea7eb5f1102eb5a0451abf1a05039",
+    "b147-fresh-value": "560f8aad4252aebe5ad42e8d92938432b7003c687a2673e09a43627c982baa57",
+    "b151-thaw-row": "e705cc040c986454863f396812e44d013a1a52bbafe059cb036a983c2d57f7d0",
+    "b152-stencil-match": "f8fcdc4af8ed2ead0331d678ef443707919ccbe205f5a114c8eb9a91f2e5099c",
+    "b153-draw-stock": "ef9fcca7c033bd98f13335ec40f8d62b6dfaf71ae0ba0e820ce2f7503ed90604",
+    "b157-split-length": "eb96b4b69e6335456f971582a7caf9ddda0841b3f523ec2cf1180ddafd27fb96",
+    "b158-fork-paths": "81db95581b4d62d8bf51f342cd105c197a3989e81fbdd8731b24ff189a78bf75",
+    "b159-run-press": "69903a7e77a49af9d28e18154d84dca125cb5976fe8f901ac2db03b8dd201cc9",
+    "b160-apply-overrides": "b9d2d382745e5fe0097d87428118c8daedbabc7930df1855fa44c76041a7f153",
+    "b161-clause-order": "bf98e48a3d8df6209e04c28a1621d59826cca8ac067361e9ff324c695284fdf2",
+    "b163-base-amount": "3dc69142454444bb9d9e3d68768ed4f2531218cb28aae9d98d3c98b35f7263a6",
+    "b165-ring-slot": "6220303b70fbc46f74da3bf8babfb6558e9e6bf9d6accb716e1e6dd98e039411",
+    "b166-dotted-rules": "85a66aaac895d3d4c35143d5f5a30c138c66b25f5788d6fff526b68cac8c6f72",
+    "b172-trace-relay": "6ef089bb700c315d7bce25183e07bd5a95ff07255f9892f50d33426e8fb7b16c",
+    "b173-team-headcount": "556d5fc1f516da0da53ad5c2bf57e76e7d3353f11112ab9ddd84102ac76788e1",
+    "b174-count-trails": "e51a6d80757e92b3c7bc15c97c93de7dc42e616acaf3722f15d8e2d0d9069334",
+    "b175-split-cents": "3979da65a3b2ab3de4c92d46ddd8e53f83c7eb79f78b1042c872f3cd94772628",
+    "b183-climb-budget": "7f257c42e27acbb7006443b10e16a4f5b00baf56cb3ba8939e9b65628247d69d",
+    "b184-dose-totals": "49ffc603a685ae7da8087be21cc14a2e25ca4522376555e9d77996f3a6fe6daf",
+    "b190-lay-conveyor": "9fa02911909c3d714e9082f0bffb5b21482b4f827ebd3f685dcce23bd193c2b4",
+    "b192-tile-renders": "a9ef8e1b65c473829543db8b15b0a1fda959ab982f8e5949e853d05978d89dbd",
+    "b194-column-digest": "b03a0472481c65a24779ffcb918c35c9f11bf3104dd3edade5cd229395611260",
+    "b196-end-grab": "d42dc82b74a44f9f8920b9d0ac37b9fe1f14c42d330cf9c0e0cba93ad372ecfd",
+    "b198-explode-kit": "d2bb294b03d8b722e1bc9707aeb5f11cf1ac7db3a73e75311d878275a5fd5912",
+    "b200-fleet-hops": "109fdf163c0c19824c0c5b1c39c144951df5a74b826677bb0d23907b08e1b932",
+    "b204-reserve-lots": "9dc7e576284969eeefc379dcb15202cffb7d37dfa98987e0ed8300b2a8162830",
+    "b205-apply-charges": "55cdde6d7ca2bed7801abd1dd110b971bf7f12f82d6fa4fe6df2c721eefc6d96",
+    "b206-release-order": "3d1f16cd9061c1fccb5eda3a45aa677f7c62100fecf8fc08d9c7820d190babbf",
+    "b209-path-hops": "fb441fea30d00f5a1bd85d6f7e666b70ba467ab468c3b972a098dfacacb54cab",
+    "b210-drain-frames": "8e4d90fb7b3576ae518d997f4317379aa1d0a9ae7083019c47fb2d0591c12dcb",
+    "b212-audit-ticket": "e85684135ee942fb3767bc42e7524e2adaf85969c09b4b549928363bc03acec3",
+    "b216-open-windows": "9aa85fc4cf33c8de9824f995728da55de228562e86357f22d3425458d11b75cc",
+    "b217-line-clusters": "e0f1da2799d3dec6208837be08b33379f08cc2168642a45ddc662e677301bc8f",
+    "b219-cut-roll": "3db37378a9c0e635baee6761bf5c0ae013f52abe77552656a950b8b1f74784d4",
+    "b221-stamp-build": "e7541bd7c42e3b99c7fd1c308ba3c99ce1683dadb19617d0372ac53db2dd12e0",
+    "b224-check-manifest": "1c9528c970e81d858eabbb2590fe7b47ea7df4cde39b812eb521a47cc046b292",
+    "b225-vend-credit": "3a4f62f3cbbe852b2769667d276ffb2451c6d491c4689a7ebc805acf0e669408",
+    "b227-escaped-note": "ec7dbabca185b490ae1b4910ecb2495a8bfbb1c4b5f192a8040f8a5c879af4d9",
+    "b228-tide-marks": "375e4d4194f77c5fddade6b6d0c59685e282a6b783f4391a9de4856a3d7142c3",
+    "b230-crate-fill": "355a080fde865b7a0b7d12d8784b8a68e81e96f97d29b17fb1b9950716c194d6",
+    "b232-tag-trim": "7fd8d8c43fdc095b63d906a7a288a29e75002ea4a264d0888a1e0bac693af404",
+    "b233-slot-pack": "8e77e62861a5b303d98f51534493d105657d12c743d5feb0490d60e140d972c4",
+    "b235-crumb-path": "fbde5ad04375d4a4c92e4ad4c46b5d75b3485cd853522bd211a4dc7ae59d5c49",
+    "b240-hue-band": "447230c214b13a33a3af076e600e332f4297e9438a0724f0655640bcbc50aed7",
+    "b243-bin-spill": "64d3d5fa508a7f1323d57ac9a0b693f42f35d800b4fd0670d1b2a2b70b165299",
+    "b244-seat-block": "3d2ea1a35354d92e4d77622f58154a5a06d827bc5e654439356ccbc3f28f6d36",
+    "b245-kettle-hold": "ff070018f7581f1f2c755cfd80c9c4b2b1bf516940da461f7397f76a582c0f40",
+    "b248-hop-chain": "f0836d6cb803f247a1074f42279422648df3b1dae67e984dbee219c41cdf385a",
+    "b249-check-digit": "c3de3c28cdaafae59c03c3086522ceb1d43202a12a84fe608c3c48e4424ce1aa",
+    "b252-swipe-dedupe": "b05afed3a25c73e54a8ea16f97c274543ce9e5ebc47be5d0d4a8f7940865bd7a",
+    "b253-route-stops": "e6b093b424493612d66464ecd585b9cde25b7a4a59eaceb7ea9874c0d8293e9d",
+    "b254-font-clamp": "1c51b39dd48594e0b8d256c18d5b8157661070efe6401c7ed3dc30472de18568",
+    "b258-lap-best": "3bc573c80f681fa0554b5d24651d870b5216a8f6c6a2bc8526d2f0d66617518b",
+    "b261-hex-pair": "a143524743c9edfb8e8d7a3b352418382b7f79eca4884b197676bc5cb4a337b6",
+    "b264-cloud-code": "27dd67f6a62e9771e5b375adb55ad34fe9c4abed12747d846ba4cd053e9cec35",
+    "b265-till-float": "969b86f7ac3b17096d6db5bd68deab3e254609f0d5a4a55c0b2d3ade34ed4a61",
+    "b266-span-merge": "488efb9fefe76cb1b97458909c545c2d42cf6b76272d483b34ba33c79c5fa16c",
+    "b267-alias-map": "346bf53d0b3f423930baa0313dfafc3228584145ebc4fd44313c5db788b6f3f9",
+    "b268-score-drop": "cac2d36a69a13e97c542440878ab3c95f1dad452827f630ec6bafed70cec553d",
+    "b269-crust-slice": "abac02b072d69e5450d0778befb70662a1a25179f9879a3bfc4c8778e3d26397",
+    "b273-stall-turns": "b27720bd154d574e1e7a2a183f94d82ef3af19d684b88bd1af5291f5f0d3f4a9",
+    "b274-tint-mix": "4ed52d663137e7c1242690f5e1c602aaacb06fc4962ae701fe0a761191c7e3f8",
+    "b275-camel-break": "9c450b7887b47874151f5e2c3673f577acf50341bbc2d772bc12c3dcc03e5044",
+    "b276-swap-keys": "041ba107d16fdaf14fe3d495dec69ff5f26d705257f69ec7fb100aff479b8984",
+    "b277-fuel-legs": "afaa7992a072012c51af926c742a56b85ed1eff92339c537d35de55cc5a59164",
+    "b279-menu-pick": "40a8a3091fcda360ee5e8923041732e8526a7ad9f31e4ec807d775553cba8227",
+    "b280-step-back": "997294724cf54f06a458e89b63ccaeffde5caf9bb3748644d5558d4452a89c80",
+    "b281-tier-cost": "178e996844eb3d3280dc58df93a976c8b9b1cf693332a28babdbda8e27a8e040",
+    "b284-poll-gaps": "1d93db871ecceb234f9b2b157d3a9c898867e2bee46c9af594b89a709d2ea6db",
+    "b287-drift-check": "dd47ffd8ea3a7dd1d9f4ee7ae85ba1461e7394d1be03038ee3a967dad8060424",
+    "b289-plural-of": "42cbd2f48752d4df478a936a660e065f879a1f744aeab6de53c6f88b25828f2e",
+    "b290-basket-cost": "c36a7815e3eae482360292687d3bcb096a4267f5b27e5770164214460c0f7b0a",
+    "b291-climb-gain": "b9feb8d555b02be2f32e798ca1768b3db2a52dd301895a4484847dd65770a48c",
+    "b292-index-rows": "4f438d6c3866463ea12058511738725969c8fb158d9d50b063c2629e84fdf1ad",
+    "b293-slug-make": "75894d008cf09aebfbca10a12471201cd704b92fc8e70d1f79a15e464aee7242",
+    "b294-ramp-plan": "176f8784a8acea1001972d9ec3b2494dbdaeac9e86b1aab6933b736600e0cb58",
+    "b295-grid-cell": "67731edd2d990802ab0e89aa392793dde999915aacdffe4a8591cc1c19cad917",
+    "b296-tag-pair": "4ec22b7577fdbd5c6490d1602e31be09cc02735cc3b742d808e76cd52c53efa5",
+    "b297-tile-grid": "5a8f647be48aed3af2b0d742be4cccf11b855e2a5b99e90907db1e117684b4f1",
+    "b298-price-vat": "43f1bc8cdf9a09bf607b23171f3186a2c61d5136f12f188d1266cd3efeff6ee5",
+    "b301-tick-drop": "fba2141f65ac84e5030bc5defdaf14e9be1a834503f127e549a119ff4389f082",
+    "b302-stock-take": "d4251a9a4e61c3b3c4e0725113eb93c64d9b6b913d61eddbedecaf22a67e897e",
+    "b304-pad-code": "c2a254a6fab2898b77ff1a1fe240ea73c145fc4a5e21501bf0f681303e9774fb",
+    "b305-hop-cost": "75f2d19b3f3f633b7942c2babff5032b709d63ab0cda2f7ced7d4da6367dcc1c",
+    "b306-fill-gaps": "89de63e1d0322ca49f049b22e65e0e7c8eac26b0f8697f55ce3f09a2e40fd344",
+    "b307-unit-label": "cd7da533d7989b7f5b876ef81c444f8f65115f4b9d4d071581c50c215b6f8e3e",
+    "b312-hold-queue": "fd6f421a9b654ba13d0992ee0efde23ef53adc7fac6fa507e6d63c863287d7d0",
+    "b313-move-stock": "47d136633c4ae11ddc9cf620afdbb7b087a6c9d5a2695894de466e8d95831535",
+    "b315-long-word": "7a6406a2f3e754a368c4117caebcb04f18283eb958c686356491ada35a7f3255",
+    "b317-mean-window": "574d1b62471ae96a7e5b306b49bda4bb8f3cf7fc4b20c9383191abde3de8d5da",
+    "b319-short-num": "3e413fd9877bc445e8d2b8190cbbb5966e3824c2260927e95c24a7f9412eda27",
+    "b322-fit-budget": "7df747a8b7c8b3b26f507b434b0a0825f29cf6f9a460bdf656f7ae00477683ca",
+    "b324-grid-flip": "c675e9afb58f4639b1aadb4ecd557694039fde36872d6a2b9f5f6a58b9a3ab8f",
+    "b326-seat-run": "33e0395d5d31809d17360f2991632860f9e4e8e37dfd6d9ac888ae72a1862cde",
+    "b327-common-head": "677916a502992628523019ec4699a8e93013b7764ad0d7bd04c031e8ff8b8371",
+    "b328-warm-up": "d47bb2d2911485d3b8da0f8c67e0078fd391cd19c5eabc6da668b9d2c82fc25f",
+    "b331-dur-text": "c44f61ded43e10b00c19bc5b1fea6c885d46e67d80eae5cd5a1d3fb6ccb0bfe5",
+    "b332-cell-mark": "bff6dc71064e0b3e73e06e087decd6fd25c59db51f2f033ed952d35e6bdee5c0",
+    "b333-pace-split": "d39f1f320184307ecb1921ec1d622efeb22b95f893ec673333b14ba7a862129f",
+    "b336-odds-pay": "f9f3ead759b324cb09dcc6e400c31962fc927aca7bb23e19b44378f64bd39c09",
+    "b337-char-swap": "9dbe5530e278c52c038c7d556ae7f226a2f5ddb755636577118067a55f17a519",
+    "b338-count-back": "e319d3c8257e44bee743789d609dc078b63466e23b873a3ccbf629c90d502489",
+    "b339-net-pay": "b91f8c75e85913d6bb51261db3e79e2f40521f2d914a0188982e915d70abab31",
+    "b340-case-flip": "c000536ef3222f872e0f47efd2c6d3dc65251ff5cfbda08a81f1f026780b450d",
+    "b341-key-miss": "d3e4da884a88a57ab7f663c433ecdbcc6754c81c4638dec594a8b7bc23426f8a",
+    "b342-min-gap": "5a46a01b2a0cd9fa1b0d53e250d94b18e6ef447dbdafee579deec47fb43ffaf0",
+    "b344-head-of": "2573cab356a81066527c0c79b7efa61c3f5f41f0fefbc43418c0016875eb512f",
+    "b345-hour-rate": "662a165a7ec4302fe3840b2907259a69e010be69688e98c382530c266228aa8d",
+    "b346-rank-list": "94902140d070cb47ed5a4c44460d353296a14fe033d67dffb1d1db7ec96f2e0c",
+    "b347-file-size": "1aaa34f608999af90c74853225fe367d8545e334ba6cedecd3f12b22d4836584",
+    "b348-bill-split": "a82c890eb73ba01c5959b5445dec7ff02ab1ba723fd3d77b5935dd20159b716f",
+    "b350-rate-cap": "18521ad6d2169cbb4278263c5e6c5fbaba7939e1417b513c2df858a1b5d27bb6",
+    "b351-vat-back": "93cf4a2372e6c29d4f41b606ed4edcc000629f06296d6b1142d7c035a74ea101",
+    "b352-score-scale": "129bb51e65f0aded61bc46abc65122925226ad97e7f58c3464d0315fbcdcca19",
+    "b353-strip-tags": "3235d3a7bfe2f4cc6bcd6081c8a6164ca87fc08d721840444b123238914c3ddd",
+    "b354-word-reverse": "6d55bc57172fd6545cd85ce20ab532895fc5bbd211c476e84babe47cb0e95ff5",
+    "b355-trim-to": "a3465d90f01e3dea4dc7c97c30b7179bc35030eb69d48e0d45e36d333d2b08d6",
+    "b356-digit-words": "138a674b96ead7101ebc4cbf66cd941db693b646b19b2fe37ee46e835f5e5f12",
+    "b357-line-number": "ba33354771103883daca6728c20ce70012418e7ec7dd78bb71695fb93ff8550a",
+    "b358-sentence-split": "7384f0660d53ff42ecf9173736dc66b4149f50bdaa558969a41ec4dbbb894c52",
+    "b359-case-count": "5cea8ff0003e2e7a25b3a1d516bde0aef776ce2730544905a10f17916dcb71d5",
+    "b361-repeat-text": "62f10700a31e970ff0fcc428daa40b4dfbec4d2cef485c3848dc4c76069edabe",
+    "b366-batch-ends": "8948ca607e0bf38512bc1ed4c67caf007a86a9466bfdaeb7456a33fd5f6feb48",
+    "b367-wave-count": "558b6fea80c8eca205f6a8b0d0d5acd1e8585d75096877c5ce0ccf9af070ad1c",
+    "b373-set-minus": "5ff116c56e0da1efe5bbe699075473ea0d5c26b24b27c18c14dd088cfa65f3b0",
+    "b375-index-map": "818c567b23ccac41e1edbc3024efb70a224fb3dac61deea2449597ef458bfab4",
+    "b376-count-by": "34e6e3ca4fc76a2e804a315c296bfab9f253c8300469b505081f60aa6b1dfe6a",
+    "b379-hide-values": "241cba8b7e87c62d0ef6bc877bc0396ef748f3977e790b71b6c22bdf16b08bbb",
+    "b380-pair-flip": "f59993a03c2ccea63cdb1804e7580101121056263b5709aea759a7608e5c70df",
+    "b381-merge-tally": "e48cae01c5d918b1a5d3b7789da52d0ca8d652fc78e306662455194bc6217778",
+    "b382-sort-pairs": "8b026b8c1779abe94c2ce9b4444a90b47aadbc5cc9f79d724fcda3d1dff9e482",
+    "b386-drop-keys": "bbe06a19a1c0a2cf4b7b54b544c16e5842c64c30df3413cc1f38a09b44110726",
+    "b387-tag-index": "ac0457fd1d695667f5c6ff66c0ba8e936df5b7ae6e3931f0ce0fd4d59a8422a5",
+    "b388-time-gap": "c536d50b819115cb6b4046a83fae36937883b95281fa86b935987399477a0e25",
+    "b390-cell-count": "d2e8636d14c4448a4c554b1d22f2c112d925cf530a50c7e5fa77aa2c88cb5ce8",
+    "b391-oxford-join": "b2a881aa2c76b86b525c28e6927335922e6f3d458785cdcd6fb35840c0bd2154",
+    "b392-cap-after": "f2423c3a52842dcb09f80df359654a1c8fe05c29135917e0a11f7c7f873bad89",
+    "b395-cross-up": "2e62baed53a688d1b98ecd429f86ef784b7541ee80e89884f3a7c25b94088cf4",
+    "b396-field-mean": "b49cc442e0f225a23e3c3dc8617674ebf7b4811abc76a33fbb664a2fda561eb7",
+    "b398-split-at": "1f3af3099eb5f154d1a75301ce2b763fede323e9c25cc51bb685d70c56157202",
+    "b399-fill-between": "3f50b37133545c413c896bdf66dc7d1bb1b29006f732f6bfe5de93121a8b5a72",
+    "b400-path-clean": "b6436d4fc72f2faea0d2259d2833ae4e77492fbc70d0ed78e1a216b1827c1b65",
+    "b401-code-valid": "8c8fadf5d261c5d7bc2a6e9982ec917fb6d5007eb08859a6e6e215540df57d0a",
+    "b403-range-check": "b66dc77ec5eb8a9da58275be4bcaa1b1d596318ef8d033cfe02da60113293cf6",
+    "b404-digit-count": "572cb8b085425a53d4a76aafb785e086eae943decc07fe273c980f907451a176",
+    "b409-diag-of": "2eac7f98031de26c03bfe8da9c1b624c6f17061aeb02f6e25da350834e673898",
+    "b410-quote-split": "44d9a1a302fda23788510e82d01dbdd4cfd9d8266e218d18fa4a4ee407435249",
+    "b412-step-plan": "d957742d19232d381e14bb0c8ed2c1478e0c6bb666339578039b077ff26f6d65",
+    "b415-unwrap-label": "2c2506721d6785df36c05e32b339cbe510210de36b2d5ed8586ed2cefe639a82",
+    "b417-mark-list": "8e0af4b7700cf94620a77ae44462416314392aa685d76d994edc1d6d4f57bc0e",
+    "b418-over-count": "85a63acb3ad942adaf219d12bf38e8438839b057e7b4cecf699cdfa4f3bbf0f3",
+    "b423-scan-tally": "85ef259545b1acd2f4b11844feef60390397f28b295700965c311d217a5ba587",
+    "b424-mid-pair": "fc051e8f7afdde18bedf23fd2841f22e3da6031973822303cc7d6d2b13207992",
+    "b425-tag-count": "d493521146939b93f1e70bfd8de1dc5a7b07a4c9941c9e68751d8877912da9e7",
+    "b426-hole-find": "aa4a25154fa0e10304d3b3cdde98a503c8f33d197251328e3e03c06fe8d587a1",
+    "b428-run-decode": "69a1a670ae950369d5f7b17f82d6a393756a82bbb28a4b06a3923ea22a8a226d",
+    "b430-sort-by-len": "416a055cdbd95e420d0e142341d8d65386c1ec14236aa2f71e992ba9bd41dcc1",
+    "b433-link-find": "d69efefbff59fde23d80655dd31f7a4bc2a9ac35cce1e862d95ffbe217f58fe1",
+    "b439-tally-bar": "687453179b13a18caea692accebe958fd6558d3177fad5dbc06ae669eee355b2",
+    "b442-value-keys": "9b8a718c1a76bb57c35567ec0de6b10a47773ae2ee75ceb2e1b5ecfa2ecf792c",
+    "b443-fold-ends": "b84f9657383b954ba2b38399febb9d86cf7c3d73677f247f6b308fca7afdb367",
+    "b444-pick-nth": "701d0380fe74dff2ba97b8b43918a04c1b307a1341d793e9ce00f99297c78698",
+    "b446-strip-ends": "ed0347c8b3a696a8a8a78cd92988cadaeec9b2b00c31dadbee4a89c5cf03b1fa",
+    "b449-mask-card": "c42d44ec30ea5dd6989a588f4b98f996ac3adee752113b5ac6f00ebca6536de5",
+    "b452-grid-find": "360d9a0879287f1f8f18673689fc141759a0ff957463206e21369b2a6c9b23e5",
+    "b454-rate-steps": "570c981854d49443b3d8e9def7387f50a44b3e350f35c1104c45d4f4c8f70c8d",
+    "b456-merge-rows": "966a06282770058c9f4d24bdecaf8bb77d21d46b09d03e56946edffb51d515c5",
+    "b457-queue-round": "cc15f024f76320dd5aba780e56939b95de41a8fbcbef51ceb3f06b1b0bc2c1d2",
+    "b458-limit-map": "698085cfdd6d9aa5bac6611121c451aedbf02b48b159b5f94555775ad8082b1c",
+    "b463-take-back": "be85c8d6adbab59ccd790639a97daa320e30dbf0d71b51cbabd57055b30d22ce",
+    "b464-power-of": "7b76596366de49d50e9c92e737afbe2ae2c121f2d6569ed30dcb4c675003905a",
+    "b465-key-path": "ac456798eda21a5b228e98d4ae8186eedc699a1bb828afede37ae745854930cf",
+    "b466-clip-text": "2f599589c847d054f41c10f74d0337b9ea87523341b238da2ad98b771aadd5e0",
+    "b474-bin-rotate": "64f5bd74d46e8a8fcba1c6eef9875e1f9e513b09e22466b34a499f937294534a",
+    "b477-sift-marks": "93e0ea4e16974716a86794fbddbb38bfc5650fc5370c53f733bfab493d94f62c",
+    "b480-strip-note": "f3efbf4a3791faa71d67f08b280d9e805cb1c9eaeb41c2693daeaa8123d7d509",
+    "b482-window-max": "09fc9c772f9bf1ce9b07da5b3fe9d18d8a7f42bb458c566a4ff7e9f62b45fa37",
+    "b487-shed-tail": "e0ca81865514899086d68707a3e5395d95ca25a166620afe8bcbb0e13b71b9d0",
+    "b488-root-digit": "f1bb34fb1d2ad9906e15d470e62b07ffcff884fadf188e5473f5e517f90b2cb8",
+    "b494-carry-add": "e06074842b86d029bb6bfb7c8ee4a73b94be7251c32544de998ae70be45d6497",
+    "b496-span-letters": "37e86c77dc691018489da5facaeee95056bd84b799ae1a67853d173e99fea075",
+    "b499-line-up": "e2f7ac7e98de671bc3141e0be67ca490d42489ddc686ff47a42810cad6483182",
+    "b500-pair-off": "7edd5c57bb8311133cf67c13466c7b3d448aba0987a0acd0d407d65c2c2b03bd",
+    "b502-good-codes": "996bbbd9a8ba6704a08f4a8b63228b2789962d00125da24bd033002be109da28",
+    "b503-path-toll": "83060c12a957e42b3efb7f38a0af1418222ea754270004e54f32c5fd28fb55e1",
+    "b505-turn-tail": "86065438e40842fdafbb55f7fd142f1fbf7d7a7b31dbd9832ec335c980ae1efc",
+    "b506-hug-text": "4f2a1809ed3c8bb60a37e7b7a2951b000684fa062e82abb961d5de4c75520fdd"
+  },
+  "prompt_sha256": "bf4ac4bab642af2e26a3ccbd36a24a6620b736cd14b3646013fe71f17f2dc797",
+  "bar_sha256": "47631318241671289ad8071491b169727d3e22a5d3ecba5c1a181eb3baae4b90",
+  "bar_resolved": {
+    "language": "jsts",
+    "rungs": [
+      "scope",
+      "secrets",
+      "structured",
+      "adapters",
+      "acceptance"
+    ],
+    "lint": {
+      "tool": "eslint",
+      "version": "v10.8.1",
+      "config": "eslint.config.mjs",
+      "config_source": {
+        "linterOptions": {
+          "reportUnusedDisableDirectives": 1
+        },
+        "rules": {
+          "constructor-super": [
+            0
+          ],
+          "for-direction": [
+            2
+          ],
+          "getter-return": [
+            0,
+            {
+              "allowImplicit": false
+            }
+          ],
+          "no-async-promise-executor": [
+            2
+          ],
+          "no-case-declarations": [
+            2
+          ],
+          "no-class-assign": [
+            0
+          ],
+          "no-compare-neg-zero": [
+            2
+          ],
+          "no-cond-assign": [
+            2,
+            "except-parens"
+          ],
+          "no-const-assign": [
+            0
+          ],
+          "no-constant-binary-expression": [
+            2,
+            {
+              "checkRelationalComparisons": false
+            }
+          ],
+          "no-constant-condition": [
+            2,
+            {
+              "checkLoops": "allExceptWhileTrue"
+            }
+          ],
+          "no-control-regex": [
+            2
+          ],
+          "no-debugger": [
+            2
+          ],
+          "no-delete-var": [
+            2
+          ],
+          "no-dupe-args": [
+            0
+          ],
+          "no-dupe-class-members": [
+            0
+          ],
+          "no-dupe-else-if": [
+            2
+          ],
+          "no-dupe-keys": [
+            0
+          ],
+          "no-duplicate-case": [
+            2
+          ],
+          "no-empty": [
+            2,
+            {
+              "allowEmptyCatch": false
+            }
+          ],
+          "no-empty-character-class": [
+            2
+          ],
+          "no-empty-pattern": [
+            2,
+            {
+              "allowObjectPatternsAsParameters": false
+            }
+          ],
+          "no-empty-static-block": [
+            2
+          ],
+          "no-ex-assign": [
+            2
+          ],
+          "no-extra-boolean-cast": [
+            2,
+            {}
+          ],
+          "no-fallthrough": [
+            2,
+            {
+              "allowEmptyCase": false,
+              "reportUnusedFallthroughComment": false
+            }
+          ],
+          "no-func-assign": [
+            0
+          ],
+          "no-global-assign": [
+            2,
+            {
+              "exceptions": []
+            }
+          ],
+          "no-import-assign": [
+            0
+          ],
+          "no-invalid-regexp": [
+            2,
+            {}
+          ],
+          "no-irregular-whitespace": [
+            2,
+            {
+              "skipComments": false,
+              "skipJSXText": false,
+              "skipRegExps": false,
+              "skipStrings": true,
+              "skipTemplates": false
+            }
+          ],
+          "no-loss-of-precision": [
+            2
+          ],
+          "no-misleading-character-class": [
+            2,
+            {
+              "allowEscape": false
+            }
+          ],
+          "no-new-native-nonconstructor": [
+            0
+          ],
+          "no-nonoctal-decimal-escape": [
+            2
+          ],
+          "no-obj-calls": [
+            0
+          ],
+          "no-octal": [
+            2
+          ],
+          "no-prototype-builtins": [
+            2
+          ],
+          "no-redeclare": [
+            0,
+            {
+              "builtinGlobals": true
+            }
+          ],
+          "no-regex-spaces": [
+            2
+          ],
+          "no-self-assign": [
+            2,
+            {
+              "props": true
+            }
+          ],
+          "no-setter-return": [
+            0
+          ],
+          "no-shadow-restricted-names": [
+            2,
+            {
+              "reportGlobalThis": true
+            }
+          ],
+          "no-sparse-arrays": [
+            2
+          ],
+          "no-this-before-super": [
+            0
+          ],
+          "no-undef": [
+            0,
+            {
+              "typeof": false
+            }
+          ],
+          "no-unexpected-multiline": [
+            2
+          ],
+          "no-unreachable": [
+            0
+          ],
+          "no-unsafe-finally": [
+            2
+          ],
+          "no-unsafe-negation": [
+            0,
+            {
+              "enforceForOrderingRelations": false
+            }
+          ],
+          "no-unsafe-optional-chaining": [
+            2,
+            {
+              "disallowArithmeticOperators": false
+            }
+          ],
+          "no-unused-labels": [
+            2
+          ],
+          "no-unused-private-class-members": [
+            2
+          ],
+          "no-unused-vars": [
+            0,
+            {
+              "vars": "all",
+              "args": "after-used",
+              "ignoreRestSiblings": false,
+              "caughtErrors": "all",
+              "ignoreClassWithStaticInitBlock": false,
+              "ignoreUsingDeclarations": false,
+              "reportUsedIgnorePattern": false
+            }
+          ],
+          "no-useless-backreference": [
+            2
+          ],
+          "no-useless-catch": [
+            2
+          ],
+          "no-useless-escape": [
+            2,
+            {
+              "allowRegexCharacters": []
+            }
+          ],
+          "no-with": [
+            0
+          ],
+          "require-yield": [
+            2
+          ],
+          "use-isnan": [
+            2,
+            {
+              "enforceForIndexOf": false,
+              "enforceForSwitchCase": true
+            }
+          ],
+          "valid-typeof": [
+            2,
+            {
+              "requireStringLiterals": false
+            }
+          ],
+          "no-new-symbol": [
+            0
+          ],
+          "no-var": [
+            2
+          ],
+          "prefer-const": [
+            2,
+            {
+              "destructuring": "any",
+              "ignoreReadBeforeAssign": false
+            }
+          ],
+          "prefer-rest-params": [
+            2
+          ],
+          "prefer-spread": [
+            2
+          ],
+          "@typescript-eslint/ban-ts-comment": [
+            2
+          ],
+          "no-array-constructor": [
+            0
+          ],
+          "@typescript-eslint/no-array-constructor": [
+            2
+          ],
+          "@typescript-eslint/no-duplicate-enum-values": [
+            2
+          ],
+          "@typescript-eslint/no-empty-object-type": [
+            2
+          ],
+          "@typescript-eslint/no-explicit-any": [
+            2
+          ],
+          "@typescript-eslint/no-extra-non-null-assertion": [
+            2
+          ],
+          "@typescript-eslint/no-misused-new": [
+            2
+          ],
+          "@typescript-eslint/no-namespace": [
+            2
+          ],
+          "@typescript-eslint/no-non-null-asserted-optional-chain": [
+            2
+          ],
+          "@typescript-eslint/no-require-imports": [
+            2
+          ],
+          "@typescript-eslint/no-this-alias": [
+            2
+          ],
+          "@typescript-eslint/no-unnecessary-type-constraint": [
+            2
+          ],
+          "@typescript-eslint/no-unsafe-declaration-merging": [
+            2
+          ],
+          "@typescript-eslint/no-unsafe-function-type": [
+            2
+          ],
+          "no-unused-expressions": [
+            0,
+            {
+              "allowShortCircuit": false,
+              "allowTernary": false,
+              "allowTaggedTemplates": false,
+              "enforceForJSX": false,
+              "ignoreDirectives": false
+            }
+          ],
+          "@typescript-eslint/no-unused-expressions": [
+            2,
+            {
+              "allowShortCircuit": false,
+              "allowTaggedTemplates": false,
+              "allowTernary": false
+            }
+          ],
+          "@typescript-eslint/no-unused-vars": [
+            2
+          ],
+          "@typescript-eslint/no-wrapper-object-types": [
+            2
+          ],
+          "@typescript-eslint/prefer-as-const": [
+            2
+          ],
+          "@typescript-eslint/prefer-namespace-keyword": [
+            2
+          ],
+          "@typescript-eslint/triple-slash-reference": [
+            2
+          ]
+        },
+        "plugins": [
+          "@",
+          "@typescript-eslint:@typescript-eslint/eslint-plugin@8.67.0"
+        ],
+        "language": "@/js",
+        "languageOptions": {
+          "sourceType": "module",
+          "ecmaVersion": 2026,
+          "parser": "typescript-eslint/parser@8.67.0",
+          "parserOptions": {}
+        }
+      },
+      "rules_enabled": 66,
+      "rules": {
+        "constructor-super": [
+          0
+        ],
+        "for-direction": [
+          2
+        ],
+        "getter-return": [
+          0,
+          {
+            "allowImplicit": false
+          }
+        ],
+        "no-async-promise-executor": [
+          2
+        ],
+        "no-case-declarations": [
+          2
+        ],
+        "no-class-assign": [
+          0
+        ],
+        "no-compare-neg-zero": [
+          2
+        ],
+        "no-cond-assign": [
+          2,
+          "except-parens"
+        ],
+        "no-const-assign": [
+          0
+        ],
+        "no-constant-binary-expression": [
+          2,
+          {
+            "checkRelationalComparisons": false
+          }
+        ],
+        "no-constant-condition": [
+          2,
+          {
+            "checkLoops": "allExceptWhileTrue"
+          }
+        ],
+        "no-control-regex": [
+          2
+        ],
+        "no-debugger": [
+          2
+        ],
+        "no-delete-var": [
+          2
+        ],
+        "no-dupe-args": [
+          0
+        ],
+        "no-dupe-class-members": [
+          0
+        ],
+        "no-dupe-else-if": [
+          2
+        ],
+        "no-dupe-keys": [
+          0
+        ],
+        "no-duplicate-case": [
+          2
+        ],
+        "no-empty": [
+          2,
+          {
+            "allowEmptyCatch": false
+          }
+        ],
+        "no-empty-character-class": [
+          2
+        ],
+        "no-empty-pattern": [
+          2,
+          {
+            "allowObjectPatternsAsParameters": false
+          }
+        ],
+        "no-empty-static-block": [
+          2
+        ],
+        "no-ex-assign": [
+          2
+        ],
+        "no-extra-boolean-cast": [
+          2,
+          {}
+        ],
+        "no-fallthrough": [
+          2,
+          {
+            "allowEmptyCase": false,
+            "reportUnusedFallthroughComment": false
+          }
+        ],
+        "no-func-assign": [
+          0
+        ],
+        "no-global-assign": [
+          2,
+          {
+            "exceptions": []
+          }
+        ],
+        "no-import-assign": [
+          0
+        ],
+        "no-invalid-regexp": [
+          2,
+          {}
+        ],
+        "no-irregular-whitespace": [
+          2,
+          {
+            "skipComments": false,
+            "skipJSXText": false,
+            "skipRegExps": false,
+            "skipStrings": true,
+            "skipTemplates": false
+          }
+        ],
+        "no-loss-of-precision": [
+          2
+        ],
+        "no-misleading-character-class": [
+          2,
+          {
+            "allowEscape": false
+          }
+        ],
+        "no-new-native-nonconstructor": [
+          0
+        ],
+        "no-nonoctal-decimal-escape": [
+          2
+        ],
+        "no-obj-calls": [
+          0
+        ],
+        "no-octal": [
+          2
+        ],
+        "no-prototype-builtins": [
+          2
+        ],
+        "no-redeclare": [
+          0,
+          {
+            "builtinGlobals": true
+          }
+        ],
+        "no-regex-spaces": [
+          2
+        ],
+        "no-self-assign": [
+          2,
+          {
+            "props": true
+          }
+        ],
+        "no-setter-return": [
+          0
+        ],
+        "no-shadow-restricted-names": [
+          2,
+          {
+            "reportGlobalThis": true
+          }
+        ],
+        "no-sparse-arrays": [
+          2
+        ],
+        "no-this-before-super": [
+          0
+        ],
+        "no-undef": [
+          0,
+          {
+            "typeof": false
+          }
+        ],
+        "no-unexpected-multiline": [
+          2
+        ],
+        "no-unreachable": [
+          0
+        ],
+        "no-unsafe-finally": [
+          2
+        ],
+        "no-unsafe-negation": [
+          0,
+          {
+            "enforceForOrderingRelations": false
+          }
+        ],
+        "no-unsafe-optional-chaining": [
+          2,
+          {
+            "disallowArithmeticOperators": false
+          }
+        ],
+        "no-unused-labels": [
+          2
+        ],
+        "no-unused-private-class-members": [
+          2
+        ],
+        "no-unused-vars": [
+          0,
+          {
+            "vars": "all",
+            "args": "after-used",
+            "ignoreRestSiblings": false,
+            "caughtErrors": "all",
+            "ignoreClassWithStaticInitBlock": false,
+            "ignoreUsingDeclarations": false,
+            "reportUsedIgnorePattern": false
+          }
+        ],
+        "no-useless-backreference": [
+          2
+        ],
+        "no-useless-catch": [
+          2
+        ],
+        "no-useless-escape": [
+          2,
+          {
+            "allowRegexCharacters": []
+          }
+        ],
+        "no-with": [
+          0
+        ],
+        "require-yield": [
+          2
+        ],
+        "use-isnan": [
+          2,
+          {
+            "enforceForIndexOf": false,
+            "enforceForSwitchCase": true
+          }
+        ],
+        "valid-typeof": [
+          2,
+          {
+            "requireStringLiterals": false
+          }
+        ],
+        "no-new-symbol": [
+          0
+        ],
+        "no-var": [
+          2
+        ],
+        "prefer-const": [
+          2,
+          {
+            "destructuring": "any",
+            "ignoreReadBeforeAssign": false
+          }
+        ],
+        "prefer-rest-params": [
+          2
+        ],
+        "prefer-spread": [
+          2
+        ],
+        "@typescript-eslint/ban-ts-comment": [
+          2
+        ],
+        "no-array-constructor": [
+          0
+        ],
+        "@typescript-eslint/no-array-constructor": [
+          2
+        ],
+        "@typescript-eslint/no-duplicate-enum-values": [
+          2
+        ],
+        "@typescript-eslint/no-empty-object-type": [
+          2
+        ],
+        "@typescript-eslint/no-explicit-any": [
+          2
+        ],
+        "@typescript-eslint/no-extra-non-null-assertion": [
+          2
+        ],
+        "@typescript-eslint/no-misused-new": [
+          2
+        ],
+        "@typescript-eslint/no-namespace": [
+          2
+        ],
+        "@typescript-eslint/no-non-null-asserted-optional-chain": [
+          2
+        ],
+        "@typescript-eslint/no-require-imports": [
+          2
+        ],
+        "@typescript-eslint/no-this-alias": [
+          2
+        ],
+        "@typescript-eslint/no-unnecessary-type-constraint": [
+          2
+        ],
+        "@typescript-eslint/no-unsafe-declaration-merging": [
+          2
+        ],
+        "@typescript-eslint/no-unsafe-function-type": [
+          2
+        ],
+        "no-unused-expressions": [
+          0,
+          {
+            "allowShortCircuit": false,
+            "allowTernary": false,
+            "allowTaggedTemplates": false,
+            "enforceForJSX": false,
+            "ignoreDirectives": false
+          }
+        ],
+        "@typescript-eslint/no-unused-expressions": [
+          2,
+          {
+            "allowShortCircuit": false,
+            "allowTaggedTemplates": false,
+            "allowTernary": false
+          }
+        ],
+        "@typescript-eslint/no-unused-vars": [
+          2
+        ],
+        "@typescript-eslint/no-wrapper-object-types": [
+          2
+        ],
+        "@typescript-eslint/prefer-as-const": [
+          2
+        ],
+        "@typescript-eslint/prefer-namespace-keyword": [
+          2
+        ],
+        "@typescript-eslint/triple-slash-reference": [
+          2
+        ]
+      }
+    },
+    "format": {
+      "tool": "prettier",
+      "version": "3.9.6",
+      "config": "prettier.config.mjs",
+      "config_source": "// The project's JavaScript/TypeScript **format** bar, stated rather than inherited.\n//\n// The decision of record is , and #262 is why this file exists. Until\n// it did, `eslint.config.mjs` declared the lint half of the JS/TS bar and\n// nothing at all declared the format half: prettier ran on its built-in\n// defaults, in the gate and in every bench workspace, and no manifest said so.\n// The Python arm's formatter reads `[tool.ruff.format]` out of a `pyproject.toml`\n// the bench renders from this repository's own settings \u2014 so one arm applied a\n// declared style and the other applied whatever its release shipped with.\n//\n// **Every value here is prettier 3.9.6's own default, verbatim.** That is the\n// point and not a shortcut. #262 is out of scope for changing either bar\n// (\"changing either rule set to make the counts closer\"), so writing the\n// defaults down changes what is measured by exactly nothing today, and changes\n// what happens tomorrow: a default that moves in prettier 4 moves the bar under\n// every rate measured against it, silently, and this file stops that. Verified\n// by formatting all 257 `bench-ts` reference solutions with and without it \u2014\n// 257 of 257 byte-identical.\n//\n// Reproduce the defaults with `npx prettier --support-info`. The options left\n// out are the ones that cannot reach a `.ts` file: the HTML/Vue pair\n// (`htmlWhitespaceSensitivity`, `vueIndentScriptAndStyle`), the pragma trio\n// (`requirePragma`, `insertPragma`, `checkIgnorePragma`), and `plugins`, which\n// is empty because loading one would make the bar depend on a package\n// `package-lock.json` does not pin here.\n//\n// **Why the numbers do not match the Python arm's.** `printWidth` is 80 and\n// `[tool.ruff] line-length` is 88. They are not reconciled here, deliberately:\n//  decided that the two arms' rule *sets* mirror each other in shape\n// rather than in content, and narrowing an 8-column difference after 32,601\n// scored candidates would re-base every JS/TS format rate on the disk for a\n// cosmetic gain. It is a real asymmetry, it is now written down, and\n// `identity.bar_material` puts it in the manifest so a reader of a ts/py\n// contrast sees it.\n//\n// The bench copies this file into each scored workspace\n// (`tools/bench/score.py:stage_config`), so a candidate is judged by the\n// project's declared style rather than by whatever prettier falls back to when\n// it finds no configuration.\n\nexport default {\n  // --- global ---------------------------------------------------------------\n  printWidth: 80,\n  tabWidth: 2,\n  useTabs: false,\n  endOfLine: \"lf\",\n  embeddedLanguageFormatting: \"auto\",\n\n  // --- common ---------------------------------------------------------------\n  bracketSpacing: true,\n  bracketSameLine: false,\n  objectWrap: \"preserve\",\n  proseWrap: \"preserve\",\n  singleAttributePerLine: false,\n\n  // --- javascript / typescript ----------------------------------------------\n  semi: true,\n  singleQuote: false,\n  jsxSingleQuote: false,\n  quoteProps: \"as-needed\",\n  trailingComma: \"all\",\n  arrowParens: \"always\",\n  experimentalTernaries: false,\n  experimentalOperatorPosition: \"end\",\n};\n",
+      "unconfigured": false
+    },
+    "type_check": null
+  },
+  "model_sha256": null,
+  "vocabulary_sha256": null,
+  "merges_sha256": null,
+  "template_sha256": null,
+  "identity_refusals": {
+    "model_sha256": "http://srv2:8090 is asked over the OpenAI-compatible surface, which carries a model name and no weights identity. The native API that answered these four was removed with its backend on 2026-09-06 (archive/forensic-ollama/); weights identity now comes from a digest pin or a ggufscan geometry, which read the file rather than ask the server",
+    "vocabulary_sha256": "http://srv2:8090 is asked over the OpenAI-compatible surface, which carries a model name and no weights identity. The native API that answered these four was removed with its backend on 2026-09-06 (archive/forensic-ollama/); weights identity now comes from a digest pin or a ggufscan geometry, which read the file rather than ask the server",
+    "merges_sha256": "http://srv2:8090 is asked over the OpenAI-compatible surface, which carries a model name and no weights identity. The native API that answered these four was removed with its backend on 2026-09-06 (archive/forensic-ollama/); weights identity now comes from a digest pin or a ggufscan geometry, which read the file rather than ask the server",
+    "template_sha256": "http://srv2:8090 is asked over the OpenAI-compatible surface, which carries a model name and no weights identity. The native API that answered these four was removed with its backend on 2026-09-06 (archive/forensic-ollama/); weights identity now comes from a digest pin or a ggufscan geometry, which read the file rather than ask the server"
+  },
+  "round": "r29-15-09-2026",
+  "product_sha256": "1ce8b045a4ce9f27da0d571e3ca87c3117700feffadc63cfa665d69b273128cd",
+  "invocations": [
+    {
+      "started": "2026-09-15T01:12:45+00:00",
+      "tasks": [
+        "b007-cent-split",
+        "b030-date-span",
+        "b033-till-session",
+        "b046-rest-harvest",
+        "b073-bump-release",
+        "b080-brace-fill",
+        "b094-relay-chain",
+        "b112-net-tally",
+        "b200-fleet-hops",
+        "b258-lap-best",
+        "b266-span-merge",
+        "b281-tier-cost",
+        "b345-hour-rate",
+        "b351-vat-back",
+        "b379-hide-values",
+        "b417-mark-list",
+        "b423-scan-tally",
+        "b443-fold-ends",
+        "b488-root-digit",
+        "b496-span-letters"
+      ],
+      "rig_revision": "b85945001f74c2b50533dfedabd5e59d10a5aa55"
+    }
+  ],
+  "completeness": {
+    "expected": 20,
+    "recorded": 20,
+    "missing": 0,
+    "complete": true,
+    "missing_cells": []
+  }
+}

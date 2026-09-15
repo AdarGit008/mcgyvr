@@ -1,0 +1,37 @@
+```ts
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) {
+    throw new Error("Argument must be a list");
+  }
+
+  if (yields.length === 0) {
+    return 0;
+  }
+
+  // Validate each yield
+  for (const yieldValue of yields) {
+    if (typeof yieldValue !== "number" || yieldValue < 0 || !Number.isInteger(yieldValue)) {
+      throw new Error("All yields must be non-negative integers");
+    }
+  }
+
+  // Dynamic programming: dp[i] = maximum harvest up to day i
+  const n = yields.length;
+  const dp: number[] = new Array(n).fill(0);
+
+  dp[0] = yields[0];
+
+  for (let i = 1; i < n; i++) {
+    // Option 1: Skip day i-1, take day i
+    dp[i] = dp[i - 1] + yields[i];
+    // Option 2: Skip day i-1, take day i-1 (but not both)
+    if (i > 1) {
+      dp[i] = Math.max(dp[i], dp[i - 2] + yields[i]);
+    } else {
+      dp[i] = Math.max(dp[i], yields[i]);
+    }
+  }
+
+  return dp[n - 1];
+}
+```

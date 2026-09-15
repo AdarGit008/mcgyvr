@@ -1,0 +1,8 @@
+```ts
+function vatBack(gross: number, rate: number): number {
+    if (rate < 0) {
+        throw new Error("Rate cannot be negative");
+    }
+    return Math.floor(gross * (1 + rate / 100));
+}
+```

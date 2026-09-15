@@ -1,0 +1,33 @@
+```typescript
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) {
+    throw new Error('yields must be an array');
+  }
+
+  const n = yields.length;
+  if (n === 0) {
+    return 0;
+  }
+
+  // Validate all yields are non-negative integers
+  for (const yield of yields) {
+    if (yield < 0) {
+      throw new Error('yield must be non-negative');
+    }
+  }
+
+  // dp[i][0] = max yield up to day i where day i is not worked
+  // dp[i][1] = max yield up to day i where day i is worked
+  let prevNotWorked = 0;
+  let prevWorked = yields[0];
+
+  for (let i = 1; i < n; i++) {
+    const currentNotWorked = Math.max(prevNotWorked, prevWorked);
+    const currentWorked = prevNotWorked + yields[i];
+    prevNotWorked = currentNotWorked;
+    prevWorked = currentWorked;
+  }
+
+  return Math.max(prevNotWorked, prevWorked);
+}
+```

@@ -1,0 +1,117 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  // Validate prices
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error(`price must be a positive integer: ${name}`);
+    }
+  }
+
+  // Initialize session state
+  let state = OPEN;
+  const cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+
+  // Replay events
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("event must be a list of exactly two elements: [action, payload]");
+    }
+
+    const action = event[0] as string;
+    const payload = event[1];
+
+    // Validate action
+    if (action === "scan") {
+      if (typeof payload !== "string") {
+        throw new Error("scan action must have a string item name");
+      }
+      if (!prices[payload]) {
+        throw new Error(`scan of unknown item: ${payload}`);
+      }
+      if (state !== OPEN) {
+        throw new Error("scan is lawful only while session is open");
+      }
+      cart[payload] = (cart[payload] || 0) + 1;
+      total += prices[payload];
+    } else if (action === "void") {
+      if (typeof payload !== "string") {
+        throw new Error("void action must have a string item name");
+      }
+      if (state !== OPEN) {
+        throw new Error("void is lawful only while session is open");
+      }
+      if (!cart[payload]) {
+        throw new Error("void of item not in cart: " + payload);
+      }
+      cart[payload] = (cart[payload] || 0) - 1;
+      if (cart[payload] === 0) {
+        delete cart[payload];
+      }
+      total -= prices[payload];
+    } else if (action === "close") {
+      if (state !== OPEN) {
+        throw new Error("close is lawful only while session is open");
+      }
+      if (Object.keys(cart).length === 0) {
+        throw new Error("close with empty cart");
+      }
+      state = PAYMENT;
+    } else if (action === "pay") {
+      if (typeof payload !== "number") {
+        throw new Error("pay action must have a number amount in cents");
+      }
+      if (!Number.isInteger(payload) || payload <= 0) {
+        throw new Error("pay amount must be a positive integer");
+      }
+      if (state !== PAYMENT) {
+        throw new Error("pay is lawful only during payment");
+      }
+      paid += payload;
+      if (paid >= total) {
+        state = PAID;
+        change = paid - total;
+      }
+    } else if (action === "cancel") {
+      if (state === PAID || state === CANCELLED) {
+        throw new Error("cancel is unlawful after session is paid or cancelled");
+      }
+      state = CANCELLED;
+    } else {
+      throw new Error(`unknown action: ${action}`);
+    }
+
+    // Prevent further events after session is paid or cancelled
+    if (state === PAID || state === CANCELLED) {
+      throw new Error("session is already paid or cancelled");
+    }
+  }
+
+  // Final state and output
+  const items = Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0]));
+  return {
+    state: state,
+    items: items,
+    total: total,
+    paid: paid,
+    change: change,
+  };
+}
+```

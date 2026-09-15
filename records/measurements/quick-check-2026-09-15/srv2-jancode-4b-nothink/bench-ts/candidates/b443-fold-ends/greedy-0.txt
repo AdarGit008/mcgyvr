@@ -1,0 +1,24 @@
+```ts
+export function foldEnds(values: number[]): number[] {
+  if (values.length <= 1) {
+    return [...values];
+  }
+
+  const result: number[] = [];
+  let left = 0;
+  let right = values.length - 1;
+
+  while (left < right) {
+    result.push(values[left] + values[right]);
+    left++;
+    right--;
+  }
+
+  // If the list has odd length, the middle element remains unpaired
+  if (left === right) {
+    result.push(values[left]);
+  }
+
+  return result;
+}
+```

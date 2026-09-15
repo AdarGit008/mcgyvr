@@ -1,0 +1,2 @@
+assistant
+[STOP — decision logged: literal opening brace behavior is not specified in the task description. The implementation below follows the instruction to pass a literal opening brace through untouched when it is not followed by a placeholder name. If the intended behavior differs, the task should clarify.]

@@ -1,0 +1,3 @@
+assistant
+[STOP - TASK BLOCKED]
+The specification does not state whether a span written across the two cases (from > to) should be opened out or returned untouched. Without this clarification, the current implementation is ambiguous.

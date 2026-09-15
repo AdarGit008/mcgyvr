@@ -1,0 +1,42 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    """Total hops for the fleet to reach the newest release."""
+    if not builds:
+        return 0
+    if not lts:
+        return sum(
+            max(0, min(b + hop, count - 1) - b)
+            for b in builds
+        )
+    lts = sorted(lts)
+    return sum(
+        _hops(b, lts, hop, count)
+        for b in builds
+    )
+
+
+def _hops(b: int, lts: list, hop: int, count: int) -> int:
+    """Hops from release b to the newest release."""
+    if b >= count - 1:
+        return 0
+    if b + hop >= count - 1:
+        return count - 1 - b
+    lt = _find_lt(lts, b + hop)
+    if lt is None:
+        return count - 1 - b
+    if lt <= b:
+        return count - 1 - b
+    return _hops(lt, lts, hop, count)
+
+
+def _find_lt(lts: list, target: int) -> int | None:
+    """Find the lowest lts value strictly above target."""
+    lo, hi = 0, len(lts) - 1
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        if lts[mid] > target:
+            hi = mid - 1
+        else:
+            lo = mid + 1
+    return lo if lo < len(lts) else None
+```

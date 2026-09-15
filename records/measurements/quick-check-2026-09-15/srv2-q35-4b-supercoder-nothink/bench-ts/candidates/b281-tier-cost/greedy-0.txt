@@ -1,0 +1,23 @@
+```typescript
+/**
+ * Tiered cost calculation: first rate up to allowance, second rate beyond.
+ * @param units - quantity of units (must be >= 0)
+ * @param allowance - units up to which first rate applies
+ * @param firstRate - cost per unit within allowance
+ * @param laterRate - cost per unit beyond allowance
+ * @returns total cost in pence
+ */
+export function tierCost(
+  units: number,
+  allowance: number,
+  firstRate: number,
+  laterRate: number
+): number {
+  if (units < 0) {
+    throw new Error('units must be non-negative');
+  }
+  return units <= allowance
+    ? units * firstRate
+    : allowance * firstRate + (units - allowance) * laterRate;
+}
+```

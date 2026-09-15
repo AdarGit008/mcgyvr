@@ -1,0 +1,38 @@
+```python
+from typing import List, Tuple
+
+
+def span_merge(spans: list) -> list:
+    """Merge overlapping or touching booking spans into non-overlapping spans.
+
+    Args:
+        spans: A list of (start, end) tuples representing booking spans.
+
+    Returns:
+        A list of merged spans sorted by start, with no overlaps or gaps.
+    """
+    if not spans:
+        return []
+
+    sorted_spans = sorted(spans, key=lambda s: s[0])
+    merged: list = [sorted_spans[0]]
+
+    for current in sorted_spans[1:]:
+        prev_start, prev_end = merged[-1]
+        current_start, current_end = current
+
+        if current_start <= prev_end:
+            merged[-1] = (prev_start, max(prev_end, current_end))
+        else:
+            merged.append(current)
+
+    return merged
+```
+
+This implementation:
+- Handles empty input by returning `[]`.
+- Sorts spans by start ascending.
+- Merges a span with the previous one if it overlaps or touches (current.start <= prev.end).
+- Uses `max(prev_end, current_end)` to extend the previous span when the current one extends it.
+- Returns the result as a list of (start, end) tuples, sorted by start.
+- Is a pure function (no in-place mutation of input).

@@ -1,0 +1,19 @@
+```ts
+export function rootDigit(value: number): number {
+  if (Number.isNaN(value)) {
+    throw new Error("Input must be a valid number.");
+  }
+  let left = Math.abs(value);
+  while (left >= 10) {
+    let sum = 0;
+    while (left > 0) {
+      sum += left % 10;
+      left = Math.floor(left / 10);
+    }
+    left = sum;
+  }
+  return left;
+}
+```
+
+This fixes the bug by wrapping the digit-summing logic in a `while (left >= 10)` loop, so it continues folding the sum of digits until only a single figure remains. It also guards against `NaN` input and uses `Math.abs` to handle negative numbers correctly (the original code would loop infinitely on negatives).

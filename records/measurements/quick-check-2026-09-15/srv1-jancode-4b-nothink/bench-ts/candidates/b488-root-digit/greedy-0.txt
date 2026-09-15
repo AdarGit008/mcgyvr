@@ -1,0 +1,21 @@
+```ts
+export function rootDigit(value: number): number {
+  // Handle edge case: if value is 0, return 0
+  if (value === 0) return 0;
+  
+  // Handle negative numbers by taking absolute value
+  let left = Math.abs(value);
+  
+  // Continue folding until a single digit is reached
+  while (left >= 10) {
+    let sum = 0;
+    while (left > 0) {
+      sum += left % 10;
+      left = Math.floor(left / 10);
+    }
+    left = sum;
+  }
+  
+  return left;
+}
+```

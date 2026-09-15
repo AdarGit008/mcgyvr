@@ -1,0 +1,20 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise TypeError("yields must be a list")
+    if not all(isinstance(y, int) and y >= 0 for y in yields):
+        raise ValueError("all yields must be non-negative integers")
+    if not yields:
+        return 0
+
+    n = len(yields)
+    # dp[i] = max total harvest from day i to the end
+    dp = [0] * (n + 1)
+    for i in range(n - 1, -1, -1):
+        # Option 1: skip day i
+        skip = dp[i + 1]
+        # Option 2: work day i, then must skip day i+1
+        work = yields[i] + dp[i + 2] if i + 1 < n else yields[i]
+        dp[i] = max(skip, work)
+    return dp[0]
+```

@@ -1,0 +1,7 @@
+```python
+def hide_values(store: dict) -> dict:
+    """A store with every value starred out."""
+    return { "*" * len(value): value for key, value in store.items() }
+```
+
+This fixes the bug by using `len(value)` (the length of the value) as the number of stars, and `"*" * len(value)` as the new key — instead of using the key itself as the secret. A store holding nothing returns holding nothing.

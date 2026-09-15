@@ -1,0 +1,59 @@
+```ts
+/**
+ * Net tally: aggregate sold/returned counts across sheets, report by item.
+ */
+export function netTally(sheets: string[]): string {
+  const itemTotals = new Map<string, { sold: number; returned: number }>();
+
+  for (const sheet of sheets) {
+    if (!Array.isArray(sheet)) {
+      throw new Error('sheets must be an array');
+    }
+    for (const row of sheet) {
+      if (typeof row !== 'string') {
+        throw new Error('each sheet must be a string');
+      }
+      const fields = row.split('|');
+      if (fields.length !== 3) {
+        throw new Error('each row must have exactly three pipe-separated fields');
+      }
+      const [item, soldStr, retStr] = fields.map((f) => f.trim());
+      if (item === '') {
+        throw new Error('item name must not be empty');
+      }
+      if (!/^[0-9]*$/.test(soldStr)) {
+        throw new Error(`sold field must be a string of decimal digits: ${soldStr}`);
+      }
+      if (!/^[0-9]*$/.test(retStr)) {
+        throw new Error(`returned field must be a string of decimal digits: ${retStr}`);
+      }
+      const sold = Number(soldStr);
+      const returned = Number(retStr);
+      if (returned > sold) {
+        throw new Error(`returned (${returned}) exceeds sold (${sold}) for item ${item}`);
+      }
+      const totals = itemTotals.get(item) ?? { sold: 0, returned: 0 };
+      totals.sold += sold;
+      totals.returned += returned;
+      itemTotals.set(item, totals);
+    }
+  }
+
+  const names = Array.from(itemTotals.keys());
+  const maxLen = Math.max(...names.map((n) => n.length));
+
+  let report = '';
+  let totalNet = 0;
+
+  for (const name of names.sort()) {
+    const { sold, returned } = itemTotals.get(name)!;
+    const net = sold - returned;
+    totalNet += net;
+    report += `${name.padEnd(maxLen, ' ')}  ${net}\n`;
+  }
+
+  report += `${'total'.padEnd(maxLen, ' ')}  ${totalNet}\n`;
+
+  return report.trim();
+}
+```

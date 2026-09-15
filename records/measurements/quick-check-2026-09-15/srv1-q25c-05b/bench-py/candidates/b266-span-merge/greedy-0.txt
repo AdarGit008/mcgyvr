@@ -1,0 +1,9 @@
+```python
+def span_merge(spans: list) -> list:
+    merged_spans = []
+    for i in range(len(spans)):
+        for j in range(i + 1, len(spans)):
+            if spans[i][1] <= spans[j][0]:
+                merged_spans.append(spans[i])
+    return merged_spans
+```

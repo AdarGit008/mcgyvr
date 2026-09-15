@@ -1,0 +1,69 @@
+{
+ "argv": "-m /home/adaramir/models/.incoming/Schnuckade_LFM-2.5-Coder-2.6B/LFM2.5-2.6B.Q4_K_M.gguf --alias srv1-lfm25c-26b --host 0.0.0.0 --port 8090 --parallel 1 -c 8192 -ngl 99 -fa on --reasoning-budget 0 --chat-template-kwargs {\"enable_thinking\":false}",
+ "digest": "llamacpp@sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6",
+ "draws": 0,
+ "healthy": true,
+ "host": "srv1",
+ "ids": [
+  "b007-cent-split",
+  "b030-date-span",
+  "b094-relay-chain",
+  "b258-lap-best",
+  "b345-hour-rate",
+  "b379-hide-values",
+  "b417-mark-list",
+  "b423-scan-tally",
+  "b488-root-digit",
+  "b496-span-letters",
+  "b033-till-session",
+  "b046-rest-harvest",
+  "b073-bump-release",
+  "b080-brace-fill",
+  "b112-net-tally",
+  "b200-fleet-hops",
+  "b266-span-merge",
+  "b281-tier-cost",
+  "b351-vat-back",
+  "b443-fold-ends"
+ ],
+ "image": "llamacpp:b10644-L3",
+ "max_output_tokens": 2048,
+ "model": "/home/adaramir/models/.incoming/Schnuckade_LFM-2.5-Coder-2.6B/LFM2.5-2.6B.Q4_K_M.gguf",
+ "product_sha256": "1ce8b045a4ce9f27da0d571e3ca87c3117700feffadc63cfa665d69b273128cd",
+ "reason": "",
+ "round": "r29-15-09-2026",
+ "run_id": "2026-09-15-quick-check-2026-09-15-srv1-lfm25c-26b-r4",
+ "thinking": "off",
+ "tiers": {
+  "bench-py": {
+   "by_type": {
+    "bug_fix": "0/10",
+    "function_implementation": "2/10"
+   },
+   "mean_completion_tokens": 370.9,
+   "mean_latency_s": 4.2,
+   "measure_rc": "0",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv1-lfm25c-26b-nothink/bench-py",
+   "overran_cap": 0,
+   "parse_refused": 8,
+   "passed": 2,
+   "rows": 20,
+   "truncated": 1
+  },
+  "bench-ts": {
+   "by_type": {
+    "bug_fix": "1/10",
+    "function_implementation": "1/10"
+   },
+   "mean_completion_tokens": 441.6,
+   "mean_latency_s": 4.7,
+   "measure_rc": "0",
+   "out": "/home/adaramir/claude/mcgyvr-emit-f4/records/measurements/quick-check-2026-09-15/srv1-lfm25c-26b-nothink/bench-ts",
+   "overran_cap": 0,
+   "parse_refused": 7,
+   "passed": 2,
+   "rows": 20,
+   "truncated": 2
+  }
+ }
+}

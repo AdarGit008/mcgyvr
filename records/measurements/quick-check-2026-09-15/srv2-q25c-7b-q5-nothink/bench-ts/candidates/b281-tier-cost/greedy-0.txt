@@ -1,0 +1,22 @@
+```ts
+/**
+ * Calculates the cost of a number of units in whole pence, applying a first rate up to an allowance and a later rate for excess.
+ * @param units - The number of units to calculate the cost for.
+ * @param allowance - The number of units included in the first rate.
+ * @param firstRate - The rate per unit for the first allowance.
+ * @param laterRate - The rate per unit for units beyond the allowance.
+ * @returns The total cost in whole pence.
+ * @throws Error if the number of units is below zero.
+ */
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+    if (units < 0) {
+        throw new Error('Number of units cannot be below zero.');
+    }
+    if (allowance < 0) {
+        allowance = 0;
+    }
+    const withinAllowance = Math.min(units, allowance);
+    const beyondAllowance = Math.max(units - allowance, 0);
+    return (withinAllowance * firstRate) + (beyondAllowance * laterRate);
+}
+```

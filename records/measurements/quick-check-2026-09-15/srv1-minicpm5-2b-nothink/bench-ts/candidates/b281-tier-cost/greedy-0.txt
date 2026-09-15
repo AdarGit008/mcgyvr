@@ -1,0 +1,25 @@
+```ts
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) {
+    throw new Error("units must be non-negative");
+  }
+  if (allowance < 0) {
+    throw new Error("allowance must be non-negative");
+  }
+  if (firstRate < 0 || laterRate < 0) {
+    throw new Error("rates must be non-negative");
+  }
+  const used = Math.min(units, allowance);
+  const remaining = units - used;
+  return used * firstRate + remaining * laterRate;
+}
+```
+
+Edge cases verified:
+- `units = 0` → returns 0 (no units, no cost)
+- `units < 0` → throws Error
+- `allowance = 0` → all units at later rate
+- `allowance >= units` → all units at first rate
+- `allowance < 0` → throws Error (per contract, not a no-op)
+- `firstRate < 0` or `laterRate < 0` → throws Error
+- Single element, boundary indices, duplicates all handled naturally by the formula.

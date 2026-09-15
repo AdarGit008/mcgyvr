@@ -1,0 +1,7 @@
+assistant
+[1.10.25-21:56:56.466563] [services/app.py:112] ERROR - Invalid input: 'yields' must be a list of non-negative integers, got <class 'str'>
+Traceback (most recent call last):
+    ...
+    for item in yields:
+TypeError: 'str' is not iterable
+-> raise ValueError(f"Invalid input: 'yields' must be a list of non-negative integers, got {type(yields).__name__}")

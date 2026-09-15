@@ -1,0 +1,92 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (Object.keys(prices).length === 0) {
+    throw new Error("price list must have at least one entry");
+  }
+
+  let cart: [string, number][] = [];
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+  let state = OPEN;
+
+  for (const event of events) {
+    if (event.length !== 2) {
+      throw new Error("event must be a list of its action and exactly its payload");
+    }
+
+    const action = event[0];
+    const payload = event[1];
+
+    if (action === "scan") {
+      if (!prices.hasOwnProperty(payload)) {
+        throw new Error("item not in price list: " + payload);
+      }
+      const price = prices[payload];
+      if (cart.length === 0 || cart[cart.length - 1][0] !== payload) {
+        cart.push([payload, 1]);
+      } else {
+        cart[cart.length - 1][1]++;
+      }
+      total += price;
+    } else if (action === "void") {
+      if (!prices.hasOwnProperty(payload)) {
+        throw new Error("item not in price list: " + payload);
+      }
+      if (cart.length === 0 || cart[cart.length - 1][0] !== payload) {
+        throw new Error("item not in cart: " + payload);
+      }
+      const price = prices[payload];
+      if (cart[cart.length - 1][1] === 1) {
+        cart.pop();
+      } else {
+        cart[cart.length - 1][1]--;
+      }
+      total -= price;
+    } else if (action === "pay") {
+      if (paid > total) {
+        throw new Error("amount paid exceeds total");
+      }
+      if (state !== PAYMENT) {
+        throw new Error("pay event not allowed in current state");
+      }
+      paid += payload;
+      change = paid - total;
+      state = PAID;
+    } else if (action === "close") {
+      if (state !== OPEN) {
+        throw new Error("close event not allowed in current state");
+      }
+      if (cart.length === 0) {
+        throw new Error("empty cart for close event");
+      }
+      state = PAID;
+      change = paid - total;
+    } else if (action === "cancel") {
+      if (state !== OPEN && state !== PAYMENT) {
+        throw new Error("cancel event not allowed in current state");
+      }
+      state = CANCELLED;
+    } else {
+      throw new Error("unknown action: " + action);
+    }
+  }
+
+  return {
+    state,
+    items: cart.sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change,
+  };
+}
+```

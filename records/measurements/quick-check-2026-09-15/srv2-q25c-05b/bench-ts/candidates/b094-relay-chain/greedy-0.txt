@@ -1,0 +1,24 @@
+```
+/**
+ * Walks a courier relay directory station by station. Rejects invalid inputs and
+ * returns a complete fixed file.
+ */
+
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (!(start in links)) {
+    throw new Error("unknown starting station");
+  }
+  const path: string[] = [];
+  let current = start;
+  const bound = Object.keys(links).length;
+  for (let step = 0; step < bound; step++) {
+    path.push(current);
+    const next = links[current];
+    if (next === "" || !(next in links)) {
+      return path;
+    }
+    current = next;
+  }
+  return path;
+}
+```

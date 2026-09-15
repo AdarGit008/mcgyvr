@@ -1,0 +1,78 @@
+```ts
+export function netTally(sheets: string[]): string {
+  const tally: Record<string, { sold: number; returned: number }> = {};
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== 'string') {
+      throw new Error('sheets must be an array of strings');
+    }
+
+    const lines = sheet.split('\n');
+    for (const line of lines) {
+      const row = line.trim();
+      if (row.length === 0) continue;
+
+      const fields = row.split('|');
+      if (fields.length !== 3) {
+        throw new Error('Each row must have exactly three fields');
+      }
+
+      const [item, soldStr, returnedStr] = fields;
+
+      if (item.trim() === '') {
+        throw new Error('Row must have a non-empty item name');
+      }
+
+      const sold = parseDecimal(soldStr);
+      const returned = parseDecimal(returnedStr);
+
+      if (isNaN(sold) || isNaN(returned)) {
+        throw new Error('Sold and returned must be strings of decimal digits');
+      }
+
+      const itemName = item.trim();
+
+      if (returned > sold) {
+        throw new Error('Item returned total exceeds sold total');
+      }
+
+      if (!tally[itemName]) {
+        tally[itemName] = { sold: 0, returned: 0 };
+      }
+
+      tally[itemName].sold += sold;
+      tally[itemName].returned += returned;
+    }
+  }
+
+  if (Object.keys(tally).length === 0) {
+    return '';
+  }
+
+  const sortedItems = Object.keys(tally).sort((a, b) => a.localeCompare(b));
+  const maxNameLength = sortedItems.length > 0 ? sortedItems[sortedItems.length - 1].length : 0;
+  const totalWidth = maxNameLength + 2;
+
+  const lines: string[] = [];
+
+  for (const item of sortedItems) {
+    const net = tally[item].sold - tally[item].returned;
+    lines.push(
+      `${item.padEnd(totalWidth)} ${net}`
+    );
+  }
+
+  const total = Object.values(tally).reduce((sum, t) => sum + t.sold - t.returned, 0);
+  lines.push(`total ${total}`);
+
+  return lines.join('\n');
+}
+
+function parseDecimal(str: string): number {
+  const num = parseFloat(str);
+  if (Number.isNaN(num)) {
+    throw new Error('Invalid decimal number');
+  }
+  return num;
+}
+```

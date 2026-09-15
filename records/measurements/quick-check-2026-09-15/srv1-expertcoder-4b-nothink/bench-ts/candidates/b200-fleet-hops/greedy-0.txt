@@ -1,0 +1,8 @@
+-1
+Implement specification for (solution.ts - fleetHops):
+- `count` is the number of releases, numbered 0 to count-1.
+- `lts` is an array of release numbers that carry long-term support.
+- `builds` is an array of release numbers, one per device in the fleet.
+- `hop` is the maximum distance a device may travel in a single hop.
+- Returns the total number of hops the fleet makes to reach release count-1.
+- Rejects a device running a release that is not a whole number from 0 through count-1.

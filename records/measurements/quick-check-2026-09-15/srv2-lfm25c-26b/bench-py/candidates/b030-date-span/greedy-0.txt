@@ -1,0 +1,62 @@
+```python
+"""How many days lie between two proleptic Gregorian calendar dates."""
+
+MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def _is_leap(year):
+    """Check if a year is a leap year in the proleptic Gregorian calendar."""
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+
+def _month_length(year, month):
+    """Return the number of days in a given month of a given year."""
+    if month == 2 and _is_leap(year):
+        return 29
+    return MONTH_LENGTHS[month - 1]
+
+
+def _to_ordinal(date):
+    """Convert a date (year, month, day) to a day ordinal number."""
+    year, month, day = date
+    prior = year - 1
+    days = prior * 365 + prior // 4
+    for earlier in range(1, month):
+        days += _month_length(year, earlier)
+    return days + day
+
+
+def span_days(start: list, end: list) -> int:
+    """Return the number of days between start and end dates (exclusive of end)."""
+    # Validate start date
+    if not isinstance(start, (list, tuple)) or len(start) != 3:
+        raise ValueError("start must be a list or tuple of length 3")
+    if not all(isinstance(component, int) for component in start):
+        raise ValueError("all date components must be integers")
+    year, month, day = start
+    if year < 1:
+        raise ValueError("year must be a positive integer")
+    if month < 1 or month > 12:
+        raise ValueError("month must be between 1 and 12")
+    if day < 1:
+        raise ValueError("day must be at least 1")
+    
+    # Validate end date
+    if not isinstance(end, (list, tuple)) or len(end) != 3:
+        raise ValueError("end must be a list or tuple of length 3")
+    if not all(isinstance(component, int) for component in end):
+        raise ValueError("all date components must be integers")
+    year, month, day = end
+    if year < 1:
+        raise ValueError("year must be a positive integer")
+    if month < 1 or month > 12:
+        raise ValueError("month must be between 1 and 12")
+    if day < 1:
+        raise ValueError("day must be at least 1")
+    
+    # Check if start is after end
+    if _to_ordinal(start) > _to_ordinal(end):
+        raise ValueError("start date cannot be after end date")
+    
+    return _to_ordinal(end) - _to_ordinal(start)
+```

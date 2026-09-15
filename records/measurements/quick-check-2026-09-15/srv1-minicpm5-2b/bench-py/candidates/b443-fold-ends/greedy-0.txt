@@ -1,0 +1,27 @@
+```python
+from typing import List
+
+
+def fold_ends(values: list) -> list:
+    """Fold a list onto itself by pairing first with last, second with second-last, etc.
+
+    Returns totals in order from the first pair outward to the middle (if odd length).
+    """
+    result: List[int] = []
+    left, right = 0, len(values) - 1
+    while left < right:
+        result.append(values[left] + values[right])
+        left += 1
+        right -= 1
+    if left == right:
+        result.append(values[left])
+    return result
+```
+
+This implementation:
+- Uses two pointers (`left` and `right`) to traverse from both ends toward the center.
+- Pairs elements symmetrically (first+last, second+second-last, etc.).
+- Appends each pair's sum to the result in order from the outermost pair inward.
+- If the list has odd length, the middle element is appended as its own total.
+- Handles all edge cases: empty list, single element, two elements, odd and even lengths.
+- Is a pure function with no side effects.

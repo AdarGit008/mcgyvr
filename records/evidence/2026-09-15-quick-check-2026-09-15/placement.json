@@ -1,0 +1,12 @@
+{
+ "dense": true,
+ "derived": true,
+ "floor_n_cpu_moe": 0,
+ "host": "srv2",
+ "model": "/home/adaramir/models/.incoming/projectj_Instinct-Python-Coder-Gemma4-12B-GLM5.2/Instinct-Python-Coder-Gemma4-12B-GLM5.2-Q8_0.gguf",
+ "n_ctx_total": 8192,
+ "n_ubatch": 512,
+ "parallel": 1,
+ "run_id": "2026-09-15-quick-check-2026-09-15-srv2-instinct-gemma4-12b-r4",
+ "why": "no expert tensors: nothing for --n-cpu-moe to move"
+}

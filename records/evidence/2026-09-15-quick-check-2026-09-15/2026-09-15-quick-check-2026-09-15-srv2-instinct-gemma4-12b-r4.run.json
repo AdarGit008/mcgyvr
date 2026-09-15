@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-09-15-quick-check-2026-09-15-srv2-instinct-gemma4-12b-r4",
+  "campaign": "quick-check-2026-09-15",
+  "step": "srv2-instinct-gemma4-12b",
+  "host": "srv2",
+  "date": "2026-09-15",
+  "round": "r29-15-09-2026",
+  "product_sha256": "1ce8b045a4ce9f27da0d571e3ca87c3117700feffadc63cfa665d69b273128cd",
+  "profile": "dev",
+  "config": "/home/adaramir/claude/mcgyvr-emit-f4/fleet-setup",
+  "mcgyvr_version": "0.1.1.dev305+g8ebeac2d",
+  "started_at": "2026-09-15T01:43:52Z"
+}

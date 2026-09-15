@@ -1,0 +1,54 @@
+```ts
+/**
+ * Bumps the specified part of a semantic version string and returns the new tag.
+ */
+export function bumpRelease(version: string, part: string): string {
+  if (typeof version !== "string") {
+    throw new Error("version must be a string");
+  }
+
+  const parts = version.split(".");
+  if (parts.length !== 3) {
+    throw new Error("tag must have exactly three components");
+  }
+
+  const validParts = ["major", "minor", "patch"];
+  if (!validParts.includes(part)) {
+    throw new Error("part must be major, minor, or patch");
+  }
+
+  const parsed = parts.map((component, index) => {
+    if (component === "") {
+      throw new Error("component cannot be empty");
+    }
+    if (component.length > 1 && component.startsWith("0")) {
+      throw new Error("component cannot have a leading zero");
+    }
+    if (!/^\d+$/.test(component)) {
+      throw new Error("component must contain only digits");
+    }
+    return parseInt(component, 10);
+  });
+
+  const major = parsed[0];
+  const minor = parsed[1];
+  const patch = parsed[2];
+
+  let newMajor = major;
+  let newMinor = minor;
+  let newPatch = patch;
+
+  if (part === "major") {
+    newMajor += 1;
+    newMinor = 0;
+    newPatch = 0;
+  } else if (part === "minor") {
+    newMinor += 1;
+    newPatch = 0;
+  } else if (part === "patch") {
+    newPatch += 1;
+  }
+
+  return `${newMajor}.${newMinor}.${newPatch}`;
+}
+```

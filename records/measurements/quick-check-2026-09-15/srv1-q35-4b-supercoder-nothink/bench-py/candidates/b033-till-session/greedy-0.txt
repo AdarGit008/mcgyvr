@@ -1,0 +1,72 @@
+I'll implement `run_till_session` by replaying the events through the session states, tracking the cart, total, and payments, and rejecting any unlawful event.
+
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    """Replay a till session from its events and return the final state."""
+    state = OPEN
+    cart: dict[str, int] = {}
+    total = 0
+    paid = 0
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("event must be a list of exactly two elements")
+        action, payload = event
+        if action not in (OPEN, "scan", "void", "close", "pay", "cancel"):
+            raise ValueError("unknown action: " + action)
+        if action == OPEN:
+            if state != OPEN:
+                raise ValueError("OPEN event not allowed in state " + state)
+            state = OPEN
+        elif action == "scan":
+            item = payload[0]
+            if item not in prices:
+                raise ValueError("scan of item not in price list: " + item)
+            price = prices[item]
+            if price <= 0:
+                raise ValueError("price must be a positive integer: " + item)
+            if state != OPEN:
+                raise ValueError("scan not allowed in state " + state)
+            cart[item] = cart.get(item, 0) + 1
+        elif action == "void":
+            item = payload[0]
+            if item not in cart or cart[item] <= 0:
+                raise ValueError("void of item not in cart: " + item)
+            if state != OPEN:
+                raise ValueError("void not allowed in state " + state)
+            cart[item] = max(0, cart[item] - 1)
+        elif action == "close":
+            if state != OPEN:
+                raise ValueError("close not allowed in state " + state)
+            if not cart:
+                raise ValueError("close with empty cart")
+            total = sum(cart.values())
+            state = PAID
+        elif action == "pay":
+            cents = payload[0]
+            if cents <= 0:
+                raise ValueError("pay amount must be a positive integer")
+            if state != PAID:
+                raise ValueError("pay not allowed in state " + state)
+            paid += cents
+            if paid >= total:
+                change = paid - total
+                state = PAID
+        elif action == "cancel":
+            if state not in (OPEN, PAID):
+                raise ValueError("cancel not allowed in state " + state)
+            state = CANCELLED
+    return {
+        "items": sorted(cart.items()),
+        "total": total,
+        "paid": paid,
+        "change": change if state == PAID else 0,
+    }
+```

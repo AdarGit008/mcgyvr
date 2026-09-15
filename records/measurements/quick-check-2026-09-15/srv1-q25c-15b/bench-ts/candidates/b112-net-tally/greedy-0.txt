@@ -1,0 +1,49 @@
+```ts
+export function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) {
+    throw new Error("sheets argument must be a list");
+  }
+
+  const report = [];
+  let totalNet = 0;
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== 'string') {
+      throw new Error("sheet argument must be a string");
+    }
+
+    const rows = sheet.split('\n').filter(row => row.trim() !== '');
+
+    for (const row of rows) {
+      const fields = row.split('|').map(field => field.trim());
+      if (fields.length !== 3) {
+        throw new Error("row must have exactly three fields");
+      }
+
+      const itemName = fields[0];
+      const sold = parseFloat(fields[1]);
+      const returned = parseFloat(fields[2]);
+
+      if (itemName === '') {
+        throw new Error("item name cannot be empty");
+      }
+
+      if (isNaN(sold) || isNaN(returned)) {
+        throw new Error("sold or returned field must be a string of decimal digits");
+      }
+
+      if (returned > sold) {
+        throw new Error("returned total cannot exceed sold total");
+      }
+
+      const net = sold - returned;
+      report.push(`${itemName.padEnd(Math.max(...report.map(item => item.length)), ' ')} ${net}`);
+      totalNet += net;
+    }
+  }
+
+  report.push(`${report.map(item => item.length).reduce((a, b) => Math.max(a, b), 0)} ${totalNet}`);
+
+  return report.join('\n');
+}
+```

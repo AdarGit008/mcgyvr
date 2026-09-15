@@ -1,0 +1,22 @@
+```ts
+export function bumpRelease(version: string, part: string): string {
+  if (typeof version !== 'string' || version.length !== 3 || version.split('.').some(part => part === '' || part.startsWith('0') || isNaN(Number(part)))) {
+    throw new Error('Invalid version format');
+  }
+
+  const [major, minor, patch] = version.split('.');
+  const partIndex = ['major', 'minor', 'patch'].indexOf(part);
+
+  if (partIndex === -1) {
+    throw new Error('Invalid part name');
+  }
+
+  if (partIndex === 0) {
+    return `${Number(major) + 1}.0.0`;
+  } else if (partIndex === 1) {
+    return `${major}.${Number(minor) + 1}.0`;
+  } else {
+    return `${major}.${minor}.${Number(patch) + 1}`;
+  }
+}
+```

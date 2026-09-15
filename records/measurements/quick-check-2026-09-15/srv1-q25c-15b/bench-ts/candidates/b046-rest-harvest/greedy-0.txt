@@ -1,0 +1,17 @@
+```ts
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields) || !yields.every(y => typeof y === 'number' && y >= 0)) {
+    throw new Error('Invalid input: must be a non-empty array of non-negative integers');
+  }
+
+  let total = 0;
+  let currentDay = 0;
+
+  while (currentDay < yields.length) {
+    total += yields[currentDay];
+    currentDay++;
+  }
+
+  return total;
+}
+```

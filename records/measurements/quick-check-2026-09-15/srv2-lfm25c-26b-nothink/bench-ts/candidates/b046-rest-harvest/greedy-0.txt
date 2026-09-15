@@ -1,0 +1,52 @@
+```ts
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) {
+    throw new Error('yields must be an array');
+  }
+
+  for (const y of yields) {
+    if (typeof y !== 'number' || !Number.isInteger(y) || y < 0) {
+      throw new Error('all yields must be non-negative integers');
+    }
+  }
+
+  if (yields.length === 0) {
+    return 0;
+  }
+
+  let total = 0;
+  let prevTaken = false;
+
+  for (let i = 0; i < yields.length; i++) {
+    if (prevTaken) {
+      continue;
+    }
+
+    const take = yields[i];
+    total += take;
+
+    // If we take this day, we must skip the next day
+    // So we can only take this day if we are not forced to skip it
+    // The greedy approach: take today, skip tomorrow
+    // But we need to consider future values too
+    // We can use a simple DP: dp[i] = max total from day i to end
+    // dp[i] = max(yields[i] + dp[i+2], dp[i+1])
+    // Base case: dp[n] = 0, dp[n-1] = yields[n-1]
+    // However, we can also skip today and take tomorrow
+    // So we need to consider both options
+  }
+
+  // Let's use a more straightforward DP approach
+  const n = yields.length;
+  const dp = new Array(n + 2).fill(0);
+
+  for (let i = n - 1; i >= 0; i--) {
+    // Option 1: skip this day
+    // Option 2: take this day, then must skip next day
+    const take = yields[i] + (i + 2 < n ? dp[i + 2] : 0);
+    dp[i] = Math.max(take, dp[i + 1]);
+  }
+
+  return dp[0];
+}
+```

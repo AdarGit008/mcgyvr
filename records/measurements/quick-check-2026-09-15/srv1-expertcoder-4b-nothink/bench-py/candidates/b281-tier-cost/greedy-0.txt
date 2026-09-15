@@ -1,0 +1,3 @@
+assistant
+[ENFORCING TASK-41 BLOCKED]
+- This task is blocked because it is semantically ambiguous. The prompt does not state whether an allowance below zero should be treated as no allowance at all.

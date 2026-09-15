@@ -1,0 +1,47 @@
+The contract is clear: overtime beyond 40 hours is paid at 1.5x the regular rate. The current `week_pay` multiplies the entire overtime block by 3/2, which is correct. The only bug is that `hour_rate` returns `rate` but the overtime calculation uses `hour_rate(rate)` — which is fine since `hour_rate` is a no-op.
+
+Wait — I need to re-read the current code. The overtime calculation is `hours * hour_rate(rate) * 3 // 2`. Since `hour_rate(rate)` returns `rate`, this is `hours * rate * 3 // 2`. That's correct.
+
+The current code is actually correct. But let me verify with an example:
+- 45 hours at $10/hour: regular = 40 * 10 = $400, overtime = 5 * 10 * 1.5 = $75, total = $475.
+- Current code: 45 * 10 * 3 // 2 = 45 * 15 = 675. **Bug confirmed.**
+
+The fix: split the calculation into regular and overtime parts.
+
+```python
+def hour_rate(rate: int) -> int:
+    """Return the hourly rate."""
+    return rate
+
+
+def week_pay(hours: int, rate: int) -> int:
+    """Pay for a week, with overtime beyond forty hours at 1.5x rate."""
+    regular_pay = hours * rate if hours <= 40 else 40 * rate
+    overtime_pay = (hours - 40) * rate * 3 // 2
+    return regular_pay + overtime_pay
+```
+
+This correctly handles:
+- hours <= 40: regular_pay = hours * rate, overtime_pay = 0
+- hours > 40: regular_pay = 40 * rate, overtime_pay = (hours - 40) * rate * 1.5
+
+Let me verify: 45 hours at $10/hour:
+- regular_pay = 40 * 10 = 400
+- overtime_pay = 5 * 10 * 3 // 2 = 75
+- total = 475 ✓
+
+The current code's bug is that it multiplies the entire overtime block by 3/2, but the overtime block is only (hours - 40) hours, not the full hours. The fix splits the calculation.
+</think>
+
+```python
+def hour_rate(rate: int) -> int:
+    """Return the hourly rate."""
+    return rate
+
+
+def week_pay(hours: int, rate: int) -> int:
+    """Pay for a week, with overtime beyond forty hours at 1.5x rate."""
+    regular_pay = hours * rate if hours <= 40 else 40 * rate
+    overtime_pay = (hours - 40) * rate * 3 // 2
+    return regular_pay + overtime_pay
+```
