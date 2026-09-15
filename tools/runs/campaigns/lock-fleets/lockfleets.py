@@ -33,6 +33,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from mcgyvr.fleet.files import FleetFileError, load_fleet
+from mcgyvr.fleet.layout import AWAKE
 
 CAMPAIGN = "lock-fleets"
 UNIT_SCHEMA = "lock-fleets-unit/1"
@@ -41,9 +42,9 @@ MOVE_SCHEMA = "lock-fleets-move/1"
 #: home: a lock takes the ssh pipe with it (okf/must-read/touching-rigs.md,
 #: "srv1 hard-locks under CPU expert offload").
 RIG_DIR = "mcgyvr-relock"
-LLAMACPP = "llama.cpp"
-VLLM = "vllm"
-AWAKE = "awake"
+#: The two engines a unit names in fleet.yaml.
+ENGINE_LLAMACPP = "llama.cpp"
+ENGINE_VLLM = "vllm"
 #: What ``docker run`` is given before the image, for a unit this campaign starts.
 RUN_FLAGS = ("--gpus", "all", "--network", "host")
 #: The marker fields a run's START and END must agree on (owner, 2026-09-15).
@@ -129,13 +130,13 @@ def launch(fleet: Mapping[str, Any], name: str) -> Launch:
         raise StepRefusedError(f"{name}: launch.env is not a mapping")
     volumes = launch_block.get("volumes") or []
     engine = unit.get("engine")
-    engine = engine if isinstance(engine, str) and engine else LLAMACPP
+    engine = engine if isinstance(engine, str) and engine else ENGINE_LLAMACPP
     port = urlsplit(str(unit.get("address") or "")).port
     if port is None:
         raise StepRefusedError(f"{name}: its address names no port")
     ctx: int | None = None
     ubatch: int | None = None
-    if engine == VLLM:
+    if engine == ENGINE_VLLM:
         model = argv[0] if argv else ""
         width = _int(flag(argv, "--max-num-seqs"), "--max-num-seqs", name)
         window = _int(flag(argv, "--max-model-len"), "--max-model-len", name)
@@ -268,7 +269,7 @@ def unit_refusals(
     out: list[str] = []
     if unit.rig != door.host:
         out.append(f"{name} is placed on {unit.rig}, and this run is on {door.host}")
-    if unit.engine != LLAMACPP:
+    if unit.engine != ENGINE_LLAMACPP:
         out.append(
             f"{name} is {unit.engine}: a campaign unit run starts one llama.cpp "
             "unit, and a vLLM combination is measured by the door's serve and read"
@@ -289,7 +290,7 @@ class Side:
     @property
     def compose(self) -> bool:
         """A vLLM group, started together by ``docker compose``."""
-        return all(unit.engine == VLLM for unit in self.units)
+        return all(unit.engine == ENGINE_VLLM for unit in self.units)
 
     @property
     def slots(self) -> list[list[str]]:
@@ -313,7 +314,9 @@ def side(fleet: Mapping[str, Any], fleet_name: str, rig: str, slots: Any) -> Sid
         raise StepRefusedError(f"{fleet_name}/{rig}: no unit is placed there")
     units = tuple(launch(fleet, name) for name in names)
     engines = {unit.engine for unit in units}
-    if engines != {VLLM} and not (engines == {LLAMACPP} and len(units) == 1):
+    if engines != {ENGINE_VLLM} and not (
+        engines == {ENGINE_LLAMACPP} and len(units) == 1
+    ):
         raise StepRefusedError(
             f"{fleet_name}/{rig}: {'+'.join(names)} is neither one llama.cpp unit "
             "nor a group of vLLM units, and lock-fleets measures only those"

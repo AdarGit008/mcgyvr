@@ -378,7 +378,7 @@ def _gather_kind(ctx: Context, entry: Any, row: Mapping[str, str], run: dict[str
         restarts = [r.get("observed") for r in mine if r["field"] == "restarts"]
         run["restarts"][name] = _digits(restarts[-1]) if restarts else None
         backends = [r.get("observed") for r in mine if r["field"] == "attention_backend"]
-        if ctx.unit(name).get("engine") == lf.VLLM:
+        if ctx.unit(name).get("engine") == lf.ENGINE_VLLM:
             run["backend"][name] = backends[-1] if backends else None
         loads = [r for r in mine if r["field"] == "load_peak_mib"]
         if entry.kind == "load" and loads:
