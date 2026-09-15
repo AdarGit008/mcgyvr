@@ -549,7 +549,14 @@ def test_the_harness_shipped_to_the_rig_asks_the_locks_requests_at_127_0_0_1() -
         server.shutdown()
     assert done.returncode == 0, done.stderr
     out = json.loads(done.stdout)
-    assert set(out["figures"]) == {"warm_decode_tok_s", "prefill_tok_s"}
+    # Every sample beside its median (owner ruling N7): the medians are judged,
+    # the samples are kept.
+    assert set(out["figures"]) == {
+        "warm_decode_tok_s",
+        "prefill_tok_s",
+        "decode_samples",
+        "prefill_samples",
+    }
     assert "vllm:num_requests_running" in out["after_page"]
     posts = [line.split()[-1] for line in _Unit.seen if line.startswith("POST")]
     assert posts == ["64"] + ["256"] * 5 + ["16"] * 3, _Unit.seen
