@@ -299,6 +299,9 @@ case $cmd in
     else
       cat "$f"
     fi ;;
+  # The lock's own harness, shipped to the rig by a `read --probe`: the test
+  # writes what it measured at 127.0.0.1 into harness.json.
+  *"mcgyvr-harness"*) cat >/dev/null; cat "$STUBS/harness.json" ;;
   *"python3 -"*) cat "$STUBS/geometry.json" ;;
   # The rig's lease (`~/.mcgyvr/lease` ON the rig): the remote command is
   # run as written, by a real bash, under a HOME of the stub's own — so
