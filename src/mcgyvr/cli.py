@@ -1557,6 +1557,18 @@ def _climb(
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.verify import reviewer_for
 
+    # Live is admitted before anything here is built, opened or dispatched
+    # (`records/plans/fleet-identity.md` §6): each rig of the live fleet is read
+    # through the door and held to its lock (`mcgyvr.fleet.admission`). At the
+    # top, the conservative place: a refused run costs no pool, no capacity slot
+    # and no sandbox. A dev run reads no rig.
+    if config.get("profile") == "live":
+        refused = _admitted_live()
+        if refused is not None:
+            report.outcome = "error"
+            report.detail = refused
+            return Exit.REFUSED
+
     # Structural resolution, no probe: a live-reachability sweep costs one
     # timeout per source and answers a question the dispatch below is about to
     # ask for real. `mcgyvr pool --probe` is where an operator asks it in
@@ -1704,6 +1716,35 @@ def _climb(
             )
     except (DriveError, SandboxError, CapacityError) as exc:
         return _error(report, str(exc))
+
+
+def _admitted_live() -> str | None:
+    """``None`` when live admission admits this command, else why not, printed.
+
+    Each rig of the live fleet is read through the door and held to the lock
+    (:func:`mcgyvr.fleet.admission.admit`). A plan to clean or restore refuses,
+    and the door commands that would carry it out are printed and not run: that
+    a live command carries its plan out is not decided.
+    """
+    from mcgyvr.fleet.admission import admit
+    from mcgyvr.fleet.admit import LiveRefusedError
+
+    try:
+        admission = admit()
+    except LiveRefusedError as exc:
+        detail = f"live admission: {exc}"
+        print(f"refused: {detail}", file=sys.stderr)
+        return detail
+    if admission.admitted:
+        return None
+    detail = (
+        f"live admission: the rigs of {admission.fleet} do not read as locked; "
+        "nothing was cleaned or restored, and these door commands would do it"
+    )
+    print(f"refused: {detail}:", file=sys.stderr)
+    for line in admission.commands:
+        print(f"  {line}", file=sys.stderr)
+    return detail
 
 
 def _report_climb(
@@ -2201,6 +2242,17 @@ def _serve(args: argparse.Namespace) -> int:
 
     from mcgyvr import wake as wakelib
     from mcgyvr.capacity import Capacity, SlotUnavailableError
+
+    # A live wake starts units, so it is admitted as a live run is, and refused
+    # while the rigs do not read as locked: nothing is restored for it, because
+    # carrying a plan out is not decided. A sleep is always admitted: stopping
+    # starts nothing unapproved, and it is the way out.
+    if (
+        args.direction == "wake"
+        and config.get("profile") == "live"
+        and _admitted_live() is not None
+    ):
+        return Exit.REFUSED
 
     try:
         if args.direction == "wake":
@@ -2934,10 +2986,11 @@ def _fleet_probe(args: argparse.Namespace) -> int:
     an alert is printed and filed, and is not a failed probe
     (:mod:`mcgyvr.fleet.probe`).
     """
+    from mcgyvr.fleet import read
     from mcgyvr.fleet.probe import ProbeError, run
 
     try:
-        report = run(units=args.units or None)
+        report = run(units=args.units or None, reader=read.spawn_read)
     except ProbeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

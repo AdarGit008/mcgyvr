@@ -834,6 +834,17 @@ def unit_in_flight(
     return None if status is None else status.busy
 
 
+def status_busy(engine: str | None, page: str | None) -> int | None:
+    """What a unit's own status page says it has in flight, or ``None`` unread.
+
+    The page :func:`unit_in_flight` reads at the unit's address, handed in
+    already fetched — the door's ``read`` fetches it on the rig
+    (:mod:`mcgyvr.fleet.read`) — and judged by the same two readers.
+    """
+    status = _vllm_status(page) if engine == "vllm" else _slots_status(page)
+    return None if status is None else status.busy
+
+
 def _slots_status(page: str | None) -> _Status | None:
     """llama-server's ``/slots``: how many slots are ``is_processing``.
 

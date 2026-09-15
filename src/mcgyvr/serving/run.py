@@ -80,6 +80,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import secrets
 import signal
 import subprocess
 import sys
@@ -110,7 +111,13 @@ DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
 #: exists to turn into a refusal: delete `rig-snapshot.sh` and gate 2 died on a
 #: FileNotFoundError traceback, which is a gate that stopped running without
 #: anyone deciding it should.
-READERS = (DEFAULT_STEP, GATE_SCRIPTS / "rig-snapshot.sh")
+#: `rig-units.sh` is the second half of the one reader the read run ships to a
+#: rig, behind `rig-snapshot.sh` (gate-scripts/read-02-rig.py).
+READERS = (
+    DEFAULT_STEP,
+    GATE_SCRIPTS / "rig-snapshot.sh",
+    GATE_SCRIPTS / "rig-units.sh",
+)
 #: The door's own serve steps, one per direction. Shipped beside the gates
 #: because, like the default step, they belong to no campaign: a live ladder
 #: is not an experiment, and the envelope it files under is the host's.
@@ -306,6 +313,36 @@ SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
     in ("01-round.py", "02-rig.py", "03-image.py", "05-envelope.py", "06-step.py")
 )
 
+#: THE READ RUN (`python -m mcgyvr.serving.run read --host H [--probe UNIT...]`,
+#: owner 2026-09-15, D2). A third fixed sequence, for looking at a rig without
+#: touching it: the profile is settled and no round is opened, then one reader
+#: goes to the rig, is compared with the rig's declaration, and is filed. There is
+#: no lease, no envelope and no teardown in it, because a read starts nothing,
+#: and no gate 7 or 8, because a read leaves nothing on the rig or under records/.
+READ_SEQUENCE: tuple[Entry, ...] = (
+    Entry(
+        "read-01-profile.py",
+        "read, profile: the read knows which profile it is under, as gate 1 "
+        "settles it, and no round is appended: a reading pins no tree",
+        exports=("RUN_PROFILE", "RUN_CONFIG"),
+    ),
+    Entry(
+        "read-02-rig.py",
+        "read, rig: one reader on the rig, its facts held to hosts.json and the "
+        "rest filed under the live fleet's journal; nothing leased, nothing torn "
+        "down, and a busy rig read as it is",
+    ),
+)
+#: A read's id, which every row it files carries: the probe's own shape.
+READ_ID = re.compile(r"^run-(\d{8}T\d{6})-([0-9a-f]{8})$")
+
+
+def mint_read_id(now: datetime | None = None) -> str:
+    """A fresh read id, stamped with the moment it was minted."""
+    moment = now if now is not None else datetime.now(UTC)
+    return f"run-{moment:%Y%m%dT%H%M%S}-{secrets.token_hex(4)}"
+
+
 #: The full vocabulary a gate script may read. A script that wants something
 #: not on this list is asking for a fact nobody gated.
 EXPORTED = (
@@ -329,6 +366,10 @@ EXPORTED = (
     "RUN_SERVE",
     "RUN_COMPOSE",
     "RUN_SERVE_EXPECTED",
+    # The read run's own two: the id its rows are filed under, and the units
+    # it runs the lock's harness for on the rig.
+    "RUN_READ_ID",
+    "RUN_READ_PROBE",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
@@ -423,7 +464,7 @@ def check_manifest() -> None:
     """
     missing = [
         e.script
-        for e in (*SEQUENCE, *ALWAYS, LEASE_RELEASE)
+        for e in (*SEQUENCE, *ALWAYS, *READ_SEQUENCE, LEASE_RELEASE)
         if not (GATE_SCRIPTS / e.script).is_file()
     ] + [path.name for path in (*SERVE_STEPS.values(), *READERS) if not path.is_file()]
     if missing:
@@ -437,7 +478,7 @@ def check_manifest() -> None:
         )
     unrunnable = [
         e.script
-        for e in (*SEQUENCE, *ALWAYS, LEASE_RELEASE)
+        for e in (*SEQUENCE, *ALWAYS, *READ_SEQUENCE, LEASE_RELEASE)
         if not os.access(GATE_SCRIPTS / e.script, os.X_OK)
     ] + [step.name for step in SERVE_STEPS.values() if not os.access(step, os.X_OK)]
     if unrunnable:
@@ -812,10 +853,96 @@ def _serve(argv: list[str]) -> int:
         _release_lease(env)
 
 
+def _read_parse(argv: list[str]) -> argparse.Namespace:
+    """The read run's arguments. As with :func:`_parse`, nothing skips a gate."""
+    parser = argparse.ArgumentParser(
+        prog="python -m mcgyvr.serving.run read",
+        description=(
+            "read a rig without touching it: its facts, its containers and its "
+            "card, filed under the live fleet's journal"
+        ),
+    )
+    parser.add_argument(
+        "--host", required=True, help="srv1 | srv2, as declared in hosts.json"
+    )
+    parser.add_argument(
+        "--probe",
+        nargs="+",
+        default=[],
+        metavar="UNIT",
+        help=(
+            "awake units of the live fleet on this rig to measure on the rig with "
+            "the lock's own harness, each only while it has nothing in flight"
+        ),
+    )
+    parser.add_argument(
+        "--run-id",
+        default="",
+        help="the id the read's rows are filed under (default: minted)",
+    )
+    return parser.parse_args(argv)
+
+
+def _read(argv: list[str]) -> int:
+    """`read`: the third fixed sequence, to completion. Nothing is leased."""
+    opts = _read_parse(argv)
+    inherited = _ambient()
+    if inherited is not None:
+        print(
+            f"run.py: REFUSED — {inherited} is set in the calling environment; "
+            "unset it and rerun; the door mints its own vocabulary",
+            file=sys.stderr,
+        )
+        return 2
+    run_id = opts.run_id or mint_read_id()
+    if READ_ID.match(run_id) is None:
+        print(
+            f"run.py: REFUSED — --run-id {run_id!r} is not "
+            "run-YYYYMMDDTHHMMSS-xxxxxxxx",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        root = run_root()
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+    env = dict(os.environ)
+    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    try:
+        pin_config(env)
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+    env.update(
+        RUN_ROOT=str(root),
+        RUN_BIN=str(BIN),
+        RUN_HOST=opts.host,
+        RUN_READ_ID=run_id,
+        RUN_READ_PROBE=" ".join(opts.probe),
+    )
+    try:
+        check_manifest()
+        for entry in READ_SEQUENCE:
+            status = _run_entry(entry, env)
+            if status == 2:
+                return _stop(entry, status, env)
+            if status != 0:
+                return status
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+    except KeyboardInterrupt:
+        return 130
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     given = list(sys.argv[1:] if argv is None else argv)
     if given[:1] == ["serve"]:
         return _serve(given[1:])
+    if given[:1] == ["read"]:
+        return _read(given[1:])
     opts, step_args = _parse(given)
 
     # Every refusal below happens before a gate runs: nothing checked, nothing

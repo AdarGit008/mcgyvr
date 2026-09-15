@@ -17,7 +17,7 @@ import json
 import socket
 import sys
 import types
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -287,3 +287,25 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
         (dispatch_runner, "_get_text"),
     ):
         monkeypatch.setattr(module, name, lambda *a, **k: None, raising=True)
+
+
+@pytest.fixture(autouse=True)
+def _no_test_opens_the_doors_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A test may not open ``python -m mcgyvr.serving.run read`` against a rig.
+
+    Live admission and ``mcgyvr fleet probe`` read each rig of the live fleet
+    through the door (:func:`mcgyvr.fleet.read.spawn_read`), and the door's ssh
+    reaches srv1 and srv2 for real. :func:`_no_test_resolves_a_machine` cannot
+    see it: the door is a subprocess, which resolves in its own interpreter. So
+    the one place a command spawns it is replaced for every test, and a test
+    that means to read a rig substitutes it again with a stand-in of its own.
+    """
+    from mcgyvr.fleet import read
+
+    def refused(host: str, run_id: str, probe: Sequence[str] = ()) -> int:
+        raise ReachedForAMachineError(
+            f"a test opened the door's read of {host}; substitute "
+            "mcgyvr.fleet.read.spawn_read with a stand-in"
+        )
+
+    monkeypatch.setattr(read, "spawn_read", refused)
