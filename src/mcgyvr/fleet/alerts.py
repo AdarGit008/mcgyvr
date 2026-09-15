@@ -86,6 +86,28 @@ def _run_at(run_id: str) -> str | None:
     return f"{s[:4]}-{s[4:6]}-{s[6:8]}T{s[9:11]}:{s[11:13]}:{s[13:15]}"
 
 
+def _short(identifier: str) -> str:
+    """``cmb-b50b1259…``: an id's prefix and first eight hex digits."""
+    return identifier if len(identifier) <= 12 else f"{identifier[:12]}…"
+
+
+def _warning(
+    observed: Mapping[str, Any], stamp: Mapping[str, str], unit_id: str | None
+) -> str:
+    """The line a live pull warns with, naming its unit, rig and combination.
+
+    The unit is the name the observation carries as ``unit``; a caller that
+    gives none is named by what it has, its switch or its short unit id.
+    """
+    who = observed.get("unit") or observed.get("switch") or _short(str(unit_id))
+    where = [stamp["rig"]] if stamp.get("rig") else []
+    where.append(_short(stamp["combination_id"]))
+    return (
+        f"warning: {who} {observed['field']} pulled {stamp['fleet']} "
+        f"({', '.join(where)}) — see `mcgyvr fleet alerts`"
+    )
+
+
 def _journal_file(journal: Path, combination_id: str, key: str) -> Path:
     where = journal / combination_id
     where.mkdir(parents=True, exist_ok=True)
@@ -194,9 +216,11 @@ def check(
 
     A dev run raises :class:`AlertError` on the first alert; a live run yields
     each alert, warns once per unit-and-field, and the filed alert row is what
-    :func:`pulled` reads.
+    :func:`pulled` reads. An observation may carry its unit's name as ``unit``,
+    which the warning names, and the moment it was measured as ``at``, which
+    its row carries; without one, the row carries the run id's time.
     """
-    at = _run_at(run_id)
+    run_at = _run_at(run_id)
     for observed in observations:
         field = observed["field"]
         unit_id = observed.get("unit_id", stamp.get("unit_id"))
@@ -216,6 +240,7 @@ def check(
             row["unit_id"] = observed["unit_id"]
         if "switch" in observed:
             row["switch"] = observed["switch"]
+        at = observed.get("at", run_at)
         if at is not None:
             row["at"] = at
 
@@ -228,10 +253,7 @@ def check(
         if profile == "dev":
             raise AlertError(f"a dev run alerts on {field}")
         if not warned:
-            print(
-                f"warning: {field} pulled {stamp['fleet']} — see `mcgyvr fleet alerts`",
-                file=sys.stderr,
-            )
+            print(_warning(observed, stamp, unit_id), file=sys.stderr)
         yield alert
 
 
