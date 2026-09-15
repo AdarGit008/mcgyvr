@@ -599,6 +599,10 @@ def load(
       unit reads idle, with no time limit on the wait (owner ruling NBc); a page
       that cannot be read ends it. ``idle_after_close`` says whether the first
       reading was already idle, and ``idle_after_s`` how long idle took.
+    * The card is sampled beside every one of those readings too (owner ruling,
+      2026-09-15: "Sample the card until idle"): ``samples`` holds every sample,
+      the first ``samples_before_close`` taken before the close, and
+      ``sampled_until_idle`` says whether they run through to an idle reading.
     * Nothing here has a timeout but ``LOAD_LIMIT_S``.
 
     ``transport``, ``fetch``, ``poll``, ``start``, ``clock`` and ``sleep`` stand in
@@ -660,6 +664,7 @@ def load(
         if batch.done() or clock() - began >= LOAD_LIMIT_S:
             break
         sleep(LOAD_SAMPLE_S)
+    samples_before_close = len(samples)
     closed = 0 if batch.done() else batch.close()
     ended = clock()
     pace_end = page(f"{base}{pace_path}") if pace_path else None
@@ -672,6 +677,10 @@ def load(
     idle_error: str | None = None
     readings = 0
     while True:
+        # Owner ruling, 2026-09-15: "Sample the card until idle". A close does not
+        # cancel the unit's work (llama.cpp b10644 read idle 104.3 s after it), so
+        # the card is sampled beside every status reading, the idle one included.
+        samples.append(read_rig("--card-holders"))
         after_page = page(status_url)
         busy = in_flight(engine, after_page)
         readings += 1
@@ -706,6 +715,8 @@ def load(
             "idle_after_s": idle_after_s,
             "idle_error": idle_error,
             "status_readings": readings,
+            "samples_before_close": samples_before_close,
+            "sampled_until_idle": idle_after_s is not None,
         }
     }
 

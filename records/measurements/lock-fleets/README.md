@@ -87,7 +87,8 @@ rig's idle tail; no fill work is added.
   `--max-model-len`), and runs at most 30 s: card samples every 0.5 s, pace as
   prompt tok/s from the unit's own counter or null with a reason. At 30 s the
   unfinished requests are closed and the load waits for the unit to read idle,
-  with no time limit. The verdict is the 30-s card peak ≤ room. Pace, the
+  with no time limit, sampling the card all the while (2026-09-15, below). The
+  verdict is the card peak over every sample up to idle ≤ room. Pace, the
   completion counts, `idle_after_close` and `idle_after_s` are filed, not judged.
   A load is refused for errors other than the 30-s close, for a status-page error
   during the idle wait (`idle_error`), for no sample showing the container, or
@@ -156,6 +157,34 @@ rig's idle tail; no fill work is added.
   35,000–48,000 pages per wake that
   `records/measurements/ram-headroom-2026-09-09/README.md` measured for that
   blob mapped on srv1 at swappiness 60, with decode unaffected.
+- **The card is sampled until idle** (2026-09-15, "Sample the card until idle").
+  Closing the load's request at 30 s does not cancel the work in llama.cpp
+  b10644: srv1-01's artifact
+  (`records/evidence/2026-09-15-lock-fleets/rig-id-relock-srv1-c1-srv1_35b_maxctx.json`)
+  files `idle_after_close` false, `idle_after_s` 104.3, `prompt_tokens` 32690,
+  `completed` 0, `closed_unfinished` 1, and 58 card samples, every one taken
+  before the close. So after the close the harness samples `rig-units.sh
+  --card-holders` beside every status reading, the first idle one included,
+  with still no time limit. `samples_before_close` marks where the close fell,
+  and `sampled_until_idle` whether the samples reach an idle reading; an
+  `idle_error` still ends the wait short of idle. The load's verdict, `room_mib`
+  and `card_peak_mib` are the max over every sample, and `peak_before_close_mib`
+  is filed as data. A load not sampled until idle is kept, its peak a lower
+  bound (`peak_is_lower_bound`), and `check` does not stop on it; `assemble`
+  refuses a unit's room, naming the runs, while fewer than K of its valid runs
+  were sampled until idle. The stop on `idle_after_close` false on a rig's
+  first long-context run is gone, and the flag stays filed.
+- **One extra cold start for room** (2026-09-15, "One extra cold start for
+  room"). `plan.py rerun --use U --entry E --reason "..." [--log-from TREE]`
+  gives a logged unit entry that passed its check, but whose load was not
+  sampled until idle, ONE extra entry `E-rerun1` right after it: the same unit,
+  cold start and door command, with its own wrapper and artifact, listed under
+  `reruns` in `<use>/retries.json`. It refuses an entry that is unlogged, fails
+  its check, is not a unit entry, was sampled until idle, already has a re-run
+  or a retry, or is itself a retry or a re-run. E stays a valid run: decode and
+  prefill take E, while room and `card_peak_mib` take `E-rerun1`, and E's 30-s
+  peak is kept as a lower bound. `check` passes E and its re-run runs next.
+  `rig-id-relock` re-runs srv1-01.
 
 ## Stop and ask
 
@@ -175,7 +204,7 @@ reads:
 | `rigs.<rig>.card_mib` | the snapshot's `gpu_vram_mib`, one value across every run |
 | `rigs.<rig>.snapshot` | the last run's snapshot; one rig id across the runs, and the pin itself for a rig `use.json` keeps |
 | `combinations[].overhead_mib` | max `gpu_reserve_mib`, refused beyond gate 2's tolerance of hosts.json (`02-rig.py:62-66`) |
-| `combinations[].card_peak_mib` (llama.cpp) | max of the 30-s peaks |
+| `combinations[].card_peak_mib` (llama.cpp) | max of the until-idle peaks, K runs sampled until idle |
 | `combinations[].restarts` | max of every count, which must be 0 |
 | `combinations[].warm_decode_tok_s`, `prefill_tok_s` | median of the run medians |
 | `combinations[].attention_backend` (vLLM) | unanimous across the runs, and the pin |

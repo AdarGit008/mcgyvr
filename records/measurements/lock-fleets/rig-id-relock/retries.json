@@ -1,5 +1,5 @@
 {
-  "_doc": "One retry per failed entry of this use. Written by records/measurements/lock-fleets/plan.py retry, which refuses unless the entry is logged and fails its check, has no retry yet and is not itself a retry; read by plan.py read_runs, which places each retry immediately after its failed entry in that rig's order.",
+  "_doc": "One retry per failed entry of this use, and one extra cold start for room per passing unit entry whose load was not sampled until idle. Written by records/measurements/lock-fleets/plan.py retry and rerun, which refuse any entry their ruling does not allow; read by plan.py read_runs, which places each immediately after its entry in that rig's order.",
   "use": "rig-id-relock",
   "ruling": {
     "by": "owner",
@@ -14,6 +14,21 @@
       "retry_entry": "srv2-01-retry1",
       "artifact": "rig-id-relock-srv2-c1-srv2_35b_256k-retry1.json",
       "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/16-rig-id-relock-srv2-c1-srv2_35b_256k-retry1.sh"
+    }
+  ],
+  "rerun_ruling": {
+    "by": "owner",
+    "on": "2026-09-15",
+    "said": "One extra cold start for room",
+    "rule": "A passing unit entry whose load was filed before until-idle sampling gets ONE extra entry right after it in its rig's order: the same unit and cold start, with its own wrapper and artifact. The entry stays a valid run and gives decode and prefill; its re-run, sampled until idle, gives room and the card peak, and the entry's 30-s peak is kept as a lower bound."
+  },
+  "reruns": [
+    {
+      "entry": "srv1-01",
+      "reason": "load peak sampled 30 s only (filed before until-idle sampling); owner 2026-09-15: one extra cold start for room",
+      "rerun_entry": "srv1-01-rerun1",
+      "artifact": "rig-id-relock-srv1-c1-srv1_35b_maxctx-rerun1.json",
+      "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/01-rig-id-relock-srv1-c1-srv1_35b_maxctx-rerun1.sh"
     }
   ]
 }

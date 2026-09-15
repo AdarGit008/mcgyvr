@@ -33,6 +33,11 @@ writes ``<use>/retries.json`` and the retry's own wrapper, and :func:`read_runs`
 places each retry right after its failed entry, which stays in the order as a
 data point. RUNS.md is not edited: both rigs log into it during a window.
 
+A logged unit entry that passed, but whose load was not sampled until idle, gets
+ONE extra cold start for room (owner ruling, 2026-09-15), ``plan.py rerun``,
+listed under ``reruns`` in the same file and placed the same way. The entry
+stays valid for decode and prefill; its re-run gives room and the card peak.
+
 It sits under records/measurements/ with the lock's last assembler
 (``records/measurements/fleet-setup-2026-09-13/srv2/assemble_evidence.py``) and
 the quick check's driver (``records/measurements/quick-check-2026-09-15/``):
@@ -111,12 +116,26 @@ RETRY_RULING = {
     ),
 }
 RETRIES_DOC = (
-    "One retry per failed entry of this use. Written by "
-    "records/measurements/lock-fleets/plan.py retry, which refuses unless the "
-    "entry is logged and fails its check, has no retry yet and is not itself a "
-    "retry; read by plan.py read_runs, which places each retry immediately after "
-    "its failed entry in that rig's order."
+    "One retry per failed entry of this use, and one extra cold start for room per "
+    "passing unit entry whose load was not sampled until idle. Written by "
+    "records/measurements/lock-fleets/plan.py retry and rerun, which refuse any "
+    "entry their ruling does not allow; read by plan.py read_runs, which places "
+    "each immediately after its entry in that rig's order."
 )
+#: A re-run's entry id, wrapper stem and artifact stem: the entry's, and this.
+RERUN_SUFFIX = "-rerun1"
+RERUN_RULING = {
+    "by": "owner",
+    "on": "2026-09-15",
+    "said": "One extra cold start for room",
+    "rule": (
+        "A passing unit entry whose load was filed before until-idle sampling gets "
+        "ONE extra entry right after it in its rig's order: the same unit and cold "
+        "start, with its own wrapper and artifact. The entry stays a valid run and "
+        "gives decode and prefill; its re-run, sampled until idle, gives room and "
+        "the card peak, and the entry's 30-s peak is kept as a lower bound."
+    ),
+}
 
 
 class PlanRefusedError(Exception):
@@ -203,10 +222,12 @@ class Entry:
     argv: tuple[str, ...]
     #: The failed entry this one retries (``retries.json``), or ``""``.
     retry_of: str = ""
+    #: The passing entry this one is the extra cold start for room of, or ``""``.
+    rerun_of: str = ""
 
     @property
     def rig(self) -> str:
-        return (self.retry_of or self.id).rsplit("-", 1)[0]
+        return (self.retry_of or self.rerun_of or self.id).rsplit("-", 1)[0]
 
     @property
     def wrapper(self) -> str:
@@ -689,6 +710,10 @@ class Runs:
         """The one retry ``retries.json`` gives ``entry_id``, or ``None``."""
         return next((e for e in self.entries if e.retry_of == entry_id), None)
 
+    def rerun_for(self, entry_id: str) -> Entry | None:
+        """The one extra cold start ``retries.json`` gives ``entry_id``, or ``None``."""
+        return next((e for e in self.entries if e.rerun_of == entry_id), None)
+
 
 def _cells(line: str) -> list[str]:
     inner = line.strip()[1:-1]
@@ -747,7 +772,7 @@ def read_runs(root: Path, use: str) -> Runs:
             runs.idle.append(row)
         elif section == LOG_HEADER:
             runs.log.append(row)
-    runs.entries = _with_retries(runs, load_retries(root, use), use)
+    runs.entries = _with_extras(runs, load_extras(root, use), use)
     return runs
 
 
@@ -755,19 +780,56 @@ def retries_path(root: Path, use: str) -> Path:
     return use_dir(root, use) / RETRIES
 
 
-def load_retries(root: Path, use: str) -> list[dict[str, str]]:
-    """``<use>/retries.json``'s records, or none when there is no such file."""
+def load_extras(root: Path, use: str) -> dict[str, list[dict[str, str]]]:
+    """``<use>/retries.json``'s ``retries`` and ``reruns``, or none of either when
+    there is no such file."""
     path = retries_path(root, use)
     if not path.is_file():
-        return []
+        return {"retries": [], "reruns": []}
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise PlanRefusedError(f"{path} cannot be read: {exc}") from exc
-    records = doc.get("retries") if isinstance(doc, dict) else None
-    if not isinstance(records, list) or doc.get("use") != use:
+    if not isinstance(doc, dict) or doc.get("use") != use:
         raise PlanRefusedError(f"{path} does not list the retries of use {use}")
-    return [{str(k): str(v) for k, v in record.items()} for record in records]
+    out: dict[str, list[dict[str, str]]] = {}
+    for key in ("retries", "reruns"):
+        records = doc.get(key, [])
+        if not isinstance(records, list):
+            raise PlanRefusedError(f"{path}: {key} is not a list")
+        out[key] = [{str(k): str(v) for k, v in record.items()} for record in records]
+    return out
+
+
+def _not_an_extra(entry: Entry) -> None:
+    """A retry or a re-run gets no retry or re-run of its own."""
+    if entry.retry_of:
+        raise PlanRefusedError(
+            f"{entry.id} is itself a retry of {entry.retry_of}: a failed retry gets "
+            "no second one"
+        )
+    if entry.rerun_of:
+        raise PlanRefusedError(
+            f"{entry.id} is itself a re-run of {entry.rerun_of}: it gets no retry "
+            "or re-run of its own"
+        )
+
+
+def _extra(
+    use: str, entry: Entry, suffix: str, key: str, said: str
+) -> tuple[dict[str, str], str]:
+    """An extra entry of ``entry``: its id, artifact and wrapper path under
+    ``suffix``, and the wrapper's text. Same entry, same bytes."""
+    wrapper = Path(entry.wrapper)
+    step = wrapper.with_name(f"{wrapper.stem}{suffix}{wrapper.suffix}")
+    artifact = f"{Path(entry.artifact).stem}{suffix}.json"
+    extra_id = f"{entry.id}{suffix}"
+    text, body, args = _step_words(
+        entry.kind, entry.rig, entry.run, entry.fleet, entry.to, entry.units[0]
+    )
+    derived = {key: extra_id, "artifact": artifact, "step": step.as_posix()}
+    words = f"{text}, {said} {entry.id}"
+    return derived, wrapper_text(use, extra_id, words, body, artifact, args)
 
 
 def derive_retry(use: str, entry: Entry) -> tuple[dict[str, str], str]:
@@ -775,53 +837,65 @@ def derive_retry(use: str, entry: Entry) -> tuple[dict[str, str], str]:
     artifact and wrapper path — and the wrapper's text. Same entry, same bytes.
 
     Only a campaign unit or move run has a wrapper and an artifact of its own,
-    and a retry gets no retry of its own.
+    and a retry or a re-run gets no retry of its own.
     """
-    if entry.retry_of:
-        raise PlanRefusedError(
-            f"{entry.id} is itself a retry of {entry.retry_of}: a failed retry gets "
-            "no second one"
-        )
+    _not_an_extra(entry)
     if entry.kind not in ("unit", "move"):
         raise PlanRefusedError(
             f"{entry.id} is a {entry.kind} entry: only a campaign unit or move run "
             "has a wrapper and an artifact of its own to retry"
         )
-    wrapper = Path(entry.wrapper)
-    step = wrapper.with_name(f"{wrapper.stem}{RETRY_SUFFIX}{wrapper.suffix}")
-    artifact = f"{Path(entry.artifact).stem}{RETRY_SUFFIX}.json"
-    retry_id = f"{entry.id}{RETRY_SUFFIX}"
-    text, body, args = _step_words(
-        entry.kind, entry.rig, entry.run, entry.fleet, entry.to, entry.units[0]
+    return _extra(use, entry, RETRY_SUFFIX, "retry_entry", "the one retry of")
+
+
+def derive_rerun(use: str, entry: Entry) -> tuple[dict[str, str], str]:
+    """The one extra cold start for room of ``entry`` (owner ruling, 2026-09-15:
+    "One extra cold start for room"), as :func:`derive_retry` gives a retry.
+
+    Only a unit entry carries a load of its own in its artifact.
+    """
+    _not_an_extra(entry)
+    if entry.kind != "unit":
+        raise PlanRefusedError(
+            f"{entry.id} is a {entry.kind} entry: only a unit entry carries a load "
+            "of its own to re-run"
+        )
+    return _extra(
+        use, entry, RERUN_SUFFIX, "rerun_entry", "the one extra cold start for room of"
     )
-    said = f"{text}, the one retry of {entry.id}"
-    derived = {"retry_entry": retry_id, "artifact": artifact, "step": step.as_posix()}
-    return derived, wrapper_text(use, retry_id, said, body, artifact, args)
 
 
-def _with_retries(runs: Runs, records: Sequence[Mapping[str, str]], use: str) -> list[Entry]:
-    """The frozen order with each retry right after its failed entry."""
-    retries: dict[str, dict[str, str]] = {}
-    for record in records:
-        failed = runs.entry(record.get("entry", ""))
-        derived, _ = derive_retry(use, failed)
-        if failed.id in retries:
-            raise PlanRefusedError(f"{RETRIES} retries {failed.id} twice: one retry per failed entry")
-        named = {key: record.get(key) for key in derived}
-        if named != derived:
-            raise PlanRefusedError(f"{RETRIES} names {named} for {failed.id}, and plan.py derives {derived}")
-        retries[failed.id] = derived
+def _with_extras(
+    runs: Runs, extras: Mapping[str, Sequence[Mapping[str, str]]], use: str
+) -> list[Entry]:
+    """The frozen order with each retry or re-run right after its entry."""
+    derive = {"retries": derive_retry, "reruns": derive_rerun}
+    placed: dict[str, tuple[str, dict[str, str]]] = {}
+    for key, records in extras.items():
+        for record in records:
+            entry = runs.entry(record.get("entry", ""))
+            derived, _ = derive[key](use, entry)
+            if entry.id in placed:
+                raise PlanRefusedError(
+                    f"{RETRIES} names {entry.id} twice: one retry or re-run per entry"
+                )
+            named = {name: record.get(name) for name in derived}
+            if named != derived:
+                raise PlanRefusedError(
+                    f"{RETRIES} names {named} for {entry.id}, and plan.py derives {derived}"
+                )
+            placed[entry.id] = (key, derived)
     out: list[Entry] = []
     for entry in runs.entries:
         out.append(entry)
-        derived = retries.get(entry.id, {})
-        if not derived:
+        if entry.id not in placed:
             continue
+        key, derived = placed[entry.id]
         argv = list(entry.argv)
         argv[argv.index("--step") + 1] = derived["step"]
         out.append(
             Entry(
-                id=derived["retry_entry"],
+                id=derived.get("retry_entry") or derived["rerun_entry"],
                 kind=entry.kind,
                 fleet=entry.fleet,
                 to=entry.to,
@@ -829,7 +903,8 @@ def _with_retries(runs: Runs, records: Sequence[Mapping[str, str]], use: str) ->
                 run=entry.run,
                 artifact=derived["artifact"],
                 argv=tuple(argv),
-                retry_of=entry.id,
+                retry_of=entry.id if key == "retries" else "",
+                rerun_of=entry.id if key == "reruns" else "",
             )
         )
     return out
@@ -926,6 +1001,91 @@ def retry(
         raise PlanRefusedError(
             f"{entry_id} already has a retry, {existing.id}: one retry per failed entry"
         )
+    rerun_by = runs.rerun_for(entry_id)
+    if rerun_by is not None:
+        raise PlanRefusedError(
+            f"{entry_id} has a re-run, {rerun_by.id}: it passed, and a retry is for "
+            "a failed entry"
+        )
+    asm, ctx = _logged_context(root, use, runs, entry_id, log_from, journal, "a retry")
+    reasons, _ = asm.verdict(ctx, entry.rig, entry_id)
+    if not reasons:
+        raise PlanRefusedError(
+            f"{entry_id} passes its check: only a failed entry gets a retry"
+        )
+    record = {"entry": entry_id, "reason": reason, **derived}
+    return _write_extra(root, use, "retries", record, text)
+
+
+def rerun(
+    root: Path,
+    use: str,
+    entry_id: str,
+    reason: str,
+    *,
+    log_from: Path | None = None,
+    journal: str | None = None,
+) -> dict[str, str]:
+    """Give ``entry_id`` its one extra cold start for room (owner ruling,
+    2026-09-15: "One extra cold start for room").
+
+    Refused unless the entry is logged and passes ``assemble_evidence.py check``,
+    is a unit entry whose load was not sampled until idle, has no re-run and no
+    retry, and is not itself a retry or a re-run. The entry stays a valid run:
+    the assembler takes its decode and prefill, and room and the card peak from
+    the re-run. Writes ``<use>/retries.json``'s ``reruns`` and the re-run's
+    wrapper under ``root``; ``log_from`` is as :func:`retry` reads it.
+    """
+    if not reason.strip():
+        raise PlanRefusedError("a re-run names its reason (--reason)")
+    runs = read_runs(root, use)
+    entry = runs.entry(entry_id)
+    derived, text = derive_rerun(use, entry)
+    existing = runs.rerun_for(entry_id)
+    if existing is not None:
+        raise PlanRefusedError(
+            f"{entry_id} already has a re-run, {existing.id}: one extra cold start "
+            "per entry"
+        )
+    retried = runs.retry_for(entry_id)
+    if retried is not None:
+        raise PlanRefusedError(
+            f"{entry_id} has a retry, {retried.id}: it failed, and a re-run is for a "
+            "run that passed"
+        )
+    asm, ctx = _logged_context(root, use, runs, entry_id, log_from, journal, "a re-run")
+    reasons, _ = asm.verdict(ctx, entry.rig, entry_id)
+    if reasons:
+        raise PlanRefusedError(
+            f"{entry_id} fails its check: only a passing entry gets a re-run "
+            f"({'; '.join(reasons)[:300]})"
+        )
+    try:
+        loads = asm.gather(ctx, ctx.runs.entry(entry_id))["loads"]
+    except asm.MissingError as exc:
+        raise PlanRefusedError(str(exc)) from exc
+    load = loads.get(entry.units[0])
+    if not load:
+        raise PlanRefusedError(f"{entry_id} filed no load: there is no room to re-run")
+    if load.get("sampled_until_idle") is not False:
+        raise PlanRefusedError(
+            f"{entry_id}'s load was sampled until idle: its room needs no re-run"
+        )
+    record = {"entry": entry_id, "reason": reason, **derived}
+    return _write_extra(root, use, "reruns", record, text)
+
+
+def _logged_context(
+    root: Path,
+    use: str,
+    runs: Runs,
+    entry_id: str,
+    log_from: Path | None,
+    journal: str | None,
+    what: str,
+) -> tuple[ModuleType, Any]:
+    """The assembler, and its context on the tree whose log holds ``entry_id``:
+    ``root``, or ``log_from`` when its frozen order is ``root``'s."""
     where = root if log_from is None else log_from
     asm = _assembler()
     try:
@@ -933,32 +1093,39 @@ def retry(
     except asm.AssemblyRefusedError as exc:
         raise PlanRefusedError(str(exc)) from exc
     if log_from is not None:
-        ours = [astuple(e) for e in runs.entries if not e.retry_of]
-        theirs = [astuple(e) for e in ctx.runs.entries if not e.retry_of]
-        if ours != theirs or ctx.runs.retry_for(entry_id) is not None:
+        ours = [astuple(e) for e in runs.entries if not (e.retry_of or e.rerun_of)]
+        theirs = [
+            astuple(e) for e in ctx.runs.entries if not (e.retry_of or e.rerun_of)
+        ]
+        there = ctx.runs.retry_for(entry_id) or ctx.runs.rerun_for(entry_id)
+        if ours != theirs or there is not None:
             raise PlanRefusedError(
                 f"the log in {where} is of another frozen order of {use} than "
-                f"{root}'s, or retries {entry_id} there already"
+                f"{root}'s, or gives {entry_id} a retry or re-run there already"
             )
     if ctx.runs.logged(entry_id) is None:
         raise PlanRefusedError(
-            f"{entry_id} has no log row in {where}: only a logged failed entry gets "
-            "a retry"
+            f"{entry_id} has no log row in {where}: only a logged entry gets {what}"
         )
-    reasons, _ = asm.verdict(ctx, entry.rig, entry_id)
-    if not reasons:
-        raise PlanRefusedError(
-            f"{entry_id} passes its check: only a failed entry gets a retry"
-        )
-    wrapper = root / derived["step"]
+    return asm, ctx
+
+
+def _write_extra(
+    root: Path, use: str, key: str, record: dict[str, str], text: str
+) -> dict[str, str]:
+    """Write the extra entry's wrapper, once, and list it under ``key``."""
+    wrapper = root / record["step"]
     if wrapper.exists():
-        raise PlanRefusedError(f"{derived['step']} already exists: it is written once")
-    record = {"entry": entry_id, "reason": reason, **derived}
+        raise PlanRefusedError(f"{record['step']} already exists: it is written once")
+    extras = load_extras(root, use)
+    extras[key] = [*extras[key], record]
     doc = {
         "_doc": RETRIES_DOC,
         "use": use,
         "ruling": RETRY_RULING,
-        "retries": [*load_retries(root, use), record],
+        "retries": extras["retries"],
+        "rerun_ruling": RERUN_RULING,
+        "reruns": extras["reruns"],
     }
     wrapper.write_text(text, encoding="utf-8")
     wrapper.chmod(0o755)
@@ -1023,6 +1190,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "the retry is still written under --root",
     )
     one.add_argument("--journal", default="")
+    one = sub.add_parser("rerun")
+    for name in ("--use", "--entry", "--reason"):
+        one.add_argument(name, required=True)
+    one.add_argument("--log-from", default="")
+    one.add_argument("--journal", default="")
     args = parser.parse_args(argv)
     root = Path(args.root)
     try:
@@ -1081,6 +1253,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"{made['entry']} failed its check; its one retry "
                 f"{made['retry_entry']} is the entry after it: {made['step']} "
                 f"declares {made['artifact']}"
+            )
+        elif args.command == "rerun":
+            made = rerun(
+                root,
+                args.use,
+                args.entry,
+                args.reason,
+                log_from=Path(args.log_from) if args.log_from else None,
+                journal=args.journal or None,
+            )
+            print(
+                f"{made['entry']} passed with a load not sampled until idle; its one "
+                f"extra cold start for room {made['rerun_entry']} is the entry after "
+                f"it: {made['step']} declares {made['artifact']}"
             )
     except PlanRefusedError as exc:
         print(f"plan.py: REFUSED — {exc}", file=sys.stderr)

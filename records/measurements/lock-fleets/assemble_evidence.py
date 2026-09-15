@@ -183,10 +183,20 @@ def _load_from_body(body: Mapping[str, Any], container: str | None, unit: Mappin
     from mcgyvr.fleet.read import _pace
 
     samples = [s for s in body.get("samples") or [] if isinstance(s, str)]
+    # Owner ruling, 2026-09-15: "Sample the card until idle". The peak is over
+    # every sample; a body filed before the ruling has no close index, so all its
+    # samples came before the close and its peak is a lower bound.
+    index = body.get("samples_before_close")
+    cut = index if isinstance(index, int) and 0 <= index <= len(samples) else len(samples)
+    until_idle = body.get("sampled_until_idle") is True
     pace, source = _pace(unit, body)
     return {
         "peak_mib": peak_of(samples, container),
+        "peak_before_close_mib": peak_of(samples[:cut], container),
         "samples": len(samples),
+        "samples_before_close": cut,
+        "sampled_until_idle": until_idle,
+        "peak_is_lower_bound": not until_idle,
         "limit_s": body.get("limit_s"),
         "completed": body.get("completed"),
         "closed_unfinished": body.get("closed_unfinished"),
@@ -205,7 +215,11 @@ def _load_from_row(row: Mapping[str, Any]) -> dict[str, Any]:
     """A read's load row, as ``mcgyvr.fleet.read`` filed it."""
     return {
         "peak_mib": row.get("peak_mib"),
+        "peak_before_close_mib": row.get("peak_before_close_mib"),
         "samples": row.get("samples"),
+        "samples_before_close": row.get("samples_before_close"),
+        "sampled_until_idle": row.get("sampled_until_idle") is True,
+        "peak_is_lower_bound": row.get("sampled_until_idle") is not True,
         "limit_s": row.get("limit_s"),
         "completed": row.get("completed"),
         "closed_unfinished": row.get("closed_unfinished"),
@@ -268,6 +282,8 @@ def gather(ctx: Context, entry: Any) -> dict[str, Any]:
     }
     if entry.retry_of:
         run["retry_of"] = entry.retry_of
+    if entry.rerun_of:
+        run["rerun_of"] = entry.rerun_of
     output = ctx.root / row["output"] if row.get("output") else None
     said = output.read_text(encoding="utf-8", errors="replace") if output and output.is_file() else ""
     refused = [line.strip() for line in DOOR_REFUSED.findall(said)]
@@ -408,16 +424,6 @@ def _reserves(runs: Sequence[Mapping[str, Any]]) -> list[int]:
     ]
 
 
-def _long_context_entry(ctx: Context, rig: str) -> str | None:
-    """The first entry, on ``rig``, of the llama.cpp unit with the largest window."""
-    units = [e for e in ctx.runs.entries if e.rig == rig and e.kind == "unit"]
-    if not units:
-        return None
-    windows = {e.units[0]: lf.launch(ctx.fleet, e.units[0]).window for e in units}
-    longest = max(windows, key=lambda name: (windows[name], name))
-    return next(e.id for e in units if e.units[0] == longest)
-
-
 def stops(ctx: Context, entry: Any, run: Mapping[str, Any], prior: Sequence[Mapping[str, Any]]) -> list[str]:
     """THE stop-and-ask list for one entry (owner, 2026-09-15). ``prior`` is every
     earlier run on the entry's rig, in the frozen order."""
@@ -522,10 +528,8 @@ def stops(ctx: Context, entry: Any, run: Mapping[str, Any], prior: Sequence[Mapp
             out.append(f"{name} reported no attention_backend")
         elif backend != pin:
             out.append(f"{name} reported attention backend {backend}, not the pinned {pin}")
-    if entry.kind == "unit" and _long_context_entry(ctx, entry.rig) in (entry.id, entry.retry_of):
-        load = run["loads"].get(entry.units[0])
-        if load and load.get("idle_after_close") is False:
-            out.append(f"{entry.units[0]} did not read idle after the {LOAD_LIMIT_S}-s close on this rig's first long-context run")
+    # No stop on idle_after_close false (owner ruling, 2026-09-15: "Sample the card
+    # until idle"): the close does not cancel the work, and the flag is data.
     return out
 
 
@@ -563,11 +567,16 @@ def verdict(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -
     else:
         reasons = stops(ctx, entry, run, prior)
     retry = ctx.runs.retry_for(entry_id)
-    if retry is None or row is None:
-        return reasons, "" if reasons else f"ok {entry_id}"
-    if not reasons:
-        return [passed_with_a_retry(entry_id, retry.id)], ""
-    return [], f"{entry_id} failed, retried by {retry.id}: {'; '.join(reasons)}"
+    if retry is not None and row is not None:
+        if not reasons:
+            return [passed_with_a_retry(entry_id, retry.id)], ""
+        return [], f"{entry_id} failed, retried by {retry.id}: {'; '.join(reasons)}"
+    if reasons:
+        return reasons, ""
+    rerun = ctx.runs.rerun_for(entry_id)
+    if rerun is not None:
+        return [], f"ok {entry_id}; its one extra cold start for room, {rerun.id}, runs next"
+    return [], f"ok {entry_id}"
 
 
 def passed_with_a_retry(entry_id: str, retry_id: str) -> str:
@@ -656,6 +665,9 @@ def collect(ctx: Context) -> Collected:
                 continue
             if reasons:
                 raise AssemblyRefusedError(f"{entry.id} fails its check: {'; '.join(reasons)}")
+            rerun = ctx.runs.rerun_for(entry.id)
+            if rerun is not None:
+                run["rerun_by"] = rerun.id
             prior.append(run)
             out.runs[entry.id] = run
         card = _card(prior)
@@ -683,7 +695,12 @@ def collect(ctx: Context) -> Collected:
 def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> None:
     from mcgyvr.fleet.lock import _combination_id_for
 
-    entries = [e for e in ctx.runs.entries if e.rig == rig and e.kind != "move" and e.id not in out.failed]
+    # A failed entry with its retry, and a re-run, are not cycles of their own:
+    # the retry stands in for its entry, and a re-run gives only room.
+    entries = [
+        e for e in ctx.runs.entries
+        if e.rig == rig and e.kind != "move" and e.id not in out.failed and not e.rerun_of
+    ]
     for fleet_name in dict.fromkeys(e.fleet for e in entries):
         mine = [e for e in entries if e.fleet == fleet_name]
         names = list(next(e for e in mine if e.kind in ("unit", "serve-up")).units)
@@ -703,7 +720,7 @@ def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> Non
             )
         decode: dict[str, list[float]] = {n: [] for n in names}
         prefill: dict[str, list[float]] = {n: [] for n in names}
-        peaks: dict[str, list[int]] = {n: [] for n in names}
+        room_runs: dict[str, list[tuple[str, Mapping[str, Any]]]] = {n: [] for n in names}
         backends: dict[str, set[Any]] = {n: set() for n in names}
         runs_of: list[dict[str, Any]] = []
         envelopes: set[str] = set()
@@ -726,13 +743,32 @@ def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> Non
                 load_run = next(
                     out.runs[e.id] for e in cycle if e.kind in ("unit", "load") and name in out.runs[e.id]["loads"]
                 )
-                peaks[name].append(int(load_run["loads"][name]["peak_mib"]))
+                # Room takes the entry's extra cold start when it has one (owner
+                # ruling, 2026-09-15: "One extra cold start for room"); the
+                # entry's own peak stays in runs.json as data, a lower bound.
+                rerun = ctx.runs.rerun_for(load_run["entry"])
+                room_run = out.runs[rerun.id] if rerun is not None else load_run
+                room_runs[name].append((room_run["entry"], room_run["loads"].get(name) or {}))
                 for r in cycle_runs:
                     if name in r["backend"]:
                         backends[name].add(r["backend"][name])
             last = next(e for e in reversed(cycle) if e.kind in ("unit", "serve-down"))
             validated_at = out.runs[last.id]["ended_at"]
             envelopes |= {ctx.runs.logged(e.id)["envelope"] for e in cycle if e.kind in ("unit", "serve-up", "serve-down")}
+        # Room and the card peak are the max of peaks sampled until idle (owner
+        # ruling, 2026-09-15: "Sample the card until idle"). A peak not sampled
+        # until idle is a lower bound and never counts toward room.
+        peaks: dict[str, list[int]] = {}
+        for name in names:
+            until = [load for _, load in room_runs[name] if load.get("sampled_until_idle") is True]
+            short = [entry for entry, load in room_runs[name] if load.get("sampled_until_idle") is not True]
+            if len(until) < plan.K:
+                raise AssemblyRefusedError(
+                    f"{name} on {rig}: room takes {plan.K} valid runs sampled until idle, and "
+                    f"{len(until)} were; not sampled until idle, each peak a lower bound: "
+                    f"{', '.join(short)}"
+                )
+            peaks[name] = [int(load["peak_mib"]) for load in until]
         reserves = _reserves(runs_of)
         overhead = max(reserves)
         declared = int(ctx.hosts[rig]["rig"]["gpu_reserve_mib"])

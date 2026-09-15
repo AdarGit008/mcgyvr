@@ -725,14 +725,26 @@ def _file_load(
     container = filing.done.observed.containers[name]
     body = answer["load"]
     samples = [s for s in body.get("samples") or [] if isinstance(s, str)]
-    peaks: list[int] = []
-    for sample in samples:
+
+    def held_mib(sample: str) -> int | None:
         try:
             held = [h for h in parse(sample).holders if h.container == container]
         except ReadError:
-            continue
+            return None
         if held and all(h.mib is not None for h in held):
-            peaks.append(sum(h.mib or 0 for h in held))
+            return sum(h.mib or 0 for h in held)
+        return None
+
+    # Owner ruling, 2026-09-15: "Sample the card until idle". The verdict is the
+    # peak over every sample up to idle, and the peak before the close is filed
+    # beside it. A load filed before the ruling carries no close index: every
+    # sample it holds came before the close, and it was not sampled until idle.
+    mibs = [held_mib(sample) for sample in samples]
+    index = body.get("samples_before_close")
+    held_before = isinstance(index, int) and 0 <= index <= len(samples)
+    cut = index if held_before else len(samples)
+    peaks = [mib for mib in mibs if mib is not None]
+    early = [mib for mib in mibs[:cut] if mib is not None]
     peak = max(peaks) if peaks else None
     errors = [str(error) for error in body.get("errors") or []]
     completed = body.get("completed") if isinstance(body.get("completed"), int) else 0
@@ -746,6 +758,9 @@ def _file_load(
         "spec": f"{width}x{window}",
         "peak_mib": peak,
         "samples": len(samples),
+        "samples_before_close": cut,
+        "peak_before_close_mib": max(early) if early else None,
+        "sampled_until_idle": body.get("sampled_until_idle") is True,
         "container": container,
         "started_at": body.get("started_at"),
         "finished_at": body.get("finished_at"),
