@@ -55,7 +55,10 @@ Every figure is stamped with the live fleet, rig, rig id, combination id and
 unit id, and filed under ``<journal.dir>/fleet/`` with ``at``, the moment its
 unit's measurement finished. A judged figure is filed
 through :func:`mcgyvr.fleet.alerts.check`, against the unit's plain locked
-value and its class tolerance (:func:`mcgyvr.derived.class_tolerances`).
+value and that field's own class tolerance
+(:func:`mcgyvr.derived.class_tolerances`): warm decode and prefill each have
+their own measured percents (owner, 2026-09-15), and the row carries the one it
+was judged at.
 """
 
 from __future__ import annotations
@@ -184,9 +187,15 @@ def _approved(
     combination: str,
     unit_name: str,
     unit: Mapping[str, Any],
-    tolerances: Mapping[str, float],
+    tolerances: Mapping[str, Mapping[str, float]],
 ) -> dict[str, dict[str, Any]]:
-    """The judge's view of one unit: its locked values, class percent and room."""
+    """The judge's view of one unit: its locked values, their percents and room.
+
+    ``tolerances`` is :func:`mcgyvr.derived.class_tolerances`, judged field ->
+    class -> percent. The unit's one class (:func:`tolerance_class`) picks each
+    field's own percent, carried as ``tolerance_pct`` keyed by field: prefill is
+    judged at prefill's class percent and warm decode at decode's.
+    """
     path = folder / "records" / "fleet" / "rigs" / rig_id / f"{combination}.json"
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
@@ -198,7 +207,10 @@ def _approved(
         for name in ("warm_decode_tok_s", "prefill_tok_s")
         if name in entry
     }
-    values["tolerance_pct"] = tolerances[tolerance_class(unit)]
+    in_class = tolerance_class(unit)
+    values["tolerance_pct"] = {
+        name: by_class[in_class] for name, by_class in tolerances.items()
+    }
     if unit.get("room_mib") is not None:
         values["room_mib"] = unit["room_mib"]
     return {str(unit["unit_id"]): values}

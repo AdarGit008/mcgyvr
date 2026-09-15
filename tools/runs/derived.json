@@ -33,7 +33,7 @@
   "engine": {
     "_doc": "Engine-specific measured numbers, shared across rigs. Keyed by engine rather than by host because the figure belongs to the backend, not to the machine it runs on.",
     "warm_decode_class_pct": {
-      "_doc": "The percent a unit's warm decode (and a live probe's prefill) may fall, by the unit's tolerance class (`mcgyvr.fleet.tolerance.tolerance_class`: engine vllm is `vllm`; llama.cpp with experts on the CPU is `cpu_experts`; any other llama.cpp is `llamacpp`). Owner, 2026-09-15: the measured classes replace the survey's provisional per-engine `warm_decode_pct` (vllm 3.0, llama.cpp 5.0).",
+      "_doc": "The percent a unit's warm decode may fall, by the unit's tolerance class (`mcgyvr.fleet.tolerance.tolerance_class`: engine vllm is `vllm`; llama.cpp with experts on the CPU is `cpu_experts`; any other llama.cpp is `llamacpp`): what the fleet lock allows it to lose to NVMe against its no-NVMe baseline, and what a live probe judges its warm decode against. It does not cover prefill, which has its own measured classes in `prefill_class_pct` (owner, 2026-09-15). Owner, 2026-09-15: the measured classes replace the survey's provisional per-engine `warm_decode_pct` (vllm 3.0, llama.cpp 5.0).",
       "vllm": {
         "value": 1.0,
         "why": "The measured class tolerance, records/measurements/fleet-identity-2026-09-11/tolerances.json classes.vllm.tolerance_pct (worst shortfall 0.58% over 15 samples per arm on srv2's 3B and 7B, M1 rule in records/plans/fleet-identity-measurements-2026-09-11.md)."
@@ -46,7 +46,22 @@
         "value": 48.0,
         "why": "The measured class tolerance, records/measurements/fleet-identity-2026-09-11/tolerances.json classes.cpu_experts.tolerance_pct (worst shortfall 47.84% over 15 samples on srv1's Qwen3.6-35B-A3B with experts on the CPU, M1 rule in records/plans/fleet-identity-measurements-2026-09-11.md)."
       }
+    },
+    "prefill_class_pct": {
+      "_doc": "The percent a unit's prefill may fall below its locked as-run value when a live probe judges it, by the same tolerance class as `warm_decode_class_pct` (`mcgyvr.fleet.tolerance.tolerance_class`). Owner, 2026-09-15: prefill is judged by its own measured class tolerances, not by warm decode's. Measured with NVMe offload disabled by M1's rule in records/measurements/fleet-identity-prefill-2026-09-12/README.md; vLLM's value is records/plans/fleet-identity.md §12 'Prefill tolerance — ruled 8%' (B89).",
+      "vllm": {
+        "value": 8.0,
+        "why": "The ruled vLLM prefill tolerance (records/plans/fleet-identity.md §12, B89): the worst single-sample shortfall after dropping the single restart-tail outlier, rounded up. That is srv2's 3B, records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json per_unit shortfall_pct 7.86 over 15 samples. The rule's raw classes.vllm.tolerance_pct 22 rests on one 7B sample of 9,460 tok/s, the tail of a restart, which the ruling drops (README.md there)."
+      },
+      "llamacpp": {
+        "value": 1.0,
+        "why": "The measured class tolerance, records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json classes.llamacpp.tolerance_pct (worst shortfall 0.37% over 15 samples on srv1's Ling-3.0-tiny, floored to the rule's 1%)."
+      },
+      "cpu_experts": {
+        "value": 1.0,
+        "why": "The measured class tolerance, records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json classes.cpu_experts.tolerance_pct (worst shortfall 0.13% over 15 samples on srv1's Qwen3.6-35B-A3B with --n-cpu-moe 30, floored to the rule's 1%)."
+      }
     }
   },
-  "_procedure_doc": "Read by `src/mcgyvr/derived.py`. `runtime_resident_gb` is consumed by `src/mcgyvr/serving/__init__.py` (`_host_gb`) when an MoE spills experts to host RAM; `warm_decode_class_pct` is consumed by `src/mcgyvr/cli.py` (`_fleet_lock`, passed to `mcgyvr.fleet.lock.write`) and by `mcgyvr.fleet.probe`. `card_remainder_mib` is provenance for `src/mcgyvr/serving/vramfit.py` and is not consumed by any code path."
+  "_procedure_doc": "Read by `src/mcgyvr/derived.py` (`class_tolerances`, keyed by judged field). `runtime_resident_gb` is consumed by `src/mcgyvr/serving/__init__.py` (`_host_gb`) when an MoE spills experts to host RAM; `warm_decode_class_pct` is consumed by `src/mcgyvr/cli.py` (`_fleet_lock`, passed to `mcgyvr.fleet.lock.write`) and by `mcgyvr.fleet.probe`; `prefill_class_pct` is consumed by `mcgyvr.fleet.probe`. `card_remainder_mib` is provenance for `src/mcgyvr/serving/vramfit.py` and is not consumed by any code path."
 }
