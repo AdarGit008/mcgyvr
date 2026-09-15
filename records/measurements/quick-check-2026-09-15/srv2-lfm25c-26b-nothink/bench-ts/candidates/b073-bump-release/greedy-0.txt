@@ -1,0 +1,34 @@
+```ts
+export function bumpRelease(version: string, part: string): string {
+  const components = version.split('.').filter((v) => v !== '');
+
+  if (components.length !== 3) {
+    throw new Error('Invalid version format: must have exactly three dot-separated numeric components');
+  }
+
+  const [major, minor, patch] = components.map(Number);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error('Invalid version component: must be a number');
+  }
+
+  if (major < 0 || minor < 0 || patch < 0) {
+    throw new Error('Invalid version component: must be non-negative');
+  }
+
+  switch (part) {
+    case 'major':
+      return `${major + 1}.0.0`;
+    case 'minor':
+      return `${major}.${minor + 1}.0`;
+    case 'patch':
+      return `${major}.${minor}.${patch + 1}`;
+    default:
+      throw new Error(`Invalid part: must be 'major', 'minor', or 'patch'`);
+  }
+}
+
+function isNaN(value: number): boolean {
+  return !Number.isFinite(value);
+}
+```

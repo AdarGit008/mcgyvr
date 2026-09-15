@@ -1,0 +1,18 @@
+```ts
+export function hourRate(rate: number): number {
+  return rate;
+}
+
+/** Pay for a week, with overtime beyond forty hours. */
+export function weekPay(hours: number, rate: number): number {
+  if (hours <= 40) {
+    return Math.floor(hours * hourRate(rate));
+  } else {
+    const basePay = 40 * hourRate(rate);
+    const overtimeHours = hours - 40;
+    const overtimeRate = hourRate(rate) * 1.5;
+    const overtimePay = Math.floor(overtimeHours * overtimeRate);
+    return basePay + overtimePay;
+  }
+}
+```

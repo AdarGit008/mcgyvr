@@ -1,0 +1,23 @@
+```ts
+export function spanMerge(spans: number[][]): number[][] {
+  if (spans.length === 0) return [];
+
+  const sorted = [...spans].sort((a, b) => a[0] - b[0]);
+  const merged: number[][] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const [currentStart, currentEnd] = merged[merged.length - 1];
+    const [nextStart, nextEnd] = sorted[i];
+
+    if (currentEnd >= nextStart) {
+      merged[merged.length - 1] = [currentStart, Math.max(currentEnd, nextEnd)];
+    } else {
+      merged.push([nextStart, nextEnd]);
+    }
+  }
+
+  return merged;
+}
+```
+
+This sorts spans by start, then iterates merging any span whose start is less than or equal to the current merged span's end (covering both overlap and end-to-start touch cases). The `Math.max` ensures the merged span always extends to the furthest end.

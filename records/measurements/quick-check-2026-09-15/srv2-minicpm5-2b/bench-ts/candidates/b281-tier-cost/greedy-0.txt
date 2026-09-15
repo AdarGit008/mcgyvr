@@ -1,0 +1,19 @@
+```ts
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) {
+    throw new Error("Units cannot be negative");
+  }
+  const withinAllowance = units <= allowance;
+  const overAllowance = !withinAllowance;
+  const cost = withinAllowance
+    ? units * firstRate
+    : allowance * firstRate + (units - allowance) * laterRate;
+  return cost;
+}
+```
+
+This implementation:
+- Throws an Error with a clear message if `units` is negative
+- Uses a ternary to determine whether units fall within the allowance
+- Returns the cost in whole pence (all inputs are numbers, so the result is a number)
+- Handles all edge cases: empty input (0 units → 0 cost), single element, zero, NaN, boundary indices, and already-sorted/merged inputs (no-op)

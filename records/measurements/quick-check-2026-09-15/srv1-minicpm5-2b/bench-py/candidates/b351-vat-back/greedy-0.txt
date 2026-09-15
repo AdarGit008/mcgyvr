@@ -1,0 +1,23 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """Return the pre-tax price of a gross amount, rounded down.
+
+    Args:
+        gross: The price after a whole-percent tax has been added.
+        rate: The tax rate in percent (e.g., 10 for 10%).
+
+    Returns:
+        The original price before tax was added, rounded down.
+
+    Raises:
+        ValueError: If rate is negative.
+    """
+    if rate < 0:
+        raise ValueError("rate must be non-negative")
+    return gross * 100 // (100 + rate)
+```
+
+This handles all edge cases:
+- `rate == 0`: returns `gross * 100 // 100 == gross` (no-op, correct)
+- `rate > 0`: computes `gross / (1 + rate/100)` using integer arithmetic, then floors
+- Negative rate: raises `ValueError` (not stated in contract to accept)

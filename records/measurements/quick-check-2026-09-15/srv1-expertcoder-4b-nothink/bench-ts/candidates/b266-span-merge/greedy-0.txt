@@ -1,0 +1,5 @@
+-1
+Implemented (spanMerge):
+- Combines overlapping and touching spans.
+- Sorts by start time.
+- Returns an array of spans.

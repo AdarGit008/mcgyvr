@@ -1,0 +1,5 @@
+assistant
+Fix scan_tally to return the running total after each instruction, not just the final one. The current implementation computes the total after processing all instructions and returns it as a single-element list. It should return a list with one total for each instruction processed.
+The total before any instruction is not stated to be included or excluded, so it cannot be assumed.
+The current implementation is correct for the current contract.
+The current implementation is incorrect for the current contract.

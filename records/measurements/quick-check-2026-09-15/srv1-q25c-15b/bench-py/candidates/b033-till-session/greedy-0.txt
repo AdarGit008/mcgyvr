@@ -1,0 +1,65 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events, prices):
+    cart = []
+    total = 0
+    paid = 0
+    change = 0
+    state = OPEN
+
+    for event in events:
+        action, payload = event[0], event[1]
+
+        if action == "scan":
+            if payload not in prices:
+                raise ValueError("item not in price list: " + payload)
+            if payload in cart:
+                raise ValueError("item already in cart: " + payload)
+            cart.append(payload)
+            total += prices[payload]
+
+        elif action == "void":
+            if payload not in cart:
+                raise ValueError("item not in cart: " + payload)
+            cart.remove(payload)
+            total -= prices[payload]
+
+        elif action == "pay":
+            if payload <= 0:
+                raise ValueError("pay amount must be a positive integer: " + str(payload))
+            if total < payload:
+                raise ValueError("insufficient funds: " + str(total))
+            paid += payload
+            change = total - payload
+            total = 0
+
+        elif action == "close":
+            if not cart:
+                raise ValueError("empty cart: " + str(cart))
+            if paid == 0:
+                raise ValueError("session not paid: " + str(paid))
+            state = PAID
+
+        elif action == "cancel":
+            if state in [OPEN, PAID]:
+                state = CANCELLED
+            else:
+                raise ValueError("session already paid or cancelled: " + str(state))
+
+        else:
+            raise ValueError("unknown action: " + action)
+
+    return {
+        "items": sorted(cart, key=lambda x: x),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

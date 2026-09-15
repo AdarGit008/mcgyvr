@@ -1,0 +1,12 @@
+```ts
+export function hourRate(rate: number): number {
+  return rate;
+}
+
+/** Pay for a week, with overtime beyond forty hours. */
+export function weekPay(hours: number, rate: number): number {
+  return Math.floor(hours * hourRate(rate) * 1.5);
+}
+```
+
+The bug was that the original code only paid the higher (1.5x) rate on overtime hours beyond 40, while paying the lower rate on regular hours. The spec says "it pays the higher rate on all the hours worked," so all hours are paid at 1.5x the rate. The fix replaces the conditional logic with a single expression that multiplies all hours by 1.5 (the higher rate) and floors the result.

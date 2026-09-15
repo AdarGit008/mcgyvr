@@ -1,0 +1,68 @@
+```ts
+/** How many days lie between two proleptic Gregorian calendar dates. */
+
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** Check if a year is a leap year in the proleptic Gregorian calendar. */
+function isLeap(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+/** Get the number of days in a given month for a given year. */
+function monthLength(year: number, month: number): number {
+  if (month === 2 && isLeap(year)) {
+    return 29;
+  }
+  return MONTH_LENGTHS[month - 1];
+}
+
+/** Validate a date triple and throw if invalid. */
+function validateDate(date: number[]): void {
+  if (date.length !== 3) {
+    throw new Error("Date must be a triple [year, month, day]");
+  }
+  const [year, month, day] = date;
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    throw new Error("All date components must be integers");
+  }
+  if (month < 1 || month > 12) {
+    throw new Error("Month must be between 1 and 12");
+  }
+  const maxDays = monthLength(year, month);
+  if (day < 1 || day > maxDays) {
+    throw new Error(`Day must be between 1 and ${maxDays} for month ${month} in year ${year}`);
+  }
+}
+
+/** Convert a date triple to an ordinal day number. */
+function toOrdinal(date: number[]): number {
+  validateDate(date);
+  const [year, month, day] = date;
+  let days = 0;
+
+  for (let y = 1; y < year; y++) {
+    days += 365 + (isLeap(y) ? 1 : 0);
+  }
+
+  for (let m = 1; m < month; m++) {
+    days += monthLength(year, m);
+  }
+
+  return days + day;
+}
+
+/** How many days lie between two proleptic Gregorian calendar dates. */
+export function spanDays(start: number[], end: number[]): number {
+  validateDate(start);
+  validateDate(end);
+
+  const startOrdinal = toOrdinal(start);
+  const endOrdinal = toOrdinal(end);
+
+  if (startOrdinal > endOrdinal) {
+    throw new Error("Start date must be before or equal to end date");
+  }
+
+  return endOrdinal - startOrdinal;
+}
+```

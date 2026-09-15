@@ -1,0 +1,5 @@
+assistant
+[STOP — required input check: vat_back]
+- gross: positive whole-number gross price (the tax-inclusive price).
+- rate: non-negative whole-number tax rate (as a percentage).
+- If the rate is zero, the gross and net prices are identical.

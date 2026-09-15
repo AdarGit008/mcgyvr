@@ -1,0 +1,86 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (Object.keys(prices).length === 0) {
+    throw new Error("price list must have at least one entry");
+  }
+
+  let cart: [string, number][] = [];
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+  let state = OPEN;
+
+  for (const event of events) {
+    const action = event[0];
+    const payload = event[1];
+
+    if (!["scan", "void", "close", "pay", "cancel"].includes(action)) {
+      throw new Error("unknown action: " + action);
+    }
+
+    if (state === CANCELLED || state === PAID) {
+      throw new Error("cannot perform this action after the session is paid or cancelled");
+    }
+
+    if (action === "scan") {
+      if (!prices.hasOwnProperty(payload)) {
+        throw new Error("item not in price list: " + payload);
+      }
+      const price = prices[payload];
+      if (cart.length === 0 || cart[cart.length - 1][1] === 0) {
+        cart.push([payload, 1]);
+      } else {
+        cart[cart.length - 1][1]++;
+      }
+      total += price;
+    } else if (action === "void") {
+      if (!cart.includes([payload, 0])) {
+        throw new Error("item not in cart: " + payload);
+      }
+      const price = prices[payload];
+      cart[cart.indexOf([payload, 0])][1]--;
+      total -= price;
+    } else if (action === "close") {
+      if (cart.length === 0) {
+        throw new Error("cannot close an empty session");
+      }
+      paid = total;
+      change = 0;
+      state = PAID;
+    } else if (action === "pay") {
+      if (paid >= total) {
+        throw new Error("cannot pay more than the total");
+      }
+      if (!Number.isInteger(payload) || payload <= 0) {
+        throw new Error("pay amount must be a positive integer: " + payload);
+      }
+      change = paid - total;
+      paid += payload;
+    } else if (action === "cancel") {
+      if (state === CANCELLED) {
+        throw new Error("cannot cancel a cancelled session");
+      }
+      paid = 0;
+      change = 0;
+      state = CANCELLED;
+    }
+  }
+
+  return {
+    state,
+    items: cart.sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change,
+  };
+}
+```

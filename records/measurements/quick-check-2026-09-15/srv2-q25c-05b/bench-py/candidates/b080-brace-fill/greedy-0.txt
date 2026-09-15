@@ -1,0 +1,9 @@
+```
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    # TODO: walk the template once, passing literal characters through
+    # and replacing each placeholder from values; reject an unterminated
+    # placeholder, an empty or malformed name, and an unknown name.
+    return template.replace("{", "").replace("}", "")
+```

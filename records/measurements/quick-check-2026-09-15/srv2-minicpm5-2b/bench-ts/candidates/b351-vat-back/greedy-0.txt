@@ -1,0 +1,25 @@
+```ts
+export function vatBack(gross: number, rate: number): number {
+  if (gross < 0) {
+    throw new Error("Gross price cannot be negative");
+  }
+  if (rate < 0) {
+    throw new Error("Rate cannot be negative");
+  }
+  if (Number.isNaN(gross) || Number.isNaN(rate)) {
+    throw new Error("Gross price and rate must be valid numbers");
+  }
+  if (rate === 0) {
+    return gross;
+  }
+  return Math.floor(gross / (1 + rate));
+}
+```
+
+This implementation:
+- Returns `gross` unchanged when `rate === 0` (per the contract)
+- Uses `Math.floor` for rounding down
+- Guards against negative gross prices
+- Guards against negative rates (a whole-percent tax rate cannot be negative)
+- Guards against NaN values
+- Uses `const` by default, `let` for reassignment, no `var`

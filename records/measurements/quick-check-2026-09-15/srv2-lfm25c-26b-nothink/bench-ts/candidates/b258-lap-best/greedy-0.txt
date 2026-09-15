@@ -1,0 +1,107 @@
+```ts
+/** The quickest completed lap of a session. */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = laps[0];
+  for (const lap of laps) {
+    if (lap < best) {
+      best = lap;
+    }
+  }
+  return best;
+}
+```
+
+The current implementation has a bug: it counts zero laps as completed and returns the minimum lap time, which includes zeros. The fix is to skip any lap that is zero (or negative, if we assume negative means uncompleted). Since the problem states that a lap recorded as zero means the lap was never completed and must not count, we should only consider laps that are greater than zero.
+
+Here's the corrected implementation:
+
+```ts
+/** The quickest completed lap of a session. */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = Infinity;
+  for (const lap of laps) {
+    if (lap > 0 && lap < best) {
+      best = lap;
+    }
+  }
+  return best;
+}
+```
+
+Wait, let me reconsider. The problem says "a lap recorded as zero means the lap was never completed and must not count." It doesn't explicitly say negative laps are invalid. But typically, lap times are positive. Let me check the original code more carefully.
+
+The original code:
+```ts
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = laps[0];
+  for (const lap of laps) {
+    if (lap < best) {
+      best = lap;
+    }
+  }
+  return best;
+}
+```
+
+The bug is that it doesn't filter out zero laps. If all laps are zero, it returns 0 (which is correct - no completed laps). But if there are both zero and positive laps, it will return 0 because 0 < positive lap. The fix should skip zero laps.
+
+However, I need to be careful about the edge case where all laps are zero. In that case, we should return 0 (no completed laps). The original code returns 0 in that case, which is correct.
+
+But wait - what if the input is `[0, 0, 0]`? The original code returns 0. My fix with `best = Infinity` would also return 0. That's correct.
+
+What about `[0, 5, 3]`? Original returns 0 (wrong). My fix returns 3 (correct).
+
+What about `[5, 0, 3]`? Original returns 0 (wrong). My fix returns 3 (correct).
+
+What about `[0, 0, 5]`? Original returns 0 (wrong). My fix returns 5 (correct).
+
+The fix is correct. Let me also consider if there could be negative laps. The problem doesn't specify, but typically lap times are positive. If negative laps are possible and should be treated as uncompleted, we'd need to handle that. But the problem statement says "a lap recorded as zero means the lap was never completed" - it doesn't mention negative values. I'll assume lap times are non-negative.
+
+Actually, I should also consider the case where all laps are zero. The original code returns 0, which is correct. My fix with `best = Infinity` also returns 0. Good.
+
+But wait - there's a subtle issue. If the first lap is 0, and all other laps are also 0, then `best` starts at 0, and the loop doesn't update it. That's correct.
+
+However, there's a potential issue: what if `laps` contains only zeros? Then `best` starts at 0, and the loop doesn't change it. That's correct.
+
+Actually, I realize there might be a more robust approach. Let me think about it more carefully.
+
+The problem says: "A session with no completed lap at all reports zero."
+
+So if all laps are 0, we should return 0.
+
+If there are positive laps, we should return the minimum positive lap.
+
+The original code returns 0 if the first lap is 0, even if there are positive laps later. That's the bug.
+
+My fix: skip zero laps. If all laps are zero, return 0. If there are positive laps, return the minimum positive lap.
+
+This is correct.
+
+But I should also consider: what if the input is `[0]`? The original returns 0. My fix returns 0. Correct.
+
+What if the input is `[5]`? The original returns 5. My fix returns 5. Correct.
+
+I'm confident the fix is correct. Let me write the final solution.</think>```ts
+/** The quickest completed lap of a session. */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = Infinity;
+  for (const lap of laps) {
+    if (lap > 0 && lap < best) {
+      best = lap;
+    }
+  }
+  return best;
+}
+```

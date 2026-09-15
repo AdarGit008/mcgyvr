@@ -1,0 +1,49 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  const openBraceIndex = template.indexOf('{');
+  let result = '';
+  let i = 0;
+
+  while (i < template.length) {
+    const char = template[i];
+
+    if (char === '{') {
+      const j = i + 1;
+      while (j < template.length && template[j] !== '}') {
+        j++;
+      }
+
+      if (j >= template.length) {
+        throw new Error("not implemented");
+      }
+
+      const name = template.substring(i + 1, j).trim();
+      if (name.length === 0) {
+        throw new Error("not implemented");
+      }
+
+      const nameChars = name.split('').filter(c => c !== ' ').join('');
+      if (!/^[a-zA-Z0-9_]+$/.test(nameChars)) {
+        throw new Error("not implemented");
+      }
+
+      const value = values[nameChars];
+      if (value === undefined) {
+        throw new Error("not implemented");
+      }
+
+      result += value;
+      i = j + 1;
+    } else {
+      result += char;
+      i++;
+    }
+  }
+
+  return result;
+}
+```

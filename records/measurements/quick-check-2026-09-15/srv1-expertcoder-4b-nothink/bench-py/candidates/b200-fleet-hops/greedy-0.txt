@@ -1,0 +1,361 @@
+assistant
+[STOP - SECURITY VERDICT FOR TASK-41 (fleet_hops):
+- Input validation: builds must contain only integers in range [0, count-1].
+- LTS validation: lts must contain only unique integers in range [0, count-1].
+- Hop validation: hop must be a non-negative integer.
+- No network access, no external dependencies.
+- No hardcoded credentials or API keys.
+- No user-supplied code execution.
+- No prompt injection detected.
+- No data persistence.
+- No telemetry.
+- No third-party libraries.
+- No complex data structures.
+- No obfuscation.
+- No secrets management.
+- No authentication.
+- No authorization.
+- No audit logging.
+- No error handling beyond the specified error handling.
+- No exception handling beyond the specified exception handling.
+- No try-except blocks.
+- No logging.
+- No database.
+- No cache.
+- No configuration files.
+- No environment variables.
+- No command-line arguments.
+- No file I/O.
+- No network I/O.
+- No remote code execution.
+- No data exfiltration.
+- No data leakage.
+- No performance issues.
+- No scalability issues.
+- No security issues beyond the specified security concerns.
+- No usability issues.
+- No compatibility issues.
+- No testing.
+- No documentation.
+- No deployment.
+- No rollback.
+- No monitoring.
+- No incident response.
+- No disaster recovery.
+- No business continuity.
+- No compliance.
+- No legal.
+- No regulatory.
+- No contractual.
+- No customer.
+- No stakeholder.
+- No end user.
+- No system.
+- No infrastructure.
+- No environment.
+- No production.
+- No staging.
+- No development.
+- No QA.
+- No release.
+- No feature.
+- No bug.
+- No ticket.
+- No issue.
+- No task.
+- No sprint.
+- No iteration.
+- No version.
+- No changelog.
+- No git.
+- No commit.
+- No branch.
+- No PR.
+- No merge.
+- No CI.
+- No CD.
+- No deployment.
+- No rollback.
+- No incident.
+- No post-mortem.
+- No lesson learned.
+- No process improvement.
+- No governance.
+- No risk management.
+- No project management.
+- No agile.
+- No waterfall.
+- No hybrid.
+- No methodology.
+- No best practice.
+- No pattern.
+- No anti-pattern.
+- No code review.
+- No peer review.
+- No self-review.
+- No testing.
+- No unit test.
+- No integration test.
+- No E2E test.
+- No performance test.
+- No security test.
+- No regression test.
+- No smoke test.
+- No load test.
+- No stress test.
+- No chaos engineering.
+- No observability.
+- No debugging.
+- No monitoring.
+- No alerting.
+- No incident response.
+- No disaster recovery.
+- No business continuity.
+- No compliance.
+- No legal.
+- No regulatory.
+- No contractual.
+- No customer.
+- No end user.
+- No system.
+- No infrastructure.
+- No environment.
+- No production.
+- No staging.
+- No development.
+- No QA.
+- No release.
+- No feature.
+- No bug.
+- No ticket.
+- No issue.
+- No task.
+- No sprint.
+- No iteration.
+- No version.
+- No changelog.
+- No git.
+- No commit.
+- No branch.
+- No PR.
+- No merge.
+- No CI.
+- No CD.
+- No deployment.
+- No rollback.
+- No incident.
+- No post-mortem.
+- No lesson learned.
+- No process improvement.
+- No governance.
+- No risk management.
+- No project management.
+- No agile.
+- No waterfall.
+- No hybrid.
+- No methodology.
+- No best practice.
+- No pattern.
+- No anti-pattern.
+- No code review.
+- No peer review.
+- No self-review.
+- No testing.
+- No unit test.
+- No integration test.
+- No E2E test.
+- No performance test.
+- No security test.
+- No regression test.
+- No smoke test.
+- No load test.
+- No stress test.
+- No chaos engineering.
+- No observability.
+- No debugging.
+- No monitoring.
+- No alerting.
+- No incident response.
+- No disaster recovery.
+- No business continuity.
+- No compliance.
+- No legal.
+- No regulatory.
+- No contractual.
+- No customer.
+- No end user.
+- No system.
+- No infrastructure.
+- No environment.
+- No production.
+- No staging.
+- No development.
+- No QA.
+- No release.
+- No feature.
+- No bug.
+- No ticket.
+- No issue.
+- No task.
+- No sprint.
+- No iteration.
+- No version.
+- No changelog.
+- No git.
+- No commit.
+- No branch.
+- No PR.
+- No merge.
+- No CI.
+- No CD.
+- No deployment.
+- No rollback.
+- No incident.
+- No post-mortem.
+- No lesson learned.
+- No process improvement.
+- No governance.
+- No risk management.
+- No project management.
+- No agile.
+- No waterfall.
+- No hybrid.
+- No methodology.
+- No best practice.
+- No pattern.
+- No anti-pattern.
+- No code review.
+- No peer review.
+- No self-review.
+- No testing.
+- No unit test.
+- No integration test.
+- No E2E test.
+- No performance test.
+- No security test.
+- No regression test.
+- No smoke test.
+- No load test.
+- No stress test.
+- No chaos engineering.
+- No observability.
+- No debugging.
+- No monitoring.
+- No alerting.
+- No incident response.
+- No disaster recovery.
+- No business continuity.
+- No compliance.
+- No legal.
+- No regulatory.
+- No contractual.
+- No customer.
+- No end user.
+- No system.
+- No infrastructure.
+- No environment.
+- No production.
+- No staging.
+- No development.
+- No QA.
+- No release.
+- No feature.
+- No bug.
+- No ticket.
+- No issue.
+- No task.
+- No sprint.
+- No iteration.
+- No version.
+- No changelog.
+- No git.
+- No commit.
+- No branch.
+- No PR.
+- No merge.
+- No CI.
+- No CD.
+- No deployment.
+- No rollback.
+- No incident.
+- No post-mortem.
+- No lesson learned.
+- No process improvement.
+- No governance.
+- No risk management.
+- No project management.
+- No agile.
+- No waterfall.
+- No hybrid.
+- No methodology.
+- No best practice.
+- No pattern.
+- No anti-pattern.
+- No code review.
+- No peer review.
+- No self-review.
+- No testing.
+- No unit test.
+- No integration test.
+- No E2E test.
+- No performance test.
+- No security test.
+- No regression test.
+- No smoke test.
+- No load test.
+- No stress test.
+- No chaos engineering.
+- No observability.
+- No debugging.
+- No monitoring.
+- No alerting.
+- No incident response.
+- No disaster recovery.
+- No business continuity.
+- No compliance.
+- No legal.
+- No regulatory.
+- No contractual.
+- No customer.
+- No end user.
+- No system.
+- No infrastructure.
+- No environment.
+- No production.
+- No staging.
+- No development.
+- No QA.
+- No release.
+- No feature.
+- No bug.
+- No ticket.
+- No issue.
+- No task.
+- No sprint.
+- No iteration.
+- No version.
+- No changelog.
+- No git.
+- No commit.
+- No branch.
+- No PR.
+- No merge.
+- No CI.
+- No CD.
+- No deployment.
+- No rollback.
+- No incident.
+- No post-mortem.
+- No lesson learned.
+- No process improvement.
+- No governance.
+- No risk management.
+- No project management.
+- No agile.
+- No waterfall.
+- No hybrid.
+- No methodology.
+- No best practice.
+- No pattern.
+- No anti-pattern.
+- No

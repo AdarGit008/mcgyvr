@@ -1,0 +1,253 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  // Validate price list: all prices must be positive integers
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  // Initialize state
+  const cart: [string, number][] = [];
+  const total = 0;
+  const paid = 0;
+  let state = OPEN;
+
+  // Helper to validate and get price
+  const getPrice = (name: string): number | undefined => {
+    const price = prices[name];
+    if (price === undefined) {
+      throw new Error(`price not found for item: ${name}`);
+    }
+    return price;
+  };
+
+  // Helper to add item to cart
+  const addItem = (name: string, quantity: number): void => {
+    const price = getPrice(name);
+    if (price === undefined) {
+      throw new Error(`price not found for item: ${name}`);
+    }
+    if (quantity < 0) {
+      throw new Error(`quantity must be non-negative: ${quantity}`);
+    }
+    const existing = cart.find(([itemName, _]) => itemName === name);
+    if (existing) {
+      existing[1] += quantity;
+    } else {
+      cart.push([name, quantity]);
+    }
+  };
+
+  // Helper to remove item from cart
+  const removeItem = (name: string): void => {
+    const price = getPrice(name);
+    if (price === undefined) {
+      throw new Error(`price not found for item: ${name}`);
+    }
+    const index = cart.findIndex(([itemName, _]) => itemName === name);
+    if (index === -1) {
+      throw new Error(`item not in cart: ${name}`);
+    }
+    cart.splice(index, 1);
+  };
+
+  // Helper to get cart items sorted by name
+  const getSortedCart = (): [string, number][] => {
+    return cart.map(([name, quantity]) => [name, quantity]).sort((a, b) => a[0].localeCompare(b[0]));
+  };
+
+  // Helper to compute total from cart
+  const computeTotal = (): number => {
+    return cart.reduce((sum, [name, quantity]) => sum + (prices[name] * quantity), 0);
+  };
+
+  // Process events
+  for (const event of events) {
+    if (Array.isArray(event)) {
+      const action = event[0];
+      const payload = event[1];
+
+      // Validate event structure
+      if (action === undefined || payload === undefined) {
+        throw new Error("event must be a list with action and payload");
+      }
+
+      // Validate action
+      if (action !== OPEN && action !== PAYMENT && action !== PAID && action !== CANCELLED) {
+        throw new Error(`unknown action: ${action}`);
+      }
+
+      // Validate action against current state
+      switch (action) {
+        case OPEN:
+          // Nothing to do in open state
+          break;
+
+        case PAYMENT:
+          // Only allowed during payment state
+          if (state !== PAYMENT) {
+            throw new Error(`action "pay" is not allowed in state: ${state}`);
+          }
+          if (cart.length === 0) {
+            throw new Error("cannot pay with an empty cart");
+          }
+          break;
+
+        case PAID:
+          // Only allowed during payment state
+          if (state !== PAYMENT) {
+            throw new Error(`action "pay" is not allowed in state: ${state}`);
+          }
+          break;
+
+        case CANCELLED:
+          // Only allowed during open or payment state
+          if (state !== OPEN && state !== PAYMENT) {
+            throw new Error(`action "cancel" is not allowed in state: ${state}`);
+          }
+          break;
+
+        default:
+          // Should not happen due to earlier check
+          throw new Error(`unknown action: ${action}`);
+      }
+
+      // Execute action
+      switch (action) {
+        case "scan":
+          // Only allowed in open state
+          if (state !== OPEN) {
+            throw new Error(`action "scan" is not allowed in state: ${state}`);
+          }
+          const item = payload as string;
+          if (item === undefined) {
+            throw new Error("scan event must include an item");
+          }
+          if (item === "" || typeof item !== "string") {
+            throw new Error("scan event must include a valid item name");
+          }
+          if (cart.find(([name, _]) => name === item)) {
+            // Already in cart, add another unit
+            addItem(item, 1);
+          } else {
+            // Not in cart, add one unit
+            addItem(item, 1);
+          }
+          break;
+
+        case "void":
+          // Only allowed in open state
+          if (state !== OPEN) {
+            throw new Error(`action "void" is not allowed in state: ${state}`);
+          }
+          const item = payload as string;
+          if (item === undefined) {
+            throw new Error("void event must include an item");
+          }
+          if (item === "" || typeof item !== "string") {
+            throw new Error("void event must include a valid item name");
+          }
+          if (cart.find(([name, _]) => name === item)) {
+            // Remove one unit
+            removeItem(item);
+          } else {
+            throw new Error(`item not in cart: ${item}`);
+          }
+          break;
+
+        case "close":
+          // Only allowed in open or payment state
+          if (state !== OPEN && state !== PAYMENT) {
+            throw new Error(`action "close" is not allowed in state: ${state}`);
+          }
+          if (cart.length === 0) {
+            throw new Error("cannot close with an empty cart");
+          }
+          // Move cart to payment state
+          state = PAYMENT;
+          // Fix total at close
+          const cartTotal = computeTotal();
+          total = cartTotal;
+          // Clear cart
+          cart = [];
+          break;
+
+        case "pay":
+          // Only allowed during payment state
+          if (state !== PAYMENT) {
+            throw new Error(`action "pay" is not allowed in state: ${state}`);
+          }
+          const cents = payload as number;
+          if (cents === undefined) {
+            throw new Error("pay event must include a payment amount");
+          }
+          if (typeof cents !== "number" || cents < 0) {
+            throw new Error("pay amount must be a non-negative number");
+          }
+          // Accumulate payment
+          paid += cents;
+          // Check if session is paid
+          if (total === 0) {
+            // No cart items, cannot pay
+            throw new Error("cannot pay with an empty cart");
+          }
+          // If total is already reached, session is paid
+          if (total >= total) {
+            // Session is paid
+            state = PAID;
+            change = total - total; // change is 0
+            break;
+          }
+          // Otherwise, continue in payment state
+          break;
+
+        case "cancel":
+          // Only allowed in open or payment state
+          if (state !== OPEN && state !== PAYMENT) {
+            throw new Error(`action "cancel" is not allowed in state: ${state}`);
+          }
+          // End the session as cancelled
+          state = CANCELLED;
+          break;
+
+        default:
+          throw new Error(`unknown action: ${action}`);
+      }
+    } else {
+      // Event is not a list
+      throw new Error("event must be a list with action and payload");
+    }
+  }
+
+  // After processing all events, ensure total is fixed at close
+  // (already done in close event)
+  // Ensure total is 0 if session was never closed
+  if (state === OPEN || state === CANCELLED) {
+    total = 0;
+  }
+
+  return {
+    state,
+    items: getSortedCart(),
+    total,
+    paid,
+    change,
+  };
+}
+```

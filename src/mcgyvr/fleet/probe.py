@@ -18,8 +18,21 @@ lock's quantity, and the probe asks the lock's own question instead:
 Both take the median, as the lock's numbers were taken
 (``mcgyvr-lab/fleet-setup/REPORT-srv1.md``, ``mcgyvr-lab/fleet-setup/REPORT-srv2.md``).
 Unlike the harnesses, the probe does not run on the rig: it asks the unit at its
-address, so a vLLM wall time carries a network round trip the on-rig measurement did
-not.
+address.
+
+**A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM stopwatch
+on the rig; record till then". ``measure_vllm.py`` timed its requests on the
+rig at 127.0.0.1. The probe times the same requests by wall clock from off the
+rig, so each one carries a network round trip. The first live probe
+(run-20260915T050342-42b9afd8) took about 0.12-0.15 s longer a request than
+that harness's on-rig evidence (``srv2/b-small-3b.json``,
+``srv2/b-small-7b.json``). That alone put srv2's decode 7.0% (3B) and 3.5% (7B)
+under the lock, and pulled its combination. So a vLLM unit's decode and
+prefill are filed with the probe's stamp and ``off_the_rig: true`` through
+:func:`mcgyvr.fleet.alerts.record`, as a contended unit's are, and
+:attr:`Report.off_the_rig` names them. They raise no alert and pull nothing. A
+llama.cpp figure is the server's own ``timings``, which carry no network time,
+and is judged.
 
 **Only an idle unit is probed.** The unit's own in-flight count
 (:func:`mcgyvr.runner.unit_in_flight`) is read before and after. A unit busy
@@ -33,10 +46,11 @@ is reached only behind the door (``python -m mcgyvr.serving.run``,
 unit's ``room_mib``, restarts exactly 0 (:mod:`mcgyvr.fleet.alerts`) — and the
 report names both as not read until a door step reads them.
 
-Every judged figure is stamped with the live fleet, rig, rig id, combination id
-and unit id, and filed through :func:`mcgyvr.fleet.alerts.check` under
-``<journal.dir>/fleet/``, against the unit's plain locked value and its class
-tolerance (:func:`mcgyvr.derived.class_tolerances`).
+Every figure is stamped with the live fleet, rig, rig id, combination id and
+unit id, and filed under ``<journal.dir>/fleet/`` with ``at``, the moment its
+unit's measurement finished. A judged figure is filed
+through :func:`mcgyvr.fleet.alerts.check`, against the unit's plain locked
+value and its class tolerance (:func:`mcgyvr.derived.class_tolerances`).
 """
 
 from __future__ import annotations
@@ -48,7 +62,7 @@ import time
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -101,6 +115,11 @@ NOT_READ_ON_THE_RIG: tuple[str, ...] = ("card_mib", "restarts")
 NOT_READ_REASON = (
     "read on the rig, and a rig is reached only behind the door "
     "(python -m mcgyvr.serving.run; tests/test_one_door.py)"
+)
+#: Why a vLLM unit's figures are recorded and not judged (owner, 2026-09-15).
+OFF_THE_RIG_REASON = (
+    "timed by wall clock from off the rig, over the network at {address}, "
+    "while the lock timed on the rig at 127.0.0.1 ({harness})"
 )
 
 InFlight = Callable[[str, Mapping[str, Any]], int | None]
@@ -158,6 +177,8 @@ class Report:
     failed: dict[str, str] = field(default_factory=dict)
     #: unit name -> (the figures not read, why).
     not_read: dict[str, tuple[tuple[str, ...], str]] = field(default_factory=dict)
+    #: unit name -> (the figures filed, why): timed from off the rig, not judged.
+    off_the_rig: dict[str, tuple[tuple[str, ...], str]] = field(default_factory=dict)
     #: the alerts the judge raised.
     alerts: list[dict[str, Any]] = field(default_factory=list)
 
@@ -404,10 +425,10 @@ def run(
         awake = [(rig, unit) for rig, unit in awake if unit in units]
 
     moment = now if now is not None else datetime.now(UTC)
+    started = clock()
     token = secrets.token_hex(4)
     run_id = f"run-{moment:%Y%m%dT%H%M%S}-{token}"
     lease_id = f"probe-{token}"
-    at = f"{moment:%Y-%m-%dT%H:%M:%S}"
     journal = journal_dir(folder)
     profile = str(fleet.get("profile", "live"))
     report = Report()
@@ -426,17 +447,25 @@ def run(
             continue
         rig_id = rig_ids[rig]
         combination = combinations[rig_id]
+        address = str(unit["address"])
+        # measure_vllm's wall clock runs here, off the rig; llama.cpp's
+        # timings are the server's own.
+        timed_off_the_rig = tolerance_class(unit) == CLASS_VLLM
         try:
             approved = _approved(
                 folder, rig_id, combination, unit_name, unit, tolerances
             )
-            if tolerance_class(unit) == CLASS_VLLM:
-                figures = measure_vllm(str(unit["address"]), transport, clock)
+            if timed_off_the_rig:
+                figures = measure_vllm(address, transport, clock)
             else:
-                figures = measure_llamacpp(str(unit["address"]), transport)
+                figures = measure_llamacpp(address, transport)
         except (_UnitError, OSError, ValueError) as exc:
             report.failed[unit_name] = str(exc)
             continue
+        # Each unit's rows carry the moment its own measurement finished, not
+        # the run's start: a pull clears against the newest alert's time.
+        finished = moment + timedelta(seconds=clock() - started)
+        at = f"{finished:%Y-%m-%dT%H:%M:%S}"
         report.probed[unit_name] = figures
         after = in_flight(unit_name, unit)
         stamp = {
@@ -446,8 +475,17 @@ def run(
             "combination_id": combination,
             "unit_id": str(unit["unit_id"]),
         }
+        not_judged: dict[str, Any] = {}
         if after is None or after > 0:
             report.contended.append(unit_name)
+            not_judged |= {"contended": True, "in_flight_after": after}
+        if timed_off_the_rig:
+            report.off_the_rig[unit_name] = (
+                tuple(figures),
+                OFF_THE_RIG_REASON.format(address=address, harness=VLLM_HARNESS),
+            )
+            not_judged["off_the_rig"] = True
+        if not_judged:
             for field_name, value in figures.items():
                 alerts.record(
                     journal,
@@ -458,13 +496,18 @@ def run(
                         "run_id": run_id,
                         "lease_id": lease_id,
                         "at": at,
-                        "contended": True,
-                        "in_flight_after": after,
+                        **not_judged,
                     },
                 )
             continue
         observations = [
-            {"unit_id": stamp["unit_id"], "field": field_name, "observed": value}
+            {
+                "unit_id": stamp["unit_id"],
+                "unit": unit_name,
+                "field": field_name,
+                "observed": value,
+                "at": at,
+            }
             for field_name, value in figures.items()
         ]
         report.alerts.extend(

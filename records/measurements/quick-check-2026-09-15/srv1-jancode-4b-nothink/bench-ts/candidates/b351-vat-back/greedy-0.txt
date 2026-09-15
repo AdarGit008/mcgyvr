@@ -1,0 +1,12 @@
+```ts
+export function vatBack(gross: number, rate: number): number {
+  if (rate <= 0) {
+    return gross;
+  }
+
+  // Calculate the pre-tax price: gross / (1 + rate)
+  // Since we need to round down, use Math.floor
+  const preTax = gross / (1 + rate);
+  return Math.floor(preTax);
+}
+```

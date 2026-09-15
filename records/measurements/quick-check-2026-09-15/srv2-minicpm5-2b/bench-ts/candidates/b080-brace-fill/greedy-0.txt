@@ -1,0 +1,71 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  const result: string[] = [];
+  let inPlaceholder = false;
+  let i = 0;
+
+  while (i < template.length) {
+    if (template[i] === "{") {
+      if (i + 1 >= template.length) {
+        throw new Error("unterminated placeholder");
+      }
+      if (template[i + 1] === "}") {
+        result.push("{");
+        i += 2;
+        continue;
+      }
+      inPlaceholder = true;
+      i += 1;
+      let j = i;
+      while (j < template.length && template[j] !== "}") {
+        j += 1;
+      }
+      if (j >= template.length) {
+        throw new Error("unterminated placeholder");
+      }
+      const name = template.slice(i, j);
+      if (name.length === 0) {
+        throw new Error("empty placeholder name");
+      }
+      for (const ch of name) {
+        if (ch < "a" || ch > "z" || ch < "A" || ch > "Z" || ch < "0" || ch > "9" || ch !== "_") {
+          throw new Error("placeholder name contains invalid character");
+        }
+      }
+      if (!(name in values)) {
+        throw new Error(`placeholder name "${name}" not found in values`);
+      }
+      result.push(values[name]);
+      i = j + 1;
+      inPlaceholder = false;
+      continue;
+    } else if (template[i] === "}") {
+      result.push("}");
+      i += 1;
+      continue;
+    } else {
+      result.push(template[i]);
+      i += 1;
+    }
+  }
+
+  if (inPlaceholder) {
+    throw new Error("unterminated placeholder");
+  }
+
+  return result.join("");
+}
+```
+
+This implementation:
+- Walks the template once with a single index variable `i`
+- Treats a lone `{` as a literal character (passes through)
+- Detects placeholders by finding `{` followed by non-`}` characters up to the next `}`
+- Validates placeholder names are non-empty and contain only letters, digits, or underscores
+- Looks up each name in the `values` mapping and throws an error if not found
+- Throws for unterminated placeholders (no closing `}`)
+- Uses `const` by default, `let` for the index variable, and `result` as a `string[]` (mutated in place, which is acceptable since we're building a new output array from the input)

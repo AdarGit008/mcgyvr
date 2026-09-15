@@ -1,0 +1,53 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    """Bump a release tag by one component.
+
+    A release tag is three dot-separated numeric components: major.minor.patch.
+    Each component is a plain decimal integer with no leading zero (except 0 itself).
+    Bumping major resets minor and patch to 0. Bumping minor resets patch to 0.
+    Bumping patch leaves major and minor unchanged.
+
+    Args:
+        version: The current release tag as a string, e.g. "1.2.3".
+        part: The component to bump, must be "major", "minor", or "patch".
+
+    Returns:
+        The next release tag as a string.
+
+    Raises:
+        ValueError: If version is not a string, does not have exactly three components,
+            any component is empty, contains leading zeros (except "0"), contains
+            non-digit characters, or part is not one of "major", "minor", "patch".
+    """
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+
+    parts = version.split('.')
+    if len(parts) != 3:
+        raise ValueError("version must have exactly three components")
+
+    components = []
+    for i, comp in enumerate(parts):
+        if not isinstance(comp, str):
+            raise ValueError("version components must be strings")
+        if comp == "":
+            raise ValueError("component cannot be empty")
+        if comp != comp.lstrip('0'):
+            raise ValueError("component cannot have leading zeros")
+        if not comp.isdigit():
+            raise ValueError("component must contain only digits")
+        components.append(int(comp))
+
+    if part not in ("major", "minor", "patch"):
+        raise ValueError("part must be 'major', 'minor', or 'patch'")
+
+    if part == "major":
+        components[0] += 1
+    elif part == "minor":
+        components[1] += 1
+        components[2] = 0
+    else:  # patch
+        components[2] += 1
+
+    return f"{components[0]}.{components[1]}.{components[2]}"
+```

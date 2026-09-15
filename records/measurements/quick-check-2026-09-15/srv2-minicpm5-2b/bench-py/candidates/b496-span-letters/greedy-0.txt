@@ -1,0 +1,14 @@
+```python
+def span_letters(span: str) -> str:
+    """Open out a span like 'a-c' into 'abc' if valid, otherwise return unchanged."""
+    if len(span) != 3 or span[1] != "-":
+        return span
+    start = ord(span[0])
+    end = ord(span[2])
+    if start > end:
+        return span
+    out = "".join(chr(code) for code in range(start, end + 1))
+    return out
+```
+
+The bug was that `range(start, end)` was exclusive of the end value, so "a-c" would produce "ab" instead of "abc". The fix adds `+ 1` to include the last character. I also replaced the inefficient string concatenation with a generator expression joined by `"".join()`, and added a docstring.

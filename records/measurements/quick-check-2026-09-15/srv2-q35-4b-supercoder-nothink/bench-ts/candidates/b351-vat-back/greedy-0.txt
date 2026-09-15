@@ -1,0 +1,12 @@
+```ts
+/**
+ * Returns the price before a whole-percent tax was added.
+ * A rate of 0 leaves the price unchanged.
+ */
+export function vatBack(gross: number, rate: number): number {
+  if (rate < 0) {
+    throw new Error('rate must be non-negative');
+  }
+  return Math.floor(gross / (1 + rate));
+}
+```

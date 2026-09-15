@@ -1,0 +1,45 @@
+The task is to fix the `hide_values` function. The current implementation stars out values based on the length of the key, but the requirement is to star out every value (one star per character it held). The keys should also be hidden (as per the instruction "hide_values returns a store with every value starred out" and the context of hiding secrets).
+
+Let me re-read the task carefully:
+
+"hide_values returns a store with every value starred out, one star for each character it held, and it stars out the keys instead."
+
+This is a bit ambiguous. It says "one star for each character it held" - this could mean:
+1. The value is replaced by a string of stars equal to the length of the key
+2. The value is replaced by a string of stars equal to the length of the value
+
+But the phrase "one star for each character it held" suggests it's about the key's length, not the value's length. However, the phrase "it stars out the keys instead" suggests the keys are also hidden.
+
+Wait, let me re-read more carefully: "hide_values returns a store with every value starred out, one star for each character it held, and it stars out the keys instead."
+
+This is confusing. Let me interpret it as:
+- The function should return a store where values are starred out
+- The number of stars should correspond to the length of the key (one star per character in the key)
+- The keys themselves should also be starred out (instead of being kept as-is)
+
+So the fix should be:
+- For each key-value pair, create a new key that is the original key with each character replaced by a star
+- The value should be starred out (one star per character in the key)
+
+Actually, looking at the current code:
+```python
+hidden["*" * len(key)] = value
+```
+
+This stars out the key (replaces the key with stars equal to the key's length) and keeps the value as-is. But the requirement says "one star for each character it held" - this likely means the value should be starred out based on the key's length, not the value's length.
+
+So the fix should be:
+```python
+hidden["*" * len(key)] = "*" * len(key)
+```
+
+This stars out the key (one star per character) and stars out the value (one star per character).
+
+Let me implement this fix.</think>```python
+def hide_values(store: dict) -> dict:
+    """A store with every value starred out, one star for each character it held, and it stars out the keys instead."""
+    hidden = {}
+    for key, value in store.items():
+        hidden["*" * len(key)] = "*" * len(key)
+    return hidden
+```

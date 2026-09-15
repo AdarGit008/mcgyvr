@@ -1,0 +1,1 @@
+docker rm -f mcgyvr-quickcheck >/dev/null 2>&1; docker run -d --name mcgyvr-quickcheck --runtime=nvidia --gpus all --network host -v /home/adaramir/models:/home/adaramir/models:ro llamacpp:b10644-L3 -m /home/adaramir/models/.incoming/Qwen_Qwen2.5-Coder-1.5B-Instruct-GGUF/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf --host 0.0.0.0 --port 8090 --parallel 1 -c 8192 -ngl 99 -t 6 -fa on

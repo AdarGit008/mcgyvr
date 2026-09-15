@@ -1,0 +1,33 @@
+```ts
+/**
+ * Merge overlapping or touching spans into a single span, ordered by start.
+ * @param spans - Array of [start, end] pairs.
+ * @returns Merged spans, sorted by start.
+ */
+export function spanMerge(spans: number[][]): number[][] {
+  if (spans.length === 0) return [];
+
+  // Sort by start, then by end for stable tie-breaking.
+  const sorted = [...spans].sort((a, b) => {
+    if (a[0] !== b[0]) return a[0] - b[0];
+    return a[1] - b[1];
+  });
+
+  const merged: number[][] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const [start, end] = sorted[i];
+    const [prevStart, prevEnd] = merged[merged.length - 1];
+
+    if (start <= prevEnd) {
+      // Overlap or touch: extend the last merged span.
+      merged[merged.length - 1] = [prevStart, Math.max(prevEnd, end)];
+    } else {
+      // No overlap: start a new span.
+      merged.push([start, end]);
+    }
+  }
+
+  return merged;
+}
+```

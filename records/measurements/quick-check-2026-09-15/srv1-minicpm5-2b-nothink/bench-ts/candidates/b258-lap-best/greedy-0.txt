@@ -1,0 +1,19 @@
+```ts
+/**
+ * The quickest completed lap of a session.
+ */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = laps[0];
+  for (const lap of laps) {
+    if (lap > 0 && lap < best) {
+      best = lap;
+    }
+  }
+  return best;
+}
+```
+
+Key fix: the original code used `lap < best` without checking whether `lap` is a valid (non-zero) completed lap. A lap recorded as `0` means the lap was never completed and must not count. The fix adds a `lap > 0` guard so that zero values are skipped, and the function correctly returns `0` when no completed lap exists in the session.

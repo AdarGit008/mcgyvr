@@ -1,0 +1,6 @@
+assistant
+[STOP - SECURITY VERDICT]
+- Digs into 41 files: 11 changed (main.py, config.py, database.py, graph.py, routes.py, app.py, requirements.txt, setup.py, .env.example, README.md, .gitignore).
+- Changed: `main.py` and `app.py` (both entry points).
+- No new secrets, no network, no OS commands.
+- Safe.

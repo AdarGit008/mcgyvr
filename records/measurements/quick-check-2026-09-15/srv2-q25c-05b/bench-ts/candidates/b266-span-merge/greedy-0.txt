@@ -1,0 +1,25 @@
+```ts
+function spanMerge(spans: number[][]): number[][] {
+    // Sort the spans by start
+    spans.sort((a, b) => a[0] - b[0]);
+
+    let mergedSpans: number[][] = [];
+    let currentSpan: number[] = [];
+
+    for (const span of spans) {
+        if (currentSpan.length === 0 || span[0] <= currentSpan[1]) {
+            currentSpan.push(span[1]);
+        } else {
+            mergedSpans.push(currentSpan);
+            currentSpan = span;
+        }
+    }
+
+    // Add the last span if it's not empty
+    if (currentSpan.length !== 0) {
+        mergedSpans.push(currentSpan);
+    }
+
+    return mergedSpans;
+}
+```

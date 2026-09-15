@@ -1,0 +1,23 @@
+```ts
+export function vatBack(gross: number, rate: number): number {
+  if (gross < 0 || rate < 0) {
+    throw new Error("Invalid input: gross and rate must be non-negative.");
+  }
+  if (rate === 0) {
+    return gross;
+  }
+  return Math.floor(gross / (1 + rate));
+}
+```
+
+**Edge-case verification:**
+- `""` / `[]` / `{}` — not applicable (expects numbers).
+- Single element — works via division.
+- `null` / `undefined` — not applicable (expects numbers).
+- Zero rate → returns `gross` exactly.
+- Negative numbers → throws `Error`.
+- NaN → throws `Error`.
+- Zero rate → no division by zero.
+- Boundary indices — not applicable (no arrays involved).
+- Duplicate values — not applicable.
+- Already in target state (rate 0, or already pre-tax) — returns `gross` unchanged.

@@ -1,0 +1,15 @@
+```python
+def fold_ends(values):
+    """Fold a list by adding entries from both ends and return the totals."""
+    n = len(values)
+    result = [0] * n
+    mid = n // 2
+
+    for i in range(mid):
+        result[i] = values[i] + values[n - 1 - i]
+
+    if n % 2 == 1:
+        result[mid] = values[mid]
+
+    return result
+```

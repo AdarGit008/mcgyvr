@@ -1,0 +1,19 @@
+```python
+def step_value(step: str) -> int:
+    """Return the value added by a single instruction."""
+    if step == "+":
+        return 1
+    if step == "-":
+        return -1
+    return 0
+
+
+def scan_tally(steps: list) -> list:
+    """Return the running total after each instruction."""
+    tally = []
+    total = 0
+    for step in steps:
+        total += step_value(step)
+        tally.append(total)
+    return tally
+```

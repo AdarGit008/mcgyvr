@@ -1,0 +1,32 @@
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    """Walk a courier relay directory and return every station visited.
+    
+    Args:
+        links: A dictionary mapping station names to the next station name.
+               The empty string marks the terminal station.
+        start: The starting station name.
+    
+    Returns:
+        A list of station names in hand-off order, from start through the terminal.
+    
+    Raises:
+        ValueError: If start is not a string, not in the directory, or is empty.
+        ValueError: If any link value is not a string.
+        ValueError: If a link points to a station not in the directory.
+        ValueError: If a relay chain visits any station twice.
+    """
+    # Validate start
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    if start == "":
+        raise ValueError("start cannot be an empty string")
+    if start not in links:
+        raise ValueError("unknown starting station")
+    
+    # Validate links: no empty string keys, all values are strings
+    for station, next_station in links.items():
+       

@@ -1,0 +1,38 @@
+The bug is in `split_evenly`: `round` rounds each share independently, so the parts no longer sum to the total. The fix is to compute the base share as `floor(total / ways)`, then distribute the remainder (total % ways) by adding 1 to the first `remainder` parts. This guarantees the parts sum exactly to the total, no two parts differ by more than 1 cent, and they are in non-increasing order.
+
+I also need to add validation for `ways` (must be a positive integer) and `total_cents` (must be a non-negative integer).
+
+```python
+"""Cent-exact money helpers for order totals."""
+
+
+def split_evenly(total_cents: int, ways: int) -> list:
+    """Split a total into ways parts, each differing by at most 1 cent.
+    Parts are in non-increasing order, so extra cents land on the earliest parts.
+    """
+    if not isinstance(total_cents, int) or isinstance(total_cents, bool) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not isinstance(ways, int) or isinstance(ways, bool) or ways <= 0:
+        raise ValueError("ways must be a positive integer")
+
+    base = total_cents // ways
+    remainder = total_cents % ways
+    return [base + 1 if i < remainder else base for i in range(ways)]
+
+
+def apply_bps(cents: int, bps: int) -> int:
+    if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    if isinstance(bps, bool) or not isinstance(bps, int) or bps < 0:
+        raise ValueError("bps must be a non-negative integer")
+    return (cents * bps + 5000) // 10000
+
+
+def sum_parts(parts: list) -> int:
+    total = 0
+    for part in parts:
+        if isinstance(part, bool) or not isinstance(part, int):
+            raise ValueError("parts must be integers")
+        total += part
+    return total
+```

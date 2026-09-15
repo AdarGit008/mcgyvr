@@ -1,0 +1,46 @@
+```ts
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) {
+    throw new Error('yields must be an array');
+  }
+
+  for (const y of yields) {
+    if (typeof y !== 'number' || !Number.isInteger(y) || y < 0) {
+      throw new Error('each yield must be a non-negative integer');
+    }
+  }
+
+  if (yields.length === 0) {
+    return 0;
+  }
+
+  let total = 0;
+  let prevTaken = false;
+
+  for (let i = 0; i < yields.length; i++) {
+    if (prevTaken) {
+      continue;
+    }
+
+    const current = yields[i];
+    const next = yields[i + 1];
+
+    if (i === yields.length - 1) {
+      total += current;
+      break;
+    }
+
+    const takeCurrent = current + (nextTaken ? 0 : next);
+    const skipCurrent = (prevTaken ? 0 : 0) + (nextTaken ? next : 0);
+
+    if (takeCurrent > skipCurrent) {
+      total += current;
+      prevTaken = true;
+    } else {
+      prevTaken = false;
+    }
+  }
+
+  return total;
+}
+```

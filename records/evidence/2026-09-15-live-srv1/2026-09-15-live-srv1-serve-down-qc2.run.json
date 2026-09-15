@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-09-15-live-srv1-serve-down-qc2",
+  "campaign": "live-srv1",
+  "step": "serve-down",
+  "host": "srv1",
+  "date": "2026-09-15",
+  "round": "r29-15-09-2026",
+  "product_sha256": "1ce8b045a4ce9f27da0d571e3ca87c3117700feffadc63cfa665d69b273128cd",
+  "profile": "live",
+  "config": "/home/adaramir/.mcgyvr/fleets/b-small",
+  "mcgyvr_version": "0.1.1.dev305+g8ebeac2d",
+  "started_at": "2026-09-15T00:34:38Z"
+}

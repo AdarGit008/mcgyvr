@@ -1,0 +1,51 @@
+```ts
+/**
+ * Walks a courier relay directory station by station.
+ */
+
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof start !== "string") {
+    throw new Error("start must be a string");
+  }
+  if (start === "") {
+    throw new Error("start cannot be an empty string");
+  }
+  if (!(start in links)) {
+    throw new Error("unknown starting station");
+  }
+
+  const path: string[] = [];
+  let current = start;
+
+  while (true) {
+    if (current === "") {
+      path.push(current);
+      break;
+    }
+    if (path.includes(current)) {
+      throw new Error("relay contains a circular chain");
+    }
+    path.push(current);
+    const next = links[current];
+    if (next === "") {
+      path.push(current);
+      break;
+    }
+    if (typeof next !== "string") {
+      throw new Error("link value must be a string");
+    }
+    if (!(next in links)) {
+      throw new Error("link points to a station not in the directory");
+    }
+    current = next;
+  }
+
+  return path;
+}
+```
+
+Key fixes:
+- **Circular chain**: `path.includes(current)` check before each step detects and rejects a relay that revisits a station.
+- **Broken link**: `typeof next !== "string"` rejects non-string link values; `!(next in links)` rejects links pointing to a station absent from the directory.
+- **Start validation**: `typeof start !== "string"` and `start === ""` reject non-string starts and empty strings.
+- **Empty string in directory**: `!(start in links)` (already present) plus the explicit `start === ""` check rejects an empty string among the directory's station names.

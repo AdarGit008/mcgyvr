@@ -1,0 +1,117 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    # Validate price list: all prices must be positive integers
+    for name, price in prices.items():
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError(f"price must be a positive integer: {name}")
+
+    # Initialize state
+    cart: dict[str, int] = {}
+    session_state: str = OPEN
+    total: int = 0
+    paid: int = 0
+    change: int = 0
+
+    # Process events sequentially
+    for event in events:
+        if not isinstance(event, list) or len(event) == 0:
+            raise ValueError("each event must be a non-empty list of [action, payload]")
+
+        action = event[0]
+        payload = event[1]
+
+        # Validate action
+        if action not in (OPEN, PAYMENT, PAID, CANCELLED):
+            raise ValueError(f"unknown action: {action}")
+
+        # Validate payload type based on action
+        if action == "scan":
+            if not isinstance(payload, str):
+                raise ValueError("scan payload must be a string item name")
+            if payload not in prices:
+                raise ValueError(f"scan of item {payload} not in price list")
+            item_name = payload
+            # Add one unit of the item
+            cart[item_name] = cart.get(item_name, 0) + 1
+            # Add to total
+            total += prices[item_name]
+        elif action == "void":
+            if not isinstance(payload, str):
+                raise ValueError("void payload must be a string item name")
+            if payload not in cart:
+                raise ValueError(f"void of item {payload} not in cart")
+            # Remove one unit, dropping to zero if quantity becomes 0
+            cart[payload] -= 1
+            if cart[payload] == 0:
+                del cart[payload]
+            # Remove from total
+            total -= prices[payload]
+        elif action == "pay":
+            if not isinstance(payload, (int, float)):
+                raise ValueError("pay payload must be a numeric amount")
+            amount = int(payload)
+            if amount <= 0:
+                raise ValueError("pay amount must be positive")
+            # Accumulate payment
+            paid += amount
+            # Check if session is in payment state and total is reached
+            if session_state == PAYMENT and total >= paid:
+                # Session is paid
+                change = total - paid
+                # Move to paid state
+                session_state = PAID
+                # Clear cart (should be empty if total == paid)
+                cart.clear()
+                # Ensure total is fixed at close (already done)
+        elif action == "close":
+            if not isinstance(payload, str):
+                raise ValueError("close payload must be a string")
+            if not cart:
+                raise ValueError("close with empty cart is not allowed")
+            # Move open session to payment with non-empty cart
+            if session_state != OPEN:
+                raise ValueError("close can only be called on an open session")
+            # Move cart to payment
+            total = sum(prices[name] for name in cart)
+            paid = total
+            # Clear cart
+            cart.clear()
+            # Fix total at close
+            total = 0
+            session_state = PAID
+        elif action == "cancel":
+            if not isinstance(payload, str):
+                raise ValueError("cancel payload must be a string")
+            # End open or payment session as cancelled
+            if session_state not in (OPEN, PAYMENT):
+                raise ValueError("cancel can only be called on an open or payment session")
+            # Clear cart and set state to cancelled
+            cart.clear()
+            session_state = CANCELLED
+
+        # After processing, check if session is paid or cancelled
+        if session_state in (PAID, CANCELLED):
+            # No further events allowed
+            break
+
+    # Build result mapping
+    # items: sorted list of [name, quantity] pairs
+    items: list[tuple[str, int]] = sorted(cart.items(), key=lambda x: x[0])
+    # total: fixed at close (already set to 0 if closed)
+    # paid: cents received
+    # change: cents handed back
+    return {
+        "items": items,
+        "total": total,
+        "paid": paid,
+        "change": change,
+    }
+```

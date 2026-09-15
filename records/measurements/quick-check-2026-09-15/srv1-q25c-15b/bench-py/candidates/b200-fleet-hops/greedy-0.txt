@@ -1,0 +1,187 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if not (0 <= hop <= count):
+        raise ValueError("Invalid hop value")
+    
+    if not all(0 <= build <= count for build in builds):
+        raise ValueError("Invalid build value")
+    
+    if not all(0 <= lt <= count for lt in lts):
+        raise ValueError("Invalid LTS value")
+    
+    if not lts:
+        return 0
+    
+    if builds[0] == 0:
+        return 0
+    
+    if builds[-1] == count:
+        return count - builds[0]
+    
+    if builds[0] == lts[0]:
+        return lts[0] - builds[0]
+    
+    if builds[-1] == lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] > lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] < lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]
+    
+    if builds[0] < lts[0] and builds[-1] < lts[-1]:
+        return lts[-1] - builds[0]
+    
+    if builds[0] > lts[0] and builds[-1] > lts[-1]:
+        return count - lts[-1]

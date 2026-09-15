@@ -1,0 +1,15 @@
+```ts
+/** The quickest completed lap of a session. */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = Infinity;
+  for (const lap of laps) {
+    if (lap > 0 && lap < best) {
+      best = lap;
+    }
+  }
+  return best === Infinity ? 0 : best;
+}
+```

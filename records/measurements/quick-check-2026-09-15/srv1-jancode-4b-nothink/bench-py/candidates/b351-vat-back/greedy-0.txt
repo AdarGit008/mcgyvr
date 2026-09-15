@@ -1,0 +1,11 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    if rate == 0:
+        return gross
+    if rate < 0:
+        raise ValueError("Rate cannot be negative")
+    # Calculate the original price before tax: gross / (1 + rate/100)
+    # Since we need to round down, use integer division
+    original = gross // (100 + rate)
+    return original
+```

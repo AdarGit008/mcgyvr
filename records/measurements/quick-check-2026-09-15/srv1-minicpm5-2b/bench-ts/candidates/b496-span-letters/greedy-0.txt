@@ -1,0 +1,23 @@
+```ts
+export function spanLetters(span: string): string {
+  if (span.length !== 3 || span[1] !== "-" || !isLetter(span[0]) || !isLetter(span[2])) {
+    return span;
+  }
+  const from = span.charCodeAt(0);
+  const to = span.charCodeAt(2);
+  if (from > to) {
+    return span;
+  }
+  let out = "";
+  for (let code = from; code < to; code += 1) {
+    out += String.fromCharCode(code);
+  }
+  return out;
+}
+
+function isLetter(ch: string): boolean {
+  return /[a-zA-Z]/.test(ch);
+}
+```
+
+The fix changes the guard condition from `span.length !== 3 || span[1] !== "-"` to also require that both outer characters are actual letters. This ensures that spans like "a-c" (which are 3 characters with a dash but span more than two letters) are returned untouched, while only "a-b" (exactly two letters with a dash between them) gets opened out.

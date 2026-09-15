@@ -1,0 +1,3 @@
+The contract does not specify the output order. I cannot guess whether to return from the middle outward or from the ends inward.
+
+Blocked. I will not guess the output order.

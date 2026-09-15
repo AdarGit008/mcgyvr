@@ -1,0 +1,19 @@
+The contract says "returns only the final one" — that's unambiguous. The current implementation is correct. The only thing I can fix is the docstring, which says "after each instruction" when it should say "after each instruction, and only the final one."
+
+```python
+def step_value(step: str) -> int:
+    """Returns the value added by a single instruction: + adds 1, - subtracts 1, anything else adds 0."""
+    if step == "+":
+        return 1
+    if step == "-":
+        return -1
+    return 0
+
+
+def scan_tally(steps: list) -> list:
+    """Returns the running total after each instruction, and only the final one."""
+    total = 0
+    for step in steps:
+        total += step_value(step)
+    return [total]
+```

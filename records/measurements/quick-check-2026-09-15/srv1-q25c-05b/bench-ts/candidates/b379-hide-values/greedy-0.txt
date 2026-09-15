@@ -1,0 +1,14 @@
+```
+/**
+ * A store with every value starred out. One star for each character it held, and it stars out the keys instead.
+ */
+export function hideValues(
+  store: Record<string, string>,
+): Record<string, string> {
+  const hidden: Record<string, string> = {};
+  for (const key of Object.keys(store)) {
+    hidden["*".repeat(key.length)] = store[key];
+  }
+  return hidden;
+}
+```

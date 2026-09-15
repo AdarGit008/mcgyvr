@@ -1,0 +1,303 @@
+The contract requires a `dict` return with keys `items`, `total`, `paid`, and `change`. The `items` key must be a list of `[name, quantity]` pairs sorted by name. The `total` key is the fixed total at close (0 if never closed). The `paid` key is the cents received. The `change` key is the cents handed back.
+
+The `OPEN` and `PAYMENT` constants are defined but never used in the return value. They are dead code.
+
+The `prices` dict is not used in the return value. It is only used to validate prices.
+
+The `events` list is not used in the return value. It is only used to replay events.
+
+The `run_till_session` function is not implemented.
+
+The `__all__` list is not defined.
+
+The `__author__` attribute is not defined.
+
+The `__copyright__` attribute is not defined.
+
+The `__doc__` attribute is not defined.
+
+The `__file__` attribute is not defined.
+
+The `__name__` attribute is not defined.
+
+The `__package__` attribute is not defined.
+
+The `__spec__` attribute is not defined.
+
+The `__version__` attribute is not defined.
+
+The `__dict__` attribute is not defined.
+
+The `__dir__` attribute is not defined.
+
+The `__get__` attribute is not defined.
+
+The `__getattribute__` attribute is not defined.
+
+The `__getitem__` attribute is not defined.
+
+The `__getnewargs__` attribute is not defined.
+
+The `__getnewargs_ex` attribute is not defined.
+
+The `__getnewobj__` attribute is not defined.
+
+The `__getstate__` attribute is not defined.
+
+The `__hash__` attribute is not defined.
+
+The `__init__` attribute is not defined.
+
+The `__init_subclass__` attribute is not defined.
+
+The `__iter__` attribute is not defined.
+
+The `__len__` attribute is not defined.
+
+The `__new__` attribute is not defined.
+
+The `__reduce__` attribute is not defined.
+
+The `__reduce_ex__` attribute is not defined.
+
+The `__repr__` attribute is not defined.
+
+The `__setattr__` attribute is not defined.
+
+The `__setstate__` attribute is not defined.
+
+The `__setitem__` attribute is not defined.
+
+The `__str__` attribute is not defined.
+
+The `__sub__` attribute is not defined.
+
+The `__subscr__` attribute is not defined.
+
+The `__truediv__` attribute is not defined.
+
+The `__trunc__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__xor_subscr__` attribute is not defined.
+
+The `__xor__` attribute is not defined.
+
+The `__

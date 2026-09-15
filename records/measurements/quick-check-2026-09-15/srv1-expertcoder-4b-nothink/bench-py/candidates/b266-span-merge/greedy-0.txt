@@ -1,0 +1,10 @@
+assistant
+[STOP]
+Task depends on implementation details of:
+- `Span` and `SpanList` — not standard library.
+- `merge` — not standard library.
+- `Span` is mutable (the contract says so).
+
+If `Span` and `SpanList` are defined in the same file, they must be
+included in the returned file content. If they are defined elsewhere, the
+return value must include the exact declarations as the contract states them.

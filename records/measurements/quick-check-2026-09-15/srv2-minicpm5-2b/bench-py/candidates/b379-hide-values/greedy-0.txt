@@ -1,0 +1,10 @@
+```python
+def hide_values(store: dict) -> dict:
+    """A store with every value starred out."""
+    hidden = {}
+    for key, value in store.items():
+        hidden["*" * len(value)] = value
+    return hidden
+```
+
+The bug was that the function used `key` (the key) as the new key in the hidden store, instead of `value` (the actual value being hidden). The fix replaces `key` with `value` so that each value is starred out once per character it contains, while the keys are preserved as-is.

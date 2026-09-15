@@ -1,0 +1,43 @@
+```python
+from typing import Tuple
+
+
+def bump_release(version: str, part: str) -> str:
+    """Return the next release tag by advancing the specified part."""
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+    if not isinstance(part, str):
+        raise ValueError("part must be a string")
+
+    components: Tuple[str, str, str] = version.split(".")
+    if len(components) != 3:
+        raise ValueError("version must have exactly three dot-separated components")
+
+    for comp in components:
+        if not comp:
+            raise ValueError("version component cannot be empty")
+        if not comp.isdigit():
+            raise ValueError("version component must contain only digits")
+        if comp != "0" and comp[0] == "0":
+            raise ValueError("version component cannot have a leading zero")
+
+    if part not in ("major", "minor", "patch"):
+        raise ValueError("part must be one of 'major', 'minor', or 'patch'")
+
+    major, minor, patch = components
+    if part == "major":
+        return f"{int(major) + 1}.0.0"
+    elif part == "minor":
+        return f"{major}.{int(minor) + 1}.0"
+    else:
+        return f"{major}.{minor}.{int(patch) + 1}"
+```
+
+This implementation:
+- Validates the input is a string and the part is one of the three allowed values
+- Splits the version into exactly three components and rejects anything else
+- Checks each component is non-empty, contains only digits, and has no leading zero (except for "0" itself)
+- Bumps the specified part and resets the others to 0
+- Returns the result in "major.minor.patch" format
+
+Edge cases handled: empty string, single component, non-numeric characters, leading zeros, invalid part names, zero values, and already-sorted/merged tags (treated as a normal bump).

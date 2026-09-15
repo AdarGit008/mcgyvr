@@ -1,0 +1,37 @@
+```ts
+/**
+ * Calculates the total number of hops for all devices to reach the newest release.
+ */
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  const newest = count - 1;
+  const sortedLts = [...lts].sort((a, b) => a - b);
+
+  const totalHops = builds.reduce((acc, current) => {
+    if (!Number.isInteger(current) || current < 0 || current >= count) {
+      throw new Error("Invalid release number");
+    }
+
+    let currentRelease = current;
+    let hops = 0;
+
+    while (currentRelease < newest) {
+      const target = Math.min(currentRelease + hop, newest);
+      let landing = target;
+
+      if (target > currentRelease + 1) {
+        const firstLtsAbove = sortedLts.find((ltsRelease) => ltsRelease > currentRelease && ltsRelease < target);
+        if (firstLtsAbove !== undefined) {
+          landing = firstLtsAbove;
+        }
+      }
+
+      currentRelease = landing;
+      hops++;
+    }
+
+    return acc + hops;
+  }, 0);
+
+  return totalHops;
+}
+```

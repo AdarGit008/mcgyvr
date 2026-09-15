@@ -1,0 +1,46 @@
+assistant
+[FINAL ANSWER]
+---
+name: bumpRelease
+description: Increments a version tag (major.minor.patch) based on the part to advance.
+---
+
+export function bumpRelease(version: string, part: string): string {
+  const errors = (value: string): string[] => {
+    const split = value.split('.');
+    if (split.length !== 3) return ['must have exactly 3 components'];
+    for (const v of split) {
+      if (v === '' || v[0] === '0' || !/^[0-9]+$/.test(v)) {
+        return [`must be a non-empty non-zero decimal integer: ${v}`];
+      }
+    }
+    return [];
+  };
+
+  const [major, minor, patch] = version.split('.');
+  const err = errors(major).concat(errors(minor)).concat(errors(patch));
+  if (err.length > 0) return err[0];
+
+  let newMajor = major;
+  let newMinor = minor;
+  let newPatch = patch;
+
+  switch (part) {
+    case 'major':
+      newMajor = String(+major + 1);
+      newMinor = '0';
+      newPatch = '0';
+      break;
+    case 'minor':
+      newMinor = String(+minor + 1);
+      newPatch = '0';
+      break;
+    case 'patch':
+      newPatch = String(+patch + 1);
+      break;
+    default:
+      return 'must be major, minor, or patch';
+  }
+
+  return `${newMajor}.${newMinor}.${newPatch}`;
+}

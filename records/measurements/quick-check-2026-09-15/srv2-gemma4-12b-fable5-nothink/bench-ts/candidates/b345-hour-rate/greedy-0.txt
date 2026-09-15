@@ -1,0 +1,15 @@
+```ts
+/** Returns the hourly rate. */
+export function hourRate(rate: number): number {
+  return rate;
+}
+
+/** Pay for a week, with overtime beyond forty hours. */
+export function weekPay(hours: number, rate: number): number {
+  const baseRate = hourRate(rate);
+  const overtimeHours = Math.max(0, hours - 40);
+  const overtimeRate = baseRate * 1.5;
+  const total = (40 * baseRate) + (overtimeHours * overtimeRate);
+  return Math.floor(total);
+}
+```

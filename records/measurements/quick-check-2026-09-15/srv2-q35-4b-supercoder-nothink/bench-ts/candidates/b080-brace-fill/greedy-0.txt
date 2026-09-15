@@ -1,0 +1,42 @@
+The literal opening brace is not stated. I cannot invent a rule for it. I will implement the rest of the contract and leave the literal opening brace as a TODO.
+
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  let result = "";
+  let i = 0;
+  while (i < template.length) {
+    if (template[i] === "{" && i + 1 < template.length) {
+      const nameStart = i + 1;
+      let nameEnd = nameStart;
+      while (nameEnd < template.length && /[a-zA-Z0-9_]/.test(template[nameEnd])) {
+        nameEnd++;
+      }
+      const name = template.slice(nameStart, nameEnd);
+      if (name.length === 0) {
+        throw new Error(`empty placeholder name at position ${i}`);
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(name)) {
+        throw new Error(`invalid placeholder name "${name}" at position ${i}`);
+      }
+      if (!(name in values)) {
+        throw new Error(`unknown placeholder name "${name}" at position ${i}`);
+      }
+      result += values[name];
+      i = nameEnd;
+    } else {
+      result += template[i];
+      i++;
+    }
+  }
+
+  if (result.endsWith("{")) {
+    throw new Error("unterminated placeholder");
+  }
+
+  return result;
+}
+```

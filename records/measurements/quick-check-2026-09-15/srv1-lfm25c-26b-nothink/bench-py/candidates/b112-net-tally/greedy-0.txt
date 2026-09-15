@@ -1,0 +1,65 @@
+```python
+def net_tally(sheets: list) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+
+    totals = {}
+
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("each sheet must be a string")
+
+        lines = sheet.splitlines()
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            parts = line.split("|")
+            if len(parts) != 3:
+                raise ValueError("each row must have exactly three fields")
+
+            item, sold, returned = parts
+
+            item = item.strip()
+            if not item:
+                raise ValueError("item name cannot be empty")
+
+            sold = sold.strip()
+            returned = returned.strip()
+
+            if not sold or not returned:
+                raise ValueError("sold and returned must be non-empty strings")
+
+            if not sold.isdigit() or not returned.isdigit():
+                raise ValueError("sold and returned must be strings of decimal digits")
+
+            sold = int(sold)
+            returned = int(returned)
+
+            if returned > sold:
+                raise ValueError("returned total cannot exceed sold total")
+
+            if item not in totals:
+                totals[item] = {"sold": 0, "returned": 0}
+
+            totals[item]["sold"] += sold
+            totals[item]["returned"] += returned
+
+    if not totals:
+        return ""
+
+    max_name_len = max(len(name) for name in totals)
+    total_net = sum(item["sold"] - item["returned"] for item in totals.values())
+
+    lines = []
+    for item, counts in sorted(totals.items(), key=lambda x: x[0]):
+        net = counts["sold"] - counts["returned"]
+        name = item
+        padded = name.ljust(max_name_len)
+        lines.append(f"{padded} {net}")
+
+    lines.append(f"{max_name_len} {total_net}")
+
+    return "\n".join(lines)
+```

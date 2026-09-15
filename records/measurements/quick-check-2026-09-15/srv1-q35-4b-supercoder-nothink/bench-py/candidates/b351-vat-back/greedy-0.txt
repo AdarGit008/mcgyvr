@@ -1,0 +1,8 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """Return the pre-tax price, rounded down."""
+    if rate == 0:
+        return gross
+    divisor = 100 + rate
+    return gross // divisor
+```

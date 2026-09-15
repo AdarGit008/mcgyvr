@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# RUN_ARTIFACTS: serve-down.json
+# RUN_REWRITES: serve-down.json
 """The door's serve step, down: stop every unit the compose file names.
 
 The inverse of serve-up, filed in the same envelope under its own name. After

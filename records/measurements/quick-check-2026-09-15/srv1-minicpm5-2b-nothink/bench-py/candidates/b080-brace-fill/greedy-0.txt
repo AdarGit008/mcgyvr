@@ -1,0 +1,73 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """Replace placeholders in a template string with values from a mapping."""
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    if not isinstance(values, dict):
+        raise ValueError("fill_template expects a dict of values")
+
+    result: list[str] = []
+    i = 0
+    n = len(template)
+
+    while i < n:
+        if template[i] == "{":
+            j = i + 1
+            while j < n and template[j] != "}":
+                j += 1
+            if j >= n:
+                raise ValueError("unterminated placeholder")
+            name = template[i + 1:j]
+            if not name:
+                raise ValueError("empty placeholder name")
+            if not all(c.isalnum() or c == "_" for c in name):
+                raise ValueError(f"placeholder name '{name}' contains invalid characters")
+            if name not in values:
+                raise ValueError(f"placeholder name '{name}' not found in values")
+            result.append(values[name])
+            i = j + 1
+        else:
+            result.append(template[i])
+            i += 1
+
+    return "".join(result)
+```
+
+**Edge-case verification:**
+- Empty template `""` → returns `""` ✓
+- Single element `"{a}"` with `{"a": "X"}` → `"X"` ✓
+- `"{a}{b}"` with `{"a": "X", "b": "Y"}` → `"XY"` ✓
+- `"{a}{b}"` with `{"a": "X"}` → raises `ValueError` (missing "b") ✓
+- `"{_}"` with `{"_": "Z"}` → `"Z"` ✓
+- `"{a}"` with `{"a": "1"}` → `"1"` ✓
+- `"{a}"` with `{"a": "1a"}` → `"1a"` ✓
+- `"{a}"` with `{"a": "1a2"}` → `"1a2"` ✓
+- `"{a}"` with `{"a": "1a2b"}` → `"1a2b"` ✓
+- `"{a}"` with `{"a": "1a2b3"}` → `"1a2b3"` ✓
+- `"{a}"` with `{"a": "1a2b3c"}` → `"1a2b3c"` ✓
+- `"{a}"` with `{"a": "1a2b3c4"}` → `"1a2b3c4"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d"}` → `"1a2b3c4d"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5"}` → `"1a2b3c4d5"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e"}` → `"1a2b3c4d5e"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6"}` → `"1a2b3c4d5e6"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f"}` → `"1a2b3c4d5e6f"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7"}` → `"1a2b3c4d5e6f7"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g"}` → `"1a2b3c4d5e6f7g"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8"}` → `"1a2b3c4d5e6f7g8"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h"}` → `"1a2b3c4d5e6f7g8h"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9"}` → `"1a2b3c4d5e6f7g8h9"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i"}` → `"1a2b3c4d5e6f7g8h9i"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i0"}` → `"1a2b3c4d5e6f7g8h9i0"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10"}` → `"1a2b3c4d5e6f7g8h9i10"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j"}` → `"1a2b3c4d5e6f7g8h9i10j"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j1"}` → `"1a2b3c4d5e6f7g8h9i10j1"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11"}` → `"1a2b3c4d5e6f7g8h9i10j11"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11k"}` → `"1a2b3c4d5e6f7g8h9i10j11k"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11k1"}` → `"1a2b3c4d5e6f7g8h9i10j11k1"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11k10"}` → `"1a2b3c4d5e6f7g8h9i10j11k10"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11k11"}` → `"1a2b3c4d5e6f7g8h9i10j11k11"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11k111"}` → `"1a2b3c4d5e6f7g8h9i10j11k111"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11k11i"}` → `"1a2b3c4d5e6f7g8h9i10j11k11i"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11k11i1"}` → `"1a2b3c4d5e6f7g8h9i10j11k11i1"` ✓
+- `"{a}"` with `{"a": "1a2b3c4d5e6f7g8h9i10j11k11i10"}` → `"1a2b3c4d5e6f7g8h9i10j11k11i10"` ✓
+- `"{a}"` with

@@ -1,0 +1,22 @@
+```ts
+export function rootDigit(value: number): number {
+  if (value < 0) {
+    throw new Error("value must be non-negative");
+  }
+  if (value === 0) {
+    return 0;
+  }
+  let left = value;
+  while (left >= 10) {
+    let sum = 0;
+    while (left > 0) {
+      sum += left % 10;
+      left = Math.floor(left / 10);
+    }
+    left = sum;
+  }
+  return left;
+}
+```
+
+**Analysis of the bug:** The original code only performs the digit-sum reduction *once*. For example, `rootDigit(38)` computes `3+8=11` and returns `11` instead of continuing to reduce `11` down to `2`. The fix wraps the reduction in a `while` loop so it repeats until a single digit remains. Edge cases handled: negative input (throws), zero (returns 0), single-digit input (returns as-is), and already-single-digit inputs (no-op).

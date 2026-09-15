@@ -1,0 +1,24 @@
+```ts
+/**
+ * Calculates the cost of units with a tiered rate structure.
+ */
+export function tierCost(
+  units: number,
+  allowance: number,
+  firstRate: number,
+  laterRate: number
+): number {
+  if (units < 0) {
+    throw new Error("Units must be non-negative");
+  }
+
+  if (units <= allowance) {
+    return units * firstRate;
+  }
+
+  const unitsInAllowance = allowance;
+  const unitsAboveAllowance = units - allowance;
+
+  return (unitsInAllowance * firstRate) + (unitsAboveAllowance * laterRate);
+}
+```

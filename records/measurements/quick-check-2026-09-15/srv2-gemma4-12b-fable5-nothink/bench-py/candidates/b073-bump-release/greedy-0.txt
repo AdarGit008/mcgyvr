@@ -1,0 +1,33 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    """Bump the specified release component and reset lower components."""
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+
+    parts = version.split(".")
+    if len(parts) != 3:
+        raise ValueError("tag must have exactly three components")
+
+    major, minor, patch = []
+    for i, component in enumerate(parts):
+        if not component or not component.isdigit():
+            raise ValueError("component must be a non-empty digit string")
+        if len(component) > 1 and component.startswith("0"):
+            raise ValueError("component cannot have a leading zero")
+        major.append(int(component))
+
+    if part not in ("major", "minor", "patch"):
+        raise ValueError("part must be major, minor, or patch")
+
+    if part == "major":
+        major[0] += 1
+        major[1] = 0
+        major[2] = 0
+    elif part == "minor":
+        major[1] += 1
+        major[2] = 0
+    elif part == "patch":
+        major[2] += 1
+
+    return ".".join(map(str, major))
+```

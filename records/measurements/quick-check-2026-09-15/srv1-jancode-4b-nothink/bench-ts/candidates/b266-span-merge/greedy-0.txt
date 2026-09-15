@@ -1,0 +1,26 @@
+```ts
+export function spanMerge(spans: number[][]): number[][] {
+  // Handle empty or single span case
+  if (!spans || spans.length <= 1) {
+    return spans || [];
+  }
+
+  // Sort spans by start time
+  const sortedSpans = spans.sort((a, b) => a[0] - b[0]);
+
+  // Merge overlapping or touching spans
+  const merged: number[][] = [];
+
+  for (const span of sortedSpans) {
+    // If merged is empty or current span does not overlap with the last merged span
+    if (!merged.length || merged[merged.length - 1][1] < span[0]) {
+      merged.push(span);
+    } else {
+      // Merge with the last span in merged
+      merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], span[1]);
+    }
+  }
+
+  return merged;
+}
+```

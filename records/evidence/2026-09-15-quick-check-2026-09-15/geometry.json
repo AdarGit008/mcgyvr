@@ -1,0 +1,338 @@
+{
+ "arch": "gemma4",
+ "bytes_experts": 0,
+ "bytes_nonexpert": 12653822144,
+ "bytes_total_tensors": 12653822144,
+ "caching_layers": 48,
+ "caching_layers_from": "head_count_kv array (non-zero entries)",
+ "expert_blocks": [],
+ "expert_bytes_by_block": {},
+ "expert_layers": 0,
+ "file": "/home/adaramir/models/.incoming/projectj_Instinct-Python-Coder-Gemma4-12B-GLM5.2/Instinct-Python-Coder-Gemma4-12B-GLM5.2-Q8_0.gguf",
+ "full_attn_interval": null,
+ "key_length": 512,
+ "key_length_mla": null,
+ "key_length_swa": 256,
+ "kv_layers": [
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 0,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 1,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 2,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 3,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 4,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": false,
+   "k_elems": 512,
+   "layer": 5,
+   "v_elems": 512
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 6,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 7,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 8,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 9,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 10,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": false,
+   "k_elems": 512,
+   "layer": 11,
+   "v_elems": 512
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 12,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 13,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 14,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 15,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 16,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": false,
+   "k_elems": 512,
+   "layer": 17,
+   "v_elems": 512
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 18,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 19,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 20,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 21,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 22,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": false,
+   "k_elems": 512,
+   "layer": 23,
+   "v_elems": 512
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 24,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 25,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 26,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 27,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 28,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": false,
+   "k_elems": 512,
+   "layer": 29,
+   "v_elems": 512
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 30,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 31,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 32,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 33,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 34,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": false,
+   "k_elems": 512,
+   "layer": 35,
+   "v_elems": 512
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 36,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 37,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 38,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 39,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 40,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": false,
+   "k_elems": 512,
+   "layer": 41,
+   "v_elems": 512
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 42,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 43,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 44,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 45,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": true,
+   "k_elems": 2048,
+   "layer": 46,
+   "v_elems": 2048
+  },
+  {
+   "is_swa": false,
+   "k_elems": 512,
+   "layer": 47,
+   "v_elems": 512
+  }
+ ],
+ "mla_absorbed_v": false,
+ "mla_by_identity": false,
+ "n_ctx_train": 262144,
+ "n_embd": 3840,
+ "n_expert": null,
+ "n_expert_used": null,
+ "n_head_kv": 8,
+ "n_layer": 48,
+ "n_placeable": 0,
+ "n_recurrent": 0,
+ "name": "Gemma-4-12B-It",
+ "nextn_blocks": [],
+ "nextn_predict_layers": null,
+ "params_total": 11907350576,
+ "placeable_blocks": [],
+ "recurrent_blocks": [],
+ "rope_dim": 512,
+ "size_bytes": 12669645984,
+ "sliding_window": 1024,
+ "sliding_window_pattern_declared": true,
+ "ssm_conv_kernel": null,
+ "ssm_group_count": null,
+ "ssm_inner_size": null,
+ "ssm_params_from": null,
+ "ssm_state_size": null,
+ "swa_pattern_from": "attention.sliding_window_pattern",
+ "type_bytes": {
+  "F32": 3080384,
+  "Q8_0": 12650741760
+ },
+ "value_length": 512,
+ "value_length_swa": 256
+}

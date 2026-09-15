@@ -1,0 +1,39 @@
+```ts
+/**
+ * Merges overlapping or adjacent booking spans and returns them ordered by start time.
+ */
+export function spanMerge(spans: number[][]): number[][] {
+  if (!Array.isArray(spans)) {
+    throw new Error("Input must be an array of spans");
+  }
+
+  const validSpans = spans.filter((span) =>
+    Array.isArray(span) && span.length === 2 && typeof span[0] === "number" && typeof span[1] === "number"
+  );
+
+  if (validSpans.length === 0) {
+    return [];
+  }
+
+  const sorted = [...validSpans].sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  let current = [...sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i];
+    const currentEnd = current[1];
+    const nextStart = next[0];
+
+    if (nextStart <= currentEnd) {
+      current[1] = Math.max(currentEnd, next[1]);
+    } else {
+      merged.push(current);
+      current = [...next];
+    }
+  }
+
+  merged.push(current);
+  return merged;
+}
+```

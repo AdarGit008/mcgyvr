@@ -1,0 +1,17 @@
+```ts
+/**
+ * Reverses a whole-percent tax from a gross price and rounds down.
+ */
+export function vatBack(gross: number, rate: number): number {
+  if (isNaN(gross) || isNaN(rate)) {
+    throw new Error("Invalid arguments");
+  }
+
+  if (rate === 0) {
+    return gross;
+  }
+
+  const divisor = 100 + rate;
+  return Math.floor((gross * divisor) / 100);
+}
+```

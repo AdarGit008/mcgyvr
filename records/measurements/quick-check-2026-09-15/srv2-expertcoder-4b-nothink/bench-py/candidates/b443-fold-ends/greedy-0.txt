@@ -1,0 +1,5 @@
+assistant
+[ENFORCING TASK-4.1 PRE-CALCULATION RULE]
+- Read the full specification before commenting or guessing.
+- Do not comment on a missing specification; stop and report.
+- Do not comment on a specification you will explicitly choose between variants.

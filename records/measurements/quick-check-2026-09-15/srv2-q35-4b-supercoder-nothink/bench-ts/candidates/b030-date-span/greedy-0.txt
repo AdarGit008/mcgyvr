@@ -1,0 +1,67 @@
+The current code has several bugs:
+
+1. `isLeap` only checks `year % 4 === 0`, missing the century rule (divisible by 400)
+2. `monthLength` uses `isLeap` which is buggy
+3. `toOrdinal` uses `prior / 4` instead of `Math.floor(prior / 4)` — integer division on negative years is wrong
+4. No validation for:
+   - start after end
+   - month outside 1..12
+   - day outside month length
+   - non-integer components
+
+Here is the fixed file:
+
+```ts
+/** How many days lie between two proleptic Gregorian calendar dates. */
+
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeap(year: number): boolean {
+  return year % 400 === 0 || (year % 4 === 0 && year % 100 !== 0);
+}
+
+function monthLength(year: number, month: number): number {
+  if (month === 2 && isLeap(year)) {
+    return 29;
+  }
+  return MONTH_LENGTHS[month - 1];
+}
+
+function toOrdinal(date: number[]): number {
+  const [year, month, day] = date;
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    throw new Error('All date components must be integers');
+  }
+  if (month < 1 || month > 12) {
+    throw new Error('Month must be between 1 and 12');
+  }
+  if (day < 1 || day > monthLength(year, month)) {
+    throw new Error(`Day ${day} is not valid for month ${month} in year ${year}`);
+  }
+  const prior = year - 1;
+  let days = prior * 365;
+  days += Math.floor(prior / 4);
+  for (let m = 1; m < month; m += 1) {
+    days += monthLength(year, m);
+  }
+  return days + day;
+}
+
+export function spanDays(start: number[], end: number[]): number {
+  if (start.length !== 3 || end.length !== 3) {
+    throw new Error('Both arguments must be arrays of exactly three integers');
+  }
+  const [startYear, startMonth, startDay] = start;
+  const [endYear, endMonth, endDay] = end;
+  if (startYear < 1 || startMonth < 1 || startMonth > 12 || startDay < 1 || startDay > monthLength(startYear, startMonth)) {
+    throw new Error('Start date is invalid');
+  }
+  if (endYear < 1 || endMonth < 1 || endMonth > 12 || endDay < 1 || endDay > monthLength(endYear, endMonth)) {
+    throw new Error('End date is invalid');
+  }
+  if (startYear > endYear || (startYear === endYear && startMonth > endMonth) || (startYear === endYear && startMonth === endMonth && startDay > endDay)) {
+    throw new Error('Start date is after the end date');
+  }
+  return toOrdinal(end) - toOrdinal(start);
+}
+```

@@ -1,0 +1,12 @@
+```python
+def lap_best(laps: list) -> int:
+    """The quickest completed lap of a session."""
+    best = 0
+    for lap in laps:
+        if lap > 0:
+            if lap < best:
+                best = lap
+    return best
+```
+
+Key fix: The original code treated every lap (including zeros) as a candidate for the minimum, so any session containing a zero lap would report 0 as the "best" lap. The fix initializes `best = 0` and only considers laps strictly greater than 0 (i.e., completed laps). A session with no completed laps at all returns 0, which is the correct behavior per the contract.

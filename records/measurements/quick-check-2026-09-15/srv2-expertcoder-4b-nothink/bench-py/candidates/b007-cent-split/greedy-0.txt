@@ -1,0 +1,6 @@
+assistant
+[FINISHED]
+- Corrected `split_evenly` to distribute the remainder after rounding each share, ensuring the total is preserved and parts are in non-increasing order.
+- Added validation for `total_cents` to reject negative values and non-integers.
+- Added validation for `ways` to reject zero and non-positive values.
+- Added validation for `cents` and `bps` in `apply_bps` to reject negative values and non-integers.

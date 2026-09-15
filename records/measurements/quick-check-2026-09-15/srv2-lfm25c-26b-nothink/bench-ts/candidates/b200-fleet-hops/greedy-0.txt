@@ -1,0 +1,134 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (count <= 0) {
+    return 0;
+  }
+
+  if (hop <= 0) {
+    throw new Error('hop must be a positive integer');
+  }
+
+  if (count > 0 && !Array.isArray(lts)) {
+    throw new Error('lts must be an array');
+  }
+
+  if (count > 0 && !Array.isArray(builds)) {
+    throw new Error('builds must be an array');
+  }
+
+  if (count > 0 && lts.length === 0) {
+    throw new Error('lts must contain at least one release');
+  }
+
+  if (count > 0 && builds.length === 0) {
+    throw new Error('builds must contain at least one release');
+  }
+
+  if (count > 0 && lts.length > count) {
+    throw new Error('lts must contain at most count releases');
+  }
+
+  if (count > 0 && builds.length > count) {
+    throw new Error('builds must contain at most count releases');
+  }
+
+  if (count > 0 && lts.some((release) => release < 0)) {
+    throw new Error('lts must contain non-negative release numbers');
+  }
+
+  if (count > 0 && builds.some((build) => build < 0)) {
+    throw new Error('builds must contain non-negative build numbers');
+  }
+
+  if (count > 0 && lts.some((release) => release > count - 1)) {
+    throw new Error('lts must contain release numbers within the range [0, count-1]');
+  }
+
+  if (count > 0 && builds.some((build) => build > count - 1)) {
+    throw new Error('builds must contain build numbers within the range [0, count-1]');
+  }
+
+  if (count > 0 && lts.some((release) => release > builds.length - 1)) {
+    throw new Error('lts must contain release numbers within the range [0, builds.length-1]');
+  }
+
+  if (count > 0 && builds.some((build) => build > builds.length - 1)) {
+    throw new Error('builds must contain build numbers within the range [0, builds.length-1]');
+  }
+
+  const ltsSet = new Set<number>();
+  for (const release of lts) {
+    ltsSet.add(release);
+  }
+
+  let totalHops = 0;
+
+  for (let i = 0; i < count; i++) {
+    const currentRelease = builds[i];
+
+    if (currentRelease === undefined || currentRelease === null) {
+      throw new Error('builds must contain valid numbers');
+    }
+
+    if (currentRelease < 0 || currentRelease >= count) {
+      throw new Error('builds must contain numbers in the range [0, count-1]');
+    }
+
+    if (currentRelease === count - 1) {
+      // Already on the newest release, no hop needed
+      continue;
+    }
+
+    // Find the lowest LTS release strictly above currentRelease and strictly below currentRelease + hop
+    let targetRelease = currentRelease + hop;
+
+    if (targetRelease >= count) {
+      // The target would exceed the newest release, so we land on the highest LTS below count-1
+      // But we must also ensure we land on an LTS
+      // Find the largest LTS <= count-1
+      let highestLTS = -1;
+      for (const lts of lts) {
+        if (lts <= count - 1) {
+          highestLTS = lts;
+        }
+      }
+      if (highestLTS === -1) {
+        throw new Error('No valid LTS release available for the target');
+      }
+      currentRelease = highestLTS;
+    } else {
+      // Find the smallest LTS > currentRelease
+      let foundLTS = -1;
+      for (const lts of lts) {
+        if (lts > currentRelease) {
+          foundLTS = lts;
+          break;
+        }
+      }
+      if (foundLTS === -1) {
+        // No LTS above currentRelease, so we must land on the highest LTS below count-1
+        // But we must also ensure we don't exceed count-1
+        let highestLTS = -1;
+        for (const lts of lts) {
+          if (lts <= count - 1) {
+            highestLTS = lts;
+          }
+        }
+        if (highestLTS === -1) {
+          throw new Error('No valid LTS release available for the target');
+        }
+        currentRelease = highestLTS;
+      }
+    }
+
+    // If the found LTS is still not above currentRelease, something is wrong
+    if (currentRelease <= i) {
+      throw new Error('The found LTS release is not strictly above the current release');
+    }
+
+    totalHops++;
+  }
+
+  return totalHops;
+}
+```

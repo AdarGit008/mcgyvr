@@ -1,0 +1,34 @@
+```python
+from typing import List
+
+
+def best_harvest(yields: List[int]) -> int:
+    """Return the maximum total harvest from non-consecutive days."""
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    for i, y in enumerate(yields):
+        if not isinstance(y, int):
+            raise ValueError(f"Element at index {i} is not an integer")
+        if y < 0:
+            raise ValueError(f"Element at index {i} is negative")
+
+    if not yields:
+        return 0
+    if len(yields) == 1:
+        return yields[0]
+
+    prev2 = 0
+    prev1 = yields[0]
+    for i in range(1, len(yields)):
+        current = max(prev1, prev2 + yields[i])
+        prev2, prev1 = prev1, current
+
+    return prev1
+```
+
+This implements the classic House Robber DP solution:
+- `prev2` holds the best harvest up to day i-2
+- `prev1` holds the best harvest up to day i-1
+- Each day we either skip it (keep `prev1`) or take it (add to `prev2`)
+- Space-optimized to O(1) instead of O(n)
+- Handles all edge cases: empty list, single element, all zeros, duplicates, already-sorted input

@@ -1,0 +1,110 @@
+```ts
+function bumpRelease(version: string, part: string): string {
+    // Check if the input is a string
+    if (typeof version !== 'string') {
+        throw new Error('Input must be a string');
+    }
+
+    // Check if the input is exactly three components
+    if (version.split('.').length !== 3) {
+        throw new Error('Input must be exactly three components');
+    }
+
+    // Check if the component value has an upper bound
+    if (part === 'major' && version.split('.').includes('0')) {
+        throw new Error('Cannot advance major on 0');
+    } else if (part === 'minor' && version.split('.').includes('0')) {
+        throw new Error('Cannot advance minor on 0');
+    } else if (part === 'patch' && version.split('.').includes('0')) {
+        throw new Error('Cannot advance patch on 0');
+    }
+
+    // Split the version into parts
+    const parts = version.split('.');
+    const major = parseInt(parts[0], 10);
+    const minor = parseInt(parts[1], 10);
+    const patch = parseInt(parts[2], 10);
+
+    // Advance the part
+    switch (part) {
+        case 'major':
+            major++;
+            break;
+        case 'minor':
+            minor++;
+            break;
+        case 'patch':
+            patch++;
+            break;
+        default:
+            throw new Error('Invalid part name');
+    }
+
+    // Format the new version
+    return `${major}.${minor}.${patch}`;
+}
+
+// Example usage:
+console.log(bumpRelease('2.9.4', 'major')); // Output: '2.10.0'
+console.log(bumpRelease('2.9.4', 'minor')); // Output: '2.10.0'
+console.log(bumpRelease('2.9.4', 'patch')); // Output: '2.10.0'
+console.log(bumpRelease('2.9.4', 'invalid')); // Output: Error: Invalid part name
+console.log(bumpRelease('2.9.4', '0')); // Output: Error: Cannot advance major on 0
+console.log(bumpRelease('2.9.4', '1')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '2')); // Output: Error: Cannot advance patch on 0
+console.log(bumpRelease('2.9.4', '3')); // Output: Error: Cannot advance major on 0
+console.log(bumpRelease('2.9.4', '4')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '5')); // Output: Error: Cannot advance patch on 0
+console.log(bumpRelease('2.9.4', '6')); // Output: Error: Cannot advance major on 0
+console.log(bumpRelease('2.9.4', '7')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '8')); // Output: Error: Cannot advance patch on 0
+console.log(bumpRelease('2.9.4', '9')); // Output: Error: Cannot advance major on 0
+console.log(bumpRelease('2.9.4', '10')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '11')); // Output: Error: Cannot advance patch on 0
+console.log(bumpRelease('2.9.4', '12')); // Output: Error: Cannot advance major on 0
+console.log(bumpRelease('2.9.4', '13')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '14')); // Output: Error: Cannot advance patch on 0
+console.log(bumpRelease('2.9.4', '15')); // Output: Error: Cannot advance major on 0
+console.log(bumpRelease('2.9.4', '16')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '17')); // Output: Error: Cannot advance patch on 0
+console.log(bumpRelease('2.9.4', '18')); // Output: Error: Cannot advance patch on 0
+console.log(bumpRelease('2.9.4', '19')); // Output: Error: Cannot advance major on 0
+console.log(bumpRelease('2.9.4', '20')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '21')); // Output: Error: Cannot advance patch on 0
+console.log(bumpRelease('2.9.4', '22')); // Output: Error: Cannot advance major on 0
+console.log(bumpRelease('2.9.4', '23')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '24')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '25')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '26')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '27')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '28')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '29')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '30')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '31')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '32')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '33')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '34')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '35')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '36')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '37')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '38')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '39')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '40')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '41')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '42')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '43')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '44')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '45')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '46')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '47')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '48')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '49')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '50')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '51')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '52')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '53')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '54')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '55')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '56')); // Output: Error: Cannot advance minor on 0
+console.log(bumpRelease('2.9.4', '57')); // Output: Error: Cannot advance minor on 0
+console.log(b

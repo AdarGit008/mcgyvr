@@ -1,0 +1,3 @@
+assistant
+[STOP - TASK BLOCKED]
+- Task refers to lap times being zero, but the current code treats negative values the same way. The task does not state whether negative lap times should also be treated as uncompleted. This is a semantic distinction that cannot be guessed from the task description.

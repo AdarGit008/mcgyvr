@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+
+def fold_ends(values: list) -> list:
+    """Fold a list onto itself by pairing first and last elements.
+
+    Returns a list of sums where each element is the sum of a pair
+    from opposite ends of the input list. For odd-length lists,
+    the middle element is returned as its own total.
+    """
+    n = len(values)
+    if n == 0:
+        return []
+    if n == 1:
+        return [values[0]]
+    result: List[int] = []
+    for i in range(n // 2):
+        result.append(values[i] + values[n - 1 - i])
+    if n % 2 == 1:
+        result.append(values[n // 2])
+    return result
+```
+
+This implementation:
+- Handles empty input by returning `[]`
+- Handles single-element input by returning `[element]`
+- For even-length lists, pairs each element with its opposite end and sums them in order
+- For odd-length lists, includes the middle element as its own total
+- Uses a guard clause for the empty case and a list comprehension for the even case (though I used a loop for clarity and to avoid a bare `for` comprehension that might be less readable in this context)

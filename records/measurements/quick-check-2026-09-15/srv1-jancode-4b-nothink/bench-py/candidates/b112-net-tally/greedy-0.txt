@@ -1,0 +1,63 @@
+```python
+def net_tally(sheets: list) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    
+    item_net = {}
+    max_item_name_length = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("Each sheet must be a string")
+        
+        rows = sheet.strip().split('\n')
+        for row in rows:
+            row = row.strip()
+            if not row:
+                continue
+            
+            fields = row.split('|')
+            if len(fields) != 3:
+                raise ValueError("Each row must have exactly three fields")
+            
+            item_name = fields[0].strip()
+            sold_str = fields[1].strip()
+            returned_str = fields[2].strip()
+            
+            if not item_name:
+                raise ValueError("Item name must be non-empty")
+            
+            if not sold_str or not returned_str:
+                raise ValueError("Sold and returned fields must be non-empty")
+            
+            if not all(c.isdigit() for c in sold_str) or not all(c.isdigit() for c in returned_str):
+                raise ValueError("Sold and returned fields must be strings of decimal digits")
+            
+            sold = int(sold_str)
+            returned = int(returned_str)
+            
+            if returned > sold:
+                raise ValueError("Returned units cannot exceed sold units for any item")
+            
+            item_net[item_name] = item_net.get(item_name, 0) + (sold - returned)
+            
+            max_item_name_length = max(max_item_name_length, len(item_name))
+    
+    if not item_net:
+        return ""
+    
+    # Generate report lines
+    report_lines = []
+    sorted_items = sorted(item_net.keys())
+    for item_name in sorted_items:
+        net_count = item_net[item_name]
+        padded_name = item_name.rjust(max_item_name_length)
+        report_lines.append(f"{padded_name}  {net_count}")
+    
+    # Add trailer
+    total_net = sum(item_net[item_name] for item_name in sorted_items)
+    padded_total = "total".rjust(max_item_name_length)
+    report_lines.append(f"{padded_total}  {total_net}")
+    
+    return "\n".join(report_lines)
+```
