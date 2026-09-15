@@ -1,6 +1,6 @@
 """What runs where is ``fleet.yaml``; how work moves between units is ``policy.yaml``.
 
-The design is ``records/plans/fleet-identity.md`` §2 (owner, 2026-09-10 and
+The design is ``mcgyvr-lab/records/plans/fleet-identity.md`` §2 (owner, 2026-09-10 and
 2026-09-11). ``mcgyvr.fleet.files`` is the one reader of both files.
 
 * ``fleet.yaml`` is locked. It holds the units, the rigs and the fleets, and a

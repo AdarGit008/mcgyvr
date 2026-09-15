@@ -15,6 +15,18 @@ refuses to overwrite an existing config without `--force`, and prints what
 was decided and why, then what is *not* configured and what that costs.
 Backends on another machine come in with `--host` (repeatable).
 
+A setup is two files in one directory, and `mcgyvr init` writes both (by
+default into the working directory):
+
+- `fleet.yaml` — what runs where: `profile`, `units`, `rigs` and `fleets`.
+- `policy.yaml` — how work moves over those units: `ladder` and every other top-level key below.
+
+Each file refuses a key that belongs in the other. `rigs`, `fleets` and
+each unit's `unit_id` are not in the tables below: `mcgyvr fleet lock`
+keys a lock on them, and the run config drops them when it loads the
+setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is
+checked only as a block. `examples/fleet.yaml` shows all three.
+
 `mcgyvr pool` reads that config back: the usable rungs cheapest-first with
 their family, attempt budget and model; the escalation ceiling and where it
 came from; every skipped rung with the reason it was skipped; and the
@@ -22,7 +34,7 @@ orchestrator and verifier models. `--probe` also asks each source whether it
 is answering — off by default, because it spends. Run it whenever a run
 picks a rung you did not expect.
 
-Three keys of that one config file are the levers, and `mcgyvr pool` is how
+Three keys across the two files are the levers, and `mcgyvr pool` is how
 you read all three:
 
 - `units` — What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout.

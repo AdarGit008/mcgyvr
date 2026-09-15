@@ -1211,7 +1211,7 @@ class Capacity:
         reading. Between the reading and ``docker compose down`` a dispatch can
         start, and killing a container out from under a request that was already
         admitted is the one thing whole-card eviction is not allowed to do
-        (``records/plans/sleep-wake.md`` D8). The census decides *whether* to
+        (``mcgyvr-lab/records/plans/sleep-wake.md`` D8). The census decides *whether* to
         sleep; this is what makes acting on the decision safe.
 
         Every bound of the named sources, which is every rung that declared a

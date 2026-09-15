@@ -6,7 +6,7 @@
 # `docker` shims (gate-scripts/bin), which land on --host: rig_snapshot and
 # image_digest prove the door first (gatelib.under_door, read from /proc) and
 # resolve the shim by path from RUN_BIN, never from $PATH. Written against
-# `archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` (the
+# `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` (the
 # authority) and the parser it cites, `tools/runs/rows.py` (once
 # `tests/sweeprows.py`, moved beside the door on 2026-09-02 so the parser the
 # door trusts and the parser the tests trust are one module). Section numbers

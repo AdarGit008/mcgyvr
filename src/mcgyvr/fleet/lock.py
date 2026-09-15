@@ -1,7 +1,7 @@
 """The fleet lock: what production may run, written only from passing dev runs.
 
-``mcgyvr fleet lock`` writes two kinds of file (``records/plans/fleet-identity.md``
-§4):
+``mcgyvr fleet lock`` writes two kinds of file
+(``mcgyvr-lab/records/plans/fleet-identity.md`` §4):
 
 * ``records/fleet/<fleet>.json`` — the layout's sha256, the fleet's ``next``
   list, and each switch's dev evidence;
@@ -60,7 +60,7 @@ def _warm_decode_tolerance_pct(
     (:func:`mcgyvr.fleet.tolerance.tolerance_class`) from
     ``tolerances["warm_decode_class_pct"]``, the class a live probe is judged by
     too. The engine-keyed lookup it replaced is in
-    ``archive/src/mcgyvr/fleet/lock_engine_tolerance.py``.
+    ``mcgyvr-lab/archive/src/mcgyvr/fleet/lock_engine_tolerance.py``.
     """
     by_class = tolerances.get("warm_decode_class_pct")
     if not isinstance(by_class, dict):

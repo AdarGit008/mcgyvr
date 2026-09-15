@@ -317,7 +317,7 @@ DEP_FIELDS: tuple[Field, ...] = (
         "The function or class signature with its type annotations — NOT its "
         "body. Hierarchical context pruning measured signature-only "
         "dependency context as improving accuracy while cutting context "
-        "roughly sixfold (#94, #96): a body invites copying, a signature "
+        "roughly sixfold: a body invites copying, a signature "
         "states the interface.",
         required=True,
         worker_facing=True,
@@ -410,8 +410,7 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "print the figure the type's own evidence would derive (`output_cap`) "
         "as the value to start from. It is the one key in the schema with no "
         "static default: a single number for every type is wrong for at least "
-        "one of them. Deriving it from the target's own content is #17. What "
-        "this states is what the *work* is worth.",
+        "one of them. What this states is what the *work* is worth.",
         default=None,
         min_value=1,
     ),
@@ -502,9 +501,7 @@ SCHEMA: tuple[Field, ...] = (
         "reproducible: `parse(dumps(c))` round-trips the bytes a worker was "
         "actually sent. Empty means the target does not exist yet, or its "
         "content is not needed — a distinction deterministic execution never "
-        "asks about, because a tool reads the file itself. Deriving "
-        "`limits.max_output_tokens` from this is #17; the schema only gives it "
-        "somewhere to read from.",
+        "asks about, because a tool reads the file itself.",
         default="",
         worker_facing=True,
     ),
@@ -531,8 +528,8 @@ SCHEMA: tuple[Field, ...] = (
         "Explicit triggers on which the worker must stop and report BLOCKED "
         "instead of guessing — scope creep, an unknown API, an ambiguous "
         "directive. Required for any task type a model executes: guessing is "
-        "the documented small-model failure mode these exist to prevent "
-        "(#94), and a worker with no stated stop condition has no licence to "
+        "the documented small-model failure mode these exist to prevent, "
+        "and a worker with no stated stop condition has no licence to "
         "refuse.",
         default=(),
         worker_facing=True,
@@ -582,8 +579,7 @@ SCHEMA: tuple[Field, ...] = (
         "Shell commands that demonstrate the defect: each must FAIL on the "
         "unchanged tree and pass after the change — the `failing_test_first` "
         "evidence, as a slot of its own because its baseline expectation is "
-        "the opposite of `acceptance`'s (#183). Who authors it is #146's "
-        "question; the schema only gives the answer somewhere to go. Runs in "
+        "the opposite of `acceptance`'s. Runs in "
         "the same sandbox, under the same read-only rule.",
         default=(),
     ),
@@ -606,9 +602,7 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "How much a wrong answer costs, never a preference. A declared value "
         "bounds how cheaply the work may start and how cheaply it may be "
-        "verified: `high` refuses the cheapest of either, `low` allows them. "
-        "Deterministic classification from type, prompt and scope is #16; a "
-        "declared value may raise that classification, never lower it.",
+        "verified: `high` refuses the cheapest of either, `low` allows them.",
         default="medium",
         choices=("low", "medium", "high"),
     ),

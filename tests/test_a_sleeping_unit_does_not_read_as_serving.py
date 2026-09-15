@@ -14,10 +14,10 @@ So the existing probe is not merely incomplete, it is *wrong*, and it is wrong
 silently: a contract dispatched to a rig the door has just declared healthy does
 not fail, it hangs until ``budgets.request_timeout_s``. That is the failure this
 file exists to prevent, and it is the one the 2026-09-09 handoff ranks as the
-precondition for any runtime sleep/wake (``records/plans/handoff.md``, open item
-2): until the door can tell a slept rig from a live one, D3's "a wake is a
-``serve up`` through the door" (``records/plans/sleep-wake.md`` §5) cannot report
-whether the wake worked.
+precondition for any runtime sleep/wake (``mcgyvr-lab/records/plans/handoff.md``, open
+item 2): until the door can tell a slept rig from a live one, D3's "a wake is a
+``serve up`` through the door" (``mcgyvr-lab/records/plans/sleep-wake.md`` §5) cannot
+report whether the wake worked.
 
 **Why the second probe cannot simply be required.** ``/is_sleeping`` is a vLLM
 endpoint and only exists on a unit launched ``--enable-sleep-mode`` with
@@ -181,7 +181,7 @@ def test_the_row_says_the_unit_was_asleep_rather_than_that_it_never_answered(
 
     ``serve-up.json`` is the envelope an operator reads afterwards, and D3's
     first accepted consequence is that every wake leaves one
-    (``records/plans/sleep-wake.md`` §5). A unit that never came up wants a
+    (``mcgyvr-lab/records/plans/sleep-wake.md`` §5). A unit that never came up wants a
     container log read; a unit that is asleep wants a ``POST /wake_up`` and
     nothing else. A row that spelled both as ``NOT ANSWERING, models=[]`` would
     send the operator to the wrong one — and the sleeper's log is *clean*, which

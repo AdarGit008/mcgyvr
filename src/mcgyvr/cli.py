@@ -1558,8 +1558,9 @@ def _climb(
     from mcgyvr.verify import reviewer_for
 
     # Live is admitted before anything here is built, opened or dispatched
-    # (`records/plans/fleet-identity.md` §6): each rig of the live fleet is read
-    # through the door and held to its lock (`mcgyvr.fleet.admission`). At the
+    # (`mcgyvr-lab/records/plans/fleet-identity.md` §6): each rig of the live
+    # fleet is read through the door and held to its lock
+    # (`mcgyvr.fleet.admission`). At the
     # top, the conservative place: a refused run costs no pool, no capacity slot
     # and no sandbox. A dev run reads no rig.
     if config.get("profile") == "live":
@@ -2275,7 +2276,7 @@ def _serve(args: argparse.Namespace) -> int:
     by hand, and it is deliberately **not** gated by
     ``serving.enable_sleep_wake``: that switch exists so that mcgyvr does not
     decide to take a card down without being asked, and a person typing this has
-    asked (``records/plans/sleep-wake.md`` §15).
+    asked (``mcgyvr-lab/records/plans/sleep-wake.md`` §15).
 
     ``sleep`` drains before it evicts. Every slot of every bound the card serves
     is taken first, so a dispatch that had already been admitted finishes rather
@@ -2419,8 +2420,8 @@ def _emit(args: argparse.Namespace) -> int:
     # process serves one model ... give each model its own source on its own
     # port". One process per model is still true and it is no longer a reason
     # to refuse: two rungs on one URL are two models *taking turns* on it, the
-    # ladder shape `records/plans/sleep-wake.md` §17 is made of, and telling an
-    # owner to invent a second port is telling them to buy a second card. What
+    # ladder shape `mcgyvr-lab/records/plans/sleep-wake.md` §17 is made of, and telling
+    # an owner to invent a second port is telling them to buy a second card. What
     # the refusal was protecting against — a file whose second service can
     # never bind — is now impossible by construction, because
     # `serving.launch_specs` gives each alternative a launch spec of its own —

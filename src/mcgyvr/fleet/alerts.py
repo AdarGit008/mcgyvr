@@ -6,7 +6,7 @@ computed for. A live alert pulls its combination and warns once (the journal is
 the memory, so a repeat warns nowhere); a dev run with an alert fails. A pull
 clears only when the combination's validation is re-committed; ``rejudge``
 re-checks the journal under a tighter rule and pulls nothing.
-(``records/plans/fleet-identity.md`` §5 and §7.)
+(``mcgyvr-lab/records/plans/fleet-identity.md`` §5 and §7.)
 """
 
 from __future__ import annotations

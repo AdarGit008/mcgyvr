@@ -10,8 +10,8 @@ stopped or leased.
   the rig id its snapshot names (:func:`mcgyvr.fleet.ids.rig_id`), our units and
   their state, and every card holder that is in no container of ours. A
   container is ours when it is in the ``mcgyvr`` compose project or is named
-  ``mcgyvr-`` (``records/plans/fleet-identity.md`` §2). A unit of the fleet is
-  found by the container name the lock records for it.
+  ``mcgyvr-`` (``mcgyvr-lab/records/plans/fleet-identity.md`` §2). A unit of the
+  fleet is found by the container name the lock records for it.
 * :func:`record` files it under ``<journal.dir>/fleet`` with the usual stamps:
   one rig row per read (``<combination>/rig.jsonl``), and per unit its card MiB
   judged against its ``room_mib`` and its restarts judged against 0

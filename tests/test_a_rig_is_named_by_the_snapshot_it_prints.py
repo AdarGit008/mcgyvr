@@ -1,7 +1,7 @@
 """A rig is named by the snapshot it prints, in the spelling the snapshot prints.
 
 Owner, 2026-09-15 (D1): ``rig-`` = H{ host, hardware, system }
-(``records/plans/fleet-identity.md`` §1) is hashed by one product function,
+(``mcgyvr-lab/records/plans/fleet-identity.md`` §1) is hashed by one product function,
 :func:`mcgyvr.fleet.ids.rig_id`, over the fields exactly as
 ``src/mcgyvr/serving/gate-scripts/rig-snapshot.sh`` prints them: tokenized,
 every value a string. The lock and live admission both call it; there is no

@@ -84,7 +84,7 @@ def rig_id(snapshot: Mapping[str, str]) -> str:
     them — tokenized strings, ``host`` its ``hostname=`` — and nowhere else is a
     rig id spelled, so the lock and live admission name a rig the same way. A
     reading missing a field is refused by name and never hashed
-    (``records/plans/fleet-identity.md`` §1, ID-1).
+    (``mcgyvr-lab/records/plans/fleet-identity.md`` §1, ID-1).
     """
     wanted = ("hostname", *RIG_HARDWARE, *RIG_SYSTEM)
     missing = [key for key in wanted if not str(snapshot.get(key) or "").strip()]

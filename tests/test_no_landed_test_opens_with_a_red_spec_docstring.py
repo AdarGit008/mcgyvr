@@ -3,7 +3,7 @@
 A RED spec docstring declares that the behaviour it pins does not exist yet.
 Once the behaviour lands the declaration is stale: the assertions are live
 guards and stay, and the RED paragraph goes
-(``records/plans/fleet-identity.md`` §10).
+(``mcgyvr-lab/records/plans/fleet-identity.md`` §10).
 """
 
 from __future__ import annotations

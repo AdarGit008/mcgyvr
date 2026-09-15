@@ -1,6 +1,6 @@
 """``fleet.yaml`` is what runs where; ``policy.yaml`` is how work moves between units.
 
-Two files, one vocabulary (``records/plans/fleet-identity.md`` §2):
+Two files, one vocabulary (``mcgyvr-lab/records/plans/fleet-identity.md`` §2):
 
 * ``fleet.yaml`` is locked. It holds the ``units``, the ``rigs`` and the
   ``fleets``. A unit carries every fact about what it is and can physically
