@@ -274,6 +274,22 @@ class Window:
         self.clock += timedelta(minutes=1)
         return self.clock.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    def reload(self) -> None:
+        """The frozen order read back again, with any retry added since."""
+        self.runs = self.plan.read_runs(self.root, USE)
+
+    def retry(
+        self, entry_id: str, change: Change | None = None, log: bool = True
+    ) -> dict[str, str]:
+        """``plan.py retry`` for a logged failed entry, then the retry's run
+        written as a window would leave it."""
+        made: dict[str, str] = self.plan.retry(
+            self.root, USE, entry_id, "a made-up failure", journal=str(self.journal)
+        )
+        self.reload()
+        self.write(self.runs.entry(made["retry_entry"]), change, log=log)
+        return made
+
     def write_all(
         self,
         change: Mapping[str, Change] | None = None,

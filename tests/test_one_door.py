@@ -242,6 +242,11 @@ ALLOWED: dict[str, str] = {
     "tests/test_default_step.py": (
         "drives the shipped step against ssh and docker stubs on PATH"
     ),
+    "tests/test_a_failed_lock_fleets_start_keeps_its_full_log_and_gets_one_retry.py": (
+        "runs lock-fleets' step bodies under a fake door with an ssh and a docker "
+        "stub standing under RUN_BIN, and finds the move shell's `docker run -d` "
+        "in the stub's call log; reaches no rig"
+    ),
 }
 
 DECILES = re.compile(r"^\s*PROMPT_DECILES\s*=")
