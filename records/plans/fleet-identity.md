@@ -528,6 +528,12 @@ round.
 - **Pooled CUDA context — ruled per unit (C14).** "85–147 MiB" is not a
   per-card figure; it spans cards, images and instruments. It is read per unit
   (per model/engine/image), never as one global constant.
+- **`room_mib` — ruled the process's measured card peak (B3, owner 2026-09-15).**
+  A unit's `room_mib` is its process's measured card peak, context included, so
+  a combination's overhead is only what no unit's process holds: srv2's pair
+  overhead is the driver reserve alone, 377 MiB. `read --probe UNIT --load WxN`
+  measures that peak under W full N-token windows and judges it ≤ `room_mib`,
+  as a read judges the card.
 - **measuring-gaps Q3's `-ub 1024` rows ran at `-ub 512`.** Each
   `compose.srv*-q3-*-ub1024.yml` passes `-b 512 -ub 1024`, and llama.cpp clamps
   the micro-batch to the batch. So the README's "the `-ub` law … saturates"

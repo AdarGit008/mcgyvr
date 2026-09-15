@@ -43,8 +43,9 @@ def main() -> int:
     run_id = need("RUN_READ_ID")
     profile = need("RUN_PROFILE")
     probe = os.environ.get("RUN_READ_PROBE", "").split()
+    load = os.environ.get("RUN_READ_LOAD") or None
     try:
-        fleet = read.prepare(host, probe)
+        fleet = read.prepare(host, probe, load)
         args = read.reader_args(fleet, host)
     except read.ReadError as exc:
         refuse(f"read: {exc}. Nothing was read and nothing is filed")
@@ -114,6 +115,7 @@ def main() -> int:
             profile=profile,
             probe=probe,
             measure=measure,
+            load=load,
         )
     except read.ReadError as exc:
         refuse(f"read: {exc}")
@@ -139,6 +141,14 @@ def main() -> int:
         print(f"read: busy {name}: {count} in flight, not probed")
     for name in recorded.contended:
         print(f"read: contended {name}: took work during the probe; filed, not judged")
+    for name, row in recorded.loads.items():
+        print(
+            f"read: loaded {name} {row['spec']}: peak_mib={row['peak_mib']} "
+            f"samples={row['samples']} completed={row['completed']}/{row['width']} "
+            f"restarts {row['restarts_before']}->{row['restarts_after']}"
+        )
+    for name, why in recorded.unloaded.items():
+        print(f"read: not loaded {name}: {why}")
     for alert in recorded.alerts:
         print(f"read: alert {alert.get('unit_id')} {alert.get('field')}")
     for name, why in recorded.failed.items():

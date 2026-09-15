@@ -23,10 +23,13 @@ from __future__ import annotations
 
 import json
 import statistics
+import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from collections.abc import Callable, Mapping
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 #: The word the door's ``read --probe`` names this harness by on the rig.
@@ -57,6 +60,11 @@ MODELS_TIMEOUT_S = 10.0
 REQUEST_TIMEOUT_S = 900.0
 #: Where each engine publishes what it has in flight, read after a measurement.
 STATUS_PATHS = {"vllm": "/metrics", "llama.cpp": "/slots"}
+#: A load leaves this many tokens of each window to generation and fills the rest
+#: with prompt: the window is full either way, and a prompt fills it fastest.
+LOAD_OUTPUT_TOKENS = 64
+#: How often a load samples the unit's container on the card while it runs.
+LOAD_SAMPLE_S = 0.5
 
 
 class HarnessError(Exception):
@@ -241,13 +249,163 @@ def on_the_rig(spec: Mapping[str, Any]) -> dict[str, Any]:
     return {"figures": figures, "after_page": _page(f"{address}{path}")}
 
 
+def _now() -> str:
+    # timezone.utc, not datetime.UTC (3.11+): this file runs on the rig's own
+    # python3, which the module docstring holds to 3.8.
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")  # noqa: UP017
+
+
+def _tokens(
+    engine: str, base: str, transport: Transport, model: str | None, text: str
+) -> int:
+    """How many tokens the unit's own tokenizer makes of ``text``."""
+    if engine == "vllm":
+        body = transport.post(
+            f"{base}/tokenize", {"model": model, "prompt": text}, MODELS_TIMEOUT_S
+        )
+        count = body.get("count") if isinstance(body, Mapping) else None
+    else:
+        body = transport.post(
+            f"{base}/tokenize", {"content": text, "add_special": True}, MODELS_TIMEOUT_S
+        )
+        tokens = body.get("tokens") if isinstance(body, Mapping) else None
+        count = len(tokens) if isinstance(tokens, list) else None
+    if isinstance(count, bool) or not isinstance(count, int):
+        raise HarnessError(f"{base}/tokenize gave no token count")
+    return count
+
+
+def _load_prompt(
+    engine: str, base: str, transport: Transport, model: str | None, window: int
+) -> tuple[str, int]:
+    """The long block, repeated to leave ``LOAD_OUTPUT_TOKENS`` of the window."""
+    target = window - LOAD_OUTPUT_TOKENS
+    one = _tokens(engine, base, transport, model, _LONG_BLOCK)
+    blocks = max(1, target // max(1, one))
+    while True:
+        prompt = _LONG_BLOCK * blocks
+        count = _tokens(engine, base, transport, model, prompt)
+        if count <= target or blocks == 1:
+            break
+        blocks -= 1
+    if count >= window:
+        raise HarnessError(
+            f"a {window}-token window holds no prompt of the long block ({count})"
+        )
+    return prompt, count
+
+
+def _poll(poll: str, *args: str) -> str:
+    """``rig-units.sh`` run on this rig in one of its single-reading modes."""
+    try:
+        done = subprocess.run(
+            ["bash", "-s", "--", *args],
+            input=poll,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return done.stdout if done.returncode == 0 else ""
+
+
+def load(spec: Mapping[str, Any]) -> dict[str, Any]:
+    """W concurrent requests filling the unit's N-token window, its card sampled.
+
+    Owner, 2026-09-15 (B1). ``spec`` is ``{"mode": "load", "engine", "port",
+    "width": W, "window": N, "container": ID, "poll": <rig-units.sh>}``. Each
+    request's prompt is the long block counted by the unit's own tokenizer, and
+    its ``max_tokens`` is the rest of the window, generated to the end. While the
+    requests run, ``rig-units.sh --card-holders`` is sampled as it prints, for
+    the door to read with the parser a read uses; the container's restart
+    count is read before and after.
+    """
+    engine = str(spec.get("engine"))
+    base = f"http://127.0.0.1:{int(spec['port'])}"
+    width = int(spec["width"])
+    window = int(spec["window"])
+    container = str(spec["container"])
+    poll = str(spec["poll"])
+    if width < 1 or window < 1:
+        raise HarnessError("a load is at least one request of one token")
+    transport = HttpTransport()
+    model: str | None = None
+    if engine == "vllm":
+        listing = transport.get(f"{base}/v1/models", MODELS_TIMEOUT_S)
+        try:
+            model = str(listing["data"][0]["id"])
+        except (KeyError, IndexError, TypeError) as exc:
+            raise HarnessError(f"{base}/v1/models names no model") from exc
+    prompt, prompt_tokens = _load_prompt(engine, base, transport, model, window)
+    max_tokens = window - prompt_tokens
+    if engine == "vllm":
+        url = f"{base}/v1/completions"
+        payload: dict[str, Any] = {
+            "model": model,
+            "prompt": prompt,
+            "max_tokens": max_tokens,
+            "temperature": 0,
+            "ignore_eos": True,
+        }
+    else:
+        url = f"{base}/completion"
+        payload = {
+            "prompt": prompt,
+            "n_predict": max_tokens,
+            "temperature": 0,
+            "ignore_eos": True,
+            "cache_prompt": False,
+        }
+    completed: list[int] = []
+    errors: list[str] = []
+    guard = threading.Lock()
+
+    def one() -> None:
+        try:
+            transport.post(url, dict(payload), REQUEST_TIMEOUT_S)
+        except (OSError, ValueError) as exc:
+            with guard:
+                errors.append(f"{type(exc).__name__}: {exc}")
+            return
+        with guard:
+            completed.append(1)
+
+    restarts_before = _poll(poll, "--restarts", container)
+    started_at = _now()
+    threads = [threading.Thread(target=one, daemon=True) for _ in range(width)]
+    for thread in threads:
+        thread.start()
+    samples: list[str] = []
+    while any(thread.is_alive() for thread in threads):
+        samples.append(_poll(poll, "--card-holders"))
+        time.sleep(LOAD_SAMPLE_S)
+    for thread in threads:
+        thread.join()
+    return {
+        "load": {
+            "prompt_tokens": prompt_tokens,
+            "max_tokens": max_tokens,
+            "completed": len(completed),
+            "errors": errors,
+            "started_at": started_at,
+            "finished_at": _now(),
+            "samples": samples,
+            "restarts_before": restarts_before,
+            "restarts_after": _poll(poll, "--restarts", container),
+        }
+    }
+
+
 def main(argv: list[str]) -> int:
     """``python3 - mcgyvr-harness SPEC``: one JSON line on stdout, always."""
     if len(argv) != 3 or argv[1] != HARNESS_WORD:
         print(json.dumps({"error": f"usage: python3 - {HARNESS_WORD} SPEC"}))
         return 2
     try:
-        answer = on_the_rig(json.loads(argv[2]))
+        spec = json.loads(argv[2])
+        answer = load(spec) if spec.get("mode") == "load" else on_the_rig(spec)
     except (HarnessError, OSError, ValueError, KeyError, TypeError) as exc:
         print(json.dumps({"error": f"{type(exc).__name__}: {exc}"}))
         return 1

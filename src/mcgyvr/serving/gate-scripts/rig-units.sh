@@ -4,7 +4,8 @@
 # SHIPPED TO THE RIG ON STDIN behind rig-snapshot.sh, as one reading, by the
 # door's `read` (gate-scripts/read-02-rig.py). Nothing lands on the rig's disk,
 # nothing is started, stopped or leased. Its arguments are the units the fleet
-# places on this rig, `ENGINE:PORT` each.
+# places on this rig, `ENGINE:PORT:CONTAINER` each (`ENGINE:PORT` for a unit
+# the lock names no container for).
 #
 #   container=NAME,ID,PROJECT,RESTARTS   every running container. PROJECT is its
 #                                         compose project or `-`; RESTARTS is
@@ -17,6 +18,14 @@
 #   sleeping=PORT,true|false|unknown     a vLLM unit's own /is_sleeping
 #   status=PORT,BASE64                   the unit's in-flight page, as served:
 #                                         /metrics for vLLM, /slots otherwise
+#   backend=PORT,BACKEND|none            the attention backend a vLLM unit's
+#                                         start-up log line names, or `none`
+#                                         when no line names one (owner,
+#                                         2026-09-15, B4: never guessed)
+#
+# Two single readings, for the load `read --load` runs on the rig (the harness
+# ships this same text back to bash): `--card-holders` prints only the gpu_app
+# rows, and `--restarts ID` only that container's restart count.
 set -u
 
 fail() { printf 'rig-units: %s\n' "$*" >&2; exit 1; }
@@ -24,17 +33,22 @@ fail() { printf 'rig-units: %s\n' "$*" >&2; exit 1; }
 # One whitespace-free, comma-free token: a row's fields are split on commas.
 tok() { printf '%s' "$*" | tr -s ' \t\n,' '_' | sed -e 's/^_//' -e 's/_$//'; }
 
+restarts_of() {
+    local restarts
+    restarts=$(docker inspect --format '{{.RestartCount}}' "$1" 2>/dev/null) || restarts=
+    restarts=$(tok "$restarts")
+    case $restarts in ''|*[!0-9]*) restarts=unread ;; esac
+    printf '%s\n' "$restarts"
+}
+
 containers_up() {
-    local listed id name project restarts
+    local listed id name project
     listed=$(docker ps --no-trunc --format '{{.ID}}|{{.Names}}|{{.Label "com.docker.compose.project"}}' 2>/dev/null) ||
         fail "cannot list containers (docker ps)"
     printf '%s\n' "$listed" | while IFS='|' read -r id name project; do
         [ -n "$id" ] || continue
-        restarts=$(docker inspect --format '{{.RestartCount}}' "$id" 2>/dev/null) || restarts=
-        restarts=$(tok "$restarts")
-        case $restarts in ''|*[!0-9]*) restarts=unread ;; esac
         project=$(tok "${project:-}")
-        printf 'container=%s,%s,%s,%s\n' "$(tok "$name")" "$(tok "$id")" "${project:--}" "$restarts"
+        printf 'container=%s,%s,%s,%s\n' "$(tok "$name")" "$(tok "$id")" "${project:--}" "$(restarts_of "$id")"
     done
 }
 
@@ -56,12 +70,25 @@ card_holders() {
     done
 }
 
+# The backend the start-up line names, from that line alone: the 09-13 method's
+# tokens (records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py), but
+# never a token met elsewhere in the log, which is a list of what is available.
+backend_of() {
+    local line found
+    line=$(docker logs "$1" 2>&1 | grep -i -m 1 -E 'attention[ _]backend')
+    found=$(printf '%s' "$line" | grep -oE 'FLASH_ATTENTION|FLASH_ATTN|FLASHINFER|TRITON_ATTN' | head -n 1)
+    printf '%s' "${found:-none}"
+}
+
 unit_pages() {
-    local arg engine port said state path page
+    local arg engine rest port container said state path page
     for arg in "$@"; do
         engine=${arg%%:*}
-        port=${arg##*:}
-        case $port in ''|*[!0-9]*) fail "not ENGINE:PORT: $arg" ;; esac
+        rest=${arg#*:}
+        port=${rest%%:*}
+        container=
+        case $rest in *:*) container=${rest#*:} ;; esac
+        case $port in ''|*[!0-9]*) fail "not ENGINE:PORT[:CONTAINER]: $arg" ;; esac
         path=/slots
         if [ "$engine" = vllm ]; then
             path=/metrics
@@ -73,6 +100,9 @@ unit_pages() {
                 *) state=unknown ;;
             esac
             printf 'sleeping=%s,%s\n' "$port" "$state"
+            if [ -n "$container" ]; then
+                printf 'backend=%s,%s\n' "$port" "$(backend_of "$container")"
+            fi
         fi
         if page=$(curl -s -f -m 10 "http://127.0.0.1:$port$path" 2>/dev/null); then
             printf 'status=%s,%s\n' "$port" "$(printf '%s' "$page" | base64 -w0)"
@@ -80,6 +110,10 @@ unit_pages() {
     done
 }
 
+case "${1:-}" in
+    --card-holders) card_holders; exit 0 ;;
+    --restarts) restarts_of "${2:-}"; exit 0 ;;
+esac
 containers_up
 card_holders
 unit_pages "$@"

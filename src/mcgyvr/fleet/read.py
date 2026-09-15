@@ -95,6 +95,9 @@ class Reading:
     sleeping: dict[int, bool | None] = field(default_factory=dict)
     #: port -> the unit's in-flight page, as served.
     status: dict[int, str] = field(default_factory=dict)
+    #: port -> the attention backend a vLLM unit's start-up log line names,
+    #: ``None`` when no line names one (owner, 2026-09-15, B4).
+    backend: dict[int, str | None] = field(default_factory=dict)
 
 
 def _digits(value: str) -> int | None:
@@ -149,6 +152,11 @@ def parse(text: str) -> Reading:
                 reading.status[port] = base64.b64decode(parts[1]).decode("utf-8")
             except (binascii.Error, UnicodeDecodeError) as exc:
                 raise ReadError(f"the status page of :{port} does not decode") from exc
+        elif key == "backend":
+            port = _digits(parts[0])
+            if len(parts) != 2 or port is None:
+                raise ReadError(f"a backend row is PORT,BACKEND: {line!r}")
+            reading.backend[port] = None if parts[1] in ("", "none") else parts[1]
         else:
             reading.snapshot[key] = value
     return reading
@@ -203,12 +211,18 @@ def engine_of(unit: Mapping[str, Any]) -> str:
     return engine if isinstance(engine, str) and engine else "llama.cpp"
 
 
-def prepare(host: str, probe: Sequence[str] = ()) -> Live:
+def prepare(host: str, probe: Sequence[str] = (), load: str | None = None) -> Live:
     """The live fleet a read of ``host`` is filed under, refused before any rig read.
 
-    ``host`` must be a rig of the live fleet's layout, and every unit to probe an
-    awake unit of it on that rig.
+    ``host`` must be a rig of the live fleet's layout, every unit to probe an
+    awake unit of it on that rig, and a load (``WxN``) a load of probed units.
     """
+    if load is not None:
+        if not probe:
+            raise ReadError(
+                "--load needs --probe: a load runs on the units a probe names"
+            )
+        load_spec(load)
     fleet = live()
     layout = fleet.fleet["fleets"][fleet.name].get("layout", {})
     if host not in layout:
@@ -224,8 +238,17 @@ def prepare(host: str, probe: Sequence[str] = ()) -> Live:
 
 
 def reader_args(fleet: Live, host: str) -> list[str]:
-    """``ENGINE:PORT`` for each unit the layout puts on ``host``: ``rig-units.sh``'s."""
-    return [f"{engine_of(unit)}:{port_of(unit)}" for _, unit, _ in fleet.slots(host)]
+    """``ENGINE:PORT:CONTAINER`` per unit the layout puts on ``host``.
+
+    ``rig-units.sh``'s arguments. The container is the one the lock records for
+    the unit, whose start-up log names its attention backend; a unit that records
+    none is ``ENGINE:PORT``.
+    """
+    args: list[str] = []
+    for _, unit, _ in fleet.slots(host):
+        parts = [engine_of(unit), str(port_of(unit)), str(unit.get("container") or "")]
+        args.append(":".join(part for part in parts if part))
+    return args
 
 
 @dataclass
@@ -244,6 +267,10 @@ class Observed:
     restarts: dict[str, int | None]
     #: unit name -> what its own status page says it has in flight.
     in_flight: dict[str, int | None]
+    #: unit name -> the id of the container it runs in, for a unit that is up.
+    containers: dict[str, str] = field(default_factory=dict)
+    #: vLLM unit name -> the attention backend its start-up log names, or ``None``.
+    backend: dict[str, str | None] = field(default_factory=dict)
 
 
 def observe(fleet: Live, host: str, reading: Reading) -> Observed:
@@ -269,6 +296,9 @@ def observe(fleet: Live, host: str, reading: Reading) -> Observed:
             continue
         asleep = reading.sleeping.get(port) is True
         observed.units[str(unit["unit_id"])] = "asleep" if asleep else "awake"
+        observed.containers[name] = container.id
+        if engine_of(unit) == "vllm":
+            observed.backend[name] = reading.backend.get(port)
         held = [h for h in reading.holders if h.container == container.id]
         observed.card_mib[name] = (
             None if any(h.mib is None for h in held) else sum(h.mib or 0 for h in held)
@@ -304,6 +334,10 @@ class Recorded:
     failed: dict[str, str] = field(default_factory=dict)
     not_read: dict[str, list[str]] = field(default_factory=dict)
     alerts: list[dict[str, Any]] = field(default_factory=list)
+    #: unit name -> the load row filed for it (``--load``).
+    loads: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: unit name -> why the load asked of it was not run.
+    unloaded: dict[str, str] = field(default_factory=dict)
 
 
 def _at(run_id: str) -> str:
@@ -316,6 +350,64 @@ def _at(run_id: str) -> str:
     return f"{s[:4]}-{s[4:6]}-{s[6:8]}T{s[9:11]}:{s[11:13]}:{s[13:15]}"
 
 
+def load_spec(spec: str) -> tuple[int, int]:
+    """``WxN`` as ``(W, N)``: W concurrent requests, each filling an N-token window."""
+    from mcgyvr.serving.run import LOAD_SPEC
+
+    match = LOAD_SPEC.match(spec)
+    if match is None:
+        raise ReadError(f"--load {spec!r} is not WxN, e.g. 8x4096")
+    return int(match.group(1)), int(match.group(2))
+
+
+@dataclass
+class _Filing:
+    """Where one read's rows go, and the dev alerts held back until all are filed."""
+
+    journal: Path
+    stamp: dict[str, str]
+    stamps: dict[str, str]
+    profile: str
+    done: Recorded
+    raised: list[str] = field(default_factory=list)
+
+    def unit_stamp(self, unit_id: str) -> dict[str, str]:
+        return {**self.stamp, "unit_id": unit_id}
+
+    def record(self, unit_id: str, values: Mapping[str, Any]) -> None:
+        """File a row the judge does not look at."""
+        alerts.record(self.journal, self.unit_stamp(unit_id), {**self.stamps, **values})
+
+    def check(
+        self,
+        unit_id: str,
+        observations: Sequence[Mapping[str, Any]],
+        approved: Mapping[str, Any],
+    ) -> None:
+        """File and judge each observation on its own: one dev alert stops no other.
+
+        :func:`mcgyvr.fleet.alerts.check` files a row before it raises a dev
+        alert, so every row is filed and the raise waits for :func:`record`.
+        """
+        for observation in observations:
+            try:
+                self.done.alerts.extend(
+                    alerts.check(
+                        [observation],
+                        approved=approved,
+                        profile=self.profile,
+                        journal_dir=self.journal,
+                        stamp=self.unit_stamp(unit_id),
+                        run_id=self.stamps["run_id"],
+                        lease_id=self.stamps["lease_id"],
+                    )
+                )
+            except alerts.AlertError:
+                field_name = str(observation["field"])
+                self.raised.append(f"{observation.get('unit', unit_id)} {field_name}")
+                self.done.alerts.append({"unit_id": unit_id, "field": field_name})
+
+
 def record(
     host: str,
     text: str,
@@ -324,38 +416,65 @@ def record(
     profile: str,
     probe: Sequence[str] = (),
     measure: Measure | None = None,
+    load: str | None = None,
 ) -> Recorded:
-    """File one reading of ``host`` under the live fleet's journal, and judge it.
+    """File one reading of ``host`` under the live fleet's journal, then judge it.
 
-    A dev profile raises :class:`mcgyvr.fleet.alerts.AlertError` on an alert,
-    after the rig row is filed.
+    Owner, 2026-09-15 (B2, "probe first, judge after"): every figure is measured
+    first — the probes, then the loads — and only then is each row filed and
+    judged, so an alert on one figure stops no other being measured or filed. A
+    dev profile raises :class:`mcgyvr.fleet.alerts.AlertError` at the end, after
+    the rig row is filed, when anything alerted; live only warns.
     """
     from mcgyvr.fleet.probe import journal_dir
 
-    fleet = prepare(host, probe)
+    fleet = prepare(host, probe, load)
+    width, window = load_spec(load) if load is not None else (0, 0)
     at = _at(run_id)
-    lease_id = f"read-{run_id.rsplit('-', 1)[1]}"
-    observed = observe(fleet, host, parse(text))
-    journal = journal_dir(fleet.folder)
-    stamp = {
-        "fleet": fleet.name,
-        "rig": host,
-        "rig_id": fleet.locked_rig_id(host),
-        "combination_id": fleet.combination(host),
-    }
+    reading = parse(text)
+    observed = observe(fleet, host, reading)
     done = Recorded(observed)
-    stamps = {"run_id": run_id, "lease_id": lease_id, "at": at}
-    raised: alerts.AlertError | None = None
-    try:
-        _judge_units(fleet, host, observed, journal, stamp, stamps, profile, done)
-        for name in probe:
-            _probe(fleet, host, name, measure, journal, stamp, stamps, profile, done)
-    except alerts.AlertError as exc:
-        raised = exc
+    filing = _Filing(
+        journal=journal_dir(fleet.folder),
+        stamp={
+            "fleet": fleet.name,
+            "rig": host,
+            "rig_id": fleet.locked_rig_id(host),
+            "combination_id": fleet.combination(host),
+        },
+        stamps={
+            "run_id": run_id,
+            "lease_id": f"read-{run_id.rsplit('-', 1)[1]}",
+            "at": at,
+        },
+        profile=profile,
+        done=done,
+    )
+
+    probes: dict[str, dict[str, Any]] = {}
+    for name in probe:
+        answer = _measure_probe(fleet, name, measure, done)
+        if answer is not None:
+            probes[name] = answer
+    loads: dict[str, dict[str, Any]] = {}
+    for name in probe if load is not None else ():
+        answer = _measure_load(
+            fleet, name, measure, done, probes.get(name), width, window
+        )
+        if answer is not None:
+            loads[name] = answer
+
+    _file_units(fleet, host, filing)
+    for name, answer in probes.items():
+        _file_probe(fleet, host, name, answer, filing)
+    for name, answer in loads.items():
+        _file_load(fleet, name, answer, width, window, filing)
+
     row = {
-        **stamp,
-        **stamps,
+        **filing.stamp,
+        **filing.stamps,
         "observed_rig_id": observed.rig_id,
+        "snapshot": reading.snapshot,
         "units": observed.units,
         "foreign": observed.foreign,
         "probed": done.probed,
@@ -363,42 +482,43 @@ def record(
         "contended": done.contended,
         "failed": done.failed,
         "not_read": done.not_read,
+        "loaded": sorted(done.loads),
+        "unloaded": done.unloaded,
     }
-    where = journal / stamp["combination_id"]
+    where = filing.journal / filing.stamp["combination_id"]
     where.mkdir(parents=True, exist_ok=True)
     with (where / RIG_ROWS).open("a", encoding="utf-8") as rows:
         rows.write(json.dumps(row, sort_keys=True) + "\n")
-    if raised is not None:
-        raise raised
+    if filing.raised:
+        raise alerts.AlertError(f"a dev read alerts on {', '.join(filing.raised)}")
     return done
 
 
-def _judge_units(
-    fleet: Live,
-    host: str,
-    observed: Observed,
-    journal: Path,
-    stamp: Mapping[str, str],
-    stamps: Mapping[str, str],
-    profile: str,
-    done: Recorded,
-) -> None:
+def _answer(text: str | None) -> dict[str, Any] | None:
+    """What the harness on the rig printed, as one JSON object, or ``None``."""
+    try:
+        answer = json.loads(text or "")
+    except ValueError:
+        return None
+    return answer if isinstance(answer, dict) else None
+
+
+def _file_units(fleet: Live, host: str, filing: _Filing) -> None:
+    """Each unit's card and restarts, judged, and a vLLM unit's attention backend."""
+    observed = filing.done.observed
     for name, unit, _state in fleet.slots(host):
         unit_id = str(unit["unit_id"])
         if unit_id not in observed.units:
             continue
-        unit_stamp = {**stamp, "unit_id": unit_id}
         judged: list[dict[str, Any]] = []
         for field_name, value in (
             ("card_mib", observed.card_mib.get(name)),
             ("restarts", observed.restarts.get(name)),
         ):
             if value is None:
-                done.not_read.setdefault(name, []).append(field_name)
-                alerts.record(
-                    journal,
-                    unit_stamp,
-                    {"field": field_name, "observed": None, "read": False, **stamps},
+                filing.done.not_read.setdefault(name, []).append(field_name)
+                filing.record(
+                    unit_id, {"field": field_name, "observed": None, "read": False}
                 )
                 continue
             judged.append(
@@ -410,74 +530,72 @@ def _judge_units(
                 }
             )
         room = unit.get("room_mib")
-        approved = {unit_id: {} if room is None else {"room_mib": room}}
-        done.alerts.extend(
-            alerts.check(
-                judged,
-                approved=approved,
-                profile=profile,
-                journal_dir=journal,
-                stamp=unit_stamp,
-                run_id=stamps["run_id"],
-                lease_id=stamps["lease_id"],
-            )
+        filing.check(
+            unit_id, judged, {unit_id: {} if room is None else {"room_mib": room}}
         )
+        if name in observed.backend:
+            backend = observed.backend[name]
+            filing.record(
+                unit_id,
+                {
+                    "field": "attention_backend",
+                    "observed": backend,
+                    "attention_backend": backend,
+                },
+            )
 
 
-def _probe(
-    fleet: Live,
-    host: str,
-    name: str,
-    measure: Measure | None,
-    journal: Path,
-    stamp: Mapping[str, str],
-    stamps: Mapping[str, str],
-    profile: str,
-    done: Recorded,
+def _measure_probe(
+    fleet: Live, name: str, measure: Measure | None, done: Recorded
+) -> dict[str, Any] | None:
+    """The lock's harness on the rig, for one idle unit: its answer, not yet filed."""
+    unit = fleet.fleet["units"][name]
+    before = done.observed.in_flight.get(name)
+    if before is None:
+        done.failed[name] = "its in-flight page could not be read on the rig"
+        return None
+    if before > 0:
+        done.busy[name] = before
+        return None
+    if measure is None:
+        done.failed[name] = "no harness was given to run on the rig"
+        return None
+    spec = {"mode": "probe", "engine": engine_of(unit), "port": port_of(unit)}
+    answer = _answer(measure(name, json.dumps(spec)))
+    if answer is None:
+        done.failed[name] = "the harness on the rig printed no answer"
+        return None
+    if not isinstance(answer.get("figures"), dict):
+        why = answer.get("error")
+        done.failed[name] = f"the harness on the rig could not measure: {why}"
+        return None
+    done.probed[name] = {str(k): float(v) for k, v in answer["figures"].items()}
+    return answer
+
+
+def _file_probe(
+    fleet: Live, host: str, name: str, answer: Mapping[str, Any], filing: _Filing
 ) -> None:
-    """The lock's harness on the rig, for one idle unit, filed and judged."""
+    """A probe's figures, filed contended or judged against the lock."""
     from mcgyvr.derived import DerivedNumbersError, class_tolerances
     from mcgyvr.fleet.harness import HarnessError
     from mcgyvr.fleet.probe import _approved
     from mcgyvr.runner import status_busy
 
     unit = fleet.fleet["units"][name]
-    before = done.observed.in_flight.get(name)
-    if before is None:
-        done.failed[name] = "its in-flight page could not be read on the rig"
-        return
-    if before > 0:
-        done.busy[name] = before
-        return
-    if measure is None:
-        done.failed[name] = "no harness was given to run on the rig"
-        return
-    spec = json.dumps({"engine": engine_of(unit), "port": port_of(unit)})
-    try:
-        answer = json.loads(measure(name, spec) or "")
-    except ValueError:
-        done.failed[name] = "the harness on the rig printed no answer"
-        return
-    if not isinstance(answer, dict) or not isinstance(answer.get("figures"), dict):
-        why = answer.get("error") if isinstance(answer, dict) else None
-        done.failed[name] = f"the harness on the rig could not measure: {why}"
-        return
-    figures = {str(k): float(v) for k, v in answer["figures"].items()}
-    done.probed[name] = figures
-    unit_stamp = {**stamp, "unit_id": str(unit["unit_id"])}
+    unit_id = str(unit["unit_id"])
+    figures = filing.done.probed[name]
     after = status_busy(engine_of(unit), answer.get("after_page"))
     if after is None or after > 0:
-        done.contended.append(name)
+        filing.done.contended.append(name)
         for field_name, value in figures.items():
-            alerts.record(
-                journal,
-                unit_stamp,
+            filing.record(
+                unit_id,
                 {
                     "field": field_name,
                     "observed": value,
                     "contended": True,
                     "in_flight_after": after,
-                    **stamps,
                 },
             )
         return
@@ -485,33 +603,148 @@ def _probe(
         approved = _approved(
             fleet.folder,
             fleet.locked_rig_id(host),
-            stamp["combination_id"],
+            filing.stamp["combination_id"],
             name,
             unit,
             class_tolerances(),
         )
     except (HarnessError, DerivedNumbersError) as exc:
-        done.failed[name] = str(exc)
+        filing.done.failed[name] = str(exc)
         return
-    done.alerts.extend(
-        alerts.check(
-            [
-                {
-                    "unit_id": unit_stamp["unit_id"],
-                    "unit": name,
-                    "field": f,
-                    "observed": v,
-                }
-                for f, v in figures.items()
-            ],
-            approved=approved,
-            profile=profile,
-            journal_dir=journal,
-            stamp=unit_stamp,
-            run_id=stamps["run_id"],
-            lease_id=stamps["lease_id"],
-        )
+    filing.check(
+        unit_id,
+        [
+            {"unit_id": unit_id, "unit": name, "field": f, "observed": v}
+            for f, v in figures.items()
+        ],
+        approved,
     )
+
+
+def _measure_load(
+    fleet: Live,
+    name: str,
+    measure: Measure | None,
+    done: Recorded,
+    probed: Mapping[str, Any] | None,
+    width: int,
+    window: int,
+) -> dict[str, Any] | None:
+    """A load of one idle unit on the rig (owner, 2026-09-15, B1), not yet filed."""
+    from mcgyvr.runner import status_busy
+    from mcgyvr.serving.run import GATE_SCRIPTS
+
+    unit = fleet.fleet["units"][name]
+    if done.observed.in_flight.get(name) != 0 or name in done.failed:
+        done.unloaded[name] = "it was not read idle on the rig"
+        return None
+    if probed is not None:
+        after = status_busy(engine_of(unit), probed.get("after_page"))
+        if after != 0:
+            done.unloaded[name] = f"it had {after} in flight after its probe"
+            return None
+    container = done.observed.containers.get(name)
+    if container is None:
+        done.unloaded[name] = "its container is not up"
+        return None
+    if measure is None:
+        done.unloaded[name] = "no harness was given to run on the rig"
+        return None
+    spec = {
+        "mode": "load",
+        "engine": engine_of(unit),
+        "port": port_of(unit),
+        "width": width,
+        "window": window,
+        "container": container,
+        "poll": (GATE_SCRIPTS / "rig-units.sh").read_text(encoding="utf-8"),
+    }
+    answer = _answer(measure(name, json.dumps(spec)))
+    if answer is None or not isinstance(answer.get("load"), dict):
+        why = "no answer" if answer is None else answer.get("error")
+        done.failed[name] = f"the load on the rig could not run: {why}"
+        return None
+    return answer
+
+
+def _file_load(
+    fleet: Live,
+    name: str,
+    answer: Mapping[str, Any],
+    width: int,
+    window: int,
+    filing: _Filing,
+) -> None:
+    """One load row, its peak judged like the card: at most the unit's ``room_mib``.
+
+    Owner ruling B3: ``room_mib`` is the process's measured card peak, context
+    included. A load that did not complete every request, or reports an error,
+    proves no peak and is filed unjudged. The row is written whole and judged by
+    :mod:`mcgyvr.fleet.alerts`' own rule, because :func:`~mcgyvr.fleet.alerts.check`
+    files only its fixed fields.
+    """
+    from mcgyvr.fleet.alerts import _already_alerted, _journal_file, _judge, _warning
+
+    unit = fleet.fleet["units"][name]
+    unit_id = str(unit["unit_id"])
+    container = filing.done.observed.containers[name]
+    body = answer["load"]
+    samples = [s for s in body.get("samples") or [] if isinstance(s, str)]
+    peaks: list[int] = []
+    for sample in samples:
+        try:
+            held = [h for h in parse(sample).holders if h.container == container]
+        except ReadError:
+            continue
+        if held and all(h.mib is not None for h in held):
+            peaks.append(sum(h.mib or 0 for h in held))
+    peak = max(peaks) if peaks else None
+    errors = [str(error) for error in body.get("errors") or []]
+    completed = body.get("completed") if isinstance(body.get("completed"), int) else 0
+    row: dict[str, Any] = {
+        "field": "load_peak_mib",
+        "observed": peak,
+        "unit": name,
+        "spec": f"{width}x{window}",
+        "peak_mib": peak,
+        "samples": len(samples),
+        "container": container,
+        "started_at": body.get("started_at"),
+        "finished_at": body.get("finished_at"),
+        "restarts_before": _digits(str(body.get("restarts_before") or "").strip()),
+        "restarts_after": _digits(str(body.get("restarts_after") or "").strip()),
+        "width": width,
+        "completed": completed,
+        "errors": errors[:5],
+        "prompt_tokens": body.get("prompt_tokens"),
+        "max_tokens": body.get("max_tokens"),
+    }
+    if isinstance(body.get("finished_at"), str):
+        row["at"] = body["finished_at"]
+    filing.done.loads[name] = row
+    room = unit.get("room_mib")
+    if peak is None or room is None or completed != width or errors:
+        filing.record(unit_id, row)
+        return
+    observation = {
+        "unit_id": unit_id,
+        "unit": name,
+        "field": "load_peak_mib",
+        "observed": peak,
+    }
+    alert = _judge(observation, {unit_id: {"room_mib": room}})
+    path = _journal_file(filing.journal, filing.stamp["combination_id"], unit_id)
+    warned = _already_alerted(path, "load_peak_mib")
+    filing.record(unit_id, {**row, "alert": alert is not None})
+    if alert is None:
+        return
+    filing.done.alerts.append(alert)
+    if filing.profile == "dev":
+        filing.raised.append(f"{name} load_peak_mib")
+    elif not warned:
+        print(
+            _warning(observation, filing.unit_stamp(unit_id), unit_id), file=sys.stderr
+        )
 
 
 def observations(journal: Path, run_id: str) -> dict[str, dict[str, Any]]:

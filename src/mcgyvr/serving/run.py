@@ -335,6 +335,9 @@ READ_SEQUENCE: tuple[Entry, ...] = (
 )
 #: A read's id, which every row it files carries: the probe's own shape.
 READ_ID = re.compile(r"^run-(\d{8}T\d{6})-([0-9a-f]{8})$")
+#: A load a read runs on its probed units: W concurrent requests, each filling an
+#: N-token window (owner, 2026-09-15, B1).
+LOAD_SPEC = re.compile(r"^([1-9][0-9]*)x([1-9][0-9]*)$")
 
 
 def mint_read_id(now: datetime | None = None) -> str:
@@ -370,6 +373,7 @@ EXPORTED = (
     # it runs the lock's harness for on the rig.
     "RUN_READ_ID",
     "RUN_READ_PROBE",
+    "RUN_READ_LOAD",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
@@ -876,6 +880,16 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--load",
+        default="",
+        metavar="WxN",
+        help=(
+            "with --probe: W concurrent requests on the rig, each filling the "
+            "unit's N-token window, while its container's card peak is sampled "
+            "and judged against its room_mib"
+        ),
+    )
+    parser.add_argument(
         "--run-id",
         default="",
         help="the id the read's rows are filed under (default: minted)",
@@ -902,6 +916,20 @@ def _read(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 2
+    if opts.load and not opts.probe:
+        print(
+            "run.py: REFUSED — --load needs --probe: a load runs on the units a "
+            "probe names, and only while each is idle",
+            file=sys.stderr,
+        )
+        return 2
+    if opts.load and LOAD_SPEC.match(opts.load) is None:
+        print(
+            f"run.py: REFUSED — --load {opts.load!r} is not WxN: W concurrent "
+            "requests, each filling an N-token window (e.g. 8x4096)",
+            file=sys.stderr,
+        )
+        return 2
     try:
         root = run_root()
     except RefusedError as refusal:
@@ -920,6 +948,7 @@ def _read(argv: list[str]) -> int:
         RUN_HOST=opts.host,
         RUN_READ_ID=run_id,
         RUN_READ_PROBE=" ".join(opts.probe),
+        RUN_READ_LOAD=opts.load,
     )
     try:
         check_manifest()
