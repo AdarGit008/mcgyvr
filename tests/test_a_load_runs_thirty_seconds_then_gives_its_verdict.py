@@ -33,6 +33,10 @@ seconds from the close (or the finish) to the first idle reading; ``idle_after``
 stays the final reading. A status page that cannot be read at all is filed as
 ``idle_error`` and ends the wait.
 
+So nothing outside the load holds it either (R1, under NB5 and NBc): the door's
+ssh that runs a load's harness on the rig carries no timeout, while a probe's
+keeps ``PROBE_TIMEOUT_S`` and the rig reading keeps ``READ_TIMEOUT_S``.
+
 The clock, the sleep, the requests, the pages and the poll are fakes: nothing
 sleeps and no rig is reached.
 """
@@ -40,12 +44,14 @@ sleeps and no rig is reached.
 from __future__ import annotations
 
 import base64
+import importlib.util
 import json
 import subprocess
 import threading
 from collections.abc import Mapping, Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import ModuleType
 from typing import Any, ClassVar
 
 import pytest
@@ -583,3 +589,76 @@ def test_a_llamacpp_load_files_pace_null_with_the_reason(tmp_path: Path) -> None
     assert row["pace_prompt_tok_s"] is None
     assert "--metrics" in row["pace_source"] and "/slots" in row["pace_source"]
     assert row["idle_after"] is True
+
+
+# --- the door's ssh to the rig --------------------------------------------------
+
+READ_02_RIG = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "mcgyvr"
+    / "serving"
+    / "gate-scripts"
+    / "read-02-rig.py"
+)
+
+
+def read_02_rig() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("read_02_rig", READ_02_RIG)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_doors_ssh_gives_a_load_no_timeout_and_a_probe_its_own(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr.fleet import harness
+
+    gate = read_02_rig()
+    asked: list[tuple[str, str, float | None, str | None]] = []
+
+    def ssh(
+        host: str,
+        command: str,
+        timeout: float | None = 120.0,
+        *,
+        input: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        asked.append((host, command, timeout, input))
+        return subprocess.CompletedProcess([], 0, stdout='{"load": {}}', stderr="")
+
+    monkeypatch.setattr(gate, "ssh", ssh)
+    load = json.dumps({"mode": "load", "engine": "vllm", "port": 8001, "width": 8})
+    probe = json.dumps({"mode": "probe", "engine": "vllm", "port": 8001})
+
+    assert gate.harness_on_rig("srv2", load, "SOURCE") == '{"load": {}}'
+    assert gate.harness_on_rig("srv2", probe, "SOURCE") == '{"load": {}}'
+
+    (on_load, on_probe) = asked
+    assert on_load[0] == "srv2" and harness.HARNESS_WORD in on_load[1]
+    assert on_load[3] == "SOURCE"
+    assert on_load[2] is None
+    assert on_probe[2] == gate.PROBE_TIMEOUT_S == 1800
+    assert gate.READ_TIMEOUT_S == 180
+
+
+def test_a_probe_that_outlasts_its_timeout_is_still_no_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = read_02_rig()
+
+    def ssh(
+        host: str,
+        command: str,
+        timeout: float | None = 120.0,
+        *,
+        input: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(command, timeout or 0.0)
+
+    monkeypatch.setattr(gate, "ssh", ssh)
+    probe = json.dumps({"mode": "probe", "engine": "vllm", "port": 8001})
+
+    assert gate.harness_on_rig("srv2", probe, "SOURCE") is None
