@@ -31,6 +31,15 @@
 # is not byte-identical to mcgyvr.emit.emit_locked's file, or names other
 # containers than fleet.yaml.
 #
+# A FAILED START KEEPS ITS WHOLE LOG (owner ruling, 2026-09-15). When the source
+# does not come up healthy, or the timed ssh ends before every target said
+# healthy, each container of that side has its whole `docker logs` (stdout and
+# stderr, every line, through the door's shim) filed in the envelope as
+# <artifact stem>.<unit>.docker.log before anything removes it, and `failure`
+# names those files. The wrapper does not declare them: gate 8 holds each
+# declared name to exist, and these exist only when a start failed
+# (lockfleets.keep_log writes each once, never through a link).
+#
 # Usage: a use's numbered wrapper declares the artifact and runs
 #   exec bash ../_move.sh <artifact>.json RIG FROM_FLEET TO_FLEET "$@"
 # with the compose file, when a side needs one, as the door's `-- COMPOSE`.
@@ -92,6 +101,18 @@ fail() {
     printf '%s\n' "$*" >"$STATE/failure"
     _fail "$*" || true
     exit 1
+}
+
+# keep_logs "CONTAINER=UNIT ..." — each container's whole `docker logs`, filed
+# in the envelope while it still exists; prints the files' names.
+keep_logs() {
+    local pair kept=
+    for pair in $1; do
+        "$DOCKER" logs "${pair%%=*}" >"$STATE/docker.log" 2>&1 || true
+        kept="$kept $(_py "$LF" keep-log "$STATE/docker.log" "$RUN_OUT_DIR" "$ARTIFACT" "${pair#*=}" ||
+            printf 'none kept for %s' "${pair#*=}")"
+    done
+    printf '%s\n' "${kept# }"
 }
 
 # --- the refusals, before the rig is started on ------------------------------
@@ -194,8 +215,10 @@ set +e
 "$SSH" "$RUN_HOST" "$SCRIPT" <"$COMPOSE_IN" >"$STATE/source.out" 2>&1
 printf '%s\n' "$?" >"$STATE/source_exit"
 set -e
-[ "$(cat "$STATE/source_exit")" = 0 ] ||
-    fail "the source, $FROM_FLEET on $RIG, did not come up healthy; nothing was timed"
+if [ "$(cat "$STATE/source_exit")" != 0 ]; then
+    kept=$(keep_logs "$MOVE_SOURCE_CONTAINERS")
+    fail "the source, $FROM_FLEET on $RIG, did not come up healthy; nothing was timed; its whole docker logs: $kept"
+fi
 
 # --- the ONE timed ssh -------------------------------------------------------
 if [ "$MOVE_TARGET_KIND" = compose ]; then TIMED=$TIMED_COMPOSE; else TIMED=$TIMED_RUN; fi
@@ -204,6 +227,10 @@ set +e
 "$SSH" "$RUN_HOST" "$SCRIPT" <"$COMPOSE_IN" >"$STATE/timed.out"
 printf '%s\n' "$?" >"$STATE/ssh_exit"
 set -e
+if [ "$(cat "$STATE/ssh_exit")" != 0 ]; then
+    kept=$(keep_logs "$MOVE_TARGET_CONTAINERS")
+    printf '%s\n' "the timed ssh exited $(cat "$STATE/ssh_exit") before every target of $TO_FLEET on $RIG said healthy; their whole docker logs: $kept" >"$STATE/failure"
+fi
 
 # --- teardown ------------------------------------------------------------------
 if [ "$COMPOSE_IN" = /dev/null ]; then TEARDOWN=$TEARDOWN_RUN; else TEARDOWN=$TEARDOWN_COMPOSE; fi

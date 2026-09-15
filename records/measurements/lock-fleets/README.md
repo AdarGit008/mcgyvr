@@ -19,7 +19,8 @@ freezes from it. The first use is [`rig-id-relock/`](rig-id-relock/RUNS.md).
 | `tools/runs/campaigns/lock-fleets/_move.sh` | one timed switch move on one rig, through the door |
 | `tools/runs/campaigns/lock-fleets/lockfleets.py` | the facts and refusals both steps act on; renders the move's rig shell; writes their artifacts |
 | `tools/runs/campaigns/lock-fleets/<use>/NN-*.sh` | one generated wrapper per campaign run of a use |
-| `plan.py` | freezes a use's order into `<use>/RUNS.md` and writes its wrappers |
+| `plan.py` | freezes a use's order into `<use>/RUNS.md` and writes its wrappers; `retry` gives a failed entry its one retry |
+| `<use>/retries.json` | a use's retries, one per failed entry, each placed right after it in its rig's order |
 | `drive.sh RIG USE` | runs one rig's frozen order through the door, and stops to ask |
 | `assemble_evidence.py` | `check` (the stop-and-ask list), `assemble` (the lock's evidence), `tolerance` |
 
@@ -86,7 +87,8 @@ rig's idle tail; no fill work is added.
   `--max-model-len`), and runs at most 30 s: card samples every 0.5 s, pace as
   prompt tok/s from the unit's own counter or null with a reason. At 30 s the
   unfinished requests are closed and the load waits for the unit to read idle,
-  with no time limit. The verdict is the 30-s card peak ≤ room. Pace, the
+  with no time limit, sampling the card all the while (2026-09-15, below). The
+  verdict is the card peak over every sample up to idle ≤ room. Pace, the
   completion counts, `idle_after_close` and `idle_after_s` are filed, not judged.
   A load is refused for errors other than the 30-s close, for a status-page error
   during the idle wait (`idle_error`), for no sample showing the container, or
@@ -120,13 +122,77 @@ rig's idle tail; no fill work is added.
   medians), tol = max(1, ceil(max_i (L − s_i) / L × 100)), a sample above L
   counting as 0. The 2026-09-12 M1 wording took the shortfall from the unit
   median over 15 samples; this takes it from the locked value.
+- **A failed start keeps the container's full log** (2026-09-15). When a
+  container a step started exits or never says healthy — `_unit.sh`'s unit, or
+  the source or the targets of `_move.sh` — its whole `docker logs` (stdout and
+  stderr, every line, through the door's docker shim) is filed in the envelope
+  as `<artifact stem>.<unit>.docker.log` before anything removes it, and the
+  artifact's `failure` names the file after its short text. The wrapper does not
+  declare it: gate 8 holds a declared name to exist (`08-parse.py:182-188`) and
+  this file exists only when a start failed, while gate 5 guards and gate 7
+  stamps only declared names (`05-envelope.py:298-306`,
+  `07-teardown.py:231-272`). So `lockfleets.keep_log` writes it once and never
+  through a link.
+- **A failed entry gets one retry** (2026-09-15, "Fix PR, then retry srv2").
+  `plan.py retry --use U --entry E --reason "..."` refuses unless E is logged and
+  fails its check, has no retry yet and is not itself a retry; only a campaign
+  unit or move run has a wrapper of its own to retry. It lists the retry in
+  `<use>/retries.json` and writes its wrapper, `NN-<step>-retry1.sh`, declaring
+  `<artifact stem>-retry1.json`; `read_runs` places `E-retry1` right after E in
+  that rig's order, and RUNS.md is not edited. The failed run is kept as a data
+  point: `check` says it failed, retried by `E-retry1`, and the driver goes on
+  to the retry; `assemble` keeps it in `runs.json` with its reasons and counts
+  the retry among the K valid runs in its place. A failed retry stops and gets
+  no second one. `--log-from TREE` runs the check on the log, envelopes and
+  outputs of another tree with the same frozen order, for a checkout whose own
+  RUNS.md log was never written.
+- **Swap is recorded on a listed rig, not stopped on** (2026-09-15, "Record swap
+  on srv1, don't stop"). `use.json`'s `swap_recorded_not_stopped_on` names the
+  rigs; the planner refuses one no fleet places a unit on. On a listed rig a
+  campaign run's pswpout start, end and delta are filed in `runs.json`
+  (`pswpout`) and its growth is no reason to stop. Every other stop still
+  applies there — uptime_since, pl1_uw, pl2_uw or ram_mt_s moving between START
+  and END, restarts, a failure — and every other rig keeps the swap stop.
+  `rig-id-relock` lists srv1: srv1-01's 47,425 pages sit inside the
+  35,000–48,000 pages per wake that
+  `records/measurements/ram-headroom-2026-09-09/README.md` measured for that
+  blob mapped on srv1 at swappiness 60, with decode unaffected.
+- **The card is sampled until idle** (2026-09-15, "Sample the card until idle").
+  Closing the load's request at 30 s does not cancel the work in llama.cpp
+  b10644: srv1-01's artifact
+  (`records/evidence/2026-09-15-lock-fleets/rig-id-relock-srv1-c1-srv1_35b_maxctx.json`)
+  files `idle_after_close` false, `idle_after_s` 104.3, `prompt_tokens` 32690,
+  `completed` 0, `closed_unfinished` 1, and 58 card samples, every one taken
+  before the close. So after the close the harness samples `rig-units.sh
+  --card-holders` beside every status reading, the first idle one included,
+  with still no time limit. `samples_before_close` marks where the close fell,
+  and `sampled_until_idle` whether the samples reach an idle reading; an
+  `idle_error` still ends the wait short of idle. The load's verdict, `room_mib`
+  and `card_peak_mib` are the max over every sample, and `peak_before_close_mib`
+  is filed as data. A load not sampled until idle is kept, its peak a lower
+  bound (`peak_is_lower_bound`), and `check` does not stop on it; `assemble`
+  refuses a unit's room, naming the runs, while fewer than K of its valid runs
+  were sampled until idle. The stop on `idle_after_close` false on a rig's
+  first long-context run is gone, and the flag stays filed.
+- **One extra cold start for room** (2026-09-15, "One extra cold start for
+  room"). `plan.py rerun --use U --entry E --reason "..." [--log-from TREE]`
+  gives a logged unit entry that passed its check, but whose load was not
+  sampled until idle, ONE extra entry `E-rerun1` right after it: the same unit,
+  cold start and door command, with its own wrapper and artifact, listed under
+  `reruns` in `<use>/retries.json`. It refuses an entry that is unlogged, fails
+  its check, is not a unit entry, was sampled until idle, already has a re-run
+  or a retry, or is itself a retry or a re-run. E stays a valid run: decode and
+  prefill take E, while room and `card_peak_mib` take `E-rerun1`, and E's 30-s
+  peak is kept as a lower bound. `check` passes E and its re-run runs next.
+  `rig-id-relock` re-runs srv1-01.
 
 ## Stop and ask
 
 `drive.sh` runs `assemble_evidence.py check` after every entry and stops at the
 first non-zero (`STOP <reason>`, exit 3). The list is `stops()` in
 `assemble_evidence.py`, and only there. An exit code is logged and never decided
-on.
+on. A logged failed entry with its one retry is the exception: its re-check is
+logged as failed, retried by its retry, and the retry runs next.
 
 ## The evidence, mapped
 
@@ -138,7 +204,7 @@ reads:
 | `rigs.<rig>.card_mib` | the snapshot's `gpu_vram_mib`, one value across every run |
 | `rigs.<rig>.snapshot` | the last run's snapshot; one rig id across the runs, and the pin itself for a rig `use.json` keeps |
 | `combinations[].overhead_mib` | max `gpu_reserve_mib`, refused beyond gate 2's tolerance of hosts.json (`02-rig.py:62-66`) |
-| `combinations[].card_peak_mib` (llama.cpp) | max of the 30-s peaks |
+| `combinations[].card_peak_mib` (llama.cpp) | max of the until-idle peaks, K runs sampled until idle |
 | `combinations[].restarts` | max of every count, which must be 0 |
 | `combinations[].warm_decode_tok_s`, `prefill_tok_s` | median of the run medians |
 | `combinations[].attention_backend` (vLLM) | unanimous across the runs, and the pin |

@@ -211,16 +211,6 @@ STOPS: list[tuple[str, Change, str]] = [
         _set("units.b_mid.attention_backend.observed", None),
         "b_mid reported no attention_backend",
     ),
-    (
-        "alpha-01",
-        _set("doc.load.load.idle_after_close", False),
-        "did not read idle after the 30-s close",
-    ),
-    (
-        "beta-01",
-        _set("doc.load.load.idle_after_close", False),
-        "did not read idle after the 30-s close",
-    ),
 ]
 
 

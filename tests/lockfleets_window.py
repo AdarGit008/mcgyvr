@@ -274,6 +274,34 @@ class Window:
         self.clock += timedelta(minutes=1)
         return self.clock.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    def reload(self) -> None:
+        """The frozen order read back again, with any retry added since."""
+        self.runs = self.plan.read_runs(self.root, USE)
+
+    def retry(
+        self, entry_id: str, change: Change | None = None, log: bool = True
+    ) -> dict[str, str]:
+        """``plan.py retry`` for a logged failed entry, then the retry's run
+        written as a window would leave it."""
+        made: dict[str, str] = self.plan.retry(
+            self.root, USE, entry_id, "a made-up failure", journal=str(self.journal)
+        )
+        self.reload()
+        self.write(self.runs.entry(made["retry_entry"]), change, log=log)
+        return made
+
+    def rerun(
+        self, entry_id: str, change: Change | None = None, log: bool = True
+    ) -> dict[str, str]:
+        """``plan.py rerun`` for a logged passing entry whose load was not sampled
+        until idle, then the re-run's run written as a window would leave it."""
+        made: dict[str, str] = self.plan.rerun(
+            self.root, USE, entry_id, "a made-up 30-s load", journal=str(self.journal)
+        )
+        self.reload()
+        self.write(self.runs.entry(made["rerun_entry"]), change, log=log)
+        return made
+
     def write_all(
         self,
         change: Mapping[str, Change] | None = None,
@@ -374,6 +402,8 @@ class Window:
                     "pace_seconds": 12.0,
                     "after_page": "[]",
                     "status_readings": 1,
+                    "samples_before_close": 1,
+                    "sampled_until_idle": True,
                 }
             },
             "restarts": 0,
@@ -476,6 +506,9 @@ class Window:
                     "samples": 61,
                     "pace_prompt_tok_s": 9000.0,
                     "pace_source": "vllm:prompt_tokens_total on /metrics",
+                    "peak_before_close_mib": PEAK[name],
+                    "samples_before_close": 60,
+                    "sampled_until_idle": True,
                 }
             units[name] = fields
         return {"rig": rig_row, "units": units}

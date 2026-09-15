@@ -9,6 +9,8 @@
   ],
   "keep_rig_pins": ["srv2"],
   "unit_caps_on": ["srv2"],
+  "_swap_recorded_not_stopped_on": "Owner ruling 2026-09-15: \"Record swap on srv1, don't stop\". srv1-01's pswpout rose 264920 -> 312345 (47,425 pages) in a run with exit 0, restarts 0 and identical START/END markers, inside the 35,000-48,000 pages per wake that records/measurements/ram-headroom-2026-09-09/README.md measured for that 12.30 GiB blob mapped on srv1 at swappiness 60, with decode unaffected. On a listed rig assemble_evidence.py files pswpout's start, end and delta and does not stop on its growth; every other stop still applies there, and every other rig keeps the swap stop.",
+  "swap_recorded_not_stopped_on": ["srv1"],
   "compose_must_match_live": {
     "b-small": "~/.local/state/mcgyvr/compose/b-small"
   }

@@ -12,7 +12,9 @@
 # `assemble_evidence.py check`: the first non-zero is `STOP <reason>`, exit 3.
 # An exit code is logged and never decided on. An entry already logged is not
 # run again, and every logged entry of this rig is checked again before the
-# first new one. At the end it logs finished_at and, when the other rig
+# first new one; a failed entry with its one retry (<use>/retries.json, plan.py
+# retry) passes that check, logged as failed and retried, and its retry is the
+# entry after it. At the end it logs finished_at and, when the other rig
 # finished first, that rig's idle tail. No fill work is added (owner,
 # 2026-09-15).
 #
@@ -93,6 +95,7 @@ while IFS=$'\t' read -r E _ <&3; do
         if ! WHY=$(check "$E"); then
             stop "$E (logged before this start)" "$WHY"
         fi
+        log "checked again: $(printf '%s' "$WHY" | head -n 1)"
     fi
 done 3<<<"$ENTRIES"
 

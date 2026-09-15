@@ -8,12 +8,15 @@
 
 * ``check`` is the stop-and-ask list for one entry of a frozen order, and it is
   defined here and nowhere else (:func:`stops`). ``drive.sh`` runs it after every
-  entry and stops at the first non-zero.
+  entry and stops at the first non-zero. A logged entry that failed and has its
+  one retry (``plan.py retry``, owner ruling 2026-09-15) is said to have failed,
+  retried by that retry, and does not stop.
 * ``assemble`` reads every entry back, refuses by name what does not prove what
   the lock needs, and writes ``fleet-setup/evidence.json`` in the shape
   ``mcgyvr.fleet.lock`` reads, for every combination and move the fleets need;
   ``<use>/runs.json`` with every run whole; and prints the fleet.yaml edits (rig
-  ids, room_mib). It never writes fleet.yaml.
+  ids, room_mib). It never writes fleet.yaml. A failed entry with its retry is
+  kept in runs.json with its reasons, and the retry counts in its place.
 * ``tolerance`` writes ``<use>/prefill-tolerance-<class>.json`` for one unit.
 
 A read's rows are in the journal the door's ``read`` files under: the live fleet's
@@ -180,10 +183,20 @@ def _load_from_body(body: Mapping[str, Any], container: str | None, unit: Mappin
     from mcgyvr.fleet.read import _pace
 
     samples = [s for s in body.get("samples") or [] if isinstance(s, str)]
+    # Owner ruling, 2026-09-15: "Sample the card until idle". The peak is over
+    # every sample; a body filed before the ruling has no close index, so all its
+    # samples came before the close and its peak is a lower bound.
+    index = body.get("samples_before_close")
+    cut = index if isinstance(index, int) and 0 <= index <= len(samples) else len(samples)
+    until_idle = body.get("sampled_until_idle") is True
     pace, source = _pace(unit, body)
     return {
         "peak_mib": peak_of(samples, container),
+        "peak_before_close_mib": peak_of(samples[:cut], container),
         "samples": len(samples),
+        "samples_before_close": cut,
+        "sampled_until_idle": until_idle,
+        "peak_is_lower_bound": not until_idle,
         "limit_s": body.get("limit_s"),
         "completed": body.get("completed"),
         "closed_unfinished": body.get("closed_unfinished"),
@@ -202,7 +215,11 @@ def _load_from_row(row: Mapping[str, Any]) -> dict[str, Any]:
     """A read's load row, as ``mcgyvr.fleet.read`` filed it."""
     return {
         "peak_mib": row.get("peak_mib"),
+        "peak_before_close_mib": row.get("peak_before_close_mib"),
         "samples": row.get("samples"),
+        "samples_before_close": row.get("samples_before_close"),
+        "sampled_until_idle": row.get("sampled_until_idle") is True,
+        "peak_is_lower_bound": row.get("sampled_until_idle") is not True,
         "limit_s": row.get("limit_s"),
         "completed": row.get("completed"),
         "closed_unfinished": row.get("closed_unfinished"),
@@ -263,6 +280,10 @@ def gather(ctx: Context, entry: Any) -> dict[str, Any]:
         "restarts": {},
         "backend": {},
     }
+    if entry.retry_of:
+        run["retry_of"] = entry.retry_of
+    if entry.rerun_of:
+        run["rerun_of"] = entry.rerun_of
     output = ctx.root / row["output"] if row.get("output") else None
     said = output.read_text(encoding="utf-8", errors="replace") if output and output.is_file() else ""
     refused = [line.strip() for line in DOOR_REFUSED.findall(said)]
@@ -293,6 +314,9 @@ def _gather_kind(ctx: Context, entry: Any, row: Mapping[str, str], run: dict[str
             run["markers"] = [lf.key_values(markers["start"]), lf.key_values(markers["end"])]
         vm = doc.get("vmstat") or {}
         run["vmstat"] = [vm.get("start"), vm.get("end")]
+        before, after = (vm.get("start") or {}).get("pswpout"), (vm.get("end") or {}).get("pswpout")
+        if isinstance(before, int) and isinstance(after, int):
+            run["pswpout"] = {"start": before, "end": after, "delta": after - before}
         run["sidecar"] = path.with_name(path.name + ".RIGMOVED").is_file()
         run["ended_at"] = doc.get("ended_at")
         if entry.kind == "unit":
@@ -400,16 +424,6 @@ def _reserves(runs: Sequence[Mapping[str, Any]]) -> list[int]:
     ]
 
 
-def _long_context_entry(ctx: Context, rig: str) -> str | None:
-    """The first entry, on ``rig``, of the llama.cpp unit with the largest window."""
-    units = [e for e in ctx.runs.entries if e.rig == rig and e.kind == "unit"]
-    if not units:
-        return None
-    windows = {e.units[0]: lf.launch(ctx.fleet, e.units[0]).window for e in units}
-    longest = max(windows, key=lambda name: (windows[name], name))
-    return next(e.id for e in units if e.units[0] == longest)
-
-
 def stops(ctx: Context, entry: Any, run: Mapping[str, Any], prior: Sequence[Mapping[str, Any]]) -> list[str]:
     """THE stop-and-ask list for one entry (owner, 2026-09-15). ``prior`` is every
     earlier run on the entry's rig, in the frozen order."""
@@ -431,11 +445,11 @@ def stops(ctx: Context, entry: Any, run: Mapping[str, Any], prior: Sequence[Mapp
         moved = [f"{k} {start.get(k)} -> {end.get(k)}" for k in lf.MARKER_FIELDS if start.get(k) != end.get(k)]
         if moved:
             out.append(f"the START and END markers differ: {', '.join(moved)}")
-    vm = run.get("vmstat")
-    if vm and all(isinstance(v, dict) for v in vm):
-        before, after = vm[0].get("pswpout"), vm[1].get("pswpout")
-        if isinstance(before, int) and isinstance(after, int) and after > before:
-            out.append(f"pswpout rose during the run ({before} -> {after})")
+    # On a rig use.json lists, swap growth is filed (run["pswpout"]) and is no
+    # reason to stop (owner ruling, 2026-09-15: "Record swap on srv1, don't stop").
+    swap = run.get("pswpout")
+    if swap and swap["delta"] > 0 and entry.rig not in ctx.use.swap_recorded_not_stopped_on:
+        out.append(f"pswpout rose during the run ({swap['start']} -> {swap['end']})")
     for name, count in run["restarts"].items():
         if count is None:
             out.append(f"{name}'s restarts were not read")
@@ -514,24 +528,28 @@ def stops(ctx: Context, entry: Any, run: Mapping[str, Any], prior: Sequence[Mapp
             out.append(f"{name} reported no attention_backend")
         elif backend != pin:
             out.append(f"{name} reported attention backend {backend}, not the pinned {pin}")
-    if entry.kind == "unit" and entry.id == _long_context_entry(ctx, entry.rig):
-        load = run["loads"].get(entry.units[0])
-        if load and load.get("idle_after_close") is False:
-            out.append(f"{entry.units[0]} did not read idle after the {LOAD_LIMIT_S}-s close on this rig's first long-context run")
+    # No stop on idle_after_close false (owner ruling, 2026-09-15: "Sample the card
+    # until idle"): the close does not cancel the work, and the flag is data.
     return out
 
 
-def check(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -> list[str]:
-    """The stop-and-ask reasons for one entry; empty when it may go on."""
+def verdict(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -> tuple[list[str], str]:
+    """The stop-and-ask reasons for one entry, and what is said when there are none.
+
+    A logged entry that fails its check and has its one retry (``plan.py retry``,
+    owner ruling 2026-09-15) gives no reason to stop: it is said to have failed,
+    retried by that retry, which is the entry after it. A retry that fails stops
+    like any entry; so does an entry that passes and has a retry anyway.
+    """
     try:
         entry = ctx.runs.entry(entry_id)
     except plan.PlanRefusedError as exc:
-        return [str(exc)]
+        return [str(exc)], ""
     if entry.rig != host:
-        return [f"{entry_id} is an entry of {entry.rig}, not {host}"]
+        return [f"{entry_id} is an entry of {entry.rig}, not {host}"], ""
     row = ctx.runs.logged(entry_id)
     if run_id and row is not None and row["run id"] != run_id:
-        return [f"{entry_id}'s log row names run id {row['run id']}, not {run_id}"]
+        return [f"{entry_id}'s log row names run id {row['run id']}, not {run_id}"], ""
     prior: list[dict[str, Any]] = []
     for earlier in ctx.runs.entries:
         if earlier.id == entry_id:
@@ -541,11 +559,36 @@ def check(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -> 
                 prior.append(gather(ctx, earlier))
             except MissingError:
                 continue
+    reasons: list[str]
     try:
         run = gather(ctx, entry)
     except MissingError as exc:
-        return [str(exc)]
-    return stops(ctx, entry, run, prior)
+        reasons = [str(exc)]
+    else:
+        reasons = stops(ctx, entry, run, prior)
+    retry = ctx.runs.retry_for(entry_id)
+    if retry is not None and row is not None:
+        if not reasons:
+            return [passed_with_a_retry(entry_id, retry.id)], ""
+        return [], f"{entry_id} failed, retried by {retry.id}: {'; '.join(reasons)}"
+    if reasons:
+        return reasons, ""
+    rerun = ctx.runs.rerun_for(entry_id)
+    if rerun is not None:
+        return [], f"ok {entry_id}; its one extra cold start for room, {rerun.id}, runs next"
+    return [], f"ok {entry_id}"
+
+
+def passed_with_a_retry(entry_id: str, retry_id: str) -> str:
+    return (
+        f"{entry_id} passes its check, and {plan.RETRIES} names {retry_id} as its "
+        "retry: only a failed entry is retried (owner ruling, 2026-09-15)"
+    )
+
+
+def check(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -> list[str]:
+    """The stop-and-ask reasons for one entry; empty when it may go on."""
+    return verdict(ctx, host, entry_id, run_id)[0]
 
 
 def _utc(text: str) -> datetime:
@@ -575,6 +618,8 @@ class Collected:
     rooms: dict[str, int] = field(default_factory=dict)
     moves: list[dict[str, Any]] = field(default_factory=list)
     rigs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: Failed entries kept as data points, each counted by its retry instead.
+    failed: set[str] = field(default_factory=set)
 
 
 def _median_of_samples(entry: str, name: str, figures: Mapping[str, Any], median_key: str, samples_key: str) -> tuple[float, list[float]]:
@@ -597,13 +642,32 @@ def collect(ctx: Context) -> Collected:
     for rig in sorted({e.rig for e in entries}):
         prior: list[dict[str, Any]] = []
         for entry in (e for e in entries if e.rig == rig):
+            retry = ctx.runs.retry_for(entry.id)
+            row = ctx.runs.logged(entry.id)
             try:
                 run = gather(ctx, entry)
             except MissingError as exc:
-                raise AssemblyRefusedError(f"a frozen entry is missing: {exc}") from exc
-            reasons = stops(ctx, entry, run, prior)
+                if retry is None or row is None:
+                    raise AssemblyRefusedError(f"a frozen entry is missing: {exc}") from exc
+                run = {"entry": entry.id, "kind": entry.kind, "rig": entry.rig, "fleet": entry.fleet,
+                       "to": entry.to, "run": entry.run, "units": list(entry.units), "log": row}
+                reasons = [str(exc)]
+            else:
+                reasons = stops(ctx, entry, run, prior)
+            if retry is not None:
+                # A data point, and not one of the K valid runs: its retry
+                # counts in its place (owner ruling, 2026-09-15).
+                if not reasons:
+                    raise AssemblyRefusedError(passed_with_a_retry(entry.id, retry.id))
+                run |= {"retried_by": retry.id, "check": reasons}
+                out.failed.add(entry.id)
+                out.runs[entry.id] = run
+                continue
             if reasons:
                 raise AssemblyRefusedError(f"{entry.id} fails its check: {'; '.join(reasons)}")
+            rerun = ctx.runs.rerun_for(entry.id)
+            if rerun is not None:
+                run["rerun_by"] = rerun.id
             prior.append(run)
             out.runs[entry.id] = run
         card = _card(prior)
@@ -631,7 +695,12 @@ def collect(ctx: Context) -> Collected:
 def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> None:
     from mcgyvr.fleet.lock import _combination_id_for
 
-    entries = [e for e in ctx.runs.entries if e.rig == rig and e.kind != "move"]
+    # A failed entry with its retry, and a re-run, are not cycles of their own:
+    # the retry stands in for its entry, and a re-run gives only room.
+    entries = [
+        e for e in ctx.runs.entries
+        if e.rig == rig and e.kind != "move" and e.id not in out.failed and not e.rerun_of
+    ]
     for fleet_name in dict.fromkeys(e.fleet for e in entries):
         mine = [e for e in entries if e.fleet == fleet_name]
         names = list(next(e for e in mine if e.kind in ("unit", "serve-up")).units)
@@ -651,7 +720,7 @@ def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> Non
             )
         decode: dict[str, list[float]] = {n: [] for n in names}
         prefill: dict[str, list[float]] = {n: [] for n in names}
-        peaks: dict[str, list[int]] = {n: [] for n in names}
+        room_runs: dict[str, list[tuple[str, Mapping[str, Any]]]] = {n: [] for n in names}
         backends: dict[str, set[Any]] = {n: set() for n in names}
         runs_of: list[dict[str, Any]] = []
         envelopes: set[str] = set()
@@ -674,13 +743,32 @@ def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> Non
                 load_run = next(
                     out.runs[e.id] for e in cycle if e.kind in ("unit", "load") and name in out.runs[e.id]["loads"]
                 )
-                peaks[name].append(int(load_run["loads"][name]["peak_mib"]))
+                # Room takes the entry's extra cold start when it has one (owner
+                # ruling, 2026-09-15: "One extra cold start for room"); the
+                # entry's own peak stays in runs.json as data, a lower bound.
+                rerun = ctx.runs.rerun_for(load_run["entry"])
+                room_run = out.runs[rerun.id] if rerun is not None else load_run
+                room_runs[name].append((room_run["entry"], room_run["loads"].get(name) or {}))
                 for r in cycle_runs:
                     if name in r["backend"]:
                         backends[name].add(r["backend"][name])
             last = next(e for e in reversed(cycle) if e.kind in ("unit", "serve-down"))
             validated_at = out.runs[last.id]["ended_at"]
             envelopes |= {ctx.runs.logged(e.id)["envelope"] for e in cycle if e.kind in ("unit", "serve-up", "serve-down")}
+        # Room and the card peak are the max of peaks sampled until idle (owner
+        # ruling, 2026-09-15: "Sample the card until idle"). A peak not sampled
+        # until idle is a lower bound and never counts toward room.
+        peaks: dict[str, list[int]] = {}
+        for name in names:
+            until = [load for _, load in room_runs[name] if load.get("sampled_until_idle") is True]
+            short = [entry for entry, load in room_runs[name] if load.get("sampled_until_idle") is not True]
+            if len(until) < plan.K:
+                raise AssemblyRefusedError(
+                    f"{name} on {rig}: room takes {plan.K} valid runs sampled until idle, and "
+                    f"{len(until)} were; not sampled until idle, each peak a lower bound: "
+                    f"{', '.join(short)}"
+                )
+            peaks[name] = [int(load["peak_mib"]) for load in until]
         reserves = _reserves(runs_of)
         overhead = max(reserves)
         declared = int(ctx.hosts[rig]["rig"]["gpu_reserve_mib"])
@@ -735,7 +823,7 @@ def _combinations(ctx: Context, rig: str, out: Collected, tolerance: int) -> Non
 
 
 def _moves(ctx: Context, rig: str, out: Collected) -> None:
-    entries = [e for e in ctx.runs.entries if e.rig == rig and e.kind == "move"]
+    entries = [e for e in ctx.runs.entries if e.rig == rig and e.kind == "move" and e.id not in out.failed]
     for key in dict.fromkeys((e.fleet, e.to) for e in entries):
         mine = [e for e in entries if (e.fleet, e.to) == key]
         if len(mine) < plan.K:
@@ -912,12 +1000,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         ctx = Context.load(root, args.use, args.journal or None)
         if args.command == "check":
-            reasons = check(ctx, args.host, args.entry, args.run_id or None)
+            reasons, said = verdict(ctx, args.host, args.entry, args.run_id or None)
             for reason in reasons:
                 print(reason)
             if reasons:
                 return 1
-            print(f"ok {args.entry}")
+            print(said)
         elif args.command == "assemble":
             evidence, runs, lines = assemble(ctx)
             _dump(root / "fleet-setup" / "evidence.json", evidence)
