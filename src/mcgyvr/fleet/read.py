@@ -401,7 +401,14 @@ def _judge_units(
                     {"field": field_name, "observed": None, "read": False, **stamps},
                 )
                 continue
-            judged.append({"unit_id": unit_id, "field": field_name, "observed": value})
+            judged.append(
+                {
+                    "unit_id": unit_id,
+                    "unit": name,
+                    "field": field_name,
+                    "observed": value,
+                }
+            )
         room = unit.get("room_mib")
         approved = {unit_id: {} if room is None else {"room_mib": room}}
         done.alerts.extend(
@@ -489,7 +496,12 @@ def _probe(
     done.alerts.extend(
         alerts.check(
             [
-                {"unit_id": unit_stamp["unit_id"], "field": f, "observed": v}
+                {
+                    "unit_id": unit_stamp["unit_id"],
+                    "unit": name,
+                    "field": f,
+                    "observed": v,
+                }
                 for f, v in figures.items()
             ],
             approved=approved,

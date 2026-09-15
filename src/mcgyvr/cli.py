@@ -12,7 +12,7 @@ import json
 import os
 import sys
 import textwrap
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
@@ -85,11 +85,11 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
     from mcgyvr.drive import Recording
-    from mcgyvr.escalate import Delivered, Halted
+    from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.orchestrator.decompose import Decomposition
     from mcgyvr.result import RunResult
-    from mcgyvr.route import Attempted
+    from mcgyvr.route import Attempted, Try
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.session import Session
 
@@ -1709,6 +1709,8 @@ def _climb(
                 recording=recording,
                 cooldown=cooldown,
             )
+            if config.get("profile") == "live":
+                driver = _warning_pulled_steps(driver)
 
             outcome = escalate(config, pool, contract, driver, capacity=capacity)
             return _report_climb(
@@ -1745,6 +1747,54 @@ def _admitted_live() -> str | None:
     for line in admission.commands:
         print(f"  {line}", file=sys.stderr)
     return detail
+
+
+def _warning_pulled_steps(
+    attempt: Callable[[Try], Judgement],
+) -> Callable[[Try], Judgement]:
+    """``attempt``, warning once on stderr before each pulled step is dispatched.
+
+    Owner, 2026-09-15: "warn now, enforce later". A step whose unit's
+    combination is pulled (:func:`mcgyvr.fleet.alerts.live_pulled_units`) is
+    named, with each pulled field and its count, and then dispatched exactly as
+    it would have been: this wraps the attempt and never answers for it, so the
+    rungs, the attempts and the outcome are the climb's own. Pulls that cannot
+    be read are one warning, and the run goes on; nothing here fails a run.
+    """
+    from mcgyvr.fleet.alerts import live_pulled_units
+
+    try:
+        units = live_pulled_units()
+    except Exception as exc:
+        print(
+            f"warning: pulls could not be read ({exc}); every step is dispatched "
+            f"without them — see `mcgyvr fleet alerts`",
+            file=sys.stderr,
+        )
+        units = {}
+    warned: set[str] = set()
+
+    def warning(this: Try) -> Judgement:
+        name = this.rung.name
+        entries = units.get(name)
+        if entries and name not in warned:
+            warned.add(name)
+            fields = ", ".join(
+                (
+                    f"{entry['field']} x{entry['count']}"
+                    if entry["unit"] == name
+                    else f"{entry['unit']} {entry['field']} x{entry['count']}"
+                )
+                for entry in entries
+            )
+            print(
+                f"warning: step {name} is pulled: {fields}; dispatched anyway — "
+                f"see `mcgyvr fleet alerts`",
+                file=sys.stderr,
+            )
+        return attempt(this)
+
+    return warning
 
 
 def _report_climb(

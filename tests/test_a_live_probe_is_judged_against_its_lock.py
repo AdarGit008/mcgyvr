@@ -166,21 +166,26 @@ def _harness_strings(path: Path) -> dict[str, Any]:
     return {k: v for k, v in found.items() if isinstance(v, str | list)}
 
 
-def live_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def live_home(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fleet: dict[str, Any] = FLEET,
+    evidence: dict[str, Any] = EVIDENCE,
+) -> Path:
     """A HOME holding one promoted fleet, named live, with its journal in tmp."""
     from mcgyvr.fleet import lock
 
     home = tmp_path / "home"
     folder = home / ".mcgyvr" / "fleets" / "b-small"
     folder.mkdir(parents=True)
-    (folder / "fleet.yaml").write_text(yaml.safe_dump(FLEET), encoding="utf-8")
+    (folder / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
     journal = tmp_path / "journal"
     policy = {
         "ladder": ["srv2_3b", "srv1_deepseek"],
         "journal": {"dir": str(journal)},
     }
     (folder / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
-    lock.write(folder, FLEET, EVIDENCE, tolerances=TOLERANCES)
+    lock.write(folder, fleet, evidence, tolerances=TOLERANCES)
     (home / ".mcgyvr" / "live.json").write_text(
         json.dumps({"fleet": "b-small", "since": "2026-09-15T00:00:00Z"}),
         encoding="utf-8",
@@ -428,7 +433,9 @@ def test_the_probe_files_stamped_observations_under_journal_fleet(
     assert three["fleet"] == "b-small" and three["rig"] == "srv2"
     assert three["rig_id"] == RIG2
     assert three["combination_id"].startswith("cmb-")
-    assert three["at"] == "2026-09-15T12:00:00"
+    # The moment srv2_3b's measurement finished: 11.1 s of its requests after
+    # the probe began (a 0.5 s warm-up, 5 x 256/126.7 s, 3 x 1960/11500 s).
+    assert three["at"] == "2026-09-15T12:00:11"
     assert by_unit[(UNIT_DS, "prefill_tok_s")]["observed"] == pytest.approx(307.11)
     assert by_unit[(UNIT_DS, "prefill_tok_s")]["alert"] is False
     assert not list(tmp_path.glob("journal/*.jsonl")), "filed outside journal/fleet"
@@ -486,7 +493,8 @@ def test_a_vllm_unit_timed_off_the_rig_is_recorded_not_judged(
     for row in three.values():
         assert row["fleet"] == "b-small" and row["rig"] == "srv2"
         assert row["rig_id"] == RIG2 and row["combination_id"].startswith("cmb-")
-        assert row["at"] == "2026-09-15T12:00:00"
+        # 23.0 s of requests: 0.5 + 5 x 256/60 + 3 x 1960/5000.
+        assert row["at"] == "2026-09-15T12:00:23"
         assert row["off_the_rig"] is True
         assert "alert" not in row
     assert alerts.pulled(journal / "fleet", lock_root(tmp_path)) == {}

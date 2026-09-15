@@ -51,7 +51,8 @@ probe given no reader — names both figures as not read, and times its vLLM uni
 off the rig, recorded and not judged, as above.
 
 Every figure is stamped with the live fleet, rig, rig id, combination id and
-unit id, and filed under ``<journal.dir>/fleet/``. A judged figure is filed
+unit id, and filed under ``<journal.dir>/fleet/`` with ``at``, the moment its
+unit's measurement finished. A judged figure is filed
 through :func:`mcgyvr.fleet.alerts.check`, against the unit's plain locked
 value and its class tolerance (:func:`mcgyvr.derived.class_tolerances`).
 """
@@ -63,7 +64,7 @@ import secrets
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -315,10 +316,10 @@ def run(
         awake = [(rig, unit) for rig, unit in awake if unit in units]
 
     moment = now if now is not None else datetime.now(UTC)
+    started = clock()
     token = secrets.token_hex(4)
     run_id = f"run-{moment:%Y%m%dT%H%M%S}-{token}"
     lease_id = f"probe-{token}"
-    at = f"{moment:%Y-%m-%dT%H:%M:%S}"
     journal = journal_dir(folder)
     profile = str(fleet.get("profile", "live"))
     report = Report()
@@ -363,6 +364,10 @@ def run(
         except (_UnitError, OSError, ValueError) as exc:
             report.failed[unit_name] = str(exc)
             continue
+        # Each unit's rows carry the moment its own measurement finished, not
+        # the run's start: a pull clears against the newest alert's time.
+        finished = moment + timedelta(seconds=clock() - started)
+        at = f"{finished:%Y-%m-%dT%H:%M:%S}"
         report.probed[unit_name] = figures
         after = in_flight(unit_name, unit)
         stamp = {
@@ -398,7 +403,13 @@ def run(
                 )
             continue
         observations = [
-            {"unit_id": stamp["unit_id"], "field": field_name, "observed": value}
+            {
+                "unit_id": stamp["unit_id"],
+                "unit": unit_name,
+                "field": field_name,
+                "observed": value,
+                "at": at,
+            }
             for field_name, value in figures.items()
         ]
         report.alerts.extend(

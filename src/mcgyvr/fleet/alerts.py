@@ -18,6 +18,8 @@ from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.fleet.admit import layout_ids
+
 
 class AlertError(Exception):
     """A dev run produced an alert, and a dev run must not."""
@@ -84,6 +86,28 @@ def _run_at(run_id: str) -> str | None:
         return None
     s = match.group(1)
     return f"{s[:4]}-{s[4:6]}-{s[6:8]}T{s[9:11]}:{s[11:13]}:{s[13:15]}"
+
+
+def _short(identifier: str) -> str:
+    """``cmb-b50b1259…``: an id's prefix and first eight hex digits."""
+    return identifier if len(identifier) <= 12 else f"{identifier[:12]}…"
+
+
+def _warning(
+    observed: Mapping[str, Any], stamp: Mapping[str, str], unit_id: str | None
+) -> str:
+    """The line a live pull warns with, naming its unit, rig and combination.
+
+    The unit is the name the observation carries as ``unit``; a caller that
+    gives none is named by what it has, its switch or its short unit id.
+    """
+    who = observed.get("unit") or observed.get("switch") or _short(str(unit_id))
+    where = [stamp["rig"]] if stamp.get("rig") else []
+    where.append(_short(stamp["combination_id"]))
+    return (
+        f"warning: {who} {observed['field']} pulled {stamp['fleet']} "
+        f"({', '.join(where)}) — see `mcgyvr fleet alerts`"
+    )
 
 
 def _journal_file(journal: Path, combination_id: str, key: str) -> Path:
@@ -194,9 +218,11 @@ def check(
 
     A dev run raises :class:`AlertError` on the first alert; a live run yields
     each alert, warns once per unit-and-field, and the filed alert row is what
-    :func:`pulled` reads.
+    :func:`pulled` reads. An observation may carry its unit's name as ``unit``,
+    which the warning names, and the moment it was measured as ``at``, which
+    its row carries; without one, the row carries the run id's time.
     """
-    at = _run_at(run_id)
+    run_at = _run_at(run_id)
     for observed in observations:
         field = observed["field"]
         unit_id = observed.get("unit_id", stamp.get("unit_id"))
@@ -216,6 +242,7 @@ def check(
             row["unit_id"] = observed["unit_id"]
         if "switch" in observed:
             row["switch"] = observed["switch"]
+        at = observed.get("at", run_at)
         if at is not None:
             row["at"] = at
 
@@ -228,10 +255,7 @@ def check(
         if profile == "dev":
             raise AlertError(f"a dev run alerts on {field}")
         if not warned:
-            print(
-                f"warning: {field} pulled {stamp['fleet']} — see `mcgyvr fleet alerts`",
-                file=sys.stderr,
-            )
+            print(_warning(observed, stamp, unit_id), file=sys.stderr)
         yield alert
 
 
@@ -297,6 +321,76 @@ def pulled(journal: Path, lock_root: Path | None) -> dict[str, list[dict[str, An
             for (unit, field), count in entry["pulls"].items()
         ]
     return out
+
+
+class PullsUnreadableError(Exception):
+    """The live fleet, its journal or its lock cannot be read for pulls."""
+
+
+def pulled_units(
+    fleet: dict[str, Any], fleet_name: str, journal: Path, lock_root: Path | None
+) -> dict[str, list[dict[str, Any]]]:
+    """``unit name -> the pulls of its combination``, for ``fleet_name``'s units.
+
+    A unit is pulled when the combination its rig holds in the fleet's layout
+    is pulled (:func:`pulled`). Every pull of that combination is listed against
+    it, as :func:`pulled` gives it plus ``unit``, the name of the unit that
+    alerted (its id where the fleet names no such unit). A unit whose
+    combination is not pulled is absent.
+    """
+    units = fleet.get("units", {})
+    names = {
+        block.get("unit_id"): name
+        for name, block in units.items()
+        if isinstance(block, Mapping)
+    }
+    layout = fleet["fleets"][fleet_name].get("layout", {})
+    rig_ids = {rig: block["rig_id"] for rig, block in fleet.get("rigs", {}).items()}
+    combinations = layout_ids(fleet, layout)
+    pulls = pulled(journal, lock_root)
+    out: dict[str, list[dict[str, Any]]] = {}
+    for rig, slots in layout.items():
+        entries = pulls.get(combinations[rig_ids[rig]])
+        if not entries:
+            continue
+        named = [
+            {**entry, "unit": names.get(entry["unit_id"], entry["unit_id"])}
+            for entry in entries
+        ]
+        for slot in slots:
+            if slot is not None:
+                out[str(slot[0])] = named
+    return out
+
+
+def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
+    """:func:`pulled_units` for the fleet ``~/.mcgyvr/live.json`` names.
+
+    The journal and the lock are the two ``mcgyvr fleet alerts`` reads: the
+    live fleet's ``<journal.dir>/fleet``, where ``mcgyvr fleet probe`` files
+    (:func:`mcgyvr.fleet.probe.journal_dir`), and ``lock_root("live")``. With no
+    fleet named live there is no layout to pull a unit from, so ``{}``. Anything
+    that stops the pulls being read — ``live.json``, ``fleet.yaml``,
+    ``policy.yaml``, a journal file — raises :class:`PullsUnreadableError`.
+    """
+    from mcgyvr.fleet.probe import ProbeError, _live, journal_dir
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, lock_root
+
+    try:
+        if live_fleet_dir() is None:
+            return {}
+        name, folder, fleet = _live(None)
+        return pulled_units(fleet, name, journal_dir(folder), lock_root("live"))
+    except (
+        LiveFleetError,
+        ProbeError,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+    ) as exc:
+        raise PullsUnreadableError(f"{type(exc).__name__}: {exc}") from exc
 
 
 def routable(
