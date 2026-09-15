@@ -10,9 +10,9 @@ the same time.
 Two rungs naming **one source** are two models for one process: one URL, one
 port, one card. They are alternatives, and the ladder the owner wants is made of
 them — srv1 alternating DeepSeek-Coder-V2-Lite with Qwen3.6-35B, srv2 its vLLM
-pair with the 80B. That is "sleep funds a wake" in `records/plans/sleep-wake.md`
-§17, which the design records as unbuildable *because a host holds only one
-launch spec*.
+pair with the 80B. That is "sleep funds a wake" in
+`mcgyvr-lab/records/plans/sleep-wake.md` §17, which the design records as unbuildable
+*because a host holds only one launch spec*.
 
 When this file was written the shape was not merely unsupported, it was wrong in
 two ways, both pinned below as the behaviour that had to change:

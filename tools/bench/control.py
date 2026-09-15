@@ -2,7 +2,7 @@
 """#231 check 2 — the rule-ablation positive control, read to its pre-registration.
 
 The pre-registration is
-``archive/docs/archive/sessions/lane/231/2026-08-13-positive-control-prereg.md``,
+``mcgyvr-lab/archive/docs/archive/sessions/lane/231/2026-08-13-positive-control-prereg.md``,
 declared before a single ``norule`` draw. Everything decided there is applied here
 rather than restated: the comparator is run **A** (run B is a sensitivity check, not
 an

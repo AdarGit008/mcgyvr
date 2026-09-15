@@ -42,11 +42,11 @@ failure and not a lesson in the wrong shape. The scaffolding here — the steps
 — is the workflow, which is a property of the product and of no one key.
 
 The third document is ``skills/mcgyvr/SETUP.md``, what a machine's owner reads
-to stand the ladder up: the first run, and every key the one config file
-accepts, rendered from ``config.SCHEMA``. It is written and kept, the way the
-skill is, because it is read from disk rather than through the schema — and it
-lives beside the skill it is not part of, so ``install.sh`` never copies it
-into a harness.
+to stand the ladder up: the first run, and every key the two setup files
+(``fleet.yaml`` and ``policy.yaml``) accept, rendered from ``config.SCHEMA``.
+It is written and kept, the way the skill is, because it is read from disk
+rather than through the schema — and it lives beside the skill it is not part
+of, so ``install.sh`` never copies it into a harness.
 """
 
 from __future__ import annotations
@@ -323,6 +323,20 @@ def render_setup() -> str:
         "was decided and why, then what is *not* configured and what that costs.",
         "Backends on another machine come in with `--host` (repeatable).",
         "",
+        "A setup is two files in one directory, and `mcgyvr init` writes both (by",
+        "default into the working directory):",
+        "",
+        f"- `{FLEET_FILENAME}` — what runs where: `profile`, `units`, `rigs` and "
+        "`fleets`.",
+        f"- `{POLICY_FILENAME}` — how work moves over those units: `ladder` and "
+        "every other top-level key below.",
+        "",
+        "Each file refuses a key that belongs in the other. `rigs`, `fleets` and",
+        "each unit's `unit_id` are not in the tables below: `mcgyvr fleet lock`",
+        "keys a lock on them, and the run config drops them when it loads the",
+        "setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is",
+        "checked only as a block. `examples/fleet.yaml` shows all three.",
+        "",
         "`mcgyvr pool` reads that config back: the usable rungs cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
         "came from; every skipped rung with the reason it was skipped; and the",
@@ -330,7 +344,7 @@ def render_setup() -> str:
         "is answering — off by default, because it spends. Run it whenever a run",
         "picks a rung you did not expect.",
         "",
-        "Three keys of that one config file are the levers, and `mcgyvr pool` is how",
+        "Three keys across the two files are the levers, and `mcgyvr pool` is how",
         "you read all three:",
         "",
     ]
@@ -560,11 +574,14 @@ def render_skill() -> str:
     lines = [
         "---",
         "name: mcgyvr",
-        'description: "Use whenever a scoped piece of coding work can be '
-        "offloaded to mcgyvr: author a task contract, validate it, run it, read "
-        "the result file, replan from the findings. Invoke it explicitly when "
-        "you are about to delegate; the schema below is the only contract "
-        'vocabulary."',
+        'description: "Offload one scoped coding task to mcgyvr, a CLI that runs '
+        "it on deterministic tools, local models or API models and keeps only "
+        "what its deterministic gate accepts. Use it when a change has one "
+        "target and a way to judge it (format, import sort, lint fix, rename, "
+        "docstring, type annotations, a function, its tests, a bug fix): author "
+        "a task contract, validate it, run it, read the result file, replan from "
+        "the findings. It never loads itself; invoke it with /mcgyvr. The schema "
+        'below is the only contract vocabulary."',
         "disable-model-invocation: true",
         "---",
         "",
@@ -585,6 +602,9 @@ def render_skill() -> str:
         "and every rejection names the key and what a valid value looks like.",
         "Pick the `task_type` first: it decides what evidence the contract must",
         "carry. `mcgyvr catalog <type>` prints the type's guarantee.",
+        "`mcgyvr delegate PROMPT [REPO]` has the config's `orchestrator` draft",
+        "validated contracts from a request instead and prints them; `--run` runs",
+        "each one.",
         "",
         "### Keys",
         "",

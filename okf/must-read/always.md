@@ -2,11 +2,22 @@
 
 Read at session start. Each is an owner ruling or has burned a session.
 
-**`archive/` is not read. Asked to, it is still not an authority.** 
+**The work is split across two repositories.** Owner ruling 2026-09-15 (#478).
+`AdarGit008/mcgyvr` holds the product and what its code, tests and data read:
+measurements, evidence, corpora and fleet locks stay in `records/` here.
+Research notes, plans, session logs and superseded code go to
+`AdarGit008/mcgyvr-lab`, under the paths they would have here. A citation
+spelled `mcgyvr-lab/<path>` is in the lab, and so is a cited `archive/` or
+`records/plans/` path that is not on disk here.
 
-**Superseded code is archived, never deleted.** The old module or function moves
-to `archive/` with the tests that exist only to call it, in the same merge that
-supersedes it. Deleting drops the only record of what the old code claimed.
+**`archive/` and mcgyvr-lab are not read. Asked to, they are still not an authority.**
+
+**Superseded code is archived in mcgyvr-lab, never deleted.** The old module or
+function goes to the lab under `archive/<its path here>`, with the tests that
+exist only to call it. The lab commit lands first; the mcgyvr merge that
+supersedes the code removes it and names that lab commit. Deleting drops the
+only record of what the old code claimed. `archive/` here keeps only what code
+or tests still read.
 
 **A run is expandable until its first measurement, and frozen from then on.**
 
@@ -20,7 +31,7 @@ rig idle.
 
 **A "do not re-derive" label is not evidence.** Every one of the three headline
 ratios under that banner was wrong for a day. Recompute from journals.
-→ `archive/docs/board-findings-2026-08-31.md` D6
+→ `mcgyvr-lab/archive/docs/board-findings-2026-08-31.md` D6
 
 **A claim with no artifact is not a finding.**
 
@@ -39,4 +50,4 @@ called 13.0 GiB "srv1 as it stands" and **both halves went stale at once** — t
 machine has 14.19 GiB, and the gate it was judged by moved from 2.0 to 0.5. A
 number tied to a rig's name rots silently; a number tied to a config tag is
 either still emitted by that tag or is not.
-→ `records/plans/handoff.md`, O5; `tests/test_a_blob_that_overflows_ram_is_emitted_unmapped.py`
+→ `mcgyvr-lab/records/plans/handoff.md`, O5; `tests/test_a_blob_that_overflows_ram_is_emitted_unmapped.py`

@@ -157,8 +157,8 @@ def test_required_n_and_detectable_delta_agree() -> None:
 def test_humaneval_sizing_reproduces_the_published_figure() -> None:
     """n=164 at a 10% discordance rate resolves +6.9pp — the prior-art anchor.
 
-    Recorded in ``archive/docs/adoption-bar-prior-art-2026-08-10.md``: an independent
-    source states 6.9 points for HumanEval at the same alpha, power and
+    Recorded in ``mcgyvr-lab/archive/docs/adoption-bar-prior-art-2026-08-10.md``: an
+    independent source states 6.9 points for HumanEval at the same alpha, power and
     disagreement rate. Quantised here to whole items out of 164.
     """
     delta = M.detectable_delta(164, 0.10)

@@ -16,8 +16,9 @@ lock's quantity, and the probe asks the lock's own question instead:
   with ``cache_prompt`` off.
 
 Both take the median, as the lock's numbers were taken
-(``fleet-setup/REPORT-srv1.md``, ``fleet-setup/REPORT-srv2.md``). Unlike the
-harnesses, the probe does not run on the rig: it asks the unit at its address.
+(``mcgyvr-lab/fleet-setup/REPORT-srv1.md``, ``mcgyvr-lab/fleet-setup/REPORT-srv2.md``).
+Unlike the harnesses, the probe does not run on the rig: it asks the unit at its
+address.
 
 **A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM stopwatch
 on the rig; record till then". ``measure_vllm.py`` timed its requests on the

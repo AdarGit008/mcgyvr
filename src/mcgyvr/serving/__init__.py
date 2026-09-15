@@ -380,8 +380,8 @@ class Fit:
     #: three it is depends on ``load_mode``, which is why the figure is settled
     #: here and not recomputed: a sum taken before the modes are picked would
     #: be summing the wrong numbers (F2.1,
-    #: ``records/plans/fleet-shape/formulas.md``). Carried for the same reason
-    #: ``vram_gb`` is — every unit on a host clearing the same
+    #: ``mcgyvr-lab/records/plans/fleet-shape/formulas.md``). Carried for the same
+    #: reason ``vram_gb`` is — every unit on a host clearing the same
     #: ``MemAvailable`` alone is how a 15 GB host is asked for 26.
     ram_gb: float = 0.0
     #: How llama.cpp must read the weights for this fit to hold, or ``None``
@@ -396,7 +396,7 @@ class Fit:
     #: else — ``emit_all(units, root)`` is a function of its units, and a cut
     #: that needed a second scan would make every caller carry one, the wake
     #: path included, which is the thing D1 exists to avoid
-    #: (``records/plans/sleep-wake.md`` §3).
+    #: (``mcgyvr-lab/records/plans/sleep-wake.md`` §3).
     #:
     #: Zero means nobody measured it, which claims nothing: a unit built by
     #: hand is not evidence that two units contend, and inventing a contention
@@ -1028,7 +1028,7 @@ def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
       ``{A,B}`` and ``{A,C}`` and not ``{B,C}``. Every unit is still reachable,
       which is the property that matters, and choosing *which* feasible set to
       run is the fleet-shape controller's question and not this one's
-      (``records/plans/fleet-shape/``).
+      (``mcgyvr-lab/records/plans/fleet-shape/``).
     * **A host whose units all co-reside is still one spec holding all of
       them**, which falls out rather than being special-cased: every anchor
       grows to the same set and the de-duplication leaves one. That is the
@@ -1185,8 +1185,8 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
 
     Two things this sum is not. It is not measured: nothing on this fleet has
     run two llama.cpp MoE units co-resident on one host, which is G2 in
-    ``records/plans/fleet-shape/evidence_and_params.md``, and the arms it adds
-    are F2.1's law rather than a reading of two of them together. And it is not
+    ``mcgyvr-lab/records/plans/fleet-shape/evidence_and_params.md``, and the arms it
+    adds are F2.1's law rather than a reading of two of them together. And it is not
     symmetric in how it fails — an unmapped unit's experts are allocated and
     short of them the host swaps silently at a third of decode, while mapped
     units short of their blobs pay a bounded wake and nothing else. The sum
@@ -1379,7 +1379,7 @@ def spec_files(root: Path, host: str) -> tuple[Path, ...]:
     **A directory listing and not a planner call, and the difference is the
     point.** Asking the planner what a config emits needs units, units need a
     :class:`~mcgyvr.scan.Scan`, and needing a scan is exactly what :func:`cards`
-    and the wake path exist to not need (D1, ``records/plans/sleep-wake.md``
+    and the wake path exist to not need (D1, ``mcgyvr-lab/records/plans/sleep-wake.md``
     §3). What is asked here is the other question, and it is the one a wake
     actually has: *which files are on this disk for this rig* — answerable from
     the config, the convention and the filesystem, on a laptop that never
@@ -1511,8 +1511,8 @@ def cards(config: Config) -> dict[str, Card]:
     check reads only planned paths.
 
     Which of several specs is the current one is still not a question the config
-    answers, and D2 of ``records/plans/sleep-wake.md`` records that as a genuine
-    gap: the files' existence answers "can mcgyvr bring this back?" and does not
+    answers, and D2 of ``mcgyvr-lab/records/plans/sleep-wake.md`` records that as a
+    genuine gap: the files' existence answers "can mcgyvr bring this back?" and does not
     answer "bring back *which*", and nothing measured says how it should be
     chosen. What changed is that mcgyvr can now *see* the ambiguity instead of
     resolving it by accident.
