@@ -22,11 +22,40 @@ CLASS_CPU_EXPERTS = "cpu_experts"
 CLASSES: tuple[str, ...] = (CLASS_VLLM, CLASS_LLAMACPP, CLASS_CPU_EXPERTS)
 
 #: The llama-server flags that put expert tensors on the CPU.
-_CPU_EXPERT_FLAGS = frozenset({"--cpu-moe", "--n-cpu-moe"})
+_CPU_MOE = "--cpu-moe"
+_N_CPU_MOE = "--n-cpu-moe"
+_CPU_EXPERT_FLAGS = frozenset({_CPU_MOE, _N_CPU_MOE})
 
 
 def _positive_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def _positive_digits(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and value.isascii()
+        and value.isdigit()
+        and int(value) > 0
+    )
+
+
+def _argv_keeps_experts_on_cpu(argv: Any) -> bool:
+    """``--cpu-moe``, or ``--n-cpu-moe`` followed by a positive integer."""
+    if not isinstance(argv, list):
+        return False
+    for index, token in enumerate(argv):
+        if not isinstance(token, str):
+            continue
+        if token == _CPU_MOE:
+            return True
+        if (
+            token == _N_CPU_MOE
+            and index + 1 < len(argv)
+            and _positive_digits(argv[index + 1])
+        ):
+            return True
+    return False
 
 
 def tolerance_class(unit: Mapping[str, Any]) -> str:
@@ -34,9 +63,12 @@ def tolerance_class(unit: Mapping[str, Any]) -> str:
 
     ``engine: vllm`` is ``vllm``. Any other unit is llama.cpp (an absent engine
     means llama.cpp, ``units.engine`` in :mod:`mcgyvr.config`), and it is
-    ``cpu_experts`` when its launch keeps experts on the CPU — a positive
-    ``n_cpu_moe``, or ``--cpu-moe`` / ``--n-cpu-moe`` among its flags — and
-    ``llamacpp`` otherwise.
+    ``cpu_experts`` when its launch keeps experts on the CPU, ``llamacpp``
+    otherwise. The launch keeps them there with a positive ``n_cpu_moe``, with
+    ``--cpu-moe`` / ``--n-cpu-moe`` among its ``flags``, or with ``--cpu-moe``
+    or ``--n-cpu-moe`` followed by a positive integer in its ``argv`` (a locked
+    unit's launch, verbatim). A value after ``--n-cpu-moe`` in the argv that is
+    missing or not an integer does not count, and neither does ``0``.
     """
     if unit.get("engine") == CLASS_VLLM:
         return CLASS_VLLM
@@ -48,5 +80,7 @@ def tolerance_class(unit: Mapping[str, Any]) -> str:
         if isinstance(flags, list) and any(
             isinstance(flag, str) and flag in _CPU_EXPERT_FLAGS for flag in flags
         ):
+            return CLASS_CPU_EXPERTS
+        if _argv_keeps_experts_on_cpu(launch.get("argv")):
             return CLASS_CPU_EXPERTS
     return CLASS_LLAMACPP

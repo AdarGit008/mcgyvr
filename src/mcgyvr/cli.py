@@ -3000,6 +3000,8 @@ def _fleet_probe(args: argparse.Namespace) -> int:
         print(f"contended {unit}: took work during the probe; filed, not judged")
     for unit, (fields, reason) in report.not_read.items():
         print(f"not read {unit}: {', '.join(fields)} ({reason})")
+    for unit, (fields, reason) in report.off_the_rig.items():
+        print(f"not judged {unit}: {', '.join(fields)} recorded ({reason})")
     for alert in report.alerts:
         print(f"alert {alert['unit_id']} {alert['field']}")
     for unit, why in report.failed.items():

@@ -19,6 +19,12 @@ the lock's quantity.
   as contended and not judged.
 * **It stamps every observation** with the fleet, rig, rig id, combination id
   and unit id of the live lock, and files them under ``<journal.dir>/fleet/``.
+* **A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM
+  stopwatch on the rig; record till then". The probe times a vLLM request by
+  wall clock from off the rig, at the unit's address, while ``measure_vllm.py``
+  timed on the rig at 127.0.0.1. The network time alone pulled srv2 in the
+  first live probe (:mod:`mcgyvr.fleet.probe`). A llama.cpp figure is the
+  server's own ``timings``, and is still judged.
 * **The tolerance is one class per unit.** vLLM is ``vllm``; llama.cpp with
   experts on the CPU is ``cpu_experts``; any other llama.cpp is ``llamacpp``.
   The classes are the measured ones in
@@ -422,27 +428,101 @@ def test_the_probe_files_stamped_observations_under_journal_fleet(
     assert three["fleet"] == "b-small" and three["rig"] == "srv2"
     assert three["rig_id"] == RIG2
     assert three["combination_id"].startswith("cmb-")
-    assert three["alert"] is False
     assert three["at"] == "2026-09-15T12:00:00"
     assert by_unit[(UNIT_DS, "prefill_tok_s")]["observed"] == pytest.approx(307.11)
+    assert by_unit[(UNIT_DS, "prefill_tok_s")]["alert"] is False
     assert not list(tmp_path.glob("journal/*.jsonl")), "filed outside journal/fleet"
 
 
-def test_a_unit_below_its_class_tolerance_raises_an_alert(
+def lock_root(tmp_path: Path) -> Path:
+    """The live fleet folder :func:`live_home` promoted, which holds its locks."""
+    return tmp_path / "home" / ".mcgyvr" / "fleets" / "b-small"
+
+
+def test_a_llamacpp_unit_below_its_class_tolerance_raises_an_alert(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """125.0 is 1.3% under 126.7: past vLLM's 1%."""
+    """16.0 is 50.9% under 32.56: past CPU-experts' 48%."""
+    from mcgyvr.fleet import alerts
+
     journal = live_home(tmp_path, monkeypatch)
-    report = run_probe(FakeUnits(HOLDING | {"3b_decode": 125.0}))
+    report = run_probe(FakeUnits(HOLDING | {"ds_decode": 16.0}))
 
     assert [(a["unit_id"], a["field"]) for a in report.alerts] == [
-        (UNIT_3B, "warm_decode_tok_s")
+        (UNIT_DS, "warm_decode_tok_s")
     ]
     assert report.exit_code == 0
-    flagged = [r for r in rows(journal / "fleet") if r["alert"]]
+    flagged = [r for r in rows(journal / "fleet") if r.get("alert")]
     assert [(r["unit_id"], r["field"]) for r in flagged] == [
-        (UNIT_3B, "warm_decode_tok_s")
+        (UNIT_DS, "warm_decode_tok_s")
     ]
+    assert "srv1_deepseek" not in report.off_the_rig
+    pulls = alerts.pulled(journal / "fleet", lock_root(tmp_path))
+    assert list(pulls.values()) == [
+        [{"unit_id": UNIT_DS, "field": "warm_decode_tok_s", "count": 1}]
+    ]
+
+
+def test_a_vllm_unit_timed_off_the_rig_is_recorded_not_judged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """60.0 is 52.6% under 126.7 and 5000 is 56.5% under 11500, far past vLLM's
+    1%. Both are filed with the probe's stamp, and neither alerts or pulls."""
+    from mcgyvr.fleet import alerts
+
+    journal = live_home(tmp_path, monkeypatch)
+    report = run_probe(FakeUnits(HOLDING | {"3b_decode": 60.0, "3b_prefill": 5000.0}))
+
+    assert report.alerts == []
+    assert report.exit_code == 0
+    assert report.probed["srv2_3b"] == {
+        "warm_decode_tok_s": pytest.approx(60.0),
+        "prefill_tok_s": pytest.approx(5000.0),
+    }
+    three = {r["field"]: r for r in rows(journal / "fleet") if r["unit_id"] == UNIT_3B}
+    assert set(three) == {"warm_decode_tok_s", "prefill_tok_s"}
+    assert three["warm_decode_tok_s"]["observed"] == pytest.approx(60.0)
+    assert three["prefill_tok_s"]["observed"] == pytest.approx(5000.0)
+    for row in three.values():
+        assert row["fleet"] == "b-small" and row["rig"] == "srv2"
+        assert row["rig_id"] == RIG2 and row["combination_id"].startswith("cmb-")
+        assert row["at"] == "2026-09-15T12:00:00"
+        assert row["off_the_rig"] is True
+        assert "alert" not in row
+    assert alerts.pulled(journal / "fleet", lock_root(tmp_path)) == {}
+
+    assert set(report.off_the_rig) == {"srv2_3b"}
+    fields, reason = report.off_the_rig["srv2_3b"]
+    assert set(fields) == {"warm_decode_tok_s", "prefill_tok_s"}
+    assert "off the rig" in reason and "127.0.0.1" in reason
+
+
+def test_fleet_probe_prints_a_vllm_unit_as_recorded_not_judged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr import cli
+    from mcgyvr.fleet import probe
+
+    live_home(tmp_path, monkeypatch)
+    fake = FakeUnits(HOLDING | {"3b_decode": 60.0})
+    measured = probe.run
+
+    def faked(**kwargs: Any) -> Any:
+        return measured(
+            transport=fake, in_flight=idle, clock=fake.clock, now=NOW, **kwargs
+        )
+
+    monkeypatch.setattr(probe, "run", faked)
+    assert cli.main(["fleet", "probe"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+
+    assert "probed srv2_3b: warm_decode_tok_s 60.00, prefill_tok_s 11500.00" in lines
+    marked = [line for line in lines if line.startswith("not judged srv2_3b: ")]
+    assert len(marked) == 1, lines
+    assert "warm_decode_tok_s, prefill_tok_s recorded" in marked[0]
+    assert "off the rig" in marked[0] and "127.0.0.1" in marked[0]
+    assert not [line for line in lines if line.startswith("not judged srv1_deepseek")]
+    assert not [line for line in lines if line.startswith("alert ")]
 
 
 def test_card_and_restarts_are_named_as_not_read_behind_the_door(
@@ -540,9 +620,9 @@ def test_fleet_alerts_reads_journal_fleet_by_default(
     from mcgyvr import cli
 
     journal = live_home(tmp_path, monkeypatch)
-    run_probe(FakeUnits(HOLDING | {"3b_decode": 100.0}))
+    run_probe(FakeUnits(HOLDING | {"ds_decode": 16.0}))
     capsys.readouterr()
     assert cli.main(["fleet", "alerts"]) == 0
     out = capsys.readouterr().out
-    assert UNIT_3B in out and "warm_decode_tok_s" in out, out
+    assert UNIT_DS in out and "warm_decode_tok_s" in out, out
     assert (journal / "fleet").is_dir()
