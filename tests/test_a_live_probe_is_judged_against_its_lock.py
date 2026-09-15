@@ -27,13 +27,16 @@ the lock's quantity.
   server's own ``timings``, and is still judged.
 * **The tolerance is one class per unit.** vLLM is ``vllm``; llama.cpp with
   experts on the CPU is ``cpu_experts``; any other llama.cpp is ``llamacpp``.
-  The classes are the measured ones in
+  Each judged field has its own measured percents, stated in
+  ``tools/runs/derived.json``: warm decode those of
   ``records/measurements/fleet-identity-2026-09-11/tolerances.json`` (1%, 1%,
-  48%), stated in ``tools/runs/derived.json``. The lock's NVMe baseline check
-  reads the same class.
-* **The lock's plain values are judged.** Decode and prefill fall below by the
-  class percent. Card memory rises above the unit's ``room_mib``. Restarts are
-  exactly 0.
+  48%), prefill those of
+  ``records/measurements/fleet-identity-prefill-2026-09-12/README.md`` (8%, 1%,
+  1%; ``tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py``).
+  The lock's NVMe baseline check reads the same class.
+* **The lock's plain values are judged.** Decode and prefill each fall below by
+  their own class percent. Card memory rises above the unit's ``room_mib``.
+  Restarts are exactly 0.
 * **Card and restarts are read on the rig**, and a rig is reached only behind
   the door (``tests/test_one_door.py``). So the probe names both as not read,
   with that reason, rather than reaching a rig by another way.
@@ -297,7 +300,7 @@ def test_the_class_tolerances_are_the_measured_ones_stated_in_derived_json() -> 
             REPO / "records/measurements/fleet-identity-2026-09-11/tolerances.json"
         ).read_text(encoding="utf-8")
     )["classes"]
-    assert derived.class_tolerances() == {
+    assert derived.class_tolerances()["warm_decode_tok_s"] == {
         name: float(body["tolerance_pct"]) for name, body in measured.items()
     }
 
@@ -343,7 +346,7 @@ PLAIN = {
         "warm_decode_tok_s": 32.56,
         "prefill_tok_s": 307.11,
         "card_peak_mib": 5458,
-        "tolerance_pct": 48.0,
+        "tolerance_pct": {"warm_decode_tok_s": 48.0, "prefill_tok_s": 1.0},
         "room_mib": 5458,
     }
 }
@@ -369,7 +372,7 @@ def judged(field: str, value: float, tmp_path: Path) -> list[dict[str, Any]]:
     ("field", "holds", "alerts_at"),
     [
         ("warm_decode_tok_s", 17.0, 16.9),  # 32.56 x 0.52 = 16.93
-        ("prefill_tok_s", 160.0, 159.0),  # 307.11 x 0.52 = 159.70
+        ("prefill_tok_s", 304.1, 304.0),  # 307.11 x 0.99 = 304.04
         ("card_mib", 5458, 5459),  # the unit's room_mib
         ("restarts", 0, 1),
     ],

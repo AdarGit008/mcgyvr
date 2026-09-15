@@ -65,10 +65,11 @@ def test_every_number_states_a_value_and_why_it_is_that_value() -> None:
         assert not unexplained, (
             f"{host} carries derived numbers without a value or a reason: {unexplained}"
         )
-    unexplained = _unexplained(doc["engine"]["warm_decode_class_pct"])
-    assert not unexplained, (
-        f"class tolerances without a value or a reason: {unexplained}"
-    )
+    for entry in ("warm_decode_class_pct", "prefill_class_pct"):
+        unexplained = _unexplained(doc["engine"][entry])
+        assert not unexplained, (
+            f"{entry} class tolerances without a value or a reason: {unexplained}"
+        )
 
 
 def test_the_runtime_resident_intercept_resolves_for_each_rig() -> None:
