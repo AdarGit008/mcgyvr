@@ -55,7 +55,8 @@ def _orphans(journal: Path) -> list[dict[str, Any]]:
 def _config(tmp_path: Path, journal: Path, *, extra: str = "") -> Path:
     path = tmp_path / "mcgyvr.yaml"
     path.write_text(
-        lj.LADDER + extra + f"journal:\n  dir: {journal}\n", encoding="utf-8"
+        "profile: dev\n" + lj.LADDER + extra + f"journal:\n  dir: {journal}\n",
+        encoding="utf-8",
     )
     return path
 

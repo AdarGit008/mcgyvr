@@ -19,6 +19,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.fleet import ids
 from mcgyvr.fleet.layout import combination_id, layout_sha256
 from mcgyvr.fleet.tolerance import tolerance_class
 
@@ -299,6 +300,26 @@ def write(
                 raise LockRefusedError(
                     f"policy ladder names {name!r}, a unit this fleet does not have"
                 )
+
+    # A rig is named by the snapshot it prints (owner, 2026-09-15, D1). A dev
+    # run that filed its rig's reading beside the card proves which rig it ran
+    # on, so a pinned id that reading does not name is refused. Evidence that
+    # carries no reading locks against the pinned id as before.
+    for rig_name, block in (fleet.get("rigs") or {}).items():
+        snapshot = ((evidence.get("rigs") or {}).get(rig_name) or {}).get("snapshot")
+        if snapshot is None:
+            continue
+        try:
+            named = ids.rig_id(snapshot)
+        except ValueError as exc:
+            raise LockRefusedError(f"{rig_name}: {exc}") from exc
+        pinned = block.get("rig_id")
+        if pinned != named:
+            raise LockRefusedError(
+                f"{rig_name}: fleet.yaml pins {pinned}, and its dev run's snapshot "
+                f"names {named}. Pin the id the rig's snapshot names "
+                "(mcgyvr.fleet.ids.rig_id), or re-read the rig"
+            )
 
     rig_addresses = {
         unit.get("address")

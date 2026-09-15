@@ -88,6 +88,13 @@ from typing import Any, ClassVar
 
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
+from mcgyvr.fleet.harness import (
+    VLLM_RUNNING,
+    VLLM_WAITING,
+    in_flight,
+    prometheus_totals,
+    slots_in_flight,
+)
 from mcgyvr.pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
@@ -720,8 +727,8 @@ METRICS_PATH = "/metrics"
 STATUS_TIMEOUT_S = 10.0
 _STATUS_BYTES = 4 * 1024 * 1024
 _TTFT = "vllm:time_to_first_token_seconds"
-_RUNNING = "vllm:num_requests_running"
-_WAITING = "vllm:num_requests_waiting"
+_RUNNING = VLLM_RUNNING
+_WAITING = VLLM_WAITING
 
 
 @dataclass(frozen=True)
@@ -834,6 +841,17 @@ def unit_in_flight(
     return None if status is None else status.busy
 
 
+def status_busy(engine: str | None, page: str | None) -> int | None:
+    """What a unit's own status page says it has in flight, or ``None`` unread.
+
+    The page :func:`unit_in_flight` reads at the unit's address, handed in
+    already fetched — the door's ``read`` fetches it on the rig
+    (:mod:`mcgyvr.fleet.read`) — and judged by the same two readers, which live in
+    :mod:`mcgyvr.fleet.harness` so the rig reads a page the same way.
+    """
+    return in_flight(engine, page)
+
+
 def _slots_status(page: str | None) -> _Status | None:
     """llama-server's ``/slots``: how many slots are ``is_processing``.
 
@@ -841,21 +859,8 @@ def _slots_status(page: str | None) -> _Status | None:
     ``is_processing`` as a boolean — a disabled endpoint answers an error
     object, and a half-read list is not a count.
     """
-    if page is None:
-        return None
-    try:
-        slots = json.loads(page)
-    except ValueError:
-        return None
-    if not isinstance(slots, list) or not slots:
-        return None
-    busy = 0
-    for slot in slots:
-        processing = slot.get("is_processing") if isinstance(slot, dict) else None
-        if not isinstance(processing, bool):
-            return None
-        busy += processing
-    return _Status(busy=busy, source=IN_FLIGHT_FROM_SLOTS)
+    busy = slots_in_flight(page)
+    return None if busy is None else _Status(busy=busy, source=IN_FLIGHT_FROM_SLOTS)
 
 
 def _vllm_status(page: str | None) -> _Status | None:
@@ -864,7 +869,7 @@ def _vllm_status(page: str | None) -> _Status | None:
     ``None`` unless both request gauges are on the page. The TTFT histogram is
     optional: without it the count still stands and only the prefill is lost.
     """
-    totals = _prometheus_totals(
+    totals = prometheus_totals(
         page, (_RUNNING, _WAITING, f"{_TTFT}_sum", f"{_TTFT}_count")
     )
     if totals is None or _RUNNING not in totals or _WAITING not in totals:
@@ -879,35 +884,6 @@ def _vllm_status(page: str | None) -> _Status | None:
         source=IN_FLIGHT_FROM_VLLM_METRICS,
         ttft=ttft,
     )
-
-
-def _prometheus_totals(
-    page: str | None, names: tuple[str, ...]
-) -> dict[str, float] | None:
-    """The named samples in a Prometheus text page, summed over label sets.
-
-    Summed, so a server naming its model or engine in the labels still reads
-    as one series. ``None`` for a missing page or a sample whose value is not a
-    number; a name that is simply absent is absent from the result.
-    """
-    if page is None:
-        return None
-    totals: dict[str, float] = {}
-    for line in page.splitlines():
-        if not line or line.startswith("#"):
-            continue
-        if "{" in line and "}" in line:
-            name = line[: line.index("{")]
-            tail = line[line.rindex("}") + 1 :].split()
-        else:
-            name, *tail = line.split()
-        if name not in names or not tail:
-            continue
-        try:
-            totals[name] = totals.get(name, 0.0) + float(tail[0])
-        except ValueError:
-            return None
-    return totals
 
 
 def _get_text(url: str, timeout: float) -> str | None:

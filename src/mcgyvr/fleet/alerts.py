@@ -42,6 +42,9 @@ _JUDGED: dict[str, tuple[str, str]] = {
     #: A live probe's card reading, judged against the unit's own ``room_mib``
     #: (owner, 2026-09-15): the fit bound the lock proved, and no new number.
     "card_mib": ("up", "room"),
+    #: A read's load peak of the unit's process, judged against ``room_mib`` like
+    #: the card (owner, 2026-09-15, B1): room is the measured process peak (B3).
+    "load_peak_mib": ("up", "room"),
 }
 
 

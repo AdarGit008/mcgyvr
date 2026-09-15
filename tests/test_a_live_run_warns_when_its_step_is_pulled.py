@@ -202,6 +202,14 @@ def _completion(text: str) -> Any:
     )
 
 
+def _admitted(reader: Any = None) -> Any:
+    """An admission with nothing to clean or restore: the stand-in for a read."""
+    from mcgyvr.fleet.admission import Admission
+    from mcgyvr.fleet.admit import Plan
+
+    return Admission(fleet=FLEET_NAME, plan=Plan(clean=[], restore=[]), commands=[])
+
+
 def climb(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -212,6 +220,7 @@ def climb(
     """One ``mcgyvr run`` in a fresh repository: exit, rungs dispatched, stderr."""
     import mcgyvr.drive as drive
     from mcgyvr.cli import main
+    from mcgyvr.fleet import admission
 
     repo = tmp_path / f"repo-{label}"
     (repo / "src" / "pkg").mkdir(parents=True)
@@ -233,6 +242,11 @@ def climb(
         return _completion(f"```python\n{ACCEPTED}```\n")
 
     monkeypatch.setattr(drive, "dispatch", fake_dispatch)
+    # These runs are about pull warnings on a live run that was admitted. Live
+    # admission reads each rig through the door and holds it to the lock
+    # (tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py); this
+    # fleet has no lock and no rig to read, so it is admitted here, explicitly.
+    monkeypatch.setattr(admission, "admit", _admitted)
     monkeypatch.chdir(tmp_path)
     capsys.readouterr()
     argv = ["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]
