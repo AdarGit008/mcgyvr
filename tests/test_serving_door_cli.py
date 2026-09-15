@@ -36,6 +36,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.serving import run
+from tests import onedoor
 from tests.test_serving_gatelib import (
     DOOR,
     SSH,
@@ -215,6 +216,33 @@ def test_a_step_argument_inside_the_envelope_is_admitted(
     # argument check that stopped it.
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "step argument" not in result.stderr, result.stderr
+
+
+def test_a_round_gate_1_opens_for_these_tests_lands_in_their_own_root(
+    env: dict[str, str], step: Path, tmp_path: Path
+) -> None:
+    """Gate 1 appends a round when the tree it measures has moved off the open
+    one, which is the door's job. From the checkout that append lands in the
+    tracked ``tools/bench/rounds.json`` while every other xdist worker reads
+    it, so the door these tests start measures a root under ``tmp_path`` —
+    moved off its round here, so gate 1 has a round to open."""
+    named = env.get(run.ROOT_ENV)
+    root = Path(named) if named else run.ROOT
+    assert tmp_path in root.parents, (
+        f"the door these tests start runs from {root}, so gate 1 opens its "
+        f"rounds in {ROUNDS} while other xdist workers are reading it"
+    )
+    onedoor.unpin(root)
+    checkout = ROUNDS.read_bytes()
+
+    result = door(base_argv(step), env)
+
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    assert onedoor.pinned(root)[0] != onedoor.ROUND_ID, (
+        "gate 1 opened no round in the test's own root",
+        result.stderr,
+    )
+    assert ROUNDS.read_bytes() == checkout, f"a door run from a test wrote {ROUNDS}"
 
 
 def test_check_step_args_reads_the_archived_rule() -> None:
