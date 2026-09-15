@@ -14,7 +14,8 @@ displaced run and refuses no busy rig: a read is how a serving rig is looked at.
 
 **Filed** under the live fleet's journal by :func:`mcgyvr.fleet.read.record`.
 With ``--probe``, each idle unit named has the lock's own harness
-(``mcgyvr/fleet/harness.py``) run on the rig as ``python3 -``, at 127.0.0.1.
+(``mcgyvr/fleet/harness.py``) run on the rig as ``python3 -``, at 127.0.0.1
+(:func:`harness_on_rig`).
 """
 
 from __future__ import annotations
@@ -30,9 +31,38 @@ from pathlib import Path
 from mcgyvr.serving.gatelib import door_required, need, refuse, root, ssh
 
 HERE = Path(__file__).resolve().parent
-#: A reading of the rig, and a harness run on it.
+#: A reading of the rig, and a probe's harness run on it. A load's harness run has
+#: none (owner rulings NB5 and NBc): see :func:`harness_on_rig`.
 READ_TIMEOUT_S = 180
 PROBE_TIMEOUT_S = 1800
+
+
+def harness_on_rig(host: str, spec: str, source: str) -> str | None:
+    """The lock's harness run on ``host`` over the door's ssh, its source on stdin.
+
+    Its stdout, or ``None`` when a probe's run outlasts ``PROBE_TIMEOUT_S``. A load
+    (spec ``mode`` ``load``) is run with no timeout: owner ruling NB5 holds a load
+    to its own 30 s with "no 900s no 3600s", and NBc puts no time limit on its
+    wait for the unit to read idle after the close, so an ssh timeout here would
+    cap both. The probes keep ``PROBE_TIMEOUT_S``.
+    """
+    from mcgyvr.fleet import harness
+
+    try:
+        asked = json.loads(spec)
+    except ValueError:
+        asked = None
+    is_load = isinstance(asked, dict) and asked.get("mode") == "load"
+    try:
+        answered = ssh(
+            host,
+            f"python3 - {harness.HARNESS_WORD} {shlex.quote(spec)}",
+            timeout=None if is_load else PROBE_TIMEOUT_S,
+            input=source,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    return answered.stdout
 
 
 def main() -> int:
@@ -96,16 +126,7 @@ def main() -> int:
 
     def measure(unit: str, spec: str) -> str | None:
         print(f"read: running the lock's harness for {unit} on {host}")
-        try:
-            answered = ssh(
-                host,
-                f"python3 - {harness.HARNESS_WORD} {shlex.quote(spec)}",
-                timeout=PROBE_TIMEOUT_S,
-                input=source,
-            )
-        except subprocess.TimeoutExpired:
-            return None
-        return answered.stdout
+        return harness_on_rig(host, spec, source)
 
     try:
         recorded = read.record(
@@ -145,6 +166,9 @@ def main() -> int:
         print(
             f"read: loaded {name} {row['spec']}: peak_mib={row['peak_mib']} "
             f"samples={row['samples']} completed={row['completed']}/{row['width']} "
+            f"closed={row['closed_unfinished']} limit_s={row['limit_s']} "
+            f"pace_prompt_tok_s={row['pace_prompt_tok_s']} "
+            f"idle_after={row['idle_after']} "
             f"restarts {row['restarts_before']}->{row['restarts_after']}"
         )
     for name, why in recorded.unloaded.items():

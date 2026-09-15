@@ -194,7 +194,7 @@ def _admit(what: str, host: str | None) -> str:
 def ssh(
     host: str,
     command: str,
-    timeout: float = 120.0,
+    timeout: float | None = 120.0,
     *,
     input: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
@@ -209,6 +209,9 @@ def ssh(
     hard-locks takes the ssh pipe with it — three of those on srv1 in one
     campaign, each ending mid-log-stream. ``input`` is piped to the remote
     command's stdin (how a reader is shipped without landing on the rig's disk).
+    ``timeout=None`` is for the one caller a ruling holds to no fixed timeout: a
+    load's harness run under ``read`` (owner rulings NB5 and NBc,
+    ``gate-scripts/read-02-rig.py``).
     """
     _admit(f"ssh to {host}", host)
     return subprocess.run(

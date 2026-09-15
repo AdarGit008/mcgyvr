@@ -47,6 +47,21 @@ OURS_PREFIX = "mcgyvr-"
 RIG_ROWS = "rig.jsonl"
 #: The fields a read judges per unit.
 UNIT_FIELDS = ("card_mib", "restarts")
+#: Where each engine's pace counter is read over a load (owner ruling NB5), and
+#: its name. vLLM 0.26.0 publishes ``vllm:prompt_tokens_total`` ("Number of
+#: prefill tokens processed", a counter) on ``/metrics``, as the 2026-09-11
+#: kv-dtype run recorded it from the vllm/vllm-openai@sha256:ffb2d59b... image
+#: b-small runs.
+PACE_COUNTERS: dict[str, tuple[str, str]] = {
+    "vllm": ("/metrics", "vllm:prompt_tokens_total"),
+}
+#: Why a llama.cpp load has no pace: no counter of the unit's own to take it from.
+NO_PACE_COUNTER = (
+    "none: llama-server answers /metrics 501 unless started with --metrics "
+    "(src/mcgyvr/pool.py), and this unit's launch has no --metrics; the slot "
+    "JSON build 10644 logs (/slots) carries id, n_ctx, speculative and "
+    "is_processing, and no prompt token count"
+)
 
 #: ``(unit name, harness spec)`` -> what the harness printed on the rig.
 Measure = Callable[[str, str], str | None]
@@ -673,6 +688,7 @@ def _measure_load(
         "window": window,
         "container": container,
         "poll": (GATE_SCRIPTS / "rig-units.sh").read_text(encoding="utf-8"),
+        "pace_path": _pace_counter(unit)[0],
     }
     answer = _answer(measure(name, json.dumps(spec)))
     if answer is None or not isinstance(answer.get("load"), dict):
@@ -693,12 +709,16 @@ def _file_load(
     """One load row, its peak judged like the card: at most the unit's ``room_mib``.
 
     Owner ruling B3: ``room_mib`` is the process's measured card peak, context
-    included. A load that did not complete every request, or reports an error,
-    proves no peak and is filed unjudged. The row is written whole and judged by
-    :mod:`mcgyvr.fleet.alerts`' own rule, because :func:`~mcgyvr.fleet.alerts.check`
-    files only its fixed fields.
+    included. Owner ruling NB5: pace, the completion count, the requests closed
+    at the limit and whether the unit read idle after are filed, not judged, and
+    a load cut at its limit is judged; only an error other than that close, or
+    no sample showing the container, leaves a load unjudged. The row is written
+    whole and judged by :mod:`mcgyvr.fleet.alerts`' own rule, because
+    :func:`~mcgyvr.fleet.alerts.check` files only its fixed fields.
     """
     from mcgyvr.fleet.alerts import _already_alerted, _journal_file, _judge, _warning
+    from mcgyvr.fleet.harness import LOAD_LIMIT_S
+    from mcgyvr.runner import status_busy
 
     unit = fleet.fleet["units"][name]
     unit_id = str(unit["unit_id"])
@@ -716,6 +736,9 @@ def _file_load(
     peak = max(peaks) if peaks else None
     errors = [str(error) for error in body.get("errors") or []]
     completed = body.get("completed") if isinstance(body.get("completed"), int) else 0
+    closed = body.get("closed_unfinished")
+    pace, pace_source = _pace(unit, body)
+    in_flight_after = status_busy(engine_of(unit), body.get("after_page"))
     row: dict[str, Any] = {
         "field": "load_peak_mib",
         "observed": peak,
@@ -729,7 +752,16 @@ def _file_load(
         "restarts_before": _digits(str(body.get("restarts_before") or "").strip()),
         "restarts_after": _digits(str(body.get("restarts_after") or "").strip()),
         "width": width,
+        "limit_s": body.get("limit_s", LOAD_LIMIT_S),
         "completed": completed,
+        "closed_unfinished": closed if isinstance(closed, int) else None,
+        "pace_prompt_tok_s": pace,
+        "pace_source": pace_source,
+        "idle_after": None if in_flight_after is None else in_flight_after == 0,
+        "in_flight_after": in_flight_after,
+        "idle_after_close": body.get("idle_after_close"),
+        "idle_after_s": body.get("idle_after_s"),
+        "idle_error": body.get("idle_error"),
         "errors": errors[:5],
         "prompt_tokens": body.get("prompt_tokens"),
         "max_tokens": body.get("max_tokens"),
@@ -738,7 +770,7 @@ def _file_load(
         row["at"] = body["finished_at"]
     filing.done.loads[name] = row
     room = unit.get("room_mib")
-    if peak is None or room is None or completed != width or errors:
+    if peak is None or room is None or errors:
         filing.record(unit_id, row)
         return
     observation = {
@@ -760,6 +792,49 @@ def _file_load(
         print(
             _warning(observation, filing.unit_stamp(unit_id), unit_id), file=sys.stderr
         )
+
+
+def _pace_counter(unit: Mapping[str, Any]) -> tuple[str | None, str | None, str]:
+    """``(page, counter, source)`` a load's pace is read from, or why there is none."""
+    engine = engine_of(unit)
+    if engine in PACE_COUNTERS:
+        path, name = PACE_COUNTERS[engine]
+        return path, name, f"{name} on {path}: its change over the load's seconds"
+    launch = unit.get("launch")
+    argv = launch.get("argv") if isinstance(launch, Mapping) else None
+    if isinstance(argv, list) and "--metrics" in argv:
+        return (
+            None,
+            None,
+            "none: this unit launches with --metrics, and no page of llama-server's "
+            "counters is recorded to name its prompt counter from",
+        )
+    return None, None, NO_PACE_COUNTER
+
+
+def _pace(unit: Mapping[str, Any], body: Mapping[str, Any]) -> tuple[float | None, str]:
+    """Prompt tokens per second over a load, from the unit's own counter, or why not."""
+    from mcgyvr.fleet.harness import metric_total
+
+    _, counter, source = _pace_counter(unit)
+    if counter is None:
+        return None, source
+    first, last = body.get("pace_start_page"), body.get("pace_end_page")
+    if not isinstance(first, str) or not isinstance(last, str):
+        return None, f"none: the load returned no {counter} page to read"
+    before, after = metric_total(first, counter), metric_total(last, counter)
+    seconds = body.get("pace_seconds")
+    if before is None or after is None:
+        return None, f"none: {counter} is not on the page the load read"
+    if (
+        isinstance(seconds, bool)
+        or not isinstance(seconds, int | float)
+        or seconds <= 0
+    ):
+        return None, f"none: the load read {counter} over no measurable time"
+    if after < before:
+        return None, f"none: {counter} went backwards over the load (a restart?)"
+    return (after - before) / float(seconds), source
 
 
 def observations(journal: Path, run_id: str) -> dict[str, dict[str, Any]]:
