@@ -66,6 +66,7 @@ installed: ~/.claude/skills/mcgyvr/references/examples.md
 installed: ~/.pi/agent/skills/mcgyvr/SKILL.md
 installed: ~/.pi/agent/skills/mcgyvr/references/examples.md
 setup: skills/mcgyvr/SETUP.md
+cli: uv tool install git+https://github.com/AdarGit008/mcgyvr
 Invoke it with /mcgyvr; it does not load itself.
 ```
 

@@ -16,8 +16,9 @@
 # the ladder up, and the skill is what an agent reads to author a contract —
 # beside each other in this directory, and only one of them is installed. This
 # script's stdout is a list of paths, SETUP.md's among them, plus the one line
-# saying the skill does not load itself, and never a file's contents: stdout is
-# the only part of running this that can reach a context.
+# naming how to obtain the CLI, plus the one line saying the skill does not
+# load itself, and never a file's contents: stdout is the only part of running
+# this that can reach a context.
 #
 # Installing twice changes nothing. Uninstalling twice is not an error.
 set -euo pipefail
@@ -33,6 +34,14 @@ REFERENCES_DIR="${HERE}/references"
 # the person who has this checkout, and an absolute path resolved here would
 # be this machine's, not theirs.
 SETUP_DOC="skills/mcgyvr/SETUP.md"
+
+# How to obtain the CLI the skill drives, as the one line on stdout that says
+# it. The skill is instructions for driving `mcgyvr`; installing the
+# instructions onto a machine that has no `mcgyvr` is the ordinary first case,
+# and this is the command that closes it. mcgyvr is not on PyPI, so this is
+# the git URL README.md installs from — it becomes `uv tool install mcgyvr`
+# once the package is published, and this line is the only place to change.
+CLI_INSTALL="uv tool install git+https://github.com/AdarGit008/mcgyvr"
 
 # Relative to $HOME, which is read from the environment so a test (or a user
 # with a non-standard home) can point the install somewhere else.
@@ -255,6 +264,10 @@ install_skill() {
     printf '%s' "${record}" >"${dest}/${RECORD}"
   done
   echo "setup: ${SETUP_DOC}"
+  # The skill is instructions for driving a CLI, and this is how the CLI is
+  # obtained. One line, named the same way the paths above are, and no more:
+  # what to do with it once it is installed is SETUP.md's, one line up.
+  echo "cli: ${CLI_INSTALL}"
   # One instruction to the operator who ran this, and the only thing that says
   # the skill does not load itself. Not a file's contents.
   echo "Invoke it with /mcgyvr; it does not load itself."

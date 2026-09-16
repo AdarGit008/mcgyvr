@@ -212,3 +212,38 @@ def test_cli_exposes_the_onboarding_verbs(
     help_text = capsys.readouterr().out
     for verb in ("init", "pool", "config", "detect", "capabilities", "catalog"):
         assert verb in help_text
+
+
+# --- the CLI the skill drives ---------------------------------------------
+
+
+def _install_constant(name: str) -> str:
+    """A constant read out of install.sh, so these tests cannot drift from it.
+
+    The script is the single place the command and the floor are written; a
+    literal copied into this file would be a second one, going stale the day
+    mcgyvr reaches PyPI and ``CLI_INSTALL`` becomes ``uv tool install mcgyvr``.
+    """
+    text = INSTALL_SH.read_text(encoding="utf-8")
+    match = re.search(rf'^{name}="(.*)"$', text, re.MULTILINE)
+    assert match is not None, f"install.sh must define {name}"
+    return match.group(1)
+
+
+def test_install_stdout_says_how_to_get_the_cli(tmp_path: Path) -> None:
+    """The one line naming how to obtain the binary the skill drives.
+
+    Setup instructions stay out of SKILL.md (ruled), and a skill that is
+    instructions for driving a CLI is useless on a machine with no CLI. This
+    is the one line on stdout that closes that, and it is exactly one line.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+
+    result = _run_install(home)
+
+    assert result.returncode == 0, result.stderr
+    command = _install_constant("CLI_INSTALL")
+    assert command.startswith("uv tool install "), command
+    cli_lines = [ln for ln in result.stdout.splitlines() if ln.startswith("cli: ")]
+    assert cli_lines == [f"cli: {command}"], result.stdout
