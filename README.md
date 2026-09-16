@@ -66,8 +66,15 @@ installed: ~/.claude/skills/mcgyvr/references/examples.md
 installed: ~/.pi/agent/skills/mcgyvr/SKILL.md
 installed: ~/.pi/agent/skills/mcgyvr/references/examples.md
 setup: skills/mcgyvr/SETUP.md
+cli: uv tool install git+https://github.com/AdarGit008/mcgyvr
 Invoke it with /mcgyvr; it does not load itself.
 ```
+
+It also checks the `mcgyvr` on `PATH` against the oldest release the skill is
+known to drive, and warns on stderr — never refuses — when there is no binary,
+when it is older, or when it reports `0.0.0+uninstalled`. Installing the
+instructions on a machine that does not have the CLI yet is the ordinary first
+case, and the `cli:` line above is how it is closed.
 
 | Flag | Effect |
 | --- | --- |
