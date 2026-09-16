@@ -74,7 +74,7 @@ def test_both_renderings_carry_the_spec_flags_in_flag_order() -> None:
         "--spec-type",
         "draft-mtp",
     )
-    assert command_of(render_compose(mtp))[1:] == list(parts)
+    assert command_of(render_compose(mtp)) == list(parts)
     assert shlex.split(render_command(mtp))[1:] == list(parts)
 
 

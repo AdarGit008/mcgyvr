@@ -117,6 +117,10 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("prefill_source", "TEXT"),
     ("in_flight", "INTEGER"),
     ("in_flight_source", "TEXT"),
+    # The unit's speculative draft on this reply, present only where the
+    # server drafted: acceptance is `draft_n_accepted / draft_n`.
+    ("draft_n", "INTEGER"),
+    ("draft_n_accepted", "INTEGER"),
     ("model", "TEXT"),
     ("endpoint", "TEXT"),
     ("protocol", "TEXT"),
