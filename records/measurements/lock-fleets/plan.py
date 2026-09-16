@@ -33,8 +33,9 @@ writes ``<use>/retries.json`` and the retry's own wrapper, and :func:`read_runs`
 places each retry right after its failed entry, which stays in the order as a
 data point. RUNS.md is not edited: both rigs log into it during a window. A read
 or a load has no wrapper and no artifact of its own — ``drive.sh`` mints its run
-id just before it runs — so its retry is the same door command under a new id
-(owner ruling, 2026-09-16; ``RETRIED``).
+id just before it runs — so its retry is the same door command under a new id:
+the read by owner ruling, 2026-09-16; the load by the extension recorded in
+``RETRIED``, which the owner has not ruled on.
 
 A logged unit entry that passed, but whose load was not sampled until idle, gets
 ONE extra cold start for room (owner ruling, 2026-09-15), ``plan.py rerun``,
@@ -114,9 +115,13 @@ RETRIES = "retries.json"
 RETRY_SUFFIX = "-retry1"
 #: The kinds a retry re-runs. A campaign unit or move run has a wrapper and an
 #: artifact of its own; a read or a load files into the journal under a run id
-#: drive.sh mints just before it runs, so running it again supersedes nothing
-#: (owner ruling, 2026-09-16: "fix the reader and record the line", which let
-#: srv2-03 run again). A serve-up or serve-down writes serve-<mode>.json into
+#: drive.sh mints just before it runs, so running it again supersedes nothing.
+#: The READ is the owner's ruling (2026-09-16: "fix the reader and record the
+#: line", which let srv2-03 run again). The LOAD is Claude's extension of that
+#: ruling, which the owner has not ruled on: a load is the same shape as a read
+#: — it starts nothing, and drive.sh mints its id the same way — and no load has
+#: failed in this window. The first one that does is worth putting to the owner
+#: before it is retried. A serve-up or serve-down writes serve-<mode>.json into
 #: the window's envelope, where a second run of it moves the first aside as
 #: <mode>.superseded-<run id>.json (05-envelope.py:645-682) — a kept data point
 #: named superseded — so it gets none.
@@ -919,7 +924,8 @@ def _extra(
 
     A read or a load has neither a wrapper nor an artifact: drive.sh mints its
     run id just before it runs, so the extra entry is the same door command
-    under a new id and names only itself (owner ruling, 2026-09-16)."""
+    under a new id and names only itself (the read by owner ruling, 2026-09-16;
+    the load by the extension recorded in ``RETRIED``)."""
     if entry.kind not in ("unit", "move"):
         return {key: f"{entry.id.removesuffix(strip)}{suffix}"}, ""
     wrapper = Path(entry.wrapper)
@@ -943,8 +949,9 @@ def derive_retry(use: str, entry: Entry) -> tuple[dict[str, str], str]:
 
     A campaign unit or move run has a wrapper and an artifact of its own; a read
     or a load has a run id drive.sh mints for it, and is retried as the same door
-    command under a new one (``RETRIED``, owner ruling 2026-09-16). A retry or a
-    re-run gets no retry of its own.
+    command under a new one (``RETRIED``: the read by owner ruling 2026-09-16,
+    the load by the extension recorded there). A retry or a re-run gets no retry
+    of its own.
     """
     _not_an_extra(entry)
     if entry.kind not in RETRIED:

@@ -138,7 +138,9 @@ rig's idle tail; no fill work is added.
   fails its check, has no retry yet and is not itself a retry. A campaign unit or
   move run is retried through a wrapper and an artifact of its own; a read or a
   load has neither — `drive.sh` mints its run id just before it runs — so its
-  retry is the same door command under a new id (2026-09-16, below). A serve-up
+  retry is the same door command under a new id (the read by the owner's
+  2026-09-16 ruling below; the load by Claude's extension of it, recorded
+  there). A serve-up
   or serve-down gets none: a second run of one moves its kept `serve-<mode>.json`
   aside as `serve-<mode>.superseded-<run id>.json` (`05-envelope.py:645-682`),
   naming a data point superseded. It lists the retry in
@@ -315,6 +317,12 @@ rig's idle tail; no fill work is added.
   srv2-03 is logged as failed, so it gets its one retry, `srv2-03-retry1`, under
   the rule above: a read has no wrapper and no artifact of its own, so the retry
   is the same door command under the run id `drive.sh` mints for it.
+  **This ruling covers the `read`.** `plan.py`'s `RETRIED` also admits a `load`,
+  which the owner has not ruled on: Claude extended the ruling because a load is
+  the same shape as a read — it starts nothing, and `drive.sh` mints its run id
+  the same way — and no load has failed in this window. The first one that does
+  is worth putting to the owner before it is retried. A serve-up or serve-down
+  is refused either way, for the reason in the retry rule above.
 
 ## Stop and ask
 
