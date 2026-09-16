@@ -16,8 +16,10 @@
 # the ladder up, and the skill is what an agent reads to author a contract —
 # beside each other in this directory, and only one of them is installed. This
 # script's stdout is a list of paths, SETUP.md's among them, plus the one line
-# saying the skill does not load itself, and never a file's contents: stdout is
-# the only part of running this that can reach a context.
+# naming how to obtain the CLI, plus the one line saying the skill does not
+# load itself, and never a file's contents: stdout is the only part of running
+# this that can reach a context. The version check warns on stderr, which is
+# not part of that promise and not a place a context reads.
 #
 # Installing twice changes nothing. Uninstalling twice is not an error.
 set -euo pipefail
@@ -33,6 +35,26 @@ REFERENCES_DIR="${HERE}/references"
 # the person who has this checkout, and an absolute path resolved here would
 # be this machine's, not theirs.
 SETUP_DOC="skills/mcgyvr/SETUP.md"
+
+# How to obtain the CLI the skill drives, as the one line on stdout that says
+# it. The skill is instructions for driving `mcgyvr`; installing the
+# instructions onto a machine that has no `mcgyvr` is the ordinary first case,
+# and this is the command that closes it. mcgyvr is not on PyPI, so this is
+# the git URL README.md installs from — it becomes `uv tool install mcgyvr`
+# once the package is published, and this line is the only place to change.
+CLI_INSTALL="uv tool install git+https://github.com/AdarGit008/mcgyvr"
+
+# The oldest `mcgyvr` this checkout can claim the skill is driving. `v0.1.0`
+# is the only release tag this repository has, so it is the only floor there
+# is evidence for: an older one has never existed. It rises to the next
+# release tag when there is one.
+#
+# It is also the floor that is safe to compare with `sort -V`, which is a
+# version sort and not PEP 440: it orders `0.1.1` BEFORE `0.1.1.dev376`, where
+# PEP 440 puts the dev build first (a `.devN` is a pre-release of `0.1.1`, not
+# a successor to it). A `.devN` build only ever names a version ABOVE the last
+# release tag, so comparing against a released tag never reaches that case.
+MIN_VERSION="0.1.0"
 
 # Relative to $HOME, which is read from the environment so a test (or a user
 # with a non-standard home) can point the install somewhere else.
@@ -206,6 +228,56 @@ prune_removed() {
   done <"${record}"
 }
 
+# Warns; never fails. The skill installs perfectly well on a machine that has
+# no `mcgyvr` binary yet, and that machine is the ordinary case rather than a
+# broken one: whoever is installing the skill is usually installing it in
+# order to get started, and refusing would strand exactly that person — with
+# the command that would fix it sitting one line above on stdout. So every
+# case here reports and returns 0, and the install stands.
+#
+# Comparison is `sort -V` and not a string compare: these are PEP 440
+# versions, so `0.1.10` is not `0.1.1` lexically, and the real ones carry
+# `.devN` and `+local` suffixes. The `+local` part is dropped before
+# comparing — it is build metadata, it orders nothing, and `+ga624cdc2` would
+# otherwise be compared character by character against whatever follows the
+# `+` on the other side. What remains of `sort -V`'s disagreement with PEP 440
+# is the pre-release case MIN_VERSION's comment rules out.
+check_version() {
+  if ! command -v mcgyvr >/dev/null 2>&1; then
+    echo "install.sh: no mcgyvr on PATH: the skill is installed, but there is nothing on this machine for it to drive. Get it with: ${CLI_INSTALL}" >&2
+    return 0
+  fi
+
+  # `--version` prints `mcgyvr <version>` and then the config it resolved, so
+  # the version is the first line's second field. The `|| reported=""` is what
+  # keeps a non-zero exit from `set -e`: this is a warning, and a CLI too
+  # broken to state its own version must not abort an install that succeeded.
+  local reported="" found core
+  reported="$(mcgyvr --version 2>/dev/null)" || reported=""
+  reported="${reported%%$'\n'*}"
+  found="${reported#mcgyvr }"
+
+  if [[ -z "${found}" || "${found}" == "${reported}" ]]; then
+    echo "install.sh: mcgyvr is on PATH but did not report a version; wanted ${MIN_VERSION} or newer." >&2
+    return 0
+  fi
+
+  core="${found%%+*}"
+
+  # What mcgyvr reports when it is importable but was never installed as a
+  # package — a bare checkout on sys.path (src/mcgyvr/__init__.py). It is not
+  # a version, and it is said to be one here rather than being compared as
+  # `0.0.0` and reported as merely old.
+  if [[ "${core}" == "0.0.0" ]]; then
+    echo "install.sh: mcgyvr reports ${found}: it is running from a tree that was never installed, so it has no version to check. Install it with: ${CLI_INSTALL}" >&2
+    return 0
+  fi
+
+  if [[ "$(printf '%s\n%s\n' "${MIN_VERSION}" "${core}" | sort -V | head -n 1)" != "${MIN_VERSION}" ]]; then
+    echo "install.sh: mcgyvr ${found} is older than ${MIN_VERSION}, the oldest this skill is known to drive. Upgrade it with: ${CLI_INSTALL}" >&2
+  fi
+}
+
 install_skill() {
   local force="$1"
   if [[ ! -f "${SKILL_MD}" ]]; then
@@ -255,9 +327,16 @@ install_skill() {
     printf '%s' "${record}" >"${dest}/${RECORD}"
   done
   echo "setup: ${SETUP_DOC}"
+  # The skill is instructions for driving a CLI, and this is how the CLI is
+  # obtained. One line, named the same way the paths above are, and no more:
+  # what to do with it once it is installed is SETUP.md's, one line up.
+  echo "cli: ${CLI_INSTALL}"
   # One instruction to the operator who ran this, and the only thing that says
   # the skill does not load itself. Not a file's contents.
   echo "Invoke it with /mcgyvr; it does not load itself."
+  # Last, and on stderr: the install above has already succeeded, and this
+  # only says whether there is anything here to drive it with.
+  check_version
 }
 
 uninstall_skill() {
