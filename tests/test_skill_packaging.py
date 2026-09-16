@@ -230,6 +230,67 @@ def _install_constant(name: str) -> str:
     return match.group(1)
 
 
+def _may_hold_mcgyvr(directory: str) -> bool:
+    """Whether ``directory`` might hold an ``mcgyvr`` — unknown counts as yes.
+
+    A PATH entry this user cannot stat is a real case, not a hypothetical:
+    ``/root/.local/bin`` is on PATH on the development machine and raises
+    ``PermissionError``. It cannot be proved free of an ``mcgyvr``, and a test
+    about the binary being absent must not leave a directory on PATH that
+    might still supply one.
+    """
+    try:
+        return (Path(directory) / "mcgyvr").exists()
+    except OSError:
+        return True
+
+
+def _path_without_mcgyvr() -> str:
+    """The ambient PATH with every directory holding an ``mcgyvr`` removed.
+
+    This suite runs inside the project's own venv, which has a real ``mcgyvr``
+    on PATH — so a test about the binary being absent has to take it off, and
+    a test about a stand-in has to be sure the stand-in is the one found.
+    """
+    kept = [
+        d
+        for d in os.environ.get("PATH", "").split(os.pathsep)
+        if d and not _may_hold_mcgyvr(d)
+    ]
+    return os.pathsep.join(kept)
+
+
+def _shim(bin_dir: Path, script: str) -> str:
+    """Write an ``mcgyvr`` stand-in and return a PATH that finds it first."""
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    shim = bin_dir / "mcgyvr"
+    shim.write_text(script, encoding="utf-8")
+    shim.chmod(0o755)
+    return f"{bin_dir}{os.pathsep}{_path_without_mcgyvr()}"
+
+
+def _reporting(bin_dir: Path, reported: str) -> str:
+    """A stand-in reporting ``reported`` the way the real CLI does: the
+    ``mcgyvr <version>`` line first, then the config it resolved."""
+    return _shim(
+        bin_dir,
+        f'#!/usr/bin/env bash\necho "mcgyvr {reported}"\necho "config: none"\n',
+    )
+
+
+def _run_install_with_path(
+    home: Path, path: str, *args: str
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bash", str(INSTALL_SH), *args],
+        cwd=SKILL_DIR,
+        env={**os.environ, "HOME": str(home), "PATH": path},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
 def test_install_stdout_says_how_to_get_the_cli(tmp_path: Path) -> None:
     """The one line naming how to obtain the binary the skill drives.
 
@@ -247,3 +308,89 @@ def test_install_stdout_says_how_to_get_the_cli(tmp_path: Path) -> None:
     assert command.startswith("uv tool install "), command
     cli_lines = [ln for ln in result.stdout.splitlines() if ln.startswith("cli: ")]
     assert cli_lines == [f"cli: {command}"], result.stdout
+
+
+def test_no_mcgyvr_on_path_warns_and_still_installs(tmp_path: Path) -> None:
+    """The ordinary first case, and the one refusing would strand.
+
+    Somebody installing the skill is usually installing it in order to get
+    started, so "no binary yet" is not a broken machine. The skill lands and
+    the script says what is missing; it never fails.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+
+    result = _run_install_with_path(home, _path_without_mcgyvr())
+
+    assert result.returncode == 0, result.stderr
+    for target in (CLAUDE_SKILL, PI_SKILL):
+        assert (home / target).exists(), f"warning must not stop install: {target}"
+    assert "no mcgyvr on PATH" in result.stderr, result.stderr
+    assert _install_constant("CLI_INSTALL") in result.stderr, result.stderr
+
+
+def test_an_older_mcgyvr_warns_and_still_installs(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    path = _reporting(tmp_path / "bin", "0.0.9")
+
+    result = _run_install_with_path(home, path)
+
+    assert result.returncode == 0, result.stderr
+    assert (home / CLAUDE_SKILL).exists(), "a warning must not stop the install"
+    assert "0.0.9" in result.stderr, result.stderr
+    assert _install_constant("MIN_VERSION") in result.stderr, result.stderr
+
+
+def test_an_uninstalled_mcgyvr_is_named_as_having_no_version(tmp_path: Path) -> None:
+    """``0.0.0+uninstalled`` is what ``src/mcgyvr/__init__.py`` reports for a
+    tree that was never installed. It is not a version, and it is said to be
+    that rather than reported as merely old."""
+    home = tmp_path / "home"
+    home.mkdir()
+    path = _reporting(tmp_path / "bin", "0.0.0+uninstalled")
+
+    result = _run_install_with_path(home, path)
+
+    assert result.returncode == 0, result.stderr
+    assert (home / CLAUDE_SKILL).exists(), "a warning must not stop the install"
+    assert "never installed" in result.stderr, result.stderr
+
+
+def test_an_mcgyvr_that_cannot_state_its_version_warns_and_still_installs(
+    tmp_path: Path,
+) -> None:
+    """``set -euo pipefail`` is in force: a non-zero ``--version`` must not
+    abort an install that had already succeeded."""
+    home = tmp_path / "home"
+    home.mkdir()
+    path = _shim(tmp_path / "bin", "#!/usr/bin/env bash\nexit 1\n")
+
+    result = _run_install_with_path(home, path)
+
+    assert result.returncode == 0, result.stderr
+    assert (home / CLAUDE_SKILL).exists(), "a warning must not stop the install"
+    assert "did not report a version" in result.stderr, result.stderr
+
+
+@pytest.mark.parametrize(
+    "reported",
+    [
+        "0.1.0",
+        # The shape a real dev build has: a PEP 440 pre-release plus local
+        # build metadata. Naive string comparison reads this as older than
+        # `0.1.0` on the `+g...` tail; stripping the local part and comparing
+        # with `sort -V` reads it as newer, which it is.
+        "0.1.1.dev376+ga624cdc2",
+        "0.2.0",
+    ],
+)
+def test_a_new_enough_mcgyvr_is_not_warned_about(tmp_path: Path, reported: str) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    path = _reporting(tmp_path / "bin", reported)
+
+    result = _run_install_with_path(home, path)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == "", result.stderr
