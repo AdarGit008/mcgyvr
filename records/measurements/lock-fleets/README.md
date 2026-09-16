@@ -157,6 +157,21 @@ rig's idle tail; no fill work is added.
   35,000–48,000 pages per wake that
   `records/measurements/ram-headroom-2026-09-09/README.md` measured for that
   blob mapped on srv1 at swappiness 60, with decode unaffected.
+- **srv2 is listed too** (2026-09-16, "Record swap on srv2 too").
+  `srv2-01-relaunch1` (`srv2_35b_256k`, a-solo, 35B at 256k) ran clean — exit 0,
+  `failure` null, restarts 0, identical START and END markers, wake 8.202 s,
+  decode median 49.22 tok/s, prefill 632.02 tok/s, card peak 10564 MiB against
+  its 10597 MiB `room_mib`, its load sampled until idle — and the driver stopped
+  it only on `pswpout` rising 91686 -> 91786: 100 pages, ~0.4 MB, on a rig
+  carrying 8 GB of swap with ~46 GB MemAvailable at start. The 2026-09-13
+  measurement that unit's pin came from,
+  `records/measurements/fleet-setup-2026-09-13/srv2/a-solo-running.json`,
+  records `vmstat_delta.pswpout` 295 — more swap than this run moved — and it is
+  the measurement
+  `records/fleet/rigs/rig-cbe770b5…/cmb-90c09b09….json` was locked from. srv2 is
+  listed through the mechanism above and not a second one: `use.json` now names
+  both rigs, every other stop still applies on both, and swap stays filed as
+  data — never judged, and never a reason to call a run invalid.
 - **The card is sampled until idle** (2026-09-15, "Sample the card until idle").
   Closing the load's request at 30 s does not cancel the work in llama.cpp
   b10644: srv1-01's artifact
