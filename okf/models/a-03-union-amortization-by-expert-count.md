@@ -1,10 +1,17 @@
 ---
 type: Concept
 title: Union amortization depends on expert count, not batch size
-description: Few experts reach full coverage by n=4; many experts stay ~linear; distinct = N·(1−(1−1/N)^(n·k)).
+description: Batching shares expert reads only when the expert count is small; with many experts coverage stays nearly linear. Compute it, do not assume a factor.
 tags: [local-ai, models]
 ---
 
 # Union amortization depends on expert count, not batch size
 
-**Data point.** Few experts (Mixtral 8) reach full coverage by n=4 (union_factor ≈ 0.44); many experts (512) stay ~linear (≈ 0.93 at n=8) — batching barely shares anything. Tool: `distinct = N·(1−(1−1/N)^(n·k))`.
+**Data point.** Batching amortizes expert reads only when the expert count is
+small. With a handful of experts a batch reaches near-full coverage quickly, so
+the union factor collapses and batching buys a lot; with several hundred
+experts, coverage stays nearly linear in batch size and batching shares almost
+nothing. **Compute the distinct-expert count rather than assuming a sharing
+factor** — for `N` experts, batch `n` and top-`k`,
+`distinct = N·(1−(1−1/N)^(n·k))` — and read the union factor off that, at the
+width you actually intend to serve.
