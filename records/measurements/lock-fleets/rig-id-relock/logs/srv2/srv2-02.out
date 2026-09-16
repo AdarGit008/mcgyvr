@@ -1,0 +1,10 @@
+gate 1: round=r32-16-09-2026 product_sha256=535c26fbe0f743aa... profile=dev config=/home/adaramir/claude/mcgyvr/fleet-setup
+gate 2: srv2 matches its declaration on 11 keys
+gate 3: docker on srv2 answers, 29.7.2 as declared
+gate 5: RUN_ID=2026-09-16-live-srv2-serve-up-rig-id-relock-srv2-02 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-16-live-srv2
+gate 6: /home/adaramir/claude/mcgyvr/src/mcgyvr/serving/gate-scripts/serve-up.py --host srv2 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-16-live-srv2 (RUN_ID=2026-09-16-live-srv2-serve-up-rig-id-relock-srv2-02)
+serve-up: docker compose up on srv2: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001, mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002
+serve-up: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 :8001 up after 2.2s, models=['Qwen/Qwen2.5-Coder-3B-Instruct-AWQ']
+serve-up: mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002 :8002 up after 78.1s, models=['Qwen/Qwen2.5-Coder-7B-Instruct-AWQ']
+gate 7: serving, as declared: mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002
+gate 8: 1 artifact(s) parse

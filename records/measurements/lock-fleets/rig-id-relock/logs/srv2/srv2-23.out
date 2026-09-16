@@ -1,0 +1,20 @@
+gate 1: round=r33-16-09-2026 product_sha256=fd81f17b64f09612... profile=dev config=/home/adaramir/claude/mcgyvr/fleet-setup
+gate 2: srv2 matches its declaration on 11 keys
+gate 3: docker on srv2 answers, 29.7.2 as declared
+gate 4: workload 2f2bb7932a0b6606... matches the pin
+gate 5: RUN_ID=2026-09-16-lock-fleets-rig-id-relock-srv2-r1-b-big-to-b-small -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-16-lock-fleets
+data-10-scan: card free=11911 MiB, host available=45525 MiB
+data-20-geometry: qwen3next n_layer=48 placeable=48 experts=35136 MiB
+data-30-placement: floor --n-cpu-moe 36 of 48 placeable, predicting 11573 of 11911 MiB free (derived — walk down to it)
+gate 6: /home/adaramir/claude/mcgyvr/tools/runs/campaigns/lock-fleets/rig-id-relock/23-rig-id-relock-srv2-r1-b-big-to-b-small.sh --host srv2 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-16-lock-fleets (RUN_ID=2026-09-16-lock-fleets-rig-id-relock-srv2-r1-b-big-to-b-small)
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 Creating 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 Created 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002 Creating 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002 Created 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 Starting 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 Started 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 Waiting 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001 Healthy 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002 Starting 
+ Container mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002 Started 
+gate 8: 1 artifact(s) parse

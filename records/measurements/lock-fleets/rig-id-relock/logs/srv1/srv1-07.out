@@ -1,0 +1,10 @@
+gate 1: round=r31-15-09-2026 product_sha256=33b284103e53d92a... profile=dev config=/home/adaramir/claude/mcgyvr/fleet-setup
+gate 2: srv1 matches its declaration on 11 keys
+gate 3: docker on srv1 answers, 29.7.2 as declared
+gate 4: workload 2f2bb7932a0b6606... matches the pin
+gate 5: RUN_ID=2026-09-15-lock-fleets-rig-id-relock-srv1-c3-srv1_35b_maxctx -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-15-lock-fleets
+data-10-scan: card free=5745 MiB, host available=14594 MiB
+data-20-geometry: qwen35moe n_layer=40 placeable=40 experts=10594 MiB
+data-30-placement: floor --n-cpu-moe 32 of 40 placeable, predicting 5676 of 5745 MiB free (derived — walk down to it)
+gate 6: /home/adaramir/claude/mcgyvr/tools/runs/campaigns/lock-fleets/rig-id-relock/07-rig-id-relock-srv1-c3-srv1_35b_maxctx.sh --host srv1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-15-lock-fleets (RUN_ID=2026-09-15-lock-fleets-rig-id-relock-srv1-c3-srv1_35b_maxctx)
+gate 8: 1 artifact(s) parse

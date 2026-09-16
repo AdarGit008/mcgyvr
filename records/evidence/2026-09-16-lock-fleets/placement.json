@@ -1,0 +1,23 @@
+{
+ "blocks_on_card": 12,
+ "card_free_mib": 11911,
+ "constant_mib": 2837.4,
+ "dense": false,
+ "derived": true,
+ "experts_on_card_mib": 8736.0,
+ "floor_n_cpu_moe": 36,
+ "host": "srv2",
+ "kv_mib": 384.0,
+ "kv_swa_mib": 0.0,
+ "model": "/home/adaramir/models/moe/Qwen3-Next-80B-A3B-Instruct-Q3_K_M.gguf",
+ "n_ctx_seq": 4096,
+ "n_ctx_total": 16384,
+ "n_placeable": 48,
+ "n_ubatch": 512,
+ "nonexpert_mib": 1383.9,
+ "parallel": 4,
+ "predicted_card_mib": 11573.4,
+ "run_id": "2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-big-to-b-small",
+ "scratch_allowance_mib": 768,
+ "state_mib": 301.5
+}

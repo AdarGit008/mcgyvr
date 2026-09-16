@@ -98,8 +98,71 @@ A unit's load peak in a combination of several may not pass the card less the re
 
 | event | rig | at | idle minutes |
 |---|---|---|---|
+| stopped | srv2 | 2026-09-15T14:41:50Z |  |
+| stopped | srv1 | 2026-09-15T14:46:36Z |  |
+| stopped | srv2 | 2026-09-15T17:28:59Z |  |
+| finished | srv1 | 2026-09-15T18:27:46Z | the other rig is still running |
+| stopped | srv2 | 2026-09-15T20:36:05Z |  |
+| stopped | srv2 | 2026-09-16T06:28:10Z |  |
+| stopped | srv2 | 2026-09-16T07:12:03Z |  |
+| finished | srv2 | 2026-09-16T10:45:47Z | srv1 idle 978.0 |
 
 ## Log
 
 | entry | rig | started_at | ended_at | exit | run id | envelope | output |
 |---|---|---|---|---|---|---|---|
+| window | srv1 | 2026-09-15T14:40:37Z |  |  |  | window date 2026-09-15 |  |
+| window | srv2 | 2026-09-15T14:40:55Z |  |  |  | window date 2026-09-15 |  |
+| srv2-01 | srv2 | 2026-09-15T14:40:56Z | 2026-09-15T14:41:50Z | 1 | 2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-01.out |
+| srv1-01 | srv1 | 2026-09-15T14:40:37Z | 2026-09-15T14:46:36Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c1-srv1_35b_maxctx | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-01.out |
+| window | srv1 | 2026-09-15T17:28:12Z |  |  |  | window date 2026-09-15 |  |
+| window | srv2 | 2026-09-15T17:28:15Z |  |  |  | window date 2026-09-15 |  |
+| srv2-01-retry1 | srv2 | 2026-09-15T17:28:16Z | 2026-09-15T17:28:58Z | 1 | 2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k-retry1 | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-01-retry1.out |
+| srv1-01-rerun1 | srv1 | 2026-09-15T17:28:12Z | 2026-09-15T17:33:03Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c1-srv1_35b_maxctx-rerun1 | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-01-rerun1.out |
+| srv1-02 | srv1 | 2026-09-15T17:33:04Z | 2026-09-15T17:37:40Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c1-srv1_deepseek | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-02.out |
+| srv1-03 | srv1 | 2026-09-15T17:37:40Z | 2026-09-15T17:42:15Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c1-srv1_35b_b | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-03.out |
+| srv1-04 | srv1 | 2026-09-15T17:42:16Z | 2026-09-15T17:47:02Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c2-srv1_35b_maxctx | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-04.out |
+| srv1-05 | srv1 | 2026-09-15T17:47:02Z | 2026-09-15T17:51:38Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c2-srv1_deepseek | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-05.out |
+| srv1-06 | srv1 | 2026-09-15T17:51:39Z | 2026-09-15T17:56:09Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c2-srv1_35b_b | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-06.out |
+| srv1-07 | srv1 | 2026-09-15T17:56:10Z | 2026-09-15T18:00:57Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c3-srv1_35b_maxctx | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-07.out |
+| srv1-08 | srv1 | 2026-09-15T18:00:58Z | 2026-09-15T18:05:37Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c3-srv1_deepseek | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-08.out |
+| srv1-09 | srv1 | 2026-09-15T18:05:38Z | 2026-09-15T18:10:17Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-c3-srv1_35b_b | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-09.out |
+| srv1-10 | srv1 | 2026-09-15T18:10:17Z | 2026-09-15T18:14:02Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-r1-b-small-to-b-big | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-10.out |
+| srv1-11 | srv1 | 2026-09-15T18:14:03Z | 2026-09-15T18:16:38Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-r1-b-big-to-b-small | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-11.out |
+| srv1-12 | srv1 | 2026-09-15T18:16:39Z | 2026-09-15T18:19:35Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-r2-b-small-to-b-big | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-12.out |
+| srv1-13 | srv1 | 2026-09-15T18:19:36Z | 2026-09-15T18:22:12Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-r2-b-big-to-b-small | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-13.out |
+| srv1-14 | srv1 | 2026-09-15T18:22:13Z | 2026-09-15T18:25:10Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-r3-b-small-to-b-big | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-14.out |
+| srv1-15 | srv1 | 2026-09-15T18:25:10Z | 2026-09-15T18:27:46Z | 0 | 2026-09-15-lock-fleets-rig-id-relock-srv1-r3-b-big-to-b-small | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv1/srv1-15.out |
+| window | srv2 | 2026-09-15T20:35:13Z |  |  |  | window date 2026-09-15 |  |
+| srv2-01-diag1 | srv2 | 2026-09-15T20:35:14Z | 2026-09-15T20:36:05Z | 1 | 2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k-diag1 | records/evidence/2026-09-15-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-01-diag1.out |
+| window | srv2 | 2026-09-16T06:26:08Z |  |  |  | window date 2026-09-16 |  |
+| srv2-01-relaunch1 | srv2 | 2026-09-16T06:26:09Z | 2026-09-16T06:28:10Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k-relaunch1 | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-01-relaunch1.out |
+| window | srv2 | 2026-09-16T07:08:15Z |  |  |  | window date 2026-09-16 |  |
+| srv2-02 | srv2 | 2026-09-16T07:08:16Z | 2026-09-16T07:11:23Z | 0 | 2026-09-16-live-srv2-serve-up-rig-id-relock-srv2-02 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-02.out |
+| srv2-03 | srv2 | 2026-09-16T07:11:24Z | 2026-09-16T07:12:02Z | 1 | run-20260916T071124-887502d1 | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-03.out |
+| window | srv2 | 2026-09-16T09:44:11Z |  |  |  | window date 2026-09-16 |  |
+| srv2-03-retry1 | srv2 | 2026-09-16T09:44:12Z | 2026-09-16T09:44:50Z | 1 | run-20260916T094412-f1baad3c | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-03-retry1.out |
+| srv2-04 | srv2 | 2026-09-16T09:44:50Z | 2026-09-16T09:45:09Z | 1 | run-20260916T094450-b4c02af8 | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-04.out |
+| srv2-05 | srv2 | 2026-09-16T09:45:10Z | 2026-09-16T09:45:41Z | 1 | run-20260916T094510-c7cfd268 | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-05.out |
+| srv2-06 | srv2 | 2026-09-16T09:45:41Z | 2026-09-16T09:45:59Z | 0 | 2026-09-16-live-srv2-serve-down-rig-id-relock-srv2-06 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-06.out |
+| srv2-07 | srv2 | 2026-09-16T09:46:00Z | 2026-09-16T09:50:47Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-c1-srv2_80b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-07.out |
+| srv2-08 | srv2 | 2026-09-16T09:50:48Z | 2026-09-16T09:52:59Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-c2-srv2_35b_256k | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-08.out |
+| srv2-09 | srv2 | 2026-09-16T09:53:00Z | 2026-09-16T09:56:24Z | 0 | 2026-09-16-live-srv2-serve-up-rig-id-relock-srv2-09 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-09.out |
+| srv2-10 | srv2 | 2026-09-16T09:56:25Z | 2026-09-16T09:57:03Z | 1 | run-20260916T095625-722c82d0 | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-10.out |
+| srv2-11 | srv2 | 2026-09-16T09:57:04Z | 2026-09-16T09:57:23Z | 1 | run-20260916T095704-e32c7aa7 | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-11.out |
+| srv2-12 | srv2 | 2026-09-16T09:57:23Z | 2026-09-16T09:57:54Z | 1 | run-20260916T095723-2a239154 | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-12.out |
+| srv2-13 | srv2 | 2026-09-16T09:57:55Z | 2026-09-16T09:58:13Z | 0 | 2026-09-16-live-srv2-serve-down-rig-id-relock-srv2-13 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-13.out |
+| srv2-14 | srv2 | 2026-09-16T09:58:14Z | 2026-09-16T10:03:38Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-c2-srv2_80b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-14.out |
+| srv2-15 | srv2 | 2026-09-16T10:03:39Z | 2026-09-16T10:05:51Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-c3-srv2_35b_256k | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-15.out |
+| srv2-16 | srv2 | 2026-09-16T10:05:52Z | 2026-09-16T10:09:16Z | 0 | 2026-09-16-live-srv2-serve-up-rig-id-relock-srv2-16 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-16.out |
+| srv2-17 | srv2 | 2026-09-16T10:09:17Z | 2026-09-16T10:09:56Z | 1 | run-20260916T100917-a6d13c9e | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-17.out |
+| srv2-18 | srv2 | 2026-09-16T10:09:56Z | 2026-09-16T10:10:15Z | 1 | run-20260916T100956-6fcf9ac7 | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-18.out |
+| srv2-19 | srv2 | 2026-09-16T10:10:16Z | 2026-09-16T10:10:47Z | 1 | run-20260916T101016-2b19824b | journal | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-19.out |
+| srv2-20 | srv2 | 2026-09-16T10:10:47Z | 2026-09-16T10:11:06Z | 0 | 2026-09-16-live-srv2-serve-down-rig-id-relock-srv2-20 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-20.out |
+| srv2-21 | srv2 | 2026-09-16T10:11:07Z | 2026-09-16T10:16:21Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-c3-srv2_80b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-21.out |
+| srv2-22 | srv2 | 2026-09-16T10:16:22Z | 2026-09-16T10:21:35Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-r1-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-22.out |
+| srv2-23 | srv2 | 2026-09-16T10:21:36Z | 2026-09-16T10:26:17Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-r1-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-23.out |
+| srv2-24 | srv2 | 2026-09-16T10:26:18Z | 2026-09-16T10:31:19Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-r2-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-24.out |
+| srv2-25 | srv2 | 2026-09-16T10:31:20Z | 2026-09-16T10:36:03Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-r2-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-25.out |
+| srv2-26 | srv2 | 2026-09-16T10:36:04Z | 2026-09-16T10:41:06Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-26.out |
+| srv2-27 | srv2 | 2026-09-16T10:41:06Z | 2026-09-16T10:45:47Z | 0 | 2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/rig-id-relock/logs/srv2/srv2-27.out |

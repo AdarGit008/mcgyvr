@@ -1,0 +1,88 @@
+{
+ "argv": [
+  "--model",
+  "/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "-np",
+  "1",
+  "-c",
+  "262144",
+  "-fa",
+  "on",
+  "-ctk",
+  "q8_0",
+  "-ctv",
+  "q8_0",
+  "-ngl",
+  "99",
+  "-t",
+  "11",
+  "--cpu-moe",
+  "--mmap",
+  "--jinja"
+ ],
+ "container_id": "e46ed67469faeddcd5abe097154b40ef6b30c8955b03b83299ea232190951518",
+ "ended_at": "2026-09-15T14:41:45Z",
+ "env": {
+  "GGML_EXPERT_CACHE_MAX": "120",
+  "GGML_EXPERT_RAM_CACHE_MAX": "256",
+  "GGML_OP_OFFLOAD_MIN_BATCH": "1",
+  "LLAMA_ARG_HOST": "0.0.0.0"
+ },
+ "failure": "2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k-srv2_35b_256k exited before /health said ok: 0.00.845.472 I srv         start: binding port with default address family 0.00.847.209 I srv  llama_server: loading model 0.00.847.253 I srv    load_model: loading model '/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf' 0.00.847.559 I common_init_result: fitting params to device memory ... 0.00.847.560 I common_init_result: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on) 0.02.960.822 W llama_model_loader: tensor overrides to CPU are used with mmap enabled - consider using --no-mmap for better performance 0.15.452.647 I",
+ "harness": null,
+ "host": "srv2",
+ "image": {
+  "digest": "llamacpp-lidenburg@sha256:9a61823266917162c9611f110df1ea24f116909d10cb3804641db184fcd95b63",
+  "tag": "llamacpp-lidenburg:e85e4d9"
+ },
+ "load": null,
+ "markers": {
+  "end": null,
+  "on_rig": null,
+  "start": "### START uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k"
+ },
+ "product_sha256": "a36a158d1fae4c3a59a540a458f896393b3af0e0f6823b2cb1cfc22ec2424b42",
+ "restarts": null,
+ "round": "r30-15-09-2026",
+ "run_id": "2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k",
+ "schema": "lock-fleets-unit/1",
+ "snapshots": {
+  "end": null,
+  "start": {
+   "containers": "none",
+   "cpu_max_mhz": "5200",
+   "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+   "docker": "29.7.2",
+   "driver": "595.91.07",
+   "gpu_cc": "8.6",
+   "gpu_free_mib": "11911",
+   "gpu_name": "NVIDIA_GeForce_RTX_3060",
+   "gpu_procs": "none",
+   "gpu_reserve_mib": "377",
+   "gpu_used_mib": "1",
+   "gpu_vram_mib": "12288",
+   "hostname": "srv2",
+   "kernel": "7.0.0-31-generic",
+   "mem_available_kib": "46468080",
+   "mem_total_kib": "48208320",
+   "nproc": "20",
+   "os_machine_id": "6d5d8f1f2bfa5f96",
+   "pl1_uw": "65000000",
+   "pl2_uw": "0",
+   "ram_mt_s": "2933",
+   "swap_total_kib": "8388604",
+   "swappiness": "60",
+   "uptime_since": "2026-09-12T08:58:44Z"
+  }
+ },
+ "started_at": "2026-09-15T14:41:07Z",
+ "unit": "srv2_35b_256k",
+ "vmstat": {
+  "end": null,
+  "start": {
+   "pgmajfault": 237252,
+   "pswpout": 91686
+  }
+ },
+ "wake_s": null
+}

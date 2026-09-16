@@ -1,0 +1,11 @@
+gate 1: round=r31-15-09-2026 product_sha256=33b284103e53d92a... profile=dev config=/home/adaramir/claude/mcgyvr/fleet-setup
+gate 2: srv2 matches its declaration on 11 keys
+gate 3: docker on srv2 answers, 29.7.2 as declared
+gate 4: workload 2f2bb7932a0b6606... matches the pin
+gate 5: RUN_ID=2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k-diag1 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-15-lock-fleets
+data-10-scan: card free=11911 MiB, host available=45411 MiB
+data-20-geometry: qwen35moe n_layer=40 placeable=40 experts=10594 MiB
+data-30-placement: floor --n-cpu-moe 26 of 40 placeable, predicting 11728 of 11911 MiB free (derived — walk down to it)
+gate 6: /home/adaramir/claude/mcgyvr/tools/runs/campaigns/lock-fleets/rig-id-relock/16-rig-id-relock-srv2-c1-srv2_35b_256k-diag1.sh --host srv2 -> /home/adaramir/claude/mcgyvr/records/evidence/2026-09-15-lock-fleets (RUN_ID=2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k-diag1)
+_unit.sh: 2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k-diag1-srv2_35b_256k exited before /health said ok: 0.00.318.777 I srv         start: binding port with default address family 0.00.319.922 I srv  llama_server: loading model 0.00.319.926 I srv    load_model: loading model '/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf' 0.00.319.958 I common_init_result: fitting params to device memory ... 0.00.319.959 I common_init_result: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on) 0.02.399.047 W llama_model_loader: tensor overrides to CPU are used with mmap enabled - consider using --no-mmap for better performance 0.03.351.639 I; its whole docker logs: rig-id-relock-srv2-c1-srv2_35b_256k-diag1.srv2_35b_256k.docker.log; exit code 139, OOMKilled false; the rig's kernel log since START read; both filed in the artifact's exit
+gate 8: 1 artifact(s) parse
