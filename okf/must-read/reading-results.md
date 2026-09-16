@@ -2,101 +2,83 @@
 
 Reading a journal, a curve, or a ratio.
 
-## Keys
+## Keys and levels
 
-**`run.py` emits `tokens_per_s`. `sweep.py` calls the same quantity
-`agg_tok_s`.** Wrong key → `None` at every level → a healthy run reads as dead.
-That cost a false alarm. `per_stream = tokens_per_s / n` is exact.
-→ `contract.py:1415`, `sweep.py:200`
+**The drivers do not agree on what the throughput key is called.** A wrong key
+reads as null at every level, and a healthy run reads as dead. Confirm the key
+against the driver that wrote the file before concluding anything from a column
+of nulls. Per-stream throughput is the aggregate over the width, exactly.
 
-**`outcome: ok` is not sufficient on rows written before `d75d90fb`.** Judge the
-levels: a cell can be `ok` with a barren level. Re-score with
-`run.barren_levels()`, don't read the stored string.
+**An `ok` outcome is not sufficient on older rows.** A cell can be `ok` and
+still carry a barren level. Re-score the levels; do not read the stored string.
 
-**Anchor srv1's vLLM ladder at n=2, not n=1.** Wall clock is flat n=2→n=8 while
-n=1 runs 2.4–3.2x faster per request. A real regime change, not noise.
-
+**Anchor srv1's vLLM ladder above width 1.** Wall clock is flat across the lower
+rungs while width 1 runs several times faster per request. That is a real regime
+change, not noise, and anchoring on width 1 misreads it.
 
 ## Measurements that mislead
 
-**`prefill=` is not a measurement. It is `agg` times `ptok/otok`.** Both drivers
-divide by the *same* `wall`: `agg = gen/wall` and `prefill = pin/wall`, so
-`prefill/agg ≡ ptok/otok` identically — verified to three decimals on every row
-of `2026-09-01-bandwidth-and-ncmoe-floor/srv1-nomma-dp4a-ab.tsv`. A row where
-prefill "tracks" decode is saying nothing; a row where it does not would be an
-arithmetic error. **Nothing in this repo has ever measured prefill separately.**
-Use `llama-bench -p N` for that, and do not mix its numbers into a cross-engine
-claim — it carries no workload digest.
-→ `tools/runs/drivers/lcp_sweep.py:179-180`, `tools/runs/drivers/vllm_sweep.py`
+**A reported prefill figure is not a measurement.** Both drivers divide prefill
+tokens and generated tokens by the *same* wall clock, so the ratio of the two
+is identically the ratio of the token counts. A row where prefill "tracks"
+decode is saying nothing; a row where it did not would be an arithmetic error.
+**Nothing in this repo has ever measured prefill separately.** Use the
+microbenchmark's prompt-processing mode for that, and do not mix its numbers
+into a cross-engine claim — it carries no workload digest.
 
-**The prompt draw desyncs whenever the level list changes, and the error reaches
-6.2%.** Lengths come from a per-process counter, so a cell that runs levels
-`1,2,4,8` consumes two more UIDs than one that runs `1,4,8`, and every draw after
-the n=2 rung differs. Same rig, same image, same hour, nominally the same stock
-cells: d3b n=4 read 74.0 and 69.4 (**6.2%**), mling n=8 read 87.1 and 92.4
-(**6.1%**), while every n=1 row agreed to ≤0.6% because n=1 always consumes UID 1.
-**Two rows are comparable only if their `ptok` and `otok` match.** Check that
-before quoting a ratio; equal `agg` across unequal draws is coincidence.
-→ `2026-09-01-prompt-realism/srv1-lcpp-ladder.tsv` vs
-  `2026-09-01-bandwidth-and-ncmoe-floor/srv1-nomma-dp4a-ab.tsv`
+**The prompt draw desyncs whenever the level list changes.** Lengths come from a
+per-process counter, so a cell that runs an extra rung consumes extra draws and
+every draw after that rung differs. Same rig, same image, same hour, nominally
+the same cells have disagreed by several percent this way — while the lowest
+rung agreed closely, because it always consumes the same draw. **Two rows are
+comparable only if their prompt and output token counts match.** Check that
+before quoting any ratio; equal aggregates across unequal draws are coincidence.
 
-**One cell per process invocation is load-bearing and undocumented.** The UID
+**One cell per process invocation is load-bearing and undocumented.** The
 counter resets when the driver starts, so passing two cells in one argv silently
 breaks position matching between arms. Every comparable file in the tree was
 produced one cell at a time, by habit rather than by a guard.
 
-**Every `agg=` measured before 2026-09-01 overstates real traffic by ~2.4x at
-n=8.** Those sweeps sent one fixed 11-token prompt and a flat 475-token reply
-(1:43 in:out); real traffic is 3:1. Measured on both rigs, new/old at n=8:
-srv1 q15 0.43, q3 0.41; srv2 q15 0.41, q3 0.48, q34b 0.47 — every cell in
-0.41–0.48 across two rigs, two KV dtypes, three model sizes and a 2x card
-difference. The two workloads **agree at n=1** and diverge as concurrency rises,
-because real prompts put prefill in contention with decode and an 11-token
-prompt has none to contend. Do not compare a pre-2026-09-01 number with a
-post one at any rung above 1.
-→ `records/evidence/2026-09-01-prompt-realism/{srv1,srv2}-ladder-n32.tsv`
+**The same cell run twice does not draw the same prompts.** A cell run alone
+gets different work than the same cell run after another. Across runs, compare
+survival, not throughput.
 
-**`nvidia-smi memory.used` cannot see a vLLM offload.** It read
-5294/5294/5324/5330 MiB across offload and no-offload runs, because
-`gpu_memory_utilization` backfills freed weight space with KV cache.
-Discriminators: `Model loading took`, the KV token count, host `Shmem`.
+**A workload change invalidates comparison above width 1.** Sweeps that send one
+short fixed prompt and a long fixed reply overstate real traffic substantially
+at width, because real prompts put prefill in contention with decode and a short
+prompt has none to contend. Such sweeps agree with realistic ones at width 1 and
+diverge as concurrency rises. Do not compare across a workload change at any
+rung above 1.
 
-**Falling `MemAvailable` is not evidence of offload.** Reading a checkpoint does
-it too — a run with the offloader provably absent drained 2.63 GiB. `Shmem` is
-the honest signal; subtract it from `Cached` to control for page cache.
-→ D1 supplemental
+## Reading the card and the host
 
-**A row with `otok=1` measured nothing, and says `failed=0/n` while it does.**
-Both 2026-08-31 sweep scripts post to raw completion endpoints with no chat
-template. Qwen3.6-35B emits a stop token immediately on that prompt shape, so
-every one of its cells on both rigs returned a single token — 20 of 60 measured
-rows, with `agg` of 0.1–0.6 reading as a throughput collapse. The same server
-generated 48 tokens from a short prompt in the same hour.
-→ `records/evidence/2026-09-01-moe-offload/diag-2026-09-01.log`
+**Card memory used cannot see a vLLM offload.** It reads flat across offload and
+no-offload runs, because the utilisation budget backfills freed weight space
+with KV cache. Discriminate on the engine's own model-loading line, the KV token
+count, and host shared memory instead.
 
-**Fixed, and all 20 re-measured.** Both drivers now post to
-`/v1/chat/completions` with `SYSTEM` split off as the system message, and a
-`DEGENERATE` guard refuses any cell whose warmup returns `otok <= 1` instead of
-letting it record a ladder. Re-measured 2026-09-01: the collapse was **entirely**
-the missing template — srv2's `ncmoe=99` went 0.4/0.5/0.5/0.5 → 21.0/27.6/29.8/
-30.0, srv1's 0.2 → 12.6. Nothing about those checkpoints or rigs was slow.
-Discard every `otok=1` row in `2026-09-01-moe-offload/`; the replacements are in
-`2026-09-01-prompt-realism/`.
-→ `records/evidence/2026-09-01-prompt-realism/{srv1,srv2}-q36-rerun.tsv`
+**Falling available host memory is not evidence of offload.** Merely reading a
+checkpoint does it too, by gigabytes, with the offloader provably absent. Shared
+memory is the honest signal; subtract it from the page cache to control for the
+read.
 
-**A model that tolerates an untemplated prompt is unaffected by the fix.**
-srv1's q15 reads 30.4/25.4/36.7/46.0 against 30.3/28.7/37.2/47.7 on the raw
-endpoint — within 5%. So the template switch is not a workload change to be
-controlled for; it repaired the broken cells and left the rest where they were.
+## Rows that measured nothing
 
-**`REFUSED` is a claim about the harness until you read the log.** Of four on
-2026-09-01: two were a dangling symlink — the HF cache stores the GGUF as a
-link into `../../blobs/`, and the sweep mounts only the snapshot directory, so
-it breaks inside the container. Qwen3-Next-80B loaded on the first try off the
-hub root. One captured an `INFO` banner, because the error tail takes the last
-lines rather than the last error. One was real.
+**A row with a single output token measured nothing, and reports no failures
+while it does.** Posting to a raw completion endpoint with no chat template
+makes some models emit a stop token immediately; every cell then returns one
+token, with an aggregate that reads as a throughput collapse. The drivers now
+post to the chat endpoint with the system prompt split off, and a guard refuses
+any cell whose warmup returns a degenerate output rather than letting it record
+a ladder. When this was repaired the collapse proved **entirely** to be the
+missing template — nothing about those checkpoints or those rigs was slow.
 
-**The same cell run twice does not draw the same prompts.** Lengths come from a
-per-process counter, so a cell run alone gets different work than the same cell
-run after another. `s1-oss20 ncmoe=18 n=1` read 22.9 tok/s at `otok=460` and
-13.6 at `otok=101`. Across runs compare survival, not throughput.
+**A model that tolerates an untemplated prompt is unaffected by the fix**, so
+the template switch is not a workload change to be controlled for. It repaired
+the broken cells and left the rest where they were.
+
+**`REFUSED` is a claim about the harness until you read the log.** Of a batch
+examined, most were environmental — a dangling symlink, where the cache stores
+the blob outside the directory the run mounts, and an error tail that captured
+an informational banner because it takes the last lines rather than the last
+error. One was real. Read the log before believing any of them.

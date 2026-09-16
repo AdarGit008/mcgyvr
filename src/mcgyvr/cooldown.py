@@ -66,6 +66,7 @@ produced correctly is not this module's business.
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -141,6 +142,12 @@ class Cooldown:
         self._cooldown_s = cooldown_s
         self._threshold = threshold
         self._records: dict[str, _Record] = {}
+        # The draws of one attempt are dispatched together, so their
+        # successes and failures land here from several threads at once. A
+        # streak is counted, and a count two threads increment unlocked can
+        # lose one — a consecutive failure that never earns the sentence.
+        # Held around the record, never around a probe.
+        self._lock = threading.Lock()
 
     @property
     def verdicts(self) -> Mapping[str, AvailabilityVerdict]:
@@ -161,10 +168,11 @@ class Cooldown:
         that crossed it, so the cooldown is measured from the most recent failure.
         A source failing steadily is not handed back while it is still failing.
         """
-        record = self._records.setdefault(source, _Record())
-        record.failures += 1
-        if record.failures >= self._threshold:
-            record.until = self._clock() + self._cooldown_s
+        with self._lock:
+            record = self._records.setdefault(source, _Record())
+            record.failures += 1
+            if record.failures >= self._threshold:
+                record.until = self._clock() + self._cooldown_s
 
     def record_success(self, source: str) -> None:
         """One dispatch against ``source`` worked, so the streak is over.
@@ -181,11 +189,12 @@ class Cooldown:
         is the single-host install's form of this defect. The count resets; the
         sentence stands.
         """
-        record = self._records.get(source)
-        if record is not None and record.until > 0.0:
-            record.failures = 0
-            return
-        self._records.pop(source, None)
+        with self._lock:
+            record = self._records.get(source)
+            if record is not None and record.until > 0.0:
+                record.failures = 0
+                return
+            self._records.pop(source, None)
 
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
         """Which of these sources cannot serve, and why — the pool's seam.

@@ -9,6 +9,28 @@ under the same paths.
 
 ## [Unreleased]
 
+### Added
+
+- `breadth.temperature` (default 0.7, 0.0–2.0) — what the draws after the
+  first sample at. Draw 0 of every attempt stays greedy, so a single-draw
+  install sends what it always sent; a breadth above one at temperature 0.0 is
+  refused at load, since identical draws buy gate runs and nothing else.
+- `draws: {<unit>: n}` in `policy.yaml` — a per-unit breadth, overriding
+  `breadth.draws` for the units named, spelled the way `attempts` is.
+  `mcgyvr pool` prints the effective number beside the attempt budget where
+  it exceeds one.
+- Every journal row of a dispatch carries the `temperature` it went out at,
+  beside the draw index already in its `attempt_id`.
+
+### Changed
+
+- The draws of one attempt are dispatched together, bounded by the unit's
+  width through `capacity.run_batch` (its first production caller); a width-1
+  unit still serializes them through its slot. The gate judges the draws one
+  at a time as before. A raise in one draw is charged to the lowest draw that
+  raised; a draw declined for want of a slot is skipped, and the attempt is
+  declined only when every draw was.
+
 ## [0.2.0] - 2026-09-16
 
 The first release with the fleet, the serving door and delegation in it — none

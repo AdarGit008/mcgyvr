@@ -42,6 +42,7 @@ from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.contract import loads
 from mcgyvr.gate import Finding, GateResult
 from mcgyvr.sandbox import Sandbox
+from tests import livejournal as lj
 
 _IDENTITY = {
     "GIT_AUTHOR_NAME": "t",
@@ -233,7 +234,6 @@ def _completion(text: str):  # type: ignore[no-untyped-def]
 
 
 def _answers(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
-    import mcgyvr.drive as drive
 
     sent: list[str] = []
     scripted = list(replies)
@@ -244,7 +244,7 @@ def _answers(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
         return _completion(scripted.pop(0))
 
-    monkeypatch.setattr(drive, "dispatch", fake_dispatch)
+    lj.patch_dispatch(monkeypatch, fake_dispatch)
     return sent
 
 

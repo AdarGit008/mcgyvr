@@ -18,7 +18,9 @@ here, from the outside, the way an operator meets it:
 
 No test here reaches a rig: every door invocation has a stub ``ssh`` and a
 stub ``docker`` on PATH behind the shims, and the interrupt path is driven
-through fake gates that export what the real ones declare.
+through fake gates that export what the real ones declare. None files under
+the checkout either: every door runs with ``MCGYVR_RUN_ROOT`` naming a
+throw-away checkout (:func:`root`), so a round gate 1 opens is written there.
 """
 
 from __future__ import annotations
@@ -30,12 +32,12 @@ import signal
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
 from mcgyvr.serving import run
+from tests import onedoor
 from tests.test_serving_gatelib import (
     DOOR,
     SSH,
@@ -55,24 +57,11 @@ RUN_DATE = "2026-09-02"
 
 GATES = sorted(p.name for p in GATE_SCRIPTS.glob("*.py"))
 
-#: The record gate 1 writes into. These tests drive the real door from the real
-#: root, so a run whose tree has moved off the open round legitimately appends
-#: one — which is the door's job (owner, 2026-09-06) and emphatically not
-#: something a test run may leave behind in a tracked file. Whatever the door
-#: writes here is put back.
+#: The checkout's record of rounds. A run whose tree has moved off the open
+#: round appends one to its root's copy (owner, 2026-09-06), and this one is
+#: tracked and read by every other xdist worker while these tests run — so no
+#: door here runs from the checkout (:func:`root`), and this is only ever read.
 ROUNDS = REPO / "tools" / "bench" / "rounds.json"
-
-
-@pytest.fixture(autouse=True)
-def _restore_rounds() -> Iterator[None]:
-    before = ROUNDS.read_bytes() if ROUNDS.is_file() else None
-    try:
-        yield
-    finally:
-        if before is None:
-            ROUNDS.unlink(missing_ok=True)
-        elif ROUNDS.read_bytes() != before:
-            ROUNDS.write_bytes(before)
 
 
 def stubs(where: Path) -> Path:
@@ -108,8 +97,18 @@ def door(
 
 
 @pytest.fixture
-def env(tmp_path: Path) -> dict[str, str]:
-    return clean_env(stubs(tmp_path / "stubs"))
+def root(tmp_path: Path) -> Path:
+    """The run root every door here files under: a throw-away checkout pinned
+    as built, so gate 1 admits its tree and writes nothing unless a test moves
+    it — and whatever it does write is under ``tmp_path``, never the checkout."""
+    return onedoor.fixture_repo(tmp_path / "root")
+
+
+@pytest.fixture
+def env(tmp_path: Path, root: Path) -> dict[str, str]:
+    environment = clean_env(stubs(tmp_path / "stubs"))
+    environment[run.ROOT_ENV] = str(root)
+    return environment
 
 
 @pytest.fixture
@@ -195,14 +194,17 @@ ESCAPES = (
     "args", ESCAPES, ids=[a[0].split("=")[0] + str(i) for i, a in enumerate(ESCAPES)]
 )
 def test_a_step_argument_that_leaves_the_envelope_is_refused_before_any_gate(
-    env: dict[str, str], step: Path, tmp_path: Path, args: list[str]
+    env: dict[str, str], step: Path, tmp_path: Path, root: Path, args: list[str]
 ) -> None:
     result = door([*base_argv(step), "--", *args], env)
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "step argument" in result.stderr, result.stderr
     assert args[0].split("=")[0] in result.stderr, result.stderr
     assert f"{RUN_DATE}-alpha-cli-test" in result.stderr, result.stderr
-    assert not (REPO / "records" / "evidence" / f"{RUN_DATE}-alpha-cli-test").exists()
+    for where in (REPO, root):
+        assert not (
+            where / "records" / "evidence" / f"{RUN_DATE}-alpha-cli-test"
+        ).exists()
     assert not (tmp_path / "stubs" / "ssh.log").exists(), "a gate reached ssh"
 
 
@@ -215,6 +217,33 @@ def test_a_step_argument_inside_the_envelope_is_admitted(
     # argument check that stopped it.
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "step argument" not in result.stderr, result.stderr
+
+
+def test_a_round_gate_1_opens_for_these_tests_lands_in_their_own_root(
+    env: dict[str, str], step: Path, tmp_path: Path
+) -> None:
+    """Gate 1 appends a round when the tree it measures has moved off the open
+    one, which is the door's job. From the checkout that append lands in the
+    tracked ``tools/bench/rounds.json`` while every other xdist worker reads
+    it, so the door these tests start measures a root under ``tmp_path`` —
+    moved off its round here, so gate 1 has a round to open."""
+    named = env.get(run.ROOT_ENV)
+    root = Path(named) if named else run.ROOT
+    assert tmp_path in root.parents, (
+        f"the door these tests start runs from {root}, so gate 1 opens its "
+        f"rounds in {ROUNDS} while other xdist workers are reading it"
+    )
+    onedoor.unpin(root)
+    checkout = ROUNDS.read_bytes()
+
+    result = door(base_argv(step), env)
+
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    assert onedoor.pinned(root)[0] != onedoor.ROUND_ID, (
+        "gate 1 opened no round in the test's own root",
+        result.stderr,
+    )
+    assert ROUNDS.read_bytes() == checkout, f"a door run from a test wrote {ROUNDS}"
 
 
 def test_check_step_args_reads_the_archived_rule() -> None:

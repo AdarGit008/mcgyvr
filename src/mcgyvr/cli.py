@@ -159,7 +159,7 @@ def _config(args: argparse.Namespace) -> int:
 def _pool(args: argparse.Namespace) -> int:
     from mcgyvr.escalate import Ceiling
     from mcgyvr.pool import SourceUnavailableError, source_map
-    from mcgyvr.route import family_of
+    from mcgyvr.route import draws_for, family_of
 
     try:
         config = load_config(Path(args.path) if args.path else None)
@@ -178,8 +178,9 @@ def _pool(args: argparse.Namespace) -> int:
     # where each rung runs is the seam's business (#20). A rung that cannot run
     # names its source in the reason, which is when that fact starts to matter.
     #
-    # The family and the attempt budget are shown because they are the routing
-    # decision (#24), and a decision nobody can read is one nobody can check.
+    # The family, the attempt budget and the breadth are shown because they
+    # are the routing decision (#24), and a decision nobody can read is one
+    # nobody can check.
     # A family is a cost class rather than a location, so printing it says how
     # dear a rung is to ask without saying which machine answers.
     print(f"{config.path}: {len(pool)} usable rung(s), cheapest first:\n")
@@ -188,6 +189,11 @@ def _pool(args: argparse.Namespace) -> int:
         budget = int((config.get("attempts") or {}).get(rung.name, 1))
         ladder_budget += budget
         tries = "1 attempt" if budget == 1 else f"{budget} attempts"
+        # The breadth is a routing decision too, shown only where it is not
+        # the default, so an unconfigured install's line is unchanged.
+        draws = draws_for(config, rung.name)
+        if draws > 1:
+            tries += f", {draws} draws"
         family = family_of(config, rung.name)
         print(f"  {rung.name:<20} {family.name:<14} {tries:<11} {rung.model}")
     if not pool.rungs:
