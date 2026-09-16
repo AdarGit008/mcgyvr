@@ -43,7 +43,6 @@ def test_the_two_draws_before_the_raise_still_learn_how_they_landed(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Three draws, the third one's dispatch dies: three rows, three outcomes."""
-    import mcgyvr.drive as drive
     from mcgyvr.pool import Protocol
     from mcgyvr.runner import Completion, RunnerError, StopReason
 
@@ -66,7 +65,7 @@ def test_the_two_draws_before_the_raise_still_learn_how_they_landed(
             latency_s=0.0,
         )
 
-    monkeypatch.setattr(drive, "dispatch", dies_on_the_third_draw)
+    lj.patch_dispatch(monkeypatch, dies_on_the_third_draw)
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)

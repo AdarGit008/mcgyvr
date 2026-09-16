@@ -49,12 +49,13 @@ be settled differently.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field, replace
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr.capacity import SlotUnavailableError
+from mcgyvr.capacity import Outcome, SlotUnavailableError, run_batch
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.deliver import Accepted
@@ -71,7 +72,7 @@ from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.preflight import reply_cap
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import TypeCheck
-from mcgyvr.route import Try, Verdict, family_of
+from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, Request, RunnerError, dispatch
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, verify
@@ -288,6 +289,7 @@ def dispatch_prompt(
     capacity: Capacity | None = None,
     response_schema: dict[str, Any] | None = None,
     timeout_s: float | None = None,
+    temperature: float | None = None,
 ) -> Completion:
     """Send an assembled prompt to a rung, under the contract's own ceilings.
 
@@ -312,6 +314,13 @@ def dispatch_prompt(
     before they reach a socket. ``build_prompt`` cannot ask it: a prompt is
     assembled once and may be offered to several rungs, and which window it
     faces is only known here.
+
+    ``temperature`` is the draw's, threaded from ``breadth.temperature`` by the
+    caller that knows which draw this is: draw 0 of an attempt is greedy and
+    the draws after it sample. ``None`` keeps :class:`~mcgyvr.runner.Request`'s
+    own default of ``0.0``, so a caller that names none — every single-draw
+    dispatch, and every caller before breadth sampled — sends what it has
+    always sent, byte for byte.
     """
     if not prompt.fits:
         raise PromptTooLargeError(
@@ -340,6 +349,8 @@ def dispatch_prompt(
     }
     if timeout_s is not None:
         fields["timeout_s"] = timeout_s
+    if temperature is not None:
+        fields["temperature"] = temperature
     request = Request(**fields)
     return dispatch(source_map, rung, request, capacity=capacity)
 
@@ -457,7 +468,7 @@ class Recording:
 class _Dispatches:
     """What one attempt has sent so far, kept so a raise can say it.
 
-    Mutable and deliberately so: it is written by the dispatch that is
+    Mutable and deliberately so: it is written by the dispatches that are
     happening and read by the ``except`` that ends the attempt, which is the
     one moment the two facts still exist together. Everything below has thrown
     them away — an exception carries no draw — and everything above can only
@@ -467,27 +478,41 @@ class _Dispatches:
     ``rows`` is how many draws left a journal row. It is counted around
     :func:`~mcgyvr.telemetry.observe`, which writes exactly one record per
     call — the answering row or the failing one — and never where a dispatch
-    was merely intended: ``pool.bind``, the prompt and the row's id are all
-    read *before* the count, so a draw that died on its way to ``observe``
-    left no row and is not counted as one. A driver built without a
-    ``recording`` reaches ``observe`` never and counts nothing, which is the
-    same rule and not an exception to it: this is rows written, not draws
-    taken. The single case the count cannot see is the journal file itself
-    being unwritable, which loses every row of the run and not one of them.
+    was merely intended: ``pool.bind`` and the prompt are read once, before
+    any draw goes out, so a raise there is a raise before the first dispatch
+    and leaves no row. A driver built without a ``recording`` reaches
+    ``observe`` never and counts nothing, which is the same rule and not an
+    exception to it: this is rows written, not draws taken. The single case
+    the count cannot see is the journal file itself being unwritable, which
+    loses every row of the run and not one of them.
 
-    ``in_flight`` is the draw whose dispatch is happening right now: set as
-    ``observe`` is entered and cleared the moment it returns. It is ``None``
-    everywhere else, which is deliberately three-quarters of an attempt — the
-    gate that judges a draw, the preparation of the next one, the cleanup and
-    the verifier all run between dispatches and none of them is a dispatch's
-    fault. ``rows`` says which of those moments it was: ``0`` is before the
-    first dispatch, and anything more is past draw ``rows - 1`` — a reading
-    that belongs to a run with a journal, since a run without one has no rows
-    to count and says ``0`` for every moment.
+    The draws of one attempt are dispatched together, so the count is taken
+    under ``lock``: two draws finishing at once must not lose a row between
+    them, because the caller corrects ``range(rows)`` of them and a row
+    uncounted is a row never corrected.
+
+    ``culprit`` is the draw the attempt died in, or ``None`` where no
+    dispatch is the culprit. It is settled *after* the draws have all come
+    back, not while they are in flight — with several in flight there is no
+    single "draw happening right now" — and when more than one raised it is
+    the **lowest** that raised: the row a reader reaches first, the answer
+    that does not depend on which thread finished first, and exactly what a
+    single draw that raised has always reported. ``None`` is everything else
+    — the gate that judges a draw, the cleanup, the verifier all run after the
+    dispatches and none of them is a dispatch's fault — and ``rows`` says
+    where: ``0`` is before the first dispatch, and anything more is past draw
+    ``rows - 1``, a reading that belongs to a run with a journal, since a run
+    without one has no rows to count and says ``0`` for every moment.
     """
 
     rows: int = 0
-    in_flight: int | None = None
+    culprit: int | None = None
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def counted(self) -> None:
+        """One more row is on disk."""
+        with self.lock:
+            self.rows += 1
 
 
 def worker_attempt(
@@ -572,8 +597,9 @@ def worker_attempt(
     attempt fails only when :class:`~mcgyvr.consensus.NoUsableDrawError` says every
     draw refused, which for the default single draw is the same thing.
 
-    **How many answers the attempt asks for is ``breadth.draws``'s, and the
-    default asks once.** Every attempt goes through
+    **How many answers the attempt asks for is the rung's breadth
+    (:func:`~mcgyvr.route.draws_for`: the unit's own ``draws`` entry, else
+    ``breadth.draws``), and the default asks once.** Every attempt goes through
     :func:`~mcgyvr.consensus.best_of`, including the unconfigured one, rather
     than through a single-dispatch branch beside it. A lever the ordinary
     install skips is a lever the ordinary install never proves, and ``n = 1``
@@ -583,6 +609,20 @@ def worker_attempt(
     ends with the sandbox holding the base — which is why the accepted bytes
     leave here as the binding ``best_of`` minted in the tree its gate read,
     rather than being re-read off a workspace that no longer holds them.
+
+    **The draws go out together, and draw 0 is greedy.** They are dispatched
+    as one :func:`~mcgyvr.capacity.run_batch` under the attempt's capacity,
+    so a unit declared able to serve several requests serves the draws at
+    once and a width-1 unit's slot serializes them without a second limiter;
+    ``best_of`` is then handed a ``sample`` that returns the reply already in
+    hand, and gates the draws one at a time in the one sandbox, which is
+    inherent. Draw 0 goes out at temperature ``0.0`` — what every dispatch
+    went out at before breadth sampled, so a single draw is byte-identical to
+    what it was — and draws 1..n-1 at ``breadth.temperature``, because a
+    second candidate that is the first one again buys a gate run and nothing
+    else. Each row of the journal says which draw it was and at what
+    temperature, which is the telemetry :mod:`mcgyvr.consensus` says breadth
+    cannot be evaluated without.
 
     **A style-only rejection is cleaned before it is judged, when
     ``cleanup.enabled`` says so.** The ordering is the whole of it: the cleanup
@@ -620,7 +660,12 @@ def worker_attempt(
     # which refuses it — a review is worth the distance between two names, and
     # an unnamed reviewer establishes no distance.
     reviewer_model = pool.role_model(VERIFIER_ROLE) if reviewer is not None else None
-    draws = int(config.get("breadth.draws", 1))
+    # What the draws after the first sample at. Draw 0 never reads it: it is
+    # greedy whatever this says, so a single-draw install sends what it always
+    # sent, and the loader has refused `0.0` wherever any unit draws more than
+    # once. The breadth itself is read per attempt, below, because it is the
+    # rung's — `draws_for` — and not the driver's.
+    temperature = float(config.get("breadth.temperature", 0.0))
     tidying = bool(config.get("cleanup.enabled", True))
     # Read once per driver, beside the other two budgets this function spends.
     # The request timeout is per unit now: each dispatch reads its own unit's
@@ -641,8 +686,9 @@ def worker_attempt(
         # them and guess. `climb` unwraps this into `_AttemptError`, so nothing
         # downstream sees the envelope.
         made = _Dispatches()
+        draws = draws_for(config, this.rung.name)
         try:
-            return _attempt(this, made)
+            return _attempt(this, made, draws)
         except SlotUnavailableError as busy:
             # Every slot of this rung was taken for as long as the task was
             # willing to wait. Nothing was asked and nothing answered, so this
@@ -659,10 +705,10 @@ def worker_attempt(
             )
         except Exception as exc:
             raise DispatchRaisedError(
-                exc, draws=draws, rows=made.rows, draw=made.in_flight
+                exc, draws=draws, rows=made.rows, draw=made.culprit
             ) from exc
 
-    def _attempt(this: Try, made: _Dispatches) -> Judgement:
+    def _attempt(this: Try, made: _Dispatches, draws: int) -> Judgement:
         family = family_of(config, this.rung.name)
         if cooldown is not None:
             # Ask before a prompt is built or a sandbox is opened: a rung on a
@@ -688,128 +734,6 @@ def worker_attempt(
                     draws=draws,
                     rows=0,
                 )
-
-        def send(draw: int) -> Completion:
-            def wire() -> Completion:
-                return dispatch_prompt(
-                    pool,
-                    this.rung.name,
-                    prompt,
-                    contract,
-                    capacity=this.capacity,
-                    timeout_s=(
-                        config.units[this.rung.name].request_timeout_s
-                        if this.rung.name in config.units
-                        else None
-                    ),
-                )
-
-            def asked() -> Completion:
-                # The wake sits *inside* the cooldown's view and outside the
-                # transport, and the order is the whole of what it buys. A
-                # refused port on a card mcgyvr holds a launch spec for is not
-                # a fault of the rung — nothing was asked and nothing answered
-                # — so the cooldown must not learn from it and the attempt must
-                # not be charged for it. `waker` is None for a config that did
-                # not ask for the feature, and then this is the call it always
-                # was, byte for byte.
-                if waker is None:
-                    return wire()
-                return waker.dispatching(this.rung.name, wire)
-
-            def once() -> Completion:
-                if cooldown is None:
-                    return asked()
-                endpoint = pool.bind(this.rung.name)
-                try:
-                    completion = asked()
-                except RunnerError:
-                    # The dispatch is what the cooldown learns from: a source
-                    # that answered and failed the generation is the fault this
-                    # lever exists for. A prompt that did not fit is a contract
-                    # fault and raises `DriveError`, which must not count against
-                    # the source.
-                    cooldown.record_failure(endpoint.source)
-                    raise
-                cooldown.record_success(endpoint.source)
-                return completion
-
-            if recording is None:
-                # No journal, so no rows to count and none to correct. The
-                # dispatch still happened, and `in_flight` still names it, so a
-                # raise from inside it is still reported as this draw's.
-                made.in_flight = draw
-                completion = once()
-                made.in_flight = None
-                return completion
-            # The journal exists to be reviewed, and a review needs the prompt
-            # as the runner sent it and the endpoint that served it. Read here,
-            # before the attempt, so the row of an attempt that raised still
-            # says what it asked and where.
-            #
-            # Read *before* the count, too, along with the row's id: each of
-            # these can raise, and a dispatch that never reached `observe` left
-            # no row for a correction to land on. What is counted is rows, not
-            # intentions.
-            endpoint = pool.bind(this.rung.name).base_url
-            messages = _as_sent(prompt)
-            attempt_id = recording.attempt_id(
-                contract.id, this.rung.name, this.attempt, draw
-            )
-            made.in_flight = draw
-            try:
-                completion = observe(
-                    once,
-                    path=recording.path,
-                    attempt_id=attempt_id,
-                    orchestrator=recording.orchestrator,
-                    rung=this.rung.name,
-                    model=this.rung.model,
-                    messages=messages,
-                    endpoint=endpoint,
-                    task_type=contract.task_type,
-                    session_file=recording.session_file,
-                    # The tier this rung belongs to, so one query can count a
-                    # ladder dispatch against a floor run: the floor's rows
-                    # carry a program's name in `rung` and `deterministic`
-                    # here, and without the second field the two vocabularies
-                    # share a column and nothing tells them apart.
-                    tier=family.name,
-                    mirrors=recording.mirrors,
-                    on_copy_error=recording.copy_failed,
-                )
-            finally:
-                # In `finally`, because the row is written on both of
-                # `observe`'s paths: it promises exactly one record per call,
-                # the answering row or the failing one, and a dispatch that
-                # left none is one no caller can tell from a dispatch nobody
-                # made. So the count is of rows on disk and not of intentions
-                # — which is what it has to be, or the correction for the last
-                # one names a row nobody wrote.
-                made.rows = draw + 1
-            # The dispatch is over and its row is down. Everything the attempt
-            # does from here — gating this draw, preparing the next, the
-            # cleanup, the verifier — is between dispatches, and a raise out of
-            # any of it belongs to no dispatch. Leaving this draw's number
-            # standing is what charged a gate's death to the draw it judged.
-            made.in_flight = None
-            return completion
-
-        def sample(draw: int) -> str | Unusable:
-            completion = send(draw)
-            parsed = parse_reply(
-                completion.text,
-                output_schema=contract.output_schema,
-                stop_reason=completion.stop_reason,
-                target=contract.target,
-            )
-            if isinstance(parsed, ReplyError):
-                # A refusal, not a raise: at `n > 1` the draws already gated
-                # keep their verdicts, and a reply that could not be read is
-                # the ordinary failure this rung is being measured on rather
-                # than something that ends the attempt from underneath it.
-                return Unusable(f"the reply could not be read: {parsed}")
-            return parsed.content
 
         def judge_draw(space: Sandbox) -> GateResult:
             # The gate is handed the sandbox, not a bare path, because a
@@ -839,6 +763,160 @@ def worker_attempt(
             adapters=adapters,
             retry=notes.get(this.rung.name),
         )
+        # Read once, before any draw goes out, because they are the attempt's
+        # and not a draw's: the endpoint that will serve every draw and the
+        # prompt exactly as the runner sends it. Both can raise, and a raise
+        # here is a raise before the first dispatch — no row, `rows == 0` —
+        # which is the only honest reading now that the draws leave together
+        # and there is no "between two draws" for it to land in.
+        served_at = pool.bind(this.rung.name).base_url if recording else None
+        messages = _as_sent(prompt) if recording else None
+
+        def fetch(draw: int, capacity: Capacity | None) -> Completion:
+            """One draw's reply off the wire, under the capacity it was handed.
+
+            ``capacity`` is a parameter rather than a closure over
+            ``this.capacity`` because :func:`~mcgyvr.capacity.run_batch` hands
+            every job the capacity it must dispatch under, and the signature is
+            the one place that puts the thing a job needs into its hand. It is
+            the same object; what the shape buys is that a draw dispatching
+            without a slot cannot be written by accident.
+            """
+            sampled = _temperature_of(draw, temperature)
+
+            def wire() -> Completion:
+                return dispatch_prompt(
+                    pool,
+                    this.rung.name,
+                    prompt,
+                    contract,
+                    capacity=capacity,
+                    timeout_s=(
+                        config.units[this.rung.name].request_timeout_s
+                        if this.rung.name in config.units
+                        else None
+                    ),
+                    temperature=sampled,
+                )
+
+            def asked() -> Completion:
+                # The wake sits *inside* the cooldown's view and outside the
+                # transport, and the order is the whole of what it buys. A
+                # refused port on a card mcgyvr holds a launch spec for is not
+                # a fault of the rung — nothing was asked and nothing answered
+                # — so the cooldown must not learn from it and the attempt must
+                # not be charged for it. `waker` is None for a config that did
+                # not ask for the feature, and then this is the call it always
+                # was, byte for byte.
+                if waker is None:
+                    return wire()
+                return waker.dispatching(this.rung.name, wire)
+
+            def once() -> Completion:
+                if cooldown is None:
+                    return asked()
+                served = pool.bind(this.rung.name)
+                try:
+                    completion = asked()
+                except RunnerError:
+                    # The dispatch is what the cooldown learns from: a source
+                    # that answered and failed the generation is the fault this
+                    # lever exists for. A prompt that did not fit is a contract
+                    # fault and raises `DriveError`, which must not count against
+                    # the source.
+                    cooldown.record_failure(served.source)
+                    raise
+                cooldown.record_success(served.source)
+                return completion
+
+            if recording is None:
+                # No journal, so no rows to count and none to correct. The
+                # dispatch still happened, and a raise out of it is still
+                # settled onto this draw by `_settled`.
+                return once()
+            # The row's id is derived, not read, so it cannot raise; what
+            # could — the endpoint and the prompt — was read once above.
+            attempt_id = recording.attempt_id(
+                contract.id, this.rung.name, this.attempt, draw
+            )
+            try:
+                return observe(
+                    once,
+                    path=recording.path,
+                    attempt_id=attempt_id,
+                    orchestrator=recording.orchestrator,
+                    rung=this.rung.name,
+                    model=this.rung.model,
+                    messages=messages,
+                    endpoint=served_at,
+                    task_type=contract.task_type,
+                    session_file=recording.session_file,
+                    # The tier this rung belongs to, so one query can count a
+                    # ladder dispatch against a floor run: the floor's rows
+                    # carry a program's name in `rung` and `deterministic`
+                    # here, and without the second field the two vocabularies
+                    # share a column and nothing tells them apart.
+                    tier=family.name,
+                    # What this draw sampled at, on its own row, so the
+                    # journal can say which draw a passing candidate was and
+                    # at what temperature — the telemetry breadth could not
+                    # be evaluated without.
+                    temperature=sampled,
+                    mirrors=recording.mirrors,
+                    on_copy_error=recording.copy_failed,
+                )
+            finally:
+                # In `finally`, because the row is written on both of
+                # `observe`'s paths: it promises exactly one record per call,
+                # the answering row or the failing one, and a dispatch that
+                # left none is one no caller can tell from a dispatch nobody
+                # made. So the count is of rows on disk and not of intentions
+                # — which is what it has to be, or the correction for the last
+                # one names a row nobody wrote. Counted under the lock: the
+                # draws finish in whatever order the unit answers.
+                made.counted()
+
+        # The draws go out together, bounded by the unit's width and nothing
+        # else. `run_batch` is the bound #23 built for exactly this and had no
+        # production caller; each job dispatches under the capacity it is
+        # handed, so on a width-1 unit the slot serializes the draws and no
+        # second limiter is needed. The outcomes come back in draw order
+        # whatever order the unit answered in, and `_settled` turns them into
+        # the replies `best_of` ranks — or into the one raise the attempt
+        # dies of, charged to the lowest draw that raised. With no capacity
+        # there is no width to dispatch within, and the draws go out one after
+        # another in this thread, which is what an unbounded single task has
+        # always done.
+        jobs = [partial(fetch, draw) for draw in range(draws)]
+        outcomes = (
+            run_batch(jobs, this.capacity)
+            if this.capacity is not None
+            else _in_order(jobs)
+        )
+        fetched = _settled(outcomes, made)
+
+        def sample(index: int) -> str | Unusable:
+            reply = fetched[index]
+            if isinstance(reply, Unusable):
+                # A draw that found no free slot for as long as the task would
+                # wait: nothing was asked and nothing answered, so it is not a
+                # candidate and not a failure. The draws that did answer keep
+                # their verdicts.
+                return reply
+            parsed = parse_reply(
+                reply.text,
+                output_schema=contract.output_schema,
+                stop_reason=reply.stop_reason,
+                target=contract.target,
+            )
+            if isinstance(parsed, ReplyError):
+                # A refusal, not a raise: at `n > 1` the draws already gated
+                # keep their verdicts, and a reply that could not be read is
+                # the ordinary failure this rung is being measured on rather
+                # than something that ends the attempt from underneath it.
+                return Unusable(f"the reply could not be read: {parsed}")
+            return parsed.content
+
         try:
             picked = best_of(
                 contract=contract,
@@ -853,7 +931,7 @@ def worker_attempt(
             # refusal itself, which `detail` carries to the caller's report.
             #
             # `rows` is stated here for the same reason it is stated on the
-            # branch below: `send` wrote one journal row per dispatch, and the
+            # branch below: `fetch` wrote one journal row per dispatch, and the
             # caller corrects `range(rows)` of them. Left at the dataclass
             # default this said one draw about an attempt that had just paid
             # for `draws`, so every suffixed row kept no outcome at all — the
@@ -910,7 +988,7 @@ def worker_attempt(
             )
             # Which draw the verdict is about, how many were asked for, and how
             # many left a row: one journal row per draw was written above,
-            # keyed by the *dispatch* index `send` was called with.
+            # keyed by the *dispatch* index `fetch` was called with.
             # `picked.chosen` counts candidates and skips the draws that
             # produced none, so under an unreadable first reply it named the
             # wrong row; `dispatched` is the index the row was keyed by. An
@@ -939,6 +1017,92 @@ def worker_attempt(
         return judgement
 
     return attempt
+
+
+def _temperature_of(draw: int, sampled: float) -> float:
+    """What one draw samples at: greedy for draw 0, ``sampled`` for the rest.
+
+    Draw 0 is the anchor. It is what an unconfigured install sends — one draw,
+    at the :class:`~mcgyvr.runner.Request` default of ``0.0`` — and keeping it
+    greedy under any breadth is what keeps that install's dispatches
+    byte-identical to the ones it made before breadth sampled at all. The
+    draws after it exist to be *different* candidates, and a greedy second
+    draw is the first draw again: N dispatches, N identical replies, N gate
+    runs, and nothing the first did not already say. The loader refuses
+    ``breadth.temperature: 0.0`` wherever a unit draws more than once for
+    exactly that reason, so ``sampled`` is never zero here when it is read.
+    """
+    return 0.0 if draw == 0 else sampled
+
+
+def _in_order[T](
+    jobs: Sequence[Callable[[Capacity | None], T]],
+    capacity: Capacity | None = None,
+) -> tuple[Outcome[T], ...]:
+    """The draws one after another in this thread, for an attempt with no capacity.
+
+    :func:`~mcgyvr.capacity.run_batch` bounds a batch by a capacity, and a
+    :class:`~mcgyvr.route.Try` handed none has no width to dispatch within —
+    a single task running alone, which :func:`~mcgyvr.runner.dispatch` sends
+    unbounded. Dispatching N draws at once with no bound would be the batch
+    ``dispatch`` says it is wrong for, so they go out the way one draw always
+    has: in order, here. The outcomes are shaped as ``run_batch``'s so the
+    caller settles both paths the same way, and ``capacity`` is handed to
+    each job as ``run_batch`` hands it, so a caller standing in for the batch
+    still puts the capacity it was given into every draw's hand.
+    """
+    outcomes: list[Outcome[T]] = []
+    for index, job in enumerate(jobs):
+        try:
+            outcomes.append(Outcome(index=index, value=job(capacity)))
+        except Exception as exc:
+            outcomes.append(Outcome(index=index, error=exc))
+    return tuple(outcomes)
+
+
+def _settled(
+    outcomes: Sequence[Outcome[Completion]], made: _Dispatches
+) -> list[Completion | Unusable]:
+    """What each draw came back with, or the one raise the attempt dies of.
+
+    Three kinds of outcome, settled in this order:
+
+    * **A raise.** The lowest draw that raised is the culprit — recorded on
+      ``made`` for the envelope the attempt is wrapped in — and its exception
+      is re-raised as the attempt's. Every draw ran to completion first, so
+      the rows are all down and ``made.rows`` says how many; the draws that
+      answered are not judged, because an attempt that died reached no
+      verdict and writing one on some of its draws would report a judgement
+      that never happened.
+    * **Every draw declined.** No slot freed for any of them for as long as
+      the task would wait: nothing was asked and nothing answered, so the
+      first decline is raised for the wrapper to turn into the rung stepping
+      aside, as a single declined draw always has.
+    * **Some draws declined.** The ones that answered were paid for and are
+      judged; a declined draw is :class:`~mcgyvr.consensus.Unusable`, which
+      is what it is — no candidate, no verdict — and is recorded in the
+      consensus in its own words rather than counted as a failure of the
+      unit. A decline is never a raise: :class:`SlotUnavailableError` is the
+      one :class:`~mcgyvr.capacity.CapacityError` a caller may route around.
+    """
+    for outcome in outcomes:
+        if outcome.error is not None and not isinstance(
+            outcome.error, SlotUnavailableError
+        ):
+            made.culprit = outcome.index
+            raise outcome.error
+    declined = [o for o in outcomes if o.error is not None]
+    if declined and len(declined) == len(outcomes):
+        assert declined[0].error is not None  # the filter above
+        raise declined[0].error
+    replies: list[Completion | Unusable] = []
+    for outcome in outcomes:
+        if outcome.error is not None:
+            replies.append(Unusable(f"no free slot: {outcome.error}"))
+        else:
+            assert outcome.value is not None  # `ok` outcomes carry a completion
+            replies.append(outcome.value)
+    return replies
 
 
 def _base_content(sandbox: Sandbox, contract: Contract) -> str:

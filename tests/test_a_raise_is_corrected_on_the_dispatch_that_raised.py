@@ -68,7 +68,6 @@ def test_the_error_lands_on_the_draw_whose_dispatch_raised(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Two draws, the second one's dispatch dies: ``#1`` is the row corrected."""
-    import mcgyvr.drive as drive
     from mcgyvr.pool import Protocol
     from mcgyvr.runner import Completion, RunnerError, StopReason
 
@@ -91,7 +90,7 @@ def test_the_error_lands_on_the_draw_whose_dispatch_raised(
             latency_s=0.0,
         )
 
-    monkeypatch.setattr(drive, "dispatch", dies_on_the_second_draw)
+    lj.patch_dispatch(monkeypatch, dies_on_the_second_draw)
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = _config(tmp_path, journal, extra=TWO_DRAWS)
