@@ -157,16 +157,52 @@ def wake(
     )
 
 
+def _pinned_rig_id(root: Path, host: str) -> str | None:
+    """The rig id ``host`` is pinned to by the ``fleet.yaml`` beside the lock.
+
+    ``None`` when there is nothing to read it from — no file, a file that does
+    not parse, or one naming no such host — and then the lock is read as it
+    always was. Narrowing must never turn a locked host into an unlocked one
+    somewhere the pin cannot be read.
+
+    Only ``rigs`` is read, and with plain YAML rather than
+    :func:`mcgyvr.fleet.files.load_fleet`: that loader validates the whole
+    document, so one unknown key under any unit would refuse the file and leave
+    this reading every rig id again — the bug it exists to close, back without
+    a word. What is wanted here is one string, and nothing about a unit can
+    make it wrong.
+    """
+    import yaml
+
+    try:
+        given = yaml.safe_load((root / "fleet.yaml").read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None
+    rigs = given.get("rigs") if isinstance(given, dict) else None
+    rig = rigs.get(host) if isinstance(rigs, dict) else None
+    rig_id = rig.get("rig_id") if isinstance(rig, dict) else None
+    return rig_id if isinstance(rig_id, str) and rig_id else None
+
+
 def host_is_locked(root: Path, host: str) -> bool:
-    """Whether any combination record of the lock under ``root`` names ``host``.
+    """Whether the lock under ``root`` names ``host`` under the rig id it pins.
 
     ``root`` is the lock root the caller's profile reads
     (:func:`mcgyvr.fleet.roots.lock_root`), never the working directory.
+
+    A record's ``rig`` field is the rig's NAME; its identity is the rig id of
+    the directory it sits in. ``mcgyvr fleet lock`` writes one directory per
+    rig id and never prunes, so a rig whose id changed leaves its old records
+    behind, still naming it. Reading every directory would let those answer for
+    a machine that no longer exists — a second source of truth, and the older
+    one — so only the pinned rig id's records answer (owner, 2026-09-16).
     """
     rigs = root / "records" / "fleet" / "rigs"
     if not rigs.is_dir():
         return False
-    for path in sorted(rigs.glob("*/cmb-*.json")):
+    pinned = _pinned_rig_id(root, host)
+    paths = (rigs / pinned).glob("cmb-*.json") if pinned else rigs.glob("*/cmb-*.json")
+    for path in sorted(paths):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
