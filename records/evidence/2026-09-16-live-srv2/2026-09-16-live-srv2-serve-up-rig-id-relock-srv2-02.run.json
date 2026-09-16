@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-09-16-live-srv2-serve-up-rig-id-relock-srv2-02",
+  "campaign": "live-srv2",
+  "step": "serve-up",
+  "host": "srv2",
+  "date": "2026-09-16",
+  "round": "r32-16-09-2026",
+  "product_sha256": "535c26fbe0f743aa202e4d4fdac043495730af0880e6d7281fb553a85c465af0",
+  "profile": "dev",
+  "config": "/home/adaramir/claude/mcgyvr/fleet-setup",
+  "mcgyvr_version": "0.1.1.dev267+g5aa2beeb",
+  "started_at": "2026-09-16T07:08:24Z"
+}

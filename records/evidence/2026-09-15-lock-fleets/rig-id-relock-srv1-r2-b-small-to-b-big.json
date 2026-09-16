@@ -1,0 +1,132 @@
+{
+ "compose_sha256": null,
+ "downtime_s": 112.722,
+ "ended_at": "2026-09-15T18:19:28Z",
+ "failure": null,
+ "from": [
+  [
+   "srv1_deepseek",
+   "awake"
+  ]
+ ],
+ "from_fleet": "b-small",
+ "host": "srv1",
+ "images": [
+  [
+   "llamacpp:b10644-L3",
+   "sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6"
+  ]
+ ],
+ "markers": {
+  "end": "### END uptime_since=2026-09-12T07:52:51Z pl1_uw=95000000 pl2_uw=120000000 cpu_max_mhz=4600 ram_mt_s=3600 run_id=2026-09-15-lock-fleets-rig-id-relock-srv1-r2-b-small-to-b-big",
+  "on_rig": "### START uptime_since=2026-09-12T07:52:51Z pl1_uw=95000000 pl2_uw=120000000 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=4600 ram_mt_s=3600 run_id=2026-09-15-lock-fleets-rig-id-relock-srv1-r2-b-small-to-b-big\nt0 1789496248.977031609\nrc_stop 0\nrc_drop 0\nrc_run 0\nt1 1789496250.175140711\nt2 srv1_35b_b 1789496361.699063660\n",
+  "start": "### START uptime_since=2026-09-12T07:52:51Z pl1_uw=95000000 pl2_uw=120000000 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=4600 ram_mt_s=3600 run_id=2026-09-15-lock-fleets-rig-id-relock-srv1-r2-b-small-to-b-big"
+ },
+ "product_sha256": "33b284103e53d92a2dbeef8c40b627517c0c9d2978dbfc91ceb554a0f3ceaeea",
+ "rc": {
+  "rc_drop": 0,
+  "rc_run": 0,
+  "rc_stop": 0
+ },
+ "rig": "srv1",
+ "round": "r31-15-09-2026",
+ "run_id": "2026-09-15-lock-fleets-rig-id-relock-srv1-r2-b-small-to-b-big",
+ "schema": "lock-fleets-move/1",
+ "snapshots": {
+  "end": {
+   "containers": "none",
+   "cpu_max_mhz": "4600",
+   "cpu_model": "Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz",
+   "docker": "29.7.2",
+   "driver": "580.178.04",
+   "gpu_cc": "7.5",
+   "gpu_free_mib": "5745",
+   "gpu_name": "NVIDIA_GeForce_GTX_1660_SUPER",
+   "gpu_procs": "none",
+   "gpu_reserve_mib": "399",
+   "gpu_used_mib": "1",
+   "gpu_vram_mib": "6144",
+   "hostname": "srv1",
+   "kernel": "7.0.0-31-generic",
+   "mem_available_kib": "14944360",
+   "mem_total_kib": "15762544",
+   "nproc": "6",
+   "os_machine_id": "9f01e96b66e798b2",
+   "pl1_uw": "95000000",
+   "pl2_uw": "120000000",
+   "ram_mt_s": "3600",
+   "swap_total_kib": "8388604",
+   "swappiness": "60",
+   "uptime_since": "2026-09-12T07:52:51Z"
+  },
+  "start": {
+   "containers": "none",
+   "cpu_max_mhz": "4600",
+   "cpu_model": "Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz",
+   "docker": "29.7.2",
+   "driver": "580.178.04",
+   "gpu_cc": "7.5",
+   "gpu_free_mib": "5745",
+   "gpu_name": "NVIDIA_GeForce_GTX_1660_SUPER",
+   "gpu_procs": "none",
+   "gpu_reserve_mib": "399",
+   "gpu_used_mib": "1",
+   "gpu_vram_mib": "6144",
+   "hostname": "srv1",
+   "kernel": "7.0.0-31-generic",
+   "mem_available_kib": "14923756",
+   "mem_total_kib": "15762544",
+   "nproc": "6",
+   "os_machine_id": "9f01e96b66e798b2",
+   "pl1_uw": "95000000",
+   "pl2_uw": "120000000",
+   "ram_mt_s": "3600",
+   "swap_total_kib": "8388604",
+   "swappiness": "60",
+   "uptime_since": "2026-09-12T07:52:51Z"
+  }
+ },
+ "source_up": {
+  "exit": 0,
+  "said": "t2 srv1_deepseek 1789496246.237159451\n"
+ },
+ "ssh_exit": 0,
+ "stamp_text": "### START uptime_since=2026-09-12T07:52:51Z pl1_uw=95000000 pl2_uw=120000000 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=4600 ram_mt_s=3600 run_id=2026-09-15-lock-fleets-rig-id-relock-srv1-r2-b-small-to-b-big\nt0 1789496248.977031609\nrc_stop 0\nrc_drop 0\nrc_run 0\nt1 1789496250.175140711\nt2 srv1_35b_b 1789496361.699063660\n",
+ "stamps": {
+  "rc": {
+   "rc_drop": 0,
+   "rc_run": 0,
+   "rc_stop": 0
+  },
+  "t0": 1789496248.9770317,
+  "t1": 1789496250.1751406,
+  "t2": {
+   "srv1_35b_b": 1789496361.6990638
+  },
+  "t_compose": null,
+  "timeout": [],
+  "unparsed": []
+ },
+ "started_at": "2026-09-15T18:16:51Z",
+ "target_kind": "run",
+ "to": [
+  [
+   "srv1_35b_b",
+   "awake"
+  ]
+ ],
+ "to_fleet": "b-big",
+ "vmstat": {
+  "end": {
+   "pgmajfault": 323440,
+   "pswpout": 312569
+  },
+  "start": {
+   "pgmajfault": 317939,
+   "pswpout": 312569
+  }
+ },
+ "wake_s": {
+  "srv1_35b_b": 111.524
+ }
+}

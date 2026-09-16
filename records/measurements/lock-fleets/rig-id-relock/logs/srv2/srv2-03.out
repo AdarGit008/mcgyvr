@@ -1,0 +1,4 @@
+read: profile=dev config=/home/adaramir/claude/mcgyvr/fleet-setup
+read: a dev read alerts on srv2_7b prefill_tok_s
+read: running the lock's harness for srv2_3b on srv2
+read: running the lock's harness for srv2_7b on srv2

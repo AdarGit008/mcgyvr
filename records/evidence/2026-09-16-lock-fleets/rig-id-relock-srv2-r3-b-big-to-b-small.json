@@ -1,0 +1,142 @@
+{
+ "compose_sha256": "609a84b1b3f71d2bc41b402e24c2abe0d5e10723cbe30521ee7eb2915890ec8b",
+ "downtime_s": 182.579,
+ "ended_at": "2026-09-16T10:45:40Z",
+ "failure": null,
+ "from": [
+  [
+   "srv2_80b",
+   "awake"
+  ]
+ ],
+ "from_fleet": "b-big",
+ "host": "srv2",
+ "images": [
+  [
+   "llamacpp:b10644-L3",
+   "sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6"
+  ],
+  [
+   "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+   "sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52"
+  ]
+ ],
+ "markers": {
+  "end": "### END uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-big-to-b-small",
+  "on_rig": "### START uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-big-to-b-small\nt0 1789555350.991802285\nrc_stop 0\nrc_drop 0\nt1 1789555351.520325824\nt2 srv2_3b 1789555445.608704736\nrc_compose 0\nt_compose 1789555448.546657908\nt2 srv2_7b 1789555533.571000721\n",
+  "start": "### START uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-big-to-b-small"
+ },
+ "product_sha256": "fd81f17b64f096124c85bae6b61d82c2fdb4a8b64a7a444d889277bbee2252e1",
+ "rc": {
+  "rc_compose": 0,
+  "rc_drop": 0,
+  "rc_stop": 0
+ },
+ "rig": "srv2",
+ "round": "r33-16-09-2026",
+ "run_id": "2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-big-to-b-small",
+ "schema": "lock-fleets-move/1",
+ "snapshots": {
+  "end": {
+   "containers": "none",
+   "cpu_max_mhz": "5200",
+   "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+   "docker": "29.7.2",
+   "driver": "595.91.07",
+   "gpu_cc": "8.6",
+   "gpu_free_mib": "11911",
+   "gpu_name": "NVIDIA_GeForce_RTX_3060",
+   "gpu_procs": "none",
+   "gpu_reserve_mib": "377",
+   "gpu_used_mib": "1",
+   "gpu_vram_mib": "12288",
+   "hostname": "srv2",
+   "kernel": "7.0.0-31-generic",
+   "mem_available_kib": "46589160",
+   "mem_total_kib": "48208320",
+   "nproc": "20",
+   "os_machine_id": "6d5d8f1f2bfa5f96",
+   "pl1_uw": "65000000",
+   "pl2_uw": "0",
+   "ram_mt_s": "2933",
+   "swap_total_kib": "8388604",
+   "swappiness": "60",
+   "uptime_since": "2026-09-12T08:58:44Z"
+  },
+  "start": {
+   "containers": "none",
+   "cpu_max_mhz": "5200",
+   "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+   "docker": "29.7.2",
+   "driver": "595.91.07",
+   "gpu_cc": "8.6",
+   "gpu_free_mib": "11911",
+   "gpu_name": "NVIDIA_GeForce_RTX_3060",
+   "gpu_procs": "none",
+   "gpu_reserve_mib": "377",
+   "gpu_used_mib": "1",
+   "gpu_vram_mib": "12288",
+   "hostname": "srv2",
+   "kernel": "7.0.0-31-generic",
+   "mem_available_kib": "46635128",
+   "mem_total_kib": "48208320",
+   "nproc": "20",
+   "os_machine_id": "6d5d8f1f2bfa5f96",
+   "pl1_uw": "65000000",
+   "pl2_uw": "0",
+   "ram_mt_s": "2933",
+   "swap_total_kib": "8388604",
+   "swappiness": "60",
+   "uptime_since": "2026-09-12T08:58:44Z"
+  }
+ },
+ "source_up": {
+  "exit": 0,
+  "said": "t2 srv2_80b 1789555348.239396376\n"
+ },
+ "ssh_exit": 0,
+ "stamp_text": "### START uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-big-to-b-small\nt0 1789555350.991802285\nrc_stop 0\nrc_drop 0\nt1 1789555351.520325824\nt2 srv2_3b 1789555445.608704736\nrc_compose 0\nt_compose 1789555448.546657908\nt2 srv2_7b 1789555533.571000721\n",
+ "stamps": {
+  "rc": {
+   "rc_compose": 0,
+   "rc_drop": 0,
+   "rc_stop": 0
+  },
+  "t0": 1789555350.9918022,
+  "t1": 1789555351.520326,
+  "t2": {
+   "srv2_3b": 1789555445.6087048,
+   "srv2_7b": 1789555533.5710008
+  },
+  "t_compose": 1789555448.5466578,
+  "timeout": [],
+  "unparsed": []
+ },
+ "started_at": "2026-09-16T10:41:17Z",
+ "target_kind": "compose",
+ "to": [
+  [
+   "srv2_3b",
+   "awake"
+  ],
+  [
+   "srv2_7b",
+   "awake"
+  ]
+ ],
+ "to_fleet": "b-small",
+ "vmstat": {
+  "end": {
+   "pgmajfault": 422089,
+   "pswpout": 139701
+  },
+  "start": {
+   "pgmajfault": 404224,
+   "pswpout": 139701
+  }
+ },
+ "wake_s": {
+  "srv2_3b": 94.088,
+  "srv2_7b": 182.051
+ }
+}
