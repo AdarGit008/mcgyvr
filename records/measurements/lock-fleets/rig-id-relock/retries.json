@@ -14,6 +14,11 @@
       "retry_entry": "srv2-01-retry1",
       "artifact": "rig-id-relock-srv2-c1-srv2_35b_256k-retry1.json",
       "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/16-rig-id-relock-srv2-c1-srv2_35b_256k-retry1.sh"
+    },
+    {
+      "entry": "srv2-03",
+      "reason": "both vLLM units filed attention_backend null; the reader read only the first matching line; owner 2026-09-16: fix the reader and record the line",
+      "retry_entry": "srv2-03-retry1"
     }
   ],
   "rerun_ruling": {

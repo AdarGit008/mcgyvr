@@ -43,6 +43,10 @@ from mcgyvr.serving.servelib import PROJECT
 
 #: The name every unit ``mcgyvr emit`` writes starts with.
 OURS_PREFIX = "mcgyvr-"
+#: How much of the line the reader matched on ``attention backend`` a row and a
+#: journal entry keep (owner, 2026-09-16): ``rig-units.sh`` truncates it there
+#: too, and neither end lets a whole log through.
+BACKEND_LINE_MAX = 400
 #: The rig row of every read, beside the unit rows of its combination.
 RIG_ROWS = "rig.jsonl"
 #: The fields a read judges per unit.
@@ -110,9 +114,13 @@ class Reading:
     sleeping: dict[int, bool | None] = field(default_factory=dict)
     #: port -> the unit's in-flight page, as served.
     status: dict[int, str] = field(default_factory=dict)
-    #: port -> the attention backend a vLLM unit's start-up log line names,
-    #: ``None`` when no line names one (owner, 2026-09-15, B4).
+    #: port -> the attention backend a vLLM unit's whole log names, ``None``
+    #: when the log names none (owner, 2026-09-15, B4; 2026-09-16, the whole
+    #: log, as the 09-13 method read it).
     backend: dict[int, str | None] = field(default_factory=dict)
+    #: port -> the first line of that log matching ``attention backend``,
+    #: bounded, ``""`` when the log has no such line (owner, 2026-09-16).
+    backend_line: dict[int, str] = field(default_factory=dict)
 
 
 def _digits(value: str) -> int | None:
@@ -172,6 +180,15 @@ def parse(text: str) -> Reading:
             if len(parts) != 2 or port is None:
                 raise ReadError(f"a backend row is PORT,BACKEND: {line!r}")
             reading.backend[port] = None if parts[1] in ("", "none") else parts[1]
+        elif key == "backend_line":
+            port = _digits(parts[0])
+            if len(parts) != 2 or port is None:
+                raise ReadError(f"a backend line row is PORT,BASE64: {line!r}")
+            try:
+                said = base64.b64decode(parts[1]).decode("utf-8")
+            except (binascii.Error, UnicodeDecodeError) as exc:
+                raise ReadError(f"the backend line of :{port} does not decode") from exc
+            reading.backend_line[port] = said[:BACKEND_LINE_MAX]
         else:
             reading.snapshot[key] = value
     return reading
@@ -284,8 +301,10 @@ class Observed:
     in_flight: dict[str, int | None]
     #: unit name -> the id of the container it runs in, for a unit that is up.
     containers: dict[str, str] = field(default_factory=dict)
-    #: vLLM unit name -> the attention backend its start-up log names, or ``None``.
+    #: vLLM unit name -> the attention backend its whole log names, or ``None``.
     backend: dict[str, str | None] = field(default_factory=dict)
+    #: vLLM unit name -> the line its backend was read from, ``""`` for none.
+    backend_line: dict[str, str] = field(default_factory=dict)
 
 
 def observe(fleet: Live, host: str, reading: Reading) -> Observed:
@@ -314,6 +333,7 @@ def observe(fleet: Live, host: str, reading: Reading) -> Observed:
         observed.containers[name] = container.id
         if engine_of(unit) == "vllm":
             observed.backend[name] = reading.backend.get(port)
+            observed.backend_line[name] = reading.backend_line.get(port, "")
         held = [h for h in reading.holders if h.container == container.id]
         observed.card_mib[name] = (
             None if any(h.mib is None for h in held) else sum(h.mib or 0 for h in held)
@@ -558,6 +578,18 @@ def _file_units(fleet: Live, host: str, filing: _Filing) -> None:
                     "field": "attention_backend",
                     "observed": backend,
                     "attention_backend": backend,
+                },
+            )
+            # What the reader matched, filed beside it and never judged (owner,
+            # 2026-09-16): a `none` names the wording the rig printed, and not
+            # nothing.
+            said = observed.backend_line.get(name, "")
+            filing.record(
+                unit_id,
+                {
+                    "field": "attention_backend_line",
+                    "observed": said,
+                    "attention_backend_line": said,
                 },
             )
 
