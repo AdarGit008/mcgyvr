@@ -1,114 +1,89 @@
 # config — llama.cpp
 
-Engine: `ghcr.io/ggml-org/llama.cpp:server-cuda-b10481`.
+What each knob does, and which way to move it. Values are derived per rig and
+per checkpoint, never copied from here.
 
 ## `--parallel` / `-np`
 
-**Defaults to 4 slots.** Left at the default, n=8 runs as two batches of 4 and
-produces a plateau indistinguishable from saturation. Every config sets 8.
+**Defaults to a small number of slots.** Left at the default, a wider ladder
+runs as several sequential batches and produces a plateau indistinguishable from
+saturation. Set it explicitly to the top of the ladder.
 
-**It is read back.** `/props total_slots` states the width the server actually
-came up at; `claim()` refuses if `/props` does not answer it, and refuses if the
-readback is below the widest level. Recorded with `provenance: "observed"`.
-→ `llamacpp.py:698-715`
+**It is read back.** The server states the width it actually came up at, and the
+harness refuses if that endpoint does not answer, or if the readback is below
+the widest level.
 
-Two caveats: the check compares the readback to `max(levels)`, **not** to the
-declared width, under a message that says `--parallel {width}` — an engine that
-silently reduced 16 to 8 passes whenever the ladder tops out at 8. And the
-console summary never prints it (`run.py` reads `declared["value"]`, this
-backend returns `slots`), so it is only visible in the JSON.
+Two caveats. The check compares the readback to the *widest level*, not to the
+declared width, so an engine that silently reduced the width passes whenever the
+ladder tops out below it. And the console summary never prints the value — it is
+visible only in the JSON.
 
 ## `-c` (context)
 
-**Total, and it divides across slots** — but only when `-np` is passed.
-`-c 4096 --parallel 8` gives 512 tokens/slot against a 475-token completion.
+**Total, and it divides across slots** — but only when `--parallel` is passed.
+Divide before you declare, or every slot gets a fraction of what you meant.
 
-**Floor is 987 tokens/slot** = `RAMP_TOKENS 475 + PROMPT_HEADROOM_TOKENS 512`.
-All entries declare 1024 and read 1024 back off `/props`.
-→ `llamacpp.py:163`
+**There is a floor per slot**, set by the ramp tokens plus prompt headroom.
+Declare at or above it, and confirm the readback rather than assuming it.
 
 ## `--n-cpu-moe N`
 
-Keeps attention and shared layers on the card, puts the experts of N layers in
-host RAM. This is what lets a 30B MoE serve from a 6 GB card.
+Keeps attention and shared layers on the card and puts the experts of N layers
+into host RAM. This is what lets a large MoE serve from a small card.
 
-**It is bounded by VRAM, not by host RAM.** Corrected 2026-09-01: at srv2's
-measured floor the card holds 11,787 of 11,911 usable MiB while host RAM sits
-nearly idle. This entry previously said "bounded by host RAM"; that was written
-before the floor was ever measured directly, and the artifacts it cited already
-said VRAM (srv1's `--n-cpu-moe 36` refusal reads "6 GB card **full**").
-→ `okf/must-read/touching-rigs.md` for the budget arithmetic and the ladder
+**It is bounded by VRAM, not by host RAM.** At the floor the card is full while
+host RAM sits nearly idle.
 
-Measured floors, 2026-09-01, `np=8 ctx_slot=2048`, on today's hardware:
+**Lower N is faster, and the gradient is steep and monotonic — walk down to the
+floor and do not settle above it.** Archived runs of these architectures sat
+several times above their real floor and gave away a large multiple of
+throughput for it.
 
-| rig | checkpoint | floor | at the floor |
-|---|---|---|---|
-| srv2 | Qwen3.6-35B-A3B UD-IQ3_XXS | **6** (0 refuses) | 43.4 / 69.3 / 73.1 at n=1/4/8, vram 11,787 MiB |
-| srv2 | KAT-Coder-V2.5-Dev Q2_K | **7** (0 and 4 refuse) | 47.2 / 70.3 / 71.2, vram 11,417 MiB |
+**The floor is per checkpoint and per rig**, being a function of expert bytes
+and KV, so re-derive it whenever either moves. Floors measured under different
+hardware are not comparable to one measured now.
+→ `okf/must-read/touching-rigs.md` for the budget arithmetic and the walk-down
 
-→ `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/srv2-ncmoe-floor.tsv`
+**A floor is a fit-and-throughput number and says nothing about output.**
+`--n-cpu-moe` is a semantic key: two cells of one model at two values are not
+comparable on output until a placement null on that build shows the key neutral,
+and the one null measured so far shows it is not.
 
-Lower N = more on card = faster, until it refuses. The gradient is steep and
-monotonic: 6 → 8 → 12 gives 43.4 → 37.9 → 30.7 at n=1. **Walk down to the floor;
-do not settle above it.** Every archived run of this architecture sat at 24-99,
-i.e. 3-12x above its real floor, which cost ~2.4x at n=8.
-
-A floor is a fit-and-throughput number and says nothing about output.
-`--n-cpu-moe` is a semantic key: two cells of one model at two `ncmoe` values
-are not comparable on output until a placement null on that build shows the
-key neutral, and the one null measured so far (srv1, 2026-09-02, 0 vs 99)
-showed it is not. → , `okf/must-read/touching-rigs.md`
-
-The older floors (2026-08-25, Qwen3-Coder-30B Q4_K_M: srv1 below 40, srv2 below
-20) were measured when the two rigs held each other's RAM and are not comparable
-to the current hardware. They are also per-checkpoint: the floor is a function of
-expert bytes and KV, so it must be re-derived for every model.
-→ `records/evidence/2026-08-25-moe-expert-offload/`
-
-**CPU offload is what flattens the scaling curve, not MoE.** `m_ling` — a MoE
-small enough to stay resident on srv1's card — scales 2.27x like a dense model,
-while offloaded cells run 1.11–1.74x.
+**CPU offload is what flattens the scaling curve, not MoE.** A MoE small enough
+to stay resident on the card scales with width like a dense model; offloaded
+cells scale far worse.
 
 ## `--no-op-offload`
 
-**Banned — leave op offload at its default, on.** Owner ruling 2026-09-11. With
-experts in host RAM, op offload copies an expert tensor onto the card for every
-batch of 32+ tokens, so prefill runs on the GPU. `--no-op-offload` stops the
-copy: it frees the copy's room in the compute buffer and cuts prefill by half
-or more, and decode does not move. Measured 2026-09-10, srv2,
-deepseek-coder-v2-16b, `-ub 512`, 2,888-token prompt, n=2 per row:
+**Banned — leave op offload at its default, on.** Owner ruling. With experts in
+host RAM, op offload copies an expert tensor onto the card for each large batch,
+so prefill runs on the GPU. `--no-op-offload` stops that copy: it frees the
+copy's room in the compute buffer and **cuts prefill by half or more, while
+decode does not move at all.**
 
-| ncmoe | op offload | CUDA0 compute buffer | card net MiB | prefill tok/s | decode tok/s |
-|---|---|---|---|---|---|
-| 13 | on | 151.51 MiB | 7,260 | 328 | 33.9 |
-| 13 | off | 76.13 MiB | 7,186 | 169 | 34.3 |
-| 26 | on | 151.51 MiB | 3,398 | 252 | 22.2 |
-| 26 | off | 76.13 MiB | 3,324 | 97 | 22.5 |
-
-**The 74 MiB it frees buys nothing:** one deepseek expert block is 297 MiB, so it
-cannot move a single block onto the card. Size for the buffer with op offload
-on instead — it steps up once any expert is on the host, then holds flat
-(ncmoe 13 and 26 read the same), and that step is the whole of the `C` drift.
-→ `records/measurements/measuring-gaps-2026-09-10/results-arms-q6-no-op-offload-report.json`
-→ `records/measurements/measuring-gaps-2026-09-10/results-arms-q6-no-op-offload.json`
-(each arm's engine buffer lines, graph splits and `sched copies`)
+**The buffer room it frees buys nothing.** It is far smaller than a single
+expert block, so it cannot move even one block onto the card. Size for the
+buffer with op offload left on: the buffer steps up once *any* expert is on the
+host, then holds flat however many more follow, and that single step is the
+whole of the drift.
 
 ## `-nkvo` / `--no-kv-offload`
 
-**KV offload to the GPU is ENABLED by default** — read the direction carefully.
-The KV cache normally lives in VRAM. `-nkvo` moves it to host RAM: buys VRAM,
-costs PCIe traffic per token. Untested here.
+**Read the direction carefully — KV lives in VRAM by default.** `-nkvo` moves it
+to host RAM: buys VRAM, costs PCIe traffic per token. Untested here.
 
-`-ctk` / `-ctv` set the KV dtype (q8_0, q4_0) and shrink it in place instead.
+`-ctk` / `-ctv` set the KV dtype and shrink the cache in place instead, which is
+the usual lever.
 
 ## `--no-mmap`
 
 **Host-dependent, and the sign flips.** On a RAM-tight host it stops the model
-paging continuously from NVMe; on a roomy one the copy costs.
-Measured 2026-08-25: **+63% on the 16 GB rig, −12% on the 48 GB rig.**
-Which rig is which has since swapped — re-measure, do not copy the flag over.
+paging continuously from NVMe and wins large; on a roomy host the copy is pure
+cost and it loses. Re-measure on the rig you are on, and never carry the flag
+across a hardware swap.
+→ `okf/must-read/touching-rigs.md`
 
 ## `--n-gpu-layers` / `-ngl`
 
-All entries use 99 (everything the card will take). Placement is then decided by
+**Set it to everything the card will take.** Placement is then decided by
 `--n-cpu-moe`, not by this.
