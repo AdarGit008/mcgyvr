@@ -31,7 +31,11 @@ then retry srv2"):
 
 writes ``<use>/retries.json`` and the retry's own wrapper, and :func:`read_runs`
 places each retry right after its failed entry, which stays in the order as a
-data point. RUNS.md is not edited: both rigs log into it during a window.
+data point. RUNS.md is not edited: both rigs log into it during a window. A read
+or a load has no wrapper and no artifact of its own — ``drive.sh`` mints its run
+id just before it runs — so its retry is the same door command under a new id:
+the read by owner ruling, 2026-09-16; the load by the extension recorded in
+``RETRIED``, which the owner has not ruled on.
 
 A logged unit entry that passed, but whose load was not sampled until idle, gets
 ONE extra cold start for room (owner ruling, 2026-09-15), ``plan.py rerun``,
@@ -109,6 +113,19 @@ CAP_COLUMNS = ("rig", "fleet", "unit", "cap_mib", "from")
 RETRIES = "retries.json"
 #: A retry's entry id, wrapper stem and artifact stem: the failed one's, and this.
 RETRY_SUFFIX = "-retry1"
+#: The kinds a retry re-runs. A campaign unit or move run has a wrapper and an
+#: artifact of its own; a read or a load files into the journal under a run id
+#: drive.sh mints just before it runs, so running it again supersedes nothing.
+#: The READ is the owner's ruling (2026-09-16: "fix the reader and record the
+#: line", which let srv2-03 run again). The LOAD is Claude's extension of that
+#: ruling, which the owner has not ruled on: a load is the same shape as a read
+#: — it starts nothing, and drive.sh mints its id the same way — and no load has
+#: failed in this window. The first one that does is worth putting to the owner
+#: before it is retried. A serve-up or serve-down writes serve-<mode>.json into
+#: the window's envelope, where a second run of it moves the first aside as
+#: <mode>.superseded-<run id>.json (05-envelope.py:645-682) — a kept data point
+#: named superseded — so it gets none.
+RETRIED = ("unit", "move", "read", "load")
 RETRY_RULING = {
     "by": "owner",
     "on": "2026-09-15",
@@ -901,9 +918,16 @@ def _not_an_extra(entry: Entry) -> None:
 def _extra(
     use: str, entry: Entry, suffix: str, key: str, said: str, *, strip: str = ""
 ) -> tuple[dict[str, str], str]:
-    """An extra entry of ``entry``: its id, artifact and wrapper path under
-    ``suffix``, named from ``entry``'s with ``strip`` taken off, and the
-    wrapper's text. Same entry, same bytes."""
+    """An extra entry of ``entry``: its id and, for a campaign run, the artifact
+    and wrapper path under ``suffix``, named from ``entry``'s with ``strip``
+    taken off, and the wrapper's text. Same entry, same bytes.
+
+    A read or a load has neither a wrapper nor an artifact: drive.sh mints its
+    run id just before it runs, so the extra entry is the same door command
+    under a new id and names only itself (the read by owner ruling, 2026-09-16;
+    the load by the extension recorded in ``RETRIED``)."""
+    if entry.kind not in ("unit", "move"):
+        return {key: f"{entry.id.removesuffix(strip)}{suffix}"}, ""
     wrapper = Path(entry.wrapper)
     step = wrapper.with_name(
         f"{wrapper.stem.removesuffix(strip)}{suffix}{wrapper.suffix}"
@@ -919,17 +943,23 @@ def _extra(
 
 
 def derive_retry(use: str, entry: Entry) -> tuple[dict[str, str], str]:
-    """The one retry of ``entry`` (owner ruling, 2026-09-15) — its entry id,
-    artifact and wrapper path — and the wrapper's text. Same entry, same bytes.
+    """The one retry of ``entry`` (owner ruling, 2026-09-15) — its entry id and,
+    for a campaign run, its artifact and wrapper path — and the wrapper's text.
+    Same entry, same bytes.
 
-    Only a campaign unit or move run has a wrapper and an artifact of its own,
-    and a retry or a re-run gets no retry of its own.
+    A campaign unit or move run has a wrapper and an artifact of its own; a read
+    or a load has a run id drive.sh mints for it, and is retried as the same door
+    command under a new one (``RETRIED``: the read by owner ruling 2026-09-16,
+    the load by the extension recorded there). A retry or a re-run gets no retry
+    of its own.
     """
     _not_an_extra(entry)
-    if entry.kind not in ("unit", "move"):
+    if entry.kind not in RETRIED:
         raise PlanRefusedError(
-            f"{entry.id} is a {entry.kind} entry: only a campaign unit or move run "
-            "has a wrapper and an artifact of its own to retry"
+            f"{entry.id} is a {entry.kind} entry: only a campaign unit or move run, "
+            "which has a wrapper and an artifact of its own, or a read or a load, "
+            "whose run id drive.sh mints, is retried — a second serve-up or "
+            "serve-down would name its own kept file superseded"
         )
     return _extra(use, entry, RETRY_SUFFIX, "retry_entry", "the one retry of")
 
@@ -1027,9 +1057,11 @@ def _named_as_derived(
 
 def _extra_entry(entry: Entry, derived: Mapping[str, str], **of: str) -> Entry:
     """The extra entry ``derived`` names, placed after ``entry``: its door command
-    with only the step path changed."""
+    with only the step path changed, or the same command when the entry has no
+    step of its own (a read or a load)."""
     argv = list(entry.argv)
-    argv[argv.index("--step") + 1] = derived["step"]
+    if "step" in derived:
+        argv[argv.index("--step") + 1] = derived["step"]
     return Entry(
         id=next(
             derived[k]
@@ -1041,7 +1073,7 @@ def _extra_entry(entry: Entry, derived: Mapping[str, str], **of: str) -> Entry:
         to=entry.to,
         units=entry.units,
         run=entry.run,
-        artifact=derived["artifact"],
+        artifact=derived.get("artifact", entry.artifact),
         argv=tuple(argv),
         **of,
     )
@@ -1186,8 +1218,8 @@ def retry(
     """Give the logged failed ``entry_id`` its one retry (owner ruling, 2026-09-15).
 
     Refused unless the entry is logged and fails ``assemble_evidence.py check``,
-    has no retry yet, and is not itself a retry; and only a campaign unit or move
-    run has a wrapper of its own to retry (:func:`derive_retry`). Writes
+    has no retry yet, and is not itself a retry; and the ruling retries a
+    campaign unit or move run, a read or a load (:func:`derive_retry`). Writes
     ``<use>/retries.json`` and the retry's wrapper under ``root``, and returns
     the record it added. RUNS.md is not touched.
 
@@ -1410,9 +1442,11 @@ def _logged_context(
 def _write_extra(
     root: Path, use: str, key: str, record: dict[str, str], text: str
 ) -> dict[str, str]:
-    """Write the extra entry's wrapper, once, and list it under ``key``."""
-    wrapper = root / record["step"]
-    if wrapper.exists():
+    """Write the extra entry's wrapper, once, and list it under ``key``.
+
+    A read or a load has no wrapper to write: only the listing is written."""
+    wrapper = root / record["step"] if record.get("step") else None
+    if wrapper is not None and wrapper.exists():
         raise PlanRefusedError(f"{record['step']} already exists: it is written once")
     extras = load_extras(root, use)
     extras[key] = [*extras[key], record]
@@ -1428,8 +1462,9 @@ def _write_extra(
         "relaunch_ruling": RELAUNCH_RULING,
         "relaunches": extras["relaunches"],
     }
-    wrapper.write_text(text, encoding="utf-8")
-    wrapper.chmod(0o755)
+    if wrapper is not None:
+        wrapper.write_text(text, encoding="utf-8")
+        wrapper.chmod(0o755)
     retries_path(root, use).write_text(json.dumps(doc, indent=2) + "\n", "utf-8")
     return record
 
@@ -1560,10 +1595,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 log_from=Path(args.log_from) if args.log_from else None,
                 journal=args.journal or None,
             )
+            where = (
+                f": {made['step']} declares {made['artifact']}"
+                if "step" in made
+                else ", the same door command under the run id drive.sh mints for it"
+            )
             print(
                 f"{made['entry']} failed its check; its one retry "
-                f"{made['retry_entry']} is the entry after it: {made['step']} "
-                f"declares {made['artifact']}"
+                f"{made['retry_entry']} is the entry after it{where}"
             )
         elif args.command == "rerun":
             made = rerun(

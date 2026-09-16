@@ -135,9 +135,17 @@ rig's idle tail; no fill work is added.
   through a link.
 - **A failed entry gets one retry** (2026-09-15, "Fix PR, then retry srv2").
   `plan.py retry --use U --entry E --reason "..."` refuses unless E is logged and
-  fails its check, has no retry yet and is not itself a retry; only a campaign
-  unit or move run has a wrapper of its own to retry. It lists the retry in
-  `<use>/retries.json` and writes its wrapper, `NN-<step>-retry1.sh`, declaring
+  fails its check, has no retry yet and is not itself a retry. A campaign unit or
+  move run is retried through a wrapper and an artifact of its own; a read or a
+  load has neither — `drive.sh` mints its run id just before it runs — so its
+  retry is the same door command under a new id (the read by the owner's
+  2026-09-16 ruling below; the load by Claude's extension of it, recorded
+  there). A serve-up
+  or serve-down gets none: a second run of one moves its kept `serve-<mode>.json`
+  aside as `serve-<mode>.superseded-<run id>.json` (`05-envelope.py:645-682`),
+  naming a data point superseded. It lists the retry in
+  `<use>/retries.json` and, for a campaign run, writes its wrapper,
+  `NN-<step>-retry1.sh`, declaring
   `<artifact stem>-retry1.json`; `read_runs` places `E-retry1` right after E in
   that rig's order, and RUNS.md is not edited. The failed run is kept as a data
   point: `check` says it failed, retried by `E-retry1`, and the driver goes on
@@ -282,6 +290,39 @@ rig's idle tail; no fill work is added.
   driver. The three runs that failed under the old launch stay exactly as they
   are. `rig-id-relock` gives srv2-01-diag1 its fresh start,
   `srv2-01-relaunch1`; running it waits on the owner's ruling.
+- **A vLLM backend is read from the whole log, and the line is recorded**
+  (2026-09-16, "fix the reader and record the line"). `rig-id-relock`'s srv2-03,
+  a `read` of the b-small pair on srv2, failed with `STOP srv2-03: srv2_3b
+  reported no attention_backend` while BOTH vLLM units filed
+  `attention_backend: null` — the check names only the first. Everything else in
+  that read was fine: srv2_3b card 3446 MiB, decode 126.54, prefill 12393.58;
+  srv2_7b card 7522 MiB, decode 68.32, prefill 6773.06; restarts 0.
+  `rig-units.sh`'s `backend_of` took the first line matching
+  `attention[ _]backend` and looked for a token in that line alone, so a log
+  naming the backend on any other line read `none`; the live journal holds
+  exactly two `attention_backend` rows ever, both null, both from this read. The
+  09-13 method that worked
+  (`records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py:89-99`)
+  searched the WHOLE log for the same tokens and recorded `FLASH_ATTN` for these
+  same units. So `backend_rows` searches the whole log over the same token list,
+  and the 2026-09-15 B4 rule still holds: a log naming no token anywhere stays
+  `none`, never a guess. Beside it the reader prints `backend_line=PORT,BASE64`,
+  the first line it matched, truncated to 400 characters on the rig and again in
+  `mcgyvr.fleet.read`, so a huge log cannot bloat a row or a journal entry, and
+  empty when the log has no such line. A read files it as
+  `attention_backend_line`, data that is never judged, so a `none` names the
+  wording the rig printed instead of nothing. **The stop does not move**:
+  `assemble_evidence.py` still refuses a backend that is missing or not
+  unanimous, and `<unit> reported no attention_backend` still stops the driver.
+  srv2-03 is logged as failed, so it gets its one retry, `srv2-03-retry1`, under
+  the rule above: a read has no wrapper and no artifact of its own, so the retry
+  is the same door command under the run id `drive.sh` mints for it.
+  **This ruling covers the `read`.** `plan.py`'s `RETRIED` also admits a `load`,
+  which the owner has not ruled on: Claude extended the ruling because a load is
+  the same shape as a read — it starts nothing, and `drive.sh` mints its run id
+  the same way — and no load has failed in this window. The first one that does
+  is worth putting to the owner before it is retried. A serve-up or serve-down
+  is refused either way, for the reason in the retry rule above.
 
 ## Stop and ask
 

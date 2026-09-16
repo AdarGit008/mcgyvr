@@ -19,9 +19,16 @@
 #   status=PORT,BASE64                   the unit's in-flight page, as served:
 #                                         /metrics for vLLM, /slots otherwise
 #   backend=PORT,BACKEND|none            the attention backend a vLLM unit's
-#                                         start-up log line names, or `none`
-#                                         when no line names one (owner,
-#                                         2026-09-15, B4: never guessed)
+#                                         whole log names, over the 09-13
+#                                         method's tokens, or `none` when the
+#                                         log names none (owner, 2026-09-15,
+#                                         B4: never guessed)
+#   backend_line=PORT,BASE64             the first line of that log matching
+#                                         `attention backend`, truncated to
+#                                         BACKEND_LINE_MAX, as base64; empty
+#                                         when the log has no such line (owner,
+#                                         2026-09-16: the reader records what
+#                                         it saw)
 #
 # Two single readings, for the load `read --load` runs on the rig (the harness
 # ships this same text back to bash): `--card-holders` prints only the gpu_app
@@ -70,14 +77,26 @@ card_holders() {
     done
 }
 
-# The backend the start-up line names, from that line alone: the 09-13 method's
-# tokens (records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py), but
-# never a token met elsewhere in the log, which is a list of what is available.
-backend_of() {
-    local line found
-    line=$(docker logs "$1" 2>&1 | grep -i -m 1 -E 'attention[ _]backend')
-    found=$(printf '%s' "$line" | grep -oE 'FLASH_ATTENTION|FLASH_ATTN|FLASHINFER|TRITON_ATTN' | head -n 1)
-    printf '%s' "${found:-none}"
+# How much of the matched line a row carries: a whole log must not bloat a row
+# or the journal entry it is filed in.
+BACKEND_LINE_MAX=400
+
+# The backend a vLLM unit's WHOLE log names, and the line the reader matched.
+# Owner, 2026-09-16: "fix the reader and record the line". The tokens, and
+# searching the whole log for them, are the 09-13 method's
+# (records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py:89-99).
+# Reading the first `attention backend` line alone filed `none` for two units
+# whose log named FLASH_ATTN on another line, and stopped the run. Nothing is
+# guessed (owner, 2026-09-15, B4): a log naming no token anywhere is `none`,
+# and the line it did print is filed beside it, so a `none` names the wording
+# the rig actually used.
+backend_rows() { # PORT CONTAINER
+    local log found line
+    log=$(docker logs "$2" 2>&1)
+    found=$(printf '%s\n' "$log" | grep -oE 'FLASH_ATTENTION|FLASH_ATTN|FLASHINFER|TRITON_ATTN' | head -n 1)
+    line=$(printf '%s\n' "$log" | grep -i -m 1 -E 'attention[ _]backend')
+    printf 'backend=%s,%s\n' "$1" "${found:-none}"
+    printf 'backend_line=%s,%s\n' "$1" "$(printf '%s' "${line:0:$BACKEND_LINE_MAX}" | base64 -w0)"
 }
 
 unit_pages() {
@@ -101,7 +120,7 @@ unit_pages() {
             esac
             printf 'sleeping=%s,%s\n' "$port" "$state"
             if [ -n "$container" ]; then
-                printf 'backend=%s,%s\n' "$port" "$(backend_of "$container")"
+                backend_rows "$port" "$container"
             fi
         fi
         if page=$(curl -s -f -m 10 "http://127.0.0.1:$port$path" 2>/dev/null); then

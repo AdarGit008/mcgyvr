@@ -19,9 +19,12 @@ Owner rulings, 2026-09-15, on ``python -m mcgyvr.serving.run read``:
   after. The peak is judged like the card: at most ``room_mib``. Owner ruling
   B3: ``room_mib`` is the process's measured card peak, context included. An
   idle unit only, no lease, and the harness imports only the standard library.
-* **B4, "read saves both".** For each vLLM unit, the attention backend the
-  container's start-up log line names is filed in that unit's row as
-  ``attention_backend``, or null when there is no such line; nothing is guessed.
+* **B4, "read saves both".** For each vLLM unit, the attention backend its
+  container's log names is filed in that unit's row as ``attention_backend``,
+  or null when the log names none; nothing is guessed. Owner ruling,
+  2026-09-16: the whole log is searched for the token, as the 09-13 method did,
+  and the line the reader matched is filed beside it
+  (``tests/test_a_vllm_backend_read_searches_the_whole_log_and_records_its_line.py``).
   The rig row files the parsed snapshot beside ``observed_rig_id``, so the
   lock's ``evidence.rigs.<rig>.snapshot`` check can be fed from the row.
 
@@ -447,15 +450,19 @@ def _units_reader(tmp_path: Path, log: str) -> list[str]:
     return done.stdout.splitlines()
 
 
-def test_the_units_reader_names_the_backend_its_start_up_line_selected(
+def test_the_units_reader_names_the_backend_its_whole_log_carries(
     tmp_path: Path,
 ) -> None:
+    """Owner, 2026-09-16: the token is looked for in the whole log, as the 09-13
+    method did, and a log naming none anywhere is still ``none``."""
     started = (
         "INFO 09-13 21:40:02 loader.py:12] Loading weights\n"
         "INFO 09-13 21:40:05 cuda.py:40] Using attention backend: FLASH_ATTN\n"
     )
     assert "backend=8001,FLASH_ATTN" in _units_reader(tmp_path / "said", started)
-    silent = "INFO 09-13 21:40:02 loader.py:12] FLASHINFER is available\n"
+    elsewhere = "INFO 09-13 21:40:02 loader.py:12] FLASHINFER is available\n"
+    assert "backend=8001,FLASHINFER" in _units_reader(tmp_path / "later", elsewhere)
+    silent = "INFO 09-13 21:40:02 loader.py:12] Loading weights\n"
     assert "backend=8001,none" in _units_reader(tmp_path / "silent", silent)
 
 
