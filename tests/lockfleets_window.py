@@ -318,6 +318,22 @@ class Window:
         self.write(self.runs.entry(made["diagnostic_entry"]), change, log=log)
         return made
 
+    def relaunch(
+        self, entry_id: str, change: Change | None = None, log: bool = True
+    ) -> dict[str, str]:
+        """``plan.py relaunch`` for a logged failed diagnostic start whose unit's
+        launch changed, then the fresh start's run written as a window leaves it."""
+        made: dict[str, str] = self.plan.relaunch(
+            self.root,
+            USE,
+            entry_id,
+            "a made-up launch change",
+            journal=str(self.journal),
+        )
+        self.reload()
+        self.write(self.runs.entry(made["relaunch_entry"]), change, log=log)
+        return made
+
     def write_all(
         self,
         change: Mapping[str, Change] | None = None,
