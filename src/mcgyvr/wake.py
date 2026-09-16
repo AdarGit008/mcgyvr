@@ -60,6 +60,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -423,6 +424,12 @@ class Waker:
         #: the card is up and something else is wrong — and re-running the door
         #: for it would spend minutes of rig time proving that twice.
         self._woken: set[str] = set()
+        #: The draws of one attempt are dispatched together, so two of them
+        #: can be refused by the same sleeping card at once. One wake per
+        #: card per run has to hold across them: the check-then-add on
+        #: `_woken` is taken under this lock, and the second refused draw
+        #: finds the card already claimed and stands down.
+        self._lock = threading.Lock()
 
     def dispatching(self, rung: str, send: Callable[[], Answer]) -> Answer:
         """Send, and on a refused port wake the card once and send again.
@@ -453,6 +460,10 @@ class Waker:
         card this run has already woken once — and in each of them the caller's
         refusal stands exactly as it stands today.
         """
+        with self._lock:
+            return self._wake_for(rung)
+
+    def _wake_for(self, rung: str) -> bool:
         card = self._cards.get(rung)
         if card is None or card.host in self._woken:
             return False

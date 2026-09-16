@@ -340,6 +340,23 @@ BREADTH_FIELDS: tuple[Field, ...] = (
         default=1,
         min_value=1,
     ),
+    Field(
+        "temperature",
+        "float",
+        "What every draw after the first samples at. Draw 0 of every attempt "
+        "is greedy (temperature 0.0), so a single-draw install sends what it "
+        "always sent, byte for byte; draws 1..n-1 sample at this temperature, "
+        "because a second draw exists to be a different candidate and a "
+        "greedy one is the first draw again. 0.0 is refused at load wherever "
+        "any unit's effective draws exceed 1: identical draws buy N gate runs "
+        "and nothing else. The wire field is the OpenAI-compatible "
+        "`temperature`. 0.7 is the default because it is the conventional "
+        "sampling point, and the journal now records the temperature per row, "
+        "so the number can be measured against rather than argued about.",
+        default=0.7,
+        min_value=0.0,
+        max_value=2.0,
+    ),
 )
 
 CLEANUP_FIELDS: tuple[Field, ...] = (
@@ -611,6 +628,19 @@ SCHEMA: tuple[Field, ...] = (
         default=None,
         min_value=1,
         bind_hint="e.g. {srv2_7b: 2}",
+    ),
+    Field(
+        "draws",
+        "int_map",
+        "How many candidates one attempt asks *this* unit for, overriding "
+        "`breadth.draws` for the units named; a unit with no entry draws the "
+        "breadth. Spelled the way `attempts` is because it is the same kind of "
+        "per-unit routing decision, and it is policy rather than a unit fact, "
+        "which is why it is not under `units`. `mcgyvr pool` prints the "
+        "effective number where it exceeds one.",
+        default=None,
+        min_value=1,
+        bind_hint="e.g. {srv2_7b: 3}",
     ),
     Field(
         "max_escalations",
@@ -1534,6 +1564,35 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"attempts.{name}: {name!r} is not a declared unit. "
                 f"Declared: {', '.join(sorted(units))}"
             )
+
+    overrides = data.get("draws") or {}
+    for name in overrides:
+        if name not in units:
+            raise ConfigSchemaError(
+                f"draws.{name}: {name!r} is not a declared unit. "
+                f"Declared: {', '.join(sorted(units))}"
+            )
+
+    # A cross-field refusal because neither field is wrong on its own: a
+    # breadth above one is a legal count and a temperature of zero a legal
+    # number, and it is the pair that asks for N byte-identical replies. Over
+    # the *effective* breadth, so a single unit widened by name is refused as
+    # surely as the whole ladder.
+    breadth = data["breadth"]["draws"]
+    temperature = data["breadth"]["temperature"]
+    widened = {
+        name: overrides.get(name, breadth)
+        for name in sorted(units)
+        if overrides.get(name, breadth) > 1
+    }
+    if temperature == 0.0 and widened:
+        listed = ", ".join(f"{name} draws {count}" for name, count in widened.items())
+        raise ConfigSchemaError(
+            f"breadth.temperature: 0.0 with {listed} asks for identical draws. "
+            "Draw 0 is always greedy, so a temperature of zero makes every "
+            "draw the first draw again, buying N gate runs and nothing else. "
+            "Raise `breadth.temperature`, or set the draws back to 1."
+        )
 
     for role in ("orchestrator", "verifier"):
         bound = data[role].get("unit")
