@@ -1,0 +1,17 @@
+{
+  "run_id": "2026-09-16-live-srv2-serve-down-mtp-ornith-srv2-06",
+  "host": "srv2",
+  "mode": "down",
+  "compose_file": "/tmp/tmp.QBtjzUmHSY/compose.srv2.b-small.yml",
+  "compose_down_exit": 0,
+  "expected": [
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+    "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
+  ],
+  "remaining": [],
+  "daemon_read": true,
+  "card_after": {
+    "used_mib": 1,
+    "free_mib": 11911
+  }
+}

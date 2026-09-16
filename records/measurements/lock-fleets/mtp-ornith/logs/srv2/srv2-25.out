@@ -1,0 +1,10 @@
+gate 1: round=r34-16-09-2026 product_sha256=4178cea06a0cd033... profile=dev config=/tmp/claude-1000/-home-adaramir-pi-agent-projects-pi-research-local-ai/0077129e-323d-49bb-87b0-f9b53dc81672/scratchpad/lever3-mtp/fleet-setup
+gate 2: srv2 matches its declaration on 11 keys
+gate 3: docker on srv2 answers, 29.7.2 as declared
+gate 4: workload 2f2bb7932a0b6606... matches the pin
+gate 5: RUN_ID=2026-09-16-lock-fleets-mtp-ornith-srv2-r1-b-small-to-b-big -> /tmp/claude-1000/-home-adaramir-pi-agent-projects-pi-research-local-ai/0077129e-323d-49bb-87b0-f9b53dc81672/scratchpad/lever3-mtp/records/evidence/2026-09-16-lock-fleets
+data-10-scan: card free=11911 MiB, host available=45526 MiB
+data-20-geometry: qwen3next n_layer=48 placeable=48 experts=35136 MiB
+data-30-placement: floor --n-cpu-moe 36 of 48 placeable, predicting 11573 of 11911 MiB free (derived — walk down to it)
+gate 6: /tmp/claude-1000/-home-adaramir-pi-agent-projects-pi-research-local-ai/0077129e-323d-49bb-87b0-f9b53dc81672/scratchpad/lever3-mtp/tools/runs/campaigns/lock-fleets/mtp-ornith/25-mtp-ornith-srv2-r1-b-small-to-b-big.sh --host srv2 -> /tmp/claude-1000/-home-adaramir-pi-agent-projects-pi-research-local-ai/0077129e-323d-49bb-87b0-f9b53dc81672/scratchpad/lever3-mtp/records/evidence/2026-09-16-lock-fleets (RUN_ID=2026-09-16-lock-fleets-mtp-ornith-srv2-r1-b-small-to-b-big)
+gate 8: 1 artifact(s) parse

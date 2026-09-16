@@ -1,0 +1,22 @@
+{
+ "cpu_max_mhz": "4600",
+ "cpu_model": "Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz",
+ "docker": "29.7.2",
+ "gpu": {
+  "compute_cap": "7.5",
+  "driver": "580.178.04",
+  "free_mib": 5745,
+  "name": "NVIDIA_GeForce_GTX_1660_SUPER",
+  "reserved_mib": 399,
+  "total_mib": 6144,
+  "used_mib": 1
+ },
+ "host": "srv1",
+ "host_mem_available_mib": 14605,
+ "nproc": "6",
+ "pl1_uw": "95000000",
+ "pl2_uw": "120000000",
+ "ram_mt_s": "3600",
+ "run_id": "2026-09-16-srv1-cpu-saturation-A3-ncmoe40",
+ "uptime_since": "2026-09-12T07:52:51Z"
+}

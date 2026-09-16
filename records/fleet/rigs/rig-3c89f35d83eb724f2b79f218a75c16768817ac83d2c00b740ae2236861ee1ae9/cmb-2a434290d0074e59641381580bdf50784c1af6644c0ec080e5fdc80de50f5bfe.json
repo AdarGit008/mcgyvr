@@ -5,16 +5,16 @@
       "card_peak_mib": 5626,
       "container": "mcgyvr-srv1-maxctx-32768",
       "engine": "llama.cpp",
-      "prefill_tok_s": 354.05894512122495,
-      "warm_decode_tok_s": 33.761374604296826
+      "prefill_tok_s": 352.07749083592074,
+      "warm_decode_tok_s": 33.543208585482894
     }
   },
   "card_mib": 6144,
-  "envelope": "records/evidence/2026-09-15-lock-fleets",
+  "envelope": "records/evidence/2026-09-16-lock-fleets",
   "overhead_mib": 399,
   "restarts": {
     "srv1_35b_maxctx": 0
   },
   "rig": "srv1",
-  "validated_at": "2026-09-15T18:00:51Z"
+  "validated_at": "2026-09-16T17:34:14Z"
 }

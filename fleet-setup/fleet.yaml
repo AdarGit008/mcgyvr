@@ -198,7 +198,7 @@ units:
     window: 4096
     output_tokens: 2048
     request_timeout_s: 180
-    room_mib: 11700                               # PROVISIONAL, replaced by assemble's printed value
+    room_mib: 11608                               # measured card peak, sampled until idle (mtp-ornith, 3 cold starts)
     container: "mcgyvr-srv2-ornith-mtp"
     unit_id: "unt-7a00ef65a07969b3897d182e2d195f2e90706a1da6f308e285f16a88911843bb"
     launch:

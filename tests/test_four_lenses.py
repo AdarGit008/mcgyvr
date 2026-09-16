@@ -83,6 +83,16 @@ def _where(path: Path, lineno: int) -> str:
 # happen to have picked the same word — which this check must not force into
 # agreement.
 DECLARED_DUPLICATES: dict[str, bool] = {
+    # Must agree: tools/runs/campaigns/srv1-cpu-saturation/cpusat.py restates
+    # lock-fleets' rig folder, marker fields and vmstat counters rather than
+    # importing lockfleets.py, because cpusat.py is shipped to the rig as text
+    # (`python3 - rig-agg`, as the harness is) and runs on a python3 with no
+    # mcgyvr to import. The probe tees its markers into the same ~/mcgyvr-relock
+    # and files the same START/END fields and swap counters as a lock-fleets
+    # run, so a reader compares the two artifacts field for field.
+    "RIG_DIR": True,
+    "MARKER_FIELDS": True,
+    "VMSTAT_FIELDS": True,
     # Two serving backends, added 2026-08-30. Each names the engine it drives,
     # so three of these four MUST differ and are declared False for that reason
     # rather than as an unreconciled conflict.

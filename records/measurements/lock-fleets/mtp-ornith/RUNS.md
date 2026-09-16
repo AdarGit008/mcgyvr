@@ -103,8 +103,57 @@ A unit's load peak in a combination of several may not pass the card less the re
 
 | event | rig | at | idle minutes |
 |---|---|---|---|
+| finished | srv1 | 2026-09-16T18:00:53Z | the other rig is still running |
+| finished | srv2 | 2026-09-16T18:14:27Z | srv1 idle 13.6 |
 
 ## Log
 
 | entry | rig | started_at | ended_at | exit | run id | envelope | output |
 |---|---|---|---|---|---|---|---|
+| window | srv1 | 2026-09-16T17:00:09Z |  |  |  | window date 2026-09-16 |  |
+| window | srv2 | 2026-09-16T17:00:21Z |  |  |  | window date 2026-09-16 |  |
+| srv2-01 | srv2 | 2026-09-16T17:00:22Z | 2026-09-16T17:02:42Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c1-srv2_35b_256k | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-01.out |
+| srv2-02 | srv2 | 2026-09-16T17:02:44Z | 2026-09-16T17:05:59Z | 0 | 2026-09-16-live-srv2-serve-up-mtp-ornith-srv2-02 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-02.out |
+| srv1-01 | srv1 | 2026-09-16T17:00:10Z | 2026-09-16T17:06:14Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c1-srv1_35b_maxctx | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-01.out |
+| srv2-03 | srv2 | 2026-09-16T17:06:00Z | 2026-09-16T17:06:39Z | 1 | run-20260916T170600-02479b2e | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-03.out |
+| srv2-04 | srv2 | 2026-09-16T17:06:40Z | 2026-09-16T17:07:00Z | 1 | run-20260916T170640-d0356614 | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-04.out |
+| srv2-05 | srv2 | 2026-09-16T17:07:00Z | 2026-09-16T17:07:32Z | 1 | run-20260916T170700-a4f33780 | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-05.out |
+| srv2-06 | srv2 | 2026-09-16T17:07:33Z | 2026-09-16T17:07:53Z | 0 | 2026-09-16-live-srv2-serve-down-mtp-ornith-srv2-06 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-06.out |
+| srv1-02 | srv1 | 2026-09-16T17:06:15Z | 2026-09-16T17:10:52Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c1-srv1_deepseek | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-02.out |
+| srv2-07 | srv2 | 2026-09-16T17:07:54Z | 2026-09-16T17:13:23Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c1-srv2_80b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-07.out |
+| srv2-08 | srv2 | 2026-09-16T17:13:24Z | 2026-09-16T17:14:57Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c1-srv2_ornith_mtp | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-08.out |
+| srv1-03 | srv1 | 2026-09-16T17:10:52Z | 2026-09-16T17:15:29Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c1-srv1_35b_b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-03.out |
+| srv2-09 | srv2 | 2026-09-16T17:14:58Z | 2026-09-16T17:17:17Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c2-srv2_35b_256k | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-09.out |
+| srv1-04 | srv1 | 2026-09-16T17:15:29Z | 2026-09-16T17:20:19Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c2-srv1_35b_maxctx | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-04.out |
+| srv2-10 | srv2 | 2026-09-16T17:17:18Z | 2026-09-16T17:20:49Z | 0 | 2026-09-16-live-srv2-serve-up-mtp-ornith-srv2-10 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-10.out |
+| srv2-11 | srv2 | 2026-09-16T17:20:50Z | 2026-09-16T17:21:29Z | 1 | run-20260916T172050-39efda7e | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-11.out |
+| srv2-12 | srv2 | 2026-09-16T17:21:30Z | 2026-09-16T17:21:50Z | 1 | run-20260916T172130-4023f2b4 | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-12.out |
+| srv2-13 | srv2 | 2026-09-16T17:21:51Z | 2026-09-16T17:22:23Z | 1 | run-20260916T172151-d00c29fc | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-13.out |
+| srv2-14 | srv2 | 2026-09-16T17:22:23Z | 2026-09-16T17:22:46Z | 0 | 2026-09-16-live-srv2-serve-down-mtp-ornith-srv2-14 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-14.out |
+| srv1-05 | srv1 | 2026-09-16T17:20:20Z | 2026-09-16T17:25:00Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c2-srv1_deepseek | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-05.out |
+| srv2-15 | srv2 | 2026-09-16T17:22:46Z | 2026-09-16T17:28:22Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c2-srv2_80b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-15.out |
+| srv1-06 | srv1 | 2026-09-16T17:25:01Z | 2026-09-16T17:29:32Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c2-srv1_35b_b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-06.out |
+| srv2-16 | srv2 | 2026-09-16T17:28:22Z | 2026-09-16T17:29:53Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c2-srv2_ornith_mtp | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-16.out |
+| srv2-17 | srv2 | 2026-09-16T17:29:53Z | 2026-09-16T17:32:11Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c3-srv2_35b_256k | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-17.out |
+| srv1-07 | srv1 | 2026-09-16T17:29:32Z | 2026-09-16T17:34:20Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c3-srv1_35b_maxctx | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-07.out |
+| srv2-18 | srv2 | 2026-09-16T17:32:11Z | 2026-09-16T17:35:39Z | 0 | 2026-09-16-live-srv2-serve-up-mtp-ornith-srv2-18 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-18.out |
+| srv2-19 | srv2 | 2026-09-16T17:35:39Z | 2026-09-16T17:36:19Z | 1 | run-20260916T173539-98962bdb | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-19.out |
+| srv2-20 | srv2 | 2026-09-16T17:36:20Z | 2026-09-16T17:36:39Z | 1 | run-20260916T173620-823eb137 | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-20.out |
+| srv2-21 | srv2 | 2026-09-16T17:36:40Z | 2026-09-16T17:37:11Z | 1 | run-20260916T173640-1e7317dd | journal | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-21.out |
+| srv2-22 | srv2 | 2026-09-16T17:37:12Z | 2026-09-16T17:37:33Z | 0 | 2026-09-16-live-srv2-serve-down-mtp-ornith-srv2-22 | records/evidence/2026-09-16-live-srv2 | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-22.out |
+| srv1-08 | srv1 | 2026-09-16T17:34:21Z | 2026-09-16T17:38:58Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c3-srv1_deepseek | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-08.out |
+| srv2-23 | srv2 | 2026-09-16T17:37:33Z | 2026-09-16T17:43:02Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c3-srv2_80b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-23.out |
+| srv1-09 | srv1 | 2026-09-16T17:38:59Z | 2026-09-16T17:43:17Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-c3-srv1_35b_b | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-09.out |
+| srv2-24 | srv2 | 2026-09-16T17:43:02Z | 2026-09-16T17:44:33Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-c3-srv2_ornith_mtp | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-24.out |
+| srv1-10 | srv1 | 2026-09-16T17:43:18Z | 2026-09-16T17:47:06Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-r1-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-10.out |
+| srv1-11 | srv1 | 2026-09-16T17:47:07Z | 2026-09-16T17:49:44Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-r1-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-11.out |
+| srv2-25 | srv2 | 2026-09-16T17:44:34Z | 2026-09-16T17:49:48Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-r1-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-25.out |
+| srv1-12 | srv1 | 2026-09-16T17:49:45Z | 2026-09-16T17:52:41Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-r2-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-12.out |
+| srv2-26 | srv2 | 2026-09-16T17:49:49Z | 2026-09-16T17:54:37Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-r1-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-26.out |
+| srv1-13 | srv1 | 2026-09-16T17:52:42Z | 2026-09-16T17:55:17Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-r2-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-13.out |
+| srv1-14 | srv1 | 2026-09-16T17:55:18Z | 2026-09-16T17:58:15Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-r3-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-14.out |
+| srv2-27 | srv2 | 2026-09-16T17:54:37Z | 2026-09-16T17:59:42Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-r2-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-27.out |
+| srv1-15 | srv1 | 2026-09-16T17:58:15Z | 2026-09-16T18:00:52Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv1-r3-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv1/srv1-15.out |
+| srv2-28 | srv2 | 2026-09-16T17:59:43Z | 2026-09-16T18:04:31Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-r2-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-28.out |
+| srv2-29 | srv2 | 2026-09-16T18:04:32Z | 2026-09-16T18:09:40Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-r3-b-small-to-b-big | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-29.out |
+| srv2-30 | srv2 | 2026-09-16T18:09:40Z | 2026-09-16T18:14:27Z | 0 | 2026-09-16-lock-fleets-mtp-ornith-srv2-r3-b-big-to-b-small | records/evidence/2026-09-16-lock-fleets | records/measurements/lock-fleets/mtp-ornith/logs/srv2/srv2-30.out |

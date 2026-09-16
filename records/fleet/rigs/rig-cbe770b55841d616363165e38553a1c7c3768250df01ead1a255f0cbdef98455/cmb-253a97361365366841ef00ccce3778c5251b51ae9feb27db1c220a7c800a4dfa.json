@@ -1,0 +1,20 @@
+{
+  "approved": {
+    "srv2_ornith_mtp": {
+      "address": "http://srv2:8004",
+      "card_peak_mib": 11608,
+      "container": "mcgyvr-srv2-ornith-mtp",
+      "engine": "llama.cpp",
+      "prefill_tok_s": 780.7667536045199,
+      "warm_decode_tok_s": 86.77769901614508
+    }
+  },
+  "card_mib": 12288,
+  "envelope": "records/evidence/2026-09-16-lock-fleets",
+  "overhead_mib": 377,
+  "restarts": {
+    "srv2_ornith_mtp": 0
+  },
+  "rig": "srv2",
+  "validated_at": "2026-09-16T17:44:26Z"
+}

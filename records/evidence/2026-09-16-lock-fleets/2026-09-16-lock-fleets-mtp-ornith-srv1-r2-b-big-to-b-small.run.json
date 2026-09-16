@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-09-16-lock-fleets-mtp-ornith-srv1-r2-b-big-to-b-small",
+  "campaign": "lock-fleets",
+  "step": "mtp-ornith-srv1-r2-b-big-to-b-small",
+  "host": "srv1",
+  "date": "2026-09-16",
+  "round": "r34-16-09-2026",
+  "product_sha256": "4178cea06a0cd0336b6a1208e078cfd8d4657ba1e7581e4772ca5e2f2774395c",
+  "profile": "dev",
+  "config": "/tmp/claude-1000/-home-adaramir-pi-agent-projects-pi-research-local-ai/0077129e-323d-49bb-87b0-f9b53dc81672/scratchpad/lever3-mtp/fleet-setup",
+  "mcgyvr_version": "0.1.1.dev406+gef02dbcf.d20260916",
+  "started_at": "2026-09-16T17:52:49Z"
+}

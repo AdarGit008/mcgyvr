@@ -12,11 +12,11 @@
   "used_mib": 1
  },
  "host": "srv2",
- "host_mem_available_mib": 45512,
+ "host_mem_available_mib": 45542,
  "nproc": "20",
  "pl1_uw": "65000000",
  "pl2_uw": "0",
  "ram_mt_s": "2933",
- "run_id": "2026-09-16-lock-fleets-rig-id-relock-srv2-r3-b-big-to-b-small",
+ "run_id": "2026-09-16-lock-fleets-mtp-ornith-srv2-r3-b-big-to-b-small",
  "uptime_since": "2026-09-12T08:58:44Z"
 }
