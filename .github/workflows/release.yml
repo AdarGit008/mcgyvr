@@ -11,10 +11,39 @@
 # once. A tag pushed a second time finds its release already there and is
 # refused by `gh`: a moved tag is not a second product under the first name.
 #
+# The product has two destinations and still one build. `build` makes the
+# distribution, checks it, attaches it to the GitHub release, and uploads it as
+# a workflow artifact; `pypi` downloads that same artifact and publishes it.
+# Two places to install from, one set of files — the arrow is still
+# source -> product -> install with a second head on it, not a second product.
+# Avoiding a rebuild in the publish job is the whole reason for the artifact
+# hand-off: a second `uv build` would be the two-products-one-name case above,
+# arrived at from the other end.
+#
+# PyPI is reached by trusted publishing. `pypi` asks GitHub for an OIDC token
+# (`id-token: write`, which is why that job declares its own permissions rather
+# than inheriting `contents: write`) and PyPI trades it for a short-lived
+# upload token, so no API token is stored in this repository or its secrets.
+# The cost is one manual step that cannot be automated: on pypi.org the owner
+# registers a pending trusted publisher for PyPI project `mcgyvr`, owner and
+# repository `AdarGit008/mcgyvr`, workflow file `release.yml`, environment
+# `pypi`. Those four values ARE the credential — renaming this file or the
+# environment below revokes it — and until the publisher exists the `pypi` job
+# fails while the GitHub release still stands.
+#
+# The environment `pypi` is that fourth value, and the seam a required reviewer
+# can later be attached to in repository settings without editing this file.
+#
 # The version is the tag's, read by hatch-vcs from git: `fetch-depth: 0`
 # because a checkout without its tags reads as a distance from nothing
 # (`0.0.1.dev<N>+g<sha>`), and a wheel stamped with that would be a product
 # that cannot say which tag it is.
+#
+# The notes are the changelog's. `--generate-notes` could not fail — it always
+# had PR titles to list — so a release could carry notes nobody wrote. The
+# notes for a tag are now its CHANGELOG.md section, printed by
+# tools/release/changelog_notes.py, which refuses a version that has no
+# section: the release page and the file a reader opens are one text.
 name: release
 on:
   push:
@@ -46,10 +75,46 @@ jobs:
         run: |
           ls dist/
           uv run --no-project --with packaging python tools/release/wheel_is_tag.py "$GITHUB_REF_NAME" dist/*.whl
+      # Written notes or no release. Redirected and not piped: the default
+      # shell here is `bash -e`, without pipefail, so `… | tee` would hide the
+      # refusal this step exists to surface.
+      - name: the tag's notes are the changelog's
+        run: |
+          uv run --no-project --with packaging python tools/release/changelog_notes.py "$GITHUB_REF_NAME" CHANGELOG.md > release-notes.md
+          cat release-notes.md
       # `gh` is on every ubuntu runner and needs no action to pin. The release
-      # carries the wheel and the sdist as assets; the tag's notes are
-      # generated from the commits since the previous tag.
+      # carries the wheel and the sdist as assets.
       - name: publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --notes-file release-notes.md --title "$GITHUB_REF_NAME"
+      # The same files the release carries, handed to `pypi` rather than built
+      # again there. `if-no-files-found: error` because an empty artifact would
+      # reach the publish job as "nothing to upload" and succeed at publishing
+      # nothing.
+      - name: keep the distribution for the publish job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+  # The second destination. It builds nothing, checks out nothing and holds no
+  # token: it takes the artifact `build` made and hands it to PyPI under an
+  # OIDC identity, which is the whole of the header's trusted-publishing note.
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    # Job-level permissions replace the workflow's `contents: write` outright,
+    # so this job can mint an OIDC token and do nothing else with the
+    # repository. A same-run artifact download needs no `actions:` scope.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/

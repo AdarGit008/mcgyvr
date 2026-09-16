@@ -15,6 +15,14 @@ refuses to overwrite an existing config without `--force`, and prints what
 was decided and why, then what is *not* configured and what that costs.
 Backends on another machine come in with `--host` (repeatable).
 
+A hosted API unit comes in with `--api` (repeatable), written as
+`model=<id>,address=<url>,api_key_env=<VAR>` — so a machine with no
+GPU and no local backend gets the same two files rather than a
+refusal. `api_key_env` is the NAME of the environment variable
+holding the key; the key itself is never written to either file.
+A machine with no local backend and no `--api` still refuses, because
+a config that dispatches nowhere is not a head start.
+
 A setup is two files in one directory, and `mcgyvr init` writes both (by
 default into the working directory):
 

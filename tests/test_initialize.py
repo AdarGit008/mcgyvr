@@ -12,16 +12,21 @@ machine with no GPU and on one with four.
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
 import pytest
 
 from mcgyvr.capability import load as load_table
 from mcgyvr.config import load as load_config
-from mcgyvr.config import parse as parse_config
 from mcgyvr.detect import Backend, Detection, Gpu
-from mcgyvr.initialize import InitError, _sources_for, build, initialize, render
+from mcgyvr.initialize import (
+    InitError,
+    _sources_for,
+    build,
+    initialize,
+    parse_api_unit,
+    render,
+)
 from mcgyvr.propose import propose
 
 BARE = Detection(
@@ -128,21 +133,38 @@ def test_the_refusal_says_how_to_fix_it_both_ways(tmp_path: Path, table) -> None
         initialize(tmp_path / "c.yaml", detection=BARE, table=table)
     message = str(exc.value)
     assert "start a local backend" in message
-    assert "api_key_env: ANTHROPIC_API_KEY" in message, "a worked API-source example"
-    assert "api_claude-opus-5" in message, "named by the convention"
+    assert "--api model=claude-opus-5" in message, "a worked `--api` invocation"
+    assert "api_key_env=ANTHROPIC_API_KEY" in message, "the key named, never held"
 
 
-def test_the_worked_example_in_the_refusal_actually_loads(  # type: ignore[no-untyped-def]
+def test_the_invocation_the_refusal_advertises_actually_works(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    """We tell the user to paste it, so it had better be a valid config."""
-    with pytest.raises(InitError) as exc:
-        initialize(tmp_path / "c.yaml", detection=BARE, table=table)
+    """We tell the user to run it, so it had better write a loadable setup.
 
-    block = "\n".join(
-        line[6:] for line in str(exc.value).splitlines() if line.startswith("      ")
+    The refusal used to print a YAML block to paste, and it printed it as one
+    merged document — a shape no setup on disk takes. It now names a command,
+    so what has to be true is that the command works: the line is lifted out
+    of the message and run, rather than a copy of it being maintained here.
+    """
+    with pytest.raises(InitError) as exc:
+        initialize(tmp_path / "refused", detection=BARE, table=table)
+
+    advertised = next(
+        line.strip()
+        for line in str(exc.value).splitlines()
+        if line.strip().startswith("mcgyvr init --api ")
     )
-    config = parse_config(textwrap.dedent(block))
+    path = tmp_path / "setup"
+    result = initialize(
+        path,
+        detection=BARE,
+        table=table,
+        api_units=(parse_api_unit(advertised.split("--api ", 1)[1]),),
+    )
+
+    assert result.created and result.written
+    config = load_config(path)
     assert list(config.ladder.names) == ["api_claude-opus-5"]
     assert not config.is_local_only
 
