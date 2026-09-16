@@ -9,6 +9,80 @@ under the same paths.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-16
+
+The first release with the fleet, the serving door and delegation in it — none
+of the three existed at v0.1.0.
+
+### Added
+
+- `mcgyvr fleet` — a fleet is a named layout of serving units across the rigs,
+  declared in `fleet.yaml` and `policy.yaml`. `fleet lock` writes the lock from
+  dev runs that passed; `promote`, `use`, `probe` and `alerts` read and move
+  what the lock approves. Production runs only what the lock holds, and a lock
+  moves one way. A loadable `fleet.yaml`/`policy.yaml` example ships with it.
+- `mcgyvr serve sleep|wake` — take a card down after draining every slot it
+  serves, and bring its launch spec back up, through the serving door. A card
+  may be woken, and a rig served down, twice in one day.
+- `mcgyvr delegate` — turn a prompt plus a repository into validated contracts,
+  so the step before `mcgyvr run` is no longer done by hand.
+- A library of named ladder configs, selectable and reloadable, so one machine
+  can carry several setups instead of one hand-edited file.
+- Per-rig derived numbers live in a file of their own; no rig constants in code.
+- The `/mcgyvr` skill is packaged and installed into both harnesses (Claude CLI
+  and pi) by `skills/mcgyvr/install.sh`.
+- `.github/repo-baseline.md` — the checklist this repository is aligned
+  against, with the survey it was derived from.
+- Releases publish to PyPI from the tag, by trusted publishing (OIDC, no stored
+  token), carrying the same distribution the GitHub release carries.
+
+### Changed
+
+- Release notes are this file's. `gh release create --generate-notes` is gone:
+  a tag's notes are its section here, printed by
+  `tools/release/changelog_notes.py`, which refuses a version with no section
+  rather than publishing notes nobody wrote.
+- A config resolves the geometry it names or refuses to load, and a config
+  digest names the setup rather than the schema of the day. The retired
+  `source`/`rung`/`tier` words and the retired `cfg-` digest prefix are refused
+  by name.
+- A run holds the width and the window its config declares, and waits under a
+  ceiling it can name.
+- Ollama left the product; what it was is kept as a record, not as code.
+- The vLLM gate sizes the KV cache at the dtype the entry launches with. A unit
+  states its KV cache dtype, the seccomp profile its engine needs, and where
+  its experts sit; one that does not is refused. Prefill is judged against its
+  own measured class tolerance, and a probe timed off the rig is recorded
+  rather than judged.
+- A live run is admitted only by a read of its rigs through the door, and warns
+  when a ladder step's combination is pulled instead of failing on it.
+- A recorded hardware swap on a rig no longer stops a run.
+- Delivery runs one set of checks whether it commits or not.
+- Dev and live keep two locks, and a lock moves one way.
+- Dependency bumps: ruff, tokenizers, types-pyyaml.
+
+### Fixed
+
+- A shim registers the module it loads, so the door works from an installed
+  wheel and not only from a checkout.
+- A failed lock-fleets start keeps its full log, files its exit cause and gets
+  one retry; a failed retry gets one diagnostic start.
+- A status read under load gets the time it takes, instead of timing out and
+  reporting the rig unreachable.
+- A tool that found nothing to change is no longer reported as a failure.
+- A pull warning names the unit it is about, and every row carries its own time.
+- Dead code is archived, duplicate tests removed and CI time cut; live code no
+  longer cites ADRs, archived modules, or paths that moved into `archive/`.
+
+## Entries written before 0.2.0
+
+Everything below was accumulated under `[Unreleased]` from the first commit
+onwards, across the v0.1.0 tag, and nothing in it records which side of
+2026-09-06 each entry was written on. It is kept as written rather than
+re-dated into a release it may not belong to: 0.2.0 above says what changed
+since v0.1.0 for a reader, and this is the per-change detail behind it and
+behind v0.1.0.
+
 ### Added
 - Repo founded. Scope of record is the issue tree; forks and rationale in
   `archive/docs/archive/decisions/`.
