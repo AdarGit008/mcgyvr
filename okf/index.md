@@ -1,6 +1,23 @@
 # okf — what is known, and what it obliges
 
-Three hand-authored trees live here beside the generated concept bundle.
+Rules and gotchas for working this fleet.
+
+**What an entry here is.**
+
+- **General.** It holds across a hardware swap, a rebuild or a re-lock. It cites
+  no commit, no run and no date.
+- **Leading.** It names a flag, says what it does and which way to move it. It
+  does not carry the value — you derive that against the rig as it is now.
+- **Gotchas.** Traps, time savers and workarounds for the tools, the rigs and
+  the models. Not a tour of the code.
+- **Enforcing.** Where this project has settled something, the entry is a rule,
+  not a consideration.
+
+**The numbers are not here.** Measured values live in `records/` and in the run
+journals, which is where you go to check a claim or to get a figure. An entry
+that needs a number tells you how to derive or measure it. Copying a number out
+of this store into a config is the mistake this store exists to prevent — the
+rigs swap hardware, and a value that was right on one afternoon is not a rule.
 
 | path | read it when |
 |---|---|
@@ -13,83 +30,33 @@ Three hand-authored trees live here beside the generated concept bundle.
 | `config/llama.cpp.md` | before turning a llama.cpp knob |
 | `models/` | sizing a checkpoint against a card — why a cliff fires, what sparsity buys |
 
-Claims are atomic and carry a path. **The path is where the reasoning lives, not
-where the authority lives** — a claim is true because something was measured,
-and `records/evidence/` and the journals are how you check that. `archive/`
-and mcgyvr-lab are not read, and are not an authority when they are →
-`must-read/always.md`.
-
 ## `models/` — sizing concepts
 
-Thirteen atomic concepts on what makes a checkpoint fit and go fast, added
-2026-09-04.
+Thirteen atomic concepts on what makes a checkpoint fit and go fast. `a-*` are
+model-shaped, `b-*` hardware-shaped.
 
-**They are mechanism, not measurement.** `must-read/` and `config/` carry a path
-into `records/evidence/` — something measured on srv1 or srv2, which you can go
-re-read. These carry no such path: they say *why* a cliff exists, never where one
-sits on a card here. Size a checkpoint with them, then measure. Where one
-contradicts a measured entry, the measurement wins.
+**They are mechanism, not measurement.** They say *why* a cliff exists, never
+where one sits on a card here. Size a checkpoint with them, then measure. Where
+one contradicts a measured entry, the measurement wins.
 → `must-read/reading-results.md`
 
-`a-*` are model-shaped, `b-*` hardware-shaped:
+## Where the archive is
 
-| file | claim |
-|---|---|
-| `a-01-sparsity-linear-multiplier.md` | metric = `(BW/bpp) × (total/active) × (1/union_factor)` |
-| `a-02-active-experts-per-layer.md` | `num_experts_per_tok` is per layer — multiply by layers |
-| `a-03-union-amortization-by-expert-count.md` | few experts share under batching, 512 experts barely do |
-| `a-04-shared-routed-split-is-resident-offload-boundary.md` | `n_shared_experts` is the resident/offload line |
-| `a-05-dense-no-cold-pile.md` | dense has no cold pile; offload degenerates to a slow tail |
-| `a-06-offload-by-design-three-markers.md` | shared/routed split + fine-grained experts + latent attention |
-| `a-07-not-every-layer-is-moe.md` | `first_k_dense_replace` / `mlp_only_layers` keep early layers dense |
-| `a-08-kv-cache-second-cliff.md` | KV is computable and fires its own cliff |
-| `a-09-smart-responsive-sweet-spot.md` | active bytes in VRAM, bulk parked in DRAM |
-| `a-10-quantization-is-a-dial.md` | bpp moves the cliff line: Q8 1.0, Q4 0.5, Q2 0.3 B/param |
-| `b-01-capacity-cliff-not-slope.md` | 1 GB of overflow costs 5–10x — a discontinuity |
-| `b-07-two-independent-cliffs.md` | weights and KV/context fire the same discontinuity |
-| `b-09-offload-granularity-moves-cliff-location.md` | granularity moves the cliff, not the ceiling |
-
-Two of these are already load-bearing elsewhere and were measured here
-independently: `a-08` / `b-07` (KV as its own cliff) underwrite the per-layer KV
-arithmetic in `must-read/touching-models.md`, and `a-05` (dense has no cold pile)
-is the reason `--n-cpu-moe` is a no-op on `Qwen3.8-27B-UD-IQ3_XXS`.
-→ `config/llama.cpp.md`
-
-## Archive
-
-Locator only. The `mcgyvr-lab/` rows are in AdarGit008/mcgyvr-lab; they are
-not opened unasked, and carry no authority when they are →
-`must-read/always.md`.
-
-| what | where |
-|---|---|
-| board rulings, 3 seats, 10 contested items | `mcgyvr-lab/archive/docs/board-findings-2026-08-31.md` |
-| next-run plan (vLLM n=16/32, co-residency, MoE) | `mcgyvr-lab/archive/docs/serving-vllm-n32-plan-2026-08-31.md` |
-| rig inventory + vLLM offload measurements | `records/evidence/2026-08-31-inventory/` |
-| the 2026-08-30 concurrency grid + runbook | `records/evidence/serving-2026-08-30/` |
-| MoE expert-offload sweep | `records/evidence/2026-08-25-moe-expert-offload/` |
-| earlier claim verification (generated concepts) | `records/evidence/2026-08-26-claim-verification/` |
+Superseded prose, plans, session logs and retired code live in the lab repo
+under the paths they would have here. They are not opened unasked and are not
+an authority when they are → `must-read/always.md`.
 
 ## Querying the store
 
-`python3 tools/okf/query.py --list` walks this directory as a concept store.
-**Today it returns the thirteen `models/` concepts and nothing else** — every one
-`stable`, every one `UNVERIFIED`, no signer.
+`tools/okf/query.py` walks this directory as a concept store. The trust gate
+returns a strong answer only for a concept signed by a human, so it abstains on
+everything here by design — that is the gate working, not a failure. Read one
+with `--raw`, promote it with `--sign`.
 
-`get_knowledge()` returns STRONG only for a concept whose `verified.by` starts
-with `human:`, so it **abstains on all thirteen**. That is the trust gate working,
-not a failure. Read one with `--raw`, promote it with
-`--sign <id> --as human:adar`.
+Frontmatter is parsed as YAML and one bad value takes down the whole listing,
+not just its own file — a `title` or `description` containing `: ` must be
+quoted.
 
-The machine-built `okf/serving/**` bundle described in earlier revisions of this
-file **is not on disk**. It was generated by
-`records/evidence/2026-08-26-claim-verification/build_okf.py`, and its bulk
-approvals still sit in `approvals.json` next to that script; rebuild from there
-if it is wanted back. Until then, nothing in `okf/` is machine-generated.
-
-Frontmatter is parsed as YAML and one bad value takes down the whole listing, not
-just its own file — a `description` containing `: ` must be quoted.
-
-`okf/` is gitignored as a generated artifact; `index.md`, `config/`, `must-read/`
-and `models/` are un-ignored so they are tracked. All three trees are
-hand-authored and none is rebuilt.
+`okf/` is gitignored as a generated artifact; `index.md`, `config/`,
+`must-read/` and `models/` are un-ignored so they are tracked. All of it is
+hand-authored and none of it is rebuilt.

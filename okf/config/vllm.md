@@ -1,175 +1,126 @@
 # config — vLLM
 
-What each knob does, and what it does not do. Engine: `vllm/vllm-openai:v0.26.0`.
+What each knob does, and what it does not do. Values are derived per rig and per
+model, never copied from here.
 
 ## `--cpu-offload-gb`
 
-**Moves weights to host RAM — but only on the V1 model runner.** The V2 runner
-accepts the flag, hashes it into the compile-cache key, and ignores it.
-`set_offloader()` exists only in `vllm/v1/worker/gpu_model_runner.py`. Path
-selection is architecture-dependent (`VllmConfig.use_v2_model_runner`).
+**Moves weights to host RAM — but only on one of the two model runners.** The
+newer runner accepts the flag, hashes it into the compile-cache key, and
+**ignores it**. Which runner a model takes is architecture-dependent, so the
+same flag is live for one checkpoint and inert for another on the same rig.
 
-Measured, same model and host, only the path changed:
-```
-no offload  (V2)   weights 1.95 GiB   KV  87,584 tok   Shmem     14,660 kB
-offload 1   (V2)   weights 1.95 GiB   KV  87,584 tok   Shmem     14,688 kB
-offload 1   (V1)   weights 0.93 GiB   KV 117,152 tok   Shmem  1,573,244 kB
-offload 2   (V1)   weights 0.59 GiB   KV 127,056 tok   Shmem  2,091,416 kB
-```
-Qwen2/AWQ takes V2 on both rigs → inert. NemotronH takes V1 → works.
-Force with `VLLM_USE_V2_MODEL_RUNNER=0`. Verify with `Total CPU offloaded
-parameters:` in the log, never with RAM figures.
-→ `records/evidence/2026-08-31-inventory/board3-srv1-*.log`, D1
+**Verify it with the engine's own offloaded-parameter line in the log, never
+with RAM figures.** Host memory moves for unrelated reasons, and the card tells
+you nothing here.
 
-**The declaration gate does not subtract it.** `_CPU_OFFLOAD_IS_NOT_A_DISCOUNT`
-is a constant nothing reads; the `cpu_offload_mib()` the configs cite does not
-exist. A cell is weighed at full weight and refused if it does not fit.
+**The declaration gate does not subtract it.** A cell is weighed at full weight
+and refused if it does not fit, whatever the flag says. Do not expect the
+offload to buy you admission.
+
+→ `okf/must-read/touching-engine.md` for why offloading to host RAM is worse
+than it sounds, and when to reach for llama.cpp instead.
 
 ## `kv_offloading_size` / `kv_offloading_backend`
 
-Ship in 0.26.0 for moving the KV cache to host RAM. Recorded as available and
-unset in this repo's own 2026-08-24 config capture
-(`kv_offloading_backend: native`, `kv_offloading_size: None`). **Untested here.**
+Ship in this engine version for moving the KV cache to host RAM, and are
+recorded as available and unset in this repo's own config capture. **Untested
+here.**
 
 ## `--max-num-seqs`
 
-**The batch width. On no HTTP endpoint** — not in `/server_info`, not in the 122
-metrics series, not on the model card. But the harness reads it off the running
-process argv / container `Config.Cmd` over ssh (`launched_width()`), records
-`provenance: "observed"`, and refuses on mismatch with `"contradicted"`.
-→ `vllm.py:1665-1783`
+**The batch width, and it is on no HTTP endpoint** — not in the server info, not
+in the metrics, not on the model card. The harness reads it off the running
+process argv over ssh, records it as observed, and refuses on a mismatch.
 
-**Nothing asserts `max_num_seqs >= max(concurrency.levels)`** — `grep -n levels
-backends/vllm.py` returns nothing. Set it to the top of the ladder yourself, or
-the ramp queues at the scheduler and prints a plateau indistinguishable from
-saturation.
+**Nothing asserts that it is at least the widest level of the ladder.** Set it
+to the top of the ladder yourself, or the ramp queues at the scheduler and
+prints a plateau indistinguishable from saturation.
 
 ## `--gpu-memory-utilization`
 
 Raises the card budget — and **backfills freed weight space with KV cache**,
-which is why `nvidia-smi memory.used` stays flat whether or not weights were
-offloaded. Do not use card occupancy to judge placement.
+which is why card occupancy stays flat whether or not weights were offloaded.
+**Never use card occupancy to judge placement.**
 
 **Under util-sizing, `--max-num-seqs` is a cap the pool need not honour.** The
-pool is sized from whatever VRAM survives the weights, so a cell can declare 128
-and hold 6. The engine states what it got — `GPU KV cache size: N tokens` and
-`Maximum concurrency for N tokens per request: Xx` — and that line is the only
-width readback vLLM offers. Measured 2026-09-01 at `len=2048`:
+pool is sized from whatever VRAM survives the weights, so a cell can declare a
+wide batch and hold a few. The engine states what it actually got — a KV cache
+token count and a maximum-concurrency line — and **that line is the only width
+readback vLLM offers.** Read it on every cell.
 
-```
-srv1 q15    129,584 tok    63.3x     srv2 q15  664,320 tok   324.4x
-srv1 q3      71,616 tok    35.0x     srv2 q3   458,368 tok   223.8x
-srv1 q34b    12,816 tok     6.3x     srv2 q34b 104,400 tok    51.0x
-srv2 q36-fp8 --cpu-offload-gb 26     10,240 tok    5.0x
-```
+**Cells that come in under the ladder are the offload and large-model cells**,
+where weights crowd the pool. Check the readback there first.
 
-**srv1's q34b holds 6.3 concurrent requests**, so n=8 and up queue — one rung
-earlier than the 2026-08-31 plan's arithmetic predicted, and that plan already
-accounted for the GSP reserve. Both cells that came in under the ladder were
-offload or large-model cells, where weights crowd the pool.
-→ `records/evidence/2026-09-01-prompt-realism/`
+## KV sizing
 
-## `--max-model-len` + `max_num_seqs` + `bytes_per_token`
+**The KV requirement is max-model-len times batch width times bytes per token,
+with bytes per token read at the cache dtype the entry actually launches with.**
+An fp8 element is half a 16-bit one, so the KV size halves under the fp8 dtypes
+and holds under the 16-bit ones; any other value is refused by name before the
+card is weighed.
 
-KV requirement is their product, with `bytes_per_token` read at the cache dtype
-the entry launches with. The gate reads the pre-computed
-`serve.kv_cache_memory_bytes` and returns early if absent; the product appears
-only as an inverse in `_ways_out` and as a config-time assertion.
-→ `vllm.py:1394`, `tests/test_serving_memory_declaration.py`
+**The halving is exact, and it is measured** — a paired A/B on one card with the
+same weights and the same max-model-len doubles the pool for a few percent of
+single-stream throughput. **Sizing at the wrong dtype refuses cells that fit.**
 
-**`--kv-cache-dtype` is read from `serve.flags`.** `bytes_per_token` is derived
-at two bytes an element, and an fp8 element is one, so `kv_bytes_per_token`
-halves it under `fp8`/`fp8_e4m3`/`fp8_e5m2` and keeps it under
-`auto`/`float16`/`bfloat16`; any other value is refused by name before the card
-is weighed. The four srv2 entries of the 2026-08-30 run still pin the fp16 size
-under `fp8` — twice the KV their shape needs — and are kept as that run
-launched them, on a closed list. → `vllm.py:1178-1226`
+**Do not derive this across rigs.** The two candidate weights-plus-residue bases
+give answers far enough apart to change a decision — the same trap `always.md`
+records for bits-per-weight.
 
-**The 2x is exact, and it is measured.** Paired A/B on srv2, q15, same card,
-same weights, same `max_model_len` — so weights and residue cancel:
+## Co-residency — two vLLM servers on one card
 
-```
-kv=auto (fp16)   vram 11,121 MiB   KV 332,160 tok   maxconc 162.2   n=1 191.8
-kv=fp8           vram 11,709 MiB   KV 664,320 tok   maxconc 324.4   n=1 181.7
-```
-
-664,320 / 332,160 = **2.000**, for 5.3% of single-stream throughput. Before the
-gate read the flag it demanded twice the pool an fp8 cell needs and **refused
-cells that fit** — the 2026-08-31 plan predicted exactly one such refusal (srv2
-q34b at n=32) and the cell ran to n=32 without trouble; sized at fp8 that cell
-now fits (`tests/test_a_kv_declaration_is_sized_at_its_cache_dtype.py`).
-Confirmed on q34b by measuring-gaps Q2: 52,192 → 104,400 tokens
-(`records/measurements/measuring-gaps-2026-09-10/results-q2-vllm-fp8.json`). Do not derive this cross-rig: the two
-candidate weights+residue bases give answers 14% apart, the same trap
-`always.md` records for bits-per-weight.
-→ `records/evidence/2026-09-01-prompt-realism/srv2-fp8-ab-and-lcp-smoke.tsv`
-
-## Co-residency (two vLLM servers, one card)
-
-**`util` is a budget for weights + KV + activations. The CUDA context is on top
-of it.** Measured on srv2 against a card verified empty between launches:
-util 0.25/0.45/0.90 gave 3,925 / 6,333 / 11,709 MiB, each ~980 MiB above
-`util x 11,911`. Budget for n servers therefore sums to
-`1 - n x 980/total`, not to 0.9.
-
-**Equal utils do not give equal pools.** q3 and q15 both at 0.40, q3 launched
-first: q3 got 44,592 KV tokens (maxconc 21.8), q15 got 17,536 (maxconc 8.6) --
-and q15 is the *smaller* model. Whatever share the second server gets, it is
-not its util.
+**`util` is a budget for weights, KV and activations. The CUDA context is on top
+of it.** Each server costs roughly a gigabyte of context before a single weight
+loads, so the budget for `n` servers is `1 − n × (context / card)`, not `0.9`.
+Three contexts alone take a quarter of srv2's card, which is why a plan drawn on
+paper without counting them was wrong.
 
 **SETTLED: `util` is a per-server share of the whole card, and a resident
-neighbour does NOT shrink it.** Proven three times on srv1: co-resident q3 at
-util 0.55 got 14,448 KV tokens, byte-identical to its SOLO run at 0.55. The
-solo curve is linear -- q15 read 14,064 / 35,072 / 56,064 / 77,072 tokens at
-0.35 / 0.45 / 0.55 / 0.65, deltas of 21,008 and 20,992 and 21,008.
+neighbour does not shrink it.** Proven repeatedly — a co-resident server gets a
+pool byte-identical to its solo run at the same util, and the solo curve is
+linear in util.
 
-What a neighbour does is raise the floor under the free-memory precondition,
-which caps how high a LATER server's util may be set:
-`ValueError: Free memory on device cuda:0 (3.11/5.61 GiB) on startup is less
-than desired GPU memory utilization (0.58, 3.25 GiB)`. With q15 resident at
-0.40, q3's ceiling is 3.11/5.61 = 0.554 -- so 0.55 runs and 0.58 refuses, three
-times out of three. That refusal is arithmetic, not chance.
+**What a neighbour does is raise the floor under the free-memory precondition**,
+which caps how high a *later* server's util may be set. The engine refuses at
+startup when free memory is below the requested share, and that refusal is
+arithmetic, not chance — one step under the ceiling runs, one step over refuses,
+reproducibly.
 
-**So the ordering rule is SMALL-FIRST.** Give the small model its share while
-the card is empty; the large one still gets its full share afterwards.
-Large-first leaves the second server a budget smaller than the first already
-occupies and it gets nothing -- which is what starved q15 on srv2 and sent four
-splits into the bin before the rule was measured.
+**Launch them sequentially, each healthy before the next starts.** vLLM profiles
+live free memory during init, so two starting together race and one dies on a
+util that works alone. This is settled and it is the important half of the
+ordering question.
 
-**A LAUNCH NEAR THE MEMORY EDGE FAILS INTERMITTENTLY. Retry before believing a
-refusal.** The identical command on a verified-empty srv1, three times: one
-died at memory profiling, two came up with byte-identical 24,560 KV tokens.
-A single refusal is a coin flip; a success is exactly reproducible. This
-manufactured two false conclusions on 2026-09-01 -- `q3 came up at 0.46` (it
-cannot, alone) and `q15 refused at 0.40` (it works) -- on settings minutes
-apart that had already been shown to work. `tools/runs/drivers/vllm_cores.py` retries
-three times and reports `tries=` on the CONFIG row.
+**Which order is NOT settled, and the two rules in this tree disagree.** This
+file has ruled small-first — give the small model its share while the card is
+empty, because large-first leaves the second server a budget smaller than the
+first already occupies. The emitter sequences largest-first, reasoning that the
+large unit is the one that cannot recover from measuring a card a neighbour has
+already taken a share of. The measurement cited for largest-first actually
+compares *racing* against *sequencing*, not one order against the other, so it
+does not settle the direction. **Treat the order as an open ruling; do not
+quote either rule as decided.**
 
-**Two servers must be launched SEQUENTIALLY, each healthy before the next
-starts.** vLLM profiles live free memory during init, so two starting together
-race and one dies on a util that works alone.
+**A launch near the memory edge fails intermittently — retry before believing a
+refusal.** The identical command on a verified-empty card has died once and come
+up twice with byte-identical pools. A single refusal is a coin flip; a success
+is exactly reproducible. This manufactured two false conclusions in one
+afternoon, on settings minutes apart that had already been shown to work. The
+driver retries and reports the try count on the config row.
 
-**Solo floors below are single draws and should be re-measured with retry
-before they are trusted:** q15 refused at 0.25, q3 refused at 0.25/0.35/0.45.
-Given the 1-in-3 flake rate, each is one observation, not a floor.
+**Solo floors taken as single draws are not floors.** Given the flake rate, one
+refusal is one observation. Re-measure with retry before trusting any of them.
 
-**A 7B does not co-reside on srv2 at len 2048.** q7 refused at util 0.55 and
-again at 0.65 on a verified-clean card: 5.3 GiB of weights leaves 0.01 GiB for
-KV, against the 0.05 GiB one 2048-token request needs.
-
-**Three vLLM servers do not fit on srv2 at len 2048.** q34b/q3/q15 at
-0.34/0.55/0.72 on a clean card with the teardown fix in place: q34b and q15 came
-up, q3 refused with `No available memory for the cache blocks`. Pass 1 failed
-the same way at 0.34/0.22/0.18. The arithmetic that makes this unsurprising is
-the context overhead above -- three CUDA contexts are ~2,940 MiB, a quarter of
-the card, before a single weight is loaded. The 2026-08-31 plan gave this
-configuration 641 MiB of headroom on paper; that paper did not count contexts.
-**So the measured srv2 ceiling is two co-resident vLLM servers, both small.**
-→ `records/evidence/2026-09-01-prompt-realism/srv2-util-semantics.txt`
+**The measured srv2 ceiling is two co-resident vLLM servers, both small.** A 7B
+does not co-reside there at a realistic context — its weights leave far less
+than one request's worth of KV. Three servers do not fit, and the arithmetic
+that makes that unsurprising is the context overhead above.
 
 ## Compute capability 7.5 (srv1)
 
-AWQ works. Marlin MoE kernels are selected. bfloat16 falls back to float16
-automatically. FlashAttention 2 is unavailable → TRITON_ATTN. FlashInfer
-sampler unavailable → falls back. **None of these blocked a load; only capacity
-did.** FP8 needs a newer card.
+AWQ works, Marlin MoE kernels are selected, bfloat16 falls back to float16
+automatically, FlashAttention 2 is unavailable and attention falls to the Triton
+backend, and the FlashInfer sampler falls back. **None of these blocked a load;
+only capacity did.** FP8 needs a newer card.
+→ `okf/must-read/touching-engine.md`
