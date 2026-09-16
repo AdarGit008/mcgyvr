@@ -19,7 +19,7 @@ units:
     window: 262144                                # -c 256k; decode 48.2 t/s warm, decays with ctx
     output_tokens: 2048
     request_timeout_s: 180
-    room_mib: 10597                               # measured card peak (cache 120/256)
+    room_mib: 10564                               # measured card peak (cache 120/256)
     container: "mcgyvr-lidenburg"
     unit_id: "unt-87384c127bc1554097e40bad7f3c0174c292dbb7b254026817915d1dbb3252b3"
     launch:
@@ -33,6 +33,11 @@ units:
         LLAMA_ARG_HOST: "0.0.0.0"
       volumes: ["/home/adaramir/models:/models:ro",
                 "/home/adaramir/models:/home/adaramir/models:ro"]
+      # The fork's MoE expert cache aborts when io_uring_queue_init fails
+      # (ggml-backend.cpp L565-578 at e85e4d9), and docker's default profile
+      # has blocked those syscalls since moby 891241e7e7 — so this unit states
+      # that default plus io_uring, and nothing else. See seccomp/README.md.
+      seccomp: seccomp/io-uring.json
 
   srv1_35b_maxctx:
     rig: srv1
@@ -44,7 +49,7 @@ units:
     window: 32768                                 # deepest ctx that fits; 65536 OOMs on the 6 GiB card
     output_tokens: 2048
     request_timeout_s: 180
-    room_mib: 5630                                # measured card peak at -c 32768
+    room_mib: 5626                                # measured card peak at -c 32768
     container: "mcgyvr-srv1-maxctx-32768"
     unit_id: "unt-9caefa09e43d66df76ca38411f6295383a3c1e58f6314143fa8f6e4b4b8cc399"
     launch:
@@ -68,7 +73,7 @@ units:
     window: 4096
     output_tokens: 2048
     request_timeout_s: 180
-    room_mib: 3573                                # 0.30 x 11911 (M7)
+    room_mib: 3660                                # measured card peak, sampled until idle
     kv_cache_memory_bytes: 1207959552             # 32768 tokens
     attention_backend: FLASH_ATTN
     container: "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001"
@@ -92,7 +97,7 @@ units:
     window: 4096
     output_tokens: 2048
     request_timeout_s: 180
-    room_mib: 8099                                # 0.68 x 11911 (M7)
+    room_mib: 8006                                # measured card peak, sampled until idle
     kv_cache_memory_bytes: 1879048192             # 32768 tokens
     attention_backend: FLASH_ATTN
     container: "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002"
@@ -116,7 +121,7 @@ units:
     window: 16384                                 # width-4 compose runs -c 16384
     output_tokens: 2048
     request_timeout_s: 180
-    room_mib: 11523                               # measured card peak at -c 16384 width 4
+    room_mib: 11524                               # measured card peak at -c 16384 width 4
     container: "mcgyvr-80b"
     unit_id: "unt-1dde4df84e0bc1a1e3b693b89c02f83783a56c2398e18359eb8ce227ec5834f7"
     launch:
@@ -139,7 +144,7 @@ units:
     window: 8192
     output_tokens: 2048
     request_timeout_s: 180
-    room_mib: 5458                                # measured card peak
+    room_mib: 5454                                # measured card peak
     container: "mcgyvr-srv1-deepseek"
     unit_id: "unt-e1f680726f3f937c8b0a22e26bb44199fc4c2c674d67e0da84ad540567672ea3"
     launch:
@@ -177,7 +182,7 @@ units:
 
 rigs:
   srv1:
-    rig_id: "rig-0f7fc6ae2bf6f8bbed8ed774507ef94a04d7f18a0f81b4d7761ce5ae81d03eeb"
+    rig_id: "rig-3c89f35d83eb724f2b79f218a75c16768817ac83d2c00b740ae2236861ee1ae9"
   srv2:
     rig_id: "rig-cbe770b55841d616363165e38553a1c7c3768250df01ead1a255f0cbdef98455"
 

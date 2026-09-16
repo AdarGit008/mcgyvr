@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-09-15-lock-fleets-rig-id-relock-srv1-c1-srv1_35b_maxctx",
+  "campaign": "lock-fleets",
+  "step": "rig-id-relock-srv1-c1-srv1_35b_maxctx",
+  "host": "srv1",
+  "date": "2026-09-15",
+  "round": "r30-15-09-2026",
+  "product_sha256": "a36a158d1fae4c3a59a540a458f896393b3af0e0f6823b2cb1cfc22ec2424b42",
+  "profile": "dev",
+  "config": "/home/adaramir/claude/mcgyvr/fleet-setup",
+  "mcgyvr_version": "0.1.1.dev267+g5aa2beeb",
+  "started_at": "2026-09-15T14:40:45Z"
+}

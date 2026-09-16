@@ -1,0 +1,17 @@
+{
+  "_doc": "The first use of lock-fleets (owner, 2026-09-15). Read by plan.py (why, the checks it adds), drive.sh (the live compose the emitted dev compose must equal) and assemble_evidence.py (the rig pins that must not change). Everything else the use runs comes from fleet-setup/ and tools/runs/hosts.json.",
+  "use": "rig-id-relock",
+  "why": [
+    "srv1's rig id changed under the product rig-id spelling (#483, D1): `mcgyvr.fleet.ids.rig_id` hashes `rig-snapshot.sh`'s own spelling, srv1's snapshot names `rig-3c89f35d…`, and fleet.yaml pins `rig-0f7fc6ae…`, which no rig read prints. Until srv1 is re-locked under the id its snapshot names, every live run is refused.",
+    "A rig id is part of every combination id on its rig and every fleet here places a unit on srv1, so all three fleets re-lock: a-solo, b-small and b-big. Owner, 2026-09-15: \"we are using it on our private case (16b -> 35b srv1, 3b + 7b ->80b srv2)\".",
+    "srv2's id already reproduces from its snapshot, so its pin must not change (`keep_rig_pins`). b-small's srv2 pair is what live serves, so the dev compose emitted for it must be the live file byte for byte (`compose_must_match_live`).",
+    "The window date is recorded in the log when it runs."
+  ],
+  "keep_rig_pins": ["srv2"],
+  "unit_caps_on": ["srv2"],
+  "_swap_recorded_not_stopped_on": "Owner ruling 2026-09-15: \"Record swap on srv1, don't stop\". srv1-01's pswpout rose 264920 -> 312345 (47,425 pages) in a run with exit 0, restarts 0 and identical START/END markers, inside the 35,000-48,000 pages per wake that records/measurements/ram-headroom-2026-09-09/README.md measured for that 12.30 GiB blob mapped on srv1 at swappiness 60, with decode unaffected. On a listed rig assemble_evidence.py files pswpout's start, end and delta and does not stop on its growth; every other stop still applies there, and every other rig keeps the swap stop. Owner ruling 2026-09-16: \"Record swap on srv2 too\". srv2-01-relaunch1's pswpout rose 91686 -> 91786 (100 pages, ~0.4 MB) in a run with exit 0, failure null, restarts 0 and identical START/END markers, on a rig carrying 8 GB of swap with ~46 GB MemAvailable at start; the 2026-09-13 measurement srv2_35b_256k's pin came from, records/measurements/fleet-setup-2026-09-13/srv2/a-solo-running.json, records vmstat_delta.pswpout 295 — more swap than this run moved — and is the measurement records/fleet/rigs/rig-cbe770b55841d616363165e38553a1c7c3768250df01ead1a255f0cbdef98455/cmb-90c09b095d59185c022389dac4e143040929aefe36cc3d2ccf56f84882e72220.json was locked from. srv2 is listed through this same mechanism and not a second one. Swap is filed as data on both rigs: never judged, and never a reason to call a run invalid.",
+  "swap_recorded_not_stopped_on": ["srv1", "srv2"],
+  "compose_must_match_live": {
+    "b-small": "~/.local/state/mcgyvr/compose/b-small"
+  }
+}

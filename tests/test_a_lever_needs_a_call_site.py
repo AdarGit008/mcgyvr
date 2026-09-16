@@ -113,7 +113,16 @@ def contract(tmp_path: Path) -> Path:
 
 
 def _config(tmp_path: Path, text: str = LADDER) -> Path:
+    """The config a lever is exercised under, declared ``profile: dev``.
+
+    These levers are about the climb, not about live: a live ``mcgyvr run`` is
+    admitted only by a read of its fleet's rigs
+    (``tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py``), and
+    one with no fleet named is refused before anything else happens.
+    """
     path = tmp_path / "mcgyvr.yaml"
+    if "profile:" not in text:
+        text = "profile: dev\n" + text
     path.write_text(text, encoding="utf-8")
     return path
 

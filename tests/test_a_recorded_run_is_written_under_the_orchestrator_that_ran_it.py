@@ -46,6 +46,7 @@ _IDENTITY = {
 }
 
 LADDER = """\
+profile: dev
 units:
   local_qwen-7b:
     address: http://localhost:11434

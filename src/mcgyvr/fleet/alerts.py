@@ -42,6 +42,9 @@ _JUDGED: dict[str, tuple[str, str]] = {
     #: A live probe's card reading, judged against the unit's own ``room_mib``
     #: (owner, 2026-09-15): the fit bound the lock proved, and no new number.
     "card_mib": ("up", "room"),
+    #: A read's load peak of the unit's process, judged against ``room_mib`` like
+    #: the card (owner, 2026-09-15, B1): room is the measured process peak (B3).
+    "load_peak_mib": ("up", "room"),
 }
 
 
@@ -52,23 +55,37 @@ def _number(value: Any) -> float | None:
     return float(value)
 
 
+def _plain_pct(entries: Mapping[str, Any], field: str) -> float | None:
+    """``field``'s own class percent, from the ``tolerance_pct`` beside it.
+
+    ``tolerance_pct`` maps each judged field to its percent: warm decode and
+    prefill are measured apart, and neither is judged by the other's (owner,
+    2026-09-15). A field it does not name, or a ``tolerance_pct`` that is not
+    such a mapping, states no percent.
+    """
+    by_field = entries.get("tolerance_pct")
+    if not isinstance(by_field, Mapping):
+        return None
+    return _number(by_field.get(field))
+
+
 def _plain_hit(
-    entry: Any, entries: Mapping[str, Any], kind: str, value: float
+    entry: Any, entries: Mapping[str, Any], field: str, kind: str, value: float
 ) -> bool | None:
     """Whether ``value`` falls outside a lock's plain value, or ``None`` unjudged.
 
     The lock pins a unit's figures as plain numbers (the ``approved`` block of
-    ``records/fleet/rigs/<rig->/<cmb->.json``). A probe judges them with the
-    unit's class percent, carried beside them as ``tolerance_pct``, and its
-    card against ``room_mib``. A figure with no locked value, or no stated
-    bound, is recorded and not judged.
+    ``records/fleet/rigs/<rig->/<cmb->.json``). A probe judges each with its own
+    class percent, carried beside them in ``tolerance_pct`` keyed by field
+    (:func:`_plain_pct`), and its card against ``room_mib``. A figure with no
+    locked value, or no stated bound, is recorded and not judged.
     """
     if kind == "room":
         room = _number(entries.get("room_mib"))
         return None if room is None else value > room
     if kind == "pct":
         expected = _number(entry)
-        pct = _number(entries.get("tolerance_pct"))
+        pct = _plain_pct(entries, field)
         if expected is None or pct is None:
             return None
         return value < expected * (1.0 - pct / 100.0)
@@ -176,7 +193,7 @@ def _judge(
             bound = expected + float(tolerance.get("s", 0.0))
             hit = float(value) > bound
     else:
-        plain = _plain_hit(entry, entries, kind, float(value))
+        plain = _plain_hit(entry, entries, field, kind, float(value))
         if plain is None:
             return None
         hit = plain
@@ -189,6 +206,34 @@ def _judge(
     if "switch" in observed:
         out["switch"] = observed["switch"]
     return out
+
+
+def _judged_pct(
+    observed: Mapping[str, Any], approved: Mapping[str, Any]
+) -> float | None:
+    """The percent ``observed``'s field is judged at, or ``None`` if by none.
+
+    What :func:`_judge` applies to a field judged by a percent: the locked
+    entry's own ``tolerance.pct``, or the field's class percent beside a plain
+    value (:func:`_plain_pct`). A row filed by :func:`check` carries it as
+    ``tolerance_pct``, so a reading says which percent it was held to.
+    """
+    field = observed["field"]
+    rule = _JUDGED.get(field)
+    if rule is None or rule[1] != "pct":
+        return None
+    scope = observed.get("switch" if "switch" in observed else "unit_id")
+    if scope is None:
+        return None
+    entries = approved.get(scope) or {}
+    entry = entries.get(field)
+    if isinstance(entry, Mapping):
+        if "expected" not in entry:
+            return None
+        return float((entry.get("tolerance") or {}).get("pct", 0.0))
+    if _number(entry) is None:
+        return None
+    return _plain_pct(entries, field)
 
 
 def _already_alerted(path: Path, field: str) -> bool:
@@ -220,7 +265,8 @@ def check(
     each alert, warns once per unit-and-field, and the filed alert row is what
     :func:`pulled` reads. An observation may carry its unit's name as ``unit``,
     which the warning names, and the moment it was measured as ``at``, which
-    its row carries; without one, the row carries the run id's time.
+    its row carries; without one, the row carries the run id's time. A row
+    judged by a percent carries it as ``tolerance_pct`` (:func:`_judged_pct`).
     """
     run_at = _run_at(run_id)
     for observed in observations:
@@ -248,6 +294,9 @@ def check(
 
         alert = _judge(observed, approved)
         row["alert"] = alert is not None
+        pct = _judged_pct(observed, approved)
+        if pct is not None:
+            row["tolerance_pct"] = pct
         _append(path, row)
 
         if alert is None:

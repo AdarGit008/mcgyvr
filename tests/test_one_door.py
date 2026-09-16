@@ -242,6 +242,16 @@ ALLOWED: dict[str, str] = {
     "tests/test_default_step.py": (
         "drives the shipped step against ssh and docker stubs on PATH"
     ),
+    "tests/test_a_failed_lock_fleets_start_keeps_its_full_log_and_gets_one_retry.py": (
+        "runs lock-fleets' step bodies under a fake door with an ssh and a docker "
+        "stub standing under RUN_BIN, and finds the move shell's `docker run -d` "
+        "in the stub's call log; reaches no rig"
+    ),
+    "tests/test_lock_fleets_files_an_exit_cause_and_one_diagnostic_start.py": (
+        "runs lock-fleets' unit step under a fake door with an ssh and a docker "
+        "stub standing under RUN_BIN, which answer the container's State and the "
+        "rig's kernel log from files the test writes; reaches no rig"
+    ),
 }
 
 DECILES = re.compile(r"^\s*PROMPT_DECILES\s*=")
@@ -490,8 +500,24 @@ def test_nothing_under_tools_or_src_names_its_own_daemon() -> None:
     )
 
 
+#: Campaign files whose loopback is the RIG's: shell text sent over the door's
+#: ssh and run on the rig, never on this machine. Path -> why.
+LOOPBACK_ON_THE_RIG: dict[str, str] = {
+    "tools/runs/campaigns/lock-fleets/_move.sh": (
+        "the move stopwatch: ONE ssh argv, run on the rig, polls each target unit "
+        "at the rig's own 127.0.0.1 and stamps it with the rig's clock (owner "
+        "ruling 2026-09-15, lock-fleets); the step itself polls nothing here"
+    ),
+}
+
+
 def test_no_driver_or_campaign_step_measures_loopback() -> None:
     hits = _hits(LOOPBACK, ("tools/runs/drivers", "tools/runs/campaigns"))
+    for rel in LOOPBACK_ON_THE_RIG:
+        assert (REPO / rel).is_file(), (
+            f"{rel} is allowed the rig's loopback and is gone"
+        )
+        hits.pop(rel, None)
     assert not hits, (
         "the container runs on the rig (the door's `docker` lands there), so a "
         f"client polling this machine's loopback measures nothing: {hits}"

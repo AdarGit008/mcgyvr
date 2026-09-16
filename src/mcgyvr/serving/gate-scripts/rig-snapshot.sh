@@ -213,6 +213,25 @@ swappiness() {
     printf '%s' "$out"
 }
 
+# The system half of the rig's name (`mcgyvr.fleet.ids.rig_id`), derived as
+# `mcgyvr scan` derives its machine id (src/mcgyvr/scan.py `_scan_machine`):
+# the first 16 hex of the sha256 of the first machine-id file that is there and
+# not empty, else of `host:<node name>`. The same derivation on both sides, so a
+# rig's scans and its name agree on which machine it is.
+os_machine_id() {
+    local f seed= out
+    for f in /etc/machine-id /var/lib/dbus/machine-id; do
+        [ -r "$f" ] || continue
+        seed=$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$f" 2>/dev/null) || seed=
+        [ -n "$seed" ] && break
+    done
+    [ -n "$seed" ] || seed="host:$(uname -n 2>/dev/null)"
+    command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is not on PATH; os_machine_id is unread"
+    out=$(printf '%s' "$seed" | sha256sum | cut -c1-16)
+    case $out in ''|*[!0-9a-f]*) fail "os_machine_id read '$out', which is not 16 hex digits" ;; esac
+    printf '%s' "$out"
+}
+
 printf 'uptime_since=%s\n' "$(uptime_since)"
 printf 'cpu_max_mhz=%s\n'  "$(cpu_max_mhz)"
 printf 'cpu_model=%s\n'    "$(cpu_model)"
@@ -222,6 +241,7 @@ printf 'pl2_uw=%s\n'       "$(power_limit pl2)"
 nvidia
 printf 'docker=%s\n'          "$(docker_version)"
 printf 'kernel=%s\n'           "$(kernel_version)"
+printf 'os_machine_id=%s\n'    "$(os_machine_id)"
 printf 'mem_available_kib=%s\n' "$(mem_available_kib)"
 printf 'mem_total_kib=%s\n'    "$(mem_total_kib)"
 printf 'swap_total_kib=%s\n'   "$(swap_total_kib)"

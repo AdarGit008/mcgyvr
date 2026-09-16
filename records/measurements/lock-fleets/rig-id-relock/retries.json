@@ -1,0 +1,69 @@
+{
+  "_doc": "One retry per failed entry of this use, one extra cold start for room per passing unit entry whose load was not sampled until idle, one diagnostic start per failed retry of a unit entry, and one fresh start per failed diagnostic start whose unit's launch changed. Written by records/measurements/lock-fleets/plan.py retry, rerun, diagnose and relaunch, which refuse any entry their ruling does not allow; read by plan.py read_runs, which places each immediately after its entry in that rig's order.",
+  "use": "rig-id-relock",
+  "ruling": {
+    "by": "owner",
+    "on": "2026-09-15",
+    "said": "Fix PR, then retry srv2",
+    "rule": "A failed entry can get ONE retry entry with its own step wrapper and artifact name, placed immediately after the failed entry in that rig's order. The failed run is kept as a data point, never superseded or deleted, and a failed retry gets no second one."
+  },
+  "retries": [
+    {
+      "entry": "srv2-01",
+      "reason": "container died before /health (14:41:45Z); full log not kept; owner 2026-09-15: fix PR, then retry",
+      "retry_entry": "srv2-01-retry1",
+      "artifact": "rig-id-relock-srv2-c1-srv2_35b_256k-retry1.json",
+      "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/16-rig-id-relock-srv2-c1-srv2_35b_256k-retry1.sh"
+    },
+    {
+      "entry": "srv2-03",
+      "reason": "both vLLM units filed attention_backend null; the reader read only the first matching line; owner 2026-09-16: fix the reader and record the line",
+      "retry_entry": "srv2-03-retry1"
+    }
+  ],
+  "rerun_ruling": {
+    "by": "owner",
+    "on": "2026-09-15",
+    "said": "One extra cold start for room",
+    "rule": "A passing unit entry whose load was filed before until-idle sampling gets ONE extra entry right after it in its rig's order: the same unit and cold start, with its own wrapper and artifact. The entry stays a valid run and gives decode and prefill; its re-run, sampled until idle, gives room and the card peak, and the entry's 30-s peak is kept as a lower bound."
+  },
+  "reruns": [
+    {
+      "entry": "srv1-01",
+      "reason": "load peak sampled 30 s only (filed before until-idle sampling); owner 2026-09-15: one extra cold start for room",
+      "rerun_entry": "srv1-01-rerun1",
+      "artifact": "rig-id-relock-srv1-c1-srv1_35b_maxctx-rerun1.json",
+      "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/01-rig-id-relock-srv1-c1-srv1_35b_maxctx-rerun1.sh"
+    }
+  ],
+  "diagnostic_ruling": {
+    "by": "owner",
+    "on": "2026-09-15",
+    "said": "Fix PR, then one diagnostic start",
+    "rule": "A logged failed retry of a unit entry gets ONE diagnostic start, <entry>-diag1, placed immediately after the failed retry in that rig's order: the same unit, cold start and door command, with its own wrapper and artifact, started once a failed start files its exit cause. If it passes its check it stands in for the failed entry exactly as a passing retry would; if it fails, the driver stops. It gets no retry, re-run or second diagnostic start, and the failed entry and its retry are kept as data points."
+  },
+  "diagnostics": [
+    {
+      "entry": "srv2-01-retry1",
+      "reason": "retry died at warm-up with no stated cause (exit code, OOMKilled and kernel log not filed); owner 2026-09-15: fix PR, then one diagnostic start",
+      "diagnostic_entry": "srv2-01-diag1",
+      "artifact": "rig-id-relock-srv2-c1-srv2_35b_256k-diag1.json",
+      "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/16-rig-id-relock-srv2-c1-srv2_35b_256k-diag1.sh"
+    }
+  ],
+  "relaunch_ruling": {
+    "by": "owner",
+    "on": "2026-09-16",
+    "said": "Fix PR: allow io_uring",
+    "rule": "A logged failed diagnostic start of a unit entry whose LAUNCH has since changed gets ONE fresh cold start, <entry>-relaunch1, placed immediately after it in that rig's order: the same unit, cold start and door command, with its own wrapper and artifact, under the launch as it now stands. The three runs that failed under the old launch are kept as data points and none of them is re-judged. If the fresh start passes its check it stands in for the entry exactly as a passing retry would; if it fails, the driver stops. It gets no retry, re-run, diagnostic start or second fresh start."
+  },
+  "relaunches": [
+    {
+      "entry": "srv2-01-diag1",
+      "reason": "the launch states the seccomp its engine needs (docker's default plus the io_uring syscalls); owner 2026-09-16: fix PR, allow io_uring",
+      "relaunch_entry": "srv2-01-relaunch1",
+      "artifact": "rig-id-relock-srv2-c1-srv2_35b_256k-relaunch1.json",
+      "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/16-rig-id-relock-srv2-c1-srv2_35b_256k-relaunch1.sh"
+    }
+  ]
+}

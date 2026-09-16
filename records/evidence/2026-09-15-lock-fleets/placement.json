@@ -1,0 +1,23 @@
+{
+ "blocks_on_card": 14,
+ "card_free_mib": 11911,
+ "constant_mib": 7945.5,
+ "dense": false,
+ "derived": true,
+ "experts_on_card_mib": 3782.0,
+ "floor_n_cpu_moe": 26,
+ "host": "srv2",
+ "kv_mib": 5120.0,
+ "kv_swa_mib": 0.0,
+ "model": "/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+ "n_ctx_seq": 262144,
+ "n_ctx_total": 262144,
+ "n_placeable": 40,
+ "n_ubatch": 512,
+ "nonexpert_mib": 1994.7,
+ "parallel": 1,
+ "predicted_card_mib": 11727.5,
+ "run_id": "2026-09-15-lock-fleets-rig-id-relock-srv2-c1-srv2_35b_256k-diag1",
+ "scratch_allowance_mib": 768,
+ "state_mib": 62.8
+}

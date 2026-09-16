@@ -1,0 +1,319 @@
+{
+  "combinations": [
+    {
+      "baseline_tok_s": {},
+      "card_peak_mib": {
+        "srv1_35b_maxctx": 5626
+      },
+      "envelope": "records/evidence/2026-09-15-lock-fleets",
+      "overhead_mib": 399,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv1_35b_maxctx": 354.05894512122495
+      },
+      "restarts": {
+        "srv1_35b_maxctx": 0
+      },
+      "rig": "srv1",
+      "slots": [
+        [
+          "srv1_35b_maxctx",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-15T18:00:51Z",
+      "warm_decode_tok_s": {
+        "srv1_35b_maxctx": 33.761374604296826
+      }
+    },
+    {
+      "baseline_tok_s": {},
+      "card_peak_mib": {
+        "srv1_deepseek": 5454
+      },
+      "envelope": "records/evidence/2026-09-15-lock-fleets",
+      "overhead_mib": 399,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv1_deepseek": 297.75291856967476
+      },
+      "restarts": {
+        "srv1_deepseek": 0
+      },
+      "rig": "srv1",
+      "slots": [
+        [
+          "srv1_deepseek",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-15T18:05:29Z",
+      "warm_decode_tok_s": {
+        "srv1_deepseek": 33.65467609947847
+      }
+    },
+    {
+      "baseline_tok_s": {},
+      "card_peak_mib": {
+        "srv1_35b_b": 5122
+      },
+      "envelope": "records/evidence/2026-09-15-lock-fleets",
+      "overhead_mib": 399,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv1_35b_b": 342.8276826266166
+      },
+      "restarts": {
+        "srv1_35b_b": 0
+      },
+      "rig": "srv1",
+      "slots": [
+        [
+          "srv1_35b_b",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-15T18:10:10Z",
+      "warm_decode_tok_s": {
+        "srv1_35b_b": 33.25555879706688
+      }
+    },
+    {
+      "baseline_tok_s": {},
+      "card_peak_mib": {
+        "srv2_35b_256k": 10564
+      },
+      "envelope": "records/evidence/2026-09-16-lock-fleets",
+      "overhead_mib": 377,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv2_35b_256k": 632.0170344560588
+      },
+      "restarts": {
+        "srv2_35b_256k": 0
+      },
+      "rig": "srv2",
+      "slots": [
+        [
+          "srv2_35b_256k",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-16T10:05:44Z",
+      "warm_decode_tok_s": {
+        "srv2_35b_256k": 49.21758459704929
+      }
+    },
+    {
+      "attention_backend": {
+        "srv2_3b": "FLASH_ATTN",
+        "srv2_7b": "FLASH_ATTN"
+      },
+      "baseline_tok_s": {},
+      "envelope": "records/evidence/2026-09-16-live-srv2",
+      "overhead_mib": 377,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv2_3b": 13163.198934618744,
+        "srv2_7b": 7405.4423018497855
+      },
+      "restarts": {
+        "srv2_3b": 0,
+        "srv2_7b": 0
+      },
+      "rig": "srv2",
+      "slots": [
+        [
+          "srv2_3b",
+          "awake"
+        ],
+        [
+          "srv2_7b",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-16T10:10:54Z",
+      "warm_decode_tok_s": {
+        "srv2_3b": 126.41325594391164,
+        "srv2_7b": 68.26562686278727
+      }
+    },
+    {
+      "baseline_tok_s": {},
+      "card_peak_mib": {
+        "srv2_80b": 11524
+      },
+      "envelope": "records/evidence/2026-09-16-lock-fleets",
+      "overhead_mib": 377,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv2_80b": 281.55434319434187
+      },
+      "restarts": {
+        "srv2_80b": 0
+      },
+      "rig": "srv2",
+      "slots": [
+        [
+          "srv2_80b",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-16T10:16:16Z",
+      "warm_decode_tok_s": {
+        "srv2_80b": 28.6765147441144
+      }
+    }
+  ],
+  "moves": [
+    {
+      "downtime_s": 112.869,
+      "from": [
+        [
+          "srv1_deepseek",
+          "awake"
+        ]
+      ],
+      "passed": true,
+      "rig": "srv1",
+      "to": [
+        [
+          "srv1_35b_b",
+          "awake"
+        ]
+      ],
+      "wake_s": {
+        "srv1_35b_b": 111.546
+      }
+    },
+    {
+      "downtime_s": 78.406,
+      "from": [
+        [
+          "srv1_35b_b",
+          "awake"
+        ]
+      ],
+      "passed": true,
+      "rig": "srv1",
+      "to": [
+        [
+          "srv1_deepseek",
+          "awake"
+        ]
+      ],
+      "wake_s": {
+        "srv1_deepseek": 77.124
+      }
+    },
+    {
+      "downtime_s": 96.59,
+      "from": [
+        [
+          "srv2_3b",
+          "awake"
+        ],
+        [
+          "srv2_7b",
+          "awake"
+        ]
+      ],
+      "passed": true,
+      "rig": "srv2",
+      "to": [
+        [
+          "srv2_80b",
+          "awake"
+        ]
+      ],
+      "wake_s": {
+        "srv2_80b": 95.128
+      }
+    },
+    {
+      "downtime_s": 182.579,
+      "from": [
+        [
+          "srv2_80b",
+          "awake"
+        ]
+      ],
+      "passed": true,
+      "rig": "srv2",
+      "to": [
+        [
+          "srv2_3b",
+          "awake"
+        ],
+        [
+          "srv2_7b",
+          "awake"
+        ]
+      ],
+      "wake_s": {
+        "srv2_3b": 94.088,
+        "srv2_7b": 182.051
+      }
+    }
+  ],
+  "rigs": {
+    "srv1": {
+      "card_mib": 6144,
+      "snapshot": {
+        "containers": "none",
+        "cpu_max_mhz": "4600",
+        "cpu_model": "Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz",
+        "docker": "29.7.2",
+        "driver": "580.178.04",
+        "gpu_cc": "7.5",
+        "gpu_free_mib": "5745",
+        "gpu_name": "NVIDIA_GeForce_GTX_1660_SUPER",
+        "gpu_procs": "none",
+        "gpu_reserve_mib": "399",
+        "gpu_used_mib": "1",
+        "gpu_vram_mib": "6144",
+        "hostname": "srv1",
+        "kernel": "7.0.0-31-generic",
+        "mem_available_kib": "14942944",
+        "mem_total_kib": "15762544",
+        "nproc": "6",
+        "os_machine_id": "9f01e96b66e798b2",
+        "pl1_uw": "95000000",
+        "pl2_uw": "120000000",
+        "ram_mt_s": "3600",
+        "swap_total_kib": "8388604",
+        "swappiness": "60",
+        "uptime_since": "2026-09-12T07:52:51Z"
+      }
+    },
+    "srv2": {
+      "card_mib": 12288,
+      "snapshot": {
+        "containers": "none",
+        "cpu_max_mhz": "5200",
+        "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+        "docker": "29.7.2",
+        "driver": "595.91.07",
+        "gpu_cc": "8.6",
+        "gpu_free_mib": "11911",
+        "gpu_name": "NVIDIA_GeForce_RTX_3060",
+        "gpu_procs": "none",
+        "gpu_reserve_mib": "377",
+        "gpu_used_mib": "1",
+        "gpu_vram_mib": "12288",
+        "hostname": "srv2",
+        "kernel": "7.0.0-31-generic",
+        "mem_available_kib": "46589160",
+        "mem_total_kib": "48208320",
+        "nproc": "20",
+        "os_machine_id": "6d5d8f1f2bfa5f96",
+        "pl1_uw": "65000000",
+        "pl2_uw": "0",
+        "ram_mt_s": "2933",
+        "swap_total_kib": "8388604",
+        "swappiness": "60",
+        "uptime_since": "2026-09-12T08:58:44Z"
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+0.00.164.601 I log_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.164.604 I device_info:
+0.00.313.981 I   - CUDA0   : NVIDIA GeForce RTX 3060 (11911 MiB, 11798 MiB free)
+0.00.313.990 I   - CPU     : Intel(R) Core(TM) i9-10900F CPU @ 2.80GHz (47078 MiB, 47078 MiB free)
+0.00.314.068 I system_info: n_threads = 11 (n_threads_batch = 11) / 20 | CUDA : ARCHS = 860 | USE_GRAPHS = 1 | PEER_MAX_BATCH_SIZE = 128 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.00.314.117 I srv          init: running without SSL
+0.00.314.182 I srv          init: using 19 threads for HTTP server
+0.00.314.526 I srv         start: binding port with default address family
+0.00.315.714 I srv  llama_server: loading model
+0.00.315.719 I srv    load_model: loading model '/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf'
+0.00.315.766 I common_init_result: fitting params to device memory ...
+0.00.315.769 I common_init_result: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+0.02.353.855 W llama_model_loader: tensor overrides to CPU are used with mmap enabled - consider using --no-mmap for better performance
+0.03.305.632 I common_init_from_params: warming up the model with an empty run - please wait ... (--no-warmup to disable)
+[expert cache] io_uring_queue_init failed: Operation not permitted

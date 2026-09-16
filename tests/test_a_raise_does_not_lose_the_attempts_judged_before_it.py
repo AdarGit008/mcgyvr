@@ -92,7 +92,8 @@ def test_every_row_before_the_raise_is_corrected_and_listed(
     journal = tmp_path / "journal"
     config = tmp_path / "mcgyvr.yaml"
     config.write_text(
-        LADDER_WITH_THREE_ATTEMPTS + f"journal:\n  dir: {journal}\n", encoding="utf-8"
+        "profile: dev\n" + LADDER_WITH_THREE_ATTEMPTS + f"journal:\n  dir: {journal}\n",
+        encoding="utf-8",
     )
     contract = lj.make_contract(tmp_path / "impl.yaml", CONTRACT_WITH_THREE_ATTEMPTS)
 

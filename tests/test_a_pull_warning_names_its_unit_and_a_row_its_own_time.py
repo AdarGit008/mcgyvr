@@ -215,7 +215,12 @@ def test_a_check_given_no_unit_name_or_time_keeps_the_run_time_and_names_what_it
     raised = list(
         alerts.check(
             [{"unit_id": UNIT_DS, "field": "warm_decode_tok_s", "observed": 16.0}],
-            approved={UNIT_DS: {"warm_decode_tok_s": 32.56, "tolerance_pct": 48.0}},
+            approved={
+                UNIT_DS: {
+                    "warm_decode_tok_s": 32.56,
+                    "tolerance_pct": {"warm_decode_tok_s": 48.0},
+                }
+            },
             profile="live",
             journal_dir=journal,
             stamp=STAMP,

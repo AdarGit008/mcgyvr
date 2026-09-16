@@ -1,5 +1,5 @@
 {
-  "layout_sha256": "cb0a5578e8bcc92623fbd9fa06cfa900042c754d1054dfcdc8835ea85837b7ad",
+  "layout_sha256": "6106b1d4d4e957522db33f92cfc09c0032cfa9a0ba54a613f1292f49fb5db1f1",
   "next": [
     "b-small"
   ],
@@ -7,18 +7,18 @@
     {
       "moves": [
         {
-          "downtime_s": 78.242,
+          "downtime_s": 78.406,
           "rig": "srv1",
           "wake_s": {
-            "srv1_deepseek": 77.118
+            "srv1_deepseek": 77.124
           }
         },
         {
-          "downtime_s": 179.57,
+          "downtime_s": 182.579,
           "rig": "srv2",
           "wake_s": {
-            "srv2_3b": 91.55,
-            "srv2_7b": 179.57
+            "srv2_3b": 94.088,
+            "srv2_7b": 182.051
           }
         }
       ],
