@@ -203,6 +203,7 @@ def observe[T](
     task_type: str | None = None,
     session_file: Path | None = None,
     tier: str | None = None,
+    temperature: float | None = None,
     mirrors: Sequence[Path] = (),
     on_copy_error: CopyError | None = None,
 ) -> T:
@@ -238,6 +239,15 @@ def observe[T](
     the type beside the verdict, and a reviewer who wants the conversation
     behind an attempt needs the path beside the row. Absent, not null, when
     the caller has neither.
+
+    ``temperature`` is what the dispatch sampled at, and it is identity too:
+    decided before the request goes out and the same fact on the answering row
+    and the failing one. It is the column that turns breadth from a suspicion
+    into a measurement — draw 0 of an attempt is greedy and the draws after it
+    sample, and a row that could not say which it was could not say what N
+    draws bought. Absent, not zero, for an attempt that was never a dispatch:
+    a deterministic run has no temperature, and ``0.0`` there would read as a
+    greedy one.
 
     A sink that cannot be written raises rather than being swallowed. Silence
     here is the failure this module was built to end, and an unwritable path is
@@ -300,6 +310,7 @@ def observe[T](
             task_type=task_type,
             session_file=session_file,
             tier=tier,
+            temperature=temperature,
         )
     except BaseException as failure:
         append(unlanded(failure))
@@ -439,6 +450,7 @@ def _identity(
     task_type: str | None,
     session_file: Path | None,
     tier: str | None = None,
+    temperature: float | None = None,
 ) -> None:
     """What the attempt is, known before it runs and shared by both rows it can write.
 
@@ -480,6 +492,8 @@ def _identity(
         fields["session_file"] = str(session_file)
     if tier is not None:
         fields["tier"] = tier
+    if temperature is not None:
+        fields["temperature"] = temperature
     fields |= _prompt_identity(store, messages)
     revision = _product_revision()
     if revision is not None:

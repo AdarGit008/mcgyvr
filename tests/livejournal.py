@@ -164,10 +164,26 @@ def patch_dispatch(monkeypatch: pytest.MonkeyPatch, fn: Any) -> None:
     Separate from :func:`scripted` because a test about *how* a dispatch is
     made needs the keyword arguments it was made with, and a script that
     swallows them into ``**_`` cannot see the one under test.
+
+    The draws of one attempt are dispatched together, in threads bounded by
+    the unit's width, and a fake that answers *by call order* has no order to
+    answer in once two calls arrive at once: which draw got the second reply
+    would be whichever thread the scheduler ran first. So a faked dispatch
+    also runs the draws in draw order, in this thread, through the same
+    in-order path the driver takes when it has no capacity. Everything the
+    fake is used to pin — one row per draw, the verdict on the draw it is
+    about, the raise on the draw that raised — is settled after the draws are
+    back, on the same code, whichever way they went out. The concurrency
+    itself is pinned at the wire (:func:`patch_backend`), where a reply can
+    be told apart by the request it answers.
     """
     import mcgyvr.drive as drive
 
+    def in_order(jobs: Any, capacity: Any, *, workers: Any = None) -> Any:
+        return drive._in_order(jobs, capacity)
+
     monkeypatch.setattr(drive, "dispatch", fn)
+    monkeypatch.setattr(drive, "run_batch", in_order)
 
 
 def patch_backend(monkeypatch: pytest.MonkeyPatch, generate: Any) -> None:

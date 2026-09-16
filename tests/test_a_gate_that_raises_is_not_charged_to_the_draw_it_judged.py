@@ -9,12 +9,13 @@ ran with the draw that had *already answered* still named as in flight.
 
 So a gate that raised on draw 0 of two was charged to draw 0: the row of a
 dispatch that answered normally was corrected to ``outcome: error`` as though
-the endpoint had died, and the result named it as the attempt. The dispatch is
-in flight for exactly as long as the dispatch is: from the moment ``observe``
-is entered to the moment it returns, and not one line further.
+the endpoint had died, and the result named it as the attempt. A raise belongs
+to a dispatch only when it came out of that dispatch, and not one line further.
 
-What is true here is that draw 0 answered, its row exists and is accounted for,
-and the raise belongs to no dispatch — so the result names none.
+The draws now go out together and come back before any of them is gated, so
+the gate's death on draw 0 finds both rows written: both answered, both are
+accounted for, and the raise belongs to no dispatch — so the result names
+none.
 """
 
 from __future__ import annotations
@@ -53,15 +54,19 @@ def test_the_gate_dying_on_draw_zero_is_not_draw_zeros_error(
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1
-    assert len(sent) == 1, "the gate died on draw 0, so draw 1 was never dispatched"
+    assert len(sent) == 2, "the draws went out together, before the gate died"
 
-    (row,) = _rows(journal)
-    assert row.get("ok") is True, "the dispatch answered; it is the gate that died"
-    assert row.get("outcome") == "error", "the row is still accounted for"
-    assert row["detail"] == (
-        "the attempt raised after draw 0 answered; no verdict was reached for this draw"
-    ), row
-    assert _orphans(journal) == [], "draw 1 wrote no row, so nothing names one"
+    rows = _rows(journal)
+    assert [r.get("ok") for r in rows] == [True, True], (
+        "both dispatches answered; it is the gate that died"
+    )
+    assert [r.get("outcome") for r in rows] == ["error", "error"], (
+        "every row of the attempt is accounted for"
+    )
+    assert {r["detail"] for r in rows} == {
+        "the attempt raised after draw 1 answered; no verdict was reached for this draw"
+    }, rows
+    assert _orphans(journal) == []
 
     result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
     landed = result["attempts"][-1]
@@ -71,6 +76,6 @@ def test_the_gate_dying_on_draw_zero_is_not_draw_zeros_error(
         "endpoint that nobody saw"
     )
     assert landed["attempt_id"] is None, "there is no dispatch for the result to name"
-    assert (landed["draws"], landed["rows"]) == (2, 1), (
-        "two draws were asked for and one of them left a row"
+    assert (landed["draws"], landed["rows"]) == (2, 2), (
+        "two draws were asked for and both of them left a row"
     )

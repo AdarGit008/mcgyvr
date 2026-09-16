@@ -871,6 +871,22 @@ def _configured_attempts(config: Config, rung: str) -> int:
     return int(attempts.get(rung, 1))
 
 
+def draws_for(config: Config, rung: str) -> int:
+    """How many candidates one attempt on ``rung`` asks for.
+
+    The unit's own entry in the policy ``draws`` map where it has one, else
+    ``breadth.draws``, else 1. The same shape as :func:`_configured_attempts`
+    because it is the same kind of per-unit override: a routing decision
+    keyed by unit name, cross-checked against the declared units at load. Read
+    per attempt by :func:`mcgyvr.drive.worker_attempt` and printed by
+    ``mcgyvr pool``. An unknown rung is not refused here — drive asks for
+    rungs that came from the pool, and a name the pool admitted is a name the
+    config declared.
+    """
+    overrides = config.get("draws") or {}
+    return int(overrides.get(rung, config.get("breadth.draws", 1)))
+
+
 def _machines(config: Config, rungs: tuple[Rung, ...]) -> Mapping[str, Machine]:
     """One :class:`Machine` per source, shared by every rung bound to it.
 

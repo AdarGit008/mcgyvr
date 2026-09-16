@@ -12,6 +12,7 @@ when the run returns, whatever the verdict.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,34 @@ import pytest
 
 from mcgyvr import docgen
 from mcgyvr.config import SCHEMA, Field
+
+#: The name the inner run loads the redirect plugin under, and the variable it
+#: reads the throwaway document directory from.
+_REDIRECT_MODULE = "docgen_output_redirect"
+_OUTPUTS_ENV = "MCGYVR_DOCGEN_TEST_OUTPUTS"
+
+#: The redirect plugin, as source. docgen's default output paths are module
+#: constants joined to ``REPO_ROOT`` (docgen.py:74-77, :923-937), and an
+#: absolute path put in their place moves every defaulted write into the outer
+#: test's ``tmp_path``. ``REPO_ROOT`` itself is left alone, so the inner run's
+#: own git calls and imports are exactly what they were. It is written out at
+#: run time rather than kept as a file in ``tests/`` because pytest must import
+#: it by name for ``-p`` and must never collect it as a test module.
+_REDIRECT_PLUGIN = f'''\
+"""Point docgen's default outputs at a throwaway copy of the documents."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from mcgyvr import docgen
+
+_root = Path(os.environ["{_OUTPUTS_ENV}"])
+docgen.SKILL_PATH = _root / "SKILL.md"
+docgen.SETUP_PATH = _root / "SETUP.md"
+docgen.EXAMPLES_PATH = _root / "examples.md"
+'''
 
 
 def _outputs(tmp_path: Path, *, skill: Path | None = None) -> list[str]:
@@ -199,57 +228,101 @@ def test_no_rendered_reference_is_committed() -> None:
     assert not hasattr(docgen, "REFERENCE_PATH")
 
 
-def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents() -> None:
-    """A sentinel planted in the committed SETUP.md survives this file.
+def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
+    tmp_path: Path,
+) -> None:
+    """A sentinel planted where the inner run's defaults point survives it.
 
     `--skill-output`, `--setup-output` and `--examples-output` default to the
-    checkout's own copies, so a write-mode `docgen.main()` call that overrides
-    only some of them regenerates the others in place. That is not a stray
-    write: it silently repairs, in the working tree, the very drift
-    `make docs-check` exists to fail on (plan actions 2 and 3), so a run of
-    the suite would leave a stale committed document looking current.
+    checkout's own copies (docgen.py:923-937), so a write-mode `docgen.main()`
+    call that overrides only some of them regenerates the others in place.
+    That is not a stray write: it silently repairs, in the working tree, the
+    very drift `make docs-check` exists to fail on (plan actions 2 and 3), so
+    a run of the suite would leave a stale committed document looking current.
 
     A digest taken before and after would not see it — the rewrite produces
     the bytes the file is supposed to have. A sentinel does: it is the one
-    thing regeneration cannot reproduce. This test is deselected from the
-    inner run, or it would drive itself.
+    thing regeneration cannot reproduce.
+
+    The sentinel does not go in the committed file. Planting it there left
+    `skills/mcgyvr/SETUP.md` carrying a comment line for the length of the
+    inner run — up to 600 s — while `addopts = "-q -n auto"`
+    (pyproject.toml:212) had the rest of the suite reading that file in other
+    processes; the two tests that read it failed whenever they landed in the
+    window, and only ever passed by scheduling luck
+    (`tests/test_the_docgen_guard_never_writes_the_committed_setup.py`).
+    Instead the three kept documents are copied into `tmp_path`, the sentinel
+    goes into the copy, and the inner run is handed a `-p` plugin that points
+    docgen's defaults at the copies. A defaulting write in this file lands on
+    the copy and destroys the sentinel there, which is the same detection with
+    none of the checkout at stake. The committed file is asserted untouched as
+    well, so a redirect that did not take hold cannot pass this quietly.
+
+    The inner run is `-n 0`: it is one file, and one process is where the
+    plugin redirecting the defaults has to be. This test is deselected from
+    that run, or it would drive itself.
     """
-    committed = docgen.REPO_ROOT / "skills" / "mcgyvr" / "SETUP.md"
+    skills = docgen.REPO_ROOT / "skills" / "mcgyvr"
+    committed = skills / "SETUP.md"
     assert committed.exists(), "skills/mcgyvr/SETUP.md must exist"
-    original = committed.read_bytes()
+    untouched = committed.read_bytes()
+
+    documents = tmp_path / "documents"
+    documents.mkdir()
+    (documents / "SKILL.md").write_bytes((skills / "SKILL.md").read_bytes())
+    (documents / "examples.md").write_bytes(
+        (skills / "references" / "examples.md").read_bytes()
+    )
     sentinel = b"\n<!-- a docgen test rewrote the committed SETUP.md -->\n"
+    planted = untouched + sentinel
+    (documents / "SETUP.md").write_bytes(planted)
+    (tmp_path / f"{_REDIRECT_MODULE}.py").write_text(_REDIRECT_PLUGIN, encoding="utf-8")
+
     here = Path(__file__)
     myself = (
         f"tests/{here.name}::"
         f"{test_running_the_docgen_tests_does_not_rewrite_the_committed_documents.__name__}"
     )
-    try:
-        committed.write_bytes(original + sentinel)
-        run = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "-q",
-                "-p",
-                "no:cacheprovider",
-                f"tests/{here.name}",
-                "--deselect",
-                myself,
-            ],
-            cwd=docgen.REPO_ROOT,
-            capture_output=True,
-            text=True,
-            timeout=600,
-        )
-        assert run.returncode == 0, run.stdout + run.stderr
-        assert committed.read_bytes() == original + sentinel, (
-            "a docgen test wrote the committed SETUP.md: every main() call "
-            "that writes must point all four outputs at a tmp_path"
-        )
-    finally:
-        committed.write_bytes(original)
-    assert committed.read_bytes() == original
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-n",
+            "0",
+            "-p",
+            "no:cacheprovider",
+            "-p",
+            _REDIRECT_MODULE,
+            f"tests/{here.name}",
+            "--deselect",
+            myself,
+        ],
+        cwd=docgen.REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                part
+                for part in (str(tmp_path), os.environ.get("PYTHONPATH", ""))
+                if part
+            ),
+            _OUTPUTS_ENV: str(documents),
+        },
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert (documents / "SETUP.md").read_bytes() == planted, (
+        "a docgen test wrote the document `--setup-output` defaults to: every "
+        "main() call that writes must point all four outputs at a tmp_path"
+    )
+    assert committed.read_bytes() == untouched, (
+        "a docgen test wrote the committed skills/mcgyvr/SETUP.md, which the "
+        "inner run's defaults do not point at: either the redirect plugin did "
+        "not load or something reaches the checkout's copy by its own path"
+    )
 
 
 def test_table_cells_escape_pipes() -> None:

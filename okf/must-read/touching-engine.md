@@ -1,161 +1,120 @@
 # touching-engine
 
 Before choosing an engine, a quantisation format, or a kernel flag. Every claim
-here is a capability gate in vLLM v0.26.0 or llama.cpp b10644, read from source
-or from a rig's own startup log — none of it is rig-conditional, so it survives
-the next hardware swap.
+here is a capability gate read from engine source or from a rig's own startup
+log — none of it is rig-conditional, so it survives the next hardware swap.
 
 ## Compute-capability gates
 
-srv1's card is cc **7.5** (Turing TU116), srv2's is cc **8.6** (Ampere GA106).
+srv1's card is Turing, compute capability 7.5; srv2's is Ampere, 8.6.
 
-| feature | 7.5 | 8.6 | gate |
-|---|---|---|---|
-| Marlin W4A16 (AWQ / GPTQ) | **yes** | yes | `if device_capability < 75: return []` — the floor is **75, not 80** |
-| Marlin W4A8-INT8 | yes | yes | `has_device_capability(7,5)` |
-| Marlin W4A8-FP8 | no | no | SM89 or SM12x only |
-| Machete | no | **no** | `get_min_capability() == 90` — exact equality, Hopper only |
-| CUTLASS native FP8 GEMM | no | **no** | `cuda_device_capability >= 89` |
-| FP8 *weights* (W8A16 via Marlin-FP8) | yes | yes | `Fp8Config.get_min_capability() == 75`; the 1 byte/weight saving is kept |
-| FlashAttention 2 | **no** | yes | FA2 needs cc ≥ 8; srv1 falls to `TRITON_ATTN` |
-| bfloat16 | auto-cast | yes | srv1 logs `doesn't support torch.bfloat16. Falling back to torch.float16` |
-| `--kv-cache-dtype fp8` | no | yes | srv1's `modelopt` refusal: `Minimum capability: 89. Current capability: 75` |
+| feature | 7.5 | 8.6 |
+|---|---|---|
+| Marlin W4A16 (AWQ / GPTQ) | yes | yes |
+| Marlin W4A8-INT8 | yes | yes |
+| Marlin W4A8-FP8 | no | no |
+| Machete | no | no |
+| CUTLASS native FP8 GEMM | no | no |
+| FP8 *weights* via Marlin-FP8 | yes | yes |
+| FlashAttention 2 | no | yes |
+| bfloat16 | auto-cast to fp16 | yes |
+| `--kv-cache-dtype fp8` | no | yes |
 
-**Marlin's floor being 75 means srv1 is not excluded from AWQ/GPTQ.** Its poor
-vLLM numbers are not a kernel-availability problem. See the TU116 entry below
-for what they actually are.
+**Marlin's floor sits below Turing, so srv1 is not excluded from AWQ or GPTQ.**
+Its poor vLLM numbers are not a kernel-availability problem — see the Turing
+entry below for what they actually are.
+
+**Machete and native FP8 GEMM are Hopper-and-later.** Neither rig reaches them
+and no flag changes that. FP8 *weights* are a separate thing and do work on
+both, keeping the byte-per-weight saving.
 
 ## Two free flags nothing in this repo sets
 
 **`--dtype float16` on every vLLM cell.** Marlin logs its own complaint on
-pre-SM90 hardware: *"sm8x doesn't support atomicAdd + bfloat16 natively"* and
-*"You are running Marlin kernel with bf16 on GPUs before SM90. You can consider
-change to fp16 to achieve better performance."* Both rigs are pre-SM90. No
-config in the tree passes it. Untested, free.
+pre-Hopper hardware and recommends fp16 over bf16 for performance. Both rigs are
+pre-Hopper. No config in the tree passes it. Untested, free.
 
 **`--kv-cache-dtype fp8` is not free on Ampere — it changes the attention
-backend.** FLASH_ATTN accepts only `auto`/`float16`/`bfloat16`; fp8 additionally
-requires FA3 **and** cc 9.x. On srv2 the request therefore falls through to
-FLASHINFER. You get exactly 2.000x the KV pool and a different attention
-implementation in the same change. Do not attribute the result to the pool alone.
+backend.** The default backend accepts only the 16-bit dtypes; fp8 additionally
+requires a newer FlashAttention *and* a Hopper card, so the request falls
+through to a different attention implementation. You get a larger KV pool and a
+different kernel in the same change. Do not attribute the result to the pool
+alone.
 
 ## `--cpu-offload-gb` is not "streaming", it is worse
 
-**vLLM maps offloaded weights as a UVA zero-copy host view and the GPU reads
-them across PCIe on every GEMM, with no VRAM caching at any point.** Its own
-config docstring: *"loaded from CPU memory to GPU memory on the fly in each
-model forward pass."*
+**vLLM maps offloaded weights as a zero-copy host view and the GPU reads them
+across PCIe on every forward pass, with no VRAM caching at any point.** Its own
+config docstring says as much.
 
-Two penalties compound on srv2: the bus (PCIe Gen3 x16 ≈ 12.5 GB/s practical
-against ~28 GB/s of RAM) and the format (vLLM cannot load 3-bit GGUF-class
-quants, so the same model costs 1.35–2.7x more bytes per token as AWQ-INT4 or
-FP8). **Measured consequence: llama.cpp beats vLLM ~4x on offloaded MoE** —
-srv2, Qwen3.6-35B, llama.cpp `ncmoe=24` at 28.6 tok/s against vLLM
-`--cpu-offload-gb 26` at 6.1.
+Two penalties compound: the bus is far slower than host memory, and vLLM cannot
+load the 3-bit GGUF-class quants, so the same model costs materially more bytes
+per token as AWQ-INT4 or FP8.
 
 **Rule: if the model fits on the card, vLLM, and the margin grows with
 concurrency. If it does not, llama.cpp, and it is not close.**
 
 ## llama.cpp picks tensor-core kernels on a card with no tensor cores
 
-**TU116 (GTX 1650/1660/1660 Super/1660 Ti) is the Turing die shipped with the RT
-cores and the tensor cores removed — and it still reports cc 7.5.** NVIDIA
-substituted 128 plain FP16 ALUs per SM, so FP16 runs at 2x FP32, but there is no
-tensor core and **no CUDA API exposes that fact**.
+**The TU116 die is Turing with the RT cores and the tensor cores removed — and
+it still reports compute capability 7.5.** NVIDIA substituted plain FP16 ALUs,
+so FP16 runs at twice FP32, but there is no tensor core and **no CUDA API
+exposes that fact.**
 
-llama.cpp tests only the integer:
+llama.cpp tests only the capability integer, and it does so *before* any
+integer-dot fallback is considered, for both matrix multiply and flash
+attention. So the stock image runs tensor-core kernels on hardware that emulates
+them. Upstream calls the result correct but abysmal. **The measured cost is a
+roofline deficit of more than twofold on cards a few percent apart in
+bandwidth.**
 
-```c
-static bool turing_mma_available(const int cc) {
-    return GGML_CUDA_CC_IS_NVIDIA(cc) && ggml_cuda_highest_compiled_arch(cc) >= GGML_CUDA_CC_TURING;
-}
-```
+**The fix is a build flag, plus a one-function patch for MoE.** Compiling for a
+virtual architecture below Turing makes the highest-compiled-arch query return
+below Turing, so the tensor-core paths cannot be selected and the integer-dot
+kernels run instead. The arch list alone leaves host and device disagreeing
+about the MoE batch limit — the host reads the raw capability and hands Turing
+batch sizes to a kernel compiled with older launch bounds, which is a CUDA
+invalid-argument on every MoE model above the lowest width. The patch makes that
+one function read the compiled arch instead.
 
-`ggml_cuda_should_use_mmq()` calls it **first**, before any DP4A fallback, and
-`ggml_cuda_get_best_fattn_kernel()` likewise selects `BEST_FATTN_KERNEL_MMA_F16`.
-So the stock image runs the int8 tensor-core MMQ kernel and the tensor-core
-flash-attention kernel on hardware that emulates both. Upstream calls the result
-correct but *"abysmal"*.
+**Serve srv1 on the patched image.** The arch-list-only build is retired: it
+crashes every MoE model at width. The patch changes nothing on srv2, whose card
+has real tensor cores and should keep the stock image.
+→ `okf/must-read/touching-rigs.md`
 
-**The measured cost is a 2.4–2.8x roofline deficit on cards 7% apart in
-bandwidth.** srv1 extracts 25.0–26.9% of its memory roofline where srv2 extracts
-59.1–74.1%.
+**The arch list is the whole gain** — a large multiple on prefill, a substantial
+one on serving aggregate, and a few percent off decode. Forcing the
+matrix-multiply kernel alone moves nothing, the CPU build flags move nothing,
+and stock equals the local baseline. Disassembly confirms the mechanism: the
+slow builds carry tensor-core instructions for the real architecture and the
+fast ones carry none. Correctness holds — the faster build answers the same,
+inside the bound each arm priced on its own null.
 
-**The fix is a build flag, plus a one-function patch for MoE.** Compiling for
-`-DCMAKE_CUDA_ARCHITECTURES="61-virtual;80-virtual" -DGGML_CUDA_FORCE_MMQ=ON`
-makes `ggml_cuda_highest_compiled_arch(75)` return 61 — below Turing — so the
-MMA paths cannot be selected and the Pascal DP4A kernels run instead. The arch
-list alone (`L2`, built 2026-09-01 as `llamacpp:b10644-nomma-dp4a`) leaves the
-host and the device disagreeing about the MoE MMVQ batch limit:
-`get_mmvq_mmid_max_batch` reads the raw cc 750 and hands out Turing batch sizes
-to a `mul_mat_vec_q_moe` kernel compiled with Pascal launch bounds. That is a
-CUDA `invalid argument` in `ggml_cuda_mul_mat_vec_q` on every MoE model at
-`np=8` from n=2 up — the `mling n=8 ERR` this entry used to call unexplained.
-`L3` = L2 + `patch_mmvq.py` (one function in `ggml/src/ggml-cuda/mmvq.cu`,
-made to read the compiled arch) survived 60 trials at every width n=2..12 with
-zero crashes.
+**Attribute a build gain with a one-variable ladder.** The earlier comparison
+that ran all of one arm and then all of the other, with no arm recorded on the
+row, is superseded and is not quoted.
 
-**Serve srv1 on `llamacpp:b10644-L3`.** `llamacpp:b10644-nomma-dp4a` is retired.
-It changes nothing on srv2, whose Ampere card has real tensor cores and should
-keep the stock image. Build recipe:
-`tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh`, through the door:
-`python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step
-tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh --model <blob as the
-rig sees it>`.
-→ `records/evidence/2026-09-02-srv1-kernel-arms/{mmvq.patch,patch_mmvq.py,MMVQ-PATCH.md}`
+**Vulkan is a real middle path, not a replacement.** The Vulkan backend queries
+the cooperative-matrix extension rather than the capability integer, so it needs
+no arch hack and beats stock prefill — but it is well short of the patched
+build's prefill and has the lowest decode of anything tested. To run at all, the
+image needs the X and EGL libraries the NVIDIA ICD dlopens, and the device must
+be requested through CDI rather than the plain GPU flag. Otherwise ggml
+registers the CPU backend alone and benches the CPU under a Vulkan label — it
+did exactly that twice, before the bench step learned to refuse a declared
+backend that did not run.
 
-**Attributed 2026-09-02/03 by a one-variable ladder, round r2-02-09-2026.** Six
-builds of commit `d7a207411`; `llama-bench -r 9` on Qwen2.5-Coder-3B Q4_K_M for
-prefill and decode; serving at n=1/4/8 on the measured workload, five
-interleaved replicates, for the aggregate:
-
-| arm | moves | prefill p512 fa=1 tok/s | decode tok/s | serving mean agg tok/s |
-|---|---|---|---|---|
-| L0 (`75-real;75-virtual`) | local baseline | 355 | 101 | 69.8 |
-| L1 | + `FORCE_MMQ` | 355 | 101 | 69.2 |
-| L2 | `61-virtual;80-virtual` + `FORCE_MMQ` | 1275 | 95 | 111.1 |
-| **L3** | L2 + mmvq patch | 1272 | 95 | **112.1** |
-| L4 | L0 + `GGML_NATIVE`, no `CPU_ALL_VARIANTS` | 355 | 101 | 69.0 |
-| A1 stock `server-cuda-b10644` | six variables at once | 358 | 101 | 69.4 |
-| A3 Vulkan (`GGML_VULKAN`, no CUDA) | the whole backend | 677 | 89 | not served |
-
-The arch list is the whole gain: 3.6x prefill, 1.6x serving aggregate, and 6%
-off decode. `FORCE_MMQ` alone and the CPU build flags move nothing, and stock
-equals the local baseline. `cuobjdump` confirms the mechanism: L0/L1/L4 carry
-257k tensor-core lines for sm_75, L2/L3 carry none and JIT sm_61 PTX. The
-serving A/A null on this instrument spreads 15.3%, so L2 vs L3 is not
-distinguishable on speed and the 1.6x is. Correctness: L2 and L3 each drift 1
-of 257 bench-py cells (0.39pp) from L0, inside the 1.47pp bound every arm
-priced on its own null, so the faster build answers the same. The ratios in the
-2026-09-01 A/B (1.5–1.8x) were the same size, but that file ran all of one arm
-then all of the other and its rows carry no `arm=`; it is superseded, do not
-quote it.
-→ `records/evidence/2026-09-03-srv1-kernel-arms/{srv1-build-ladder.tsv,srv1-llama-bench.tsv,correctness.json}`
-→ `records/evidence/2026-09-02-srv1-kernel-arms/{srv1-lcpp-arms.tsv,srv1-aa-null.tsv,srv1-moe-slots.tsv,RUN-ORDER.md}`
-→ `tools/runs/campaigns/srv1-kernel-arms/PLAN.md`
-
-**Vulkan is a real middle path, not a replacement.** The Vulkan backend detects
-tensor cores by querying `VK_KHR_cooperative_matrix`, so it needs no arch hack
-and gives 1.9x stock prefill — but half of L3's prefill and the lowest decode.
-To run it at all the image needs `libX11 libXext libGLdispatch libEGL` (the
-NVIDIA ICD links and dlopens them) and the device must be requested through CDI
-(`--device nvidia.com/gpu=all`, not `--gpus all`), or ggml registers the CPU
-backend alone and benches the CPU under a `vulkan` label. It did that twice
-before the bench step learned to refuse a declared backend that did not run.
-→ `records/evidence/2026-09-02-srv1-kernel-arms/refusals/A3-vulkan-never-loaded.txt`
-
-Two build notes: a CUDA docker build needs
-`-DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined` or the final link fails
-on `libcuda.so.1` (the driver stub is absent in the devel image), and building
-on srv2 and shipping the image is faster and safer than building on srv1.
+**Two build notes.** A CUDA docker build needs the linker told to allow
+undefined shared-library symbols, or the final link fails on the driver stub
+that is absent from the devel image. And building on srv2 and shipping the image
+is faster and safer than building on srv1.
 
 ## Arch tags and tokenizer traps
 
-- **`gpt-oss` vs `gptoss`**: only the official MXFP4 conversion loads in b10644;
-  ollama's blob and the unsloth Q3_K_M carry the other tag and fail with
-  `unknown model architecture`.
-- **Qwen2.5-Coder vocab split** blocks 1.5B→7B speculative decoding in vLLM:
-  151936 vs 152064. It is padding only, and llama.cpp tolerates it.
-- **Post to `/v1/chat/completions`, never a raw completion endpoint.** With no
-  chat template Qwen3.6-35B emits a stop token on the first step; that cost 20
-  of 60 measured rows, each reporting `otok=1` beside `failed=0/n`.
+- **`gpt-oss` vs `gptoss`**: only the official MXFP4 conversion loads; blobs
+  carrying the other arch tag fail with `unknown model architecture`.
+- **A vocab-size split blocks speculative decoding in vLLM** between two sizes
+  of one model family. It is padding only, and llama.cpp tolerates it.
+- **Post to the chat-completions endpoint, never a raw completion endpoint.**
+  With no chat template some models emit a stop token on the first step, and the
+  cell records a whole ladder of nothing while reporting no failures.

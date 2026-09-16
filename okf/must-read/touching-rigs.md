@@ -6,296 +6,220 @@ Any ssh, any launch, any measurement on srv1 or srv2.
 
 **Prove reachability** → gate 2
 
-**Read the card and RAM, do not assume.** `nvidia-smi
---query-gpu=memory.total,memory.used,memory.reserved,memory.free` and `free -g`.
+**Read the card and RAM, do not assume.** Query the card's memory totals and the
+host's free memory on the rig, at the moment you are about to launch. The rigs
+swap hardware; a stored spec is a guess.
 
 **Read `used`, and find out whose it is.** A card can be held by a process
-→ `nvidia-smi --query-compute-apps=pid,process_name,used_memory`
+nothing in this repo started. Query the compute apps before planning a budget
+around free VRAM.
 
 ## Card memory
 
-**A card has four buckets: `total = reserved + used + free`.**
+**A card has four buckets: `total = reserved + used + free`.** The driver's
+reserve is constant within a boot and moves slightly across boots.
 
-**The reserve is constant within a boot and varies ±3 MiB between boots.** 
+**Take the VRAM term from `free`, never from `total − reserve`.** The two agree
+only on an idle card, and the wrong one places experts on a card with no room
+for them.
+
+**Read it after the previous cell tears down.** That is the only moment that
+shows what the next launch actually gets — a live mapping also depresses what
+the host reports as available.
 
 ## What a context costs
 
-**KV is `kv_bytes` in `src/mcgyvr/serving/vramfit.py` — per layer, over the
-layers the header declares as caching, never one width for all of them.** Each
-layer's `k_elems`/`v_elems` come from ggufscan, and no scalar survives this
-store: deepseek2 reads 4320 MiB at `-c 16384 -np 8` where the 2 KiB-per-token
-law says 864. **Multiply by the layers that cache, not by `block_count`.**
-Qwen3.6-35B and KAT declare `full_attention_interval = 4` — 10 of 40 layers, so
-20.2 KiB/token measured, not the 80 the layer count predicts. Qwen3-Coder-30B
-caches every layer: 96.2, against 96.0 predicted. **An undeclared
-sliding-window split is refused, not guessed.** gpt-oss-20b declares
-`sliding_window = 128` and no per-layer pattern, and an alternating guess is
-wrong for two of the three split checkpoints measured. llama.cpp prints a
-`llama_kv_cache: size = … (… N layers …)` line for each cache it creates on
-startup (under `llama_kv_cache_iswa: creating non-SWA/SWA KV cache`); pass
-those rows as `kv_bytes(layers=…)`.
-→ `records/evidence/2026-09-05-context-decomposition/srv2-deepseek-coder-v2-16b/c16384-r1.log`
+**KV is charged per caching layer, never one width for all of them.**
+Architectures declare which layers cache: a full-attention interval, a
+sliding-window split, a per-layer head-count array. A single width applied to
+every layer is wrong by a large factor on some of them. Read each layer's widths
+from the header and sum the layers that actually cache. The engine prints a
+cache line for each cache it creates at startup; pass those rows through as the
+layer set, and use them as the readback.
 
-**The non-caching layers charge per slot, and not per token.** Qwen3.6's 30
-linear layers each hold `ssm_inner_size 4096 × ssm_state_size 128 × 4 B` =
-2 MiB — 60 MiB per `-np` slot, measured across np 1/4/8 at fixed `-c`. Raising
-`-c` is cheap on these; raising `-np` is not.
+**An undeclared sliding-window split is refused, not guessed.** Where a header
+states a window but no per-layer pattern, alternating is a guess, and it has
+been wrong on most of the split checkpoints measured.
 
-**`--n-cpu-moe N` saturates at the layer count.** ncmoe=99 and ncmoe=40 give
-byte-identical VRAM on a 40-layer model. Neither engine offloads KV, ever.
+**The non-caching layers charge per slot, not per token.** Linear and recurrent
+layers hold a fixed state for every slot. Raising context is cheap on them;
+raising `--parallel` is not.
 
-## Host RAM — the weights must fit it, or nothing else you measure is real
+**`--n-cpu-moe` saturates at the layer count**, and neither engine offloads KV,
+ever.
 
-**Never put a model on a rig whose RAM cannot hold what that model will keep
-resident. Not a wake, not a sleep, not a bench cell, not a hand launch.** Owner
-ruling, 2026-09-08. Under mmap an oversized model does not refuse and does not
-OOM: it *starts*, slowly, and then pages off NVMe for as long as it serves.
-Nothing has failed, so no gate fires and the run reports a disk benchmark as a
-decode rate.
+## Host RAM — the weights must fit it, or nothing you measure is real
 
-**Which bytes have to fit depends on one flag, and the difference is the whole
-model.**
+**Never put a model on a rig whose RAM cannot hold what that model keeps
+resident.** Owner ruling. Not a wake, not a sleep, not a bench cell, not a hand
+launch.
 
-* **With mmap (the default, and what every live compose file uses):** the whole
-  GGUF is paged through the page cache. Measured 2026-08-25 on the then-16 GB
-  rig with an 18.56 GB blob — 821 MB/s of sustained NVMe reads *during decode*,
-  `free` at 207 MB, page cache pinned at max.
-  → `records/evidence/2026-08-25-moe-expert-offload/raw-postswap-squeeze-concurrency.txt`
-* **With `--no-mmap`:** only the CPU-side expert tensors are allocated, and
-  nothing is read from the blob during decode. Same rig, same blob: **+63%**
-  decode (42.9 vs 26.3 tok/s at `ncmoe 20`). On the roomy rig the same flag is
-  **−12%** — the copy costs and mmap was never the problem. **The flag is
-  rig-dependent, not universally good.**
+**Nothing serves off NVMe here, because the failure is silent.** Under memory
+mapping an oversized model does not refuse and does not OOM: it starts, slowly,
+and then pages off NVMe for as long as it serves. Nothing has failed, so no gate
+fires, the health endpoint answers, and the run reports a disk benchmark as a
+decode rate. If the blob does not fit host RAM the placement is wrong — take a
+smaller checkpoint, a deeper quant, or the other rig.
 
-  **It is `Shmem`, not private anon, and `Shmem` swaps.** Measured 2026-09-09
-  on srv1 serving `--load-mode none`: 8.09 GiB of `Shmem` with `/dev/shm` at
-  100K used and no tmpfs to account for it
-  (`records/measurements/ram-headroom-2026-09-09/srv1-release.txt`). Both rigs
-  run 8 GiB of swap — srv2 was 2.2 GiB into it that morning — so the experts
-  *can* be paged out. What the flag buys is that they are not re-read from the
-  GGUF per token; it does not buy unpageability. Anything that depends on the
-  experts being untouchable needs swap off or `mlock`, neither of which this
-  fleet does.
+**Which bytes have to fit depends on the mapping flag, and the difference is the
+whole model.** With mapping on — the default — the whole blob pages through the
+page cache. With `--no-mmap` only the host-side expert tensors are allocated and
+nothing is read from the blob during decode.
 
-**Wake time tracks RAM headroom, not model size.** Cold start to first 200 on
-`/v1/models`, 2026-09-08:
+**`--no-mmap` is rig-dependent and its sign flips.** It wins large on a
+RAM-tight host, where it stops the continuous paging, and loses on a roomy one,
+where the copy is pure cost and mmap was never the problem. Measure it on the
+rig you are on; never carry the flag across a hardware swap.
 
-| model | bytes | host | RAM | wake |
-|---|---|---|---|---|
-| KAT-Coder 35.5B/A3B Q3_K_M | 16.9 GB | srv1 | 15 GB — blob does not fit | **203 s** |
-| Qwen3-Next 80B/A3B Q3_K_M | 35.7 GB | srv2 | 45 GB — fits | **97 s** |
+**The host-side experts are shared memory, and shared memory swaps.** What the
+flag buys is that experts are not re-read from the blob per token. It does not
+buy unpageability. Both rigs run swap, so anything that depends on the experts
+being untouchable needs swap off or a memory lock, and this fleet does neither.
 
-2.1x the bytes, half the time. Do not extrapolate a wake or a load from
-parameter count, quant, or engine; the only axis that predicted these was
-whether the blob fits RAM. **srv1 is the slow rig, and its ceiling is not "the
-biggest model" — it is "the model closest to overflowing 15 GB".**
-→ `records/measurements/wake-2026-09-08/`
+**Wake time tracks RAM headroom, not model size.** A blob that overflows its
+host's RAM wakes far slower than a much larger blob that fits. Never extrapolate
+a wake or a load from parameter count, quant or engine; the axis that predicts
+it is whether the blob fits. srv1 is the slow rig, and its ceiling is not the
+biggest model — it is the model closest to overflowing its RAM.
 
-**The product's own fit check does not enforce this, and that is why KAT ran.**
-`serving/__init__.py:387` weighs `placed.ram_gb` — the spilled experts plus
-runtime, *not the blob* — against `MemAvailable`, with **no headroom**. KAT at
-`ncmoe 32` spills ~12.6 GB against srv1's 13 GB available, so it fits and is
-emitted; the 16.9 GB blob behind it does not fit 15 GB of RAM and pages. The
-bench's `mmap_gate` is the stricter of the two and already says the right
-thing — resident share against `MemAvailable − 2 GB`, evaluated *after* the
-previous cell tears down, because a live mmap depresses `available` by about a
-gigabyte.
-→ `tools/bench/serving/backends/llamacpp.py:607`, `MMAP_HEADROOM_BYTES`
-
-**How much headroom is enough is not measured.** Two wake points bracket it and
-the 2026-08-25 squeeze gives the steady-state edge. Until a sweep says
-otherwise, read `free -g` at the moment the previous cell tears down — the same
-discipline as the VRAM term — and keep the bench's 2 GB.
+**The product's own fit check weighs the spilled experts plus runtime, not the
+blob**, and that is why an oversized model was once admitted and paged. The
+bench's mapping gate is the stricter of the two and already says the right
+thing: resident share against available memory less a headroom margin, evaluated
+after the previous cell tears down. How much headroom is enough is bracketed,
+not derived — read free memory at teardown rather than trusting a stored figure.
 
 ## Host memory bandwidth
 
-Measured 2026-09-01 with a pure sequential read, not STREAM triad. Triad is
-2 reads + 1 write and reads lower; decode reads weights and writes almost
-nothing, so the pure-read figure is the one that bounds it.
-→ `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/{bw.c,bandwidth-2026-09-01.txt}`
+**Capacity and bandwidth point in opposite directions across these two boxes.**
+The rig with less RAM has the faster memory. Never infer one from the other, and
+never rank the rigs on a single axis.
 
-**srv1 reads 40.3 GB/s and srv2 reads 27.9. The 16 GB rig has the faster
-memory, by 1.44x.** Capacity and bandwidth point in opposite directions across
-these two boxes. Never infer one from the other.
+**Measure bandwidth with a pure sequential read, not a STREAM triad.** Triad is
+two reads and a write and reads lower; decode reads weights and writes almost
+nothing, so the pure-read figure is the one that bounds it.
+
+**srv1 is core-limited, not DRAM-limited.** Its read bandwidth climbs linearly
+with threads and is still climbing when it runs out of cores, well short of its
+theoretical ceiling. Faster or additional DIMMs buy srv1 nothing on the memory
+term. Cores would.
+
+**srv2 saturates partway up its thread count.** Past the knee more threads are
+worth nothing on the memory term, and the second hyperthread of each core is
+worth nothing at all. Find the knee once per rig and set threads at it.
+
+**srv2's mismatched DIMM pair costs nothing measurable.** Flex mode interleaves
+the matched portion dual-channel and appends the remainder single-channel; a
+knee was predicted at the boundary and there is none. Do not buy matched RAM for
+srv2 on bandwidth grounds. Re-measure if the DIMMs move — they have.
+
+## The image is part of the measurement
 
 **srv1's llama.cpp numbers are only valid against a stated image.** The stock
-`server-cuda-b10644` runs emulated tensor-core kernels on TU116 and reads ~1.6x
-low in serving and 3.6x low in prefill; `llamacpp:b10644-L3` does not.
-`llamacpp:b10644-nomma-dp4a` (the unpatched L2) is retired: it crashes every
-MoE model at `np=8` from n=2. Record `img=` on every srv1 row. → gate 3
+CUDA server build selects tensor-core kernels on a Turing die that has none and
+emulates them, reading far low in serving and worse again in prefill; the
+patched build does not. Record `img=` on every srv1 row. → gate 3
 → `okf/must-read/touching-engine.md`
-
-**srv1's thread scaling is linear and never saturates — it is CORE-limited, not
-DRAM-limited.** 15.7 / 30.7 / 40.2 GB/s at 2 / 4 / 6 threads: ~6.7 GB/s per
-core, still climbing when it runs out of cores, against a 57.6 GB/s theoretical
-ceiling it never approaches. Consequence: faster or additional DIMMs buy srv1
-nothing on the memory term. Cores would.
-
-**srv2 saturates at 10 threads.** 12.7 / 23.3 / 28.0 / 30.3 GB/s at 2 / 4 / 6 /
-10, then flat through 16 and 20. `-t 20` is worth nothing over `-t 10` on the
-memory term, and the second hyperthread of each core is worth nothing at all.
-
-**srv2's mismatched 16+32 DIMM pair costs nothing measurable (2026-09-01).**
-Flex mode interleaves `2 x min(16,32)` = 32 GB dual-channel and appends the
-leftover 16 GB single-channel, so a knee was predicted at 32 GB. There is none:
-27.9 / 27.8 / 27.6 / 27.9 GB/s at 28 / 32 / 36 / 40 GB. Do not buy matched RAM
-for srv2 on bandwidth grounds. Re-measure if the DIMMs move — they have twice.
 
 ## Spending the card — find the `--n-cpu-moe` floor before anything else
 
-**`--n-cpu-moe` is bounded by VRAM, not by host RAM.** At srv2's measured floor
-the card holds 11,787 of 11,911 usable MiB while host RAM sits nearly idle.
-`okf/config/llama.cpp.md` says it "is bounded by host RAM"; that predates this
-measurement and is wrong.
-
-**Every archived run of the qwen35moe family sat 3-12x above its real floor.
-Correcting that is worth ~2.4x in throughput.** What the floor does to the
-model's *output* is unmeasured, and "unmeasured" is not "nothing": `--n-cpu-moe`
-is a semantic key until a placement null at that value, on that build, shows it
-neutral (; measured 2026-09-02 on srv1, `ncmoe` 0 vs 99 flipped 9 of
-257 verdicts against a 0-flip own null). Quote a floor for fit and speed only.
-srv2, Qwen3.6-35B-A3B UD-IQ3_XXS, `np=8 ctx_slot=2048`, 2026-09-01:
-
-| ncmoe | n=1 | n=4 | n=8 | vram MiB |
-|---|---|---|---|---|
-| 0 | REFUSED | | | |
-| **6** ← floor | **43.4** | **69.3** | **73.1** | 11,787 |
-| 8 | 37.9 | 57.1 | 60.7 | 11,263 |
-| 12 | 30.7 | 52.8 | 54.7 | 10,215 |
-| 24 *(archived)* | *28.6* | *34.8* | | |
-| 99 *(archived)* | *21.0* | *29.8* | *30.0* | 2,803 |
-
-KAT-Coder-V2.5-Dev Q2_K floors at 7 (0 and 4 refuse): 47.2 / 70.3 / 71.2.
-→ `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/srv2-ncmoe-floor.tsv`
+**`--n-cpu-moe` is bounded by VRAM, not by host RAM.** At the floor the card is
+full while host RAM sits nearly idle.
 
 **Derive the floor, then walk down to it. Do not guess and do not copy a
-neighbour's value.** The budget is `free VRAM − scratch and context −
-non-expert weights − KV − slot state`, where the CUDA context measured 85–147
-MiB and not 1.0 GB and is folded, with the compute buffer, into
-`SCRATCH_AND_CONTEXT_MIB = 768` in `src/mcgyvr/serving/vramfit.py`; what
-remains is spent on expert blocks from the top down, each at its own byte
-count from the tensor table, and the first block that does not fit is the
-floor (`vramfit.floor`). A uniform per-block average put that floor three
-steps high. Both weight terms come from the tensor table, never from the file
-size.
-→ `src/mcgyvr/serving/ggufscan.py`
+neighbour's value.** The budget is free VRAM, less scratch and context, less
+non-expert weights, less KV, less slot state. What remains is spent on expert
+blocks from the top down, each at its own byte count from the tensor table, and
+the first block that does not fit is the floor. A uniform per-block average puts
+the floor several steps high. Both weight terms come from the tensor table,
+never from the file size.
 
-**Take the VRAM term from `free`, never from `total − reserve`.** The two
-agree only on an idle card, and the wrong one places experts on a card with no
-room for them. Read it after the previous cell tears down — the only moment
-that shows what the next launch actually gets.
+**The floor is per checkpoint and per rig.** It is a function of expert bytes
+and KV, so it must be re-derived whenever either moves. A floor measured under
+different hardware is not comparable to one measured now.
+
+**Lower N is faster and the gradient is steep.** A run sitting well above its
+real floor gives most of its throughput away. Walk down; do not settle above it.
+
+**A floor is a fit-and-throughput number and says nothing about output.**
+`--n-cpu-moe` is a semantic key: two cells of one model at two values are not
+comparable on output until a placement null on that build shows the key neutral,
+and the null measured so far shows it is not. Quote a floor for fit and speed
+only.
 
 **The refusal is the measurement.** Run one cell below the predicted floor on
-purpose — it names the true edge. Retry any refusal three times before believing
-it; a launch near the memory edge is a 1-in-3 coin flip.
+purpose — it names the true edge. **Retry any refusal three times before
+believing it.** A launch near the memory edge is a coin flip, while a success at
+the same setting is exactly reproducible.
+
+**A placement specified before a hardware swap may no longer be launchable.**
+Re-derive it against the rig as it is now, or run it outside the gate with the
+headroom stated on purpose. A lower placement is not a substitute — it moves the
+footprint into a band already tested.
 
 ## srv1 hard-locks under CPU expert offload
 
-**The BIOS power cap is not the fix.** `74798187` records PL1 95 W / PL2 120 W
-as what stops it. srv1 froze three more times on 2026-09-01 — 20:45, 21:35 and
-05:37 — and 05:37 happened with that cap in force. Not model-specific
-(Qwen3-Coder-30B Q2_K, gpt-oss-20b), not depth-specific (ncmoe=99, ncmoe=18).
-Each boot ends mid-log-stream: no OOM, no Xid, no MCE, no shutdown record.
+**The BIOS power cap is not the fix.** srv1 has frozen with the cap in force.
+Not model-specific, not depth-specific. Each lock ends mid-log-stream: no OOM,
+no Xid, no MCE, no shutdown record.
 
-**A hard lock can wipe the BIOS profile, power limits included.** srv1 read
-PL1 95 W at 05:23 and 4095 W at 05:57 with nobody having touched it.
+**A hard lock can wipe the BIOS profile, power limits included.** Read the
+limits back after a lock rather than assuming the profile survived it.
 
-**One clean 12-minute offload run is not an all-clear.** 2026-09-01 10:29–10:41:
-Qwen3.6-35B at ncmoe 99/40/32, three model loads, eight measured rows, no lock;
-PL1 read 95 W at both ends and uptime stayed unbroken. The three locks were
-spread across a longer campaign (20:45, 21:35, 05:37), so this bounds nothing —
-record it as a run that did not reproduce, not as a fix. Stamp PL1/PL2 into the
-start and end markers and `tee` rows on the rig, because a lock takes the ssh
-pipe with it. → `records/evidence/2026-09-01-prompt-realism/srv1-q36-rerun.tsv`
+**PL1/PL2 and the ring ratio are held from the OS on srv1, not from BIOS.** A
+boot-time service writes them every boot, on that box only. A BIOS value for
+either loses to it after boot.
 
-**Read `constraint_0_power_limit_uw`, not `constraint_0_max_power_uw`.** The
-latter is the CPU's rated TDP and reads `95000000` whatever the live limit is.
-It looks exactly like the cap being in force when it is not.
+**Read the live power-limit key, not the rated one.** The rated-TDP key reads
+the same number whatever the live limit is, so it looks exactly like the cap
+being in force when it is not.
 
-**PL1/PL2 and the ring ratio are held from the OS on srv1, not from BIOS.**
-`srv1-cpu-limits.service` writes MSR 0x610 and 0x620 every boot — PL1 95 W,
-PL2 120 W, ring 4100 MHz. Source at `/usr/local/sbin/srv1-cpu-limits`, on that
-box only. A BIOS value for either loses to it after boot.
+**One clean offload run is not an all-clear.** The locks were spread across a
+long campaign, so a short run that does not reproduce bounds nothing. Record it
+as a run that did not reproduce, never as a fix.
 
+**Stamp the power limits into the start and end markers, and write rows on the
+rig as they are produced, because a lock takes the ssh pipe with it.**
 
-**Status 2026-09-01: a 60-minute soak at 26% host-RAM occupancy did not lock.**
-Ling-3.0-tiny Q4_K_M at `--n-cpu-moe 99 --parallel 8`, 26 consecutive passes,
-3,660 s. `uptime -s`, PL1 95 W / PL2 120 W and memclk 3600 MT/s were identical
-at both ends, and throughput was flat at 53.1–55.0 tok/s agg at n=8. Prior kills
-landed at 61–150 s, so this is a strong negative — but it is **not** a clearance
-of the memory overclock. Ling streams 262 MB of expert weight per token against
-the killer config's 724 MB. It rules out "3600 MT/s is marginal under sustained
-load"; it does not rule out "3600 MT/s is marginal under peak bandwidth".
-→ `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/srv1-locktest-ling-60min.tsv`
+**Two facts constrain any diagnosis.** srv1's DIMMs are non-ECC, so memory
+errors are silent and a clean error count proves nothing. And no package changed
+across the onset, so software is excluded.
 
 **The run that separates footprint from stream rate has not been done.**
-Footprint and bytes-per-token move together in both configs tested so far. One
-checkpoint breaks the coupling: **Qwen3.6-35B-A3B UD-IQ3_XXS at `ncmoe=99`**
-puts 10.35 GiB of experts in host RAM — 69% of srv1's 15 GB, the highest of
-anything on disk — at only 331 MB/token. Locks → capacity is the cause.
-Survives → bandwidth pressure is, and the 3600 MT/s overclock returns as prime
-suspect.
-
-| | low stream | high stream |
-|---|---|---|
-| 26% of RAM | Ling-3.0-tiny — **survived 61 min** | — |
-| 50% of RAM | — | deepseek-coder-v2-16b — **killed 6x** |
-| 69% of RAM | **Qwen3.6-35B — the outstanding test** | — |
-
-**A placement specified before a hardware swap may no longer be launchable.**
-`ncmoe=99` here needs the experts plus ~1.5 GiB of runtime residency, which
-clears srv1's RAM but fails the 2 GB mmap headroom, so the serving gate refuses
-it. Re-derive against the rig as it is now, or run it outside the gate with the
-headroom stated on purpose. A lower placement is not a substitute: it moves the
-footprint into a band already tested.
-
-**Two facts that constrain any diagnosis.** srv1's DIMMs are non-ECC
-(`EDAC ie31200: No ECC support`), so memory errors are silent and no counter can
-ever show them — a clean `ce_count` proves nothing. And no package changed
-between 08-26 and 08-31: kernel 7.0.0-30, driver 580.173.02 and microcode 0x104
-are identical across the onset, so software is excluded.
-
-## After — always
-
-**Kill what you started** → gate 7 An uncleaned container held srv1
-at zero free RAM for eight minutes. `docker ps` → `docker kill` 
+Footprint and bytes-per-token move together in every config tested so far. The
+test that breaks the coupling is a high-footprint, low-stream-rate placement: if
+it locks, capacity is the cause; if it survives, bandwidth pressure is, and the
+memory overclock returns as prime suspect.
 
 ## Resume and the journal
 
-**`--resume` keys on `(host, label)` joined by NUL, and nothing else** — not
-backend, not model id, not config digest. → `run.py:152`, `run.py:388`
+**`--resume` keys on host and label joined, and nothing else** — not backend,
+not model id, not config digest. Two different configs under one label are one
+cell to it.
 
-**`--retry-failed` keeps only rows whose outcome is exactly `"ok"`.** Everything
-else is re-measured. Without it, **`refused` counts as done** and a plain
-`--resume` skips those cells forever while reporting the run finished.
-→ `run.py:157`, `run.py:133-135`
+**A refused cell counts as done.** A plain `--resume` skips refusals forever
+while reporting the run finished. `--retry-failed` keeps only rows whose outcome
+is exactly ok and re-measures everything else — but it does nothing on its own,
+because the completed set is consulted only when `--resume` is also passed, and
+nothing refuses the lone flag.
 
-**`--retry-failed` alone does nothing** — `completed()` is only called when
-`--resume` is passed, and nothing refuses the lone flag. → `run.py:932`
-
-**The journal is append-only and last-write-wins.** The barren downgrade mutates
-the row before it is written; it never rewrites an existing row. → `run.py:93`
-
-**Never delete a journal row to force a re-measure.** It turned the tree green
-over five outstanding cells and destroyed nothing only by luck. Fix
-`completed()` to re-score instead:
-```python
-if retry_failed:
-    rows = {
-        k: v
-        for k, v in rows.items()
-        if v.get("outcome") == "ok" and not barren_levels(v.get("concurrency") or {})
-    }
-```
+**The journal is append-only and last-write-wins. Never delete a row to force a
+re-measure.** Re-score instead. Deleting turned the tree green over outstanding
+cells once, and destroyed nothing only by luck.
 
 ## Config
 
-**Eleven entry keys are accepted; any other non-`_` key raises.** `_`-prefixed
-keys are documentation and ignored on purpose. → `run.py:300-322`
+**Only a fixed set of entry keys is accepted; any other non-underscore key
+raises.** Underscore-prefixed keys are documentation and ignored on purpose.
 
-**The top-level document is not validated** — a misspelled `hosts`/`models`/
-`collect` is silently ignored. So is a typo inside `serve`.
+**The top-level document is not validated.** A misspelled section name is
+silently ignored, and so is a typo inside one — the cell you think you declared
+may not exist.
 
-**Every vLLM entry needs a measured `_footprint_mib`**, or `weights_bytes` for
-the predicted branch; without either the cell is refused.
-→ `tests/test_serving_memory_declaration.py:107`, `vllm.py:1336`
+**Every vLLM entry needs a measured footprint**, or the weight bytes for the
+predicted branch. Without either, the cell is refused.
+
+## After — always
+
+**Kill what you started** → gate 7 An uncleaned container has held a rig at
+zero free RAM. List what is running and kill what the run created.

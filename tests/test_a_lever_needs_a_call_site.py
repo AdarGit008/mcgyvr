@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.config import CONFIG_PATH_ENV
+from tests import livejournal as lj
 
 _IDENTITY = {
     "GIT_AUTHOR_NAME": "t",
@@ -150,7 +151,6 @@ def _answers(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     because the point of every test below is what the driver does with an
     answer, not how the answer arrived.
     """
-    import mcgyvr.drive as drive
 
     sent: list[str] = []
     scripted = list(replies)
@@ -161,7 +161,7 @@ def _answers(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
         return _completion(scripted.pop(0))
 
-    monkeypatch.setattr(drive, "dispatch", fake_dispatch)
+    lj.patch_dispatch(monkeypatch, fake_dispatch)
     return sent
 
 

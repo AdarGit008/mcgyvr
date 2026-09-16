@@ -77,6 +77,7 @@ you read all three:
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
 | `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across units or queues on one. |
 | `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. To bind it: e.g. {srv2_7b: 2}. |
+| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr pool` prints the effective number where it exceeds one. To bind it: e.g. {srv2_7b: 3}. |
 | `max_escalations` | number (min 0) | no | `1` | How many rungs a task may climb before it is handed back unfinished. |
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
 | `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
@@ -159,6 +160,7 @@ How many answers one attempt asks for.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `breadth.draws` | number (min 1) | no | `1` | How many candidates one attempt asks its rung for before the gate picks between them. Draws are not attempts: they share one prompt and one attempt's budget, and the gate ranks the answers rather than the next attempt being told what the last one got wrong. The default of 1 is  unchanged — one draw, one verdict, and the draw is the answer. Raising it is most defensible on a cheap rung that is often almost right, where three draws are still cheaper than escalating; a lever whose whole benefit is fewer crossings into the api family cannot be evaluated before the telemetry that counts crossings, which is why this is something to ask for rather than something you are given. |
+| `breadth.temperature` | decimal number (min 0.0, max 2.0) | no | `0.7` | What every draw after the first samples at. Draw 0 of every attempt is greedy (temperature 0.0), so a single-draw install sends what it always sent, byte for byte; draws 1..n-1 sample at this temperature, because a second draw exists to be a different candidate and a greedy one is the first draw again. 0.0 is refused at load wherever any unit's effective draws exceed 1: identical draws buy N gate runs and nothing else. The wire field is the OpenAI-compatible `temperature`. 0.7 is the default because it is the conventional sampling point, and the journal now records the temperature per row, so the number can be measured against rather than argued about. |
 
 ## `cleanup`
 

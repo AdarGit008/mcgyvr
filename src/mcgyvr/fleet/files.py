@@ -59,6 +59,7 @@ _POLICY_KEYS = frozenset(
         "ladder",
         "fanout",
         "attempts",
+        "draws",
         "max_escalations",
         "max_attempts",
         "task_timeout_s",
