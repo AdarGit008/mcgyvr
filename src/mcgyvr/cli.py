@@ -48,7 +48,7 @@ from mcgyvr.emit import (
 from mcgyvr.exits import Exit
 from mcgyvr.fleet.files import FleetFileError, load_fleet
 from mcgyvr.fleet.roots import FLEETS_SHOWN, LIVE_FILE_SHOWN
-from mcgyvr.initialize import InitError, initialize
+from mcgyvr.initialize import ApiSpecError, InitError, initialize, parse_api_unit
 from mcgyvr.scan import Mismatch, Scan
 from mcgyvr.serving import (
     ModelSpec,
@@ -524,8 +524,21 @@ def _init(args: argparse.Namespace) -> int:
     # Not the config resolution order: with a fleet named live, that ends in a
     # promoted folder, and a promoted folder is never written in place.
     path = Path(args.path) if args.path else (named_config_path() or Path.cwd())
+    # Parsed before anything is detected: a mistyped `--api` is the operator's
+    # to fix, and making them wait out a network sweep to hear about it is
+    # spending their time to tell them something already known.
     try:
-        result = initialize(path, force=args.force, hosts=tuple(args.host or ()))
+        api_units = tuple(parse_api_unit(spec) for spec in (args.api or ()))
+    except ApiSpecError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    try:
+        result = initialize(
+            path,
+            force=args.force,
+            hosts=tuple(args.host or ()),
+            api_units=api_units,
+        )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
         print(f"error: {exc}", file=sys.stderr)
@@ -3335,6 +3348,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "bind backends on this machine too, by name or address "
             "(repeatable; default: localhost only)"
+        ),
+    )
+    ini.add_argument(
+        "--api",
+        action="append",
+        default=[],
+        metavar="SPEC",
+        help=(
+            "bind a hosted API unit, which needs no GPU and no local backend, "
+            "as `model=<id>,address=<url>,api_key_env=<VAR>` (repeatable). "
+            "api_key_env is the NAME of the environment variable holding your "
+            "key, never the key itself"
         ),
     )
     ini.add_argument(

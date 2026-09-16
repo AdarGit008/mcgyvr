@@ -103,23 +103,20 @@ error: Refusing to write a config that cannot load.
 No local backend answered on any default endpoint. With no GPU this build can see, no unit can be proposed, and a config with no unit or no ladder dispatches nowhere.
 ```
 
-One of those fixes is writing the two files by hand. Here, one API unit in
-`~/setup`:
+One of those fixes is `--api`, which binds a hosted unit and needs no GPU and
+no local backend. It writes the same two files any other init writes, here
+into `~/setup`:
 
-```yaml
-# ~/setup/fleet.yaml
-units:
-  api_claude-opus-5:
-    address: "https://api.anthropic.com"
-    model: claude-opus-5
-    api_key_env: ANTHROPIC_API_KEY
+```text
+$ mcgyvr init --api model=claude-opus-5,address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY ~/setup
+Wrote ~/setup
+
+What was decided, and why:
+  - api_claude-opus-5 -> claude-opus-5 at https://api.anthropic.com: bound because `--api` asked for it, not because anything was detected. Its key is read from $ANTHROPIC_API_KEY at dispatch and is never written to these files.
 ```
 
-```yaml
-# ~/setup/policy.yaml
-ladder:
-  - api_claude-opus-5
-```
+`api_key_env` is the NAME of the environment variable holding your key; the
+key itself is never written to either file, and init never reads it.
 
 From `~/setup`, `mcgyvr pool` reads the setup back:
 

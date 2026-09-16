@@ -51,7 +51,7 @@ from mcgyvr.config import (
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, Detection, detect, targets_for
-from mcgyvr.propose import AvailableSource, Proposal, propose
+from mcgyvr.propose import API, AvailableSource, Proposal, binding_name, propose
 
 COMMENT_WIDTH = 78
 
@@ -70,6 +70,128 @@ class InitError(Exception):
     surfaces later and further from its cause, which is exactly what the
     loader's fail-loud rule exists to prevent (; ``mcgyvr.config``).
     """
+
+
+class ApiSpecError(Exception):
+    """A ``--api`` value does not say what a hosted unit is.
+
+    Separate from :class:`InitError`, which means the machine had nothing to
+    write a config from. This one means the operator's own words could not be
+    read, and the remedy is to retype them rather than to change the machine.
+    """
+
+
+@dataclass(frozen=True)
+class ApiUnit:
+    """A hosted unit the operator asked for, by the unit's own schema keys.
+
+    Three facts, spelled exactly as :data:`mcgyvr.config.UNIT_FIELDS` spells
+    them, so the flag and the file it writes cannot drift into two
+    vocabularies for one thing.
+
+    ``api_key_env`` is the NAME of an environment variable, never a key. The
+    value is not accepted here, not read here and never written: it is
+    resolved at the moment of dispatch by :meth:`mcgyvr.pool.Endpoint.credential`,
+    which is what keeps a secret out of this file, out of a repr and out of
+    every error message that quotes an address.
+    """
+
+    model: str
+    address: str
+    api_key_env: str
+
+    @property
+    def name(self) -> str:
+        """What the ladder calls this unit.
+
+        Minted by the one function that names a tier, with the ``api``
+        locality — so a hosted rung is named by the same rule as a local one,
+        and the model segment is normalized into something that is safe as a
+        YAML key a human edits.
+        """
+        return binding_name(self.model, locality=API)
+
+
+#: What a ``--api`` value may say. They are the unit's own schema keys rather
+#: than a second set of words for the same three facts.
+API_SPEC_KEYS: tuple[str, ...] = ("model", "address", "api_key_env")
+
+
+def parse_api_unit(spec: str) -> ApiUnit:
+    """One ``--api`` value as an :class:`ApiUnit`, or a refusal saying why.
+
+    The shape is ``key=value`` pairs separated by commas, which is the form
+    this repository already passes named facts in (``mcgyvr.fleet.read``, the
+    door's export lines). Every key is required and an unknown one is refused
+    rather than ignored, for the reason the loader refuses an unknown config
+    key: a value that is silently dropped is a setting the operator believes
+    they made.
+    """
+    stated: dict[str, str] = {}
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        key, sep, value = part.partition("=")
+        key, value = key.strip(), value.strip()
+        if not sep or not key or not value:
+            raise ApiSpecError(
+                f"--api: {part!r} is not `key=value`. A hosted unit is stated "
+                f"as `{','.join(f'{k}=<{k}>' for k in API_SPEC_KEYS)}`."
+            )
+        if key not in API_SPEC_KEYS:
+            raise ApiSpecError(
+                f"--api: {key!r} is not something a hosted unit says. "
+                f"Accepted: {', '.join(API_SPEC_KEYS)}."
+            )
+        if key in stated:
+            raise ApiSpecError(
+                f"--api: {key!r} is given twice in one unit. Repeat `--api` "
+                f"to bind a second unit; a unit is one process at one address."
+            )
+        stated[key] = value
+
+    missing = [key for key in API_SPEC_KEYS if key not in stated]
+    if missing:
+        raise ApiSpecError(
+            f"--api: {', '.join(missing)} not given. A hosted unit needs all "
+            f"of {', '.join(API_SPEC_KEYS)} — `model` is the id the provider "
+            f"serves, `address` its base URL including scheme, and "
+            f"`api_key_env` the NAME of the environment variable holding your "
+            f"key, never the key itself."
+        )
+    return ApiUnit(
+        model=stated["model"],
+        address=stated["address"],
+        api_key_env=stated["api_key_env"],
+    )
+
+
+def _api_setup_rejected(api_units: Sequence[ApiUnit], why: ConfigError) -> str:
+    """A refusal for a setup that *was* asked for and still does not load.
+
+    Distinct from :func:`_nothing_to_bind` because the situation is: the
+    operator named units and the composition of them was rejected. Telling
+    them "no local backend answered, start one" would send them to fix a
+    machine that was never the problem.
+
+    The values they typed are deliberately not echoed. One of them is the name
+    of a credential variable, and a mistyped one is the case where somebody
+    pasted the key itself — quoting it back would put a secret in a terminal
+    and a scrollback, which is the whole hazard the `api_key_env` rule exists
+    to end.
+    """
+    named = ", ".join(unit.name for unit in api_units)
+    return (
+        f"Refusing to write a config that cannot load.\n\n"
+        f"`--api` asked for {len(api_units)} hosted unit(s) — {named} — and "
+        f"the setup composed from them is not one the loader accepts.\n\n"
+        f"The loader would reject it with: {why}\n\n"
+        f"Check what `--api` was given: `model` is the id the provider "
+        f"serves, `address` its base URL including scheme, and `api_key_env` "
+        f"the NAME of the environment variable holding your key — never the "
+        f"key itself."
+    )
 
 
 def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
@@ -99,14 +221,14 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
         f"TGI) and re-run, or\n"
         f"  - name the rig that serves your models, if it is not this one\n"
         f"    (`mcgyvr init --host srv1 --host srv2`), or\n"
-        f"  - write the file by hand and bind an API unit:\n\n"
-        f"      units:\n"
-        f"        api_claude-opus-5:\n"
-        f'          address: "https://api.anthropic.com"\n'
-        f"          model: claude-opus-5\n"
-        f"          api_key_env: ANTHROPIC_API_KEY\n"
-        f"      ladder:\n"
-        f"        - api_claude-opus-5\n"
+        f"  - bind a hosted API unit, which needs no GPU and no backend:\n\n"
+        f"      mcgyvr init --api model=claude-opus-5,"
+        f"address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY\n\n"
+        f"    That writes the same two files any other init writes. "
+        f"`api_key_env`\n"
+        f"    names the environment variable holding your key; the key itself "
+        f"is\n"
+        f"    never written to either file.\n"
     )
 
 
@@ -281,13 +403,25 @@ def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
     return {name: by_name[name].default for name in names}
 
 
-def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
-    """The fleet data implied by what was detected and proposed.
+def build(
+    detection: Detection,
+    proposal: Proposal,
+    *,
+    api_units: Sequence[ApiUnit] = (),
+) -> dict[str, Any]:
+    """The fleet data implied by what was detected, proposed and asked for.
 
     A unit carries the whole fact: its address and engine, the model it
     serves, its width, and the room it needs on the card. There is no
     separate ``sources``/``models``/``tiers`` split to keep consistent — the
     unit is the one term.
+
+    ``api_units`` are the hosted units the operator named on the command line.
+    They are not detected and not proposed, because neither question applies:
+    a hosted endpoint answers whether or not this machine has a card, and no
+    capability measurement here describes it. They enter as units like any
+    other, which is what makes the result the same two files any other init
+    writes rather than a second kind of output.
     """
     backends = {backend.name: backend for backend in detection.backends}
     units: dict[str, Any] = {}
@@ -304,12 +438,28 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
         if rung.vram_gb:
             unit["room_mib"] = round(rung.vram_gb * 1024)
         units[rung.name] = unit
+    for api in api_units:
+        # The same whole fact, minus the two a hosted endpoint does not have:
+        # no `rig`, because it is not a machine in your fleet, and no
+        # `room_mib`, because it occupies no card of yours. `api_key_env` is a
+        # variable NAME; the key is never held here.
+        units[api.name] = {
+            "address": api.address,
+            "model": api.model,
+            "api_key_env": api.api_key_env,
+            "width": 1,
+        }
     return {
         # Written at its default so the file says which setup it is. The
         # value is the schema's, never spelled here (see `_defaults`).
         **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s"),
         "units": units,
-        "ladder": [rung.name for rung in proposal.rungs],
+        # Local rungs first, hosted ones last. A ladder is written
+        # cheapest-first, and a rung is `api` exactly when its unit declares a
+        # credential (`catalog.Catalog.family_of`) — so the hosted units are
+        # the dear end of this ladder by the same rule that names the family.
+        "ladder": [rung.name for rung in proposal.rungs]
+        + [api.name for api in api_units],
         "fanout": "none",
         "orchestrator": {"unit": None, "model": None},
         "verifier": {"enabled": False, "unit": None, "model": None},
@@ -352,7 +502,11 @@ def _sources_for(detection: Detection) -> list[AvailableSource]:
     ]
 
 
-def _decisions(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
+def _decisions(
+    detection: Detection,
+    proposal: Proposal,
+    api_units: Sequence[ApiUnit] = (),
+) -> tuple[str, ...]:
     decisions: list[str] = []
     if detection.gpus:
         gpu = detection.gpus[0]
@@ -382,10 +536,21 @@ def _decisions(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
             f"{rung.quality:.1%} HumanEval+ pass@1, {rung.vram_gb:g} GB, "
             f"{presence}."
         )
+    for api in api_units:
+        decisions.append(
+            f"{api.name} -> {api.model} at {api.address}: bound because "
+            f"`--api` asked for it, not because anything was detected. Its "
+            f"key is read from ${api.api_key_env} at dispatch and is never "
+            f"written to these files."
+        )
     return tuple(decisions)
 
 
-def _limits(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
+def _limits(
+    detection: Detection,
+    proposal: Proposal,
+    api_units: Sequence[ApiUnit] = (),
+) -> tuple[str, ...]:
     """What is NOT configured, and what that costs. Never silent.
 
     The proposal's own notes belong here rather than among the decisions:
@@ -393,12 +558,26 @@ def _limits(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
     what this install cannot do yet, not about what was chosen.
     """
     limits = list(detection.notes) + list(proposal.notes)
-    limits.append(
-        "No API provider is configured. This is a supported install: the "
-        "deterministic gate is the acceptance bar, and verification is off "
-        "rather than on-and-unbound. Bind `orchestrator` and set "
-        "`verifier.enabled: true` once you have a key."
-    )
+    if api_units:
+        # What a bound API unit costs, said where every other cost is said.
+        # The old note claimed no provider was configured, which stops being
+        # true the moment `--api` binds one — and a limit that is false is
+        # worse than no limit, because it is read as a checked fact.
+        named = ", ".join(f"{u.name} (${u.api_key_env})" for u in api_units)
+        limits.append(
+            f"Hosted units are bound and every dispatch to one spends money: "
+            f"{named}. Each needs its variable exported — `mcgyvr pool` skips "
+            f"a rung whose variable is unset and says so. `orchestrator` and "
+            f"`verifier` are still unbound; bind them and set "
+            f"`verifier.enabled: true` to spend a hosted unit on those too."
+        )
+    else:
+        limits.append(
+            "No API provider is configured. This is a supported install: the "
+            "deterministic gate is the acceptance bar, and verification is off "
+            "rather than on-and-unbound. Bind `orchestrator` and set "
+            "`verifier.enabled: true` once you have a key."
+        )
     if not detection.docker:
         limits.append(
             "sandbox.mode is `tempdir`, the explicitly weaker mode. "
@@ -406,6 +585,30 @@ def _limits(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
             "install Docker before running contracts you did not write."
         )
     return tuple(limits)
+
+
+def _distinct_api_units(api_units: Sequence[ApiUnit]) -> tuple[ApiUnit, ...]:
+    """The asked-for units, refusing two that would mint one name.
+
+    Two units of the same model name the same rung, and a ladder cannot list a
+    rung twice. The loader would catch it — but it would arrive as a schema
+    complaint about a duplicate ladder entry, which describes the file rather
+    than the mistake, so it is named here where the operator's own words still
+    exist to point at.
+    """
+    seen: dict[str, ApiUnit] = {}
+    for unit in api_units:
+        clash = seen.get(unit.name)
+        if clash is not None:
+            raise InitError(
+                f"--api names {unit.name!r} twice: model {clash.model!r} at "
+                f"{clash.address} and model {unit.model!r} at {unit.address} "
+                f"mint one unit name, and a ladder lists a rung once. Bind "
+                f"one here and add the other by hand — after this run there "
+                f"is a working file to add it to."
+            )
+        seen[unit.name] = unit
+    return tuple(seen.values())
 
 
 def _flatten(data: Any, prefix: str = "") -> dict[str, Any]:
@@ -442,6 +645,7 @@ def initialize(
     detection: Detection | None = None,
     table: CapabilityTable | None = None,
     hosts: Sequence[str] = (),
+    api_units: Sequence[ApiUnit] = (),
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
@@ -453,21 +657,29 @@ def initialize(
     already decided what was found — honouring both would be two answers to
     one question, and the network one would win a test that meant to stay
     offline.
+
+    ``api_units`` are hosted units the operator asked for. They are additive
+    to whatever was detected rather than a mode: a machine with a local
+    backend and a key gets both, in one ladder, which is the escalation this
+    product exists to run. A machine with neither still refuses — an empty
+    ladder is refused by the self-parse below, exactly as it always was, and
+    nothing here special-cases around that check.
     """
     found = (
         detection
         if detection is not None
         else detect(targets_for(hosts) if hosts else DEFAULT_PROBE_TARGETS)
     )
+    asked = _distinct_api_units(api_units)
     capability = table if table is not None else load_table()
     proposal = propose(
         capability,
         vram_gb=found.largest_vram_gb,
         sources=_sources_for(found),
     )
-    data = build(found, proposal)
-    decisions = _decisions(found, proposal)
-    limits = _limits(found, proposal)
+    data = build(found, proposal, api_units=asked)
+    decisions = _decisions(found, proposal, asked)
+    limits = _limits(found, proposal, asked)
     fleet_content = render_fleet(data, decisions)
     policy_content = render_policy(data)
 
@@ -479,6 +691,11 @@ def initialize(
             fleet_content, policy_content, path=path
         ).data
     except ConfigError as exc:
+        # Two refusals, because they are two situations with two remedies. If
+        # units were asked for, the machine was never the problem and saying
+        # "start a local backend" would send someone to fix the wrong thing.
+        if asked:
+            raise InitError(_api_setup_rejected(asked, exc)) from exc
         raise InitError(_nothing_to_bind(found, exc)) from exc
 
     fleet_path = path / FLEET_FILENAME
