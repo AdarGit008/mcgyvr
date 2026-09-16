@@ -36,10 +36,10 @@ deterministic gate.
 
 ### 1. The CLI
 
-mcgyvr is not on PyPI. Install it from GitHub, then check that it runs:
+Install the CLI, then check that it runs:
 
 ```sh
-uv tool install git+https://github.com/AdarGit008/mcgyvr
+uv tool install mcgyvr
 mcgyvr --help
 ```
 
@@ -49,6 +49,13 @@ usage: mcgyvr [-h] [--version]
               ...
 
 Offload scoped coding work to a configurable worker ladder.
+```
+
+That installs the latest release. To run `main` as it stands instead — work
+merged since that release and not yet tagged — install from the repository:
+
+```sh
+uv tool install git+https://github.com/AdarGit008/mcgyvr
 ```
 
 ### 2. The skill
