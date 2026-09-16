@@ -10,6 +10,10 @@ A use's ``use.json`` names the rigs whose swap growth is recorded and not
 stopped on (``swap_recorded_not_stopped_on``). On such a rig a run's pswpout
 start, end and delta are filed and are no reason to stop; every other stop
 still applies there, and every other rig keeps the swap stop.
+
+srv2 was added to that list on 2026-09-16 ("Record swap on srv2 too"), through
+this same mechanism; what that ruling says is pinned in
+``tests/test_srv2_swap_is_recorded_and_does_not_stop_a_run.py``.
 """
 
 from __future__ import annotations
@@ -99,9 +103,12 @@ def test_a_marker_change_still_stops_on_a_listed_rig(window: Window) -> None:
     assert not any(SWAP in why for why in reasons), reasons
 
 
-def test_rig_id_relock_records_swap_on_srv1_and_keeps_the_stop_on_srv2() -> None:
+def test_rig_id_relock_records_swap_on_the_rigs_its_use_lists() -> None:
+    """srv1 from 2026-09-15, srv2 from 2026-09-16 ("Record swap on srv2 too",
+    ``tests/test_srv2_swap_is_recorded_and_does_not_stop_a_run.py``). Both are
+    the one mechanism this module pins; the 09-15 citation stays where it was."""
     use = plan_module().load_use(REPO, "rig-id-relock")
-    assert use.swap_recorded_not_stopped_on == ("srv1",)
+    assert use.swap_recorded_not_stopped_on == ("srv1", "srv2")
     path = REPO / "records/measurements/lock-fleets/rig-id-relock/use.json"
     why = json.loads(path.read_text("utf-8"))["_swap_recorded_not_stopped_on"]
     assert "2026-09-15" in why and "ram-headroom-2026-09-09" in why, why
