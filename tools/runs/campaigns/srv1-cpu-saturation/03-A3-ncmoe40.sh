@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# srv1-cpu-saturation arm A3: Qwen3.6-35B-A3B UD-IQ3_XXS on srv1 at --n-cpu-moe 40, --parallel 8, 4096 a slot; the body is _arm.sh.
+# RUN_ARTIFACTS: A3-ncmoe40.json
+exec bash "$(dirname -- "${BASH_SOURCE[0]}")/_arm.sh" A3-ncmoe40.json A3 40 "$@"

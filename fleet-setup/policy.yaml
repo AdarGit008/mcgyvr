@@ -11,6 +11,7 @@ ladder:
   - srv1_35b_b
   - srv2_35b_256k
   - srv1_35b_maxctx
+  - srv2_ornith_mtp
 
 fanout: idle
 

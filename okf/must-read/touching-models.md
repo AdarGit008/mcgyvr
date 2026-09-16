@@ -39,7 +39,7 @@ a byte-identical 4 MB tail. Everything short of a full hash said "duplicate".
 
 ```
 6364cc8f0ef01bbb44f935f044038966  KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf
-59c77a3c3c05eaa30fec8ec9714b6720  Ornith-1.0-35B_Q2_K-AllGPU.gguf
+59c77a3c3c05eaa30fec8ec9714b6720605b15b4e117695c568604f1731e6efb  Ornith-1.0-35B_Q2_K-AllGPU.gguf
 e26b2e67dcd1157878260222b49cea21  KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP.gguf
 dd93c6d8f4b2d4d6052a6132003bdf4c  Ornith-1.0-35B_Q3_K_M.gguf
 ```
