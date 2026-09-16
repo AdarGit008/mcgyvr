@@ -645,7 +645,7 @@ def test_srv2_01_retry1_of_rig_id_relock_has_its_one_diagnostic_start_committed(
     runs = plan.read_runs(REPO, "rig-id-relock")
     srv1 = [e.id for e in runs.entries if e.rig == "srv1"]
     srv2 = [e.id for e in runs.entries if e.rig == "srv2"]
-    assert (len(srv1), len(srv2)) == (16, 30)
+    assert (len(srv1), len(srv2)) == (16, 31)
     assert srv2[:5] == [
         "srv2-01",
         "srv2-01-retry1",

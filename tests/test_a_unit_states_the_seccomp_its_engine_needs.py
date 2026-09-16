@@ -593,8 +593,8 @@ def test_srv2_01_diag1_of_rig_id_relock_has_its_one_fresh_start_committed() -> N
     runs = plan.read_runs(REPO, "rig-id-relock")
     srv1 = [e.id for e in runs.entries if e.rig == "srv1"]
     srv2 = [e.id for e in runs.entries if e.rig == "srv2"]
-    # srv1 does not move; srv2 gains exactly the fresh start.
-    assert (len(srv1), len(srv2)) == (16, 30)
+    # srv1 does not move; srv2 gains the fresh start and srv2-03's retry.
+    assert (len(srv1), len(srv2)) == (16, 31)
     assert srv2[:5] == [
         "srv2-01",
         "srv2-01-retry1",

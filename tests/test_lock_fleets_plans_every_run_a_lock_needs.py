@@ -242,13 +242,15 @@ def test_the_committed_use_is_its_wrappers_and_its_wrappers_are_the_use() -> Non
     declares that run's artifact, and no other wrapper is. srv2-01's one retry,
     that retry's one diagnostic start, that diagnostic start's one fresh start
     under the changed launch (owner, 2026-09-16) and srv1-01's one extra cold
-    start are entries of their rigs' orders with wrappers of their own."""
+    start are entries of their rigs' orders with wrappers of their own. srv2-03's
+    retry (owner, 2026-09-16) is an entry too and has no wrapper: a read's run id
+    is minted when it runs."""
     plan = plan_module()
     runs = plan.read_runs(REPO, "rig-id-relock")
     by_rig = {
         rig: [e for e in runs.entries if e.rig == rig] for rig in ("srv1", "srv2")
     }
-    assert [len(by_rig["srv1"]), len(by_rig["srv2"])] == [16, 30]
+    assert [len(by_rig["srv1"]), len(by_rig["srv2"])] == [16, 31]
     campaign = [e for e in runs.entries if e.kind in ("unit", "move")]
     folder = REPO / "tools/runs/campaigns/lock-fleets/rig-id-relock"
     assert sorted(p.name for p in folder.glob("*.sh")) == sorted(

@@ -492,6 +492,12 @@ def test_srv2_01_of_rig_id_relock_has_its_one_retry_committed() -> None:
     }
     listed = REPO / "records/measurements/lock-fleets/rig-id-relock/retries.json"
     doc = json.loads(listed.read_text("utf-8"))
-    assert doc["retries"] == [{"entry": "srv2-01", "reason": SRV2_01_REASON, **derived}]
+    # srv2-03's retry (owner, 2026-09-16) is listed after it and names no
+    # wrapper: a read's run id is minted when it runs.
+    assert doc["retries"][0] == {
+        "entry": "srv2-01",
+        "reason": SRV2_01_REASON,
+        **derived,
+    }
     assert (REPO / derived["step"]).read_text("utf-8") == text
     assert os.access(REPO / derived["step"], os.X_OK)
