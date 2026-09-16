@@ -33,6 +33,11 @@ units:
         LLAMA_ARG_HOST: "0.0.0.0"
       volumes: ["/home/adaramir/models:/models:ro",
                 "/home/adaramir/models:/home/adaramir/models:ro"]
+      # The fork's MoE expert cache aborts when io_uring_queue_init fails
+      # (ggml-backend.cpp L565-578 at e85e4d9), and docker's default profile
+      # has blocked those syscalls since moby 891241e7e7 — so this unit states
+      # that default plus io_uring, and nothing else. See seccomp/README.md.
+      seccomp: seccomp/io-uring.json
 
   srv1_35b_maxctx:
     rig: srv1

@@ -138,7 +138,8 @@ def test_the_unit_that_cannot_start_states_the_profile_and_no_other_does() -> No
 
 def _doc() -> dict[str, Any]:
     """The committed profile, as a fixture tree may copy it."""
-    return json.loads(COMMITTED.read_text(encoding="utf-8"))
+    doc: dict[str, Any] = json.loads(COMMITTED.read_text(encoding="utf-8"))
+    return doc
 
 
 def _fleet(profile: str = PROFILE) -> dict[str, Any]:
@@ -180,7 +181,7 @@ def _refusals(root: Path, name: str = "a_pair") -> list[str]:
 
 
 def _run_args(root: Path, name: str = "a_pair") -> list[str]:
-    """What ``_unit.sh`` passes ``docker run -d``, as the step reads it."""
+    """The argv ``_unit.sh`` hands the door's shim, as the step reads it."""
     said = steps_module()._run_args_nul(root, name, f"r-{name}", "img@sha256:x")
     return [arg for arg in said.split("\0") if arg]
 

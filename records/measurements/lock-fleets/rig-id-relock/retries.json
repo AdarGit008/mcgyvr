@@ -1,5 +1,5 @@
 {
-  "_doc": "One retry per failed entry of this use, one extra cold start for room per passing unit entry whose load was not sampled until idle, and one diagnostic start per failed retry of a unit entry. Written by records/measurements/lock-fleets/plan.py retry, rerun and diagnose, which refuse any entry their ruling does not allow; read by plan.py read_runs, which places each immediately after its entry in that rig's order.",
+  "_doc": "One retry per failed entry of this use, one extra cold start for room per passing unit entry whose load was not sampled until idle, one diagnostic start per failed retry of a unit entry, and one fresh start per failed diagnostic start whose unit's launch changed. Written by records/measurements/lock-fleets/plan.py retry, rerun, diagnose and relaunch, which refuse any entry their ruling does not allow; read by plan.py read_runs, which places each immediately after its entry in that rig's order.",
   "use": "rig-id-relock",
   "ruling": {
     "by": "owner",
@@ -44,6 +44,21 @@
       "diagnostic_entry": "srv2-01-diag1",
       "artifact": "rig-id-relock-srv2-c1-srv2_35b_256k-diag1.json",
       "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/16-rig-id-relock-srv2-c1-srv2_35b_256k-diag1.sh"
+    }
+  ],
+  "relaunch_ruling": {
+    "by": "owner",
+    "on": "2026-09-16",
+    "said": "Fix PR: allow io_uring",
+    "rule": "A logged failed diagnostic start of a unit entry whose LAUNCH has since changed gets ONE fresh cold start, <entry>-relaunch1, placed immediately after it in that rig's order: the same unit, cold start and door command, with its own wrapper and artifact, under the launch as it now stands. The three runs that failed under the old launch are kept as data points and none of them is re-judged. If the fresh start passes its check it stands in for the entry exactly as a passing retry would; if it fails, the driver stops. It gets no retry, re-run, diagnostic start or second fresh start."
+  },
+  "relaunches": [
+    {
+      "entry": "srv2-01-diag1",
+      "reason": "the launch states the seccomp its engine needs (docker's default plus the io_uring syscalls); owner 2026-09-16: fix PR, allow io_uring",
+      "relaunch_entry": "srv2-01-relaunch1",
+      "artifact": "rig-id-relock-srv2-c1-srv2_35b_256k-relaunch1.json",
+      "step": "tools/runs/campaigns/lock-fleets/rig-id-relock/16-rig-id-relock-srv2-c1-srv2_35b_256k-relaunch1.sh"
     }
   ]
 }
