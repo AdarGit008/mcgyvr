@@ -122,11 +122,12 @@ RETRY_RULING = {
 }
 RETRIES_DOC = (
     "One retry per failed entry of this use, one extra cold start for room per "
-    "passing unit entry whose load was not sampled until idle, and one diagnostic "
-    "start per failed retry of a unit entry. Written by "
-    "records/measurements/lock-fleets/plan.py retry, rerun and diagnose, which "
-    "refuse any entry their ruling does not allow; read by plan.py read_runs, which "
-    "places each immediately after its entry in that rig's order."
+    "passing unit entry whose load was not sampled until idle, one diagnostic "
+    "start per failed retry of a unit entry, and one fresh start per failed "
+    "diagnostic start whose unit's launch changed. Written by "
+    "records/measurements/lock-fleets/plan.py retry, rerun, diagnose and relaunch, "
+    "which refuse any entry their ruling does not allow; read by plan.py read_runs, "
+    "which places each immediately after its entry in that rig's order."
 )
 #: A re-run's entry id, wrapper stem and artifact stem: the entry's, and this.
 RERUN_SUFFIX = "-rerun1"
@@ -158,6 +159,24 @@ DIAGNOSTIC_RULING = {
         "retry would; if it fails, the driver stops. It gets no retry, re-run or "
         "second diagnostic start, and the failed entry and its retry are kept as "
         "data points."
+    ),
+}
+#: A fresh start's entry id, wrapper stem and artifact stem: the diagnosed
+#: entry's, and this.
+RELAUNCH_SUFFIX = "-relaunch1"
+RELAUNCH_RULING = {
+    "by": "owner",
+    "on": "2026-09-16",
+    "said": "Fix PR: allow io_uring",
+    "rule": (
+        "A logged failed diagnostic start of a unit entry whose LAUNCH has since "
+        "changed gets ONE fresh cold start, <entry>-relaunch1, placed immediately "
+        "after it in that rig's order: the same unit, cold start and door command, "
+        "with its own wrapper and artifact, under the launch as it now stands. The "
+        "three runs that failed under the old launch are kept as data points and "
+        "none of them is re-judged. If the fresh start passes its check it stands "
+        "in for the entry exactly as a passing retry would; if it fails, the driver "
+        "stops. It gets no retry, re-run, diagnostic start or second fresh start."
     ),
 }
 
@@ -250,11 +269,16 @@ class Entry:
     rerun_of: str = ""
     #: The failed retry this one is the diagnostic start after, or ``""``.
     diagnostic_of: str = ""
+    #: The failed diagnostic start this one is the fresh start after, or ``""``.
+    relaunch_of: str = ""
 
     @property
     def rig(self) -> str:
         retried = self.diagnostic_of.removesuffix(RETRY_SUFFIX)
-        return (self.retry_of or self.rerun_of or retried or self.id).rsplit("-", 1)[0]
+        diagnosed = self.relaunch_of.removesuffix(DIAGNOSTIC_SUFFIX)
+        return (
+            self.retry_of or self.rerun_of or retried or diagnosed or self.id
+        ).rsplit("-", 1)[0]
 
     @property
     def wrapper(self) -> str:
@@ -746,6 +770,11 @@ class Runs:
         ``entry_id``, or ``None``."""
         return next((e for e in self.entries if e.diagnostic_of == entry_id), None)
 
+    def relaunch_for(self, entry_id: str) -> Entry | None:
+        """The one fresh start ``retries.json`` gives the failed diagnostic
+        start ``entry_id``, or ``None``."""
+        return next((e for e in self.entries if e.relaunch_of == entry_id), None)
+
 
 def _cells(line: str) -> list[str]:
     inner = line.strip()[1:-1]
@@ -813,7 +842,7 @@ def retries_path(root: Path, use: str) -> Path:
 
 
 #: The lists ``retries.json`` holds, each written by its own ``plan.py`` command.
-EXTRAS = ("retries", "reruns", "diagnostics")
+EXTRAS = ("retries", "reruns", "diagnostics", "relaunches")
 
 
 def load_extras(root: Path, use: str) -> dict[str, list[dict[str, str]]]:
@@ -844,8 +873,17 @@ def _is_a_diagnostic(entry: Entry) -> str:
     )
 
 
+def _is_a_relaunch(entry: Entry) -> str:
+    return (
+        f"{entry.id} is itself a fresh start of {entry.relaunch_of}: it gets no "
+        "retry, re-run, diagnostic start or second fresh start"
+    )
+
+
 def _not_an_extra(entry: Entry) -> None:
-    """A retry, a re-run or a diagnostic start gets no retry or re-run of its own."""
+    """A retry, a re-run, a diagnostic start or a fresh start gets none of its own."""
+    if entry.relaunch_of:
+        raise PlanRefusedError(_is_a_relaunch(entry))
     if entry.diagnostic_of:
         raise PlanRefusedError(_is_a_diagnostic(entry))
     if entry.retry_of:
@@ -922,6 +960,8 @@ def derive_diagnostic(use: str, entry: Entry) -> tuple[dict[str, str], str]:
     Only a retry of a unit entry gets one; any other entry, a re-run and a
     diagnostic start get none.
     """
+    if entry.relaunch_of:
+        raise PlanRefusedError(_is_a_relaunch(entry))
     if entry.diagnostic_of:
         raise PlanRefusedError(_is_a_diagnostic(entry))
     if not entry.retry_of:
@@ -943,6 +983,38 @@ def derive_diagnostic(use: str, entry: Entry) -> tuple[dict[str, str], str]:
     )
 
 
+def derive_relaunch(use: str, entry: Entry) -> tuple[dict[str, str], str]:
+    """The one fresh start after the failed diagnostic start ``entry`` (owner
+    ruling, 2026-09-16: "Fix PR: allow io_uring"), as :func:`derive_retry` gives
+    a retry: ``<entry>-relaunch1``, its wrapper and artifact named from the
+    diagnosed entry's. Same entry, same bytes.
+
+    Only a diagnostic start of a unit entry gets one. The runs that failed under
+    the old launch are data points; this is the same unit and the same cold
+    start, run once under the launch as it now stands.
+    """
+    if entry.relaunch_of:
+        raise PlanRefusedError(_is_a_relaunch(entry))
+    if not entry.diagnostic_of:
+        raise PlanRefusedError(
+            f"{entry.id} is not a diagnostic start: only a failed diagnostic start "
+            "gets a fresh start under a changed launch"
+        )
+    if entry.kind != "unit":
+        raise PlanRefusedError(
+            f"{entry.id} is a {entry.kind} entry: only a unit entry has a launch "
+            "to change"
+        )
+    return _extra(
+        use,
+        entry,
+        RELAUNCH_SUFFIX,
+        "relaunch_entry",
+        "the one fresh start under the changed launch after",
+        strip=DIAGNOSTIC_SUFFIX,
+    )
+
+
 def _named_as_derived(
     record: Mapping[str, str], derived: Mapping[str, str], entry_id: str
 ) -> None:
@@ -959,7 +1031,11 @@ def _extra_entry(entry: Entry, derived: Mapping[str, str], **of: str) -> Entry:
     argv = list(entry.argv)
     argv[argv.index("--step") + 1] = derived["step"]
     return Entry(
-        id=next(derived[k] for k in ("retry_entry", "rerun_entry", "diagnostic_entry") if k in derived),
+        id=next(
+            derived[k]
+            for k in ("retry_entry", "rerun_entry", "diagnostic_entry", "relaunch_entry")
+            if k in derived
+        ),
         kind=entry.kind,
         fleet=entry.fleet,
         to=entry.to,
@@ -1008,12 +1084,33 @@ def _with_extras(
             )
         _named_as_derived(record, derived, retry.id)
         diagnosed[retry.id] = derived
-    final: list[Entry] = []
+    diagnosed_out: list[Entry] = []
     for entry in out:
-        final.append(entry)
+        diagnosed_out.append(entry)
         if entry.id in diagnosed:
-            final.append(
+            diagnosed_out.append(
                 _extra_entry(entry, diagnosed[entry.id], diagnostic_of=entry.id)
+            )
+    relaunched: dict[str, dict[str, str]] = {}
+    for record in extras.get("relaunches", ()):
+        wanted = record.get("entry", "")
+        diagnostic = next((e for e in diagnosed_out if e.id == wanted), None)
+        if diagnostic is None:
+            raise PlanRefusedError(f"{runs.path} has no entry {wanted}")
+        derived, _ = derive_relaunch(use, diagnostic)
+        if diagnostic.id in relaunched:
+            raise PlanRefusedError(
+                f"{RETRIES} names {diagnostic.id} twice: one fresh start per "
+                "failed diagnostic start"
+            )
+        _named_as_derived(record, derived, diagnostic.id)
+        relaunched[diagnostic.id] = derived
+    final: list[Entry] = []
+    for entry in diagnosed_out:
+        final.append(entry)
+        if entry.id in relaunched:
+            final.append(
+                _extra_entry(entry, relaunched[entry.id], relaunch_of=entry.id)
             )
     return final
 
@@ -1223,6 +1320,48 @@ def diagnose(
     return _write_extra(root, use, "diagnostics", record, text)
 
 
+def relaunch(
+    root: Path,
+    use: str,
+    entry_id: str,
+    reason: str,
+    *,
+    log_from: Path | None = None,
+    journal: str | None = None,
+) -> dict[str, str]:
+    """Give the logged failed diagnostic start ``entry_id`` its one fresh start
+    under the changed launch (owner ruling, 2026-09-16: "Fix PR: allow io_uring").
+
+    Refused unless the entry is a diagnostic start of a unit entry
+    (:func:`derive_relaunch`), has no fresh start yet, is logged and fails
+    ``assemble_evidence.py check``. Writes ``<use>/retries.json``'s
+    ``relaunches`` and the fresh start's wrapper under ``root``; ``log_from`` is
+    as :func:`retry` reads it.
+    """
+    if not reason.strip():
+        raise PlanRefusedError("a fresh start names its reason (--reason)")
+    runs = read_runs(root, use)
+    entry = runs.entry(entry_id)
+    derived, text = derive_relaunch(use, entry)
+    existing = runs.relaunch_for(entry_id)
+    if existing is not None:
+        raise PlanRefusedError(
+            f"{entry_id} already has a fresh start, {existing.id}: one per failed "
+            "diagnostic start"
+        )
+    asm, ctx = _logged_context(
+        root, use, runs, entry_id, log_from, journal, "a fresh start"
+    )
+    reasons, _ = asm.verdict(ctx, entry.rig, entry_id)
+    if not reasons:
+        raise PlanRefusedError(
+            f"{entry_id} passes its check: only a failed diagnostic start gets a "
+            "fresh start"
+        )
+    record = {"entry": entry_id, "reason": reason, **derived}
+    return _write_extra(root, use, "relaunches", record, text)
+
+
 def _logged_context(
     root: Path,
     use: str,
@@ -1286,6 +1425,8 @@ def _write_extra(
         "reruns": extras["reruns"],
         "diagnostic_ruling": DIAGNOSTIC_RULING,
         "diagnostics": extras["diagnostics"],
+        "relaunch_ruling": RELAUNCH_RULING,
+        "relaunches": extras["relaunches"],
     }
     wrapper.write_text(text, encoding="utf-8")
     wrapper.chmod(0o755)
@@ -1356,6 +1497,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     one.add_argument("--log-from", default="")
     one.add_argument("--journal", default="")
     one = sub.add_parser("diagnose")
+    for name in ("--use", "--entry", "--reason"):
+        one.add_argument(name, required=True)
+    one.add_argument("--log-from", default="")
+    one.add_argument("--journal", default="")
+    one = sub.add_parser("relaunch")
     for name in ("--use", "--entry", "--reason"):
         one.add_argument(name, required=True)
     one.add_argument("--log-from", default="")
@@ -1445,6 +1591,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(
                 f"{made['entry']} is a failed retry; its one diagnostic start "
                 f"{made['diagnostic_entry']} is the entry after it: {made['step']} "
+                f"declares {made['artifact']}"
+            )
+        elif args.command == "relaunch":
+            made = relaunch(
+                root,
+                args.use,
+                args.entry,
+                args.reason,
+                log_from=Path(args.log_from) if args.log_from else None,
+                journal=args.journal or None,
+            )
+            print(
+                f"{made['entry']} failed under the old launch; its one fresh start "
+                f"{made['relaunch_entry']} is the entry after it: {made['step']} "
                 f"declares {made['artifact']}"
             )
     except PlanRefusedError as exc:

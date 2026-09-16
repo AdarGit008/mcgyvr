@@ -118,6 +118,10 @@ class Launch:
     ctx: int | None
     #: llama.cpp's ``-ub``, ``None`` when the argv states none.
     ubatch: int | None
+    #: ``launch.seccomp``: the profile file this unit's engine needs, named
+    #: relative to the directory holding fleet.yaml, or ``None`` for a unit
+    #: that states none and launches under docker's default.
+    seccomp: str | None = None
 
 
 def launch(fleet: Mapping[str, Any], name: str) -> Launch:
@@ -134,6 +138,11 @@ def launch(fleet: Mapping[str, Any], name: str) -> Launch:
     if not isinstance(env, Mapping):
         raise StepRefusedError(f"{name}: launch.env is not a mapping")
     volumes = launch_block.get("volumes") or []
+    stated_seccomp = launch_block.get("seccomp")
+    if stated_seccomp is not None and (
+        not isinstance(stated_seccomp, str) or not stated_seccomp.strip()
+    ):
+        raise StepRefusedError(f"{name}: launch.seccomp is not a file name")
     engine = unit.get("engine")
     engine = engine if isinstance(engine, str) and engine else ENGINE_LLAMACPP
     port = urlsplit(str(unit.get("address") or "")).port
@@ -169,7 +178,41 @@ def launch(fleet: Mapping[str, Any], name: str) -> Launch:
         window=window,
         ctx=ctx,
         ubatch=ubatch,
+        seccomp=stated_seccomp.strip() if stated_seccomp else None,
     )
+
+
+def setup_dir(root: Path) -> Path:
+    """Where the fleet files are: what a unit's ``launch.seccomp`` is relative to."""
+    return root / "fleet-setup"
+
+
+def seccomp_file(root: Path, unit: Launch) -> Path | None:
+    """The profile ``unit`` states, as the file beside fleet.yaml, or ``None``."""
+    if unit.seccomp is None:
+        return None
+    return setup_dir(root) / unit.seccomp
+
+
+def seccomp_refusals(root: Path, unit: Launch) -> list[str]:
+    """Where the profile ``unit`` states is not one this step can hand docker.
+
+    The docker CLI reads the profile itself and sends its JSON to the daemon
+    (``docker/cli``'s ``parseSecurityOpts``: ``os.ReadFile``), and under the
+    door that CLI runs here, not on the rig — so the file has to be readable
+    here. A stated profile that is not is refused before the rig is touched,
+    because a unit started without the profile its engine needs is a unit that
+    dies at load with a message about something else.
+    """
+    path = seccomp_file(root, unit)
+    if path is None:
+        return []
+    if not path.is_file():
+        return [
+            f"{unit.name}: launch.seccomp names {unit.seccomp}, and {path} is "
+            "not a file the step can read"
+        ]
+    return []
 
 
 def recorded(root: Path, rig: str, name: str) -> dict[str, Any]:
@@ -280,6 +323,7 @@ def unit_refusals(
             "unit, and a vLLM combination is measured by the door's serve and read"
         )
     out += launch_refusals(root, unit)
+    out += seccomp_refusals(root, unit)
     out += door_refusals(unit, door)
     return unit, out
 
@@ -353,17 +397,25 @@ def move_sides(
     return side(fleet, from_fleet, rig, before), side(fleet, to_fleet, rig, after)
 
 
-def emitted_compose(fleet: Mapping[str, Any], rig: str, fleet_name: str) -> bytes:
-    """The compose file ``mcgyvr emit`` writes for ``fleet_name`` on ``rig``."""
+def emitted_compose(
+    fleet: Mapping[str, Any], rig: str, fleet_name: str, setup: Path | None = None
+) -> bytes:
+    """The compose file ``mcgyvr emit`` writes for ``fleet_name`` on ``rig``.
+
+    ``setup`` is where the fleet files are, so a unit that states a seccomp
+    profile can be rendered; a group whose units state none needs none.
+    """
     from mcgyvr.emit import emit_locked
     from mcgyvr.serving import spec_name
 
     with tempfile.TemporaryDirectory() as tmp:
-        emit_locked(fleet, Path(tmp))
+        emit_locked(fleet, Path(tmp), setup)
         return (Path(tmp) / spec_name(rig, fleet_name)).read_bytes()
 
 
-def compose_refusals(fleet: Mapping[str, Any], group: Side, compose: str) -> list[str]:
+def compose_refusals(
+    fleet: Mapping[str, Any], group: Side, compose: str, setup: Path | None = None
+) -> list[str]:
     """Where ``compose`` is not the emitted file for ``group``, or names others."""
     from mcgyvr.serving.servelib import ComposeError, services
 
@@ -373,7 +425,7 @@ def compose_refusals(fleet: Mapping[str, Any], group: Side, compose: str) -> lis
             f"{group.fleet}/{group.rig} is a compose group and no compose file was "
             "given (the step's COMPOSE argument)"
         ]
-    if path.read_bytes() != emitted_compose(fleet, group.rig, group.fleet):
+    if path.read_bytes() != emitted_compose(fleet, group.rig, group.fleet, setup):
         return [
             f"{compose} is not byte-identical to mcgyvr.emit.emit_locked's file for "
             f"{group.fleet} on {group.rig}"
@@ -388,10 +440,21 @@ def compose_refusals(fleet: Mapping[str, Any], group: Side, compose: str) -> lis
     return []
 
 
-def run_args(unit: Launch, container: str, image: str) -> list[str]:
+def run_args(
+    unit: Launch, container: str, image: str, seccomp: str | None = None
+) -> list[str]:
     """What follows ``run -d``: the name, the card, the host's network, the
-    volumes and environment fleet.yaml states, the image and the argv."""
+    seccomp profile the unit states, the volumes and environment fleet.yaml
+    states, the image and the argv.
+
+    ``seccomp`` is the profile file as an absolute path HERE: the docker CLI
+    resolves it against its own working directory, reads it, and sends the
+    JSON to the daemon. A unit that states none is launched exactly as before,
+    under docker's default profile.
+    """
     args = ["--name", container, *RUN_FLAGS]
+    if seccomp is not None:
+        args += ["--security-opt", f"seccomp={seccomp}"]
     for volume in unit.volumes:
         args += ["-v", volume]
     for key, value in sorted(unit.env.items()):
@@ -813,7 +876,12 @@ def _unit_facts(root: Path, state: Path, name: str) -> str:
 
 def _run_args_nul(root: Path, name: str, container: str, image: str) -> str:
     unit = launch(load(root), name)
-    return "".join(f"{arg}\0" for arg in run_args(unit, container, image))
+    refused = seccomp_refusals(root, unit)
+    if refused:
+        raise StepRefusedError("; ".join(refused))
+    profile = seccomp_file(root, unit)
+    seccomp = str(profile.resolve()) if profile is not None else None
+    return "".join(f"{arg}\0" for arg in run_args(unit, container, image, seccomp))
 
 
 def _harness_command(state: Path, mode: str, container: str, poll_file: str) -> str:
@@ -866,8 +934,18 @@ def _move_facts(
         refused += door_refusals(named[0], door)
     for unit in (*source.units, *target.units):
         refused += launch_refusals(root, unit)
+        # A move's stopwatch is one ssh whose docker verbs the RIG's shell
+        # runs, so the client resolving a `--security-opt seccomp=` path is the
+        # rig's and the file is on the operator's disk. Refused by name rather
+        # than started without the profile its engine needs.
+        if unit.seccomp is not None:
+            refused.append(
+                f"{unit.name} states launch.seccomp {unit.seccomp}, and a move "
+                "runs docker on the rig, where a profile file on the operator's "
+                "disk is not one the client can read"
+            )
     for group in groups[:1]:
-        refused += compose_refusals(fleet, group, compose)
+        refused += compose_refusals(fleet, group, compose, setup_dir(root))
     images = sorted(
         {
             (unit.image, recorded_image(recorded(root, rig, unit.name)))

@@ -14,8 +14,17 @@
 # llama.cpp; when its launch.argv or launch.env are not the fields its
 # digests-<rig>.json hashed; when the door's --model, --parallel, --ctx-per-slot
 # or --ubatch are not the unit's own (data-20 and data-30 sized the run from
-# them); or when its image resolves to another digest than the digests file
+# them); when it states a launch.seccomp profile that is not a file beside
+# fleet.yaml; or when its image resolves to another digest than the digests file
 # recorded (image_id in one file, image in the other).
+#
+# THE SECCOMP A UNIT STATES (owner ruling, 2026-09-16: "Fix PR: allow
+# io_uring"). A unit's launch may state `seccomp:`, a profile file named
+# relative to fleet-setup/. It is passed as `--security-opt seccomp=<file>`,
+# absolute: the docker CLI reads the profile itself and sends its JSON to the
+# daemon, and under the door that CLI runs HERE, against the rig's daemon over
+# `-H ssh://<rig>`, so nothing is installed on the rig. A unit that states none
+# is launched exactly as before, under docker's default profile.
 #
 # A FAILED START KEEPS ITS WHOLE LOG (owner ruling, 2026-09-15). When the
 # container exits, or does not say ok on /health in 900 s, its whole `docker

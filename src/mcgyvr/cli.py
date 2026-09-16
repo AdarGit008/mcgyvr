@@ -2365,7 +2365,7 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
     if fleet is not None:
-        return _emit_locked(fleet, args)
+        return _emit_locked(fleet, args, config.path)
 
     scans = _scans(scan_module.default_root())
     try:
@@ -2501,8 +2501,15 @@ def _locked_fleet(config: Config) -> dict[str, Any] | None:
     return fleet if is_locked(fleet) else None
 
 
-def _emit_locked(fleet: dict[str, Any], args: argparse.Namespace) -> int:
-    """Emit a locked setup: each unit's stated launch, one file per fleet per rig."""
+def _emit_locked(
+    fleet: dict[str, Any], args: argparse.Namespace, setup: Path | None = None
+) -> int:
+    """Emit a locked setup: each unit's stated launch, one file per fleet per rig.
+
+    ``setup`` is the directory the setup was loaded from: a unit's
+    ``launch.seccomp`` names a profile relative to it, and that profile is
+    written beside the compose file that names it.
+    """
     if args.ctx_per_slot is not None:
         print(
             "refused: a locked unit serves the window its launch.argv states, "
@@ -2514,11 +2521,11 @@ def _emit_locked(fleet: dict[str, Any], args: argparse.Namespace) -> int:
     try:
         if args.check:
             return _report_drift(
-                check_locked(fleet, out),
-                unplanned_locked(fleet, out),
-                planned_locked_paths(fleet, out),
+                check_locked(fleet, out, setup),
+                unplanned_locked(fleet, out, setup),
+                planned_locked_paths(fleet, out, setup),
             )
-        written = emit_locked(fleet, out)
+        written = emit_locked(fleet, out, setup)
     except LockedLaunchError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED

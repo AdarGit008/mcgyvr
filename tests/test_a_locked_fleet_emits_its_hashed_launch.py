@@ -272,6 +272,9 @@ def test_the_stamped_setup_emits_the_argv_and_env_its_digests_record(
     config.mkdir()
     for name in ("fleet.yaml", "policy.yaml"):
         shutil.copy(REPO / "fleet-setup" / name, config / name)
+    # A setup is its two fleet files AND the seccomp profiles its units state:
+    # `launch.seccomp` names one relative to here (owner, 2026-09-16).
+    shutil.copytree(REPO / "fleet-setup" / "seccomp", config / "seccomp")
     out = tmp_path / "compose"
     assert emit(config, out) == Exit.OK, capsys.readouterr().err
 
@@ -282,9 +285,16 @@ def test_the_stamped_setup_emits_the_argv_and_env_its_digests_record(
         hashed |= json.loads(digests.read_text(encoding="utf-8"))["units"]
 
     expected_files = sorted(
-        f"compose.{host}.{fleet_name}.yml"
-        for fleet_name, block in stamped["fleets"].items()
-        for host in block["layout"]
+        [
+            *(
+                f"compose.{host}.{fleet_name}.yml"
+                for fleet_name, block in stamped["fleets"].items()
+                for host in block["layout"]
+            ),
+            # srv2_35b_256k states a seccomp profile, and emit writes it beside
+            # the compose file that names it, which is where compose looks.
+            "io-uring.json",
+        ]
     )
     assert sorted(path.name for path in out.iterdir()) == expected_files
     for fleet_name, block in stamped["fleets"].items():

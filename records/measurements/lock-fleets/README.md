@@ -192,8 +192,20 @@ rig's idle tail; no fill work is added.
   files that and no cause, and its whole docker log
   (`rig-id-relock-srv2-c1-srv2_35b_256k-retry1.srv2_35b_256k.docker.log`, beside
   it) ends at "warming up the model" and `[expert cache] io_uring_queue_init
-  failed: Operation not permitted`, a line known not to be fatal (on 09-13 it
-  fell back to the RAM tier). `_unit.sh` then removed the container, so its exit
+  failed: Operation not permitted`. **That line is fatal for this source**, and
+  the 2026-09-15 wording above it — that it was known to be non-fatal and had
+  fallen back to the RAM tier — was wrong. The image is the Lidenburg fork at
+  `e85e4d9`, whose expert cache prints exactly that and then calls `abort()`
+  (`ggml/src/ggml-backend.cpp` L565-578): there is no fallback, and no env var
+  disables the tier (`GGML_EXPERT_CACHE` / `GGML_EXPERT_RAM_CACHE` are
+  compile-time defines; the `_MAX` pair only sets sizes). The diagnostic start
+  proved it — its artifact's `exit` files State `ExitCode` **139**, `OOMKilled`
+  false, and the kernel's `traps: llama-server[602541] general protection fault
+  ... in libc.so.6[289a2,...]`, which is glibc's `abort()` reaching its
+  last-resort `hlt` because llama-server is PID 1 and drops the `SIGABRT` it
+  sends itself. The 2026-09-13 hand start served because its unrecorded flags
+  allowed io_uring, not because anything degraded gracefully.
+  `_unit.sh` then removed the container, so its exit
   code, OOMKilled flag and State.Error, and the rig's kernel log, were never
   filed. Now, whenever a unit step fails after `docker run` — the container
   exited before `/health` said ok, said no ok in 900 s, or anything later failed
@@ -226,6 +238,35 @@ rig's idle tail; no fill work is added.
   diagnostic start gets no retry, re-run or second diagnostic start.
   `rig-id-relock` gives srv2-01-retry1 its diagnostic start, `srv2-01-diag1`;
   running it waits on the owner's ruling.
+- **A unit states the seccomp its engine needs, and a changed launch gets one
+  fresh start** (2026-09-16, "Fix PR: allow io_uring"). A unit's `launch` may
+  state `seccomp:`, a profile file named relative to `fleet-setup/`. Both
+  launch paths apply it: `_unit.sh` passes `--security-opt seccomp=<file>`
+  (absolute — the docker CLI reads the profile itself and, under the door, runs
+  here against the rig's daemon over `-H ssh://<rig>`), and `mcgyvr emit`
+  renders `security_opt` into the compose file and writes the profile beside
+  it, which is where compose resolves it. A unit that states none launches
+  exactly as before; a stated profile that is not a file is refused by name
+  before the rig is touched; and `_move.sh` refuses a unit that states one,
+  because its stopwatch runs docker on the rig, where a path on the operator's
+  disk is not readable. `srv2_35b_256k` states
+  `seccomp/io-uring.json` — docker's default profile plus `io_uring_setup`,
+  `io_uring_enter` and `io_uring_register`, and nothing else
+  (`fleet-setup/seccomp/README.md` records its base and commit). It is not part
+  of what `digests-<rig>.json` hashed, so no `unit_id`, combination id or lock
+  record moves.
+  `plan.py relaunch --use U --entry E --reason "..." [--log-from TREE]` then
+  gives a logged failed diagnostic start of a unit entry ONE fresh cold start,
+  `E-relaunch1`, listed under `relaunches` in `<use>/retries.json` beside its
+  own ruling and placed right after it: the same unit, cold start and door
+  command, under the launch as it now stands. It refuses an entry that is not a
+  diagnostic start, is unlogged, passes its check, already has a fresh start, or
+  is itself one. `check` says the diagnostic start failed, relaunched by
+  `E-relaunch1`, and the driver goes on to it; a passing fresh start stands in
+  for the entry exactly as a passing retry would, and a failing one stops the
+  driver. The three runs that failed under the old launch stay exactly as they
+  are. `rig-id-relock` gives srv2-01-diag1 its fresh start,
+  `srv2-01-relaunch1`; running it waits on the owner's ruling.
 
 ## Stop and ask
 

@@ -288,6 +288,8 @@ def gather(ctx: Context, entry: Any) -> dict[str, Any]:
         run["rerun_of"] = entry.rerun_of
     if entry.diagnostic_of:
         run["diagnostic_of"] = entry.diagnostic_of
+    if entry.relaunch_of:
+        run["relaunch_of"] = entry.relaunch_of
     output = ctx.root / row["output"] if row.get("output") else None
     said = output.read_text(encoding="utf-8", errors="replace") if output and output.is_file() else ""
     refused = [line.strip() for line in DOOR_REFUSED.findall(said)]
@@ -583,6 +585,14 @@ def verdict(ctx: Context, host: str, entry_id: str, run_id: str | None = None) -
         if not reasons:
             return [passed_with_a_diagnostic(entry_id, diagnostic.id)], ""
         return [], f"{entry_id} failed, diagnosed by {diagnostic.id}: {'; '.join(reasons)}"
+    relaunched = ctx.runs.relaunch_for(entry_id)
+    if relaunched is not None and row is not None:
+        if not reasons:
+            return [passed_with_a_relaunch(entry_id, relaunched.id)], ""
+        return (
+            [],
+            f"{entry_id} failed, relaunched by {relaunched.id}: {'; '.join(reasons)}",
+        )
     if reasons:
         return reasons, ""
     rerun = ctx.runs.rerun_for(entry_id)
@@ -602,6 +612,14 @@ def passed_with_a_diagnostic(entry_id: str, diagnostic_id: str) -> str:
     return (
         f"{entry_id} passes its check, and {plan.RETRIES} names {diagnostic_id} as its "
         "diagnostic start: only a failed retry is diagnosed (owner ruling, 2026-09-15)"
+    )
+
+
+def passed_with_a_relaunch(entry_id: str, relaunch_id: str) -> str:
+    return (
+        f"{entry_id} passes its check, and {plan.RETRIES} names {relaunch_id} as its "
+        "fresh start: only a failed diagnostic start is relaunched (owner ruling, "
+        "2026-09-16)"
     )
 
 
@@ -663,30 +681,41 @@ def collect(ctx: Context) -> Collected:
         for entry in (e for e in entries if e.rig == rig):
             retry = ctx.runs.retry_for(entry.id)
             diagnostic = ctx.runs.diagnostic_for(entry.id)
+            relaunched = ctx.runs.relaunch_for(entry.id)
             row = ctx.runs.logged(entry.id)
             try:
                 run = gather(ctx, entry)
             except MissingError as exc:
-                if (retry is None and diagnostic is None) or row is None:
+                if (
+                    retry is None and diagnostic is None and relaunched is None
+                ) or row is None:
                     raise AssemblyRefusedError(f"a frozen entry is missing: {exc}") from exc
                 run = {"entry": entry.id, "kind": entry.kind, "rig": entry.rig, "fleet": entry.fleet,
                        "to": entry.to, "run": entry.run, "units": list(entry.units), "log": row}
                 reasons = [str(exc)]
             else:
                 reasons = stops(ctx, entry, run, prior)
-            if retry is not None or diagnostic is not None:
-                # A data point, and not one of the K valid runs: its retry, or the
-                # failed retry's diagnostic start, counts in its place (owner
-                # rulings, 2026-09-15: "Fix PR, then retry srv2", "Fix PR, then one
-                # diagnostic start").
+            if retry is not None or diagnostic is not None or relaunched is not None:
+                # A data point, and not one of the K valid runs: its retry, the
+                # failed retry's diagnostic start, or the failed diagnostic
+                # start's fresh start under the changed launch, counts in its
+                # place (owner rulings, 2026-09-15: "Fix PR, then retry srv2",
+                # "Fix PR, then one diagnostic start"; 2026-09-16: "Fix PR: allow
+                # io_uring").
                 if retry is not None:
                     if not reasons:
                         raise AssemblyRefusedError(passed_with_a_retry(entry.id, retry.id))
                     run |= {"retried_by": retry.id, "check": reasons}
-                else:
+                elif diagnostic is not None:
                     if not reasons:
                         raise AssemblyRefusedError(passed_with_a_diagnostic(entry.id, diagnostic.id))
                     run |= {"diagnosed_by": diagnostic.id, "check": reasons}
+                else:
+                    if not reasons:
+                        raise AssemblyRefusedError(
+                            passed_with_a_relaunch(entry.id, relaunched.id)
+                        )
+                    run |= {"relaunched_by": relaunched.id, "check": reasons}
                 out.failed.add(entry.id)
                 out.runs[entry.id] = run
                 continue
