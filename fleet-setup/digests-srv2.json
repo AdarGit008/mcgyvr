@@ -144,6 +144,44 @@
         "weights": "7705e294047a8c285b5f86556bef81e12bc9309988a9ad7e806e81cb730a86ee"
       },
       "unit_id": "unt-1dde4df84e0bc1a1e3b693b89c02f83783a56c2398e18359eb8ce227ec5834f7"
+    },
+    "srv2_ornith_mtp": {
+      "fields": {
+        "argv": [
+          "--model",
+          "/models/moe/Ornith-1.0-35B_Q2_K-AllGPU.gguf",
+          "--n-cpu-moe",
+          "8",
+          "--parallel",
+          "1",
+          "--port",
+          "8004",
+          "-b",
+          "512",
+          "-ub",
+          "512",
+          "-c",
+          "4096",
+          "-fa",
+          "on",
+          "-ngl",
+          "99",
+          "-t",
+          "10",
+          "--spec-type",
+          "draft-mtp",
+          "--spec-draft-n-max",
+          "2"
+        ],
+        "engine": "llama.cpp",
+        "env": {
+          "LLAMA_ARG_HOST": "0.0.0.0"
+        },
+        "gpu_cc": "8.6",
+        "image": "sha256:9f0a986a78ab9261afc3266c807c16933ee4c26c62cb063f0c17f8da890f6c7e",
+        "weights": "59c77a3c3c05eaa30fec8ec9714b6720605b15b4e117695c568604f1731e6efb"
+      },
+      "unit_id": "unt-7a00ef65a07969b3897d182e2d195f2e90706a1da6f308e285f16a88911843bb"
     }
   }
 }

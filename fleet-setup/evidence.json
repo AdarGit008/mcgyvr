@@ -5,11 +5,11 @@
       "card_peak_mib": {
         "srv1_35b_maxctx": 5626
       },
-      "envelope": "records/evidence/2026-09-15-lock-fleets",
+      "envelope": "records/evidence/2026-09-16-lock-fleets",
       "overhead_mib": 399,
       "passed": true,
       "prefill_tok_s": {
-        "srv1_35b_maxctx": 354.05894512122495
+        "srv1_35b_maxctx": 352.07749083592074
       },
       "restarts": {
         "srv1_35b_maxctx": 0
@@ -21,9 +21,9 @@
           "awake"
         ]
       ],
-      "validated_at": "2026-09-15T18:00:51Z",
+      "validated_at": "2026-09-16T17:34:14Z",
       "warm_decode_tok_s": {
-        "srv1_35b_maxctx": 33.761374604296826
+        "srv1_35b_maxctx": 33.543208585482894
       }
     },
     {
@@ -31,11 +31,11 @@
       "card_peak_mib": {
         "srv1_deepseek": 5454
       },
-      "envelope": "records/evidence/2026-09-15-lock-fleets",
+      "envelope": "records/evidence/2026-09-16-lock-fleets",
       "overhead_mib": 399,
       "passed": true,
       "prefill_tok_s": {
-        "srv1_deepseek": 297.75291856967476
+        "srv1_deepseek": 297.17397139460866
       },
       "restarts": {
         "srv1_deepseek": 0
@@ -47,9 +47,9 @@
           "awake"
         ]
       ],
-      "validated_at": "2026-09-15T18:05:29Z",
+      "validated_at": "2026-09-16T17:38:52Z",
       "warm_decode_tok_s": {
-        "srv1_deepseek": 33.65467609947847
+        "srv1_deepseek": 33.70591811153804
       }
     },
     {
@@ -57,11 +57,11 @@
       "card_peak_mib": {
         "srv1_35b_b": 5122
       },
-      "envelope": "records/evidence/2026-09-15-lock-fleets",
+      "envelope": "records/evidence/2026-09-16-lock-fleets",
       "overhead_mib": 399,
       "passed": true,
       "prefill_tok_s": {
-        "srv1_35b_b": 342.8276826266166
+        "srv1_35b_b": 342.4815594921413
       },
       "restarts": {
         "srv1_35b_b": 0
@@ -73,9 +73,9 @@
           "awake"
         ]
       ],
-      "validated_at": "2026-09-15T18:10:10Z",
+      "validated_at": "2026-09-16T17:43:11Z",
       "warm_decode_tok_s": {
-        "srv1_35b_b": 33.25555879706688
+        "srv1_35b_b": 32.469975777398076
       }
     },
     {
@@ -87,7 +87,7 @@
       "overhead_mib": 377,
       "passed": true,
       "prefill_tok_s": {
-        "srv2_35b_256k": 632.0170344560588
+        "srv2_35b_256k": 630.3376795207503
       },
       "restarts": {
         "srv2_35b_256k": 0
@@ -99,9 +99,9 @@
           "awake"
         ]
       ],
-      "validated_at": "2026-09-16T10:05:44Z",
+      "validated_at": "2026-09-16T17:32:03Z",
       "warm_decode_tok_s": {
-        "srv2_35b_256k": 49.21758459704929
+        "srv2_35b_256k": 49.30513464827816
       }
     },
     {
@@ -114,8 +114,8 @@
       "overhead_mib": 377,
       "passed": true,
       "prefill_tok_s": {
-        "srv2_3b": 13163.198934618744,
-        "srv2_7b": 7405.4423018497855
+        "srv2_3b": 12625.667892285923,
+        "srv2_7b": 6751.874287301828
       },
       "restarts": {
         "srv2_3b": 0,
@@ -132,10 +132,10 @@
           "awake"
         ]
       ],
-      "validated_at": "2026-09-16T10:10:54Z",
+      "validated_at": "2026-09-16T17:37:20Z",
       "warm_decode_tok_s": {
-        "srv2_3b": 126.41325594391164,
-        "srv2_7b": 68.26562686278727
+        "srv2_3b": 126.32180902166289,
+        "srv2_7b": 68.25969038101086
       }
     },
     {
@@ -147,7 +147,7 @@
       "overhead_mib": 377,
       "passed": true,
       "prefill_tok_s": {
-        "srv2_80b": 281.55434319434187
+        "srv2_80b": 273.2840252756604
       },
       "restarts": {
         "srv2_80b": 0
@@ -159,15 +159,41 @@
           "awake"
         ]
       ],
-      "validated_at": "2026-09-16T10:16:16Z",
+      "validated_at": "2026-09-16T17:42:55Z",
       "warm_decode_tok_s": {
-        "srv2_80b": 28.6765147441144
+        "srv2_80b": 27.869888061414304
+      }
+    },
+    {
+      "baseline_tok_s": {},
+      "card_peak_mib": {
+        "srv2_ornith_mtp": 11608
+      },
+      "envelope": "records/evidence/2026-09-16-lock-fleets",
+      "overhead_mib": 377,
+      "passed": true,
+      "prefill_tok_s": {
+        "srv2_ornith_mtp": 780.7667536045199
+      },
+      "restarts": {
+        "srv2_ornith_mtp": 0
+      },
+      "rig": "srv2",
+      "slots": [
+        [
+          "srv2_ornith_mtp",
+          "awake"
+        ]
+      ],
+      "validated_at": "2026-09-16T17:44:26Z",
+      "warm_decode_tok_s": {
+        "srv2_ornith_mtp": 86.77769901614508
       }
     }
   ],
   "moves": [
     {
-      "downtime_s": 112.869,
+      "downtime_s": 115.082,
       "from": [
         [
           "srv1_deepseek",
@@ -183,11 +209,11 @@
         ]
       ],
       "wake_s": {
-        "srv1_35b_b": 111.546
+        "srv1_35b_b": 113.645
       }
     },
     {
-      "downtime_s": 78.406,
+      "downtime_s": 78.401,
       "from": [
         [
           "srv1_35b_b",
@@ -203,11 +229,11 @@
         ]
       ],
       "wake_s": {
-        "srv1_deepseek": 77.124
+        "srv1_deepseek": 77.185
       }
     },
     {
-      "downtime_s": 96.59,
+      "downtime_s": 96.571,
       "from": [
         [
           "srv2_3b",
@@ -227,11 +253,11 @@
         ]
       ],
       "wake_s": {
-        "srv2_80b": 95.128
+        "srv2_80b": 95.119
       }
     },
     {
-      "downtime_s": 182.579,
+      "downtime_s": 183.601,
       "from": [
         [
           "srv2_80b",
@@ -251,8 +277,8 @@
         ]
       ],
       "wake_s": {
-        "srv2_3b": 94.088,
-        "srv2_7b": 182.051
+        "srv2_3b": 94.092,
+        "srv2_7b": 183.053
       }
     }
   ],
@@ -274,7 +300,7 @@
         "gpu_vram_mib": "6144",
         "hostname": "srv1",
         "kernel": "7.0.0-31-generic",
-        "mem_available_kib": "14942944",
+        "mem_available_kib": "14940644",
         "mem_total_kib": "15762544",
         "nproc": "6",
         "os_machine_id": "9f01e96b66e798b2",
@@ -303,7 +329,7 @@
         "gpu_vram_mib": "12288",
         "hostname": "srv2",
         "kernel": "7.0.0-31-generic",
-        "mem_available_kib": "46589160",
+        "mem_available_kib": "46561820",
         "mem_total_kib": "48208320",
         "nproc": "20",
         "os_machine_id": "6d5d8f1f2bfa5f96",

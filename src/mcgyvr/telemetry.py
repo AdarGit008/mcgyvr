@@ -406,6 +406,11 @@ def _completion_fields(answer: Completion) -> Record:
         ("prefill_source", answer.prefill_source),
         ("in_flight", answer.in_flight),
         ("in_flight_source", answer.in_flight_source),
+        # What the unit's speculative draft did on this reply, when it had
+        # one: llama-server reports the two counts only when it drafted, so
+        # a plain unit's row has neither key and an MTP unit's has both.
+        ("draft_n", answer.draft_n),
+        ("draft_n_accepted", answer.draft_n_accepted),
     ):
         if value is not None:
             fields[key] = value

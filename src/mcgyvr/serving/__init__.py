@@ -228,6 +228,21 @@ HF_CACHE_MOUNT = "/root/.cache/huggingface"
 # requires a new scan — not a tie-break in favour of whichever was typed last.
 SIZE_TOLERANCE_GB = 0.005
 
+#: What ``models.<name>.speculative`` may say. ``mtp`` is llama.cpp's
+#: ``--spec-type draft-mtp``: the GGUF's own grafted multi-token-prediction
+#: head run as the draft, with no second model to load. Measured on
+#: srv2 (RTX 3060, 12 GB) at +26.5% decode at width 1 and +22.0% at width 2
+#: with acceptance ~0.90, and on srv1's offload-bound 6 GB card at +20.5% at
+#: width 1 and -10.0% at width 2 -- the win is a fact about a card with room
+#: for the head, not about the model
+#: (``records/evidence/2026-08-28-mtp-ornith/README.md`` section 2).
+SPECULATIVE_NONE = "none"
+SPECULATIVE_MTP = "mtp"
+SPECULATIVE_CHOICES = (SPECULATIVE_NONE, SPECULATIVE_MTP)
+#: The draft width the evidence ran, ``--spec-draft-n-max 2``. Every measured
+#: MTP row in the record is at 2; a wider draft is a number nobody measured.
+DEFAULT_SPEC_DRAFT_N_MAX = 2
+
 _BYTES_PER_GIB = 1024**3
 
 
@@ -292,6 +307,19 @@ class ModelSpec:
     served by either engine that omits the declaration is refused at
     :func:`unit_for` rather than defaulted: a dtype nobody wrote is a number
     nobody chose.
+
+    ``speculative`` and ``spec_draft_n_max`` are the same block's
+    ``speculative`` (:data:`SPECULATIVE_CHOICES`) and ``spec_draft_n_max``:
+    whether llama.cpp runs the GGUF's grafted MTP head as its draft
+    (``--spec-type draft-mtp``) and how many tokens it drafts per step
+    (``--spec-draft-n-max``). Meaningful to llama.cpp alone; a vLLM unit that
+    declares ``mtp`` is refused by name at :func:`unit_for`. The head is a
+    fact of the tensor table, so a unit declaring it is sized with the head on
+    the card (:func:`vramfit.mtp_head_bytes`) and a scan with no nextn block is
+    refused: a name says nothing about whether a GGUF carries one, and every
+    hardware-fitting stock GGUF scans zero MTP tensors. A value outside the two
+    the build knows, or a draft width below one, is refused here rather than
+    passed to an engine that would refuse it later and less clearly.
     """
 
     name: str
@@ -304,8 +332,28 @@ class ModelSpec:
     serve_args: tuple[str, ...] = ()
     kv_cache_dtype_k: str | None = None
     kv_cache_dtype_v: str | None = None
+    speculative: str = SPECULATIVE_NONE
+    spec_draft_n_max: int = DEFAULT_SPEC_DRAFT_N_MAX
 
     def __post_init__(self) -> None:
+        if self.speculative not in SPECULATIVE_CHOICES:
+            raise UnitError(
+                f"{self.name}: models.{self.name}.speculative is "
+                f"{self.speculative!r}, which this build does not know. Valid: "
+                f"{', '.join(SPECULATIVE_CHOICES)} -- `mtp` is llama.cpp's "
+                f"--spec-type draft-mtp, the GGUF's own grafted head as the draft"
+            )
+        if (
+            isinstance(self.spec_draft_n_max, bool)
+            or not isinstance(self.spec_draft_n_max, int)
+            or self.spec_draft_n_max < 1
+        ):
+            raise UnitError(
+                f"{self.name}: models.{self.name}.spec_draft_n_max is "
+                f"{self.spec_draft_n_max!r}; --spec-draft-n-max is how many "
+                f"tokens the head drafts per step and must be at least 1 "
+                f"(the measured runs used {DEFAULT_SPEC_DRAFT_N_MAX})"
+            )
         if self.geometry is None:
             return
         scanned = Path(str(self.geometry.get("file") or "")).name
@@ -506,6 +554,8 @@ def fit(
     free_vram = free_bytes / _BYTES_PER_GIB
     available_ram = scan.memory.available_gb if scan.memory else 0.0
 
+    if spec.speculative == SPECULATIVE_MTP and not _mtp_head_blocks(spec):
+        return Fit(fits=False, headroom_gb=DEFAULT_HEADROOM_GB, why=_no_mtp_head(spec))
     if spec.moe and spec.geometry is None:
         return Fit(
             fits=False, headroom_gb=DEFAULT_HEADROOM_GB, why=_needs_geometry(spec)
@@ -586,6 +636,11 @@ def fit(
         if spec.moe and placed.ram_gb
         else ""
     )
+    head = (
+        f", {placed.head_bytes >> 20} MiB of MTP head on the card"
+        if placed.head_bytes
+        else ""
+    )
     unmapped = (
         f", read with --load-mode none because its {spec.disk_gb:.1f} GB blob "
         f"does not fit {available_ram:.1f} GB of RAM mapped"
@@ -611,7 +666,7 @@ def fit(
         card_free_gb=free_vram,
         why=(
             f"{spec.name}: {placed.vram_gb:.1f} GB on the card of "
-            f"{free_vram:.1f} GB free, {held}{spilled}{unmapped}"
+            f"{free_vram:.1f} GB free, {held}{head}{spilled}{unmapped}"
         ),
     )
 
@@ -676,6 +731,16 @@ def unit_for(
     approved, which is what makes the launch and the law one number.
     """
     cache_type_k, cache_type_v = _require_cache_types(engine, spec)
+    if engine == "vllm" and spec.speculative != SPECULATIVE_NONE:
+        raise UnitError(
+            f"{spec.name}: models.{spec.name}.speculative is "
+            f"{spec.speculative!r}, and this unit is served by vLLM. That key is "
+            f"llama.cpp's --spec-type draft-mtp, the GGUF's own grafted head "
+            f"run as the draft; vLLM's speculative decoding is "
+            f"--speculative-config, a different mechanism with its own knobs "
+            f"that this key does not express. Set it to none here, or serve "
+            f"the model under llama.cpp"
+        )
     if engine == "vllm" and not spec.hf_cache:
         raise UnitError(
             f"{spec.name}: served by vLLM, which loads a repository id from the "
@@ -756,6 +821,13 @@ def unit_for(
     # that was never in play.
     if placed.n_cpu_moe > 0:
         args["--n-cpu-moe"] = str(placed.n_cpu_moe)
+    # The head the fit charged, as the flags that load it: derived flags on
+    # the same mapping as the offload, so both renderings sort them with the
+    # rest. Absent under `none`, so a unit that declares nothing renders to
+    # the bytes it rendered before the key existed.
+    if spec.speculative == SPECULATIVE_MTP:
+        args["--spec-type"] = "draft-mtp"
+        args["--spec-draft-n-max"] = str(spec.spec_draft_n_max)
     # The mode the fit approved, never a second derivation: a unit read one
     # way and sized another is exactly the drift `argv` exists to prevent, one
     # flag over. Absent where the default (mmap) is what fits, because
@@ -1607,8 +1679,26 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             serve_args=tuple(str(arg) for arg in (block.get("serve_args") or ())),
             kv_cache_dtype_k=block.get("kv_cache_dtype_k"),
             kv_cache_dtype_v=block.get("kv_cache_dtype_v"),
+            speculative=str(block.get("speculative") or SPECULATIVE_NONE),
+            spec_draft_n_max=_declared_draft_width(name, block.get("spec_draft_n_max")),
         )
     return specs
+
+
+def _declared_draft_width(name: str, stated: object) -> int:
+    """``spec_draft_n_max`` as the block wrote it, or the measured default.
+
+    Refused here when it is not a whole number, and by :class:`ModelSpec` when
+    it is one below 1: two messages for two mistakes, each naming the key.
+    """
+    if stated is None:
+        return DEFAULT_SPEC_DRAFT_N_MAX
+    if isinstance(stated, bool) or not isinstance(stated, int):
+        raise UnitError(
+            f"{name}: models.{name}.spec_draft_n_max is {stated!r}, and "
+            f"--spec-draft-n-max is a count of tokens drafted per step"
+        )
+    return stated
 
 
 #: What a ``ggufscan`` row carries that this module reads. A file missing one
@@ -1766,6 +1856,33 @@ def _needs_geometry(spec: ModelSpec) -> str:
     )
 
 
+def _mtp_head_blocks(spec: ModelSpec) -> tuple[int, ...]:
+    """The nextn blocks the scan reports, empty for an unscanned or stock model."""
+    if spec.geometry is None:
+        return ()
+    return tuple(int(b) for b in spec.geometry.get("nextn_blocks") or ())
+
+
+def _no_mtp_head(spec: ModelSpec) -> str:
+    """Why a unit declaring ``mtp`` on a GGUF with no nextn block is refused."""
+    if spec.geometry is None:
+        seen = f"{_weights_file_name(spec.name)!r} has not been scanned, so"
+    else:
+        seen = (
+            f"{Path(str(spec.geometry.get('file') or '')).name!r} was scanned and "
+            f"its tensor table has no nextn block, so"
+        )
+    return (
+        f"{spec.name}: declares models.{spec.name}.speculative: mtp, and {seen} "
+        f"the GGUF carries no MTP head. --spec-type draft-mtp runs the head "
+        f"grafted into the file, which is read off the tensor table "
+        f"(ggufscan's nextn_blocks) and never assumed from a name; every "
+        f"hardware-fitting stock GGUF scans 0 MTP tensors. Serve a grafted "
+        f"checkpoint and point models.{spec.name}.geometry_json at its scan, "
+        f"or set speculative: none"
+    )
+
+
 @dataclass(frozen=True)
 class _Placement:
     """Where one model's weights end up on one machine, and the flags that say so.
@@ -1787,6 +1904,8 @@ class _Placement:
     vram_gb: float
     ram_gb: float
     headroom_gb: float
+    #: The MTP head's bytes inside ``vram_gb``, zero where none is declared.
+    head_bytes: int = 0
 
 
 def _placement(
@@ -1848,6 +1967,14 @@ def _placement(
         )
 
     geometry = dict(spec.geometry)
+    # The head the unit will load as its draft, charged beside the non-expert
+    # weights because it sits where they sit: on the card at every offload,
+    # never moved by --n-cpu-moe. Read off the tensor table by vramfit, zero
+    # under `none`; :func:`fit` has already refused `mtp` on a scan with no
+    # nextn block, so a non-zero here is a head the file really carries.
+    head_bytes = (
+        vramfit.mtp_head_bytes(geometry) if spec.speculative == SPECULATIVE_MTP else 0
+    )
 
     def constant(slots: int) -> int:
         try:
@@ -1870,6 +1997,7 @@ def _placement(
             ) from exc
         return (
             int(geometry["bytes_nonexpert"])
+            + head_bytes
             + kv_total
             + rs["total"]
             + (vramfit.SCRATCH_AND_CONTEXT_MIB << 20)
@@ -1903,6 +2031,7 @@ def _placement(
         vram_gb=card / _BYTES_PER_GIB,
         ram_gb=max(spec.ram_gb, _host_gb(geometry, n_cpu_moe, host=host)),
         headroom_gb=vramfit.SCRATCH_AND_CONTEXT_MIB / 1024,
+        head_bytes=head_bytes,
     )
 
 

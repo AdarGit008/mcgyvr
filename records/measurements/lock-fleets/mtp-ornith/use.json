@@ -1,0 +1,17 @@
+{
+  "_doc": "The second use of lock-fleets (owner, 2026-09-16). Read by plan.py (why, the checks it adds), drive.sh (the live compose the emitted dev compose must equal) and assemble_evidence.py (the rig pins that must not change). Everything else the use runs comes from fleet-setup/ and tools/runs/hosts.json.",
+  "use": "mtp-ornith",
+  "why": [
+    "A new unit joins the fleet: srv2_ornith_mtp, Ornith-1.0-35B_Q2_K-AllGPU under the stock server-cuda-b10644 image with --spec-type draft-mtp --spec-draft-n-max 2 at --n-cpu-moe 8, width 1, -c 4096, on srv2's port 8004, as its own fleet c-mtp.",
+    "The lever it locks is the one PR #498 lets a unit declare and size: native MTP measured on srv2 at +26.5% decode at width 1 with acceptance ~0.90, the grafted head charged to the card, and the MTP floor at --n-cpu-moe 8 where 4 refused (records/evidence/2026-08-28-mtp-ornith/README.md, sections 1 and 2). Nothing about that lever has been measured by the lock's own harness until this use.",
+    "Owner, 2026-09-16: a full re-lock is accepted. Every combination of every fleet is measured again, K = 3 cold starts each and 3 runs per move, so both rigs' pins are re-derived under one window and the new unit's room_mib comes from the same assembler as the rest.",
+    "Owner, 2026-09-16: the srv1 CPU-saturation probe is approved, including the hard-lock test it carries. It runs after srv1's frozen order finishes, as its own campaign (tools/runs/campaigns/srv1-cpu-saturation/), and is not an entry of this order.",
+    "Both rig ids reproduce from their snapshots after rig-id-relock, so neither pin may change (keep_rig_pins). Live is down for the window, so no emitted compose file is held to a live one (compose_must_match_live is empty).",
+    "The window date is recorded in the log when it runs."
+  ],
+  "keep_rig_pins": ["srv1", "srv2"],
+  "unit_caps_on": ["srv2"],
+  "_swap_recorded_not_stopped_on": "Owner rulings 2026-09-15 (\"Record swap on srv1, don't stop\") and 2026-09-16 (\"Record swap on srv2 too\"), as rig-id-relock/use.json records them: on a listed rig assemble_evidence.py files pswpout's start, end and delta and does not stop on its growth; every other stop still applies there. Swap is filed as data on both rigs: never judged, and never a reason to call a run invalid.",
+  "swap_recorded_not_stopped_on": ["srv1", "srv2"],
+  "compose_must_match_live": {}
+}

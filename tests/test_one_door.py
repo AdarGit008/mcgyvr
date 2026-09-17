@@ -503,6 +503,12 @@ def test_nothing_under_tools_or_src_names_its_own_daemon() -> None:
 #: Campaign files whose loopback is the RIG's: shell text sent over the door's
 #: ssh and run on the rig, never on this machine. Path -> why.
 LOOPBACK_ON_THE_RIG: dict[str, str] = {
+    "tools/runs/campaigns/srv1-cpu-saturation/cpusat.py": (
+        "the probe's aggregate pass: this file is shipped to the rig on stdin "
+        "(`python3 - rig-agg`, as the lock's harness is) over the door's ssh "
+        "and posts to the rig's own 127.0.0.1; the step itself polls nothing "
+        "here (owner, 2026-09-16, srv1-cpu-saturation)"
+    ),
     "tools/runs/campaigns/lock-fleets/_move.sh": (
         "the move stopwatch: ONE ssh argv, run on the rig, polls each target unit "
         "at the rig's own 127.0.0.1 and stamps it with the rig's clock (owner "

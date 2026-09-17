@@ -557,8 +557,33 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "whole resolved launch with no hand-kept field list (ID-2), so a flag \
 "
-        "this reader has never heard of cannot go unhashed.",
-        bind_hint="the resolved launch, e.g. serve_args, geometry_json, moe",
+        "this reader has never heard of cannot go unhashed. Two keys sizing \
+"
+        "reads, llama.cpp only: `speculative` (`none` | `mtp`, default `none`) \
+"
+        "runs the GGUF's own grafted multi-token-prediction head as the draft \
+"
+        "(`--spec-type draft-mtp`), and `spec_draft_n_max` (a count, at least \
+"
+        "1, default 2) is its `--spec-draft-n-max`. The head is read off the \
+"
+        "scan's tensor table and charged to the card, so the `--n-cpu-moe` \
+"
+        "floor rises (4 to 8 on KAT/Ornith Q2_K-AllGPU, ~816 MiB), and a scan \
+"
+        "with no nextn block refuses the declaration. Measured: +26.5% decode \
+"
+        "at width 1 and +22% at width 2 on a 12 GB card (srv2), and a win at \
+"
+        "width 1 that turned into -10% at width 2 on the offload-bound 6 GB \
+"
+        "card (srv1) -- records/evidence/2026-08-28-mtp-ornith/. A vLLM unit \
+"
+        "declaring `mtp` is refused: its speculative decoding is \
+"
+        "`--speculative-config`, a different mechanism.",
+        bind_hint="the resolved launch, e.g. serve_args, geometry_json, moe, "
+        "speculative",
     ),
 )
 

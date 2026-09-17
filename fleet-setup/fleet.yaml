@@ -180,6 +180,38 @@ units:
       volumes: ["/home/adaramir/models:/models:ro",
                 "/home/adaramir/models:/home/adaramir/models:ro"]
 
+  # ---- fleet (c): the MTP lever, width 1, srv2 only ----
+  # records/evidence/2026-08-28-mtp-ornith/README.md: --spec-type draft-mtp at
+  # --n-cpu-moe 8 (the measured MTP floor; 4 refused with cudaMalloc failed),
+  # width 1 because MTP refused at n>=4 on the 12 GB card. -c 4096 because the
+  # lock harness's prefill prompt is ~2,300 tokens; -t 10 is srv2's memory
+  # saturation (okf/must-read/touching-rigs.md); the stock server-cuda-b10644
+  # image is the one MTP was measured on and the one tools/runs/hosts.json
+  # declares for srv2; no seccomp (that is the Lidenburg fork's expert cache).
+  srv2_ornith_mtp:
+    rig: srv2
+    address: "http://srv2:8004"
+    engine: llama.cpp
+    image: "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644"
+    model: "Ornith-1.0-35B_Q2_K-AllGPU"
+    width: 1
+    window: 4096
+    output_tokens: 2048
+    request_timeout_s: 180
+    room_mib: 11608                               # measured card peak, sampled until idle (mtp-ornith, 3 cold starts)
+    container: "mcgyvr-srv2-ornith-mtp"
+    unit_id: "unt-7a00ef65a07969b3897d182e2d195f2e90706a1da6f308e285f16a88911843bb"
+    launch:
+      argv: ["--model", "/models/moe/Ornith-1.0-35B_Q2_K-AllGPU.gguf",
+             "--n-cpu-moe", "8", "--parallel", "1", "--port", "8004",
+             "-b", "512", "-ub", "512", "-c", "4096", "-fa", "on",
+             "-ngl", "99", "-t", "10",
+             "--spec-type", "draft-mtp", "--spec-draft-n-max", "2"]
+      env:
+        LLAMA_ARG_HOST: "0.0.0.0"
+      volumes: ["/home/adaramir/models:/models:ro",
+                "/home/adaramir/models:/home/adaramir/models:ro"]
+
 rigs:
   srv1:
     rig_id: "rig-3c89f35d83eb724f2b79f218a75c16768817ac83d2c00b740ae2236861ee1ae9"
@@ -204,3 +236,8 @@ fleets:
       srv2: [[srv2_80b, awake]]
       srv1: [[srv1_35b_b, awake]]
     next: [b-small]
+
+  c-mtp:
+    layout:
+      srv2: [[srv2_ornith_mtp, awake]]
+    next: []

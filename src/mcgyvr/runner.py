@@ -301,6 +301,15 @@ class Completion:
     prefill_source: str | None = None
     in_flight: int | None = None
     in_flight_source: str | None = None
+    #: How many tokens the unit's speculative draft proposed for this reply and
+    #: how many the target accepted -- llama-server's ``timings.draft_n`` and
+    #: ``draft_n_accepted``, which it reports only when it drafted. Their ratio
+    #: is the acceptance the MTP lever was measured by
+    #: (``records/evidence/2026-08-28-mtp-ornith/``, ~0.90 on srv2), and it is
+    #: how the lever's effect is seen in production. ``None`` where the server
+    #: reported none; a reported zero is a count and is kept.
+    draft_n: int | None = None
+    draft_n_accepted: int | None = None
 
     @property
     def complete(self) -> bool:
@@ -347,6 +356,9 @@ class _Parsed:
     #: reports them (llama-server's ``timings``), or ``None`` where it does not.
     decode_tok_s: float | None = None
     prefill_tok_s: float | None = None
+    #: The draft counts of the same ``timings``, present only when it drafted.
+    draft_n: int | None = None
+    draft_n_accepted: int | None = None
 
 
 class Runner(ABC):
@@ -437,6 +449,8 @@ class Runner(ABC):
             prefill_source=prefill_source,
             in_flight=in_flight,
             in_flight_source=in_flight_source,
+            draft_n=parsed.draft_n,
+            draft_n_accepted=parsed.draft_n_accepted,
         )
 
     def _refuse_other_weights(self, asked: str, served: str | None) -> None:
@@ -601,6 +615,10 @@ class OpenAIRunner(Runner):
             served_model=served if isinstance(served, str) and served else None,
             decode_tok_s=_as_rate(timings.get("predicted_per_second")),
             prefill_tok_s=_as_rate(timings.get("prompt_per_second")),
+            # Counts, not rates: a draft that had every token rejected reports
+            # zero accepted, and that zero is the measurement.
+            draft_n=_as_int(timings.get("draft_n")),
+            draft_n_accepted=_as_int(timings.get("draft_n_accepted")),
         )
 
 

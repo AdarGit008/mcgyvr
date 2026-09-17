@@ -1,0 +1,43 @@
+{
+  "class": "cpu_experts",
+  "entries": [
+    "srv2-08",
+    "srv2-16",
+    "srv2-24"
+  ],
+  "evidence": "fleet-setup/evidence.json",
+  "locked_prefill_tok_s": 780.7667536045199,
+  "note": "The 2026-09-12 M1 wording took the worst single-sample shortfall from the unit median over 15 samples (records/measurements/fleet-identity-prefill-2026-09-12/README.md:36-37); this rule takes it from the locked value over K x PREFILL_SAMPLES samples.",
+  "rule": "tol = max(1, ceil(max_i (L - s_i) / L x 100)), over the unit's K x PREFILL_SAMPLES prefill samples s_i, where L is the locked prefill (the median of the K run medians) and a sample above L counts as 0 (owner ruling, 2026-09-15)",
+  "run_medians": [
+    770.7336802356187,
+    780.7667536045199,
+    783.1993152303281
+  ],
+  "samples": [
+    747.2698330715917,
+    770.7336802356187,
+    770.9915131898977,
+    758.8126267350722,
+    780.9223733662019,
+    780.7667536045199,
+    761.0920719381585,
+    783.4113545458254,
+    783.1993152303281
+  ],
+  "shortfall_pct": [
+    4.2902595913933155,
+    1.2850282523662817,
+    1.2520052076363941,
+    2.8118675350984614,
+    0.0,
+    0.0,
+    2.5199179621225465,
+    0.0,
+    0.0
+  ],
+  "tolerance_pct": 5,
+  "unit": "srv2_ornith_mtp",
+  "use": "mtp-ornith",
+  "worst_shortfall_pct": 4.2902595913933155
+}

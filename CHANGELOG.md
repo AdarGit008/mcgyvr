@@ -11,6 +11,22 @@ under the same paths.
 
 ### Added
 
+- A llama.cpp model block may declare `speculative: mtp` and
+  `spec_draft_n_max` (default 2): llama.cpp's native multi-token-prediction
+  self-speculation (`--spec-type draft-mtp --spec-draft-n-max N`), measured at
+  +26.5% decode at width 1 and +22% at width 2 on srv2's 12 GB card with
+  acceptance ~0.90 (`records/evidence/2026-08-28-mtp-ornith/`). The grafted
+  head's bytes are read off the scan's tensor table (`vramfit.mtp_head_bytes`,
+  816 MiB on KAT/Ornith Q2_K-AllGPU) and charged to the card, so the derived
+  `--n-cpu-moe` floor moves as the rig did (4 → 8); `explain` and `fit` say so.
+  A scan with no nextn block is refused by file name — every stock GGUF scans
+  0 MTP tensors — and a vLLM unit declaring it is refused by name, because
+  vLLM's `--speculative-config` is a different mechanism. `emit` renders the
+  two flags as derived flags; a unit declaring `none` renders as before.
+- An attempt row records `draft_n` and `draft_n_accepted` off llama-server's
+  `timings` when it drafted, absent otherwise and never zeroed; the journal
+  index carries both columns. Their ratio is the acceptance the lever was
+  measured by.
 - `breadth.temperature` (default 0.7, 0.0–2.0) — what the draws after the
   first sample at. Draw 0 of every attempt stays greedy, so a single-draw
   install sends what it always sent; a breadth above one at temperature 0.0 is

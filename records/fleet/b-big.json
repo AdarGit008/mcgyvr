@@ -7,18 +7,18 @@
     {
       "moves": [
         {
-          "downtime_s": 78.406,
+          "downtime_s": 78.401,
           "rig": "srv1",
           "wake_s": {
-            "srv1_deepseek": 77.124
+            "srv1_deepseek": 77.185
           }
         },
         {
-          "downtime_s": 182.579,
+          "downtime_s": 183.601,
           "rig": "srv2",
           "wake_s": {
-            "srv2_3b": 94.088,
-            "srv2_7b": 182.051
+            "srv2_3b": 94.092,
+            "srv2_7b": 183.053
           }
         }
       ],

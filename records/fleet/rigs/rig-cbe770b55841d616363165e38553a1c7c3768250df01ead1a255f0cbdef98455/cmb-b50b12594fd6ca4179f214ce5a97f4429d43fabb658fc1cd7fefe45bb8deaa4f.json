@@ -6,8 +6,8 @@
       "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
       "engine": "vllm",
       "kv_cache_memory_bytes": 1207959552,
-      "prefill_tok_s": 13163.198934618744,
-      "warm_decode_tok_s": 126.41325594391164
+      "prefill_tok_s": 12625.667892285923,
+      "warm_decode_tok_s": 126.32180902166289
     },
     "srv2_7b": {
       "address": "http://srv2:8002",
@@ -15,8 +15,8 @@
       "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
       "engine": "vllm",
       "kv_cache_memory_bytes": 1879048192,
-      "prefill_tok_s": 7405.4423018497855,
-      "warm_decode_tok_s": 68.26562686278727
+      "prefill_tok_s": 6751.874287301828,
+      "warm_decode_tok_s": 68.25969038101086
     }
   },
   "card_mib": 12288,
@@ -27,5 +27,5 @@
     "srv2_7b": 0
   },
   "rig": "srv2",
-  "validated_at": "2026-09-16T10:10:54Z"
+  "validated_at": "2026-09-16T17:37:20Z"
 }

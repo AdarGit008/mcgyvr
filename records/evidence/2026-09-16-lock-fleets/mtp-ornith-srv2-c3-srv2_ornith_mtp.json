@@ -1,0 +1,177 @@
+{
+ "argv": [
+  "--model",
+  "/models/moe/Ornith-1.0-35B_Q2_K-AllGPU.gguf",
+  "--n-cpu-moe",
+  "8",
+  "--parallel",
+  "1",
+  "--port",
+  "8004",
+  "-b",
+  "512",
+  "-ub",
+  "512",
+  "-c",
+  "4096",
+  "-fa",
+  "on",
+  "-ngl",
+  "99",
+  "-t",
+  "10",
+  "--spec-type",
+  "draft-mtp",
+  "--spec-draft-n-max",
+  "2"
+ ],
+ "container_id": "d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432",
+ "ended_at": "2026-09-16T17:44:26Z",
+ "env": {
+  "LLAMA_ARG_HOST": "0.0.0.0"
+ },
+ "exit": null,
+ "failure": null,
+ "harness": {
+  "after_page": "[{\"id\":0,\"n_ctx\":4096,\"speculative\":true,\"is_processing\":false,\"id_task\":544,\"n_prompt_tokens\":1974,\"n_prompt_tokens_processed\":0,\"n_prompt_tokens_cache\":0,\"params\":{\"seed\":4294967295,\"temperature\":0.0,\"dynatemp_range\":0.0,\"dynatemp_exponent\":1.0,\"top_k\":20,\"top_p\":0.949999988079071,\"min_p\":0.05000000074505806,\"top_n_sigma\":-1.0,\"xtc_probability\":0.0,\"xtc_threshold\":0.10000000149011612,\"typical_p\":1.0,\"repeat_last_n\":64,\"repeat_penalty\":1.0,\"presence_penalty\":0.0,\"frequency_penalty\":0.0,\"dry_multiplier\":0.0,\"dry_base\":1.75,\"dry_allowed_length\":2,\"dry_penalty_last_n\":64,\"mirostat\":0,\"mirostat_tau\":5.0,\"mirostat_eta\":0.10000000149011612,\"adaptive_target\":-1.0,\"adaptive_decay\":0.8999999761581421,\"max_tokens\":16,\"n_predict\":16,\"n_keep\":0,\"n_discard\":0,\"ignore_eos\":false,\"stream\":false,\"n_probs\":0,\"min_keep\":0,\"chat_format\":\"Content-only\",\"reasoning_format\":\"deepseek\",\"reasoning_in_content\":false,\"generation_prompt\":\"\",\"samplers\":[\"penalties\",\"dry\",\"top_n_sigma\",\"top_k\",\"typ_p\",\"top_p\",\"min_p\",\"xtc\",\"temperature\"],\"speculative.types\":\"none,draft-mtp\",\"timings_per_token\":false,\"post_sampling_probs\":false,\"backend_sampling\":false,\"lora\":[]},\"next_token\":[{\"has_next_token\":false,\"has_new_line\":false,\"n_remain\":-1,\"n_decoded\":0}]}]",
+  "figures": {
+   "decode_samples": [
+    86.51637246010833,
+    86.81728842031008,
+    86.84602812244675,
+    86.77769901614508,
+    86.50284272087059
+   ],
+   "prefill_samples": [
+    761.0920719381585,
+    783.4113545458254,
+    783.1993152303281
+   ],
+   "prefill_tok_s": 783.1993152303281,
+   "warm_decode_tok_s": 86.77769901614508
+  }
+ },
+ "host": "srv2",
+ "image": {
+  "digest": "ghcr.io/ggml-org/llama.cpp@sha256:9f0a986a78ab9261afc3266c807c16933ee4c26c62cb063f0c17f8da890f6c7e",
+  "tag": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644"
+ },
+ "load": {
+  "load": {
+   "after_page": "[{\"id\":0,\"n_ctx\":4096,\"speculative\":true,\"is_processing\":false,\"id_task\":556,\"n_prompt_tokens\":4095,\"n_prompt_tokens_processed\":0,\"n_prompt_tokens_cache\":0,\"params\":{\"seed\":4294967295,\"temperature\":0.0,\"dynatemp_range\":0.0,\"dynatemp_exponent\":1.0,\"top_k\":20,\"top_p\":0.949999988079071,\"min_p\":0.05000000074505806,\"top_n_sigma\":-1.0,\"xtc_probability\":0.0,\"xtc_threshold\":0.10000000149011612,\"typical_p\":1.0,\"repeat_last_n\":64,\"repeat_penalty\":1.0,\"presence_penalty\":0.0,\"frequency_penalty\":0.0,\"dry_multiplier\":0.0,\"dry_base\":1.75,\"dry_allowed_length\":2,\"dry_penalty_last_n\":64,\"mirostat\":0,\"mirostat_tau\":5.0,\"mirostat_eta\":0.10000000149011612,\"adaptive_target\":-1.0,\"adaptive_decay\":0.8999999761581421,\"max_tokens\":106,\"n_predict\":106,\"n_keep\":0,\"n_discard\":0,\"ignore_eos\":true,\"stream\":false,\"n_probs\":0,\"min_keep\":0,\"chat_format\":\"Content-only\",\"reasoning_format\":\"deepseek\",\"reasoning_in_content\":false,\"generation_prompt\":\"\",\"samplers\":[\"penalties\",\"dry\",\"top_n_sigma\",\"top_k\",\"typ_p\",\"top_p\",\"min_p\",\"xtc\",\"temperature\"],\"speculative.types\":\"none,draft-mtp\",\"timings_per_token\":false,\"post_sampling_probs\":false,\"backend_sampling\":false,\"lora\":[]},\"next_token\":[{\"has_next_token\":false,\"has_new_line\":false,\"n_remain\":-1,\"n_decoded\":0}]}]",
+   "closed_unfinished": 0,
+   "completed": 1,
+   "errors": [],
+   "finished_at": "2026-09-16T17:44:19",
+   "idle_after_close": true,
+   "idle_after_s": 0.08199573797173798,
+   "idle_error": null,
+   "limit_s": 30,
+   "max_tokens": 106,
+   "pace_end_page": null,
+   "pace_path": null,
+   "pace_seconds": 6.5049584050429985,
+   "pace_start_page": null,
+   "prompt_tokens": 3990,
+   "restarts_after": "0\n",
+   "restarts_before": "0\n",
+   "sampled_until_idle": true,
+   "samples": [
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n",
+    "gpu_app=820266,11608,d96fe774824afe392126eb847c5c008306b388e8823a370ad387722575728432,/app/llama-server\n"
+   ],
+   "samples_before_close": 13,
+   "started_at": "2026-09-16T17:44:13",
+   "status_readings": 1
+  }
+ },
+ "markers": {
+  "end": "### END uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-16-lock-fleets-mtp-ornith-srv2-c3-srv2_ornith_mtp",
+  "on_rig": "### START uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-16-lock-fleets-mtp-ornith-srv2-c3-srv2_ornith_mtp\n### END uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-16-lock-fleets-mtp-ornith-srv2-c3-srv2_ornith_mtp\n",
+  "start": "### START uptime_since=2026-09-12T08:58:44Z pl1_uw=65000000 pl2_uw=0 pl1_source=constraint_0_power_limit_uw cpu_max_mhz=5200 ram_mt_s=2933 run_id=2026-09-16-lock-fleets-mtp-ornith-srv2-c3-srv2_ornith_mtp"
+ },
+ "product_sha256": "4178cea06a0cd0336b6a1208e078cfd8d4657ba1e7581e4772ca5e2f2774395c",
+ "restarts": 0,
+ "round": "r34-16-09-2026",
+ "run_id": "2026-09-16-lock-fleets-mtp-ornith-srv2-c3-srv2_ornith_mtp",
+ "schema": "lock-fleets-unit/1",
+ "snapshots": {
+  "end": {
+   "containers": "d96fe774824a",
+   "cpu_max_mhz": "5200",
+   "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+   "docker": "29.7.2",
+   "driver": "595.91.07",
+   "gpu_cc": "8.6",
+   "gpu_free_mib": "295",
+   "gpu_name": "NVIDIA_GeForce_RTX_3060",
+   "gpu_procs": "820266,/app/llama-server,11608MiB",
+   "gpu_reserve_mib": "377",
+   "gpu_used_mib": "11617",
+   "gpu_vram_mib": "12288",
+   "hostname": "srv2",
+   "kernel": "7.0.0-31-generic",
+   "mem_available_kib": "45507528",
+   "mem_total_kib": "48208320",
+   "nproc": "20",
+   "os_machine_id": "6d5d8f1f2bfa5f96",
+   "pl1_uw": "65000000",
+   "pl2_uw": "0",
+   "ram_mt_s": "2933",
+   "swap_total_kib": "8388604",
+   "swappiness": "60",
+   "uptime_since": "2026-09-12T08:58:44Z"
+  },
+  "start": {
+   "containers": "none",
+   "cpu_max_mhz": "5200",
+   "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+   "docker": "29.7.2",
+   "driver": "595.91.07",
+   "gpu_cc": "8.6",
+   "gpu_free_mib": "11911",
+   "gpu_name": "NVIDIA_GeForce_RTX_3060",
+   "gpu_procs": "none",
+   "gpu_reserve_mib": "377",
+   "gpu_used_mib": "1",
+   "gpu_vram_mib": "12288",
+   "hostname": "srv2",
+   "kernel": "7.0.0-31-generic",
+   "mem_available_kib": "46611204",
+   "mem_total_kib": "48208320",
+   "nproc": "20",
+   "os_machine_id": "6d5d8f1f2bfa5f96",
+   "pl1_uw": "65000000",
+   "pl2_uw": "0",
+   "ram_mt_s": "2933",
+   "swap_total_kib": "8388604",
+   "swappiness": "60",
+   "uptime_since": "2026-09-12T08:58:44Z"
+  }
+ },
+ "started_at": "2026-09-16T17:43:15Z",
+ "unit": "srv2_ornith_mtp",
+ "vmstat": {
+  "end": {
+   "pgmajfault": 508497,
+   "pswpout": 144102
+  },
+  "start": {
+   "pgmajfault": 503099,
+   "pswpout": 143266
+  }
+ },
+ "wake_s": 17.056
+}

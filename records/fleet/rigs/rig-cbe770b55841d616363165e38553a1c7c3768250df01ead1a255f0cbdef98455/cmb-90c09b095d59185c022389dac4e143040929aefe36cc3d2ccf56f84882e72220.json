@@ -5,8 +5,8 @@
       "card_peak_mib": 10564,
       "container": "mcgyvr-lidenburg",
       "engine": "llama.cpp",
-      "prefill_tok_s": 632.0170344560588,
-      "warm_decode_tok_s": 49.21758459704929
+      "prefill_tok_s": 630.3376795207503,
+      "warm_decode_tok_s": 49.30513464827816
     }
   },
   "card_mib": 12288,
@@ -16,5 +16,5 @@
     "srv2_35b_256k": 0
   },
   "rig": "srv2",
-  "validated_at": "2026-09-16T10:05:44Z"
+  "validated_at": "2026-09-16T17:32:03Z"
 }

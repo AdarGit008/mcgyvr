@@ -322,6 +322,45 @@ def experts_on_card(geometry: dict[str, Any], n_cpu_moe: int) -> int:
     )
 
 
+def mtp_head_bytes(geometry: dict[str, Any]) -> int:
+    """What ``--spec-type draft-mtp`` adds to the card: the head's expert bytes.
+
+    A grafted multi-token-prediction head is a block by tensor naming that
+    ``--n-cpu-moe`` never places, so :func:`experts_on_card` leaves it out of
+    every placement (``ggufscan`` reports it under ``nextn_blocks`` and keeps
+    it out of ``placeable_blocks``). Without the flag the engine leaves it off
+    the card: at ``--n-cpu-moe 8`` KAT's card held 32 x 278.0 MiB of experts
+    exactly, blocks 8..39 with block 40 absent. With the flag the head is
+    loaded and run as the draft, and the rig pays for it: the baseline loads at
+    ``ncmoe 4`` and MTP is refused there with ``cudaMalloc failed``, loading at
+    8 -- ``records/evidence/2026-08-28-mtp-ornith/README.md`` section 1.
+
+    The figure is read off the tensor table and nowhere else: the nextn block's
+    expert set, ``expert_bytes_by_block`` at each ``nextn_blocks`` index, 816.0
+    MiB on KAT/Ornith Q2_K-AllGPU (the graft keeps its head at a higher quant
+    than its 278 MiB neighbours). The head's few non-expert tensors
+    (``nextn.{eh_proj,enorm,hnorm,shared_head_norm}`` and its attention) are
+    already inside ``bytes_nonexpert``, which is the table less every ``_exps``
+    tensor, so they are charged in every fit and are not counted twice here.
+    Zero for a checkpoint with no nextn block, which is every stock GGUF.
+
+    **The head's own cache is not charged, and the fit is optimistic by it.**
+    Nothing in the header prices it: ``kv_layers`` follows the declared
+    ``full_attention_interval`` and stops at the last ordinary block, and no
+    measurement on either rig separates the head's state from the main cache
+    or the compute buffer. The README's "~1 GB" against this 816 MiB is the
+    only bound on what is uncharged, about 200 MiB; the derivation's scratch
+    allowance is the only margin in front of it and was not sized for it. From
+    the probe ``test_serving_vramfit`` pins (C 2127 MiB, 11911 free) this term
+    derives the MTP floor 8, and 8 is where the rig loaded with MTP after 4
+    refused -- 5, 6 and 7 were never tried. A constant asserted for the state
+    would be the fitted number this module exists to refuse; when it is
+    measured, it is charged here and nowhere else.
+    """
+    by_block = geometry["expert_bytes_by_block"]
+    return sum(int(by_block[str(b)]) for b in geometry.get("nextn_blocks") or ())
+
+
 def constant_from_probe(
     geometry: dict[str, Any], n_cpu_moe: int, vram_used_bytes: int
 ) -> int:
@@ -422,6 +461,7 @@ def explain(
     slots: int,
     ctx_per_slot: int,
     n_ubatch: int = 512,
+    speculative: str = "none",
 ) -> Placement:
     """What this placement is predicted to occupy, and what is demanded beyond it.
 
@@ -430,6 +470,10 @@ def explain(
     prediction made at a window nobody declared is a prediction about a process
     nobody is running. srv1's figures above are at 4096 per slot across eight
     slots, which is the ``-c 32768 --parallel 8`` it was measured serving.
+
+    ``speculative`` is the unit's ``models.<name>.speculative``: under ``mtp``
+    the grafted head is on the card and :func:`mtp_head_bytes` is added, and
+    under ``none`` nothing moves.
     """
     kv = kv_bytes(geometry, ctx_per_slot * slots, n_seq_max=slots, n_ubatch=n_ubatch)
     rs = rs_bytes(geometry, n_seq_max=slots)
@@ -438,6 +482,7 @@ def explain(
         + kv["total"]
         + rs["total"]
         + experts_on_card(geometry, n_cpu_moe)
+        + (mtp_head_bytes(geometry) if speculative == "mtp" else 0)
     )
     return Placement(
         predicted_mib=predicted / (1 << 20),
@@ -453,6 +498,7 @@ def fits_measured(
     free_bytes: int,
     ctx_per_slot: int,
     n_ubatch: int = 512,
+    speculative: str = "none",
 ) -> bool:
     """Whether a card handing out ``free_bytes`` can hold this placement.
 
@@ -474,5 +520,6 @@ def fits_measured(
         slots=slots,
         ctx_per_slot=ctx_per_slot,
         n_ubatch=n_ubatch,
+        speculative=speculative,
     )
     return told.required_mib * (1 << 20) <= free_bytes
