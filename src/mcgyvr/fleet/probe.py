@@ -89,6 +89,7 @@ from mcgyvr.fleet.harness import measure_vllm as measure_vllm
 from mcgyvr.fleet.roots import (
     LIVE_FILE_SHOWN,
     LiveFleetError,
+    layout_of,
     live_fleet,
     live_fleet_dir,
 )
@@ -217,6 +218,14 @@ def _approved(
 
 
 def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
+    """``(layout, folder, fleet.yaml)`` of the live fleet, or :class:`ProbeError`.
+
+    The pointer names a promoted folder, ``<fleet>@<lock date>`` or a plain
+    pre-ruling name; what comes back first is the layout — the name the
+    folder's ``fleet.yaml`` keys the fleet by and its lock is filed under
+    (:func:`mcgyvr.fleet.roots.layout_of`) — which is what every reader of
+    the live fleet holds a rig to.
+    """
     try:
         name = live_fleet()
         folder = live_fleet_dir()
@@ -230,9 +239,13 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
         fleet = load_fleet((folder / "fleet.yaml").read_text(encoding="utf-8"))
     except (OSError, FleetFileError) as exc:
         raise ProbeError(f"{folder / 'fleet.yaml'} cannot be read: {exc}") from exc
-    if name not in fleet.get("fleets", {}):
-        raise ProbeError(f"{folder / 'fleet.yaml'} holds no fleet {name!r}")
-    return name, folder, fleet
+    layout = layout_of(name)
+    if layout not in fleet.get("fleets", {}):
+        raise ProbeError(
+            f"{folder / 'fleet.yaml'} holds no fleet {layout!r} "
+            f"({LIVE_FILE_SHOWN} names {name!r})"
+        )
+    return layout, folder, fleet
 
 
 #: A read of one rig through the door: ``(rig, run id, units to probe) -> exit``.

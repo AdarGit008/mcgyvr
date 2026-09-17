@@ -3045,15 +3045,67 @@ def _fleet_promote(args: argparse.Namespace) -> int:
 
 
 def _fleet_use(args: argparse.Namespace) -> int:
-    """Name the promoted fleet live runs, along its locked switches once one is live."""
+    """Name a promoted fleet live, and say what the lock knows of the move.
+
+    Owner, 2026-09-16: switching between verified fleets is a common action
+    during runtime. Any promoted folder whose layout matches its lock may be
+    named; the move from the fleet that was live is reported as locked — in
+    that fleet's ``next``, with the downtime and wake its lock measured — or
+    as unmeasured. Nothing is started either way.
+    """
     from mcgyvr.fleet.promote import PromoteRefusedError, use
+    from mcgyvr.fleet.roots import layout_of
 
     try:
-        path = use(args.name)
+        switch = use(args.name)
     except PromoteRefusedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    print(f"live: {args.name} ({path})")
+    print(f"live: {switch.name} ({switch.pointer})")
+    if switch.previous is None:
+        print("move: none, no fleet was live")
+    elif switch.previous == switch.name:
+        print(f"move: none, {switch.name} was already live")
+    elif switch.locked:
+        print(
+            f"move: {switch.previous} -> {switch.name} is locked: "
+            f"{layout_of(switch.previous)}'s lock lists {switch.layout} in next"
+        )
+        # The lock's own figures, as it recorded them.
+        for move in switch.moves:
+            wakes = ", ".join(
+                f"{unit} {seconds} s"
+                for unit, seconds in sorted((move.get("wake_s") or {}).items())
+            )
+            print(
+                f"  {move.get('rig')}: downtime {move.get('downtime_s')} s"
+                + (f", wake {wakes}" if wakes else "")
+            )
+    else:
+        print(
+            f"move: {switch.previous} -> {switch.name} is unmeasured: "
+            f"{switch.unmeasured}. use starts nothing; a live serve up is "
+            f"admitted from {switch.name}'s own lock"
+        )
+    if switch.untagged_date is not None:
+        print(
+            f"untagged: {switch.name} carries no lock date in its name; its lock "
+            f"is dated {switch.untagged_date}. `mcgyvr fleet tag {switch.name}` "
+            f"renames the folder to {switch.layout}@{switch.untagged_date}"
+        )
+    return 0
+
+
+def _fleet_tag(args: argparse.Namespace) -> int:
+    """Rename a folder promoted before the ruling to <fleet>@<its lock date>."""
+    from mcgyvr.fleet.promote import PromoteRefusedError, tag
+
+    try:
+        folder = tag(args.name)
+    except PromoteRefusedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"tagged: {args.name} -> {folder}")
     return 0
 
 
@@ -3565,11 +3617,14 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     fpromote = fleet_sub.add_parser(
         "promote",
         help=(
-            "write a new live fleet folder ~/.mcgyvr/fleets/FLEET/ from its dev "
-            "lock (one way; never over an existing folder)"
+            "write a new live fleet folder ~/.mcgyvr/fleets/FLEET@DATE/ from its "
+            "dev lock, DATE being the lock's own validated_at day (one way; "
+            "never over an existing folder)"
         ),
     )
-    fpromote.add_argument("name", metavar="FLEET", help="the fleet to promote")
+    fpromote.add_argument(
+        "name", metavar="FLEET", help="the fleet to promote, by its plain name"
+    )
     fpromote.add_argument(
         "--setup",
         required=True,
@@ -3582,10 +3637,26 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     fpromote.set_defaults(func=_fleet_promote)
     fuse = fleet_sub.add_parser(
         "use",
-        help="name the promoted fleet live runs, in ~/.mcgyvr/live.json",
+        help=(
+            "name a promoted fleet live, in ~/.mcgyvr/live.json, and say whether "
+            "the move from the fleet that was live is one its lock measured"
+        ),
     )
-    fuse.add_argument("name", metavar="FLEET", help="the promoted fleet to run live")
+    fuse.add_argument(
+        "name",
+        metavar="FLEET@DATE",
+        help="the promoted folder to run live (a pre-ruling folder by its plain name)",
+    )
     fuse.set_defaults(func=_fleet_use)
+    ftag = fleet_sub.add_parser(
+        "tag",
+        help=(
+            "rename a fleet folder promoted before 2026-09-16 to "
+            "~/.mcgyvr/fleets/FLEET@DATE/, DATE being its lock's validated_at day"
+        ),
+    )
+    ftag.add_argument("name", metavar="FLEET", help="the untagged folder to rename")
+    ftag.set_defaults(func=_fleet_tag)
     fprobe = fleet_sub.add_parser(
         "probe",
         help=(

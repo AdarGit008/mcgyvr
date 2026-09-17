@@ -99,12 +99,12 @@ def test_the_date_is_the_latest_validated_at_of_the_layouts_records(
     from mcgyvr.fleet.promote import lock_date
 
     dev, _setup = dev_setup(tmp_path, monkeypatch)
-    assert lock_date(dev, "flt-05") == LOCK_DATE
+    assert lock_date(dev, MODELLED, "flt-05") == LOCK_DATE
     # flt-02's one record is dated 10:30 the same day.
-    assert lock_date(dev, "flt-02") == LOCK_DATE
+    assert lock_date(dev, MODELLED, "flt-02") == LOCK_DATE
 
     _relock(dev, "2026-09-12T08:00:00Z")
-    assert lock_date(dev, "flt-05") == "2026-09-12"
+    assert lock_date(dev, MODELLED, "flt-05") == "2026-09-12"
 
 
 def test_a_relock_on_a_new_date_is_promoted_beside_the_old_folder(
