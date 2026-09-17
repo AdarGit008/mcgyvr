@@ -33,7 +33,7 @@
   "engine": {
     "_doc": "Engine-specific measured numbers, shared across rigs. Keyed by engine rather than by host because the figure belongs to the backend, not to the machine it runs on.",
     "warm_decode_class_pct": {
-      "_doc": "The percent a unit's warm decode may fall, by the unit's tolerance class (`mcgyvr.fleet.tolerance.tolerance_class`: engine vllm is `vllm`; llama.cpp with experts on the CPU is `cpu_experts`; any other llama.cpp is `llamacpp`): what the fleet lock allows it to lose to NVMe against its no-NVMe baseline, and what a live probe judges its warm decode against. It does not cover prefill, which has its own measured classes in `prefill_class_pct` (owner, 2026-09-15). Owner, 2026-09-15: the measured classes replace the survey's provisional per-engine `warm_decode_pct` (vllm 3.0, llama.cpp 5.0).",
+      "_doc": "The percent a unit's warm decode may fall, by the unit's tolerance class (`mcgyvr.fleet.tolerance.tolerance_class`: engine vllm is `vllm`; llama.cpp drafting with the GGUF's own MTP head, `--spec-type draft-mtp`, is `mtp` whether or not experts are on the CPU beside it (owner, 2026-09-16); llama.cpp with experts on the CPU is `cpu_experts`; any other llama.cpp is `llamacpp`): what the fleet lock allows it to lose to NVMe against its no-NVMe baseline, and what a live probe judges its warm decode against. It does not cover prefill, which has its own measured classes in `prefill_class_pct` (owner, 2026-09-15). Owner, 2026-09-15: the measured classes replace the survey's provisional per-engine `warm_decode_pct` (vllm 3.0, llama.cpp 5.0).",
       "vllm": {
         "value": 1.0,
         "why": "The measured class tolerance, records/measurements/fleet-identity-2026-09-11/tolerances.json classes.vllm.tolerance_pct (worst shortfall 0.58% over 15 samples per arm on srv2's 3B and 7B, M1 rule in records/plans/fleet-identity-measurements-2026-09-11.md)."
@@ -45,6 +45,10 @@
       "cpu_experts": {
         "value": 48.0,
         "why": "The measured class tolerance, records/measurements/fleet-identity-2026-09-11/tolerances.json classes.cpu_experts.tolerance_pct (worst shortfall 47.84% over 15 samples on srv1's Qwen3.6-35B-A3B with experts on the CPU, M1 rule in records/plans/fleet-identity-measurements-2026-09-11.md)."
+      },
+      "mtp": {
+        "value": 2.0,
+        "why": "The measured class tolerance (owner ruling, 2026-09-16, after the mtp-ornith window): worst shortfall 1.63% over 15 warm-decode samples (3 cold starts x 5) of srv2_ornith_mtp — Ornith-1.0-35B Q2_K-AllGPU, stock server-cuda-b10644, --spec-type draft-mtp --spec-draft-n-max 2, --n-cpu-moe 8, width 1 on srv2 — against the locked 86.78 tok/s (the median of the run medians 85.44 / 86.79 / 86.78), records/measurements/lock-fleets/mtp-ornith/runs.json srv2-08, srv2-16, srv2-24, by the lock-fleets README's rule tol = max(1, ceil(worst shortfall %)). Not cpu_experts' 48%: that was measured on srv1 offload, not this regime."
       }
     },
     "prefill_class_pct": {
@@ -60,6 +64,10 @@
       "cpu_experts": {
         "value": 1.0,
         "why": "The measured class tolerance, records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json classes.cpu_experts.tolerance_pct (worst shortfall 0.13% over 15 samples on srv1's Qwen3.6-35B-A3B with --n-cpu-moe 30, floored to the rule's 1%)."
+      },
+      "mtp": {
+        "value": 5.0,
+        "why": "The measured class tolerance (owner ruling, 2026-09-16): records/measurements/lock-fleets/mtp-ornith/prefill-tolerance-mtp.json tolerance_pct, `assemble_evidence.py tolerance --use mtp-ornith --class mtp --unit srv2_ornith_mtp` (worst shortfall 4.29% over 9 prefill samples, 3 cold starts x 3, against the locked 780.77 tok/s). Not cpu_experts' 1%: a live probe judged by that would fail a sample the lock itself accepted."
       }
     }
   },
