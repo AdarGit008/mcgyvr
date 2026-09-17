@@ -300,9 +300,12 @@ def test_the_class_tolerances_are_the_measured_ones_stated_in_derived_json() -> 
             REPO / "records/measurements/fleet-identity-2026-09-11/tolerances.json"
         ).read_text(encoding="utf-8")
     )["classes"]
-    assert derived.class_tolerances()["warm_decode_tok_s"] == {
+    stated = derived.class_tolerances()["warm_decode_tok_s"]
+    assert {name: stated[name] for name in measured} == {
         name: float(body["tolerance_pct"]) for name, body in measured.items()
     }
+    # ``mtp`` was measured later, by the mtp-ornith window (owner, 2026-09-16).
+    assert set(stated) - set(measured) == {"mtp"}
 
 
 def test_an_absent_class_tolerance_is_refused_by_name(tmp_path: Path) -> None:

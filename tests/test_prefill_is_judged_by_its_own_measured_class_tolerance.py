@@ -44,6 +44,16 @@ PREFILL_RECORD = (
 )
 #: The 3B's median prefill in that record, whose worst sample sets vLLM's 8%.
 THREE_B = "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001"
+#: The mtp class's prefill tolerance, derived from the mtp-ornith window
+#: (owner, 2026-09-16); its warm decode is the same rule over that window.
+MTP_RECORD = (
+    REPO
+    / "records"
+    / "measurements"
+    / "lock-fleets"
+    / "mtp-ornith"
+    / "prefill-tolerance-mtp.json"
+)
 RUN_ID = "run-20260915T120000-0a1b2c3d"
 LEASE_ID = "probe-0a1b2c3d"
 
@@ -55,26 +65,30 @@ def test_prefill_and_decode_each_state_their_own_class_percents() -> None:
     from mcgyvr import derived
 
     measured = json.loads(PREFILL_RECORD.read_text(encoding="utf-8"))
+    mtp = json.loads(MTP_RECORD.read_text(encoding="utf-8"))
     tolerances = derived.class_tolerances()
 
     assert tolerances["prefill_tok_s"] == {
         "vllm": float(math.ceil(measured["per_unit"][THREE_B]["shortfall_pct"])),
         "llamacpp": float(measured["classes"]["llamacpp"]["tolerance_pct"]),
         "cpu_experts": float(measured["classes"]["cpu_experts"]["tolerance_pct"]),
+        "mtp": float(mtp["tolerance_pct"]),
     }
     assert tolerances["prefill_tok_s"] == {
         "vllm": 8.0,
         "llamacpp": 1.0,
         "cpu_experts": 1.0,
+        "mtp": 5.0,
     }
     assert tolerances["warm_decode_tok_s"] == {
         "vllm": 1.0,
         "llamacpp": 1.0,
         "cpu_experts": 48.0,
+        "mtp": 2.0,
     }
 
 
-@pytest.mark.parametrize("name", ["vllm", "llamacpp", "cpu_experts"])
+@pytest.mark.parametrize("name", ["vllm", "llamacpp", "cpu_experts", "mtp"])
 def test_an_absent_prefill_class_is_refused_by_name(name: str, tmp_path: Path) -> None:
     from mcgyvr import derived
 
