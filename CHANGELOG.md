@@ -11,6 +11,23 @@ under the same paths.
 
 ### Added
 
+- A promoted fleet carries the date of its lock in its name (owner,
+  2026-09-16: "all fleets get tagged with date"): `mcgyvr fleet promote
+  b-small` writes `~/.mcgyvr/fleets/b-small@2026-09-16/`, the date being the
+  latest `validated_at` among the combination records the lock wrote for that
+  layout — never today's. Inside, the fleet keeps its plain name, so a live
+  read of `b-small@2026-09-16` admits, probes and emits the layout `b-small`
+  (`compose.<rig>.b-small.yml`, the units' stated container names) exactly as
+  before, and a re-lock on a new date is a new folder beside the old, which
+  stays as a verified config. `mcgyvr fleet tag <fleet>` renames a folder
+  promoted before the ruling to its lock date; `~/.mcgyvr/live.json` follows.
+- `mcgyvr fleet use` switches between any verified fleet ("switching between
+  verified fleets is a common action during runtime"): any promoted folder
+  whose layout still matches its own lock may be named live, and the command
+  says whether the move from the fleet that was live is locked — in that
+  fleet's `next`, with the downtime and wake its lock measured per rig — or
+  unmeasured. An untagged folder is accepted and told how to tag it.
+
 - A llama.cpp model block may declare `speculative: mtp` and
   `spec_draft_n_max` (default 2): llama.cpp's native multi-token-prediction
   self-speculation (`--spec-type draft-mtp --spec-draft-n-max N`), measured at
@@ -40,6 +57,9 @@ under the same paths.
 
 ### Changed
 
+- `mcgyvr fleet use` no longer refuses a fleet the live lock's `next` does not
+  list; the lock's `next` now says what a move costs, not whether it may be
+  made.
 - The draws of one attempt are dispatched together, bounded by the unit's
   width through `capacity.run_batch` (its first production caller); a width-1
   unit still serializes them through its slot. The gate judges the draws one

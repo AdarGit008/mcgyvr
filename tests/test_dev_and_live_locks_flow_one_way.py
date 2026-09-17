@@ -7,14 +7,19 @@ folder new files)"; "~/.mcgyvr/fleets/<name>/   live can switch between fleets
 runtime", with a pointer file choosing which fleet is live.
 
 * ``mcgyvr fleet promote <fleet> --setup <dev dir>`` writes a new folder
-  ``~/.mcgyvr/fleets/<fleet>/`` — ``fleet.yaml`` (profile live, that fleet's
-  units, rigs and fleet block), ``policy.yaml`` (the dev policy, its ladder
-  filtered to those units) and the fleet's lock and combination records. It
-  refuses, writing nothing, when the folder exists, the dev lock is missing,
-  the layout no longer matches its lock, or a combination record is missing.
-* ``mcgyvr fleet use <fleet>`` writes ``~/.mcgyvr/live.json``; it refuses a
-  fleet with no folder or whose folder no longer matches its own lock, and
-  once a fleet is live, one its locked ``next`` does not list.
+  ``~/.mcgyvr/fleets/<fleet>@<lock date>/`` (owner, 2026-09-16: "all fleets
+  get tagged with date"; the date is the lock's own, pinned in
+  ``test_a_promoted_fleet_carries_the_date_of_its_lock_in_its_name``) —
+  ``fleet.yaml`` (profile live, that fleet's units, rigs and fleet block),
+  ``policy.yaml`` (the dev policy, its ladder filtered to those units) and the
+  fleet's lock and combination records. It refuses, writing nothing, when the
+  folder exists, the dev lock is missing, the layout no longer matches its
+  lock, or a combination record is missing.
+* ``mcgyvr fleet use <name>`` writes ``~/.mcgyvr/live.json``; it refuses a
+  name with no folder or whose folder no longer matches its own lock. It
+  switches between any verified fleet (owner, 2026-09-16), and says whether
+  the move is one the live lock measured — pinned in
+  ``test_use_switches_between_verified_fleets_and_says_whether_the_move_is_locked``.
 * The live lock root is the folder ``live.json`` names; with none there is no
   live lock. Dev reads the run root. No reader reads the working directory.
 * The config is ``$MCGYVR_CONFIG``, then ``./fleet.yaml``, then the live fleet
@@ -51,7 +56,6 @@ from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_
 from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
     EVIDENCE,
     FLEET,
-    FLT02,
     POLICY,
     RIG2,
     TOLERANCES,
@@ -172,6 +176,15 @@ def cli(*argv: str) -> int:
             f"  argparse exited {exited.code}",
             pytrace=False,
         )
+
+
+#: The fixture lock's date, which promote tags each folder with.
+LOCK_DATE = "2026-09-11"
+
+
+def promoted(fleet: str) -> str:
+    """The name ``fleet`` is promoted under: the fleet at the fixture's lock date."""
+    return f"{fleet}@{LOCK_DATE}"
 
 
 def flt05_records() -> tuple[str, str]:
@@ -305,13 +318,13 @@ def test_promote_writes_a_new_fleet_folder_that_loads_as_a_live_setup(
 
     assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
 
-    folder = fleets() / "flt-05"
+    folder = fleets() / promoted("flt-05")
     lock, record = flt05_records()
     written = tree(folder)
     assert set(written) == {"fleet.yaml", "policy.yaml", lock, record}
     assert written[lock] == before[lock]
     assert written[record] == before[record]
-    assert [path.name for path in fleets().iterdir()] == ["flt-05"], (
+    assert [path.name for path in fleets().iterdir()] == [promoted("flt-05")], (
         "promotion left something beside the folder it renamed into place"
     )
 
@@ -356,7 +369,7 @@ def test_promote_refuses_and_writes_nothing(
     if case == "missing-cmb":
         (dev / flt05_records()[1]).unlink()
     if case == "exists":
-        existing = fleets() / "flt-05"
+        existing = fleets() / promoted("flt-05")
         existing.mkdir(parents=True)
         (existing / "keep.txt").write_text("mine", encoding="utf-8")
     before = (listing(home()), tree(home()))
@@ -365,31 +378,36 @@ def test_promote_refuses_and_writes_nothing(
     assert (listing(home()), tree(home())) == before
 
 
-def test_use_names_the_live_fleet_among_promoted_folders_and_then_along_next(
+def test_use_names_the_live_fleet_among_promoted_folders(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fleet = copy.deepcopy(MODELLED)
-    fleet["fleets"]["flt-07"] = {"layout": {"srv2": copy.deepcopy(FLT02)}, "next": []}
-    _dev, setup = dev_setup(tmp_path, monkeypatch, locked_fleet=fleet)
+    """Owner, 2026-09-16: a switch outside ``next`` is no longer refused.
+
+    That a promoted fleet outside the live lock's ``next`` may be named live
+    is pinned in
+    ``test_use_switches_between_verified_fleets_and_says_whether_the_move_is_locked``;
+    what stays here is that only a promoted folder can be named at all.
+    """
+    _dev, setup = dev_setup(tmp_path, monkeypatch)
 
     def live() -> Any:
         return json.loads(live_json().read_text(encoding="utf-8"))
 
-    assert cli("fleet", "use", "flt-05") != 0, "a fleet nobody promoted went live"
+    assert cli("fleet", "use", promoted("flt-05")) != 0, (
+        "a fleet nobody promoted went live"
+    )
     assert not live_json().exists()
 
     assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
-    assert cli("fleet", "use", "flt-05") == 0
-    assert live()["fleet"] == "flt-05" and live()["since"]
+    assert cli("fleet", "use", promoted("flt-05")) == 0
+    assert live()["fleet"] == promoted("flt-05") and live()["since"]
 
-    assert cli("fleet", "use", "flt-02") != 0, "an unpromoted switch target went live"
+    assert cli("fleet", "use", promoted("flt-02")) != 0, (
+        "an unpromoted switch target went live"
+    )
     assert cli("fleet", "promote", "flt-02", "--setup", str(setup)) == 0
-    assert cli("fleet", "use", "flt-02") == 0
-    assert live()["fleet"] == "flt-02"
-
-    assert cli("fleet", "promote", "flt-07", "--setup", str(setup)) == 0
-    assert cli("fleet", "use", "flt-07") != 0, "flt-02 lists no switch to flt-07"
-    assert live()["fleet"] == "flt-02"
+    assert cli("fleet", "use", promoted("flt-02")) == 0
+    assert live()["fleet"] == promoted("flt-02")
 
 
 def test_use_refuses_a_folder_whose_layout_no_longer_matches_its_own_lock(
@@ -397,13 +415,13 @@ def test_use_refuses_a_folder_whose_layout_no_longer_matches_its_own_lock(
 ) -> None:
     _dev, setup = dev_setup(tmp_path, monkeypatch)
     assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
-    fleet_file = fleets() / "flt-05" / "fleet.yaml"
+    fleet_file = fleets() / promoted("flt-05") / "fleet.yaml"
     edited = yaml.safe_load(fleet_file.read_text(encoding="utf-8"))
     slots = edited["fleets"]["flt-05"]["layout"]["srv2"]
     edited["fleets"]["flt-05"]["layout"]["srv2"] = list(reversed(slots))
     fleet_file.write_text(yaml.safe_dump(edited, sort_keys=False), encoding="utf-8")
 
-    assert cli("fleet", "use", "flt-05") != 0
+    assert cli("fleet", "use", promoted("flt-05")) != 0
     assert not live_json().exists()
 
 
