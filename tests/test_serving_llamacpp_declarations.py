@@ -8,12 +8,10 @@ misconfiguration. Each is asserted here, at config time, where a fix costs a
 line rather than a re-run:
 
 1. ``--parallel`` below the ramp's widest level. ``llama-server``'s default is
-   **four** slots. Measured on srv1 2026-08-30, one model, one prompt, only the
-   flag differing: at the default, n=8 aggregate came out 175.41 against n=4's
-   175.35 -- flat, while latency doubled. At ``--parallel 8`` the same cell gave
-   206.63. The flat reading is the exact shape of hardware saturation, and it
-   would have CONFIRMED the "llama.cpp caps ~2x" claim this campaign exists to
-   test, from a flag that did not take.
+   **four** slots. At the default, n=8 aggregate throughput comes out flat
+   against n=4's while latency doubles, and ``--parallel 8`` lifts the same
+   cell. The flat reading is the exact shape of hardware saturation, from a flag
+   that did not take.
 
 2. ``ctx_per_slot`` below the completion budget. ``-c`` is TOTAL and the server
    divides it across slots, so ``-c 4096 --parallel 8`` is 512 tokens per slot
@@ -46,11 +44,9 @@ CONFIGS = REPO / "tools" / "bench" / "serving" / "configs"
 def _backend() -> types.ModuleType:
     """The llama.cpp backend, IMPORTED rather than read as text.
 
-    The sync checks below used to grep its source for constant declarations.
-    That is satisfiable by a comment: the backend deleted all three constants
-    one such check looked for, and went on passing, because the docstring
-    recording the retirement quotes them by name and value. Importing asks the
-    module what it actually holds.
+    A grep of its source for constant declarations is satisfiable by a
+    comment that quotes a constant by name and value. Importing asks the module
+    what it actually holds.
     """
     path = REPO / "tools" / "bench" / "serving" / "backends" / "llamacpp.py"
     spec = importlib.util.spec_from_file_location("llamacpp_backend", path)
@@ -72,21 +68,14 @@ MMAP_HEADROOM_BYTES = 2 * 1000**3
 #: MEASURED with ``awk '/MemAvailable/' /proc/meminfo``. The gate at launch
 #: reads the number live -- this is the floor each host has been observed at, so
 #: a cell declared here is one that fit the WORST reading and not merely the
-#: luckiest.
-#:
-#: **srv1's floor was LOWERED on 2026-09-04, from 13,869 MiB to 13,714.** The
-#: rigs' RAM moved between them: srv1 is the 16 GB box (MemTotal 16.14 GB) and
-#: srv2 the 48 GB one (49.37 GB), which is the reverse of what the 2026-08-27
-#: store record says and the reverse of what the 2026-08-25 sweep measured.
-#: Read idle, no containers up, six samples over 20 s: 13,714 / 13,738 / 13,741
-#: / 13,741 / 13,742 / 13,742 MiB.
+#: luckiest. srv1's floor is its idle reading with no containers up.
 AVAILABLE_FLOOR_BYTES = {"srv1": 13_714 * 1024**2, "srv2": 47_744_253_952}
 
 #: MEASURED with ``nvidia-smi --query-gpu=memory.total,memory.reserved`` on both
-#: rigs 2026-08-30. The reserve is GSP firmware -- a coprocessor on the GPU die
-#: whose code lives in card memory -- and no process can allocate it. It is a
-#: fixed carveout rather than a fraction: 401 MiB of srv1's 6,144 (6.5%) and 380
-#: of srv2's 12,288 (3.1%). CUDA does not report it as existing; PyTorch called
+#: rigs. The reserve is GSP firmware -- a coprocessor on the GPU die whose code
+#: lives in card memory -- and no process can allocate it. It is a fixed
+#: carveout rather than a fraction: 401 MiB of srv1's 6,144 (6.5%) and 380 of
+#: srv2's 12,288 (3.1%). CUDA does not report it as existing; PyTorch called
 #: srv2's 12 GB card "a total capacity of 11.63 GiB", which is 12,288 - 380.
 CARD_TOTAL_MIB = {"srv1": 6144, "srv2": 12288}
 CARD_RESERVED_MIB = {"srv1": 401, "srv2": 380}
@@ -100,15 +89,14 @@ USABLE_CARD_MIB = {
 #: bytes, counted recurrent state, per-block expert mass, and one measured
 #: allowance (``SCRATCH_AND_CONTEXT_MIB``) for the compute buffer and the
 #: unnamed residue. This suite cannot do that arithmetic, and the reason is in
-#: :data:`GEOMETRY` below: it pins each blob as a four-tuple read on
-#: 2026-08-30, which has a layer COUNT where the exact laws need a per-block
-#: table and a per-layer cache descriptor.
+#: :data:`GEOMETRY` below: it pins each blob as a four-tuple, which has a layer
+#: COUNT where the exact laws need a per-block table and a per-layer cache
+#: descriptor.
 #:
 #: So the two derivations are not identical and are not asserted to be. What
 #: IS asserted, below, is the direction: a static screen that admits a cell the
 #: runtime gate would refuse is the failure mode that matters, so this figure
-#: must never be smaller than the gate's. It is not a mirror any more; it is a
-#: bound.
+#: must never be smaller than the gate's. It is a bound, not a mirror.
 SUITE_VRAM_ALLOWANCE_MIB = 1024
 
 #: What ``llama-server`` holds beyond weights and KV -- CUDA context, compute
@@ -119,7 +107,7 @@ SUITE_VRAM_ALLOWANCE_MIB = 1024
 #: the cells clear by a margin rather than a precision it has not earned.
 COMPUTE_ALLOWANCE_MIB = 400
 
-#: Blob sizes, MEASURED with ``stat -c %s`` on the serving host 2026-08-30.
+#: Blob sizes, MEASURED with ``stat -c %s`` on the serving host.
 GGUF_BYTES = {
     "dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf": 1_929_903_264,
     "dense/Qwen3-4B-Q4_K_M.gguf": 2_497_281_248,
@@ -200,11 +188,10 @@ def _floor_blocks(
     **Judged against an IDLE card, which is where this suite differs from the
     gate on purpose.** ``USABLE_CARD_MIB`` is total-less-reserve; the gate uses
     ``memory.free`` at launch, because a card can be occupied by something the
-    campaign did not start and must not stop -- measured on srv1 2026-09-04,
-    two ``ollama`` llama-server processes held 3,374 of 5,743 MiB. A static
-    declaration cannot know that and should not pretend to: what a config can
-    assert is that the cell fits a rig that is free to run it, and the runtime
-    refusal is what covers a rig that is not.
+    campaign did not start and must not stop. A static declaration cannot know
+    that and should not pretend to: what a config can assert is that the cell
+    fits a rig that is free to run it, and the runtime refusal is what covers a
+    rig that is not.
     """
     serve = entry["serve"]
     slots = int(serve.get("parallel") or 1)
@@ -224,8 +211,8 @@ def _floor_blocks(
     return n_layer - resident
 
 
-#: ``block_count x attention.head_count_kv x key_length x 2 (K and V) x 2 bytes``,
-#: READ FROM each blob's own GGUF header 2026-08-30, not from a model card. The
+#: ``block_count x attention.head_count_kv x key_length x 2 (K and V) x 2
+#: bytes``, READ FROM each blob's own GGUF header, not from a model card. The
 #: spread is the point: Qwen3-4B carries 8 KV heads against Qwen2.5-3B's 2, so
 #: its cache is four times the size per token despite being the larger-numbered
 #: but similarly sized model. A cell excluded for VRAM is usually excluded by
@@ -289,11 +276,8 @@ def test_the_sizing_allowances_here_match_the_backend() -> None:
     """
     backend = _backend()
 
-    # ATTRIBUTES, not a substring search of the source. The grep this replaced
-    # passed against a backend that had deleted all three constants it looked
-    # for, because the docstring recording their retirement quotes them by name
-    # and value -- `CUDA_CONTEXT_MIB = 1024` appears in prose saying it is gone.
-    # A guard that a comment can satisfy is not a guard.
+    # ATTRIBUTES, not a substring search of the source: a guard that a comment
+    # can satisfy is not a guard.
     assert not hasattr(backend, "CUDA_CONTEXT_MIB"), (
         "the backend has a CUDA_CONTEXT_MIB again; the floor is supposed to "
         "come from vramfit's measured laws now"
@@ -377,9 +361,9 @@ def test_the_two_level_declarations_agree(path: Path, entry: dict[str, Any]) -> 
 def test_no_entry_turns_off_mmap(path: Path, entry: dict[str, Any]) -> None:
     """``--no-mmap`` is a fix for a RAM shortage, not an optimisation.
 
-    Every srv2 cell measured slower with it on 2026-08-25. The mmap gate is
-    what keeps an oversized model from thrashing, and disabling mmap removes
-    the thing the gate is protecting.
+    Every srv2 cell measured slower with it. The mmap gate is what keeps an
+    oversized model from thrashing, and disabling mmap removes the thing the
+    gate is protecting.
     """
     serve = entry["serve"]
     where = f"{path.name}:{entry['label']}"
@@ -401,10 +385,9 @@ def test_the_resident_share_fits_its_hosts_mmap_budget(
     --n-cpu-moe N`` puts the non-expert weights and ``n_layer - N`` blocks of
     experts on the card, and under mmap those pages are read once, uploaded,
     and then clean and evictable -- never resident alongside the CPU-side
-    experts. This mirrors ``backends/llamacpp.py``'s ``mmap_gate``, which was
-    rewritten on 2026-09-04 for the same reason: judged by blob size,
-    ``Qwen3.6-35B-A3B-UD-IQ3_XXS`` is 13.21 GB against srv1's 12.38 GB budget
-    and refused, while the experts it actually holds weigh 9.16 GB at its floor.
+    experts. This mirrors ``backends/llamacpp.py``'s ``mmap_gate``: judged by
+    blob size, ``Qwen3.6-35B-A3B-UD-IQ3_XXS`` is 13.21 GB against srv1's 12.38 GB
+    budget, while the experts it actually holds weigh 9.16 GB at its floor.
 
     **And it is judged at MAX OFFLOAD.** The declared ``n_cpu_moe`` is the
     entry's choice and can be moved; the floor is the card's answer and cannot.

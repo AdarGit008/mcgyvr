@@ -1,54 +1,43 @@
 """A rung whose port refuses the connection is woken and retried, not written off.
 
-**What happens today.** ``runner._post_json`` turns any ``OSError`` — a refused
-connection included — into ``TransportError``. ``drive`` records it against
-``mcgyvr.cooldown`` and re-raises; ``attempt`` wraps it as
+**With sleep-and-wake off.** ``runner._post_json`` turns any ``OSError`` — a
+refused connection included — into ``TransportError``. ``drive`` records it
+against ``mcgyvr.cooldown`` and re-raises; ``attempt`` wraps it as
 ``DispatchRaisedError``; the run ends ``outcome: error`` with one attempt spent
 and the detail *rung ... raised TransportError*. Three of those in a row take the
-source out for sixty seconds, which is a decline. Nothing waits, nothing asks
-whether the rig could be brought back, and mcgyvr holds the file that would
-bring it back.
+source out for sixty seconds, which is a decline.
 
-**What the design rules.** A card that is down and for which *this config's*
-``serving.compose_dir`` holds a launch spec ``mcgyvr emit`` wrote is ``asleep``
-(D2), and asleep is a queue-and-wake rather than a decline. The instant refusal
-is the wake signal (D6, §8.1): mcgyvr does not probe first, because a card that
-is up must cost nothing extra and the check *is* the request. The wake goes
-through the door and through nothing else (D3), bounded by
-``budgets.wake_timeout_s``, and the dispatch that follows spends no attempt —
-nothing was asked and nothing answered, which is the rule ``drive`` already
-applies to a declined rung.
+**What the design rules** (``mcgyvr-lab/records/plans/sleep-wake.md``; the
+``D``, ``N`` and ``§`` tags in this file are that document's). A card that is
+down and for which *this config's* ``serving.compose_dir`` holds a launch spec
+``mcgyvr emit`` wrote is ``asleep`` (D2), and asleep is a queue-and-wake rather
+than a decline. The instant refusal is the wake signal (D6, §8.1): mcgyvr does
+not probe first, because a card that is up must cost nothing extra and the check
+*is* the request. The wake goes through the door and through nothing else (D3),
+bounded by the door's own health poll (``HEALTH_POLLS`` x
+``HEALTH_INTERVAL_S``), and the dispatch that follows spends no attempt —
+nothing was asked and nothing answered, which is the rule ``drive`` applies to a
+declined rung.
 
 **Two seams, and only two.** The backend is substituted with
 ``livejournal.patch_backend`` — the seam this project is built on, one layer
 below ``runner.dispatch``, so the hold, the endpoint binding and the rung lookup
-all still happen. The rig is substituted at ``mcgyvr.wake.spawn_door``: D3 rules
+all happen. The rig is substituted at ``mcgyvr.wake.spawn_door``: D3 rules
 that a wake is one subprocess of ``python -m mcgyvr.serving.run serve up`` and
 that nothing in ``mcgyvr.wake`` runs ``docker`` or ``ssh``, so one seam is the
 whole of the rig contact and a machine with no rigs can hold the module to it.
-Substituting it is what makes this suite pass, once the feature lands, on a
-laptop.
+Substituting it is what lets this suite run on a laptop.
 
 **The card here is srv2's**, two vLLM sources on one RTX 3060 behind ``:8001``
 and ``:8002``, because it is the multi-unit card and therefore the harder case:
 waking it is waking both rungs at once. Sleeping it is
 ``tests/test_sleeping_a_card_takes_every_rung_it_serves.py``.
 
-**The engine is not a predicate.** An earlier draft scoped the feature to vLLM
-cards and put srv1's llama.cpp rig out of it. The owner dropped that scope on
-2026-09-08 (N10) after the wake measurement showed the two engines
-indistinguishable — a single vLLM unit woke in 82 s against llama.cpp's 50-128 s
-on the same fleet — and after the same measurement found srv2 can serve an
-80B-A3B in 97 s under llama.cpp, which is a rung above anything the vLLM-only
-ladder could reach. A card is a card; what is on it decides nothing about
-whether it may sleep. That is pinned below.
+**The engine is not a predicate** (N10). A card is a card; what is on it
+decides nothing about whether it may sleep. That is pinned below.
 
-Numbers this file does not pin: ``WAKE_RATIO`` (N1), ``WAKE_SUSTAIN_S`` (N2) and
-the three dampers (N3-N5) belong to the pressure-driven wake of §7.3, which on
-the live ladder has no candidate at all (§7.7). What is pinned here is the
-refusal-driven wake of D6, which is live on day one and is exempt from those
-dampers by §7.6 — a dispatch that was actually aimed at a card and refused by
-the port is a request, not a ratio's speculation.
+What is pinned here is the refusal-driven wake of D6: a dispatch that was aimed
+at a card and refused by the port is a request.
 """
 
 from __future__ import annotations
@@ -259,7 +248,7 @@ def test_with_the_switch_off_a_refused_port_ends_the_run_exactly_as_it_does_toda
     """Off is off: the same card, the same spec on disk, and nothing changes.
 
     Asserted against the run that says nothing at all rather than against a
-    literal, so the test cannot go stale if what a refusal does today is ever
+    literal, so the test cannot go stale if what a refusal does is ever
     rewritten for another reason: what is pinned is that turning the switch off
     is indistinguishable from not having the feature. This is the half of the
     ruling that makes the default safe — the design's whole safety property is
@@ -320,7 +309,7 @@ def test_a_refused_vllm_card_this_config_holds_a_spec_for_is_woken_not_written_o
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The behaviour the owner gets on day one (§7.7).
+    """A refused dispatch wakes the card (§7.7).
 
     srv2 was slept, the next dispatch at ``http://srv2:8001`` is refused by the
     port, and the card comes back without anyone typing anything. The wake is
@@ -420,14 +409,13 @@ def test_a_llama_cpp_card_is_woken_exactly_as_a_vllm_one_is(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """No rig is banned for the engine that serves it (N10, ruled 2026-09-08).
+    """No rig is banned for the engine that serves it (N10).
 
     This is the same config as the wake above with one field changed — every
     source says ``llama.cpp`` instead of ``vllm`` — and it must produce the same
     door run. The wake path is a compose file, ``serve up`` and a ``/v1/models``
-    poll; all three are engine-agnostic, and neither engine ever carried a
-    branch of its own here (§6). Scoping the feature bought no simplification
-    and cost the ladder its only upgrade path, so the scope is gone.
+    poll; all three are engine-agnostic, and neither engine carries a branch of
+    its own here (§6).
 
     Pinned as an equality of behaviour rather than as a second set of literals:
     what would regress is somebody re-introducing a predicate on

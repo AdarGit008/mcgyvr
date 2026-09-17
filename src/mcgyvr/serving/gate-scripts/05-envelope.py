@@ -39,14 +39,13 @@ directory the door made, never a link.
 THE ENVELOPE HEADER. Once the RUN_ID is claimed, the run's identity is filed
 beside the artifacts the step will write, as ``<RUN_ID>.run.json``: the run,
 the campaign and step, the host, the round and product digest, the profile,
-and the config's digest (owner's ruling R2, 2026-09-06 — every result names
-the exact config that produced it). Written once, before the step, so a step
-that dies before its own START still left a record of what was about to
-measure; a header already there under this RUN_ID is refused, because two
-door invocations never share a run id.
+and the path of the config it was read under (``none`` when there is none).
+Written once, before the step, so a step that dies before its own START still
+left a record of what was about to measure; a header already there under this
+RUN_ID is refused, because two door invocations never share a run id.
 
-Everything here happens before any rig is touched and before anything is
-written, except the deliberate moves at the end.
+Every check happens before anything is written; then the lease on the rig is
+stamped, and the envelope, the claim, the header and the moves aside are made.
 """
 
 from __future__ import annotations

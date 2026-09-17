@@ -22,7 +22,7 @@ from tests._helpers import by_path
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "records" / "measurements"
 
-# `tools/` is not a package, so the rigs are loaded by path — the convention
+# `tools/` has no `__init__.py`, so the rigs are loaded by path — the convention
 # `tests/test_bench_rounds.py` established for the same reason.
 eligibility = by_path(
     "bench_eligibility_t", REPO / "tools" / "bench" / "eligibility.py"

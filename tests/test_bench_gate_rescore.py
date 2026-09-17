@@ -42,7 +42,7 @@ from tests._helpers import by_path
 
 REPO = Path(__file__).resolve().parent.parent
 
-# `tools/` is not a package, so the rig is loaded by path — the convention every
+# `tools/` has no `__init__.py`, so the rig is loaded by path — the convention every
 # other `tests/test_bench_*.py` follows.
 gate_rescore = by_path(
     "bench_gate_rescore_t", REPO / "tools" / "bench" / "gate_rescore.py"

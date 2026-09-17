@@ -1,15 +1,9 @@
 """C5 — a reply that cannot be read is a failed review, never an exception.
 
-:func:`~mcgyvr.verify.verify` asks the reviewer inside a ``try``, but reads the
-verdict back *outside* it: ``reply = ask(prompt)`` is protected and
-``read_verdict(reply)`` is not. An ``ask`` that returns no text — the reviewer
-came back empty, or a seam handed back nothing — therefore raises out of
-``verify`` where every other bad reply becomes an
-:class:`~mcgyvr.escalate.Opinion.UNUSABLE` review.
-
-The fix puts the read inside the same protection as the ask, so a reply that
-cannot be read is the same category as a reply that never arrived: no verdict,
-reported, not raised.
+:func:`~mcgyvr.verify.verify` asks the reviewer and reads the verdict back under the
+same protection, so an ``ask`` that returns no text — the reviewer came back empty,
+or a seam handed back nothing — becomes an :class:`~mcgyvr.escalate.Opinion.UNUSABLE`
+review like every other bad reply: no verdict, reported, not raised.
 """
 
 from __future__ import annotations

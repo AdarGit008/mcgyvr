@@ -1,4 +1,4 @@
-"""the golden corpus: every captured worker reply, asserted whole.
+"""The golden corpus: every captured worker reply, asserted whole.
 
 The corpus is the raw reply files the measurement rigs write under
 ``records/measurements/``; ``records/corpora/worker-replies/golden.json`` pins
@@ -31,7 +31,7 @@ GOLDEN = REPO / "records" / "corpora" / "worker-replies" / "golden.json"
 
 
 def _pin() -> types.ModuleType:
-    """The pin tool, imported by path — ``tools/`` is not a package."""
+    """The pin tool, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(
         "replies_pin", REPO / "tools" / "replies" / "pin.py"
     )

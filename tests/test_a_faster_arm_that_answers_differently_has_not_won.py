@@ -2,19 +2,17 @@
 give the other half a false comfort — it has something better.
 
 The arms deliberately run different kernels. Different reduction order gives
-different logits, and the 2026-09-01 A/B already shows the symptom: same prompts,
-``temperature: 0``, and yet ``otok`` 214 against 221 on the same cell, and
-``early_stop`` 3/4 against 2/4. The arms did different amounts of work and
-nothing checked whether they did the same *work*.
+different logits: with the same prompts at ``temperature: 0``, two arms can
+report different ``otok`` and ``early_stop`` counts on the same cell. Arms that
+do different amounts of work need a check that they did the same *work*.
 
 The instrument exists and is stronger than token identity:
 ``tools/breadth/measure.py --endpoint ... --protocol openai --tier bench-py``
 drives a 257-problem paired corpus through the production gate, and
 ``tools/bench/null.py`` compares two runs by ``candidate_sha256`` while separating
 **sampler drift** (different bytes) from **acceptance drift** (identical bytes
-scoring differently). ``STOP_CONDITION_PP = 3.0`` is its adoption bar, and
-``tools/bench/reproducibility.json`` carries a measured null: ``flips: 0``,
-``bound_pp: 1.47`` over 257 cells.
+scoring differently). ``STOP_CONDITION_PP`` is its adoption bar, and
+``tools/bench/reproducibility.json`` carries a measured null.
 
 The catch, and the reason for the second test: that bound's matching rule
 requires ``serving_build`` to match, and every arm here is a new build. No
@@ -32,8 +30,8 @@ REPRO = REPO / "tools" / "bench" / "reproducibility.json"
 
 
 def test_the_instrument_and_its_bar_are_in_the_tree() -> None:
-    """Green today. The point of this campaign is to *use* what exists rather
-    than write a diff harness, so the tests name the tools by path."""
+    """The point is to *use* what exists rather than write a diff harness, so
+    the tests name the tools by path."""
     assert (REPO / "tools" / "breadth" / "measure.py").is_file()
     assert (REPO / "tools" / "bench" / "null.py").is_file()
     declared = json.loads(REPRO.read_text(encoding="utf-8"))

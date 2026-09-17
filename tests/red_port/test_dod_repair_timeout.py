@@ -1,9 +1,9 @@
 """D8 — a repair subprocess that hangs must be cut off, not hang forever.
 
-Repair runs two ruff subprocesses with no timeout: a ruff that does not return
-— a stuck daemon, a pathological file — hangs the whole repair and, with it,
-the attempt loop it was meant to make cheaper. The fix bounds each subprocess
-and records a timeout as an environment issue, the way a missing ruff is.
+Repair runs ruff subprocesses: a ruff that does not return — a stuck daemon, a
+pathological file — would hang the whole repair and, with it, the attempt loop it
+makes cheaper. Each subprocess is bounded, and a timeout is recorded as an
+environment issue, the way a missing ruff is.
 """
 
 from __future__ import annotations

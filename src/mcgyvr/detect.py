@@ -17,11 +17,10 @@ Two rules shape everything below:
    What could *not* be determined is recorded too, in ``notes`` — silence
    about a failed probe reads as "absent" when it may mean "unknown".
 
-**The host is an input, not a literal (#161).** The port conventions below
-are what a backend ships with; the machine they are asked of is supplied by
-the caller. ``localhost`` is the default, so a single-machine install is
-unchanged, but the deployment this project exists for — an agent on a
-laptop, offloading to rigs elsewhere — is expressible rather than invisible.
+**The host is an input, not a literal.** The port conventions below are what
+a backend ships with; the machine they are asked of is supplied by the caller.
+``localhost`` is the default, and the deployment this project exists for — an
+agent on a laptop, offloading to rigs elsewhere — is expressible.
 The hardware half of detection stays local by definition: ``nvidia-smi``
 here describes this machine, and a remote rig's card is not something this
 module can see. What it *can* see of a remote rig — the models that rig
@@ -29,14 +28,10 @@ reports holding — is the evidence the proposal uses instead, and unlike a
 VRAM estimate it cannot be wrong about which machine it describes.
 
 A probed host is identified by name in every backend it yields, because with
-more than one host in play "a backend answered" no longer identifies anything.
-Names stay bare for a single-host sweep so the ordinary install reads the way
-it always did.
+more than one host in play "a backend answered" identifies nothing.
+Names stay bare for a single-host sweep.
 
-Every backend here is asked and dispatched to on the same protocol. It was not
-always so: the case that made asking and dispatching separate questions (#164),
-and the reason a reader may still expect two fields here, is recorded in
-``archive/forensic-ollama/``.
+Every backend here is asked and dispatched to on the same protocol.
 
 Probes run concurrently against a short timeout, so an endpoint that
 accepts a connection and then hangs costs the timeout once rather than
@@ -67,9 +62,7 @@ COMMAND_TIMEOUT_S = 5.0
 
 MIB_PER_GB = 1024.0
 
-# The machine a sweep asks about when the caller names none. Keeping the
-# single-machine install on exactly the path it has always taken is an
-# acceptance criterion of #161, not a courtesy.
+# The machine a sweep asks about when the caller names none.
 DEFAULT_HOST = "localhost"
 
 
@@ -85,8 +78,8 @@ class ProbeTarget:
     ``host`` is carried alongside ``base_url`` rather than parsed back out of
     it, because it is what the user named and what every downstream report
     identifies the machine by. ``name`` is what a source will be called; it
-    is qualified with the host only when a sweep covers more than one, so an
-    ordinary install keeps the bare names it has always had.
+    is qualified with the host only when a sweep covers more than one, so a
+    single-host install keeps bare names.
     """
 
     name: str
@@ -105,12 +98,10 @@ class ProbeTarget:
             object.__setattr__(self, "kind", self.name)
 
 
-# Default ports each backend ships with, and for each: how to ASK it what it
-# holds, then how to DISPATCH to it. Identification is by port convention,
-# which is a guess about identity but not about capability: what matters
-# downstream is the wire protocol and the model list, and both are read from
-# the answer rather than assumed.
-#
+# Default ports each backend ships with, and the one wire protocol it is asked
+# and dispatched to on. Identification is by port convention, which is a guess
+# about identity but not about capability: the model list is read from the
+# answer rather than assumed.
 PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (
     ("llama-server", 8080, "openai"),
     ("vllm", 8000, "openai"),
@@ -140,13 +131,11 @@ def targets_for(
 ) -> tuple[ProbeTarget, ...]:
     """Expand hosts into the candidate endpoints to sweep on each.
 
-    The cross product of hosts and port conventions, which is the whole of
-    what #161 changed: the ports were already a table, and the host was the
-    literal. A host is a bare name or address — ``srv1``,
-    ``100.69.72.51`` — and never a port, because identification here is *by*
-    port convention and a port nobody conventionally uses carries no claim
-    about which protocol answers on it. An endpoint on a non-standard port is
-    bound by hand, the same as it is today.
+    The cross product of hosts and port conventions. A host is a bare name or
+    address — ``srv1``, ``100.69.72.51`` — and never a port, because
+    identification here is *by* port convention and a port nobody
+    conventionally uses carries no claim about which protocol answers on it.
+    An endpoint on a non-standard port is bound by hand.
 
     Duplicate hosts collapse, so naming the same rig twice does not probe it
     twice or mint two sources for it.
@@ -206,7 +195,7 @@ class Backend:
         return self.host in (DEFAULT_HOST, "127.0.0.1", "::1", "[::1]")
 
     def has_model(self, model_id: str) -> bool:
-        """Whether this backend already holds a model, by exact id or by tag.
+        """Whether this backend already holds a model, by exact id only.
 
         A server may report a path, a bare name or a tagged name for the same
         weights, and they are not interchangeable. An exact match is

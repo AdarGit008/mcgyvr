@@ -1,17 +1,16 @@
 """A run without a session is refused before anything is dispatched.
 
-Every row of the live journal names the orchestrator that produced it (§9),
-and until now that name was whatever ``--orchestrator`` said or nothing at all:
-a run without the flag journaled nothing, and a run with it could be traced to
-a string and no further. The owner's ruling (2026-09-03) is that a run must
-fail loud when nobody can be named, and that the name is a *session* — the
-Claude Code or Pi transcript that typed the command — so a row can be followed
-back to the full conversation that produced it.
+Every row of the live journal names the orchestrator that produced it, and a
+name that is only whatever ``--orchestrator`` said traces a row to a string and
+no further. The owner's ruling is that a run must fail loud when nobody can be
+named, and that the name is a *session* — the Claude Code or Pi transcript that
+typed the command — so a row can be followed back to the full conversation that
+produced it.
 
 Three ways to be named, in the order a process meets them: ``--orchestrator ID``
 on the command line; ``CLAUDE_CODE_SESSION_ID``, which Claude Code exports to
-every child process; ``PI_SESSION_FILE``, which a Pi extension exports on
-session start. None of the three, and the run is refused through the
+every child process; ``PI_SESSION_FILE``, the path of a Pi transcript, when
+the environment carries it. None of the three, and the run is refused through the
 subparser's own ``error`` — exit 2, before a config is read or a sandbox is
 opened — with a message that names all three so the operator does not have to
 find them in ``--help``.

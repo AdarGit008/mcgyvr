@@ -3,15 +3,13 @@
 `#365 <https://github.com/AdarGit008/mcgyvr/issues/365>`_, item 2. Off-SURFACE:
 the product pin (``tools/bench/product.py --check``) does not move for this file.
 
-:func:`mcgyvr.orchestrator.decompose.decompose` takes a :data:`Proposer` and has
-exactly one binding in the tree — :class:`RecordedProposer`, which returns a
-fixed list. The judgment step has never been asked of a model. #365 flips the
-tables: a real commit is the task, the spec is its issue body, and the pool
-rung is asked what units of work it would emit. This module is the seam's
-first live binding, and the defect it prevents is the obvious one: **a model's
+:func:`mcgyvr.orchestrator.decompose.decompose` takes a :data:`Proposer`. Here
+a real commit is the task, the spec is its issue body, and the pool
+rung is asked what units of work it would emit. The defect this module
+prevents is the obvious one: **a model's
 reply is text, and text that is not proposals must become a record rather
-than a traceback.** A campaign of 475 tasks (the ``tasks_admitted`` rows with
-a spec) cannot stop on the first rung that answers in prose, and it must not
+than a traceback.** A campaign over the ``tasks_admitted`` rows with
+a spec cannot stop on the first rung that answers in prose, and it must not
 lose the fact that it did — the prose *is* the finding.
 
 Three rules, each one a function below.
@@ -29,14 +27,13 @@ Three rules, each one a function below.
    feeds. A missing required field, a wrong type, or a key ``Proposal`` does
    not have refuses the reply **by name** — the last case on purpose, because
    the key a model invents is exactly the one the seam exists to keep out
-   (: ``signature``, ``content``). Dropping it silently would permit
+   (``signature``, ``content``). Dropping it silently would permit
    the sixth field the guard did not name. One bad item refuses the reply,
    not the item: a list with a hole in it is not the plan the model stated.
 3. *The prompt is a constant, so the record can hash it.* :data:`SYSTEM` and
    :data:`USER` are module constants and :func:`prompt_digest` is their
    digest; a record that names which prompt produced its proposals is
-   comparable across a month's runs, and one that does not is not (lens 3: a
-   record states the property).
+   comparable across a month's runs, and one that does not is not.
 
 **Where the exception classes are.** Every refusal is a named exception with
 the offending thing in its message — :class:`ReplyNotJSONError`,
@@ -333,8 +330,7 @@ def render(evidence: Evidence) -> tuple[str, str]:
 
     Everything in the user half is something exploration already found — the
     candidates with their scores and the bounded reads with their line
-    ranges. Nothing here reads the tree, which is boundary 2 kept on
-    this side of the seam as well.
+    ranges. Nothing here reads the tree.
     """
     vocabulary = "\n".join(f"- {t.name}: {t.guarantee}" for t in evidence.vocabulary)
     candidates = "\n".join(
@@ -357,7 +353,7 @@ def render(evidence: Evidence) -> tuple[str, str]:
 
 @dataclass
 class LiveProposer:
-    """A proposer that asks a rung — :data:`Proposer`'s first live binding.
+    """A proposer that asks a rung.
 
     ``dispatch`` is ``(system, user) -> reply text``; :func:`runner_dispatch`
     builds one over the product runner, and a test hands in a lambda. Calling

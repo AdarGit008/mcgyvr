@@ -5,8 +5,8 @@
   slot"). An asleep unit keeps its room; a unit whose room is freed leaves its
   slot free. Keeping the room and freeing it are two combinations and so two
   fleets ("save room vs don't save = 2 different rig setups = 2 different
-  fleets"). Level-1 vLLM sleep is refused where it is reached today
-  (``src/mcgyvr/serving/servelib.py``), and a unit has no third state.
+  fleets"). Level-1 vLLM sleep is refused where a sleep level is spelled
+  (``mcgyvr.serving.servelib.sleep``), and a unit has no third state.
 * A **fleet** is a name (``flt-05``) pinned to the sha256 of its layout, one
   combination per rig. A layout edited after it was locked no longer matches
   its pin.

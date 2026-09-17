@@ -1,13 +1,11 @@
-"""A config digest no longer mints the retired ``cfg-`` prefix.
+"""A config digest does not mint the retired ``cfg-`` prefix.
 
-``mcgyvr.config`` used to mint a ``cfg-`` prefixed identity through
-``Config.digest()`` and file a copy of the setup through :func:`keep`, while
 ``mcgyvr.fleet.ids`` refuses ``cfg-`` as a retired identity prefix
-(``fleet/ids.py:20``). The owner ruled the prefix is retired together with the
-mechanism, not re-prefixed: ``Config.digest()``/``keep()``/``DIGEST_PREFIX``
-are gone, so no live code mints a digest the identity primitive refuses
-(``mcgyvr-lab/records/plans/fleet-identity.md`` §1 and §9). The retired code and the
-tests that existed only to call it are kept under ``archive/``.
+(``_RETIRED_PREFIXES``). The prefix is retired together with the mechanism, not
+re-prefixed (owner ruling): ``mcgyvr.config`` has no ``Config.digest()``, no
+``keep()`` and no ``DIGEST_PREFIX``, so no live code mints a digest the
+identity primitive refuses (``mcgyvr-lab/records/plans/fleet-identity.md`` §1
+and §9). The retired code is kept in ``mcgyvr-lab/archive/``.
 """
 
 from __future__ import annotations

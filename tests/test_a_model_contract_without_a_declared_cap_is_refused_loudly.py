@@ -1,11 +1,10 @@
 """A contract a model executes must declare ``limits.max_output_tokens``, or
-``mcgyvr contract`` and ``mcgyvr run`` refuse it by name (owner, 2026-09-05:
-"fail loud when no budget is declared").
+``mcgyvr contract`` and ``mcgyvr run`` refuse it by name (owner ruling: "fail
+loud when no budget is declared").
 
-The loader derived the cap from the task type's own evidence, silently. In the
-first live e2e the top rung's reply was cut at that derived 1024 after a
-41-second climb, and nobody had chosen the number. The loader still derives
-one — the bench and the corpus need a number — but the two commands a person
+A cap the loader derives from the task type's own evidence, silently, is a
+number nobody chose, and a reply cut at it spends a whole climb. The loader
+derives one — the bench and the corpus need a number — but the two commands a person
 runs refuse a model contract that leaves it out, print the derived figure as
 the value to start from, and exit 2 before a sandbox is opened or a rung is
 spent. A deterministic contract has no reply to cap and is not asked.

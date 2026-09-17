@@ -1,12 +1,8 @@
 """There is a product: a wheel built once from a tag, that carries the whole door.
 
-``pyproject.toml`` says ``version = "0.0.0"``, there are no release tags, and
-prod is a git checkout on srv1 updated with ``git pull``. Dev and prod are
-therefore one tree on two hosts: no version stamp, no rollback, no way to say
-which code produced a result. The target shape is four buckets — source,
-product, declared config, live state — with arrows one way: source is built
-into a product, once, on a ``v*`` tag, and the product is installed; config
-joins at install time, never at build time.
+Four buckets — source, product, declared config, live state — with arrows one way:
+source is built into a product, once, on a ``v*`` tag, and the product is installed;
+config joins at install time, never at build time.
 
 What must be observably true:
 

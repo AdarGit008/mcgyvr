@@ -1,10 +1,8 @@
 """A live unit is judged only by a solo probe run with its lock's own method.
 
-Owner, 2026-09-15 (F2): every dispatch row keeps its decode, prefill and
-in-flight figures as data, and only a probe judges. A solo srv2_3b dispatch
-of 1206 tokens in and 503 out decoded 114.1 tok/s against a locked 126.7; the
-lock was measured at a short prompt and 256 tokens out, so a dispatch is not
-the lock's quantity.
+Owner ruling F2: every dispatch row keeps its decode, prefill and in-flight
+figures as data, and only a probe judges. The lock is measured at a short
+prompt and 256 tokens out, so a dispatch is not the lock's quantity.
 
 * **The probe repeats the lock's measurement.** A vLLM unit gets
   ``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py``: one
@@ -19,27 +17,28 @@ the lock's quantity.
   as contended and not judged.
 * **It stamps every observation** with the fleet, rig, rig id, combination id
   and unit id of the live lock, and files them under ``<journal.dir>/fleet/``.
-* **A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM
-  stopwatch on the rig; record till then". The probe times a vLLM request by
-  wall clock from off the rig, at the unit's address, while ``measure_vllm.py``
-  timed on the rig at 127.0.0.1. The network time alone pulled srv2 in the
-  first live probe (:mod:`mcgyvr.fleet.probe`). A llama.cpp figure is the
-  server's own ``timings``, and is still judged.
+* **A vLLM figure timed off the rig is recorded, not judged.** Given a reader
+  (:func:`mcgyvr.fleet.read.spawn_read`) the vLLM measurement runs on the rig
+  behind the door, where ``measure_vllm.py`` times at 127.0.0.1, and is judged
+  there. A probe with no reader, or a rig whose read filed nothing, times vLLM
+  by wall clock from off the rig, at the unit's address, and records it. A
+  llama.cpp figure is the server's own ``timings``, and is judged either way.
 * **The tolerance is one class per unit.** vLLM is ``vllm``; llama.cpp with
   experts on the CPU is ``cpu_experts``; any other llama.cpp is ``llamacpp``.
   Each judged field has its own measured percents, stated in
   ``tools/runs/derived.json``: warm decode those of
-  ``records/measurements/fleet-identity-2026-09-11/tolerances.json`` (1%, 1%,
-  48%), prefill those of
-  ``records/measurements/fleet-identity-prefill-2026-09-12/README.md`` (8%, 1%,
-  1%; ``tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py``).
+  ``records/measurements/fleet-identity-2026-09-11/tolerances.json``, prefill
+  its own, from
+  ``records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json``
+  (``tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py``).
   The lock's NVMe baseline check reads the same class.
 * **The lock's plain values are judged.** Decode and prefill each fall below by
   their own class percent. Card memory rises above the unit's ``room_mib``.
   Restarts are exactly 0.
-* **Card and restarts are read on the rig**, and a rig is reached only behind
-  the door (``tests/test_one_door.py``). So the probe names both as not read,
-  with that reason, rather than reaching a rig by another way.
+* **Card and restarts are read through the door** by that same read; a rig is
+  reached only behind the door (``tests/test_one_door.py``). Without a read the
+  probe names both as not read, with that reason, rather than reaching a rig by
+  another way.
 """
 
 from __future__ import annotations

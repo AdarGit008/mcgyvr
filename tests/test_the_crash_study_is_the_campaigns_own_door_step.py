@@ -3,9 +3,10 @@
 The run order runs ``4-kernel-arms.sh`` twice: ``--step serve`` (invocation
 5, creates ``srv1-lcpp-arms.tsv``) and, three steps later, ``--step crash``
 (invocation 8, only APPENDS to step 6's ``srv1-moe-slots.tsv``). One file
-declared ``# RUN_ARTIFACTS: srv1-lcpp-arms.tsv`` for both, so gate 5 refused
-invocation 8 the moment invocation 5 had run — the only way through was to
-move step 5's evidence aside by hand, the waiver the door exists to end.
+declaring ``# RUN_ARTIFACTS: srv1-lcpp-arms.tsv`` for both would have gate 5
+refuse invocation 8 the moment invocation 5 had run — and the only way through
+would be to move step 5's evidence aside by hand, the waiver the door exists
+to end.
 
 So the crash study is ``7-crash.sh``, a step file of its own that declares
 only ``# RUN_APPENDS: srv1-moe-slots.tsv`` and hands off to

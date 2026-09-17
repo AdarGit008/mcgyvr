@@ -1,29 +1,25 @@
 """The seam between the deterministic floor and the ladder that climbs past it.
 
-Two defects live here and they are the same seam seen from two sides. X07 bound
-the floor by making :func:`~mcgyvr.route.plan` return a
-:class:`~mcgyvr.deterministic.ToolStep` for a type a program owns — and then
-neither half of what reads a plan was taught what a program is.
+:func:`~mcgyvr.route.plan` returns a :class:`~mcgyvr.deterministic.ToolStep` for
+a type a program owns, and both halves of what reads a plan have to know what a
+program is. They are the same seam seen from two sides.
 
 *Downward*, :func:`~mcgyvr.escalate.escalate` skips a family on truthiness
-(``if not each``), so a floor that used to be empty and skipped is now non-empty
-and entered, and :func:`~mcgyvr.route.climb`'s refusal fires as a
+(``if not each``), so a floor with a program bound is non-empty and entered. If
+:func:`~mcgyvr.route.climb` refused it, the refusal would fire as a
 :class:`~mcgyvr.route.RouteError` — which is not a ``RunnerError``, so the
-mission loop does not catch it and aborts mid-flight with earlier contracts
-already committed. Every ``starts_on: deterministic`` contract with a program
-bound took that path; the ones that still worked were the ones with **no** tool,
-which is the successful path and the failing path swapped over.
+mission loop would not catch it and would abort mid-flight with earlier
+contracts already committed, while contracts with **no** tool worked: the
+successful path and the failing path swapped over.
 
-*Upward*, the step that was planned carried a program's *name* and nothing else
-— no target, and one name (``ruff``) shared by three task types whose
-invocations differ. A caller willing to run it could not have worked out what to
-run, so "the floor is bound" was true of the plan and false of anything
-downstream of it.
+*Upward*, a step carrying a program's *name* and nothing else — no target, and
+one name (``ruff``) shared by three task types whose invocations differ — could
+not tell a caller what to run, so "the floor is bound" would be true of the plan
+and false of anything downstream of it.
 
 The two are tested together because fixing either alone leaves the seam broken
-in the other direction, and because the budget defect only becomes observable
-once the first is fixed: a program the ladder never climbs must not be counted
-among the attempts the ladder may spend.
+in the other direction. A program the ladder never climbs is not counted among
+the attempts the ladder may spend.
 
 Nothing here needs a model. The one test that runs a program runs the
 project's own ``ruff``, on a file in ``tmp_path``, because "this step is
@@ -223,17 +219,16 @@ def test_climbing_a_plan_that_is_a_program_is_still_a_named_refusal() -> None:
 def test_a_planned_step_names_the_whole_command_that_would_run_it() -> None:
     """A step that does not determine its own command cannot be executed.
 
-    The step used to carry a program's name and the number of attempts. Neither
-    says *what to run on what*: the target is the contract's and never reached
+    A program's name and a number of attempts do not say *what to run on
+    what*: the target is the contract's and never reached
     the step, and the invocation is not the program name — `ruff` alone is not a
     command. So a caller holding this step had to re-derive both from the
     contract, which is the second table :mod:`mcgyvr.deterministic` exists to
     avoid.
 
-    The `--` is the rest of the same claim and was missing until the pressure
-    test tried a target beginning with a dash: a command whose last argument can
-    be read as an option is a command that runs something else. It is asserted
-    against the three programs, by execution, in
+    The `--` is the rest of the same claim, because a target can begin with a dash: a
+    command whose last argument can be read as an option is a command that runs
+    something else. It is asserted against the three programs, by execution, in
     ``tests/test_fix_outcomes_and_argv.py``.
     """
     config, pool = mapped()

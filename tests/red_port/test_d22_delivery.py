@@ -1,11 +1,7 @@
 """D22 — an accepted change reaches the repository, and a rejected one leaves no trace.
 
-mcgyvr can plan a ladder, build a prompt, dispatch, parse a reply and gate the
-result. It cannot finish: nothing in ``src/`` writes a worker's output to a tree or
-commits it. ``config.delivery.mode`` is validated
-at load and read by nothing. So this is the lever that turns a library of seams into
-something that completes a task, and every other RED test in this package is
-downstream of it.
+:func:`mcgyvr.deliver.deliver` writes a worker's accepted output to the tree and
+commits it.
 
 Five statements, and three of them are refusals — which is the point. Delivering the
 right change is one behavior; *not* delivering the wrong one is three, and each has
@@ -13,9 +9,8 @@ its own way of going wrong:
 
 * A change that failed the gate must not land. Obvious, and held anyway, because the
   reset that guarantees it has to run on the failure path where nobody is watching.
-* A change must not land on top of a human's unfinished edits (M2). mcgyvr already
-  captures ``dirty`` at attach time for exactly this decision; until now nothing
-  consumed it. The refusal is asserted to name a reason, because a silent refusal and
+* A change must not land on top of a human's unfinished edits (M2). The refusal is
+  asserted to name a reason, because a silent refusal and
   a silent success are indistinguishable to a caller.
 * A change that vanished between acceptance and commit must not be committed as
   though it were there. This is the one that cannot be caught by inspection — it is a
@@ -28,10 +23,8 @@ whatever deterministic repair did to it, isolated from every other contract in t
 run. A test that only checked "a commit exists" would pass against a delivery that
 swept up a sibling contract's half-finished work.
 
-The concurrency test is not about speed. It is the one v1 constraint that keeps the
-v2 queue architecture reachable: a delivery that closes over process-global state
-cannot be driven by more than one orchestrator, and discovering that after the queue
-is built means rewriting the queue.
+The concurrency test is not about speed: a delivery that closes over process-global
+state cannot be driven by more than one orchestrator.
 """
 
 from __future__ import annotations

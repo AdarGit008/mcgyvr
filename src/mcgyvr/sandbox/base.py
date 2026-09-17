@@ -17,9 +17,10 @@ Two invariants are enforced here rather than trusted to each mode:
 
 1. **Nothing survives a finished task.** The workspace is removed on success,
    on failure and on interrupt, by a context manager whose ``__exit__`` runs
-   even when the body raises ``KeyboardInterrupt`` — and, as a backstop for a
-   hard crash that skips ``__exit__``, by a process-exit reaper that reaps
-   whatever is still registered.
+   even when the body raises ``KeyboardInterrupt`` — and, as a backstop for
+   an interpreter exit with a sandbox still open, by an ``atexit`` reaper that
+   reaps whatever is still registered. The reaper does not run on
+   ``os._exit``, a fatal signal or an interpreter crash.
 2. **No credential reaches a task.** The environment a command runs in is
    built from an explicit allowlist, never inherited from the host, and any
    caller-supplied variable whose name looks like a credential is dropped
@@ -142,9 +143,10 @@ def safe_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
 #
 # The context manager is the primary teardown path and covers interrupt,
 # because a `with` unwinds on KeyboardInterrupt. This registry is the
-# backstop for the case the context manager cannot cover — a hard crash or
-# os._exit — where atexit still runs registered reapers over whatever is
-# live. Each mode registers a cheap idempotent callable.
+# backstop for the case the context manager cannot cover — a normal
+# interpreter exit with a sandbox still registered. It does not run on
+# `os._exit`, a fatal signal or an interpreter crash. Each mode registers a
+# cheap idempotent callable.
 _LIVE_REAPERS: dict[int, tuple[Callable[[], None], ...]] = {}
 
 
@@ -154,7 +156,7 @@ def _install_reaper() -> None:
 
     Memoised rather than latched behind a module flag. The registry above has
     to be process-wide — there is one process exit to hook — but the *flag* did
-    not have to be rebindable, and §9's "no global mutable state" is checkable
+    not have to be rebindable, and "no global mutable state" is checkable
     only if the exceptions are zero: a guard that allows one legitimate
     ``global`` allows the next one that claims to be legitimate.
     """
@@ -306,22 +308,18 @@ class Sandbox(ABC):
     def source_base_commit(self) -> str:
         """The revision of the *source* repository this workspace was built from.
 
-        The same question ``base`` asked at construction, answered as a concrete
-        commit: it is the revision the worker started from, and it is the one
-        value here that means anything back in the repository a delivery commits
-        into. :meth:`base_changeset_ref` is its workspace-local twin and the two
-        are never equal — a delivery handed the wrong one fails to resolve its
-        base, which is how this came to be exposed at all.
+        The same question ``base`` asked at construction, answered as a
+        concrete commit: it is the revision the worker started from, and it is
+        the one value here that means anything back in the repository a
+        delivery commits into. :meth:`base_changeset_ref` is its
+        workspace-local twin and the two are never equal — a delivery handed
+        the wrong one fails to resolve its base.
 
         Raises when the source could name no commit — a non-git directory, or a
         repository with nothing committed yet. Both are populated by copying, and
         neither has a revision for a caller to diff against, so there is no
-        answer to give. It used to answer ``""``, and that turned out to be the
-        worse half of B7: ``deliver`` softened a falsy base to ``HEAD``, so the
-        one value meaning *there is no base* selected the one base that is a
-        moving name, and a delivery committed against wherever the branch had
-        got to. The two ends are fixed together — delivery refuses an empty base
-        by name, and this refuses to produce one.
+        answer to give. Delivery refuses an empty base by name, and this
+        refuses to produce one.
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
@@ -526,8 +524,8 @@ def choose_mode(configured: str, docker_available: bool) -> _SandboxChoice:
 
     ``docker`` configured without a daemon does not fail — it falls back to
     the temp directory and says so once, because locking a user out for the
-    lack of Docker is the opposite of the intent (§5). ``tempdir``
-    configured is an explicit choice and carries the same weaker-mode note.
+    lack of Docker is the opposite of the intent. ``tempdir`` configured is an
+    explicit choice and carries the same weaker-mode note.
     """
     if configured == "tempdir":
         return _SandboxChoice("tempdir", (_WEAKER_MODE_NOTE,))

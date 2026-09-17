@@ -1,27 +1,20 @@
 """A compose file is a set of units that come up together — which is not always a host.
 
-`emit` writes one file per host, and the reason given is good: a host is what an
-operator brings up, and two files for one rig would be two commands with a rule
-about which comes first. That reason holds for units that *are* brought up
-together — srv2's 3B and 7B share a card, and the `depends_on` inside their one
-file is what sequences them. It does not hold for units that can never be up at
-the same time.
+`emit` writes one file per launch spec, which for most hosts is one file per
+host: a host is what an operator brings up, and two files for one rig would be
+two commands with a rule about which comes first. That reason holds for units
+that *are* brought up together — srv2's 3B and 7B share a card, and the
+`depends_on` inside their one file is what sequences them. It does not hold for
+units that can never be up at the same time.
 
 Two rungs naming **one source** are two models for one process: one URL, one
-port, one card. They are alternatives, and the ladder the owner wants is made of
-them — srv1 alternating DeepSeek-Coder-V2-Lite with Qwen3.6-35B, srv2 its vLLM
-pair with the 80B. That is "sleep funds a wake" in
-`mcgyvr-lab/records/plans/sleep-wake.md` §17, which the design records as unbuildable
-*because a host holds only one launch spec*.
-
-When this file was written the shape was not merely unsupported, it was wrong in
-two ways, both pinned below as the behaviour that had to change:
-
-* `hold_together` sums both against the card and refuses the pair — 11.83 GiB
-  against 6.00 free — for a contention that never happens;
-* and if it did not refuse, `_planned` writes one file with both services on
-  `--port 8080`, where the second can never bind. A silently broken file is the
-  outcome the port is part of `UnitKey` to prevent.
+port, one card. They are alternatives, and a ladder can be made of them — srv1
+alternating DeepSeek-Coder-V2-Lite with Qwen3.6-35B, srv2 its vLLM pair with
+the 80B. That is "sleep funds a wake" in
+`mcgyvr-lab/records/plans/sleep-wake.md` §17. Summing both against the card
+would refuse a pair that never contends, and one file with both services on
+one port is a file whose second service can never bind — the outcome the port
+being part of `UnitKey` exists to prevent.
 
 **What this file pins**
 
@@ -29,29 +22,20 @@ two ways, both pinned below as the behaviour that had to change:
    co-residents.
 2. Each alternative is its own launch spec, `compose.<host>.<model>.yml`, one
    service per file — so the door has one file per thing it can bring up, which
-   is what `serve up --compose` already takes.
+   is what `serve up --compose` takes.
 3. Alternatives are never summed against the card, because only one is ever on
    it. Co-residents still are.
-4. A host whose units all come up together keeps `compose.<host>.yml` exactly as
-   it is. No existing fleet's files move.
-
-**What this file left open, and how the owner closed it.** A host carrying
-*both* alternatives and co-residents — say two models on :8080 and a third on
-:8081 that must be up alongside whichever wins — was pinned here as a refusal
-that names the problem, because the third belongs in neither alternative's file
-and duplicating it into both makes two files that disagree. That is the right
-answer for a **partition**, and a partition is what a port gives you. Card
-contention does not: owner's ruling 5 of 2026-09-09 says the mix is the normal
-case under a fluid ladder, and `serving.launch_specs` answers it as a
-**covering** instead — every spec is a set that can really be up, every unit is
-in at least one of them, and a unit that can sit beside either alternative is
-simply in both files. The refusal is gone; the test that asked for it now
-asserts the covering.
+4. A host whose units all come up together keeps `compose.<host>.yml`.
+5. A host carrying *both* alternatives and co-residents — say two models on
+   :8080 and a third on :8081 that must be up alongside whichever wins — is
+   answered by `serving.launch_specs` as a **covering**, not a partition: every
+   spec is a set that can really be up, every unit is in at least one of them,
+   and a unit that can sit beside either alternative is simply in both files.
 
 **What the card sum still refuses**, since a cut is not a refusal: two units
-that alternate can no longer trip it, because each is a launch spec of one and a
-spec of one is skipped. Its remaining tooth is drift — a ladder sized against
-one reading of a card and checked against a tighter one. `alternate` cannot see
+that alternate cannot trip it, because each is a launch spec of one and a spec
+of one is skipped. Its remaining tooth is drift — a ladder sized against one
+reading of a card and checked against a tighter one. `alternate` cannot see
 that, because it cuts on the figure each unit recorded when it was sized
 (`Fit.card_free_gb`) while `hold_together` adds them up against the scan it is
 handed.
@@ -195,9 +179,8 @@ ladder:
 #: A host that is genuinely mixed, which srv1's two llama.cpp candidates cannot
 #: be: a llama.cpp unit grows to fill whatever card it is given, so two of them
 #: never co-reside whatever the card is. Declared figures do not grow, so these
-#: three on one 12 GiB card are the shape the refusal was written about — the
-#: two 8 GiB models cannot be up together, and the 3 GiB one can be up beside
-#: either of them.
+#: three on one 12 GiB card are the mixed shape — the two 8 GiB models cannot be
+#: up together, and the 3 GiB one can be up beside either of them.
 SMALL = "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
 BIG_A = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
 BIG_B = "Qwen/Qwen3-14B-AWQ"
@@ -280,13 +263,12 @@ def test_alternatives_are_never_summed_against_the_card(
 
 
 def test_a_pair_that_will_not_sum_is_cut_into_alternatives_and_said_out_loud() -> None:
-    """What the card refusal became: a cut, and a sentence about the cut.
+    """A pair that will not sum onto the card is a cut, and a sentence about it.
 
-    Two units on two ports do share a card, and a pair that will not fit it
-    together used to be refused. Under the owner's ruling of 2026-09-09 the card
-    is the discriminator rather than a reason to say no, so the pair is emitted
-    as two launch specs — which leaves the operator holding two files where they
-    had one, only one of which is ever up, decided by arithmetic they never saw.
+    Two units on two ports do share a card. The card is the discriminator
+    rather than a reason to say no, so a pair that will not fit it together is
+    emitted as two launch specs — which leaves the operator holding two files,
+    only one of which is ever up, decided by arithmetic they never saw.
     `hold_together` returns that sentence and `cli._emit` prints it.
     """
     tight = _with_free_vram(srv2(), 10000)
@@ -297,8 +279,8 @@ def test_a_pair_that_will_not_sum_is_cut_into_alternatives_and_said_out_loud() -
     assert "do not sum onto the card and were emitted as 2 alternatives" in said
     assert "compose.srv2.Qwen-Qwen2.5-Coder-3B-Instruct-AWQ.yml" in said
     assert "compose.srv2.Qwen-Qwen2.5-Coder-7B-Instruct-AWQ.yml" in said
-    # The file an emit before the cut wrote, which nothing deletes and `serve
-    # up` would happily start: both services, one card, and the second dies.
+    # A one-file emit of the same pair, which nothing deletes and `serve up`
+    # would happily start: both services, one card, and the second dies.
     assert "delete the compose.srv2.yml" in said
 
 
@@ -346,9 +328,9 @@ def test_each_alternative_is_its_own_launch_spec(
 def test_a_host_whose_units_come_up_together_keeps_its_one_file(
     tmp_path: Path,
 ) -> None:
-    """srv2 as it stands, and every fleet emitted before this change: one file
-    per host, both services in it, the `depends_on` that sequences them intact.
-    Nothing on disk moves for a ladder that has no alternatives."""
+    """srv2 as it stands: one file per host, both services in it, the
+    `depends_on` that sequences them intact. A ladder that has no alternatives
+    keeps its one file."""
     units = units_for(parse(CO_RESIDENT), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
     written = emit_all(units, root=tmp_path / "out")
 
@@ -361,7 +343,7 @@ def test_a_host_whose_units_come_up_together_keeps_its_one_file(
 def test_a_host_that_mixes_alternatives_and_co_residents_is_covered(
     tmp_path: Path,
 ) -> None:
-    """The refusal this file pinned, answered by the owner rather than kept.
+    """A mixed host is covered, not refused.
 
     Two 8 GiB models that cannot be up together, and a 3 GiB one that can be up
     beside either: the third "belongs in neither alternative's file" only if the
@@ -386,27 +368,25 @@ def test_a_host_that_mixes_alternatives_and_co_residents_is_covered(
         BIG_B,
     }, held
     assert all(not {BIG_A, BIG_B} <= models for models in held.values()), held
-    # The shared unit is in both, which is the sentence the refusal denied.
+    # The shared unit is in both files.
     assert all(SMALL in models for models in held.values()), held
 
 
 def test_the_command_writes_a_ladder_of_alternatives_rather_than_refusing_it(
     geometry: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The refusal `emit` carried is the one this file overturns.
+    """``mcgyvr emit`` writes a ladder of alternatives rather than refusing it.
 
-    ``_emit`` refused any ``base_url`` bound to more than one model — "they
-    would contend for the same port. Give each model its own source on its own
-    port." That advice is right for co-residents and wrong for the shape the
-    ladder is now made of: two rungs on one URL are not a race to bind 8080,
-    they are two things that take turns on it, and telling the owner to invent
-    a second port is telling them to buy a second card. The refusals that
-    remain are the ones that still mean something — the mixed host above, and
-    `hold_together` for units that really do share a card.
+    Refusing any ``base_url`` bound to more than one model — "give each model
+    its own source on its own port" — is right for co-residents and wrong for
+    alternatives: two rungs on one URL are not a race to bind 8080, they are
+    two things that take turns on it, and telling the owner to invent a second
+    port is telling them to buy a second card. The card sum in
+    `hold_together` still refuses units that really do share a card.
 
-    Driven through ``main`` rather than ``emit_all`` because the refusal was
-    never in the emit layer: every unit test in this file passed while the
-    command they describe exited REFUSED and wrote nothing.
+    Driven through ``main`` rather than ``emit_all``, because a refusal in the
+    command would not show in the emit layer: every unit test in this file
+    could pass while the command exited REFUSED and wrote nothing.
     """
     from mcgyvr import scan as scan_module
     from mcgyvr.cli import main
@@ -429,7 +409,6 @@ def test_the_command_writes_a_ladder_of_alternatives_rather_than_refusing_it(
         f"compose.srv1.{BIG}.yml",
     }
 
-    # And the check reads the same two files. `_report_drift` listed
-    # `compose.<host>.yml` from the units it was handed, which for this ladder
-    # is a file name nothing ever wrote.
+    # And the check reads the same two files, not a `compose.<host>.yml` that
+    # for this ladder nothing ever wrote.
     assert main(["emit", "--check", "--out", str(out)]) == Exit.OK

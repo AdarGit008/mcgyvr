@@ -2,11 +2,9 @@
 """What every serving backend must implement, and what none of them may own.
 
 **One rule shapes this file: a backend never knows another backend exists.**
-``backends/llamacpp.py`` contains no reference to vLLM; ``backends/vllm.py``
-contains no reference to llama.cpp. Adding a third engine is a third file and a
-line of config, with no edit to either of the first two and none to
-:mod:`run`. Removing one was a file deletion and four entries out of
-``launch.py``'s marker list, which is the same property from the other side.
+Neither file under ``backends/`` imports the other. Adding a third engine is a
+third file and a line of config, with no edit to either of the first two and
+none to :mod:`run`.
 
 That is not tidiness. An earlier single-module version cleared the machine
 unconditionally before every measurement, which meant it stopped vLLM
@@ -16,7 +14,7 @@ backend's business**. A backend knows how to stop being on the card
 (:func:`release`) and how to get itself onto it (:func:`claim`); :mod:`run`
 decides who must yield to whom, and that decision is engine-agnostic.
 
-The interface, which :mod:`run` calls and nothing else does:
+The interface :mod:`run` and ``calibrate.py`` call:
 
 ``NAME``
     The name a config uses to select this backend.
@@ -32,7 +30,7 @@ The interface, which :mod:`run` calls and nothing else does:
     Stop serving and give up the GPU. **Its own processes only.** Idempotent,
     and safe to call when it was never running.
 
-``claim(host, base, model, serve, expect) -> dict``
+``claim(host, base, model, serve, expect, **declared) -> dict``
     Make ``model`` served under ``serve``, then **prove it** and return the
     evidence. Raises :exc:`NotCleanError` rather than returning something a caller
     might measure. What "prove" means is the backend's own business — the two
@@ -75,28 +73,14 @@ REPO = HERE.parents[2]
 #: that is where a narrow server's knee sits, and it is the default for a
 #: survey entry that declares no ladder of its own.
 #:
-#: **#356, 2026-08-24: the top of this ladder is NOT above every plausible
-#: width, and it never was.** The sentence that used to stand here said the
-#: server's own limit bounds the curve rather than this number. Measured on
-#: 2026-08-24 (`records/evidence/2026-08-24-config-sweep/`): with
-#: `--max-num-seqs 256` and CUDA graphs on, srv1 peaks at n=128 and srv2 at
-#: n=256, and n=384 was offered on srv2 and read lower than 256. A ladder that
-#: stops at 24 cannot see either ceiling. It was never wrong for the D7 width
-#: matrices, whose widest server was configured at 16 -- and that is the
-#: point: the right top is a function of the width the server was launched
-#: with, not a constant. :func:`ladder` is that function; this tuple is its
-#: base and stays the survey default because a roster entry that has not
-#: declared a width -- a daemon on the 2026-08-19 roster reported
-#: `total_slots = 1` for every model it served -- has no
-#: business being offered 384 queued requests -- on srv2's deep-spill models a
-#: single level of 24 already costs 6-9 minutes per repeat
-#: (`archive/forensic-ollama/d7-campaign.json`, E13).
+#: The top of this ladder is not above every plausible width: the right top is
+#: a function of the width the server was launched with, not a constant.
+#: :func:`ladder` is that function; this tuple is its base, and the whole
+#: ladder for a server that declares no width.
 RAMP_LEVELS: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16, 24)
 
 #: The knee ladder's continuation, in the same ~1.5x steps, for a server whose
-#: configured width is past 16. Ends where both rigs' measured maxima end
-#: (#356): 256 is the widest anything here has been launched at, and 384 is
-#: the level that showed it was the top on srv2.
+#: configured width is past 16.
 RAMP_LADDER_EXTENSION: tuple[int, ...] = (32, 48, 64, 96, 128, 192, 256, 384)
 
 
@@ -111,15 +95,9 @@ def ladder(width: int | None) -> tuple[int, ...]:
     :data:`RAMP_LEVELS`, which keeps every D7 row re-takeable as the cell it
     was.
 
-    Measured 2026-08-24: a width-256 server peaks at 128 (srv1) and 256
-    (srv2), and 384 -- this ladder's top for that width -- read below 256 on
-    the rig that reached it, which is what "measured to its end" looks like.
-
-    **What the wider ladder costs**, from the same sweep's wall-clocks at one
-    repeat: srv1's levels 32..384 sum to roughly 33 minutes, so a two-repeat
-    ramp at width 256 is about an hour on srv1 and about ten minutes on srv2.
-    That is the price of seeing the ceiling and it is paid only by a server
-    configured wide enough to have one.
+    **The wider ladder costs wall-clock time**, the price of seeing the
+    ceiling, and it is paid only by a server configured wide enough to have
+    one.
     """
     if not width or width <= RAMP_LEVELS[-1] / 1.5:
         return RAMP_LEVELS
@@ -160,17 +138,7 @@ RAMP_ORDERS: tuple[str, ...] = ("ascending", "descending", "shuffled")
 #: are a large share of the reply, so the curve reads the overhead as much as
 #: the rate. 475 is an **interpolation** between the two measured columns of the
 #: calibration matrix (128 and 512) — a judgement against measured curves, and
-#: not itself a measured point. D7 item 6 re-runs srv1 at this budget precisely
-#: to confirm the interpolation on the host whose matrix is already known.
-#:
-#: **Two** models on the roster spend this budget differently, not one.
-#: ``gpt-oss:20b`` emits hidden reasoning — measured at ~72% of its output on a
-#: readiness probe, heavier than the ~52% on record — and
-#: ``nemotron-3-nano:4b``, which is on **both** rigs' rosters, ran ~69% hidden
-#: ``thinking`` (54 tokens for a 17-token visible reply). For both,
-#: ``completion_tokens`` counts reasoning tokens, so 475 buys roughly a third of
-#: that in visible text. Throughput is still throughput; the quantity simply is
-#: not comparable to a non-reasoning model's visible-token rate.
+#: not itself a measured point.
 #:
 #: **#356, 2026-08-24: re-derived with CUDA graphs on, and it survives.**
 #: D3's matrix was taken under `--enforce-eager`, worth 5.02x on srv2, so the
@@ -181,7 +149,7 @@ RAMP_ORDERS: tuple[str, ...] = ("ascending", "descending", "shuffled")
 #: 77%. The per-request overhead is not fixed in seconds -- 0.79 s on srv1,
 #: 0.22 s on srv2 -- so its share of a 475-token reply is 6.9% / 8.3% on
 #: both rigs, and a budget chosen against a share survives the rate moving.
-#: Past the knee, 1024 reads 6-10% BELOW 475: a longer sequence is more KV to
+#: Past the knee, 1024 reads BELOW 475: a longer sequence is more KV to
 #: attend over per step, a different regime rather than a better reading.
 RAMP_TOKENS = 475
 
@@ -245,7 +213,7 @@ LATENCY_TOLERANCE = 0.10
 #: **#356, 2026-08-24: the boundary is far from every graphs-on curve.** D7
 #: showed 0.02 separating "excluded" from "valid" (srv1 width 1 at 1.00
 #: against srv2's 1.02,
-#: `archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:996-1000`)
+#: `mcgyvr-lab/archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md`)
 #: -- both were width-1 servers under eager. On the 2026-08-24 sweep the lowest max
 #: speedup over n=1 is 3.39 (srv1, eager) and 3.61 (srv1, graphs); srv2's
 #: lowest is 7.5. Nothing is within a factor of three of the floor, so the
@@ -272,10 +240,9 @@ INFERRED_SATURATION_MIN_SPEEDUP = 1.0
 #: The 2026-08-24 sweep offered up to n=384; at n=256 on srv1 a single stream
 #: ran 0.79 tok/s, which is BELOW this floor per stream -- and the floor is an
 #: aggregate: the level's budget is ``n * RAMP_TOKENS / 4 + 90``, 30,490 s at
-#: n=256, against a measured level wall of 413 s. Across all 104 launched
-#: cells the slowest request used 14.9% of its budget (srv1, n=2,
-#: `linear-triton`). A rate 5x higher makes the cap looser still; the
-#: direction of the misconfiguration runs away from this constant.
+#: n=256. Across all 104 launched cells the slowest request used 14.9% of its
+#: budget (srv1, n=2, `linear-triton`). A rate 5x higher makes the cap looser
+#: still; the direction of the misconfiguration runs away from this constant.
 RAMP_FLOOR_TOKENS_PER_S = 4.0
 
 #: Added to every per-request budget, for connection setup and prefill.
@@ -313,7 +280,7 @@ PROVENANCE: dict[str, dict[str, str]] = {
         "date": "2026-08-24",
         "kind": "derived",
         "note": "knee ladder kept as the survey default; ladder() extends it "
-        "to 384 for a width past 16, because both rigs' maxima sit at 128-256",
+        "to 384 for a width past 16, because both rigs' maxima sit at 256",
     },
     "RAMP_LADDER_EXTENSION": {
         "run": "records/evidence/2026-08-24-config-sweep",
@@ -343,7 +310,8 @@ PROVENANCE: dict[str, dict[str, str]] = {
         "date": "2026-08-24",
         "kind": "derived",
         "note": "re-measured with graphs on at 128/256/475/1024 tokens on "
-        "both rigs; see that directory's README for the reading",
+        "both rigs; the reading is archive/docs/archive/evidence-prose/"
+        "2026-08-24-ramp-tokens/README.md",
     },
     "PLATEAU_FRACTION": {
         "run": "records/evidence/2026-08-24-config-sweep",
@@ -495,7 +463,7 @@ PROVENANCE_DISPOSITION: dict[str, tuple[str, ...]] = {
 #: computed over the whole working tree, which a run turns ``true`` by writing
 #: its own journal under ``records/``, so every row of every future run would
 #: have read ``true`` because of its own output. A field that is ``true`` on
-#: every real run states no property (lens 3), and it is the coarse
+#: every real run states no property, and it is the coarse
 #: half of the pair that breaks, because the digest is exact.
 #:
 #: ``commit`` is deliberately absent: ``HEAD`` is the repository's, not a
@@ -595,7 +563,7 @@ def available_backends() -> list[str]:
 
 
 def load_backend(name: str) -> types.ModuleType:
-    """Import ``backends/<name>.py`` by path — ``tools/`` is not a package.
+    """Import ``backends/<name>.py`` by path — ``tools/`` has no ``__init__.py``.
 
     Config-driven, so a new engine is a file rather than a branch here.
     """
@@ -673,11 +641,9 @@ def ssh(host: str, command: str, timeout: float = STEP_TIMEOUT_S) -> str | None:
 
 
 #: Which processes hold this card, and how much of it each one holds. Declared
-#: rather than inlined because it now has two readers: :func:`snapshot`, which
-#: records the line, and ``vllm.placements``, which computes from it. The
-#: run contract's own warning was that this tree keeps minting idle readings —
-#: this string appeared once, in `snapshot`, and nothing in the tree consumed
-#: it. A second inline copy is how the two would come to mean different things.
+#: once because it has several readers -- :func:`snapshot`, ``vllm.placements``
+#: and ``pin.py`` -- and an inline copy is how they would come to mean
+#: different things.
 COMPUTE_APPS_COMMAND = (
     "nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader"
 )
@@ -768,15 +734,15 @@ HARDWARE_COMMAND = (
     "--format=csv,noheader"
 )
 
-#: Identity fields no run can answer today, each with the reason (D2:
-#: null plus a reason, never a blank and never a number copied from prose).
+#: Identity fields no run can answer today, each with the reason: null plus a
+#: reason, never a blank and never a number copied from prose.
 HARDWARE_UNANSWERABLE: dict[str, str] = {
     "memory_bandwidth_gb_s": (
-        "not measured by any run: the 21.8 / 13.3 GB/s figures in :40 "
-        "and archive/docs/archive/evidence-prose/calibration-2026-08-19/"
-        "README.md were taken "
-        "pre-XMP and never re-taken (step0-gaps.md:202); a run that wants "
-        "the number declares it in its #322 header and measures it"
+        "not measured by any run: the 21.8 / 13.3 GB/s figures in "
+        "mcgyvr-lab/archive/docs/archive/evidence-prose/"
+        "calibration-2026-08-19/README.md were taken pre-XMP and never "
+        "re-taken (step0-gaps.md, same directory); a run that wants "
+        "the number declares it in its run header and measures it"
     ),
 }
 
@@ -897,7 +863,7 @@ def level_state(raw: str | None, client: list[float] | None) -> dict[str, Any]:
 
     ``card`` is the rig's silicon at the level's end; ``ambient`` is the load
     on both machines -- the rig the tokens come from, and the driver whose
-    clock ``wall_s`` is read from (E14, ``launch.py``). Either block's ``why``
+    clock ``wall_s`` is read from. Either block's ``why``
     names what did not answer, and is ``None`` when everything did.
     """
     lines = [line for line in (raw or "").splitlines() if line.strip()]
@@ -964,13 +930,10 @@ def read_level_state(host: str) -> str | None:
     """The level reader's one ssh (#327): card and load in one round trip.
 
     Its cost is ``len(levels) * RAMP_REPEATS`` calls per ramp -- 18 at the
-    default matrix -- each one ``ssh_step_seconds`` (p50 0.956 s, p95 1.40 s
-    on 2026-08-19,
-    archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:20),
-    against ramps of ~24 min on vLLM and ~8.1 min on ollama at 475 tokens
-    (README.md:554). The warm-up level reads nothing. No budget is fixed
-    here: the next run's record states what the calls cost beside the
-    durations they sat inside.
+    default matrix -- each one ``ssh_step_seconds``, the metric
+    ``calibrate.py``'s fast phase records. The warm-up level reads nothing. No
+    budget is fixed here: the run's record states what the calls cost beside
+    the durations they sat inside.
     """
     return ssh(host, LEVEL_STATE_COMMAND)
 
@@ -1087,10 +1050,7 @@ def ramp(
     **Validated against a known value, and the validation is partial.** A server
     launched with a batch width of 8 reads 8, replicated within 1% including its
     reproducible dips — n=12 is one full batch plus a two-thirds empty one, so
-    it pays two batch-times for one and a half batches of work. Against the
-    non-batching server on the 2026-08-19 roster it reads nothing: see
-    :func:`knee` for why that is a finding rather than a failure, and for the
-    earlier version of this docstring which claimed both.
+    it pays two batch-times for one and a half batches of work.
 
     Depends on totals rather than on when any individual request landed, so
     unequal reply lengths cannot corrupt it, and every reading carries the
@@ -1268,12 +1228,6 @@ def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
     """
 
     clean, dropped = usable(levels)
-    # **Any** loss, not total loss. The first version dropped a level only
-    # when NOTHING was countable, which left the halfway case as the
-    # dangerous one: `tokens` sums the replies that carried a `usage` block
-    # while `wall` is the wall of all `n` of them, so a level where 8 of 16
-    # replies came back without `usage` reports exactly half its true
-    # throughput, with `errors: 0`, and reads as clean data. That is the
     conditions = {
         "ramp_tokens": RAMP_TOKENS,
         "plateau_fraction": PLATEAU_FRACTION,

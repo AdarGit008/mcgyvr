@@ -25,9 +25,8 @@ each. This tool reads it three ways.
   test on the nearest pairs individually.
 * **denominator** — what the instrument resolves, counted in cells that are
   actually swept. `split.py` sends ~half of every tranche to a reserve that
-  `archive/docs/bench-design-2026-08-10.md` states is never swept and no rig tier
-  serves. the 2026-08-12 amendment fixed the `ts`/`py` denominator and
-  did not reach this one.
+  `mcgyvr-lab/archive/docs/bench-design-2026-08-10.md` states is never swept
+  and no rig tier serves.
 
 **A limit that cannot be argued around.** No admitted pair scores >= 0.70 —
 they were refused before emission or retired after it. So the redundancy read is
@@ -70,11 +69,10 @@ ADMISSIONS = HERE / "admissions.jsonl"
 ARMS = ("ts", "py")
 
 # Discordance rates the sizing table is priced at. 0.10-0.45 is the range this
-# project has MEASURED, on other instruments (D5's responsiveness
-# table). 0.659 is `psi_draw` and is NOT `psi` — it is resampling sensitivity,
-# and the contrasts that matter run greedy, which is deterministic. It is
-# carried as a column because the records quote it, not because it is a
-# candidate. #231 measures the real one.
+# project has MEASURED, on other instruments. 0.659 is `psi_draw` and is NOT
+# `psi` — it is resampling sensitivity, and the contrasts that matter run
+# greedy, which is deterministic. It is carried as a column because the records
+# quote it, not because it is a candidate. #231 measures the real one.
 PSI_CANDIDATES = (0.10, 0.20, 0.35, 0.45, 0.659)
 
 # The tranche a problem was authored in, from its id. `f1` runs b228 upward in
@@ -303,7 +301,7 @@ def denominator(band: str, targets: tuple[int, ...], psis: tuple[float, ...]) ->
         f"\nBand {band}: {len(rows)} authored, {swept} bench ({share:.1%}), "
         f"{len(rows) - swept} reserve\n"
     )
-    print("  The reserve is never swept (archive/docs/bench-design-2026-08-10.md) and")
+    print("  The reserve is never swept and")
     print("  serves #222, so an authored problem enters the statistic only if")
     print("  the split rule sent it to the bench half.\n")
     print(

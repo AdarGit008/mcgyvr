@@ -1,12 +1,9 @@
 """S6/K5 — ``observe`` wraps any attempt, not only one that returns a ``Completion``.
 
-:func:`mcgyvr.telemetry.observe` typed its attempt as
-``Callable[[], Completion]``, so a deterministic-floor run — a tool, not a
-model — could not be recorded, and passing it a non-``Completion`` answer
-destroyed the answer and wrote nothing. The fix widens the seam: any callable
-may be observed, the answer is returned unchanged whatever its type, and a row
-is always written. The completion-only fields (latency, model, tokens) ride
-along only when the answer *is* a ``Completion``.
+:func:`mcgyvr.telemetry.observe` observes any callable, so a deterministic-floor
+run — a tool, not a model — is recorded: the answer is returned unchanged whatever
+its type, and a row is always written. The completion-only fields (latency, model,
+tokens) ride along only when the answer *is* a ``Completion``.
 """
 
 from __future__ import annotations

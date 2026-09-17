@@ -5,22 +5,13 @@
 # committed as tools/bundle/worker.example.json.
 tools/bundle/worker.local.json
 *.log
-# ...except under records/evidence/, where a log is not build output but the
-# artefact a record cites. The D7 header's `cost.source` points at
-# `d7-campaign.log`, and `tests/test_run_headers.py` asserts the path exists —
-# which passed only on the machine that ran the campaign and was red in CI from
-# the day it landed (#330, 2026-08-21; caught 2026-08-22). lens 1:
-# record the unrecoverable. A campaign log that lives on one laptop is exactly
-# that, and a cited path nobody else can open is a citation in name only.
+# ...except under records/evidence/, where a log is the artefact a record
+# cites: `tests/test_run_headers.py` asserts that the log a run header's
+# `cost.source` names exists.
 !records/evidence/**/*.log
-# ...and one exception back the other way. `d7-campaign.aborted-run.log` is 282
-# bytes whose whole content is reproduced verbatim in
-# `archive/docs/archive/evidence-prose/calibration-2026-08-19/d7-sleep.aborted-run.README.md`, which IS tracked, and two records state it
-# is untracked (that README's own `## The driver log, verbatim`, and the
-# 2026-08-19 session record). Nothing about it is unrecoverable, so tracking it
-# would duplicate a record rather than preserve one — and would make two
-# committed records wrong. Kept ignored, deliberately, so the exemption above
-# reads as "a cited log is evidence" and not "every log is".
+# ...and one exception back the other way: this log's whole content is
+# reproduced in `mcgyvr-lab/archive/docs/archive/evidence-prose/calibration-2026-08-19/d7-sleep.aborted-run.README.md`,
+# so tracking it would duplicate a record rather than preserve one.
 records/evidence/calibration-2026-08-19/d7-campaign.aborted-run.log
 __pycache__/
 *.pyc
@@ -33,16 +24,13 @@ build/
 *.egg-info/
 tools/breadth/worker.local.json
 node_modules/
-# The retired campaign driver's stop sentinel: launch.py no longer launches
-# (the interrupt path is gate 7 of the door), and a sentinel left by an old
-# checkout must never be committed.
+# A campaign driver's stop sentinel. Nothing in this repository reads or writes
+# it, and one left by an old checkout must never be committed.
 .campaign-stop
 
-# okf-rag artifacts. `okf/` is a generated concept bundle — its authority is the
-# pgvector store okf-rag maintains, and it is rebuilt from the archived findings
-# by records/evidence/2026-08-26-claim-verification/build_okf.py. Committing it
-# would put generated prose in the tree and give a stale copy equal standing
-# with the store. `.okfrag/` is the staleness flag okf-rag writes on `status`.
+# `okf/` holds the project's hand-written rules: index.md, config/, must-read/
+# and models/ are tracked, and anything else that appears there is ignored.
+# `.okfrag/` is an okf-rag artifact.
 okf/*
 !okf/index.md
 !okf/config/

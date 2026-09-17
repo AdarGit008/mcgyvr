@@ -2,29 +2,17 @@
 
 ``Gate.run`` takes four judging inputs: the adapters, ``acceptance``,
 ``semantic`` and ``typecheck``. ``drive.gate_workspace`` — the one function both
-tiers reach acceptance through — passes two of them. ``TypeCheck`` and
-``SemanticCheck`` are constructed nowhere in ``src``; the only constructions in
-the tree are in ``tests``. That is 1105 lines of type checking and 722 of
-semantic checking, complete and tested, one keyword argument away from the only
-place that decides whether work is accepted, with the ghostcall engine
-force-included into every wheel to serve them.
+tiers reach acceptance through — passes all four. ``data/task-catalog.json`` states
+that a ``type_annotation`` contract means "the project's type checker accepts" the
+result, and that guarantee holds only if the gate that accepts it runs the checker.
 
-What it costs is a guarantee. ``data/task-catalog.json`` states that a
-``type_annotation`` contract means "the project's type checker accepts" the
-result. The gate that accepts it never runs a type checker unless the contract
-happened to declare one as an acceptance command — which is the operator doing
-by hand what the type is supposed to mean.
-
-**Asserted through ``gate_workspace``, not through a new function beside it.**
-The whole finding is "the capability exists and nothing calls it"; a test that
-required a fresh ``gate_typed_workspace`` could be satisfied by adding a second
-entry point that the run does not use, leaving the defect exactly where it is.
-So the verdict is taken from the function the run actually reaches.
+**Asserted through ``gate_workspace``.** The verdict is taken from the function the
+run actually reaches.
 
 **And the fixture declares a checker.** ``test_d17_typecheck_and_mutation.py::
 test_a_repository_that_declares_no_checker_is_not_failed_for_the_absence`` holds
 that a repository with no type checker is not failed for the absence, and
-``gate/typecheck.py:238`` says the same. Demanding a rejection on the shared
+``gate/typecheck.py`` says the same. Demanding a rejection on the shared
 ``repo`` fixture — which declares nothing — would contradict both. A repository
 that asked for a type checker is the case where the guarantee applies.
 """

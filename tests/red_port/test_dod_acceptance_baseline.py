@@ -6,22 +6,15 @@ preflight refuses a suite that is already red)". ``demonstration`` commands are
 "the `failing_test_first` evidence": each "must FAIL on the unchanged tree and
 pass after the change".
 
-``Acceptance.precondition`` is the method that establishes both. It has no caller
-anywhere in the product, in the tools, or in the tests. Only ``run`` is called,
-and ``run``'s own docstring reasons from a baseline nobody took: "they failed at
-baseline, so one still failing is ...".
+``Acceptance.precondition`` is the method that establishes both, and ``mcgyvr run``
+calls it before the first dispatch. Without that baseline a ``bug_fix`` whose
+demonstration was already passing — a wrong ``-k`` filter, a test that was never
+red — would be judged by running it after the change, seeing green, and reporting
+the bug fixed; and a contract whose acceptance suite was already broken would charge
+the model for the tree's fault.
 
-Two silent failures follow. A ``bug_fix`` whose demonstration was already passing
-— a wrong ``-k`` filter, a test that was never red — is judged by running it
-after the change, seeing green, and reporting the bug fixed; nothing was proved
-and the result file cannot say so. And a contract whose acceptance suite was
-already broken charges the model for the tree's fault, which is the exact thing
-the preflight exists to prevent.
-
-**Asserted through the run, not through a new checker.** The finding is that a
-method exists and has no caller; a test that required a fresh
-``check_evidence_baseline`` and called it directly would be satisfied by adding
-a second thing nothing calls. So the assertion is that ``mcgyvr run`` refuses,
+**Asserted through the run, not by calling the method.** A checker that nothing
+calls proves nothing. So the assertion is that ``mcgyvr run`` refuses,
 and that it refuses **before dispatching** — the count of prompts sent is zero,
 which is the "before a rung is spent" half of the requirement stated as an
 observation rather than as a hope.

@@ -2,10 +2,11 @@
 
 **The owner's first ruling, and the one this file is named after: on sleep,
 mcgyvr evicts the ENTIRE GPU.** Not one model, not a share of VRAM. The design
-finds that this is not a behaviour to build but one the tree already has — the
-card is the compose file, ``emit.emit_all`` writes one compose file per host
-"because a host is what an operator brings up", and the door's ``down`` step
-tears down every service in the file it is handed. On the live ladder that means
+(``mcgyvr-lab/records/plans/sleep-wake.md``, whose sections the § and D/N
+labels below name) finds that this is not a behaviour to build but one the tree
+has — the card is the compose file, ``emit.emit_all`` writes one compose file
+per set of units that come up together, and the door's ``down`` step tears
+down every service in the file it is handed. On the live ladder that means
 srv2's one RTX 3060 sits behind two sources, ``:8001`` (3B) and ``:8002`` (7B),
 and putting that card to sleep takes both rungs down together. There is no
 per-model sleep and therefore no wake that displaces a neighbour: whole-card
@@ -14,14 +15,13 @@ enforces the same thing from the rig's side, refusing ``serve up`` on a rig that
 is not idle, so there is no such thing as topping a card up.
 
 **The rule that makes an automatic eviction safe** is the second half, and it is
-the half that stops being merely correct and starts being load-bearing the
-moment a queue rather than an operator decides:
+load-bearing once a queue rather than an operator decides:
 
     An eviction takes all of the card's slots before it takes the card down. It
     never interrupts a dispatch that is already in flight, and it is best-effort
     against processes the flock cannot see.
 
-The slot files under the capacity rendezvous directory already exclude every
+The slot files under the capacity rendezvous directory exclude every
 mcgyvr process on the host, so taking them all *is* the drain. The census that
 decides whether to sleep is a reading; the drain is a hold; between the two a
 dispatch can start, which is why both exist.

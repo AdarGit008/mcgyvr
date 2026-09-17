@@ -1,12 +1,10 @@
 """A live row names what answered it, what it was asked, and under which round.
 
-``tools/bench/identity.py`` settled what a measurement records — four groups,
-one block — after five lists disagreed and a manifest mutated in the sixth field
-produced a byte-identical report. The product's own journal wrote none of those
-names: a row said ``rung`` and ``model`` and could not be laid beside a bench
-cell, because it did not say which endpoint served it, which system prompt it
-carried or which product revision dispatched it. The brief (*Live journal
-(WP0)*) gives each live row the identity fields it can know at dispatch time:
+``tools/bench/identity.py`` states what a measurement records — four groups,
+one block. A journal row that said only ``rung`` and ``model`` could not be laid
+beside a bench cell, because it would not say which endpoint served it, which
+system prompt it carried or which product revision dispatched it. So each live
+row carries the identity fields it can know at dispatch time:
 
 * ``endpoint``, ``model``, ``protocol``, ``condition == "stock"``,
   ``orchestrator``, ``rung``, ``bundle_sha256`` (the system prompt, hashed the
@@ -44,8 +42,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 REPO = Path(__file__).resolve().parent.parent
 
-# RED-phase typing: ``messages`` and ``endpoint`` are the keyword arguments this
-# change adds to ``observe``; the alias keeps mypy strict clean before and after.
+# ``observe`` called through an untyped alias.
 _observe = cast("Callable[..., Any]", observe)
 
 SYSTEM = "You are a careful worker. Answer with one fenced block."

@@ -1,6 +1,6 @@
 # The product is built here, once, from a `v*` tag, and nowhere else.
 #
-# Four buckets (owner, 2026-09-06): source (this repository), product (a
+# Four buckets: source (this repository), product (a
 # wheel built from src/mcgyvr on a tag), declared config (~/.mcgyvr/config,
 # tools/runs/hosts.json) and live state (the rigs). The arrows go one way —
 # source -> product -> install — and config joins at install time, never at
@@ -39,9 +39,7 @@
 # (`0.0.1.dev<N>+g<sha>`), and a wheel stamped with that would be a product
 # that cannot say which tag it is.
 #
-# The notes are the changelog's. `--generate-notes` could not fail — it always
-# had PR titles to list — so a release could carry notes nobody wrote. The
-# notes for a tag are now its CHANGELOG.md section, printed by
+# The notes for a tag are its CHANGELOG.md section, printed by
 # tools/release/changelog_notes.py, which refuses a version that has no
 # section: the release page and the file a reader opens are one text.
 name: release

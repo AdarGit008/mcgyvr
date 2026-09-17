@@ -1,16 +1,14 @@
 """SETUP.md is rendered from config.SCHEMA and checked for drift, not deleted.
 
-Plan v4 (2026-09-09): one package, one seam, two documents. `SKILL.md` is what
-an agent reads to author a contract; `SETUP.md` is what a machine's owner
-reads to stand the ladder up. Action 1 gives `docgen` a `render_setup()` that
-renders `skills/mcgyvr/SETUP.md` from `config.SCHEMA` to a committed path —
-unlike `render_reference()` (docgen.py:707-723), which renders to a temp
-file, checks it, and deletes it, `SETUP.md` is a document that is written and
-kept, the same shape `render_skill()` already has for `SKILL.md`. Action 2
-gives `docgen --check` a second branch beside the `SKILL.md` one
-(docgen.py:769-780) that diffs the committed `SETUP.md` against what
-`render_setup()` produces. Action 3 is `make docs-check` covering it, since
-CI already runs that target (.github/workflows/ci.yml:51).
+One package, one seam, two documents. `SKILL.md` is what an agent reads to
+author a contract; `SETUP.md` is what a machine's owner reads to stand the
+ladder up. `docgen.render_setup()` renders `skills/mcgyvr/SETUP.md` from
+`config.SCHEMA` to a committed path — unlike `render_reference()` and
+`check_reference()`, which render to a temp file, check it, and delete it,
+`SETUP.md` is a document that is written and kept, the same shape
+`render_skill()` has for `SKILL.md`. `docgen --check` diffs the committed
+`SETUP.md` against what `render_setup()` produces, beside the `SKILL.md`
+check in `docgen.main`, and `make docs-check`, which CI runs, covers it.
 
 Four things hold. `render_setup()` exists and returns text built from
 `config.SCHEMA`. The committed `skills/mcgyvr/SETUP.md` is byte-identical to
@@ -56,8 +54,8 @@ def test_setup_markdown_on_disk_is_byte_identical_to_render_setup() -> None:
 
 
 def test_setup_markdown_is_not_deleted_after_rendering() -> None:
-    # Unlike render_reference()/check_reference() (docgen.py:707-723), which
-    # write to a temp path, check it, then target.unlink(missing_ok=True),
+    # Unlike render_reference()/check_reference(), which write to a temp
+    # path, check it, then target.unlink(missing_ok=True),
     # SETUP.md is a committed document that persists — the render_skill()
     # shape, not the render_reference() shape.
     assert SETUP_PATH.exists(), "skills/mcgyvr/SETUP.md must exist"
@@ -68,16 +66,13 @@ def test_setup_markdown_is_not_deleted_after_rendering() -> None:
 
 
 def test_docgen_check_refuses_a_setup_document_that_drifted(tmp_path: Path) -> None:
-    """A second branch beside the SKILL.md one at docgen.py:769-780.
+    """The SETUP.md check sits beside the SKILL.md one in ``docgen.main``.
 
     The stale document is written in ``tmp_path`` and named with
-    ``--setup-output``; the committed file is never written. An earlier
-    version of this test said it mutated a temp copy and did not: it wrote
-    ``b"stale\\n"`` into the committed ``SETUP.md`` and restored it in a
-    ``finally``, which leaves the checkout carrying a one-word SETUP.md on
-    any crash or interrupt, and races anything else in the suite that reads
-    it. The unused ``tmp_path`` it already took is what it should have been
-    using.
+    ``--setup-output``; the committed file is never written. Writing the
+    committed ``SETUP.md`` and restoring it in a ``finally`` would leave the
+    checkout carrying a one-word SETUP.md on any crash or interrupt, and race
+    anything else in the suite that reads it.
     """
     assert SETUP_PATH.exists(), "skills/mcgyvr/SETUP.md must exist"
     untouched = SETUP_PATH.read_bytes()

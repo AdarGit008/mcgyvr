@@ -1,15 +1,13 @@
 """A live run that displaces a dev serve tears the dev run's units down.
 
 Gate 2 lets a live run take a rig a dev run holds (ruling R1) and tears down
-what it displaced by name: every container whose name starts with the
-displaced run's id (``src/mcgyvr/serving/gate-scripts/02-rig.py:108``,
-``prefix = f"{displaced.run_id}-"``). That matches a campaign step's
-containers (``<RUN_ID>-<role>``) and never a serve unit's, which ``mcgyvr emit``
-names ``mcgyvr-<host>-<service>`` (``src/mcgyvr/emit.py:505``). So a dev
-``serve up`` displaced by live stays up on the rig live just took.
+what it displaced by name: every container named ``<displaced RUN_ID>-*`` or
+``mcgyvr-*`` (``src/mcgyvr/serving/gate-scripts/02-rig.py``). The first matches
+a campaign step's containers (``<RUN_ID>-<role>``); the second matches a serve
+unit's, which ``mcgyvr emit`` names ``mcgyvr-<host>-<service>``.
 
-Driven with a live ``serve down``, which gate 1 always admits (§6), so this
-stays a pure gate-2 test once the fleet lock is enforced.
+Driven with a live ``serve down``, which gate 1 always admits, so this is a
+pure gate-2 test.
 """
 
 from __future__ import annotations

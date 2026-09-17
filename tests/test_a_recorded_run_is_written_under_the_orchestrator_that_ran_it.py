@@ -1,23 +1,21 @@
 """A recorded run is written under the orchestrator that ran it, or not at all.
 
-``drive.Recording`` has required an orchestrator id since it was written — "a
-row that cannot say which orchestrator produced it is the hole the field exists
-to close (§9)" — and ``mcgyvr run`` had no flag to construct one, so the
-production caller recorded nothing and the constraint was satisfied only in the
-sense that it had never been exercised. The brief (*Live journal (WP0)*) gave
-the command two flags: ``--record DIR`` names the journal directory and
-``--orchestrator ID`` names the writer, and the sink is ``DIR/<ID>.jsonl`` so a
-directory with two files in it is two orchestrators without anyone opening one.
-Neither is required any more — the config names the directory and the session
-names the writer — but both still do what they did.
+``drive.Recording`` requires an orchestrator id: "a row that cannot say which
+orchestrator produced it is the hole the field exists to close", in the words
+of ``mcgyvr run``'s own refusal. The command has two flags for it: ``--record
+DIR`` names the journal directory and ``--orchestrator ID`` names the writer,
+and the sink is ``DIR/<ID>.jsonl`` so a directory with two files in it is two
+orchestrators without anyone opening one. Neither is required — the config
+names the directory and the session names the writer — but both do what they
+say.
 
 ``--record`` without ``--orchestrator`` is refused when no session names the
-writer either, before a sandbox is opened and before anything is dispatched.
-The alternative — a default id derived from the process — is exactly the
-single-orchestrator assumption §9 names. What *is* accepted is the session
-that typed the command: ``CLAUDE_CODE_SESSION_ID`` or ``PI_SESSION_FILE``
-name a writer as surely as the flag does, and better, because the row can then
-be followed back to the conversation
+writer either, before a sandbox is opened and before anything is dispatched. The
+alternative — a default id derived from the process — is exactly the
+single-orchestrator assumption ``drive.Recording`` rules out. What *is* accepted
+is the session that typed the command: ``CLAUDE_CODE_SESSION_ID`` or
+``PI_SESSION_FILE`` name a writer as surely as the flag does, and better,
+because the row can then be followed back to the conversation
 (``tests/test_a_row_names_the_session_that_drove_it.py``).
 
 The command is exercised through ``mcgyvr.cli.main``, the real entry point,

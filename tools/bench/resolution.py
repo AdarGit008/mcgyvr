@@ -1,29 +1,26 @@
 """What the bench can resolve, per stratum, and never pooled.
 
-Issue: `#266 <https://github.com/AdarGit008/mcgyvr/issues/266>`_.
-Doctrine: D2 (the null is measured per target tier and does not
-transfer up the ladder) and the consequence — *a report refuses a pooled
-figure across a stratum where the effect is heterogeneous, and reports per
-stratum instead*.
+Doctrine: the null is measured per target tier and does not transfer up the
+ladder, and *a report refuses a pooled figure across a stratum where the effect
+is heterogeneous, and reports per stratum instead*.
 
 ``tools/power/mde.py`` holds the arithmetic. This module supplies it the two
 things it needs from a real contrast — the eligible cell count and the measured
 discordance rate ``psi`` — **per stratum**, and prints what each can and cannot
 resolve.
 
-**Why there is no pooled row, and why that is not a formatting choice.** Pooling
-was tried on 2026-08-14 and produced a figure that describes nothing. Two
+**Why there is no pooled row, and why that is not a formatting choice.** Two
 separate objections, either sufficient:
 
 1. **Across arms.** ``bench-py`` and ``bench-ts`` are not a language contrast.
-   They are two bars — 328 ruff rules against 66 eslint, prettier unconfigured on
-   one side, no staged ``tsconfig.json`` so no type check at all (#262). A figure
-   pooled over them describes neither instrument.
+   They are two bars — a ruff selection and an eslint one that resolve to
+   different rule sets (``bar_resolved`` in ``run.json``), and no type check on
+   either. A figure pooled over them describes neither instrument.
 2. **Within an arm.** Measured over the committed ``norule`` contrasts, ``psi``
    ranges **0.029 to 0.134 across task types inside a single arm** — a 4.6x
-   spread. That is the heterogeneity  forbids pooling over, and the
-   pooled number is readable only because a dead stratum averaged with a live one
-   lands somewhere plausible.
+   spread. That is heterogeneity no figure may pool over, and the pooled number
+   is readable only because a dead stratum averaged with a live one lands
+   somewhere plausible.
 
 The arm-level row is printed because a reader will otherwise compute it, and it
 is marked so it cannot be quoted as the bench's resolution.
@@ -34,12 +31,9 @@ resolution computed from ``norule`` describes what a ``norule``-sized
 manipulation can be read at, and a new arm computes its own. There is no single
 number for "the bench".
 
-**What this module cannot key on yet.** The honest unit is a *signature* — the
-model, bar and condition as content rather than as names (#265, the
-consequence). Until those digests exist, the columns below are keyed on
-``tier`` and ``arm``, which are labels for the properties that actually differ.
-Two runs agreeing on both labels and differing in the bar would be laid side by
-side here without complaint.
+**What this module does not check.** It keys on the ``--tier`` label and the
+arm and does not call ``identity.require_comparable``; two runs agreeing on both
+labels and differing in the bar are laid side by side here without complaint.
 """
 
 from __future__ import annotations
@@ -56,7 +50,7 @@ REPO = HERE.parents[1]
 
 
 def _by_path(name: str, path: Path) -> types.ModuleType:
-    """Load a sibling rig by path — `tools/` is not a package, and the
+    """Load a sibling rig by path — `tools/` has no `__init__.py`, and the
     convention `tools/bench/report.py` set is followed rather than re-invented."""
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
@@ -75,8 +69,8 @@ revision = _by_path("bench_product_res", HERE / "product.py")
 
 ARMS = ("py", "ts")
 
-# The wall below which no split of discordant pairs reaches significance, from
-# : the best-case two-sided exact p is 2 / 2**m.
+# The wall below which no split of discordant pairs reaches significance: the
+# best-case two-sided exact p is 2 / 2**m.
 WALL = 6
 
 
@@ -163,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     print(revision.banner(found))
     print(
         f"- psi is this lever's, not the bench's: a contrast of a different "
-        f"lever resolves differently. Wall: m >= {WALL} .\n"
+        f"lever resolves differently. Wall: m >= {WALL}.\n"
     )
     print("| tier | arm | stratum | n | psi | m | detectable at 80% |")
     print("|---|---|---|---:|---:|---:|---:|")
@@ -180,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"\n**{len(live)} of {len(rows)} strata can resolve anything at all.** "
         f"psi spreads {spread:.1f}x across strata, which is why no pooled figure "
-        f"is printed ."
+        f"is printed."
     )
     return 0
 

@@ -12,7 +12,7 @@ command; `parse_help` is the parser; the result is one JSON file named by the
 digest, so a moved image is a second file and a diff.
 
 **ACCEPTED** is what THIS rig, with THIS model, actually launched. It cannot be
-read off column 1: the 2026-08-24 sweep refused 24 of 106 stage-1 cells and the
+read off column 1: a declared flag can still be refused at launch, and the
 split is per rig. It is built from launch attempts, one row per cell, and every
 row is in exactly one of these states:
 
@@ -72,10 +72,7 @@ HERE = Path(__file__).resolve().parent
 def _vllm_backend() -> types.ModuleType:
     """`backends/vllm.py` by path, through the slot `contract.load_backend`
     uses: the image pin has one home and this module reads it rather than
-    restating it. It used to read `sweep.py`'s `IMAGE`; that file hardwired an
-    11-token prompt the repo had ruled 2.4x misleading and was retired when
-    the rigs got one door (2026-09-02; today `python -m mcgyvr.serving.run`),
-    so the pin's home is the backend that launches the container."""
+    restating it."""
     slot = "serving_backend_vllm"
     cached = sys.modules.get(slot)
     if cached is not None:
@@ -608,7 +605,7 @@ def render(surface: dict[str, Any]) -> str:
             "",
             f"Flags some cell has carried: {len(d['tried'])} "
             "(" + ", ".join(f"`{t}`" for t in d["tried"]) + "). "
-            "Untried count: unknown until the capture lands — not zero.",
+            "Untried count: unknown without a capture — not zero.",
         ]
     lines += ["", "## 2. Accepted", ""]
     for block in surface["accepted"]:

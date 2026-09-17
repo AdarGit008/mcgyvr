@@ -13,29 +13,23 @@ situation, and its docstring is explicit about why:
     cannot name; that is the one outcome that is wrong under either reading, and
     it is exactly where the envelope is opened.
 
-:func:`~mcgyvr.worker.reply.parse_pinned`'s not-honoured fallback called
-``parse_reply(text, …)`` **without** ``target``, and the comment above it says
-why it did: #174 would refuse a carrier as a data blob before anything looked
-inside it, so the judgement is deferred and made afterwards on what the carrier
-holds. That reason is good. Dropping the target is how it was bought, and the
-target carries a second rule as well as the one being deferred — so the fallback
-also lost "with a target, nothing is unwrapped", and did it silently.
+When a backend ignores the pinned schema,
+:func:`~mcgyvr.worker.reply.parse_pinned` falls back to reading the fenced block.
+#174 would refuse a carrier as a data blob before anything looked inside it, so
+that judgement is deferred and made afterwards on what the carrier holds. The
+target carries a second rule as well as the one being deferred — "with a target,
+nothing is unwrapped" — and a fallback that dropped the target would lose it
+silently: a ``.json`` target whose legitimate content *is* an object with a
+non-empty string ``content`` key — a manifest, a fixture, a bundle entry — would
+come back truncated to that one field's value.
 
-What that costs is a file. A contract whose target is a ``.json`` file whose
-legitimate content *is* an object with a non-empty string ``content`` key — a
-manifest, a fixture, a bundle entry, anything at all — comes back through the
-fallback truncated to that one field's value. It is the exact case the module
-docstring names as already handled correctly, failing in the one reader that
-does not pass the target along.
-
-**The fix has to keep the comment's protection.** Passing the target back and
-doing nothing else would restore the early #174 refusal and break every carrier
-a backend sent inside a fence, which is the case the fallback exists for. So the
-two rules are separated: the structural read is what the fallback asks for, and
-both target rules are applied here, in the order that lets each one answer what
-it is about. Whether the object is an envelope at all is decided by the target
-the same way #174 is — an object bound for a file whose language the gate owns
-is not a file in that language, so it is opened and judged on what came out; an
+**The fallback keeps both rules.** Applying the target up front would restore the early
+#174 refusal and break every carrier a backend sent inside a fence, which is the case
+the fallback exists for. So the two rules are separated: the structural read is what the
+fallback asks for, and both target rules are applied afterwards, in the order that lets
+each one answer what it is about. Whether the object is an envelope at all is decided by
+the target the same way #174 is — an object bound for a file whose language the gate
+owns is not a file in that language, so it is opened and judged on what came out; an
 object bound for a ``.json`` file is the file.
 
 **The controls.** A real carrier for a ``.py`` target must still be unwrapped —

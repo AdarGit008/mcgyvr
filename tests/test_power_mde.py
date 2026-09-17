@@ -1,10 +1,10 @@
-"""Invariants over the paired-power arithmetic  runs on.
+"""Invariants over the bench's paired-power arithmetic.
 
 This module decides #231's fitness verdict and #225's size, so the properties
 that matter are the ones that would silently mis-size the bench:
 
 * **The exact test is exact.** ``exact_p`` is checked against the McNemar
-  p-values  published from an independent implementation, and against a
+  p-values published from an independent implementation, and against a
   brute-force critical value over every small ``m``. A drift here re-labels an
   unresolvable contrast as a null.
 * **The m >= 6 wall holds.** It is the finding the headline table rests
@@ -30,7 +30,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _mde() -> types.ModuleType:
-    """The power module, imported by path — ``tools/`` is not a package."""
+    """The power module, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(
         "power_mde", REPO / "tools" / "power" / "mde.py"
     )
@@ -57,7 +57,7 @@ def _brute_exact_p(b: int, c: int) -> float:
 
 
 def test_exact_p_matches_published_mcnemar_figures() -> None:
-    """arm B, computed elsewhere and recorded as 0.45 / 0.12 / 0.07."""
+    """Arm B, computed elsewhere and recorded as 0.45 / 0.12 / 0.07."""
     assert round(M.exact_p(5, 2), 2) == 0.45
     assert round(M.exact_p(4, 0), 2) == 0.12
     assert round(M.exact_p(7, 1), 2) == 0.07
@@ -167,7 +167,7 @@ def test_humaneval_sizing_reproduces_the_published_figure() -> None:
 
 
 def test_contrast_reads_the_discordance_structure_off_a_measured_table() -> None:
-    """the c0->c2 arm: +1 task net, and unresolvable at any split."""
+    """The c0->c2 arm: +1 task net, and unresolvable at any split."""
     k = M.Contrast("jsts c0->c2", n=20, gained=3, lost=2)
     assert k.discordant == 5
     assert k.net == 1

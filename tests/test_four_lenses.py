@@ -1,11 +1,10 @@
-"""The four lenses as checks rather than as reading (#251).
+"""The four lenses as checks rather than as reading.
 
-On 2026-08-13 one defect was found eleven times in a day, and **not one was
-found by a check** — every instance was found by a person or an agent
-re-reading.  states the standard; a sweep that corrects eleven
-instances and adds no check leaves the twelfth to be found the same way.
+A defect found by a person or an agent re-reading is found one instance at a
+time; a sweep that corrects every known instance and adds no check leaves the
+next one to be found the same way.
 
-So these are deliberately not assertions about the eleven. Each one computes a
+So these are deliberately not assertions about known instances. Each one computes a
 *population* and compares it against a declared allowlist, which means a new
 instance fails the build even though nobody wrote it down. The allowlists are
 the audit's findings, frozen: an entry is a fact of record, and removing one is
@@ -24,8 +23,8 @@ Four classes, one check each:
   recomputes, so the figure and its evidence drift apart.
   ``test_estimate_reserve_is_derived``.
 
-Read  before adding to any allowlist here. The cost of getting this
-wrong is not a missed defect; it is a published number nobody can re-derive.
+The cost of a wrong allowlist entry here is not a missed defect; it is a
+published number nobody can re-derive.
 """
 
 from __future__ import annotations
@@ -120,12 +119,12 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # before the cell is refused — and a run that allowed one engine longer than
     # the other would report the difference as the engine's.
     "START_TIMEOUT_S": True,
-    # Must agree. Asserted in a comment at repo.py:46 and by nothing else;
-    # git's empty-tree SHA-1 is the same fact on both sides of the seam.
+    # Must agree. Asserted in a comment in `orchestrator/repo.py` and by nothing
+    # else; git's empty-tree SHA-1 is the same fact on both sides of the seam.
     "_EMPTY_TREE": True,
-    # Must agree. symbols.py:44 says "the names match the gate adapters" — if
-    # they stop matching, the index and the gate disagree about which files are
-    # JavaScript, silently.
+    # Must agree. `orchestrator/symbols.py` says the names match the gate
+    # adapters — if they stop matching, the index and the gate disagree about
+    # which files are JavaScript, silently.
     "_TS_EXTENSIONS": True,
     "_TSX_EXTENSIONS": True,
     # Must agree: deterministic.py restates the gate's Python extensions rather
@@ -148,21 +147,21 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     "REMOTES": True,
     # Must agree: the two rigs sweep the same ladder.
     "LADDER": True,
-    # Two copies, and they are no longer the same quantity. #262 reconciled the
-    # LIVE instruments to one number: `tools/bench/score.py` declares 120.0 and
-    # `tools/problems/admit.py` imports it, so admission rehearses the ceiling
-    # that will score it. What is left here is `tools/bundle/measure.py`'s 30.0,
-    # which describes a RETIRED instrument's runs already on disk (#240) — it
-    # must not move, because moving it would restate what those rows were
-    # measured under. Declared False for that reason and not the old one.
+    # Two copies, and they are not the same quantity. The LIVE instruments share
+    # one number: `tools/bench/score.py` declares it and `tools/problems/admit.py`
+    # imports it, so admission rehearses the ceiling that will score it. What is
+    # left here is `tools/bundle/measure.py`'s, which describes a RETIRED
+    # instrument's runs already on disk — it must not move, because moving it
+    # would restate what those rows were measured under. Declared False for that
+    # reason.
     "ACCEPTANCE_TIMEOUT_S": False,
-    # Known to disagree, and filed: 1.0 against 2.0, under a docstring at
-    # availability.py:55 calling the two "the same trick ... for the same
-    # reason". Weaker than the timeout above — the prose is about concurrency
+    # Known to disagree, and filed: `detect` and `availability` hold different values,
+    # under the `availability` module docstring calling the two "the same trick ... for
+    # the same reason". Weaker than the timeout above — the prose is about concurrency
     # rather than the value — but it is the same shape.
     "PROBE_TIMEOUT_S": False,
-    # Inherited rather than derived, in two rigs at once (#251 lens 2). Equal
-    # today; the defect is that neither copy is derived from anything.
+    # Inherited rather than derived, in two rigs at once. Equal; the defect is
+    # that neither copy is derived from anything.
     "MAX_OUTPUT_TOKENS": True,
     # Three independent schema versions that happen to be 1. They version
     # different schemas and are NOT required to agree — but a reader sees one
@@ -268,7 +267,7 @@ def test_duplicated_constants_are_declared() -> None:
             )
             for name in undeclared
         )
-        + "\n\neither make one definition the source of the "
+        + "\n\nEither make one definition the source of the "
         "other, or declare the duplication and say whether the copies must "
         "hold equal values."
     )
@@ -363,10 +362,9 @@ def _emitted_check_names(gate: Path | None = None) -> dict[str, list[str]]:
 def test_declared_rungs_name_emitted_checks() -> None:
     """Every name in the declared bar covers at least one emitted check.
 
-    lens 3's strong form: a check states what it contains, or it is
-    worse than dead weight. ``gate_rungs`` is written byte-identically into both
-    arms of every contrast, so a name in it that corresponds to nothing is a bar
-    that reads as applied and was not.
+    A check states what it contains, or it is worse than dead weight. ``gate_rungs`` is
+    written byte-identically into both arms of every contrast, so a name in it that
+    corresponds to nothing is a bar that reads as applied and was not.
     """
     score = _load_bench_score()
     emitted = _emitted_check_names()
@@ -394,7 +392,7 @@ def test_declared_rungs_name_emitted_checks() -> None:
     )
 
     covered = {c for checks in RUNG_COVERAGE.values() for c in checks}
-    # `semantic` is absent from the bar by decision , not by accident,
+    # `semantic` is absent from the bar by decision, not by accident,
     # so it is one emitted check the bar is allowed not to cover.
     #
     # `typecheck` (D17) is the second, and it is the same shape: the rung runs
@@ -443,8 +441,8 @@ ANALYSIS_TOOLS = (
     "tools/bench/split.py",
 )
 
-# Fields on a bench task's meta.json that no analysis tool reads today. Each is
-# a finding of #251, frozen here so that *adding* an unread field fails, and so
+# Fields on a bench task's meta.json that no analysis tool reads. Each is a
+# finding, frozen here so that *adding* an unread field fails, and so
 # that giving one a reader is a one-line deletion that proves the fix.
 #
 # Both are validated at admission and neither is ever used as an axis, which is
@@ -491,8 +489,8 @@ def test_recorded_task_fields_have_a_reader() -> None:
 
     new = sorted(unread - UNREAD_TASK_FIELDS - CONSTRUCTION_FIELDS)
     assert not new, (
-        f"a bench task records {new}, which no analysis tool reads.  "
-        "lens 1: record what cannot be reconstructed, and join what is "
+        f"a bench task records {new}, which no analysis tool reads. "
+        "Record what cannot be reconstructed, and join what is "
         "recorded — the capture was never the gap. If the field is consumed "
         "when the task is built rather than when it is analysed, declare it in "
         "CONSTRUCTION_FIELDS and say which function reads it."
@@ -527,11 +525,10 @@ def _p05(values: list[float]) -> float:
 def test_estimate_reserve_is_derived() -> None:
     """The shipped reserve is re-derived from the data it cites, not asserted.
 
-    ``ESTIMATE_RESERVE = 0.32`` is enforced in ``check_prompt_fits`` and cited
-     as "the worst vocabulary's p05, rounded up". Until #251 the only
-    test on it asserted a band (``0.30 <= x <= 0.35``), which is a claim about
-    the number rather than a derivation of it: the units could change and the
-    band would still pass.
+    ``ESTIMATE_RESERVE`` is enforced in ``check_prompt_fits`` and cited as "the
+    worst vocabulary's p05, rounded up". A test asserting a band would be a claim
+    about the number rather than a derivation of it: the units could change and
+    the band would still pass.
     """
     from mcgyvr.gate.preflight import ESTIMATE_RESERVE
 
@@ -548,13 +545,13 @@ def test_estimate_reserve_is_derived() -> None:
     )
     derived = math.ceil(abs(worst) * 100) / 100
     assert pytest.approx(derived) == ESTIMATE_RESERVE, (
-        f"ESTIMATE_RESERVE is {ESTIMATE_RESERVE}, but the own units give "
+        f"ESTIMATE_RESERVE is {ESTIMATE_RESERVE}, but the vendored units give "
         f"a worst-vocabulary p05 of {worst:.4f}, i.e. {derived}. The constant "
         "and the measurement it cites have drifted apart."
     )
 
 
-# The stratum the own statement calls out: "the band is language-
+# The stratum the reserve's own statement calls out: "the band is language-
 # dependent". A pooled reserve over a heterogeneous stratum is what the
 # consequences forbid a *report* from doing, and the same argument applies to a
 # shipped constant. These are the per-language figures the audit measured; the
@@ -600,7 +597,7 @@ def test_pooled_reserve_is_recorded_against_its_strata() -> None:
 # The controls
 # --------------------------------------------------------------------------
 #
-# lens 3 is two-sided: a declaration of content, *and* a positive
+# A check is two-sided: a declaration of content, *and* a positive
 # control proving the declaration is live. A digest with no control records
 # precisely which inert bar was applied. Every check above therefore has a
 # canary here — a synthetic new instance it must reject. If a canary stops

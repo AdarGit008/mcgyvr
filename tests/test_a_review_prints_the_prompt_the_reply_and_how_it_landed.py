@@ -1,10 +1,10 @@
 """A review prints the prompt, the reply and how it landed — and nothing else.
 
-The whole reason the live journal keeps text (brief, *Live journal (WP0)*) is
-that someone can read what the product dispatched and judge it: a number says a
-rung answered, and only the prompt beside the reply says whether the answer was
-any good. ``tools/live/review.py DIR [--outcome X] [--orchestrator ID]`` is that
-reader: one prompt/reply/outcome triple per matching attempt, out of the journal
+The whole reason the live journal keeps text is that someone can read what the
+product dispatched and judge it: a number says a rung answered, and only the
+prompt beside the reply says whether the answer was any good.
+``tools/live/review.py DIR [--outcome X] [--orchestrator ID]`` is that reader:
+one prompt/reply/outcome triple per matching attempt, out of the journal
 directory alone — the ``*.jsonl`` files and ``blobs/``, with no index built
 first.
 

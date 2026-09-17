@@ -1,17 +1,16 @@
 """D11 — a dependency is stated, or it is refused. It is never described.
 
-GREEN by design. The thing being ported over assembles context by sending
-dependency *file bodies*, which is cheaper to write and strictly worse: it
-spends the budget on lines the worker will not change, and when a dependency
-cannot be located it degrades into an approximation nobody can tell from a fact.
-mcgyvr's answer is  — the decomposer names a symbol, the index states
+Assembling context by sending dependency *file bodies* is cheaper to write and
+strictly worse: it spends the budget on lines the worker will not change, and when
+a dependency cannot be located it degrades into an approximation nobody can tell
+from a fact. Here the decomposer names a symbol, the index states
 what it looks like, and if the index cannot state it the unit of work does not
 get emitted.
 
-``tests/test_orchestrator_decompose.py`` already holds the two halves separately:
+``tests/test_orchestrator_decompose.py`` holds the two halves separately:
 that a dep's ``signature`` equals the index's text, and that an unknown symbol
 becomes a refusal. Both would survive the regression this file exists to stop.
-A port that kept the ``signature`` field, filled it correctly, and *also* pasted
+A change that kept the ``signature`` field, filled it correctly, and *also* pasted
 the dependency's source into the prompt would pass every one of them — the field
 would still be right, and nothing asserts what the worker actually receives.
 

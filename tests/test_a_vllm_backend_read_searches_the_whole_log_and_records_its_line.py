@@ -1,27 +1,24 @@
 """A vLLM unit's attention backend is read from its whole log, and the line is kept.
 
-Owner ruling, 2026-09-16: "fix the reader and record the line". ``rig-id-relock``'s
-srv2-03 — a ``read`` of the b-small pair on srv2 — failed with ``STOP srv2-03:
-srv2_3b reported no attention_backend`` while BOTH vLLM units filed
-``attention_backend: null``. Everything else in that read was fine (srv2_3b card
-3446 MiB, decode 126.54, prefill 12393.58; srv2_7b card 7522 MiB, decode 68.32,
-prefill 6773.06; restarts 0).
+Owner ruling: "fix the reader and record the line". ``rig-id-relock``'s
+srv2-03 — a ``read`` of the b-small pair on srv2 — stops with ``STOP srv2-03:
+srv2_3b reported no attention_backend`` when both vLLM units file
+``attention_backend: null``.
 
-``rig-units.sh``'s ``backend_of`` took the FIRST line matching ``attention
-backend`` and looked for a token in that line alone, so a line that names the
-backend elsewhere in the log reads as ``none``. The 09-13 method that worked
-(``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py:89-99``)
-searched the WHOLE log for the same tokens and recorded ``FLASH_ATTN`` for these
-same units.
+A reader that takes the FIRST line matching ``attention backend`` and looks
+for a token in that line alone reads a log that names the backend elsewhere as
+``none``. The lock's own method
+(``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py``)
+searches the WHOLE log for the same tokens, and so does ``rig-units.sh``.
 
-* The backend is the token the whole log carries, over the same token list. The
-  2026-09-15 B4 rule holds: a backend is never guessed, so a log naming no token
+* The backend is the token the whole log carries, over the same token list.
+  Owner ruling B4 holds: a backend is never guessed, so a log naming no token
   anywhere stays ``none``.
 * The reader also reports what it saw: ``backend_line=PORT,BASE64`` carries the
   first line it matched, truncated, so a ``none`` names the real wording instead
   of nothing. :mod:`mcgyvr.fleet.read` parses it and files it beside
   ``attention_backend`` as data that is never judged.
-* The stop is unchanged: ``assemble_evidence.py`` still refuses a missing or
+* The stop stands: ``assemble_evidence.py`` refuses a missing or
   non-unanimous backend.
 * srv2-03 is logged as failed, so it gets its one retry. A ``read`` has no
   wrapper and no artifact of its own — its run id is minted when it runs — so
@@ -161,7 +158,7 @@ def test_the_backend_is_the_token_the_whole_log_carries_not_the_first_lines(
 def test_a_log_that_names_no_token_anywhere_is_none_and_still_names_its_line(
     tmp_path: Path,
 ) -> None:
-    """Owner, 2026-09-15, B4: a backend is never guessed."""
+    """Owner ruling B4: a backend is never guessed."""
     lines = _reader(tmp_path, f"{SELECTING}\n")
     assert "backend=8001,none" in lines, lines
     assert _recorded(lines) == SELECTING
@@ -179,8 +176,7 @@ def test_a_log_with_no_matching_line_records_no_line_and_does_not_crash(
 def test_a_token_met_anywhere_is_the_backend_as_the_09_13_method_read_it(
     tmp_path: Path,
 ) -> None:
-    """``measure_vllm.py:89-99`` searched the whole log for the token, and that
-    is what recorded FLASH_ATTN for these units on 2026-09-13."""
+    """``measure_vllm.py`` searches the whole log for the token."""
     lines = _reader(tmp_path, "INFO 09-13 21:40:02 x.py:1] FLASHINFER ready\n")
     assert "backend=8001,FLASHINFER" in lines, lines
     assert _recorded(lines) == ""
@@ -503,6 +499,6 @@ def test_the_readme_records_the_2026_09_16_ruling_and_what_it_cites() -> None:
     assert "srv2-03" in readme
     assert "measure_vllm.py" in readme
     assert "attention_backend" in readme
-    # The retry rule no longer says only a unit or a move run is retried.
+    # The retry rule does not say only a unit or a move run is retried.
     assert "unit or move run has a wrapper of its own to retry" not in readme
     assert os.access(REPO / "src/mcgyvr/serving/gate-scripts/rig-units.sh", os.R_OK)

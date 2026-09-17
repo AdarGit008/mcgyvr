@@ -40,7 +40,7 @@ IMAGE_OVERRIDE_KEY = "sandbox.image"
 SETUP_OVERRIDE_KEY = "sandbox.setup"
 
 # Base images are referenced by tag here; the exact digest is resolved and
-# frozen when the image is first built (REPRO-04, see mcgyvr.sandbox.image).
+# frozen when the image is first built (see mcgyvr.sandbox.image).
 # Slim images keep the build small; the install step adds the toolchain the
 # base omits (uv, poetry, corepack) rather than assuming a fat base.
 _PYTHON_BASE = "python:3.12-slim"
@@ -241,8 +241,9 @@ def detect_stack(repo: str | Path) -> Stack:
     if not components[0].pinned:
         notes.append(
             f"{components[0].language}: no lockfile — the install resolves "
-            f"fresh, so the image is not reproducible and its cache never "
-            f"invalidates on a dependency change. Commit a lockfile, or pin "
+            f"fresh, so the image is not reproducible and its cache does not "
+            f"invalidate when an unpinned dependency releases a new version. "
+            f"Commit a lockfile, or pin "
             f"the base with `{IMAGE_OVERRIDE_KEY}`."
         )
     if len(components) > 1:
@@ -265,9 +266,9 @@ def _present(repo: Path, *names: str) -> tuple[str, ...]:
 def _requirements_files(repo: Path) -> tuple[str, ...]:
     """Requirements files at the repository root, the conventional lock first.
 
-    ``requirements.lock`` (pip-tools' output) is treated as the pinned set;
-    a bare ``requirements.txt`` may or may not be pinned, so it is installed
-    but not claimed reproducible.
+    ``requirements.lock`` (a conventional name for a fully pinned set) is
+    treated as the pinned set; a bare ``requirements.txt`` may or may not be
+    pinned, so it is installed but not claimed reproducible.
     """
     candidates = ("requirements.lock", "requirements.txt", "requirements-dev.txt")
     return tuple(name for name in candidates if (repo / name).is_file())

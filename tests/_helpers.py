@@ -1,8 +1,4 @@
-"""Helpers shared across the test files that needed a copy of their own.
-
-Each function here was copy-pasted into the test files that used it. They are
-lifted so that a change to one body is one change, not a change in every file.
-"""
+"""Helpers shared across test files, so a change to one body is one change."""
 
 from __future__ import annotations
 

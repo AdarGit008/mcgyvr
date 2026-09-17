@@ -1,27 +1,26 @@
-"""The live ladder (owner, 2026-09-05): vLLM on srv2, llama.cpp on srv1, and
-the flags a model needs that no scan can derive.
+"""The live ladder: vLLM on srv2, llama.cpp on srv1, and the flags a model
+needs that no scan can derive.
 
-Measured by hand on 2026-09-05 (plan-e2e-live.md, "Spike results"): two vLLM
-servers sit on srv2's 12 GB card together — the 7B AWQ at 7291 MiB and the 3B
-AWQ beside it for 10869 MiB in all, 1043 MiB left — and srv1's Qwen3.6-35B
-answered nothing but reasoning until ``--chat-template-kwargs`` turned thinking
-off. Four things follow, each a check here:
+Two vLLM servers sit on srv2's 12 GB card together — the 7B AWQ and the 3B AWQ
+beside it — and srv1's Qwen3.6-35B answers nothing but reasoning unless
+``--chat-template-kwargs`` turns thinking off. Four things follow, each a check
+here:
 
 * a ``vllm`` unit is a different process shape: the model id is positional,
   the weights come from the rig's HuggingFace cache and not from a GGUF under
   the weights directory, and the engine sizes its own cache from
-  ``--gpu-memory-utilization`` — which the operator states, because #337 says
-  that number is measured and never inherited;
+  ``--gpu-memory-utilization`` — which the operator states, because that
+  number is measured and never inherited;
 * a model may carry ``serve_args``, appended verbatim to the argv, and both
   renderings carry them the same way;
 * a source may pin its ``image``, because srv1's rows are only valid against a
   stated build (``okf/must-read/touching-rigs.md``) and the engine's default
   tag floats;
 * the units on one host are summed against its free VRAM, because each unit
-  fitting alone is exactly how a 12 GB card ends up asked for 13. Since
-  2026-09-09 that sum is what **cuts** such a host into one launch spec per
-  alternative rather than what refuses it, and the pair below still comes up
-  together in one file because 7.12 + 3.49 really does fit.
+  fitting alone is exactly how a 12 GB card ends up asked for 13. That sum is
+  what **cuts** such a host into one launch spec per alternative rather than
+  what refuses it, and the pair below comes up together in one file because
+  7.12 + 3.49 really does fit.
 """
 
 from __future__ import annotations
@@ -44,9 +43,9 @@ from mcgyvr.serving import (
     units_for,
 )
 
-#: The window these tests were written against, stated because nothing supplies
-#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
-#: the window is what the run declares, so a test is a run and declares its own.
+#: The window these tests use, stated because ``mcgyvr.serving`` supplies no
+#: default: the window is what the run declares, so a test is a run and declares
+#: its own.
 WINDOW = 4096
 
 SEVEN_B = "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
@@ -268,10 +267,10 @@ def test_two_units_on_one_host_fit_it_together_at_the_spikes_numbers() -> None:
 
 def test_units_on_one_host_that_will_not_sum_are_cut_into_alternatives() -> None:
     """Each alone fits an 11.9 GB card with room; together they do not — and
-    since 2026-09-09 that is what cuts the host into launch specs rather than
-    what refuses it (owner's ruling: the card is the discriminator). The 3B and
-    the fattened 7B get a file each, and the sentence `cli._emit` prints names
-    both of them and the `compose.srv2.yml` an earlier emit left behind."""
+    that cuts the host into launch specs rather than refusing it: the card is
+    the discriminator. The 3B and the fattened 7B get a file each, and the
+    sentence `cli._emit` prints names both of them and the `compose.srv2.yml` a
+    one-file emit would have left behind."""
     tight = LIVE.replace("vram_gb: 7.12", "vram_gb: 9.0")
     scans = {"srv2": rig("srv2")}
     units = units_for(parse(tight), scans, specs=(), ctx_per_slot=WINDOW)

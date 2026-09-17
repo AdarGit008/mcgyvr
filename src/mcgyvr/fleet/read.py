@@ -52,10 +52,9 @@ RIG_ROWS = "rig.jsonl"
 #: The fields a read judges per unit.
 UNIT_FIELDS = ("card_mib", "restarts")
 #: Where each engine's pace counter is read over a load (owner ruling NB5), and
-#: its name. vLLM 0.26.0 publishes ``vllm:prompt_tokens_total`` ("Number of
-#: prefill tokens processed", a counter) on ``/metrics``, as the 2026-09-11
-#: kv-dtype run recorded it from the vllm/vllm-openai@sha256:ffb2d59b... image
-#: b-small runs.
+#: its name. vLLM publishes ``vllm:prompt_tokens_total`` ("Number of prefill
+#: tokens processed", a counter) on ``/metrics``
+#: (``records/measurements/kv-dtype-2026-09-11``).
 PACE_COUNTERS: dict[str, tuple[str, str]] = {
     "vllm": ("/metrics", "vllm:prompt_tokens_total"),
 }

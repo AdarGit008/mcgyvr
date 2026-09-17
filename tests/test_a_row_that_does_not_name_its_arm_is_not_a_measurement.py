@@ -1,12 +1,11 @@
 """Identity belongs on the row, not in a header comment.
 
-``lcpsweep28.py`` used the floating ``:server-cuda`` tag and two runs a month
-apart could not be compared, with nothing in the record to say the binary had
-moved. The fix was printing ``img=`` on the CONFIG row. This campaign found the
-same defect one level down: in ``srv1-nomma-dp4a-ab.tsv`` the stock and no-MMA
-arms carry **byte-identical labels**, and ``img=`` never appears on a measurement
-row at all. Every reader in this repo collapses rows by label (``run.py:93``),
-and against that file doing so keeps one arm and discards the other silently.
+Two runs under a floating ``:server-cuda`` tag cannot be compared, with nothing
+in the record to say the binary moved. One level down: in
+``srv1-nomma-dp4a-ab.tsv`` the stock and no-MMA arms carry **byte-identical
+labels**, and ``img=`` never appears on a measurement row at all. A reader that
+collapses rows by label keeps one arm of that file and discards the other
+silently.
 
 A locally built tag is worse than a registry tag, not better: ``llamacpp:...-v3``
 exists on one machine and any rebuild silently re-points it, with no registry to

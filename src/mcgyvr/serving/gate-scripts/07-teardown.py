@@ -15,8 +15,8 @@ prefix is only the label of "yours" — a step once left a container without
 it and the prefix filter alone called the run clean. docker's name filter is
 a prefix match, so `<RUN_ID>-` also covers a --suffix run of the same step;
 killing on that basis could stop a container this invocation did not start.
-Run contract §4: a cell never repairs a machine it found wrong. The kill is
-the operator's, with the name in hand.
+The door does not repair a machine it found wrong: the kill is the operator's,
+with the name in hand.
 
 A RIG THAT MOVED IS STAMPED INTO THE ARTIFACTS. Rows produced under two
 machines have to say so, so every TSV this run wrote gets a `### RIGMOVED`

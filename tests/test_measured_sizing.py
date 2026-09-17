@@ -334,7 +334,7 @@ def test_an_moe_without_its_geometry_is_refused_and_told_where_to_scan() -> None
     sized = fit(srv2(), ModelSpec("m", 1.0, 0.0, 1.0, moe=True), ctx_per_slot=WINDOW)
     assert not sized.fits
     assert "python -m mcgyvr.serving.ggufscan" in sized.why
-    assert "models.m.geometry_json" in sized.why
+    assert "units.<unit>.launch.geometry_json" in sized.why
 
 
 def test_a_stated_size_that_disagrees_with_the_scan_is_refused_naming_both() -> None:

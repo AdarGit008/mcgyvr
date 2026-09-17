@@ -1,8 +1,7 @@
 """Assembling what a worker is sent: a measured bundle and a contract.
 
-Two messages, and the split is the finding rather than a convention.
-varied only the system prompt across its four conditions and kept "the contract
-is always the user message" fixed, so that is the shape reproduced here: the
+Two messages. The bundle measurement varied only the system prompt and kept
+the contract as the user message, so that is the shape reproduced here: the
 bundle is *how to work*, the contract is *what to do*, and they do not mix.
 
 **The user message is built from :meth:`~mcgyvr.contract.Contract.worker_view`
@@ -31,8 +30,8 @@ but it is a budget the orchestrator enforces rather than an instruction a model
 can act on — telling a worker its own input ceiling spends tokens to say
 something the worker cannot use. It is spent here on the fit check instead.
 
-**The fit check is this module's, and it is the first production caller of
-:func:`~mcgyvr.gate.preflight.check_prompt_fits`.** The contract declares
+**The fit check is this module's**
+(:func:`~mcgyvr.gate.preflight.check_prompt_fits`). The contract declares
 ``max_input_tokens`` as "the hard ceiling the assembled worker prompt must fit
 under", and this is the first point at which an assembled prompt exists to
 measure. A prompt that does not fit is returned as a
@@ -49,14 +48,12 @@ tool that was not installed are all excluded there, and rendering is all that
 happens here. The section goes last, after the output instruction, because it
 is the most specific thing in the prompt and the least useful to read first.
 
-**The estimate is injectable, and the count says which kind it was.**
-measured the model-free proxy under-counting by up to 17.9% at the median
-depending on the vocabulary, so ``check_prompt_fits`` charges a proxy count a
-reserve and an exact count nothing. Passing a real tokenizer here — with
+**The estimate is injectable, and the count says which kind it was.** The
+model-free proxy under-counts by an amount that depends on the vocabulary
+(``mcgyvr-lab/records/measurements/tokens-2026-08-03/README.md``), so
+``check_prompt_fits`` charges a proxy count a reserve and an exact count
+nothing. Passing a real tokenizer here — with
 ``counted_by=TOKENIZER`` to say so — is how a caller opts out of the reserve.
-The seam is also what makes the assembled prompt re-measurable: the band
-was measured over prompt *content*, never over a finished prompt, because until
-now no finished prompt existed.
 """
 
 from __future__ import annotations
@@ -201,7 +198,7 @@ def build_prompt(
     if contract.output_schema not in _REPLY_INSTRUCTIONS:
         raise UnsupportedSchemaError(
             f"output_schema {contract.output_schema!r} has no reply instruction "
-            f"and no parser; only {WHOLE_FILE!r} is implemented . "
+            f"and no parser; only {WHOLE_FILE!r} is implemented. "
             f"Refused before dispatch rather than after it."
         )
     bundle = bundle_for(contract.target, adapters)

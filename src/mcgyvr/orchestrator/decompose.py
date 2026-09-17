@@ -5,15 +5,15 @@ model's opinion becomes a document the rest of the system executes. The whole
 design question is therefore *how little* of that document the opinion is
 allowed to author.
 
-The answer is the, generalised. A model decides **relevance** — which
-kind of work this is, which file it lands in, which of a file's forty symbols
-the target actually needs. The repository decides **fact** — what those symbols
-look like, whether the file exists at all. So the seam this module draws is not
-"the model writes a contract and we check it"; it is "the model writes
-*references* and the index resolves them". A :class:`Proposal` names a symbol; it
-cannot state a signature, because there is no field for one.
+The answer is a split. A model decides **relevance** — which kind of work this
+is, which file it lands in, which of a file's forty symbols the target actually
+needs. The repository decides **fact** — what those symbols look like, whether
+the file exists at all. So the seam this module draws is not "the model writes a
+contract and we check it"; it is "the model writes *references* and the index
+resolves them". A :class:`Proposal` names a symbol; it cannot state a signature,
+because there is no field for one.
 
-Five properties are structural rather than remembered:
+Seven properties are structural rather than remembered:
 
 * **Every emitted contract came through the public loader.** A proposal is
   assembled into a document, serialised, and parsed by
@@ -26,11 +26,11 @@ Five properties are structural rather than remembered:
   #150 gave the contract a slot for it and #155 fills it here. There is no
   ``Proposal`` field for it and there will not be one: a proposer that could
   state a file's content could state one the repository does not hold, which is
-  the exact failure  draws the seam to prevent. The bytes come from the
+  the exact failure the seam is drawn to prevent. The bytes come from the
   index — the same read that resolution and exploration already judged from —
   so two contracts emitted from one decomposition cannot disagree about one
   file. See :func:`_content_of`.
-* **A dependency the index cannot name is refused, never described.**
+* **A dependency the index cannot name is refused, never described.** That
   gives up any dependency the parser cannot state — a dynamically constructed
   attribute, a re-export through a barrel file — and the asymmetry is the
   argument: a missing dep degrades a prompt, an invented one poisons it and
@@ -50,16 +50,14 @@ Five properties are structural rather than remembered:
   the honest answer is to say so by name rather than to route optimistically and
   fail at dispatch.
 * **A type whose evidence only a checker can produce is emitted with that
-  checker's command, or not emitted.** This is the other half, and #142's
-  whole subject; see :func:`_acceptance_for`.
+  checker's command, or not emitted.** See :func:`_acceptance_for`.
 
 **The proposer seam.** :data:`Proposer` is where judgment enters, and it has no
 default binding. A caller supplies one; the tests supply a fixed one, which is
 what makes "the same prompt and repository yield the same shape" an assertion
 about this module rather than about a model's temperature. The deterministic
-pass always runs first and is handed to the proposer as evidence
-(boundary 2) — a proposer cannot ask for the repository, only read what
-exploration already found.
+pass always runs first and is handed to the proposer as evidence — a proposer
+cannot ask for the repository, only read what exploration already found.
 """
 
 from __future__ import annotations
@@ -92,15 +90,11 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # than silently resolved, so this is a readability choice, not a safety one.
 _ID_DIGEST_BYTES = 5
 
-# The ceiling `context.max_input_tokens` may be sized up to, in estimated
-# tokens. **Policy, not measurement.** Nothing mcgyvr reads declares a rung's
-# context window — not `baseline.config.json`, not the capability table, whose
-# entries carry quality, throughput and VRAM and no window at all — so there is
-# nothing here to derive the number from and it is chosen rather than computed.
-# It is a default, and a caller that knows its ladder should say so instead:
-# `decompose(..., max_input_tokens=...)`. #158 is where a declared per-rung
-# window would replace it, at which point this becomes a fallback for the
-# unconfigured case rather than the operative bound.
+# The default ceiling `context.max_input_tokens` may be sized up to, in
+# estimated tokens, when the caller passes none: `decompose(...,
+# max_input_tokens=...)`. A policy number, not a measurement. A rung's declared
+# window is enforced separately by
+# `mcgyvr.gate.preflight.check_contract_against_rung`.
 _DEFAULT_MAX_INPUT_TOKENS = 32768
 
 # The one evidence kind a locator can supply the command for, named as the
@@ -117,7 +111,7 @@ class DepRef:
     """A reference to a dependency: where it lives and what it is called.
 
     Deliberately not a signature. The decomposer names the symbol; the index
-    states what it looks like . ``note`` is the one free-text field,
+    states what it looks like. ``note`` is the one free-text field,
     because "how the target is expected to use this" is a judgement about
     relevance and there is nothing in the repository to read it off.
     """
@@ -165,11 +159,11 @@ class Proposal:
 class Evidence:
     """The deterministic pass a proposer is given to judge from.
 
-    Handed over rather than made available: a proposer receives what exploration
-    already found and has no way to ask the repository for more. That is
-    boundary 2 expressed as a type — supplied context accelerates the
-    deterministic pass and cannot replace it, and a seam that could re-read the
-    tree would be a second, unbounded exploration nobody costed.
+    Handed over rather than made available: a proposer receives what
+    exploration already found and has no way to ask the repository for more.
+    Supplied context accelerates the deterministic pass and cannot replace it,
+    and a seam that could re-read the tree would be a second, unbounded
+    exploration nobody costed.
     """
 
     prompt: str
@@ -265,8 +259,8 @@ def decompose(
 
     ``max_input_tokens`` is the ceiling a contract's own budget may be sized up
     to (:func:`_resize`), and therefore what decides whether a target is small
-    enough to send. It is a policy number this project has no measurement for —
-    see :data:`_DEFAULT_MAX_INPUT_TOKENS` — so a caller that knows what its
+    enough to send. The default is a policy number — see
+    :data:`_DEFAULT_MAX_INPUT_TOKENS` — so a caller that knows what its
     ladder can actually accept should pass its own.
 
     Never raises for an undecomposable request: a prompt nothing can be made of
@@ -393,7 +387,7 @@ def _emit(
                 proposal.target,
                 f"the index cannot state a signature for {ref.symbol!r} in "
                 f"{ref.path!r}, so the dependency would have to be described "
-                "rather than stated  — omit it and let the worker "
+                "rather than stated — omit it and let the worker "
                 "report BLOCKED, or name a symbol the parser defines there",
             )
         dependencies.append(
@@ -453,10 +447,8 @@ def _acceptance_for(
 ) -> tuple[str, ...] | Refusal:
     """The contract's acceptance list: the proposal's, or the repository's checker.
 
-     ends with a gap it names precisely — "the schema already demands a
-    type-check command for the one task type whose guarantee requires one, and
-    nothing yet supplies it. What is missing is not a step; it is whoever fills
-    the list in." This is that. The locator (#114) reads what the repository
+    The schema demands a type-check command for the one task type whose
+    guarantee requires one. The locator (#114) reads what the repository
     declared; this puts it where #38's sandboxed runner already looks.
 
     Three rules, in this order:
@@ -474,33 +466,29 @@ def _acceptance_for(
       not a reading of a declaration — and ``failing_test_first`` needs a
       *specific* test that fails before the change and passes after, which no
       locator can name at all.
-    * **No checker means no contract.** : "Where the locator returns
-      ``None``, the decomposer does not emit ``type_annotation`` for that
-      repository — the contract would fail to load anyway, which is the correct
-      outcome arriving at the correct layer." Refusing here rather than letting
+    * **No checker means no contract.** Where the locator returns ``None``, the
+      decomposer does not emit ``type_annotation`` for that repository — the
+      contract would fail to load anyway. Refusing here rather than letting
       :func:`_load` reject it is what turns a schema complaint into a sentence
       about the repository.
 
-    **The command is emitted exactly as located.** Nothing is appended — not the
-    target, not a path, not a flag — and that closes the question #114 left for
-    this layer ("a repository whose ``[tool.mypy]`` sets no ``files`` gets a
-    command that needs a target, and supplying it is the decomposer's job, since
-    only it knows what the change touched"). The premise is right and the
-    conclusion does not follow, on three measurements taken here:
+    **The command is emitted exactly as located.** Nothing is appended — not
+    the target, not a path, not a flag — even for a repository whose
+    ``[tool.mypy]`` sets no ``files`` and whose command therefore needs a
+    target. Three reasons:
 
-    1. ``tsc --noEmit path/to/file.ts`` **discards ``tsconfig.json`` entirely** —
-       naming files on the command line is how you tell ``tsc`` to ignore the
-       project. On a project with ``strict: true``, ``tsc --noEmit`` reports
-       ``TS7006`` and exits 2 while ``tsc --noEmit src/a.ts`` over the same file
-       exits 0. Appending the target would not narrow the check; it would
-       silently replace it with a weaker one that passes, which is worse than
-       no check because it reports success.
+    1. ``tsc --noEmit path/to/file.ts`` **does not load ``tsconfig.json``**:
+       before TypeScript 6.0 it checks the named file without the project's
+       options, and from 6.0 it refuses to run beside a ``tsconfig.json``
+       (``TS5112``) unless told ``--ignoreConfig``. Appending the target would
+       not narrow the check; it would replace it with a weaker one or with an
+       error.
     2. mypy's ``exclude`` is not applied to a file named on the command line. On
        a tree whose ``[tool.mypy]`` excludes ``pkg/vendor/``, bare ``mypy``
        exits 0 and ``mypy pkg/vendor/bad.py`` exits 1 on the same file.
        Appending the target would type-check a file the repository said to skip
-       — inventing scope, which is the one thing  forbids.
-    3. The failure the question feared does not reach the worker.
+       — inventing scope.
+    3. A command that needs a target does not reach the worker.
        :meth:`~mcgyvr.gate.acceptance.Acceptance.precondition` runs the whole
        list against the **unchanged** tree before the first attempt, so a
        repository whose bare ``mypy`` cannot run (exit 2, "Missing target
@@ -508,11 +496,11 @@ def _acceptance_for(
        orchestration fault, named, with no attempt spent. So is a repository
        carrying a backlog of pre-existing type errors, which is the larger
        version of the same problem and which no amount of argument-appending
-       would have fixed.
+       would fix.
 
     A per-file type check is not a smaller version of a project-wide one. It is
     a different check, and in one of the two launch languages it is not
-    expressible at all — the same asymmetry #133 measured, arriving here.
+    expressible at all.
     """
     if proposal.acceptance:
         return proposal.acceptance
@@ -538,7 +526,7 @@ def _acceptance_for(
             f"this repository declares no type checker, so {kind.name!r} is not "
             f"available here — its guarantee needs evidence only a checker can "
             f"produce, and mcgyvr runs the one the repository configured rather "
-            f"than choosing one . Configure a checker in the "
+            f"than choosing one. Configure a checker in the "
             f"repository, or declare the command in the proposal's acceptance",
         )
     return (shlex.join(located),)
@@ -679,16 +667,15 @@ def _resize(
 
     The budget is declared on the contract so that a prompt which will not fit
     fails before a rung is spent (`contract.py`), and
-    :func:`~mcgyvr.gate.preflight.check_prompt_fits` is what enforces it. Sizing
-    it here closes the loop #115 left open: the measurement is of
-    :meth:`~mcgyvr.contract.Contract.worker_view`, which is the only accessor a
-    worker prompt may be built from, so what is measured is what will be sent.
+    :func:`~mcgyvr.gate.preflight.check_prompt_fits` is what enforces it.
+    Sizing it here measures :meth:`~mcgyvr.contract.Contract.worker_view`,
+    which is the only accessor a worker prompt may be built from, so what is
+    measured is what will be sent.
 
     The schema's default is a floor, never a ceiling — a small contract keeps the
     declared default rather than being given a suspiciously precise budget. No
-    margin is added on top: the estimator's error band is #117's to measure, and
-    a margin invented here would be exactly the unsourceable constant
-    rejected.
+    margin is added here: :func:`~mcgyvr.gate.preflight.check_prompt_fits`
+    charges the estimator's measured reserve.
 
     ``ceiling`` is where the sizing stops, and #155 is why it has to exist at
     all. Once the target's own content is part of the view, a budget derived

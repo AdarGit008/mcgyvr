@@ -1,19 +1,11 @@
 """A rig is named by the snapshot it prints, in the spelling the snapshot prints.
 
-Owner, 2026-09-15 (D1): ``rig-`` = H{ host, hardware, system }
+Owner ruling D1: ``rig-`` = H{ host, hardware, system }
 (``mcgyvr-lab/records/plans/fleet-identity.md`` §1) is hashed by one product function,
 :func:`mcgyvr.fleet.ids.rig_id`, over the fields exactly as
 ``src/mcgyvr/serving/gate-scripts/rig-snapshot.sh`` prints them: tokenized,
 every value a string. The lock and live admission both call it; there is no
 second spelling.
-
-Until now the two locked rig ids were hashed by hand scripts that disagree.
-``fleet-setup/digests-srv2.json`` hashed the snapshot's own spelling and
-``fleet-setup/digests-srv1.json`` hashed ``"Intel(R) Core(TM) i5-9600K CPU @
-3.70GHz"`` with spaces and ``gpu_vram_mib`` as the integer 6144, which no rig
-read ever prints. So srv2's locked id reproduces from a snapshot and srv1's does
-not: srv1 gets a new id when it is re-locked, and until then live admission
-cannot admit it.
 
 * ``rig_id`` over srv2's snapshot is the id srv2 is locked under.
 * A snapshot missing a field is refused by name, never hashed (§1 ID-1).

@@ -1,4 +1,4 @@
-"""Deterministic repair of a rejected change (D21).
+"""Deterministic repair of a rejected change.
 
 The gate is read-only on purpose: ``ruff format --diff`` reports what the
 formatter *would* change, ``ruff check`` runs without ``--fix``, and a
@@ -47,10 +47,8 @@ buy nothing, cost something, or write somewhere it was not asked to:
   working tree, so the tree is where the bytes are and there is no second place
   they could be. :attr:`RepairOutcome.repaired` names the paths that differ from
   what the worker left — the claim a caller acts on, because it is what makes a
-  second gate run worth a subprocess. It used to hand back a copy of those bytes
-  as well, for a caller that would pass them to :func:`mcgyvr.deliver.deliver`;
-  delivery takes an :class:`~mcgyvr.deliver.Accepted` minted off the tree now,
-  and a copy nothing reads is the value channel pattern B is about.
+  second gate run worth a subprocess. No copy of those bytes is handed back:
+  delivery takes an :class:`~mcgyvr.deliver.Accepted` minted off the tree.
 * **The one step that adds code may only transcribe.** Auto-import insertion
   writes ``from <module> import <name>`` for an undefined name **only** when
   some ``deps`` entry in the contract already declares that name. The repair is
@@ -224,8 +222,8 @@ def _repairable(changeset: ChangeSet, contract: Contract) -> list[FileChange]:
     re-deriving the suffix list keeps the repair pointed at precisely the files
     the gate's Python rungs rejected on.
 
-    Scope is asked about the name, and then about the file, because those were
-    not the same question and the gap was a way out of the contract. ``is_file()``
+    Scope is asked about the name, and then about the file, because those are
+    not the same question and the gap is a way out of the contract. ``is_file()``
     follows symlinks: a link the worker left at an allowed path is an in-scope
     *name* for whatever it points at, and ``ruff format`` writes through it —
     rewriting a file the contract explicitly forbids, reporting the repair
@@ -253,7 +251,7 @@ def _writes_where_it_says(repo: Path, path: str, contract: Contract) -> bool:
     one check rather than four because the answer to all of them is the same:
     this is not ours to rewrite. A path with no link in it resolves to itself and
     has one name, and the scope has already said yes to that, so the ordinary
-    case costs two ``stat`` calls and answers exactly as before.
+    case costs two ``stat`` calls.
     """
     target = repo / path
     if not target.is_file():

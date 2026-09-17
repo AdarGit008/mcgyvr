@@ -153,11 +153,9 @@ def test_an_empty_ramp_is_not_silently_whole() -> None:
     """A ramp that emitted no levels at all states no rate either. It must not
     pass for want of anything to iterate.
 
-    The assertions here used to be ``barren_levels(...) == []`` -- which is the
-    OPPOSITE of what this test is named for. `barren_levels` has nothing to
-    return for an empty ramp, so an empty list is the honest answer from it; the
-    refusal has to come from the downgrade, and it did not. The test pinned the
-    hole open under a name that said it was closed."""
+    `barren_levels` has nothing to return for an empty ramp, so an empty list is
+    the honest answer from it; the refusal has to come from the downgrade, which
+    is what is asserted after it."""
     assert run_module.barren_levels({}) == []
     assert run_module.barren_levels({"levels": []}) == []
     empty_ramps: tuple[dict[str, Any], ...] = ({}, {"levels": []})
@@ -196,10 +194,9 @@ def test_resume_keys_on_the_field_this_downgrades() -> None:
 
 
 def test_a_level_that_cannot_be_read_is_not_called_barren() -> None:
-    """A ramp stub may carry a bare `n` with no row behind it (there is one at
-    tests/test_sink_conformance.py:1574). Judging those would refuse cells over
-    the shape of their record rather than over what they measured -- and it did,
-    breaking two sink-conformance tests when this check first landed."""
+    """A ramp stub may carry a bare `n` with no row behind it (there is one in
+    tests/test_sink_conformance.py). Judging those would refuse cells over the
+    shape of their record rather than over what they measured."""
     assert run_module.barren_levels({"levels": [1]}) == []
     assert run_module.barren_levels({"levels": [1, {"n": 2, "ok": 0}]}) == [
         {"n": 2, "ok": 0}

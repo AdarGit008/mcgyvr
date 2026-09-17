@@ -1,25 +1,19 @@
 """A host is locked by its own rig id's records, not by any record naming it.
 
-Owner, 2026-09-16, on the orphaned records the rig-id re-lock left behind:
-"fix and add to PR".
-
 ``mcgyvr fleet lock`` writes one directory per rig id and never prunes: when a
 rig's id changes, the records of the id it had stay where they are. They still
 carry ``"rig": "srv1"``, because that field is the rig's NAME, not its identity.
-``admit.host_is_locked`` globbed ``*/cmb-*.json`` across every directory and
-matched on that name, so the records of a machine that no longer exists answered
-for the machine that does — a second source of truth, and the wrong one.
+A glob of ``*/cmb-*.json`` across every directory matched on that name would let
+the records of a machine that does not exist answer for the machine that does —
+a second source of truth, and the wrong one.
 
 The lock pins the identity: ``rigs.<host>.rig_id`` in the ``fleet.yaml`` beside
-the lock. ``mcgyvr fleet promote`` writes that file into the live fleet folder
-(``promote.py:165``) and ``fleet use`` refuses a folder that does not load as a
-setup, so for the live profile — the only profile that reaches this function
-(``wake.py:464``) — it is there. So the answer is read from that rig id's
-directory alone.
+the lock. ``admit.host_is_locked`` reads the answer from that rig id's directory
+alone.
 
-A root with no ``fleet.yaml`` beside its lock is left exactly as it was: this
-narrows what can answer, and must never make something that is locked today
-read as unlocked.
+A root with no ``fleet.yaml`` beside its lock is read across every directory:
+the pin narrows what can answer, and never makes something that is locked read
+as unlocked.
 """
 
 from __future__ import annotations

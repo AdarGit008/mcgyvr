@@ -1,14 +1,11 @@
 """Attempt telemetry — one appended record per attempt, and how it landed (X02).
 
-mcgyvr measures a great deal and keeps none of it. A
-:class:`~mcgyvr.runner.Completion` carries host-side latency, the backend's own
-token counts and the cap it was issued under; a gate run carries findings and
-the rungs that could not say; a judgement carries the assurance an acceptance
-rests on. Every one of them is discarded when the call returns, so nothing about
-a run is answerable once it exits — not what it cost, not which rung did the
-work, not whether climbing the ladder was worth it. This module is where a run
-stops being unanswerable, and every before/after claim about the ladder is
-downstream of it.
+A :class:`~mcgyvr.runner.Completion` carries host-side latency, the backend's
+own token counts and the cap it was issued under; a gate run carries findings
+and the rungs that could not say; a judgement carries the assurance an
+acceptance rests on. One appended record per attempt is what keeps a run
+answerable after it exits — what it cost, which rung did the work, whether
+climbing the ladder was worth it.
 
 The shape is one JSON object per line, appended and never rewritten. Each of its
 properties is load-bearing:
@@ -60,21 +57,16 @@ dollars, an overran-cap flag and a success rate are all computable from fields
 already on the row, and freezing one here would store today's price list as
 though it were a measurement.
 
-**The text is kept — beside the row, never in it (the live journal, WP0).**
-This module used to refuse reply text, on the ground that a measurement stream
-should not grow by a worker's output per row. The refusal was right about the
-row and wrong about the text: a journal that keeps the hash and not the text
-can be counted and never reviewed. A row could say a rung answered in 1.2 s and
-could not say what it was asked or what it said, so nothing the product ever
-dispatched was reviewable for quality, and every judgement about whether a
-cheap rung's answers were any good rested on a number. Four rules govern how
-the text is kept:
+**The text is kept — beside the row, never in it.** A measurement stream
+should not grow by a worker's output per row, and a journal that keeps the hash
+and not the text can be counted and never reviewed. So the row carries digests
+and the text is kept beside it. Four rules govern how the text is kept:
 
 * **Content-addressed, under ``<sink dir>/blobs/<sha256>``.** The row carries
-  ``prompt_sha256`` and ``reply_sha256`` — the names ``tools/bench/identity.py``
-  already gives a request — and a blob is named by the digest of its own
+  ``prompt_sha256`` — the name ``tools/bench/identity.py`` gives it — and
+  ``reply_sha256``, and a blob is named by the digest of its own
   bytes, so a reader can verify a blob without trusting the row that named it.
-  This is also what answers the old objection: one scaffold shared by
+  It is also what keeps the store small: one scaffold shared by
   thousands of prompts is one blob, and the same text dispatched twice costs
   nothing the second time. The store sits beside the sink rather than inside
   it because a sink is one orchestrator's file and the blobs are every
@@ -96,11 +88,10 @@ the text is kept:
   worse than no row, because the hash reads as evidence that exists.
 
 **A row names what answered it, and under which round.** ``tools/bench/identity.py``
-settled what a measurement records after five lists disagreed and a manifest
-mutated in the sixth field produced a byte-identical report; a live row that
-carried none of those names could not be laid beside a bench cell, because it
-did not say which endpoint served it, which system prompt it carried or which
-product revision dispatched it. So each row also carries ``endpoint``,
+names what a measurement records; a live row that carried none of those names
+could not be laid beside a bench cell, because it would not say which endpoint
+served it, which system prompt it carried or which product revision dispatched
+it. So each row also carries ``endpoint``,
 ``model``, ``protocol``, ``condition`` — always ``"stock"``: live work is the
 product as shipped, never an ablation, and the field is what tells a live row
 from a bench cell by content rather than by path — ``bundle_sha256`` (the
@@ -297,11 +288,8 @@ def observe[T](
     try:
         # Assembling the identity touches the disk twice — the prompt blob is
         # written to the store, the product revision is read off the checkout
-        # — and either can fail. Both used to sit outside every `try`, so an
-        # unwritable store raised out of this function before any row existed,
-        # which is the one thing "exactly one record per call" forbids. It was
-        # the *reply* blob that got the guard, and the prompt blob that was
-        # cited as the reason for it.
+        # — and either can fail. Inside the guard, so a failure here still
+        # writes its one row: "exactly one record per call".
         _identity(
             identity,
             store,
@@ -350,14 +338,6 @@ def observe[T](
             # on disk. A blob that cannot be written still raises — the sink
             # rule, not an exception to it — but the row goes down first, as
             # the failure it now is, with no ``reply_sha256`` on it.
-            #
-            # The row is what makes "exactly one record per call" true, and it
-            # was not: an unwritable blob store (``ENOSPC``, a ``blobs/``
-            # replaced by a file) left a dispatch that happened with no trace
-            # of it at all. A caller cannot tell that from a dispatch nobody
-            # made, and the one that counted an attempt's rows to find the
-            # draw a raise was about counted one short and blamed the draw
-            # that answered.
             record["reply_sha256"] = store(_bytes(scrub(answer.text)))
         except BaseException as failure:
             append(unlanded(failure))
@@ -601,7 +581,7 @@ def _checkout() -> Path:
 def _bench_product() -> types.ModuleType | None:
     """``tools/bench/product.py`` by path, or ``None`` when this is not the checkout.
 
-    ``tools/`` is not a package, so the bench loads it by path into a named
+    ``tools/`` has no ``__init__.py``, so the bench loads it by path into a named
     ``sys.modules`` slot; this uses the slot ``tools/breadth/measure.py`` uses
     and reuses whatever is already there, so a process that holds the module
     is not handed a second copy that could disagree with the first. ``None``

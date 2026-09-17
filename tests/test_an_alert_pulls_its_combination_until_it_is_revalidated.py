@@ -18,11 +18,10 @@
   stop.
 * Nothing clears on its own. A pull clears only when the combination's
   validation is re-committed; ``rejudge`` reports and pulls nothing (proposed,
-  not ruled: plan §12).
+  not ruled: ``mcgyvr-lab/records/plans/fleet-identity.md`` §12).
 * With every combination pulled, live refuses all work loudly, naming each.
 
-Tolerances are placeholders: the rule is pinned, the values are measured on
-``red/fleet-identity-measurements``.
+Tolerances here are placeholders: the rule is pinned, not the values.
 """
 
 from __future__ import annotations
@@ -168,8 +167,8 @@ def test_card_memory_alerts_only_above_its_approved_value_plus_tolerance(
     tmp_path: Path,
 ) -> None:
     """Steady and peak are two figures, each judged. A llama.cpp peak sampled
-    while loading reads 2-26 MiB below steady
-    (``records/measurements/fleet-gaps-2026-09-09/README.md:78-81``), so the
+    while loading reads a few MiB below steady
+    (``mcgyvr-lab/records/measurements/fleet-gaps-2026-09-09/README.md``), so the
     peak is the highest reading across the load and the requests."""
     alerts = _alerts()
     for field, expected in (("card_steady_mib", 7000.0), ("card_peak_mib", 7026.0)):

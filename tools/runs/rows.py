@@ -4,8 +4,9 @@ journals are read.
 ``records/evidence/**/*.tsv`` is what ``tools/runs/drivers/lcp_sweep.py`` and
 ``tools/runs/drivers/vllm_sweep.py`` print: ``### `` marker lines, then rows of
 ``host \\t label \\t kind \\t k=v...``. It is **not** a journal, and the one habit
-that must not travel here is last-write-wins per label. ``run.py:93``'s journals
-are append-only and keyed by label; these files repeat a label under every arm.
+that must not travel here is last-write-wins per label. The journals
+``_journal`` in ``tools/bench/serving/run.py`` writes are append-only and keyed
+by ``(host, label)``; these files repeat a label under every arm.
 ``2026-09-01-bandwidth-and-ncmoe-floor/srv1-nomma-dp4a-ab.tsv`` carries
 ``d3b np=8 ctx_slot=2048 c=16384 ncmoe=0`` eight times — four rows under each of
 two images — distinguished by nothing but file order and a ``###`` comment. A
@@ -15,13 +16,11 @@ without saying so, which is an A/B silently becoming one arm.
 So a :class:`Row` remembers its line number and the marker it sits under, and
 nothing in this module deduplicates.
 
-This module lives beside the door and not under ``tests/``. As
-``tests/sweeprows.py`` it ran only in CI, post-hoc, over one hard-coded
-directory; the door's gate 8 (``src/mcgyvr/serving/gate-scripts/08-parse.py``)
-now reads every artifact a step wrote back through :func:`read` before the run
-exits 0, so the parser the door trusts and the parser the tests trust are one
-module object. ``tests/sweeprows.py``
-remains as a re-export so the twelve behaviour tests keep their import.
+The door's gate 8 (``src/mcgyvr/serving/gate-scripts/08-parse.py``) reads every
+artifact a step wrote back through :func:`read` before the run exits 0, so the
+parser the door trusts and the parser the tests trust are one module object.
+``tests/sweeprows.py`` re-exports this module for the tests that import it by
+that name.
 """
 
 from __future__ import annotations
@@ -52,9 +51,9 @@ def _pairs(tokens: list[str]) -> dict[str, str]:
 
 #: The arm prefixes this campaign puts in front of a cell tag: the ``L``-ladder
 #: rungs ``L0``-``L4``, the ``A`` bounds ``A1``/``A3``, and the ``B`` vLLM pair
-#: (``archive/docs/srv1-kernel-arms-PLAN.md:37-54``). All of them strip,
-#: so ``<ARM>-<cell>`` is
-#: one labelling convention for every file rather than two that contradict.
+#: (the arms table of ``mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md``).
+#: All of them strip, so ``<ARM>-<cell>`` is one labelling convention for every
+#: file rather than two that contradict.
 ARM_PREFIX = re.compile(r"[ABL][0-9]")
 
 
@@ -62,10 +61,10 @@ def _stamp_name(lineno: int, line: str) -> str:
     """The stamp's name: the first whitespace token after ``###``.
 
     Raises rather than reporting "no such stamp". A marker that names nothing
-    used to read exactly like a marker that is absent, and the two mean opposite
-    things: ``### END`` missing says the run did not close (a lock took the ssh
-    pipe with it, which is guideline 7's whole worry), while a malformed ``###``
-    says the emitter is broken. A silent ``{}`` merges them.
+    would otherwise read exactly like a marker that is absent, and the two mean
+    opposite things: ``### END`` missing says the run did not close (a lock took
+    the ssh pipe with it), while a malformed ``###`` says the emitter is broken.
+    A silent ``{}`` merges them.
     """
     parts = line.removeprefix("###").split()
     if not parts:
@@ -314,12 +313,10 @@ def read(path: Path) -> Sweep:
     return Sweep(path, tuple(rows), tuple(markers), round_)
 
 
-#: What a row must name about the machine that produced it. Every one of these
-#: has moved under this project with no record saying so: RAM swapped between
-#: rigs twice in six days, a hard lock wiped srv1's BIOS profile and PL1 read
-#: 95 W at 05:23 and 4095 W at 05:57, srv1's max clock went 4800 -> 4600
-#: unattended, and the GSP reserve differs per boot. A figure that cannot name
-#: them is a figure about an afternoon, not about a rig.
+#: What a row must name about the machine that produced it. Each of these can
+#: move between runs with no record saying so (-> okf/must-read/touching-rigs.md),
+#: and a figure that cannot name them is a figure about an afternoon, not about
+#: a rig.
 RIG_FIELDS = (
     "cpu_max_mhz",
     "ram_mt_s",
@@ -334,20 +331,19 @@ def rig_gaps(stamp: dict[str, str]) -> list[str]:
     return [f for f in RIG_FIELDS if not (stamp.get(f) or "").strip()]
 
 
-#: README.md's check. Over 200 GENERATED prompts, not over source text: the
-#: source hash moves under a `ruff format` pass and did so in 90635351, which
-#: would void a live cross-engine comparison over a whitespace commit.
+#: Gate 4's check (``src/mcgyvr/serving/gate-scripts/04-workload.py``). Over 200
+#: GENERATED prompts, not over source text: a source hash moves under a
+#: `ruff format` pass, which would void a live cross-engine comparison over a
+#: whitespace commit.
 WORKLOAD_DIGEST = "2f2bb7932a0b660653def819"
 
 
 def workload_digest(driver: Path) -> str:
     """The digest of 200 prompts the workload block in ``driver`` generates.
 
-    The block runs from ``PROMPT_DECILES`` to ``def sh(`` where the file is a
-    driver that still carries a shell helper after its workload, and to the end
-    of the file otherwise — ``tools/runs/workload.py`` is nothing but the block.
-    Same slice either way, so the module and the drivers it replaced digest to
-    the same ``WORKLOAD_DIGEST``.
+    The block runs from ``PROMPT_DECILES`` to ``def sh(`` if the file has one
+    after it, and to the end of the file otherwise. In this tree the only file
+    that carries the block is ``tools/runs/workload.py``, which ends with it.
     """
     source = driver.read_text(encoding="utf-8")
     start = source.index("PROMPT_DECILES")
@@ -421,7 +417,7 @@ def driver_source(name: str) -> Path:
     return path
 
 
-#: The run these tests specify. Absent until it is performed.
+#: The envelope the kernel-arms tests read.
 RUN = EVIDENCE / "2026-09-02-srv1-kernel-arms"
 #: The door dates its envelope (``records/evidence/<RUN_DATE>-<campaign>/``),
 #: and the campaign crossed midnight UTC: steps 6 and 7 landed on 2026-09-02,
@@ -442,17 +438,8 @@ def evidence_path(name: str) -> Path:
     return ENVELOPE.get(name, RUN) / name
 
 
-#: One artifact, one script that produces it.
-#:
-#: ``artifact()``'s message is the only instruction a RED reader is given, and
-#: it was telling two different stories about one file: ``srv1-moe-slots.tsv``
-#: was announced as the output of ``srv1-kernel-arms.sh`` by three tests and of
-#: ``srv1-moe-slots.sh`` by a fourth, and ``srv1-vllm-arms.tsv`` likewise. The
-#: string is never compared, so nothing broke — which is exactly why it drifted.
-#: The campaign's step list runs these as separate sessions, in the order that
-#: loses least if srv1 locks (``archive/docs/srv1-kernel-arms-PLAN.md:
-#: 111-128``), so the file names the one step that produces it — started through
-#: the door, because a step run bare refuses without ``RUN_ID``.
+#: One artifact, one step that produces it — started through the door, because
+#: a step run bare refuses without ``RUN_ID``.
 _DOOR = (
     "python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms "
     "--model <blob as the rig sees it> "

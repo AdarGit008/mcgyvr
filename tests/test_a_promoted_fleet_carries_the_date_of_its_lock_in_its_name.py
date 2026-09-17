@@ -1,6 +1,6 @@
 """A promoted fleet carries the date of its lock in its name.
 
-Owner, 2026-09-16: "all fleets get tagged with date - promote with the date in
+Owner ruling: "all fleets get tagged with date - promote with the date in
 fleet name - switching between verified fleets is a common action during
 runtime".
 

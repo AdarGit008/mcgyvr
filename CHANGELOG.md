@@ -3,9 +3,9 @@
 Format: [Keep a Changelog](https://keepachangelog.com).
 
 Paths in older entries are where files were when the entry was written.
-`docs/` moved to `archive/docs/` (#395); most of `archive/` and
-`records/plans/` now live in the repository AdarGit008/mcgyvr-lab,
-under the same paths.
+`docs/` moved to `archive/docs/` (#395); most of `archive/`,
+`records/plans/`, `docs/` and the write-ups under `records/` now live in
+the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## [Unreleased]
 
@@ -57,6 +57,13 @@ under the same paths.
 
 ### Changed
 
+- Prose that nothing in the repository reads — decision records, evidence
+  and measurement write-ups, `docs/`, the corpus and header READMEs — moved
+  to AdarGit008/mcgyvr-lab at the same paths; the data they describe stays
+  here. Comments, docstrings, help text and refusal messages that no longer
+  matched the code were corrected or deleted, and `okf/` states only rules
+  that were re-checked against the code, the records or the pinned engine
+  sources.
 - `mcgyvr fleet use` no longer refuses a fleet the live lock's `next` does not
   list; the lock's `next` now says what a move costs, not whether it may be
   made.

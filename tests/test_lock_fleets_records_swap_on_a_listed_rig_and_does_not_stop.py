@@ -1,18 +1,17 @@
 """lock-fleets records swap growth on a listed rig, and does not stop there.
 
-Owner ruling, 2026-09-15: "Record swap on srv1, don't stop". srv1's driver
-stopped after ``rig-id-relock``'s srv1-01 on ``pswpout rose during the run
-(264920 -> 312345)``: 47,425 pages, inside the 35,000-48,000 pages per wake
-``records/measurements/ram-headroom-2026-09-09/README.md`` measured for that
-blob mapped on srv1 at swappiness 60, with decode unaffected.
+The owner's ruling: "Record swap on srv1, don't stop". The swap growth a wake
+of that blob causes on srv1 is within what
+``mcgyvr-lab/records/measurements/ram-headroom-2026-09-09/README.md`` measured
+for it, with decode unaffected.
 
 A use's ``use.json`` names the rigs whose swap growth is recorded and not
 stopped on (``swap_recorded_not_stopped_on``). On such a rig a run's pswpout
 start, end and delta are filed and are no reason to stop; every other stop
 still applies there, and every other rig keeps the swap stop.
 
-srv2 was added to that list on 2026-09-16 ("Record swap on srv2 too"), through
-this same mechanism; what that ruling says is pinned in
+srv2 is on that list too ("Record swap on srv2 too"), through this same
+mechanism; what that ruling says is pinned in
 ``tests/test_srv2_swap_is_recorded_and_does_not_stop_a_run.py``.
 """
 

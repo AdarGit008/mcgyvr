@@ -1,8 +1,7 @@
 """Compose detection and proposal into a written config.
 
-The first thing a stranger runs, and the command the v1 release criterion is
-written around: clean machine, no key, no Docker, and the result is a config
-that supports a real local task.
+The first thing a stranger runs: clean machine, no key, no Docker, and the
+result is a config that supports a real local task.
 
 Three properties are enforced here rather than left to habit:
 
@@ -68,7 +67,7 @@ class InitError(Exception):
     Raised instead of writing a config that cannot load. A file that
     dispatches nowhere is not a head start — it is a misconfiguration that
     surfaces later and further from its cause, which is exactly what the
-    loader's fail-loud rule exists to prevent (; ``mcgyvr.config``).
+    loader's fail-loud rule exists to prevent (``mcgyvr.config``).
     """
 
 
@@ -393,11 +392,9 @@ def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
     """The schema's own default for each named key.
 
     `init` writes these keys out rather than leaving the renderer to show them
-    commented, so the file says what the loader does. Restating the *value*
-    here makes the file say what the loader used to do: `cleanup.enabled`
-    drifted exactly that way and shipped repair-and-regate turned off against
-    the ruling that turned it on. So a static key is read from the schema and
-    never spelled twice — a moved default reaches a new install by moving.
+    commented, so the file says what the loader does. A static key is read
+    from the schema and never spelled twice — a moved default reaches a new
+    install by moving.
     """
     by_name = {field.name: field for field in fields}
     return {name: by_name[name].default for name in names}
@@ -560,9 +557,6 @@ def _limits(
     limits = list(detection.notes) + list(proposal.notes)
     if api_units:
         # What a bound API unit costs, said where every other cost is said.
-        # The old note claimed no provider was configured, which stops being
-        # true the moment `--api` binds one — and a limit that is false is
-        # worse than no limit, because it is read as a checked fact.
         named = ", ".join(f"{u.name} (${u.api_key_env})" for u in api_units)
         limits.append(
             f"Hosted units are bound and every dispatch to one spends money: "

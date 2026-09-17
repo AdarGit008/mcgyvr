@@ -1,11 +1,8 @@
 """X6 — a deeply nested reply is refused by name, never a RecursionError.
 
 ``json.loads`` raises ``RecursionError`` — not ``ValueError`` — on a reply whose
-nesting exceeds the interpreter's limit, and both JSON readers in
-:mod:`mcgyvr.worker.reply` catch only ``ValueError``. The error escapes the
-reply parser as a crash out of a path that should be all named refusals.
-
-The fix catches the recursion error beside the value error, so a reply too deep
+nesting exceeds the interpreter's limit. The JSON readers in
+:mod:`mcgyvr.worker.reply` catch it beside the value error, so a reply too deep
 to read is the same category as one that will not parse: refused, not raised.
 """
 

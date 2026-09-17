@@ -1,23 +1,17 @@
 """Independent verification of the nine B1-B9 fixes, and what survived them.
 
 Written by a verifier rather than by a fixer, so nothing here reuses a fixer's
-reproduction: every statement was first reproduced against ``HEAD`` (the
-pre-fix tree) and then re-run against the working tree, and every guard was
-checked to fail when its production change is reverted.
+reproduction, and every guard fails when its production change is reverted.
 
-The file has two halves and they say different things.
+The tests are properties the fixes established, stated on a vector the fixer's
+own test did not take — delivery concurrency across OS processes rather than
+threads, ``parser_lines`` agreeing with CPython's own line accounting rather
+than with a list of eight characters, a cleanup preserving CRLF.
 
-The **green** tests are properties the fixes actually established, stated on a
-vector the fixer's own test did not take — delivery concurrency across OS
-processes rather than threads, ``parser_lines`` agreeing with CPython's own line
-accounting rather than with a list of eight characters, a cleanup preserving
-CRLF.
-
-The **xfail(strict=True)** tests are defects that survived. They are written as
-the assertion that *should* hold, marked expected-to-fail with the reason, so
-that the suite stays green today and turns red the moment one of them is fixed
-without this file being updated. An xfail here is not a wish: each one was
-reproduced by execution first.
+An **xfail(strict=True)** test is a defect that survived. It is written as the
+assertion that *should* hold, marked expected-to-fail with the reason, so that
+the suite stays green while the defect stands and turns red the moment it is
+fixed without this file being updated.
 """
 
 from __future__ import annotations
@@ -328,7 +322,7 @@ def test_b9_the_surrogate_convention_round_trips_through_a_delivery(
     )
 
 
-# --- xfail(strict): what survived the fixes ------------------------------
+# --- what the fixes left, each pinned ------------------------------------
 
 
 def test_b5_repair_does_not_write_through_a_hard_link_out_of_scope(
@@ -452,8 +446,7 @@ def test_pattern_a_consensus_reports_content_it_cannot_write_as_its_own_error(
         "2026-08-29: "
         "The `Ceiling` mcgyvr pool prints sums the configured attempts of every "
         "rung; the one escalate enforces is attempts_for(), which also clamps "
-        "by contract.limits.attempts. The two do not agree, which is what the "
-        "ladder_budget docstring was rewritten to claim they do."
+        "by contract.limits.attempts. The two do not agree."
     ),
 )
 def test_the_printed_ceiling_is_the_one_that_is_enforced() -> None:

@@ -137,12 +137,11 @@ class Mismatch:
 class Vram:
     """One card's memory. ``free`` is the number that decides a fit today.
 
-    ``reserved`` is the remainder the driver holds and never hands to a
-    process: on these rigs 400 MiB of srv1's 6144 and 376 of srv2's 12288
-    (measured 2026-09-05). It is carried rather than folded into ``used``
-    because the two are answerable by different people -- used is a workload
-    and reserved is the card -- and because carrying it is what lets the four
-    numbers close: ``total == used + free + reserved``, always.
+    ``reserved`` is the remainder the driver holds and never hands to a process
+    (``okf/must-read/touching-rigs.md``). It is carried rather than folded into
+    ``used`` because the two are answerable by different people -- used is a
+    workload and reserved is the card -- and because carrying it is what lets
+    the four numbers close: ``total == used + free + reserved``, always.
     """
 
     total_mib: int
@@ -376,10 +375,7 @@ class Scan:
                         total_mib=int(gpu["vram"]["total_mib"]),
                         used_mib=int(gpu["vram"]["used_mib"]),
                         free_mib=int(gpu["vram"]["free_mib"]),
-                        # Absent in a scan taken before the reserve was read,
-                        # where free was total minus used and the remainder
-                        # was zero by construction. Zero is that scan's own
-                        # answer, not a default standing in for one.
+                        # A stored scan that carries no reserve reads as zero.
                         reserved_mib=int(gpu["vram"].get("reserved_mib", 0)),
                     ),
                 )
@@ -700,20 +696,13 @@ def _parse_gpu_row(line: str) -> Gpu | None:
         name=", ".join(parts[1:-3]),
         # Free is the card's own answer, not ``total - used``. The two differ
         # by the driver's reserve, which is memory no process is ever given:
-        # deriving free would over-state it by that much on every rig here,
-        # and a placement sized against the over-statement clears the fit and
-        # then fails to allocate. Sampling skew was the reason for deriving
-        # it; it is answered by keeping the remainder rather than by
-        # discarding the card's number, so the three still sum to the total.
+        # deriving free would over-state it by that much, and a placement
+        # sized against the over-statement clears the fit and then fails to
+        # allocate (``okf/must-read/touching-rigs.md``).
         #
-        # The remainder is the driver's reserve and not a workload figure,
-        # which is checkable rather than assumed: nvidia-smi carries its own
-        # ``memory.reserved``, and it agrees within a MiB of rounding — 401
-        # against 400 on srv1, 377 against 376 on srv2 (2026-09-06). srv2 read
-        # 376 at four different loads that day, an empty card included, so it
-        # is a property of the card and not of what is on it. It is derived
-        # here anyway, because a derived remainder makes the three numbers sum
-        # exactly and a queried one would not.
+        # The remainder is derived rather than read from nvidia-smi's own
+        # ``memory.reserved``, because a derived remainder makes the numbers
+        # sum exactly and a queried one would not.
         vram=Vram(
             total_mib=total,
             used_mib=used,

@@ -339,10 +339,10 @@ def test_the_cut_is_deterministic_and_so_are_the_files_it_writes(
 def test_a_host_whose_units_all_co_reside_still_writes_one_file(
     tmp_path: Path,
 ) -> None:
-    """The compatibility rule ``d8c5cf0a`` established, restated on the new axis.
+    """The compatibility rule, restated on the new axis.
 
     Nothing on disk moves for a fleet whose units fit the card together. srv2's
-    pair without the 80B is that fleet, and it is what both live rigs are today.
+    pair without the 80B is that fleet.
     """
     units = units_for(parse(PAIR), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
 

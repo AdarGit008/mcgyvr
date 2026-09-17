@@ -4,21 +4,22 @@
 **Vendored from ``records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/
 ggufscan.py``, which stays where it is.** That copy is the evidence a dated
 record was computed from and must not move; this one is a live dependency of
-:func:`backends.llamacpp.mmap_gate`, which ships it to the serving host and
-runs it there. Two copies of one parser is a cost paid deliberately: the
-alternative was importing a module out of ``records/``, which would let an
-edit made for the gate silently rewrite what a published measurement claims
+the door (``gate-scripts/data-20-geometry.py``) and of the bench
+(``tools/bench/serving/backends/llamacpp.py``, ``_geometry``), both of which
+ship it to the serving host and run it there as ``python3 -``. Operators run
+it as ``python -m mcgyvr.serving.ggufscan <gguf>``. Two copies of one parser
+is a cost paid deliberately: importing a module out of ``records/`` would let
+an edit made for a gate silently rewrite what a published measurement claims
 to have been computed with.
 
 **The point of reading the header rather than the file size is that the two
 answer different questions.** ``stat -c %s`` says what the blob weighs on
 disk; only the tensor table says how much of that weight is ``ffn_*_exps`` --
 the only part ``--n-cpu-moe`` can move to host RAM. A gate built on the
-former refuses a model whose experts would have fitted; see ``mmap_gate``.
+former refuses a model whose experts would have fitted.
 
-Sums the table. Never guesses bits-per-weight from size over parameters: two
-defensible estimates of one GGUF's expert bytes disagreed by 14% and both
-were wrong (``okf/must-read/touching-models.md``). ``MXFP4`` is ggml type 39
+Sums the table. Never guesses bits-per-weight from size over parameters
+(``okf/must-read/touching-models.md``). ``MXFP4`` is ggml type 39
 and a reader missing it falls back to f32 and calls an 11.28 GiB file 71 GiB.
 """
 
@@ -116,9 +117,9 @@ def scan(path):
     #
     # A grafted multi-token-prediction head is a block by tensor naming and not
     # a block by placement: KAT/Ornith `blk.40` carries the full expert set plus
-    # `nextn.{eh_proj,enorm,hnorm,shared_head_norm}` and weighs 816 MiB against
-    # its neighbours' 364. Counting it as placeable put a predicted floor THREE
-    # steps above the true one. Proof it is excluded: at ncmoe 8 the card held
+    # `nextn.{eh_proj,enorm,hnorm,shared_head_norm}` and weighs 816 MiB.
+    # Counting it as placeable puts a predicted floor above the true one.
+    # Proof it is excluded: at ncmoe 8 the card held
     # 9976.83 - 1080.83 = 8896.00 MiB = 32 x 278.0 exactly, i.e. blocks 8..39
     # with block 40 absent.
     #
@@ -302,8 +303,8 @@ def scan(path):
       "ssm_params_from": ssm_from,
     }
 
-# Guarded, unlike the evidence copy: `mmap_gate` ships this file to the serving
-# host and runs it as `python3 -`, where __name__ IS "__main__", but the test
+# Guarded, unlike the evidence copy: its consumers ship this file to the serving
+# host and run it as `python3 -`, where __name__ IS "__main__", but the test
 # suite imports it in-process to check the parser against a known blob. An
 # unguarded loop would print "[]" on every such import.
 if __name__ == "__main__":

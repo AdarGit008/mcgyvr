@@ -7,10 +7,8 @@ the product pin (``tools/bench/product.py --check``) does not move for this file
 :func:`mcgyvr.escalate.escalate` takes ``attempt: Callable[[Try], Judgement[T]]``
 and says of it: "it assembles a prompt, dispatches, applies, gates and calls
 :func:`~mcgyvr.escalate.judge`. Keeping it a parameter is what lets every rule
-here be asserted without a model, a backend or a sandbox." Nothing in the tree
-binds that parameter to a live rung — the breadth rig (``tools/breadth/measure``)
-walks the same prompt → dispatch → parse → gate loop but dispatches to one worker
-and never escalates. This module is the first binding, and it is built from the
+here be asserted without a model, a backend or a sandbox." This module binds
+that parameter, and it is built from the
 shipped assembly and nothing else: :func:`~mcgyvr.worker.prompt.build_prompt`
 renders, :func:`~mcgyvr.worker.reply.parse_reply` reads, the sandbox is E4's,
 the scorer is :meth:`~mcgyvr.gate.Gate.run`, and the verdict is
@@ -60,17 +58,9 @@ gate result and the judgement; :meth:`Trace.as_dict` lays it out with every
 pass/fail-shaped field under ``gate``, which is the one place the record lets a
 verdict live.
 
-**The acceptance imports the sandbox's sources, not the host's.** E4's
-temp-directory mode runs a command on the host with the host's environment,
-which is what lets it find a toolchain at all — and is also how a src-layout
-repository would score the wrong tree: mcgyvr itself is installed editable
-from the primary checkout, so ``import mcgyvr`` inside a sandbox populated
-from a *mission* worktree resolves to the host's ``src``, and the child's test
-would run the host's code against the worker's file. :class:`MissionSandbox`
-is the default factory for that reason: it puts ``<workspace>/src`` and
-``<workspace>`` ahead of any inherited ``PYTHONPATH`` for every command it
-runs, so the sources the worker's file sits beside are the ones the test
-imports. A caller who binds another factory takes that property with it.
+**The acceptance imports the sandbox's sources, not the host's.**
+:class:`MissionSandbox` is the default factory for that reason; its docstring
+says how. A caller who binds another factory takes that property with it.
 """
 
 from __future__ import annotations
@@ -134,8 +124,8 @@ _REFUSAL = "refusal"
 #: snapshots the tree before and after its command and rejects a command that
 #: changed it (``tree-altering``), honouring ``.gitignore``; a repository that
 #: never ignored its bytecode would then reject every attempt for pytest's
-#: litter. The bench rig's ``IGNORED`` list, appended to the workspace's own
-#: ``.gitignore`` after the change set is computed, so it enters no diff.
+#: litter. Appended to the workspace's own ``.gitignore`` after the change set
+#: is computed, so it enters no diff.
 _RUNNER_LITTER = "__pycache__/\n*.pyc\nnode_modules/\n"
 
 #: How a Try reaches a rung: the Try (whose ``rung`` and ``capacity`` name where
@@ -549,9 +539,7 @@ class Attempt:
         This sandbox is opened per try and torn down when the ``with`` closes —
         ``Sandbox.__exit__`` removes the workspace tree outright — so by the time
         ``escalate`` returns a ``Delivered`` there is no tree anywhere holding
-        the accepted bytes. Delivery used to be handed the caller's copy of the
-        reply instead, which is a string nothing had re-read since the gate ran
-        (pattern B). :meth:`~mcgyvr.deliver.Accepted.read` takes the bytes off
+        the accepted bytes. :meth:`~mcgyvr.deliver.Accepted.read` takes the bytes off
         the workspace the verdict was reached over, one line after it was
         reached and while it still exists.
 

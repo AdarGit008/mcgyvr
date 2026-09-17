@@ -36,7 +36,10 @@ from typing import NoReturn
 
 #: How a run is started. Named in every refusal, because the operator reading
 #: one is the operator most inclined to work around it.
-DOOR = "python -m mcgyvr.serving.run --host H --campaign C --step PATH --model M"
+DOOR = (
+    "python -m mcgyvr.serving.run --host H --campaign C --model M "
+    "--ctx-per-slot N [--step PATH]"
+)
 
 #: What an ancestor's command line carries when it is the door: the module
 #: file by path (matched on its suffix, so a copy of the door in a test tree
@@ -44,8 +47,8 @@ DOOR = "python -m mcgyvr.serving.run --host H --campaign C --step PATH --model M
 DOOR_FILE = "mcgyvr/serving/run.py"
 DOOR_MODULE = "mcgyvr.serving.run"
 
-#: ssh options that consume the next argument (OpenSSH's getopt string, the
-#: letters followed by a colon). Anything else beginning with `-` is a flag.
+#: The ssh options this shim knows consume the next argument. Anything else
+#: beginning with `-` is read as a flag.
 SSH_TAKES_VALUE = frozenset("bcDeEFiIJlLmoOpPQRSwW")
 
 
@@ -147,8 +150,7 @@ def _require_door(what: str) -> None:
             f"{what} refused: this process was not started by the door — it "
             "was started outside mcgyvr.serving.run, and nothing reaches a rig "
             "or reads a run outside it (a RUN_* variable set by hand does not "
-            f"stand in for the door). Start the run as `{DOOR}` "
-            "(okf/must-read/touching-rigs.md)"
+            f"stand in for the door). Start the run as `{DOOR}`"
         )
 
 
@@ -169,8 +171,7 @@ def door_required(what: str) -> None:
         refuse(
             f"{what} refused: an ancestor is the door but neither RUN_EXPORT_FD "
             "nor RUN_ID is set, so no gate exported this run to it — it was "
-            "not started by the door's sequence. Start the run as "
-            f"`{DOOR}` (okf/must-read/touching-rigs.md)"
+            f"not started by the door's sequence. Start the run as `{DOOR}`"
         )
 
 
@@ -206,12 +207,12 @@ def ssh(
     ``mcgyvr.serving.run`` and ``host`` is the one it was opened for.
     ``BatchMode=yes`` so a host that wants a password fails in seconds instead
     of hanging on a prompt nobody is watching, and a timeout because a rig that
-    hard-locks takes the ssh pipe with it — three of those on srv1 in one
-    campaign, each ending mid-log-stream. ``input`` is piped to the remote
+    hard-locks takes the ssh pipe with it. ``input`` is piped to the remote
     command's stdin (how a reader is shipped without landing on the rig's disk).
-    ``timeout=None`` is for the one caller a ruling holds to no fixed timeout: a
-    load's harness run under ``read`` (owner rulings NB5 and NBc,
-    ``gate-scripts/read-02-rig.py``).
+    ``timeout=None`` is for the one caller held to no fixed timeout: a load's
+    harness run under ``read`` (``gate-scripts/read-02-rig.py``), which is held
+    to its own ``mcgyvr.fleet.harness.LOAD_LIMIT_S`` and then waits for the
+    unit to read idle with no limit.
     """
     _admit(f"ssh to {host}", host)
     return subprocess.run(

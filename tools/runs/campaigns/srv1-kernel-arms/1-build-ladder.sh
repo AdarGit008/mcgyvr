@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 #
 # tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh
-#   -> records/evidence/2026-09-02-srv1-kernel-arms/srv1-build-ladder.tsv
+#   -> $RUN_OUT_DIR/srv1-build-ladder.tsv (the door's envelope,
+#      records/evidence/<run date>-srv1-kernel-arms/; ENVELOPE in
+#      tools/runs/rows.py says where the filed copy is)
 #
-# Campaign steps 0 and 1 (`archive/docs/srv1-kernel-arms-PLAN.md:113-118`):
+# Campaign steps 0 and 1 (`mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md`,
+# "Steps"; "guideline N" below is that plan's):
 #
 #   0  static   cuobjdump L0..L3      free, can end the campaign early
 #   1  build    L0 L1 L2 L3 L4 A3     srv2 builds, direct-push to srv1
@@ -36,7 +39,8 @@
 # stamp so a reader recomputes the verdict rather than trusting one number.
 # There is no override flag. A gate that can be waved through is not a gate.
 #
-# What lands in the artifact (ARTIFACT-CONTRACT.md §5.5):
+# What lands in the artifact (§5.5; section numbers are those of
+# `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md`):
 #   ### WORKLOAD digest=none comparable_with=microbenchmark-only   (§2.1, §6.4)
 #   ### START / ### RIG / ### END                                  (guideline 7)
 #   ### BUILD arm=.. commit=.. image_sha256=.. cuda_architectures=.. force_mmq=..
@@ -69,23 +73,6 @@
 # build` is the only way to get the stamps without the rows, and it says so. The
 # artifact is truncated and rewritten by each pass, so pass 2 leaves one whole
 # file rather than two half ones. It never invents a number.
-#
-# A3 AND THE ALREADY-BUILT IMAGE. A3's Vulkan build failed configure 3/3 with
-# `Could not find a package configuration file provided by "SPIRV-Headers"`:
-# `libvulkan-dev glslc glslang-tools` do not pull that package in. `spirv-headers`
-# is now on the apt line, and that exact fix was verified to build — the image
-# `llamacpp:b10644-A3-spirvfix` (6f84d77b65c1) is on srv1 and srv2 from that
-# build. This recipe now produces the `llamacpp:b10644-A3` tag the ladder
-# expects, so that verified image must either be re-tagged or rebuilt.
-# RECOMMENDED: RE-TAG. It already carries the full `org.mcgyvr.build.*` label set
-# (arm=A3, backend=vulkan, cuda_architectures=none, force_mmq=OFF,
-# ggml_native=OFF, cpu_all_variants=ON, patched=no, commit=d7a2074112d2), the
-# `/app/kernels.txt` A3 needs (`cuda_library=absent`, `backend=vulkan`) and the
-# same id on both hosts, so `image_matches` accepts it and the ladder reuses it
-# without a build:
-#     ssh srv2 docker tag llamacpp:b10644-A3-spirvfix llamacpp:b10644-A3
-# Rebuilding costs ~20 minutes of srv2 and produces a bit-different image for no
-# gain; do that only if you want the build re-verified from source.
 #
 # Hosts are parameters. Nothing here assumes it is running on srv1 or on srv2.
 #
@@ -146,7 +133,7 @@ DRY_RUN=0
 STAGE=all
 
 usage() {
-    sed -n '2,117p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
+    sed -n '2,105p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
 }
 
 while [ "$#" -gt 0 ]; do
@@ -248,7 +235,7 @@ quiet_on_host() {
 }
 
 # --------------------------------------------------------------------------
-# the arms table (archive/docs/srv1-kernel-arms-PLAN.md:39-47)
+# the arms table (mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md, "Arms")
 # --------------------------------------------------------------------------
 #
 #   L0  75-real;75-virtual      FORCE_MMQ off              local-build baseline
@@ -259,7 +246,8 @@ quiet_on_host() {
 #   A3  GGML_VULKAN=ON                                     a bound, not a rung
 #
 # L0->L1 moves force_mmq only, L1->L2 cuda_architectures only, L2->L3 patched
-# only (test_a_six_variable_diff_...:73-79). GGML_BACKEND_DL follows
+# only (tests/test_a_six_variable_diff_does_not_attribute_a_gain.py).
+# GGML_BACKEND_DL follows
 # CPU_ALL_VARIANTS because llama.cpp requires them together; it is not one of
 # the five compared keys.
 
@@ -272,7 +260,7 @@ arm_spec() {
         L4) printf 'backend=cuda\ncuda_architectures=75-real;75-virtual\nforce_mmq=OFF\nggml_native=ON\ncpu_all_variants=OFF\npatched=no\n' ;;
         A3) printf 'backend=vulkan\ncuda_architectures=none\nforce_mmq=OFF\nggml_native=OFF\ncpu_all_variants=ON\npatched=no\nicd_deps=x11-egl\n' ;;
         *)
-            _fail "arm_spec: '$1' is not on this campaign's arms table (archive/docs/srv1-kernel-arms-PLAN.md:39-47)"
+            _fail "arm_spec: '$1' is not on this campaign's arms table (mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md, Arms)"
             return 1
             ;;
     esac
@@ -324,10 +312,10 @@ preflight_instrument() {
         say "BLOCKER: --stage all needs the step-3 instrument record and"
         say "'$BENCH_TSV' is absent. A real run stops here."
         say "Order: 1-build-ladder.sh --stage build, then 3-llama-bench.sh,"
-        say "then 1-build-ladder.sh. See RUN-ORDER.md."
+        say "then 1-build-ladder.sh."
         return 0
     fi
-    _fail "the ladder's BENCH rows ARE the step-3 llama-bench numbers (ARTIFACT-CONTRACT.md §6.4) and '$BENCH_TSV' does not exist, so there is nothing to copy. Run 'tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh --stage build' for campaign step 1, then 'tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh' for step 3, then this script again. Refusing now rather than writing a ladder with no rungs priced"
+    _fail "the ladder's BENCH rows ARE the step-3 llama-bench numbers (mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md §6.4) and '$BENCH_TSV' does not exist, so there is nothing to copy. Run 'tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh --stage build' for campaign step 1, then 'tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh' for step 3, then this script again. Refusing now rather than writing a ladder with no rungs priced"
     return 1
 }
 
@@ -520,7 +508,6 @@ ARG JOBS
 # `spirv-headers` is not optional and is not pulled in by the other three:
 # without it b10644's Vulkan backend fails `configure` outright with
 #   Could not find a package configuration file provided by "SPIRV-Headers"
-# which is how A3 failed to build 3/3 times. With it the build completes.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git cmake build-essential libcurl4-openssl-dev ca-certificates ninja-build \
       libvulkan-dev glslc glslang-tools spirv-headers \
@@ -555,19 +542,11 @@ ARG NATIVE
 ARG ALLVAR
 ARG BASE_DEVEL
 ARG ICD_DEPS
-# libglvnd0 libegl1 libx11-6 libxext6 ARE THE VULKAN DEVICE. The NVIDIA ICD
-# the container toolkit injects (/etc/vulkan/icd.d/nvidia_icd.json ->
-# libGLX_nvidia.so.0) links libGLdispatch.so.0, libX11.so.6 and libXext.so.6,
-# and at init it dlopens libEGL.so.1 and returns no vkCreateInstance without
-# it; --no-install-recommends pulls none of the four in behind libvulkan1.
-# Without them the loader says "Failed loading library associated with ICD
-# JSON libGLX_nvidia.so.0" (the linked three) or "Could not get
-# 'vkCreateInstance' via 'vk_icdGetInstanceProcAddr'" (libEGL, found by
-# strace on 2026-09-03), ggml_backend_vk_reg() returns NULL, and ggml
-# registers the CPU backend alone, silently: that is how A3 benched the
-# i5-9600K under a vulkan tag on 2026-09-02, and again — refused this time —
-# on 2026-09-03. The ldconfig check below makes the build fail where the rig
-# would have measured the wrong device.
+# libglvnd0 libegl1 libx11-6 libxext6 are the X and EGL libraries the NVIDIA
+# Vulkan ICD needs; --no-install-recommends pulls none of them in behind
+# libvulkan1, and without them ggml registers the CPU backend alone, silently
+# (-> okf/must-read/touching-engine.md). The ldconfig check below makes the
+# build fail where the rig would have measured the wrong device.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libgomp1 libcurl4 curl ca-certificates libvulkan1 vulkan-tools \
       libglvnd0 libegl1 libx11-6 libxext6 \
@@ -646,12 +625,9 @@ image_matches() {
         got=$(label_of "$tag" "$key") || return 1
         [ "$got" = "$want" ] || return 1
     done
-    # A vulkan image is also held to icd_deps: the 2026-09-02 A3 image had
-    # libvulkan1 and no libX11/libXext/libGLdispatch, the 2026-09-03 rebuild
-    # (icd_deps=x11) had those and no libEGL, and under both the NVIDIA ICD
-    # never came up and the tag benched the CPU. An image whose label is not
-    # the current value is one of those, and it is rebuilt rather than reused
-    # under the same tag.
+    # A vulkan image is also held to icd_deps: an image whose label is not
+    # arm_spec's current value lacks a library the NVIDIA ICD needs, and it is
+    # rebuilt rather than reused under the same tag.
     if [ "$(spec_get "$spec" backend)" = vulkan ]; then
         want=$(spec_get "$spec" icd_deps)
         got=$(label_of "$tag" icd_deps) || return 1
@@ -893,7 +869,7 @@ gate_the_mechanism() {
         say "from, so it can be recomputed rather than believed."
         say "If L2/L3 still contain mma.sync on the SELECTED path the arch spoof"
         say "did not take, and no throughput number can be attributed to removing"
-        say "it (archive/docs/srv1-kernel-arms-PLAN.md guideline 6). Not one second of rig time"
+        say "it (mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md guideline 6). Not one second of rig time"
         say "is worth spending on the arms below until this reads clean."
         say "=============================================================="
         return 1
@@ -908,7 +884,7 @@ gate_the_mechanism() {
 # §6.4: the BENCH rows are copied from the instrument record, never measured
 # --------------------------------------------------------------------------
 
-# project_row ARM TAG — one BENCH row per rung, lifted out of
+# instrument_row ARM — the one BENCH row this rung projects from, lifted out of
 # srv1-llama-bench.tsv. Prints `host<TAB>pp<TAB>tg<TAB>srcline` or nothing.
 instrument_row() {
     local arm=$1

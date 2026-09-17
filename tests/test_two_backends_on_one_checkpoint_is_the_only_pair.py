@@ -5,21 +5,19 @@ sm75 path is ``mma.sync`` tensor-core PTX, which TU116 executes microcoded, so
 does vLLM offer this card a path that is not that, and what does it cost? The
 clean contrast holds the checkpoint fixed and moves only the kernel.
 
-The earlier reading that vLLM is 2.6x slower than llama.cpp on srv1 and 2.0x
-faster on srv2 is **not** this hypothesis and is not evidence for it. The two
-engines differ in scheduler, batching, KV management and quantisation format;
-that ratio measures two stacks. No row in this file may be compared with a
-llama.cpp row.
+A reading that vLLM is slower than llama.cpp on srv1 and faster on srv2 is
+**not** this hypothesis and is not evidence for it. The two engines differ in
+scheduler, batching, KV management and quantisation format; such a ratio measures
+two stacks. No row in this file may be compared with a llama.cpp row.
 
-Two facts constrain the design. srv1 has already recorded
-``--linear-backend exllama`` refusing —
-``ExllamaLinearKernel cannot implement due to: Quant t...`` in
-``2026-08-24-knob-surface/surface.md`` — against an AWQ checkpoint, which is the
-kernel rejecting uint4 rather than the flag being absent; the flag itself is in
-v0.26.0 with ``exllama`` among its choices. And srv1 holds no GPTQ file at all,
-so B2 sits behind a fetch and may still not come up. So a test that demands a B2
-ladder could only be made green by faking a row: **a reasoned refusal is a
-result.**
+Two facts constrain the design. srv1 has already recorded ``--linear-backend
+exllama`` refusing — ``ExllamaLinearKernel cannot implement due to: Quant t...``
+in ``records/evidence/2026-08-24-knob-surface/surface.md`` — against an AWQ
+checkpoint, which is the kernel rejecting uint4 rather than the flag being
+absent; the flag itself is in v0.26.0 with ``exllama`` among its choices. And
+srv1 holds no GPTQ file at all, so B2 sits behind a fetch and may still not come
+up. So a test that demands a B2 ladder could only be made green by faking a row:
+**a reasoned refusal is a result.**
 
 Which is a claim about what the file *says*, not about what it omits. Guideline
 8 buys B2 an exemption from the CONFIG rules its partner obeys, and the price of
@@ -58,8 +56,7 @@ def a_recorded_refusal(row: Row) -> None:
     )
     assert int(row.fields.get("tries", "1")) >= 3, (
         f"line {row.lineno}: believed after {row.fields.get('tries')} attempt(s). "
-        "Two REFUSED rows on 2026-09-01 turned out to be a dangling HF-blob "
-        "symlink read as a capability limit."
+        "A dangling HF-blob symlink reads as a capability limit on one try."
     )
 
 

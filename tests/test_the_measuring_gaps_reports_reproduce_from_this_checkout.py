@@ -1,11 +1,10 @@
 """The measuring-gaps ``C`` reports reproduce from any clone of this repository.
 
-``c_drift_report.py`` named ``/home/adaramir/claude/mcgyvr/records/...`` for its
-geometry and ``q6_report.py`` named the ``mcgyvr-fleet-id`` checkout: absolute
-paths into one machine's checkouts, so neither report ran anywhere else, and
-Q6's README had to say so. The scan both read,
-``records/measurements/ram-headroom-2026-09-09/deepseek.geometry.json``, has
-been in the tree since ``cde08e60``.
+``c_drift_report.py`` and ``q6_report.py`` resolve their paths from their own
+location, not from an absolute path into one machine's checkout, so both run
+anywhere. The scan both read,
+``records/measurements/ram-headroom-2026-09-09/deepseek.geometry.json``, is in
+the tree.
 """
 
 from __future__ import annotations

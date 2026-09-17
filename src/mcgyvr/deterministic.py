@@ -1,37 +1,22 @@
-"""The deterministic floor: what runs on it, and what a missing tool costs (#81).
+"""The deterministic floor: what runs on it, and what a missing tool costs.
 
-mcgyvr's cheapest family is not weak — it is empty, and it says so in its own
-words. :func:`mcgyvr.route.plan` for the deterministic family returns nothing
-because that family "binds no rung: it is tools, not a model on a source"
-(``route._why_empty``). The premise is right — a rung's family is derived from
-whether its *source* needs a credential
-(:meth:`~mcgyvr.catalog.Catalog.family_of`) and a program has no source — but
-the consequence is not. All four ``starts_on: deterministic`` types in the
-catalog (``format``, ``import_sort``, ``lint_fix``, ``rename_symbol``) plan an
-empty family, :func:`~mcgyvr.escalate.escalate` steps over it on its way to a
-model, and work a tool does perfectly, for free, in one attempt becomes a model
-call. The floor the catalog wrote down is not being enforced downward; it is
-being skipped.
-
-This module supplies the half the ladder is missing — **which program owns a
-type on a target** — and the rule for the day that program is absent.
+The deterministic family binds no rung — a rung's family is derived from whether
+its *source* needs a credential (:meth:`~mcgyvr.catalog.Catalog.family_of`) and
+a program has no source — so :func:`mcgyvr.route.plan` plans that family from
+this module: **which program owns a type on a target**, and the rule for the
+day that program is absent.
 
 **A rung is a source, a tool is a program, so the floor needs its own table.**
 :func:`tool_for` answers from two facts and no config: the contract's type, and
-the language of its target as the gate's own adapters define it. The language
-comes from :meth:`~mcgyvr.gate.adapter.LanguageAdapter.owns` rather than from a
-second table of file extensions for the reason :mod:`mcgyvr.scope` gives for
-having one matcher — the gate already decides which program is "the project's
-own formatter" for a path, and a second answer to that question is how the two
-drift apart.
+the language of its target, by file extension. The extensions restate the gate's
+default adapters' (:func:`_language_of`); ``tests/test_four_lenses.py`` holds the
+Python ones in agreement, and nothing holds the JavaScript ones.
 
 **A missing tool degrades rather than halts.** ``ruff`` not being installed is
 an ordinary state of an ordinary machine, and it must not turn a ``format``
 contract into work that cannot run: the work is still doable, just dearly, so
 it goes to the cheapest family above the floor that offers a rung — exactly
-where :func:`~mcgyvr.escalate.ascent` would have taken it. Ported from local-ai
-(``mvp/orchestrator/router.py:938-955``), which degrades its tool tier to the
-local pool on the same argument.
+where :func:`~mcgyvr.escalate.ascent` would have taken it.
 
 **The degradation is recorded, because a silent fallback is what makes a
 missing dependency invisible**: the contract still completes, the operator sees
@@ -43,21 +28,18 @@ satisfy any one of them and not all four.
 **A planned step names the whole command, because a step nothing can run is
 not a floor.** :attr:`ToolStep.argv` is the executable, its subcommand and
 flags, and the contract's target — everything a caller needs to run it and
-nothing it would have to re-derive. The alternative was tried and is the defect
-this replaces: a step carrying a program's *name* determined nothing, because
-``ruff`` owns three of the four deterministic types with three different
-invocations and the target was never on the step at all. A caller holding such
-a step had to rebuild the command from the task type, which is the second table
-this module exists to prevent — and, until it did, the floor was bound in the
-plan and unbound in every direction downstream of it.
+nothing it would have to re-derive. A step carrying only a program's *name*
+would determine nothing, because ``ruff`` owns three of the four deterministic
+types with three different invocations.
 
 **What is deliberately not here.** Running the tool is the caller's: nothing in
 this file executes a program, which is what lets every rule in it be asserted on
 a machine with no ruff and no sandbox, and what keeps a routing decision from
 writing to a working tree. The command is data here and a subprocess there, for
 the same reason :meth:`Degradation.as_record` renders a record rather than
-appending one. Climbing past the family a degradation lands on is #43's — this
-decides where work starts, never how far it goes. And the write to telemetry is
+appending one. Climbing past the family a degradation lands on is
+:mod:`mcgyvr.escalate`'s — this decides where work starts, never how far it
+goes. And the write to telemetry is
 the caller's too, because a routing decision has no attempt to hang a record on,
 and a planning function that opened a file would stop being the thing a caller
 can inspect before anything is spent.
@@ -107,8 +89,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # where its flags end would not belong here, because a target it read as an
 # option is a target it never acted on.
 #
-# ``("js/ts", "import_sort")`` is absent on purpose.  holds this
-# project's eslint config at `recommended`, which carries no import-order rule,
+# ``("js/ts", "import_sort")`` is absent on purpose. This project's
+# ``eslint.config.mjs`` is `recommended`, which carries no import-order rule,
 # so no program on this machine would sort a TypeScript file's imports. Binding
 # one anyway would claim ``import_sort``'s guarantee — "imports are ordered as
 # the project's own tool orders them" — for a tool that orders nothing. The
@@ -123,19 +105,18 @@ _PROGRAMS: dict[tuple[str, str], tuple[str, ...]] = {
 }
 
 # The types mcgyvr executes itself, with nothing to install. ``rename_symbol``'s
-# warrant in the catalog is that "the index (#47) already resolved the
-# references", so its executor is mcgyvr's own index rather than a program on
-# PATH — which is why it is the one deterministic type a bare machine can
-# always run, and why it is keyed by type alone: an index that resolved the
-# references did so whatever language they were written in.
+# warrant in the catalog is that the index already resolved the references, so
+# its executor is mcgyvr's own index rather than a program on PATH — which is
+# why it is the one deterministic type a bare machine can always run, and why
+# it is keyed by type alone: an index that resolved the references did so
+# whatever language they were written in.
 IN_PROCESS: frozenset[str] = frozenset({"rename_symbol"})
 
 # Which task types leave work on the floor and say so with a non-zero exit —
 # and, therefore, which exit codes mean the tool is *reporting* rather than
 # *failing*. The same distinction `gate.adapter.trusted_stdout` draws for the
-# gate's own invocations (clause 2: "the test is the exit code, checked
-# before the output is read, against the set of codes under which the tool is
-# reporting rather than failing"), drawn here for the floor's.
+# gate's own invocations (its ``expected`` argument), drawn here for the
+# floor's.
 #
 # **Keyed by task type, because the guarantee is what decides it.** The catalog
 # says `lint_fix` applies "every autofix the project's linter applies ... and
@@ -149,21 +130,9 @@ IN_PROCESS: frozenset[str] = frozenset({"rename_symbol"})
 # would make this "ruff exits 1, so 1 is fine", and ruff owns three of these
 # types under three different guarantees.
 #
-# Measured 2026-08-30 against ruff 0.16.4, eslint 10 and prettier 3, running the
-# invocations in `_PROGRAMS` rather than reading their documentation:
-#
-# | invocation                    | 0          | 1                | 2 |
-# |---|---|---|---|
-# | `ruff check --fix`            | none left  | fixed, some left | bad config |
-# | `ruff check --select I --fix` | as above   | as above         | as above |
-# | `eslint --fix`                | none left  | fixed, some left | bad config |
-# | `ruff format`                 | written    | (not produced)   | unparseable/bad |
-# | `prettier --write`            | written    | (not produced)   | unparseable/bad |
-#
-# The two `2` columns are why the exit code has to be the test and the output
-# cannot substitute for it: a fixer that could not load its config has applied
-# the guarantee to nothing, and the change it did not make is not something a
-# gate reading the same broken config can judge.
+# Exit 2 is never reporting: a fixer that could not load its config has applied
+# the guarantee to nothing, which is why the exit code is the test and the
+# output cannot substitute for it.
 _RESIDUE_IS_EXPECTED: frozenset[str] = frozenset({"lint_fix", "import_sort"})
 
 
@@ -204,16 +173,13 @@ class Tool:
         Not "the codes that mean success". A fixer exiting 1 has left
         diagnostics it will not fix, which is a fact worth printing and is
         emphatically not a fault: :data:`_RESIDUE_IS_EXPECTED` carries which
-        types say so in their guarantee, and the measured table beside it
-        carries which codes each invocation says it with.
+        types say so in their guarantee.
 
         **``(0,)`` is the default, and the default is the strict one.** A
         ``Tool`` built from a command this module did not bind — a test's
         stand-in, a future entry — has no measurement behind it, and the
         direction to be wrong in is the one that stops rather than the one that
-        carries an unjudged change onward. This is the rule ("a bar that
-        cannot run is not a bar that passed") applied to a bar nobody has
-        measured yet.
+        carries an unjudged change onward.
         """
         return (0, 1) if self.task_type in _RESIDUE_IS_EXPECTED else (0,)
 
@@ -235,9 +201,7 @@ class ToolStep:
     ``target`` is the contract's, carried on the step rather than left for the
     caller to fetch back, because a step that named a program and not the file
     it acts on determined nothing that could be run. With it, :attr:`argv` is
-    the whole command and executing this step is handing that to a runner —
-    which is what "the floor binds a program" has to mean for it to be worth
-    more than the empty family it replaced.
+    the whole command and executing this step is handing that to a runner.
     """
 
     tool: Tool
@@ -263,15 +227,10 @@ class ToolStep:
         distinguish, which a guessed command is not.
 
         ``--`` before the target, for the same reason the gate's own ruff
-        invocation has always carried one (``gate/adapters/python.py``). A target
-        is a contract's field, a contract is what a decomposer emitted, and
-        ``target: -h.py`` is a legal string in one: without the separator ``ruff
-        format -h.py`` prints help, **exits 0** and formats nothing, so an
-        executor reading the exit code records a ``format`` contract completed
-        over a file it never touched. ``--config=…`` is the same defect with a
-        worse ending — the program loads a file the contract named as its
-        configuration. Both were reproduced against ruff, prettier and eslint,
-        and all three read the path as a path once ``--`` is there.
+        invocation carries one (``gate/adapters/python.py``): a target is a
+        contract's field, ``target: -h.py`` is a legal string in one, and
+        without the separator a program reads such a target as an option —
+        ``ruff format -h.py`` exits 0 and formats nothing.
         """
         if not self.tool.command:
             return ()
@@ -344,8 +303,8 @@ class Routed(Planned):
     "The same shape" is inherited rather than restated. This carries the same
     ``ToolStep | Step`` union a plan does, so it holds the same trap: ``steps``
     and truthiness cannot tell a program from a rung, and a caller that read
-    either as "there is something to climb here" would make the mistake #81 made
-    one class over. :attr:`~mcgyvr.route.Planned.climbable`,
+    either as "there is something to climb here" would climb a program.
+    :attr:`~mcgyvr.route.Planned.climbable`,
     :attr:`~mcgyvr.route.Planned.programs` and
     :attr:`~mcgyvr.route.Planned.climb_budget` come from
     :class:`~mcgyvr.route.Planned` for that reason — one answer to the question,
@@ -355,7 +314,7 @@ class Routed(Planned):
     route holding one program is a route that found something to run — that is
     the whole of what the floor is for — so ``bool`` and ``len`` both answer
     "was anything planned", and they agree. What may be *climbed* is a narrower
-    question and it now has its own name.
+    question with its own name.
     """
 
     family: Family
@@ -408,8 +367,7 @@ def tool_steps(contract: Contract) -> tuple[ToolStep, ...]:
     What is on this machine is :func:`route`'s question, and it is in that
     signature where a caller can see it.
 
-    This is the seam :func:`~mcgyvr.route.plan` needs to stop returning an
-    empty family for work that has a program to do it.
+    :func:`~mcgyvr.route.plan` calls this for the deterministic family.
     """
     tool = tool_for(contract)
     if tool is None:
@@ -537,8 +495,8 @@ def _cheapest_above(
 # decision does not import them — importing :mod:`mcgyvr.gate.adapters` (or
 # :mod:`mcgyvr.worker.reply`, whose package pulls in the gate's prompt builder)
 # drags tree-sitter and the whole gate package into a process that is only
-# planning (G4). Declared as a duplicate in ``tests/test_four_lenses.py``; the
-# copies must agree.
+# planning. Declared as a duplicate in ``tests/test_four_lenses.py``, which
+# holds the Python pair to the gate's.
 _PY_EXTENSIONS = (".py", ".pyi")
 _JS_EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")
 
@@ -548,7 +506,7 @@ def _language_of(target: str) -> str | None:
 
     The same ownership the gate's default adapters use, answered without
     importing them: the adapters drag the gate package and its tree-sitter
-    parsers into a process that is only planning (G4), and the ownership
+    parsers into a process that is only planning, and the ownership
     question is a suffix match, not a parser.
     """
     if target.endswith(_PY_EXTENSIONS):

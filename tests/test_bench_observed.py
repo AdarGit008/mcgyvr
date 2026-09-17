@@ -324,19 +324,20 @@ def test_vllm_refuses_the_quantization_ollama_answers(
 def test_concurrency_refuses_on_vllm_and_never_takes_the_lookalike(
     observed: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The measured refutation of the substitute that would have been taken.
+    """The capture refuses ``concurrency`` on vLLM and never takes the lookalike.
 
     `max_num_seqs` — the scheduler's batch width, which is what this field
-    means — is on no endpoint of vLLM 0.26.0. Searched exhaustively on
-    2026-08-18 across every parameterless GET in the server's own
-    `/openapi.json` route table, on both rigs.
+    means — is not read from the server by the capture; the vLLM backend reads
+    the launched width off the host instead (`launched_width` in
+    `tools/bench/serving/backends/vllm.py`: the running process's argv, or the
+    container's `Config.Cmd`).
 
     `kv_cache_max_concurrency` is right there in the metrics and looks like the
-    answer. It is KV-cache capacity, and it moves OPPOSITE to the flag: srv1
-    ran `--max-num-seqs 8` and reported 16.004; srv2 ran 16 and reported 5.314.
-    A capture that took it would have recorded a number that gets *smaller* as
-    the real concurrency gets larger — which is why this asserts the refusal
-    rather than a value.
+    answer. It is KV-cache capacity, and it can move OPPOSITE to the flag: a
+    unit launched with a smaller `--max-num-seqs` can report a larger figure.
+    A capture that took it would record a number that can get *smaller* as the
+    real concurrency gets larger — which is why this asserts the refusal rather
+    than a value.
     """
     _endpoint(
         observed,
@@ -457,7 +458,7 @@ def test_two_unmatched_cards_refuse_rather_than_pick_one(
 
 
 def test_every_engine_says_whether_it_has_been_run_live(observed: Any) -> None:
-    """the convention: the contingency lives where the code is.
+    """The contingency lives where the code is.
 
     The vLLM arm was built from documentation because no vLLM was reachable;
     the arm that was built against a live server on 2026-08-18 went with its
@@ -716,13 +717,12 @@ def test_the_contract_module_records_the_landed_state(observed: Any) -> None:
 def test_a_base_url_that_already_ends_in_v1_is_not_doubled(
     observed: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`https://host/v1` is the documented spelling, and it was probed at /v1/v1.
+    """A `base_url` that ends in `/v1` is probed at `/v1`, never at `/v1/v1`.
 
-    `tools/bundle/worker.example.json` documents `base_url` with `/v1` on it,
-    because every hosted provider prints its endpoint that way — and
-    `runner._url_for` exists precisely to absorb it. This module concatenated
-    instead, so a healthy server 404'd on every probe and was recorded as
-    "nothing there described itself at all".
+    A `base_url` copied from a hosted provider's own page carries `/v1`, and
+    `runner._url_for` absorbs it too. Concatenating instead would
+    404 a healthy server on every probe and record it as "nothing there
+    described itself at all".
     """
     asked: list[str] = []
 
@@ -1354,13 +1354,8 @@ def test_an_engine_with_no_counter_refuses_and_names_where_the_answer_would_be(
     "No route" and "we did not look" are the two states this field exists to
     keep apart, so a capture that holds no counter refuses and says which
     engine answered — an `openai-compatible` server is llama-server, LM Studio
-    or TGI, and none of them serves the series vLLM does.
-
-    A named constant used to carry this for one engine, with its 404s and its
-    `--metrics` flag and the `/slots` `id_task` that was monotonic but
-    increments by neither 1 nor a stable number per request. That engine and
-    the refutation went to `archive/forensic-ollama/` on 2026-09-06; what is
-    left is the generic refusal, which is what every non-vLLM server gets.
+    or TGI, and none of them serves the series vLLM does. Every non-vLLM server
+    gets the same generic refusal.
     """
     written = _write_pair(
         observed,

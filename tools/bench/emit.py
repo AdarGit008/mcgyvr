@@ -9,9 +9,7 @@ only the part that is mechanical and easy to get subtly wrong — the exact
 `function_implementation`, and the `meta.json` sidecar that belongs to the ts
 arm alone.
 
-Getting those wrong costs a gate rejection per problem, and the f1 band's
-remaining tranches are a few hundred problems. The 40 problems of b228-b267
-were emitted through this and all 40 were admitted on the first pass.
+Getting those wrong costs a gate rejection per problem.
 
 A spec is a plain dict. The keys are deliberately the same words the brief and
 the gate use, so a spec can be read against either:

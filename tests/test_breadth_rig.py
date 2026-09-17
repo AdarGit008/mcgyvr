@@ -60,7 +60,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _breadth() -> types.ModuleType:
-    """The rig, imported by path — ``tools/`` is not a package."""
+    """The rig, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(
         "breadth_measure", REPO / "tools" / "breadth" / "measure.py"
     )
@@ -469,14 +469,12 @@ def test_thinning_keeps_the_authors_order() -> None:
 def test_the_cap_the_run_records_is_the_cap_the_worker_was_sent(
     tmp_path: Path, monkeypatch: Any, live_instruments: types.ModuleType
 ) -> None:
-    """#216: the cap is a parameter now, and the two halves must not drift.
+    """The cap is a parameter, and the two halves must not drift.
 
-    Before #212 the cap was a module constant read independently by the
-    dispatch path and by ``record_run``. Nothing held them together, so a
-    change to one would have produced a manifest that misreported the
-    experiment it sat beside — and #212 spent a lane on refusal rates that
-    turned out to describe the instrument. A record that lies about its own
-    cap is the same failure one level down.
+    A cap read independently by the dispatch path and by ``record_run`` would
+    let a change to one produce a manifest that misreports the experiment it
+    sits beside. A record that lies about its own cap describes the instrument,
+    not the run.
     """
     runner = _CountingRunner()
     task = breadth.bundle.load_tasks(["t01"])[0]
@@ -864,12 +862,11 @@ def test_the_condition_the_run_records_is_the_condition_it_dispatched(
 def test_rows_drawn_against_another_serving_build_refuse_to_join_the_run(
     tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
 ) -> None:
-    """: the build that served the draws is identity, not a footnote.
+    """The build that served the draws is identity, not a footnote.
 
-    srv1 and srv2 were on ollama 0.32.4 and 0.32.5 while #225's scaffold
-    ablation ran the 3B on one and the 7B on the other, so the campaign's one
-    cross-model contrast carried an unrecorded serving difference. A rate is
-    quotable against a build or it is not quotable.
+    Two hosts on different serving builds put an unrecorded serving difference
+    inside any cross-model contrast drawn across them. A rate is quotable
+    against a build or it is not quotable.
     """
     invocation = {"started": "2026-08-11T00:00:00+00:00", "tasks": ["t01"]}
     monkeypatch.setattr(breadth, "serving_build", lambda endpoint: "0.32.4")

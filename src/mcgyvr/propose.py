@@ -22,8 +22,7 @@ Three stages produce the gradient, and their order matters:
    one rung. The faster one wins, because once both fit the card, latency is
    what the user experiences and footprint only buys concurrency headroom.
    This runs FIRST: doing it after dominance lets a model be eliminated by a
-   candidate that is itself dropped a step later, which is how a 12 GB card
-   lost its 84.1% middle rung to a model that never made the ladder.
+   candidate that is itself dropped a step later.
 2. **Dominance.** Drop any model another candidate beats on quality while
    fitting in the same VRAM or less. This is what removes the deepseek case.
    It is decided per machine, since eligibility depends on which backends are
@@ -63,18 +62,12 @@ from mcgyvr.capability import CapabilityTable, Model
 #
 # **This is a rung-separation floor and nothing else.** It answers "are these
 # two models different enough that both are worth carrying in the ladder", per
-# rule 3 above. It is not an adoption bar, and it never was: "is this
-# improvement worth shipping" is a different question with a different cost
-# side, and there is no reason the two numbers should coincide.
-#
-# #189 borrowed it as the adoption bar for a fine-tune and scored +1.9pp a
-# "miss" against it. That reading is withdrawn — #219 showed the instrument
-# could not resolve +3pp in the first place, so the comparison decided nothing.
-#  replaces the borrowing with a reality floor plus a per-lever rule and
-# leaves this constant at its own job. Do not reuse it as an adoption threshold.
+# rule 3 above. It is not an adoption bar: "is this improvement worth shipping"
+# is a different question with a different cost side, and there is no reason
+# the two numbers should coincide. Do not reuse it as an adoption threshold.
 MIN_QUALITY_GAIN = 0.03
 
-# Naming tokens for a ladder tier: <locality>_<model>. There is no role
+# Naming tokens for a ladder unit: <locality>_<model>. There is no role
 # token: a binding's role is derived from where it sits in the schema, and
 # the ladder holds workers only.
 LOCAL = "local"
@@ -107,10 +100,9 @@ class AvailableSource:
     def is_local(self) -> bool:
         """Whether this source runs on the machine doing the proposing.
 
-        An unnamed host means local, which keeps every caller that predates
-        multi-host sweeps saying what it always said. It matters because the
-        VRAM figure a proposal is handed describes *this* machine's card, and
-        so is evidence about local sources and about no others.
+        An unnamed host means local. It matters because the VRAM figure a
+        proposal is handed describes *this* machine's card, and so is evidence
+        about local sources and about no others.
         """
         return self.host in ("", "localhost", "127.0.0.1", "::1", "[::1]")
 
@@ -208,18 +200,18 @@ def _slower(candidate: Model, reference: Model) -> bool:
 
 
 def binding_name(model_id: str, *, locality: str = LOCAL) -> str:
-    """Name a ladder tier ``<locality>_<model>``.
+    """Name a ladder unit ``<locality>_<model>``.
 
-    The name is what everything downstream refers to a tier by — risk
-    floors, routing policy, telemetry — so it says what the thing IS
-    (local or behind an API) rather than where it sits in an ordering. An
-    index-based name would silently change meaning when a rung is inserted,
-    which for a policy reference is a rename that looks like an edit.
+    The name is what everything downstream refers to a unit by — routing
+    policy, telemetry — so it says what the thing IS (local or behind an
+    API) rather than where it sits in an ordering. An index-based name would
+    silently change meaning when a rung is inserted, which for a policy
+    reference is a rename that looks like an edit.
 
     There is no role token. A binding's role is derived from where it sits
     in the schema: under ``orchestrator`` it is the orchestrator, under
     ``verifier`` it is the verifier, and in the ladder it is a worker. Only
-    tiers carry a name, so a role token would be constant across every name
+    units carry a name, so a role token would be constant across every name
     that exists — it would spend characters saying the one thing already
     known from the name's location.
 
@@ -297,7 +289,7 @@ def _fit_reason(
     against a card this process can see. A backend reporting the model in its
     own listing is an *observation* that it is loaded there — which is the
     stronger fact, and the only one available for a rig on another machine
-    whose card ``nvidia-smi`` here cannot describe (#161).
+    whose card ``nvidia-smi`` here cannot describe.
     """
     if source.has(model.id):
         return (
@@ -337,11 +329,10 @@ def _placement_reason(
     command line and not about the machines. Silence would let arbitrary read
     as considered.
 
-    The cost of getting it wrong is not hypothetical: measured, one 7B runs
-    at 30 tok/s on a 6 GB card and 58 on a 12 GB one, so the same rung is
-    twice the wall clock depending on a choice made here by list order. What
-    would decide it properly is a throughput figure per (model, host), which
-    nothing in this project records yet — #162.
+    The same weights run at different speeds on different cards, so the same
+    rung's wall clock depends on a choice made here by list order. What would
+    decide it properly is a throughput figure per (model, host), which the
+    proposal is not given.
     """
     holders = [s for s in sources if s.has(model.id) and s.host]
     if len(holders) < 2:
@@ -352,7 +343,7 @@ def _placement_reason(
         f"named that holds {model.id} — {others} also has it. That is list "
         f"order, not a measurement: the same weights can run at half the "
         f"speed on a smaller card. Reorder the hosts, or pin the source by "
-        f"hand, if this is the wrong machine (#162)."
+        f"hand, if this is the wrong machine."
     )
 
 
@@ -400,11 +391,11 @@ def _candidates(
     Two grounds, and which one applies is decided by *where the backend is*
     rather than by which is the stronger evidence:
 
-    * **It fits the card this process can see.** The original rule. It is a
-      claim about this machine's GPU, so it governs exactly the backends
-      running on this machine.
-    * **A backend on another machine reports holding it.** #161's rule. The
-      local card is not weaker evidence about a remote rig — it is evidence
+    * **It fits the card this process can see.** It is a claim about this
+      machine's GPU, so it governs exactly the backends running on this
+      machine.
+    * **A backend on another machine reports holding it.** The local card is
+      not weaker evidence about a remote rig — it is evidence
       about the wrong machine, and applying it would reject a 7B on a 12 GB
       rig because the laptop asking has no GPU. The rig's own model listing
       is the only fact available, so it is the one used.
@@ -448,9 +439,9 @@ def propose(
 
     ``vram_gb`` is what the *local* card holds, and may be ``None`` — either
     because there is no GPU or because there is one this build cannot see.
-    That is no longer the end of the proposal: a source that reports serving
-    a measured model supplies the fit evidence the card would have (#161),
-    so a laptop with no GPU can still bind the rigs it can reach.
+    That is not the end of the proposal: a source that reports serving a
+    measured model supplies the fit evidence the card would have, so a laptop
+    with no GPU can still bind the rigs it can reach.
 
     Never raises. A machine with no GPU, no backend, or nothing that fits
     gets an empty local ladder and notes explaining what is missing — that
@@ -527,9 +518,7 @@ def propose(
         return Proposal(rejected=tuple(rejected), notes=tuple(notes))
 
     # Collapse equal-quality ties FIRST. Doing it after dominance would let a
-    # model be eliminated by a candidate that is itself dropped a step later,
-    # which is how a 12 GB card lost its 84.1% middle rung to a model that
-    # never made the ladder.
+    # model be eliminated by a candidate that is itself dropped a step later.
     groups: dict[float, list[Model]] = {}
     for model, _ in eligible:
         groups.setdefault(model.best_quality or 0.0, []).append(model)
@@ -618,18 +607,17 @@ def propose(
 
 
 def _spread_note(rungs: Sequence[Rung]) -> str | None:
-    """Say so when the proposed ladder crosses machines (#162).
+    """Say so when the proposed ladder crosses machines.
 
     The gradient rules above order rungs by measured quality, and quality is
-    a property of the weights. Throughput is not: the same model measures
-    2.4x apart on two different cards, and a 7B that thrives on a 12 GB card
-    thrashes on a 6 GB one. So a ladder whose rungs sit on different machines
-    can be correctly ordered by quality and still be slower at the bottom
-    than at the top — which is the inversion escalation exists to avoid.
+    a property of the weights. Throughput is not: it belongs to the card. So a
+    ladder whose rungs sit on different machines can be correctly ordered by
+    quality and still be slower at the bottom than at the top — which is the
+    inversion escalation exists to avoid.
 
-    Nothing here reorders it. Ordering across machines is #162's question,
-    and this proposal has no throughput figure per (model, host) to answer it
-    with. What it can do is refuse to be silent about it.
+    Nothing here reorders it: this proposal has no throughput figure per
+    (model, host) to answer it with. What it can do is refuse to be silent
+    about it.
     """
     hosts = tuple(dict.fromkeys(r.host for r in rungs if r.host))
     if len(hosts) < 2:
@@ -642,32 +630,29 @@ def _spread_note(rungs: Sequence[Rung]) -> str | None:
         f"table per host. A cheaper rung on a slower machine can therefore "
         f"cost more wall-clock than the rung above it, which makes escalating "
         f"through it worse than starting higher. Check the order against your "
-        f"own machines before trusting it; #162 is where this stops being the "
-        f"operator's problem."
+        f"own machines before trusting it."
     )
 
 
 def _concurrency_note(rungs: Sequence[Rung]) -> str:
-    """What raising ``max_parallel`` does and does not buy (CON-02).
+    """What raising a unit's ``width`` does and does not buy (CON-02).
 
     Stated in the proposal because this is the moment an operator decides what
     the machine is for, and because the failure it warns about is invisible
     afterwards: a single-slot server handed four concurrent requests **serializes
     them rather than refusing them**, so an over-declared capacity looks exactly
-    like a source that is merely slow. The config schema already carries CON-01's
-    good news — distinct models really do run concurrently on one card — and the
-    good news is the half that gets remembered.
+    like a source that is merely slow.
     """
     sources = sorted({rung.source for rung in rungs})
     named = ", ".join(sources)
     return (
         f"Concurrency is written twice and only one of them is here. `init` "
-        f"writes max_parallel: 1 for {named}, which is always honest; raising it "
-        f"only helps if that backend was started with its parallel-slot setting "
-        f"enabled. CON-02 measured same-model concurrency at 1.6-3.1x with "
-        f"server-side parallelism on, and recorded that a single-slot server "
-        f"serializes the requests instead of refusing them — so an over-declared "
-        f"capacity is not an error you will see, it is a queue you will not. "
-        f"Distinct models are a different question and already answered: CON-01 "
-        f"ran three on one card in 23.6 s against ~44 s serial."
+        f"writes width: 1 for every unit on {named}, which is always honest; "
+        f"raising it only helps if that backend was started with its "
+        f"parallel-slot setting enabled. CON-02 records that same-model "
+        f"concurrency scales only with server-side parallelism on, and that a "
+        f"single-slot server serializes the requests instead of refusing them — "
+        f"so an over-declared capacity is not an error you will see, it is a "
+        f"queue you will not. Distinct models are a different question: CON-01 "
+        f"records them running concurrently on one card."
     )

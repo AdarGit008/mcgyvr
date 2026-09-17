@@ -1,10 +1,12 @@
 ---
 type: Concept
 title: Capacity boundary is a cliff, not a slope
-description: 1 GB of VRAM overflow costs 5–10× speed — a discontinuity, not a graceful slope.
+description: A small VRAM overflow costs a large multiple of speed — a discontinuity, not a graceful slope.
 tags: [local-ai, hardware]
 ---
 
 # Capacity boundary is a cliff, not a slope
 
-**Data point.** The capacity boundary is a *cliff*, not a slope — 1 GB of VRAM overflow costs 5–10× speed.
+The capacity boundary is a *cliff*, not a slope — a small VRAM overflow costs a
+large multiple of speed, not a proportional one. Size to stay under it with the
+margin stated; do not plan on degrading gracefully past it.

@@ -1,24 +1,19 @@
 """A config that changed and a compose file that did not are two configurations.
 
-The live ladder ran for two days in exactly that state. On 2026-09-06 the owner
-narrowed ``local_qwen3.6-35b-a3b`` from eight slots to two, for a reason the
-config states in a comment: at width 8 the rung gives each stream 5.1 tok/s and
-a 1024-token reply needs 201 s, past ``budgets.request_timeout_s``. The compose
-file on srv1 was never re-emitted and the container was never restarted, so the
-unit went on serving ``--parallel 8 -c 32768`` while ``mcgyvr`` bounded dispatch
-at 2. Six of the unit's eight slots were unreachable, three expert blocks that
-the smaller KV cache would have freed stayed on the CPU, and nothing anywhere
-said so: :meth:`mcgyvr.capacity.Capacity.of` is called with no probe, so the two
-numbers never met.
+A unit narrowed in the config from eight slots to two, whose compose file was
+never re-emitted, goes on serving ``--parallel 8`` while ``mcgyvr`` bounds
+dispatch at 2: six slots are unreachable, expert blocks the smaller KV cache
+would have freed stay on the CPU, and nothing says so, because
+:meth:`mcgyvr.capacity.Capacity.of` is called with no probe and the two numbers
+never meet.
 
-That is what this file refuses. ``mcgyvr emit`` already renders the exact bytes
-a config implies; the only thing missing was a caller that compares them with
-the bytes on disk and says the config moved. ``--check`` is that caller. It
-writes nothing — the operator re-emits and restarts, because this repository
-does not reach into a rig — and it exits :attr:`~mcgyvr.exits.Exit.MISMATCH`,
-which is the code ``scan`` already uses for "the record and the machine stopped
-agreeing". A drift between a config and the unit it describes is the same shape
-of fact about a different pair.
+That is what this file refuses. ``mcgyvr emit`` renders the exact bytes a config
+implies, and ``--check`` compares them with the bytes on disk and says the
+config moved. It writes nothing — the operator re-emits and restarts, because
+this repository does not reach into a rig — and it exits
+:attr:`~mcgyvr.exits.Exit.MISMATCH`, which is the code ``scan`` uses for "the
+record and the machine stopped agreeing". A drift between a config and the unit
+it describes is the same shape of fact about a different pair.
 
 Three states, and they are not one test: the files agree, a declaration moved,
 and nothing was ever emitted. The third is separate because "no file" and "the
@@ -39,10 +34,8 @@ from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.exits import Exit
 from mcgyvr.scan import Scan
 
-#: The window every emit here declares. Stated per run since
-#: ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06 — ``-c`` is
-#: this times the slot count, which is precisely the product a changed width
-#: moves.
+#: The window every emit here declares, stated per run: ``-c`` is this times
+#: the slot count, which is precisely the product a changed width moves.
 WINDOW = 4096
 
 #: A measured row from the capability table, dense and small enough that a
@@ -147,8 +140,7 @@ def test_a_width_that_moved_since_the_last_emit_is_a_mismatch(
     before = (out / "compose.rig.yml").read_text(encoding="utf-8")
     capsys.readouterr()
 
-    # The 2026-09-06 edit, exactly: a width narrowed in the config and nothing
-    # re-emitted afterwards.
+    # A width narrowed in the config and nothing re-emitted afterwards.
     declare(2)
 
     assert _check(out) == Exit.MISMATCH

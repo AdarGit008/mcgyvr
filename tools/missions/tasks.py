@@ -2,10 +2,9 @@
 
 #365 flips the tables — real commits from Adar's own repositories are the tasks
 the orchestrator is run against, and the owner's admission rule is the view
-``tasks_admitted`` in ``~/claude/session-mine/sessions.sqlite`` (657 rows, 475
-with an issue body as spec, on 2026-08-25). The corpus lives outside every repo
-on purpose: nothing here is a fixture, nothing here is checked in, and this
-module opens the database read-only.
+``tasks_admitted`` in ``~/claude/session-mine/sessions.sqlite``. The corpus
+lives outside every repo on purpose: nothing here is a fixture, nothing here is
+checked in, and this module opens the database read-only.
 
 **The defect this module prevents is leakage.** A row names the *child* commit
 — the one that carries the code and the test — but the task is its *parent*:
@@ -22,10 +21,9 @@ cannot see — the view admits recovered commits (``reachable=0``) whose objects
 were found in the store but belong to no ref, and clones move — is checked with
 ``git cat-file -e <sha>^{commit}`` *before* ``git worktree add`` runs, so the
 exception names the sha, the clone, and the child it was the base of, rather
-than surfacing git's ``fatal: invalid reference``. A root commit (the view
-holds two) has no base tree and is refused at :meth:`Task.from_row`, again by
-sha. A finding is a check : each refusal is a named exception with
-the offending thing in its message.
+than surfacing git's ``fatal: invalid reference``. A root commit has no base
+tree and is refused at :meth:`Task.from_row`, again by sha. Each refusal is a
+named exception with the offending thing in its message.
 
 The judge's reference is the issue body (owner decision on #365: output versus
 issue body, blind), so ``spec`` is the issue text and ``pr_spec`` is carried

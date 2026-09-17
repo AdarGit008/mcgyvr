@@ -1,4 +1,4 @@
-"""The environment-resolved semantic rung (#123), driven for real.
+"""The environment-resolved semantic rung, driven for real.
 
 The temp-directory sandbox runs commands on the host in a real git workspace,
 so these exercise the whole rung — stage the engine, resolve against a live
@@ -7,12 +7,11 @@ which is how the acceptance rung and the sandbox suite are already tested.
 "The environment this code will run in" is this interpreter and its stdlib
 here; in production it is the per-repo image. The mechanism is identical.
 
-The issue's three acceptance criteria are pinned directly: an unresolvable
-call on an added line is reported, a resolvable one is not, and a finding
-outside ``added_lines`` never appears. Beyond them, the cases #129 measured
-are pinned as regressions — every distinct false positive that measurement
-produced was correct platform-conditional code, and each of those four sites
-has a test here shaped like the code that produced it.
+Three acceptance criteria are pinned directly: an unresolvable call on an
+added line is reported, a resolvable one is not, and a finding outside
+``added_lines`` never appears. Beyond them, correct platform-conditional code
+that a resolver reads as unresolvable is pinned as a regression, each case by a
+test shaped like the code that produces it.
 """
 
 from __future__ import annotations
@@ -158,11 +157,11 @@ def test_a_call_outside_the_added_lines_is_not_reported(repo: Path) -> None:
     assert _reported(report) == ()
 
 
-# --- the false positives #129 measured, each pinned as a regression -------
+# --- the false positives, each pinned as a regression ---------------------
 
 
 def test_platform_guarded_code_is_not_flagged(repo: Path) -> None:
-    """`os.startfile` under a platform test — two of the four observed sites."""
+    """`os.startfile` under a platform test."""
     report = _run(
         repo,
         {
@@ -192,8 +191,7 @@ def test_a_platform_constant_reached_by_relative_import_is_followed(
 
     This is why a rule that only reads the file it is checking is not enough:
     the guard is a name, and what makes it a platform test lives one module
-    away. Both of the `os.startfile` sites the measurement produced were
-    guarded exactly like this.
+    away.
     """
     report = _run(
         repo,
@@ -218,7 +216,7 @@ def test_a_platform_constant_reached_by_relative_import_is_followed(
 
 
 def test_an_attribute_on_a_runtime_rebound_stream_is_not_flagged(repo: Path) -> None:
-    """`sys.stdout._original_fd` — click's own test shim, the other two sites."""
+    """`sys.stdout._original_fd` — the shape of click's own test shim."""
     report = _run(
         repo,
         {
@@ -317,7 +315,7 @@ def test_a_file_that_does_not_parse_is_not_this_rungs_verdict(repo: Path) -> Non
 
 
 def test_a_change_with_no_python_is_a_no_op(repo: Path) -> None:
-    """JS/TS inherits a no-op until an equivalent resolver exists there (#133)."""
+    """JS/TS has no equivalent resolver, so the rung is a no-op there."""
     report = _run(repo, {"app.js": "export const x = 1;\n"})
     assert report == SemanticReport()
 
@@ -326,7 +324,7 @@ def test_a_change_with_no_python_is_a_no_op(repo: Path) -> None:
 
 
 def test_blocking_is_off_by_default_and_a_report_does_not_reject(repo: Path) -> None:
-    """#129 bounds the false-positive rate under ~0.8%, on 358 chains. Thin."""
+    """By default an unresolvable call is an observation, not a finding."""
     report = _run(
         repo,
         {"worker.py": "import json\n\n\ndef go():\n    return json.nope()\n"},
@@ -355,7 +353,7 @@ def test_the_pinned_digests_match_the_vendored_evidence(tmp_path: Path) -> None:
 
     Two copies of a hash are two chances to drift. This is the test that makes
     re-pinning the resolver a deliberate act rather than something a stray edit
-    can do quietly — which is the whole of the version policy #123 asked for.
+    can do quietly.
     """
     manifest = json.loads(_MANIFEST.read_text(encoding="utf-8"))
     assert manifest["source_commit"] == ENGINE_COMMIT
@@ -417,7 +415,7 @@ def test_the_wheel_ships_exactly_the_engine_files_that_are_pinned() -> None:
     installed mcgyvr — and a checkout would not notice, because there the
     engine is read out of `records/` where the *whole* vendored project sits,
     presentation modules and their three third-party dependencies included.
-    Only these four are stdlib-only , and only these four ship.
+    Only these four are stdlib-only, and only these four ship.
     """
     pyproject = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(

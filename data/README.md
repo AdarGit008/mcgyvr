@@ -9,21 +9,22 @@ end of this file).
 
 `capability-table.json` is the decision data behind `mcgyvr init`. It exists
 so that setup can propose worker bindings from detected hardware **without
-benchmarking the user's machine**, which would turn a 30-second install into
-an hour.
+benchmarking the user's machine**, which would turn an install into a
+benchmarking session.
 
 ## Where the numbers come from
 
-Every measurement was taken in
-[`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai)
-between 2026-07-26 and 2026-07-31, on two rigs described in the table's
-`measurement_rigs`. Quality is HumanEval+ pass@1, greedy decoding, EvalPlus
-v0.4.0.dev44, 164 tasks. Throughput is single-request eval rate on a trivial
-prompt, which measures generation speed and deliberately excludes prompt
-processing.
+Every model and backend measurement was taken in
+[`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai), on two rigs
+described in the table's `measurement_rigs`, whose `ram_gb` was re-read in
+this project (see its `_correction`). Each quality and throughput row carries
+its rig and date. Quality is HumanEval+ pass@1, greedy decoding, EvalPlus
+v0.4.0.dev44, 164 tasks. Throughput is generation rate in tokens per second; a
+row's `note` says when it is not a single request (the 489 tok/s vLLM row is an
+aggregate at 16 concurrent requests).
 
-Nothing in the table is estimated or interpolated. A model with no valid
-measurement carries an empty `quality` array rather than a guess.
+A model with no valid measurement carries an empty `quality` array rather
+than a guess.
 
 ## What the table is not
 
@@ -34,10 +35,9 @@ repository it can see, on multi-hunk edits, or on instruction adherence
 under a constrained output protocol. Treat it as an ordering, not a
 prediction.
 
-Two rigs is a small sample. The VRAM figures generalize; the throughput
-figures are specific to those two GPUs and are present to express *ratios*
-(a small model is ~2.4x faster on the small card; a marginal fit costs ~1.9x)
-rather than absolute expectations.
+Two rigs is a small sample. The throughput figures are specific to those two
+GPUs and are present to express *ratios* (a small model is ~2.4x faster on the
+small card; a marginal fit costs ~1.9x) rather than absolute expectations.
 
 ## Known-bad measurements
 
@@ -50,8 +50,9 @@ instructive and repeatable:
   Qwen2.5-Coder 7B and larger (32.3% vs a true 84.1%). Anyone regenerating
   this table through that path will silently produce a table that routes away
   from the best models available.
-- **CAV-02** — Ollama resolves `qwen3-coder-30b-a3b` to F16 weights, not a Q4
-  quant; the resulting CPU spill scores 3.7%.
+- **CAV-02** — `qwen3-coder-30b-a3b` left to Ollama's tag resolution spills
+  to CPU on a 12 GB card and scores 3.7%; the model must be bound to an
+  explicit GGUF quant under llama-server.
 - **CAV-03** — the published gpt-oss-20b score is attributed to an
   insufficient output budget in the harness rather than to the model, and is
   therefore not used.
@@ -60,7 +61,7 @@ instructive and repeatable:
 
 ## Regenerating
 
-There is no regeneration script in this repo yet, by design: `mcgyvr init`
+There is no regeneration script in this repo, by design: `mcgyvr init`
 consumes this table and does not produce it. When re-measuring, use an
 OpenAI-compatible endpoint (llama-server or vLLM) rather than a
 backend-native generate API, and pin quantization explicitly — CAV-01 and
@@ -85,12 +86,12 @@ generic over the vocabulary.
 An entry says it starts on `deterministic`, `local` or `api` rather than naming
 a rung. Rung names are chosen by whoever wrote the config, so a catalog naming
 them would only be valid on the machine it was written for. A family resolves
-against any ladder — a rung is `api` exactly when its source declares an
+against any ladder — a rung is `api` exactly when its unit declares an
 `api_key_env` — and it is a *floor*: a dearer rung satisfies a cheaper family,
 never the reverse.
 
-The start is the *type's* floor only. Risk raises it per contract (#16) and
-escalation climbs from it (#24). Neither is decided here.
+The start is the *type's* floor only; escalation climbs from it (#24), and
+that is not decided here.
 
 ## How the inherited vocabulary was validated
 
@@ -101,13 +102,14 @@ self-contained function synthesis against a stated signature, and says nothing
 about multi-hunk edits or about behaviour on a repository the model can see.
 
 So `function_implementation` is the one entry the measurements directly warrant
-— it is that shape exactly. Every other entry is carried on a *structural*
-argument instead, recorded per entry in its `warrant` field: the evidence is a
-tool's output (`format`, `import_sort`, `lint_fix`), the index's own resolution
-(`rename_symbol`), a checker's verdict (`type_annotation`), a structural
-comparison the gate can make without running anything (`docstring`), or a scope
-boundary that removes the failure mode (`test_scaffold` cannot make a test pass
-by editing what it tests).
+— it is that shape exactly — and `docstring` is warranted by measurement only
+weakly, leaning on `no_semantic_change`, a structural comparison the gate makes
+without running anything. Every other entry is carried on a *structural*
+argument, recorded per entry in its `warrant` field: the evidence is a tool's
+output (`format`, `import_sort`, `lint_fix`), the index's own resolution
+(`rename_symbol`), a checker's verdict (`type_annotation`), or a scope boundary
+that removes the failure mode (`test_scaffold` cannot make a test pass by
+editing what it tests).
 
 `bug_fix` is the honest weak spot, and its `warrant` says so: nothing measured
 covers diagnosis. What makes a cheap attempt safe to make anyway is
@@ -135,12 +137,13 @@ They fall into three groups:
   fail, so the gate cannot accept it and a model verifier would be the only
   judge — spending expensive tokens to decide whether expensive tokens were well
   spent. `comment_addition` has nothing the gate can distinguish from no change
-  at all. `config_edit` has no language adapter (boundary 8), so
-  acceptance would rest on the file still parsing.
+  at all. `config_edit` has no language adapter (the gate's adapters are
+  Python and JavaScript/TypeScript only), so acceptance would rest on the file
+  still parsing.
 - **Not a distinct guarantee.** `algorithm_implementation` differs from
   `function_implementation` only in how hard the prompt is.
   `simple_bug_fix`/`complex_bug_fix` encode difficulty in the type name, and
-  difficulty is already routing state held by risk (#16) and escalation (#24) —
-  a second copy in the vocabulary is a copy that can disagree with the first.
-  `string_literal_edit` is an edit primitive for the deterministic tier (#81),
+  difficulty is already what escalation (#24) climbs over — a second copy in
+  the vocabulary is a copy that can disagree with the first.
+  `string_literal_edit` is an exact edit at a known location — a tool's job,
   not a kind of work to route.

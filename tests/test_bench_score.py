@@ -59,7 +59,7 @@ def _js_toolchain_ready() -> bool:
     toolchain sitting in ``node_modules/.bin`` is one the gate **cannot see**:
     `npm ci` had run, the directory was there, the predicate said ready, and
     eslint read as *not installed*. Present is not reachable, which is the same
-    shape one layer down from the "installed is not able to reject".
+    shape one layer down from "installed is not able to reject".
 
     So: the tools as the gate resolves them, the *pinned* parser they load (a
     global eslint with no ``typescript-eslint`` is the inert case), and a Node
@@ -107,7 +107,7 @@ def test_ci_installs_the_js_toolchain_so_the_skip_cannot_become_permanent() -> N
     assert "node_modules/.bin" in test_job and "GITHUB_PATH" in test_job, (
         "installing is not enough — `require_tool` resolves linters with "
         "shutil.which, so node_modules/.bin must be exported onto PATH or "
-        "eslint and prettier read as not installed "
+        "eslint and prettier read as not installed"
     )
 
 
@@ -230,17 +230,12 @@ def test_the_canary_is_rejected_and_the_reference_is_not(
 def test_every_declared_rung_can_reject_on_both_arms(
     score: Any, measure: types.ModuleType
 ) -> None:
-    """The claim  rests on, measured rather than asserted.
-
-    Until 2026-08-13 the Python arm had the test above and the TypeScript arm
-    had nothing, because there was no eslint configuration in the repository to
-    run — which is precisely the arm where the rung was inert. The gap was
-    closed by hand at a terminal, once. This is that probe, kept.
+    """Every declared rung can reject on both arms, measured rather than asserted.
 
     Both halves matter and they fail differently. ``CANARY_EXPECTS`` is the
     per-language declaration; a rung missing from ``canary_rejected_by`` runs
-    and cannot say no, and the *first* jsts canary was bad spacing alone, which
-    tripped prettier and left eslint looking healthy.
+    and cannot say no: a jsts canary that is bad spacing alone trips prettier
+    and leaves eslint looking healthy.
     """
     # One problem, both arms — the split rule keeps a problem's two languages
     # together, so this is the smallest paired unit the bench actually uses.
@@ -256,8 +251,7 @@ def test_every_declared_rung_can_reject_on_both_arms(
         inert = set(score.CANARY_EXPECTS[language]) - set(row["canary_rejected_by"])
         assert not inert, f"{language}: declared but unable to reject: {sorted(inert)}"
 
-    # And therefore a paired sweep is not refused. This is the assertion that
-    # would have failed on every day before , for the true reason.
+    # And therefore a paired sweep is not refused.
     assert score.preflight(tasks) == ()
 
 
@@ -395,13 +389,12 @@ def test_rejected_before_acceptance_states_a_fact_not_an_inference(
 def test_the_scored_workspace_and_the_digested_one_are_the_same_workspace(
     score: types.ModuleType, measure: types.ModuleType
 ) -> None:
-    """`stage_bar` calls `stage_config`; it used to restate it.
+    """`stage_bar` calls `stage_config` rather than restating it.
 
-    That is #262 one level in: a bar digest resolved against a workspace no
-    candidate is scored in describes nothing. The copy had already begun to
-    drift — `prettier.config.mjs` would have entered the scored workspace and
-    not the digested one — so the seam is one function and this holds both
-    callers to it.
+    A bar digest resolved against a workspace no candidate is scored in
+    describes nothing. A restated copy drifts — a config file such as
+    `prettier.config.mjs` can enter the scored workspace and not the digested
+    one — so the seam is one function and this holds both callers to it.
 
     Compared as file *contents*, not names. A `pyproject.toml` rendered by two
     code paths could carry the same name and two different rule selections,

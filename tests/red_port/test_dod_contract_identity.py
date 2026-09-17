@@ -1,12 +1,8 @@
 """E5 — a contract's identity does not depend on the order it lists its deps.
 
-:meth:`mcgyvr.contract.Contract.as_dict` emits ``depends_on`` in the order the
-YAML wrote it, and ``tools/instruments.py`` pins ``sha256(dumps(contract))`` as
-a task's identity. Two contracts that name the same dependencies in a different
-order are the same contract, but they got two identities — which re-keys a
-recorded run against an instrument that is byte-identical in meaning.
-
-The fix emits ``depends_on`` sorted, so the declared form is order-independent.
+:meth:`mcgyvr.contract.Contract.as_dict` emits ``depends_on`` sorted, so two
+contracts that name the same dependencies in a different order are the same contract
+and get one identity.
 """
 
 from __future__ import annotations

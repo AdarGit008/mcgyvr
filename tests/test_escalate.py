@@ -34,17 +34,14 @@ result that must not reach the worker, and neither would be caught by a test
 that only checked the failing check was present.
 
 *Where an idle ladder sends work* is the sixth statement, and it arrived with
-``ladder.fanout``. It is held against real slots — :meth:`Capacity.hold` under
-an isolated lock dir — rather than a stubbed load, because a stub would be the
-test agreeing with itself about what "no free slot" means. Half of it is about
-the rung ``idle`` *names*: naming one dispatches nothing, so those tests also
-hold the rule that a busy rung is passed over rather than failed. The other half
-is about where the work then actually goes, and it is the half whose absence was
-the defect — ``next_free_rung`` was computed and nothing consumed it, so the
-mode changed no dispatch while the published config reference said it did.
-:class:`Dispatching` closes that by taking a real slot on whatever rung it is
-handed, and the escalation budget is asserted at zero so that a raised entry
-cannot be charged to it and pass anyway.
+``ladder.fanout``. It is held against real slots — :meth:`Capacity.hold` under an
+isolated lock dir — rather than a stubbed load, because a stub would be the test
+agreeing with itself about what "no free slot" means. Half of it is about the rung
+``idle`` *names*: naming one dispatches nothing, so those tests also hold the rule that
+a busy rung is passed over rather than failed. The other half is about where the work
+then actually goes: :class:`Dispatching` takes a real slot on whatever rung it is
+handed, and the escalation budget is asserted at zero so that a raised entry cannot be
+charged to it and pass anyway.
 
 Nothing here dispatches, gates or verifies. Every input is constructed, which
 is the whole reason :func:`~mcgyvr.escalate.escalate` takes an attempt function
@@ -146,9 +143,9 @@ scope:
   allow: ["src/**"]
 """
 
-# A deterministic type whose floor binds no program, which since X07 bound the
-# floor is the only way a floor family is still empty:  holds eslint at
-# `recommended`, which has no import-order rule, so nothing sorts js/ts imports.
+# A deterministic type whose floor binds no program, which is the only way a
+# floor family is still empty: this project's eslint config is `recommended`,
+# which has no import-order rule, so nothing sorts js/ts imports.
 UNBOUND_DETERMINISTIC_CONTRACT = """
 id: tidy-imports
 task_type: import_sort
@@ -624,7 +621,7 @@ def test_a_keyless_install_is_labelled_unverified_rather_than_accepted_quietly()
     assert verdict.verdict is Verdict.PASSED
     assert verdict.assurance is Assurance.UNVERIFIED
     assert verdict.upgraded is True
-    assert "#44" in verdict.detail
+    assert "unverified rather than verified" in verdict.detail
 
 
 def test_an_available_verifier_is_never_skipped() -> None:
@@ -673,7 +670,7 @@ def test_an_unusable_review_is_neither_an_approval_nor_the_builders_fault() -> N
     assert verdict.verdict is Verdict.FAILED
     assert verdict.reviewer_failed is True
     assert verdict.retry is None  # nothing the worker did, so nothing to tell it
-    assert "#42" in verdict.detail
+    assert "no usable verdict" in verdict.detail
 
 
 def test_a_review_is_built_through_a_named_opinion_never_a_boolean() -> None:
@@ -1160,10 +1157,7 @@ def test_idle_dispatches_on_the_api_rung_when_every_local_rung_is_full(
     one asserts the work lands there: both local rigs are held at their only
     slot, and the attempt function takes a real slot on whatever rung it is
     handed, with ``timeout=0`` so a dispatch aimed at a full rig raises rather
-    than queueing quietly. Before this was wired ``escalate`` computed
-    ``next_free_rung`` and climbed from the floor anyway, so setting
-    ``ladder.fanout: idle`` changed no dispatch at all and
-    ``docs/config-reference.md`` published a mode that did nothing.
+    than queueing quietly.
 
     Nothing failed to get here. The history holds one entry, it is the api rung
     and it passed — no local rung reached a verdict, because a rung with no free

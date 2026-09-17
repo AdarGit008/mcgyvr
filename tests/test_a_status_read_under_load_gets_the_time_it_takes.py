@@ -1,13 +1,10 @@
 """A status page that answers slowly under load is still read.
 
-A live run on 2026-09-15 (main at 86e57226) filed an escalated srv2_7b row
-with ``in_flight``, ``in_flight_source``, ``prefill_tok_s`` and
-``prefill_source`` all absent, while the srv2_3b row beside it had them. Timed
-the same day, srv2:8002 ``/metrics`` took 2.666 s for the read that landed as a
-generation was starting, then 0.553 / 0.832 / 0.567 / 0.536 s during it and
-0.863 / 0.598 / 0.648 s idle; srv2:8001 ``/v1/models`` once took 4.31 s. A
-2.0 s ceiling on the before/after reads drops both readings for exactly the
-dispatch that starts beside other work.
+A status page can answer slowly while a generation is starting. A tight ceiling
+on the before/after reads drops both readings for exactly the dispatch that
+starts beside other work, and its row files ``in_flight``,
+``in_flight_source``, ``prefill_tok_s`` and ``prefill_source`` absent while the
+row beside it has them. The reads get ``mcgyvr.runner.STATUS_TIMEOUT_S``.
 
 The ceiling is a ceiling, not a measured bound: a page slower than it is still
 dropped, and the reads sit outside the request's ``latency_s``, so a slow

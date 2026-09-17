@@ -3,9 +3,8 @@
 
 The bench authors every problem twice — one prose, a TypeScript rendering and a
 Python one — and the denominator is the paired cell. That doubles the
-expensive axis: lane/225's record puts authoring at "160 problems" against rig
-time that "cost 65 minutes for 8x". The question this tool answers is whether
-the second arm earns it.
+expensive axis, authoring. The question this tool answers is whether the second
+arm earns it.
 
 **It is a recomputation, not a run.** Every paired cell already on disk carries
 a `ts` verdict and a `py` verdict for the same problem under the same condition.

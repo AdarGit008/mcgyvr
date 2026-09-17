@@ -1,18 +1,19 @@
-"""G1/S3 — ``best_of`` must not destroy a caller's own sandbox.
+"""``best_of`` must not destroy a caller's own sandbox.
 
-``best_of`` was taught to take a caller-supplied ``sandbox`` ("a caller
-mid-attempt already holds one and should pass it"), and then reset that sandbox
-to its base after every draw. Two consequences, both on the exact caller the
-docstring invites:
+``best_of`` takes a caller-supplied ``sandbox`` ("a caller mid-attempt already
+holds one and should pass it"). Resetting that sandbox to its base after every
+draw would have two consequences, both on the exact caller the docstring
+invites:
 
 * the caller's accumulated work — a file it had already written before asking
-  for draws — is silently deleted by ``git reset --hard`` + ``git clean -fdx``;
-* draw 0 is staged on top of that accumulated work while draw 1 is staged on a
-  clean base, so the two draws are gated against different trees and the gate
-  is asked to rank incomparable changes.
+  for draws — would be silently deleted by ``git reset --hard`` +
+  ``git clean -fdx``;
+* draw 0 would be staged on top of that accumulated work while draw 1 is staged
+  on a clean base, so the two draws would be gated against different trees and
+  the gate asked to rank incomparable changes.
 
-The fix is a checkpoint: the workspace is committed as it was handed over, and
-after every draw it is restored to that checkpoint, not reset to the base. The
+So the workspace is checkpointed: committed as it was handed over, and after
+every draw restored to that checkpoint, not reset to the base. The
 caller's state survives, and every draw starts from the same tree.
 """
 
@@ -138,7 +139,7 @@ def test_a_gitignored_callers_file_survives_the_draws(source: Path) -> None:
     ``checkpoint`` snapshots with ``git add -A``, which honours ``.gitignore``,
     so the ignored file is never in the snapshot commit. ``restore_to`` must
     still leave it alone — ``clean -fd`` without ``-x`` — or the caller's
-    ignored state is destroyed the same way ``reset`` used to destroy it.
+    ignored state is destroyed the same way a reset to the base would destroy it.
     """
     with open_sandbox(source, mode="tempdir", docker_available=False) as sandbox:
         (sandbox.workspace / ".gitignore").write_text("secret.bin\n", encoding="utf-8")

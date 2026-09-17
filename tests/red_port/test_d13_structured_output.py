@@ -1,24 +1,20 @@
 """D13 — a request may pin a response schema, and nothing that cannot honour one breaks.
 
-:class:`mcgyvr.runner.Request` describes a generation without naming who serves it, and
-that is why it works on both protocols. What it cannot say is what *shape* the answer
-should come back in, so every reply arrives as prose and
-:func:`mcgyvr.worker.reply.parse_reply` recovers the file from it by finding exactly one
-code fence. That parser is careful — one fence or a named refusal, never a guess — and
-being careful is the cost: a reply that explains itself in a second fenced block, or
-wraps its answer in a longer fence than it closes, is a spent attempt. Every
-OpenAI-compatible server that supports ``response_format`` can be asked to skip the
-prose entirely, and the fence-hunting with it.
+:class:`mcgyvr.runner.Request` may carry ``response_schema``. A backend that honours
+it answers with a JSON object, and :func:`mcgyvr.worker.reply.parse_pinned` reads that
+without fence-hunting; a reply from a backend that ignored the schema is read through
+the fenced path, where :func:`mcgyvr.worker.reply.parse_reply` takes one fence or gives
+a named refusal, never a guess.
 
 Three statements, and the middle one is the reason this is a small lever and not a
 protocol change.
 
 *A request may pin a schema, and the reply needs no fence-hunting* is asserted on the
 field and then on the result of parsing a reply that has no fence in it at all. The
-same bytes are also put through today's parser and asserted to be **refused** — that
-assertion is what makes the first one mean something. Without it, a structured reply
-that happened to contain a fence somewhere would pass, and the test would not
-distinguish a schema-aware parser from the one already in the repository.
+same bytes are also put through the fence parser (:func:`parse_reply`) and asserted to
+be **refused** — that assertion is what makes the first one mean something. Without
+it, a structured reply that happened to contain a fence somewhere would pass, and the
+test would not distinguish a schema-aware parser from :func:`parse_reply`.
 
 *A backend that cannot honour a schema still works through the fenced path* is the
 statement that keeps this optional. Ollama's ``/api/generate``, older llama-server
@@ -95,11 +91,6 @@ def _pinned_request() -> Any:
         return Request(
             prompt="Add retry with backoff to the fetch helper.",
             max_output_tokens=512,
-            # This carried `# type: ignore[call-arg]` while the field was absent,
-            # since the type error *was* the RED condition. The port added the
-            # field, so the ignore became unused — and under `strict` an unused
-            # ignore is itself an error, which is what makes its removal part of
-            # going green rather than a tidy-up someone has to remember.
             response_schema=SCHEMA,
         )
 
@@ -107,11 +98,7 @@ def _pinned_request() -> Any:
 
 
 def _parse_pinned() -> Any:
-    """The reply reader that knows a schema was pinned.
-
-    Placeholder name. What must survive is what it returns for each of the two reply
-    shapes, not where the entry point lives.
-    """
+    """:func:`mcgyvr.worker.reply.parse_pinned`: the reader for a pinned schema."""
     return required(
         BEHAVIOR_READ,
         lambda: (
@@ -123,9 +110,9 @@ def _parse_pinned() -> Any:
 def test_a_pinned_schema_makes_the_reply_structured_instead_of_fenced() -> None:
     """The request carries the schema, and the answer arrives without a fence.
 
-    The refusal from today's parser is asserted in the same test, because it is what
-    proves the structured path did any work: a reply the fence parser can already read
-    would make this test pass against the code as it stands.
+    The refusal from the fence parser (:func:`parse_reply`) is asserted in the same
+    test, because it is what proves the structured path did any work: a reply the fence
+    parser can already read would pass without a schema-aware path.
     """
     request = _pinned_request()
     assert request.response_schema == SCHEMA

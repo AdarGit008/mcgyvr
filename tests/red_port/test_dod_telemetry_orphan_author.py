@@ -1,13 +1,9 @@
 """A5 — an orphan correction must still say who wrote it.
 
-:func:`mcgyvr.telemetry.correct` took ``orchestrator`` as optional, on the
-reasoning that a matched correction is keyed by an attempt that already names
-its own writer. The reasoning fails for an orphan: a correction naming no
-attempt has no attempt row to borrow an author from, and a fold that surfaces it
-surfaces an anonymous record.
-
-The fix makes the author required — the same way :func:`observe` already
-requires it — so every correction carries ``applied_by``, matched or orphan.
+A matched correction is keyed by an attempt that names its own writer; an orphan
+correction has no attempt row to borrow an author from. :func:`mcgyvr.telemetry.correct`
+requires the author — the same way :func:`observe` does — so every correction
+carries ``applied_by``, matched or orphan.
 """
 
 from __future__ import annotations

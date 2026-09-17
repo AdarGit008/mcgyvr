@@ -2,10 +2,9 @@
 
 ``mcgyvr fleet lock`` requires every unit to carry its ``unit_id``, and
 ``mcgyvr.fleet.files`` accepts it. ``mcgyvr.config`` validates the same file
-again for ``run``, ``pool``, ``emit`` and ``serve``; when it refuses
-``unit_id``, every locked setup is unreadable by the commands that serve it —
-``~/.mcgyvr/config`` with the stamped a-solo/b-small/b-big fleets failed
-``mcgyvr config`` on 2026-09-14 with ``unknown key 'unit_id'``.
+again for ``run``, ``pool``, ``emit`` and ``serve``; if it refused
+``unit_id``, every locked setup would be unreadable by the commands that serve
+it.
 """
 
 from __future__ import annotations

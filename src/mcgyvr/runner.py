@@ -4,7 +4,7 @@ This is the first code *below* the seam :mod:`mcgyvr.pool` draws. A caller above
 it holds a :class:`~mcgyvr.pool.Rung` — a name and a model — and cannot say
 where work runs. Here a rung has already been resolved to an
 :class:`~mcgyvr.pool.Endpoint`, and the only remaining question is which shape
-to ask in. The invariants #21 requires:
+to ask in. The invariants:
 
 * **The same contract executes identically wherever it runs.** The runner
   produces the same :class:`Completion`, assembled in one place from a small
@@ -19,16 +19,12 @@ to ask in. The invariants #21 requires:
   issue an uncapped request and then compare the backend's own reported token
   count against the ceiling it was given. A backend that overran says so
   through :attr:`Completion.overran_cap` rather than passing for a short answer.
-* **No stop sequences are sent, by decision.**  settled that v1 bounds a
-  reply with the cap and a named truncation and nothing else: a stop sequence is
-  consumed by the server and stripped from the answer, so it turns a reply that
-  ran long into a *shorter valid-looking file* rather than into an error. Under
-  ``whole_file`` — the default reply shape — every member of the inherited set
-  cut a conforming Python file before its first definition, and the gate would
-  have passed the remains. When a safe set exists it is a function of the
-  contract's ``output_schema`` and belongs to #25's parser, "never a constant in
-  a runner". So there is no ``stop`` parameter on :class:`Request` to fill in;
-  the absence is the decision, and a test holds it.
+* **No stop sequences are sent, by decision.** A reply is bounded by the cap
+  and a named truncation and nothing else: a stop sequence is consumed by the
+  server and stripped from the answer, so it turns a reply that ran long into a
+  *shorter valid-looking file* rather than into an error. So there is no
+  ``stop`` parameter on :class:`Request` to fill in; the absence is the
+  decision, and a test holds it.
 * **A response schema is asked for where it can be honoured, never assumed.**
   ``response_schema`` on a :class:`Request` is a JSON Schema the answer should
   conform to. The OpenAI-compatible path sends it as ``response_format``, and a
@@ -52,10 +48,8 @@ to ask in. The invariants #21 requires:
 **A path that cannot measure says so.** A runner may declare
 ``quality_safe=False``: every completion from it then carries that field and a
 note, and a :class:`Request` declaring itself ``quality_sensitive`` is refused
-outright with :class:`QualityCaveatError`. That is #21's third acceptance
-bullet — a caveated dependency is allowed, the *silence* is not. No path in this
-build is caveated. The one that was, and the measurement that caveated it, are
-in ``archive/forensic-ollama/``.
+outright with :class:`QualityCaveatError`. A caveated dependency is allowed,
+the *silence* is not. No path in this build is caveated.
 
 **On credentials.** The key is resolved from the environment at the moment of
 dispatch through :meth:`~mcgyvr.pool.Endpoint.credential` and lives only in the
@@ -65,13 +59,14 @@ local OpenAI-compatible server needs no API key and is never sent an
 unauthenticated-looking credential. No error message here interpolates a key.
 
 **What is deliberately not here.** Whether an endpoint is answering at all is
-#22's question and needs probing; this module reports a failure to reach one
-and does not cache that judgement. How many dispatches a source may run at once
-is :mod:`mcgyvr.capacity`'s (#23) — it acquires at this same seam, through the
-optional ``capacity`` argument below, and is held for the length of one request
-so that escalating across sources cannot leak a slot. Choosing *which* rung to
-send a contract to, and escalating when it fails, are #24's. Assembling the
-prompt and parsing a worker's file-shaped answer are #25's — a
+:mod:`mcgyvr.availability`'s question and needs probing; this module reports a
+failure to reach one and does not cache that judgement. How many dispatches a
+source may run at once is :mod:`mcgyvr.capacity`'s — it acquires at this same
+seam, through the optional ``capacity`` argument below, and is held for the
+length of one request so that escalating across sources cannot leak a slot.
+Choosing *which* rung to send a contract to, and escalating when it fails, are
+:mod:`mcgyvr.route`'s and :mod:`mcgyvr.escalate`'s. Assembling the prompt and
+parsing a worker's file-shaped answer are :mod:`mcgyvr.worker`'s — a
 :class:`Request` here carries text.
 """
 
@@ -101,12 +96,11 @@ from mcgyvr.weights import is_model
 
 # Local models on modest hardware are slow rather than broken: a 7B answering a
 # capped generation on a 6 GB card can take minutes. This is the ceiling on one
-# dispatch, not a health check — #22 owns "is anything there", with a timeout
-# three orders of magnitude shorter.
+# dispatch, not a health check — :mod:`mcgyvr.availability` owns "is anything
+# there", with its own, much shorter `PROBE_TIMEOUT_S`.
 #
-# What a run that declares nothing gets, and no longer the only answer: it is
-# `budgets.request_timeout_s`'s default, imported rather than restated so the
-# config's number and the runner's cannot drift apart.
+# What a request gets when its unit declares no `request_timeout_s`:
+# `config.DEFAULT_REQUEST_TIMEOUT_S`, imported rather than restated.
 GENERATE_TIMEOUT_S = DEFAULT_REQUEST_TIMEOUT_S
 
 # How much of a failed response body an error message quotes. Enough to carry a
@@ -121,11 +115,9 @@ _ERROR_BODY_CHARS = 400
 _RESPONSE_SCHEMA_NAME = "reply"
 
 #: What a caveated path puts on every completion it returns. No path in this
-#: build is caveated: the one that was is in ``archive/forensic-ollama/``,
-#: removed on 2026-09-06. The mechanism is kept
-#: because it is general and because ``quality_safe`` is a field telemetry
-#: writes into a write-once journal — a path that cannot measure must still be
-#: able to say so.
+#: build is caveated. The mechanism is kept because it is general and because
+#: ``quality_safe`` is a field telemetry writes into a write-once journal — a
+#: path that cannot measure must still be able to say so.
 CAVEAT_NOTE = (
     "Served by a path this build marks as unable to carry a quality "
     "measurement. Usable for work, not for measuring a model."
@@ -170,8 +162,8 @@ class StopReason(StrEnum):
     ``UNKNOWN`` is a real answer and the reason this is not a boolean: a backend
     that reported nothing, or reported a word this module does not recognise,
     has not said the answer is complete. Treating that as completion is the
-    failure mode #21 asks to be designed out, so the mapping is deliberately
-    unoptimistic and the backend's own word is kept alongside in
+    failure mode to design out, so the mapping is deliberately unoptimistic
+    and the backend's own word is kept alongside in
     :attr:`Completion.raw_stop_reason`.
     """
 
@@ -210,11 +202,10 @@ class Request:
     worker's output is judged by a deterministic gate; sampling is a decision to
     be made explicitly, not inherited from a backend's default.
 
-    There is no ``stop`` field.  decided that v1 bounds a reply with the
-    cap and a named truncation, because a stop sequence makes a bad reply
-    shorter where the cap makes it *named* — and a shorter whole-file reply is
-    still valid Python that the gate will accept. Adding the field back is
-    re-opening that record, not filling in an omission.
+    There is no ``stop`` field. A reply is bounded by the cap and a named
+    truncation, because a stop sequence makes a bad reply shorter where the cap
+    makes it *named* — and a shorter whole-file reply can still be valid Python
+    that the gate accepts. The absence is a decision, not an omission.
 
     ``quality_sensitive`` marks benchmarking and any other path whose output is
     read as a measurement of the model rather than as work. It does not change
@@ -456,11 +447,10 @@ class Runner(ABC):
     def _refuse_other_weights(self, asked: str, served: str | None) -> None:
         """Raise unless the answer came from the weights that were asked for.
 
-        The close for the hole `cli._climb` documents: a dispatch aimed at a
-        rung whose model is not resident reaches the server anyway and is
-        answered from whatever *is* loaded. Nothing here probes — the answer
-        already carries the name, this only stops throwing it away — so the
-        fail-first doctrine holds and a card that is up costs nothing extra.
+        A dispatch aimed at a rung whose model is not resident reaches the
+        server anyway and is answered from whatever *is* loaded. Nothing here
+        probes — the answer already carries the name, this only stops throwing
+        it away — so a card that is up costs nothing extra.
 
         Silence is not a mismatch. A backend that names no model cannot be
         checked and is not refused: an optional key is not made a requirement,
@@ -493,8 +483,8 @@ class Runner(ABC):
         if stop_reason is StopReason.TRUNCATED:
             notes.append(
                 f"the reply hit the {request.max_output_tokens}-token cap and "
-                f"is incomplete. Under  that is a named failure, not a "
-                f"short answer: it must not be applied to a file."
+                f"is incomplete. That is a named failure, not a short "
+                f"answer: it must not be applied to a file."
             )
         if stop_reason is StopReason.UNKNOWN:
             reported = parsed.raw_stop_reason or "nothing"
@@ -555,19 +545,14 @@ class OpenAIRunner(Runner):
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
-            # `max_tokens` rather than `max_completion_tokens`: every local
-            # server this protocol exists to reach accepts it, and sending both
-            # is an error on several of them. A hosted reasoning model that has
-            # retired it is the one case this would need to grow a branch for.
+            # `max_tokens`, not `max_completion_tokens`, and never both.
             "max_tokens": request.max_output_tokens,
             "temperature": request.temperature,
             "stream": False,
         }
         if request.response_schema is not None:
-            # The key is absent unless a schema was pinned, rather than present
-            # and null: several local servers validate `response_format` by
-            # shape and reject the null, and an unpinned request must reach
-            # every backend this protocol exists to reach.
+            # The key is absent unless a schema was pinned, never present and
+            # null.
             payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -655,8 +640,8 @@ def dispatch(
     asking for a rung that does not exist and asking for one whose source
     cannot serve it stay different mistakes.
 
-    ``capacity`` bounds how many dispatches this source may have in flight
-    (#23), and is held for exactly the length of the request. Holding it here
+    ``capacity`` bounds how many dispatches this source may have in flight,
+    and is held for exactly the length of the request. Holding it here
     rather than around a whole task is what makes escalation account correctly:
     a task moving from a local rung to an API one occupies each source only
     while it is talking to it. ``None`` — the default — dispatches unbounded,
@@ -666,12 +651,9 @@ def dispatch(
 
     The rung is named to the capacity as well as to the pool, because a rung may
     declare a width of its own and this is the only place that knows which rung
-    is dispatching. Held against the source alone, a rung's declared width was a
-    number the config could state and nothing could ever reach: a rig whose
-    source line says 1 and whose rung says 16 ran one request at a time, and
-    every report agreed the width was 16. A rung that declares nothing is held
-    against its source's slots exactly as before —
-    :meth:`~mcgyvr.capacity.Capacity.hold` decides that fallback, not this.
+    is dispatching. A rung that declares nothing is held against its source's
+    slots — :meth:`~mcgyvr.capacity.Capacity.hold` decides that fallback, not
+    this.
     """
     endpoint = source_map.bind(rung)
     step = source_map.get(rung)
@@ -680,7 +662,7 @@ def dispatch(
     if capacity is None:
         return runner_for(endpoint).generate(step.model, request)
     # How long this may wait for a slot is the capacity's own, set from
-    # ``budgets.task_timeout_s`` when it was built from a config: a bound on
+    # ``task_timeout_s`` when it was built from a config: a bound on
     # the wait belongs to the thing that owns the bound, not to every call
     # site that has to remember to pass it.
     with capacity.hold(endpoint, rung=rung):
@@ -696,8 +678,8 @@ def dispatch_role(
 ) -> Completion | None:
     """Send a request to a non-ladder role, or ``None`` when it has none.
 
-    ``None`` mirrors :meth:`~mcgyvr.pool.SourceMap.role`: a keyless install runs
-    with no verifier at all, and that is an ordinary state rather than a
+    ``None`` mirrors :meth:`~mcgyvr.pool.SourceMap.role`: an install that binds
+    no verifier runs with none, and that is an ordinary state rather than a
     failure. A role whose source is declared but unusable still raises.
 
     A role is bounded by the same per-source capacity as a rung, because it is
@@ -734,12 +716,8 @@ IN_FLIGHT_FROM_VLLM_METRICS = "vllm_metrics"
 #: The status pages each engine publishes, and how long a read of one may
 #: take. A failure is silence: a count that could not be read is not a dispatch
 #: that failed. The ceiling is a ceiling, not a measured bound — a page slower
-#: than it is still dropped. It was 2.0 s until 2026-09-15, when a live run's
-#: escalated srv2_7b row lost in_flight and its prefill: srv2:8002 ``/metrics``
-#: took 2.666 s for the read that landed as a generation started, then
-#: 0.553 / 0.832 / 0.567 / 0.536 s during it and 0.863 / 0.598 / 0.648 s idle,
-#: and srv2:8001 ``/v1/models`` once took 4.31 s. The reads sit outside the
-#: request's ``latency_s``, so a slow page never slows the decode figure.
+#: than it is still dropped. The reads sit outside the request's
+#: ``latency_s``, so a slow page never slows the decode figure.
 SLOTS_PATH = "/slots"
 METRICS_PATH = "/metrics"
 STATUS_TIMEOUT_S = 10.0
@@ -971,15 +949,11 @@ def _post_json(
 def _url_for(base_url: str, path: str) -> str:
     """Join a source's base URL to a protocol path, tolerating a doubled ``/v1``.
 
-    The config reference documents ``base_url`` as where the source answers —
-    a root, ``http://localhost:8080`` — and that is what the local backends
-    want. But every hosted provider documents its own endpoint *with* ``/v1``
-    on the end, so a user pasting the URL from the page they got their key from
-    would otherwise be sent to ``/v1/v1/chat/completions``: a 404 whose message
-    points at the model or the key rather than at the extra path segment. Both
-    spellings are accepted here rather than in the loader, because appending
-    the path is this module's business and #20's ``Endpoint`` is shared with
-    callers that append nothing.
+    A unit's ``address`` may be a root, ``http://localhost:8080``, or end in
+    ``/v1``; without this the second spelling is sent to
+    ``/v1/v1/chat/completions``. Both spellings are accepted here rather than
+    in the loader, because appending the path is this module's business and
+    :class:`~mcgyvr.pool.Endpoint` is shared with callers that append nothing.
     """
     base = base_url.rstrip("/")
     if path.startswith("/v1/") and base.endswith("/v1"):

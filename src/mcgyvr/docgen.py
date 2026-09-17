@@ -7,13 +7,12 @@ so a documented key and a validated key cannot drift apart. Hand-written
 config docs drift the moment the schema moves; this file exists so that the
 schema is the only description there is.
 
-The reference is never kept (owner's ruling, 2026-09-05). Every run renders
-it, checks it — the provenance marker is on it and every validated key is
-named — and deletes it, so no copy sits in the checkout to be read in place
-of the schema or to fall behind it. The skill, the examples beside it and
-``SETUP.md`` are the documents that are written, because they are read from
-disk; ``make docs-check`` refuses a committed one that differs from what its
-schema renders.
+The reference is never kept. Every run renders it, checks it — the provenance
+marker is on it and every validated key is named — and deletes it, so no copy
+sits in the checkout to be read in place of the schema or to fall behind it. The
+skill, the examples beside it and ``SETUP.md`` are the documents that are
+written, because they are read from disk; ``make docs-check`` refuses a
+committed one that differs from what its schema renders.
 
 Two constraints shape the rendering:
 
@@ -23,13 +22,12 @@ Two constraints shape the rendering:
    which is the order a reader of the config file meets the keys. A
    generator that embeds a timestamp cannot be diffed against the skill it
    last wrote, which would cost exactly the drift check.
-2. **No prose that lives only here.** Every description below comes from a
-   ``Field``'s ``doc``. The fixed scaffolding is limited to structure and to
-   explaining the value types, because those are properties of the loader,
-   not of any one key.
+2. **Key descriptions are never written here.** Every key's description
+   comes from a ``Field``'s ``doc``. The workflow steps, the first-run text
+   and the value types are scaffolding written in this file, and nothing
+   checks them against the code.
 
-The second document is the ``/mcgyvr`` skill (owner's ruling, 2026-09-03,
-narrowed 2026-09-09, narrowed again 2026-09-09): the one explicitly-invoked
+The second document is the ``/mcgyvr`` skill: the one explicitly-invoked
 instruction an agent reads before it authors a contract — the packaged skill
 ships ``disable-model-invocation: true``, so a fresh install never offloads
 work until someone asks for it — generated the same way from
@@ -62,8 +60,8 @@ from pathlib import Path
 from . import contract as contract_schema
 from .config import FLEET_FILENAME, POLICY_FILENAME, SCHEMA, Field
 
-# Matches CTX-08's marker pattern. It is an HTML comment so it renders as
-# nothing, but survives in the source a would-be editor is looking at.
+# An HTML comment, so it renders as nothing but survives in the source a
+# would-be editor is looking at.
 MARKER = (
     "<!-- Code generated from src/mcgyvr/config.py by `make docs`. DO NOT EDIT. -->"
 )
@@ -100,9 +98,7 @@ _TYPES: tuple[tuple[str, str], ...] = (
     ("boolean", "`true` or `false`, unquoted."),
     (
         "decimal number",
-        "A number that may carry a fraction. Sizes written this way are in "
-        "**GiB** — powers of 1024 — which is what the rest of mcgyvr measures "
-        "in; a file a tool reports as 13.2 GB is 12.3 here.",
+        "A number that may carry a fraction.",
     ),
     (
         "one of ...",
@@ -127,8 +123,12 @@ _TYPES: tuple[tuple[str, str], ...] = (
         "of keys.",
     ),
     (
-        "list of blocks",
-        "An ordered YAML list; every entry takes the same fixed set of keys.",
+        "free-form block",
+        "A nested mapping whose keys the schema does not fix.",
+    ),
+    (
+        "map of numbers",
+        "A mapping from names you choose to whole numbers.",
     ),
 )
 
@@ -229,9 +229,6 @@ def _section(field: Field, path: str, level: int, dotted: bool = False) -> list[
     if field.kind == "block_map":
         lines += ["Each entry takes these keys:", ""]
     elif field.kind == "block_list":
-        # Semicolon, not a full stop: the skill's own renderer opens a
-        # `block_list` the same way, and one sentence shared between the two
-        # documents is one sentence that can be updated in one of them.
         lines += ["An ordered list; each entry takes these keys:", ""]
 
     lines += _table(field.block, f"{path}." if dotted else "")
@@ -287,8 +284,9 @@ def render_reference() -> str:
 
 # --- SETUP.md ----------------------------------------------------------------
 
-#: The three keys of the one config file `mcgyvr pool` reads back. They are
-#: named here rather than described here: the bullet each one gets carries the
+#: The three lever keys, across `fleet.yaml` and `policy.yaml`, that
+#: `mcgyvr pool` reads back. They are named here rather than described here:
+#: the bullet each one gets carries the
 #: `Field`'s own `doc`, so the levers cannot say one thing in SETUP.md and
 #: another in the schema the loader walks.
 _LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
@@ -348,9 +346,9 @@ def render_setup() -> str:
         "`mcgyvr pool` reads that config back: the usable rungs cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
         "came from; every skipped rung with the reason it was skipped; and the",
-        "orchestrator and verifier models. `--probe` also asks each source whether it",
-        "is answering — off by default, because it spends. Run it whenever a run",
-        "picks a rung you did not expect.",
+        "orchestrator and verifier models. `--probe` also asks each unit whether it",
+        "is answering — off by default, because resolving a ladder should not need",
+        "a network. Run it whenever a run picks a rung you did not expect.",
         "",
         "Three keys across the two files are the levers, and `mcgyvr pool` is how",
         "you read all three:",
@@ -360,8 +358,8 @@ def render_setup() -> str:
         lines.append(f"- `{lever}` — {_escape(by_name[lever].doc)}")
     lines += [
         "",
-        "`mcgyvr config` prints the resolved config; `mcgyvr detect` and",
-        "`mcgyvr capabilities` say what a source is and what it can do.",
+        "`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what",
+        "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
         "",
         "## Value types",
         "",
@@ -708,15 +706,15 @@ def render_skill() -> str:
         "  does not stop a run.",
         "",
         "Every run is journaled under the config's `journal.dir` and nothing on",
-        "the command line moves it — that one directory is where every run there",
-        "has ever been can be counted, which is the only thing that makes the",
-        "record worth keeping. Deterministic runs are there too, as a row naming",
+        "the command line moves it — that one directory is where every run can",
+        "be counted. Deterministic runs are there too, as a row naming",
         "the program that did the work with `tier: deterministic` and no prompt",
         "or reply beside it. `--record DIR` adds a complete second copy for your",
         "own use; `--result PATH` says where you read the result file.",
         "",
-        "Exit codes: 0 accepted, 1 not accepted or error, 2 usage (including no",
-        "session to file the run under).",
+        "Exit codes: 0 accepted or nothing to change, 1 not accepted or error,",
+        "2 usage (including no session to file the run under), 3 a live fleet",
+        "refused admission.",
         "",
         "## Step 4 — replan from the findings, never retry the same contract",
         "",
@@ -778,8 +776,8 @@ def _keys(fields: Sequence[Field], prefix: str = "") -> list[str]:
 
 
 #: A section heading in the rendered reference: a level, and the dotted key it
-#: documents. `## `units`` opens the block `units`; `### `ladder``
-#: opens the block inside it. The two headings with no key — the document title
+#: documents. `## `units`` opens the block `units`; a block nested inside one
+#: opens as `### `parent.child``. The two headings with no key — the document title
 #: and `## Value types` — do not match, which is correct: they document nothing
 #: the loader validates.
 _HEADING = re.compile(r"^#+ +`([A-Za-z0-9_.]+)`\s*$", re.MULTILINE)
@@ -819,11 +817,10 @@ def reference_problems(text: str) -> list[str]:
 
     Nothing, when it is sound. Every key is checked **where it belongs**: a
     top-level key in the top-level table, and a nested key in the body of the
-    section named for its parent block. The previous check compared only the
-    last dotted segment against the whole document, and `mode`, `source`,
-    `model`, `enabled`, `image`, `dir` and `attempts` all recur across blocks —
-    so a whole block could stop rendering and `make docs-check` would pass on a
-    namesake elsewhere. A check that cannot fail is worse than no check.
+    section named for its parent block. A leaf name alone is not enough:
+    `mode`, `model`, `enabled`, `image`, `unit` and `draws` recur across blocks,
+    so a check against the whole document would pass on a namesake while a
+    whole block had stopped rendering.
     """
     problems: list[str] = []
     if not text.startswith(MARKER):
@@ -854,13 +851,12 @@ def reference_problems(text: str) -> list[str]:
 def check_reference(target: Path) -> list[str]:
     """Render the reference to ``target``, check it, and delete it.
 
-    Returns what is wrong with it — nothing, when it is sound. The file is
-    gone when this returns whatever the verdict: the schema is the reference,
-    and a rendered copy that outlives its check becomes a second description
-    of the config that then has to be kept current (owner ruling,
-    2026-09-05). The check is the one a reader would make — the provenance
-    marker is on it, and every key the loader validates is named under the
-    block it belongs to.
+    Returns what is wrong with it — nothing, when it is sound. The file is gone
+    when this returns whatever the verdict: the schema is the reference, and a
+    rendered copy that outlives its check becomes a second description of the
+    config that then has to be kept current. The check is the one a reader would
+    make — the provenance marker is on it, and every key the loader validates is
+    named under the block it belongs to.
     """
     rendered = render_reference()
     try:
@@ -875,9 +871,9 @@ def _write_or_check(target: Path, rendered: str, schema: str, check: bool) -> in
     """Write ``rendered`` to ``target``, or report a committed copy that drifted.
 
     Returns 1 when ``check`` is on and the committed document is not what its
-    schema renders, 0 otherwise. Both kept documents — the skill and
-    ``SETUP.md`` — go through here, so a stale one fails ``make docs-check``
-    whichever of the two schemas moved.
+    schema renders, 0 otherwise. All three kept documents — the skill, its
+    examples and ``SETUP.md`` — go through here, so a stale one fails
+    ``make docs-check`` whichever of the two schemas moved.
     """
     if not check:
         target.parent.mkdir(parents=True, exist_ok=True)

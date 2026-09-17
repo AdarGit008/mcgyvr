@@ -1,16 +1,11 @@
-"""Step 0 leaves the skill; setup moves to SETUP.md.
+"""Setup lives in SETUP.md, not in the skill.
 
-Plan v4, ruled 2026-09-09: one package, one seam, two documents. `SKILL.md`
-is what an agent reads to author a contract; `SETUP.md` is what a machine's
-owner reads to stand the ladder up. Nothing an agent loads to author a
-contract may name a setup verb, a config lever, or the ladder — the
-assertable property the plan holds to. `SETUP.md` is rendered from
-`config.SCHEMA`, lives beside the skill it is not part of
-(`skills/mcgyvr/SETUP.md`), and `install.sh` never copies it into either
-harness.
-
-Zero implementation expected. Every test here fails until Step 0 is cut out
-of `SKILL.md` and `docgen.render_setup()` lands.
+One package, one seam, two documents. `SKILL.md` is what an agent reads to
+author a contract; `SETUP.md` is what a machine's owner reads to stand the
+ladder up. Nothing an agent loads to author a contract may name a setup verb, a
+config lever, or the ladder. `SETUP.md` is rendered from `config.SCHEMA`, lives
+beside the skill it is not part of (`skills/mcgyvr/SETUP.md`), and `install.sh`
+never copies it into either harness.
 """
 
 from __future__ import annotations
@@ -32,7 +27,7 @@ INSTALL_SH = SKILL_DIR / "install.sh"
 CLAUDE_DIR = Path(".claude") / "skills" / "mcgyvr"
 PI_DIR = Path(".pi") / "agent" / "skills" / "mcgyvr"
 
-#: The setup verbs Step 0 names today (action 4).
+#: The `mcgyvr` setup verbs; nothing an agent loads may name one.
 SETUP_VERBS: tuple[str, ...] = (
     "init",
     "pool",
@@ -42,7 +37,7 @@ SETUP_VERBS: tuple[str, ...] = (
     "scan",
 )
 
-#: The three keys Step 0 calls "the levers" (action 5).
+#: The three keys SETUP.md calls "the levers".
 LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
 
@@ -58,11 +53,12 @@ def _verb_hits(text: str) -> list[str]:
 
 def _lever_bullet_hits(text: str) -> list[str]:
     """Levers introduced BY NAME as config levers — the bulleted
-    `` - `lever` — ... `` lines Step 0 uses.
+    `` - `lever` — ... `` lines a setup step uses.
 
     Not a raw substring check: `ladder_spent` legitimately contains "ladder"
-    (action 25's exception list), so matching lever *usage* rather than any
-    occurrence of the word is what action 5 asks for.
+    (``tests/test_the_skill_does_not_explain_the_ladder.py`` keeps it on its
+    exception list), so lever *usage* is matched rather than any occurrence of
+    the word.
     """
     return [lv for lv in LEVERS if re.search(rf"^- `{lv}` ", text, re.MULTILINE)]
 
@@ -86,7 +82,7 @@ def _run_install(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-# --- Step 0 leaves SKILL.md ------------------------------------------------
+# --- SKILL.md carries no setup ---------------------------------------------
 
 
 def test_skill_body_names_no_setup_verb() -> None:
@@ -103,7 +99,7 @@ def test_skill_body_names_no_lever_as_a_config_lever() -> None:
     assert hits == [], f"SKILL.md still names lever(s) as config levers: {hits}"
 
 
-# --- SETUP.md carries what Step 0 left behind -------------------------------
+# --- SETUP.md carries the setup ---------------------------------------------
 
 
 def test_setup_md_carries_the_first_run_onboarding_path() -> None:
@@ -174,8 +170,8 @@ def test_installed_files_name_no_setup_verb_or_lever(tmp_path: Path) -> None:
 
 
 def test_no_sentence_appears_in_both_documents() -> None:
-    """SKILL.md and SETUP.md were split, not duplicated: no sentence appears
-    in both."""
+    """SKILL.md and SETUP.md do not restate each other: no sentence appears in
+    both."""
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     assert SETUP_MD.exists(), "skills/mcgyvr/SETUP.md must exist"
     skill_sentences = _sentences(_body(SKILL_MD))
@@ -184,29 +180,24 @@ def test_no_sentence_appears_in_both_documents() -> None:
     assert shared == set(), f"sentence(s) duplicated across both documents: {shared}"
 
 
-# --- the 2026-09-03 ruling, narrowed a third time ---------------------------
+# --- setup is not part of the generated skill -------------------------------
 
 
 def test_docgen_module_docstring_says_setup_is_not_part_of_the_skill() -> None:
-    """The 2026-09-03 ruling, narrowed a third time: setup is not part of the
-    skill mcgyvr generates from contract.SCHEMA."""
+    """Setup is not part of the skill mcgyvr generates from contract.SCHEMA."""
     doc = docgen.__doc__ or ""
     assert "setup is not part of" in doc.lower(), (
-        "docgen.py's module docstring must narrow the 2026-09-03 ruling a "
-        "third time: the skill is one instruction generated from "
-        "contract.SCHEMA, and setup is not part of it"
+        "docgen.py's module docstring must say the skill is one instruction "
+        "generated from contract.SCHEMA, and setup is not part of it"
     )
 
 
 def test_schema_rendering_test_docstring_says_setup_is_not_part_of_the_skill() -> None:
-    """The same narrowing lives in the schema-rendering test's docstring too
-    — another concern owns that file, so this reads its text rather than
-    editing it."""
+    """The schema-rendering test's docstring says the same, read as text."""
     path = REPO / "tests" / "test_the_mcgyvr_skill_is_rendered_from_the_schema.py"
     assert path.exists(), f"{path} must exist"
     tree = ast.parse(path.read_text(encoding="utf-8"))
     doc = ast.get_docstring(tree) or ""
     assert "setup is not part of" in doc.lower(), (
-        f"{path}'s module docstring must narrow the 2026-09-03 ruling a "
-        "third time too: setup is not part of the skill"
+        f"{path}'s module docstring must say setup is not part of the skill"
     )

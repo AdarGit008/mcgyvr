@@ -183,10 +183,9 @@ RIG_READ_ON = "2026-09-03"
 #: What ``rig-snapshot.sh`` prints beyond the declared keys: the two VRAM
 #: figures a placement spends, the host memory, the thread count, the name
 #: the daemon must answer to (gate 3), and the two idle readings gate 2 holds
-#: to ``none``. srv1's are the recorded 2026-09-05 scan. The kernel, MemTotal,
-#: swap and swappiness rows close the plan §12 snapshot gap; their values here
-#: are placeholders until the rigs are re-read (they are not yet in
-#: hosts.json, so gate 2 does not compare them).
+#: to ``none``. srv1's are a recorded scan. The kernel, MemTotal, swap and
+#: swappiness values here are placeholders: hosts.json declares none of them,
+#: so gate 2 does not compare them.
 LIVE: dict[str, dict[str, str]] = {
     "srv1": {
         "gpu_used_mib": "17",
@@ -539,8 +538,8 @@ def rig_stub(
     where: Path, host: str, *, moved_flag: Path | None = None, **override: str
 ) -> Path:
     """What the rig answers ``bash -s`` with: ``host``'s reading, ``override``
-    applied. Once ``moved_flag`` exists it reads PL1 at 4095 W instead — the
-    reading srv1 gave at 05:57 after a hard lock wiped its BIOS profile."""
+    applied. Once ``moved_flag`` exists it reads PL1 at 4095 W instead: a rig
+    whose power limit moved away from what it declares."""
     (where / "snapshot.txt").write_text(
         snapshot_lines(host, **override), encoding="utf-8"
     )

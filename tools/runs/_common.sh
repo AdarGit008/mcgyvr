@@ -7,11 +7,12 @@
 # image_digest prove the door first (gatelib.under_door, read from /proc) and
 # resolve the shim by path from RUN_BIN, never from $PATH. Written against
 # `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` (the
-# authority) and the parser it cites, `tools/runs/rows.py` (once
-# `tests/sweeprows.py`, moved beside the door on 2026-09-02 so the parser the
+# authority) and the parser it cites, `tools/runs/rows.py` (the parser the
 # door trusts and the parser the tests trust are one module). Section numbers
-# below are that contract's; "gate N" is an entry of run.py's SEQUENCE — the
-# script under src/mcgyvr/serving/gate-scripts/ that owns the rule.
+# below are that contract's; "guideline N" is a guideline of
+# `mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md`; "gate N" is an entry of
+# run.py's SEQUENCE — the script under src/mcgyvr/serving/gate-scripts/ that
+# owns the rule.
 #
 #   _fail / _tok / _kv_ok        internal; a loud stderr message and a non-zero
 #                                return. Nothing here ever substitutes a
@@ -55,14 +56,11 @@
 #                                one start_stamp took. Loud on any difference.
 #   rig_assert_declared HOST [SNAPSHOT]
 #                                gate 2 — the rig compared with its DECLARATION
-#                                (`tools/runs/hosts.json[HOST].rig`, ten keys,
-#                                read live on 2026-09-02), not only with itself.
-#                                start==end never caught a rig that moved
-#                                BEFORE a run: RAM swapped between srv1 and
-#                                srv2 twice in six days and srv1's max clock
-#                                went 4800 -> 4600, every artifact in between
-#                                internally consistent. Loud, naming the key
-#                                and both values.
+#                                (`tools/runs/hosts.json[HOST].rig`, the keys
+#                                in RIG_DECLARED_KEYS), not only with itself:
+#                                start==end cannot catch a rig that moved
+#                                BEFORE a run. Loud, naming the key and both
+#                                values.
 #   round_stamp                  gate 1's receipt — `### ROUND id=
 #                                product_sha256=` from RUN_ROUND and
 #                                RUN_PRODUCT_SHA256, which gate 1 exports after
@@ -463,7 +461,7 @@ start_stamp() {
 # `tools/bench/product.require_pinned()`
 # before anything else and exports what it returned; a step writes it straight
 # after START so a reader knows which product revision the rows were measured
-# under (: every arm in a round runs against one revision). Both values
+# under (every arm in a round runs against one revision). Both values
 # come from the door or the stamp is refused — a round is checked, never guessed.
 round_stamp() {
     [ "$#" -eq 0 ] || { _fail "round_stamp: takes no arguments; it writes RUN_ROUND and RUN_PRODUCT_SHA256"; return 1; }
@@ -793,7 +791,8 @@ backend_verdict() {
 # Resolved conflict §6.3: a dropped arm and a refused arm leave an identical
 # hole, and only one of them is a result. The price of the missing CONFIG is
 # `checkpoint_quant`, `tries>=3` and a reason of more than 40 characters
-# (test_two_backends_...:56-65, test_an_ncmoe_floor_...:83-86).
+# (tests/test_two_backends_on_one_checkpoint_is_the_only_pair.py,
+# tests/test_an_ncmoe_floor_is_derived_and_not_copied.py).
 refused() {
     local label arg fields reason in_reason tries quant
     [ "$#" -ge 2 ] || { _fail "refused: usage: refused LABEL [k=v ...] -- REASON..."; return 1; }
@@ -822,7 +821,7 @@ refused() {
         return 1
     fi
     if [ "${#reason}" -le 40 ]; then
-        _fail "refused: the reason is ${#reason} characters and must be more than 40 (test_an_ncmoe_floor_...:87). Say what refused, and what it said"
+        _fail "refused: the reason is ${#reason} characters and must be more than 40 (tests/test_an_ncmoe_floor_is_derived_and_not_copied.py). Say what refused, and what it said"
         return 1
     fi
     case " $fields " in

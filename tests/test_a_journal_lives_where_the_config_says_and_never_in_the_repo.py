@@ -1,10 +1,10 @@
 """A journal lives where the config says, and never in the repo.
 
-The owner's ruling (2026-09-03): a default ``mcgyvr run`` takes no action on
+The owner's ruling: a default ``mcgyvr run`` takes no action on
 the parent repository — no commit, no receipt, only the output files the gate
 accepted, left in the working tree — and the journal is a mcgyvr-development
 concern that lives on the machine, not in the user's project. So ``--record``
-stops being the only way to journal: every dispatching run journals under
+is not the only way to journal: every dispatching run journals under
 ``journal.dir`` from the config, which ``mcgyvr init`` writes and whose default
 is the XDG state dir, and ``--record DIR`` remains as a per-run override for a
 campaign that wants its evidence envelope instead.
@@ -59,12 +59,12 @@ def test_the_default_journal_dir_is_the_xdg_state_dir_under_home(
 def test_record_dir_adds_a_copy_and_leaves_the_configured_one_alone(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``--record`` used to *override* this, and that is what changed.
+    """``--record`` adds a copy; it does not override this.
 
     A journal is worth keeping because it can be compounded, and a flag that
     moved one run's record out of the corpus made every later question about
     the corpus unanswerable — not wrong, unanswerable, since nothing said which
-    runs were missing. The caller's directory now gets a complete copy and the
+    runs were missing. The caller's directory gets a complete copy and the
     configured one keeps its own, which is what "we keep ours, they keep
     theirs" has to mean for ours to be worth reading.
     """

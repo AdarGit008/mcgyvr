@@ -1,14 +1,9 @@
 """A3 — one undecodable byte must not make the whole sink unreadable.
 
-:func:`mcgyvr.telemetry.fold` reads the sink with ``read_text(encoding="utf-8")``
-— strict — so a single byte that is not valid UTF-8 raises before the per-line
-"skip a line that will not parse" logic ever runs. The append-only shape is
-chosen because it survives a torn line, but the reader only actually survives
-one if it can step over it; an undecodable byte is a torn line the reader cannot
-even reach its own skip for. One bad byte hides every good record around it.
-
-The fix reads bytes and decodes line by line, so a line that will not decode is
-skipped the same way a line that will not parse is.
+The append-only shape is chosen because it survives a torn line, and an undecodable
+byte is a torn line too. :func:`mcgyvr.telemetry.fold` reads bytes and decodes line
+by line, so a line that will not decode is skipped the same way a line that will not
+parse is, and one bad byte does not hide the good records around it.
 """
 
 from __future__ import annotations

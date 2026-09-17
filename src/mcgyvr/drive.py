@@ -1,26 +1,13 @@
-"""The two seams between the port's levers and a run that happens.
-
-The 2026-08-29 pressure test's pattern C: *"The port produced levers, not a
-driver. The call graph is five disconnected fragments, none rooted anywhere
-reachable."* Its suggested order of work ends by naming what closes that — "a
-``ToolStep`` executor and a dispatch binding are the two pieces standing between
-the port and a working orchestrator" — and this module is those two pieces and
-nothing else.
+"""The two seams between the levers and a run that happens.
 
 **A ``ToolStep`` executor.** :func:`~mcgyvr.deterministic.tool_steps` plans the
-whole command, deliberately: "a planned step names the whole command, because a
-step nothing can run is not a floor". It then says, equally deliberately, that
-"running the tool is the caller's". Nothing was that caller, so the cheapest
-family in the catalog — the one that does four task types for free and in one
-attempt — planned steps that no code executed, and every deterministic contract
-was paid for by a model or not at all.
+whole command and leaves running it to the caller. :func:`run_tool_step` is
+that caller.
 
 **A dispatch binding.** :func:`~mcgyvr.worker.prompt.build_prompt` assembles a
 :class:`~mcgyvr.worker.prompt.WorkerPrompt`; :func:`~mcgyvr.runner.dispatch`
-takes a :class:`~mcgyvr.runner.Request`. Nothing turned one into the other,
-which is why ``contract.limits.max_output_tokens`` was computed at contract load
-and applied to nothing, and why ``runner.dispatch`` had no production caller at
-all.
+takes a :class:`~mcgyvr.runner.Request`. :func:`dispatch_prompt` turns one into
+the other, and :func:`worker_attempt` is the attempt built on it.
 
 **Two things this module refuses rather than papers over.**
 
@@ -34,17 +21,15 @@ it is still free.
 
 *An in-process step is not run as a program.* ``rename_symbol`` is executed by
 mcgyvr's own index and its :attr:`~mcgyvr.deterministic.ToolStep.argv` is
-empty, "the honest answer and the answer a caller can distinguish, which a
-guessed command is not". Distinguishing it is this module's half of that
-bargain: an executor that read an empty argv as "nothing to do, exit 0" would
-report every rename contract complete without touching a file.
+empty. Distinguishing it is this module's half of that bargain: an executor
+that read an empty argv as "nothing to do, exit 0" would report every rename
+contract complete without touching a file.
 
 **What is deliberately not here.** Where work runs is :mod:`mcgyvr.route` and
 :mod:`mcgyvr.escalate`; whether a change is acceptable is :mod:`mcgyvr.gate`;
 whether it lands is :mod:`mcgyvr.deliver`; what a retry is told is held here,
-per rung. What was missing is the two seams above, and putting policy here
-would give decisions the port already settles in one place a second place to
-be settled differently.
+per rung. Putting policy here would give decisions already settled in one
+place a second place to be settled differently.
 """
 
 from __future__ import annotations
@@ -135,11 +120,9 @@ class ToolOutcome:
     *whose* fault it was reads :attr:`environment_issue`.
 
     The middle state has two halves and :attr:`ok` cannot tell them apart,
-    which is what :attr:`performed` is for. ``ruff check --fix`` exits **1**
-    whenever a diagnostic remains after fixing — the ordinary outcome of a
-    ``lint_fix`` contract, and the exact shape that type's guarantee describes.
-    A caller reading ``not ok`` as fatal reported a contract carried out to the
-    letter as an error and never reached the gate that was supposed to judge
+    which is what :attr:`performed` is for: a fixer that exits non-zero because
+    a diagnostic remains after fixing has carried out a ``lint_fix`` contract,
+    and a caller reading ``not ok`` as fatal never reaches the gate that judges
     the result.
     """
 
@@ -170,8 +153,8 @@ class ToolOutcome:
 
         Wider than :attr:`ok` by exactly one thing: an exit code the invocation
         uses to *report* rather than to *fail*
-        (:attr:`~mcgyvr.deterministic.Tool.reporting`, whose measured table
-        says which). For a fixer that is 1 — "I applied every autofix I have,
+        (:attr:`~mcgyvr.deterministic.Tool.reporting` says which). For a fixer
+        that is 1 — "I applied every autofix I have,
         and here is what I will not fix" — and the catalog puts that residue
         out of the type's scope in as many words, so a caller that stopped
         there stopped on the contract having been satisfied.
@@ -205,8 +188,7 @@ def run_tool_step(
     an argument: a formatter runs with ``--fix`` and writes where it is pointed,
     so an executor that could be handed a repository path could rewrite the
     user's checkout on the strength of a contract's ``target`` field. The
-    sandbox is the boundary that makes the write reversible, and every other
-    writer in the project already runs inside one.
+    sandbox is the boundary that makes the write reversible.
 
     A missing program comes back as :attr:`ToolOutcome.environment_issue`
     rather than as a failure, read from the shell's own exit codes through
@@ -293,14 +275,13 @@ def dispatch_prompt(
 ) -> Completion:
     """Send an assembled prompt to a rung, under the contract's own ceilings.
 
-    The binding pattern C names. Both halves of the prompt travel — ``system``
-    carries the bundle the target's language earned and dropping it would send a
-    worker the instructions for no language at all — and the output cap is
+    Both halves of the prompt travel — ``system`` carries the bundle the
+    target's language earned and dropping it would send a worker the
+    instructions for no language at all — and the output cap is
     :func:`~mcgyvr.gate.preflight.reply_cap`'s: the rung's own
     ``units.*.output_tokens`` where it declared one, and the contract's
-    ``limits.max_output_tokens`` where it did not, which is what this has always
-    sent. That fallback is the whole of the change here; the argument for which
-    of the two wins is written where the choice is made, in ``reply_cap``.
+    ``limits.max_output_tokens`` where it did not. The argument for which of
+    the two wins is written where the choice is made, in ``reply_cap``.
 
     ``contract`` is taken whole rather than as a cap, because a binding given
     only a number cannot be the place the fit refusal happens, and the refusal
@@ -318,9 +299,7 @@ def dispatch_prompt(
     ``temperature`` is the draw's, threaded from ``breadth.temperature`` by the
     caller that knows which draw this is: draw 0 of an attempt is greedy and
     the draws after it sample. ``None`` keeps :class:`~mcgyvr.runner.Request`'s
-    own default of ``0.0``, so a caller that names none — every single-draw
-    dispatch, and every caller before breadth sampled — sends what it has
-    always sent, byte for byte.
+    own default of ``0.0``.
     """
     if not prompt.fits:
         raise PromptTooLargeError(
@@ -337,10 +316,8 @@ def dispatch_prompt(
             f"for the prompt. Lower `units.{rung}.output_tokens`, or "
             f"point the rung at a machine that serves more"
         )
-    # ``timeout_s`` is the run's, threaded from ``budgets.request_timeout_s``
-    # by the caller that holds the config. ``None`` keeps ``Request``'s own
-    # default, which is that budget's default, so a caller with no config to
-    # read sends what this has always sent.
+    # ``timeout_s`` is the unit's ``request_timeout_s``, passed by the caller
+    # that holds the config. ``None`` keeps ``Request``'s own default.
     fields: dict[str, Any] = {
         "prompt": prompt.user,
         "system": prompt.system,
@@ -359,18 +336,16 @@ def dispatch_prompt(
 class Recording:
     """Where attempt records go, and which orchestrator is writing them.
 
-    §9 of the port plan requires that X02 "must not bake in single-orchestrator
-    assumptions — no global mutable state, records carry an orchestrator id".
-    :func:`~mcgyvr.telemetry.observe` holds up its end: ``orchestrator`` is a
-    required parameter and the module keeps no state. What was missing is a
-    caller, so the field was carried by nothing and the constraint was satisfied
-    only in the sense that it had never been tested.
+    Records carry an orchestrator id and nothing here keeps global mutable
+    state, so two orchestrators can share a stream.
+    :func:`~mcgyvr.telemetry.observe` takes ``orchestrator`` as a required
+    parameter.
 
     The id is a value the caller constructs rather than something this module
     derives from the process. A default — a hostname, a pid, a literal
-    ``"mcgyvr"`` — would be exactly the single-orchestrator assumption §9 names:
-    two orchestrators sharing a stream would then write rows that agree about who
-    produced them, and the field's whole purpose is telling them apart.
+    ``"mcgyvr"`` — would be a single-orchestrator assumption: two orchestrators
+    sharing a stream would then write rows that agree about who produced them,
+    and the field's whole purpose is telling them apart.
 
     Recording is optional at this seam because a run that cannot write its
     telemetry should fail loudly rather than silently — ``observe`` raises on
@@ -384,7 +359,7 @@ class Recording:
     one file each — the layout ``<journal dir>/<orchestrator>.jsonl`` relies
     on.
 
-    ``run`` tells one run of a contract from the next. The orchestrator is now
+    ``run`` tells one run of a contract from the next. The orchestrator is
     a whole session, and a session re-runs a contract exactly when the last
     run failed, so without it two runs would key their rows identically and
     :func:`~mcgyvr.telemetry.fold` would bind every correction to the latest
@@ -435,29 +410,26 @@ class Recording:
             raise ValueError(
                 "an orchestrator id is required to record: a row that cannot "
                 "say which orchestrator produced it is the hole the field "
-                "exists to close (§9)."
+                "exists to close."
             )
 
     def attempt_id(self, contract: str, rung: str, attempt: int, draw: int = 0) -> str:
         """The id one dispatch's row is keyed by.
 
         The orchestrator is part of it, and that is not decoration.
-        :func:`~mcgyvr.telemetry.fold` keys attempts by this string and a repeat
-        supersedes — "a re-logged attempt id supersedes" — so two orchestrators
-        working the same contract on the same rung, which is the exact case §9
-        is keeping reachable, would have written one row that erased the other.
-        The rest is derived rather than random so a row can be found again from
-        a report naming the contract, the rung and the attempt.
+        :func:`~mcgyvr.telemetry.fold` binds a correction to the latest row
+        carrying this string, so two orchestrators working the same contract on
+        the same rung would otherwise share an id, and a correction meant for
+        one row would land on the other. The rest is derived rather than random
+        so a row can be found again from a report naming the contract, the rung
+        and the attempt.
 
         ``draw`` is here for the same reason the orchestrator is. An attempt
-        that asks its rung for several candidates (``breadth.draws``) makes one
-        dispatch per draw, and a key that named only the attempt would have let
-        each row supersede the last: n dispatches paid for, one recorded, and
-        the telemetry saying breadth costs what a single draw costs. The first
-        draw is left unsuffixed so that every row an unconfigured install writes
-        is byte-identical to the ones written before breadth existed — a
-        superseding key must not change meaning under a stream that already
-        holds rows.
+        that asks its rung for several candidates makes one dispatch per draw,
+        and a key that named only the attempt would give every draw's row one
+        id, so a correction could reach only the last. The first draw is left
+        unsuffixed: rows a journal already holds carry keys with no draw, and a
+        correction finds its row by that key.
         """
         who = f"{self.orchestrator}:{self.run}" if self.run else self.orchestrator
         row = f"{who}:{contract}:{rung}:{attempt}"
@@ -495,9 +467,8 @@ class _Dispatches:
     dispatch is the culprit. It is settled *after* the draws have all come
     back, not while they are in flight — with several in flight there is no
     single "draw happening right now" — and when more than one raised it is
-    the **lowest** that raised: the row a reader reaches first, the answer
-    that does not depend on which thread finished first, and exactly what a
-    single draw that raised has always reported. ``None`` is everything else
+    the **lowest** that raised: the row a reader reaches first, and the answer
+    that does not depend on which thread finished first. ``None`` is everything else
     — the gate that judges a draw, the cleanup, the verifier all run after the
     dispatches and none of them is a dispatch's fault — and ``rows`` says
     where: ``0`` is before the first dispatch, and anything more is past draw
@@ -526,13 +497,12 @@ def worker_attempt(
     recording: Recording | None = None,
     cooldown: Cooldown | None = None,
 ) -> Callable[[Try], Judgement]:
-    """The attempt function :func:`~mcgyvr.escalate.escalate` has always taken.
+    """The attempt function :func:`~mcgyvr.escalate.escalate` takes.
 
-    Every function it composes was written to be composed — ``escalate``,
-    ``climb`` and ``judge`` each say in their own docstring that assembling a
-    prompt, dispatching, applying and gating is "the caller's". There was no
-    caller. This is it, and it is deliberately the only place in the project
-    that knows the order of those five things.
+    ``escalate``, ``climb`` and ``judge`` leave assembling a prompt,
+    dispatching, applying and gating to their caller. This is that caller, and
+    it is deliberately the only place in the project that knows the order of
+    those things.
 
     **One attempt is: prompt, dispatch, parse, apply, gate, judge.** The order
     is not arbitrary at two points. The gate runs before the verifier is named,
@@ -547,11 +517,9 @@ def worker_attempt(
     facts nothing above can recover: how many of this attempt's draws left a
     journal row, and which one it was in when it died — or that it died where
     no dispatch was, before the first draw or after the last. Only the function
-    making the dispatches holds either; the caller that corrects those rows
-    used to read them back off the journal, which named a dispatch that had
-    answered whenever the raise came from the gate, the cleanup or the
-    verifier. :func:`~mcgyvr.escalate.escalate` unwraps the envelope, so the
-    operator is still told what died and not what carried the news.
+    making the dispatches holds either. :func:`~mcgyvr.escalate.escalate`
+    unwraps the envelope, so the operator is still told what died and not what
+    carried the news.
 
     **The retry note comes from the last judgement on the same rung — the last
     one, not the last one that had something to say.**
@@ -561,31 +529,15 @@ def worker_attempt(
     loop for a caller that is not climbing would be two loops counting one
     budget.
 
-    The write is unconditional and the map holds ``RetryNotes | None``, which
-    is ``tools/missions/attempt.py``'s spelling and is the right one. The guard
-    it replaces — ``if judgement.retry is not None`` — could store a note and
-    never clear one, and two attempts produce none: the ``ReplyError`` branch
-    below returns before the assignment is reached, and a ``reviewer_failed``
-    judgement reaches it carrying ``retry=None`` because the gate passed and a
-    verifier that produced no verdict left nothing to quote. Under the guard,
-    the attempt after either of those was prompted with the note from the
-    attempt before, which the worker has already been asked to fix once.
-
-    That is worse than sending nothing rather than merely stale, because of
-    what the prompt does with it: ``render_user_message`` renders a note under
-    "YOUR PREVIOUS ATTEMPT WAS REJECTED. Fix exactly these and change nothing
-    else — every other check passed". Against an attempt that was never gated,
-    all three claims are false, and the last of them is a claim about a gate
-    run that did not happen. So the rule is that a note is *this* attempt's
-    account of *this* attempt: an attempt with nothing to say says nothing, and
-    the next one starts from the evidence rather than from a memory of it.
-
-    The alternative was to keep the guard and give the parse failure a note of
-    its own — which the sibling does, in its ``_unparsed``. It is rejected here
-    on two counts: it fixes one of the two producers of ``retry=None`` and
-    leaves ``reviewer_failed`` waved through the same guard, and the note it
-    would invent is not the gate's finding a note is supposed to be. The guard
-    was the defect, not the branch that stepped over it.
+    The write is unconditional and the map holds ``RetryNotes | None``. A
+    guarded write — ``if judgement.retry is not None`` — could store a note and
+    never clear one, and two kinds of attempt produce none: one where no draw
+    was usable, and a ``reviewer_failed`` judgement, which carries
+    ``retry=None`` because the gate passed and a verifier that produced no
+    verdict left nothing to quote. The attempt after either of those would be
+    prompted with the note from the attempt before. So a note is *this*
+    attempt's account of *this* attempt: an attempt with nothing to say says
+    nothing.
 
     **A reply that cannot be read is a failed attempt, not an exception.** The
     parser refuses by name — truncated, no fenced block, a refusal in place of
@@ -598,12 +550,9 @@ def worker_attempt(
     draw refused, which for the default single draw is the same thing.
 
     **How many answers the attempt asks for is the rung's breadth
-    (:func:`~mcgyvr.route.draws_for`: the unit's own ``draws`` entry, else
-    ``breadth.draws``), and the default asks once.** Every attempt goes through
-    :func:`~mcgyvr.consensus.best_of`, including the unconfigured one, rather
-    than through a single-dispatch branch beside it. A lever the ordinary
-    install skips is a lever the ordinary install never proves, and ``n = 1``
-    through ``best_of`` is the same behaviour by construction: one draw, one
+    (:func:`~mcgyvr.route.draws_for`).** Every attempt goes through
+    :func:`~mcgyvr.consensus.best_of`, including a single-draw one, rather
+    than through a single-dispatch branch beside it: one draw, one
     verdict, and the draw is the answer. What it costs is that the workspace is
     reset after the last draw as it is after every other one, so the attempt
     ends with the sandbox holding the base — which is why the accepted bytes
@@ -616,13 +565,10 @@ def worker_attempt(
     once and a width-1 unit's slot serializes them without a second limiter;
     ``best_of`` is then handed a ``sample`` that returns the reply already in
     hand, and gates the draws one at a time in the one sandbox, which is
-    inherent. Draw 0 goes out at temperature ``0.0`` — what every dispatch
-    went out at before breadth sampled, so a single draw is byte-identical to
-    what it was — and draws 1..n-1 at ``breadth.temperature``, because a
-    second candidate that is the first one again buys a gate run and nothing
-    else. Each row of the journal says which draw it was and at what
-    temperature, which is the telemetry :mod:`mcgyvr.consensus` says breadth
-    cannot be evaluated without.
+    inherent. Draw 0 goes out at temperature ``0.0`` and draws 1..n-1 at
+    ``breadth.temperature``, because a second candidate that is the first one
+    again buys a gate run and nothing else. Each row of the journal says which
+    draw it was and at what temperature.
 
     **A style-only rejection is cleaned before it is judged, when
     ``cleanup.enabled`` says so.** The ordering is the whole of it: the cleanup
@@ -630,21 +576,19 @@ def worker_attempt(
     is the file that came *out* of it. Running it afterwards would mean deciding
     whether to escalate on a verdict about bytes nobody was still holding, and
     running it before the gate would mean tidying a change nothing had yet found
-    a problem with. Off by default, and the default is the behaviour that
-    existed: the gate's rejection stands, the note goes to the next attempt, and
-    a model is asked about the whitespace.
+    a problem with. On by default; ``cleanup.enabled: false`` leaves the gate's
+    rejection standing.
 
     **``reviewer`` is the verifier seam, not a finished verdict function.** It
     is an :data:`~mcgyvr.verify.Ask` — one prompt in, one reply out — and the
     :class:`~mcgyvr.escalate.Review` :func:`~mcgyvr.escalate.judge` wants is
     assembled per attempt from it, because :func:`~mcgyvr.verify.verify` needs
     the gate that has just run, the bytes it read and the name of the model
-    that wrote them. The parameter this replaces asked the caller for a
-    ``Callable[[], Review]``, and that is why nothing in production ever passed
-    one: a caller standing outside the attempt has none of those three things.
+    that wrote them, and a caller standing outside the attempt has none of
+    those three things.
     :func:`~mcgyvr.verify.reviewer_for` is where an install's ``verifier`` role
-    becomes one of these, and ``None`` stays the ordinary answer — a keyless
-    install accepts on the gate and ``judge`` labels it ``UNVERIFIED``.
+    becomes one of these, and ``None`` is an ordinary answer — an install with
+    no verifier accepts on the gate and ``judge`` labels it ``UNVERIFIED``.
 
     The pre-change file goes with it, read off the workspace in the moment
     between the reset and the first draw. A reviewer shown only the new content
@@ -661,17 +605,12 @@ def worker_attempt(
     # an unnamed reviewer establishes no distance.
     reviewer_model = pool.role_model(VERIFIER_ROLE) if reviewer is not None else None
     # What the draws after the first sample at. Draw 0 never reads it: it is
-    # greedy whatever this says, so a single-draw install sends what it always
-    # sent, and the loader has refused `0.0` wherever any unit draws more than
-    # once. The breadth itself is read per attempt, below, because it is the
-    # rung's — `draws_for` — and not the driver's.
+    # greedy whatever this says, and the loader has refused `0.0` wherever any
+    # unit draws more than once. The breadth itself is read per attempt, below,
+    # because it is the rung's — `draws_for` — and not the driver's.
     temperature = float(config.get("breadth.temperature", 0.0))
     tidying = bool(config.get("cleanup.enabled", True))
-    # Read once per driver, beside the other two budgets this function spends.
-    # The request timeout is per unit now: each dispatch reads its own unit's
-    # ``request_timeout_s`` at the call site below.
-    # `None` for a config that did not ask for sleep and wake, and then every
-    # dispatch below is the one it has always been. Built here rather than
+    # `None` for a config that did not ask for sleep and wake. Built here rather than
     # threaded through `dispatch` as a parameter because this is the layer that
     # holds the config, and a card is derived from a config: `runner.dispatch`
     # takes a source map and a rung and deliberately knows about no machine.
@@ -682,9 +621,8 @@ def worker_attempt(
         # `_attempt` can raise is turned into the one sentence only a driver
         # can say — what breadth it was asked for, how many of its dispatches
         # left a journal row, and which one it was in — because the caller that
-        # corrects those rows has no other way to learn it and used to count
-        # them and guess. `climb` unwraps this into `_AttemptError`, so nothing
-        # downstream sees the envelope.
+        # corrects those rows has no other way to learn it. `escalate` unwraps
+        # this into `_AttemptError`, so nothing downstream sees the envelope.
         made = _Dispatches()
         draws = draws_for(config, this.rung.name)
         try:
@@ -730,7 +668,7 @@ def worker_attempt(
                     ),
                     # The breadth this rung would have spent, and the nothing
                     # it did spend: a decline costs no dispatch, so it wrote no
-                    # row, and the dataclass default claimed one.
+                    # row.
                     draws=draws,
                     rows=0,
                 )
@@ -738,7 +676,7 @@ def worker_attempt(
         def judge_draw(space: Sandbox) -> GateResult:
             # The gate is handed the sandbox, not a bare path, because a
             # contract's acceptance commands are arbitrary shell and run inside
-            # a sandbox and nowhere else . `gate_workspace` takes the
+            # a sandbox and nowhere else. `gate_workspace` takes the
             # sandbox and judges whatever is in it right now, so the draw
             # `best_of` just wrote is what the verdict is about.
             result = gate_workspace(contract, space, adapters=adapters)
@@ -757,7 +695,7 @@ def worker_attempt(
         original = _base_content(sandbox, contract)
         # The worker prompt needs the file it is changing. A decomposed
         # contract carries it as `target_content`; a hand-authored one does
-        # not, so fall back to the workspace's own copy (K6).
+        # not, so fall back to the workspace's own copy.
         prompt = build_prompt(
             replace(contract, target_content=contract.target_content or original),
             adapters=adapters,
@@ -766,9 +704,9 @@ def worker_attempt(
         # Read once, before any draw goes out, because they are the attempt's
         # and not a draw's: the endpoint that will serve every draw and the
         # prompt exactly as the runner sends it. Both can raise, and a raise
-        # here is a raise before the first dispatch — no row, `rows == 0` —
-        # which is the only honest reading now that the draws leave together
-        # and there is no "between two draws" for it to land in.
+        # here is a raise before the first dispatch — no row, `rows == 0`: the
+        # draws leave together, so there is no "between two draws" for it to
+        # land in.
         served_at = pool.bind(this.rung.name).base_url if recording else None
         messages = _as_sent(prompt) if recording else None
 
@@ -806,8 +744,7 @@ def worker_attempt(
                 # a fault of the rung — nothing was asked and nothing answered
                 # — so the cooldown must not learn from it and the attempt must
                 # not be charged for it. `waker` is None for a config that did
-                # not ask for the feature, and then this is the call it always
-                # was, byte for byte.
+                # not ask for the feature.
                 if waker is None:
                     return wire()
                 return waker.dispatching(this.rung.name, wire)
@@ -859,8 +796,7 @@ def worker_attempt(
                     tier=family.name,
                     # What this draw sampled at, on its own row, so the
                     # journal can say which draw a passing candidate was and
-                    # at what temperature — the telemetry breadth could not
-                    # be evaluated without.
+                    # at what temperature.
                     temperature=sampled,
                     mirrors=recording.mirrors,
                     on_copy_error=recording.copy_failed,
@@ -877,16 +813,14 @@ def worker_attempt(
                 made.counted()
 
         # The draws go out together, bounded by the unit's width and nothing
-        # else. `run_batch` is the bound #23 built for exactly this and had no
-        # production caller; each job dispatches under the capacity it is
+        # else. Each `run_batch` job dispatches under the capacity it is
         # handed, so on a width-1 unit the slot serializes the draws and no
         # second limiter is needed. The outcomes come back in draw order
         # whatever order the unit answered in, and `_settled` turns them into
         # the replies `best_of` ranks — or into the one raise the attempt
         # dies of, charged to the lowest draw that raised. With no capacity
         # there is no width to dispatch within, and the draws go out one after
-        # another in this thread, which is what an unbounded single task has
-        # always done.
+        # another in this thread.
         jobs = [partial(fetch, draw) for draw in range(draws)]
         outcomes = (
             run_batch(jobs, this.capacity)
@@ -932,10 +866,7 @@ def worker_attempt(
             #
             # `rows` is stated here for the same reason it is stated on the
             # branch below: `fetch` wrote one journal row per dispatch, and the
-            # caller corrects `range(rows)` of them. Left at the dataclass
-            # default this said one draw about an attempt that had just paid
-            # for `draws`, so every suffixed row kept no outcome at all — the
-            # rows of the case breadth is most on trial for. It is read off
+            # caller corrects `range(rows)` of them. It is read off
             # `made`, which counted the rows that went down, rather than off
             # the breadth, which is what was asked for: with no `recording`
             # there is no journal and the honest count is none. The verdict is
@@ -962,14 +893,10 @@ def worker_attempt(
                 gate,
                 # Built here rather than handed in, because `verify` needs
                 # three things only this moment holds: the gate that has just
-                # run, the bytes it read, and which model wrote them. The
-                # parameter this replaces was a `Callable[[], Review]`
-                # assembled before the attempt, which is why it never had a
-                # production caller — there was nothing a caller could build it
-                # out of. What crosses the seam is the reviewer itself, and
-                # `judge` still decides whether to ask it: `partial` binds
-                # arguments and dispatches nothing, so a rejected gate costs no
-                # verifier spend, exactly as before.
+                # run, the bytes it read, and which model wrote them. What
+                # crosses the seam is the reviewer itself, and `judge` decides
+                # whether to ask it: `partial` binds arguments and dispatches
+                # nothing, so a rejected gate costs no verifier spend.
                 verifier=(
                     None
                     if reviewer is None
@@ -990,7 +917,7 @@ def worker_attempt(
             # many left a row: one journal row per draw was written above,
             # keyed by the *dispatch* index `fetch` was called with.
             # `picked.chosen` counts candidates and skips the draws that
-            # produced none, so under an unreadable first reply it named the
+            # produced none, so under an unreadable first reply it names the
             # wrong row; `dispatched` is the index the row was keyed by. An
             # attempt that reached a verdict finished its draws, so with a
             # journal `made.rows == len(picked) == draws` here — the numbers
@@ -1022,15 +949,13 @@ def worker_attempt(
 def _temperature_of(draw: int, sampled: float) -> float:
     """What one draw samples at: greedy for draw 0, ``sampled`` for the rest.
 
-    Draw 0 is the anchor. It is what an unconfigured install sends — one draw,
-    at the :class:`~mcgyvr.runner.Request` default of ``0.0`` — and keeping it
-    greedy under any breadth is what keeps that install's dispatches
-    byte-identical to the ones it made before breadth sampled at all. The
-    draws after it exist to be *different* candidates, and a greedy second
-    draw is the first draw again: N dispatches, N identical replies, N gate
-    runs, and nothing the first did not already say. The loader refuses
-    ``breadth.temperature: 0.0`` wherever a unit draws more than once for
-    exactly that reason, so ``sampled`` is never zero here when it is read.
+    Draw 0 is the anchor: what a single-draw install sends, at the
+    :class:`~mcgyvr.runner.Request` default of ``0.0``. The draws after it
+    exist to be *different* candidates, and a greedy second draw is the first
+    draw again: N dispatches, N identical replies, N gate runs, and nothing the
+    first did not already say. The loader refuses ``breadth.temperature: 0.0``
+    wherever a unit draws more than once for exactly that reason, so
+    ``sampled`` is never zero here when it is read.
     """
     return 0.0 if draw == 0 else sampled
 
@@ -1042,14 +967,14 @@ def _in_order[T](
     """The draws one after another in this thread, for an attempt with no capacity.
 
     :func:`~mcgyvr.capacity.run_batch` bounds a batch by a capacity, and a
-    :class:`~mcgyvr.route.Try` handed none has no width to dispatch within —
-    a single task running alone, which :func:`~mcgyvr.runner.dispatch` sends
+    :class:`~mcgyvr.route.Try` handed none has no width to dispatch within — a
+    single task running alone, which :func:`~mcgyvr.runner.dispatch` sends
     unbounded. Dispatching N draws at once with no bound would be the batch
-    ``dispatch`` says it is wrong for, so they go out the way one draw always
-    has: in order, here. The outcomes are shaped as ``run_batch``'s so the
-    caller settles both paths the same way, and ``capacity`` is handed to
-    each job as ``run_batch`` hands it, so a caller standing in for the batch
-    still puts the capacity it was given into every draw's hand.
+    ``dispatch`` says it is wrong for, so they go out in order, here. The
+    outcomes are shaped as ``run_batch``'s so the caller settles both paths the
+    same way, and ``capacity`` is handed to each job as ``run_batch`` hands it,
+    so a caller standing in for the batch still puts the capacity it was given
+    into every draw's hand.
     """
     outcomes: list[Outcome[T]] = []
     for index, job in enumerate(jobs):
@@ -1077,7 +1002,7 @@ def _settled(
     * **Every draw declined.** No slot freed for any of them for as long as
       the task would wait: nothing was asked and nothing answered, so the
       first decline is raised for the wrapper to turn into the rung stepping
-      aside, as a single declined draw always has.
+      aside.
     * **Some draws declined.** The ones that answered were paid for and are
       judged; a declined draw is :class:`~mcgyvr.consensus.Unusable`, which
       is what it is — no candidate, no verdict — and is recorded in the
@@ -1122,8 +1047,7 @@ def _base_content(sandbox: Sandbox, contract: Contract) -> str:
     gate diffed against a moment ago, in this attempt, which is the only
     original the verdict is actually about.
 
-    Decoded the way every other reader in the project decodes worker-adjacent
-    bytes: ``surrogateescape``, so a file holding a byte no decoder can read
+    Decoded with ``surrogateescape``, so a file holding a byte no decoder can read
     still reaches the reviewer as the rest of its content rather than raising
     out of an attempt that has not failed.
     """
@@ -1168,7 +1092,7 @@ def _cleaned(
     went *in* — deliberately, because behind a format rejection the gate stopped
     before its typecheck, semantic and acceptance rungs and this module has no
     idea what they would have said. Carrying that verdict forward beside the new
-    file is exactly the substitution the whole port was audited for.
+    file would be a verdict about bytes that are not the file's.
 
     So the answer to ``regate`` is a gate run, not a re-read. ``gate_in_sandbox``
     writes the cleaned bytes into the workspace and judges what is now there,
@@ -1206,17 +1130,11 @@ def _repair_and_regate(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
 ) -> GateResult:
-    """The D21 loop, on the same rung and with no model retry.
+    """Repair and re-gate, on the same rung and with no model retry.
 
     The gate judges and never writes; :func:`mcgyvr.repair.repair` writes and
     never judges — the declared imports, the linter's own autofixes and the
-    formatter, over the contract's scope and nothing else. Measured on the
-    first live ladder (2026-09-05): every one of nine replies was rejected on
-    findings a tool clears for nothing — a line the formatter would reflow,
-    whitespace on a blank line, an unsorted import block — and each rejection
-    bought a climb to a dearer rung. The owner's ruling is that running the
-    fixers after a rung is done is the point: it lifts every task the
-    deterministic floor could not take outright. So a rejected draw is
+    formatter, over the contract's scope and nothing else. A rejected draw is
     repaired in place and judged again before the ladder spends anything,
     under ``cleanup.enabled``, which is on unless an install says otherwise.
 
@@ -1276,10 +1194,10 @@ def gate_in_sandbox(
     weaker gate would make "the deterministic tier is cheap" mean "the
     deterministic tier is unchecked".
 
-    The write is through ``surrogateescape``, as every other writer in the
-    project is (:mod:`mcgyvr.lines`): a reply is text that came off a socket and
-    may carry bytes no codec round-trips, and a writer that raised on them would
-    fail the attempt for the one reason the worker cannot do anything about.
+    The write is through ``surrogateescape``: a reply is text that came off a
+    socket and may carry bytes no codec round-trips, and a writer that raised
+    on them would fail the attempt for the one reason the worker cannot do
+    anything about.
 
     The acceptance commands are the contract's own, split by
     :attr:`~mcgyvr.contract.Contract.acceptance_commands`, and they run inside
@@ -1295,18 +1213,13 @@ def gate_in_sandbox(
 
 
 def task_ceiling() -> float | None:
-    """``budgets.task_timeout_s``, or ``None`` where no config settles it.
+    """The policy's ``task_timeout_s``, or ``None`` where no config settles it.
 
-    The key is declared as the "wall-clock ceiling for one task, including
-    acceptance commands", defaults to 900, and is written into every config
-    `mcgyvr init` creates — and until this read existed the only reader in the
-    repository was `tools/missions/run.py`. A contract's acceptance command is
-    arbitrary shell, so one that hangs hung the run under a ceiling that was
-    declared, validated and never consulted.
+    A contract's acceptance command is arbitrary shell, and this is the ceiling
+    one that hangs is held to.
 
-    A missing or unusable config is not an error here. The deterministic floor
-    runs without one by design (`cli._run`), and refusing a gate because there
-    is no `mcgyvr.yaml` would make the ceiling a requirement rather than a
+    A missing or unusable config is not an error here: refusing a gate because
+    there is no config would make the ceiling a requirement rather than a
     bound. No config means no declared ceiling, which is what `None` says.
     """
     from mcgyvr.config import ConfigError, load
@@ -1350,30 +1263,24 @@ def gate_workspace(
     hands back content and something has to put it on disk; a program on the
     deterministic floor has already written the tree itself, and a gate that
     insisted on being handed content would have to read the file back out and
-    write it again — two more chances for the bytes to stop being the bytes,
-    which is the defect class B6 came from.
+    write it again — two more chances for the bytes to stop being the bytes.
 
-    "Against ``contract``" now includes the contract's own words. Two rungs
-    could only ever be as right as what the contract asked for — the acceptance
-    commands, and ``param-mutation``, which rejects a function for mutating its
-    caller's object and has to stand down where the contract *ordered* that.
-    Only the first was wired; the second's stand-down existed with no parameter
-    anywhere between here and it, so a contract saying "sort the rows in place"
-    was unsatisfiable by any change a worker could write.
+    "Against ``contract``" includes the contract's own words
+    (``contract_text``). Two rungs can only be as right as what the contract
+    asked for — the acceptance commands, and ``param-mutation``, which rejects
+    a function for mutating its caller's object and has to stand down where the
+    contract *ordered* that.
     """
     acceptance = acceptance_for(contract, sandbox)
     return Gate(adapters).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
-        # The other two rungs `Gate.run` accepts. Both shipped complete and
-        # neither was constructed anywhere in `src`, so a `type_annotation`
-        # contract — which the catalog defines as "the project's type checker
-        # accepts" — was judged by everything except a type checker. They are
-        # built here and not inside `Gate` because both need what only this
-        # layer holds: the open sandbox, and the workspace the declaration
-        # lives in. A repository that declares no checker still gets `None`
-        # from `TypeCheck.declared_command`, so the absence is not a rejection.
+        # The other two rungs `Gate.run` accepts. They are built here and not
+        # inside `Gate` because both need what only this layer holds: the open
+        # sandbox, and the workspace the declaration lives in. A repository
+        # that declares no checker still gets `None` from
+        # `TypeCheck.declared_command`, so the absence is not a rejection.
         typecheck=TypeCheck(repo=sandbox.workspace),
         semantic=SemanticCheck(sandbox=sandbox),
         contract_text=contract.prose,

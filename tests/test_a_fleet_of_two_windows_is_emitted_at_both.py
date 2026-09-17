@@ -1,11 +1,11 @@
 """A source that declares its window is emitted at that window, not at the run's.
 
 `mcgyvr emit --ctx-per-slot N` takes one number for the whole fleet, and a
-config declares `context_window` per source. On the live ladder those two
-disagree by construction: srv1 serves 8192 per slot and srv2's vLLM pair serves
-4096, both read back off the running units and written down. The consequence is
-that **the fleet cannot be checked in one command** — at 4096 `emit --check`
-reports srv1 as drifted, at 8192 it reports srv2, and neither is true.
+config declares `units.<unit>.window` per source. Where two hosts serve
+different windows — srv1 at 8192 per slot and srv2 at 4096 below — the flag
+cannot describe both, so **the fleet cannot be checked in one command** under it:
+at 4096 `emit --check` reports srv1 as drifted, at 8192 it reports srv2, and
+neither is true.
 
 That is the same defect `--sandbox` and the sleep/wake switch are argued
 against elsewhere: a number that reaches a rig from a flag is a number
@@ -54,7 +54,7 @@ SCANS = {
 
 
 def config_text(*, srv1_window: str = "", srv2_window: str = "") -> str:
-    """The live fleet's shape: llama.cpp on srv1, one vLLM unit on srv2."""
+    """Two hosts: llama.cpp on srv1, one vLLM unit on srv2."""
     return f"""
 units:
   local_big:
@@ -92,7 +92,7 @@ def units(text: str, *, ctx_per_slot: int | None) -> dict[str, Unit]:
 
 
 def test_two_hosts_two_declared_windows_and_no_flag_at_all() -> None:
-    """The live fleet, emitted from its own declarations.
+    """A two-host fleet, emitted from its own declarations.
 
     srv1's `-c` is the window times the slots it was sized for; srv2's vLLM
     unit states the window directly. Neither number came from the command line,
@@ -150,7 +150,7 @@ def test_a_declared_window_and_a_matching_flag_agree_silently() -> None:
 
 
 def test_neither_a_declaration_nor_a_flag_is_still_refused() -> None:
-    """The refusal that existed before this precedence survives it, and it must:
+    """The precedence keeps the refusal it sits on top of, and it must:
     a window nobody stated is a cache priced against a number nobody measured.
     What changes is only *where* the answer may come from, never that there has
     to be one."""

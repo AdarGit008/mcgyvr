@@ -7,7 +7,7 @@ chat-format training examples for exactly the rows that are **verified passes**:
 the reply parsed, the checker accepted it, and the bytes on disk still match the
 pinned sha.
 
-The prompt is not stored anywhere —  the corpus keeps only what the
+The prompt is not stored anywhere — the corpus keeps only what the
 parser reads — so it is **rebuilt** through the same assembly the rigs used:
 :func:`mcgyvr.worker.prompt.build_prompt` over the tier's contracts. Each run
 pinned ``sha256(prompt.system)`` as ``bundle_sha256`` at capture time; the
@@ -17,11 +17,8 @@ worse than a missing one.
 
 **No example may come from a set the declaration does not mark trainable
 (#230, #240).** ``d1`` *is* ``tools/bundle/tasks/`` byte for byte — half the
-floor instrument — and #189's training set drew 622 of its 738 examples from
-it, then scored the result on the same twenty contracts. Nothing here noticed,
-because this tool's only notion of held-out material was the train/val split,
-which partitions what it has already decided to draw from and has no concept of
-a set it must not draw from at all.
+floor instrument. The train/val split partitions what is already drawn and has
+no concept of a set that must not be drawn from at all.
 
 So two checks read one declaration:
 
@@ -35,18 +32,16 @@ them is fatal** rather than resolved in the permissive direction: a corpus
 whose stamps predate the current declaration is a corpus that would quietly
 readmit whatever was declared since. The instrument is a *problem*, not a
 language, so a set's membership carries both arms of a paired id — protecting
-only the trained-on language is not protection, and #189 measured the
-cross-language transfer that makes it so.
+only the trained-on language is not protection.
 
-What the agreed verdict then *means* is #240's change. Set membership is no
-longer the refusal; ``trainable`` is. #240 retired all five local sets and
-released them, on the argument that a set nobody will measure on again cannot
-be contaminated by training on it — so their material is drawn, and the
+Set membership is not the refusal; ``trainable`` is. #240 retired all five local
+sets and released them, on the argument that a set nobody will measure on again
+cannot be contaminated by training on it — so their material is drawn, and the
 manifest records that it was released rather than pretending it was never an
 instrument. ``humaneval-plus`` is retired and **never** trainable, and is
 refused by name here for as long as it is declared. That asymmetry is the point
-of two flags: one flag would either strand the 9,173 replies the local sets
-account for or release material that must never be released.
+of two flags: one flag would either strand the replies the local sets account
+for or release material that must never be released.
 
 Curation, all deterministic:
 

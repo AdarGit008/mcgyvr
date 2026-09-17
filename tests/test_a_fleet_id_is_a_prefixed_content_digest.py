@@ -5,11 +5,11 @@ the sha256 of a canonical tree: ``unt-`` a unit, ``rig-`` a rig and ``cmb-`` a
 combination. Content-addressed, so two processes computing the same inputs
 agree without talking, and any change to an input is a new name.
 
-A fleet is not one of them. ``flt-05`` is a name, pinned in its lock file to
-the sha256 of its layout (§1, §4). The model spec, rig shape and fleet shape of
-the five-id design are gone (owner, 2026-09-10 and 2026-09-11), and so is the
-config digest as an approval key; their prefixes are refused, so a record
-written under the old design cannot pass for a current one.
+A fleet is not one of them. ``flt-05`` is a name, pinned in its lock file to the
+sha256 of its layout (``mcgyvr-lab/records/plans/fleet-identity.md`` §1, §4).
+The model spec, rig shape and fleet shape of the five-id design are gone (owner
+rulings), and so is the config digest as an approval key; their prefixes are
+refused, so a record written under the old design cannot pass for a current one.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def test_any_changed_or_added_field_is_a_new_identity() -> None:
 
 def test_a_retired_or_unknown_prefix_is_refused() -> None:
     """``msp-``, ``rsh-`` and ``fsh-`` named the dropped design; ``cfg-`` is the
-    retired config digest, which no longer keys an approval."""
+    retired config digest, which keys no approval."""
     digest = _digest()
     for prefix in ("msp-", "rsh-", "fsh-", "cfg-", "flt-"):
         with pytest.raises(ValueError, match=prefix):

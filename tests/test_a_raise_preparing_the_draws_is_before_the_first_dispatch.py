@@ -1,16 +1,11 @@
 """A raise preparing the draws is a raise before the first dispatch.
 
-This file used to pin the window *between* two draws: ``drive._as_sent`` ran
-per draw, after ``pool.bind`` and before ``observe``, so a raise there on
-draw 1 left draw 0's row standing and ``rows: 1, draw: null`` had to be told
-as "after draw 0 answered" rather than "after its draws".
-
-That window is gone, and deliberately. The draws of one attempt are
-dispatched together, so what every draw shares — the endpoint that serves it
-and the prompt as the runner sends it — is read once, before any draw goes
-out. A raise there is now what it is: before the first dispatch, no row
-written, nothing to correct and nothing to name. The "after draw ``rows - 1``
-answered" sentence still stands for the raises that come after the draws (a
+The draws of one attempt are dispatched together, so what every draw shares —
+the endpoint that serves it and the prompt as the runner sends it — is read
+once, before any draw goes out. A raise there is before the first dispatch: no
+row written, nothing to correct and nothing to name. There is no window
+*between* two draws for it to fall in. The "after draw ``rows - 1`` answered"
+sentence stands for the raises that come after the draws (a
 gate, a cleanup, a verifier), and is pinned where those happen.
 """
 

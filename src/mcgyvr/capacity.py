@@ -1,18 +1,15 @@
-"""Capacity — how many dispatches a source may have in flight at once (#23).
+"""Capacity — how many dispatches a source may have in flight at once.
 
-A source is a machine, and a machine has a finite number of requests it can
-serve at a time. That number is declared in the config (``max_parallel``) and
-was, until now, carried and not enforced: :mod:`mcgyvr.pool` puts it on every
-:class:`~mcgyvr.pool.Endpoint` and says in its own docstring that the semaphore
-is this issue's. This is that bound — a semaphore in shape, though since #185
-each permit is a host-wide file lock rather than a count in process memory.
+A source is one declared unit, and a unit has a finite number of requests it
+can serve at a time. That number is declared in the config (``units.*.width``),
+carried on every :class:`~mcgyvr.pool.Endpoint` as ``max_parallel``, and
+enforced here: each permit is a host-wide file lock rather than a count in
+process memory.
 
-Four decisions shape it, and the first is the one the acceptance turns on:
+Four decisions shape it:
 
 * **Capacity is per source, and it is acquired around the dispatch — not around
-  the task.** A ladder of four rungs on one machine is four names for one card,
-  so the bound has to be keyed by the source rather than the rung or the model.
-  And because a slot is held only for the length of one request, a task that
+  the task.** Because a slot is held only for the length of one request, a task that
   escalates from a local rung to an API rung holds the local source's slot while
   it is talking to the local source and not a moment longer. "Escalation does not
   leak or double-count capacity" is therefore a property of *where* the
@@ -26,29 +23,29 @@ Four decisions shape it, and the first is the one the acceptance turns on:
   system would say so. :class:`Concurrency` reports the one figure a per-source
   record structurally cannot: how many dispatches were in flight *across*
   sources at once, which is the difference between a batch working two rigs
-  together and a batch draining them in series (#200).
+  together and a batch draining them in series.
 * **A nested acquisition of the same source raises rather than deadlocks.** At
-  ``max_parallel: 1`` — the default :mod:`mcgyvr.initialize` writes — a job that
+  ``width: 1`` — the default :mod:`mcgyvr.initialize` writes — a job that
   dispatched to a source from inside a dispatch to that same source would block
   forever against itself, with no output and no traceback. That is the worst
   failure this module could have, so it is detected and named.
 * **The unit of a batch is a job, not a contract.** Executing a contract means
   choosing a rung, assembling a prompt, parsing a reply and escalating on
-  failure, which are #24's and #25's. What #23 owes them is a bounded way to run
-  many things at once; supplying a contract loop here would be inventing the
-  escalation policy #24 exists to decide.
+  failure, which are :mod:`mcgyvr.escalate`'s. What this module owes it is a
+  bounded way to run many things at once; supplying a contract loop here would
+  be inventing an escalation policy.
 
 **CON-02, which is why a number here is not a promise.** The capability table
 measured same-model concurrency at 1.6-3.1x *with the backend's parallel-slot
 setting enabled*, and recorded that a single-slot server serializes the requests
-rather than refusing them. So a source declared ``max_parallel: 4`` in front of a
+rather than refusing them. So a unit declared ``width: 4`` in front of a
 single-slot backend will accept four dispatches, run them one after another, and
 look from here exactly like a source that is merely slow. This module enforces
 the declaration; it cannot enforce the server. :func:`mcgyvr.propose.propose`
 says so where an operator will read it, and :attr:`Usage.waited_seconds` is where
 the symptom shows up afterwards.
 
-**Where the width comes from.** ``max_parallel`` is a declaration, and a
+**Where the width comes from.** ``units.*.width`` is a declaration, and a
 declaration is a guess: :func:`mcgyvr.initialize.initialize` writes ``1``
 because it cannot know whether a backend was started with its parallel-slot
 setting on, which is honest and leaves CON-04's measured 8.5x at sixteen
@@ -75,61 +72,40 @@ question — llama.cpp states its slot count on ``GET /slots`` and
   the same rule as :meth:`Capacity.hold`'s "two answers to one question",
   pointed at the machine rather than at a stale config.
 
-**A width can belong to a rung, not only to a rig.** ``max_parallel`` on a
-source describes a machine, and a machine is not what serves a request — a
-server process is. The same weights on two rigs are two processes started with
-two different slot counts, and one rig serving a small model at sixteen slots
-beside a large one at four is two processes on one machine; neither pair is
-describable by a single number on the source. So a tier may declare its own
-``max_parallel``, and three things follow:
+**A bound can belong to a named rung of a source.** The constructor's ``rungs``
+mapping gives a rung a :class:`RungWidth` of its own on a source;
+:meth:`Capacity.of` builds none, so a capacity built from a config has exactly
+one bound per unit. Where a rung bound is given:
 
-* The rung's number is the bound where it is given, and the source's is the
-  fallback where it is not. ``units.*.width`` keeps exactly the
-  meaning it has always had, so a config that names no rung width is bounded
-  today as it was yesterday.
-* **A rung's slots are its own, not a share of the source's.** Two rungs on one
-  rig are two queues, so a dispatch to the small model cannot consume a slot
-  the large model's server would have served; pooling them would bound a thing
-  that does not exist. :meth:`in_flight` is therefore asked per rung, and a
-  hold on one rung leaves another's count at zero. The slot files are keyed by
-  the rung alongside the URL for the same reason — the physical thing being
-  protected is one server process, not the host it happens to sit on.
-* The three probe rules above apply per rung unchanged, because a rung's width
-  is the same kind of claim about the same backend. A probe that predates the
-  rung is asked about sources only: it did not answer ``None`` about a rung, it
-  was never asked, and inventing an answer on its behalf would confirm a width
-  no machine ever stated.
+* The rung's number is the bound for a dispatch that names that rung, and the
+  source's is the fallback for every other dispatch.
+* **A rung's slots are its own, not a share of the source's.** :meth:`in_flight`
+  is asked per rung, and a hold on one rung leaves another's count at zero. The
+  slot files are keyed by the rung alongside the URL for the same reason.
 
 The probe is a *parameter*. Nothing here opens a socket, for the same reason
 :mod:`mcgyvr.pool` names :class:`~mcgyvr.pool.SourceProbe` structurally and
-builds nothing: who actually asks a rig is #22's, and this module's job is to
-know what to do with the answer.
+builds nothing: this module's job is to know what to do with the answer.
 
-**So a capacity keeps two numbers per source, not one.** A confirmed width
-wider than the declared one leaves :attr:`~mcgyvr.pool.Endpoint.max_parallel`
-carrying the superseded number, and :meth:`hold` used to refuse exactly that as
-a stale config — which made every successful probe unusable: the first dispatch
-through a widened source raised, and the disagreement it named had been created
-by :meth:`of` rather than by anyone's config. The fix is to stop asking one
-number to answer two questions. The **declared** width is what the config said
-and what an ``Endpoint`` carries; the **enforced** width is the confirmed one
-where a machine answered and the declared one everywhere else. :meth:`hold`
-checks the endpoint against the *declared* number — which is that check's real
-purpose, catching a capacity and a source map built from two different configs —
-and opens slots against the *enforced* one. :attr:`limits` keeps meaning what is
-enforced, because that is what its callers read it for: a rung is as wide as the
-slots it can actually take, which is what :func:`mcgyvr.escalate.ascent` asks it.
-The declaration is :meth:`declared`'s. The two numbers differ only where a probe
-widened a source, which makes those sources a *subset* of the confirmed ones and
-not the same set: :meth:`confirmed` says a machine answered, and a machine that
-answered with exactly the declared width confirmed it without changing it.
+**A capacity keeps two numbers per source, not one.** The **declared** width is
+what the config said and what an ``Endpoint`` carries; the **enforced** width is
+the confirmed one where a machine answered and the declared one everywhere else.
+:meth:`hold` checks the endpoint against the *declared* number — which is that
+check's real purpose, catching a capacity and a source map built from two
+different configs — and opens slots against the *enforced* one. :attr:`limits`
+keeps meaning what is enforced, because that is what its callers read it for: a
+rung is as wide as the slots it can actually take, which is what
+:func:`mcgyvr.escalate.ascent` asks it. The declaration is :meth:`declared`'s.
+The two numbers differ only where a probe widened a source, which makes those
+sources a *subset* of the confirmed ones and not the same set: :meth:`confirmed`
+says a machine answered, and a machine that answered with exactly the declared
+width confirmed it without changing it.
 
-**The bound is host-wide, not per-process (#185).** The rigs a source names are
-shared machines, and this repository's own workflow runs lanes as parallel
-worktrees — each its own process. A bound held in process memory is silently
-doubled the moment two lanes dispatch at one rig, which is exactly when the
-declared number matters. So a slot is not a semaphore permit: it is an
-exclusive ``flock`` on one of ``max_parallel`` lock files, keyed by the
+**The bound is host-wide, not per-process.** The rigs are shared machines, and
+several mcgyvr processes may dispatch at one. A bound held in process memory is
+silently doubled the moment two processes dispatch at one rig, which is exactly
+when the declared number matters. So a slot is not a semaphore permit: it is an
+exclusive ``flock`` on one of as many lock files as the enforced width, keyed by the
 endpoint's ``base_url`` — the physical thing being protected, not the name a
 config gave it. Any mcgyvr process on this host contending for the same URL
 counts against the same files; threads within one process exclude one another
@@ -145,13 +121,13 @@ Three consequences are deliberate:
   when its process dies, however it dies. That is this module's chosen answer
   to "no acquisition may block forever" — chosen over an acquire timeout
   because a long wait behind a deep batch queue is *legitimate* (twenty jobs at
-  ``max_parallel: 1`` wait nineteen service times, and a fixed timeout would
+  ``width: 1`` wait nineteen service times, and a fixed timeout would
   convert normal queueing into spurious failures), and over fail-fast because a
-  batch runner's whole job is to queue. A caller that prefers multica's
-  claim shape — one winner, losers refused at once, nothing queued — passes
-  ``timeout`` to :meth:`Capacity.hold` and gets exactly that. A holder that is
-  alive but wedged is not a capacity problem; it is the availability problem
-  #141 owns, and the wait it causes is visible in ``waited_seconds``.
+  batch runner's whole job is to queue. A caller that prefers a claim — one
+  winner, losers refused at once, nothing queued — passes ``timeout`` to
+  :meth:`Capacity.hold` and gets exactly that. A holder that is alive but
+  wedged is not a capacity problem, and the wait it causes is visible in
+  ``waited_seconds``.
 * **Slot files are never deleted.** Removing a lock file while a contender
   holds the old inode lets the next opener lock a fresh inode and be granted a
   slot that is already taken — the classic unlink race. The files are tiny,
@@ -165,7 +141,7 @@ Three consequences are deliberate:
   host: two *machines* dispatching at one rig are beyond what a file lock can
   see, and nothing here pretends otherwise.
 
-**Reservations, or the count that exists before a slot does (#24).**
+**Reservations, or the count that exists before a slot does.**
 :meth:`in_use` counts slots this capacity has *granted*, and there is an earlier
 moment that matters to whoever is spreading a batch over several rigs: every
 member of a batch chooses its rung before any of them has been granted anything,
@@ -184,13 +160,9 @@ the name ``srv1`` pool their counts, and a batch under one of them reads a
 machine as busy because of unrelated work under the other. This capacity's
 reservations are what this capacity counts.
 
-They are counted per *bound* and not per rig, which is the same distinction the
-widths above draw: a rung with a width of its own is a server process of its
-own, so charging its choices to the rig would make every sibling rung read as
-busy the moment one of them was chosen — the funnel again, one level down. A
-reservation is a claim against the queue the slot will be taken from, so it is
-keyed the way the slots are, by :meth:`_bound`'s one decision and never by a
-caller's guess.
+They are counted per *bound*. A reservation is a claim against the queue the
+slot will be taken from, so it is keyed the way the slots are, by
+:meth:`_bound`'s one decision and never by a caller's guess.
 
 And they are exactly as narrow as that sounds: this process, this capacity, the
 choices it was told about. Another mcgyvr process contending for the same slot
@@ -207,11 +179,7 @@ count that sum invites is removed at its source rather than papered over: when
 :meth:`hold` grants a slot to a thread that already holds a reservation for that
 source, the reservation is *consumed* for as long as the slot is held, so the
 one dispatch is counted once — as a slot — and is counted as a reservation again
-when the slot goes back. ``max(in_use, reserved)`` was the earlier rule and it
-is only right when every hold was reserved first: a verifier holding one slot of
-a two-wide rig while a routed climb has reserved the same rig and is between
-attempts reads as a load of 1, and a caller computing ``width - load`` then aims
-a third dispatch at a rig with nothing free, where it blocks in :meth:`hold`.
+when the slot goes back.
 
 Consuming the reservation is keyed by *thread*, which is what makes "the same
 dispatch" answerable at all: a reservation is taken by the caller that chooses a
@@ -247,7 +215,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # How often a waiter re-tries the slot files while blocked. Coarse enough to
 # cost nothing against dispatches measured in seconds to minutes; fine enough
 # that a freed slot is taken promptly. The loop is also what makes a long wait
-# interruptible, which a bare semaphore acquire was not.
+# interruptible.
 _POLL_SECONDS = 0.02
 
 # Lock-file names keep a readable prefix of the URL for an operator listing the
@@ -286,10 +254,9 @@ def _slot_stem(base_url: str, rung: str | None = None) -> str:
 class SourceWidthProbe(TypingProtocol):
     """A probe that answers about a source and knows nothing of rungs.
 
-    The shape this module asked for before a width could belong to a rung, kept
-    because probes written against it are not wrong — a backend that reports one
-    number for the machine is still reporting a fact. It is accepted wherever
-    :class:`WidthProbe` is, and simply never asked the rung question.
+    A backend that reports one number for the machine is still reporting a
+    fact. It is accepted wherever :class:`WidthProbe` is, and is never asked
+    the rung question.
     """
 
     def width(self, source: str) -> int | None:
@@ -300,7 +267,7 @@ class SourceWidthProbe(TypingProtocol):
 class WidthProbe(TypingProtocol):
     """Anything that can ask a source how many requests it will really serve.
 
-    The whole of the width half of #22's surface as this module sees it, and a
+    The whole of a width probe as this module sees it, and a
     structural type rather than an import so that building a capacity never
     drags in a network stack — the same idiom, for the same reason, as
     :class:`~mcgyvr.pool.SourceProbe`.
@@ -398,10 +365,7 @@ class Usage:
     explain this run's wall-clock, not to audit the host.
 
     ``rung`` names the rung when the row is a rung's own bound and is ``None``
-    for the source's. A rung that declared its own width is a separate queue on
-    the same rig (see the module docstring), so folding its acquisitions into
-    the source's row would report a saturation that no single server ever
-    reached — and a report is the one place that must not.
+    for the source's.
     """
 
     source: str
@@ -425,14 +389,9 @@ class Concurrency:
     ``peak`` is keyed by source, so a batch that ran one source three wide and
     then another two wide reports 3 and 2 whether or not the two ever overlapped.
     Those are different runs — one is a batch making progress on two rigs at
-    once, the other is a batch draining them in series — and until #200 nothing
-    in this module could tell them apart.
-
-    The question became worth asking when #185 made the bound host-wide. Before
-    it, "how many dispatches are in flight" was answerable by summing what one
-    process knew. Now the interesting figure is how much of the *declared total*
-    a batch actually used, and ``peak`` against :attr:`Capacity.total` is that
-    figure.
+    once, the other is a batch draining them in series — and this record is
+    what tells them apart: ``peak`` against :attr:`Capacity.total` is how much
+    of the *declared total* a batch actually used.
 
     Per-process, for the same reason :class:`Usage` is: this explains one batch's
     wall-clock. Another process's dispatches count against the same slot files
@@ -458,7 +417,7 @@ class Capacity:
     enforced are the ones the operator declared and there is no second place a
     capacity can be written down. Safe to share across threads — and shared
     with every other mcgyvr process on this host by construction, since a slot
-    is a ``flock`` on a file both can see (#185). ``lock_dir`` exists for
+    is a ``flock`` on a file both can see. ``lock_dir`` exists for
     callers that need a rendezvous other than the per-user temp directory;
     tests use it for isolation.
     """
@@ -573,10 +532,9 @@ class Capacity:
         # How long a :meth:`hold` that names no timeout of its own will wait.
         # ``None`` is the blocking default this class was written with, which
         # is right for a batch inside one process. :meth:`of` sets it from
-        # ``budgets.task_timeout_s``, so a run driven from the command line is
+        # ``task_timeout_s``, so a run driven from the command line is
         # bounded by the same ceiling that bounds the rest of its task: a wait
-        # nobody is going to end is a command with no output and no end, and
-        # that ceiling had no reader anywhere in the product before this.
+        # nobody is going to end is a command with no output and no end.
         self._queue_timeout = queue_timeout_s
         self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
         # Re-entrant because :meth:`deciding` lends this lock to a caller, and a
@@ -590,10 +548,7 @@ class Capacity:
         # yet — the module docstring's reservations. Zero for every bound rather
         # than absent, so a read is a lookup and never a default. Per bound and
         # not per source, because a reservation is a claim against the queue the
-        # slot will be taken from: charging a rung's choice to the rig would
-        # make every sibling rung of that rig read as busy the moment one of
-        # them was chosen, which is the funnel the knob exists to end wearing a
-        # different name.
+        # slot will be taken from.
         self._reserved = dict.fromkeys(self._bounds, 0)
         # Of the slots granted, how many are a reservation being spent rather
         # than a second dispatch. Subtracted in :meth:`load` so that granted and
@@ -627,14 +582,13 @@ class Capacity:
     ) -> Capacity:
         """The capacities this config declares, checked against ``probe`` if given.
 
-        Every source, not only the ones the ladder currently uses: a role
-        binding (orchestrator, verifier) dispatches against a source that need
-        not appear in any tier, and a capacity that did not cover it would raise
+        Every unit, not only the ones the ladder currently uses: a role
+        binding (orchestrator, verifier) dispatches against a unit that need
+        not appear on the ladder, and a capacity that did not cover it would raise
         at the moment it was first used.
 
         Without a probe every width is the declared one and nothing is
-        confirmed — the behaviour this had before there was anything to ask, and
-        still the ordinary case for a backend that does not report its
+        confirmed — the ordinary case for a backend that does not report its
         parallelism. With one, the module docstring's three rules apply: a larger report
         wins, ``None`` leaves the declaration standing and unconfirmed, and a
         smaller report raises rather than silently lowering the bound.
@@ -652,13 +606,8 @@ class Capacity:
         map from the confirmed widths would work too, and would be one more
         thing every caller who probes has to remember to do.
 
-        Every tier is asked as well as every source, whether or not it declared
-        a width: a rung that inherits the source's number still has a server
-        process of its own, and that process is the thing a probe can speak
-        about. What it answers is measured against the number that would
-        otherwise apply — the rung's if it declared one, the source's if it did
-        not — by the same three rules, so a rung is neither silently narrowed
-        nor left at a guess a machine has already contradicted.
+        The probe is asked about each unit and never about a rung, and no rung
+        bound is built.
 
         ``root`` is the directory the slot files live in — :class:`Capacity`'s
         ``lock_dir``, named for what it is to a caller building from a config:
@@ -738,12 +687,12 @@ class Capacity:
     def limit(self, source: str, rung: str | None = None) -> int:
         """The width enforced for ``source``, or for ``rung`` where it has its own.
 
-        The one place the fallback is spelled out for a caller: a rung that
-        declared a width is bounded by it, and a rung that did not is bounded by
-        its unit's, which is the width ``units.*.width`` has always
-        meant. A rung this capacity has never heard of is answered with its
-        source's width rather than refused, because an unknown rung name is a
-        dispatch that named no width, not a dispatch to an unknown rig.
+        The one place the fallback is spelled out for a caller: a rung that was
+        given a bound is bounded by it, and a rung that was not is bounded by
+        its unit's enforced width (see :attr:`limits`). A rung this capacity has
+        never heard of is answered with its source's width rather than refused,
+        because an unknown rung name is a dispatch that named no width, not a
+        dispatch to an unknown rig.
         """
         limit = self._bounds.get(self._bound(source, rung))
         if limit is None:
@@ -776,7 +725,7 @@ class Capacity:
         """Whether ``source``'s width was reported by the machine or assumed.
 
         The difference is evidence. A width a rig stated is a fact about that
-        rig; a width taken from ``max_parallel`` is what an operator guessed
+        rig; a width taken from ``units.*.width`` is what an operator guessed
         when they wrote the config — or what
         :func:`mcgyvr.initialize.initialize` guessed on their behalf, which is
         always ``1``. A report showing "4" without saying which kind of 4 it is
@@ -838,19 +787,9 @@ class Capacity:
     def total(self) -> int:
         """The most dispatches that could ever be in flight across every rig.
 
-        Counted per rig rather than per bound, because a rung's own width
-        *overrides* its source's — that is what ``units.*.width``
-        is documented to do — and a superseded number is not a queue. Summing
-        every bound counted it as one anyway: a rig whose source line says 1 and
-        whose rung says 16 reported 17, and :func:`run_batch` sized its pool at
-        seventeen threads for a rig that will admit sixteen.
-
-        The rung bounds of one rig *do* add up between themselves: each is a
-        server process of its own with slot files of its own, so two rungs at 8
-        are sixteen dispatches. What may not be added on top is the source
-        number they replaced, so each rig contributes the greater of its own
-        declared width and what its rungs declare between them. Where no rung
-        declares a width this is the sum of the source widths, unchanged.
+        Each source contributes the greater of its own width and the sum of the
+        rung bounds given for it. Where no rung bound was given — every
+        capacity :meth:`of` builds — this is the sum of the source widths.
         """
         by_source: dict[str, int] = {}
         for rung in self._rungs.values():
@@ -898,25 +837,14 @@ class Capacity:
         Adding them is honest because the overlap is removed where it is
         created rather than here: :meth:`hold` consumes the reserving thread's
         reservation for as long as it holds the slot, so a reserved attempt that
-        has been admitted is counted once, as a slot. ``max(in_use, reserved)``
-        was the earlier rule and it under-counts whenever both kinds of hold are
-        on one source — a verifier holding one slot of a two-wide rig while a
-        routed climb has reserved it and is between attempts reads as 1, and a
-        caller computing ``width - load`` sends a third dispatch at a rig with
-        nothing free.
+        has been admitted is counted once, as a slot.
 
         This process and this capacity, and nothing else. Another mcgyvr
         process contending for the same slot files is not counted here and is
         not meant to be: the bound it contends for is the lock file, while this
         number exists to spread the choices *this* batch is making.
 
-        Read per bound and never per rig, for the same reason
-        :meth:`in_flight` is: a rung that declared a width of its own is a
-        second server process on that box, so its granted slots and its
-        reservations are its own and a sibling rung's are not. A load that
-        pooled them would report a rig's busiest rung as every rung's load, and
-        an ``idle`` climb would buy a priced rung to route around a local one
-        that was empty.
+        Read per bound, for the same reason :meth:`in_flight` is.
         """
         self._bounded(source)
         bound = self._bound(source, rung)
@@ -1076,30 +1004,29 @@ class Capacity:
         held against its source's slots, not against a second pool of the same
         size (see the module docstring).
 
-        The slot is an exclusive lock on one of ``max_parallel`` files keyed by
-        the source's ``base_url``, so it excludes every thread of every
-        mcgyvr process on this host, not only this one (#185). ``timeout=None``
-        asks for this capacity's own bound, which is ``budgets.task_timeout_s``
+        The slot is an exclusive lock on one of as many files as the enforced
+        width, keyed by the source's ``base_url``, so it excludes every thread
+        of every mcgyvr process on this host, not only this one. ``timeout=None``
+        asks for this capacity's own bound, which is ``task_timeout_s``
         when it was built by :meth:`of` and nothing when it was built directly
         — and nothing means blocking until a slot frees, because a deep batch
         queue is a legitimate wait and a crashed holder's locks are released by
         the kernel, so the wait cannot be for a slot nobody can give back. A
         finite ``timeout`` turns the acquisition into a claim: try for that
         long, then raise :class:`SlotUnavailableError` naming the source — pass
-        ``0`` for one attempt with no queueing at all, multica's shape. The
+        ``0`` for one attempt with no queueing at all. The
         subclass is what lets a caller tell a rung that is merely full from a
         capacity that does not bound the source at all.
 
         The slot is released on the way out however the body leaves — a backend
         that times out or refuses must not cost the source a slot for the rest
-        of the run, which is the leak the acceptance names.
+        of the run.
 
         There are as many slot files as the *enforced* width, so a source a
         probe widened dispatches that much wider — while the endpoint is checked
         against the width its config *declared*, which is the number an endpoint
         carries. Comparing it against the enforced one instead would refuse
-        every dispatch through a source a probe had just widened, and blame a
-        stale config for a disagreement :meth:`of` had itself created.
+        every dispatch through a source a probe had just widened.
 
         Raises :class:`CapacityError` rather than proceeding when the source is
         one this capacity does not know, when the endpoint's ``max_parallel``
@@ -1150,7 +1077,7 @@ class Capacity:
             raise CapacityError(
                 f"this thread already holds a slot on {where}. A "
                 f"nested dispatch to it waits for a slot the waiter "
-                f"is itself holding, so at the default max_parallel=1 it would "
+                f"is itself holding, so at the default width of 1 it would "
                 f"deadlock silently. Finish the outer dispatch first."
             )
 
@@ -1214,10 +1141,8 @@ class Capacity:
         (``mcgyvr-lab/records/plans/sleep-wake.md`` D8). The census decides *whether* to
         sleep; this is what makes acting on the decision safe.
 
-        Every bound of the named sources, which is every rung that declared a
-        width of its own as well as the source's own pool: a drain that took the
-        source's slots and left a rung's would leave exactly the dispatches a
-        width-declaring rung makes running.
+        Every bound of the named sources, which is every rung bound as well as
+        the source's own pool.
 
         It is **best-effort against what the flock cannot see** and says so
         rather than pretending otherwise: a request from a second machine, or
@@ -1226,9 +1151,10 @@ class Capacity:
         a mutex on requests (R1, ``gatelib``).
 
         ``timeout`` bounds the wait for each slot; ``None`` blocks until every
-        one of them frees. A caller should pass ``budgets.request_timeout_s``,
-        because a dispatch in flight either finishes inside that or its
-        transport has already given up.
+        one of them frees. A caller should pass the longest
+        ``request_timeout_s`` among the named units, because a dispatch in
+        flight either finishes inside that or its transport has already given
+        up.
         """
         named = sorted(set(sources))
         for source in named:
@@ -1410,7 +1336,7 @@ def run_batch[T](
 
     ``workers`` defaults to :attr:`Capacity.total` — the most dispatches that
     could ever be in flight. More threads than that cannot make anything run
-    sooner; they can only queue on a semaphore, at the price of a stack each.
+    sooner; they can only wait on a slot file, at the price of a stack each.
     A caller whose jobs do substantial work *between* dispatches (applying a
     diff, running a gate) may reasonably want more, which is why it is a
     parameter rather than a constant.

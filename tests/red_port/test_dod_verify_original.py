@@ -1,16 +1,10 @@
 """C4 — an empty ``target_content`` is a new file, not an unprovided original.
 
 :func:`~mcgyvr.verify.build_prompt` falls back to the contract's
-``target_content`` when the caller passes no ``original``, but wrote the
-fallback as ``view["target_content"] or None`` — and ``"" or None`` is ``None``.
-An empty target content means "the file does not exist yet", which
-:func:`_original_block` already renders as "the change creates a new file";
-collapsing it to ``None`` renders it as "not supplied" instead. The reviewer is
-told it is judging against a file it never saw, when the truth is there is no
-file yet to see.
-
-The fix is to stop coercing: the empty string is a real value with its own
-sentence.
+``target_content`` when the caller passes no ``original``. An empty target content
+means "the file does not exist yet", which :func:`_original_block` renders as "the
+change creates a new file"; ``None`` renders as "not supplied". The empty string is
+a real value with its own sentence and is not coerced to ``None``.
 """
 
 from __future__ import annotations

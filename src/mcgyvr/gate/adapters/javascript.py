@@ -17,9 +17,9 @@ absent that is an *environment* fault, surfaced as
 :class:`~mcgyvr.gate.adapter.ToolUnavailableError`, not a rejection — the same
 distinction the Python adapter and the acceptance rung (#38) draw. When a tool
 is present but its run cannot be read, that is
-:class:`~mcgyvr.gate.adapter.ToolFailedError` and the change is refused
-: eslint and prettier both answer a fatal config error with exit 2
-and an empty stdout, which every reader here would otherwise score as clean.
+:class:`~mcgyvr.gate.adapter.ToolFailedError` and the change is refused:
+eslint and prettier both answer a fatal config error with exit 2 and an empty
+stdout, which every reader here would otherwise score as clean.
 
 The three grammars (JavaScript, TypeScript, TSX) are selected by extension.
 JSX rides on the JavaScript grammar, which parses it; ``.tsx`` needs its own
@@ -74,13 +74,8 @@ _EXTENSIONS = _TS_EXTENSIONS + _TSX_EXTENSIONS + _JS_EXTENSIONS
 # error rejects a change: a warning is, by the project's own config, not
 # fatal, so charging the worker for one would contradict the project's intent.
 #
-# This has no ruff counterpart — the Python adapter counts every diagnostic it
-# is given — and the asymmetry is deliberate rather than an oversight, because
-# the two tools do not mean the same thing by a non-fatal finding. the
-# 2026-08-16 amendment is where that is argued and where it must be changed;
-# this constant is the implementation of a decision, not the decision. Under
-# the current `eslint.config.mjs` all 66 enabled rules are severity `error`, so
-# the filter drops nothing today (#261).
+# ruff has no severity to filter on; the Python adapter's only non-rejecting
+# lint findings are the ones `PythonAdapter.lint` demotes to `STYLE`.
 _ESLINT_ERROR = 2
 
 
@@ -116,7 +111,7 @@ class JavaScriptAdapter(LanguageAdapter):
     ) -> list[Finding]:
         # `contract_text` is accepted and unread: every hazard in `_HAZARDS` is
         # a fault no contract can order — `==` where `===` was meant, a `var`,
-        # an empty catch — so there is nothing here for a contract to stand
+        # a stray `debugger` — so there is nothing here for a contract to stand
         # down. Taking the argument anyway keeps one adapter signature; an
         # adapter that refused it would make the gate's call site conditional
         # on which language it was talking to.
@@ -237,12 +232,7 @@ class JavaScriptAdapter(LanguageAdapter):
 
         Deliberately not read: ``package.json`` scripts. A repository that
         declares its own ``typecheck`` script has declared an acceptance
-        command, and that belongs in the contract, which outranks this. Measured
-        while sizing #133: ``immerjs/immer`` carries a ``tsconfig.json`` and
-        pins ``typescript`` at all 27 commits of the pinned corpus while
-        declaring **no** type-check script at any of them, which is why script
-        detection alone would find nothing on a repository written entirely in
-        TypeScript.
+        command, and that belongs in the contract, which outranks this.
         """
         return ["tsc", "--noEmit"] if (repo / "tsconfig.json").is_file() else None
 

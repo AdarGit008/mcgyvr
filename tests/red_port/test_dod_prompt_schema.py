@@ -1,13 +1,9 @@
 """S11 — an unsupported output schema is refused before the dispatch, not after it.
 
-A contract can declare ``output_schema: unified_diff``, and the loader accepts it
-— but the prompt builder has no reply instruction for it and the reply parser
-has no parser for it. The result is a prompt sent with no format instruction at
-all, and a reply that is refused as unsupported only *after* a model call has
-already been paid for.
-
-The fix refuses the unsupported schema at prompt-build time, where the dispatch
-has not happened and the cost is zero.
+A contract can declare ``output_schema: unified_diff``, and the loader accepts it,
+but there is no reply instruction and no reply parser for it. The unsupported schema
+is refused at prompt-build time, where the dispatch has not happened and the cost is
+zero.
 """
 
 from __future__ import annotations

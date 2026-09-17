@@ -9,12 +9,11 @@ here rather than being written three times:
 lines each change added, which was all Count 2 and the corpus check needed. The
 reach count needs *which* lines, because a line number is only meaningful in the
 tree that contains it. :func:`added_lines` recomputes them from the same diff
-``enumerate.py`` counted, and every caller asserts the recomputed total equals
+``enumerate.py`` counted, and Count 1 asserts the recomputed total equals
 the pinned one — that assertion is what makes "re-runs to the same number" a
 property of the code rather than a hope.
 
-**A container, always.**  and  put target code inside a
-container, and  turned that from a preference into a constraint: the
+**A container, always.** Target code runs inside a container: the
 resolver Count 3 measures imports the target's own modules, and Count 1 runs
 the target's test suite, which is arbitrary code by construction. Nothing here
 runs a target's code on the host. Host-side work is git metadata only, which is
@@ -25,7 +24,7 @@ from ``corpus.json``'s ``declared_check``, so the measurement runs what the
 repository declared rather than what a detector guessed about it. That is why
 this does not reuse :mod:`mcgyvr.sandbox`: ``detect_stack`` infers an install
 command from the manifests it finds, and substituting mcgyvr's inference for the
-repository's own declaration is precisely the error  names. The sandbox
+repository's own declaration is the error to avoid. The sandbox
 is also built around a per-task workspace with a git base commit to diff a
 worker's change against, and there is no worker here. What is borrowed is its
 discipline — a per-frame container, no host environment inherited, torn down
@@ -181,7 +180,7 @@ def checkout(clone: Path, commit: str, keep: Sequence[str]) -> None:
 
 
 def changed_paths(clone: Path, commit: str, unit: str) -> frozenset[str]:
-    """Every path a commit touched — used to decide when to re-provision."""
+    """Every path a commit touched."""
     out = git(
         clone,
         "diff",
@@ -350,10 +349,9 @@ class FrameContainer:
             "4g",
             # Generous on purpose. A tighter ceiling is not a safety property
             # here — the ceiling that matters is the container boundary — and
-            # 1024 was low enough that uv's rayon pool failed to spawn threads
-            # (EAGAIN) on exactly the commits where it had to build, losing
-            # seven of mcgyvr's twenty changes to a rig defect that looked like
-            # a target failure.
+            # a low one makes uv's thread pool fail to spawn (EAGAIN) on the
+            # commits where it has to build, a rig defect that looks like a
+            # target failure.
             "--pids-limit",
             "8192",
             "--user",

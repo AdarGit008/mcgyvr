@@ -1,34 +1,23 @@
 """Pattern B — the tree owns the bytes, and one seam commits them.
 
-The 2026-08-29 pressure test's pattern B: *"Nothing owns the bytes. Five modules
-write file content and disagree about where truth lives."* B6 closed half of it
-— :func:`mcgyvr.deliver.deliver` now re-runs the gate over the bytes on disk,
-inside the repository lock, immediately before staging, so a caller holding a
-string cannot commit it under a verdict reached on something else.
-
-**That fix protected one of the two delivery implementations.** The other was
-``tools/missions/run.py``, which imported nothing from :mod:`mcgyvr.deliver`: it
-read ``Delivered.value`` — a ``str`` carried four hops from
-:func:`mcgyvr.escalate.judge` — wrote it into the worktree with ``_place`` and
-committed it with ``_commit_delivery``. No re-gate, no digest, no lock. And it
-was the implementation with the mileage on it: the mission runner is what drove
-the contracts the pressure test recomputed digests over, while ``mcgyvr run``,
-the only production caller of ``deliver``, was added the day before this file.
-
-So ``Judgement.value`` was not a design decision anybody made. It was the
-coupling between two deliveries, and the second one applied no bar. The rule
-this file holds is therefore not "carry the bytes more carefully" but:
+Pattern B: *"Nothing owns the bytes"* is what happens when several modules
+write file content and disagree about where truth lives.
+:func:`mcgyvr.deliver.deliver` re-runs the gate over the bytes on disk, inside
+the repository lock, immediately before staging, so a caller holding a string
+cannot commit it under a verdict reached on something else. A second delivery —
+a runner that wrote a carried string into its worktree and committed it itself —
+would apply no bar: no re-gate, no digest, no lock. The rule this file holds is
+therefore not "carry the bytes more carefully" but:
 
     The tree is the owner. Content never travels as a value, and one seam
     commits.
 
-The runner delivers through :func:`mcgyvr.deliver.deliver` now, handed the
-binding item 3 mints inside the workspace its gate ran in — the only place it
+``tools/missions/run.py`` delivers through :func:`mcgyvr.deliver.deliver`, handed
+the binding minted inside the workspace its gate ran in — the only place it
 can be minted, because that sandbox is torn down before the climb returns.
 
-Two of these tests began RED and named the defect; they are kept in the shape
-the fix left them, which for the reproduction means asserting the helpers are
-gone rather than driving them. The other two are the guard that stops a third
+Two of these tests assert the runner's own delivery helpers are gone rather
+than driving them. The other two are the guard that stops a second
 delivery growing back, and the control that says none of this is merely a
 refusal.
 """

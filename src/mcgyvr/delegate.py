@@ -15,7 +15,7 @@ type, spelled as JSON — ``task_type``, ``task``, ``target``, and the optional
 ``interface``, ``deps``, ``allow``, ``forbid``, ``stop_conditions``,
 ``acceptance``, ``demonstration`` and ``risk``. A proposal names references;
 the repository supplies the facts, exactly as the decompose module's seam
-draws the line (ADR-0007). The role is *not* shown a contract document and is
+draws the line. The role is *not* shown a contract document and is
 not asked to author one: the proposal→document→contract round trip
 (:func:`mcgyvr.orchestrator.decompose._document` and the public loader) runs in
 ``decompose``, after the index has resolved each reference, which is what keeps
@@ -51,14 +51,14 @@ ORCHESTRATOR_ROLE = "orchestrator"
 #: array of proposals — several short directives, not a file — and a cap that
 #: cuts a proposal in half costs the whole decomposition: nothing downstream
 #: can read half a JSON array. Generous enough for a handful of contracts,
-#: small enough that a runaway reply is still bounded (ADR-0009).
+#: small enough that a runaway reply is still bounded.
 ORCHESTRATOR_OUTPUT_TOKENS = 4096
 
 #: The documented answer a keyless install gets. ``proposer_for`` returns
 #: ``None``; the CLI prints this and exits REFUSED, never a traceback.
 NO_ORCHESTRATOR_ROLE = (
     "the orchestrator role is not configured, so a prompt cannot be turned "
-    "into contracts here. Bind `orchestrator.source` and `orchestrator.model` "
+    "into contracts here. Bind `orchestrator.unit` and `orchestrator.model` "
     "in the config, or author a contract yourself and run it with "
     "`mcgyvr run`."
 )
@@ -82,8 +82,8 @@ def build_prompt(evidence: Evidence) -> str:
     The role is shown only what exploration already found — the ranked
     shortlist, the read regions, and the task types this configuration can
     serve — and is told to answer in the proposal shape. It has no way to ask
-    the repository for more, which is ADR-0001 boundary 2 expressed as a
-    prompt rather than as a type.
+    the repository for more: exploration is deterministic, and the prompt is
+    where that boundary is held.
     """
     resolution = evidence.resolution
     exploration = evidence.exploration
@@ -192,9 +192,9 @@ def _reply_format() -> str:
 def proposals_from_reply(reply: str) -> tuple[Proposal, ...]:
     """The proposals a reply carries, or a named failure.
 
-    Accepts the JSON array bare or wrapped in a markdown fence, so a model that
-    fences its answer is still read rather than refused. Anything else — prose,
-    a JSON scalar, a proposal missing its required fields — is an
+    Accepts a JSON array of proposals, or a single proposal object, bare or
+    inside the first markdown fence of the reply. A reply that is not JSON, a
+    JSON scalar, or a proposal missing a required field is an
     :class:`UnreadableProposalError` naming what was wrong, never a guess at a
     proposal.
     """
@@ -222,10 +222,10 @@ def proposals_from_reply(reply: str) -> tuple[Proposal, ...]:
 
 
 def _fenced_body(reply: str) -> str:
-    """The JSON inside one markdown fence, or the reply itself when unfenced.
+    """The body of the first markdown fence if it closes, else the whole reply.
 
-    Mirrors the worker reply parser's fence rule without its file judgements:
-    one fence or the bare text, never a hunt through prose.
+    Unlike the worker reply parser it accepts an unfenced reply, and ignores
+    every fence after the first.
     """
     text = reply.replace("\r\n", "\n").replace("\r", "\n").strip()
     lines = text.split("\n")
@@ -347,7 +347,7 @@ def proposer_for(
         )
         if completion is None:  # the role was bound a moment ago
             raise OrchestratorUnavailableError(
-                f"the {ORCHESTRATOR_ROLE!r} role has no source to dispatch to"
+                f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
             )
         return proposals_from_reply(completion.text)
 

@@ -2,11 +2,10 @@
 """The serving configuration, read whole and pinned as two digests.
 
 **What this closes.** `product_sha256` pins the code, `bar_sha256` pins the bar,
-`model_sha256` pins the weights — and nothing pinned *how the model is served*,
-which  records as having already moved results twice. Two runs against
-one model, one revision and one bar can still disagree because one server had
-prefix caching on, or ran a different attention kernel, or enforced structured
-output. None of that was on disk.
+`weights_sha256` pins a vLLM checkpoint — and this pins *how the model is
+served*. Two runs against one model, one revision and one bar can still
+disagree because one server had prefix caching on, or ran a different attention
+kernel, or enforced structured output.
 
 **Two digests, because one would be a tripwire nobody could leave armed.**
 
@@ -30,14 +29,13 @@ green. The engines' vocabularies are declared below and
 ``tests/test_serving.py`` holds the live configs to them.
 
 **Both engines land in one shape.** vLLM states its config as a Python repr on
-``/server_info``; a daemon that runs it as a child splits the same reading
-between that child's command line and
-that child's ``/props``. Different sources, different spellings, one normalised
+``/server_info``; llama-server states its own on ``/props``. Different
+sources, different spellings, one normalised
 structure — so the two digests mean the same thing on either engine.
 
-**Nothing reads this for comparison.** Same discipline as the `observed` block
-(D7): it records, and promotion into anything that refuses a table is
-the owner's decision, visible in a diff.
+**The two digests above refuse nothing.** ``pin.py`` compares the semantic one
+at open against close and records the result. Only
+``serving_resolved_sha256`` (:func:`resolved`) is in ``identity.KEY``.
 """
 
 from __future__ import annotations
@@ -94,12 +92,10 @@ SEMANTIC: frozenset[str] = frozenset(
         "bos_token",
         "eos_token",
         "media_marker",
-        # placement — where a tensor is computed. Declared output-neutral until
-        # 2026-09-03 and measured not to be: `n_cpu_moe` 0 vs 99 on one build
-        # moved 9 of 257 verdicts (3.50pp, own-null bound 1.47pp). Two cells
-        # of one model at two offload settings are therefore incomparable on
-        # output until a placement null says otherwise, and that is the
-        # finding, not an inconvenience .
+        # placement — where a tensor is computed. Measured not output-neutral
+        # (records/evidence/2026-09-02-srv1-kernel-arms/placement-null.json), so
+        # two cells of one model at two offload settings are incomparable on
+        # output until a placement null on that build says otherwise.
         "n_gpu_layers",
         "n_cpu_moe",
         "threads",
@@ -142,8 +138,8 @@ SEMANTIC: frozenset[str] = frozenset(
         "n_keep",
         "n_predict",
         "max_tokens",
-        # structured output — the territory: enforcement here changes
-        # what a reply CAN be, so a refusal stops measuring the model
+        # structured output: enforcement here changes what a reply CAN be,
+        # so a refusal stops measuring the model
         "structured_outputs_config",
         "backend",
         "disable_any_whitespace",
@@ -232,15 +228,6 @@ OPERATIONAL: frozenset[str] = frozenset(
         "debug_dump_path",
         "cache_dir",
         "compile_cache_save_format",
-        # Placement keys (`n_gpu_layers`, `n_cpu_moe`, `threads`, `mmap`) were
-        # listed here until 2026-09-03 under the declaration that WHERE a tensor
-        # is computed cannot change WHAT is emitted. Measured 2026-09-02 on
-        # srv1 (records/evidence/2026-09-02-srv1-kernel-arms/placement-null.json):
-        # `--n-cpu-moe` 0 against 99 on one build changed 9 of 257 verdicts,
-        # 3.50pp against the build's own 1.47pp null bound. The declaration was
-        # one argument for all four keys and is false for the one measured, so
-        # all four are SEMANTIC now : a placement key is operational
-        # only after a placement null on that build has shown it neutral.
     }
 )
 
@@ -376,7 +363,7 @@ def fingerprint(config: dict[str, Any]) -> dict[str, Any]:
         "note": (
             "two digests because one would move when somebody enabled a "
             "counter; the semantic half is the one a guard could key on. "
-            "Nothing reads either for comparison (D7)"
+            "Neither refuses a comparison"
         ),
     }
 
@@ -473,10 +460,9 @@ RESOLVED_SIGNATURES: tuple[tuple[str, str, Any], ...] = (
 )
 
 #: What a run can ASK for, per resolved field: the flag or environment variable
-#: whose value the engine may or may not honour. ``None`` where a run cannot ask
-#: at all — ``linear_kernel`` is chosen by the quantization method and the card,
-#: and `--linear-backend` selects a POLICY (`auto`, `machete`, …) rather than
-#: naming a kernel, so the two are not in one vocabulary and are never compared.
+#: whose value the engine may or may not honour. ``None`` where the request and
+#: the outcome are not in one vocabulary and are never compared
+#: (:data:`RESOLVED_NOT_COMPARED`).
 RESOLVED_ASKED_BY: dict[str, str | None] = {
     "attention_backend": "VLLM_ATTENTION_BACKEND",
     "dtype": "--dtype",
@@ -504,8 +490,9 @@ RESOLVED_NOT_COMPARED: dict[str, str] = {
         "engine's own fallback sentence, which is recorded on the field"
     ),
     "linear_kernel": (
-        "--linear-backend selects a policy (auto, machete, …) and the outcome "
-        "is a kernel class; the quantization method and the card choose it"
+        "--linear-backend takes a backend name (auto, marlin, exllama, …) and "
+        "the outcome is a kernel class name; under auto the quantization "
+        "method and the card choose it"
     ),
     "compilation_mode": (
         "--enforce-eager is a bare boolean and the outcome is an enum member, "
@@ -603,16 +590,16 @@ def resolved(
     the engine did not state leaves ``serving_resolved_sha256`` null with a
     reason naming it, so :func:`identity.require_comparable` refuses the row on
     absence rather than matching it against another row that also could not say.
-    Two silences are not an agreement — the defect D3 exists for, one
-    level in: a digest taken over ``{"attention_backend": null}`` twice compares
-    equal while the two servers run different kernels.
+    Two silences are not an agreement: a digest taken over
+    ``{"attention_backend": null}`` twice compares equal while the two servers
+    run different kernels.
 
     ``asked`` maps flag or environment names to what this run requested, and is
     compared against what the engine resolved wherever the two are in the same
     vocabulary. A disagreement is RECORDED, never repaired: a run that asked for
     ``FLASHINFER`` and got ``TRITON_ATTN`` measured the second one, and the fact
-    that it wanted the first is a fact about reach (D2's shape — the
-    value, plus the reason it is not what was asked).
+    that it wanted the first is a fact about reach (the value, plus the reason
+    it is not what was asked).
     """
     asked = dict(asked or {})
     readings = {**resolved_from_log(log_lines), **resolved_from_config(config)}
@@ -676,7 +663,7 @@ def resolved(
                 f"{sorted(unread)} could not be read, so no digest was computed. "
                 "A digest over a null is a value two servers can share while "
                 "running different kernels, which is the agreement-by-absence "
-                "this field exists to refuse (D3)."
+                "this field exists to refuse."
             )
         ),
         "resolved": fields,

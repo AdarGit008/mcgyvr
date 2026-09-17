@@ -1,6 +1,6 @@
 """A probe keeps every sample it took beside the median it is judged by.
 
-Owner ruling N7, 2026-09-15: keep the raw samples. The srv1 CPU-experts prefill
+Owner ruling N7: keep the raw samples. The srv1 CPU-experts prefill
 tolerance is re-derived by the M1 rule, which needs every single sample, not
 only the median.
 
@@ -10,13 +10,13 @@ only the median.
   the order it was taken — beside ``warm_decode_tok_s`` and ``prefill_tok_s``.
   Asked nothing, they return the two medians alone, which is what
   ``mcgyvr fleet probe`` (:mod:`mcgyvr.fleet.probe`) reads.
-* A probe still takes ``DECODE_SAMPLES`` (5) decodes and ``PREFILL_SAMPLES`` (3)
+* A probe takes ``DECODE_SAMPLES`` (5) decodes and ``PREFILL_SAMPLES`` (3)
   prefills and sends no extra request; each median is its samples' median.
 * :func:`mcgyvr.fleet.harness.on_the_rig`, which ``read --probe`` runs on the rig,
   carries the samples in its figures.
 * :func:`mcgyvr.fleet.read.record` files them on the unit's rows as
   ``decode_samples`` and ``prefill_samples``, unjudged. The medians are judged
-  exactly as before, and the rig row's ``probed`` stays the medians.
+  exactly as without them, and the rig row's ``probed`` stays the medians.
 
 No rig is reached: the units are fakes, and the harness runs against a server on
 127.0.0.1.

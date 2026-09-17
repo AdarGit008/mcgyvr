@@ -1,6 +1,6 @@
 """A tagged live fleet is admitted, read and emitted as its layout.
 
-Owner, 2026-09-16: a promoted fleet is ``<fleet>@<lock date>``. The tag lives
+Owner ruling: a promoted fleet is ``<fleet>@<lock date>``. The tag lives
 in the folder's name and in ``~/.mcgyvr/live.json``; inside the folder the
 fleet is keyed by its plain name, and so is everything derived from it. So a
 live read of ``b-small@2026-09-13``:

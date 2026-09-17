@@ -119,8 +119,9 @@ def test_no_retired_door_name_under_src_tools_tests_or_at_the_root() -> None:
     assert not hits, (
         f"{len(hits)} mention(s) of a retired door name, each path:line: name. "
         "The fix is the door command (python -m mcgyvr.serving.run --host H "
-        "--campaign C --step PATH --model M) or the gate script that owns the "
-        f"rule (02-rig.py, 04-workload.py, 07-teardown.py, 08-parse.py): {hits}"
+        "--campaign C --model M --ctx-per-slot N [--step PATH]) or the gate "
+        "script that owns the rule (02-rig.py, 04-workload.py, 07-teardown.py, "
+        f"08-parse.py): {hits}"
     )
 
 

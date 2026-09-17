@@ -1,21 +1,19 @@
 """The draws of one attempt are dispatched together, within the unit's width.
 
-``best_of`` called ``sample(index)`` in a loop and the driver's ``send`` was
-invoked from inside it, so N draws were N requests one after another: breadth
-cost N times the latency of one draw on a unit that was declared, and
-measured (CON-04), able to serve several at once.
-:func:`~mcgyvr.capacity.run_batch` has bounded a batch by a capacity since #23
-and had no production caller. This is the caller: every draw is a job handed
-the capacity it must dispatch under, the outcomes come back in draw order, and
-``best_of`` is given a ``sample`` that returns the draw already in hand. The
-gate still judges the draws one at a time — there is one sandbox, and that is
-inherent.
+Draws sent one after another from inside ``best_of``'s ``sample(index)`` loop
+would cost N times the latency of one draw on a unit that is declared, and
+measured, able to serve several at once. :func:`~mcgyvr.capacity.run_batch`
+bounds a batch by a capacity, and the driver is its caller: every draw is a job
+handed the capacity it must dispatch under, the outcomes come back in draw
+order, and ``best_of`` is given a ``sample`` that returns the draw already in
+hand. The gate still judges the draws one at a time — there is one sandbox, and
+that is inherent.
 
 What "the draw in flight" means when several are in flight is settled here as
 well: a raise is charged to the **lowest** draw that raised. The earliest is
 what a reader of the journal reaches first, it is the choice that does not
 depend on which thread happened to finish first, and it is what a single draw
-that raised has always reported.
+that raised reports.
 
 The width is the only limiter. On a width-1 unit the capacity's own slot
 serializes the draws, and no second bound is added on top of it.

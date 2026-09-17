@@ -160,10 +160,10 @@ def test_lint_of_no_owned_files_is_empty_and_needs_no_tool(
 # --- a ruff that cannot run (#261) ---------------------------------------
 #
 # Nothing here is faked. ruff is really invoked, really fails, and really
-# writes the empty stdout that used to score as a clean pass — which is the
-# only way to know the fix is keyed on what the tool actually does. The lever
-# is a `pyproject.toml` ruff cannot parse, because that is one of the three
-# incidents this project has already had, not a hypothetical.
+# writes an empty stdout that would otherwise score as a clean pass — which is
+# the only way to know the refusal is keyed on what the tool actually does. The
+# lever is a `pyproject.toml` ruff cannot parse, because that is a real way for
+# ruff to fail, not a hypothetical.
 
 _UNPARSEABLE_CONFIG = "this is not toml at all [[[\n"
 

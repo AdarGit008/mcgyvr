@@ -9,9 +9,7 @@ locked. That half needs no new test: in
 ``test_serve_down_opens_on_the_serving_rig_and_requires_nothing_left`` is a
 live down with no lock at all, and it stays green.
 
-Gate 1 reaches no rig, so the refusal costs no rig time. When this goes green,
-the door tests that ``serve up`` under the default profile with no lock declare
-``profile: dev`` in the same change (plan §10).
+Gate 1 reaches no rig, so the refusal costs no rig time.
 """
 
 from __future__ import annotations

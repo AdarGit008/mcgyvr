@@ -1,6 +1,6 @@
-"""Availability probing (#22).
+"""Availability probing.
 
-The three properties #22 asks for, each held by a test that would fail if the
+Three properties, each held by a test that would fail if the
 implementation drifted back to the obvious version of itself:
 
 1. **A dead source costs one short timeout per run, not one per attempt.** The
@@ -211,7 +211,8 @@ def test_dead_sources_are_probed_concurrently() -> None:
 
 
 def test_the_probe_timeout_is_far_below_the_dispatch_timeout() -> None:
-    """They measure different things; #22's must not inherit #21's two minutes."""
+    """They measure different things; the probe must not inherit the dispatch's
+    minutes."""
     from mcgyvr.availability import PROBE_TIMEOUT_S
     from mcgyvr.runner import GENERATE_TIMEOUT_S
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """read, rig — one reading of the rig, compared with its declaration, and filed.
 
-Owner, 2026-09-15 (D2). One reader goes to the rig on stdin, ``rig-snapshot.sh``
-then ``rig-units.sh``, over the door's ssh: the rig's facts and machine id,
+One reader goes to the rig on stdin, ``rig-snapshot.sh`` then
+``rig-units.sh``, over the door's ssh: the rig's facts and machine id,
 every container and its restart count, every card holder by pid and container,
 and each unit's sleep and in-flight page. Nothing lands on the rig's disk.
 
@@ -32,7 +32,7 @@ from mcgyvr.serving.gatelib import door_required, need, refuse, root, ssh
 
 HERE = Path(__file__).resolve().parent
 #: A reading of the rig, and a probe's harness run on it. A load's harness run has
-#: none (owner rulings NB5 and NBc): see :func:`harness_on_rig`.
+#: none: see :func:`harness_on_rig`.
 READ_TIMEOUT_S = 180
 PROBE_TIMEOUT_S = 1800
 
@@ -41,10 +41,10 @@ def harness_on_rig(host: str, spec: str, source: str) -> str | None:
     """The lock's harness run on ``host`` over the door's ssh, its source on stdin.
 
     Its stdout, or ``None`` when a probe's run outlasts ``PROBE_TIMEOUT_S``. A load
-    (spec ``mode`` ``load``) is run with no timeout: owner ruling NB5 holds a load
-    to its own 30 s with "no 900s no 3600s", and NBc puts no time limit on its
-    wait for the unit to read idle after the close, so an ssh timeout here would
-    cap both. The probes keep ``PROBE_TIMEOUT_S``.
+    (spec ``mode`` ``load``) is run with no timeout: a load is held to its own
+    ``harness.LOAD_LIMIT_S`` and its wait for the unit to read idle after the
+    close has no time limit, so an ssh timeout here would cap both. The probes
+    keep ``PROBE_TIMEOUT_S``.
     """
     from mcgyvr.fleet import harness
 

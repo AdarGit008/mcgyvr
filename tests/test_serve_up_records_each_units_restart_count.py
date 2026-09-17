@@ -1,13 +1,8 @@
 """``serve up`` records how many times each unit restarted.
 
-Restarts are held at exactly 0: a restart fails a dev validation and is never
-locked, and on live it alerts and pulls its combination (plan §5). The one
-place a unit's start is recorded is ``serve-up.json``, and its rows are what
-``servelib.wait_for`` returns (``src/mcgyvr/serving/gate-scripts/serve-up.py:84-92``,
-``src/mcgyvr/serving/servelib.py:257-300``): container, port, healthy,
-sleeping, seconds, models. No restart count. The one restart pattern on record
-is a vLLM pair started ``service_started`` on srv2, where one unit restarts in
-every arm (``records/evidence/2026-09-10-tolerance-survey/analysis.txt:673-696``).
+The one place a unit's start is recorded is ``serve-up.json``, and its rows are
+what ``servelib.wait_for`` returns: container, port, healthy, sleeping,
+seconds, models and ``restarts``.
 """
 
 from __future__ import annotations
