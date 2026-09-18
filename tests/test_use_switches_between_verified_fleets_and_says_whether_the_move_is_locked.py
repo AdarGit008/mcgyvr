@@ -1,9 +1,9 @@
 """``use`` switches between any verified fleet, and says whether the move is locked.
 
-Owner, 2026-09-16: "switching between verified fleets is a common action during
-runtime". A verified fleet is a promoted folder whose layout still matches its
-own lock; ``mcgyvr fleet use <name>`` names any one of them live. What it
-prints is what the lock knows of the move from the fleet that was live:
+Switching between verified fleets is a common action during runtime. A verified
+fleet is a promoted folder whose layout still matches its own lock; ``mcgyvr
+fleet use <name>`` names any one of them live. What it prints is what the lock
+knows of the move from the fleet that was live:
 
 * a **locked move** when the target's layout is in the live fleet's locked
   ``next`` — with the downtime and wake the lock measured for it, per rig;
@@ -11,9 +11,9 @@ prints is what the lock knows of the move from the fleet that was live:
   nothing is refused for it: ``use`` starts nothing, and the door admits a
   live serve up from the lock of the fleet it names.
 
-The refusals that stay: a name with no folder, and a folder whose layout no
-longer matches its own lock. A folder promoted before the ruling has no date in
-its name; ``use`` accepts it, says it is untagged and how to tag it.
+The refusals: a name with no folder, and a folder whose layout no longer
+matches its own lock. A folder with no date in its name is accepted; ``use``
+says it is untagged and how to tag it.
 """
 
 from __future__ import annotations

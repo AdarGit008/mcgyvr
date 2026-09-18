@@ -1,23 +1,22 @@
 """D07 — the output cap is sized for the task, and a prompt that cannot fit is refused
 unspent.
 
-``limits.max_output_tokens`` defaults to 1024 for every task type
-(``contract.py``'s ``LIMITS_FIELDS``), which is the same number for a one-line
-docstring and for a function written from nothing. One of those two is wrong, and
-which one is wrong changes with the day: too small truncates a reply into a named
-failure that costs an attempt, too large steals context from the prompt that would
-have made the reply right. A cap that does not know what it is capping cannot be
-both.
+``limits.max_output_tokens`` has no static default (``contract.py``'s
+``LIMITS_FIELDS``): an undeclared cap is derived per task type by
+:func:`mcgyvr.contract.output_cap`. One number for a one-line docstring and for a
+function written from nothing is wrong for one of them: too small truncates a reply
+into a named failure that costs an attempt, too large steals context from the prompt
+that would have made the reply right.
 
 Three statements, and the second exists to make the first honest.
 
 *A small task type is capped lower than a large one* is asserted on two contracts
 that differ in exactly one byte of YAML — the task type — so the only explanation
 for a difference is the task type. Asserting a specific number for a specific type
-would freeze a table that the port should be free to measure and re-measure; the
+would freeze a table that is free to be measured and re-measured; the
 ordering is the requirement, the numbers are not.
 
-*The cap is deterministic* would be satisfied by today's flat 1024, which is why it
+*The cap is deterministic* would be satisfied by a flat constant, which is why it
 is not asserted alone. Stability is asserted across repeated loads **and across
 separate processes with different hash seeds** — dict iteration order is exactly how
 a table-driven cap acquires a per-process wobble, and an in-process loop would never
@@ -33,13 +32,11 @@ handed a bare falsy result cannot tell "your prompt is too big for this rung" fr
 "this rung is fine" and cannot tell either from "the check was not run", and the
 first of those is repairable by re-decomposing while the others are not.
 
-That test also pins :data:`~mcgyvr.gate.preflight.ESTIMATE_RESERVE`. mcgyvr charges a
-measured 32% against the model-free estimator's under-counting tail ; the
-ported budget check must inherit that reserve rather than a cheerier one, so the
-prompt it is given fits comfortably on a raw count and only fails once the reserve is
-applied. A budget check written against the raw estimate would pass every other
-assertion in this file and quietly regress the one piece of this lever mcgyvr already
-does better than the code it is being ported from.
+That test also pins :data:`~mcgyvr.gate.preflight.ESTIMATE_RESERVE`, the reserve
+charged against the model-free estimator's under-counting tail: the prompt it is
+given fits comfortably on a raw count and only fails once the reserve is applied. A
+budget check written against the raw estimate would pass every other assertion in
+this file.
 """
 
 from __future__ import annotations
@@ -128,8 +125,8 @@ def test_the_cap_is_the_same_every_time_and_is_not_the_same_for_everything() -> 
     """Stable across runs, and stable because it is derived — not because it is a
     constant.
 
-    Both halves are here on purpose. Stability alone is passed by today's flat
-    default; variation alone is passed by a cap that reshuffles with dict order
+    Both halves are here on purpose. Stability alone is passed by a flat
+    constant; variation alone is passed by a cap that reshuffles with dict order
     between processes. A cap is a budget, and a budget that moves between two runs
     of the same contract makes every refusal downstream unreproducible.
     """

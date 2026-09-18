@@ -4,8 +4,8 @@ The journal is append-only for two reasons its module states — several
 orchestrators can write one sink, and a crash mid-write loses one line — and
 those hold only as long as nothing else opens the file for writing. A reviewer
 wants the opposite shape: one row per attempt with its final outcome already
-applied and the prompt and reply beside it as text. The brief (*Live journal
-(WP0)*) puts that shape in a separate artifact, ``tools/live/index.py DIR``
+applied and the prompt and reply beside it as text. That shape is a separate
+artifact, ``tools/live/index.py DIR``
 building ``DIR/index.sqlite`` from every ``*.jsonl`` under ``DIR`` with
 ``telemetry.fold`` applied and the blobs joined by hash, so the journal stays
 what it is and the review reads a derived table.

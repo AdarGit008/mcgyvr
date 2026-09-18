@@ -1,38 +1,21 @@
 """A relative ``geometry_json`` is resolved once, at load, or the load fails.
 
-``models.<id>.geometry_json`` may be written relative, and the live config
-writes it that way: ``~/.mcgyvr/config/mcgyvr.yaml`` line 54 says
-``geometry_json: ./Qwen3.6-35B-A3B-UD-IQ3_XXS.geometry.json``. The line means
-"the scan filed next to me", and it is resolved against ``self.path.parent`` in
-two places — ``Config._pinned`` (``src/mcgyvr/config.py:993``) for the
-canonical rendering, and ``mcgyvr.serving.declared_models``
-(``src/mcgyvr/serving/__init__.py:732``) for the file that is actually opened.
-Neither knows where "me" is in two
-situations, and each answers differently:
+``units.<name>.launch.geometry_json`` may be written relative: the line means
+"the scan filed next to me". :func:`mcgyvr.config._resolved_paths` makes it
+absolute once, at load, against the config's resolved (symlink-followed)
+directory, and refuses a relative value when the config has no path. Two
+situations make "next to me" a question:
 
-1. **There is no path.** ``parse(text)`` takes ``path=None``, and both sites
-   guard on it — ``config.py:989`` returns ``data`` unpinned, and
-   ``serving/__init__.py:734`` leaves ``where`` relative and hands it to
-   ``open``. So the canonical rendering carries the word ``./x.json``, which
-   names a different file from every directory, and the run opens whatever
-   sits in the process's working directory. Measured against the live config
-   on 2026-09-08: loaded from its path it canonicalises the geometry as
-   ``/home/adaramir/.mcgyvr/config/Qwen3.6-….geometry.json``; parsed from the
-   same bytes with no path it canonicalises ``./Qwen3.6-….geometry.json``,
-   which exists from nowhere.
+1. **There is no path.** ``parse(text)`` takes ``path=None``. A canonical
+   rendering that carried the word ``./x.json`` would name a different file
+   from every directory, and :meth:`Config.canonical` promises that two files
+   that load to the same config "render to the same bytes".
 
-   That contradicts :meth:`Config.canonical`, which promises without
-   qualification that two files that load to the same config "render to the
-   same bytes" — a relative name written through the canonical text
-   re-resolves against a different directory on the way back in.
-
-2. **The path goes through a symlink.** ``mcgyvr-lab/records/plans/config-library.md``
-   §6/D5 proposes selecting a ladder by linking it to the default config path.
-   Reached through the link, ``self.path.parent`` is the link's directory and
-   not the entry's, so one file with one set of bytes renders two ways, and
-   the geometry named by one of them is not on disk. Measured the same day on
-   a copy of the live config: the entry and the link canonicalise to different
-   texts over identical bytes.
+2. **The path goes through a symlink.** A ladder selected by linking it to the
+   default config path (``mcgyvr-lab/records/plans/config-library.md`` §6/D5)
+   is reached through the link. The link's directory is not the entry's, so an
+   unresolved join would render one set of bytes two ways, one of which names
+   a geometry that is not on disk.
 
 What these tests pin is one answer, reached once: a config resolves the file it
 names when it can say where it is, and refuses to load when it cannot. Nothing
@@ -83,11 +66,10 @@ def test_a_relative_geometry_json_with_nowhere_to_read_it_beside_is_refused() ->
     """No path is not a default: it is a question the text cannot answer.
 
     ``./geometry.json`` names a different file from every directory, so a
-    config with no location does not name a geometry at all. Today
-    ``config.py:989`` and ``serving/__init__.py:734`` both take that as
-    permission to carry the word unresolved, which is how a kept snapshot ends
-    up naming a file next to the journal and a run ends up opening whatever the
-    working directory holds. This repo refuses rather than guesses when the
+    config with no location does not name a geometry at all. Carrying the word
+    unresolved is how a kept snapshot ends up naming a file next to the journal
+    and a run ends up opening whatever the working directory holds. This repo
+    refuses rather than guesses when the
     fact it needs is absent — ``emit.py`` will not report an unscanned host,
     and ``check_contract_against_rung`` says "an invented window is the defect
     this function exists to end" — and the same answer is the only one here
@@ -132,11 +114,9 @@ def test_the_geometry_a_run_opens_is_the_one_the_identity_names(
     """One resolution, read by both the canonical rendering and the code that
     opens the file.
 
-    ``Config._pinned`` resolves for the canonical rendering and
-    ``mcgyvr.serving.declared_models`` resolves again for the load. Two sites
-    deriving one meaning is how they come apart: through a symlink they already
-    disagree, and a rendering that names a file the run does not open is
-    evidence about a setup that was never served.
+    The path ``load`` resolved is the one in the canonical text and the one
+    ``mcgyvr.serving.declared_models`` opens. A rendering that names a file the
+    run does not open is evidence about a setup that was never served.
     """
     from mcgyvr.serving import declared_models
 

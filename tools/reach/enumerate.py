@@ -10,8 +10,8 @@ the same pinned commits and either prints the result or diffs it against
 
 External frames are fetched at their pinned sha rather than at whatever the
 default branch holds now, which is the whole point of pinning them. Nothing in
-a fetched repository is executed: this reads git metadata only, so it stays on
-the right side  without needing a sandbox. The counts that DO
+a fetched repository is executed: this reads git metadata only, so it needs
+no sandbox. The counts that DO
 require running a target's test suite are Count 1's, and they do not live here.
 """
 

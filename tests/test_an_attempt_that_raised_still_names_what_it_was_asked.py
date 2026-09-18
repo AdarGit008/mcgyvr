@@ -28,8 +28,7 @@ from mcgyvr.telemetry import fold, observe
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
 
-# RED-phase typing: ``messages`` and ``endpoint`` are the keyword arguments this
-# change adds to ``observe``; the alias keeps mypy strict clean before and after.
+# ``observe`` called through an untyped alias.
 _observe = cast("Callable[..., Any]", observe)
 
 MESSAGES = [

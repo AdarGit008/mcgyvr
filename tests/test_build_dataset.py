@@ -34,7 +34,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _builder() -> types.ModuleType:
-    """The builder, imported by path — ``tools/`` is not a package."""
+    """The builder, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(
         "finetune_build_dataset", REPO / "tools" / "finetune" / "build_dataset.py"
     )
@@ -46,7 +46,7 @@ def _builder() -> types.ModuleType:
 
 
 def _by_path(name: str, path: Path) -> types.ModuleType:
-    """A tool module, imported by path — ``tools/`` is not a package."""
+    """A tool module, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -527,12 +527,12 @@ def test_an_unstamped_run_is_not_a_clean_run(
 def test_a_tierless_run_is_not_silently_treated_as_d1(
     wired: types.ModuleType, tmp_path: Path
 ) -> None:
-    """The default that used to sit here named the instrument.
+    """A run that does not say what it served gets no default tier.
 
-    ``tier = run_meta.get("tier", "d1")`` meant a run that never said what it
-    served had its replies rebuilt against the bundle set's contracts and
-    labelled with the instrument's tier. A run that clears the instrument
-    check but cannot say what it served is refused instead of guessed at.
+    A default of ``"d1"`` would rebuild its replies against the bundle set's
+    contracts and label them with the instrument's tier. A run that clears the
+    instrument check but cannot say what it served is refused instead of
+    guessed at.
     """
     corpus = Corpus(tmp_path / "measurements")
     corpus.add(run="nameless", tier=None, task="p001-alpha", model="m1", reply="x")

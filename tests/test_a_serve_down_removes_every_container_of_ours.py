@@ -1,19 +1,16 @@
 """A ``serve down`` removes every container of ours, not only those its file names.
 
-The door runs every serve under one compose project (``-p mcgyvr``). The up
-step already passes ``--remove-orphans``
-(``src/mcgyvr/serving/gate-scripts/serve-up.py:58``); the down step does not
-(``serve-down.py:29``), and ``docker compose down`` removes only the services
-the file it is given defines
+The door runs every serve under one compose project (``-p mcgyvr``), and both
+the up and the down step pass ``--remove-orphans``: ``docker compose down``
+alone removes only the services the file it is given defines
 (https://docs.docker.com/reference/cli/docker/compose/down/). A dev ladder left
-up under other service names survives a live down, and gate 2 then refuses the
+up under other service names would survive such a down, and gate 2 refuses the
 next ``serve up`` on a rig that is not idle
 (``src/mcgyvr/serving/gate-scripts/02-rig.py``).
 
-The owner allowed either mechanism, a label-based removal or
-``--remove-orphans`` (2026-09-10), so this reads the outcome: the container of
-ours the file does not name is no longer on the daemon. The stub daemon removes
-on ``down`` exactly what Docker's does (``tests/onedoor.py``).
+This reads the outcome and not the mechanism: the container of ours the file
+does not name is not on the daemon after the down. The stub daemon removes on
+``down`` exactly what Docker's does (``tests/onedoor.py``).
 """
 
 from __future__ import annotations

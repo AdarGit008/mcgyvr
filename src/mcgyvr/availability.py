@@ -2,8 +2,8 @@
 
 :mod:`mcgyvr.pool` resolves the ladder *structurally*: a rung whose source names
 a credential the environment does not hold is unusable, and that is knowable
-without touching the network. This module answers the other half, which is #22's:
-a source that is declared, credentialled and simply **down**.
+without touching the network. This module answers the other half: a source that
+is declared, credentialled and simply **down**.
 
 **Two kinds of source, and they fail in different ways.** A source is an endpoint
 and a wire protocol, so the same code reaches both — but reading the results
@@ -35,22 +35,21 @@ none is configured when there is not, so the message is actionable for whichever
 kind it turns out to be.
 
 Distinct from :mod:`mcgyvr.detect`, which is install-time and local-only: it
-sweeps *candidate* default ports (11434, 8080, 8000, 1234, 3000) to find out what
-this machine happens to be running. This module probes the sources a config
+sweeps *candidate* default ports (:data:`mcgyvr.detect.PORT_CONVENTIONS`) to find
+out what this machine happens to be running. This module probes the sources a config
 actually *declares*, local or hosted, and does it per run.
 
 The shape of the problem is a cost problem, not a detection problem. Finding out
 that a host is not answering is easy; finding it out once is the work. A ladder
 escalates — a task that fails on the cheap rung is retried on the next — so a
 dead source that is discovered at dispatch time is discovered again on every
-attempt, and each discovery costs a connect timeout. Three rungs on one dead host
-is three timeouts for one fact. So:
+attempt, and each discovery costs a connect timeout. So:
 
 * **A verdict is cached for the life of an** :class:`Availability`. One instance
-  per run; a source is probed at most once, however many rungs it serves and
-  however many times they are asked for. The cache has no expiry on purpose — a
-  run is short, and a source that comes back mid-run being missed is a better
-  failure than a re-probe storm at every escalation.
+  per run; a source is probed at most once, however many times it is asked
+  for. The cache has no expiry on purpose — a run is short, and a source that
+  comes back mid-run being missed is a better failure than a re-probe storm at
+  every escalation.
 * **A batch is probed concurrently**, so the wall clock for *n* dead sources is
   one timeout rather than *n*. This is the same trick :mod:`mcgyvr.detect` plays
   at install time, for the same reason.
@@ -80,7 +79,7 @@ is why this is not simply "2xx is up":
   local port is instant where an unreachable host costs the whole budget.
 * **401 and 403 are down.** *Chiefly the hosted-provider case*, and the one worth
   stating: the source *is* answering, so a naive reachability check would call it
-  live and hand every rung on it to a dispatch that fails identically. A key that
+  live and hand it dispatches that all fail identically. A key that
   is wrong, expired or revoked does not improve with retries. Note this is a
   different fault from the one :func:`mcgyvr.pool.source_map` already catches
   structurally — there the variable is *unset*, here it is set and rejected.
@@ -97,9 +96,8 @@ is why this is not simply "2xx is up":
 
 **What this does not do.** It does not retry: one probe, one verdict, and a
 source that was down when the run started stays down for that run. It does not
-bound concurrency — that is #23's semaphore, which acquires at the same seam. It
-does not decide *which* rung a contract goes to, only which rungs are on the
-ladder at all; escalation is #24's.
+bound concurrency — that is :mod:`mcgyvr.capacity`. It does not decide *which*
+rung a contract goes to, only which rungs are on the ladder at all.
 """
 
 from __future__ import annotations
@@ -116,10 +114,10 @@ from mcgyvr.pool import Endpoint, PoolError, Protocol
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
 
-# Short by design, and three orders of magnitude below the dispatch timeout: this
-# bounds "did anything accept a connection and answer", not "did a model finish
-# thinking". A local host that cannot answer a model list in this long is not
-# going to serve a generation.
+# Short by design, and far below the dispatch timeout: this bounds "did anything
+# accept a connection and answer", not "did a model finish thinking". A local
+# host that cannot answer a model list in this long is not going to serve a
+# generation.
 PROBE_TIMEOUT_S = 2.0
 
 # How much of a model listing is read. A listing is a handful of ids and this is
@@ -162,11 +160,11 @@ class AvailabilityVerdict:
     #: not say. The distinction is the whole of :meth:`Availability.not_serving`
     #: and it is not a nicety: a 404 on the listing, a body that is not JSON, a
     #: body of another shape and an empty list are all ``None``, because the
-    #: model-list path is optional and half this fleet's servers do not publish
-    #: a usable one. Only an explicit, readable listing may take a rung out of
-    #: service — the same rule ``servelib.sleeping`` takes for ``/is_sleeping``
-    #: (``b4e9ea8e``), and for the same reason: a probe that failed closed on an
-    #: unreadable answer would empty the ladder the day it landed.
+    #: model-list path is optional and a server may not publish a usable one.
+    #: Only an explicit, readable listing may take a rung out of service — the
+    #: same rule :func:`mcgyvr.serving.servelib.sleeping` takes for
+    #: ``/is_sleeping``, and for the same reason: a probe that failed closed on an
+    #: unreadable answer would empty the ladder.
     models: tuple[str, ...] | None = None
 
 
@@ -236,23 +234,20 @@ class Availability:
     ) -> Mapping[tuple[str, str], str]:
         """Which (source, model) pairs the port is not currently holding, and why.
 
-        **The routing hole this closes, O3.** :meth:`unavailable` answers about a
-        *source*, and a source is a URL. Two models that alternate on one card
-        are one launch spec each and only one of them is ever up — and under
-        port-per-model each has a URL of its own that goes on answering 200 for
-        as long as *anything* is behind it. llama.cpp does not check the
-        ``model`` field of a request against the weights it loaded: a dispatch
-        aimed at the sleeping rung is answered from the resident one's weights,
-        with no error anywhere. A ladder that marked both rungs up would record
-        an answer from a rung that was never up, and it would do it silently,
-        which is the worst way for a liveness reading to be wrong.
+        **The routing hole this closes.** :meth:`unavailable` answers whether a
+        source's address answers. Units that alternate on one card may declare
+        the same address, only one of them is up at a time, and the address
+        answers 200 for whichever that is. llama-server started on one model
+        ignores a request's ``model`` field: a dispatch aimed at the unit that
+        is not up is answered from the resident one's weights, and the server
+        reports no error. A ladder that marked both rungs up would spend a
+        request on a rung that is not up before the runner refused the answer
+        (:class:`~mcgyvr.runner.WrongWeightsError`).
 
         So the question a rung needs answered is not "did the port answer" but
         "is *this model* what is behind it", and the listing the probe already
         fetched is where that is written. **No second request is made**: the
-        verdicts are the cached ones :meth:`check_all` produced, so a source
-        serving four rungs is still one probe and a dead host still costs one
-        timeout per run.
+        verdicts are the cached ones :meth:`check_all` produced.
 
         A source whose verdict carries no listing (:attr:`AvailabilityVerdict.models`
         is ``None``) is not reported here at all. It said nothing, and nothing is
@@ -398,8 +393,8 @@ def _from_status(
             endpoint,
             False,
             f"source {endpoint.source!r} answered HTTP {status}: it is reachable "
-            f"but refused the credential ({named}). Every rung on it would fail "
-            f"the same way",
+            f"but refused the credential ({named}). Every dispatch to it would "
+            f"fail the same way",
             f"GET {safe_url(url)} answered {status}",
             started,
         )
@@ -453,9 +448,8 @@ def _verdict(
 def _distinct(endpoints: Sequence[Endpoint]) -> tuple[Endpoint, ...]:
     """One endpoint per source name, first occurrence winning, order kept.
 
-    A source serving four rungs is one host and one probe. Ordering is preserved
-    so a report reads in ladder order rather than in whatever order a set
-    iterated.
+    Ordering is preserved so a report reads in ladder order rather than in
+    whatever order a set iterated.
     """
     seen: dict[str, Endpoint] = {}
     for endpoint in endpoints:

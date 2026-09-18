@@ -1,5 +1,5 @@
-"""Rung != rig (owner, 2026-09-05): two rungs co-resident on one machine are
-two server processes with two bounds, and the ladder counts them as two.
+"""Rung != rig: two rungs co-resident on one machine are two server processes
+with two bounds, and the ladder counts them as two.
 
 The live ladder puts two vLLM servers on srv2 — the 3B on :8001 and the 7B
 on :8002 — behind two sources. Capacity keys its slots by the source URL and
@@ -19,9 +19,9 @@ from mcgyvr.pool import source_map
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, units_for
 
-#: The window these tests were written against, stated because nothing supplies
-#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
-#: the window is what the run declares, so a test is a run and declares its own.
+#: The window these tests use, stated because ``mcgyvr.serving`` supplies no
+#: default: the window is what the run declares, so a test is a run and declares
+#: its own.
 WINDOW = 4096
 
 CO_RESIDENT = """\

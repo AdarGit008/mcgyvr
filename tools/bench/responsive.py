@@ -12,13 +12,12 @@ measured, not chosen.** A required effect size sets a floor on it
 this module reads the same runs:
 
 1. **Across arms.** ``bench-py`` and ``bench-ts`` are not a language contrast.
-   They are two bars — 328 ruff rules against 66 eslint, prettier unconfigured
-   on one side, no staged ``tsconfig.json`` so no type check at all (#262). A
-   figure pooled over them describes neither instrument. This is why the row key
-   here is (model + **bar**) rather than (model + language): the arm *is* the
-   bar.
+   They are two bars — ruff's resolved rules against eslint's, and no type
+   check on either. A figure pooled over them describes neither instrument.
+   This is why the row key here is (model + **bar**) rather than (model +
+   language): the arm *is* the bar.
 2. **Within an arm.** ``psi`` ranges 0.029 to 0.134 across task types inside a
-   single arm — a 4.6x spread, the heterogeneity  forbids pooling over.
+   single arm — a 4.6x spread, heterogeneity no figure may pool over.
 
 Arm-level rows are printed because a reader will otherwise compute them, and are
 labelled so they cannot be quoted as the bench's resolution. Nothing is ever
@@ -37,8 +36,8 @@ one it is.
                 ``eligibility.headroom``. It bounds nothing about a *different*
                 lever, and nothing about a different bar.
 ``psi``         The measured discordance rate of a **named lever**. A property
-                of the (instrument, lever) pair, never of "the bench"
-                (D5). ``delta <= psi`` is hard. Computed by
+                of the (instrument, lever) pair, never of "the bench".
+                ``delta <= psi`` is hard. Computed by
                 ``resolution.measure``.
 ``psi_draw``    Cells whose verdict varies across sampled draws. Its own
                 module's docstring is explicit and is preserved here: **it is
@@ -64,10 +63,8 @@ of three strata, and the 7B's covers 34 of 257 and one stratum. Re-scoring
 cannot manufacture a draw that was never dispatched, so this one stays open and
 ``coverage_gaps`` keeps printing it.
 
-**What this module cannot key on yet.** The honest unit is a *signature* — the
-model, bar and condition as content rather than as names (#265, the
-consequence). Until those digests exist, the key is (tier, arm), which are
-labels for the properties that actually differ.
+**Keyed on (tier, arm).** The committed runs read here carry no ``bar_sha256``
+or ``prompt_sha256``, so the labels stand in for the content.
 
     uv run --no-sync python tools/bench/responsive.py
 """
@@ -91,7 +88,7 @@ MEASUREMENTS = REPO / "records" / "measurements"
 
 
 def _by_path(name: str, path: Path) -> types.ModuleType:
-    """Load a sibling rig by path — `tools/` is not a package, and the
+    """Load a sibling rig by path — `tools/` has no `__init__.py`, and the
     convention `tools/bench/resolution.py` follows is followed rather than
     re-invented."""
     spec = importlib.util.spec_from_file_location(name, path)
@@ -118,13 +115,12 @@ ARMS = ("py", "ts")
 
 # the wall: below six discordant pairs the exact test reaches p < 0.05 at
 # no effect size at all. Taken from `resolution.py` rather than restated — two
-# copies of a threshold are two chances for one of them to be edited (
-# lens 3).
+# copies of a threshold are two chances for one of them to be edited.
 WALL = resolution.WALL
 
-# The tiers #224 owes a band for: the floor unit, and the second tier the
-# P3 and the Q4 require. A row from any other tier is context and is not
-# counted as coverage — otherwise adding one reads as opening sixteen gaps.
+# The tiers a band is owed for: the floor unit and the second tier. A row from
+# any other tier is context and is not counted as coverage — otherwise adding
+# one reads as opening sixteen gaps.
 BAND_TIERS = ("1.5B", "7B")
 
 HEADROOM = "headroom"
@@ -271,9 +267,7 @@ class Row:
         arithmetic and the zero is a restatement of the pass rate rather than a
         measurement of responsiveness.
 
-        Under a strict enough bar the second is what happens, and it happened
-        here: five of the six re-scored ablation *condition* directories fall to
-        zero or near-zero passes under ``Gate.run``. A table that printed
+        Under a strict enough bar the second is what happens. A table that printed
         "psi_draw 0.0%" for those would report the instrument's silence as the
         material's deadness, so this says so instead.
         """
@@ -436,8 +430,7 @@ def never_reached_acceptance(contrast: Contrast) -> dict[tuple[str, str], int]:
     three: a cell rejected at ``lint`` or ``format`` failed before the problem
     was attempted, so its zero contribution to ``headroom`` is a fact about the
     bar. An **upper bound** on what a zero-token pre-gate formatting pass could
-    recover — #113 measured +13.7pp for exactly that — and not a claim that any
-    of these cells would then pass acceptance.
+    recover, and not a claim that any of these cells would then pass acceptance.
     """
     out: dict[tuple[str, str], int] = {}
     for arm in ARMS:
@@ -470,8 +463,8 @@ def scorer_effect() -> tuple[dict[str, Any], ...]:
     observable and what share was the bar. Now the same draws are read under
     both scorers, so the two effects separate.
 
-    Reported per (tier, bar, stratum) and never pooled — D2 and
-    , and both of ``resolution.py``'s objections apply here unchanged.
+    Reported per (tier, bar, stratum) and never pooled: both of
+    ``resolution.py``'s objections apply here unchanged.
     The ``headroom`` column is drawn from the contrast at the **same** tier and
     arm, and is left absent rather than substituted when there is none: a
     ratio against another tier's ceiling would be arithmetic, not evidence.
@@ -663,7 +656,7 @@ def report() -> list[str]:
             ]
         )
         lines += [
-            f"- `psi` is this lever's, not the bench's. Wall: m >= {WALL} .",
+            f"- `psi` is this lever's, not the bench's. Wall: m >= {WALL}.",
             "",
             "| tier | bar | stratum | observable | n | k | fraction | scorer "
             "| coverage |",
@@ -706,7 +699,7 @@ def report() -> list[str]:
             "between `psi_draw` and `headroom` that closed when the two were "
             "put on one bar. It is **not** one figure for the bench — it ranges "
             "from a fifteenth to two thirds across the strata below, which is "
-            "why D2 and  forbid a pooled answer here.",
+            "why no pooled answer is given here.",
             "",
             "| tier | bar | stratum | n | `psi_draw` acceptance | `psi_draw` "
             "`Gate.run` | scorer | share of gap | `headroom` | gap before "

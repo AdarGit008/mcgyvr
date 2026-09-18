@@ -3,10 +3,8 @@
 
 DERIVED, THEN WALKED DOWN TO — never trusted as a measurement. One allowance
 remains in the arithmetic (compute buffer plus the allocation the engine never
-names), so this is a prediction. The refusal is the measurement: run one cell
-below the floor on purpose and it names the true edge, and retry any refusal
-three times before believing it, because a launch near the memory edge is a
-1-in-3 coin flip.
+names), so this is a prediction (okf/must-read/touching-rigs.md § Spending the
+card).
 
 IT REFUSES RATHER THAN GUESSING. A checkpoint that declares a sliding window
 without the per-layer pattern does not say which layers slide, and the split is

@@ -1,18 +1,15 @@
 """X03 — a task asks for a *capability*, and a model is chosen on that capability.
 
-mcgyvr's capability table is the best rate card in either project: measured
-HumanEval+ pass@1, tok/s and VRAM, each carried with the backend and rig that
-produced it, and invalidated measurements kept rather than quietly replaced by an
-estimate. What it carries per model is one number. So the only question mcgyvr can
-ask about a model today is "how good is it", and the only comparison it can make is
-a total order.
+Every shipped row of the capability table carries one quality number; a row may
+also carry a ``capabilities`` vector, and :func:`mcgyvr.capability.select_for_task`
+filters on the dimension the task type names.
 
-That is the wrong shape for the decision. A model that writes a clean docstring and
-a model that gets a loop invariant right are not two points on one line, and a
-ladder that ranks them on one line will send an algorithm contract to whichever
-model happened to score higher on a benchmark that is mostly short functions. The
-lever is not "add more numbers": it is that **the task type says which capability it
-needs**, and selection filters on that capability rather than on the scalar.
+One number is the wrong shape for the decision. A model that writes a clean docstring
+and a model that gets a loop invariant right are not two points on one line, and a
+ladder that ranks them on one line will send an algorithm contract to whichever model
+happened to score higher on a benchmark that is mostly short functions. The lever is not
+"add more numbers": it is that **the task type says which capability it needs**, and
+selection filters on that capability rather than on the scalar.
 
 Four statements, and the last two are the ones that keep this from being a
 regression:
@@ -29,10 +26,8 @@ regression:
   wrong order would pass a length check.
 * A model with **no** capability vector is judged on its scalar quality instead of
   being excluded. Not a nicety — every model in ``data/capability-table.json`` ships
-  without a vector today, so a filter that treats "no data" as "fails the floor"
-  empties the pool on the day it lands and makes every install unroutable. local-ai
-  gets this right (``m.capabilities.get(dim, m.quality)``) and it is the easiest
-  half to drop.
+  without a vector, so a filter that treats "no data" as "fails the floor"
+  empties the pool and makes every install unroutable.
 * When nothing meets the dimension, the refusal names the dimension. An operator
   told "no model is good enough" cannot act; one told which capability came up short
   can bind a rung that has it. A refusal that only said "no candidates" would pass a
@@ -41,14 +36,11 @@ regression:
 The fixture writes its own table rather than using the shipped one, because the
 shipped one has no vectors and this is about what happens when it does. It is
 written from the dimension the *code* names, not from a dimension this test invents:
-a test that hard-coded ``"algorithm"`` would be asserting local-ai's vocabulary
-rather than mcgyvr's.
+a test that hard-coded ``"algorithm"`` would be asserting a vocabulary that is not
+mcgyvr's.
 
-The table is handed over as a **path**. Today's :func:`mcgyvr.capability.load`
-drops any key it does not know, so a vector would not survive it; handing the
-loaded object over would mean asserting a filter against data the loader had
-already thrown away, and the test would go green on a port that never read the
-vectors at all.
+The table is handed over as a **path**, so the test also holds that
+:func:`mcgyvr.capability.load` keeps the vector.
 """
 
 from __future__ import annotations
@@ -196,7 +188,7 @@ def test_a_model_with_no_capability_vector_falls_back_to_its_scalar_quality(
     """No vector means unmeasured, not unfit.
 
     Every row in the shipped table is in exactly this state, so a filter that reads
-    a missing vector as a failed floor takes the whole pool out on the day it lands.
+    a missing vector as a failed floor takes the whole pool out.
     """
     dimension = _dimension()(LOGIC)
     table = _table(

@@ -1,9 +1,9 @@
-"""The fleet identity design approves a fleet on arithmetic no rig has measured yet.
+"""The measurements the fleet identity design rests on are on record and recompute.
 
 Where a test recomputes a figure from the raw rows, the rule is spelled once, here.
 A derived record that disagrees with its own rows fails as surely as a missing one.
 
-The eight measurements, each the owner's ruling of 2026-09-11:
+The eight measurements:
 
 M1  warm decode: no-NVMe baseline vs as-run, per unit x rig, and the class tolerances
 M2  cold wake per unit x rig, on named clocks

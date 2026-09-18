@@ -199,7 +199,7 @@ def test_dotted_reads_reach_into_lists() -> None:
 
 
 def test_fanout_defaults_to_none_when_the_key_is_absent() -> None:
-    """Absent means today's behaviour: a batch queues on the cheapest rung."""
+    """Absent means no fan-out: a batch queues on the cheapest rung."""
     config = parse(LOCAL_ONLY)
     assert config.ladder.fanout == "none"
     assert config.get("fanout") == "none"

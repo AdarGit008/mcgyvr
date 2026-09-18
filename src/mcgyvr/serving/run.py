@@ -2,7 +2,8 @@
 """The one access point to the rigs.
 
     python -m mcgyvr.serving.run --host srv1 --campaign <name> --model <blob>
-                                 [--step <path>] [--suffix S] [-- STEP ARGS...]
+                                 --ctx-per-slot N [--step <path>] [--suffix S]
+                                 [-- STEP ARGS...]
 
 Nothing else opens an ssh to srv1/srv2 or starts a container on one. A caller
 that wants rig time writes its own script and names it as ``--step``, or takes
@@ -58,13 +59,14 @@ wheel has no ``records/`` — and the door exports both, ``RUN_ROOT`` and
 ``RUN_BIN`` (its shim directory), so a step derives neither from the other. A
 value naming a directory that does not exist is refused, never created.
 
-GATE ORDER IS THE POINT, NOT AN IMPLEMENTATION DETAIL. Gates 1-5 refuse having
-written nothing under ``records/``: gate 1 reaches no rig at all, and gates 2-5
-only read one (a snapshot over ssh, a daemon's name) and never launch on it, so
-a tree on the wrong round or a machine that is not what it claims costs no rig
-time and leaves no artifact to clean up. The data scripts run after the rig is known to
-be the declared one and before the step, because a placement derived against
-the wrong machine is worse than no placement. Gates 7-8 run after the step
+GATE ORDER IS THE POINT, NOT AN IMPLEMENTATION DETAIL. Gates 1-4 write nothing
+under ``records/``: gate 1 reaches no rig, gate 2 takes the rig's lease (a live
+run tears down what it displaced) and reads the rig, gates 3-4 only read, and
+none launches anything, so a tree on the wrong round or a machine that is not
+what it claims leaves no artifact to clean up. Gate 5 stamps the lease and
+makes the envelope. The data scripts run after the rig is known to be the
+declared one and before the step, because a placement derived against the
+wrong machine is worse than no placement. Gates 7-8 run after the step
 whatever it did.
 
 THE CONTRACT WITH A GATE SCRIPT. It is an executable under ``gate-scripts/``.
@@ -235,16 +237,13 @@ SEQUENCE: tuple[Entry, ...] = (
         "data-10-scan.py",
         "the rig's own account of itself — card buckets, MemAvailable, "
         "threads — read live. `total = reserved + used + free`, and a card is "
-        "not always idle: a foreign process held 3,374 of 5,743 MiB on srv1 "
-        "with nothing of ours running",
+        "not always idle, so the VRAM term is `free`",
         exports=("RUN_SCAN_JSON",),
     ),
     Entry(
         "data-20-geometry.py",
         "the checkpoint's geometry, summed from its own tensor table on the "
-        "serving host. Bits-per-weight is a guess and the tensor table is not: "
-        "two defensible estimates of one file's expert bytes disagreed by 14% "
-        "and both were wrong",
+        "serving host. Bits-per-weight is a guess and the tensor table is not",
         exports=("RUN_GEOMETRY_JSON",),
     ),
     Entry(
@@ -276,9 +275,7 @@ ALWAYS: tuple[Entry, ...] = (
     Entry(
         "08-parse.py",
         "gate 8: every declared artifact exists and parses, and an appended "
-        "file kept its prefix and grew. The parser once ran only in CI, so a "
-        "run that wrote a file it rejects exited green on the rig and turned "
-        "red a commit later",
+        "file kept its prefix and grew",
         status=1,
     ),
 )
@@ -313,12 +310,12 @@ SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
     in ("01-round.py", "02-rig.py", "03-image.py", "05-envelope.py", "06-step.py")
 )
 
-#: THE READ RUN (`python -m mcgyvr.serving.run read --host H [--probe UNIT...]`,
-#: owner 2026-09-15, D2). A third fixed sequence, for looking at a rig without
-#: touching it: the profile is settled and no round is opened, then one reader
-#: goes to the rig, is compared with the rig's declaration, and is filed. There is
-#: no lease, no envelope and no teardown in it, because a read starts nothing,
-#: and no gate 7 or 8, because a read leaves nothing on the rig or under records/.
+#: THE READ RUN (`python -m mcgyvr.serving.run read --host H [--probe UNIT...
+#: [--load WxN]]`). A third fixed sequence: the profile is settled and no round
+#: is opened, then one reader goes to the rig, is compared with the rig's
+#: declaration, and is filed. A plain read starts nothing on the rig; `--probe`
+#: and `--load` run the lock's harness there against idle units. There is no
+#: lease, no envelope, no teardown and no gate 7 or 8 in it.
 READ_SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "read-01-profile.py",
@@ -336,7 +333,7 @@ READ_SEQUENCE: tuple[Entry, ...] = (
 #: A read's id, which every row it files carries: the probe's own shape.
 READ_ID = re.compile(r"^run-(\d{8}T\d{6})-([0-9a-f]{8})$")
 #: A load a read runs on its probed units: W concurrent requests, each filling an
-#: N-token window (owner, 2026-09-15, B1).
+#: N-token window.
 LOAD_SPEC = re.compile(r"^([1-9][0-9]*)x([1-9][0-9]*)$")
 
 
@@ -369,8 +366,8 @@ EXPORTED = (
     "RUN_SERVE",
     "RUN_COMPOSE",
     "RUN_SERVE_EXPECTED",
-    # The read run's own two: the id its rows are filed under, and the units
-    # it runs the lock's harness for on the rig.
+    # The read run's own three: the id its rows are filed under, the units it
+    # runs the lock's harness for on the rig, and the load it runs on them.
     "RUN_READ_ID",
     "RUN_READ_PROBE",
     "RUN_READ_LOAD",
@@ -615,14 +612,9 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     # make them conditional, and a conditional gate is a skippable one.
     parser.add_argument("--model", required=True, help="blob path AS THE RIG SEES IT")
     parser.add_argument("--parallel", type=int, default=8, help="slots (-np)")
-    # Required, and this is the reader that made the case. It defaulted to
-    # 2048 while `emit` used a module constant of 4096, so an `--n-cpu-moe`
-    # floor derived through this door was computed against half the cache the
-    # compose file it was derived for actually launches with — a floor is only
-    # correct for the cache the unit will actually allocate. Two literals made
-    # to agree would agree until someone edited one; the run declares it
-    # instead, and a run that did not is refused here rather than sized
-    # silently.
+    # Required: a floor is only correct for the cache the unit will actually
+    # allocate, so the run declares the window and a run that did not is
+    # refused here rather than sized silently.
     parser.add_argument(
         "--ctx-per-slot",
         type=int,
@@ -862,8 +854,9 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run read",
         description=(
-            "read a rig without touching it: its facts, its containers and its "
-            "card, filed under the live fleet's journal"
+            "read a rig: its facts, its containers and its card, filed under "
+            "the live fleet's journal; --probe and --load run the lock's "
+            "harness on it"
         ),
     )
     parser.add_argument(

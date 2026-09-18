@@ -14,7 +14,7 @@ so the envelope says exactly what was started and whether it came up.
 Serving is two readings and not one: `servelib.wait_for` asks for the model
 list and then, where the engine can answer, whether the unit is asleep. A vLLM
 unit slept at level 2 lists its models with a 200 and then hangs forever on a
-real request (`records/measurements/vllm-sleep-2026-09-09/README.md`), so a
+real request (`mcgyvr-lab/records/measurements/vllm-sleep-2026-09-09/README.md`), so a
 probe that asked only the first question would print `up` here, hand gate 7
 exactly the containers it expects, and make the run green over a rig that is
 serving nothing.
@@ -66,10 +66,12 @@ def main() -> int:
     for row in rows:
         # ASLEEP and NOT ANSWERING are the same exit and different repairs. A
         # unit that never came up wants its container log read; one that is
-        # asleep wants a `POST /wake_up`, and its log is clean, so an operator
-        # sent to it by the wrong word finds nothing wrong and believes the rig.
+        # asleep wants a wake (servelib.wait_for names the calls), and its log
+        # is clean, so an operator sent to it by the wrong word finds nothing
+        # wrong and believes the rig.
         # A sleeping vLLM unit answers /v1/models with 200 and then hangs on a
-        # real request (records/measurements/vllm-sleep-2026-09-09/README.md);
+        # real request
+        # (mcgyvr-lab/records/measurements/vllm-sleep-2026-09-09/README.md);
         # servelib.wait_for is what stops that reading as `up` at all.
         if row["healthy"]:
             state = "up"

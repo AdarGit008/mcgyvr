@@ -1,12 +1,6 @@
-"""The canary for a suite that is otherwise almost entirely xfail.
+"""A live exercise of :mod:`tests.sweeprows` against a committed artifact.
 
-An ``xfail(strict=True)`` whose body raises for the *wrong* reason still xfails,
-silently. Nearly every file in this campaign is parked that way, so the helper
-they all depend on — :mod:`tests.sweeprows` — would have no live exercise and a
-broken parser could hide inside a dozen expected failures.
-
-This file gives it one, against an artifact that is committed today. It also
-pins the defect the new run exists not to repeat: ``srv1-nomma-dp4a-ab.tsv``
+It also pins the defect a sweep must not repeat: ``srv1-nomma-dp4a-ab.tsv``
 records two arms under byte-identical labels, separated by a ``### IMAGE``
 comment and by file order alone.
 """
@@ -33,10 +27,10 @@ def test_the_committed_ab_file_cannot_tell_its_two_arms_apart() -> None:
     """Not a lament — the control for the rule
     ``test_a_row_that_does_not_name_its_arm_is_not_a_measurement`` encodes.
 
-    Every reader in this repo collapses rows by label (``run.py:93``, last write
-    wins). Against this file, doing so keeps the no-MMA arm and discards stock
-    without a word. If a future edit gives these rows an ``arm=``, this test goes
-    red and the rule it anchors is already satisfied — delete it then.
+    A reader that collapses rows by label, last write wins, keeps the no-MMA arm
+    of this file and discards stock without a word. If an edit gives these rows
+    an ``arm=``, this test goes red and the rule it anchors is satisfied —
+    delete it then.
     """
     sweep = read(AB)
     markers_per_label: dict[str, set[str]] = {}
@@ -54,12 +48,12 @@ def test_prefill_in_this_repos_tsvs_is_not_an_independent_measurement() -> None:
     """``prefill = pin/wall`` and ``agg = gen/wall`` over the SAME wall, so
     ``prefill/agg`` is ``ptok/otok`` identically.
 
-    Green today and permanently, because it is a statement about arithmetic in
-    ``lcp_sweep_31-08-2026.py:221-222``. It is here so that anyone who later
-    quotes a "prefill gain" is contradicted by a passing test rather than by a
-    note. It goes red only if a driver starts timing prefill separately — which
-    is the change ``test_a_prefill_verdict_needs_an_instrument_that_measures_prefill``
-    asks for.
+    A statement about the arithmetic of the ``agg=`` / ``prefill=`` row in
+    ``tools/runs/drivers/lcp_sweep.py``. It is here so that anyone who quotes a
+    "prefill gain" is contradicted by a passing test rather than by a note. It
+    goes red only if a driver times prefill separately — which is what
+    ``test_a_prefill_verdict_needs_an_instrument_that_measures_prefill`` asks
+    for.
     """
     sweep = read(AB)
     measured = [r for r in sweep.levels() if "ptok" in r.fields]

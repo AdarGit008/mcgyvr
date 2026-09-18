@@ -1,37 +1,18 @@
 """The window a rung serves is what the run says, and no reader supplies its own.
 
-``mcgyvr.serving.DEFAULT_CONTEXT`` is 4096 and reaches the rig three ways: as
-``-c 4096 x width`` in the compose file ``mcgyvr emit`` writes
-(``serving/__init__.py:482``), as ``VLLM_MAX_MODEL_LEN`` (``:98``), and as the
-``ctx_per_slot`` the placement law sizes a KV cache against (``:879``). Its
-comment claims "One number, two readers, no drift". There is a fourth reader
-and it disagrees: the door's ``--ctx-per-slot`` defaults to 2048, and
-``data-30-placement.py`` feeds that into the same ``vramfit.kv_bytes``. An
-``--n-cpu-moe`` floor derived through the door is computed against half the
-cache the compose file it was derived for actually launches with — the same
-class of error as ``VLLM_MAX_MODEL_LEN`` of 8192 against a llama.cpp rung
-serving 4096, which the first live day found.
+**The window is what the run says, and it is not a constant.** There is no module-level
+context number in :mod:`mcgyvr.serving`, and the door's ``--ctx-per-slot`` is required
+rather than defaulted. A default in a module is a number nobody chose for a rig nobody
+measured: the run declares the window it is bringing a ladder up with, every reader in
+that run derives from that declaration, and what a unit ended up serving is read back
+from the unit rather than assumed.
 
-Owner's ruling, 2026-09-06: **the window is what the run says, and it is not a
-constant.** Making the two literals agree would only make them agree until
-someone edits one. A default in a module is a number nobody chose for a rig
-nobody measured: the run declares the window it is bringing a ladder up with,
-every reader in that run derives from that declaration, and what a unit ended
-up serving is read back from the unit rather than assumed.
-
-**Stated as behaviour, not as a search of the source.** An earlier draft of
-this file grepped for module constants matching ``CONTEXT|CTX``. That was wrong
-twice over: renaming ``DEFAULT_CONTEXT`` to ``DEFAULT_WINDOW`` defeated it with
-the defect intact, and it flagged two constants that are not windows at all —
-``vramfit.SCRATCH_AND_CONTEXT_MIB`` (the placement allowance, which
-``test_dod_placement_conservatism.py`` requires to exist) and
-``orchestrator/read.py:_DEFAULT_CONTEXT`` (lines of source context for a file
-reader). A test that demands the deletion of a constant another test in this
-same package demands the existence of cannot go green either way.
-
-Read back on 2026-09-06, and note that no module knows this in advance:
-srv2:8001 and srv2:8002 reported ``max_model_len 4096``, srv1:8080 reported
-``n_ctx 4096``. Each said so over its own API.
+**Stated as behaviour, not as a search of the source.** A grep for module
+constants matching ``CONTEXT|CTX`` is defeated by a rename and flags constants that
+are not windows at all — ``vramfit.SCRATCH_AND_CONTEXT_MIB`` (the placement
+allowance, which ``test_dod_placement_conservatism.py`` requires to exist) and
+``_DEFAULT_CONTEXT`` in ``orchestrator/read.py`` (lines of source context for a file
+reader).
 """
 
 from __future__ import annotations
@@ -80,11 +61,10 @@ def _scans() -> dict[str, Any]:
     """A machine roomy enough that only the window is in question.
 
     Built through :meth:`Scan.of`, the constructor this codebase offers for
-    "callers that need a machine to reason about". An earlier draft used
-    ``Scan.__new__(Scan)``, which has neither a ``machine`` nor a card: no unit
-    can be built on it whatever window is declared, so the assertions below
-    could never be reached. The figures are deliberately generous — a refusal
-    for want of VRAM would be this test failing for the wrong reason.
+    "callers that need a machine to reason about". A bare ``Scan.__new__(Scan)``
+    has neither a ``machine`` nor a card: no unit can be built on it whatever
+    window is declared. The figures are deliberately generous — a refusal for want
+    of VRAM would be this test failing for the wrong reason.
     """
     from mcgyvr.scan import Scan
 
@@ -94,8 +74,9 @@ def _scans() -> dict[str, Any]:
 def test_the_window_the_run_declares_is_the_window_emit_writes() -> None:
     """The declaration reaches the file that launches the process.
 
-    8192 rather than 4096 on purpose: a test using today's constant would pass
-    against the defect, because the constant already equals it.
+    8192 rather than 4096 on purpose: 4096 is the number a hardcoded window would
+    most likely carry, so a test declaring it could pass without the declaration
+    being read.
     """
     from mcgyvr.emit import _document
 

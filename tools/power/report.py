@@ -2,15 +2,15 @@
 
 Reads the checked-in measurement records, derives the discordance structure of
 every paired contrast in them, and reports the effect each one could have
-detected. Nothing here is hand-entered: every figure in the  tables is
+detected. Nothing here is hand-entered: every figure in the tables is
 recomputed by ``python tools/power/report.py`` from ``records/measurements/``,
 so a re-run is the check.
 
 Two distinct questions, and the report answers both because they get confused:
 
 *Responsiveness* — over a whole condition matrix, how many tasks ever change
-verdict at all. This is the ``13 of 20 condition-insensitive`` figure
-reports, stated the other way up.
+verdict at all. This is the count of condition-insensitive tasks, stated the
+other way up.
 
 *Discordance* — for one contrast, how many tasks differ between exactly two
 conditions. This is what carries the power, and it is smaller.
@@ -57,10 +57,9 @@ MATRICES = [
 # Two runs of the 269-problem pool at 14B, differing only in output cap. Not a
 # null — the cap is a lever — but the cap-explained flips can be removed, and
 # what is left is drift. Truncation is read from ``stop_reason``, never from
-# ``overran_cap``: that field asks whether the backend returned *more* than it
-# was allowed (``runner.py:242``), it is correctly False on all 12,466 rows in
-# ``records/measurements/``, and filtering on it silently keeps every truncated
-# cell. Doing so here turns the drift below from 1 problem into 3.
+# ``overran_cap``: that field (``mcgyvr.runner.Completion.overran_cap``) asks
+# whether the backend returned *more* than it was allowed, and filtering on it
+# silently keeps every truncated cell.
 POOL_DRIFT = (
     "pool @ qwen2.5-coder:14b",
     "pool-sweep-14b-2026-08-07/srv2-ts/results.jsonl",
@@ -87,18 +86,12 @@ REPLICATES = [
 # back to back against one loaded model, which is what "one backend session"
 # in #231's check 1 means: no unload, no build change, no host change.
 #
-# **These are the gate-scored pairs.** This table served the 2026-08-12 pair
-# until 2026-08-14, which was measured under the acceptance command alone —
-# `Gate.run` short-circuits, so a lint-rejected candidate never ran its test and
-# that figure cannot be recomputed into this bar. It read `d = 1` at a pass rate
-# of 70/257, against `d = 0` at 23/257 here: a superseded null, served as the
-# answer, in the tool the D2 numbers are read from. It is kept named
-# below rather than deleted, because a superseded measurement that vanishes
-# reads as one that was never taken.
+# **These are the gate-scored pairs.** The acceptance-only pair they replaced
+# is named in BENCH_SUPERSEDED.
 #
 # The 7B rows are #231 check 5 — the same battery at a second tier, no design
-# change. D2 says the null is measured per target tier and does not
-# transfer, so both tiers are listed and neither stands in for the other.
+# change. The null is measured per target tier and does not transfer, so both
+# tiers are listed and neither stands in for the other.
 BENCH_REPLICATES = [
     (
         "bench-py @ qwen2.5-coder:1.5b",
@@ -200,15 +193,15 @@ def contrasts() -> list[Contrast]:
 def bench_contrasts() -> list[Contrast]:
     """Per-lever discordance measured on the #225 bench itself.
 
-    Everything above is a retired instrument . These rows are the
-    only contrasts this project has run *on the bench*, and they matter
-    because the sizing table has no measured ``psi`` in it at all: its
-    rightmost column is ``psi_draw`` = 0.659, which is resampling sensitivity
-    at temperature and not the discordance rate of a greedy lever contrast.
+    Everything above is a retired instrument. These rows are contrasts run
+    *on the bench*, and they matter because the sizing table's ``psi`` columns
+    are assumed values, not measured ones: ``psi_draw`` is resampling
+    sensitivity at temperature and not the discordance rate of a greedy lever
+    contrast.
 
-    These are the **scaffold** lever, not #231's commissioning contrast, and
-    each condition cell is 34 tasks. They anchor the range; they are not D2's
-    ``psi`` input, which must come from the contrast being commissioned.
+    These are the **scaffold** lever, not #231's commissioning contrast. They
+    anchor the range; they are not the ``psi`` input, which must come from the
+    contrast being commissioned.
     """
     out: list[Contrast] = []
     for model in ("3b", "7b"):
@@ -250,7 +243,7 @@ def bench_contrasts() -> list[Contrast]:
         print(
             "  Every one is far below psi_draw = 0.659. They are the scaffold\n"
             "  lever at 34 tasks a cell, so they bound the range rather than\n"
-            "  settling it — #231's commissioning contrast supplies D2's psi."
+            "  settling it — #231's commissioning contrast supplies the psi."
         )
     return out
 
@@ -341,18 +334,13 @@ def null_drift() -> None:
 def bench_null() -> None:
     """The #231 null on the bench, per arm and over both arms of **one tier**.
 
-    the D2 asks for ``d`` **per target tier**. ``bench-py`` and
-    ``bench-ts`` are the two arms of a tier, and the pooled row is the same
-    number over the denominator the fourth amendment fixes — paired cells
-    actually swept, both arms. It is reported because that is the denominator
-    the sizing table uses, not because it replaces the per-arm rows.
+    ``d`` is reported **per target tier**. ``bench-py`` and ``bench-ts`` are
+    the two arms of a tier, and the pooled row is the same number over paired
+    cells actually swept, both arms. It is reported because that is the
+    denominator the sizing table uses, not because it replaces the per-arm rows.
 
-    **One pooled row per model, never one across models.** The pooled maps were
-    keyed on the arm alone (``bench-py/b002``), so when #231 check 5 added the
-    7B's pair the second tier's cells overwrote the first's and the row silently
-    became the 7B's, printed under a label claiming it was everything. Pooling a
-    null across tiers is what D2 forbids in the first place; the key carries the
-    model so the two can neither collide nor be added together.
+    **One pooled row per model, never one across models.** The cell key is
+    scoped by model, so tiers can neither collide nor be added together.
     """
     rows: list[tuple[str, int, int, list[int], int, float]] = []
     per_model: dict[str, dict[str, tuple[bool, bool, bool]]] = {}
@@ -403,11 +391,10 @@ def bench_null() -> None:
             sum(1 for _, _, same in values if same) / len(values),
         )
     print(
-        "\n  d is the 'worst pair' column — a count of flipped verdicts, which\n"
-        "  is D1's layer 2. 'drift' is the net pass-rate spread, and\n"
-        "  it is the smaller number because opposed flips cancel. D2's `d < b`\n"
-        "  compares a bar in pp against a count, so read d as d/n; both are\n"
-        "  printed above and the session record states which one is used.\n"
+        "\n  d is the 'worst pair' column — a count of flipped verdicts.\n"
+        "  'drift' is the net pass-rate spread, and it is the smaller number\n"
+        "  because opposed flips cancel. To compare d against a bar in pp,\n"
+        "  read d as d/n; both are printed above.\n"
     )
 
 

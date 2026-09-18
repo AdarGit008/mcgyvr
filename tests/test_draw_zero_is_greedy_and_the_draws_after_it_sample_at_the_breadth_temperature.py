@@ -1,19 +1,17 @@
 """Draw 0 is greedy, and every draw after it samples at ``breadth.temperature``.
 
-Every dispatch mcgyvr made went out at ``temperature: 0.0`` — the
-:class:`~mcgyvr.runner.Request` default, which no production caller ever set —
-so ``breadth.draws: 3`` asked the same greedy question three times and got the
-same bytes back three times. A lever whose whole benefit is a *different*
-candidate bought nothing but wall clock, and the journal has no column that
-would have said so.
+Were every dispatch sent at ``temperature: 0.0`` — the
+:class:`~mcgyvr.runner.Request` default — ``breadth.draws: 3`` would ask the
+same greedy question three times and get the same bytes back three times: a
+lever whose whole benefit is a *different* candidate would buy nothing but wall
+clock.
 
-The rule that fixes it keeps today's single draw byte-identical: draw 0 is
-always greedy, so an unconfigured install sends exactly what it sent
-yesterday, and only the draws after it — the ones that exist to be different —
-sample at ``breadth.temperature``. The temperature is a schema field with the
-schema's own bounds, threaded onto the request through
-:func:`~mcgyvr.drive.dispatch_prompt`, which is the one seam between an
-assembled prompt and the wire.
+The rule keeps a single draw byte-identical: draw 0 is always greedy, so an unconfigured
+install sends a greedy request, and only the draws after it — the ones that exist to be
+different — sample at ``breadth.temperature``. The temperature is a schema field with
+the schema's own bounds, threaded onto the request through
+:func:`~mcgyvr.drive.dispatch_prompt`, which is the one seam between an assembled prompt
+and the wire.
 """
 
 from __future__ import annotations

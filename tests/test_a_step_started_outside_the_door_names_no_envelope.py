@@ -1,17 +1,16 @@
 """A step with no ``RUN_OUT_DIR`` has no envelope — it never falls back to the record.
 
-Every kernel-arms step guarded itself with ``[ -n "$RUN_ID" ]`` and then
-resolved its envelope as ``${RUN_OUT_DIR:-<the committed 2026-09-02 dir>}``.
-``RUN_ID`` is any non-empty string, so a stale one in an operator's shell
-(``export``ed once, or a driver call reproduced by hand) took a bare step
-straight to the committed evidence, where steps 1/3/6/8 truncate their file
-BEFORE ``round_stamp`` gets to refuse: ``srv1-vllm-arms.tsv`` went 3755 -> 249
-bytes on a run that then exited 1. Twice in one session, by accident.
+A step that guards itself with ``[ -n "$RUN_ID" ]`` and resolves its envelope
+as ``${RUN_OUT_DIR:-<the committed dir>}`` is one stale ``RUN_ID`` away from
+the committed evidence: ``RUN_ID`` is any non-empty string, a stale one sits in
+an operator's shell (``export``ed once, or a driver call reproduced by hand),
+and a step that truncates its file BEFORE ``round_stamp`` gets to refuse
+destroys that evidence on a run that then exits 1.
 
-So ``door_required`` (``_common.sh``) refuses with exit 2 unless ``RUN_ID``,
+So ``door_required`` (``tools/runs/_common.sh``) refuses with exit 2 unless ``RUN_ID``,
 ``RUN_OUT_DIR``, ``RUN_ROUND`` and ``RUN_PRODUCT_SHA256`` are all set — the
 four things only ``python -m mcgyvr.serving.run`` exports — and no step names
-the recorded directory any more. Pinned against a copy of the campaign and of
+the recorded directory. Pinned against a copy of the campaign and of
 the recorded envelope, never the tree. The steps are run BARE here, on
 purpose: this is what happens outside the door.
 """

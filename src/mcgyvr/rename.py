@@ -3,11 +3,9 @@
 The one deterministic task type that is not a program on PATH. Every other
 member of the floor hands a file to ``ruff`` or ``prettier`` and reads an exit
 code; ``rename_symbol`` fans across files, which no formatter does, and the
-thing that already knows where a name occurs is mcgyvr's own index (#47). That
-is the whole of the catalog's warrant for calling this type deterministic —
-"the index already resolved the references, so this fans across files without a
-model" — and until now nothing implemented it, so a contract of this type
-validated and then reached ``error``.
+thing that already knows where a name occurs is mcgyvr's own index. That is the
+whole of the catalog's warrant for calling this type deterministic: the index
+already resolved the references, so this fans across files without a model.
 
 **What is rewritten, and what is not.** The index reports each occurrence as a
 path and a 1-based line. Only those lines are touched, and within them only
@@ -27,9 +25,9 @@ a tree that half-renamed and still passed.
 holds — a skipped file, a binary, a language with no extractor — are counted
 and named rather than silently dropped, because the catalog's guarantee is
 explicit that "references the index could not resolve are reported, not
-silently left behind". A rename that renamed nothing is a failure and says so:
-a symbol the index does not know is far more likely to be a typo in the
-contract than a symbol with no occurrences.
+silently left behind". A symbol the index does not know at all is a failure
+and says so: it is far more likely to be a typo in the contract than a symbol
+with no occurrences.
 """
 
 from __future__ import annotations

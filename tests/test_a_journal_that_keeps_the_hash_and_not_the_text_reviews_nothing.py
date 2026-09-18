@@ -1,21 +1,17 @@
 """A journal that keeps the hash and not the text can be counted, never reviewed.
 
-``telemetry.observe`` today drops ``Completion.text`` and never sees the prompt
-(brief, *Live journal (WP0)*): a row can say a rung answered in 1.2 s and cannot
-say what it was asked or what it said, so nothing dispatched by the product is
-ever reviewable for quality. The change is that ``observe`` takes the rendered
+A row that says a rung answered and cannot say what it was asked or what it
+said is not reviewable for quality. ``telemetry.observe`` takes the rendered
 prompt — the messages, as sent — and keeps the reply, both stored
 content-addressed under the sink's ``blobs/`` directory and named on the row by
-``prompt_sha256`` / ``reply_sha256`` (the names ``tools/bench/identity.py``
-already declares).
+``prompt_sha256`` / ``reply_sha256``.
 
 Three properties, each pinned here because each is cheap to lose:
 
 * the blob is what the hash names — a reader that opens ``blobs/<sha>`` and
   hashes it gets ``<sha>`` back, or the store is a lookup table and not a store;
 * the same text dispatched twice is one blob — a journal that copied every
-  prompt per attempt would grow by the prompt size per row, which is the cost
-  the old docstring used to refuse keeping text at all;
+  prompt per attempt would grow by the prompt size per row;
 * the text is scrubbed **before** it is hashed — ``redact.scrub`` names
   "telemetry rows" as a sink an operator pastes into an issue, and a credential
   that survives into a blob has left the machine the moment the blob is shared.
@@ -35,9 +31,7 @@ from mcgyvr.telemetry import fold, observe
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
 
-# RED-phase typing: ``messages`` and ``endpoint`` are the keyword arguments this
-# change adds to ``observe``. Calling through an untyped alias keeps mypy strict
-# clean both before the kwargs exist and after — the runtime failure is the pin.
+# ``observe`` called through an untyped alias.
 _observe = cast("Callable[..., Any]", observe)
 
 SYSTEM = "You are a careful worker. Answer with one fenced block."

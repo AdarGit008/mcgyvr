@@ -1,30 +1,14 @@
-"""Two knobs the config validates, `init` writes, and the run never reads.
+"""Two knobs the config validates and `init` writes are the values the run uses.
 
 ``budgets.task_timeout_s`` is declared as the "wall-clock ceiling for one task,
-including acceptance commands", defaults to 900, is written into every config
-`mcgyvr init` creates, and is set to 900 in the owner's live config. The only
-reader in the repository is ``tools/missions/run.py``. ``drive.gate_workspace``
-builds its ``Acceptance`` without a timeout, so the field stays ``None`` and a
-contract's arbitrary shell reaches ``sandbox.run(command, timeout=None)``. A
-contract whose acceptance command hangs hangs the run, with a ceiling declared,
-validated and ignored. ``consensus`` states the opposite in its own docstring:
-"wall clock against ``budgets.task_timeout_s``".
+including acceptance commands": a contract whose acceptance command hangs is stopped
+at that ceiling. ``sandbox.mode`` is the sandbox the run uses when no flag names one:
+an operator who wrote ``tempdir`` gets ``tempdir``.
 
-``sandbox.mode`` is declared with the same weight — ``sandbox/base.py`` says
-"``mode`` comes from ``sandbox.mode`` in config", and ``mcgyvr init`` reports
-"sandbox.mode is `tempdir`" to the operator as a limit it detected. No
-``config.get("sandbox.mode")`` exists. Both call sites pass the argparse default,
-which is ``docker``. On a machine with Docker, an operator who wrote ``tempdir``
-gets Docker and is told nothing.
-
-These are stated together because they are one failure: a key whose value is
-never consulted is a lie the config tells with a straight face, and the config is
+These are stated together because a key whose value is never consulted misleads on
 the one surface a user is asked to edit.
 
-**Asserted as what the run does, not as what a new function returns.** The whole
-finding is "the key exists and nothing reads it"; a test requiring a fresh
-``acceptance_for`` or ``sandbox_mode`` would be satisfied by adding one that
-nothing calls, which is the defect again with a better name. So the ceiling is
+**Asserted as what the run does, not as what a function returns.** The ceiling is
 asserted by running a command that outlives it, and the mode by parsing the
 command line the user actually types.
 
@@ -80,12 +64,12 @@ def test_an_acceptance_command_that_outlives_the_ceiling_is_stopped_by_it(
 ) -> None:
     """The outcome, not the field.
 
-    ``Acceptance.timeout`` being set to 7 and never handed to ``sandbox.run``
-    would satisfy an assertion on the attribute and hang the run exactly as it
-    hangs today. So the command sleeps well past a seven-second ceiling and the
-    test is what happens. Twenty-five seconds rather than the two minutes a
-    real hang would run for: long enough that no ceiling under fifteen could be
-    mistaken for one, short enough that a RED run is not a coffee break.
+    ``Acceptance.timeout`` being set to 7 and never handed to ``sandbox.run`` would
+    satisfy an assertion on the attribute and still hang the run. So the command sleeps
+    well past a seven-second ceiling and the test is what happens. Twenty-five seconds
+    rather than the two minutes a real hang would run for: long enough that no ceiling
+    under fifteen could be mistaken for one, short enough that a failing run is not a
+    coffee break.
     """
     import time
 

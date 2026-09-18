@@ -1,15 +1,10 @@
 """D2 — ``show_absolute_path = true`` must not silently disable the type-check rung.
 
-:class:`~mcgyvr.gate.typecheck.TypeCheck` matched a checker's reported path
-against the change set's paths as raw strings. mypy configured with
-``show_absolute_path = true`` reports the *absolute* path to each changed file,
-which never equals the repository-relative path the change set keys on — so every
-diagnostic is dropped and the rung reports clean over a change it actually
-rejected. A worker can ship a module that does not type-check and the gate says
-nothing asked.
-
-The fix normalises the reported path to the repository-relative form before
-matching, so both spellings land on the same line.
+mypy configured with ``show_absolute_path = true`` reports the *absolute* path to
+each changed file, which never equals the repository-relative path the change set
+keys on. :class:`~mcgyvr.gate.typecheck.TypeCheck` normalises the reported path to
+the repository-relative form before matching, so both spellings land on the same
+line and no diagnostic is dropped.
 """
 
 from __future__ import annotations

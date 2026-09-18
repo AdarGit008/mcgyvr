@@ -1,11 +1,8 @@
 """B7/X8 — a refused delivery must not leave behind the directories it created.
 
-``_write`` creates the target's parent directories as a side effect, then writes
-the bytes. When the delivery does not commit, the undo unlinks the file it wrote
-— but the parent directories it made are left standing. A refusal is supposed to
-put the tree back byte-for-byte as it was found, and an empty ``src/newdir/`` is
-a change too: it is exactly the kind of residue that poisons the next contract's
-preflight.
+Writing the target creates its parent directories as a side effect. A refusal puts
+the tree back byte-for-byte as it was found, and an empty ``src/newdir/`` is a change
+too: it is exactly the kind of residue that poisons the next contract's preflight.
 
 The statement is about the *tree*, not the file. A delivery that removes the
 written file but leaves the directories it created still fails.

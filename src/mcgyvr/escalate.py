@@ -1,5 +1,5 @@
 """Escalation: which family a task climbs to next, what stops it, and what the
-acceptance actually rests on (#43).
+acceptance actually rests on.
 
 :mod:`mcgyvr.route` climbs the rungs of one family and names the moment that
 family is spent. This module is what happens next. It owns four rules that
@@ -11,8 +11,8 @@ catalog's own, from the contract's floor upward in declared rank order. They are
 computed as a tuple of :class:`~mcgyvr.route.Plan` before anything is dispatched
 — :func:`ascent` answers "which families, which rungs, how many attempts, and
 what stops it" with no network and no model — so routing is reproducible and
-diffable rather than merely deterministic. The same property #24 gave one
-family, over the whole climb.
+diffable rather than merely deterministic. The same property :mod:`mcgyvr.route`
+gives one family, over the whole climb.
 
 **Ascent is monotonic, and structurally so.** :attr:`Ascent.plans` is built by
 filtering the catalog's rank-ordered families once, so each family appears
@@ -21,17 +21,17 @@ API rung is not prevented by a check that could be forgotten; there is nowhere
 in the shape for it to happen. A floor is a floor in the same way: families
 below it are absent from the ascent rather than skipped inside it.
 
-**An idle ladder spills upward, and only when told to.** ``ladder.fanout``
-is a knob and ``none`` is its default, which is this module as it was: every
-contract of a batch takes the cheapest rung of its floor family and queues
-there. Under ``idle`` :attr:`Ascent.next_free_rung` names the cheapest rung *at
-or above the floor* with a free slot instead, which is a choice that can cross
-families — when every local rung is full the cheapest free rung is a priced api
-one, so a saturated local ladder buys capacity rather than waits. That is the
-whole reason the mode is opt-in, and it is why the choice is here and not in
-:mod:`mcgyvr.route`: #24's boundary is that nothing there looks past the family
-it was asked about, and this is already the view "every family this contract
-may climb, from its floor upward". ``full`` spreads *within* a family and stays
+**An idle ladder spills upward, and only when told to.** The policy key
+``fanout`` is a knob and ``none`` is its default: every contract of a batch
+takes the cheapest rung of its floor family and queues there. Under ``idle``
+:attr:`Ascent.next_free_rung` names the cheapest rung *at or above the floor*
+with a free slot instead, which is a choice that can cross families — when every
+local rung is full the cheapest free rung is a priced api one, so a saturated
+local ladder buys capacity rather than waits. That is the whole reason the mode
+is opt-in, and it is why the choice is here and not in :mod:`mcgyvr.route`:
+the boundary is that nothing there looks past the family it was asked about,
+and this is already the view "every family this contract may climb, from its
+floor upward". ``full`` spreads *within* a family and stays
 :func:`~mcgyvr.route.climb`'s; this module adds nothing to it.
 
 **And the name is acted on, because a mode that changes no dispatch is a false
@@ -42,13 +42,6 @@ rungs of whichever family is entered are still :func:`~mcgyvr.route.plan`'s own
 price order. Within that family the cheapest rung with a free slot is
 :func:`~mcgyvr.route.climb`'s to take, under the same ``idle``, so the two seams
 answer the two halves of one question and neither restates the other.
-Computing the answer and discarding it was the earlier state and it made
-``ladder.fanout: idle`` a switch wired to nothing: the schema's ``doc`` told
-operators the mode reaches a priced rung rather than waits, and setting it
-changed no dispatch at all. The choice is a read and not yet a claim, though:
-what a concurrent batch can lose in the window between naming a free rung here
-and reserving one down in :func:`~mcgyvr.route.climb` is written down in
-:func:`_idle_entry`, with the change in :mod:`mcgyvr.route` that would close it.
 
 **Busy is not a verdict, and the record is the difference.** A rung that
 :attr:`~Ascent.next_free_rung` passed over was not tried: it produced no
@@ -58,22 +51,22 @@ not a failure. So an api rung reached under ``idle`` and an api rung reached by
 escalation are the same rung with two different histories — one was chosen
 before anything ran, the other was climbed to after something failed — and only
 the second says the local family could not do the work. That difference is what
-keeps a raised entry off ``budgets.max_escalations``: the count is over rungs
+keeps a raised entry off ``max_escalations``: the count is over rungs
 that *ran*, so a rung entered at costs nothing until it produces a verdict, and
 a contract whose floor family was saturated at the moment it started still has
 its whole escalation budget to climb with. :func:`_idle_entry` is where that is
 written down.
 
 **Two ceilings bound the task, and they bound different things.**
-``budgets.max_escalations`` bounds how far the work *climbs* — a cheap rung that
-fails and then escalates costs more than starting higher, so the ceiling is on
-moves, not on tries. ``budgets.max_attempts`` bounds what the task *spends* in
-total. Neither charges a decline: a rung that steps aside (#81) consumed no
-attempt, and charging the move to it would let a ladder of rungs that never ran
-exhaust a budget. Unset, ``max_attempts`` is the ladder's own budget, which is a
-real bound and is printed by ``mcgyvr pool`` — the field exists so that raising
-a rung's ``attempts`` cannot multiply into a task nobody bounded, not to
-introduce a number this project has no measurement for.
+``max_escalations`` bounds how far the work *climbs* — a cheap rung that fails
+and then escalates costs more than starting higher, so the ceiling is on moves,
+not on tries. ``max_attempts`` bounds what the task *spends* in total. Neither
+charges a decline: a rung that steps aside consumed no attempt, and
+charging the move to it would let a ladder of rungs that never ran exhaust a
+budget. Unset, ``max_attempts`` is the ladder's own budget, which is a real
+bound and is printed by ``mcgyvr pool`` — the field exists so that raising a
+rung's ``attempts`` cannot multiply into a task nobody bounded, not to introduce
+a number this project has no measurement for.
 
 **A model's output is never accepted on a policy written for a tool.** A
 contract's ``verification.policy`` of ``gate_only`` is the whole acceptance bar
@@ -83,19 +76,18 @@ require a fresh-context verifier, whatever the contract declared. What the
 install can then do about it is a capability question, not a policy one, and
 :class:`Assurance` is where the difference is recorded: ``VERIFIED`` is only ever
 reached by a verifier that ran and agreed, and an install with no verifier
-reaches ``UNVERIFIED`` — accepted on the gate, labelled as exactly that. That is
-E6's third first-class configuration and #44 is where it becomes a thing the
-user is told; what closes the path here is that no acceptance can be *called*
-verified without one, and that an available verifier is never skipped.
+reaches ``UNVERIFIED`` — accepted on the gate, labelled as exactly that. What
+closes the path here is that no acceptance can be *called* verified without
+one, and that an available verifier is never skipped.
 
-**Ordering is enforced rather than assumed.** :func:`judge` reads the gate
-first and returns before the verifier is so much as named when the gate
-rejected, so a deterministically-rejected change costs zero verifier spend. #32
-stated that ordering; nothing held it. For the same reason a retry carries
-:class:`RetryNotes` — the checks that *failed* and nothing else. Re-reading the
-passing checks is spend that carries no information, and neither an observation
-(a finding the gate deliberately did not reject on) nor an environment issue (a
-tool that was not installed) is something the worker did or can fix.
+**Ordering is enforced rather than assumed.** :func:`judge` reads the gate first
+and returns before the verifier is so much as named when the gate rejected, so a
+deterministically-rejected change costs zero verifier spend. For the same reason
+a retry carries :class:`RetryNotes` — the checks that *failed* and nothing else.
+Re-reading the passing checks is spend that carries no information, and neither
+an observation (a finding the gate deliberately did not reject on) nor an
+environment issue (a tool that was not installed) is something the worker did or
+can fix.
 
 **How a task ended and what to do about it are two questions.**
 :class:`Outcome` answers the first and deliberately not the second, and every
@@ -107,22 +99,17 @@ reads it together with the budget. The split it draws is the one a caller acts
 on: the two ceilings are numbers an operator chose and can raise, so work they
 stopped may move; a spent ladder is a statement about what this install can do,
 and sending it to a dearer family that does not exist changes the bill and
-nothing else. Ported from local-ai's ``REASSIGNABLE`` set, and needed here
-before §9's ``main_out_queue`` can exist, because pushing work back for another
-orchestrator to take *is* a reassignment and cannot be written against a
-taxonomy that does not say which failures are eligible.
+nothing else.
 
 **What is deliberately not here.** Parsing a model's reply into a
-:class:`Review` is #41's; this module fixes only *when* one is asked for and
-what follows from each answer. Reviewing the applied diff in fresh context is
-#42's, and so is the rule that a reviewer-side failure is never charged to the
-builder — :attr:`Judgement.reviewer_failed` keeps that case distinguishable, but
-an unusable review still ends the attempt here, because not accepting is the
-only answer this module is entitled to give. Telling the user what an
-``UNVERIFIED`` acceptance means is #44's. Whether a ladder that declares its
-families out of rank order should be diagnosed is #153's, and this module is
-what makes that observable: the ascent's order is the catalog's, so an
-interleaved ladder executes in an order the config file does not show.
+:class:`Review` and reviewing the applied diff in fresh context are
+:mod:`mcgyvr.verify`'s; this module fixes only *when* a review is asked for and
+what follows from each answer. :attr:`Judgement.reviewer_failed` keeps a
+reviewer-side failure distinguishable, but an unusable review still ends the
+attempt here, because not accepting is the only answer this module is entitled
+to give. Diagnosing a ladder that declares its families out of rank order is not
+here either: the ascent's order is the catalog's, so an interleaved ladder
+executes in an order the config file does not show.
 """
 
 from __future__ import annotations
@@ -177,7 +164,7 @@ _POLICY_RANK: dict[str, int] = {GATE_ONLY: 0, MODEL: 1}
 class Outcome(StrEnum):
     """How a task ended, in one machine-readable word.
 
-    #43 asks that every terminal outcome be machine-readable rather than prose,
+    Every terminal outcome is machine-readable rather than prose,
     and these are the seven. The distinctions are the ones a caller has to act
     on differently: work that was accepted, a ladder that was genuinely tried
     and could not, two different ceilings that stopped it early, an install
@@ -215,11 +202,11 @@ class Assurance(StrEnum):
 class Opinion(StrEnum):
     """What a verifier came to.
 
-    Three members, and the third is why it is an enum: a reply that could not
-    be read is not a refusal and is certainly not an approval. #41 owns turning
-    a model's text into one of these — anchored parsing, no substring search,
-    failing closed — and this module owns only what each one means for the
-    attempt.
+    Three members, and the third is why it is an enum: a reply that could not be
+    read is not a refusal and is certainly not an approval. :mod:`mcgyvr.verify`
+    owns turning a model's text into one of these — anchored parsing, no
+    substring search, failing closed — and this module owns only what each one
+    means for the attempt.
     """
 
     AGREED = "agreed"
@@ -231,10 +218,10 @@ class Opinion(StrEnum):
 class Review:
     """One verifier's answer, built through a named constructor.
 
-    Never assembled from a positional boolean, for the reason #41 exists: a
-    reply beginning "Cannot approve" read as an approval is the failure this
-    whole path is shaped around, and a bare ``True`` is the same mistake one
-    layer down.
+    Never assembled from a positional boolean, for the reason
+    :mod:`mcgyvr.verify` parses strictly: a reply beginning "Cannot approve"
+    read as an approval is the failure this whole path is shaped around, and a
+    bare ``True`` is the same mistake one layer down.
     """
 
     opinion: Opinion
@@ -268,7 +255,7 @@ class RetryNotes:
     A fourth exclusion is not this class's to decide and is not applied here:
     the lines are rendered with :meth:`~mcgyvr.gate.findings.Finding.for_model`
     rather than ``str``, so an acceptance finding arrives without the command it
-    ran. ``acceptance`` is an orchestrator-only contract field (#94) and a note
+    ran. ``acceptance`` is an orchestrator-only contract field and a note
     is worker-facing text; rendering with ``str`` put the field the worker view
     excludes into the second prompt of every retried task.
     """
@@ -306,14 +293,8 @@ class Judgement:
     content through), so a caller cannot be holding one thing while the verdict
     is about another.
 
-    There is deliberately no second field. An earlier ``value: T`` carried
-    whatever the attempt function happened to be holding — the worker's reply as
-    a string — and nothing bound it to ``verdict``: a step that rewrote the
-    *tree* between the write and the gate left it stale, which is the port's
-    documented repair loop run as written. It had exactly one reader in the
-    repository, a second delivery implementation that wrote it and committed it
-    without re-gating. Both are gone, and with them the type parameter that
-    existed only to carry it (pattern B).
+    There is deliberately no second field: a value the attempt function merely
+    happened to be holding is bound to no verdict.
     """
 
     verdict: Verdict
@@ -379,8 +360,8 @@ def judge(
 
     The ordering is the point and it is structural: ``verifier`` is not
     referenced at all on the rejected path, so a gate failure cannot cost
-    verifier spend however the caller supplied one. #32 stated that the gate
-    runs "before any model is asked for an opinion"; this is where it is held.
+    verifier spend however the caller supplied one. The gate runs before any
+    model is asked for an opinion; this is where that is held.
     """
     policy = required_policy(contract, family)
     upgraded = policy != contract.verification.policy
@@ -420,7 +401,7 @@ def judge(
                 f"accepted on the deterministic gate alone: work in the "
                 f"{family.name!r} family requires a fresh-context verifier and "
                 f"this install has none, so the acceptance is labelled "
-                f"unverified rather than verified (#44)."
+                f"unverified rather than verified."
             ),
         )
 
@@ -453,8 +434,7 @@ def judge(
         reviewer_failed=True,
         detail=(
             f"the verifier produced no usable verdict ({review.detail}), so the "
-            f"change is not accepted. Charging this to the builder rather than "
-            f"to the reviewer is #42's to settle."
+            f"change is not accepted."
         ),
     )
 
@@ -507,7 +487,7 @@ class Entry:
     ``machine`` and ``capacity`` are the two halves of giving it back and are
     out of ``repr`` and out of the comparison, for the reason :class:`Ascent`
     gives about both: they are how the answer is acted on and not part of the
-    answer, and #20's rule is that nothing above the execution seam learns where
+    answer, and the rule is that nothing above the execution seam learns where
     work runs — a :class:`~mcgyvr.route.Machine` names nothing, and a printed
     entry says a family and a rung, which are the operator's own words.
     """
@@ -525,11 +505,9 @@ class Entry:
         which is the only kind of path that reaches it, since the ordinary one
         hands the reservation to a climb instead.
 
-        Given back on ``rung`` and not on the machine alone, because that is the
-        queue it was taken on: a rung with a width of its own is a server
-        process of its own (#23), and a reservation returned to the rig would
-        leave that rung reading as busy for the rest of the run while the rig
-        read as one dispatch emptier than it is.
+        Given back on ``rung``, the same name
+        :meth:`~mcgyvr.route.Machine.claim` was given, so the reservation is
+        returned to the queue it was taken on.
         """
         self.machine.release(self.capacity, self.rung)
 
@@ -538,10 +516,10 @@ class Entry:
 class Ascent:
     """Every family a task may enter, in order, with what bounds the climb.
 
-    Inspectable before anything is spent, which is the property #24 gave one
-    family and this extends to the whole climb: the families, their rungs, the
-    attempts each is allowed and the two ceilings are all decided from the
-    config, the pool and the contract alone.
+    Inspectable before anything is spent, which is the property
+    :mod:`mcgyvr.route` gives one family and this extends to the whole climb:
+    the families, their rungs, the attempts each is allowed and the two ceilings
+    are all decided from the config, the pool and the contract alone.
 
     ``fanout`` is the configured mode, carried the way
     :attr:`~mcgyvr.route.Plan.fanout` carries it, so that an ascent can answer
@@ -555,8 +533,7 @@ class Ascent:
     at the moment it is asked for, so it is read then. Neither is part of the
     decision this record holds — two ascents that differ only in which capacity
     they were handed are the same ascent — so both stay out of ``repr`` and out
-    of comparison, and the families, rungs, attempts and ceilings that *are* the
-    decision print exactly as they did before.
+    of comparison; the families, rungs, attempts and ceilings *are* the decision.
     """
 
     floor: Family
@@ -570,13 +547,11 @@ class Ascent:
         """Whether there is anything here to climb.
 
         The same question :meth:`__len__` answers, and therefore the same
-        answer. It was ``any(self.plans)`` — plan truthiness — until the floor
-        was bound to a program: an ascent whose only non-empty plan holds a
-        :class:`~mcgyvr.deterministic.ToolStep` was then true and empty at once,
-        so ``if route:`` entered a climb that ``for p in route.runnable``
-        immediately found nothing in. Python asks ``__bool__`` first and falls
-        back to ``__len__``, which makes disagreeing versions of one question
-        the sharpest kind of trap: the guard passes and the loop does not run.
+        answer. Plan truthiness would not do: an ascent whose only non-empty
+        plan holds a :class:`~mcgyvr.deterministic.ToolStep` has work and
+        nothing to climb, and Python asks ``__bool__`` first and falls back to
+        ``__len__``, so disagreeing versions of one question let the guard pass
+        while the loop does not run.
 
         "This ascent contains work" is a different and true statement about such
         an ascent, and :attr:`plans` is where it is asked. It is not what a
@@ -596,10 +571,10 @@ class Ascent:
     def runnable(self) -> tuple[Plan, ...]:
         """The families that actually offer a rung.
 
-        A rung, not a step: since #81 bound the floor, the cheapest family can
-        hold a program, and a program is something to *run* and nothing to
-        *climb*. Counting it here would tell a caller the ladder can walk a
-        family whose only step :func:`~mcgyvr.route.climb` refuses.
+        A rung, not a step: the cheapest family can hold a program, and a
+        program is something to *run* and nothing to *climb*. Counting it here
+        would tell a caller the ladder can walk a family whose only step
+        :func:`~mcgyvr.route.climb` refuses.
         """
         return tuple(p for p in self.plans if p.climbable)
 
@@ -644,7 +619,7 @@ class Ascent:
     def next_free_rung(self) -> str | None:
         """The cheapest rung at or above the floor with a free slot, under ``idle``.
 
-        This is the whole of what ``ladder.fanout: idle`` decides. The floor
+        This is the whole of what ``fanout: idle`` decides. The floor
         bounds it and nothing else does: when every cheaper rung is full this
         names a priced api rung rather than wait, which is a spend decision the
         knob makes deliberately and the reason it is opt-in.
@@ -652,7 +627,7 @@ class Ascent:
         **Never below the floor, structurally.** :attr:`plans` holds only
         families at or above it, so a cheaper rung is not skipped here — there
         is nowhere in the shape for it to be considered, however idle it is.
-        Risk raises a floor (#16) and load may not lower it.
+        Load may not lower a floor.
 
         **Nothing is spent naming a rung.** A rung passed over here was not
         tried, so it reached no verdict, consumed no attempt and funded no
@@ -675,13 +650,10 @@ class Ascent:
         hand does not bound that machine, which is a capacity and a plan built
         from different configs.
 
-        Both halves are read per rung, and they have to be the same half each
-        time: a rung with a width of its own is a server process of its own, so
-        its load is the load of that process and its width is that process's
-        width. Comparing one rung's load against another's width — the rig's
-        load against a rung's width, as this did while load was read per source
-        — reports a busy rig's idle narrow rung as full and spends money
-        climbing past it.
+        Both halves are read for the same rung: its load from its
+        :class:`~mcgyvr.route.Machine`, its width from :attr:`widths`.
+        Comparing one rung's load against another's width reports an idle
+        narrow rung as full and spends money climbing past it.
 
         The load is read here rather than stored when the ascent was built,
         because a reading taken before the batch started is only true until the
@@ -713,10 +685,9 @@ class Ascent:
         The same question :attr:`next_free_rung` answers, made into a decision:
         the loads are priced against one another and the rung that wins is
         reserved before the lock is given up, so what comes back is a rung this
-        caller *holds* rather than a rung it saw free a moment ago. That is the
-        whole of the fix for the window :func:`_idle_entry` used to describe —
-        without it every member of a batch reads the same one free api slot and
-        each pays for it, which is a funnel priced in money.
+        caller *holds* rather than a rung it saw free a moment ago. Without it
+        every member of a batch reads the same one free api slot and each pays
+        for it, which is a funnel priced in money.
 
         ``None`` whenever there is nothing to raise: every case
         :attr:`next_free_rung` answers ``None`` for, and the case where the
@@ -765,7 +736,7 @@ class Ascent:
         loads were read in, which is what makes the read and the claim one
         decision rather than a snapshot another thread can act on first — and it
         is taken through :meth:`~mcgyvr.route.Machine.claim`, so no source name
-        crosses the seam here any more than it does anywhere else (#20).
+        crosses the seam here any more than it does anywhere else.
 
         It is taken *only for a rung that raises the entry*, and never for one in
         the floor family. A reservation on the floor rung would be handed to
@@ -777,8 +748,7 @@ class Ascent:
 
         The family is returned beside the rung because the walk already knows
         which plan it stopped in. Looking it up again afterwards would be a
-        second answer to a question this loop had in hand, and the version of
-        this code that did so had to raise for a name it could not find again.
+        second answer to a question this loop had in hand.
         """
         if self.fanout is not Fanout.IDLE or self.capacity is None:
             return None
@@ -855,22 +825,14 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
     reads it once; only the load has to be read at the moment the question is
     asked.
 
-    The rung's width and not its source's, because a tier may declare one and a
-    rung that did is bounded by it. Reading the source's number for such a rung
-    would price a free slot on the source's terms — sixteen where the rung will
-    admit four, or four where it will admit sixteen — and ``idle`` would either
-    queue on a full rung or climb past an empty one. A rung that declares
-    nothing is answered with its source's width, which is what
-    :meth:`~mcgyvr.capacity.Capacity.limit` falls back to and what
-    the width ``units.*.width`` has always meant.
+    Each ladder name is a unit's name, and its width is
+    :meth:`~mcgyvr.capacity.Capacity.limit`'s answer for that unit: the declared
+    ``units.*.width``, or a wider one a probe confirmed.
 
-    The source name is read inside this function and does not leave it: #20's
-    rule is that nothing above the execution seam learns where work runs, and a
-    width keyed by a rung is a fact about the ladder rather than about a host.
     Asking :class:`~mcgyvr.route.Machine` how busy it is stays the one way load
-    is read, for the same reason.
+    is read.
 
-    A rung whose source this capacity does not bound is absent rather than given
+    A rung this capacity does not bound is absent rather than given
     a guessed width, because an unknown width is not a free slot and
     :attr:`Ascent.next_free_rung` must be able to tell the two apart.
     """
@@ -890,9 +852,8 @@ class Delivered:
     """A task that ended with a change accepted, and what that rests on.
 
     The accepted bytes are reached through ``judgement.accepted``, which is a
-    binding minted from the tree its gate read. There is no bare content field:
-    one used to sit here and it was the port's only route for un-gated bytes
-    into a repository.
+    binding minted from the tree its gate read. There is no bare content field,
+    so no un-gated bytes reach a repository through this record.
     """
 
     family: Family
@@ -922,10 +883,10 @@ class Delivered:
 class Halted:
     """A task that ended without an accepted change, and which rule ended it.
 
-    A distinct type from :class:`Delivered` for the reason #24 split its two:
-    a caller cannot reach for a result that was never produced, and the
-    difference reads as a match on the answer rather than as a boolean whose
-    polarity has to be remembered.
+    A distinct type from :class:`Delivered` for the reason :mod:`mcgyvr.route`
+    splits its two: a caller cannot reach for a result that was never produced,
+    and the difference reads as a match on the answer rather than as a boolean
+    whose polarity has to be remembered.
     """
 
     outcome: Outcome
@@ -950,22 +911,18 @@ class DispatchRaisedError(Exception):
     draws reached a row, and which one it was in when it died. A plain `raise`
     carries neither, and every party downstream can do no better than infer.
 
-    Inference is what this class exists to end. The rows were counted once —
-    take the last one, "the dispatch in flight" — and that sentence is false
-    twice over: for a raise *after* the draws (a verifier, a cleanup, a gate)
-    it pins the failure on a dispatch that answered, and for a draw whose row
-    was lost (an unwritable blob store, a torn last line) it shifts every draw
-    down one and lands on the dispatch that answered. Both are the bug the
-    counting was written to fix.
+    Inference is what this class exists to end. Counting the rows and taking
+    the last one as "the dispatch in flight" is false twice over: for a raise
+    *after* the draws (a verifier, a cleanup, a gate) it pins the failure on a
+    dispatch that answered, and for a draw whose row was lost (an unwritable
+    blob store, a torn last line) it shifts every draw down one and lands on
+    the dispatch that answered.
 
     So the raise site says it, in three numbers that are three different
     quantities and never stand in for one another:
 
     ``draws`` is the breadth the attempt was configured for (``breadth.draws``)
-    and means that on every entry there is, whatever the verdict. It used to be
-    the rows on a raised entry and the breadth on a judged one, so a two-draw
-    run that raised after one row reported ``draws: 1`` and read as a run
-    configured for one draw.
+    and means that on every entry there is, whatever the verdict.
 
     ``rows`` is how many of those draws left a journal row — ``0`` for a raise
     before the first dispatch — and it is what a caller correcting the journal
@@ -1063,7 +1020,7 @@ def escalate(
     here it is caught and recorded as :attr:`Outcome.ERROR` naming the rung,
     so a caller can hand it to :func:`disposition` instead of a traceback.
 
-    Under ``ladder.fanout: idle`` the climb *enters* at the family of the
+    Under ``fanout: idle`` the climb *enters* at the family of the
     cheapest rung with a free slot rather than at the contract's floor, which is
     the whole of what that mode decides across families and the reason it is
     computed here rather than in :mod:`mcgyvr.route`. It is expressed by
@@ -1143,7 +1100,7 @@ def escalate(
             # An exception is not a verdict. `climb` lets a raising attempt
             # propagate so it is not misread as "this family cannot do the
             # work"; here is the seam that turns it into a terminal outcome of
-            # its own, carrying the rung so the operator knows which tier to
+            # its own, carrying the rung so the operator knows which unit to
             # fix.
             raise _AttemptError(this.rung.name, this.attempt, exc) from exc
         if judgement.verdict is not Verdict.DECLINED:
@@ -1161,12 +1118,9 @@ def escalate(
             if not each.climbable:
                 # Not entered, and its reason is kept for the halt detail. The
                 # test is `climbable` rather than truthiness because the two
-                # stopped agreeing when #81 bound the floor: a deterministic
-                # family holding a program is non-empty and still has nothing to
-                # climb, so a truthiness guard entered it and `climb` raised
-                # `RouteError` — which is not a `RunnerError`, so the mission
-                # loop did not catch it and the run ended with earlier contracts
-                # already committed.
+                # disagree: a deterministic family holding a program is
+                # non-empty and still has nothing to climb, and `climb` raises
+                # `RouteError` for it.
                 continue
             # The reserved rung is on the entry family's plan and on no other,
             # and the entry family is this ascent's floor — so it is handed to
@@ -1202,11 +1156,10 @@ def escalate(
                         # those draws left a journal row, which is what the
                         # caller corrects; `draw` is the one it died in, or
                         # `None` when no row of it is the culprit. The
-                        # dataclass defaults said "draw 0 of 1" — not "unknown"
-                        # but a claim — and the caller believed it, so under
-                        # `breadth.draws > 1` the error went onto a dispatch
-                        # that had answered. See `DispatchRaisedError` for why a
-                        # driver is the only party that can say any of them.
+                        # dataclass defaults say "draw 0 of 1", which is a
+                        # claim and not "unknown". See `DispatchRaisedError`
+                        # for why a driver is the only party that can say any
+                        # of them.
                         draw=raised.draw,
                         draws=raised.draws,
                         rows=raised.rows,
@@ -1269,43 +1222,33 @@ def _idle_entry(route: Ascent) -> Entry | None:
     reserved**. :meth:`Ascent.reserve_entry` is the single answer this reads;
     the reasons it declines to give one are its own and are not restated here.
 
-    **The read and the commitment are one decision.** They were not, and the
-    gap was this function's whole risk: naming a rung reserved nothing, while
-    the reservation for the rung a climb takes was made much later inside
-    :func:`~mcgyvr.route.climb`'s own
-    :meth:`~mcgyvr.capacity.Capacity.deciding` section. In between, every member
-    of a batch reaching this point saw the same one free api slot, every one of
-    them raised its entry into the priced family, and they then queued on it —
-    *paying* for a rung they could have waited out locally for nothing. It was
-    the funnel :mod:`mcgyvr.route` describes as narrowed to microseconds and not
-    closed, with money rather than throughput as the cost.
+    **The read and the commitment are one decision.** A name alone reserves
+    nothing: every member of a batch reaching this point would see the same one
+    free api slot, raise its entry into the priced family and then queue on it —
+    *paying* for a rung it could have waited out locally for nothing.
 
-    It is closed by reserving the named rung inside the very section that priced
-    it, and handing that reservation down: :func:`escalate` passes ``rung`` to
-    the entry family's :func:`~mcgyvr.route.climb` as ``claimed``, and that
-    climb takes it *without claiming it again*, so the source counts one attempt
-    for one dispatch and ``climb``'s existing ``finally`` gives it back exactly
-    once. The two failures the older reading feared are the two this shape
-    rules out: a double count, because the claim is skipped for exactly that
-    rung, and a phantom reservation, because nothing is reserved on any path
-    that does not raise the entry.
+    So the named rung is reserved inside the very section that priced it, and
+    the reservation is handed down: :func:`escalate` passes ``rung`` to the
+    entry family's :func:`~mcgyvr.route.climb` as ``claimed``, and that climb
+    takes it *without claiming it again*, so one attempt is counted for one
+    dispatch and ``climb``'s ``finally`` gives it back exactly once. Two
+    failures are ruled out by this shape: a double count, because the claim is
+    skipped for exactly that rung, and a phantom reservation, because nothing
+    is reserved on any path that does not raise the entry.
 
-    **What it does not do is shorten the walk.** An earlier note here proposed
-    that ``climb`` drop the rungs cheaper than the claimed one. That is the
-    defect ``869bf2a1`` removed, in the other module: a family short of the
-    rungs it was dropped runs out of ladder while still holding escalation
-    budget nothing has paid for, and that leftover move funds a dispatch into a
-    dearer family — it is how ``full`` came to buy an api call the default
-    refuses. Fan-out is a scheduling decision and not a spend decision, so the
-    claimed rung is popped out of the middle of the walk and every other rung
-    stays exactly where it was.
+    **What it does not do is shorten the walk.** A family short of the rungs
+    cheaper than the claimed one would run out of ladder while still holding
+    escalation budget nothing has paid for, and that leftover move would fund a
+    dispatch into a dearer family. Fan-out is a scheduling decision and not a
+    spend decision, so the claimed rung is popped out of the middle of the walk
+    and every other rung stays exactly where it was.
 
     **A leaked reservation is forever**, so the obligation :class:`Entry`
     carries is discharged on every path: by the climb that takes it over, and
     otherwise by :func:`escalate`'s ``finally``.
 
     **A raised entry is free, and a climbed one is not.** An escalation is what
-    a *failure* buys: ``budgets.max_escalations`` bounds how far work climbs
+    a *failure* buys: ``max_escalations`` bounds how far work climbs
     after something could not do it, and the record that funds a move is a
     verdict. Entering high because everything cheaper was full is not that.
     Nothing was tried, nothing failed, and the rungs below were passed over
@@ -1350,7 +1293,7 @@ def _handed_down(route: Ascent, entry: Entry) -> str | None:
     It is asked anyway because the answer decides who owes the release.
     :func:`~mcgyvr.route.climb` cannot give back a reservation for a rung its
     plan does not offer: a :class:`~mcgyvr.route.Machine` is built from the
-    rungs of one family, so there is no handle there to release with, and #20's
+    rungs of one family, so there is no handle there to release with, and the seam's
     rule keeps the source name from being the alternative. ``None`` therefore
     means "still ours", and :func:`escalate` releases it rather than handing
     down a name that would be quietly ignored.

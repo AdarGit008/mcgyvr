@@ -1,28 +1,17 @@
-"""X07 — the cheapest family on the ladder is a hole, and a missing tool must cost
-something visible rather than nothing at all.
+"""X07 — a deterministic task type plans a tool on its own floor, and a missing tool
+costs something visible rather than nothing at all.
 
-This is not a gap between mcgyvr and local-ai. It is a family the ladder declares,
-that four task types are routed to by name, and that can never contain anything.
-``route._why_empty`` says so in the code's own words: the deterministic family
-"binds no rung: it is tools, not a model on a source. Its executor is the
-deterministic tier (#81), which is not reached through the ladder." The reasoning is
-sound — a rung's family is derived from whether its *source* needs a credential, and
-a program has no source — but the consequence is that every ``starts_on:
-deterministic`` type in ``data/task-catalog.json`` plans an empty family, and
-:func:`~mcgyvr.escalate.escalate` skips it silently on its way to a model.
+The deterministic family binds no rung — a rung's family is derived from whether its
+*source* needs a credential, and a program has no source — so
+:func:`~mcgyvr.route.plan` fills it from :func:`mcgyvr.deterministic.tool_steps`.
+``format``, ``import_sort``, ``lint_fix`` and ``rename_symbol`` are types a tool does
+perfectly, for free, deterministically.
 
-What that costs is exact and it is the reason this lever is worth its size:
-``format``, ``import_sort``, ``lint_fix`` and ``rename_symbol`` are the four types a
-tool does perfectly, for free, deterministically. Today each of them is a model
-call. The floor the catalog wrote down is not being enforced downward; it is being
-skipped.
-
-Three statements, and the second and third are what stop the fix from being worse
-than the hole:
+Three statements:
 
 * **There is something to run.** Asserted through :func:`~mcgyvr.route.plan`,
   against the real catalog, for every type whose ``starts_on`` is the deterministic
-  family — read from the catalog rather than listed here, so a fifth type added to
+  family — read from the catalog rather than listed here, so a type added to
   the data file is covered on the day it is added. Asserted as a plan and not as an
   execution because a plan is the thing mcgyvr can inspect before a token is spent,
   and "the ladder's cheapest family is empty" is exactly the fact a plan is supposed
@@ -42,10 +31,7 @@ than the hole:
   left and the family it landed in. A constant sentence can satisfy any one of them
   and not all three, which is the point of asserting all three.
 
-The first test uses the real routing code and no seam: :func:`~mcgyvr.route.plan`
-exists, answers, and answers "nothing". That is a behavior that is wrong rather than
-a capability that is missing, and the honest way to say so is to assert against the
-thing that is wrong.
+The first test uses the real routing code and no seam.
 """
 
 from __future__ import annotations

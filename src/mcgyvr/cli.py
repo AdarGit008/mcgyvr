@@ -1,7 +1,6 @@
 """Command-line entrypoint.
 
-Only what is built is exposed. Subcommands appear here as they land; the
-scope of record for what is coming is the issue tree.
+Only what is built is exposed.
 """
 
 from __future__ import annotations
@@ -72,13 +71,10 @@ INIT_DEFAULT_HELP = (
     f"folder, which only `mcgyvr fleet promote` writes"
 )
 
-#: Where a machine's owner reads how to stand the ladder up. The skill is the
-#: one instruction an agent reads before it authors a contract, and setup is
-#: not part of it — so an agent that has read the skill and reached a machine
-#: nobody ran `mcgyvr init` on has no route back to setup except the one an
-#: error prints. Relative to the repository, as the skill directory is: the
-#: reader is the person who has the checkout this ran from, and an absolute
-#: path resolved here would be this machine's, not theirs.
+#: Where a machine's owner reads how to stand the ladder up; `run` prints it
+#: when a model contract finds no config. Relative to the repository, as the
+#: skill directory is: the reader is the person who has the checkout this ran
+#: from, and an absolute path resolved here would be this machine's, not theirs.
 SETUP_DOC = "skills/mcgyvr/SETUP.md"
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -150,7 +146,7 @@ def _config(args: argparse.Namespace) -> int:
 
     if config.is_local_only:
         print(
-            "\nEvery rung runs locally: this install needs no API key, and the "
+            "\nNo rung needs a credential: this install needs no API key, and the "
             "deterministic gate is its acceptance bar."
         )
     return 0
@@ -330,11 +326,10 @@ def _cap_undeclared(contract: Contract) -> str | None:
 
     The loader derives ``limits.max_output_tokens`` from the task type's own
     evidence, silently, because the bench and the corpus need a number. A
-    person's run does not get that silence (owner, 2026-09-05: "fail loud
-    when no budget is declared"): the first live ladder cut the top rung's
-    reply at a derived 1024 after a 41-second climb, and nobody had chosen
-    the number. The derived figure is printed as the value to start from. A
-    deterministic contract has no reply to cap and is not asked.
+    person's run does not get that silence: a contract whose reply cap nobody
+    chose is refused before anything is spent. The derived figure is printed as
+    the value to start from. A deterministic contract has no reply to cap and
+    is not asked.
 
     A ladder unit that declares ``units.*.output_tokens`` does not lift this.
     The two numbers answer different questions — what this unit of work is
@@ -691,8 +686,8 @@ def _index(args: argparse.Namespace) -> int:
         for symbol in defs:
             detail = f" [{symbol.detail}]" if symbol.detail else ""
             print(f"  def  {symbol.path}:{symbol.line}{detail}")
-            # The signature is what a contract would carry as a dep ,
-            # so showing it here is how a reviewer checks the text against the
+            # The signature is what a contract would carry as a dep, so
+            # showing it here is how a reviewer checks the text against the
             # file without loading the index themselves.
             for line in symbol.signature.splitlines():
                 print(f"         {line}")
@@ -806,12 +801,12 @@ def _delegate(args: argparse.Namespace) -> int:
     """Turn a prompt plus a repository into validated contracts.
 
     The delegated-mode half of the product, and the first real caller of
-    :func:`~mcgyvr.orchestrator.decompose.decompose`'s ``propose`` seam. The
-    deterministic pass (attach → index → resolve → read) is what
-    ``decompose`` runs internally; this command adds the one ingredient
-    ``decompose`` deliberately does not bind itself: the orchestrator role,
-    resolved through :func:`~mcgyvr.delegate.proposer_for` and dispatched
-    below the pool seam by :func:`~mcgyvr.runner.dispatch_role`.
+    :func:`~mcgyvr.orchestrator.decompose.decompose`'s ``propose`` seam. This
+    command attaches and indexes the repository, and ``decompose`` runs the
+    rest of the deterministic pass (resolve → read) internally; this command
+    also adds the one ingredient ``decompose`` does not bind itself: the
+    orchestrator role, resolved through :func:`~mcgyvr.delegate.proposer_for`
+    and dispatched below the pool seam by :func:`~mcgyvr.runner.dispatch_role`.
 
     A keyless install has no orchestrator role, and that is an ordinary,
     documented answer (:data:`~mcgyvr.delegate.NO_ORCHESTRATOR_ROLE`, exit
@@ -863,8 +858,8 @@ def _delegate(args: argparse.Namespace) -> int:
     except SourceUnavailableError as exc:
         print(
             f"error: the orchestrator role is declared but cannot run: {exc}. "
-            f"Bind it to a usable source, or author contracts yourself and "
-            f"run them with `mcgyvr run`.",
+            f"Bind `orchestrator.unit` to a usable unit, or author contracts "
+            f"yourself and run them with `mcgyvr run`.",
             file=sys.stderr,
         )
         return 1
@@ -1002,16 +997,11 @@ def _run_delegated(
 def _run(args: argparse.Namespace) -> int:
     """Drive one contract to a gated verdict, and optionally to a commit.
 
-    The root of the call graph pattern C found missing. Everything below this
-    existed and was reachable from a test; nothing reached it from a command,
-    which is what "28 of 35 public entry points have no production caller"
-    described.
-
     Committing is opt-in. A gate verdict costs the user a sandbox that is torn
     down either way, and a commit is a write to a repository they did not hand
     over for one — so ``--commit`` is what makes the difference, and its absence
     leaves the accepted change in the working tree and nothing else in the
-    repository: no commit, no branch, no receipt (owner's ruling, 2026-09-03).
+    repository: no commit, no branch, no receipt.
 
     Two paths, chosen by the contract rather than by a flag. A deterministic
     contract names a program and is run here; anything else climbs a ladder and
@@ -1020,16 +1010,10 @@ def _run(args: argparse.Namespace) -> int:
     *begin* on, and a flag that let a caller override it would be a second,
     quieter answer to the question ``starts_on`` exists to settle.
 
-    **A tool step has three outcomes here, not two.** It read any non-zero exit
-    as fatal, and ``ruff check --fix`` — which is what ``lint_fix`` binds —
-    exits **1** whenever a diagnostic remains after fixing. That is the ordinary
-    outcome, and it is the outcome ``lint_fix``'s own guarantee describes: "a
-    diagnostic the linter will not fix itself is explicitly out of scope for
-    this type". So a contract carried out exactly as the catalog promises came
-    back as ``error: <the linter's dump>``, was never gated and never committed.
-
-    The three: the program **could not run** (126/127, an environment issue —
-    the work is still doable on a dearer family); the program **ran and did the
+    **A tool step has three outcomes here, not two**
+    (:class:`~mcgyvr.drive.ToolOutcome`): the program **could not run**
+    (126/127, an environment issue — the work is still doable on a dearer
+    family); the program **ran and did the
     job its type describes** (:attr:`~mcgyvr.drive.ToolOutcome.performed`, which
     is where any residue it reported goes on to the gate, because the gate is
     the thing that judges a result and stopping here means the result is never
@@ -1038,11 +1022,9 @@ def _run(args: argparse.Namespace) -> int:
     same config is broken in the same way).
 
     The test is the exit code, against the set of codes that invocation reports
-    under, which is clause 2 one layer out from the gate. Ignoring the
-    exit code entirely was the cheaper alternative and is the wrong one twice
-    over: it would carry an untouched change to a gate that cannot judge it, and
-    it would drop the linter's own account of what it will not fix, which is
-    printed here instead.
+    under — the rule :func:`mcgyvr.gate.adapter.trusted_stdout` applies to the
+    gate's own invocations. What the program said it will not fix is printed
+    here.
 
     **Every run is journaled, in one place, and nothing a caller passes moves
     it.** The journal is mcgyvr's own record — ``<journal.dir>/<orchestrator>.jsonl``
@@ -1050,24 +1032,18 @@ def _run(args: argparse.Namespace) -> int:
     run's result under ``results/``. It exists to be *compounded*: how often the
     floor finishes a task type on its own, what a rung costs per accepted
     change, whether escalating paid are all questions about every run there has
-    been, and they can only be asked where every run is. ``--record DIR`` used
-    to answer them by making them unanswerable — it replaced this directory
-    rather than adding to it, so a run made with it was recorded there and
-    nowhere else, in a directory that is usually inside a repository, and
-    repositories are cloned, go stale and are thrown away. It is now a complete
-    second copy for the caller's own reading, and a copy that cannot be written
-    is a line on stderr rather than the end of a run mcgyvr has already
-    recorded. ``--result PATH`` is the same bargain for the result file: it
+    been, and they can only be asked where every run is. ``--record DIR`` is a
+    complete second copy for the caller's own reading, and a copy that cannot
+    be written is a line on stderr rather than the end of a run mcgyvr has
+    already recorded. ``--result PATH`` is the same bargain for the result file: it
     says where the *caller* reads it, and ours keeps its own.
 
     **Both paths, not only the dispatching one.** A deterministic contract
-    sends nothing to a model and used to journal nothing with it, which left
-    the corpus holding only the runs the floor did not handle — and the ratio
-    that justifies having a deterministic tier at all cannot be computed from a
-    table missing its denominator. The floor writes one row naming the program
-    that did the work, with ``tier: deterministic`` beside it and no prompt,
-    reply or token counts, because it made no dispatch and must not look as
-    though it did.
+    sends nothing to a model and is journaled all the same: how often the floor
+    finishes a task type on its own cannot be computed from a table missing the
+    floor's runs. The floor writes one row naming the program that did the
+    work, with ``tier: deterministic`` beside it and no prompt, reply or token
+    counts, because it made no dispatch and must not look as though it did.
 
     The orchestrator is the session that typed the command
     (:mod:`mcgyvr.session`), resolved in :func:`main` before anything here runs,
@@ -1132,13 +1108,7 @@ def _run(args: argparse.Namespace) -> int:
     # Ours, and nothing a caller passes moves it. The journal is a corpus to be
     # compounded — how often the floor finishes a task type on its own, what a
     # rung costs per accepted change, whether escalating paid — and every one of
-    # those questions is about *all* the runs there have been. `--record DIR`
-    # used to replace this directory rather than add to it, so a run made with
-    # it was recorded there and nowhere else, and the corpus was whatever was
-    # left over with no way to know which runs were missing. The directory a
-    # caller passes is usually inside the repository they are working in, and
-    # repositories are cloned, go stale and are thrown away: a record kept only
-    # there has a half-life.
+    # those questions is about *all* the runs there have been.
     configured = config.get("journal.dir") if config is not None else None
     journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
     # Theirs, for their own reading. A complete copy — every line, every blob,
@@ -1148,11 +1118,10 @@ def _run(args: argparse.Namespace) -> int:
     #
     # A copy of the corpus *into* the corpus is dropped rather than made, and
     # this is not a nicety: the copy is written to `<dir>/<orchestrator>.jsonl`
-    # by the same name ours is, so naming our own directory appended every line
-    # to the same file twice. `fold` survives that — a re-logged attempt id
-    # supersedes — but `tools/live/index.py` appends a table row per attempt
-    # record and would have counted one dispatch as two, which is exactly the
-    # kind of quiet double-count a corpus is kept in order not to have.
+    # by the same name ours is, so naming our own directory would append every
+    # line to the same file twice. `fold` keeps both rows — a repeat attempt id
+    # is a collision, not a supersede — so `tools/live/index.py`, one table row
+    # per folded attempt, would count one dispatch as two.
     # Resolved before comparing, because `--record .` and an absolute
     # `journal.dir` are the same directory spelled two ways.
     asked = Path(args.record).expanduser() if args.record is not None else None
@@ -1185,12 +1154,10 @@ def _run(args: argparse.Namespace) -> int:
         # the note names the file, what is wrong with it, and where the answer
         # went instead.
         #
-        # It names the result file and not the journal dir because the journal
-        # dir is not where this run lands. Only the floor ever reaches this
-        # line — a climb without a ladder was refused above — the floor
-        # dispatches nothing, and nothing is journaled; and `--result` moves
-        # the one file that is written out of that directory entirely. A note
-        # exists to add a true fact.
+        # It names the result file because that is the path the caller reads;
+        # the floor's row and mcgyvr's own copy of the result go under the
+        # default journal dir. Only the floor reaches this line — a climb
+        # without a ladder was refused above.
         #
         # The reason is flattened first: a YAML parse error is several lines,
         # and the tail of a multi-line message printed under a `note:` prefix
@@ -1221,11 +1188,7 @@ def _run(args: argparse.Namespace) -> int:
         journal=str(journal_dir),
     )
 
-    # Every run, both paths. A deterministic contract dispatches nothing and
-    # used to journal nothing with it, which left the corpus holding only the
-    # runs the floor did *not* handle — and "how often does the floor finish
-    # this task type on its own" is the ladder's whole economic case and cannot
-    # be computed from a table missing its denominator.
+    # Every run, both paths: the floor dispatches nothing and is journaled too.
     try:
         recording = Recording(
             path=journal_dir / f"{session.orchestrator}.jsonl",
@@ -1238,9 +1201,9 @@ def _run(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     # Asked before the run rather than discovered during it. Our sink raises on
-    # an unwritable path, by the rule `telemetry` opens with — but raising from
-    # inside a dispatch reached the caller as a traceback with no `result:`
-    # line, and a directory that is a file or a path with no permission is an
+    # an unwritable path (`telemetry.observe`), and a raise from inside a
+    # dispatch reaches the caller as a traceback with no `result:` line; a
+    # directory that is a file or a path with no permission is an
     # operator error that is free to state now and expensive to read later. A
     # full disk part-way through is still a raise; this is the cheap half.
     try:
@@ -1256,10 +1219,10 @@ def _run(args: argparse.Namespace) -> int:
         return 1
     print(f"journal: {recording.path}", file=sys.stderr)
 
-    # Settled once, here, so both paths below open the same sandbox. The
-    # precedence is the one `sandbox/base.py` states and nothing implemented:
-    # a flag typed at the terminal is a person overriding their own file and
-    # wins; with no flag the file answers; with neither, `docker`.
+    # Settled once, here, so both paths below open the same sandbox: a flag
+    # typed at the terminal is a person overriding their own file and wins;
+    # with no flag `sandbox.mode` from the config answers; with neither,
+    # `docker`.
     args.sandbox = (
         args.sandbox
         or (config.get("sandbox.mode") if config is not None else None)
@@ -1375,16 +1338,14 @@ def _floor(
     prompt and no reply because it sent none, but it is a run, and a corpus
     that held only the runs the floor did *not* handle could not answer the one
     question the deterministic tier exists to raise: how much work finishes
-    here, for free and in one attempt, rather than on a model. That is a ratio,
-    and its denominator was the missing half.
+    here, for free and in one attempt, rather than on a model.
 
-    The row is written before the gate and corrected after it, which is the
-    dispatch's own shape: :func:`~mcgyvr.telemetry.observe` records that the
-    work happened, and the correction records how it was judged and where it
-    went. ``rung`` is the program that did it — ``ruff``, not a model — and
-    ``tier`` is ``deterministic`` beside it, so one query can count a floor run
-    against a ladder attempt without the two vocabularies colliding in one
-    column.
+    The row is written once the program and the gate have both run inside
+    :func:`~mcgyvr.telemetry.observe`, and is corrected afterwards with how the
+    result was judged and where it went. ``rung`` is the program that did it —
+    ``ruff``, not a model — and ``tier`` is ``deterministic`` beside it, so one
+    query can count a floor run against a ladder attempt without the two
+    vocabularies colliding in one column.
 
     What is deliberately outside the row: opening the sandbox. It is the
     floor's ``pool.bind`` — the step before the work that decides whether there
@@ -1397,16 +1358,9 @@ def _floor(
     from mcgyvr.telemetry import correct, observe
 
     if args.record is not None:
-        # It dispatches nothing and journals all the same, which is the whole
-        # of what changed here: the directory gets this run's row, its verdict
-        # and a copy of its result — a journal `tools/live/review.py` reads —
-        # and mcgyvr's own copy under `journal.dir` gets the same, because that
-        # is the one that has to hold every run there has ever been.
-        # One clause under both flags, which is new: the note used to have to
-        # branch on `--result`, because the result file was the only thing the
-        # recorded directory ever got and `--result` took it away, leaving the
-        # note describing a directory that ended up empty. A copy is now a
-        # whole journal — row, verdict, result — so there is one true sentence.
+        # The floor dispatches nothing and journals all the same: the
+        # `--record` directory gets this run's row, its verdict and a copy of
+        # its result, and so does mcgyvr's own `journal.dir`.
         print(
             f"note: {contract.id} is a {contract.task_type!r} contract and runs "
             f"on the deterministic floor; it dispatches nothing, so the copy in "
@@ -1417,8 +1371,8 @@ def _floor(
     if not steps:
         return _error(
             report,
-            f"no program on this machine executes {contract.task_type!r} "
-            f"for {contract.target}. The work is still doable on a dearer "
+            f"no program is bound to {contract.task_type!r} for "
+            f"{contract.target}. The work is still doable on a dearer "
             f"family, which this command does not climb to.",
         )
 
@@ -1514,10 +1468,8 @@ def _error(report: RunResult, detail: str, *, outcome: str = "error") -> int:
     """Print an error the way every branch here does, and keep it for the result.
 
     The outcome is set here, not left to whatever the caller had written
-    before things went wrong: ``_report_run`` used to file ``accepted`` the
-    moment the gate accepted, and a refusal one line later — a symlinked
-    target, say — went out as ``outcome: accepted, exit_code: 1`` with nothing
-    in the tree. A caller reporting under a more specific word passes it.
+    before things went wrong. A caller reporting under a more specific word
+    passes it.
     """
     print(f"error: {detail}", file=sys.stderr)
     report.outcome = outcome
@@ -1542,14 +1494,12 @@ def _climb(
     family work of its kind may begin on; :func:`~mcgyvr.escalate.ascent` walks
     the catalog's families upward from there; :func:`~mcgyvr.route.plan` takes
     each family's rungs in the order the operator wrote them into the ladder
-    and gives each the attempts its tier declares; and ``budgets.max_escalations``
-    with ``budgets.max_attempts`` bound how far the walk gets. A ``--rung`` flag
-    would be a fourth party to a decision three files already settle, and the
-    first time it disagreed with the ladder the operator would have two orderings
-    and no way to tell which one ran. What ``run`` was actually missing is
-    therefore not a policy knob but the two *inputs* the ladder needs and this
-    command had nowhere to take them from: a config, and the source map resolved
-    from it.
+    and gives each the attempts the policy's ``attempts`` map declares for it,
+    capped by the contract's ``limits.attempts``; and ``max_escalations`` with
+    ``max_attempts`` bound how far the walk gets. A ``--rung`` flag would be a
+    fourth party to a decision three files already settle, and the first time it
+    disagreed with the ladder the operator would have two orderings and no way
+    to tell which one ran.
 
     Hence ``--config`` and no rung flag. It resolves the same way every other
     command's does — ``$MCGYVR_CONFIG``, then the working directory, then
@@ -1594,34 +1544,15 @@ def _climb(
     # ask for real. `mcgyvr pool --probe` is where an operator asks it in
     # advance, and paying for it here would charge every run for a diagnosis.
     #
-    # **One question this does leave open, named here because it is not the one
-    # above.** `Availability.not_serving` asks whether the model a rung declares
-    # is the one its port is currently holding, and that is *not* something the
-    # dispatch discovers for real: llama.cpp answers a request naming weights it
-    # is not holding from the weights it is, so a run against an alternated card
-    # records an answer from a rung that was never up (O3). It cannot happen on
-    # either live rig today — both are single-spec hosts — and it becomes real
-    # the day alternatives are deployed.
-    #
-    # Closing it here means probing before dispatch, and that was tried on
-    # 2026-09-09 and backed out. The cost is not the latency: one concurrent
-    # `GET /v1/models` per source, bounded by `availability.PROBE_TIMEOUT_S`, is
-    # nothing against a run that then spends minutes in a model. The cost is
-    # that this function stops being reachable without a network. It is the
-    # doctrine `mcgyvr.wake` states — "fail-first, never probe-first", a card
-    # that is up must cost nothing extra — and it is load-bearing in the tests:
-    # the sleep/wake specs name `http://srv2:8001`, which on a developer's
-    # machine resolves to the actual rig, so a probe here sent the suite's own
-    # requests to production and took four of the nineteen approved specs with
-    # it. Two ways to close it are written up for the owner: read the `model`
-    # the completion itself reports (llama.cpp returns the loaded path there)
-    # and compare it with `availability._is_model`, which costs no network and
-    # catches it on the dispatch that matters; or gate a probe behind a new
-    # `serving.` key, off by default, which costs a schema key and therefore
-    # re-identifies every existing config.
+    # `Availability.not_serving` — whether the model a rung declares is the one
+    # its port holds — is not asked here either: `source_map(config)` takes no
+    # probe, so this function resolves its ladder without a network. A wrong
+    # model is caught at dispatch instead: llama-server answers a request
+    # naming another model from the weights it holds, and the runner refuses a
+    # reply whose `model` names other weights (`runner.WrongWeightsError`).
     pool = source_map(config)
 
-    # The bound `mcgyvr pool` prints, actually applied. Built here, once, and
+    # The width `mcgyvr config` prints, actually applied. Built here, once, and
     # handed to both `ascent` and `escalate`: the reservations one makes are
     # the loads the other reads, so two capacities would be two tallies of one
     # rig. Its slot files are a host-wide rendezvous, which is what makes this
@@ -1664,18 +1595,19 @@ def _climb(
 
     # Before the sandbox, for the reason the paragraph above gives: an install
     # that was told to verify and cannot is refused while refusing is still
-    # free. `verifier.enabled` is read here and nowhere else — `source_map`
-    # binds the role whenever a source and a model are declared, so the flag is
-    # the operator's switch and this is the caller that acts on it. `None` is
-    # not a downgrade there: it is `verifier.enabled: false`, which asks for
-    # acceptance on the deterministic gate alone.
+    # free. `verifier.enabled` is acted on here (the loader only checks that an
+    # enabled verifier names a unit) — `source_map` binds the role whenever a
+    # `unit` and a `model` are declared, so the flag is the operator's switch
+    # and this is the caller that acts on it. `None` is not a downgrade there:
+    # it is `verifier.enabled: false`, which asks for acceptance on the
+    # deterministic gate alone.
     try:
         reviewer = reviewer_for(pool) if config.get("verifier.enabled") else None
     except SourceUnavailableError as exc:
         return _error(
             report,
             f"verification is enabled and the verifier role cannot run: "
-            f"{exc}. Bind it to a usable source, or set "
+            f"{exc}. Bind `verifier.unit` to a usable unit, or set "
             f"`verifier.enabled: false` to accept on the deterministic gate.",
         )
 
@@ -1697,19 +1629,12 @@ def _climb(
         with sandbox:
             for note in sandbox.notes:
                 print(f"note: {note}")
-            # The baseline, before the first rung. `Acceptance.precondition`
-            # runs both lists against the UNCHANGED tree, and until it was
-            # called nothing did: `run` reasoned from a baseline nobody took
-            # ("they failed at baseline, so one still failing is ..."). Two
-            # silent failures followed. A `bug_fix` whose demonstration was
-            # already passing was judged by running it after the change,
-            # seeing green, and reporting the bug fixed — nothing was
-            # demonstrated and the result file could not say so. And a
-            # contract whose acceptance suite was already red charged the
-            # model for the tree's fault, which is the exact thing a preflight
-            # exists to prevent. The issue's own wording tells the two apart,
-            # because the operator's next move differs completely: one says
-            # fix the contract, the other says fix the tree.
+            # The baseline, before the first rung: `Acceptance.precondition`
+            # runs both lists against the unchanged tree, so a demonstration
+            # that already passes or a suite that is already red is refused
+            # here rather than charged to a model. The issue's own wording
+            # tells the two apart, because the operator's next move differs:
+            # one says fix the contract, the other says fix the tree.
             acceptance = acceptance_for(contract, sandbox)
             if acceptance is not None:
                 issue = acceptance.precondition()
@@ -1774,12 +1699,12 @@ def _warning_pulled_steps(
 ) -> Callable[[Try], Judgement]:
     """``attempt``, warning once on stderr before each pulled step is dispatched.
 
-    Owner, 2026-09-15: "warn now, enforce later". A step whose unit's
-    combination is pulled (:func:`mcgyvr.fleet.alerts.live_pulled_units`) is
-    named, with each pulled field and its count, and then dispatched exactly as
-    it would have been: this wraps the attempt and never answers for it, so the
-    rungs, the attempts and the outcome are the climb's own. Pulls that cannot
-    be read are one warning, and the run goes on; nothing here fails a run.
+    Warned, not enforced. A step whose unit's combination is pulled
+    (:func:`mcgyvr.fleet.alerts.live_pulled_units`) is named, with each pulled
+    field and its count, and then dispatched exactly as it would have been:
+    this wraps the attempt and never answers for it, so the rungs, the attempts
+    and the outcome are the climb's own. Pulls that cannot be read are one
+    warning, and the run goes on; nothing here fails a run.
     """
     from mcgyvr.fleet.alerts import live_pulled_units
 
@@ -1993,13 +1918,11 @@ def _correction_detail(step: Attempted, each: int, subject: int | None) -> str:
     could be corrected, which is precisely the reading breadth's own telemetry
     must not invite.
 
-    It used to read "after its draws", which was true of one raise and false of
-    two others wearing the same ``draw: null``: a gate that died on draw 0 of
-    three, and a draw whose ``pool.bind`` raised before it reached a row, both
-    left draws still to come. ``rows`` is what tells them apart — this line is
-    only ever written about a row that exists, so ``rows - 1`` is the last draw
-    that answered — and naming that draw is true of all three, the raise after
-    the last draw included.
+    A raise with ``draw: null`` has three causes: a gate that died on an early
+    draw, a draw whose ``pool.bind`` raised before it reached a row, and a raise
+    after the last draw. This line is only ever written about a row that
+    exists, so ``rows - 1`` is the last draw that answered, and naming that draw
+    is true of all three.
     """
     if step.raised:
         if each == subject:
@@ -2074,10 +1997,10 @@ def _report_run(
         # exactly as it was: the target already is what the task type asks for.
         # Delivery would refuse it as a change identical to its base — which is
         # right for a model that answered with its target unchanged, and wrong
-        # for a program that did its job and found nothing to do (owner,
-        # 2026-09-15). The floor's no-op ends on its own word, exit 0, with or
-        # without --commit, and nothing is written or committed. Checked after
-        # binding: a target that cannot be read is an error whatever changed.
+        # for a program that did its job and found nothing to do. The floor's
+        # no-op ends on its own word, exit 0, with or without --commit, and
+        # nothing is written or committed. Checked after binding: a target
+        # that cannot be read is an error whatever changed.
         detail = (
             f"{contract.target} already is what {contract.task_type!r} asks for; "
             f"nothing was written"
@@ -2128,8 +2051,9 @@ RAISED = "error"
 #: ``local``, ``api``), so a floor row and a ladder row, whose tier is
 #: ``family_of(...).name``, are comparable in one column rather than in two
 #: vocabularies that happen to look alike. It is a literal and not a lookup
-#: because the floor has no rung to ask the catalog about, and
-#: ``test_a_floor_run_is_in_the_corpus_too`` holds the two together.
+#: because the floor has no rung to ask the catalog about;
+#: ``tests/test_a_floor_run_is_in_the_corpus_too.py`` pins the row's ``tier``
+#: to the same literal.
 DETERMINISTIC = "deterministic"
 
 
@@ -2225,8 +2149,8 @@ def _scan(args: argparse.Namespace) -> int:
     record, and that asymmetry is the point rather than an oversight.
     ``--json`` is not a quieter mode of this command for a person; it is the
     far end of an ssh pipe, and the only thing that reads it is
-    :func:`mcgyvr.scan.scan_over` → ``_ssh`` → ``_run``, which treats *any*
-    non-zero status as "this host did not answer" and raises ``Unreachable``.
+    :func:`mcgyvr.scan.scan_over` → ``_ssh``, which treats *any* non-zero
+    status as "this host did not answer" and raises ``Unreachable``.
     Exiting 4 down that channel would take the one event exit 4 exists to
     surface — a rig that lost a DIMM or a card — and make that rig disappear
     from ``scan_all`` altogether, discarding a perfectly good measurement that
@@ -2300,9 +2224,9 @@ def _serve(args: argparse.Namespace) -> int:
     ``sleep`` drains before it evicts. Every slot of every bound the card serves
     is taken first, so a dispatch that had already been admitted finishes rather
     than having its container killed under it — the one thing whole-card
-    eviction is not allowed to do (D8). The census that decides *whether* to
-    sleep is a reading and this is a hold, and between the two a dispatch can
-    start, which is why both exist.
+    eviction is not allowed to do (D8 of the same plan). The census that
+    decides *whether* to sleep is a reading and this is a hold, and between the
+    two a dispatch can start, which is why both exist.
     """
     try:
         config = load_config(Path(args.config) if args.config else None)
@@ -2354,7 +2278,7 @@ def _serve(args: argparse.Namespace) -> int:
         print(
             f"error: the door exited {made.code} bringing {made.host} "
             f"{'up' if made.direction == 'up' else 'down'} — read its envelope "
-            f"under records/evidence/live-{made.host}/",
+            f"under records/evidence/<date>-live-{made.host}/",
             file=sys.stderr,
         )
         return Exit.ERROR
@@ -2377,7 +2301,7 @@ def _emit(args: argparse.Namespace) -> int:
         return Exit.ERROR
 
     # A locked setup is rendered from what it states and never sized, so it is
-    # decided before a scan is read: a locked unit needs none (owner, 2026-09-15).
+    # decided before a scan is read: a locked unit needs none.
     try:
         fleet = _locked_fleet(config)
     except (FleetFileError, OSError) as exc:
@@ -2422,11 +2346,9 @@ def _emit(args: argparse.Namespace) -> int:
         units = units_for(
             config, scans, specs=_model_specs(), ctx_per_slot=args.ctx_per_slot
         )
-        # What the card refusal became. `hold_together` no longer refuses a host
-        # whose units will not sum onto its card — `launch_specs` emits them as
-        # alternatives instead (owner's ruling 5, 2026-09-09) — and a change to
-        # what the rig runs, decided by arithmetic nobody sees, must not reach an
-        # operator as nothing but a second `wrote ...` line.
+        # `hold_together` returns a sentence for each host it cut into
+        # alternatives; they are printed as warnings below so the cut is not
+        # only a second `wrote ...` line.
         cut = hold_together(units, scans)
     except UnitError as exc:
         print(f"refused: {exc}", file=sys.stderr)
@@ -2434,25 +2356,6 @@ def _emit(args: argparse.Namespace) -> int:
     except CapabilityTableError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
-
-    # A `base_url` bound to two models used to be refused here — "one server
-    # process serves one model ... give each model its own source on its own
-    # port". One process per model is still true and it is no longer a reason
-    # to refuse: two rungs on one URL are two models *taking turns* on it, the
-    # ladder shape `mcgyvr-lab/records/plans/sleep-wake.md` §17 is made of, and telling
-    # an owner to invent a second port is telling them to buy a second card. What
-    # the refusal was protecting against — a file whose second service can
-    # never bind — is now impossible by construction, because
-    # `serving.launch_specs` gives each alternative a launch spec of its own —
-    # and since the discriminator became card contention rather than the port,
-    # "alternative" covers srv2's :8001/:8002/:8003 trio too, which no port
-    # collision could ever have seen.
-    # The refusal of a host mixing alternatives with co-residents went the same
-    # way on 2026-09-09 (owner's ruling 5): under a fluid ladder that mix is the
-    # normal case, and `launch_specs` answers it as a covering by feasible
-    # combinations rather than as a partition it cannot make. What still refuses
-    # is `hold_together` above, on the axis alternation does not trade — host
-    # RAM, which two units that share a card happily can still fail to share.
 
     out = Path(args.out) if args.out else Path.cwd()
 
@@ -2577,17 +2480,14 @@ def _report_drift(
     names a launch spec on disk, for a rig this ladder still binds, that this
     config would not write — the `compose.<host>.yml` an earlier emit left
     behind when the host stopped fitting together, holding every unit on one
-    card. It is reported at the same severity because the consequence is the
-    same one drift has, and it is `serving.cards`' first candidate on the wake
-    path: nothing else in this tool would have said a word about it. The repair
-    is the other one, and the sentence says so — a drifted file is re-emitted,
-    this one is deleted.
+    card. It is reported at the same severity because while it is there
+    :func:`mcgyvr.wake.compose_for` finds more than one launch spec for the card
+    and declines to wake it. The repair is the other one, and the sentence says
+    so — a drifted file is re-emitted, this one is deleted.
     """
     if not drifted and not leftover:
         # The files this config would write, asked of the function that writes
-        # them. Spelled here as `compose.<host>.yml` it was a name nothing had
-        # emitted for a host of alternatives, so a clean check named a file
-        # that was not there — reassuring, about the wrong path.
+        # them.
         for path in planned:
             print(f"{path.name} is what this config emits")
         return Exit.OK
@@ -2596,10 +2496,10 @@ def _report_drift(
         print(
             f"mismatch: {path} is a launch spec this config does not write. "
             f"`mcgyvr emit` leaves the files it no longer plans where they are, "
-            f"so this is an older cut of the same rig — and it is the first "
-            f"file a wake would find for that card. Bring up what you mean and "
-            f"delete it; nothing here deletes a file that may be what is "
-            f"running.",
+            f"so this is an older cut of the same rig — and while it is there a "
+            f"wake finds more than one launch spec for that card and will not "
+            f"pick one. Bring up what you mean and delete it; nothing here "
+            f"deletes a file that may be what is running.",
             file=sys.stderr,
         )
 
@@ -2635,7 +2535,7 @@ def _report_mismatches(found: Sequence[Mismatch], stream: TextIO) -> None:
 def _scans(root: Path) -> dict[str, Scan]:
     """Every machine recorded under ``root``, keyed by the name it calls itself.
 
-    That is ``platform.node()``, which is not the name a source's ``base_url``
+    That is ``platform.node()``, which is not the name a unit's ``address``
     carries; :func:`_resolve_hosts` is what bridges the two. Keying by the
     recorded name and widening afterwards keeps this function a faithful
     reading of the directory — one key per machine, no invented names — so the
@@ -2643,7 +2543,8 @@ def _scans(root: Path) -> dict[str, Scan]:
 
     A record that cannot be read is skipped rather than fatal, on the same rule
     the rest of the scan layer runs on: the answer to an unreadable scan is to
-    take another one, and that is what the refusal below asks for anyway.
+    take another one, and that is what ``_emit``'s never-scanned refusal asks
+    for anyway.
     """
     found: dict[str, Scan] = {}
     for path in sorted(root.glob("*.json")):
@@ -2677,7 +2578,7 @@ def _names_this_machine(name: str) -> bool:
     """Whether ``name`` can only ever mean the machine this process runs on.
 
     ``0.0.0.0`` counts. It is not a loopback address, but nothing else can be
-    reached at it either: written in a ``base_url`` it means "the server I am
+    reached at it either: written in a unit's ``address`` it means "the server I am
     about to start here, on every interface", which is a statement about this
     machine.
     """
@@ -2712,11 +2613,12 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     """``scans`` again, with a key added for each wanted name that resolves to
     a machine already in it.
 
-    Without this, ``emit`` refuses the machine it is running on. The stock
-    config says ``base_url: http://localhost:8080``, ``mcgyvr scan`` files the
-    record under ``platform.node()``, and the two never agree — so the most
-    ordinary setup there is, one rig serving itself, reports "localhost has
-    never been scanned" the instant after it was scanned.
+    Without this, ``emit`` refuses the machine it is running on. A config
+    written by ``mcgyvr init`` says ``address: http://localhost:8080``,
+    ``mcgyvr scan`` files the record under ``platform.node()``, and the two
+    never agree — so the most ordinary setup there is, one rig serving itself,
+    reports "localhost has never been scanned" the instant after it was
+    scanned.
 
     Resolution is by identity rather than by name wherever it can be: a
     loopback source is matched to the local scan through
@@ -2768,9 +2670,9 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
 def _model_specs() -> tuple[ModelSpec, ...]:
     """Serving specs for the models the capability table measured.
 
-    Three of the four numbers come straight off the typed reader. The fourth —
-    whether a model has experts, and so a knob for *where* its weights sit — is
-    in the table file but not in :class:`mcgyvr.capability.Model`, so it is read
+    ``vram_gb`` and ``disk_gb`` come off the typed reader. Whether a model has
+    experts — and so a knob for *where* its weights sit — is in the table file
+    but not in :class:`mcgyvr.capability.Model`, so it is read
     from the same file rather than guessed from a name. Getting it wrong is not
     cosmetic: a dense model that does not fit is a refusal, while an MoE that
     does not fit is a model that fits differently (:mod:`mcgyvr.serving`).
@@ -2780,24 +2682,18 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     figures, one slot wide; an MoE row is refused rather than sized
     (:func:`mcgyvr.serving.fit`), because ``--n-cpu-moe`` moves whole blocks
     and what each block's experts weigh is in the tensor table and nowhere
-    else. An operator who has scanned the file points ``models.<id>.geometry_json``
-    at the scan, and that lifts the refusal for the model they scanned — on
-    the scan's numbers, not the table's.
+    else. An operator who has scanned the file points
+    ``units.<name>.launch.geometry_json`` at the scan, and that lifts the
+    refusal for the model they scanned — on the scan's numbers, not the
+    table's.
 
-    **The table is in decimal GB and this module is in GiB.** Tied to a real
-    file: ``deepseek-coder-v2-16b.gguf`` is 8_905_109_984 bytes and its row
-    says ``weights_gb: 8.9``, which is decimal (GiB would be 8.3). Everything
-    downstream compares against ``free_mib / 1024``
-    (:data:`mcgyvr.detect.MIB_PER_GB`), so the conversion happens here, once,
-    at the boundary where the two conventions meet. Skipping it inflated every
-    spec by 7.37% — harmlessly for a while, because the MoE arithmetic carried
-    two further errors that cancelled it.
+    The table is in decimal GB and sizing is in GiB; the conversion happens
+    here, once (:data:`mcgyvr.capability.GB_PER_GIB`).
 
     ``ram_gb`` is ``0.0`` for every row, dense and MoE alike. It is a floor an
     operator may raise, not a declaration this function can make: what an MoE
     actually spills depends on the card and is derived per machine by
-    :func:`mcgyvr.serving._placement`. Passing the whole model weight here —
-    which is what it used to do — made that derivation inert.
+    :func:`mcgyvr.serving._placement`.
     """
     architectures = _architectures()
     specs: list[ModelSpec] = []
@@ -2842,17 +2738,10 @@ def _named_path(value: str) -> str:
     code as the blank ``--orchestrator`` (:func:`_name_the_writer`), because it
     is the same mistake: an argument given a value that names nothing.
 
-    **A blank is not "the caller named none", and reading it that way is silent
-    in every case.** Every path here is optional and every one of them resolves
-    a default when it is absent, so the empty string — falsy, and equal to
-    ``Path('.')`` once it reaches :class:`~pathlib.Path` — slid into the absent
-    branch and the run went on under a default nobody chose. ``--record ''``
-    was the worst of them, because it is tested with ``is not None``: the
-    journal, its blobs and the result file landed in the *current directory*,
-    which is the repository the 2026-09-03 ruling exists to keep clean, and the
-    ``result:`` line came out relative to a working directory the caller may
-    not still be in. ``--config ''`` and ``--result ''`` were quieter and the
-    same shape.
+    **A blank is not "the caller named none".** Every path here is optional and
+    resolves a default when absent; an empty string is falsy and equals
+    ``Path('.')``, so unrefused it would take that default — for ``--record``,
+    the current directory.
 
     What puts a blank there is not somebody typing two quotes. It is
     ``--record "$JOURNAL_DIR"`` with the variable unset, which is the shape
@@ -2868,10 +2757,8 @@ def _named_path(value: str) -> str:
     if not value.strip():
         raise argparse.ArgumentTypeError(
             "a blank value is not a path. It is what an unset variable leaves "
-            "behind, and a blank used to read as 'nobody named a path' — so "
-            "the command resolved a default the caller never chose, which for a "
-            "directory is the current one. Pass a path, or leave the argument "
-            "off to take the default on purpose."
+            "behind. Pass a path, or leave the argument off to take the default "
+            "on purpose."
         )
     return value
 
@@ -2884,22 +2771,17 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
     error and exits 2. The writer is the session that typed the command
     (:mod:`mcgyvr.session`): ``--orchestrator ID`` if given, else the Claude
     Code or Pi session in the environment, else a refusal whose message names
-    all three. A default derived from the process is exactly the
-    single-orchestrator assumption §9 names, so there is no default, only a
-    flag and two variables to ask for.
+    all three. A default derived from the process is a single-orchestrator
+    assumption (``mcgyvr-lab/archive/docs/port-from-local-ai.md`` §9), so there
+    is no default, only a flag and two variables to ask for.
 
     An id containing ``/`` is refused here too, because the id *is* the file
     name — ``DIR/<ID>.jsonl`` — and ``agent/a`` would write ``DIR/agent/a.jsonl``
     with its blobs under ``DIR/agent/blobs``, where an index over ``DIR`` finds
     neither.
 
-    A blank id is refused here as well, and here is the only place that can do
-    it once. It used to be left to :class:`~mcgyvr.drive.Recording`, which
-    refuses one — but a deterministic contract never constructs a ``Recording``,
-    so ``--orchestrator ''`` ran to completion and left a result file naming
-    nobody, and on the ladder path the refusal arrived as exit 1 after a config
-    and a contract had been read, where the documented answer to a run with no
-    session is exit 2. The environment's session does not stand in for it: a
+    A blank id is refused here as well, at parse time and exit 2. The
+    environment's session does not stand in for it: a
     caller who typed the flag was naming the writer, and an empty value is that
     caller getting the name wrong rather than declining to give one.
     """
@@ -2908,8 +2790,8 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
     if args.orchestrator is not None and not args.orchestrator.strip():
         run.error(
             "--orchestrator was given an empty id: a row that cannot say which "
-            "orchestrator produced it is the hole the field exists to close "
-            "(§9). Pass an ID, or leave the flag off to be named by the session "
+            "orchestrator produced it is the hole the field exists to close. "
+            "Pass an ID, or leave the flag off to be named by the session "
             "that typed this command."
         )
     if args.orchestrator is not None and "/" in args.orchestrator:
@@ -3047,8 +2929,7 @@ def _fleet_promote(args: argparse.Namespace) -> int:
 def _fleet_use(args: argparse.Namespace) -> int:
     """Name a promoted fleet live, and say what the lock knows of the move.
 
-    Owner, 2026-09-16: switching between verified fleets is a common action
-    during runtime. Any promoted folder whose layout matches its lock may be
+    Any promoted folder whose layout matches its lock may be
     named; the move from the fleet that was live is reported as locked — in
     that fleet's ``next``, with the downtime and wake its lock measured — or
     as unmeasured. Nothing is started either way.
@@ -3158,16 +3039,14 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "--version",
         action=_Version,
         nargs=0,
-        help="the product version, and the digest of the config a run would use",
+        help="the product version, and the path of the config a run here would use",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
     caps = sub.add_parser(
         "capabilities",
-        # `caps` is what the command is called in the issue tree and in every
-        # transcript of someone using it; argparse does not abbreviate
-        # subcommands the way it abbreviates flags, so the short name has to be
-        # spelled out or it is an exit-2 usage error.
+        # argparse does not abbreviate subcommands the way it abbreviates
+        # flags, so the short name is spelled out as an alias.
         aliases=["caps"],
         help="show the shipped capability table used to propose worker bindings",
     )
@@ -3310,7 +3189,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "--host",
         required=True,
         metavar="HOST",
-        help="the rig, as the base_url of a source names it",
+        help="the rig, as the host in a unit's `address` names it",
     )
     srv.add_argument(
         "--config",
@@ -3338,23 +3217,19 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="DIR",
         help="where the compose files are written (default: the current directory)",
     )
-    # Not defaulted, and no longer required: a source that declares
-    # `context_window` is emitted at the window it declares, and this flag is
-    # what a run says for the sources that declare none. It was required until
-    # a fleet serving two windows — srv1 at 8192, srv2 at 4096 — showed that
-    # one number cannot describe one fleet: whichever value `--check` was given,
-    # it reported the other host as drifted. What is never defaulted is the
-    # window itself; a unit that neither the config nor the run states one for
-    # is still refused, because the cache, the `-c` on the argv and the
-    # `--n-cpu-moe` floor are all priced against it.
+    # Not defaulted and not required: a unit that declares `window` is emitted
+    # at it, and this flag speaks for the units that declare none. A unit with
+    # no window from either is refused (`serving._window_for`), because the
+    # cache, the `-c` on the argv and the `--n-cpu-moe` floor are all priced
+    # against it.
     emi.add_argument(
         "--ctx-per-slot",
         type=int,
         metavar="N",
         help=(
-            "the window this run serves per slot, for sources that declare no "
-            "`context_window` of their own; `-c` is this times the slot count, "
-            "and the cache law is fed the same product. A source that declares "
+            "the window this run serves per slot, for units that declare no "
+            "`window` of their own; `-c` is this times the slot count, "
+            "and the cache law is fed the same product. A unit that declares "
             "its window is emitted at that window, and a flag that contradicts "
             "a declaration is refused rather than preferred"
         ),
@@ -3390,7 +3265,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     sbx.add_argument(
         "--clear-cache",
         action="store_true",
-        help="remove every task image mcgyvr has cached (the documented reset)",
+        help="remove every task image mcgyvr has cached",
     )
     sbx.set_defaults(func=_sandbox)
 
@@ -3708,8 +3583,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="PATH",
         help=(
             "ladder to climb when the contract is not deterministic. Which rung "
-            "runs is this file's — the tier order, each tier's `attempts` and the "
-            "`budgets` ceilings — never a flag "
+            "runs is this file's — the ladder order, each unit's `attempts` and "
+            "the `max_escalations` and `max_attempts` ceilings — never a flag "
             f"(default: {CONFIG_DEFAULT_HELP})"
         ),
     )
@@ -3765,7 +3640,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "who is writing the journal. Names the sink, <ID>.jsonl, and is "
             "carried on every row, so two orchestrators sharing a directory "
-            "stay distinguishable (§9). Default: the session that typed this "
+            "stay distinguishable. Default: the session that typed this "
             "command — claude-<id> from CLAUDE_CODE_SESSION_ID, pi-<id> from "
             "PI_SESSION_FILE — and a refusal when there is none"
         ),
@@ -3874,10 +3749,7 @@ def build_parser() -> argparse.ArgumentParser:
     """The command line as a person types it.
 
     Public so what a run reads and what a person typed can be checked against
-    each other. ``--sandbox`` is the case that made it necessary: it carried an
-    argparse default of ``docker``, so the flag was never absent, so
-    ``sandbox.mode`` in a config was never reached and an operator who wrote
-    ``tempdir`` ran under Docker and was told nothing.
+    each other.
     """
     return _build()[0]
 
@@ -3885,11 +3757,11 @@ def build_parser() -> argparse.ArgumentParser:
 class _Version(argparse.Action):
     """``--version``: the product, then the config a run here would be made under.
 
-    Two lines and not one, because they are two identities (owner's ruling
-    R2): the wheel is the code, and the config is the setup, and a result
-    names both. The config is the one `load()` locates — `$MCGYVR_CONFIG`,
-    then the working directory, then the user dir — so the digest printed is
-    the digest a run typed at this prompt would carry. No config prints
+    Two lines and not one, because they are two identities: the wheel is the
+    code, and the config is the setup. The config is the one `load()` locates —
+    `$MCGYVR_CONFIG`, then a working directory holding `fleet.yaml`, then the
+    fleet `~/.mcgyvr/live.json` names — so the path printed is the config a run
+    typed at this prompt would load. No config prints
     `none`; one that is there and cannot be read prints why, because a
     version line that swallowed that would be the one lie an operator
     checking their setup cannot afford.

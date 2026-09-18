@@ -3,11 +3,10 @@
 The journal exists to be compounded. A question worth asking of it — how often
 the floor handles a task type without the ladder, which rung earns its keep,
 what a model costs per accepted change — is a question about *every* run there
-has been, and it can only be asked where every run is. ``--record DIR`` made
-that impossible by construction: it did not add a destination, it replaced one,
-so a run made with it was recorded in a directory somebody chose for that run
-and in no other. The corpus was then whatever was left over, and the answer to
-any question of it was "some of the runs, and there is no way to know which".
+has been, and it can only be asked where every run is. A ``--record DIR`` that
+replaced the destination rather than adding one would record a run in a
+directory somebody chose for that run and in no other, and the corpus would be
+whatever was left over: "some of the runs, and there is no way to know which".
 
 Worse, the directory a caller passes is typically inside the repository they
 are working in, and repositories are cloned, stale and thrown away. A record
@@ -151,11 +150,10 @@ def test_recording_into_the_corpus_itself_does_not_write_the_run_twice(
     """``--record`` at ``journal.dir`` is one journal, not one journal twice.
 
     A copy is written into ``<dir>/<orchestrator>.jsonl`` — the same name ours
-    has — so naming our own directory appended every line to the same file
-    twice. ``fold`` survives it, because a re-logged attempt id supersedes, but
-    ``tools/live/index.py`` makes a table row per attempt record and would have
-    counted one dispatch as two. A corpus is kept in order not to have that
-    kind of quiet double-count in it.
+    has — so a copy into our own directory would append every line to the same
+    file twice. ``fold`` keeps both rows of a repeated attempt id, and
+    ``tools/live/index.py`` makes a table row per attempt record, so one
+    dispatch would count as two.
 
     Spelled two ways on purpose: a relative ``--record`` and an absolute
     ``journal.dir`` are the same directory, and only a resolved comparison
@@ -181,7 +179,7 @@ def test_our_own_sink_is_still_fatal(
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The rule that did not change: a corpus that cannot be written stops the run.
+    """The other rule: a corpus that cannot be written stops the run.
 
     The asymmetry is the whole point. Silence about our own record is the
     failure :mod:`mcgyvr.telemetry` was built to end; silence about a copy the

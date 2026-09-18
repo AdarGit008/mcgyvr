@@ -17,12 +17,10 @@ that; the fix is that a backend is never the thing deciding who yields.
 is cleared, because a survey that clears first can only ever measure whichever
 engine it happens to reach first.
 
-**Keys are ``(host, backend, label)`` and never a model id alone.** The same
-weights served by two engines are two different instruments — measured on these
-rigs: one served a GGUF at Q4_K_M with a 4096 window and a fresh random seed per
-request, the other an AWQ build with an 8192 window and a seed fixed at 0. And
-one model on one backend under two serving configurations is likewise two rows,
-which is what ``label`` distinguishes.
+**Keys are ``(host, label)`` and never a model id alone.** The same weights
+served by two engines are two different instruments, and one model on one
+backend under two serving configurations is likewise two rows, which is what
+``label`` distinguishes.
 
 ``family`` groups entries a config CLAIMS are the same model. It is a claim, not
 evidence: the digests in each description decide, and a family whose members
@@ -33,7 +31,7 @@ across 2 of 3, one refused" never reads as "identical".
 Usage::
 
     uv run --no-sync python tools/bench/serving/run.py \\
-        --config tools/bench/serving/configs/srv-full.json \\
+        --config tools/bench/serving/configs/srv-vllm-n1248-srv1.json \\
         --out records/evidence/serving-<date>/survey.json
 """
 
@@ -124,10 +122,9 @@ def _ends_mid_line(path: Path) -> bool:
 def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any]:
     """Entries already measured, keyed ``(host, label)``, from the journal.
 
-    **This is what makes the survey restartable.** The journal was already
-    written per entry and fsynced, so the work survived a crash — and nothing
-    read it back, so a restart re-measured all seventeen cells anyway. Durable
-    output that nothing resumes from is a record, not a checkpoint.
+    **This is what makes the survey restartable.** The journal is written per
+    entry and fsynced, so the work survives a crash; durable output that nothing
+    resumes from is a record, not a checkpoint.
 
     A row that **refused** counts as done: it is an answer about this rig under
     these conditions, and paying the rig time again buys the same refusal.
@@ -155,13 +152,9 @@ def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any
     # `--retry-failed` resurrected a superseded measurement and counted the cell
     # done — reporting `ok` for a cell whose most recent answer was a refusal.
     if retry_failed:
-        # The stored `outcome` is not sufficient on its own. A row written
-        # before the barren-level downgrade landed (d75d90fb) can read `ok`
-        # while carrying a level that measured nothing -- and this filter,
-        # trusting the string, skipped it as good. That is what made the
-        # documented remedy "delete the row by hand", which in turn turned the
-        # tree green over five outstanding cells on 2026-08-31. Re-score the
-        # curve here instead, and the journal never needs editing.
+        # The stored `outcome` is not sufficient on its own: a journal row can
+        # read `ok` while carrying a level that measured nothing. The curve is
+        # re-scored here, so the journal never needs editing by hand.
         rows = {
             k: v
             for k, v in rows.items()
@@ -483,17 +476,8 @@ def run(
     # structure exists to prevent, and scoping the roster to the config's own
     # entries reintroduced it: the survey would clear nothing and measure a
     # model at a twentieth of its speed without a single reading looking wrong.
-    # **DE-11.** `hosts` on an entry is filtered against the run's host list
-    # with a bare `continue`, so a typo — or a `--hosts` override that does not
-    # overlap — produces an empty, SUCCESSFUL survey. E6 exists because labels
-    # read like affinity and were not; an unvalidated affinity field is the same
-    # class of silent nothing with a new name.
-    # **DE-M.** `expect` and `placement` are whitelisted; the entry itself was
-    # not, so a misspelled top-level key was silently ignored. The one that
-    # matters is `coresident_with`: mistyped, the co-residency entry measures
-    # SOLO under the label `coresident-3b-beside-1.5b`, with
-    # `coresidency_arranged: null` instead of a refusal. Same silent-nothing
-    # class E6 was written against, one level up.
+    # `check_entries` refuses an entry pinned to a host this run does not
+    # survey, and any top-level key the survey reads nowhere.
     check_entries(entries, hosts)
     names = config.get("backends") or contract.available_backends()
     backends = {str(name): contract.load_backend(str(name)) for name in names}
@@ -538,13 +522,8 @@ def run(
 
         for spec in entries:
             label = str(spec.get("label") or spec["id"])
-            # **E6, 2026-08-19: an entry runs only on the hosts that name it.**
-            # This loop was a full host x entry cross-product, so the campaign's
-            # roster — 5 models on srv1 and 10 on srv2 — could not be expressed
-            # at all. Labels like `q15-ollama-srv1` READ like affinity and were
-            # not, which is worse than no affinity: the config appeared to say
-            # something it had no way to mean. Omitting `hosts` still means
-            # every host, so nothing that worked before changes.
+            # An entry runs only on the hosts that name it; a label that reads
+            # like affinity is not one. Omitting `hosts` means every host.
             wanted = spec.get("hosts")
             if wanted is not None and host not in wanted:
                 continue
@@ -663,9 +642,8 @@ def run(
                     claim_kwargs["coresident_with"] = spec["coresident_with"]
                 # The ladder this cell will offer, forwarded so the backend can
                 # check its batch width against it before launching. llama.cpp
-                # reads the same numbers from `serve.levels`, which its configs
-                # declare; the vLLM configs do not, and nothing in that backend
-                # read `concurrency.levels` at all until now.
+                # reads the same numbers from `serve.levels`; vLLM entries
+                # declare only `concurrency.levels`, so it is forwarded here.
                 if name == "vllm" and (spec.get("concurrency") or {}).get("measure"):
                     claim_kwargs["levels"] = list(
                         contract.RAMP_LEVELS
@@ -818,13 +796,10 @@ def run(
                         "stage": "describe/ramp — the claim itself succeeded",
                     }
                 )
-            # **BL-6.** Co-residency is re-read AFTER the ramp, because it is
-            # the ramp that takes the time: the 2026-08-19 ramps at 475
-            # tokens ran minutes per level, and a neighbour that left part way through
-            # turns D7 item 4 into a solo measurement with
-            # `coresidency_arranged: true` written beside it. The neighbours are
-            # loaded `keep_alive: -1` so this should hold; this is the check
-            # that says whether it did.
+            # Co-residency is re-read AFTER the ramp, because it is the ramp
+            # that takes the time: a neighbour that left part way through turns
+            # the cell into a solo measurement with `coresidency_arranged: true`
+            # written beside it.
             wanted_neighbours = spec.get("coresident_with") or []
             if wanted_neighbours and row.get("outcome") == "ok":
                 try:
@@ -914,9 +889,9 @@ def run(
 def _digest_of(row: dict[str, Any]) -> str | None:
     """The weights identity a backend actually reported, whatever it calls it.
 
-    Each backend states its own in the evidence `claim` returns; this reads that
-    rather than guessing at a field name on the capture, which is how every
-    family verdict came to be computed from `None`.
+    Read from the evidence `claim` returns. Only the vLLM backend states one
+    (`claim.checks.weights.weights_sha256`); a llama.cpp row has none, so a
+    family containing one is UNDECIDED.
     """
     checks = (row.get("claim") or {}).get("checks") or {}
     weights = checks.get("weights") or {}
@@ -969,14 +944,8 @@ def verdicts(result: dict[str, Any]) -> dict[str, Any]:
                     "backend": row["backend"],
                     "model": row["model"],
                     "quantization": capture.get("quantization"),
-                    # Read from the CLAIM, not the capture. `observed.capture()`
-                    # emits the four probe-set fields and the native block — it
-                    # does not emit any digest, because digests live in
-                    # `run.json` via `identity.probe_model`. Reading them off the
-                    # capture returned None for every member, so every family in
-                    # the shipped config was decided on missing data while
-                    # looking decided. Each backend states its own digest in the
-                    # evidence it returns from `claim`, which is where it is.
+                    # Read from the CLAIM, not the capture: `observed.capture()`
+                    # emits no digest.
                     "digest": _digest_of(row),
                     "digest_kind": _digest_kind(row),
                 }
@@ -989,11 +958,10 @@ def verdicts(result: dict[str, Any]) -> dict[str, Any]:
             slot["verdict"] = "no member was measured"
             continue
         quantizations = {member["quantization"] for member in members}
-        # Comparability follows the KIND of digest, not the backend name: a
-        # manifest digest and a hash over checkpoint tensors describe the same
-        # weights with different numbers, so only same-kind members compare
-        # directly. A cross-kind family is decided on what IS comparable — the
-        # quantization each engine reports for what it loaded.
+        # Comparability follows the KIND of digest, not the backend name: only
+        # same-kind members compare directly. A cross-kind family is decided on
+        # what IS comparable — the quantization each engine reports for what it
+        # loaded.
         digests = {member["digest"] for member in members}
         kinds = {member["digest_kind"] for member in members}
         # Comparable when every member's digest is the same KIND of thing —
@@ -1002,11 +970,9 @@ def verdicts(result: dict[str, Any]) -> dict[str, Any]:
         if len(members) == 1:
             slot["verdict"] = "single member — nothing to compare"
         elif None in digests:
-            # ANY missing digest, not only all of them. The earlier guard fired
-            # only when every member was null, so one member whose digest could
-            # not be computed made `digests` a two-element set and was reported
-            # as positive evidence that the weights disagree — a missing
-            # measurement presented as a refutation.
+            # ANY missing digest, not only all of them: one null member would
+            # otherwise make `digests` a two-element set and read as positive
+            # evidence that the weights disagree.
             missing = [m["label"] for m in members if m["digest"] is None]
             slot["verdict"] = (
                 f"UNDECIDED: {missing} produced no digest, so the claim that "
@@ -1019,8 +985,7 @@ def verdicts(result: dict[str, Any]) -> dict[str, Any]:
                 f"REFUTED: same {kinds.pop()}, different values — the weights disagree"
             )
         else:
-            # Different KINDS of digest — one backend states a manifest digest,
-            # another hashes checkpoint tensors — so the numbers cannot be
+            # Different KINDS of digest, so the numbers cannot be
             # compared and the verdict rests on what can be: the quantization
             # each engine reports for the weights it loaded. Different
             # quantizations of one model are different instruments, which is the
@@ -1045,10 +1010,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--resume",
         action="store_true",
-        help=(
-            "skip entries already recorded in the journal. Seventeen cells over "
-            "six hours: without this a crash at hour five costs five hours."
-        ),
+        help=("skip entries already recorded in the journal"),
     )
     parser.add_argument(
         "--retry-failed",
@@ -1096,11 +1058,6 @@ def main(argv: list[str] | None = None) -> int:
         told to yield the card, and a teardown that releases everything would
         violate that invariant's letter inside the loop it protects. Here there
         is no measurement left to protect.
-
-        The co-residency entry pins its neighbour with `keep_alive: -1`, which by
-        design never expires. It was cleared only incidentally, by the next
-        entry's release — so a survey that ended on that entry, or refused early,
-        left a model resident on the card indefinitely.
         """
         try:
             names = config.get("backends") or contract.available_backends()

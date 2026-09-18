@@ -8,15 +8,12 @@ way and ``splitlines`` cuts another.
 
 Every one of those disagreements is an off-by-one against an AST line number, and
 a *silent* one: the splice still joins into something that parses, so the file is
-accepted, the requested change is gone, and the caller reports success. It is the
-shape of the defect the pressure test called "the silent one" — :mod:`mcgyvr.
-repair` splicing an import by AST line span — and it cost this project twice
-before it lived in one place.
+accepted, the requested change is gone, and the caller reports success —
+:mod:`mcgyvr.repair` splicing an import by AST line span is where it bites.
 
 Hence one home. :mod:`mcgyvr.scope` states the rule this follows: there is exactly
 one matcher, and a second, subtly different one elsewhere is a defect. A second
-definition of *line* is the same kind of defect, and it has already cost this
-project twice.
+definition of *line* is the same kind of defect.
 """
 
 from __future__ import annotations
@@ -57,8 +54,8 @@ def terminator(source: str) -> str:
     definition, is recorded as having rewritten every line in the file.
 
     Here rather than beside the caller for the reason this module exists:
-    :func:`mcgyvr.repair._insert_imports` makes the splice, and B4 was already
-    the cost of two answers to "where does a line end".
+    :func:`mcgyvr.repair._insert_imports` makes the splice, and two answers to
+    "where does a line end" is the defect.
     """
     found = LINE_END.search(source)
     return found.group(0) if found else "\n"

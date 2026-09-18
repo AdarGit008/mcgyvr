@@ -90,7 +90,7 @@ def test_dockerfile_pins_the_base_and_installs_only_manifests(tmp_path: Path) ->
     assert "RUN echo hi" in dockerfile
 
 
-# --- digest resolution (REPRO-04) ----------------------------------------
+# --- digest resolution ---------------------------------------------------
 
 
 class _DigestRunner:

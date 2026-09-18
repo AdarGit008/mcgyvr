@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/2-aa-null.sh — step 2 of the srv1 kernel-arms run
-# (`archive/docs/srv1-kernel-arms-PLAN.md:116`), written against
+# (`mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md`, "Steps"), written against
 # `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` §5.6.
 #
-# Produces `records/evidence/2026-09-02-srv1-kernel-arms/srv1-aa-null.tsv`.
+# Produces `$RUN_OUT_DIR/srv1-aa-null.tsv` (the door's envelope).
 #
 # WHAT AN A/A NULL IS FOR. Before any A/B on this rig is believed, the
 # instrument has to be priced: the same arm, against itself, under the same
@@ -21,16 +21,16 @@
 #
 # `spread_pct` IS NOT CHOSEN. It is computed from the rows this run just wrote,
 # through `tools/runs/rows.py` itself, by the same formula
-# `test_one_observation_...:112-123` uses: per `(cell, n)` group of two or more,
-# `(max - min) / median`, and the largest of those as a percentage. A script that
-# picked the number would be pricing nothing.
+# `tests/test_one_observation_is_not_an_effect.py` uses: per `(cell, n)` group
+# of two or more, `(max - min) / median`, and the largest of those as a
+# percentage. A script that picked the number would be pricing nothing.
 #
 # GUIDELINE 2 — one cell per process invocation. The prompt draw comes from a
 # per-process counter, and a null whose two sides drew different work would
 # price the desync instead of the instrument. Every invocation below passes the
 # driver EXACTLY ONE cell argument with the identical level list, and
-# `otok_req=` records the budget that draw asked for, replayed from the driver's
-# own `mkprompt()`.
+# `otok_req=` records the budget that draw asked for, replayed from
+# `tools/runs/workload.py`'s `mkprompt()` (the module the driver imports).
 #
 # GUIDELINE 8 — a refusal is a result: every launch goes through `retry3`, and
 # only a third failure is believed and recorded. No row is ever fabricated.
@@ -195,7 +195,7 @@ log_tail_stop() {
 }
 
 # Read, never inferred from the path: `a checkpoint's name is not evidence of
-# its format` (archive/docs/srv1-kernel-arms-PLAN.md:143).
+# its format` (mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md, "Blockers").
 log_file_type() {
     local out
     out=$(sed -n 's/.*file type *= *//p' "$1" 2>/dev/null | head -n 1) || out=
@@ -210,7 +210,7 @@ log_file_type() {
 }
 
 # --------------------------------------------------------------------------
-# `otok_req` — the driver's own draw, replayed in its own call order
+# `otok_req` — the workload module's draw, replayed in the driver's call order
 # --------------------------------------------------------------------------
 
 otok_req_list() {

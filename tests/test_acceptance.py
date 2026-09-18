@@ -1,11 +1,11 @@
-"""Acceptance command execution (#38), driven for real against the sandbox.
+"""Acceptance command execution, driven for real against the sandbox.
 
 The temp-directory mode runs commands on the host in a real git workspace, so
 these exercise the whole rung — run the command, snapshot the tree, classify
 the outcome — without needing a Docker daemon (CI has none), which is the same
 reason the sandbox suite itself uses that mode.
 
-The three properties the issue makes acceptance criteria are pinned directly:
+Three properties are pinned directly:
 a missing dependency is an environment issue and never a finding; a
 tree-altering command fails by name; and a failing command's excerpt carries
 the tail, not a head that may be all passes.
@@ -186,7 +186,7 @@ def test_precondition_flags_a_tree_mutating_command(git_repo: Path) -> None:
     assert issue.reason == "acceptance-mutates-tree"
 
 
-# --- the demonstration list: the opposite baseline expectation (#183) ------
+# --- the demonstration list: the opposite baseline expectation -------------
 
 
 def test_a_demonstration_that_fails_at_baseline_is_a_clean_precondition(
@@ -295,8 +295,7 @@ def test_a_demonstration_passing_after_the_change_is_a_clean_run(
 def test_a_bug_fix_contract_end_to_end_through_both_halves(tmp_path: Path) -> None:
     """The whole pair, driven from a loaded contract: the demonstration fails
     at baseline (precondition clean), the fix is applied, and both lists pass
-    (run clean) — with the two negatives pinned on either side. This is the
-    case #183 notes the suite never had."""
+    (run clean) — with the two negatives pinned on either side."""
     from mcgyvr.contract import loads
 
     repo = tmp_path / "repo"

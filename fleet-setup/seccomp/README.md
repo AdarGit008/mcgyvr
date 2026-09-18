@@ -5,7 +5,7 @@ directory, named relative to the directory holding `fleet.yaml`. Both launch
 paths apply it — lock-fleets' `_unit.sh` (`lockfleets.run_args`, as
 `docker run --security-opt seccomp=<file>`) and the product's live path
 (`mcgyvr emit`, which renders `security_opt` into the compose file and writes
-the profile beside it). A unit that states none launches exactly as before.
+the profile beside it). A unit that states none gets docker's default profile.
 
 **Why the file travels with the compose file, and not to the rig.** Both
 clients read the profile themselves and send its JSON to the daemon; neither
@@ -56,9 +56,7 @@ there is no fallback, and no environment variable disables the tier
 (`GGML_EXPERT_CACHE` / `GGML_EXPERT_RAM_CACHE` are compile-time defines;
 `GGML_EXPERT_CACHE_MAX` and `GGML_EXPERT_RAM_CACHE_MAX` only set sizes). So
 under a plain `docker run` the call returns `EPERM` and the server dies before
-it serves. `srv2_35b_256k` failed that way 3/3 on 2026-09-15; the diagnostic
-start's artifact files State `ExitCode` 139, `OOMKilled` false and the kernel's
-`traps: llama-server[602541] general protection fault ... in libc.so.6`.
+it serves.
 
 Only `srv2_35b_256k` states it. Any other unit that needs it states it too, or
 launches without one.

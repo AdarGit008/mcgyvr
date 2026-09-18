@@ -10,25 +10,14 @@ routinely is not: `python -m mcgyvr.serving.run` out of a virtualenv that was
 never activated leaves ``python3`` pointing at the system one, which has no
 mcgyvr.
 
-Each shim already anticipates that and falls back to loading ``gatelib.py``
-by path. What the fallback did not do is register the module it built in
-``sys.modules``, and ``gatelib`` has held a dataclass since the rig lease
-landed (#423, ``Lease``). ``gatelib.py`` carries ``from __future__ import
-annotations``, so every annotation is a string, and ``@dataclass`` resolves a
-bare string annotation against the defining module::
+Each shim falls back to loading ``gatelib.py`` by path. ``gatelib`` holds a
+dataclass and carries ``from __future__ import annotations``, and ``@dataclass``
+resolves a string annotation against ``sys.modules[cls.__module__]``, so the
+fallback has to register the module it builds.
 
-    ns = sys.modules.get(cls.__module__).__dict__   # dataclasses._is_type
-
-``cls.__module__`` is ``"gatelib"``, nothing registered that name, and the
-shim died on ``AttributeError: 'NoneType' object has no attribute
-'__dict__'`` before it could apply any rule at all. The lease broke the
-fallback the lease depends on: reading a lease off a rig is what the shim
-does before it lets a call through.
-
-It is not caught by the rest of the suite because every test and every `make`
-target runs under `uv run`, which puts the project's own venv first on PATH —
-so the plain import succeeds and the fallback is dead code in every
-configuration this repository exercises.
+The rest of the suite does not exercise the fallback, because every test and every
+`make` target runs under `uv run`, which puts the project's own venv first on PATH
+and the plain import succeeds.
 
 What must be true: run either shim under an interpreter that cannot import
 mcgyvr and it refuses the way the door means it to, naming the rule, rather

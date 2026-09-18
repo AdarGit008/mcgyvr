@@ -1,35 +1,27 @@
 #!/usr/bin/env python3
 """#144 — the bundle-size condition ladder, over a JS/TS task set or a Python one.
 
- measured a ~2 KB skill bundle taking qwen2.5-coder:3b from 45% to 70%
-first-pass acceptance at ~2.5x the speed, and an 8 KB bundle giving ten points
-back. Its confidence note bars quoting those percentages for "other models,
-task sets or languages until re-measured", and ``src/mcgyvr/prompts/javascript.md``
-is shipped on exactly that unquotable prediction. This is the re-measurement for
-the language half.
+**Both arms are retired (#240).** Every sweep invocation is refused;
+``--selftest`` and ``--summarise-only`` still run.
 
-**Two things are unmeasured, and the ladder separates them.** Whether a bundle
-helps in JS/TS at all is c0 against c1/c2; whether 2 KB is the right ceiling
-*for this language* is c2 against c3. ``MAX_BUNDLE_BYTES`` is the peak of a
-Python curve, and the shipped JS/TS file sits 27 bytes under it — pinned against
-a limit nothing has shown applies to it.
+**The ladder separates two questions.** Whether a bundle helps at all is c0
+against c1/c2; whether ``MAX_BUNDLE_BYTES`` is the right ceiling for the
+language is c2 against c3.
 
 **The conditions differ only in the system prompt.** The user message is
 :func:`~mcgyvr.worker.prompt.render_user_message` over the contract's
-``worker_view()`` in every condition, which is the shape  held fixed
-("the contract is always the user message, unchanged across conditions") and
-also the real assembly path #25 ships. c0 sends no system prompt at all.
+``worker_view()`` in every condition. c0 sends no system prompt at all.
 
 **c2 is the shipped bundle, byte for byte, and this refuses to run if it is
 not.** That is the property that makes a result quotable about
 ``prompts/javascript.md`` rather than about a file that resembles it — the same
 discipline that keeps ``prompts/python.md`` equal to the measured ``c2.md``.
-:func:`check_c2_is_the_shipped_bundle` is called before the first dispatch.
+:func:`check_c2_is_the_shipped_bundle` holds it.
 
 **Dispatch is mcgyvr's own.** :class:`~mcgyvr.runner.Request` through
 :func:`~mcgyvr.runner.runner_for`, so the measurement runs through the code that
 ships rather than a benchmark's private HTTP client — including the cap, the
-refusal to send stop sequences , and truncation read from the
+refusal to send stop sequences, and truncation read from the
 backend's own stop reason. Replies are parsed by
 :func:`~mcgyvr.worker.reply.parse_reply` with that real stop reason, so a reply
 this project would refuse is scored as a failure here too, by its refusal code.
@@ -37,35 +29,26 @@ this project would refuse is scored as a failure here too, by its refusal code.
 measurement of the model, so a caveated source may not serve it.
 
 **Every reply is kept.** Raw reply text lands in ``replies/`` beside the rows,
-parseable or refused, first attempt and remediation retry alike — the JS/TS
-sweep ran the parser over 160 real replies and kept only their error codes,
-which is the discard #184 names and  forbids repeating.
+parseable or refused, first attempt and remediation retry alike (#184).
 
 **Acceptance is the contract's, executed, never inspected.** Each task declares
 ``acceptance: ["node accept.mjs"]``; the runner writes the worker's file as
 ``solution.ts`` beside a copy of ``accept.mjs`` in a fresh temp directory and
 runs the declared command there. Node 24 executes TypeScript directly by
-stripping types, so a task needs no toolchain, no install and no network — which
-is what lets acceptance stay stdlib-only and isolated per the design.
+stripping types, so a task needs no toolchain, no install and no network.
 
-**--language selects which arm runs, and the second one exists to answer #167.**
- measured the JS/TS ladder flat and could not say whether that was about
-the *language* or about the *serving stack*, because  drove the same
-weights through bare ``llama-server`` and this rig drives them through Ollama's
-OpenAI-compatible path. The control is the own Python task set, recovered
-from local-ai under #167 and ported to mcgyvr contracts in ``python/tasks/``, run
-against the same endpoint through this same instrument — so that against the
-JS/TS arm, language is the only thing that differs. Its conditions are not a copy
-of the measured bundles but the vendored files themselves, under
+**--language selects which arm runs (#167).** The Python arm is a Python task
+set ported to mcgyvr contracts in ``python/tasks/``, run through this same
+instrument — so that against the JS/TS arm, language is the only thing that
+differs. Its conditions are the vendored files themselves, under
 ``records/evidence/local-ai-2026-08-02/``, and its ``c2`` is
 ``src/mcgyvr/prompts/python.md`` byte for byte just as the JS/TS ``c2`` is
 ``javascript.md``.
 
 **--selftest is a precondition, not a convenience.** Every reference solution is
 run against its own acceptance script; the experiment is invalid unless that is
-100% green, exactly as the Python run required. It needs no worker and no
-endpoint, so the task set can be verified on a machine that cannot run the
-sweep — which is the machine this was written on.
+100% green. It needs no worker and no endpoint, so the task set can be verified
+on a machine that cannot run the sweep.
 
 **The worker is configuration, not part of the experiment.** Which endpoint
 serves the model is a fact about somebody's machine — a hostname, a tunnel port,
@@ -81,22 +64,8 @@ Usage::
     # verify the task set (no worker needed)
     uv run --no-sync python tools/bundle/measure.py --selftest
 
-    # the sweep, with the worker in worker.local.json
-    uv run --no-sync python tools/bundle/measure.py \\
-        --out records/measurements/jsts-bundle-YYYY-MM-DD
-
-    # the same, spelled out
-    uv run --no-sync python tools/bundle/measure.py \\
-        --endpoint http://localhost:8080 --protocol openai \\
-        --model qwen2.5-coder:3b \\
-        --out records/measurements/jsts-bundle-YYYY-MM-DD
-
     # the table, from rows already collected
     uv run --no-sync python tools/bundle/measure.py --out <dir> --summarise-only
-
-    # #167's control arm: the recovered Python task set, same endpoint
-    uv run --no-sync python tools/bundle/measure.py --language python \\
-        --out records/measurements/python-bundle-YYYY-MM-DD
 """
 
 from __future__ import annotations
@@ -133,7 +102,7 @@ CONDITIONS = HERE / "conditions"
 def _instruments() -> Any:
     """The instrument declaration, loaded once per process and shared.
 
-    ``tools/`` is not a package, so it is reached by path — and through the
+    ``tools/`` has no ``__init__.py``, so it is reached by path — and through the
     same ``sys.modules`` slot the pool gate, the reply pin and the dataset
     builder use, because a second copy with its own cache is the drift the
     declaration exists to prevent. The breadth rig reaches it as
@@ -159,10 +128,9 @@ def _bench_identity() -> Any:
     """Run identity — the drift comparison both rigs' resume checks call (#287).
 
     Reached by path like the declaration above, and through the same
-    ``sys.modules`` slot the breadth rig uses, for the same reason: two copies
-    of the identity module would be the five-lists problem rebuilt one level
-    down, with each rig guarding its resume against its own idea of the
-    contract.
+    ``sys.modules`` slot the breadth rig uses, for the same reason: with two
+    copies of the identity module, each rig would guard its resume against its
+    own idea of the contract.
     """
     cached = sys.modules.get("bench_identity")
     if cached is not None:
@@ -181,7 +149,7 @@ identity_module = _bench_identity()
 
 
 def _bench_observed() -> Any:
-    """The `observed` block's writer (#286, D7).
+    """The `observed` block's writer (#286).
 
     Reached by path like the contract above. This rig refuses every live sweep
     under #240, so this writer is exercised by test rather than by dispatch —
@@ -192,10 +160,9 @@ def _bench_observed() -> Any:
 
     Shared through the ``sys.modules`` slot with the other rig's copy, exactly
     as ``_bench_identity`` above is and for the same reason: two loads would be
-    the five-lists problem one level down. It also has teeth in tests — a stub
+    two modules that can disagree. It also has teeth in tests — a stub
     installed on one rig's copy does not stop the other's ``record_run`` from
-    making real HTTP calls, which is how three breadth tests came to probe the
-    network while appearing to be offline.
+    making real HTTP calls.
     """
     cached = sys.modules.get("bench_observed")
     if cached is not None:
@@ -264,20 +231,21 @@ def _host_block(endpoint: str) -> dict[str, object]:
 # The Python arm's conditions are the measured bundles themselves, not a copy of
 # them. Vendoring the same three files twice would create exactly the drift the
 # c2 check exists to catch, on the one axis where a divergence would be silent:
-# a copy that fell behind would still be a valid ladder, just not the.
+# a copy that fell behind would still be a valid ladder, just not the measured
+# one.
 VENDORED_EVIDENCE = REPO / "records" / "evidence" / "local-ai-2026-08-02"
 VENDORED_BUNDLES = VENDORED_EVIDENCE / "data" / "context_exp" / "bundles"
 
-# The ladder. c0 is the absence of a system prompt rather than an empty file:
-# the c0 is "none — contract only", which is also what `bundle_for`
-# returns for a language with no bundle, so the condition is a real production
-# state and not a control that only exists in an experiment.
+# The ladder. c0 is the absence of a system prompt rather than an empty file,
+# which is also what `bundle_for` returns for a language with no bundle, so
+# the condition is a real production state and not a control that only exists
+# in an experiment.
 LADDER = ("c0", "c1", "c2", "c3")
 
-# the sampler and cap, held fixed so the only variable is the bundle.
+# The sampler and cap, held fixed so the only variable is the bundle.
 # Greedy because the gate is deterministic and a sampled worker would put
-# variance in the numerator; 768 because that is what the Python run allowed and
-# a different cap would change what "truncated" means between the two.
+# variance in the numerator; one cap for both arms because a different cap
+# would change what "truncated" means between the two.
 MAX_OUTPUT_TOKENS = 768
 TEMPERATURE = 0.0
 
@@ -287,9 +255,9 @@ TEMPERATURE = 0.0
 # **Frozen at 30.0, and deliberately not the live ceiling.** #262 reconciled the
 # live instruments to `tools/bench/score.py`'s 120.0; this rig's arms were
 # retired by #240 and `record_run` refuses every call it is given, so this
-# constant no longer sets a ceiling for anything — it *describes* the 31,062
-# rows in records/measurements that were measured under it, 127 of which are
-# timeouts at exactly this value. Raising it to match would rewrite what those
+# constant sets no ceiling for anything — it *describes* the rows in
+# records/measurements that were measured under it, some of which are timeouts
+# at exactly this value. Raising it to match would rewrite what those
 # rows say they were measured under. Declared as a permitted disagreement in
 # `tests/test_four_lenses.py::DECLARED_DUPLICATES`.
 ACCEPTANCE_TIMEOUT_S = 30.0
@@ -328,7 +296,7 @@ def node_capability() -> str | None:
     return (
         "acceptance needs a Node that runs TypeScript directly — `node "
         "accept.mjs` imports ./solution.ts. Type stripping is unflagged from "
-        "Node 23.6; the task set was built on 24."
+        "Node 22.18 and 23.6."
     )
 
 
@@ -651,28 +619,21 @@ def resolve_worker(explicit: dict[str, str | None], defaults: dict[str, str]) ->
 
 
 def check_protocol_can_carry_a_measurement(worker: Worker) -> None:
-    """Refuse a wire protocol this project will not let a measurement run on.
+    """Refuse a runner that is not quality-safe.
 
     Every request the rig sends is ``quality_sensitive=True``, because its
-    output *is* a measurement of the model. ``runner.generate`` refuses such a
-    request on a caveated path before sending it, so a sweep dispatched over
-    one produces eighty dispatch errors and no measurement — the failure
-    arriving one request at a time, an hour into a run, phrased as a transport
-    problem.
-
-    CAV-01 is why the path is caveated: it scored a model at 32.3% against a
-    true 84.1%. The fix is not a different endpoint but a different protocol on
-    the same one — Ollama serves ``/v1/chat/completions`` on the same port.
+    output *is* a measurement of the model, and a runner that is not
+    ``quality_safe`` refuses such a request one dispatch at a time.
+    :class:`~mcgyvr.pool.Protocol` has one member and its runner is
+    quality-safe, so this guards a second wire shape rather than one that
+    exists.
     """
     if runner_for(worker.as_endpoint()).quality_safe:
         return
     raise MeasureError(
         f"the {worker.protocol.value} protocol cannot carry this measurement. "
-        "Every request here is quality-sensitive, and mcgyvr refuses those on "
-        "that path under CAV-01, which measured it scoring a model at 32.3% "
-        f"against a true 84.1%. Use --protocol {Protocol.OPENAI.value}: Ollama "
-        "serves /v1/chat/completions on the same port, as do vLLM, "
-        "llama-server, LM Studio and TGI."
+        "Every request here is quality-sensitive, and its runner is not "
+        f"quality-safe. Use --protocol {Protocol.OPENAI.value}."
     )
 
 
@@ -735,11 +696,9 @@ def rig_revision() -> str:
 
 #: Every field this rig's ``record_run`` writes, declared beside it so the
 #: resume check is over a named set rather than whatever the local dict happens
-#: to hold (#287, D1). A test asserts a freshly assembled manifest's
-#: keys equal this tuple and that every name here is in ``identity.RECORDED``,
-#: so this rig can never again record a field the contract has not heard of —
-#: which is how ``language`` and ``conditions_sha256`` lived here for two
-#: months while ``identity.GROUPS`` had never heard of either.
+#: to hold (#287). A test asserts a freshly assembled manifest's keys equal
+#: this tuple and that every name here is in ``identity.RECORDED``, so this rig
+#: cannot record a field the contract has not heard of.
 IDENTITY_FIELDS: tuple[str, ...] = (
     "endpoint",
     "protocol",
@@ -815,7 +774,7 @@ def record_run(
         json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
         encoding="utf-8",
     )
-    # The second block (#286, D7), written on the branch that OPENS the
+    # The second block (#286), written on the branch that OPENS the
     # directory and never on the resume above — see the same call in
     # `tools/breadth/measure.py` for why. Nothing in this file reads it.
     # `at_open` with its host block. This rig refuses every live sweep under
@@ -823,8 +782,6 @@ def record_run(
     # OPEN reading is recorded anyway, for the reason the writer above it exists
     # at all: `record_run` is the seam that records what ran, and a seam that
     # records one block and not the other is the gap the next rig inherits.
-    # Deleting this as "dead code" would have applied an argument that, followed
-    # through, deletes the observed writer too.
     observed_module.write(
         out,
         worker.endpoint,
@@ -832,7 +789,7 @@ def record_run(
         when=observed_module.AT_OPEN,
         host=_host_block(worker.endpoint),
         # The width this run DISPATCHED at, read off the endpoint the
-        # runner was built from rather than typed here (D4).
+        # runner was built from rather than typed here.
         # It is the second of `resolve`'s two bounds on the realised
         # batch, and it is the half no probe can recover: the server
         # cannot see how many requests a client chose to keep in
@@ -871,10 +828,9 @@ def node_runs_typescript() -> bool:
 def selftest(tasks: Iterable[Task]) -> int:
     """Run every reference solution against its own acceptance script.
 
-    the design: "the experiment is invalid unless selftest is 100%
-    green". A red row here is a defect in the task set, not a result about a
-    model, and it has to be findable without a worker — so this path dispatches
-    nothing.
+    The experiment is invalid unless selftest is 100% green. A red row here is
+    a defect in the task set, not a result about a model, and it has to be
+    findable without a worker — so this path dispatches nothing.
     """
     failures = 0
     with tempfile.TemporaryDirectory(prefix="mcgyvr-bundle-selftest-") as tmp:
@@ -912,8 +868,7 @@ def measure_cell(
     With ``replies`` set, every reply body is written there verbatim before
     anything judges it — the parseable and the refused alike, the first
     attempt and the remediation retry. The replies are the parser's real
-    input distribution, which the JS/TS sweep generated and threw away
-    (#184);  fixes what is kept as the text itself plus the sha256
+    input distribution (#184): what is kept is the text itself plus the sha256
     that ties it to this row.
     """
 
@@ -987,9 +942,8 @@ def measure_cell(
             "fail_output": None if first.passed else first.output,
         }
 
-    # One remediation round, as the Python run allowed: the acceptance output is
-    # handed back and the same rung retried once.  found this rescued 2
-    # of 35 attempts, so it is measured rather than assumed useful.
+    # One remediation round: the acceptance output is handed back and the same
+    # rung retried once, so its use is measured rather than assumed.
     retry = Request(
         prompt=(
             f"{user}\n\nYour previous answer failed its acceptance check with:\n"
@@ -1010,7 +964,7 @@ def measure_cell(
             "fail_output": first.output,
         }
     # The retry's stop reason is what its parse verdict is judged with; a
-    # captured retry without it could not be replayed .
+    # captured retry without it could not be replayed.
     row |= {"retry_stop_reason": second.stop_reason.value} | keep(second.text, 2)
     reparsed = parse_reply(
         second.text,
@@ -1058,7 +1012,7 @@ def done_keys(rows_path: Path) -> set[tuple[str, str]]:
 
 
 def summarise(rows_path: Path) -> str:
-    """The per-condition table, in the columns the summary reported.
+    """The per-condition table.
 
     Completion tokens are carried because they are what made the Python latency
     result independent of machine-load noise: a bundle that makes a small model
@@ -1115,8 +1069,7 @@ def main() -> int:
         "--language",
         choices=sorted(LANGUAGES),
         default=DEFAULT_LANGUAGE.name,
-        help="which arm to measure: the JS/TS task set #144 built, or the "
-        "Python one  measured, recovered under #167 "
+        help="which arm to measure: the JS/TS task set or the Python one "
         f"(default: {DEFAULT_LANGUAGE.name})",
     )
     parser.add_argument(

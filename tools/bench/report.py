@@ -13,14 +13,10 @@ comparable is worse than no comparison:
 * it will not state a rate for a cell whose manifest cannot say which model,
   which rig and which bar produced it;
 * it will not lay two cells beside each other unless they agree on model, rig,
-  serving build, tier and scoring rungs. #189 folded a backend change into a
-  weights contrast, and  exists because two runs differed by an ollama
-  patch release that nothing on disk recorded. The check is cheap and the
-  failure it prevents has already happened twice.
-* it will not treat two silences as agreement . A keyed field that is
-  absent or ``null`` used to compare equal across cells, so `round` and
-  `product_sha256` — carried by 6 of the 139 manifests on disk — were checked on
-  paper and not in fact. Reading such cells is still allowed and now has to be
+  serving build, tier and scoring rungs. A contrast between cells that differ
+  in one of those varies two things and attributes the result to one.
+* it will not treat two silences as agreement. A keyed field that is absent or
+  ``null`` in a cell is not a match. Reading such cells is allowed and has to be
   asked for, with ``--allow-unfingerprinted``, and the fields that went
   unchecked are printed beside the numbers.
 
@@ -70,12 +66,8 @@ product = _by_path("bench_product_report", HERE / "product.py")
 identity = _by_path("bench_identity_report", HERE / "identity.py")
 
 # The facts every cell in one table must agree on, and the states in which a
-# fact may be missing, now live in `identity` — D1, because this list
-# was one of five that disagreed and three lanes were queued to edit it.
-#
-# The names are kept as aliases rather than retired outright: `product.py`'s
-# rationale cites `report.COMPARABLE` by name, and a reader who follows that
-# citation should land somewhere.
+# fact may be missing, live in `identity`. These names are aliases of
+# `identity.KEY` and `identity.BOUND_MATCH`.
 COMPARABLE = identity.KEY
 
 REPRO_FILE = HERE / "reproducibility.json"
@@ -163,13 +155,9 @@ def require_comparable(
 ) -> None:
     """Refuse a table whose cells differ in anything but their condition.
 
-    Two refusals now, not one. The second — a keyed field that is absent or
-    ``null`` in any cell — is what this guard did not do before : it
-    compared ``.get(key)``, so a field no cell carried compared equal and passed.
-    `round` and `product_sha256` are the live case, carried by 6 of the 139
-    manifests on disk, and every pre-round table was reading as checked.
-
-    A caller who means to read pre-contract records says so.
+    Also refuses where a keyed field is absent or ``null`` in any cell: absence
+    is not agreement. A caller who means to read such records says so with
+    ``allow_unfingerprinted``.
     """
     try:
         identity.require_comparable(
@@ -230,7 +218,7 @@ def declared_bound(
         return None, (
             f"the bound declared for this model at this tier was measured under "
             f"a different {', '.join(differs)}, and a null does not transfer "
-            f"across that (D2)"
+            f"across that"
         )
     return None, (
         f"no null has been measured for {manifest.get('model')} at tier "
@@ -332,9 +320,9 @@ def _unfingerprinted_line(cells: list[dict[str, Any]], allowed: bool) -> list[st
 
     Printed whenever a keyed field is absent or ``null``, and not only when the
     waiver was used: an unchecked field is a property of the figures below, and
-    lens 3 is that a record states the property rather than a claim
-    about it. A single-cell table reaches here without a waiver — nothing was
-    compared, so nothing was refused, and the line is the whole protection.
+    a record states the property rather than a claim about it. A single-cell
+    table reaches here without a waiver — nothing was compared, so nothing was
+    refused, and the line is the whole protection.
     """
     missing = sorted(
         {f for c in cells for f in identity.unfingerprinted(c["manifest"])}
@@ -348,7 +336,7 @@ def _unfingerprinted_line(cells: list[dict[str, Any]], allowed: bool) -> list[st
     )
     return [
         f"- **identity not checked**: {', '.join(f'`{f}`' for f in missing)} — "
-        f"absent or null on at least one cell; {how} (D3). No figure "
+        f"absent or null on at least one cell; {how}. No figure "
         "below is qualified against a difference in these"
     ]
 
@@ -467,8 +455,7 @@ def main() -> int:
         "--allow-unfingerprinted",
         action="store_true",
         help="read cells whose identity fields are absent or null. Off by "
-        "default: absence is not agreement, and every pre-round table was "
-        "passing this check without performing it (D3)",
+        "default: absence is not agreement",
     )
     args = parser.parse_args()
     try:

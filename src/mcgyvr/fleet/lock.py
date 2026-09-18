@@ -29,7 +29,7 @@ class LockRefusedError(Exception):
 
 
 def wake_limit_s(wake_s: float, tolerance: dict[str, Any]) -> float:
-    """The Waker's wait limit: the validated wake plus the lock's tolerance."""
+    """The validated wake plus the lock's tolerance."""
     return wake_s + float(tolerance["s"])
 
 
@@ -59,8 +59,7 @@ def _warm_decode_tolerance_pct(
     Read by the unit's tolerance class
     (:func:`mcgyvr.fleet.tolerance.tolerance_class`) from
     ``tolerances["warm_decode_class_pct"]``, the class a live probe is judged by
-    too. The engine-keyed lookup it replaced is in
-    ``mcgyvr-lab/archive/src/mcgyvr/fleet/lock_engine_tolerance.py``.
+    too.
     """
     by_class = tolerances.get("warm_decode_class_pct")
     if not isinstance(by_class, dict):

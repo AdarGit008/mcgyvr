@@ -3,7 +3,7 @@
   "issue": 225,
   "why": "Which problems the scaffold ablation is read over, declared apart from the numbers so the choice cannot be made by them. Two sets are derived here, never listed: `analysis` is `dispatched` minus `excluded`, and `strict` is `analysis` minus `borderline`. A third list would be a third thing to keep in agreement.",
   "dispatched": {
-    "why": "The 34 problems the sweeps ran, under all three conditions on both models: every bench problem that is a function_implementation carrying a scaffold. The rule is mechanical and a test re-derives it. The other 19 scaffolded bench problems are bug_fix, where the scaffold IS the problem \u2014 a buggy program with nothing to remove, since deleting it deletes the task rather than enlarging it. Reading over all 34 is a fact about the run and not the pre-registered question, and it is where the answer differs: on all 34 the 7B whole-scaffold contrast reads sign p=0.049/0.021, on the 27 it reads p=0.18/0.15. The seven carried the significance.",
+    "why": "The 34 problems the sweeps ran, under all three conditions on both models: every bench problem that is a function_implementation carrying a scaffold. The rule is mechanical and a test re-derives it. The other scaffolded bench problems are bug_fix, where the scaffold IS the problem \u2014 a buggy program with nothing to remove, since deleting it deletes the task rather than enlarging it. Reading over all 34 is a fact about the run and not the pre-registered question, and it is where the answer differs: on all 34 the 7B whole-scaffold contrast reads sign p=0.049/0.021, on the 27 it reads p=0.18/0.15. The seven carried the significance.",
     "ids": [
       "b002-option-pairs",
       "b003-carve-shift",

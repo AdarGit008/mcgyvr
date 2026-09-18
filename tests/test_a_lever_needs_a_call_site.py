@@ -1,16 +1,9 @@
-"""Three levers that were built, tested, and reachable from nothing a user runs.
+"""Three levers, each reachable from something a user runs.
 
-The 2026-08-29 pressure test's status block names them together: *"``worker_attempt``
-has no flag on ``mcgyvr run``, and ``consensus.best_of`` and ``cleanup.tidy`` still
-have no production caller — which is why phase 3 had to reason about their shape
-rather than about a call site."* Reasoning about a shape is what this file replaces.
-
-Nothing here is a coverage exercise. A lever designed against a caller nobody wrote
-is a lever whose signature has never been contradicted, and the only way to find out
-whether it survives contact is to write the caller and see which arguments it cannot
-supply. Each section below drives one lever from the outside — the command line for
-the first, a configured install for the other two — and asserts on what a user would
-see rather than on the call having happened.
+``worker_attempt``, ``consensus.best_of`` and ``cleanup.tidy``. Each section below
+drives one lever from the outside — the command line for the first, a configured
+install for the other two — and asserts on what a user would see rather than on the
+call having happened.
 
 The one thing substituted anywhere is a model, because a test that needed a backend
 would not run on a machine without one. The seam that allows it is the seam the whole
@@ -177,12 +170,12 @@ def _fenced(content: str) -> str:
 def test_the_run_command_climbs_the_ladder_for_a_model_contract(
     repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The refusal at ``cli.py:716`` replaced by the climb it was standing in for.
+    """``mcgyvr run`` climbs the ladder for a model contract.
 
     The assertion is on the repository rather than on the output, for the reason
     the deterministic half of this command is already asserted that way: a commit
     that exists is the only evidence the task ran. What it proves is that
-    ``mcgyvr run`` now reaches :func:`mcgyvr.drive.worker_attempt` and drives it —
+    ``mcgyvr run`` reaches :func:`mcgyvr.drive.worker_attempt` and drives it —
     a prompt was assembled, a rung was dispatched to, the reply was parsed and
     gated in a sandbox, and the accepted bytes were delivered.
     """
@@ -243,7 +236,7 @@ def test_the_ladder_is_found_the_way_every_other_command_finds_it(
     assert code == 0
     # No `--commit`, so the accepted file is left in the working tree and the
     # repository is otherwise untouched — the same bargain the deterministic
-    # path makes (owner's ruling, 2026-09-03: output files, no commit).
+    # path makes (owner's ruling: output files, no commit).
     assert (repo / TARGET).read_text(encoding="utf-8").startswith("RETRY = 3\n")
     log = subprocess.run(
         ["git", "-C", str(repo), "log", "--format=%s"],
@@ -535,8 +528,8 @@ MESSY = "RETRY = 3\n\n\ndef fetch( url ):\n    return  url\n"
 TIDIED = "RETRY = 3\n\n\ndef fetch(url):\n    return url\n"
 
 #: Misformatted *and* wrong: no RETRY, so the acceptance command fails, and
-#: no tool answers that. (An unused import used to stand here; since
-#: 2026-09-05 the linter's own autofix removes one, which is the point.)
+#: no tool answers that. (No unused import: the linter's own autofix removes
+#: one, which is the point.)
 MESSY_AND_BROKEN = "def fetch( url ):\n    return  url\n"
 
 TIDYING = (
@@ -546,8 +539,8 @@ cleanup:
   enabled: true
 """
 )
-#: The knob turned off by hand. Since 2026-09-05 a config that says nothing
-#: tidies (owner's ruling), so "not tidied" is something an install asks for.
+#: The knob turned off by hand. A config that says nothing tidies (owner's
+#: ruling), so "not tidied" is something an install asks for.
 NOT_TIDYING = (
     LADDER
     + """
@@ -700,14 +693,14 @@ def test_an_install_that_turned_the_cleanup_off_is_not_tidied(
     """The knob is off, and off means the formatter is never reached.
 
     ``tidy`` rewrites a change after the gate has spoken about it, which is a
-    rewrite of somebody's file on a verdict they cannot see. Since 2026-09-05
-    that is the default (owner: the formatter after a rung is the point), so
-    the install that does not want it says so — and having said so, gets the
+    rewrite of somebody's file on a verdict they cannot see. That is the
+    default (owner: the formatter after a rung is the point), so the install
+    that does not want it says so — and having said so, gets the
     rejection the gate reached and no fourth party touching the bytes.
 
-    Spying rather than inferring: the format-only rejection already failed the
-    run before this lever existed, so an assertion on the exit code alone would
-    have passed against no caller at all.
+    Spying rather than inferring: a format-only rejection fails the run with no
+    tidy caller at all, so an assertion on the exit code alone would pass
+    against no caller.
     """
     from mcgyvr.cli import main
 
@@ -824,8 +817,8 @@ def test_a_bound_verifier_is_asked_and_the_acceptance_is_labelled_verified(
     """The label an operator reads is the difference this lever makes.
 
     ``unverified`` and ``verified`` are the same delivery with different
-    warrants, and before this the second was unreachable from the command line
-    however the install was configured. The reviewer's prompt is asserted too,
+    warrants, and the second has to be reachable from the command line when
+    the install is configured for it. The reviewer's prompt is asserted too,
     because a review of the wrong bytes would print the same word: what it has
     to carry is the change as applied, not the reply the worker sent.
     """
@@ -1026,8 +1019,8 @@ def test_a_change_that_creates_a_file_says_so_rather_than_saying_nothing(
 
     ``_original_block`` already distinguishes the two: ``""`` is a change that
     creates a file and ``None`` is a caller that supplied nothing. Reading the
-    workspace is what makes the first one reachable — before this, every run
-    took the second branch, and a reviewer judging a new module was told the
+    workspace is what makes the first one reachable — without it every run
+    takes the second branch, and a reviewer judging a new module is told the
     original "was not supplied" as though something had been withheld.
     """
     from mcgyvr.cli import main

@@ -7,17 +7,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # The JS half of the gate's own bar . Two reasons this job needs
-      # a Node newer than 20:
+      # The JS half of the gate's own bar. Two reasons this job needs a Node
+      # newer than 20:
       #
       # * the JS lint rung is only a rung if it can reject, and the test that
       #   proves it needs eslint plus the pinned typescript-eslint parser. A
       #   check that silently skips is the same defect as a rung that silently
       #   passes, one layer out.
-      # * Node stopped running TypeScript unflagged at 23.6, so acceptance for
-      #   a `.ts` target — and therefore the TypeScript arm's reference — needs
-      #   a Node that strips types. On Node 20 those tests skipped here and
-      #   passed only on a developer's machine.
+      # * Node strips TypeScript types unflagged from 22.18 and 23.6, so
+      #   acceptance for a `.ts` target — and therefore the TypeScript arm's
+      #   reference — needs a Node that strips types. On a Node that does not,
+      #   those tests skip.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
@@ -28,8 +28,7 @@ jobs:
       # The PATH line is not optional. `require_tool` resolves every linter with
       # `shutil.which`, so a toolchain in `node_modules/.bin` is a toolchain the
       # gate cannot see: eslint and prettier read as *not installed*, their rungs
-      # are skipped, and the preflight refuses the sweep. Installing without
-      # exporting is the same "present but unreachable" shape  is about.
+      # are skipped, and the preflight refuses the sweep.
       - name: install the pinned JS toolchain
         run: |
           npm ci
@@ -40,7 +39,7 @@ jobs:
           python-version: "3.12"
       # One `make check` — a single `make setup`, then lint, typecheck,
       # docs-check and test in one pass. The four leaf targets each depend on
-      # `setup`, so running them separately rebuilt the editable package four
+      # `setup`, so running them separately rebuilds the editable package four
       # times per run; `check` builds once and reuses it. pytest runs under
       # `-n auto` (xdist) to cut wall-clock.
       #

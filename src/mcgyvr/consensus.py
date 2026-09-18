@@ -1,38 +1,24 @@
-"""Best-of-N: several draws for one attempt, ranked by what the gate found (#119).
+"""Best-of-N: several draws for one attempt, ranked by what the gate found.
 
-mcgyvr dispatches once per attempt and escalates on failure. That is the right
-shape when the next rung is genuinely better, and the wrong one when the cheap
-rung is *almost* right: a 7B asked the same question three times gives three
-different answers, and the ladder as it stands throws two of them away unseen
-and pays for a larger model instead. Breadth is the cheapest thing on the list
-— the prompt is built, the context is assembled, the slot is held — and what it
-spends is wall clock, not the expensive tokens the north star counts.
+**The gate is the only scorer.** There is no majority voting over execution
+fingerprints, no generated test inputs and no ranking on a signal the gate does
+not own. Draws are judged in the order they were drawn, and a tie goes to the
+earliest — so where the gate cannot tell two candidates apart, the first
+candidate to pass the gate is what wins.
 
-** is the standing decision and most of it stands here.** Its case was
-against *consensus*: no functional majority voting over execution fingerprints,
-no generated test inputs, no ranking on a signal the gate does not own. That is
-kept exactly. The gate is the only scorer , draws are judged in the
-order they were drawn, and a tie goes to the earliest — so where the gate cannot
-tell two candidates apart, "the first candidate to pass the gate" is still what
-wins, which is the rule unchanged.
-
-**What this changes is the early exit, and the change is deliberate.**
-has the rung stop at the first accepted draw. Every draw is gated here instead,
-for the reason the decision itself gives when it names the measurement that would
-settle breadth: "given that a gate-passing candidate exists among N, at what
-index does it first appear?" A run that stops at the first accept answers that
-only for the draws before the winner; one verdict per draw answers it outright,
-and the vector it leaves is what turns "three draws cost three gate runs and
-bought nothing" into a fact rather than a suspicion. The price is gate runs —
-wall clock against ``budgets.task_timeout_s`` — and no tokens at all. It is an
-amendment  and wants recording as one.
+**Every draw is gated; there is no early exit at the first accepted draw.** One
+verdict per draw answers "given that a gate-passing candidate exists among N, at
+what index does it first appear?" outright, and the vector it leaves is what
+turns "three draws cost three gate runs and bought nothing" into a fact rather
+than a suspicion. The price is gate runs — wall clock against
+``task_timeout_s`` — and no tokens at all.
 
 **Selection is not delivery, and the winner still travels bound.** No draw is
 left in a tree: the workspace each was judged in is restored after it and torn
 down at the end, so a rejected draw leaks nowhere. That is the invariant that
 makes breadth safe to run at all — every draw has to be written into a tree to
-be gated, and a leaked one would be committed by delivery (#D22) as part of the
-change that won.
+be gated, and a leaked one would be committed by delivery as part of the change
+that won.
 
 The reset is why the bytes cannot simply stay put, and it is also where the
 answer is. A draw's verdict is reached in a workspace that still exists at that
@@ -41,43 +27,34 @@ each draw is bound *there*, one line after its gate and one line before its
 reset, and what this returns is bindings rather than strings. A caller that
 wants the winner in a tree applies :attr:`Consensus.winner` and hands that same
 value to :func:`mcgyvr.deliver.deliver`, which re-judges it and can see a
-substitution because the digest came off the tree the verdict did. Returning a
-bare ``str`` was the port's "nothing owns the bytes" at this lever: the winner's
-tree was gone, and nothing downstream could tell the winning draw from any other
-string.
+substitution because the digest came off the tree the verdict did.
 
 **Nothing here dispatches, and nothing here executes.** Draws are supplied and
 so is the gate, for the same reason :func:`~mcgyvr.route.climb` takes an attempt
 function: the ranking rule is then assertable without a model, and a module that
 needed one could not be tested. Where a gate runs the contract's own commands
-they must run in a sandbox , which is why a caller that already holds
-one passes it in — the draws are staged in the workspace its attempt is already
-using, against the base it is already diffing.
+they must run in a sandbox, which is why a caller that already holds one passes
+it in — the draws are staged in the workspace its attempt is already using,
+against the base it is already diffing.
 
-**The default is one draw**, which is what every caller gets today: one draw,
-one verdict, and the draw is the answer. A lever whose whole benefit is "fewer
-crossings into the API family" cannot be evaluated before the telemetry that
-counts crossings exists, so breadth above one stays something a caller asks for
-rather than something it is given.
+**The default is one draw**: one draw, one verdict, and the draw is the answer.
 
-**A draw may come back with nothing in it, and that is not an exception.** The
-sampler was first typed ``Callable[[int], str]``, which offers a real caller two
-answers and both are wrong. A model reply that cannot be read — truncated, prose
-where a fenced block was asked for, a refusal in place of a file — is the common
-case rather than the exceptional one, and a sampler holding one could either
-fabricate a string, which is then written, gated and reported as a candidate the
-gate rejected when there was never a candidate, or raise, which ends the attempt
-and discards the verdicts of every draw already gated. At ``n > 1`` the second
-loses real work: draw 0 can pass the gate and be thrown away because draw 1 came
-back truncated.
+**A draw may come back with nothing in it, and that is not an exception.** A
+model reply that cannot be read — truncated, prose where a fenced block was
+asked for, a refusal in place of a file — is the common case rather than the
+exceptional one. A sampler that fabricated a string for it would have that
+string written, gated and reported as a candidate the gate rejected when there
+was never a candidate; one that raised would end the attempt and discard the
+verdicts of every draw already gated. At ``n > 1`` the second loses real work:
+draw 0 can pass the gate and be thrown away because draw 1 came back truncated.
 
 So the sampler may answer :class:`Unusable`. Such a draw is not written, not
 gated and not ranked — there is no verdict to rank it by — and it is recorded in
 :attr:`Consensus.unusable` in the sampler's own words, because "two of three
 draws were unreadable" is the measurement that says what breadth actually bought.
 Only when *every* draw refuses is there nothing to return, and that is
-:class:`NoUsableDrawError`, which is the single-draw behaviour unchanged: one
-unreadable reply, one failed attempt, the refusal in its detail.
+:class:`NoUsableDrawError`: one unreadable reply, one failed attempt, the refusal
+in its detail.
 """
 
 from __future__ import annotations
@@ -143,10 +120,9 @@ class Consensus:
     drawn and each naming its index. They are deliberately *not* in ``gates``:
     an unusable draw has no verdict, and giving it a synthetic rejection would
     put "the gate refused this" in the record of a gate run that never happened
-    — the same fabrication the sampler is no longer forced into. ``gates`` and
-    ``draws`` therefore run over the draws that produced a candidate, which is
-    what ``chosen`` indexes, while ``len()`` still counts every draw the caller
-    paid for.
+    — a fabrication. ``gates`` and ``draws`` therefore run over the draws that
+    produced a candidate, which is what ``chosen`` indexes, while ``len()``
+    still counts every draw the caller paid for.
     """
 
     draws: tuple[Accepted, ...]
@@ -180,9 +156,7 @@ class Consensus:
         """Which dispatch the winner was: the index the journal keyed its row by.
 
         Not :attr:`chosen`. ``chosen`` counts candidates and skips the draws
-        that produced none; a correction written under it landed on whichever
-        row happened to hold that ordinal, which with an unreadable first
-        reply was the unreadable one.
+        that produced none, so with an unreadable first reply the two differ.
         """
         return self.indices[self.chosen]
 
@@ -242,16 +216,16 @@ def best_of(
     draw produced nothing to gate. That draw is skipped and recorded, the ones
     around it keep their verdicts, and :class:`NoUsableDrawError` is raised only if
     none of the ``n`` produced a candidate. An *exception* out of the sampler is
-    still not caught, and now means what it always said it meant: not "the model
-    answered badly" — that is ``Unusable`` — but that the draw could not be made
-    at all, which is not a verdict and must not be reported as one.
+    not caught: it means not "the model answered badly" — that is ``Unusable`` —
+    but that the draw could not be made at all, which is not a verdict and must
+    not be reported as one.
 
     ``gate(sandbox)`` judges the draw that is currently in that sandbox's
     workspace. It is handed the sandbox rather than a bare path on purpose: the
     contract's acceptance commands are arbitrary shell and run inside a sandbox
-    and nowhere else , so a gate that received only a ``Path`` could
-    not run them and every real caller would have to close over a sandbox it was
-    not given — the workspace is not enough to gate.
+    and nowhere else, so a gate that received only a ``Path`` could not run them
+    and every real caller would have to close over a sandbox it was not given —
+    the workspace is not enough to gate.
 
     Exactly one of ``repo`` and ``sandbox`` says where the draws are staged.
     Passing ``sandbox`` draws in a caller's own workspace — a caller mid-attempt
@@ -342,7 +316,7 @@ def _draw(
             # or the caller's own attempt, when the sandbox is theirs — is
             # judged in. Restoring to the entry checkpoint — the caller's own
             # state, not the base — is what makes N draws cost one workspace
-            # and N-1 restores  without wiping what the caller held.
+            # and N-1 restores without wiping what the caller held.
             if checkpoint is not None:
                 space.restore_to(checkpoint)
             else:
@@ -427,9 +401,9 @@ def _score(result: GateResult) -> tuple[int, int, int]:
     and the caller reporting the failure has the closest one to report.
 
     Observations are deliberately not scored. They are findings a rung reported
-    without rejecting on (the semantic rung, #123, whose non-blocking status is
-    a measured choice), and letting them pick the winner would promote a
-    non-blocking check into a selector — a policy flip nobody decided.
+    without rejecting on (the semantic rung, non-blocking by default), and
+    letting them pick the winner would promote a non-blocking check into a
+    selector.
     """
     return (
         int(result.accepted),

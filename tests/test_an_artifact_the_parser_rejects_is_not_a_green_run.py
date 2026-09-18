@@ -1,12 +1,12 @@
 """Gate 8: the door parses what the step wrote before it returns 0.
 
-The artifact parser once ran only in CI, post-hoc, over one hard-coded
-directory. A run that wrote a file the parser rejects therefore exited green
-on the rig and turned red a commit later, when the rig time was spent.
-``srv1-locktest-ling-60min.tsv:1`` is the shape: ``uptime_since=2026-09-01
-08:11:08`` is split on whitespace, the clock is dropped, and START compared
-equal to END across two different moments — the rig check passed on a run
-whose machine state was never re-read.
+A parser that runs only in CI, post-hoc, lets a run that wrote a file the
+parser rejects exit green on the rig and turn red a commit later, when the rig
+time is spent. The first line of
+``records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/srv1-locktest-ling-60min.tsv``
+is the shape: ``uptime_since=<date> <time>`` is split on whitespace, the clock
+is dropped, and START compares equal to END across two different moments — a
+rig check that passes on a run whose machine state was never re-read.
 
 Gate 8 (``08-parse.py``) reads back every artifact the step wrote with
 ``rows.read()`` before the door exits. A raise is exit 1 with the parser's own

@@ -7,9 +7,8 @@
 This is the number that decides whether the rung **blocks or only reports**. A
 resolver that flags correct code is worse than no resolver: it converts a green
 check into an argument, and the cost lands on every change rather than on the
-ones it catches.  established that ghostcall is real and that its engine
-is stdlib-only; it deliberately did not establish that it is the right resolver,
-and nothing here should be read as having chosen it before this ran.
+ones it catches. Nothing here should be read as having chosen ghostcall as the
+resolver before this ran.
 
 **Counted the same way as Counts 1 and 2** — over the same corpus, per change,
 restricted to the lines that change added. The rung judges added lines
@@ -34,8 +33,8 @@ because it is the failure mode that would make the rung *vacuous* rather than
 wrong: a rung whose imports all fail flags nothing and passes everything.
 
 **Python frames only.** ghostcall parses Python, so the immer frame is out of
-scope here and its 27 changes are not in this count's denominator. Two of three
-frames, and the JS/TS half of the launch languages has no candidate measured.
+scope here and its changes are not in this count's denominator. The immer
+frame is measured by ``count3_jsts.py``.
 """
 
 from __future__ import annotations
@@ -211,10 +210,9 @@ def _row(
                 totals["hallucinated_on_added_lines"] += 1 if on_added else 0
                 # EVERY flag is recorded, not only the ones on added lines. A
                 # whole-file count with no calls behind it asks the reader to
-                # take the verdict on trust, which is the thing  exists
-                # to refuse — and the flags off the added lines are the only
-                # evidence this corpus yields about what the resolver actually
-                # objects to.
+                # take the verdict on trust — and the flags off the added lines
+                # are the only evidence this corpus yields about what the
+                # resolver actually objects to.
                 flags.append(
                     {
                         "path": entry["path"],

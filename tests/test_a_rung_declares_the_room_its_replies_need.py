@@ -1,31 +1,11 @@
-"""One contract cap is applied at every rung, and it is wrong for at least one.
+"""One contract cap sent to every rung is wrong for at least one of them.
 
-``limits.max_output_tokens`` exists only on the contract
-(``src/mcgyvr/contract.py:401`` ``LIMITS_FIELDS``) and reaches the wire at
-``src/mcgyvr/drive.py:281`` ``dispatch_prompt``. The unit fields
-(``src/mcgyvr/config.py:327``) has no output key at all, so one number is sent
-to every rung a contract climbs — a 3B model and a 35B reasoning model are
-given the same room to answer in.
-
-Measured this session over 358 ``attempt`` rows in the live journal, one
-contract cap of 1024 throughout:
-
-===========================  ===  ===  ====  ====  ============  ======
-rung                           n  p50   p90   p95  at the cap    tok/s
-===========================  ===  ===  ====  ====  ============  ======
-local_qwen2.5-coder-3b       150  322   502   716  0/150           51.1
-local_qwen2.5-coder-7b       126  215   396   465  0/126           27.9
-local_qwen3.6-35b-a3b         82  850  1024  1024  **32/82**       17.0
-===========================  ===  ===  ====  ====  ============  ======
-
-The top rung wrote roughly four times as much as the cheap ones and was cut at
-the cap on 39% of its replies. A cut reply is not a short reply:
+A unit may declare ``output_tokens``; a unit that declares none falls back to
+the contract's ``limits.max_output_tokens``
+(:func:`mcgyvr.gate.preflight.reply_cap`). A cut reply is not a short reply:
 ``mcgyvr.worker.reply`` refuses a truncated file rather than applying it
-(``reply[incomplete-reply]``), so each of those 32 spent the dearest rung in
-the ladder and produced nothing. The cheap rungs never came within 300 tokens
-of the same number. Prompts ran 740-775 tokens against a declared 4096 window,
-so this is not the context window; it is one number where the ladder needs
-three.
+(``reply[incomplete-reply]``), so a rung cut at a cap sized for a smaller model
+spends its dispatch and produces nothing.
 
 What must be true, and is asserted below: a rung may declare the room its
 replies need; that number is what reaches the wire on that rung and nowhere
@@ -312,8 +292,8 @@ def test_a_contract_with_no_cap_is_still_refused_on_a_ladder_that_declares_one(
     The two numbers answer different questions — what this unit of work is
     worth, and what that backend needs to finish a reply — so a ladder that
     answers the second has not answered the first. The refusal
-    (``mcgyvr.cli._cap_undeclared``, owner 2026-09-05: "fail loud when no
-    budget is declared") must survive this change untouched.
+    (``mcgyvr.cli._cap_undeclared``, owner ruling: "fail loud when no budget is
+    declared") stands beside a rung's declared room.
     """
     uncapped = CONTRACT.replace("limits:\n  max_output_tokens: 1024\n", "")
     path = lj.make_contract(tmp_path / "impl.yaml", uncapped)

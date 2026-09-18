@@ -1,10 +1,10 @@
 """Gate 5 claims the RUN_ID atomically; a second run under it is refused.
 
 ``RUN_ID`` is ``<date>-<campaign>-<step>[-<suffix>]``. Two door invocations of
-the same step, started within the same minute, mint the same id — and both
-passed gate 5's write-once, because neither had written its artifact yet when
-the other looked. Two steps then ran against one rig under one id, named their
-containers alike, and gate 7 of each found the other's.
+the same step, started within the same minute, mint the same id — and a
+write-once check alone passes both, because neither has written its artifact
+yet when the other looks. Two steps would then run against one rig under one
+id, name their containers alike, and gate 7 of each would find the other's.
 
 So gate 5 (``05-envelope.py``) claims the id before the step: ``os.open`` of
 ``<RUN_OUT_DIR>/.<RUN_ID>.running`` with ``O_CREAT | O_EXCL``, which exactly

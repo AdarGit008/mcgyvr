@@ -5,7 +5,8 @@ llama.cpp, and llama.cpp with experts on the CPU — and each judged field has
 its own, stated in ``tools/runs/derived.json``: warm decode those of
 ``records/measurements/fleet-identity-2026-09-11/tolerances.json``
 (``engine.warm_decode_class_pct``), prefill those of
-``records/measurements/fleet-identity-prefill-2026-09-12/README.md``
+``records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json``
+for the two llama.cpp classes and a ruled value for vLLM
 (``engine.prefill_class_pct``). The probe's judge (:mod:`mcgyvr.fleet.probe`)
 and the lock's NVMe baseline check (:mod:`mcgyvr.fleet.lock`) both ask
 :func:`tolerance_class`, so the two cannot put one unit in two classes.

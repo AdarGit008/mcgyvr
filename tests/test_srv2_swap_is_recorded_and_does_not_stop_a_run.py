@@ -1,18 +1,11 @@
 """srv2's swap growth is recorded and does not stop a run.
 
-Owner ruling, 2026-09-16: "Record swap on srv2 too". ``srv2-01-relaunch1``
-(unit ``srv2_35b_256k``, fleet a-solo, 35B at 256k) ran clean: exit 0,
-``failure`` null, restarts 0, identical START and END markers, wake 8.202 s,
-decode median 49.22 tok/s, prefill 632.02 tok/s, card peak 10564 MiB against
-its 10597 MiB room, and a load sampled until idle. Its one blemish was
-``pswpout`` rising 91686 -> 91786 — 100 pages, ~0.4 MB, on a rig with 8 GB of
-swap and ~46 GB MemAvailable at start — and the driver stopped on it.
-
-The 2026-09-13 measurement this unit's pin came from,
-``records/measurements/fleet-setup-2026-09-13/srv2/a-solo-running.json``,
-records ``vmstat_delta.pswpout`` 295: nearly three times today's run, in the
-measurement ``records/fleet/rigs/rig-cbe770b5…/cmb-90c09b09….json`` was locked
-from.
+The owner's ruling "Record swap on srv2 too" is filed with its evidence: the
+run it is about, ``srv2-01-relaunch1`` (unit ``srv2_35b_256k``), which ran
+clean except for a ``pswpout`` rise of a few pages, and the measurement that
+unit's pin was locked from
+(``records/measurements/fleet-setup-2026-09-13/srv2/a-solo-running.json``),
+which moved more swap than that run did.
 
 So ``rig-id-relock``'s ``use.json`` lists srv2 beside srv1 in
 ``swap_recorded_not_stopped_on`` — the same mechanism, not a second one. On
@@ -53,7 +46,7 @@ USE_PATH = REPO / "records/measurements/lock-fleets/rig-id-relock/use.json"
 README = REPO / "records/measurements/lock-fleets/README.md"
 #: The 09-13 measurement srv2_35b_256k's pin was locked from.
 PRECEDENT = "records/measurements/fleet-setup-2026-09-13/srv2/a-solo-running.json"
-#: Its vmstat delta: more swap than 2026-09-16's run moved.
+#: Its vmstat delta: more swap than srv2-01-relaunch1 moved.
 PRECEDENT_PAGES = 295
 
 #: srv2-01-relaunch1's own pswpout reading, and the 100 pages between them.
@@ -67,7 +60,7 @@ PREFILL_SAMPLES = [623.47, 632.02, 634.98]
 PREFILL = 632.02
 CARD_PEAK = 10564
 
-#: The stop the swap used to give.
+#: The stop swap growth gives on a rig the use does not list.
 SWAP = "pswpout rose during the run"
 
 #: The fixture rig that stands in for each rig of the committed use: alpha

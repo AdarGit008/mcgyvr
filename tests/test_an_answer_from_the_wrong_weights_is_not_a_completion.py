@@ -1,19 +1,17 @@
 """A dispatch names a model; a backend answers with whichever weights it has
-actually loaded. Until now those two were never compared, so a rung pointed at a
-model that is not resident was answered from the wrong checkpoint and the answer
-was *recorded as valid* — the hole `cli._climb` carries as a comment.
+actually loaded. The two are compared, so a rung pointed at a model that is not
+resident is not answered from the wrong checkpoint and *recorded as valid*.
 
-The close is the one that costs no network: chat-completions already reports the
-model it answered with, `Runner.generate` already receives the one that was
-asked for, and `availability` already knows how to read a served id against a
-declared name. Comparing them turns a wrong-weights answer into a failed
-attempt, which is what it always was.
+The check costs no network: chat-completions reports the model it answered
+with, `Runner.generate` receives the one that was asked for, and
+`mcgyvr.weights.is_model` reads a served id against a declared name. Comparing
+them turns a wrong-weights answer into a failed attempt.
 
 These tests hold the check to four things: it fires on a real mismatch, it does
 not fire on llama.cpp's path-shaped id for the model that *was* asked for, it
 does not fire when the backend reports nothing, and it fails as a
-:class:`RunnerError` so every existing caller already treats it as a dispatch
-that did not produce a completion.
+:class:`RunnerError` so every caller treats it as a dispatch that did not
+produce a completion.
 """
 
 from __future__ import annotations

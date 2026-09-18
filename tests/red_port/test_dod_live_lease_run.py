@@ -1,16 +1,14 @@
 """The lease has run on a real rig, once, and the record says so.
 
-W4 (#423) put the lease on the rig: gate 2 takes ``~/.mcgyvr/lease`` before
-any rig time is spent, a ``dev`` run yields to a ``live`` one, and the door
-releases the lease on every way out. Every rig in those tests is the stub
-behind the shims — nothing reached srv1 or srv2 — and the pull request says
-so: *the first live run of the lease is the owner's.* Until that run is
-filed, the lease is a mechanism the tree describes and no rig has held.
+Gate 2 takes ``~/.mcgyvr/lease`` before any rig time is spent, a ``dev`` run yields
+to a ``live`` one, and the door releases the lease on every way out. Every rig in
+the lease's own tests is the stub behind the shims; this file checks that a run on
+a real rig is on record.
 
-What must be observably true, in the tree, once it has happened:
+What must be observably true, in the tree:
 
 * under ``records/evidence/`` an envelope holds a ``<RUN_ID>.run.json``
-  header (gate 5, #422) whose ``profile`` is ``live`` and whose ``host`` is
+  header (gate 5) whose ``profile`` is ``live`` and whose ``host`` is
   a rig ``tools/runs/hosts.json`` declares — the door ran, under the
   profile that takes the lease whatever holds it, against the fleet;
 * that run is over: no ``.<RUN_ID>.running`` claim sits beside the header.
@@ -18,10 +16,9 @@ What must be observably true, in the tree, once it has happened:
   still there is a run the door never closed;
 * the step ran: a file the step wrote sits beside the header, so the run
   got past the gates and spent rig time under the lease;
-* the run names its product, and the product carries the lease:
-  ``mcgyvr_version`` is a version at or above ``0.1.0`` — the first tag,
-  cut on the merge of #424, above W4 — and not the fallback a tree with no
-  git reads, nor the ``+uninstalled`` a never-installed tree says.
+* the run names its product, and the product carries the lease: ``mcgyvr_version`` is a
+  version at or above ``0.1.0`` and not the fallback a tree with no git reads, nor the
+  ``+uninstalled`` a never-installed tree says.
 
 Nothing here reaches a machine. The test reads the record the run leaves;
 the run itself is the owner's, on the rig, once.
@@ -66,7 +63,7 @@ def header_of(path: Path) -> dict[str, Any]:
 def live_runs_on_a_rig() -> list[tuple[Path, dict[str, Any]]]:
     """Every recorded run of the door under ``live`` against a declared rig.
 
-    The RED failure when there is none: the lease has never run on a rig.
+    The test fails when there is none: the lease has never run on a rig.
     """
     rigs = fleet()
     found = [

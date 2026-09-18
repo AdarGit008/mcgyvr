@@ -1,15 +1,10 @@
 """A1 — a torn line must not swallow the next complete record.
 
-:func:`mcgyvr.telemetry._append` writes one JSON object per line and assumes the
-sink already ends on a line boundary. A crash mid-write — or a full disk that
-accepts only part of a line — leaves a stump: bytes with no trailing newline.
-The next append glues its record onto that stump, and the reader skips the whole
-glued line, so one torn line destroys a record that was written perfectly well.
-The writer is the one place that can both cause a stump (a short write) and
-repair one (a newline before the next line), and it currently does neither.
-
-The fix checks the boundary under the lock before writing, and treats a write it
-cannot complete as a failure rather than a silent stump.
+:func:`mcgyvr.telemetry._append` writes one JSON object per line. A crash
+mid-write — or a full disk that accepts only part of a line — leaves a stump: bytes
+with no trailing newline. A record glued onto that stump would be skipped by the
+reader with it. The writer checks the boundary under the lock before writing, and
+treats a write it cannot complete as a failure rather than a silent stump.
 """
 
 from __future__ import annotations

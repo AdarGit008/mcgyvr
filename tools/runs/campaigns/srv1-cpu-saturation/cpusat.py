@@ -1,21 +1,24 @@
 """srv1-cpu-saturation: the sampler the rig runs, the aggregate pass, the artifact.
 
-Owner, 2026-09-16: the footprint-versus-stream test ``okf/must-read/touching-rigs.md``
-names as outstanding ("The run that separates footprint from stream rate has not
-been done"), approved with its hard-lock risk. ``_arm.sh`` asks this file for
-three things, by path (``_py cpusat.py COMMAND ...``):
+The footprint-versus-stream test, run with its hard-lock risk
+(``okf/must-read/touching-rigs.md``, "A rig that hard-locks under load").
+``_arm.sh`` asks this file for five commands, by
+path (``_py cpusat.py COMMAND ...``):
 
 * ``sampler`` prints the shell the rig runs to sample every core once a second
   — ``mpstat -P ALL 1 1`` when sysstat is on the rig, ``/proc/stat`` deltas
   otherwise — as ``T <epoch>`` / ``S <cpu> <busy_pct>`` lines teed to a file
   under ``~/mcgyvr-relock/``, until a stop file appears;
+* ``remote-file RUN_ID SUFFIX`` prints the rig-side path a run tees to;
 * ``rig-agg`` is run ON THE RIG (``python3 - rig-agg SPEC``, this file on
   stdin, as the lock's harness is shipped): W concurrent ``/completion``
   requests of ``n_predict`` tokens each, ``ignore_eos``, read from the server's
   own ``timings``, so the aggregate decode at width W is a number this rig's
   clock took;
 * ``write STATE OUT`` files the artifact whole, from whatever the step left
-  in its state directory, and judges nothing.
+  in its state directory, and judges nothing;
+* ``keep-log SRC ENVELOPE NAME`` files a start's ``docker logs`` beside the
+  artifact.
 
 Standard library only, on purpose: the rig has no mcgyvr to import, and
 ``rig-agg`` runs on its python3.

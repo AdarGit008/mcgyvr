@@ -5,7 +5,7 @@ exactly the install the temp-directory mode exists for — so it can be driven
 for real rather than stubbed. What is tested here is also most of what both
 modes share: population, the git base, reset, teardown and the credential
 filter all live in :mod:`mcgyvr.sandbox.base` and are inherited unchanged by
-the container mode, so proving them here proves them for both (#30).
+the container mode, so proving them here proves them for both.
 """
 
 from __future__ import annotations
@@ -124,7 +124,7 @@ def test_timeout_is_distinct_from_failure(git_repo: Path) -> None:
 
 
 def test_reset_discards_untracked_and_tracked_changes(git_repo: Path) -> None:
-    """A failed attempt leaves no trace in the next (#27)."""
+    """A failed attempt leaves no trace in the next."""
     with TempDirSandbox(git_repo) as sandbox:
         (sandbox.workspace / "app.py").write_text(
             "print('mutated')\n", encoding="utf-8"

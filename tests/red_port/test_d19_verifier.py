@@ -1,28 +1,21 @@
-"""D19 — the verifier policy is complete, and nothing has ever asked a model a question.
+"""D19 — a fresh-context verifier reads a change, and its reply becomes a
+:class:`~mcgyvr.escalate.Review` (:func:`mcgyvr.verify.verify`).
 
-This is the cheapest of the three blocking levers because mcgyvr already owns the hard
-half. :func:`~mcgyvr.escalate.judge` reads the gate first and returns before
-``verifier``
-is so much as named on the rejected path; :class:`~mcgyvr.escalate.Opinion` already
-distinguishes a refusal from a reply that could not be read;
-:attr:`~mcgyvr.escalate.Assurance.VERIFIED` is already reachable only through
-:attr:`~mcgyvr.escalate.Opinion.AGREED`; and :func:`~mcgyvr.runner.dispatch_role` is a
-finished socket with zero callers. What is missing is the plug: nothing constructs a
-:class:`~mcgyvr.escalate.Review`, and no code turns a model's reply into one.
+:func:`~mcgyvr.escalate.judge` reads the gate first and returns before ``verifier``
+is so much as named on the rejected path; :class:`~mcgyvr.escalate.Opinion`
+distinguishes a refusal from a reply that could not be read; and
+:attr:`~mcgyvr.escalate.Assurance.VERIFIED` is reachable only through
+:attr:`~mcgyvr.escalate.Opinion.AGREED`. The statements here are about the half that
+turns a model's reply into a review:
 
-So every statement here is about the missing half, and each is one a port gets wrong in
-its own way:
-
-* **A verifier runs at all above the deterministic family.** ``required_policy`` already
-  says it must — the upgrade is unconditional — and today that requirement is satisfied
-  by labelling the acceptance ``unverified`` forever, which is honest and is not
-  verification. Asserted with the policy stated first, so the test says why a verifier
-  is owed before asserting that one answered.
+* **A verifier runs at all above the deterministic family.** ``required_policy`` says it
+  must — the upgrade is unconditional. Asserted with the policy stated first, so the
+  test says why a verifier is owed before asserting that one answered.
 * **A model never verifies its own output.** Held with a reviewer that raises if it is
   asked anything at all, rather than by counting calls: a self-review that ran and was
   then discarded is the spend this rule exists to prevent. The control matters as much
   as the refusal — the same setup with a *different* reviewer must produce an opinion,
-  or a port that simply never verifies would pass the refusal half.
+  or an implementation that simply never verifies would pass the refusal half.
 * **The verifier sees the whole original file and the applied change.** Every non-blank
   line of the pre-change file is asserted present, including one far from the edit. A
   test that only checked the target's name, or that the diff was in there, would pass
@@ -31,10 +24,11 @@ its own way:
 * **M1 — the semantic check stays non-blocking, and its finding reaches the verifier as
   a note.** Both halves, because they are one decision. mcgyvr measured the
   false-positive rate of the resolver and deliberately routed its items to
-  ``observations``, which are reported and never rejecting; a port that quietly promoted
-  them to ``findings`` would look stricter and would reject correct code. A test that
-  only asserted the note reached the prompt would not notice. So the gate is really run,
-  with a stand-in for the sandboxed rung, and its verdict asserted before the note is.
+  ``observations``, which are reported and never rejecting; a change that quietly
+  promoted them to ``findings`` would look stricter and would reject correct code. A
+  test that only asserted the note reached the prompt would not notice. So the gate is
+  really run, with a stand-in for the sandboxed rung, and its verdict asserted before
+  the note is.
 * **An unreadable verdict is not an approval.** Three replies that a substring search
   would approve, and one that genuinely does approve — the last is the control, because
   "never approve anything" passes the other three.
@@ -43,8 +37,8 @@ its own way:
   parser feeding it: a parser that reads "Cannot approve" as agreement makes the
   existing, correct policy report a warrant it never earned.
 
-Nothing here dispatches. The reviewer is a callable, which is the shape the socket
-already has, and the assertions are about what it was shown and what its answer became.
+Nothing here dispatches. The reviewer is a callable, and the assertions are about what
+it was shown and what its answer became.
 """
 
 from __future__ import annotations
@@ -168,11 +162,10 @@ def _review(verify: Any, ask: Any, **overrides: Any) -> Any:
 
 
 def test_a_verifier_runs_for_work_above_the_deterministic_family(contract: Any) -> None:
-    """The policy already demands one; this asserts one actually answers.
+    """The policy demands one; this asserts one actually answers.
 
     The premise is stated first and comes from mcgyvr itself: work a model did is owed
-    a fresh-context reviewer whatever the contract declared. Today that debt is settled
-    by labelling the result unverified, which is honest and is not a verifier.
+    a fresh-context reviewer whatever the contract declared.
     """
     assert required_policy(contract, MODEL_FAMILY) == "model", (
         "the premise of this whole file: a model's output is owed a verifier"
@@ -320,12 +313,10 @@ def test_the_verified_assurance_is_unreachable_unless_a_review_agreed(
 ) -> None:
     """The existing policy is only as good as the parser feeding it.
 
-    ``judge`` already reaches VERIFIED through ``AGREED`` alone, so this asserts the
-    half
-    the port adds: a reply that asked for changes, and a reply that said nothing
-    legible,
-    must both leave the acceptance short of verified — while a real approval reaches it,
-    or the label is unreachable and the policy is decoration.
+    ``judge`` reaches VERIFIED through ``AGREED`` alone, so this asserts the reply
+    parser's half: a reply that asked for changes, and a reply that said nothing
+    legible, must both leave the acceptance short of verified — while a real approval
+    reaches it, or the label is unreachable and the policy is decoration.
     """
     verify = _verify()
 

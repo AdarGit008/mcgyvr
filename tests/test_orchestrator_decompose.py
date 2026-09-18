@@ -1,9 +1,9 @@
-"""#50 is the judgment step, so these tests hold it to the three things it makes
+"""Decomposition is the judgment step, so these tests hold it to three
 acceptance criteria — an emitted contract is accepted by the direct-mode API
 unchanged, a request that cannot be decomposed produces an explanation rather
 than a degenerate single contract, and the same prompt over the same repository
-yields the same shape — plus the boundary  draws through the middle of
-it: the proposer names references, the index states facts.
+yields the same shape — plus the boundary drawn through the middle of it: the
+proposer names references, the index states facts.
 
 The reproducibility tests hold the one non-deterministic ingredient still by
 supplying a fixed proposer. That is deliberate and is the only honest way to
@@ -111,7 +111,7 @@ def test_the_emitted_contract_carries_what_the_proposal_asked_for(repo: Index) -
     assert built.scope.allow == ("listing.py",)
 
 
-# --- : the proposer names, the index states -------------------------
+# --- the proposer names, the index states ---------------------------
 
 
 def test_the_dependency_signature_comes_from_the_index(repo: Index) -> None:
@@ -135,7 +135,7 @@ def test_the_dependency_signature_comes_from_the_index(repo: Index) -> None:
 def test_a_dependency_the_index_cannot_name_is_refused_not_described(
     repo: Index,
 ) -> None:
-    """the deliberate trade: a missing dep degrades, an invented one poisons."""
+    """The deliberate trade: a missing dep degrades, an invented one poisons."""
     proposal = a_fix(deps=(DepRef("pagination.py", "conjured_helper"),))
     result = decompose(repo, "fix it", propose=RecordedProposer((proposal,)))
 
@@ -315,7 +315,7 @@ def test_an_unknown_task_type_names_the_vocabulary(repo: Index) -> None:
 
 
 def test_the_proposer_is_handed_the_deterministic_pass(repo: Index) -> None:
-    """boundary 2 as a type: evidence is given, never fetched."""
+    """The boundary as a type: evidence is given, never fetched."""
     proposer = RecordedProposer((a_fix(),))
     result = decompose(repo, "the listing pager", propose=proposer)
 
@@ -423,15 +423,14 @@ def test_content_is_filled_for_every_type_not_a_chosen_list(
 ) -> None:
     """No task-type branch: the slot is filled from the target, whatever the work.
 
-    ``format`` is the case that matters, and it is the one the issue expected to
-    be excluded — the deterministic tier reads the file itself, so a tool has no
-    use for the content. But it is not the tier that decides whether a tool runs
-    it. Ascent (#43) climbs from a contract's floor family upward and the
-    deterministic family binds no rung at all until #81
-    (``route._why_empty``), so a ``format`` contract reaches a model rung today
-    exactly like a ``bug_fix`` does. Content a tool ignores costs it nothing,
-    because that tier builds no prompt to carry it; content a model needed and
-    lacks is #150's whole subject.
+    ``format`` is the case that matters, because it looks like one to exclude —
+    the deterministic tier reads the file itself, so a tool has no use for the
+    content. But it is not the tier that decides whether a tool runs it: ascent
+    climbs from a contract's floor family upward, and a ``format`` contract whose
+    floor binds no program for its target reaches a model rung exactly like a
+    ``bug_fix`` does. Content a tool ignores costs it nothing, because that tier
+    builds no prompt to carry it; content a model needed and lacks is the
+    failure this guards.
     """
     proposal = Proposal(
         task_type=task_type,
@@ -546,11 +545,10 @@ def test_a_target_larger_than_the_default_ceiling_is_refused(tmp_path: Path) -> 
     assert "against a ceiling of 32768" in refusal.reason
 
 
-# --- the located type checker reaches the contract (#142) ---------
+# --- the located type checker reaches the contract ---------------
 #
-#  ends by naming the gap these cover: "the schema already demands a
-# type-check command for the one task type whose guarantee requires one, and
-# nothing yet supplies it." #114 built the locator; this is the wiring.
+# The schema demands a type-check command for the one task type whose guarantee
+# requires one; the adapter's locator finds it, and this is the wiring.
 
 
 def an_annotation(**overrides: object) -> Proposal:
@@ -606,7 +604,7 @@ def test_the_repositorys_own_checker_becomes_the_acceptance_command(
 def test_a_repository_declaring_no_checker_emits_no_type_annotation(
     repo: Index,
 ) -> None:
-    """: the correct outcome arriving at the correct layer.
+    """The correct outcome arriving at the correct layer.
 
     The contract would fail to load anyway. Refusing here is what makes the
     answer a sentence about the repository rather than a complaint about a field.
@@ -625,7 +623,7 @@ def test_a_repository_declaring_no_checker_emits_no_type_annotation(
 def test_a_proposals_own_acceptance_is_neither_overruled_nor_appended_to(
     repo: Index,
 ) -> None:
-    """The contract always wins over a sniff — `adapter.py:102-105` says so.
+    """The contract always wins over a sniff — `gate/adapter.py` says so.
 
     Appending would let it win and lose at once: the declared command would run,
     and so would the one it was declared instead of.

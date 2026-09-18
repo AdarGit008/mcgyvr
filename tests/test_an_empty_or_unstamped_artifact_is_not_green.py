@@ -1,10 +1,10 @@
 """A TSV that parses is not yet this run's: it must open, name its round and close.
 
 ``rows.read`` accepts an empty file (no markers, no rows) and a file with no
-``###`` line at all, and gate 8 (``08-parse.py``) once called both "parse".
-A step that exited 0 having written ``: > probe.tsv`` was a green run with a
-zero-byte artifact; one that wrote rows and no stamps was a green run with
-rows nobody could tie to a rig, a round or an invocation.
+``###`` line at all. A gate 8 (``08-parse.py``) that stopped at "it parses"
+would make a step that exited 0 having written ``: > probe.tsv`` a green run
+with a zero-byte artifact, and one that wrote rows and no stamps a green run
+with rows nobody could tie to a rig, a round or an invocation.
 
 So gate 8 holds the part of every declared ``.tsv`` that this run wrote —
 the whole file, or the bytes after gate 5's recorded size for a
@@ -13,7 +13,7 @@ first of the run's own stamps; a ``### ROUND id=<RUN_ROUND>
 product_sha256=<RUN_PRODUCT_SHA256>``; and a ``### END run_id=<RUN_ID>``. A
 zero-byte file, or one missing any of them, is exit 1 naming the file and
 the missing stamp. A ``.json`` keeps its own rule (``json.loads``) and is
-never held to a stamp. ``_common.sh``'s ``end_stamp`` writes ``run_id=`` for
+never held to a stamp. ``tools/runs/_common.sh``'s ``end_stamp`` writes ``run_id=`` for
 the same reason ``start_stamp`` does.
 """
 
@@ -103,8 +103,8 @@ def test_a_start_that_names_no_run_and_an_end_that_names_no_run_are_exit_1(
 def test_an_end_that_names_no_run_is_exit_1_even_when_start_does(
     tmp_path: Path,
 ) -> None:
-    """The shape every probe step had until 2026-09-05: START carried the run,
-    END carried nothing. A run that did not say it closed is not closed."""
+    """The legacy probe-step shape: START carries the run, END carries
+    nothing. A run that did not say it closed is not closed."""
     legacy_end = (
         f"### END uptime_since={onedoor.UPTIME} pl1_uw=95000000 pl2_uw=120000000 "
         "cpu_max_mhz=4600 ram_mt_s=3600"

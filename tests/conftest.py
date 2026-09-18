@@ -93,9 +93,8 @@ _LOOPBACK = frozenset(
 #: documentation blocks and RFC 3849's IPv6 one. A test that wants a *real*
 #: transport failure has to reach a socket, and these are the addresses where
 #: reaching one costs nobody anything — ``tests/test_runner.py`` dials
-#: ``http://192.0.2.1:9`` for exactly that reason, and says so. The suite
-#: already used them by convention; this makes the convention the only way
-#: through.
+#: ``http://192.0.2.1:9`` for exactly that reason. They are the only way to
+#: open a socket at something that is not this machine.
 _ROUTES_NOWHERE = (
     ipaddress.ip_network("192.0.2.0/24"),
     ipaddress.ip_network("198.51.100.0/24"),
@@ -130,12 +129,9 @@ def _no_test_resolves_a_machine(monkeypatch: pytest.MonkeyPatch) -> None:
 
     ``srv1`` and ``srv2`` are real machines on this developer's Tailnet, and the
     suite is full of fixtures that name them — the protected sleep/wake specs
-    carry ``http://srv2:8001`` because that is what the live ladder is. On
-    2026-09-09, while a residency probe was being built, **one run of this suite
-    issued a read-only** ``GET /v1/models`` **at srv2.** Nothing was written and
-    nothing was started, and the code was backed out the same day; the hazard is
-    not the code that was backed out. It is that any test naming a rig by
-    hostname is non-hermetic and nothing prevented it.
+    carry ``http://srv2:8001`` because that is what the live ladder is. A test
+    that resolved such a name would send a request to a real rig, so a test
+    naming a rig by hostname is non-hermetic unless something prevents it.
 
     ``tests/test_one_door.py`` guards *spawns* — a test that reaches a rig
     through ``ssh`` — and a name is not a spawn. :func:`_offline_probes` stubs
@@ -153,12 +149,10 @@ def _no_test_resolves_a_machine(monkeypatch: pytest.MonkeyPatch) -> None:
 
     Two ways through, and both are narrow. A test that wants a real transport
     failure uses an address that is dead by standard (:data:`_ROUTES_NOWHERE`),
-    which is the convention the suite already had and is now the only way to
-    open a socket at something that is not this machine. And a test that
-    genuinely means to reach a network patches the seam back itself — its own
-    ``monkeypatch`` applies later than this one and wins, the same escape
-    :func:`_offline_probes` leaves open. There is no test of the second kind
-    today.
+    which is the only way to open a socket at something that is not this
+    machine. And a test that genuinely means to reach a network patches the
+    seam back itself — its own ``monkeypatch`` applies later than this one and
+    wins, the same escape :func:`_offline_probes` leaves open.
 
     **What it does not cover**, stated so nobody reads it as more than it is: a
     subprocess resolves in its own interpreter, where this fixture is not.
@@ -173,7 +167,7 @@ def _no_test_resolves_a_machine(monkeypatch: pytest.MonkeyPatch) -> None:
         # hands `user:sk-...@127.0.0.1` through whole — so the decision is taken
         # on the machine and the message quotes the machine. This is a sink like
         # any other, and no sink of this project's interpolates a credential
-        # (`test_pattern_e_boundaries`, which is what caught it here).
+        # (`tests/test_pattern_e_boundaries.py`).
         machine = named.rpartition("@")[2]
         if _is_this_machine_or_nowhere(machine):
             return resolve(host, port, *args, **kwargs)
@@ -211,13 +205,13 @@ def live_instruments(
 ) -> Iterator[types.ModuleType]:
     """The real declaration with every set un-retired and drawn from by nobody.
 
-    #240 retired all five local sets, which is most of what the rigs can be
-    pointed at — so the machinery that has nothing to do with retirement (run
-    identity, resume refusal, the cap a run records) would have no live set to
-    exercise itself on. This gives it one, by editing the flags rather than the
-    sets: the tests then read as "with a live declaration, resuming onto
-    another worker is still refused", and the refusal under the real
-    declaration stays a fact about the data instead of a fact about the code.
+    Most sets in ``tools/instruments.json`` are retired, so the machinery that
+    has nothing to do with retirement (run identity, resume refusal, the cap a
+    run records) needs a live set to exercise itself on. This gives it one, by
+    editing the flags rather than the sets: the tests then read as "with a live
+    declaration, resuming onto another worker is still refused", and the
+    refusal under the real declaration stays a fact about the data instead of a
+    fact about the code.
     """
     doc = json.loads((REPO / "tools" / "instruments.json").read_text(encoding="utf-8"))
     for entry in doc["sets"]:
@@ -244,11 +238,9 @@ def live_instruments(
 def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test reaches a serving endpoint unless it says so.
 
-    Since #286 both rigs' ``record_run`` writes the `observed` block, which
-    probes the endpoint — so every existing test that records a run began making
-    real outbound requests, silently. Measured: ~344 attempts across two
-    previously-offline suites, 80 of them to a fixture host whose URL carries a
-    credential, passing only because that host does not resolve here. Behind a
+    Both rigs' ``record_run`` writes the `observed` block, which probes the
+    endpoint — so a test that records a run would make real outbound requests,
+    silently, some to a fixture host whose URL carries a credential. Behind a
     wildcard resolver the credential leaves the machine; behind a firewall that
     drops rather than refuses, one test takes minutes.
 
@@ -258,15 +250,13 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     since its ``monkeypatch`` applies later than this one.
 
     Both JSON fetchers and the text fetcher: `/metrics` is Prometheus text and
-    goes through a separate function by design, and patching only the first two
-    left every capture making a live call while reading as offline.
+    goes through a separate function by design, so patching only the first two
+    leaves every capture making a live call while reading as offline.
     """
-    # LOADED, not looked-up. Returning early when the modules were not yet in
-    # `sys.modules` made the guarantee "you are offline, unless something loads
-    # the capture module after I looked" — and `contract.observed()` does load
-    # it lazily, the first time anything calls `scrub`. A protection that
-    # silently does not apply is the shape of half the defects this lane found,
-    # so the modules are imported here rather than hoped for.
+    # LOADED, not looked-up. Returning early when the modules are not in
+    # `sys.modules` would make the guarantee "you are offline, unless something
+    # loads the capture module after I looked", so the modules are imported
+    # here rather than hoped for.
     identity = by_path("bench_identity", REPO / "tools" / "bench" / "identity.py")
     observed = by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
     # The runner reads a keyless unit's status page (`/slots` or `/metrics`)

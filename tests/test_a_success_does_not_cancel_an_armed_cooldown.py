@@ -1,18 +1,18 @@
-"""§4 — a success during a cooldown does not cancel the sentence.
+"""A success during a cooldown does not cancel the sentence.
 
-The pressure test's T1-F found that :meth:`~mcgyvr.cooldown.Cooldown.record_success`
-popped the *whole* record, ``until`` included. Two consequences, both on the
+A :meth:`~mcgyvr.cooldown.Cooldown.record_success` that popped the *whole*
+record, ``until`` included, would have two consequences, both on the
 single-host install that is the common one:
 
-* three consecutive failures never accumulate when a healthy rung's successes
-  interleave with a broken rung's failures — the streak is reset before it
-  reaches the threshold; and
-* a success that lands *after* the cooldown is armed (an in-flight dispatch from
-  a parallel wave) deletes the sentence at t=0, so a source that earned a
-  60-second removal is offered again immediately.
+* three consecutive failures would never accumulate when a healthy rung's
+  successes interleave with a broken rung's failures — the streak is reset
+  before it reaches the threshold; and
+* a success that lands *after* the cooldown is armed (an in-flight dispatch
+  from a parallel wave) would delete the sentence at t=0, so a source that
+  earned a removal is offered again immediately.
 
-The fix is the one the reporter named: ``record_success`` resets ``failures``
-but leaves an armed ``until`` in place. A success that arrives while the source
+So ``record_success`` resets ``failures`` but leaves an armed ``until`` in
+place. A success that arrives while the source
 is not cooling still clears the streak, which is what makes the count
 *consecutive*.
 """

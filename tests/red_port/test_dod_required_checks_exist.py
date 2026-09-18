@@ -1,17 +1,9 @@
 """Every status check `main` requires is a check some workflow actually reports.
 
-``.github/rulesets/main.json`` requires two contexts before a pull request may
-merge: ``baseline`` and ``test``. ``.github/workflows/ci.yml`` is the only
-workflow in the tree and defines one job, ``test``. The baseline job was deleted
-("remove the vendored baseline-skill and its CI gate"), and the ruleset was not
-followed. ``ci.yml`` still reasons about "the baseline job's Node 20" and
-``pyproject.toml`` still justifies a block as "a machine-readable statement of
-intent the baseline detects (QUAL-02)".
-
-Only one of two things can be true, and both are bad: either the ruleset in the
-repository is not the ruleset in force — in which case the committed file
-describes a protection nobody has — or it is in force, and every pull request
-waits forever on a check that can never report.
+``.github/rulesets/main.json`` names the contexts a pull request needs before it
+may merge. A required context no workflow job reports means either the committed
+ruleset is not the one in force, or every pull request waits forever on a check
+that can never report.
 
 What must be observably true: the set of required contexts is a subset of the
 jobs the workflows define. The check is worth having as a test rather than as a

@@ -13,11 +13,11 @@ Three properties make that safe:
    lockfile change produces a new key and rebuilds; an unrelated source
    change produces the same key and reuses. This is the whole of "invalidate
    on a dependency change and on nothing else".
-2. **The base image is pinned by digest (REPRO-04).** The tag (``python:3.12
-   -slim``) is resolved to an immutable ``sha256`` digest at build time and
-   the Dockerfile is written ``FROM ref@sha256:…``, so a task built today and
-   a task built after the tag floats to new content get the same base. The
-   resolved digest is recorded on the image as a label.
+2. **The base image is pinned by digest.** The tag (``python:3.12-slim``) is
+   resolved to an immutable ``sha256`` digest at build time and the Dockerfile
+   is written ``FROM ref@sha256:…``, so a task built today and a task built
+   after the tag floats to new content get the same base. The resolved digest
+   is recorded on the image as a label.
 3. **The cache is bounded and inspectable.** Every image carries mcgyvr
    labels; :func:`list_cached` reads them back with sizes, :func:`prune`
    evicts the oldest beyond a bound, and :func:`clear` removes them outright.
@@ -57,8 +57,8 @@ DEFAULT_MAX_CACHED_IMAGES = 8
 # The variables that point `docker` at another daemon. The sandbox runs on
 # this machine's daemon and nowhere else: a container the product starts must
 # never land on a rig, and the door (python -m mcgyvr.serving.run) is the only
-# way there. So the one runner that spawns docker refuses under either — it
-# does not honour the variable, and it does not strip it and carry on.
+# way there. So every place the sandbox spawns docker refuses under either —
+# it does not honour the variable, and it does not strip it and carry on.
 DAEMON_OVERRIDES = ("DOCKER_HOST", "DOCKER_CONTEXT")
 
 
@@ -101,10 +101,10 @@ DockerRunner = Callable[[Sequence[str], "bytes | None"], DockerResult]
 def subprocess_runner(args: Sequence[str], stdin: bytes | None = None) -> DockerResult:
     """Run a real ``docker`` command. The default :data:`DockerRunner`.
 
-    The one place the product builds a docker argv for its own daemon, so the
-    one place :func:`foreign_daemon` is applied: with ``DOCKER_HOST`` or
-    ``DOCKER_CONTEXT`` set nothing is spawned, and the result carries the
-    refusal as its stderr, which every caller raises as its own error.
+    One of the places the sandbox spawns docker, each of which applies
+    :func:`foreign_daemon`: with ``DOCKER_HOST`` or ``DOCKER_CONTEXT`` set
+    nothing is spawned, and the result carries the refusal as its stderr, which
+    every caller raises as its own error.
     """
     refusal = foreign_daemon()
     if refusal is not None:
@@ -210,7 +210,7 @@ def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) 
 
 
 def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:
-    """Pull ``base_ref`` and return its immutable ``ref@sha256:…`` (REPRO-04).
+    """Pull ``base_ref`` and return its immutable ``ref@sha256:…``.
 
     The tag is pulled so the digest reflects what would actually run, then
     read from the local image's repo-digests. A base that cannot be resolved
@@ -228,7 +228,7 @@ def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:
     if not inspect.ok or "@sha256:" not in digest_ref:
         raise ImageError(
             f"could not resolve {base_ref} to a digest for pinning; got "
-            f"{digest_ref!r}. A base image must pin to a digest (REPRO-04)."
+            f"{digest_ref!r}. A base image must pin to a digest."
         )
     return digest_ref
 

@@ -300,7 +300,7 @@ def test_a_rung_that_could_not_say_what_it_applied_is_not_a_formatting_problem(
 ) -> None:
     """A rejection nobody explained is not one the formatter raised.
 
-    the case: the lint rung's tool was there, exited, and said nothing
+    The case: the lint rung's tool was there, exited, and said nothing
     readable, so the change is rejected with no finding to point at. Tidying
     that would be treating "we do not know" as "it is only whitespace" —
     rewriting the bytes under a verdict whose remaining bar was never applied,

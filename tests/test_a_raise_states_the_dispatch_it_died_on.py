@@ -3,8 +3,7 @@
 Which dispatch of an attempt was in flight when it raised is knowable in
 exactly one place: the attempt function that was making it. Everywhere below
 that it is gone — an exception carries no draw — and everywhere above it can
-only be inferred, which is what the first repair of finding 7 did and what
-made it wrong.
+only be inferred, and an inference is not what the raise site knew.
 
 :class:`~mcgyvr.escalate.DispatchRaisedError` is the sentence the raise site gets to
 say: *this breadth was asked for, this many draws left a row, and this one is
@@ -14,7 +13,7 @@ exception, from a driver that says nothing, is a raise that dispatched nothing.
 
 This is pinned here rather than only through ``mcgyvr run`` because the entry
 is ``escalate``'s alone: the caller that corrects the journal reads these two
-fields and no longer has anything else to read them from.
+fields and has nothing else to read them from.
 """
 
 from __future__ import annotations

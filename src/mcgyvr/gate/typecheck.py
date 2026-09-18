@@ -4,18 +4,17 @@ Two capabilities live here because they answer the same question — *is this
 change wrong*, as opposed to *is it untidy* — and because the answer has to be
 split along that line before either is worth having.
 
-**The type checker the repository declared.**
-:meth:`~mcgyvr.gate.adapter.LanguageAdapter.locate_type_check_command` has
-existed since #114 and nothing in the gate has ever called it, so a worker can
-annotate a function with a return type it does not return and the gate accepts.
-:class:`TypeCheck` is the missing caller. It runs **only** what the repository
-configured, in whichever file that checker reads its own configuration from,
-and it runs nothing at all where the repository configured nothing — no default
-checker, no synthesised strictness, and no environment issue for the absence.
- put the choice of type checker outside this project; a gate that ran
-one anyway would apply a bar the repository never agreed to, and one that
-recorded "no type checker" as degraded coverage would say every install that
-never wanted one is broken.
+**The type checker the repository declared.** :class:`TypeCheck` runs what
+:meth:`~mcgyvr.gate.adapter.LanguageAdapter.locate_type_check_command` finds,
+so where a checker is declared, a worker that annotates a function with a
+return type it does not return is rejected. It runs **only** what the
+repository configured, in whichever file that checker reads its own
+configuration from, and it runs nothing at all where the repository configured
+nothing — no default checker, no synthesised strictness, and no environment
+issue for the absence. The choice of type checker is outside this project; a
+gate that ran one anyway would apply a bar the repository never agreed to, and
+one that recorded "no type checker" as degraded coverage would say every
+install that never wanted one is broken.
 
 *Why this names the changed files when ``locate_type_check_command`` refuses
 to.* That method emits the **contract's own acceptance command**, so appending
@@ -94,8 +93,8 @@ exist in ``_HazardVisitor`` as rejecting findings, and demoting them to style
 would weaken a bar mcgyvr already holds — a port may not quietly regress the
 thing it is porting into. A **formatting** violation stays rejecting for the
 same reason from the other direction: it is what makes the repair rung worth
-running at all (D21), and demoting it would accept a change no one had tidied
-rather than tidying it for free.
+running at all, and demoting it would accept a change no one had tidied rather
+than tidying it for free.
 """
 
 from __future__ import annotations
@@ -139,13 +138,13 @@ CORRECTNESS = "structure"
 STYLE = "style"
 
 #: Lint rule codes that report the ``type-form`` family under another name, and
-#: therefore belong on :data:`STYLE` rather than on the rejecting ``lint`` axis.
-#: ruff's default rule set already flags ``from typing import List`` (UP035) and
-#: ``List[int]`` in an annotation (UP006) — measured against ruff 0.16.4 with no
-#: configuration discoverable, so this is what a bare install reports. Left where
-#: they are, a correct change costs a model call, a gate run and a rung of the
-#: ladder over six characters, which is the exact spend the split exists to stop.
-#: Kept deliberately narrow: it is the family ported below, named in the other
+#: therefore belong on :data:`STYLE` rather than on the rejecting ``lint``
+#: axis. ruff's default rule set already flags ``from typing import List``
+#: (UP035) and ``List[int]`` in an annotation (UP006) with no configuration
+#: discoverable, so this is what a bare install reports. Left where they are, a
+#: correct change costs a model call, a gate run and a rung of the ladder over
+#: six characters, which is the exact spend the split exists to stop. Kept
+#: deliberately narrow: it is the family ported below, named in the other
 #: vocabulary, and nothing else. A gate that says one thing twice must not mean
 #: something different each time.
 #:
@@ -158,7 +157,7 @@ STYLE_LINT_CODES = frozenset({"UP006", "UP035"})
 
 #: Wall-clock ceiling for one type-check pass. A checker reads a repository's
 #: whole import graph and can be slow on a cold cache, so the bound is generous;
-#: exceeding it is an inconclusive rung, never a verdict on the worker.
+#: exceeding it is a skipped rung, never a verdict on the worker.
 TYPECHECK_TIMEOUT_S = 300.0
 
 #: A checker is *reporting* on 0 (clean) and 1 (diagnostics). Both mypy and
@@ -728,12 +727,7 @@ def compliance_findings(
     wording that could: a contract cannot ask for a module that will not load.
 
     It reaches here from :meth:`~mcgyvr.gate.Gate.run` through
-    :meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks`. It did not
-    used to: the parameter existed and the adapter had nowhere to take one
-    from, so the stand-down was unreachable from every call site in the tree
-    and a contract ordering in-place work was unsatisfiable. Threaded rather
-    than deleted because the alternative is a gate that can be given a contract
-    it will then reject the worker for obeying.
+    :meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks`.
     """
     style = [
         Finding(check=STYLE, path=path, line=line, code="TYPE-FORM", message=message)
@@ -813,11 +807,9 @@ def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str
     **before** the mutation — ``items = list(items)`` is the sanctioned
     defensive copy, and after it the name is no longer the caller's object.
     *Before* is the load-bearing word and :func:`_mutations_in` is where it is
-    enforced; asking only whether the name was rebound somewhere accepted the
-    canonical ``if x is None: x = []`` and accepted a copy written after the
-    line it was meant to protect. Aliasing through other locals is still not
-    tracked. The contract's acceptance suite remains the real catch; this is
-    the backstop for contracts whose tests do not look.
+    enforced. Aliasing through other locals is still not tracked. The
+    contract's acceptance suite remains the real catch; this is the backstop
+    for contracts whose tests do not look.
     """
     if _asks_for_mutation(contract_text):
         return []
@@ -842,7 +834,7 @@ def _mutations_in(
     sanctioned defence — after ``items = list(items)`` the rest of the function
     is working on a list the caller does not hold — but a rebind defends only
     what it runs *before*. Asking instead whether the name is rebound anywhere
-    in the body accepted three shapes that leave the caller's object exposed:
+    in the body would accept three shapes that leave the caller's object exposed:
     the copy written after the mutation, the copy in a branch that does not
     reach it, and
 
@@ -912,7 +904,7 @@ def _scan_statement(
     Dispatch is explicit per statement type rather than generic, because the
     two questions a statement answers here are different for each of them —
     *which of its parts run now* and *which of its parts run on every path out*
-    — and a generic walk cannot tell them apart. That is the bug this replaces.
+    — and a generic walk cannot tell them apart.
     """
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
         return _scan_nested_function(node, owned, hits)

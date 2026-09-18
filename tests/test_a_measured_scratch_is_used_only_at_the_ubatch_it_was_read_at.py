@@ -1,18 +1,16 @@
 """A measured scratch reading is used only at the ``-ub`` it was read at.
 
-The compute buffer grows with ``-ub``. nemotron reads 386.19 MiB at 256, 429.81
-at 512 and 517.06 at 1024
-(``records/evidence/2026-09-04-srv1-ncmoe-floor/srv2-bufprobe-nvidia_Nemotron-3-Nano-30B-A3B-IQ4_NL.tsv:5-7``),
-and Qwen3.6 205, 214 and 232 (``srv1-buffer-probe.tsv`` beside it). A unit at
-512 judged with a 256 reading is given less room than it allocates, which is the
-under-statement the allowance exists to prevent: a cell that clears every gate
-and then fails to allocate.
+The compute buffer grows with ``-ub`` (the buffer probes in
+``records/evidence/2026-09-04-srv1-ncmoe-floor/``). A unit at 512 judged with a
+256 reading is given less room than it allocates, which is the under-statement
+the allowance exists to prevent: a cell that clears every gate and then fails to
+allocate.
 
 What is specified:
 
 * **A reading names the ``-ub`` it was read at.** ``MEASURED_SCRATCH_MIB`` maps
-  an architecture to ``{n_ubatch: MiB}``, and today's four readings sit under
-  256 with the values they were measured at.
+  an architecture to ``{n_ubatch: MiB}``, and each reading sits under the batch
+  it was measured at.
 * **A reading is used only at its own ``-ub``.** ``allowance_mib(geometry,
   n_ubatch=...)`` is the reading taken at exactly that batch, and
   :data:`vramfit.SCRATCH_AND_CONTEXT_MIB` at any batch the architecture has no
@@ -22,19 +20,11 @@ What is specified:
   room a 256 reading grants does not admit the same placement at a batch it was
   not read at, and still admits it at 256.
 
-For the GREEN. Live srv1 serves Qwen3.6 at ``-ub 512``, and
-``tests/red_port/test_dod_placement_conservatism.py`` pins that its running
-placement is accepted: 5347.2 MiB predicted against 5726 usable. The bound would
-refuse it (5347.2 + 768), so the GREEN needs a qwen35moe reading taken at 512 —
-the buffer probe above has its compute half — not the bound standing in. That
-reading is now measured: **316.57 MiB** at ``-ub 512``, with a ``-ub 256``
-control of 304.57 MiB that reproduces the pinned 302.7 to 0.6%
-(``records/measurements/kv-dtype-2026-09-11/results-s1-scratch.json``, on the
-measurement branch ``measurements/unified-2026-09-11``, the measuring-gaps Q3
-method; the same probe's 256 compute reads 208.50 against the
-``srv1-buffer-probe.tsv`` 205, a different-placement artefact). #438's
-B77 calls ``allowance_mib({"arch": "qwen3next"})`` with no batch; how that call
-reads is the GREEN's to settle with #438.
+``tests/red_port/test_dod_placement_conservatism.py`` pins that a Qwen3.6
+placement measured running on srv1 at ``-ub 512`` is accepted. The bound would
+refuse it, so qwen35moe carries a reading taken at 512
+(``records/measurements/kv-dtype-2026-09-11/results-s1-scratch.json``) rather
+than the bound standing in.
 """
 
 from __future__ import annotations
@@ -49,7 +39,7 @@ from mcgyvr.serving import vramfit
 
 MIB = 1 << 20
 
-#: Today's readings, each taken at ``-ub 256`` by
+#: The readings taken at ``-ub 256`` by
 #: ``records/evidence/2026-09-05-context-decomposition/ctx-probe.sh``.
 READ_AT_256: dict[str, float] = {
     "deepseek2": 259.5,
@@ -155,7 +145,8 @@ def test_explain_reports_the_allowance_for_the_ubatch_it_was_asked_at() -> None:
 
 
 def test_room_a_256_reading_grants_does_not_admit_a_unit_at_another_ubatch() -> None:
-    """Today it does: 302.7 MiB read at 256 is added to a unit priced at 512."""
+    """A reading taken at 256 is not added to a unit priced at a batch it was not
+    read at."""
     geometry = _geometry()
     batch = _unread_batch("qwen35moe")
     told = vramfit.explain(

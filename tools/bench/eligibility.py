@@ -10,8 +10,8 @@ that rule; this module counts it.
 **Eligibility is the cheap half.** The half that decides whether a contrast can
 be read is *headroom*: a cell that passes under no condition cannot produce a
 discordant pair whatever the lever does, so the count of eligible cells is an
-upper bound on ``m`` only if those cells can pass at all. the consequence
-is the rule this module exists to apply — *"a stratum with no headroom is
+upper bound on ``m`` only if those cells can pass at all. That is the rule
+this module exists to apply — *"a stratum with no headroom is
 excluded, not reported as null. 'No effect where nothing passes' is absent
 resolution, not absent effect."* — and the ``m >= 6`` wall is what the
 answer is measured against.

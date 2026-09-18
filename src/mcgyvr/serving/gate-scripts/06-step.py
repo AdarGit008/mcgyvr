@@ -23,9 +23,6 @@ def main() -> int:
     door_required("gate 6")
     step = need("RUN_STEP_FILE")
     if not os.access(step, os.X_OK):
-        # Not `refuse`: a step that cannot be executed is the caller's mistake
-        # to fix, and saying so with the same exit code as a gate refusal would
-        # blur the two.
         sys.stderr.write(f"06-step.py: {step} is not executable (chmod +x)\n")
         return 2
     print(

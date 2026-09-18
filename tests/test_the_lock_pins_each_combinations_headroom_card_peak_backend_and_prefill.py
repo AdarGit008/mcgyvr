@@ -1,30 +1,30 @@
 """The lock pins each combination's own overhead, card peak, backend and prefill.
 
 * **Overhead is a combination's, not a rig's.** The CUDA context differs per
-  card and per engine: llama.cpp on srv1's GTX 1660 SUPER read 115.69 MiB where
-  srv2's RTX 3060 read 146.69 for the same model and ``-ub``, though on two
-  images (``records/evidence/2026-09-04-srv1-ncmoe-floor/srv1-buffer-probe.tsv:6``,
-  ``srv2-buffer-probe.tsv:5``), and vLLM's driver and context, on one image,
-  read 470 MiB on srv1 and 491 on srv2
-  (``archive/docs/archive/decisions/0039-a-serving-memory-declaration-is-bytes-not-a-fraction-of-the-card.md:229-231``).
-  A combination's dev run measures the contexts of exactly its units on
-  exactly its card, so the fit uses that reading and nothing pooled.
+  card and per engine: llama.cpp on srv1's GTX 1660 SUPER read less than srv2's
+  RTX 3060 for the same model and ``-ub``, though on two images (the two
+  ``*-buffer-probe.tsv`` files in
+  ``records/evidence/2026-09-04-srv1-ncmoe-floor/``). A combination's dev run
+  measures the contexts of exactly its units on exactly its card, so the fit
+  uses that reading and nothing pooled.
 * **A llama.cpp unit is locked on its measured card peak.** Its room must hold
   the highest reading across the load and the requests, and the 2.0 GB guessed
-  for a model with no geometry (``DEFAULT_HEADROOM_GB``,
-  ``src/mcgyvr/serving/__init__.py:553``) never stands in for that reading.
+  for a model with no geometry (``mcgyvr.propose.DEFAULT_HEADROOM_GB``) never
+  stands in for that reading.
 * **A vLLM unit pins its attention backend** (``--attention-backend``, which
-  v0.26.0 resolves: ``records/evidence/2026-08-24-config-sweep/srv2-1.5B.jsonl:38``),
-  and the lock files the backend the dev run reported. The card decides what is
-  valid: srv1 (cc 7.5) reports ``TRITON_ATTN``
-  (``records/evidence/2026-08-31-inventory/board3-srv1-off1v1.log:25``), srv2
-  ``FLASH_ATTN`` (``records/evidence/2026-08-24-resolved-config/srv2-startup.log:22``),
-  and ``FLASHINFER`` under an fp8 KV cache (``srv2-1.5B.jsonl:12``).
+  v0.26.0 resolves: the ``attn-*`` cells of
+  ``records/evidence/2026-08-24-config-sweep/srv2-1.5B.jsonl``), and the lock
+  files the backend the dev run reported. The card decides what is valid: srv1
+  (cc 7.5) reports ``TRITON_ATTN``
+  (``records/evidence/2026-08-31-inventory/board3-srv1-off1v1.log``), srv2
+  ``FLASH_ATTN`` (``records/evidence/2026-08-24-resolved-config/srv2-startup.log``),
+  and ``FLASHINFER`` under an fp8 KV cache (the ``kv-fp8`` cell of
+  ``srv2-1.5B.jsonl``).
 * **Prefill is locked as run**, beside warm decode, so a live run has a value
   to judge it against.
 
-Tolerances and figures here are placeholders: the rule is pinned, the values
-are measured on ``red/fleet-identity-measurements``.
+Tolerances and figures here are placeholders: the rule is pinned, not the
+values.
 """
 
 from __future__ import annotations

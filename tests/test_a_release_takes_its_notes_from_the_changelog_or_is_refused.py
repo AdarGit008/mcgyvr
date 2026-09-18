@@ -1,15 +1,14 @@
 """The notes on a release are the notes in the repository, or there is no release.
 
-v0.1.0's notes were whatever `gh release create --generate-notes` made of the
-range: raw PR titles, in merge order, which is a log of how the work landed and
-not a description of what the version is. The replacement reads CHANGELOG.md, so
-the tag, the release page and the file a reader opens carry one text.
+`gh release create --generate-notes` makes raw PR titles, in merge order, of the
+range: a log of how the work landed, not a description of what the version is.
+The release reads CHANGELOG.md instead, so the tag, the release page and the
+file a reader opens carry one text.
 
-That swap only removes the defect if the tool is loud when there is nothing to
-read. `--generate-notes` could not fail — it always had commits to list — so
-"the notes are empty" was not a state the release could reach. Reading a file
-can reach it two ways, and both stop the release here: the version has no
-section at all, or it has one with nothing under it.
+That only helps if the tool is loud when there is nothing to read. Generated
+notes cannot be empty — there are always commits to list — but reading a file
+can reach "the notes are empty" two ways, and both stop the release here: the
+version has no section at all, or it has one with nothing under it.
 """
 
 from __future__ import annotations

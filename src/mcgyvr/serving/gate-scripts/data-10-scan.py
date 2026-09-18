@@ -8,11 +8,10 @@ carries because they move minute to minute: what the card has free, and what
 system memory is available.
 
 WHY `free` AND NOT `total - reserved`. A card has four buckets — total =
-reserved + used + free — and the two agree only on an idle card. Measured on
-srv1 2026-09-04: foreign processes held 3,374 MiB with no container of ours
-running, leaving 2,370 free against a 5,743 total-less-reserve. Deriving a
-placement from the larger number puts experts on a card with no room for them,
-and the cell OOMs at load having passed every gate.
+reserved + used + free — and the two agree only on an idle card
+(okf/must-read/touching-rigs.md). Deriving a placement from the larger number
+puts experts on a card with no room for them, and the cell OOMs at load having
+passed every gate.
 """
 
 from __future__ import annotations
@@ -63,9 +62,9 @@ def main() -> int:
         "pl1_uw": reading.get("pl1_uw"),
         "pl2_uw": reading.get("pl2_uw"),
     }
-    # A card held by somebody else is not an error — run contract §4 says a cell
-    # never repairs a machine it found wrong — but it IS the difference between
-    # the two VRAM numbers, so it is said out loud rather than left in the JSON.
+    # A card held by somebody else is not an error — the door does not repair a
+    # machine it found wrong — but it IS the difference between the two VRAM
+    # numbers, so it is said out loud rather than left in the JSON.
     if used_mib > 64:
         print(
             f"data-10-scan: {used_mib} MiB of the card is held by something "

@@ -46,7 +46,7 @@ import product  # noqa: E402
 
 
 def _by_path(name: str, path: pathlib.Path) -> types.ModuleType:
-    """`tools/` is not a package, and two files here are called `report.py`."""
+    """`tools/` has no `__init__.py`, and two files here are called `report.py`."""
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -66,15 +66,15 @@ report = _by_path("bench_report_control", ROOT / "tools" / "bench" / "report.py"
 # mechanism, m >= 6 or no p-value), and none of that moves with --stock.
 # Named `*_RUN` because `STOCK` is already a *condition* name in
 # `tools/breadth/measure.py` — one word for the render the matrix dispatches and
-# for the directory a render was measured into. lens 3: two meanings
-# under one name is a collision a reader resolves by guessing.
+# for the directory a render was measured into. Two meanings under one name
+# is a collision a reader resolves by guessing.
 STOCK_RUN = "bench-null-gate-15b-a-2026-08-13"
 SENSITIVITY_RUN = "bench-null-gate-15b-b-2026-08-13"
 NORULE_RUN = "bench-control-norule-15b-2026-08-13"
 ARMS = ("bench-py", "bench-ts")
 
-# , quoted as context and explicitly not as a target: different
-# material, a different harness and a different model.
+# A historic figure, quoted as context and explicitly not as a target:
+# different material, a different harness and a different model.
 HISTORIC = {"pass": (7, 11, 20), "completion": (427.4, 121.5)}
 
 
@@ -102,8 +102,9 @@ LABELS = (
 )
 _FINDING = re.compile(r"(?:\A|; )(" + "|".join(LABELS) + r"): ")
 
-# The labels the adapters rung emits. It runs before acceptance and always runs,
-# so a change in this set is a clean comparison; a change in `acceptance` is not.
+# The labels the adapters rung emits. It runs before acceptance, for every
+# candidate that clears scope and secrets, so a change in this set is a clean
+# comparison; a change in `acceptance` is not.
 ADAPTER_LABELS = {"format", "lint", "structure", "syntax"}
 
 
@@ -180,13 +181,12 @@ def declared_bound(run: str, arm: str) -> tuple[float | None, str]:
     """The reproducibility bound for the run being read, or why there is none.
 
     Looked up per (model, tier, gate_rungs, serving_build) from
-    ``tools/bench/reproducibility.json`` rather than carried as a constant. This
-    file held ``BOUND_PP = 1.47`` — the 1.5B's number — and reading a second
-    tier's contrast against it is exactly the borrowing D2 forbids: a
-    higher-pass-rate model has more cells near the boundary and therefore its
-    own null. A tier with no null declared gets no "INSIDE the bound" annotation
-    at all, which is the honest output; a delta smaller than an undeclared drift
-    is an unknown effect, not a small one.
+    ``tools/bench/reproducibility.json`` rather than carried as a constant: a
+    null does not transfer across tiers, because a higher-pass-rate model has
+    more cells near the boundary and therefore its own null. A tier with no null
+    declared gets no "INSIDE the bound" annotation at all, which is the honest
+    output; a delta smaller than an undeclared drift is an unknown effect, not a
+    small one.
     """
     manifest = json.loads((M / run / arm / "run.json").read_text(encoding="utf-8"))
     entry, because = report.declared_bound(manifest, report.load_bounds())
@@ -345,11 +345,11 @@ def main() -> int:
         # `acceptance` above is not "how many failed the test", it is "how many
         # got as far as the test and then failed it" — and a *fall* in it is
         # consistent with the ablation being worse, not better. The adapter row
-        # is the uncontaminated comparison, because that rung always runs.
+        # is the uncontaminated comparison: that rung runs before acceptance.
         for label, rung_set in (("any adapter finding", ADAPTER_LABELS),):
             a = sum(1 for row in s.values() if rungs_of(row) & rung_set)
             b = sum(1 for row in nr.values() if rungs_of(row) & rung_set)
-            print(f"  {label:<20}{a:>8}{b:>8}{b - a:>+9}   <- always runs")
+            print(f"  {label:<20}{a:>8}{b:>8}{b - a:>+9}   <- runs before acceptance")
         reached_s = sum(1 for row in s.values() if not (rungs_of(row) & ADAPTER_LABELS))
         reached_n = sum(
             1 for row in nr.values() if not (rungs_of(row) & ADAPTER_LABELS)

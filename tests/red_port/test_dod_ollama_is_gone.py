@@ -1,38 +1,19 @@
 """No Ollama. Not fixed, not exempted — removed, and the tree says so.
 
-Ollama was mcgyvr's first backend, and the reasoning around it is the most
-argued-over prose in the repository: asked natively because ``/api/tags``
-enumerates what has been pulled, dispatched OpenAI-compatibly because CAV-01
-measured the native path at 32.3% against a true 84.1% (#164). That reasoning
-was correct and is now spent.
-
-Owner's ruling, 2026-09-06: **dead weight.** The live ladder is vLLM on srv2 and
-llama.cpp on srv1, all three rungs OpenAI-compatible. The daemon on srv2 was
-stopped and masked the same day — it held no VRAM, but it was ``enabled``, it
-held port 11434, and it sat on a card with 115 MiB free, one request away from
-trying to load 2 GB beside a running ladder. The code that served it is archived
-under ``archive/forensic-ollama/`` and removed from the product.
+The code that served Ollama is archived under ``archive/forensic-ollama/`` and is
+not in the product.
 
 What must be observably true: nothing in ``src/`` or ``tools/`` can dispatch to,
 probe, detect, propose, or configure an Ollama backend. A protocol nobody can
 reach is not "supported", it is a second path through every dispatch decision
-that no test of the live ladder ever exercises — and the branch it left behind in
-``emit`` was already misfiring on a field that never holds the value it tests.
+that no test of the live ladder ever exercises.
 
-**The ban is on the capability, not on the word.** A first draft swept for
-``\bollama\b`` in ``src/`` and ``tools/`` and would have gone green only by
-deleting things that are true: the pointers to this archive that the last test
-in this file *requires* be findable, and the provenance of measurements actually
-taken on that backend (``prompts/python.md`` "#167 arm B", ``capability.py``'s Q4
-reading, ``worker/bundle.py``'s  instrument, and the recorded rows under
-``tools/bench/``). A record of where a number came from is not support for a
-backend; erasing it makes the record false, which is the thing the round pin in
-``test_dod_round_autoopen.py`` exists to prevent. So a line whose only mention is
+**The ban is on the capability, not on the word.** A sweep for ``\bollama\b`` in
+``src/`` and ``tools/`` would go green only by deleting things that are true: the
+pointers to the archive that the last test in this file *requires* be findable, and
+the provenance of measurements actually taken on that backend. A record of where a
+number came from is not support for a backend. So a line whose only mention is
 a citation is allowed, and everything operational is not.
-
-This is stated as a test rather than done and forgotten because the reasoning is
-persuasive and well-written, and the next reader who needs a second protocol will
-find it in the archive and be tempted to bring the whole thing back.
 """
 
 from __future__ import annotations

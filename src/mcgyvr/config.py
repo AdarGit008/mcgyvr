@@ -6,8 +6,7 @@ and how work moves over it (not locked). Both are read by
 :mod:`mcgyvr.fleet.files`, which owns the vocabulary and the refusals; this
 module declares the schema, fills defaults, and presents the loaded setup as
 typed ``units`` and ``ladder``. The files are YAML rather than JSON because
-they carry policy, and policy needs comments to stay hand-editable
-("Known tension").
+they carry policy, and policy needs comments to stay hand-editable.
 
 Three properties are load-bearing and each is enforced here rather than
 documented and hoped for:
@@ -147,13 +146,8 @@ class Field:
     """Enum values this build recognises and refuses, each with why and what to
     set instead.
 
-    Distinct from simply dropping the value out of ``choices``, which is what
-    was tried first. That produces "not a valid value. Valid: ...", which is
-    true and unhelpful: a value that used to work — and, in the one case here,
-    used to be the *default* — was doing something other than what its name
-    said, and an operator who wrote it deserves to be told which behaviour they
-    were actually getting. A retired value is still recognised, so the message
-    can be specific; it is refused, so the config cannot resolve to it."""
+    A retired value is still recognised, so the message can be specific; it is
+    refused, so the config cannot resolve to it."""
 
 
 SANDBOX_FIELDS: tuple[Field, ...] = (
@@ -235,21 +229,12 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
 )
 
 # How long one dispatched request may take before the transport gives up.
-# Defined here rather than in :mod:`mcgyvr.runner` because it is now a config
-# default as well as the runner's constant, and the two must be one number:
-# a literal in each is how the door and `emit` came apart over `-c` (see
-# `kv_bytes_for_run`). Measured against on 2026-09-06: the top local rung
-# gives 27.2 tok/s to one stream and 5.09 tok/s to each of eight, so what this
-# number forbids is a function of the width a rung serves and the cap a
-# contract declares, which is why it has to be declarable beside them.
+# `mcgyvr.runner` reads it as `GENERATE_TIMEOUT_S`.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
-# How long `serve up` polls a unit into health after bringing it up: a vLLM
-# server measured 87 s to health on srv2 and llama.cpp 54-129 s on srv1
-# (2026-09-05), so six minutes is three of the slowest with room. The door
-# (`mcgyvr.serving.servelib`) polls by these, so they read them from here:
-# `config` is the one module both halves of the seam may import, and the door
-# is not.
+# How long `serve up` polls a unit into health after bringing it up: the wait
+# is the product of the two. The door (`mcgyvr.serving.servelib`) polls by
+# these and reads them from here.
 HEALTH_POLLS = 120
 HEALTH_INTERVAL_S = 3.0
 
@@ -288,11 +273,8 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "the time its rung's per-stream rate says it takes, and that rate "
         "falls as the rung serves more streams at once, so this bound, the "
         "cap and the rung's width are three numbers that decide each other. "
-        "Left as a constant in the runner it decided the other two silently: "
-        "a cap an operator was free to declare was unreachable at a width "
-        "they were also free to declare, and the failure arrived as a socket "
-        "timeout naming neither. Raise it for a slow rung serving a large "
-        "cap; lower it to fail faster.",
+        "Raise it for a slow rung serving a large cap; lower it to fail "
+        "faster.",
         default=DEFAULT_REQUEST_TIMEOUT_S,
         min_value=0.0,
     ),
@@ -330,13 +312,7 @@ BREADTH_FIELDS: tuple[Field, ...] = (
         "picks between them. Draws are not attempts: they share one prompt and "
         "one attempt's budget, and the gate ranks the answers rather than the "
         "next attempt being told what the last one got wrong. The default of 1 "
-        "is  unchanged — one draw, one verdict, and the draw is the "
-        "answer. Raising it is most defensible on a cheap rung that is often "
-        "almost right, where three draws are still cheaper than escalating; a "
-        "lever whose whole benefit is fewer crossings into the api family "
-        "cannot be evaluated before the telemetry that counts crossings, which "
-        "is why this is something to ask for rather than something you are "
-        "given.",
+        "is one draw, one verdict, and the draw is the answer.",
         default=1,
         min_value=1,
     ),
@@ -350,9 +326,7 @@ BREADTH_FIELDS: tuple[Field, ...] = (
         "greedy one is the first draw again. 0.0 is refused at load wherever "
         "any unit's effective draws exceed 1: identical draws buy N gate runs "
         "and nothing else. The wire field is the OpenAI-compatible "
-        "`temperature`. 0.7 is the default because it is the conventional "
-        "sampling point, and the journal now records the temperature per row, "
-        "so the number can be measured against rather than argued about.",
+        "`temperature`. The journal records the temperature per row.",
         default=0.7,
         min_value=0.0,
         max_value=2.0,
@@ -369,17 +343,13 @@ CLEANUP_FIELDS: tuple[Field, ...] = (
         "climb on what a tool clears for nothing. The tools are the ones the "
         "gate already checks with, so a repair produces the shape the rungs "
         "ask for rather than a second opinion about it, and it costs no tokens "
-        "by construction. On by default (owner, 2026-09-05): the first live "
-        "ladder rejected all nine replies on a reflowed line, whitespace on a "
-        "blank line or an unsorted import block and paid a climb for each, "
-        "and running the fixers after a rung is done is the point — it lifts "
-        "every task the deterministic floor could not take outright. It "
-        "rewrites a file after the gate has spoken about it, so the bytes "
-        "that come back are not the bytes the worker sent: the journal keeps "
-        "the reply, the tree keeps the repaired file, and the verdict says a "
-        "repair ran. Set false to have the rejection stand as the gate "
-        "reached it. What no tool fixes — a failed acceptance command, a "
-        "name, a line too long to wrap — is rejected exactly as before.",
+        "by construction. It rewrites a file after the gate has spoken about "
+        "it, so the bytes that come back are not the bytes the worker sent: "
+        "the journal keeps the reply, the tree keeps the repaired file, and "
+        "the verdict says a repair ran. Set false to have the rejection stand "
+        "as the gate reached it. What no tool fixes — a failed acceptance "
+        "command, a name, a line too long to wrap — is rejected exactly as "
+        "before.",
         default=True,
     ),
 )
@@ -398,8 +368,8 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "containers on a shared rig, putting the rig side effect outside the "
         "only record that explains the run. It governs the *decisions*: `mcgyvr serve "
         "sleep|wake`, typed by a person who has therefore asked, is not gated "
-        "by it. It sits here rather than under `ladder` because "
-        "`ladder.fanout` decides where work goes among rungs that exist and "
+        "by it. It is a key of its own rather than part of `fanout` because "
+        "`fanout` decides where work goes among rungs that exist and "
         "this decides whether rungs come into existence — two authorities, and "
         "only one of them touches a rig.",
         default=False,
@@ -411,8 +381,8 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "one thing that has to be stated rather than derived, because `mcgyvr "
         "emit --out` defaults to the current directory and a wake has to find "
         "the file again. It is deliberately not a device and not a host: a "
-        "`device: cuda:0` beside a `base_url` would be two statements of one "
-        "fact and would go stale the first time a source was re-pointed, "
+        "`device: cuda:0` beside a unit's `address` would be two statements "
+        "of one fact and would go stale the first time a unit was re-pointed, "
         "whereas this cannot go stale against anything — it says where files "
         "are, not where work runs. A config that omits it has no sleeping "
         "cards at all, only down ones: `asleep` is `down` plus a launch spec "
@@ -432,7 +402,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "url",
         "Where this unit answers, including scheme and port. One address is \
 "
-        "one process: a unit is the one term for what used to be a source.",
+        "one process.",
         required=True,
         bind_hint="e.g. http://srv2:8002",
     ),
@@ -513,9 +483,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "room_mib",
         "int",
-        "The card room this unit needs, in MiB, measured or stated. Replaces \
-"
-        "the model block's vram/ram/disk sizes.",
+        "The card room this unit needs, in MiB, measured or stated.",
         min_value=0,
         bind_hint="e.g. 7000 -- the card room this unit needs",
     ),
@@ -555,7 +523,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "mapping",
         "The resolved launch, whole. Free-form by design: a unit hashes its \
 "
-        "whole resolved launch with no hand-kept field list (ID-2), so a flag \
+        "whole resolved launch with no hand-kept field list, so a flag \
 "
         "this reader has never heard of cannot go unhashed. Two keys sizing \
 "
@@ -569,15 +537,11 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "scan's tensor table and charged to the card, so the `--n-cpu-moe` \
 "
-        "floor rises (4 to 8 on KAT/Ornith Q2_K-AllGPU, ~816 MiB), and a scan \
+        "floor rises, and a scan with no nextn block refuses the \
 "
-        "with no nextn block refuses the declaration. Measured: +26.5% decode \
+        "declaration. Whether it pays depends on the card and the width: \
 "
-        "at width 1 and +22% at width 2 on a 12 GB card (srv2), and a win at \
-"
-        "width 1 that turned into -10% at width 2 on the offload-bound 6 GB \
-"
-        "card (srv1) -- records/evidence/2026-08-28-mtp-ornith/. A vLLM unit \
+        "records/evidence/2026-08-28-mtp-ornith/. A vLLM unit \
 "
         "declaring `mtp` is refused: its speculative decoding is \
 "
@@ -789,7 +753,7 @@ class Unit:
     A unit is the one term. It carries its own endpoint (``address``), the
     model it serves, the width it was started with, the window it serves, the
     reply room it needs, its timeout, its card room, and its whole resolved
-    ``launch`` as a free-form mapping (ID-2). Nothing here is a hand-kept list
+    ``launch`` as a free-form mapping. Nothing here is a hand-kept list
     of launch flags: ``launch`` is whatever the operator wrote, and the engine
     gate is what validates it.
     """
@@ -1017,8 +981,8 @@ def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
 def field_at(key: str) -> Field | None:
     """Find the schema field a dotted key addresses, if it names one.
 
-    Segments that are a user-chosen map key or a list index are skipped —
-    ``units.local.api_key_env`` and ``ladder.0`` both resolve.
+    A segment that is a user-chosen map key is skipped —
+    ``units.local.api_key_env`` resolves.
     """
     return _field_in(SCHEMA, key.split("."))
 
@@ -1128,7 +1092,7 @@ def _missing(spec: Field, path: str) -> ConfigSchemaError:
 
 def _value(raw: object, spec: Field, path: str) -> Any:
     if spec.kind == "int":
-        # bool is an int in Python; `max_parallel: true` is not a capacity.
+        # bool is an int in Python; `width: true` is not a count.
         if not isinstance(raw, int) or isinstance(raw, bool):
             raise ConfigSchemaError(
                 f"{path}: expected a number, found {_typename(raw)}"
@@ -1144,8 +1108,7 @@ def _value(raw: object, spec: Field, path: str) -> Any:
         return raw
 
     if spec.kind == "float":
-        # An int is a valid decimal, but a bool is not: `moe: true` and
-        # `disk_gb: true` must not both be accepted by the same rule.
+        # An int is a valid decimal, but a bool is not.
         if not isinstance(raw, (int, float)) or isinstance(raw, bool):
             raise ConfigSchemaError(
                 f"{path}: expected a number, found {_typename(raw)}"
@@ -1277,20 +1240,17 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
 
 
 def _refuse_userinfo(name: str, base_url: str) -> None:
-    """Refuse a ``base_url`` that carries a credential in its userinfo.
+    """Refuse a unit ``address`` that carries a credential in its userinfo.
 
     ``https://user:key@host`` is a credential written into the config file,
     which :meth:`Config.secret` refuses in the one place it is asked for — "put
     it in a git-ignored .env; never write the value into the config file". The
     same rule, held where the value enters rather than where it is read.
 
-    Refusing here is what makes the rule cheap everywhere else. A ``base_url``
-    is interpolated into roughly a dozen operator-facing strings — every runner
-    transport error, every availability verdict, ``mcgyvr pool``, the init
-    summary — and a credential that cannot be in the value cannot be in any of
-    them. Scrubbing each sink instead would have to be got right once per sink
-    and again for every sink added later, which is the shape of defect this
-    check exists to make impossible rather than to keep catching.
+    Refusing here is what makes the rule cheap everywhere else. An address is
+    interpolated into operator-facing strings — runner transport errors,
+    availability verdicts, ``mcgyvr pool``, the init summary — and a credential
+    that cannot be in the value cannot be in any of them.
     """
     userinfo = urllib.parse.urlsplit(base_url).netloc.rpartition("@")[0]
     if not userinfo:
@@ -1308,57 +1268,20 @@ def _refuse_userinfo(name: str, base_url: str) -> None:
 def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     """``data`` with every path-valued key made absolute against the config.
 
-    One key has this shape today: ``models.<id>.geometry_json``, which may be
-    written relative and means "the scan filed beside this config" — the live
-    config writes it that way (``~/.mcgyvr/config/mcgyvr.yaml:54``,
-    ``geometry_json: ./Qwen3.6-35B-A3B-UD-IQ3_XXS.geometry.json``).
+    One key has this shape: ``units.<name>.launch.geometry_json``, which may
+    be written relative and means "the scan filed beside this config".
 
-    Resolved **here**, once, and never again. Until 2026-09-08 the join was
-    done twice and later: by ``Config._pinned`` for the rendered config and by
-    :func:`mcgyvr.serving.declared_models` for the file that is opened. Two
-    derivations of one meaning are two answers waiting to differ, and both
-    already differed from each other under a symlink. A value in ``data`` is
-    one answer that every reader gets, including a reader that never heard of
-    ``self.path``.
+    Resolved here, once: a value in ``data`` is one answer that every reader
+    gets.
 
-    Two decisions are pinned in the three lines below, and each prevents a
-    named failure.
+    **A relative path with no config location is refused, not guessed.** A
+    config parsed from text nobody filed (:func:`parse` with ``path=None``)
+    has no "beside", and resolving against the working directory would make
+    the config's meaning depend on where the operator stood.
 
-    **A relative path with no config location is refused, not guessed.** The
-    line means "next to me", and a config parsed from text nobody filed
-    (:func:`parse` with ``path=None``) has no "me". The two old sites took
-    that as permission to carry the word unresolved: the rendered config named
-    ``./x.json`` — a different file from every directory — and
-    ``declared_models`` handed the bare name to ``open``, so the run read
-    whatever the process's working directory held. Measured on the live config
-    on 2026-09-08: from its path the resolution read
-    ``/home/adaramir/.mcgyvr/config/Qwen3.6-….geometry.json``; from the same
-    bytes with no path it carried ``./Qwen3.6-….geometry.json``, which exists
-    from nowhere. Resolving against the working directory instead would keep both
-    of those and add a third: a config whose meaning depends on where the
-    operator was standing when they ran it. The remaining answer is to say so.
-    This repo already answers a missing fact this way rather than inventing
-    one — ``emit.py`` refuses to report an unscanned host, and
-    ``check_contract_against_rung`` says an invented window "is the defect this
-    function exists to end" — and :meth:`Config.canonical`'s promise that
-    loading its text back yields the same config is
-    unconditional, so the case it cannot keep must not be loadable.
-
-    **The route to the config file is resolved before its directory is taken.**
-    ``mcgyvr-lab/records/plans/config-library.md`` §6/D5 selects a ladder by symlinking
-    its entry to the default config path. The scan sits beside the *entry*,
-    because that is where the entry's author filed it; taking ``path.parent``
-    through the link named the link's directory instead, so one file with one
-    set of bytes rendered two ways on a copy of the live config, 2026-09-08 —
-    and one of them named a scan that was never written. The config's resolved
-    rendering is a property of the file and not the route taken to it. The cost
-    is real and accepted: a config reached through a link whose
-    *target* directory does not hold the scan now fails loudly at the point of
-    use instead of quietly reading a different file, and the remedy is one
-    absolute path in that entry. ``resolve`` also settles a config named by a
-    relative path (``--config ./mcgyvr.yaml``) against the directory the file
-    was actually read from, rather than leaving the geometry relative for
-    whatever comes later to interpret.
+    **The config directory is resolved through symlinks before it is used**,
+    so the scan is looked for beside the real directory and not beside a link
+    to it. A relative ``path`` becomes absolute the same way.
     """
     beside = path.resolve() if path is not None else None
 
@@ -1417,13 +1340,12 @@ def config_path() -> Path:
 
     The live fleet is the folder ``~/.mcgyvr/live.json`` names
     (:func:`mcgyvr.fleet.roots.live_fleet_dir`): written by ``mcgyvr fleet
-    promote``, named by ``mcgyvr fleet use`` (owner, 2026-09-15). The user
-    dir ``~/.mcgyvr/config`` was the third answer until then, and is
-    archived. With no override, no ``fleet.yaml`` here and no fleet named
-    live, the answer is the working directory: where ``mcgyvr init`` writes
-    and where a missing config is reported. A path that depends on an
-    environment variable only some shells export is a config that is found
-    from one terminal and not another, so nothing else is consulted.
+    promote``, named by ``mcgyvr fleet use``. With no override, no
+    ``fleet.yaml`` here and no fleet named live, the answer is the working
+    directory: where ``mcgyvr init`` writes and where a missing config is
+    reported. A path that depends on an environment variable only some shells
+    export is a config that is found from one terminal and not another, so
+    nothing else is consulted.
     """
     override = named_config_path()
     if override is not None:
@@ -1438,9 +1360,6 @@ def config_path() -> Path:
     return live if live is not None else local
 
 
-#: Words the fleet vocabulary retired. One term — "unit" — replaced several
-#: (``mcgyvr-lab/records/plans/fleet-identity.md`` §2). A config that names one is
-#: refused naming what replaced it, exactly as ``mcgyvr.fleet.files`` refuses them.
 def parse(
     fleet_text: str,
     policy_text: str = "",

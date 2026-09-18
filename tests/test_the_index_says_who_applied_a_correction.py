@@ -1,21 +1,19 @@
 """A folded row says who applied the correction it is carrying.
 
-:func:`mcgyvr.telemetry.correct` requires its ``orchestrator`` and writes it
-as ``applied_by`` on every correction line, because under §9 the one applying
-a correction need not be the one that ran the attempt: the gate that judged,
-the review that rejected and the orchestrator that took the work off the
-out-queue are three different writers, and a verdict whose author is unknown
-is a verdict a reviewer cannot weigh. ``tools/live/index.py`` declares an
-``applied_by`` column for exactly that question.
+:func:`mcgyvr.telemetry.correct` requires its ``orchestrator`` and writes it as
+``applied_by`` on every correction line, because the one applying a correction
+need not be the one that ran the attempt: the gate that judged, the review that
+rejected and the orchestrator that took the work off the out-queue are three
+different writers, and a verdict whose author is unknown is a verdict a reviewer
+cannot weigh. ``tools/live/index.py`` declares an ``applied_by`` column for
+exactly that question.
 
-The column was always ``NULL``. ``fold`` carried only ``outcome`` and
-``detail`` from a correction onto the attempt, and ``index.attempts`` drops
-the correction records themselves — so the one place ``applied_by`` was
-written was the one place nothing read it. It moves with the outcome it
-belongs to: the detail is the winning outcome's words and the author is the
-winning outcome's writer, and reporting one correction's prose or byline
-beside another's verdict would name somebody for a judgement they did not
-make.
+``index.attempts`` drops the correction records themselves, so ``fold`` carries
+``applied_by`` onto the attempt with ``outcome`` and ``detail`` — otherwise the
+one place it is written is the one place nothing reads it. It moves with the
+outcome it belongs to: the detail is the winning outcome's words and the author
+is the winning outcome's writer, and reporting one correction's prose or byline
+beside another's verdict would name somebody for a judgement they did not make.
 """
 
 from __future__ import annotations

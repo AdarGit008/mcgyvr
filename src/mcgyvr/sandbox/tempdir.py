@@ -1,11 +1,10 @@
 """The temp-directory sandbox: the weaker mode, for installs without Docker.
 
 Docker is the default, not a hard requirement — nobody is locked out for the
-lack of it (§5). This mode runs the worker's output and the gate in
-an ephemeral git workspace and executes commands **on the host**. It is
-explicitly weaker and says so once at open (:data:`base._WEAKER_MODE_NOTE`),
-because the isolation a container gives — process, network, resource — is the
-host's here.
+lack of it. This mode runs the worker's output and the gate in an ephemeral git
+workspace and executes commands **on the host**. It is explicitly weaker and
+says so once at open (:data:`base._WEAKER_MODE_NOTE`), because the isolation a
+container gives — process, network, resource — is the host's here.
 
 Almost nothing lives in this file. The workspace, its git base, reset and
 teardown are all inherited from :class:`~mcgyvr.sandbox.base.Sandbox`; the

@@ -10,16 +10,14 @@ comparability *within* an engine, across drivers.
 The first test is the control: every driver in the tree draws its prompts from
 the one workload module, and the module digests to the pin. The second asks each
 run artifact to *name* the driver it ran under, so a reader can recompute rather
-than trust a constant pasted into a header. The 2026-09-02 artifacts name the
-drivers by the root-level names they had that day; those files have since moved
-and had their workload block lifted into ``tools/runs/workload.py``. A stamp is
-a record, not a pointer to be edited after the fact, so the name it carries is
-resolved through ``rows.driver_source`` (``rows.RECORDED_MOVES``) to the file
-whose block is hashed today.
+than trust a constant pasted into a header. An older artifact names a driver
+by a path that has since moved. A stamp is a record, not a pointer to be edited
+after the fact, so the name it carries is resolved through
+``rows.driver_source`` (``rows.RECORDED_MOVES``) to the file whose block is
+hashed now.
 
-Over generated prompts, never over source text. The source hash moved under a
-``ruff format`` pass in 90635351, and a formatter must not be able to void a
-comparison.
+Over generated prompts, never over source text. A source hash moves under a
+``ruff format`` pass, and a formatter must not be able to void a comparison.
 """
 
 from __future__ import annotations

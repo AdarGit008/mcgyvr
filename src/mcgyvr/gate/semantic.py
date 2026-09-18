@@ -6,37 +6,33 @@ and where a repository declares no runnable check at all, a contract of a type
 needing commands is rejected at load, so `function_implementation`,
 `test_scaffold` and `bug_fix` are not weakly checked but unreachable. This rung
 is what closes the first gap and what makes those task types possible in the
-second case.  adopts it on that coverage argument.
+second case.
 
 It asks one question per call the worker added: **does this name resolve in the
 environment this code will actually run in?** Answering it means importing the
 target's own packages and introspecting them, which is why the rung lives
 inside the per-task sandbox and cannot live anywhere else. In the orchestrator
-process "installed" means pyyaml and three tree-sitter packages;
-forbids importing target code there and  carried that rule forward
-unchanged. Under the temp-directory sandbox the resolution still happens in a
-subprocess rather than in-process — exactly the strength acceptance commands
-have in that mode, and no more.
+process "installed" means pyyaml and three tree-sitter packages, and target
+code is never imported there. Under the temp-directory sandbox the resolution
+still happens in a subprocess rather than in-process — exactly the strength
+acceptance commands have in that mode, and no more.
 
-**The resolver is ghostcall's engine , staged rather than installed.**
-The four engine files are stdlib-only and are vendored under
-``records/evidence/`` pinned to an upstream commit with a sha256 per file; this
-rung stages them into the workspace for the length of one run and removes them
-after. That is the standing version policy #123 asked for, and  records
-why it is staging rather than an image layer: the resolver never enters the
-image, so :func:`~mcgyvr.sandbox.image.cache_key` keeps covering exactly what
-the repository declared and nothing else. The digests are checked before every
-run and a mismatch is fail-closed — an environment issue, never a verdict.
+**The resolver is ghostcall's engine, staged rather than installed.** The four
+engine files are stdlib-only and are vendored under ``records/evidence/``
+pinned to an upstream commit with a sha256 per file; this rung stages them into
+the workspace for the length of one run and removes them after. It is staged
+rather than baked into an image layer, so the resolver never enters the image
+and :func:`~mcgyvr.sandbox.image.cache_key` keeps covering exactly what the
+repository declared and nothing else. The digests are checked before every run
+and a mismatch is fail-closed — an environment issue, never a verdict.
 
 **It reports; it does not reject — yet.** ``blocking`` defaults to ``False``,
-so findings arrive as ``observations`` that do not fail a change. #129 measured
-zero false positives on 358 resolved chains on added lines, which the rule of
-three bounds under ~0.8% at 95% — that is a thin sample, not a demonstrated
-zero, and the four distinct flags it did produce off the added lines were all
-correct platform-conditional code. :mod:`mcgyvr.gate.semantic_driver` suppresses
-that class, and covers all four observed sites, but a mitigation validated
-against four sites is not licence to block. Flipping ``blocking`` is one field
-and wants a wider sample first.
+so findings arrive as ``observations`` that do not fail a change. The sample
+behind its false-positive rate is thin, and the flags it produced there were
+correct platform-conditional code. :mod:`mcgyvr.gate.semantic_driver`
+suppresses that class, but a mitigation validated against a handful of sites
+is not licence to block. Flipping ``blocking`` is one field and wants a wider
+sample first.
 
 Two properties every other per-change check also holds are kept here:
 

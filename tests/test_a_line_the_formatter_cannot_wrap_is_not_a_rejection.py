@@ -1,28 +1,20 @@
 """The default selection does not reject a line the bundled formatter cannot wrap.
 
-``DEFAULT_RUFF_SELECT`` (``src/mcgyvr/gate/adapters/python.py:54``) judges every
-repository that declares no ruff configuration of its own, and the family ``E``
-carries E501, line-too-long. E501 is the one rule in that selection ``ruff
-format`` structurally cannot satisfy: the formatter rewraps *code*, and never a
-long string, comment or docstring.
+``mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`` judges every repository
+that declares no ruff configuration of its own, and spells pycodestyle as
+``E4``/``E7``/``E9`` because the whole family ``E`` carries E501, line-too-long.
+E501 is the one rule ``ruff format`` structurally cannot satisfy: the formatter
+rewraps *code*, and never a long string, comment or docstring.
 
-That combination costs the ladder whole replies. :mod:`mcgyvr.cleanup` tidies a
-change "when every reason the gate gave for rejecting it is one the formatter
-itself raised" — E501 arrives as a *lint* finding, so cleanup correctly declines,
-the attempt is spent, and nothing is produced over a docstring a few characters
-too wide. Counted over the live journal (23 files, 341 correction records
-carrying gate findings): E501 is 104 of 220 lint findings, and **39 records are
-rejected on E501 and nothing else**. Two live rounds against
-``local_qwen3.6-35b-a3b`` put E501 at 18 of 26 findings, with
-``p019-run-transactions`` and ``p020-gapped-match`` — complete, otherwise clean
-files — rejected on E501 alone.
+With E501 selected, :mod:`mcgyvr.cleanup` — which tidies a change only when
+every reason the gate gave for rejecting it is one the formatter itself raised —
+declines, because E501 arrives as a *lint* finding: the attempt is spent and
+nothing is produced over a docstring a few characters too wide.
 
-Line length has not stopped mattering, and the two tests at the bottom are what
-say so: ``DEFAULT_RUFF_LINE_LENGTH`` is unchanged, ``ruff format`` still reflows
-code at 88 and the format rung still rejects for it. What changed is only that a
-line the formatter *cannot* wrap is no longer a rejection. And a repository that
-states its own ruff config keeps it, E501 included: the default is for the
-repository that said nothing.
+Line length still matters, and the two tests at the bottom are what say so:
+``ruff format`` reflows code at ``DEFAULT_RUFF_LINE_LENGTH`` and the format rung
+rejects for it. And a repository that states its own ruff config keeps it, E501
+included: the default is for the repository that said nothing.
 """
 
 from __future__ import annotations
@@ -50,7 +42,7 @@ WIDE_DOCSTRING = (
 )
 
 #: The same file with the width in a comment rather than a docstring. The
-#: formatter is equally powerless over both, and both used to reject.
+#: formatter is equally powerless over both, and E501 would reject both.
 WIDE_COMMENT = (
     "def stride(items: list[int], step: int) -> list[int]:\n"
     '    """Return every step-th item, starting at the first."""\n'
@@ -126,7 +118,7 @@ def test_a_comment_wider_than_the_limit_is_not_a_rejection(tmp_path: Path) -> No
 
 
 def test_a_repo_that_selects_e501_itself_still_gets_e501(tmp_path: Path) -> None:
-    """The invariant the fix must not leak past: a repository that stated its own
+    """The invariant the default must not leak past: a repository that stated its own
     rules is judged by them, even where they are the rule the default drops."""
     own = f'{_PLAIN_PYPROJECT}\n[tool.ruff.lint]\nselect = ["E501"]\n'
     repo = repo_with(tmp_path, pyproject=own, solution=WIDE_DOCSTRING)

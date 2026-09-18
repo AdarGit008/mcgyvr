@@ -52,7 +52,7 @@ def test_a_vllm_unit_declaring_mtp_is_refused_naming_the_key() -> None:
         unit_for(card(), spec("mtp"), engine="vllm", ctx_per_slot=WINDOW)
     message = str(refused.value)
     assert SEVEN_B in message
-    assert f"models.{SEVEN_B}.speculative" in message
+    assert "units.<unit>.launch.speculative" in message
     assert "vLLM" in message
     assert "--speculative-config" in message
 

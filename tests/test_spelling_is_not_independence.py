@@ -1,4 +1,4 @@
-"""§4, first item — the self-verification refusal, defeated by how a name is typed.
+"""The self-verification refusal is not defeated by how a name is typed.
 
 :func:`mcgyvr.verify.verify` refuses to let a model review the change it just
 wrote, and it refuses *before* the spend: the reviewer is never asked. The
@@ -6,9 +6,9 @@ refusal is the whole warrant behind
 :attr:`~mcgyvr.escalate.Assurance.VERIFIED`, and it is decided by comparing two
 strings that come out of a config file.
 
-The comparison was ``strip().casefold()``. That answers the case the module's
-own docstring names — a config that capitalises a model differently — and
-nothing else. Every line below is one way to write two names for one model that
+A comparison by ``strip().casefold()`` answers the case the module's own
+docstring names — a config that capitalises a model differently — and nothing
+else. Every line below is one way to write two names for one model that
 ``strip().casefold()`` reads as two models:
 
 ``qwen2.5-coder`` / ``qwen2.5-coder:latest``

@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """What the acceptance ceiling is a bound on, measured rather than chosen (#262).
 
-`ACCEPTANCE_TIMEOUT_S` was three numbers in three files — 120.0 in
-`tools/bench/score.py`, 30.0 in `tools/bundle/measure.py`, 30.0 in
-`tools/problems/admit.py` — under two comments each asserting they matched.
- reconciled the live pair to one, and this is the measurement it was
-reconciled against, kept as a tool so the figure stays re-derivable rather than
-becoming a number in a docstring citing a session nobody can re-run.
+`score.ACCEPTANCE_TIMEOUT_S` is the one acceptance ceiling the live instruments
+apply (`tools/problems/admit.py` imports it). This is the measurement it rests
+on, kept as a tool so the figure stays re-derivable rather than becoming a
+number in a docstring citing a session nobody can re-run.
 
 Two populations, and confusing them is how a ceiling gets picked badly:
 
@@ -163,7 +161,7 @@ def _band(values: list[float]) -> dict[str, float | int | None]:
 
 
 def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """The four numbers  rests on, plus the censoring that qualifies them.
+    """The four numbers the ceiling rests on, plus the censoring that qualifies them.
 
     `uncensored_*` is the honest caveat and is computed rather than asserted: a
     run measured at a 30 s ceiling **cannot** produce a row above it, so the
@@ -252,9 +250,9 @@ def main(argv: list[str] | None = None) -> int:
         # A record holds what was *measured*, not a copy of what was already
         # recorded. The reference rows are this tool's own observations and are
         # reproducible only by re-running it; the candidate rows are a
-        # projection of `records/measurements`, 7.1 MB of it, already in the
-        # tree and re-derivable in seconds. Writing them out would put a second
-        # copy of the corpus in the repository and let the two disagree.
+        # projection of `records/measurements`, already in the tree and
+        # re-derivable. Writing them out would put a second copy of the corpus
+        # in the repository and let the two disagree.
         # `--all-units` is for a caller working outside a checkout.
         units = (
             rows

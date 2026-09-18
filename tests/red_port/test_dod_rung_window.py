@@ -1,34 +1,27 @@
 """The window a rung serves is readable below the seam, and the fit check uses it.
 
-Every token budget in mcgyvr is spent against a number the *contract* declared.
-``context.max_input_tokens`` defaults to 4096 and is the only ceiling the live
-path enforces (``mcgyvr.worker.prompt.build_prompt``), so a contract is measured
-against the window it was written for and never against the window it reaches.
+A contract declares ``context.max_input_tokens``, and a contract measured only
+against that number is measured against the window it was written for and never
+against the window it reaches. Two opposite failures would follow: a contract
+declaring a ceiling larger than the rung it lands on passes the check and is
+truncated by the engine at a boundary nobody chose; a contract declaring a smaller
+one is refused on a rung that had room.
 
-Two failures follow, and they are opposite. A contract declaring a ceiling
-larger than the rung it lands on passes the check and is truncated by the engine
-at a boundary nobody chose. A contract declaring a smaller one is refused on a
-rung that had room. Which of the two happens is decided by a number the operator
-typed into a file about the work, not by the machine that will answer.
+**Where the window lives is the seam question.**
+``tests/test_pool.py::test_a_rung_cannot_say_where_its_work_runs`` pins
+``dataclasses.fields(Rung) == {"name", "model"}``, and ``pool.py`` argues that
+emptiness *is* the seam — "a caller holding a ``Rung`` cannot come to depend on
+where its work runs". A window is a fact about the machine, so putting it on
+``Rung`` breaks the seam; and a bare ``Rung`` with no source could only answer from
+a baked-in default, which ``test_dod_one_context_number.py`` exists to forbid.
 
-**Where the window lives is the seam question, and an earlier draft got it
-wrong.** It asserted ``Rung.context_window`` on a bare ``Rung(name=..., model=...)``.
-That cannot go green. ``tests/test_pool.py::test_a_rung_cannot_say_where_its_work_runs``
-pins ``dataclasses.fields(Rung) == {"name", "model"}``, and ``pool.py:164``
-argues that emptiness *is* the seam — "a caller holding a ``Rung`` cannot come to
-depend on where its work runs". A window is a fact about the machine, so putting
-it on ``Rung`` breaks the seam; and a bare ``Rung`` with no source could only
-answer from a baked-in default, which ``test_dod_one_context_number.py`` exists
-to forbid.
-
-So the requirement is stated where the machine is already known: **below the
-seam, on what the pool resolves a rung to.** Above it, a rung is still a name and
+So the requirement is stated where the machine is known: **below the
+seam, on what the pool resolves a rung to.** Above it, a rung is a name and
 a model. What must be true is that the dispatch path can ask, and that the answer
 comes from the source rather than from a constant — two rungs on differently
 configured sources must report different numbers.
 
-The share added on 2026-09-06 (``limits.max_window_fraction``) is a share OF this
-number, so it cannot be enforced until this exists.
+``limits.max_window_fraction`` is a share OF this number.
 """
 
 from __future__ import annotations
@@ -101,7 +94,7 @@ def test_a_resolved_rung_reports_the_window_its_source_serves() -> None:
 def test_a_rung_above_the_seam_still_says_nothing_about_its_machine() -> None:
     """The invariant this must not buy its way past.
 
-    ``pool.py:164`` makes the emptiness of ``Rung`` the seam, and
+    ``pool.py`` makes the emptiness of ``Rung`` the seam, and
     ``tests/test_pool.py`` pins it. A window added there would let every caller
     above the seam depend on where its work runs.
     """
@@ -116,7 +109,7 @@ def test_a_rung_above_the_seam_still_says_nothing_about_its_machine() -> None:
 
 
 def test_a_contract_wider_than_the_rung_it_reaches_is_refused() -> None:
-    """The case that is silently truncated today.
+    """A contract wider than its rung is refused rather than silently truncated.
 
     A contract declaring 32768 of input, dispatched to the rung serving 4096,
     must be refused — and the refusal must name 4096, because the operator's
@@ -165,9 +158,8 @@ def test_a_prompt_larger_than_the_rung_is_refused_whatever_the_contract_declared
     """The truncation the contract's own ceiling cannot see.
 
     A contract declaring a small ceiling is measured against that and passes,
-    while the assembled prompt is larger than the rung will hold. Today only the
-    contract's number is enforced, so this is the case that reaches the engine
-    and comes back cut.
+    while the assembled prompt is larger than the rung will hold. Enforcing only
+    the contract's number would let this case reach the engine and come back cut.
     """
     from mcgyvr.contract import loads
 

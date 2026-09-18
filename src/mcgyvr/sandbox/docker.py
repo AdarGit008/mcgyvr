@@ -12,8 +12,9 @@ The container lifecycle (#27) holds three guarantees:
 
 - **Nothing survives.** The container is force-removed on success, failure and
   interrupt — by ``__exit__`` for the normal and interrupted paths, and by the
-  process-exit reaper the base class installs for a hard crash. Removal is by
-  a name minted per task, so a reaper can reap a container even after the
+  ``atexit`` reaper the base class installs for an interpreter exit with the
+  container still open (not ``os._exit``, a fatal signal or a crash). Removal
+  is by a name minted per task, so a reaper can reap a container even after the
   Python object holding it is gone.
 - **A runaway cannot take the host down.** Memory, CPU and PID ceilings bound
   the container; a command that exceeds the wall-clock ceiling has its
@@ -35,9 +36,10 @@ And two connectivity invariants that pull opposite ways (#31):
   construction — the red-failing security invariant in ``SECURITY.md``.
 
 And one about WHERE the container is: on this machine's daemon, or nowhere.
-``DOCKER_HOST`` / ``DOCKER_CONTEXT`` in the environment are refused by both
-places a docker argv is built (:func:`~mcgyvr.sandbox.image.subprocess_runner`
-and :func:`_docker_exec`), because a container the product starts must never
+``DOCKER_HOST`` / ``DOCKER_CONTEXT`` in the environment are refused wherever the
+sandbox reaches a docker daemon (:func:`~mcgyvr.sandbox.image.subprocess_runner`,
+:func:`_docker_exec`, :func:`mcgyvr.detect.detect_docker` and the mode choice in
+:mod:`mcgyvr.sandbox.base`), because a container the product starts must never
 land on a rig — the door, ``python -m mcgyvr.serving.run``, is the only way
 there.
 """
@@ -335,8 +337,8 @@ class _ExecResult:
 def _docker_exec(exec_args: Sequence[str], timeout: float | None) -> _ExecResult:
     """Run ``docker exec …`` on the host, capturing output under a timeout.
 
-    The second place the product builds a docker argv, and it takes the same
-    refusal as the first (:func:`~mcgyvr.sandbox.image.foreign_daemon`): with
+    Another place the product builds a docker argv, and it takes the same
+    refusal as the others (:func:`~mcgyvr.sandbox.image.foreign_daemon`): with
     ``DOCKER_HOST`` or ``DOCKER_CONTEXT`` set, the exec would land wherever
     the variable points, so it is not made and the sandbox raises instead.
     """

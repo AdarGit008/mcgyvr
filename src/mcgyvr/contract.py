@@ -32,18 +32,15 @@ discovered later:
    evidence expecting a pass at baseline needs ``acceptance``, evidence
    expecting a failure at baseline (``failing_test_first``) needs
    ``demonstration``. A `bug_fix` with nothing to run does not fail — it gets
-   accepted on the gate alone, which is worse; a `bug_fix` whose demonstrating
-   command sat in ``acceptance`` was worse still, refused at preflight by the
-   very check that makes the suite trustworthy (#183).
+   accepted on the gate alone, which is worse.
 
 The field layout follows the split #94 arrived at from small-model research:
-worker-facing fields (``task``, ``target``, ``target_content``, ``deps``,
-``interface``, ``stop_conditions``, ``output_schema``, ``context``) are
-separated from orchestrator-only ones (``risk``, ``verification``,
-``attempts``, ``acceptance``, ``depends_on``), and :meth:`Contract.worker_view`
-is the only way to reach the former. Building the flat shape first and
-splitting it later was the rework #94 exists to describe, so the split is here
-from the start.
+worker-facing fields (``id``, ``task_type``, ``task``, ``target``,
+``target_content``, ``interface``, ``deps``, ``stop_conditions``,
+``output_schema``, ``context``) are separated from orchestrator-only ones
+(``scope``, ``acceptance``, ``demonstration``, ``depends_on``, ``risk``,
+``verification``, ``limits``, ``rename``), and :meth:`Contract.worker_view` is
+the only way to reach the former.
 
 ``SCHEMA`` below is declarative data, not hand-written checks — the same
 approach :mod:`mcgyvr.config` takes, so the authoring guide (#18) can be
@@ -58,10 +55,11 @@ goes through :class:`mcgyvr.scope.Scope`, the one canonical matcher.
 The task-type vocabulary is **not defined here**. :mod:`mcgyvr.catalog` reads it
 from ``data/task-catalog.json`` (#15), and this module asks the catalog what a
 type guarantees rather than knowing any type by name — which is what keeps
-"adding a task type does not require a code change" true of this file too. Three
-of the catalog's properties are load-bearing here: ``deterministic`` decides the
-glob rule above, and ``needs_acceptance_commands`` /
-``needs_demonstration_commands`` decide the two halves of rule 5.
+"adding a task type does not require a code change" true of this file too. What
+this module reads off a catalog entry: ``deterministic`` (the glob rule above,
+the stop-condition rule, the output cap), ``needs_acceptance_commands`` /
+``needs_demonstration_commands`` (the two halves of rule 5), and
+``required_evidence`` (the output cap and the refusal text).
 """
 
 from __future__ import annotations
@@ -192,10 +190,8 @@ _RUNNING_ALLOWANCE = 1024
 # step dearer than editing one that is already there.
 _NEW_FILE_STEP = 512
 
-# Caps come out as whole steps rather than as arbitrary numbers, and never
-# below the floor. Both bite on what a caller adds — the new-file step today,
-# a term derived from the target's own content when #17 lands — rather than on
-# the allowances above, which are already whole steps.
+# Caps come out as whole steps, never below the floor. The floor is what a
+# deterministic type gets; the allowances above are already whole steps.
 _ROUND_TO = 128
 _MIN_CAP = 256
 
@@ -212,11 +208,9 @@ def output_cap(name: str, *, new_file: bool = False) -> int:
     reply to size — a tool writes the change — so any larger number would be a
     reservation against something that never happens.
 
-    ``new_file`` is a fact about the repository, so it is asked of the caller
-    rather than guessed here. The loader cannot supply it: an empty
-    ``target_content`` means "the file does not exist yet" *or* "its content is
-    not needed", and a loader that read the first meaning into it would
-    over-cap half the contracts that carry neither.
+    ``new_file`` adds the new-file step. No caller passes it: the loader, the
+    one call site, cannot supply it, because an empty ``target_content`` means
+    "the file does not exist yet" *or* "its content is not needed".
     """
     kind = task_type(name)
     allowance = (
@@ -315,10 +309,7 @@ DEP_FIELDS: tuple[Field, ...] = (
         "signature",
         "str",
         "The function or class signature with its type annotations — NOT its "
-        "body. Hierarchical context pruning measured signature-only "
-        "dependency context as improving accuracy while cutting context "
-        "roughly sixfold: a body invites copying, a signature "
-        "states the interface.",
+        "body: a body invites copying, a signature states the interface.",
         required=True,
         worker_facing=True,
     ),
@@ -368,9 +359,10 @@ VERIFICATION_FIELDS: tuple[Field, ...] = (
     Field(
         "policy",
         "enum",
-        "How the change is judged. `gate_only` accepts on the deterministic "
-        "gate alone — the whole acceptance bar in a keyless install. `model` "
-        "additionally requires a fresh-context reviewer to agree.",
+        "How the change is judged. `gate_only` is honoured only for work a "
+        "deterministic tool does; work a model does is raised to `model`, "
+        "which asks a fresh-context reviewer to agree. An install with no "
+        "reviewer labels such an acceptance unverified.",
         default="gate_only",
         choices=("gate_only", "model"),
     ),
@@ -496,12 +488,11 @@ SCHEMA: tuple[Field, ...] = (
         "target_content",
         "str",
         "The current content of `target`, verbatim, when the file already "
-        "exists. Carried on the contract rather than read from the tree at "
-        "dispatch so that a contract is self-contained and exactly "
-        "reproducible: `parse(dumps(c))` round-trips the bytes a worker was "
-        "actually sent. Empty means the target does not exist yet, or its "
-        "content is not needed — a distinction deterministic execution never "
-        "asks about, because a tool reads the file itself.",
+        "exists. A contract that carries it is self-contained: "
+        "`parse(dumps(c))` round-trips the bytes a worker is sent. Empty "
+        "means the target does not exist yet, or the contract did not carry "
+        "it: the worker is then given the file as the sandbox workspace holds "
+        "it at dispatch, and a deterministic tool reads the file itself.",
         default="",
         worker_facing=True,
     ),
@@ -539,8 +530,9 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "The shape the worker must reply in, declared so a runner can hand "
         "the model format instructions rather than hoping for a convention. "
-        "`whole_file` is the single-file output protocol; `unified_diff` is a "
-        "patch against the target.",
+        "`whole_file` is the single-file output protocol and the only shape "
+        "implemented; `unified_diff` validates here and is refused before "
+        "dispatch.",
         default="whole_file",
         choices=("whole_file", "unified_diff"),
         worker_facing=True,
@@ -568,9 +560,9 @@ SCHEMA: tuple[Field, ...] = (
         "strongest signal the gate has. Each must also pass on the *unchanged* "
         "tree (the preflight refuses a suite that is already red), which is "
         "exactly why a command meant to demonstrate a defect cannot live here: "
-        "it goes in `demonstration`. Arbitrary shell from a contract, so they "
-        "run inside the per-task sandbox, never on the machine you ran "
-        "mcgyvr from.",
+        "it goes in `demonstration`. Arbitrary shell from a contract: they "
+        "run inside the per-task sandbox — a container in `docker` mode, a "
+        "throwaway workspace on your own machine in `tempdir` mode.",
         default=(),
     ),
     Field(
@@ -600,9 +592,8 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "risk",
         "enum",
-        "How much a wrong answer costs, never a preference. A declared value "
-        "bounds how cheaply the work may start and how cheaply it may be "
-        "verified: `high` refuses the cheapest of either, `low` allows them.",
+        "How much a wrong answer costs. Recorded on the contract and printed "
+        "by `mcgyvr contract`; routing and verification do not read it.",
         default="medium",
         choices=("low", "medium", "high"),
     ),
@@ -728,9 +719,7 @@ class Contract:
         ``"pytest -q"`` — and :class:`~mcgyvr.gate.acceptance.Acceptance` takes
         argv, because it runs commands without a shell (a shell would give an
         acceptance command the metacharacters to do things an acceptance
-        command must not do, starting with writing to the tree). Nothing turned
-        one into the other, which is why ``acceptance`` reached the gate through
-        no code path at all.
+        command must not do, starting with writing to the tree).
 
         The split is here rather than at each caller for the reason
         :attr:`demonstration_commands` shares: two spellings of "what this
@@ -760,12 +749,10 @@ class Contract:
         rung standing itself down on the strength of something the worker never
         saw would be excusing a change nobody asked for.
 
-        It exists because ``param-mutation`` has a stand-down for a contract
-        that *ordered* in-place work — "sort the rows in place" — and until
-        this there was no accessor to hand it, so the rung rejected the worker
-        for obeying the contract and the contract could not be satisfied at
-        all. Joined here rather than at each gate call site so the two callers
-        cannot come to disagree about which fields count.
+        ``param-mutation`` stands down for a contract that *ordered* in-place
+        work — "sort the rows in place" — and reads this to find out. Joined
+        here rather than at each gate call site so the two callers cannot come
+        to disagree about which fields count.
         """
         return f"{self.task}\n{self.interface}"
 

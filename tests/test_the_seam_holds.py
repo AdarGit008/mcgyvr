@@ -1,26 +1,26 @@
 """The seam holds: nothing below it reads a contract, nothing above it starts a server.
 
-``mcgyvr.pool``:1-8 names the two halves — above the seam a caller sees a
-*ladder of rungs*: named steps, cheapest first, each with a model. Below it, a
-rung has already resolved to an :class:`~mcgyvr.pool.Endpoint` a runner can
-dispatch against. ``mcgyvr.runner``:1-8 calls itself "the first code below the
-seam" the pool draws.
+``mcgyvr.pool``'s module docstring names the two halves — above the seam a
+caller sees a *ladder of rungs*: named steps, cheapest first, each with a model.
+Below it, a rung has already resolved to an :class:`~mcgyvr.pool.Endpoint` a
+runner can dispatch against. ``mcgyvr.runner``'s module docstring calls it "the
+first code below the seam" the pool draws.
 
 This file pins that division as an import rule rather than as prose:
 
-* **Nothing below the seam imports ``contract.py`` or ``orchestrator/``**
-  (action 16). Below the seam a rung is already resolved to something a
-  machine runs — an endpoint to dispatch against, a sandbox to run a command
-  in, the docker probe that decides which sandbox mode is available, a
-  serving unit to launch. None of that needs to read a contract or explore a
-  repo to decide what to do; deciding is done by the time work gets here.
-* **Nothing above the seam imports ``serving/``** (action 17). Above the
-  seam a caller only ever sees a ladder of rungs. Turning a chosen rung into
-  a running model-server process is ``mcgyvr.serving``'s job alone, and a
-  caller that only authors or explores a contract never needs it.
+* **Nothing below the seam imports ``contract.py`` or ``orchestrator/``**.
+  Below the seam a rung is already resolved to something a machine runs — an
+  endpoint to dispatch against, a sandbox to run a command in, the docker
+  probe that decides which sandbox mode is available, a serving unit to
+  launch. None of that needs to read a contract or explore a repo to decide
+  what to do; deciding is done by the time work gets here.
+* **Nothing above the seam imports ``serving/``**. Above the seam a caller
+  only ever sees a ladder of rungs. Turning a chosen rung into a running
+  model-server process is ``mcgyvr.serving``'s job alone, and a caller that
+  only authors or explores a contract never needs it.
 * **A module both halves import reaches into neither half's own world.**
-  :data:`SHARED_ACROSS_THE_SEAM` is action 15's list. A module on it is read
-  from above *and* from below, so it is subject to both rules at once rather
+  :data:`SHARED_ACROSS_THE_SEAM` lists them. A module on it is read from
+  above *and* from below, so it is subject to both rules at once rather
   than to neither: if ``config.py`` grew an import of ``contract.py`` or of
   ``serving/``, every module that reads config would drag that half along
   with it and the seam would be gone without a single rule above firing.
@@ -34,42 +34,42 @@ in none of them. A hand-written list that a new module can quietly stay out of
 is a rule that stops covering the tree the day the tree grows; a new module
 under ``src/mcgyvr/`` breaks that test until somebody says which half it is in.
 
-Action 15's finding is that the boundary is not perfectly clean today: docker
-detection is legitimately read from both the probe and the sandbox that acts
-on it — ``mcgyvr.detect``:408 defers to
-``mcgyvr.sandbox.image.foreign_daemon``, and ``mcgyvr.sandbox.base``:585
-defers back to ``mcgyvr.detect.detect_docker``.
-:data:`THE_DOCKER_DETECTION_CROSSINGS` writes that cycle down once, as data,
-so a rule built on top of it does not rediscover — or misfire on — the same
-crossing the day it lands.
+The boundary is not perfectly clean: docker detection is legitimately read from
+both the probe and the sandbox that acts on it — ``mcgyvr.detect.detect_docker``
+defers to ``mcgyvr.sandbox.image.foreign_daemon``, and
+``mcgyvr.sandbox.base.open_sandbox`` defers back to
+``mcgyvr.detect.detect_docker``. :data:`THE_DOCKER_DETECTION_CROSSINGS` writes
+that cycle down once, as data, so a rule built on top of it does not rediscover
+— or misfire on — the same crossing.
 
 It writes it down as the two **edges** it is, ``(importer, imported)``, and
 not as two module names. A module name exempted outright is exempt in both
 directions and against every rule: it would make ``mcgyvr.detect`` importing
 ``contract.py`` — a real violation of the first rule — pass in silence, which
-is the opposite of what action 15 asked for. What is sanctioned is
+is the opposite of what the list is for. What is sanctioned is
 ``detect`` → ``sandbox.image`` and ``sandbox.base`` → ``detect``, and nothing
 else either module does.
 
 ``mcgyvr.cli`` is the one exemption that is still whole-module, and for the
 opposite reason. It is not read from both halves; it *reaches into* both, and
-that is not a crossing to be removed. ``cli.py``:1 says what it is in one
-line — "Command-line entrypoint" — and one ``argparse`` parser that dispatches
-``mcgyvr detect``, ``mcgyvr pool``, ``mcgyvr scan`` and ``mcgyvr emit`` below
-the seam and ``mcgyvr run`` and ``mcgyvr contract`` above it is doing the only
-job an entrypoint has. :data:`THE_COMMAND_LINE_ENTRYPOINT` names it once, in
-the same written-down way, so the rules below can be exact about what they
-exempt instead of quietly passing because nothing happened to be caught.
+that is not a crossing to be removed. ``cli.py``'s module docstring says what it
+is in one line — "Command-line entrypoint" — and one ``argparse`` parser that
+dispatches ``mcgyvr detect``, ``mcgyvr pool``, ``mcgyvr scan`` and ``mcgyvr
+emit`` below the seam and ``mcgyvr run`` and ``mcgyvr contract`` above it is
+doing the only job an entrypoint has. :data:`THE_COMMAND_LINE_ENTRYPOINT` names
+it once, in the same written-down way, so the rules below can be exact about
+what they exempt instead of quietly passing because nothing happened to be
+caught.
 
-Which is the other thing this file has to do. Every module in this package
-already respects the boundary, so the rules pass today and a rule that passes
-today is worth nothing unless it can be shown to catch a violation. So each
-rule is followed by a test that hands the same checker a *synthetic*
-crossing — source that does not exist in the tree — and asserts it comes back
-as an offender. The synthetic sources put their import inside a function on
-purpose: a deferred import is still a real dependency at the moment it runs,
-and both of the real crossings this file knows about (``detect.py``:408,
-``sandbox/base.py``:585) are exactly that shape.
+Which is the other thing this file has to do. A rule that passes on a tree that
+respects the boundary is worth nothing unless it can be shown to catch a
+violation. So each rule is followed by a test that hands the same checker a
+*synthetic* crossing — source that does not exist in the tree — and asserts it
+comes back as an offender. The synthetic sources put their import inside a
+function on purpose: a deferred import is still a real dependency at the moment
+it runs, and both of the real crossings this file knows about (in
+``detect.detect_docker`` and ``sandbox.base.open_sandbox``) are exactly that
+shape.
 """
 
 from __future__ import annotations
@@ -191,17 +191,17 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.worker.reply",
 )
 
-#: Action 15 — the modules both halves import, written down. Each is read from
-#: above the seam and from below it, and each answers one question for the
-#: whole project rather than for one half of it: the package itself, the one
-#: config file (``config.py``:1), the vocabulary of what may be asked for
-#: (``catalog.py``:1), the exit codes a caller branches on (``exits.py``:1),
-#: where a line ends (``lines.py``:1), what is safe to quote to an
-#: operator (``redact.py``:1), and the strict YAML loader both schemas share
-#: (``strict_yaml.py``:1). Being on this list is not an exemption: a
-#: shared module is held to *both* rules below, because a shared module that
-#: reached into either half would pull that half into everything that reads
-#: it.
+#: The modules both halves import, written down. Each is read from above the
+#: seam and from below it, and each answers one question for the whole project
+#: rather than for one half of it: the package itself, the setup's schema and
+#: the two files it reads (``config.py``), the vocabulary of what may be asked
+#: for (``catalog.py``), the exit codes a caller branches on (``exits.py``),
+#: where a line ends (``lines.py``), what is safe to quote to an operator
+#: (``redact.py``), and the strict YAML loader both schemas share
+#: (``strict_yaml.py``), each as its module docstring's first line says. Being
+#: on this list is not an exemption: a shared module is held to *both* rules
+#: below, because a shared module that reached into either half would pull that
+#: half into everything that reads it.
 SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr",
     "mcgyvr.catalog",
@@ -213,26 +213,27 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
 )
 
 #: The one module that is allowed to reach into both halves, because reaching
-#: into both halves is what it is for. ``cli.py``:1: "Command-line
-#: entrypoint." A single ``argparse`` parser dispatches ``detect``, ``pool``,
-#: ``scan`` and ``emit`` below the seam and ``run`` and ``contract`` above it;
-#: it imports ``mcgyvr.serving`` at module level for ``emit`` and defers
-#: ``mcgyvr.contract``/``mcgyvr.orchestrator`` for ``run`` and ``contract``.
-#: Neither import is a half of mcgyvr forgetting where the seam is. Written
-#: down here rather than left to a rule's silence, so that what is exempt is a
-#: name a reader can find. This is the only whole-module exemption in the
-#: file, and it is whole-module because an entrypoint reaches into both halves
-#: by definition.
+#: into both halves is what it is for. ``cli.py``'s module docstring:
+#: "Command-line entrypoint." A single ``argparse`` parser dispatches
+#: ``detect``, ``pool``, ``scan`` and ``emit`` below the seam and ``run`` and
+#: ``contract`` above it; it imports ``mcgyvr.serving`` at module level for
+#: ``emit`` and defers ``mcgyvr.contract``/``mcgyvr.orchestrator`` for ``run``
+#: and ``contract``. Neither import is a half of mcgyvr forgetting where the
+#: seam is. Written down here rather than left to a rule's silence, so that what
+#: is exempt is a name a reader can find. This is the only whole-module
+#: exemption in the file, and it is whole-module because an entrypoint reaches
+#: into both halves by definition.
 THE_COMMAND_LINE_ENTRYPOINT: str = "mcgyvr.cli"
 
-#: Action 15's finding, as the two edges it actually is. Docker detection is
+#: The docker-detection crossing, as the two edges it actually is. Docker detection is
 #: read from the probe and from the sandbox that acts on it, in a cycle:
-#: ``mcgyvr.detect``:408 defers to ``mcgyvr.sandbox.image.foreign_daemon`` and
-#: ``mcgyvr.sandbox.base``:585 defers back to ``mcgyvr.detect.detect_docker``.
-#: An ``(importer, imported)`` pair and not two module names, because a name
-#: exempted outright is exempt in both directions against every rule: it would
-#: let ``mcgyvr.detect`` import ``contract.py`` in silence, which is a real
-#: violation of the first rule below.
+#: ``mcgyvr.detect.detect_docker`` defers to
+#: ``mcgyvr.sandbox.image.foreign_daemon`` and
+#: ``mcgyvr.sandbox.base.open_sandbox`` defers back to
+#: ``mcgyvr.detect.detect_docker``. An ``(importer, imported)`` pair and not two
+#: module names, because a name exempted outright is exempt in both directions
+#: against every rule: it would let ``mcgyvr.detect`` import ``contract.py`` in
+#: silence, which is a real violation of the first rule below.
 THE_DOCKER_DETECTION_CROSSINGS: tuple[tuple[str, str], ...] = (
     ("mcgyvr.detect", "mcgyvr.sandbox.image"),
     ("mcgyvr.sandbox.base", "mcgyvr.detect"),
@@ -283,22 +284,21 @@ def _the_tree() -> set[str]:
 
 def _imports_in(source: str, package: str = "mcgyvr") -> set[str]:
     """Every ``mcgyvr.*`` module ``source`` imports, wherever the import sits —
-    top of the file, inside a function, under ``TYPE_CHECKING``. All of them,
-    on purpose: a deferred import is still a real dependency at the moment it
-    runs, and both of the crossings this file knows about (``detect.py``:408,
-    ``sandbox/base.py``:585) are exactly that shape, so a check that only
-    looked at the top of the file would miss the crossings it was written to
-    find.
+    top of the file, inside a function, under ``TYPE_CHECKING``. All of them, on
+    purpose: a deferred import is still a real dependency at the moment it runs,
+    and both of the crossings this file knows about (in ``detect.detect_docker``
+    and ``sandbox.base.open_sandbox``) are exactly that shape, so a check that
+    only looked at the top of the file would miss the crossings it was written
+    to find.
 
     Three spellings reach a module and all three are resolved, because a rule
     that only understands one of them can be walked around by writing another:
-    ``import mcgyvr.contract``, ``from mcgyvr.contract import Contract``,
-    ``from mcgyvr import contract`` (``orchestrator/decompose.py``:74,
-    ``cli.py``:20) and the relative ``from . import contract``
-    (``docgen.py``:62). The last two name a module in the *imported names*
-    rather than in the module path, so each name is followed only when
-    ``package.name`` is a file in this tree — otherwise ``from
-    mcgyvr.contract import Contract`` would report a nonexistent
+    ``import mcgyvr.contract``, ``from mcgyvr.contract import Contract``, ``from
+    mcgyvr import contract`` (``orchestrator/decompose.py``, ``cli.py``) and the
+    relative ``from . import contract`` (``docgen.py``). The last two name a
+    module in the *imported names* rather than in the module path, so each name
+    is followed only when ``package.name`` is a file in this tree — otherwise
+    ``from mcgyvr.contract import Contract`` would report a nonexistent
     ``mcgyvr.contract.Contract``.
 
     ``package`` is the dotted package a relative import is relative to, so
@@ -350,7 +350,7 @@ def _crossings(
     imports: Callable[[str], set[str]] = _mcgyvr_imports,
 ) -> list[str]:
     """``module -> imported`` for every ``module`` that reaches a ``forbidden``
-    prefix, skipping only what action 15 writes down: the command-line
+    prefix, skipping only what this file writes down: the command-line
     entrypoint, whole, and the two docker-detection edges, as edges.
 
     ``imports`` is the reader that says what a module imports. It defaults to
@@ -481,10 +481,10 @@ def test_nothing_below_the_seam_imports_the_contract_or_the_orchestrator() -> No
 
 
 def test_the_below_the_seam_rule_catches_a_module_that_reaches_up() -> None:
-    """The rule above passes today, so it is worth nothing until it is shown to
-    fail on a violation. ``mcgyvr.runner`` — "the first code below the seam" —
-    is handed a body that defers ``from mcgyvr.contract import Contract``, and
-    the rule must name it."""
+    """The rule above passes on the tree, so it is worth nothing until it is
+    shown to fail on a violation. ``mcgyvr.runner`` — "the first code below
+    the seam" — is handed a body that defers ``from mcgyvr.contract import
+    Contract``, and the rule must name it."""
     offenders = _crossings(
         ("mcgyvr.runner",),
         NOT_BELOW,
@@ -519,7 +519,7 @@ def test_the_above_the_seam_rule_catches_a_module_that_reaches_down() -> None:
 
 
 def test_a_module_both_halves_import_reaches_into_neither() -> None:
-    """Action 15's list is not an exemption list.
+    """The shared list is not an exemption list.
 
     A shared module is read from above the seam and from below it, so an
     import it makes is an import both halves make. ``config.py``,
@@ -534,8 +534,8 @@ def test_the_shared_rule_catches_a_module_that_reaches_into_a_half() -> None:
     """``mcgyvr.config`` is handed a body that defers ``from mcgyvr import
     contract``, and the rule must name it.
 
-    That spelling is deliberate. ``orchestrator/decompose.py``:74 and
-    ``cli.py``:20 both import a module this way and ``docgen.py``:62 does it
+    That spelling is deliberate. ``orchestrator/decompose.py`` and
+    ``cli.py`` both import a module this way and ``docgen.py`` does it
     relatively; a checker that only matched ``import mcgyvr.contract`` would
     report nothing here while the crossing was in the tree.
     """
@@ -580,8 +580,8 @@ def test_the_exemption_covers_the_entrypoint_and_the_two_docker_edges() -> None:
     ]
 
     # The real tree, under a forbidden set chosen so the sanctioned edges would
-    # be caught if they were not written down: detect.py:408 reaches
-    # sandbox.image, sandbox/base.py:585 reaches back to detect.
+    # be caught if they were not written down: detect.detect_docker reaches
+    # sandbox.image, sandbox.base.open_sandbox reaches back to detect.
     assert _crossings(("mcgyvr.detect",), ("mcgyvr.sandbox",)) == []
     assert _crossings(("mcgyvr.sandbox.base",), ("mcgyvr.detect",)) == []
 
@@ -594,70 +594,53 @@ def test_the_exemption_covers_the_entrypoint_and_the_two_docker_edges() -> None:
     ) == ["mcgyvr.detect imports mcgyvr.sandbox.docker"]
 
 
-# --- action 18 -----------------------------------------------------------
+# --- the orphaned context-budget helpers ---------------------------------
 #
-# orchestrator/read.py:54,294 imports capability.py for budget_for_model and
-# explore_for, and nothing under src/ calls either — verified by grepping the
-# whole tree for both names outside this module. Only tests call them: three
-# functions in tests/red_port/test_d12_size_aware_context.py, and
-# tests/red_port/test_dod_capability_integrity.py:58,66. A function whose only
-# callers are its own tests is not exercising a decision anything downstream
-# makes; it is exercising the function, which is not what F8's own bug (a NaN
-# params_b sent budget_for_model into StopIteration) needed a fix for — the
-# fix belongs on whatever explore is actually sized by, if anything is. The
-# end state pinned here is DELETE: the two names go, and the tests that exist
-# only to call them go with them, together in one commit, rather than gating a
-# path nothing under src/ ever takes.
+# budget_for_model and explore_for had no caller under src/, so they are not
+# in orchestrator/read.py, and no test exists only to call them. A function
+# whose only callers are its own tests exercises the function, not a decision
+# anything downstream makes.
 #
-# Both files stay on disk, because the two assertions below can only mean
-# something while they do. What is left in each is what stands without the
-# deleted names: test_dod_capability_integrity.py keeps F7 and F9 and records
-# that F8's StopIteration is closed by the deletion rather than by a fix, and
-# test_d12_size_aware_context.py keeps the one statement it called "the most
-# important one here" — that overflow is deferred and never cut — asserted
-# against explore() and two explicit budgets, which is what a budget is for a
-# caller to state.
+# Both red_port files stay on disk, because the two assertions below can only
+# mean something while they do: test_dod_capability_integrity.py keeps F7 and
+# F9, and test_d12_size_aware_context.py keeps its statement that overflow is
+# deferred and never cut, asserted against explore() and two explicit budgets.
 
 
 def test_the_orphaned_context_budget_helpers_are_deleted_with_their_tests() -> None:
-    """``budget_for_model`` and ``explore_for`` have no caller under ``src/``;
-    the pinned end state removes both from ``orchestrator/read.py`` and
-    removes the four tests that exist only to call them."""
+    """``budget_for_model`` and ``explore_for`` had no caller under ``src/``,
+    so ``orchestrator/read.py`` defines neither."""
     import mcgyvr.orchestrator.read as read_module
 
     assert not hasattr(read_module, "budget_for_model"), (
-        "orchestrator/read.py still defines budget_for_model, which src/ "
-        "never calls; the decision was to delete it, not leave it orphaned"
+        "orchestrator/read.py defines budget_for_model, which src/ never "
+        "calls; it is deleted, not left orphaned"
     )
     assert not hasattr(read_module, "explore_for"), (
-        "orchestrator/read.py still defines explore_for, which src/ never "
-        "calls; the decision was to delete it, not leave it orphaned"
+        "orchestrator/read.py defines explore_for, which src/ never calls; "
+        "it is deleted, not left orphaned"
     )
 
 
 def test_the_size_aware_context_red_port_test_no_longer_calls_explore_for() -> None:
-    """``test_d12_size_aware_context.py`` exists only to call ``explore_for``
-    three times; deleting the helper without deleting this test would leave a
-    file that imports a name that is no longer there."""
+    """``test_d12_size_aware_context.py`` does not name ``explore_for``, which
+    would be an import of a name that is not there."""
     path = RED_PORT / "test_d12_size_aware_context.py"
     assert path.exists(), f"{path} must still exist to make this assertion meaningful"
     text = path.read_text(encoding="utf-8")
     assert "explore_for" not in text, (
-        f"{path} still names explore_for; the pinned end state deletes this "
-        "test together with the helper it exists only to call"
+        f"{path} names explore_for, a helper that is deleted"
     )
 
 
 def test_the_capability_integrity_red_port_test_no_longer_calls_budget_for_model() -> (
     None
 ):
-    """``test_dod_capability_integrity.py``:58,66 calls ``budget_for_model``
-    to prove F8's fix; deleting the helper means this assertion moves to
-    whatever calls the table instead, not that it is dropped silently."""
+    """``test_dod_capability_integrity.py`` does not name ``budget_for_model``,
+    a helper that is deleted."""
     path = RED_PORT / "test_dod_capability_integrity.py"
     assert path.exists(), f"{path} must still exist to make this assertion meaningful"
     text = path.read_text(encoding="utf-8")
     assert "budget_for_model" not in text, (
-        f"{path} still names budget_for_model; the pinned end state deletes "
-        "the call together with the helper it exists only to exercise"
+        f"{path} names budget_for_model, a helper that is deleted"
     )

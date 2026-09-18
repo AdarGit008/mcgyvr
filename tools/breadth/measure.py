@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """#121 — the first-pass index distribution: the measurement that settles breadth.
 
- decided that sampling breadth is configuration policy with a default
-of 1, and named the one measurement that would settle whether 1 is right:
+Sampling breadth is configuration policy with a default of 1, and one
+measurement settles whether 1 is right:
 given that a gate-passing candidate exists among N draws, at what index does it
 first appear? Concentrated at index 0, breadth is retired — the first draw is
 where the passes already are, and extra draws buy wall clock and nothing else.
@@ -19,9 +19,8 @@ observation at its own answer.
 draw must sample (identical greedy draws are one draw), and moving off greedy
 temperature can lower the first draw's own pass rate before breadth pays
 anything back. So each task runs once greedy (temperature 0.0 — the anchor,
-comparable to the bundle sweep's rows) and N times sampled at temperature 0.7,
-which is the operating point DEC-6 itself proposed and  rejected only
-the selection half of. The variance cost is `greedy` against `sampled` draw 0;
+comparable to the bundle sweep's rows) and N times sampled at temperature 0.7.
+The variance cost is `greedy` against `sampled` draw 0;
 the breadth benefit is draw 0 against draws 1..N-1.
 
 **The prompt is the shipped assembly.** :func:`~mcgyvr.worker.prompt.build_prompt`
@@ -29,13 +28,10 @@ over each task's contract — the bundle selected by adapter, the user message
 rendered from ``worker_view()`` — so the distribution describes what production
 would dispatch, not a condition that exists only in an experiment.
 
-**"Gate-passing" here is the contract's declared acceptance, executed.** The
-same proxy the bundle sweep used and  is quoted on: parse refusals are
-failures by their refusal code, and the declared ``node accept.mjs`` decides
-the rest. The full ``Gate.run`` adds scope, secrets, structured-data and
-adapter rungs plus the sandbox; for this task set those reject nothing the
-acceptance run does not, but the label on the result is "acceptance-passing",
-and the claim record says so.
+**A draw passes when ``Gate.run`` passes it.** ``tools/bench/score.py`` scores
+every draw in a per-task sandbox over the rungs in ``score.GATE_RUNGS``; parse
+refusals are failures by their refusal code. ``run.json`` records the rungs as
+``gate_rungs``.
 
 **Every candidate is kept.** Raw completion text lands in ``candidates/``
 beside the rows, pass or fail, parseable or refused — replies are the corpus
@@ -51,18 +47,19 @@ because the failure this guards against is quiet: the sweep exits 0, the rows
 file has the expected line count, and only a summary line that scrolled past
 hours ago distinguishes a complete run from one missing a fifth of its draws.
 
-The task set, the acceptance runner and the worker plumbing are the bundle
-rig's (`tools/bundle/measure.py`), imported by path — the task set is pinned
-by the same digests, so a row here and a row there describe the same twenty
-contracts.
+The d1 task set, the ``--selftest`` acceptance runner and the worker plumbing
+are the bundle rig's (`tools/bundle/measure.py`), imported by path — the task
+set is pinned by the same digests, so a d1 row here and a row there describe
+the same twenty contracts.
 
 Usage::
 
     # verify the task set (no worker needed)
     uv run --no-sync python tools/breadth/measure.py --selftest
 
-    # the sweep
+    # the sweep (the default tier, d1, is retired: name a live one)
     uv run --no-sync python tools/breadth/measure.py \\
+        --tier bench-ts \\
         --endpoint http://srv2:8000 --protocol openai \\
         --model qwen2.5-coder:14b \\
         --out records/measurements/breadth-YYYY-MM-DD
@@ -104,7 +101,7 @@ REPO = HERE.parent.parent
 
 
 def _bundle_rig() -> types.ModuleType:
-    """The bundle rig, imported by path — ``tools/`` is not a package."""
+    """The bundle rig, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(
         "bundle_measure", HERE.parent / "bundle" / "measure.py"
     )
@@ -182,9 +179,8 @@ def _bench_identity() -> types.ModuleType:
     """Run identity, and the three digests it computes for us (#285).
 
     Shared through the ``sys.modules`` slot with the bundle rig's copy (#287):
-    two loads of the contract would be the five-lists problem rebuilt one
-    level down, and the bundle module above has already loaded it by the time
-    this runs.
+    two loads of the contract would let each rig hold its own idea of it, and
+    the bundle module above has already loaded it by the time this runs.
     """
     cached = sys.modules.get("bench_identity")
     if cached is not None:
@@ -203,7 +199,7 @@ identity_module = _bench_identity()
 
 
 def _bench_observed() -> types.ModuleType:
-    """The `observed` block's writer (#286, D7).
+    """The `observed` block's writer (#286).
 
     A sibling of the identity contract rather than part of it, because the two
     blocks are opposite: that one is compared and must stay diffable, this one
@@ -213,10 +209,9 @@ def _bench_observed() -> types.ModuleType:
 
     Shared through the ``sys.modules`` slot with the other rig's copy, exactly
     as ``_bench_identity`` above is and for the same reason: two loads would be
-    the five-lists problem one level down. It also has teeth in tests — a stub
+    two modules that can disagree. It also has teeth in tests — a stub
     installed on one rig's copy does not stop the other's ``record_run`` from
-    making real HTTP calls, which is how three breadth tests came to probe the
-    network while appearing to be offline.
+    making real HTTP calls.
     """
     cached = sys.modules.get("bench_observed")
     if cached is not None:
@@ -258,10 +253,9 @@ def _card_sampler(endpoint: str, out: str | Path) -> CardSampler | None:
     **Why the scored path reads the card at all.** Every reading that describes
     the machine already existed as a declared constant, and the only caller was
     the serving *calibration* runner — so a sweep that thermally throttled for
-    an hour recorded slower `latency_s` and nothing that said why. The run
-    contract's §3 states the principle ("a strange number months later can be
-    traced to a throttling card instead of guessed at", lens 1); this
-    is where it is implemented for the instrument that ships the numbers.
+    an hour recorded slower `latency_s` and nothing that said why. The card
+    is read here so that a strange number months later can be traced to a
+    throttling card instead of guessed at.
 
     **Per task, not on a timer.** A task is the unit rows are grouped by, the
     reading costs one ssh against a task that takes minutes, and a timer would
@@ -344,21 +338,17 @@ def _host_block(endpoint: str) -> dict[str, object]:
 
 # The variables of this experiment, all held fixed within a run.
 #
-# DRAWS is DEC-6's own N: the proposal  stripped to "a rung may take
-# more than one draw" proposed exactly five, so five is the breadth whose value
-# this measures. SAMPLED_TEMPERATURE is likewise DEC-6's 0.7 — the operating
-# point the inherited claim was made at, not a number chosen here. The cap is
-# the bundle sweep's, so "truncated" means the same thing in both instruments.
+# DRAWS is the breadth whose value this measures. The cap is the bundle
+# sweep's, so "truncated" means the same thing in both instruments.
 #
 # MAX_OUTPUT_TOKENS is inherited three hops and derived at none of them:
 # from tools/bundle/measure.py, which took it from the local-ai
 # instrument (records/evidence/local-ai-2026-08-02/instrument/context_exp.py),
 # where it is a bare `MAX_TOKENS = 768`. It stays the default so every existing
-# run directory keeps its identity, but it is now a parameter: #212 measured 47
-# refusals that were entirely this number, and #216 exists to derive it per task
-# type. Note that contracts carry their own `limits.max_output_tokens` (schema
+# run directory keeps its identity, and ``--max-output-tokens`` overrides it.
+# Note that contracts carry their own `limits.max_output_tokens` (schema
 # default 1024) which this rig does NOT read — a deliberate choice for a
-# comparative instrument, and one #216 asks to revisit.
+# comparative instrument.
 DRAWS = 5
 GREEDY_TEMPERATURE = 0.0
 SAMPLED_TEMPERATURE = 0.7
@@ -378,28 +368,26 @@ BUILD_PROBE_TIMEOUT = 3.0
 # + accept.mjs.
 TIERS = ("d1", "d2", "d3")
 
-# Variant sets: same format, but NOT rungs of the difficulty ladder, so the
-# campaign driver never climbs into one. d1r is d1's t20 with the defect
-# repaired — its contract declared repeated-key handling unstated while its
-# acceptance asserted last-wins, so every worker that stopped where the
-# contract told it to was scored as failing. d1 itself is left alone until the
-# in-flight campaign finishes: repairing it changes the tier digest, which
-# would refuse every existing run directory a resume.
+# Variant sets: same format, but NOT rungs of the difficulty ladder. d1r is
+# d1's t20 with the defect repaired — its contract declared repeated-key
+# handling unstated while its acceptance asserted last-wins, so every worker
+# that stopped where the contract told it to was scored as failing. d1 itself
+# is not repaired: repairing it changes the tier digest its run directories
+# are pinned to.
 VARIANT_TIERS = ("d1r",)
 TIER_ROOT = HERE / "tasks"
 
 # The problem pool (#197), one tier per language arm. The arm lives in the
 # tier *name* so the existing run identity carries it: run.json's "tier"
 # plus "tasks_sha256" already refuse a resume across task sets, and two
-# arms of the pool are two task sets. Not difficulty rungs — the campaign
-# driver climbs TIERS only and never arrives here, like the variants.
+# arms of the pool are two task sets. Not difficulty rungs, like the variants.
 POOL_ROOT = HERE.parent / "problems" / "tasks"
 POOL_MANIFEST = HERE.parent / "problems" / "admissions.jsonl"
 POOL_TIERS = ("pool-ts", "pool-py")
 
 # The bench (#225), one tier per language arm — the pool's pattern exactly:
-# the arm lives in the tier name, run identity carries it, and the campaign
-# driver never climbs into either. Served manifest-pinned only, filtered to
+# the arm lives in the tier name and run identity carries it. Served
+# manifest-pinned only, filtered to
 # the bench half: the reserve half is training capacity (#222), never a tier,
 # and an unadmitted candidate directory is not part of any run's identity.
 BENCH_ROOT = HERE.parent / "bench" / "tasks"
@@ -474,10 +462,9 @@ def draw_plan(
     then the sampled draws. A single flat plan rather than nested loops so
     that resume, dispatch and the tests all agree on what "all draws" means.
 
-    ``sampled_temperature`` is a parameter rather than only the module constant
-    because 0.7 is DEC-6's inherited operating point and nothing has ever
-    measured it. It stays in ``run.json``'s identity, so a directory measured
-    at one temperature refuses to be resumed at another.
+    ``sampled_temperature`` is a parameter rather than only the module
+    constant. It stays in ``run.json``'s identity, so a directory measured at
+    one temperature refuses to be resumed at another.
     """
     plan: list[tuple[str, int, float]] = [("greedy", 0, GREEDY_TEMPERATURE)]
     plan.extend(("sampled", i, sampled_temperature) for i in range(draws))
@@ -847,7 +834,7 @@ def done_keys(rows_path: Path) -> set[tuple[str, str, int]]:
 
     Excluding them here is only half of it. The rows file is append-only, so a
     caller that resumes must first move the displaced rows out of it; that is
-    :func:`resume_state`, which is what both drivers call.
+    :func:`resume_state`.
     """
     return {
         (row["task"], row["arm"], row["draw"])
@@ -882,13 +869,12 @@ def resume_state(out: Path) -> ResumeState:
     error, and this is the one taken:
 
     * *Last-row-wins in every reader* is the worst of the three, because it
-      makes each reader carry the rule and there are already three. ``summarise``
-      and ``campaign.classify`` would double-count the cell; worse,
-      ``tools/replies/pin.py`` joins a capture to the **first** matching row
-      (``_join_candidate``), and a dispatch-error row carries no ``stop_reason``
-      at all — so the corpus would die on ``KeyError`` rather than on the
-      diagnosable ``PinError`` that module raises for every other provenance
-      failure.
+      makes each reader carry the rule. ``summarise`` would double-count the
+      cell; worse, ``tools/replies/pin.py`` joins a capture to the **first**
+      matching row (``_join_candidate``), and a dispatch-error row carries no
+      ``stop_reason`` at all — so the corpus would die on ``KeyError`` rather
+      than on the diagnosable ``PinError`` that module raises for every other
+      provenance failure.
     * *A flag* (``--retry-dispatch-errors``) keeps the rewrite explicit, but it
       reproduces the defect's own first failure mode: it requires noticing.
       Nothing fails, and the number that would tell you to pass the flag is in a
@@ -1007,12 +993,7 @@ def record_completeness(out: Path) -> list[tuple[str, str, int]] | None:
 def serving_build(endpoint: str) -> str | None:
     """The serving stack's build at ``endpoint``, or ``None`` when it won't say.
 
-    : two rates are only comparable if the same build produced them.
-    This is not hypothetical. The 2026-08-19 scaffold ablation ran the 3B
-    against srv1 and the 7B against srv2 while those two hosts sat on two
-    different builds of the backend they then served (ollama 0.32.4 and 0.32.5),
-    so the one cross-model contrast the campaign most wanted to draw had a
-    serving-build difference folded into it that no manifest recorded.
+    Two rates are only comparable if the same build produced them.
 
     Best-effort by design. An endpoint that does not answer ``/api/version`` is
     not one this project refuses to measure — it is one whose build is unknown,
@@ -1050,11 +1031,11 @@ def stage_bar(into: Path) -> None:
 def content_identity(
     tasks: Sequence[Any], *, condition: str, worker: Any
 ) -> tuple[dict[str, Any], dict[str, str]]:
-    """The three digests  asked for, computed by `identity` (#285).
+    """The three content digests, computed by `identity` (#285).
 
     Returns ``(fields, refusals)``. Every field is always present — ``null``
     where the world would not answer, with the reason in ``refusals`` — because
-    an **absent** key means the record predates the contract (D2) and a
+    an **absent** key means the record predates the run contract and a
     run made from here on must never claim that about itself.
 
     Nothing here assembles a hash. This function's whole job is to hand
@@ -1107,7 +1088,7 @@ def content_identity(
 
 #: Every identity field this rig's ``record_run`` writes, declared beside it so
 #: the resume check is over a named set rather than the keys of the local dict
-#: it just assembled (#287, D1). Derived from the new dict, the check
+#: it just assembled (#287). Derived from the new dict, the check
 #: could never notice a field added to ``identity.GROUPS`` that this rig fails
 #: to write, nor a field ``previous`` carries that a resume no longer does — a
 #: test asserts a freshly assembled manifest's keys, minus the two annotations,
@@ -1162,16 +1143,14 @@ def record_run(
     bundle each ``.ts`` target selects, hashed here once.
 
     A retired tier is refused here rather than warned about (#240). This is the
-    seam every dispatching path passes through — ``main`` below and
-    ``campaign.run_stage`` both write the provenance before the first draw — so
-    the refusal lands before a token is spent, and adding a fourth driver
-    cannot route around it without also deciding not to record what it did.
+    seam every dispatching path passes through — ``main`` below writes the
+    provenance before the first draw — so the refusal lands before a token is
+    spent, and another driver cannot route around it without also deciding not
+    to record what it did.
 
-    **The serving build is probed here rather than passed in.** ``--condition``
-    was a caller-supplied identity field, it reached dispatch and not this
-    function, and eight manifests described a render nobody had run. A field
-    this function derives from the world cannot be forgotten by a fourth
-    driver, so this one is derived. A manifest written before the field existed
+    **The serving build is probed here rather than passed in.** A field this
+    function derives from the world cannot be forgotten by a caller, so this
+    one is derived. A manifest written before the field existed
     carries none, and adopts the current value instead of refusing: the
     protection is for runs made from here on, and a spurious refusal on every
     directory already on disk would buy nothing.
@@ -1214,9 +1193,9 @@ def record_run(
         # longer hex string.
         **content,
     }
-    # `null` is a state, and D2 says it comes with a reason. The reason cannot
-    # live in the field without being the sentinel string D2 forbids, so it
-    # lives in one sibling block a reader finds where they found the null.
+    # `null` is a state, and it comes with a reason. The reason cannot live in
+    # the field without being a sentinel string, so it lives in one sibling
+    # block a reader finds where they found the null.
     if refusals:
         identity[identity_module.REFUSALS] = refusals
     # The round, and the product revision it pins (#231 check 3).
@@ -1305,7 +1284,7 @@ def record_run(
         json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
         encoding="utf-8",
     )
-    # The second block (#286, D7): everything the endpoint will answer
+    # The second block (#286): everything the endpoint will answer
     # about itself, beside the block that gets compared. Written here — on the
     # branch that OPENS the directory — and not on the resume above, because it
     # describes the server the rows were started against. A resume writes
@@ -1313,7 +1292,7 @@ def record_run(
     # measure, and a resume against a materially different server is refused by
     # the keyed drift check above, which is where a refusal belongs. A directory
     # opened before this contract existed therefore never gains one, which is
-    # the same "absent means predates the contract" reading D2 gives run.json.
+    # the same "absent means predates the contract" reading run.json gets.
     #
     # Nothing in this file reads what this writes.
     observed_module.write(
@@ -1327,7 +1306,7 @@ def record_run(
         # exists to establish.
         host=_host_block(worker.endpoint),
         # The width this run DISPATCHED at, read off the endpoint the
-        # runner was built from rather than typed here (D4).
+        # runner was built from rather than typed here.
         # It is the second of `resolve`'s two bounds on the realised
         # batch, and it is the half no probe can recover: the server
         # cannot see how many requests a client chose to keep in
@@ -1363,14 +1342,12 @@ def first_pass_indices(
 
 # The facts a rate has to be quoted with (#113).
 #
-# `serving_build` is deliberately NOT among them.  makes the build part
-# of a run's identity, but `serving_build()` already decided what an unreachable
-# probe means: "an endpoint that does not answer /api/version is not one this
-# project refuses to measure — it is one whose build is unknown, and None says
-# exactly that rather than inventing a value." A recorded "unknown" is a
-# statement, so the header prints it and flags the limit. The risk
-# actually guards — two builds inside one contrast — is caught where it lives,
-# in `report.require_comparable`, which refuses a table mixing them.
+# `serving_build` is deliberately NOT among them. The build is part of a run's
+# identity, but `serving_build()` already decided what an unreachable probe
+# means: the build is unknown, and None says exactly that. A recorded
+# "unknown" is a statement, so the header prints it and flags the limit. Two
+# builds inside one contrast are caught where that lives, in
+# `report.require_comparable`, which refuses a table mixing them.
 REQUIRED_PROVENANCE = ("model", "endpoint", "tier", "condition")
 
 
@@ -1389,8 +1366,7 @@ def describe_run(recorded: Mapping[str, Any]) -> list[str] | None:
     sentences this function knows: the **mode** (#231 check 6 — a floor failure
     rescued by a higher rung makes the floor invisible, so a rate must say which
     of the two it is), and the **round** (#231 check 3 — which product revision
-    produced it). Both were string literals here until the fields existed to
-    read, which is a claim the code could not check.
+    produced it).
     """
     if missing_provenance(recorded):
         return None
@@ -1414,7 +1390,7 @@ def describe_run(recorded: Mapping[str, Any]) -> list[str] | None:
         lines.append(
             "- **the serving build is unknown** — the endpoint did not answer "
             "`/api/version`, so this run cannot be laid beside one from a "
-            "different build "
+            "different build"
         )
     return lines
 
@@ -1627,7 +1603,8 @@ def main() -> int:
         "--tier",
         choices=TIERS + VARIANT_TIERS + POOL_TIERS + BENCH_TIERS,
         default="d1",
-        help="difficulty tier to run (default d1, the bundle rig's set); "
+        help="difficulty tier to run (default d1, the bundle rig's set, which "
+        "is retired and refused: name a live tier); "
         "pool-ts/pool-py are the #197 problem pool's arms, not rungs; "
         "bench-ts/bench-py are the #225 bench's arms, manifest-pinned",
     )
@@ -1642,9 +1619,9 @@ def main() -> int:
         "--sampled-temperature",
         type=float,
         default=SAMPLED_TEMPERATURE,
-        help=f"temperature of the sampled arm (default {SAMPLED_TEMPERATURE}, "
-        "DEC-6's inherited operating point). Part of the run identity: a "
-        "directory measured at one temperature refuses another.",
+        help=f"temperature of the sampled arm (default {SAMPLED_TEMPERATURE}). "
+        "Part of the run identity: a directory measured at one temperature "
+        "refuses another.",
     )
     parser.add_argument(
         "--max-output-tokens",
@@ -1882,7 +1859,7 @@ def main() -> int:
         when=observed_module.AT_CLOSE,
         host=_host_block(worker.endpoint),
         # The width this run DISPATCHED at, read off the endpoint the
-        # runner was built from rather than typed here (D4).
+        # runner was built from rather than typed here.
         # It is the second of `resolve`'s two bounds on the realised
         # batch, and it is the half no probe can recover: the server
         # cannot see how many requests a client chose to keep in

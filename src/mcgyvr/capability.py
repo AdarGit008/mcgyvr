@@ -47,26 +47,15 @@ from mcgyvr.catalog import catalog
 
 TABLE_FILENAME = "capability-table.json"
 
-# The table's ``*_gb`` figures are decimal gigabytes; the rest of this codebase
-# is in GiB (:data:`mcgyvr.detect.MIB_PER_GB` is 1024). Tied to a real file
-# rather than assumed: ``deepseek-coder-v2-16b.gguf`` is 8_905_109_984 bytes
-# and its row says ``weights_gb: 8.9``, which is 8.905 decimal and 8.294 GiB.
-#
-# The table is left in decimal because that is what every tool that reported
-# these numbers prints, and a table nobody can check against `ls -l` is worse
-# than a conversion. Divide by this wherever a table figure crosses into the
-# sizing code, and nowhere else.
+# The table's ``*_gb`` figures are decimal gigabytes; the sizing code is in GiB
+# (:data:`mcgyvr.detect.MIB_PER_GB` is 1024). Divide by this wherever a table
+# figure crosses into the sizing code, and nowhere else.
 GB_PER_GIB = 1.073741824
 
 # The score a model must reach on a task's dimension before it may be asked for
-# that task. 0.5 is inherited rather than measured here — it is the number
-# local-ai's router enforces — and it is stated once, as the default of the one
-# function that applies it, rather than as a literal at each call site. That
-# shape is the defect worth not copying: there, `configs/dimensions.json`
-# documented per-dimension floors that no loader ever read while `router.py:427`
-# and `:714` each hardcoded 0.5, so the file stating the policy and the code
-# enforcing it could never be caught disagreeing. What the floor *should* be is a
-# measurement nobody has taken.
+# that task. 0.5 is inherited from local-ai, not measured here, and it is stated
+# once, as the default of the one function that applies it, rather than as a
+# literal at each call site.
 DIMENSION_FLOOR = 0.5
 
 # The capability dimension each kind of required evidence implies, strongest
@@ -90,15 +79,9 @@ DIMENSION_FLOOR = 0.5
 #   no_semantic_change  prose or annotation has to be produced over logic that may
 #                       not be touched — `instruction_following` again
 #
-# Order settles a type that requires several: the evidence saying most about what
-# must be *generated* wins, so a demonstrated fix characterises `bug_fix` rather
-# than the structural no-change rule it also obeys. The dimension names are
-# local-ai's `configs/dimensions.json` vocabulary, kept verbatim so a score vector
-# measured against that benchmark drops straight into a row.
-#
-# Where this really belongs is a `dimension` field on the catalog entry, next to
-# the guarantee and the evidence. That is an edit to the catalog data and its
-# loader, neither of which is this module's to make.
+# Order settles a type that requires several: the first kind listed here wins.
+# The dimension names are local-ai's benchmark vocabulary, kept verbatim so a
+# score vector measured against that benchmark drops straight into a row.
 _DIMENSION_BY_EVIDENCE: tuple[tuple[str, str], ...] = (
     ("failing_test_first", "branching"),
     ("tests_pass", "simple_function"),
@@ -115,7 +98,7 @@ class CapabilitySelectionError(Exception):
     """No model in the table can be asked for this task, and the message says why.
 
     Distinct from :class:`CapabilityTableError`: the table is fine, the request
-    cannot be served from it. Every message names the capability that came up
+    cannot be served from it. The floor message names the dimension that came up
     short, because "no model is good enough" sends an operator back to the ladder
     they have already read, while "nothing scores 0.5 on 'algorithm'" tells them
     which rung to go and bind.
@@ -188,8 +171,8 @@ class Model:
 
         A model pinned to one backend must not borrow a throughput figure
         taken on another, because the other run was a different quantization
-        of different weights: qwen3-coder-30b-a3b's ollama measurement is Q4
-        at 8.9 GB, not the Q2_K entry this row describes (CAV-02). Filtering
+        of different weights: qwen3-coder-30b-a3b's ollama measurement is not
+        of the Q2_K entry this row describes (CAV-02). Filtering
         by backend keeps a number attached to the thing it measured.
         """
         relevant = [
@@ -225,11 +208,9 @@ class CapabilityTable:
         than failing outright, which makes it look like a working binding.
         The headroom is ABSOLUTE, not a fraction of the card, because what
         it reserves — KV cache for the context window — is sized by tokens,
-        not by GPU. The two measurements bear this out: a 5.0 GB model on a
-        6 GB card (1.0 GB free) ran 1.9x slower than the same weights on a
-        12 GB card, while a 9.5 GB model on that 12 GB card (2.5 GB free)
-        held its expected rate. As a fraction those are 83% and 79%
-        utilization — indistinguishable, and the wrong way round.
+        not by GPU. A measurement bears this out: a 5.0 GB model on a 6 GB
+        card (1.0 GB free) ran 1.9x slower than the same weights on a 12 GB
+        card (CAV-04).
 
         Unmeasured models are never proposed.
         """
@@ -337,14 +318,10 @@ def shipped_table() -> CapabilityTable:
     meaning. The same argument :func:`mcgyvr.catalog.catalog` makes, for the same
     reason: these are the two shipped data files, and both are read on hot paths.
 
-    Memoised rather than held in a module variable, which is the difference
-    between a value loaded once and a value anything can replace. §9 of the port
-    plan bars global mutable state so that two orchestrators in one process
-    cannot interfere; the sharper reason here is that the name would be
-    assignable — ``mcgyvr.capability._CACHED_TABLE = <anything>`` would have
-    re-answered every capability question in the process, with no call site able
-    to tell. Reloading, which only a test wants, is
-    ``shipped_table.cache_clear()`` after repointing :func:`table_path`.
+    Memoised rather than held in a module variable, so no assignable name can
+    replace the table under a running process. Reloading, which only a test
+    wants, is ``shipped_table.cache_clear()`` after repointing
+    :func:`table_path`.
     """
     return load()
 

@@ -1,12 +1,7 @@
 """What a MoE checkpoint will hold on a card, and the lowest ``--n-cpu-moe`` that fits.
 
 **Every term here is either read from the GGUF header or measured on the rig.
-None is fitted, and none is a constant carried over from another model.** That
-is not stylistic: the predecessor of this module carried ``CUDA_CONTEXT_MIB =
-1024`` against a measured 85-147 MiB, ``EXPERT_SHARE = 0.92`` against a measured
-0.8416, and a per-block expert cost taken as ``bytes_experts / n_layer`` that is
-wrong for nine of ten checkpoints measured. Each was stable, plausible, and
-written down once.
+None is fitted, and none is a constant carried over from another model.**
 
 The split this module rests on:
 
@@ -36,19 +31,16 @@ The split this module rests on:
     proven flat for every checkpoint: Qwen3.6's ``C`` read 2 MiB higher at
     ncmoe 20 and 38 MiB higher at 40 than at 7, experts on the host at all
     three, and nobody has attributed that yet.
-    -> ``records/measurements/measuring-gaps-2026-09-10/README.md`` Q4 and Q6,
-    ``records/measurements/flexibility-2026-09-09/README.md`` Q11
+    -> ``mcgyvr-lab/records/measurements/measuring-gaps-2026-09-10/README.md``
+    Q4 and Q6,
+    ``mcgyvr-lab/records/measurements/flexibility-2026-09-09/README.md`` Q11
 
-So one probe fixes ``C`` for the placements on its own side of that step, and
-the floor follows from arithmetic on the header with nothing left to guess --
-provided the probe itself offloads. A probe with every expert on the card
-under-states every placement that offloads, by the op-offload copy.
-
-The header-derived laws below (:func:`kv_bytes`, :func:`rs_bytes`) are NOT used
-to compute the floor -- ``C`` already contains them, measured. They exist to
-predict a cell's cost before anything is launched, and to cross-check a probe:
-a probe whose ``C`` disagrees with the sum of the engine's own reported buffers
-is a probe that measured something other than what it thinks.
+The floor is derived from the header laws below (:func:`kv_bytes`,
+:func:`rs_bytes`) plus :data:`SCRATCH_AND_CONTEXT_MIB`, by
+``mcgyvr.serving._placement`` and ``gate-scripts/data-30-placement.py``.
+:func:`constant_from_probe` reads ``C`` off a launch instead, for the
+placements on the probe's own side of that step: a probe with every expert on
+the card under-states every placement that offloads, by the op-offload copy.
 """
 
 from __future__ import annotations
@@ -89,12 +81,6 @@ SCRATCH_AND_CONTEXT_MIB = 768
 #: to that refuses a placement the rig has been running for hours, and derives
 #: 34 instead. A measurement in hand outranks an allowance.
 #:
-#: The 768 was also calibrated while the free figure it was subtracted from was
-#: itself over-stated: :mod:`mcgyvr.scan` derived free VRAM as ``total - used``
-#: and so carried the driver's reserve (401 MiB on srv1, 376 on srv2) as though
-#: it were available. Correcting the scan on 2026-09-06 removed that
-#: over-statement, and the allowance had been quietly absorbing it.
-#:
 #: Each reading names the ``-ub`` it was read at: the compute half of this
 #: quantity grows with ``-ub``, so a reading is used only at its own batch and
 #: a number with no batch beside it cannot be told apart from one taken at 512.
@@ -115,9 +101,8 @@ MEASURED_SCRATCH_MIB = {
     "gptoss": {256: 302.1},
     "qwen35moe": {256: 302.7, 512: 316.57},
     "nemotron_h_moe": {256: 521.2},
-    #: 817-829 MiB, measured 2026-09-10 (measuring-gaps Q3,
-    #: records/measurements/measuring-gaps-2026-09-10/README.md); units run at
-    #: -ub 512 (DEFAULT_UBATCH), which is the batch this reading was taken at.
+    #: Read at -ub 512 (DEFAULT_UBATCH), the batch units run at (Q3,
+    #: mcgyvr-lab/records/measurements/measuring-gaps-2026-09-10/README.md).
     "qwen3next": {512: 829.0},
 }
 
@@ -146,7 +131,7 @@ def context_per_sequence(n_ctx: int, n_seq_max: int) -> int:
     under-counts its cache by 3.6%.
     """
     if n_seq_max <= 0:
-        raise ValueError("n_seq_max must be positive; llama.cpp defaults it to 4")
+        raise ValueError("n_seq_max must be positive")
     # ceil, not truncate. The two agree except when `n_ctx` does not divide by
     # `n_seq_max` AND the quotient is already 256-aligned -- `-c 8193 -np 8`
     # yields 1280 on the rig and 1024 by truncation, a 20% under-count.
@@ -333,7 +318,7 @@ def mtp_head_bytes(geometry: dict[str, Any]) -> int:
     exactly, blocks 8..39 with block 40 absent. With the flag the head is
     loaded and run as the draft, and the rig pays for it: the baseline loads at
     ``ncmoe 4`` and MTP is refused there with ``cudaMalloc failed``, loading at
-    8 -- ``records/evidence/2026-08-28-mtp-ornith/README.md`` section 1.
+    8 -- ``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` section 1.
 
     The figure is read off the tensor table and nowhere else: the nextn block's
     expert set, ``expert_bytes_by_block`` at each ``nextn_blocks`` index, 816.0
@@ -421,11 +406,8 @@ class Placement:
     srv1, 2026-09-06, it reads 5347.2 against a measured 5306.
 
     ``allowance_mib`` is the room demanded past that claim, which is policy.
-    They were one number until 2026-09-06, and a single figure of 6115 against
-    a measured 5306 cannot be told apart from a law that is wrong by 809 MiB.
-    Reported separately, the reader can see which is which — and can see that
-    the law is accurate to 41 MiB and the allowance is what refused a running
-    placement.
+    Reported separately, because one summed figure that misses a measurement
+    cannot say whether the law or the allowance is what missed.
     """
 
     predicted_mib: float
@@ -471,7 +453,7 @@ def explain(
     nobody is running. srv1's figures above are at 4096 per slot across eight
     slots, which is the ``-c 32768 --parallel 8`` it was measured serving.
 
-    ``speculative`` is the unit's ``models.<name>.speculative``: under ``mtp``
+    ``speculative`` is the unit's ``launch.speculative``: under ``mtp``
     the grafted head is on the card and :func:`mtp_head_bytes` is added, and
     under ``none`` nothing moves.
     """

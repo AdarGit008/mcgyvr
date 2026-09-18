@@ -1,10 +1,8 @@
-"""#365 — the mission runner: five RED tests, one property each.
+"""The mission runner: five tests, one property each.
 
 Each test loads its module under ``tools/missions/`` by path, the way the bench
-rigs are loaded (``tests/test_bench_rounds.py``), and fails **by name** while
-the module does not exist — a missing file is that test's own red, not a
-sibling's (: a finding is a check). The properties are the five items
-of #365; the code that turns them green lands on the same lane.
+rigs are loaded (``tests/test_bench_rounds.py``), so a missing module fails that
+test by name, not a sibling.
 """
 
 from __future__ import annotations

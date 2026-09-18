@@ -5,13 +5,14 @@
 # file to `bash -s`, so nothing lands on the rig's disk and gate 7 has nothing
 # extra to clean up. The same reason ggufscan.py goes over as `python3 -`.
 #
-# EVERY READING REFUSES RATHER THAN GUESSING. A missing value is not an empty
-# field, it is exit 1 — because a placeholder in a rig stamp is a fabricated
-# row, and the whole point of gate 2 is that this file's output can be compared
-# with a declaration and disagree.
+# EVERY DECLARED KEY REFUSES RATHER THAN GUESSING. A missing value is not an
+# empty field, it is exit 1 — because a placeholder in a rig stamp is a
+# fabricated row, and the whole point of gate 2 is that this file's output can
+# be compared with a declaration and disagree. Three undeclared readings print
+# `NA` when unread: `nproc`, `gpu_used_mib` and `gpu_free_mib`.
 #
-# Ported from tools/runs/_common.sh's _rig_* readers. Two of them carry a rule
-# that is not obvious and is marked at the line it applies to.
+# Two readers carry a rule that is not obvious, marked at the line it applies
+# to.
 set -u
 
 fail() { printf 'rig-snapshot: %s\n' "$*" >&2; exit 1; }
@@ -184,7 +185,7 @@ mem_available_kib() {
 
 # The rig identity (`rig-` = H{ host, hardware, system }) hashes the kernel,
 # MemTotal, swap and swappiness: a kernel update or a swap change mints a new
-# rig on purpose (plan §1, owner's ruling). These were the snapshot's gaps.
+# rig on purpose (mcgyvr-lab/records/plans/fleet-identity.md §1).
 kernel_version() {
     local out
     out=$(tok "$(uname -r 2>/dev/null)")

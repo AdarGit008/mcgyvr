@@ -24,7 +24,10 @@ import pytest
 from mcgyvr.serving import gatelib
 
 REPO = Path(__file__).resolve().parent.parent
-DOOR = "python -m mcgyvr.serving.run --host H --campaign C --step PATH --model M"
+DOOR = (
+    "python -m mcgyvr.serving.run --host H --campaign C --model M "
+    "--ctx-per-slot N [--step PATH]"
+)
 SSH = "ssh"
 
 #: A stand-in for the door: a file whose path ends in mcgyvr/serving/run.py,
@@ -148,8 +151,8 @@ def test_door_required_outside_the_door_exits_2_naming_the_door_and_the_caller(
 def test_every_run_variable_typed_in_by_hand_admits_nothing(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The environment was the whole guard once, and every RUN_* can be
-    typed into a shell: with all of them set and no door ancestor, refused."""
+    """Every RUN_* can be typed into a shell: with all of them set and no
+    door ancestor, refused."""
     for name, value in (
         ("RUN_ID", "2026-09-05-alpha-probe"),
         ("RUN_EXPORT_FD", "1"),
@@ -362,10 +365,8 @@ def test_next_on_path_skips_the_directory_it_is_told_to(
 def test_next_on_path_skips_a_path_entry_it_cannot_stat(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The first door run on a rig died at gate 2: PATH carried
-    /root/.local/bin, `Path.is_file()` raised PermissionError inside the ssh
-    shim, and the traceback was the refusal. An entry the caller cannot read
-    is not the real binary; the walk moves on."""
+    """On a PATH entry the caller cannot read, `Path.is_file()` raises
+    PermissionError. Such an entry is not the real binary; the walk moves on."""
     own = tmp_path / "own"
     locked = tmp_path / "locked"
     other = tmp_path / "other"
@@ -398,9 +399,8 @@ def test_next_on_path_skips_a_path_entry_it_cannot_stat(
 def test_the_docker_shim_reads_only_dockers_own_global_options(
     argv: list[str], named: list[str]
 ) -> None:
-    """The first door run on srv2 was refused at the launch: llama-server's
-    `--host 0.0.0.0` after the image was read as docker's `--host`. Only the
-    tokens before the subcommand are docker's."""
+    """llama-server's `--host 0.0.0.0` after the image is not docker's
+    `--host`. Only the tokens before the subcommand are docker's."""
     assert gatelib.docker_names_a_daemon(argv) == named
 
 
@@ -425,7 +425,6 @@ def test_the_ssh_shim_refuses_an_option_that_carries_the_connection_elsewhere(
     argv: list[str], found: list[str]
 ) -> None:
     """`ssh_target` admits the positional host; `-J`, `-W`, `-o Hostname=` and
-    `-o ProxyCommand=` keep it on the line and connect elsewhere (found by the
-    second adversarial pass). Options after the host belong to the remote
-    command and are not the shim's business."""
+    `-o ProxyCommand=` keep it on the line and connect elsewhere. Options after
+    the host belong to the remote command and are not the shim's business."""
     assert gatelib.ssh_redirects(argv) == found

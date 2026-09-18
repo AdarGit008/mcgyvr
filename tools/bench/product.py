@@ -1,17 +1,14 @@
 """The product revision under test, pinned as a digest, and the round it belongs to.
 
-Issue: `#231 <https://github.com/AdarGit008/mcgyvr/issues/231>`_, check 3.
-: *"Every arm in a round runs against one product revision; an adopted
-change lands at the round boundary, never mid-flight. Without this a winning arm
+Every arm in a round runs against one product revision; an adopted change
+lands at the round boundary, never mid-flight. Without this a winning arm
 silently re-baselines its own siblings and comparability — the entire point of
-one bench — is lost."*
+one bench — is lost.
 
-**What was missing.** The bench pinned its *tasks* (``tasks_sha256``) and its
-system prompt (``bundle_sha256``, which hashes ``prompt.system`` and nothing
-else). Everything between those two — the user-message render, the reply parser,
-the runner, and the whole of ``Gate.run`` that decides pass or fail — was
-unpinned. Two arms measured a week apart could therefore be scored by two
-different bars and laid in one table, and no manifest on disk would say so.
+**What this pins.** ``tasks_sha256`` pins the *tasks* and ``bundle_sha256`` the
+system prompt (it hashes ``prompt.system`` and nothing else). Everything between
+those two — the user-message render, the reply parser, the runner, and the whole
+of ``Gate.run`` that decides pass or fail — is pinned by the digest here.
 
 **Why a content digest and not the git SHA.** A commit id describes a tree, not
 a working directory, and every measurement in this project is dispatched from a
@@ -20,41 +17,32 @@ was not the one under test, which is worse than naming none. The digest below is
 over file *contents*, so it is true of what actually ran.
 
 **Why the surface is coarse.** The obvious alternative is a curated list of the
-modules a bench dispatch touches. This project has already paid for that shape
-once: ``report.COMPARABLE`` named five fields, and a manifest mutated in the
-sixth produced a byte-identical report. A guard that names a subset does not
+modules a bench dispatch touches. A guard that names a subset does not
 refuse what it omits — it permits it silently, which reads as having checked. So
 the surface is *the product*: every module under ``src/mcgyvr``, plus the rig
-files that dispatch and score. An unrelated edit closing a round is the cost
- admitted ("one pinned revision per round means a win waits for a
-boundary"); a missed edit corrupting a contrast is the failure it exists to
-prevent, and only one of those two is recoverable.
+files that dispatch and score. An unrelated edit closing a round is the cost; a
+missed edit corrupting a contrast is the failure it exists to prevent, and only
+one of those two is recoverable.
 
-**The bar is configuration as much as code, and both are in** (#291).
-The surface was code-only for its first round, and the grouping in
-``identity.py`` justified filing ``round`` and ``product_sha256`` under the *bar*
-on the ground that "the revision they pin includes the scorer". It included the
-scorer and not the scorer's configuration, which is where half the bar actually
-lives: ``score.lint_config`` derives the workspace ruff settings from
-``pyproject.toml`` at call time, ``score.stage_js_toolchain`` copies
-``eslint.config.mjs`` into every workspace, and the checkers themselves are
-whatever ``uv.lock`` and ``package-lock.json`` resolve to. A rule flipped off in
-either config file, or a checker moved by a lockfile bump, narrows what the gate
-rejects — and until this change the digest did not move and no round refused.
-Both lockfiles, never one: the arms are paired ts/py , and
+**The bar is configuration as much as code, and both are in.** Half the bar
+lives in the scorer's configuration: ``score.lint_config`` derives the workspace
+ruff settings from ``pyproject.toml`` at call time, ``score.stage_js_toolchain``
+copies ``eslint.config.mjs`` into every workspace, and the checkers themselves
+are whatever ``uv.lock`` and ``package-lock.json`` resolve to. A rule flipped
+off in either config file, or a checker moved by a lockfile bump, narrows what
+the gate rejects. Both lockfiles, never one: the arms are paired ts/py, and
 pinning Python's checker while JavaScript's floats puts a language effect inside
 every contrast the bench will publish.
 
-**A directory contributes every file beneath it, whatever the extension.** It
-globbed ``*.py``, so ``src/mcgyvr/prompts/*.md`` — the system prompts, the
-literal text a worker is sent — sat outside the digest of the thing that sends
-them. The only exclusion is a path derived from files already hashed here
-(``__pycache__/``, ``*.pyc``): including those would make the pin depend on
-whether the tree had been imported rather than on what it contains. Everything
-else under a declared directory is in, including a file authored and not yet
-committed — enumeration is the filesystem's and not ``git ls-files``', because a
-new file dispatched before it is committed is exactly the unpinned code this
-refusal exists to catch.
+**A directory contributes every file beneath it, whatever the extension** — so
+``src/mcgyvr/prompts/*.md``, the literal text a worker is sent, is inside the
+digest of the thing that sends it. The only exclusion is a path derived from
+files already hashed here (``__pycache__/``, ``*.pyc``): including those would
+make the pin depend on whether the tree had been imported rather than on what it
+contains. Everything else under a declared directory is in, including a file
+authored and not yet committed — enumeration is the filesystem's and not ``git
+ls-files``', because a new file dispatched before it is committed is exactly the
+unpinned code this refusal exists to catch.
 
 **What the surface deliberately excludes.** ``tools/bench/tasks/`` — the task set
 is already pinned per run by ``tasks_sha256``, and folding it in here would close
@@ -72,22 +60,17 @@ last, and the open round is the final entry. A round is closed by opening the
 next one, which is the only place an adopted change may land; the new entry
 names what was adopted. Editing a closed round's digest would retroactively
 re-describe measurements already on disk, which is the failure mode this file
-exists to make impossible, so ``open_round`` only ever appends.
+exists to make impossible, so ``--open`` and :func:`ensure_open` only ever
+append.
 
-**And every pending identity change lands in the same boundary** (#291). The
-paragraph above is true and is half the rule: it says *a* change lands at a
-boundary, and a driver who reads only that concludes their own change
-warrants a round of its own. It does not. Landing three identity changes
-piecemeal, with runs between them, converts one re-baseline into three
-incomparable ones — each round's arms measurable only against each other, and
-the rig time spent three times. So the boundary is *drained*, not *taken*: every
-adopted change waiting on a round goes in together, and ``--open`` refuses
-without ``--adopted``, which is where the driver names the batch. That happened
-for real on lane/261 on 2026-08-16, where a driver read this docstring and
-recommended a round for one change; the recommendation was withdrawn only
-because someone re-read a closed issue. The rule now lives in
-``rounds.json``'s ``doctrine`` block — data the tool reads and prints back — so
-a fourth driver cannot route around it by not knowing.
+**And every pending identity change lands in the same boundary.** Landing three
+identity changes piecemeal, with runs between them, converts one re-baseline
+into three incomparable ones — each round's arms measurable only against each
+other, and the rig time spent three times. So the boundary is *drained*, not
+*taken*: every adopted change waiting on a round goes in together, and
+``--open`` refuses without ``--adopted``, which is where the driver names the
+batch. The rule lives in ``rounds.json``'s ``doctrine`` block — data the tool
+reads and prints back.
 
 The tool **records** the batch; it cannot **verify** it. Nothing here can know
 which issues are still open, and gating a judgement call on a heuristic would
@@ -134,25 +117,14 @@ SURFACE: tuple[str, ...] = (
     # call time and `score.stage_config` copies `eslint.config.mjs` and
     # `prettier.config.mjs` into every workspace, so a rule flipped in any of
     # them moves what the gate rejects without touching a line of scorer code.
-    # clause 1 makes the eslint config the *project's* standard — it
-    # binds the gate, not just the bench.
-    #
-    # `prettier.config.mjs` joined this list in the change that created it
-    # (#262). Until then the JS/TS format bar was prettier's built-in
-    # defaults, pinned only through `package-lock.json` — the version was
-    # covered and the settings were not, because there were none to cover. A
-    # declared config that the pin did not hold would be this list's own defect
-    # restated: the round would cover the scorer and not the scorer's
-    # configuration, which is what  closed.
+    # The eslint config is the *project's* standard — it binds the gate, not
+    # just the bench.
     "pyproject.toml",
     "eslint.config.mjs",
     "prettier.config.mjs",
     # The bar as implementation. `uv.lock` decides which ruff resolves under
-    # `uv run` (250 rules as this project selects — the 328 that stood here was
-    # a string-prefix count that swept in ten unselected linters, corrected on
-    # #262) and `package-lock.json` decides which eslint, typescript-eslint and
-    # prettier the workspace's linked `node_modules` supplies (66 enabled rules
-    # for a `.ts` target). the consequence is explicit: pinning the
+    # `uv run` and `package-lock.json` decides which eslint, typescript-eslint
+    # and prettier the workspace's linked `node_modules` supplies. Pinning the
     # toolchain makes the checker version part of the instrument.
     "uv.lock",
     "package-lock.json",
@@ -273,7 +245,7 @@ def open_round(path: Path = ROUNDS_FILE) -> dict[str, Any]:
 def require_pinned(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, str]:
     """The open round's id and digest, or a refusal naming what moved.
 
-    This is check 3's teeth. Stamping the revision into a manifest records what
+    Stamping the revision into a manifest records what
     ran; refusing to dispatch when the tree has moved off the open round is what
     makes "an adopted change lands at the round boundary, never mid-flight" a
     property of the bench rather than a promise in a document.
@@ -285,7 +257,7 @@ def require_pinned(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, st
         raise ProductError(
             f"the product has moved off round `{current['id']}`: it pins "
             f"{declared} and this tree is {measured}. Every arm in a round runs "
-            "against one revision , so this dispatch would put two "
+            "against one revision, so this dispatch would put two "
             "revisions in one table. Either restore the tree, or close the "
             "round by opening the next one:\n"
             "  uv run --no-sync python tools/bench/product.py --open <id> "
@@ -294,15 +266,15 @@ def require_pinned(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, st
             "Opening a round re-baselines: arms measured under the old one are "
             "not comparable with arms measured under the new one, so every "
             "identity change waiting on a boundary lands in this one rather "
-            "than in a round of its own .\n"
+            "than in a round of its own.\n"
             f"Changed: {', '.join(_moved(repo, current)) or 'unknown'}"
         )
     return str(current["id"]), measured
 
 
-#: ``r7-05-09-2026`` — the counter, then the day the boundary was drawn. The
-#: counter is the only ordering the file has; `r1-commissioning` predates the
-#: date suffix and still carries one.
+#: ``r<N>-<DD-MM-YYYY>`` — the counter, then the day the boundary was drawn.
+#: The counter is the only ordering the file has; `r1-commissioning` has no
+#: date suffix and still carries a counter.
 _ROUND_COUNTER = re.compile(r"^r(\d+)\b")
 
 
@@ -325,14 +297,9 @@ def next_round_id(rounds: list[dict[str, Any]], when: datetime | None = None) ->
 def ensure_open(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, str]:
     """The round this tree runs under, opening the next one if the tree moved.
 
-    :func:`require_pinned` answers the same question by refusing, which is what
-    check 3's teeth were until the owner ruled otherwise on 2026-09-06: **a
-    round is a boundary in the record, not a permission to work.** The refusal
-    was enforced by stopping the operator, whose only move was to retype the
-    ``--open`` line the refusal printed — and on 2026-09-06 it stopped `serve
-    up` and `serve down` outright, ten product files having moved since
-    ``r7-05-09-2026`` was pinned. A gate that blocks a rig read to make a
-    record tidy has the two the wrong way round.
+    :func:`require_pinned` answers the same question by refusing. **A round is
+    a boundary in the record, not a permission to work**: a gate that blocks a
+    rig read to make a record tidy has the two the wrong way round.
 
     So the boundary is drawn rather than demanded. What the pin exists for is
     unchanged and is the reason this appends instead of re-pinning: two
@@ -380,7 +347,7 @@ def _write_rounds(
 
     Telemetry stamping a row, the live index and gate 1 all read this file, and
     ``write_text`` empties it at open before it fills it — so a reader in
-    between got a prefix and failed on the JSON. The document is staged beside
+    between would get a prefix and fail on the JSON. The document is staged beside
     the file and swapped in by :func:`os.replace`, which a reader sees as the
     old file or the new one. The staging name is this writer's own, as
     ``telemetry._store_one`` stages a blob, so two doors appending at once never
@@ -421,7 +388,7 @@ def declare(manifest: dict[str, Any] | Any) -> str:
     return (
         f"- round: **`{round_id}`**, product `{revision[:12]}` — every arm in "
         "this round ran against one revision, and an adopted change lands only "
-        "at the boundary "
+        "at the boundary"
     )
 
 
@@ -485,7 +452,7 @@ def _open_cli(args: argparse.Namespace) -> int:
             f"round `{args.open}` already exists; rounds are append-only"
         )
 
-    # The batching rule made operational . The tool cannot know which
+    # The batching rule made operational. The tool cannot know which
     # identity changes are still open, so it does not pretend to check — it
     # refuses to close a round the driver has not said the contents of, prints
     # the doctrine it is bound by, and prints what actually moved. A named batch
@@ -495,8 +462,7 @@ def _open_cli(args: argparse.Namespace) -> int:
             "--open needs --adopted (repeatable), naming each change this "
             "boundary carries. A round boundary is drained, not taken: every "
             "identity change waiting on one lands in the same round, or one "
-            "re-baseline becomes several incomparable ones ( "
-            "Q3). Name them:\n"
+            "re-baseline becomes several incomparable ones. Name them:\n"
             '  --adopted "#291 the round pin covers the bar\'s configuration"\n'
             "If the batch is one change, say so — the refusal is that nobody "
             "said."
@@ -543,7 +509,7 @@ def main(argv: list[str] | None = None) -> int:
         metavar="CHANGE",
         help="one change this boundary carries; repeat for each. Required by "
         "--open: a boundary is drained of every pending identity change, not "
-        "taken by one ",
+        "taken by one",
     )
     parser.add_argument(
         "--opened", default="", help="the date the round opened (UTC, YYYY-MM-DD)"

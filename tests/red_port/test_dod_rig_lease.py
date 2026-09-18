@@ -1,13 +1,13 @@
 """The rig is leased, live outranks dev, and dev yields — enforced by the machine.
 
-Owner's rulings (2026-09-06). R1: a live run preempts a dev run, dev yields,
-and the machine enforces it rather than a convention. R3: dev and prod share
-one fleet (srv1, srv2) — mutual exclusion, not partitioning.
+R1: a live run preempts a dev run, dev yields, and the machine enforces it rather
+than a convention. R3: dev and prod share one fleet (srv1, srv2) — mutual
+exclusion, not partitioning.
 
-Gate 5 already claims the RUN_ID (``.<RUN_ID>.running`` in the envelope) so two
-invocations of one step cannot run at once. That claim is per-envelope, so two
-different steps, or a laptop and srv1, can still land on one rig together. The
-contended resource is the rig, so the claim moves there: a lease at
+Gate 5 claims the RUN_ID (``.<RUN_ID>.running`` in the envelope) so two
+invocations of one step cannot run at once. That claim is per-envelope, so it does
+not stop two different steps, or a laptop and srv1, landing on one rig together.
+The contended resource is the rig, so there is a second claim there: a lease at
 ``~/.mcgyvr/lease`` on the rig itself, taken at gate 2 — before any rig time
 is spent and before the envelope exists — and released on every way out.
 

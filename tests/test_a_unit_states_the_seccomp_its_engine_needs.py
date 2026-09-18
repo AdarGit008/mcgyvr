@@ -1,17 +1,13 @@
 """A unit states the seccomp profile its engine needs, and both launch paths apply it.
 
-Owner ruling, 2026-09-16: "Fix PR: allow io_uring". ``srv2_35b_256k`` (fleet
-a-solo, rig srv2) cannot start under lock-fleets: it failed 3/3 on 2026-09-15,
-and the diagnostic start's artifact
+Owner ruling: allow io_uring. The Lidenburg llama.cpp fork's MoE expert cache
+calls ``abort()`` when ``io_uring_queue_init`` fails
+(``ggml/src/ggml-backend.cpp``) — there is no fallback and no env var disables
+the tier — and docker's default seccomp profile blocks the io_uring syscalls,
+so under a plain ``docker run`` the call returns EPERM and a unit on that image
+(``srv2_35b_256k``) dies at start with exit 139
 (``records/evidence/2026-09-15-lock-fleets/``
-``rig-id-relock-srv2-c1-srv2_35b_256k-diag1.json``) files State ExitCode 139,
-OOMKilled false, and the kernel line ``traps: llama-server[602541] general
-protection fault ... in libc.so.6``. The image is the Lidenburg llama.cpp fork
-at ``e85e4d9``, whose MoE expert cache calls ``abort()`` when
-``io_uring_queue_init`` fails (``ggml/src/ggml-backend.cpp`` L565-578) — there
-is no fallback and no env var disables the tier — and docker's default seccomp
-profile has blocked the io_uring syscalls since moby ``891241e7e7``, so the
-call returns EPERM under a plain ``docker run``.
+``rig-id-relock-srv2-c1-srv2_35b_256k-diag1.json``).
 
 * A unit's ``launch`` may state ``seccomp:``, a profile file beside the fleet
   file. The stated profile is docker's default plus only the io_uring
@@ -19,8 +15,8 @@ call returns EPERM under a plain ``docker run``.
 * Both launch paths apply it: lock-fleets' ``_unit.sh`` (``run_args``) and the
   product's live path (``mcgyvr emit``, which renders ``security_opt`` and
   writes the profile beside the compose file it names).
-* A unit that states none launches exactly as before, and a stated profile that
-  is not there is refused by name before any rig is touched.
+* A unit that states none launches with no profile of its own, and a stated
+  profile that is not there is refused by name before any rig is touched.
 * A unit whose LAUNCH changed gets ONE fresh cold start, ``plan.py relaunch``,
   after its failed diagnostic start.
 
@@ -627,9 +623,9 @@ def test_srv2_01_diag1_of_rig_id_relock_has_its_one_fresh_start_committed() -> N
 
 
 def test_the_readme_no_longer_calls_the_io_uring_line_non_fatal() -> None:
-    """The 2026-09-15 entry called ``io_uring_queue_init failed`` non-fatal and
-    said it fell back to the RAM tier. That is wrong for this source: the fork
-    aborts, and the diagnostic start filed exit 139."""
+    """The README does not call ``io_uring_queue_init failed`` non-fatal or say
+    it fell back to the RAM tier: for this source the fork aborts, and the
+    diagnostic start filed exit 139."""
     readme = (REPO / "records/measurements/lock-fleets/README.md").read_text(
         encoding="utf-8"
     )

@@ -1,14 +1,10 @@
 """A2 — clock skew must not defeat latest-wins.
 
-:func:`mcgyvr.telemetry.fold` ordered corrections by their own wall-clock ``ts``
-and then by position, so the position tiebreak fired only when two timestamps
-were exactly equal. Two hosts writing one sink have two clocks, so a correction
-written later can carry an earlier ``ts`` and lose to the one written before it.
-
-The file's own order is the order the corrections were appended — the ``flock``
-serialises writers and append mode puts each write at the end — so position is
-the authoritative "latest", and ``ts`` is metadata a reader can inspect, not a
-ranking to fold by.
+Two hosts writing one sink have two clocks, so a correction written later can carry
+an earlier ``ts``. The file's own order is the order the corrections were appended —
+the ``flock`` serialises writers and append mode puts each write at the end — so
+position is the authoritative "latest" for :func:`mcgyvr.telemetry.fold`, and ``ts``
+is metadata a reader can inspect, not a ranking to fold by.
 """
 
 from __future__ import annotations

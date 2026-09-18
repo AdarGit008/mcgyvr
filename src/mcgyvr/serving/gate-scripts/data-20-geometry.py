@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """The checkpoint's geometry, summed from its own tensor table on the rig.
 
-BITS-PER-WEIGHT IS A GUESS; THE TENSOR TABLE IS NOT. Two defensible estimates
-of one GGUF's expert bytes — nominal quant width, and file size over parameter
-count — disagreed by 14% and both were wrong. Summing the table gave 278.0 MiB
-of expert weight per layer against a measured VRAM delta of 278.0.
+BITS-PER-WEIGHT IS A GUESS; THE TENSOR TABLE IS NOT
+(okf/must-read/touching-models.md).
 
 THE READER GOES TO THE RIG, THE BLOB NEVER COMES BACK. ggufscan reads headers
 only, is piped over as `python3 -`, and nothing lands on the rig's disk. The

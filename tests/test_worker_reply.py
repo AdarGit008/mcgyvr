@@ -4,17 +4,16 @@ A parser that only ever sees well-formed input is not the thing standing
 between a model's prose and a source file. **Every fixture in this file is
 constructed**: an author imagining an apology before the code, two blocks
 because the model offered an alternative, a fence the cap cut off — and each
-must resolve to a *named* failure rather than to a plausible file. An earlier
-docstring called these "real shapes a local worker produces"; nothing linked
-any fixture to a run, so under this repository's own filter the claim was
-unverifiable, and it is withdrawn (#184).
+must resolve to a *named* failure rather than to a plausible file. None of
+them is linked to a run, so none is claimed as a shape a local worker produces.
 
 The population the parser actually faces is the captured one: the measurement
 rigs keep every raw reply, and ``test_reply_corpus.py`` asserts the whole set
-against pinned verdicts. #174 — a refusal shape no author here had imagined —
-is why the constructed set alone is not enough. Per  the split is
-deliberate: a shape found in a capture is pinned there as gold; a shape an
-adversarial imagination proposes lives here, marked as what it is.
+against pinned verdicts: a refusal shape no author imagines is why the
+constructed set alone is not enough. The split is deliberate, because a fixture
+captures what the parser reads: a shape found in a capture is pinned there as
+gold; a shape an adversarial imagination proposes lives here, marked as what it
+is.
 """
 
 from __future__ import annotations
@@ -167,7 +166,7 @@ def test_truncation_is_checked_before_the_text_is_parsed() -> None:
 
 def test_unified_diff_is_refused_rather_than_parsed_as_a_file() -> None:
     """Parsing a patch as whole-file content applies its +-prefixed body lines
-    as source.  scopes v1 to whole_file."""
+    as source. Only whole_file is in scope."""
     error = refused(GOOD, output_schema="unified_diff")
     assert error.code == "unsupported-schema"
     assert "unified_diff" in error.message
@@ -177,12 +176,12 @@ def test_an_unknown_schema_is_refused() -> None:
     assert refused(GOOD, output_schema="jsonl").code == "unsupported-schema"
 
 
-# --- refusals dressed as file content (#174) -------------------------------
+# --- refusals dressed as file content --------------------------------------
 #
-# The four shapes the issue tabulates, plus the cases that show why the check
-# cannot run without knowing the target. Every one of these is structurally a
-# perfect reply: exactly one fence, closed, complete. Only the content betrays
-# them, and only against a target.
+# Four refusal shapes, plus the cases that show why the check cannot run without
+# knowing the target. Every one of these is structurally a perfect reply:
+# exactly one fence, closed, complete. Only the content betrays them, and only
+# against a target.
 
 
 def fenced(body: str, info: str = "python") -> str:

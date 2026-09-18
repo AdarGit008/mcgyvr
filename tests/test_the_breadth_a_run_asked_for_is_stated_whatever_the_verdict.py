@@ -1,17 +1,16 @@
 """``draws`` is the breadth the attempt was configured for, on every entry.
 
-The field meant two different quantities depending on the verdict a reader had
-to check first. A judged entry carried ``breadth.draws``; a raised entry
-carried how many rows the attempt had written. So a run configured for two
-draws that raised after one reported ``draws: 1`` and was indistinguishable, in
-the result file, from a run configured for one — and the field a reader would
-use to say "breadth was spent here" quietly under-reported every raise.
+One field cannot mean two quantities depending on a verdict a reader has to
+check first. If a raised entry carried how many rows the attempt had written, a
+run configured for two draws that raised after one would report ``draws: 1``
+and be indistinguishable, in the result file, from a run configured for one —
+and the field a reader uses to say "breadth was spent here" would quietly
+under-report every raise.
 
 Two quantities need two fields. ``draws`` is what was asked for and never
 changes meaning; ``rows`` is how many draws left a journal row, which is what a
 caller correcting the journal iterates and what an operator reads as "how far
-the attempt actually got". Their difference is the interesting number and it
-was not expressible at all.
+the attempt actually got". Their difference is the interesting number.
 """
 
 from __future__ import annotations
@@ -95,11 +94,10 @@ def test_a_rung_that_steps_aside_states_the_breadth_it_stepped_aside_from() -> N
     """A decline spent no draw, and still says how many it was configured for.
 
     :meth:`~mcgyvr.route.Result.declined` is the documented way a driver says
-    "not my rung", and the only one a driver that is not
-    :mod:`mcgyvr.drive` has. It set ``rows`` to nothing and left ``draws`` at
-    the dataclass default, so a decline under ``breadth.draws: 3`` read as a
-    run configured for one — the misreport this field was split in two to end,
-    surviving in the helper that documents the split.
+    "not my rung", and the only one a driver that is not :mod:`mcgyvr.drive`
+    has. Leaving ``draws`` at the dataclass default there would make a decline
+    under ``breadth.draws: 3`` read as a run configured for one — the misreport
+    the split into two fields exists to end.
     """
     from mcgyvr.route import Result, Verdict, attempted
 

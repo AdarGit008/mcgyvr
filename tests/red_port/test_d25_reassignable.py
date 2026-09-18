@@ -1,25 +1,17 @@
-"""D25 — the failure taxonomy is rich, and it does not say the one thing a driver
-has to know: may this work be tried somewhere else?
+"""D25 — every terminal outcome says whether the work may be tried somewhere else.
 
-mcgyvr names failures better than local-ai does. Six
-:class:`~mcgyvr.escalate.Outcome` members, four :class:`~mcgyvr.route.Exhaustion`
-reasons, three :class:`~mcgyvr.route.Verdict` values, four
-:class:`~mcgyvr.runner.StopReason` values and seven ``ReplyError`` codes, each
-argued for in the module that owns it. Every one of them answers *what happened*.
-
-None of them answers *what to do next*, and that is a different axis. It is the axis
-local-ai found it needed a ``REASSIGNABLE`` set for: a driver reads it and either
-ascends to a dearer family or stops. Without it, every caller of
-:func:`~mcgyvr.escalate.escalate` has to re-derive the rule from the outcome name,
-and the derivations will differ — the queue architecture in §9 makes that concrete,
-because a ``main_out_queue`` that pushes work back for another orchestrator to take
-is exactly a reassignment, and it cannot be written against a taxonomy that does not
-say which failures are eligible.
+:class:`~mcgyvr.escalate.Outcome`, :class:`~mcgyvr.route.Exhaustion`,
+:class:`~mcgyvr.route.Verdict`, :class:`~mcgyvr.runner.StopReason` and the
+``ReplyError`` codes answer *what happened*. *What to do next* is a different axis:
+:func:`mcgyvr.escalate.disposition` answers it per outcome, and
+:func:`mcgyvr.escalate.may_reassign` reads that together with the budget, so a caller
+of :func:`~mcgyvr.escalate.escalate` does not re-derive the rule from the outcome
+name.
 
 Three statements:
 
 * **Every terminal outcome answers.** Iterated over the enum rather than over a list
-  written here, so a seventh member added later cannot be forgotten — a taxonomy
+  written here, so a member added later cannot be forgotten — a taxonomy
   with a hole in it is worse than no taxonomy, because the hole is discovered by a
   caller at runtime. The answers are also asserted to *differ across the set*: a
   function that returned ``False`` for everything answers every member and says
@@ -37,15 +29,12 @@ Three statements:
   ``ATTEMPT_CEILING`` are two different numbers the operator set, bounding two
   different things — moves and spend. A caller responds differently to each: raise
   the escalation ceiling, raise the attempt budget, or bind a dearer rung, and only
-  one of those three is useful in each case. ``tests/test_escalate.py`` already holds
-  that all three are *reachable*; what is unheld is that they are *distinguishable
-  in what they tell a caller to do*, which is the thing the reachability of an enum
-  member does not give you.
+  one of those three is useful in each case. ``tests/test_escalate.py`` holds that
+  all three are *reachable*; this holds that they are *distinguishable in what they
+  tell a caller to do*.
 
-The dotted names are placeholders as everywhere in this package. What must survive a
-rename is that the answer exists per outcome, that it carries a reason a human can
-read, and that budget and reassignability are two independent inputs to one
-decision.
+The answer exists per outcome, it carries a reason a human can read, and budget and
+reassignability are two independent inputs to one decision.
 """
 
 from __future__ import annotations
@@ -78,7 +67,7 @@ def _may_reassign() -> Any:
 
 
 def test_every_terminal_outcome_says_whether_the_work_may_be_reassigned() -> None:
-    """All six, read off the enum, each with a bool and a reason a human can act on.
+    """All of them, read off the enum, each with a bool and a reason a human can act on.
 
     The final assertion is what stops this being satisfiable by a constant: an axis
     on which every outcome lands the same way is not an axis, and a driver reading
@@ -110,8 +99,7 @@ def test_a_terminal_failure_is_never_reassigned_however_much_budget_remains() ->
 
     Asserted in both directions. Only the first half would pass against a decision
     that always refuses; only the second would pass against one that only ever reads
-    the budget, which is the rule this project already has and the reason the axis
-    is missing.
+    the budget.
     """
     disposition, may_reassign = _disposition(), _may_reassign()
 

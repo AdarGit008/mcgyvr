@@ -1,17 +1,17 @@
 """A ladder learns from the journal it wrote.
 
-The journal now says, per attempt, which rung answered, what kind of work it
-was and how it landed. What nothing does yet is read that back: a task type a
-cheap rung fails every time still starts on that rung, and every run pays the
-failed attempt before climbing. The compounding the live journal exists for is
-this step — routing on what was measured here , not on a guess.
+The journal says, per attempt, which rung answered, what kind of work it was
+and how it landed. Nothing reads that back: a task type a cheap rung fails
+every time starts on that rung, and every run pays the failed attempt before
+climbing. The compounding the live journal exists for is this step — routing
+on what was measured here, not on a guess.
 
-The shape the owner decided on (2026-09-03, #406): a proposer over the folded
-journal that, given a config, says which task types should start one rung up
-because the rung the catalog starts them on has been failing them. This test
-is that claim, red until #406 lands: a journal where the cheap rung passed
-every ``bug_fix`` and failed every ``function_implementation`` yields exactly
-one proposal, for ``function_implementation``, and none for the type that
+The shape the owner decided on: a proposer over the folded journal that, given
+a config, says which task types should start one rung up because the rung the
+catalog starts them on has been failing them. This test is that claim, a strict
+xfail while ``mcgyvr.feedback`` does not exist: a journal where the cheap rung
+passed every ``bug_fix`` and failed every ``function_implementation`` yields
+exactly one proposal, for ``function_implementation``, and none for the type that
 passes.
 """
 
@@ -47,7 +47,7 @@ def _dispatch(
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-09-03: decided — the feedback loop is v2 (#406). Nothing reads "
+        "2026-09-03: decided — the feedback loop is v2. Nothing reads "
         "the folded journal to move a floor: `mcgyvr.feedback.propose` does "
         "not exist, and the cheap rung starts every type the catalog starts "
         "there however often it has failed it."

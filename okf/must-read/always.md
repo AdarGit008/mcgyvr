@@ -16,15 +16,15 @@ authority.**
 function goes to the lab under `archive/<its path here>`, with the tests that
 exist only to call it. The lab commit lands first; the merge that supersedes the
 code removes it and names that lab commit. Deleting drops the only record of
-what the old code claimed. `archive/` here keeps only what code or tests still
-read.
+what the old code claimed. `archive/` here may keep only what code or tests
+still read; anything else in it belongs in the lab.
 
 **A run is expandable until its first measurement, and frozen from then on.**
 
 **The rigs swap hardware. Never quote a stored spec — read it.**
 
-**A "do not re-derive" label is not evidence.** Every headline ratio that once
-carried that banner turned out wrong. Recompute from the journals.
+**A "do not re-derive" label is not evidence.** Recompute every headline ratio
+from the journals before quoting it.
 
 **A claim with no artifact is not a finding.**
 
@@ -41,6 +41,4 @@ tests and results. A finding goes in the commit message or an existing file.
 is a fact about one machine on one afternoon and is worth nothing a week later;
 "config `<tag>` places this host mapped" is reproducible, comparable and
 falsifiable. Write the second. A number tied to a rig's name rots silently; a
-number tied to a config tag is either still emitted by that tag or is not. A
-fixture once named a RAM figure "srv1 as it stands" and both halves — the figure
-and the gate it was judged by — went stale the same week.
+number tied to a config tag is either still emitted by that tag or is not.

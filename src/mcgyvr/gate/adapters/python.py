@@ -45,14 +45,13 @@ RUFF = "ruff"
 
 #: The basic default a repository that declares no ruff configuration is judged
 #: by: this project's own nine families (owner, 2026-09-05), with pycodestyle
-#: narrowed for the reason stated at the bottom of this comment. Measured in the
-#: first live e2e, ruff 0.16.4 with no configuration enables 826 rules, and
-#: TRY004 alone rejected six of nine replies for raising ``ValueError`` where
-#: the worker bundle says to; ``tools/bench/score.py:lint_config`` had already
-#: measured the same on the corpus and written this selection into every bench
-#: workspace. The live gate had no such floor. A repository that states its
-#: own ``[tool.ruff]``, ``ruff.toml`` or ``.ruff.toml`` keeps it, whatever it
-#: selects: the default is for the repository that said nothing.
+#: narrowed for the reason stated at the bottom of this comment. ruff with no
+#: configuration enables a different and larger rule set — TRY004 among it,
+#: which rejects raising ``ValueError`` where the worker bundle says to.
+#: ``tools/bench/score.py`` (``lint_config``) writes the same selection into
+#: every bench workspace. A repository that states its own ``[tool.ruff]``,
+#: ``ruff.toml`` or ``.ruff.toml`` keeps it, whatever it selects: the default is
+#: for the repository that said nothing.
 #:
 #: **pycodestyle is spelled ``E4``/``E7``/``E9``, not ``E``, and that is not a
 #: typo.** The whole ``E`` family carries E501, line-too-long, and E501 is the
@@ -62,27 +61,25 @@ RUFF = "ruff"
 #: change is cleaned there only when every reason the gate gave for rejecting it
 #: is one the formatter itself raised, and E501 arrives as a *lint* finding — so
 #: the attempt is spent and nothing is produced over a docstring a few
-#: characters too wide. Measured over the live journal (341 correction records
-#: carrying gate findings): E501 was 104 of 220 lint findings, three times the
-#: next code, and **39 changes were rejected on E501 and nothing else**.
+#: characters too wide.
 #:
 #: **Line length has not stopped mattering.** ``DEFAULT_RUFF_LINE_LENGTH`` is
 #: unchanged and is still handed to ``ruff format`` below, which still wraps
 #: code at 88; over-wide *code* still rejects, on the format rung, and that is
-#: the one rejection :mod:`mcgyvr.cleanup` repairs at zero model cost. All that
-#: changed is that a line the formatter *cannot* wrap stopped being a rejection.
+#: the one rejection :mod:`mcgyvr.cleanup` repairs at zero model cost. A line
+#: the formatter *cannot* wrap is not a rejection.
 #:
 #: Narrowing the select rather than adding ``lint.ignore = ["E501"]`` — the
 #: other honest spelling — because the ignore is a trap at this call site.
 #: Measured on ruff 0.16.6: a ``--config lint.ignore`` that *follows* a
 #: ``--config lint.select`` on the same command line is silently discarded, and
-#: :func:`ruff_config_args` appends in exactly that order. The fix would have
-#: read correctly and changed nothing, which is the hole that looks like a pass
-#: (#261). Narrowing needs no second layer and is not an invention of ours: it
-#: is the pycodestyle selection ruff itself enables by default. Beyond E501 it
-#: drops exactly one further stable rule, E101 (mixed-spaces-and-tabs), which
-#: ``ruff format`` normalises — so the format rung still catches it and cleanup
-#: still fixes it for free.
+#: :func:`ruff_config_args` appends in exactly that order. The ignore would
+#: read correctly and change nothing, which is the hole that looks like a pass.
+#: Narrowing needs no second layer: ``E4``, ``E7`` and ``E9`` are
+#: pycodestyle sub-families that carry neither E501 nor the whitespace rules
+#: the formatter owns. Beyond E501 it drops exactly one further stable rule,
+#: E101 (mixed-spaces-and-tabs), which ``ruff format`` normalises — so the
+#: format rung still catches it and cleanup still fixes it for free.
 DEFAULT_RUFF_SELECT: tuple[str, ...] = (
     "E4",
     "E7",
@@ -130,7 +127,7 @@ def ruff_config_args(repo: Path) -> list[str]:
 
     ``line-length`` is here for the formatter, not for a lint threshold: it is
     the width ``ruff format`` wraps code to on both rungs below, and the default
-    selection no longer carries E501 (see :data:`DEFAULT_RUFF_SELECT`). Nothing
+    selection does not carry E501 (see :data:`DEFAULT_RUFF_SELECT`). Nothing
     may be appended after ``lint.select``: measured on ruff 0.16.6, a later
     ``--config lint.ignore`` on the same command line is silently discarded."""
     if declares_ruff_config(repo):
@@ -328,21 +325,19 @@ class PythonAdapter(LanguageAdapter):
         adding a path here would substitute mcgyvr's idea of the scope for the
         one the project wrote down, which is the same error as adding a flag.
 
-        This once said that a repository whose ``[tool.mypy]`` sets no ``files``
-        would have its target supplied by the decomposer, since only it knows
-        what the change touched. **#142 decided otherwise and nothing appends a
-        target anywhere**: mypy's ``exclude`` is not applied to a file named on
-        the command line, so appending one would check a file the repository
-        said to skip. The case that motivated the idea — bare ``mypy`` exiting 2
-        with "Missing target module, package, files, or command" — is caught by
+        **Nothing appends a target anywhere**: mypy's ``exclude`` is not
+        applied to a file named on the command line, so appending one would
+        check a file the repository said to skip. A ``[tool.mypy]`` that sets
+        no ``files`` — bare ``mypy`` exiting 2 with "Missing target module,
+        package, files, or command" — is caught by
         :meth:`~mcgyvr.gate.acceptance.Acceptance.precondition` against the
         unchanged tree, before an attempt is spent and without charging a
         worker. See :func:`mcgyvr.orchestrator.decompose._acceptance_for`.
 
         Detection reads the files each checker itself reads, rather than only
         ``pyproject.toml``: a project with ``mypy.ini`` has declared mypy every
-        bit as much as one with ``[tool.mypy]``, and  turns on what the
-        repository declared, not on where it chose to write it down.
+        bit as much as one with ``[tool.mypy]``, and the policy turns on what
+        the repository declared, not on where it chose to write it down.
         """
         for command, declared in (
             (["mypy"], _declares_mypy(repo)),
@@ -501,8 +496,7 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
     file with an undecodable byte reach the gate at all
     instead of raising on the way in. ``compile()`` refuses such a string:
     ``ast.parse`` answers a lone surrogate with ``UnicodeEncodeError``, which is
-    not a ``SyntaxError``, so it used to leave this adapter and take the whole
-    gate run down with it — a crash where a verdict was owed.
+    not a ``SyntaxError`` and is caught separately.
 
     A *syntax* finding, for the same reason a stray brace is one: Python source
     is UTF-8 by definition (:pep:`3120`), so this is a file the parser cannot
@@ -537,12 +531,10 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
 #
 # Each checker is looked for in the files it reads its own configuration from,
 # so "declared" means what it means to the tool. The order mypy appears in
-# before pyright is ARBITRARY and must stay that way:  found the
-# benchmark #97 used to rank them traced to a single self-contradicting blog
-# post, and  concluded that the choice "leaves this project". A
-# repository configuring both is telling us it runs both; this returns one, and
-# a repository that cares which declares the command in its contract, which
-# always wins over a sniff.
+# before pyright is ARBITRARY and must stay that way: mcgyvr does not rank
+# type checkers. A repository configuring both is telling us it runs both;
+# this returns one, and a repository that cares which declares the command in
+# its contract, which always wins over a sniff.
 
 
 def _declares_mypy(repo: Path) -> bool:
@@ -568,8 +560,7 @@ def _has_toml_table(path: Path, name: str) -> bool:
 
     A substring test would fire on a comment, on a dependency pin naming the
     tool, or on ``[tool.ruff.lint.mypy-init-return]``. Getting this wrong
-    fabricates a type-check command for a repository that runs none, which
-     is precisely the thing not to do.
+    fabricates a type-check command for a repository that runs none.
     """
     if not path.is_file():
         return False
@@ -582,8 +573,7 @@ def _has_toml_table(path: Path, name: str) -> bool:
         # "does it declare a checker" is no. `UnicodeDecodeError` is named
         # separately because `tomllib` decodes the bytes itself and answers a
         # non-UTF-8 manifest with that rather than with `TOMLDecodeError` — and
-        # it is a `ValueError`, so it walked straight out of a function whose
-        # only vocabulary downstream is a command or a refusal.
+        # it is a `ValueError`, which neither of the other two catches.
         return False
     tool = document.get("tool")
     return isinstance(tool, dict) and isinstance(tool.get(name), dict)

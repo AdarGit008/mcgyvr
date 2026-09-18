@@ -1,42 +1,14 @@
-"""The host state this project declares, and the campaign held to it.
+"""The host state this project declares.
 
-**The gap this closes.** On 2026-08-22 the owner ruled K9: every host declares
-the settings that decide residency, and an engine default inherited in silence
-is not a declaration. Both rigs were set that day. Nothing in this repository
-said so. The values lived in one session record's prose, no capture showed
-them, nothing set them and nothing would have noticed them regressing between
-campaigns — so the ruling was true of a Saturday afternoon rather than of the
-instrument. rule 1: a finding is a check, not a paragraph.
+The owner's K9 ruling: every host declares the settings that decide residency,
+and an engine default inherited in silence is not a declaration. A finding is a
+check, not a paragraph, so ``tools/runs/hosts.json`` is the declaration and the
+checks below hold it complete and self-describing: they fail the moment a
+setting that decides residency is added without a value or a reason.
 
-``tools/runs/hosts.json`` is now the declaration, and the
-checks below are the two halves the gap had:
-
-* the declaration is complete and self-describing — green, and it fails the
-  moment a setting that decides residency is added without a value or a reason;
-* every host a campaign surveyed matches it, by **value** and not merely by
-  presence. K9's own check asks whether a name appears; this asks whether it
-  appears set to what was declared, which is the half that catches a rig
-  quietly reverting to an engine default.
-
-**Red on the newest campaign, and that is correct.** The 2026-08-19 survey
-predates the declaration: srv1 ran ``2 / 3 / 5m`` and srv2 declared nothing at
-all. These flip on the first campaign run after 2026-08-22. Under
-``strict=True`` that flip fails the suite until the marker comes off, which is
-the point — the run that closes them announces itself.
-
-**This module does not import ``test_calibration_conflicts``.** It reads the
-survey with its own six lines. A check that dies when a neighbouring test file
-is refactored is not an independent check, and these two files are about
-different things: that one holds a campaign's recorded conflicts, this one
-holds the instrument's declared state.
-
-**The declaration moves the serving pin.** ``hosts.json`` lives under
-``contract.HARNESS_SURFACE`` (``tools/bench/serving``), which is where it
-belongs — a declaration of required host state that sat outside the pinned
-harness is the drift this file exists to stop. Rows written after it therefore
-carry a different ``harness_sha256`` from rows written before, and #337's
-measured ``gpu_memory_utilization`` moves it again; both land before the
-campaign re-run so the re-run banks one pin, not three.
+No check in this module calls the survey helpers below (:func:`campaign`,
+:func:`_survey`, :func:`_environment`, :func:`_builds`): the campaign half is
+not held here, as the note at the end says.
 """
 
 from __future__ import annotations
@@ -54,11 +26,8 @@ DECLARATION = REPO / "tools" / "runs" / "hosts.json"
 #: first check below holds the two to each other, so a setting added to one and
 #: forgotten in the other is a red test rather than a silent hole.
 #:
-#: **Empty since 2026-09-06, and the emptiness is the declaration.** The three
-#: that were here configured a daemon that served many checkpoints from one
-#: process, and it was removed from the product and masked on srv2 the same day
-#: (``archive/forensic-ollama/``). Both engines served now take the equivalent
-#: decisions on the command line the compose file carries — ``--parallel`` and
+#: **Empty, and the emptiness is the declaration.** Both engines served take the
+#: residency decisions on the command line the compose file carries — ``--parallel`` and
 #: ``-c`` on llama.cpp, ``--max-num-seqs`` and ``--max-model-len`` on vLLM — so
 #: there is no daemon-wide setting left for a rig to hold and for this file to
 #: state. The checks below stay: they are what re-arms the moment one returns,
@@ -86,10 +55,8 @@ def campaign(evidence: Path | None = None) -> Path:
 
     Same rule as :func:`declaration`, and the same rule
     ``tests/test_calibration_conflicts.campaign`` states: the root is read at
-    call time so a sweep can point every check below at a mutated copy of the
-    evidence and watch it turn. This was written as a bound default first, and
-    the mutation sweep that was supposed to demonstrate these checks green
-    could not move them — caught 2026-08-22, before either landed.
+    call time so a sweep can point a check at a mutated copy of the evidence
+    and watch it turn; a bound default would freeze it.
     """
     root = EVIDENCE if evidence is None else evidence
     directories = sorted(p for p in root.glob("calibration-*") if p.is_dir())
@@ -101,7 +68,7 @@ def _survey(directory: Path) -> dict[str, Any]:
     """The campaign's survey document, found by shape rather than by name.
 
     By shape for the same reason the sibling module does it: a campaign that
-    renamed its survey would otherwise turn both checks below into a complaint
+    renamed its survey would otherwise turn a check that reads it into a complaint
     about a missing file, which reads as "the instrument is fine, the test is
     broken" — the wrong way round.
     """
@@ -156,9 +123,9 @@ def _builds(directory: Path) -> dict[str, Any]:
 def test_the_declaration_covers_every_setting_that_decides_residency() -> None:
     """Both lists agree, so neither can grow alone.
 
-    The failure this refuses is the cheap one: someone adds a fourth setting
-    that decides residency, sets it on the rigs, and the declaration keeps
-    describing three.
+    The failure this refuses is the cheap one: someone adds a setting that
+    decides residency, sets it on the rigs, and the declaration keeps describing
+    the old list.
     """
     declared = set(declaration()["residency"]) - {"_doc", "_removed_2026_09_06"}
     assert declared == set(RESIDENCY_SETTINGS), (
@@ -171,7 +138,7 @@ def test_every_declared_setting_states_a_value_and_why_it_is_that_value() -> Non
     """A value with no reason is a number nobody chose — K10's defect.
 
     K10 is the whole argument for this check: a constant that entered the tree
-    without saying whose it was survived four months and two rigs.
+    without saying whose it was.
     """
     unexplained = _unexplained(declaration()["residency"], RESIDENCY_SETTINGS)
     assert not unexplained, (
@@ -185,8 +152,8 @@ def _unexplained(residency: dict[str, Any], names: tuple[str, ...]) -> list[str]
 
     Lifted out of the check above so the canary can exercise the same predicate
     on a declaration it builds. With :data:`RESIDENCY_SETTINGS` empty the check
-    has nothing to iterate, and a check that cannot be shown to reject is the
-    thing  refuses — so the predicate is what is tested, not the loop.
+    has nothing to iterate, and a check that cannot be shown to reject proves
+    nothing — so the predicate is what is tested, not the loop.
     """
     return sorted(
         name
@@ -197,7 +164,7 @@ def _unexplained(residency: dict[str, Any], names: tuple[str, ...]) -> list[str]
 
 
 def test_the_declaration_names_what_it_does_not_declare() -> None:
-    """lens 3 — silence reads as completeness unless it is named."""
+    """Silence reads as completeness unless it is named."""
     omissions = {
         k: v for k, v in declaration()["not_declared_here"].items() if k != "_doc"
     }
@@ -210,11 +177,10 @@ def test_the_declaration_names_what_it_does_not_declare() -> None:
 
 
 def test_canary_a_declaration_missing_a_reason_is_refused(tmp_path: Path) -> None:
-    """The check above can be shown to reject — the price.
+    """The check above can be shown to reject.
 
     Against a setting this canary invents rather than one the declaration
-    holds, because it holds none: the daemon-wide settings that were here went
-    with their engine on 2026-09-06. Exercising the predicate keeps the canary
+    holds, because it holds none. Exercising the predicate keeps the canary
     true to what the check does, and keeps it working on the day a setting
     comes back.
     """
@@ -240,15 +206,9 @@ def test_canary_a_declaration_missing_a_reason_is_refused(tmp_path: Path) -> Non
 # --------------------------------------------------------------------------
 
 
-# Two checks stood here, both `xfail(strict=True)` and both waiting on a
-# campaign that ran after 2026-08-22: that every surveyed host held the
-# DECLARED VALUE of each residency setting rather than merely naming it (K9's
-# other half), and that both rigs ran one declared engine build (K6). They are
-# gone with the engine they were about, on 2026-09-06
-# (`archive/forensic-ollama/`). Keeping them would have been a strict xfail
-# waiting forever: the newest survey is 2026-08-19, no later campaign will run
-# on that engine, and this project now declares no daemon-wide setting for a
-# host to hold. The questions themselves are not retired — the moment a
-# residency setting returns, `RESIDENCY_SETTINGS` above is what re-arms the
-# completeness half, and the value half would be written against whatever
-# surveys the engine that carries it.
+# Not held here: that every surveyed host holds the DECLARED VALUE of each
+# residency setting (K9's other half), and that both rigs run one declared
+# engine build (K6). This project declares no daemon-wide setting for a host to
+# hold. When a residency setting returns, `RESIDENCY_SETTINGS` above re-arms the
+# completeness half, and the value half is written against whatever surveys the
+# engine that carries it.

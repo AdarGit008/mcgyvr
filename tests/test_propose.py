@@ -408,7 +408,6 @@ def test_a_ladder_spanning_machines_says_it_may_be_inverted(table) -> None:  # t
     assert len(hosts) > 1, "this fixture is only interesting if it spans rigs"
     notes = " ".join(proposal.notes)
     assert "spans 2 machines" in notes
-    assert "#162" in notes
 
 
 def test_one_machine_gets_no_inversion_warning(table) -> None:  # type: ignore[no-untyped-def]

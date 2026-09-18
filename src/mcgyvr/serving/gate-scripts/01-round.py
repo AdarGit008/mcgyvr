@@ -164,7 +164,7 @@ def main() -> int:
     if serve:
         refuse_unless_the_fleet_lock_names(serve, which)
 
-    # tools/ is not a package, so product.py is reached by path. Loaded here and
+    # tools/ has no __init__.py, so product.py is reached by path. Loaded here and
     # not at module scope: a gate that failed to import would refuse with a
     # traceback instead of a rule.
     path = root() / "tools" / "bench" / "product.py"

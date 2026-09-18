@@ -1,14 +1,10 @@
 """A4 — ``fold`` must not silently delete attempt rows that share an id.
 
-:func:`mcgyvr.telemetry.fold` keyed attempts on ``attempt_id`` alone and let a
-repeat supersede: the second row replaced the first in the dict, and the first
-vanished without a trace. A row is a measurement; throwing one away because
-another happened to carry the same key turns a collision into missing data, and
-it does so silently — a report built on the fold cannot tell a collision
-happened.
-
-The fix keeps every attempt row, and binds a correction to the latest row that
-carries the id it names — the one a corrector most plausibly just corrected.
+A row is a measurement; throwing one away because another carries the same
+``attempt_id`` turns a collision into missing data, silently.
+:func:`mcgyvr.telemetry.fold` keeps every attempt row, and binds a correction to the
+latest row that carries the id it names — the one a corrector most plausibly just
+corrected.
 """
 
 from __future__ import annotations

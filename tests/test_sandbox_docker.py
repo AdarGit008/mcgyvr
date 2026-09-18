@@ -4,8 +4,8 @@ The container path cannot run in CI — there is no daemon — so what is proven
 here is everything up to the daemon: the argv that would be run, the
 platform-specific host-loopback handling, the lifecycle's teardown, and the
 security invariant that no credential-shaped variable can enter a container.
-That last one is asserted, not reviewed, because ``SECURITY.md`` makes it
-red-failing.
+That last one is asserted, not reviewed, because ``SECURITY.md`` names it as
+load-bearing.
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ class RecordingRunner:
         return [c[0] for c in self.calls]
 
 
-# --- host-loopback translation (#31) -------------------------------------
+# --- host-loopback translation -------------------------------------------
 
 
 def test_localhost_endpoint_is_rewritten_to_the_host_alias() -> None:
@@ -123,7 +123,7 @@ def test_exec_args_target_the_workspace_and_container() -> None:
     assert args[-3:] == ["c1", "pytest", "-q"]
 
 
-# --- the credential invariant (#31, SECURITY.md) -------------------------
+# --- the credential invariant (SECURITY.md) ------------------------------
 
 
 def test_container_ambient_env_carries_endpoints_and_no_credential(

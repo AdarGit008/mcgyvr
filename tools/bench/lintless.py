@@ -2,9 +2,8 @@
 """Re-score the norule control with the language rung dropped — correctness only.
 
 **The question this settles.** Check 2's ablation hurt the TypeScript arm more
-than the Python arm, and the difference is real (24 problems hurt more on ts
-against 10 on py, exact two-sided p = 0.024). Two explanations predict that same
-asymmetry:
+than the Python arm (``control.py`` prints the per-arm counts). Two explanations
+predict that same asymmetry:
 
 * **a language claim** — the rule declares output *shape*, and TypeScript needs
   more shape declared (imports, exports, type syntax), so removing it costs more
@@ -68,12 +67,9 @@ def _by_path(name: str, path: pathlib.Path) -> types.ModuleType:
 bench_score = _by_path("bench_score_lintless", ROOT / "tools" / "bench" / "score.py")
 breadth = _by_path("breadth_lintless", ROOT / "tools" / "breadth" / "measure.py")
 
-# The pre-registered pair, imported rather than restated. This file held its own
-# copy of the two run names — the same strings check 2's own tool declares — so
-# repointing the control and forgetting the re-scorer would have re-scored one
-# model's candidates under another's heading, silently. lens 3: one
-# definition is the source, or both are declared. Defaults, not constants:
-# #231 check 5 re-runs the battery at a second tier.
+# The pre-registered pair, imported rather than restated: a second copy of the
+# run names would let the control be repointed while this re-scorer kept
+# re-scoring the old runs under the new heading. Defaults, not constants.
 control = _by_path("bench_control_lintless", ROOT / "tools" / "bench" / "control.py")
 ARMS = ("bench-py", "bench-ts")
 

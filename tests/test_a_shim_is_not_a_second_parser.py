@@ -1,14 +1,13 @@
 """``tests/sweeprows.py`` is a shim over ``tools/runs/rows.py``, not a second parser.
 
-The parser moved: the door (``python -m mcgyvr.serving.run``) reads back every
-artifact a
-step wrote with ``rows.read()`` before it exits 0 (BRIEF.md gate 8), and a
-parser that lived under ``tests/`` was one that ran only in CI, post-hoc, over
-one hard-coded directory. The twelve behaviour tests keep importing
-``tests.sweeprows`` — so it stays, as a re-export.
+The parser lives with the door: ``python -m mcgyvr.serving.run`` reads back
+every artifact a step wrote with ``rows.read()`` before it exits 0 (gate 8),
+and a parser under ``tests/`` would run only in CI, post-hoc, over one
+hard-coded directory. The behaviour tests import ``tests.sweeprows`` — so it
+stays, as a re-export.
 
 What must not happen is the obvious drift: two files, both called the parser,
-one read by the door and one read by the tests, agreeing on 2026-09-02 and on
+one read by the door and one read by the tests, agreeing on one day and on
 nothing after. So the shim is held to the module it fronts — every public name,
 the same object — rather than trusted to be a copy.
 """

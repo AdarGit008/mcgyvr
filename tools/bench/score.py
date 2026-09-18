@@ -1,34 +1,30 @@
 """The bench scores the way production does, or it is not measuring the product.
 
-Issue: `#113 <https://github.com/AdarGit008/mcgyvr/issues/113>`_, the scope
-bullet that begins *"the outcome of a run is the gate's own verdict, never a
-bespoke scorer."*
+The outcome of a run is the gate's own verdict, never a bespoke scorer.
 
-**What was wrong.** Every measurement this project has taken was scored by
-running the contract's acceptance command in a temp directory
-(``tools/bundle/measure.py:397``). :class:`~mcgyvr.gate.runner.Gate` — the thing
-production actually ships — runs that command *last*, behind scope, secrets,
-structured-data and per-adapter language rungs. So a worker output that
-satisfies ``accept.py`` while writing outside ``scope.allow`` scored as a
-**pass** on the rig and a **fail** in the product. The bench was measuring
-something the product does not do.
+**Why.** ``run_acceptance`` in ``tools/bundle/measure.py`` scores by running the
+contract's acceptance command in a temp directory.
+:class:`~mcgyvr.gate.runner.Gate` — the thing production actually ships — runs
+that command *last*, behind scope, secrets, structured-data and per-adapter
+language rungs. So a worker output that satisfies ``accept.py`` while writing
+outside ``scope.allow`` is a **pass** to that scorer and a **fail** in the
+product.
 
 **What this changes, and what it deliberately does not.** The tree the
-acceptance command runs in is built exactly as ``run_acceptance`` built it — the
+acceptance command runs in is built exactly as ``run_acceptance`` builds it — the
 target file carrying the condition's own ``target_content``, the accept file
 beside it, nothing else. That is on purpose: holding the tree fixed means any
 movement in a pass rate is attributable to the added rungs rather than to a
 different working directory. What changes is only that four cheaper rungs now
 get to reject first, and that the row records *which* one did.
 
-**The semantic rung is off, and the run manifest says so.**  stages the
-resolver rather than installing it, and #113 asks that comparability be stated
-rather than assumed. ``semantic=None`` is a declared property of a bench run,
-not an oversight — see ``gate_rungs`` in ``run.json``.
+**The semantic rung is off, and the run manifest says so.** ``semantic=None``
+is a declared property of a bench run, not an oversight — see ``gate_rungs`` in
+``run.json``.
 
 **One sandbox per task, reset per draw.** The workspace, its git base commit and
-the reset are the sandbox's (E4, #26-#31), so the cost is paid 257 times per arm
-rather than once per draw. :meth:`~mcgyvr.sandbox.base.Sandbox.reset` is what
+the reset are the sandbox's, so the cost is paid once per task rather than once
+per draw. :meth:`~mcgyvr.sandbox.base.Sandbox.reset` is what
 makes a failed attempt leave no trace in the next.
 """
 
@@ -52,7 +48,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 # The rungs a bench run exercises, recorded in run.json so a rate is never
 # quoted against an unstated bar. "semantic" is absent by decision, not by
-# accident .
+# accident.
 GATE_RUNGS = ("scope", "secrets", "structured", "adapters", "acceptance")
 
 # The one acceptance ceiling every live instrument applies (#262).
@@ -66,13 +62,12 @@ GATE_RUNGS = ("scope", "secrets", "structured", "adapters", "acceptance")
 # `acceptance_s` and from the 514 admitted references run against their own
 # solutions (records/measurements/acceptance-ceiling-2026-08-17).
 #
-#   slowest of the 514 reference acceptance runs          0.305 s
 #   slowest acceptance run that ever PASSED (n = 8,230)  28.718 s
 #   second slowest pass                                   2.500 s
 #   rows in [30 s, 120 s), of the 1,539 measured at 120 s      0
 #
-# The ceiling is not a bound on what a correct solution costs — 393x headroom
-# over the slowest reference says nothing useful. It is a bound on a **slow but
+# The ceiling is not a bound on what a correct solution costs — the references
+# run in a fraction of a second. It is a bound on a **slow but
 # correct candidate**, and that population has one member at 28.718 s and its
 # next at 2.500 s. A 30 s ceiling left that candidate 4.5% of margin, which is a
 # published pass one machine-load blip away from being a timeout; 120 s leaves
@@ -105,10 +100,7 @@ IGNORED = "__pycache__/\n*.pyc\nnode_modules\n"
 
 
 ESLINT_CONFIG = REPO / "eslint.config.mjs"
-#: The format half of the JS/TS bar. Before #262 there was no such file: prettier
-#: ran on its built-in defaults here and in the gate, so one arm applied a
-#: declared style and the other applied whatever its release shipped with, and
-#: no manifest recorded the difference. .
+#: The format half of the JS/TS bar.
 PRETTIER_CONFIG = REPO / "prettier.config.mjs"
 NODE_MODULES = REPO / "node_modules"
 
@@ -122,18 +114,16 @@ def stage_js_toolchain(into: Path) -> None:
 
     * ``eslint.config.mjs``. eslint 9 requires a flat config and finds none in a
       one-file workspace; without it the run aborts, writes no JSON, and the
-      adapter scores that as "inconclusive", which is a pass.
+      adapter reports the rung "inconclusive".
     * ``node_modules``. The config imports ``typescript-eslint`` as an ES
       module, and Node resolves that by walking up from the config's own
       directory — a temp workspace has nothing to find. The symlink points at
       the repository's installed tree, so the parser version is the one
       ``package-lock.json`` pins rather than whatever happens to be global.
     * ``prettier.config.mjs``. The format rung is not inert without it —
-      prettier formats fine on its defaults, which is exactly why this was
-      missed for so long. What it was missing is a *declaration*: an
-      undeclared bar moves under a dependency bump with nothing recording it,
-      and the ruff-with-no-config incident this file's Python half exists to
-      prevent is the same shape on the other arm.
+      prettier formats fine on its defaults. What the file supplies is a
+      *declaration*: an undeclared bar moves under a dependency bump with
+      nothing recording it.
 
     ``node_modules`` is in the workspace ``.gitignore``, so it never enters the
     changeset and ``_worktree_tree`` does not see it as a mutation.
@@ -165,29 +155,18 @@ def link_node_modules(into: Path) -> None:
 def lint_config() -> str:
     """The product's own lint floor, as a workspace ``pyproject.toml``.
 
-    **Why this file has to exist.** The adapter runs ``ruff check`` with the
-    workspace as its working directory. A workspace holding only a solution and
-    a checker has no ``pyproject.toml``, so ruff finds no configuration and
-    falls back to a rule set far wider than anything this project selects —
-    measured on the corpus, that is `TRY004` alone rejecting 75 of 257
-    checked-in reference solutions for raising ``ValueError`` where the contract
-    asked only for "an error". The bench would have been applying a **stricter**
-    bar than the product, which is the exact inverse of what #113 asks for.
+    **Why this file exists.** The staged ``pyproject.toml`` states the
+    product's floor (``DEFAULT_RUFF_SELECT``, ``DEFAULT_RUFF_LINE_LENGTH``)
+    explicitly, so the bar is a file in the scored workspace and enters
+    ``identity.bar_material``; the adapter would apply the same floor through
+    :func:`~mcgyvr.gate.adapters.python.ruff_config_args` if it were absent.
 
     **Why the product's floor and not this repository's ``pyproject.toml``.**
-    That test — *stricter than the product is the wrong bar* — is the only one
-    this function has ever had, and it does not point at this repository. When
-    this function was written the two selections were the same list, and
-    :data:`~mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT` credits this
-    function as where that list was first measured. They diverged on
-    2026-09-08, when the product narrowed pycodestyle from ``E`` to
-    ``E4``/``E7``/``E9`` so that E501 — the one selected rule ``ruff format``
-    structurally cannot satisfy, and 104 of 220 lint findings in the live
-    journal — stopped rejecting a docstring no formatter can wrap
-    (``src/mcgyvr/gate/adapters/python.py:56``). Deriving the bench's bar from
-    ``pyproject.toml`` kept selecting ``E``, so a reply the product would ship
-    scored here as a lint rejection: the defect this docstring was written
-    against, back after three days.
+    Stricter than the product is the wrong bar. This repository's selection
+    carries rules the product's floor does not (the ``E4``/``E7``/``E9`` note in
+    ``src/mcgyvr/gate/adapters/python.py``), so deriving the bench's bar from
+    ``pyproject.toml`` would score a reply the product would ship as a lint
+    rejection.
 
     A bench workspace is precisely the case ``DEFAULT_RUFF_SELECT`` is *for* — a
     repository that declares no ruff configuration of its own — so mirroring the
@@ -197,11 +176,11 @@ def lint_config() -> str:
     is about, and would silently move every published pass rate the next time a
     rule is added here for our own prose.
 
-    Imported rather than restated: two copies of a rule list is how these two
-    drifted apart in the first place. What is deliberately *not* carried over
-    from the product's :func:`~mcgyvr.gate.adapters.python.ruff_config_args` is
-    ``target-version``: it states none, so ruff's default applies there, and
-    stating one here would be a bar the product does not apply.
+    Imported rather than restated: two copies of a rule list drift. What is
+    deliberately *not* carried over from the product's
+    :func:`~mcgyvr.gate.adapters.python.ruff_config_args` is ``target-version``:
+    it states none, so ruff's default applies there, and stating one here would
+    be a bar the product does not apply.
     """
     select = ", ".join(f'"{family}"' for family in DEFAULT_RUFF_SELECT)
     return (
@@ -232,7 +211,7 @@ class Verdict:
     #: carrying any of these was scored by fewer rungs than the arm declares,
     #: so a rate computed over it is not the rate it names. Kept separate from
     #: ``environment_issues`` because an absent tool leaves the same hole
-    #: visibly, and only this one arrives looking like a pass .
+    #: visibly, and only this one would otherwise arrive looking like a pass.
     inconclusive: tuple[str, ...] = ()
 
     @property
@@ -244,11 +223,8 @@ class Verdict:
         at lint the acceptance command **never executed** and nothing on the row
         can say whether it would have passed.
 
-        This field therefore does *not* recover the acceptance-only rate every
-        figure in this repository was measured at. That rate is not derivable
-        from a gate run at all, which is precisely why #231's checks have to be
-        re-run under this scorer rather than recomputed from the rows they
-        already produced.
+        This field therefore does *not* recover an acceptance-only rate. That
+        rate is not derivable from a gate run at all.
         """
         return self.rejected_by is not None and self.rejected_by != "acceptance"
 
@@ -280,20 +256,16 @@ def stage_config(into: Path) -> Path:
     """Everything in a scored workspace that is *the bar* rather than the task.
 
     Split out of :func:`stage_dir` so the workspace the bar digest is resolved
-    against cannot drift from the workspace a candidate is scored in. It had
-    already started to: ``tools/breadth/measure.py:stage_bar`` carried its own
-    copy of these two lines, so ``prettier.config.mjs`` would have entered the
-    scored workspace and not the digested one, and ``bar_sha256`` would have
-    described a bar no candidate was judged by. That is #262's own defect one
-    level in — the bar recorded somewhere other than where it is applied — so
-    there is one function and both callers use it.
+    against cannot drift from the workspace a candidate is scored in:
+    :func:`stage_dir` and ``stage_bar`` in ``tools/breadth/measure.py`` both
+    call it.
 
     Deliberately **not** here: ``tsconfig.json`` and ``[tool.mypy]``. Neither
-    arm is type-checked, both for the same reason and by the same rule
-    (: the type checker is the target repository's, and a repository
-    declaring none is correctly not type-checked). Adding either would be a new
-    rung rather than a recorded one. What #262 asks for is that a reader can
-    see it, which is ``identity.bar_material``'s ``type_check`` entry.
+    arm is type-checked, both for the same reason and by the same rule: the type
+    checker is the target repository's, and a repository declaring none is
+    correctly not type-checked. Adding either would be a new rung rather than a
+    recorded one. A reader sees it in ``identity.bar_material``'s ``type_check``
+    entry.
     """
     (into / "pyproject.toml").write_text(lint_config(), encoding="utf-8")
     stage_js_toolchain(into)

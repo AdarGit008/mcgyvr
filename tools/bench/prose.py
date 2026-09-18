@@ -4,10 +4,11 @@ Issue: `#266 <https://github.com/AdarGit008/mcgyvr/issues/266>`_, the material
 survey; `#267 <https://github.com/AdarGit008/mcgyvr/issues/267>`_, the successor
 manipulation.
 
-``render_user_message`` emits an ``INTERFACE`` section from every contract
-(``src/mcgyvr/worker/prompt.py:151``), so an ablation that removes it is only a
-manipulation to the extent the prose does not say the same thing twice. This
-module measures the redundancy over the corpus, before any rig time is spent.
+``render_user_message`` (``src/mcgyvr/worker/prompt.py``) emits an ``INTERFACE``
+section from every contract that states one, so an ablation that removes it is
+only a manipulation to the extent the prose does not say the same thing twice.
+This module measures the redundancy over the corpus, before any rig time is
+spent.
 
 **It reads contracts, never runs.** It states no pass rate and describes no
 measurement, so it carries no mode declaration — the same footing as

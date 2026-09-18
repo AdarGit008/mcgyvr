@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.runs import workload
 
-# sweep-2026-08-31 vLLM driver.  Supersedes vllmsweep28.py.
+# vLLM sweep driver.
 # args: tag model_ref cells...   cell = util:maxlen:seqs:kvdtype:levels[:extra]
 # model_ref may be a HF repo id (HF cache) or /models/... (mounts ~/models).
 #
@@ -21,24 +21,20 @@ from tools.runs import workload
 #     0.90:2048:8:auto:1,2,4,8:--cpu-offload-gb+6+--cpu-offload-params+experts
 #
 # It exists because a model larger than the card is a real workload on these
-# rigs and the cell had no way to say so. Measured 2026-08-31 on srv1: with
-# `--cpu-offload-params experts` the engine printed `Total CPU offloaded
-# parameters: 6.01` and host Shmem rose to 8.8 GB -- but ONLY under the V1
-# model runner. The V2 runner accepts the flag, hashes it into the compile
-# cache key, and ignores it, then dies allocating expert weights on a card
-# that cannot hold them. So any cell whose `extra` asks for offload also gets
-# VLLM_USE_V2_MODEL_RUNNER=0, here, rather than in every caller.
+# rigs. Only one of vLLM's two model runners honours a CPU offload
+# (-> okf/config/vllm.md, `--cpu-offload-gb`), so any cell whose `extra` asks
+# for offload also gets VLLM_USE_V2_MODEL_RUNNER=0, here, rather than in every
+# caller.
 #
 # ---------------------------------------------------------------------------
 # The workload -- deciles, SYSTEM, mkprompt -- is `tools/runs/workload.py`,
-# imported and never copied. Its docstring carries the derivation from
-# measurements/**/results.jsonl and the shared-prefix argument.
+# imported and never copied. Its docstring carries the shared-prefix argument.
 # ---------------------------------------------------------------------------
 
 # THE DOOR'S TWO REFUSALS, before argv is read and before docker is touched.
-# A bare run of this file printed byte-compatible rows with no stamps — no rig
-# state, no round, no workload digest — and nothing downstream could tell them
-# from a run that passed every gate (BRIEF "The problem being solved"). So:
+# A bare run of this file would print byte-compatible rows with no stamps — no
+# rig state, no round, no workload digest — and nothing downstream could tell
+# them from a run that passed every gate. So:
 # (1) RUN_ID is minted by the door, python -m mcgyvr.serving.run (gate 5), and
 # only there; without it this process was not started by the door and exits 2
 # having done nothing.
@@ -121,11 +117,9 @@ def rig(c: str) -> str:
 
 def post(out: list[Cell | None], idx: int) -> None:
     prompt, want = workload.mkprompt()
-    # CHAT, not raw completion. The raw endpoint applies no chat template, and
-    # on 2026-09-01 that cost 20 of 60 measured rows: Qwen3.6-35B emitted a stop
-    # token on the first step of an untemplated prompt, so every one of its
-    # cells reported otok=1 with `failed=0/n` beside it. The split is by prefix,
-    # not by changing mkprompt -- SYSTEM stays the shared cacheable head and the
+    # CHAT, not raw completion, so the model's chat template applies
+    # (-> okf/must-read/reading-results.md). The split is by prefix, not by
+    # changing mkprompt -- SYSTEM stays the shared cacheable head and the
     # workload digest is unmoved.
     b = json.dumps(
         {
@@ -237,11 +231,9 @@ for cell in CELLS:
         )
         sh(f"docker rm -f {NAME}")
         continue
-    # **Asserted, not assumed.** `nvidia-smi memory.used` cannot see an
-    # offload -- gpu_memory_utilization backfills the freed weight space with
-    # KV cache, so the card reads the same either way. The engine's own line is
-    # the only honest signal, and a cell that asked for offload and did not get
-    # it is measuring a different experiment than its label claims.
+    # **Asserted, not assumed.** Card memory used cannot see an offload
+    # (-> okf/must-read/reading-results.md); the engine's own line is the only
+    # signal, and a cell that asked for offload and did not get it is refused.
     offl = ""
     if "--cpu-offload" in extra:
         offl = sh(
@@ -256,12 +248,9 @@ for cell in CELLS:
             )
             sh(f"docker rm -f {NAME}")
             continue
-    # WIDTH READBACK. `--max-num-seqs` is a scheduler cap, not an allocation:
-    # under `--gpu-memory-utilization` the KV pool is sized from whatever VRAM
-    # is left after weights, so a cell can declare 128 and hold 12. Requests
-    # past that queue, and a queue produces a flat aggregate with climbing
-    # latency -- indistinguishable from saturation, which is the exact false
-    # result 62f0ab65 closed on the harness path. vLLM has no /props, but it
+    # WIDTH READBACK. `--max-num-seqs` is a cap the KV pool need not honour
+    # (-> okf/config/vllm.md, `--gpu-memory-utilization`): requests past the
+    # pool queue, and a queue reads like saturation. vLLM has no /props, but it
     # states the pool it allocated, so read that instead of trusting the flag.
     kvlog = sh(
         f"docker logs {NAME} 2>&1 | grep -oE "

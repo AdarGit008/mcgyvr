@@ -1,11 +1,11 @@
-"""The repo asserted in code that moving experts between CPU and GPU cannot change
-a token. On 2026-09-02 it was tested, and it is false: 9 of 257 verdicts moved
-between ``ncmoe=0`` and ``ncmoe=99`` on one build, against a 1.47pp own-null
-bound. The fiat is retired ; the tests below hold the retirement and
-keep the measurement's xfail.
+"""Moving experts between CPU and GPU can change a token.
 
-Until 2026-09-03 ``tools/bench/serving/fingerprint.py`` put ``n_gpu_layers``,
-``n_cpu_moe``, ``threads`` and ``mmap`` in the operational key set, with the
+Measured: 9 of 257 verdicts moved between ``ncmoe=0`` and ``ncmoe=99`` on one
+build, against a 1.47pp own-null bound. The fiat that said otherwise is retired;
+the tests below hold the retirement and keep the measurement's xfail.
+
+The retired fiat put ``n_gpu_layers``, ``n_cpu_moe``, ``threads`` and ``mmap``
+in ``tools/bench/serving/fingerprint.py``'s operational key set, with the
 reasoning:
 
     Placement and parallelism: WHERE a tensor is computed, not WHAT is emitted.
@@ -14,9 +14,9 @@ reasoning:
     at two offload settings "incomparable on output", which is exactly the
     comparison this campaign exists to make.
 
-That fiat is load-bearing. The 2026-09-01 finding that srv2's ``--n-cpu-moe``
-floor is 6 rather than 24-99, worth ~2.4x, is a claim that a placement change
-bought speed and cost nothing — and "cost nothing" is the untested half.
+A fiat like that is load-bearing: a finding that a lower ``--n-cpu-moe`` floor
+buys speed is a claim that a placement change bought speed and cost nothing —
+and "cost nothing" is the untested half.
 
 The same tree records backend numerics alone moving a greedy delta by 2.6pp, and
 records an ollama-bundled server silently running on CPU with ``-ngl`` ignored.
@@ -53,17 +53,17 @@ def _fingerprint() -> Any:
 
 
 def test_the_fiat_is_retired_and_placement_is_semantic() -> None:
-    """Measured 2026-09-02: 9 of 257 cells changed verdict between ``ncmoe=0``
+    """Measured: 9 of 257 cells changed verdict between ``ncmoe=0``
     and ``ncmoe=99`` on one build, against a 1.47pp own-null bound. So
     ``n_cpu_moe`` changes what is emitted, and the declaration that placement
     cannot is gone from the code — for all four keys it covered, because the
     argument was one argument and it is false for the one value measured. A
     placement key is semantic until a placement null on that build shows it
-    neutral ."""
+    neutral."""
     source = FINGERPRINT.read_text(encoding="utf-8")
     assert "None of them alters the token" not in source, (
         "fingerprint.py still declares placement output-neutral; the "
-        "2026-09-02 measurement says otherwise"
+        "placement measurement says otherwise"
     )
     fp = _fingerprint()
     for key in ("n_cpu_moe", "n_gpu_layers", "threads", "mmap"):

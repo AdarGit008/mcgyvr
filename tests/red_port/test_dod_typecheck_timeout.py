@@ -1,15 +1,10 @@
 """R9 — a type-check timeout must not be a verdict on the worker.
 
-:class:`~mcgyvr.gate.typecheck.TypeCheck` mapped a checker timeout to
-:class:`~mcgyvr.gate.adapter.ToolFailedError`, which the gate records as an
-inconclusive rung and therefore as a rejection. The same change is then accepted
-on a quiet machine — where mypy finishes — and rejected on a loaded one, where it
-does not. A verdict that flips with machine load is a verdict on the machine, not
-on the change.
-
-The fix treats a timeout as an environment issue: the rung is skipped and the
-skip is reported, the way a missing checker is, rather than turned into a
-rejection of the worker.
+A checker that times out on a loaded machine and finishes on a quiet one would make
+the verdict a verdict on the machine, not on the change.
+:class:`~mcgyvr.gate.typecheck.TypeCheck` treats a timeout as an environment issue:
+the rung is skipped and the skip is reported, the way a missing checker is, rather
+than turned into a rejection of the worker.
 """
 
 from __future__ import annotations

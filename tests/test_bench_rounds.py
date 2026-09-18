@@ -4,9 +4,9 @@ Checks 3 and 6 of the commissioning gate. Both exist because a number on this
 bench is quotable only if a reader can tell what produced it:
 
 * **check 3** — every arm in a round runs against one product revision, and an
-  adopted change lands at the round boundary rather than mid-flight .
-  The bench pinned its tasks and its system prompt; the user-message render, the
-  reply parser and the whole of ``Gate.run`` were unpinned, so two arms could be
+  adopted change lands at the round boundary rather than mid-flight.
+  The pin covers the user-message render, the reply parser and the whole of
+  ``Gate.run`` as well as the tasks and the system prompt, so two arms cannot be
   scored by two different bars and laid in one table.
 * **check 6** — a rate says whether it describes one tier or the whole ladder.
   With escalation live a floor failure is rescued by a higher rung and the floor
@@ -125,17 +125,15 @@ def test_the_task_set_is_not_in_the_surface(product: Any) -> None:
 
 
 def test_the_bar_is_in_the_surface(product: Any) -> None:
-    """#291: the pin covered the scorer and not the scorer's configuration.
+    """The pin covers the scorer's configuration as well as the scorer.
 
-    Both lockfiles or neither. The arms are paired ts/py ,
+    Both lockfiles or neither. The arms are paired ts/py,
     so pinning ruff while eslint floats puts a language effect inside every
     contrast rather than a visible refusal.
 
-    Both *halves* or neither, for the same reason. `prettier.config.mjs` joined
-    in the change that created it (#262): before that the JS/TS format
-    bar was prettier's built-in defaults and only the version could be pinned,
-    so a declared config the round did not hold would restate this test's own
-    defect — the pin covering the scorer and not its configuration.
+    Both *halves* or neither, for the same reason: a declared format config the
+    round did not hold would be the pin covering the scorer and not its
+    configuration.
     """
     for entry in (
         "pyproject.toml",
@@ -150,7 +148,7 @@ def test_the_bar_is_in_the_surface(product: Any) -> None:
 def test_changing_the_lint_config_moves_the_digest(
     product: Any, tmp_path: Path
 ) -> None:
-    """A rule flipped to `warn` narrows the bar; until #291 no round refused."""
+    """A rule flipped to `warn` narrows the bar, so it moves the digest."""
     tree = _tree(tmp_path)
     before = product.digest(tree)
     (tree / "eslint.config.mjs").write_text("export default [{rules: {}}];\n")
@@ -166,8 +164,7 @@ def test_changing_the_format_config_moves_the_digest(
     """`printWidth` decides a verdict as surely as an eslint rule does.
 
     The format rung rejects a worker-added line prettier would reflow, so a
-    column count is a bar. Until #262 there was no file to change and the round
-    could not have noticed.
+    column count is a bar.
     """
     tree = _tree(tmp_path)
     before = product.digest(tree)
@@ -260,11 +257,10 @@ def test_the_refusal_names_which_files_moved(product: Any, tmp_path: Path) -> No
 
 
 def test_the_shipped_doctrine_carries_the_batching_clause(product: Any) -> None:
-    """The rule lived only in the body of a closed issue until #291.
+    """The batching rule is in the repository, in the shipped `rounds.json`.
 
-    Asserted against the shipped `rounds.json` rather than a fixture: the defect
-    was that the rule was *not in the repository*, and a fixture would pass with
-    the file still empty.
+    Asserted against the shipped file rather than a fixture: a fixture would
+    pass with the file empty.
     """
     clauses = product.load_doctrine().get("clauses", [])
     assert clauses, "rounds.json declares no doctrine"
@@ -277,7 +273,7 @@ def test_the_shipped_doctrine_carries_the_batching_clause(product: Any) -> None:
 def test_a_driver_who_reads_only_product_py_learns_the_batching_rule(
     product: Any,
 ) -> None:
-    """#291 acceptance 1. The docstring is where a driver actually looks."""
+    """The docstring is where a driver actually looks."""
     text = product.__doc__ or ""
     assert "every pending identity change lands in the same boundary" in text.lower()
 

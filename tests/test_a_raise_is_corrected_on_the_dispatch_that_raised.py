@@ -1,18 +1,16 @@
 """A raised attempt is corrected on the dispatch that raised, or on nothing.
 
-``escalate`` synthesises the raised attempt's history entry itself, and it
-used to synthesise it with the defaults ``draw=0, draws=1`` — the shape of an
-attempt that drew once. ``_report_climb`` believed them, so under
-``breadth.draws > 1`` it corrected blind:
+``escalate`` synthesises the raised attempt's history entry itself. Given the
+defaults ``draw=0, draws=1`` — the shape of an attempt that drew once —
+``_report_climb`` would correct blind under ``breadth.draws > 1``:
 
-* draw 0 was drawn and gated and draw 1's dispatch died, and the ``error``
-  landed on row ``#0`` — the dispatch that answered — while ``#1``, the one
-  that raised, stayed uncorrected and the result named ``#0`` as the attempt;
+* draw 0 drawn and gated and draw 1's dispatch dead: the ``error`` would land on
+  row ``#0`` — the dispatch that answered — while ``#1``, the one that raised,
+  stayed uncorrected and the result named ``#0`` as the attempt;
 * a raise before the first dispatch — a sandbox reset, ``pool.bind``,
-  ``build_prompt`` — writes no row at all, and a correction was appended for
-  one anyway. :func:`~mcgyvr.telemetry.fold` returns it as an orphan and the
-  live view drops it, which is a correction that exists nowhere a reader
-  looks.
+  ``build_prompt`` — writes no row at all, and a correction appended for one
+  anyway is returned by :func:`~mcgyvr.telemetry.fold` as an orphan and dropped
+  by the live view: a correction that exists nowhere a reader looks.
 
 Both are driven through ``mcgyvr run`` with ``drive.dispatch`` scripted,
 because what is asserted is the row a real run finally leaves behind.

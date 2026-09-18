@@ -1,19 +1,10 @@
 """Closing a finding without fixing it is a dated, strict xfail.
 
- (#323) bound prose to predicate in two places and this file was the
-predicate for both. **Rule 3 is gone with its corpus.** It walked
-``docs/decisions/0*.md`` and required every ``tests/<file>::<test>`` a record
-named to resolve to a real function. The decision records were archived on
-2026-08-25 (``archive/docs/archive/decisions/``) and no longer govern anything, so a
-check that enforced their prose would be the archive governing by the back
-door. The resolver, its population guard and its canary went with it.
-
-Rule 2 stands, because it is a property of this suite rather than of a
-record: every ``xfail`` under ``tests/`` is
-``pytest.mark.xfail(strict=True, reason="YYYY-MM-DD: ...")``. ``strict`` keeps
-the check live -- an accidental fix turns XPASS and fails the suite until the
-marker comes off -- and the dated reason is the record of why. The canaries
-below are the proof it can refuse.
+The rule is a property of this suite rather than of a record: every ``xfail`` under
+``tests/`` is ``pytest.mark.xfail(strict=True, reason="YYYY-MM-DD: ...")``. ``strict``
+keeps the check live -- an accidental fix turns XPASS and fails the suite until the
+marker comes off -- and the dated reason is the record of why. The canaries below are
+the proof it can refuse.
 """
 
 from __future__ import annotations

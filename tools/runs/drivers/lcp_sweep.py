@@ -11,27 +11,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.runs import workload
 
-# sweep-2026-08-31 llama.cpp driver.  Supersedes lcpsweep28.py.
+# llama.cpp sweep driver.
 # args: model_path mount_dir tag cells...   cell = np:ctx_slot:ncpumoe:levels
 # -c is computed as np * ctx_slot, because llama.cpp DIVIDES -c across slots.
 #
 # The workload is `tools/runs/workload.py`, imported and never copied -- same
 # deciles, same SYSTEM text, same seeding as vllm_sweep.py -- so the two engines
-# are compared on one workload. See that module's docstring for the derivation
-# from measurements/**/results.jsonl.
+# are compared on one workload.
 #
-# TWO DELIBERATE CHANGES FROM lcpsweep28.py:
-#  1. cache_prompt: False -> True.  The old driver disabled prompt reuse while
-#     the vLLM driver left automatic prefix caching ON -- the engines were not
-#     measured under the same caching rules. Production wants the shared
-#     scaffold cached, so both sides now cache.
-#  2. ignore_eos is GONE. Output length is the sampled n_predict and the model
-#     may stop earlier, exactly as in production.
+# cache_prompt is True, so both engines cache the shared scaffold (the vLLM
+# driver leaves automatic prefix caching on). ignore_eos is not sent: output
+# length is the sampled budget and the model may stop earlier.
 
 # THE DOOR'S TWO REFUSALS, before argv is read and before docker is touched.
-# A bare run of this file printed byte-compatible rows with no stamps — no rig
-# state, no round, no workload digest — and nothing downstream could tell them
-# from a run that passed every gate (BRIEF "The problem being solved"). So:
+# A bare run of this file would print byte-compatible rows with no stamps — no
+# rig state, no round, no workload digest — and nothing downstream could tell
+# them from a run that passed every gate. So:
 # (1) RUN_ID is minted by the door, python -m mcgyvr.serving.run (gate 5), and
 # only there; without it this process was not started by the door and exits 2
 # having done nothing.
@@ -114,11 +109,9 @@ def rig(c: str) -> str:
 
 def post(out: list[Cell | None], idx: int) -> None:
     prompt, want = workload.mkprompt()
-    # CHAT, not `/completion`. The raw endpoint applies no chat template, and on
-    # 2026-09-01 that cost 20 of 60 measured rows: Qwen3.6-35B emitted a stop
-    # token on the first step of an untemplated prompt, so every one of its
-    # cells reported otok=1 with `failed=0/n` beside it. The split is by prefix,
-    # not by changing mkprompt -- SYSTEM stays the shared cacheable head and the
+    # CHAT, not `/completion`, so the model's chat template applies
+    # (-> okf/must-read/reading-results.md). The split is by prefix, not by
+    # changing mkprompt -- SYSTEM stays the shared cacheable head and the
     # workload digest is unmoved. `cache_prompt` is passed through by
     # llama-server's OAI handler, so both engines still cache the scaffold.
     b = json.dumps(

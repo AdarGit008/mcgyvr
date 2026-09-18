@@ -77,8 +77,8 @@ CHECK = "acceptance"
 #: returns to say it ran and failed, which is the worker's.
 #:
 #: Public because :mod:`mcgyvr.drive` draws the same distinction over the
-#: deterministic floor's programs, and two definitions of "did not run" is the
-#: shape of defect that produced B4: the rule is stated here, where the gate's
+#: deterministic floor's programs, and two definitions of "did not run" is a
+#: defect waiting to happen: the rule is stated here, where the gate's
 #: environment-issue channel is defined, and read there.
 DID_NOT_RUN = frozenset({126, 127})
 
@@ -334,10 +334,9 @@ def _demonstration_preflight(
 
     The expectation is inverted — only a command that *failed* demonstrated
     the defect — but the environment faults are the same faults, so they keep
-    the same reasons as the regression list. A kill is not a verdict
-    (the channel discipline): a demonstration that times out at
-    baseline has not failed, it has been stopped, so it too is refused rather
-    than counted as demonstrating.
+    the same reasons as the regression list. A kill is not a verdict: a
+    demonstration that times out at baseline has not failed, it has been
+    stopped, so it too is refused rather than counted as demonstrating.
     """
     if outcome is _Outcome.FAILED:
         return None
