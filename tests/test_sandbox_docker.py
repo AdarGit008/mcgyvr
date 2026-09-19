@@ -86,6 +86,12 @@ def test_a_remote_endpoint_is_left_untouched() -> None:
     assert translate_endpoint(url) == url
 
 
+def test_a_rewritten_endpoint_carries_no_userinfo_into_the_container() -> None:
+    """The container env is the task's; a password in an endpoint stays out."""
+    url = "http://u:fake-endpoint-pw@localhost:11434/v1"
+    assert translate_endpoint(url) == f"http://{HOST_ALIAS}:11434/v1"
+
+
 def test_linux_maps_the_host_gateway_but_macos_does_not() -> None:
     assert host_gateway_args("Linux") == ["--add-host", f"{HOST_ALIAS}:host-gateway"]
     assert host_gateway_args("Darwin") == []

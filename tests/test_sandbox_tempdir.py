@@ -185,6 +185,21 @@ def test_caller_supplied_credential_is_dropped_but_benign_var_passes(
         assert "m=http://x" in result.stdout
 
 
+def test_a_url_carrying_a_password_is_dropped_whatever_the_variable_is_called(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A credential rides in a value as often as in a name: an index URL, a
+    database URL or a proxy with `user:password@` in it is a key by another
+    name, and the name filter alone lets it through."""
+    monkeypatch.setenv("PIP_INDEX_URL", "https://u:fake-host-pw@pypi.invalid/simple")
+    with TempDirSandbox(git_repo) as sandbox:
+        result = sandbox.run(
+            ["sh", "-c", "echo p=${PIP_INDEX_URL:-none} d=${DATABASE_URL:-none}"],
+            env={"DATABASE_URL": "postgres://u:fake-caller-pw@db.invalid/app"},
+        )
+    assert result.stdout.split() == ["p=none", "d=none"]
+
+
 # --- factory -------------------------------------------------------------
 
 
