@@ -66,7 +66,7 @@ from pathlib import Path
 
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.preflight import PreflightIssue
-from mcgyvr.sandbox.base import CommandResult, Sandbox
+from mcgyvr.sandbox.base import CommandResult, Sandbox, nested_git, refuse_nested_git
 
 # The check name every acceptance finding carries, so a caller can group by it.
 CHECK = "acceptance"
@@ -100,6 +100,7 @@ class _Outcome(Enum):
     DID_NOT_RUN = auto()  # 126/127 — an environment fault, not a rejection
     TIMED_OUT = auto()  # killed at the wall-clock ceiling
     ALTERED_TREE = auto()  # mutated the change-set — the run is invalidated
+    NESTED_GIT = auto()  # left a .git below the root — host git must not enter it
 
 
 @dataclass(frozen=True)
@@ -152,11 +153,15 @@ class Acceptance:
         """
         for command in self.demonstrations:
             outcome, result = self._run_one(command)
+            if outcome is _Outcome.NESTED_GIT:
+                return self._nested_git_issue(command)
             issue = _demonstration_preflight(command, outcome, result)
             if issue is not None:
                 return issue
         for command in self.commands:
             outcome, result = self._run_one(command)
+            if outcome is _Outcome.NESTED_GIT:
+                return self._nested_git_issue(command)
             issue = _as_preflight(command, outcome, result)
             if issue is not None:
                 return issue
@@ -185,6 +190,10 @@ class Acceptance:
             if outcome is _Outcome.DID_NOT_RUN:
                 env_issues.append(_did_not_run_note(command, result))
                 continue
+            if outcome is _Outcome.NESTED_GIT:
+                # Like a tree alteration, and nothing after it may run host git.
+                findings.append(self._nested_git_finding(command))
+                break
             findings.append(_as_finding(command, outcome, result, demonstrates))
             if outcome is _Outcome.ALTERED_TREE:
                 # The tree is no longer the worker's; nothing run after this
@@ -202,6 +211,10 @@ class Acceptance:
         workspace = self.sandbox.workspace
         before = _worktree_tree(workspace)
         result = self.sandbox.run(command, timeout=self.timeout)
+        # Before any host git reads the tree: a nested repository's config is
+        # run by the child git host git starts in it.
+        if nested_git(workspace) is not None:
+            return _Outcome.NESTED_GIT, result
         after = _worktree_tree(workspace)
         if after != before:
             return _Outcome.ALTERED_TREE, result
@@ -212,6 +225,31 @@ class Acceptance:
         if result.exit_code != 0:
             return _Outcome.FAILED, result
         return _Outcome.PASSED, result
+
+    def _nested_git_entry(self) -> str:
+        return nested_git(self.sandbox.workspace) or ".git"
+
+    def _nested_git_finding(self, command: Sequence[str]) -> Finding:
+        return Finding(
+            check=CHECK,
+            path=_label(command),
+            names_a_file=False,
+            code="nested-git",
+            message=(
+                f"acceptance command left the git entry {self._nested_git_entry()} "
+                "inside the workspace; host git would run that repository's "
+                "config, so the tree is not read and the change is not accepted"
+            ),
+        )
+
+    def _nested_git_issue(self, command: Sequence[str]) -> PreflightIssue:
+        return PreflightIssue(
+            "acceptance-mutates-tree",
+            f"acceptance command leaves the git entry {self._nested_git_entry()} "
+            f"inside the workspace with no change applied: {_label(command)}. "
+            "Host git would run that repository's config, so an acceptance "
+            "command must not create one.",
+        )
 
 
 # --- outcome → report mapping --------------------------------------------
@@ -424,6 +462,7 @@ def _worktree_tree(workspace: Path) -> str:
     not counted as altering the tree. Comparing the SHA before and after a
     command is how tree alteration is detected.
     """
+    refuse_nested_git(workspace)
     with tempfile.TemporaryDirectory(prefix="mcgyvr-accept-") as tmp:
         env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
         _git(workspace, "add", "-A", env=env)
