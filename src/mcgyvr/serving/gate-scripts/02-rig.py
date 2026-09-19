@@ -100,7 +100,9 @@ def snapshot(host: str) -> dict[str, str]:
     return reading
 
 
-def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
+def teardown_displaced(
+    host: str, displaced: Lease, who: str, keep: frozenset[str] = frozenset()
+) -> None:
     """Remove the containers a displaced run left, by the names that are ours.
 
     The one place the door removes a container it did not start, and the
@@ -110,6 +112,10 @@ def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
     are named `mcgyvr-<host>-<service>` (`mcgyvr emit`), so both prefixes are
     torn down: R1 says the live run may take the rig from it, and a displaced
     dev serve must not keep holding the card.
+
+    ``keep`` names containers that are not the displaced run's whatever their
+    prefix: the units a live ``serve up`` has itself just started, which carry
+    the same ``mcgyvr-`` prefix as the dev serve it displaced.
     """
     if displaced.run_id == "none":
         print(f"{who}: the displaced run had minted no run id; nothing to tear down")
@@ -133,7 +139,11 @@ def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
             file=sys.stderr,
         )
         return
-    names = [n.strip() for n in listed.stdout.splitlines() if n.startswith(prefixes)]
+    names = [
+        n.strip()
+        for n in listed.stdout.splitlines()
+        if n.startswith(prefixes) and n.strip() not in keep
+    ]
     if not names:
         print(f"{who}: nothing of the displaced run ({displaced.run_id}) is up")
         return
