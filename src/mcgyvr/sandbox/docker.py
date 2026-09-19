@@ -289,7 +289,9 @@ def _run_args(
     The container is kept alive with ``sleep infinity`` and driven by
     ``docker exec``; that keeps one container per task while letting the gate
     run many commands in it. The workspace is bind-mounted so host git and the
-    container see one tree.
+    container see one tree, and its ``.git`` is mounted again read-only on top:
+    host git executes what that directory's config and hooks name, so a
+    container able to write it could run code on the host.
     """
     args = [
         "run",
@@ -300,6 +302,11 @@ def _run_args(
         "/workspace",
         "--volume",
         f"{workspace}:/workspace",
+        # Laid over the writable mount above: host git runs over this
+        # directory's config and hooks, so the container may read it and never
+        # write it.
+        "--volume",
+        f"{workspace}/.git:/workspace/.git:ro",
         *resources.run_args(),
         *gateway,
     ]

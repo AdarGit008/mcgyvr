@@ -65,6 +65,7 @@ from typing import TYPE_CHECKING
 
 from mcgyvr.deliver import Accepted, DeliveryError
 from mcgyvr.sandbox.tempdir import TempDirSandbox
+from mcgyvr.scope import inside
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
@@ -291,7 +292,7 @@ def _draw(
             # and bought nothing, and that is what is kept.
             refused.append(f"draw {index}: {content.reason}")
             continue
-        target = space.workspace / contract.target
+        target = inside(space.workspace, contract.target)
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             # `write_bytes` under `surrogateescape`, the byte convention the

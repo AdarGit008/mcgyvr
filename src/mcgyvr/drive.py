@@ -59,6 +59,7 @@ from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import TypeCheck
 from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, Request, RunnerError, dispatch
+from mcgyvr.scope import inside
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, verify
 from mcgyvr.wake import for_config as wake_for_config
@@ -1051,7 +1052,7 @@ def _base_content(sandbox: Sandbox, contract: Contract) -> str:
     still reaches the reviewer as the rest of its content rather than raising
     out of an attempt that has not failed.
     """
-    target = sandbox.workspace / contract.target
+    target = inside(sandbox.workspace, contract.target)
     if not target.is_file():
         return ""
     return target.read_bytes().decode("utf-8", "surrogateescape")
@@ -1206,7 +1207,7 @@ def gate_in_sandbox(
     list of commands.
     """
     sandbox.reset()
-    target = sandbox.workspace / contract.target
+    target = inside(sandbox.workspace, contract.target)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content.encode("utf-8", "surrogateescape"))
     return gate_workspace(contract, sandbox, adapters=adapters)

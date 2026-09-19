@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from mcgyvr.orchestrator.index import build_index
+from mcgyvr.scope import OutsideTreeError, inside
 
 #: What ``to`` has to look like. The floor rewrites text, so a replacement that
 #: is not an identifier produces a tree that no longer parses while reporting
@@ -135,10 +136,18 @@ def apply(workspace: Path, old: str, new: str) -> RenameReport:
         if symbol.path in held:
             by_file.setdefault(symbol.path, set()).add(symbol.line)
 
+    # Every path is checked before any is written, so a refusal leaves the tree
+    # as it was: a tracked symlink would steer the rewrite off the tree.
+    targets: dict[str, Path] = {}
+    for path in sorted(by_file):
+        try:
+            targets[path] = inside(workspace, path)
+        except OutsideTreeError as refusal:
+            raise RenameError(f"the rename is refused: {refusal}") from refusal
+
     changed: list[str] = []
     count = 0
-    for path in sorted(by_file):
-        target = workspace / path
+    for path, target in targets.items():
         lines = target.read_text(encoding="utf-8").splitlines(keepends=True)
         touched = 0
         for number in sorted(by_file[path]):
