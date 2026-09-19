@@ -35,7 +35,9 @@ import contextlib
 import os
 import re
 import shutil
+import stat
 import subprocess
+import sys
 import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
@@ -84,6 +86,10 @@ _KNOWN_CREDENTIAL_VARS = frozenset(
         "AWS_SESSION_TOKEN",
     }
 )
+
+
+#: The exit code reported for a command the wall-clock ceiling killed.
+TIMEOUT_EXIT = -1
 
 
 class SandboxError(Exception):
@@ -543,10 +549,37 @@ def _git(
 
 
 def _remove_tree(path: Path | None) -> None:
-    """Remove a workspace, tolerating a partially-created or already-gone one."""
+    """Remove a workspace, tolerating a partially-created or already-gone one.
+
+    A command runs as the host user and can take the permissions off a
+    directory it made, so a tree that will not go is given them back and
+    removed again. One that still survives is named on stderr rather than left
+    behind in silence.
+    """
     if path is None:
         return
     shutil.rmtree(path, ignore_errors=True)
+    if not path.exists():
+        return
+    _unlock(path)
+    shutil.rmtree(path, ignore_errors=True)
+    if path.exists():
+        print(f"mcgyvr: workspace {path} could not be removed", file=sys.stderr)
+
+
+def _unlock(root: Path) -> None:
+    """Give the owner full access to every directory under ``root``.
+
+    Symlinks are not followed, so nothing outside the tree is touched.
+    """
+    pending = [root]
+    while pending:
+        here = pending.pop()
+        with contextlib.suppress(OSError):
+            if here.is_symlink() or not here.is_dir():
+                continue
+            here.chmod(stat.S_IRWXU)
+            pending.extend(here.iterdir())
 
 
 # --- factory -------------------------------------------------------------

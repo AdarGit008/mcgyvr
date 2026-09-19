@@ -17,8 +17,10 @@ The container lifecycle (#27) holds three guarantees:
   is by a name minted per task, so a reaper can reap a container even after the
   Python object holding it is gone.
 - **A runaway cannot take the host down.** Memory, CPU and PID ceilings bound
-  the container; a command that exceeds the wall-clock ceiling has its
-  container killed rather than being waited on.
+  the container; a command that exceeds the wall-clock ceiling, or leaves a
+  process behind, has its container killed and started again rather than being
+  waited on, so nothing runs between commands and the next one still has a
+  container to run in.
 - **Every attempt starts clean.** :meth:`reset` (inherited) restores the git
   base in the shared workspace, so a failed attempt leaves no trace in the
   next.
@@ -49,6 +51,7 @@ from __future__ import annotations
 import os
 import platform as platform_module
 import subprocess
+import sys
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -56,7 +59,13 @@ from pathlib import Path
 from typing import ClassVar
 from urllib.parse import urlparse, urlunparse
 
-from mcgyvr.sandbox.base import CommandResult, Sandbox, SandboxError, merge_env
+from mcgyvr.sandbox.base import (
+    TIMEOUT_EXIT,
+    CommandResult,
+    Sandbox,
+    SandboxError,
+    merge_env,
+)
 from mcgyvr.sandbox.image import (
     DockerRunner,
     ImageError,
@@ -78,8 +87,6 @@ ENDPOINTS_ENV = "MCGYVR_ENDPOINTS"
 # Loopback hosts on the host machine that mean "the host" and must be
 # rewritten to reach it from inside a container.
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0"})
-
-_TIMEOUT_EXIT = -1  # exit code for a command the wall-clock ceiling killed
 
 
 @dataclass(frozen=True)
@@ -162,6 +169,7 @@ class DockerSandbox(Sandbox):
         self._system = system or platform_module.system()
         self._container: str | None = None
         self._image_tag: str | None = None
+        self._dead: str | None = None
 
     # -- lifecycle --------------------------------------------------------
 
@@ -184,7 +192,8 @@ class DockerSandbox(Sandbox):
         )
         result = self._runner(args, None)
         if not result.ok:
-            self._container = None
+            # The name is kept: a run that failed to start its container may
+            # still have created it, and teardown removes it by that name.
             raise SandboxError(
                 f"could not start task container: {result.stderr.strip()}"
             )
@@ -200,7 +209,13 @@ class DockerSandbox(Sandbox):
         """
         if self._container is None:
             return
-        self._runner(["rm", "--force", self._container], None)
+        removed = self._runner(["rm", "--force", self._container], None)
+        if not removed.ok and "No such container" not in removed.stderr:
+            print(
+                f"mcgyvr: task container {self._container} could not be removed: "
+                f"{removed.stderr.strip()}",
+                file=sys.stderr,
+            )
         self._container = None
 
     def run(
@@ -212,6 +227,8 @@ class DockerSandbox(Sandbox):
     ) -> CommandResult:
         if self._container is None:
             raise SandboxError("container is not running — use as a context manager")
+        if self._dead is not None:
+            raise SandboxError(self._dead)
         argv = tuple(command)
         exec_args = _exec_args(
             name=self._container,
@@ -219,10 +236,7 @@ class DockerSandbox(Sandbox):
             env=merge_env(env),  # per-command extras, vetted; base env is ambient
         )
         result = _docker_exec(exec_args, timeout)
-        if result.timed_out:
-            # A command past the wall-clock ceiling is not waited on; its
-            # container is killed so nothing keeps running behind the verdict.
-            self._runner(["kill", self._container], None)
+        self._end_leftovers(self._container, result.timed_out)
         return CommandResult(
             command=argv,
             exit_code=result.exit_code,
@@ -230,6 +244,35 @@ class DockerSandbox(Sandbox):
             stderr=result.stderr,
             timed_out=result.timed_out,
         )
+
+    def _end_leftovers(self, name: str, timed_out: bool) -> None:
+        """Leave the container running its keepalive and nothing else.
+
+        A command past the wall-clock ceiling is still running in the container
+        after the exec is abandoned, and a command that exited may have left a
+        child in the background. Either would keep running behind the verdict,
+        so the container is killed — which ends every process in it — and
+        started again on the same workspace, for the next command to exec into.
+        One that will not start again refuses every later command: an exec into
+        a dead container fails, and the gate would charge that to the worker.
+        """
+        if not timed_out and not self._runs_more_than_its_keepalive(name):
+            return
+        self._runner(["kill", name], None)
+        started = self._runner(["start", name], None)
+        if not started.ok:
+            self._dead = (
+                f"task container {name} could not be started again "
+                f"after a command was ended: {started.stderr.strip()}"
+            )
+
+    def _runs_more_than_its_keepalive(self, name: str) -> bool:
+        """Whether ``docker top`` lists anything beside ``sleep infinity``."""
+        listed = self._runner(["top", name, "-o", "pid"], None)
+        if not listed.ok:
+            return True  # unknown is treated as occupied: ending it is safe
+        rows = [line for line in listed.stdout.splitlines()[1:] if line.strip()]
+        return len(rows) > 1
 
     # -- image + env ------------------------------------------------------
 
@@ -356,7 +399,7 @@ def _docker_exec(exec_args: Sequence[str], timeout: float | None) -> _ExecResult
         )
     except subprocess.TimeoutExpired as expired:
         return _ExecResult(
-            exit_code=_TIMEOUT_EXIT,
+            exit_code=TIMEOUT_EXIT,
             stdout=_as_text(expired.stdout),
             stderr=_as_text(expired.stderr),
             timed_out=True,
