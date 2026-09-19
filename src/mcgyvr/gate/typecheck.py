@@ -175,8 +175,17 @@ _DIAGNOSTIC = re.compile(
     r"(?P<severity>error|warning|note): (?P<message>.*)$"
 )
 
-#: The rule identifier a checker appends in brackets, e.g. ``[return-value]``.
-_CODE = re.compile(r"\s+\[([a-z0-9-]+)\]$")
+#: pyright's spelling of the same line:
+#: ``  /abs/path.py:line:col - severity: message (reportRule)``. Its severities
+#: are ``error``, ``warning`` and ``information``; only ``error`` rejects.
+_PYRIGHT_DIAGNOSTIC = re.compile(
+    r"^\s*(?P<path>[^:]+):(?P<line>\d+):\d+ - "
+    r"(?P<severity>error|warning|information): (?P<message>.*)$"
+)
+
+#: The rule identifier a checker appends: mypy in brackets (``[return-value]``),
+#: pyright in parentheses (``(reportReturnType)``).
+_CODE = re.compile(r"\s+(?:\[([a-z0-9-]+)\]|\((report[A-Za-z]+)\))$")
 
 #: Only outright errors reject. A ``note`` is elaboration attached to the error
 #: above it and carries no independent verdict; reporting it as its own finding
@@ -303,7 +312,20 @@ class TypeCheck:
         # stdout empty, which reads as "no diagnostics" — a clean pass over a
         # bar that never ran. The exit code is the only thing that separates
         # the two, so it is checked before the output is parsed.
-        return trusted_stdout(tool, proc, expected=_REPORTING)
+        stdout = trusted_stdout(tool, proc, expected=_REPORTING)
+        # Exit 1 is the checker saying it found errors. If not one line of the
+        # report reads as an error, the report is in a form this rung does not
+        # parse, and zero findings would be a clean pass over a change the
+        # checker rejected.
+        if proc.returncode == 1 and not any(
+            _rejecting(raw) for raw in stdout.splitlines()
+        ):
+            raise ToolFailedError(
+                tool,
+                proc.returncode,
+                "it reported errors in a form this rung cannot read",
+            )
+        return stdout
 
     def _new_since_base(
         self,
@@ -405,8 +427,8 @@ def _diagnostics(stdout: str, paths: Sequence[str], repo: Path) -> list[_Diagnos
     wanted = set(paths)
     diagnostics: list[_Diagnostic] = []
     for raw in stdout.splitlines():
-        match = _DIAGNOSTIC.match(raw)
-        if match is None or match["severity"] not in _REJECTING:
+        match = _rejecting(raw)
+        if match is None:
             continue
         path = _relative_to_repo(match["path"], repo)
         if path not in wanted:
@@ -417,11 +439,19 @@ def _diagnostics(stdout: str, paths: Sequence[str], repo: Path) -> list[_Diagnos
             _Diagnostic(
                 path=path,
                 line=int(match["line"]),
-                code=code.group(1) if code else None,
+                code=(code.group(1) or code.group(2)) if code else None,
                 message=_CODE.sub("", message),
             )
         )
     return diagnostics
+
+
+def _rejecting(raw: str) -> re.Match[str] | None:
+    """``raw`` parsed as an error line in mypy's or pyright's format, else ``None``."""
+    match = _DIAGNOSTIC.match(raw) or _PYRIGHT_DIAGNOSTIC.match(raw)
+    if match is None or match["severity"] not in _REJECTING:
+        return None
+    return match
 
 
 @contextmanager
