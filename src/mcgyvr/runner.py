@@ -132,6 +132,15 @@ class TransportError(RunnerError):
     """The endpoint could not be reached, or did not answer in time."""
 
 
+class RefusedConnectionError(TransportError):
+    """The endpoint's port refused the connection: nothing is listening there.
+
+    Split from a timeout because the two mean opposite things about a card. A
+    refusal is what a card with nothing started gives, and is the wake signal
+    :mod:`mcgyvr.wake` acts on; a timeout is a card that is up and busy.
+    """
+
+
 class BackendError(RunnerError):
     """The endpoint answered with an HTTP error status."""
 
@@ -924,8 +933,16 @@ def _post_json(
         ) from exc
     except OSError as exc:
         # URLError and the socket timeout are both OSError; to a caller they
-        # mean the same thing — nothing usable answered within the timeout.
-        raise TransportError(
+        # mean the same thing — nothing usable answered within the timeout —
+        # except to a waker, which wakes a card on a refusal and never on a
+        # timeout. urllib wraps the refusal as the URLError's reason.
+        reason = getattr(exc, "reason", exc)
+        kind = (
+            RefusedConnectionError
+            if isinstance(reason, ConnectionRefusedError)
+            else TransportError
+        )
+        raise kind(
             f"could not reach {safe_url(url)} within {timeout:g}s: {exc}"
         ) from exc
 
