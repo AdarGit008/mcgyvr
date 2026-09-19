@@ -1037,9 +1037,11 @@ def main(argv: list[str] | None = None) -> int:
         RUN_PARALLEL=str(opts.parallel),
         RUN_CTX_PER_SLOT=str(opts.ctx_per_slot),
         RUN_UBATCH=str(opts.ubatch),
+        # The date the envelope above was named and checked by, read off the
+        # clock once: gate 5 files under it, and a gate reading the clock
+        # again past midnight UTC would mint the next day's envelope.
+        RUN_DATE=run_date,
     )
-    if opts.date:
-        env["RUN_DATE"] = opts.date
 
     interrupted = False
     step_status = 0

@@ -137,10 +137,13 @@ def main() -> int:
     # What this live run displaced at gate 2 (R1). A container of that run
     # that came back during the step — its step retrying a launch — is torn
     # down again here, by the name its lease gave it, and is not this run's
-    # leftover: the displaced run is the one that left it.
+    # leftover: the displaced run is the one that left it. The units a
+    # `serve up` declared are this run's, not the displaced run's, though
+    # they share its `mcgyvr-` prefix, and are left running.
     displaced = displaced_by_run()
     if displaced is not None and displaced.run_id != "none":
-        _rig.teardown_displaced(need("RUN_HOST"), displaced, "gate 7")
+        keep = frozenset(expected) if serve == "up" else frozenset()
+        _rig.teardown_displaced(need("RUN_HOST"), displaced, "gate 7", keep)
     up = _containers_up()
     if up is None:
         status = 1
