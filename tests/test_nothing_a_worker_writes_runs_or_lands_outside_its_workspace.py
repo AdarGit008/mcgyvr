@@ -33,8 +33,9 @@ import pytest
 from mcgyvr.consensus import best_of
 from mcgyvr.contract import ContractSchemaError
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.drive import _base_content, gate_in_sandbox
+from mcgyvr.drive import _base_content, gate_in_sandbox, gate_workspace
 from mcgyvr.gate import GateResult
+from mcgyvr.gate.acceptance import Acceptance
 from mcgyvr.rename import RenameError
 from mcgyvr.rename import apply as rename_apply
 from mcgyvr.sandbox import Sandbox
@@ -200,3 +201,104 @@ def test_a_rename_does_not_rewrite_a_file_through_a_tracked_symlink(
 def test_a_target_inside_a_git_directory_is_refused_at_load(target: str) -> None:
     with pytest.raises(ContractSchemaError, match=r"\.git"):
         load_contract(_contract(target, allow="**"))
+
+
+# --- a .git anywhere below the workspace root fails the attempt --------------
+#
+# Host git over a tree holding a nested repository descends into it: with the
+# gitlink in the index, `git add -A`, `status` and `diff` run a child git in the
+# nested repo, and that child runs the nested repo's own `core.fsmonitor` and
+# filter drivers. The read-only mount above protects only the top-level `.git`;
+# a command can create `sub/.git` anywhere else it can write. So a `.git` entry
+# below the root, directory or file, fails the attempt by name before host git
+# is run over it, and reset removes it.
+
+NESTED = "git init -q sub"
+GITFILE = "mkdir -p d && echo 'gitdir: /nowhere' > d/.git"
+
+
+def _base_repo(root: Path) -> Path:
+    root.mkdir()
+    (root / "app.py").write_text("x = 1\n")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "base")
+    return root
+
+
+@pytest.mark.parametrize(
+    ("script", "entry"), [(NESTED, "sub/.git"), (GITFILE, "d/.git")]
+)
+def test_an_acceptance_command_that_leaves_a_git_entry_fails_the_attempt_by_name(
+    tmp_path: Path, script: str, entry: str
+) -> None:
+    """Checked on the host after ``Sandbox.run`` returns, so one code path for
+    both modes: a container's command leaves its bytes in the bind-mounted
+    workspace exactly where a temp-directory command leaves them."""
+    repo = _base_repo(tmp_path / "repo")
+    with TempDirSandbox(repo) as sandbox:
+        report = Acceptance(
+            sandbox, (("sh", "-c", script), ("sh", "-c", "exit 0"))
+        ).run()
+
+    (finding,) = report.findings
+    assert finding.code == "nested-git", finding
+    assert entry in finding.message
+
+
+def test_a_baseline_command_that_leaves_a_git_entry_is_refused_by_name(
+    tmp_path: Path,
+) -> None:
+    repo = _base_repo(tmp_path / "repo")
+    with TempDirSandbox(repo) as sandbox:
+        issue = Acceptance(sandbox, (("sh", "-c", NESTED),)).precondition()
+
+    assert issue is not None
+    assert "sub/.git" in issue.detail
+
+
+def test_the_gate_fails_a_workspace_holding_a_nested_git_entry(tmp_path: Path) -> None:
+    repo = _repo_tracking(tmp_path / "repo", {})
+    contract = load_contract(_contract("src/pkg/retry.py"))
+    with TempDirSandbox(repo) as sandbox:
+        subprocess.run(
+            ["git", "init", "-q", str(sandbox.workspace / "src/pkg/sub")], check=True
+        )
+        result = gate_workspace(contract, sandbox)
+
+    assert not result.accepted
+    assert any(
+        f.code == "nested-git" and "src/pkg/sub/.git" in f.message
+        for f in result.findings
+    ), result.findings
+
+
+def test_reset_removes_a_nested_repository(tmp_path: Path) -> None:
+    repo = _base_repo(tmp_path / "repo")
+    with TempDirSandbox(repo) as sandbox:
+        subprocess.run(
+            ["git", "init", "-q", str(sandbox.workspace / "sub")], check=True
+        )
+        sandbox.reset()
+        assert not (sandbox.workspace / "sub").exists()
+
+
+def test_restoring_a_checkpoint_removes_a_nested_repository(tmp_path: Path) -> None:
+    repo = _base_repo(tmp_path / "repo")
+    with TempDirSandbox(repo) as sandbox:
+        checkpoint = sandbox.checkpoint()
+        subprocess.run(
+            ["git", "init", "-q", str(sandbox.workspace / "sub")], check=True
+        )
+        sandbox.restore_to(checkpoint)
+        assert not (sandbox.workspace / "sub").exists()
+
+
+def test_a_checkpoint_is_refused_over_a_nested_git_entry(tmp_path: Path) -> None:
+    repo = _base_repo(tmp_path / "repo")
+    with TempDirSandbox(repo) as sandbox:
+        subprocess.run(
+            ["git", "init", "-q", str(sandbox.workspace / "sub")], check=True
+        )
+        with pytest.raises(Exception, match=r"sub/\.git"):
+            sandbox.checkpoint()
