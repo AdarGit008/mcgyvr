@@ -184,10 +184,12 @@ when the slot goes back.
 Consuming the reservation is keyed by *thread*, which is what makes "the same
 dispatch" answerable at all: a reservation is taken by the caller that chooses a
 rung (:func:`mcgyvr.route.climb` does, under :meth:`deciding`) and the slot for
-it is taken by that same caller on that same thread. A thread cannot hold one
-source twice — :meth:`hold` refuses that as a deadlock — so one reservation
-covers at most one slot at a time, and a hold on a thread that reserved nothing
-consumes nothing and counts in full.
+it is taken by that caller — on its own thread, or on a :func:`run_batch` job it
+started, which is how ``drive`` sends every draw. A job's thread therefore sees
+the reservations of the thread that started the batch. One reservation covers
+at most one slot at a time, however many draws are sent for it, and a hold on a
+thread that reserved nothing, and was started by none that did, consumes
+nothing and counts in full.
 """
 
 from __future__ import annotations
@@ -328,6 +330,25 @@ class SlotUnavailableError(CapacityError):
 # every dispatch that names no rung is held against — rather than a missing
 # value, which is why it is in the key and not a separate mapping.
 type _Bound = tuple[str, str | None]
+
+
+class _Claims:
+    """One thread's reservations, and the thread's whose :func:`run_batch` ran it.
+
+    ``taken`` counts the reservations this thread made and has not released,
+    and ``covering`` how many of them a held slot is spending right now. A hold
+    spends the nearest reservation up the ``parent`` chain that is not already
+    being spent, so the draws a climb sends through :func:`run_batch` spend the
+    climb's reservation once and no more. Read and written under
+    :attr:`Capacity._lock`.
+    """
+
+    __slots__ = ("covering", "parent", "taken")
+
+    def __init__(self, parent: _Claims | None = None) -> None:
+        self.parent = parent
+        self.taken: dict[_Bound, int] = {}
+        self.covering: dict[_Bound, int] = {}
 
 
 @dataclass(frozen=True)
@@ -564,12 +585,12 @@ class Capacity:
         self._in_flight_peak = 0
         self._acquisitions = dict.fromkeys(self._bounds, 0)
         self._waited = dict.fromkeys(self._bounds, 0.0)
-        # Which bounds *this* thread is currently holding, which reservations
-        # it took and has not given back, and which of its holds are spending
-        # one of them. Thread-local rather than shared, because all three
-        # questions are per-thread: "would this caller block against itself",
-        # and "is this slot the one this caller reserved" — a reservation and
-        # the slot it was taken for are always the same thread's.
+        # Which slot files *this* thread is currently holding, which
+        # reservations it took and has not given back, and which of its holds
+        # are spending one of them. Thread-local rather than shared, because
+        # the questions are per-caller: "would this caller block against
+        # itself", and "is this slot the one this caller reserved" — where a
+        # :func:`run_batch` job counts as the caller that started the batch.
         self._holding = threading.local()
 
     @classmethod
@@ -888,7 +909,7 @@ class Capacity:
         bound = self._bound(source, rung)
         with self._lock:
             self._reserved[bound] += 1
-            mine = self._reservations()
+            mine = self._reservations().taken
             mine[bound] = mine.get(bound, 0) + 1
 
     def release(self, source: str, rung: str | None = None) -> None:
@@ -910,7 +931,7 @@ class Capacity:
         """
         bound = self._bound(source, rung)
         with self._lock:
-            mine = self._reservations()
+            mine = self._reservations().taken
             held = mine.get(bound, 0)
             if held > 0:
                 mine[bound] = held - 1
@@ -1072,25 +1093,30 @@ class Capacity:
         bound = self._bound(name, rung)
         limit = self._bounds[bound]
         where = f"unit {bound[1]!r} of unit {name!r}" if bound[1] else f"unit {name!r}"
-        held = self._held()
-        if bound in held:
-            raise CapacityError(
-                f"this thread already holds a slot on {where}. A "
-                f"nested dispatch to it waits for a slot the waiter "
-                f"is itself holding, so at the default width of 1 it would "
-                f"deadlock silently. Finish the outer dispatch first."
-            )
-
         # The rig's URL where one is known, and the source's name where it is
         # not: a capacity built from limits alone has no other identity to key
         # the files by, and inventing one would be inventing a rendezvous.
         base_url = (
             endpoint.base_url if endpoint is not None else self._urls.get(name, name)
         )
+        # Keyed by the slot files and not by the unit: two units may name one
+        # address, and a slot file this thread already holds is one it would
+        # wait on whichever unit's name it was taken under.
+        stem = _slot_stem(base_url, bound[1])
+        held = self._held()
+        if stem in held:
+            raise CapacityError(
+                f"this thread already holds a slot on {where}, or on a unit "
+                f"that shares its address. A "
+                f"nested dispatch to it waits for a slot the waiter "
+                f"is itself holding, so at the default width of 1 it would "
+                f"deadlock silently. Finish the outer dispatch first."
+            )
+
         started = time.monotonic()
         fd = self._acquire_slot(where, base_url, bound[1], limit, timeout)
         waited = time.monotonic() - started
-        held.add(bound)
+        held.add(stem)
         with self._lock:
             self._acquisitions[bound] += 1
             self._waited[bound] += waited
@@ -1099,15 +1125,21 @@ class Capacity:
             self._in_flight += 1
             self._in_flight_peak = max(self._in_flight_peak, self._in_flight)
             # This is the dispatch the reservation was taken for, if this
-            # thread took one: it chose the rung and is now being admitted to
-            # it. Counting the reservation as spent for the length of the hold
-            # is what lets :meth:`load` add granted and reserved without
-            # counting this dispatch twice — and it is given back on the way
-            # out, because a climb between two attempts on one rung has still
-            # chosen that rung. The guard above means this thread holds no
-            # other slot on this bound, so one reservation covers one slot.
-            covering = self._reservations().get(bound, 0) > 0
-            if covering:
+            # thread — or the thread whose batch started it — took one: it
+            # chose the rung and is now being admitted to it. Counting the
+            # reservation as spent for the length of the hold is what lets
+            # :meth:`load` add granted and reserved without counting this
+            # dispatch twice — and it is given back on the way out, because a
+            # climb between two attempts on one rung has still chosen that
+            # rung. Only a reservation no other slot is spending is taken, so
+            # one reservation covers one slot however many draws it sent.
+            covering: _Claims | None = self._reservations()
+            while covering is not None and covering.taken.get(
+                bound, 0
+            ) <= covering.covering.get(bound, 0):
+                covering = covering.parent
+            if covering is not None:
+                covering.covering[bound] = covering.covering.get(bound, 0) + 1
                 self._covered[bound] += 1
         try:
             yield
@@ -1115,9 +1147,10 @@ class Capacity:
             with self._lock:
                 self._in_use[bound] -= 1
                 self._in_flight -= 1
-                if covering:
+                if covering is not None:
+                    covering.covering[bound] -= 1
                     self._covered[bound] -= 1
-            held.discard(bound)
+            held.discard(stem)
             os.close(fd)  # closing the descriptor is what releases the flock
 
     @contextmanager
@@ -1164,10 +1197,18 @@ class Capacity:
             key=lambda bound: (bound[0], bound[1] or ""),
         )
         taken: list[int] = []
+        # Two units may name one address and so share slot files. A file is
+        # locked once: a second ``flock`` on it from a fresh descriptor would
+        # wait on the one this drain already holds, for as long as ``timeout``.
+        locked: set[tuple[str, int]] = set()
         try:
             for source, rung in wanted:
                 base_url = self._urls.get(source, source)
+                stem = _slot_stem(base_url, rung)
                 for index in range(self._bounds[(source, rung)]):
+                    if (stem, index) in locked:
+                        continue
+                    locked.add((stem, index))
                     taken.append(
                         self._acquire_one(
                             f"unit {source!r}" + (f" rung {rung!r}" if rung else ""),
@@ -1273,15 +1314,31 @@ class Capacity:
                 f"configs. Known units: {known}"
             )
 
-    def _held(self) -> set[_Bound]:
-        """The bounds this thread holds, created on first use per thread."""
-        bounds: set[_Bound] | None = getattr(self._holding, "bounds", None)
-        if bounds is None:
-            bounds = set()
-            self._holding.bounds = bounds
-        return bounds
+    def _held(self) -> set[str]:
+        """The slot-file stems this thread holds, created on first use per thread."""
+        stems: set[str] | None = getattr(self._holding, "stems", None)
+        if stems is None:
+            stems = set()
+            self._holding.stems = stems
+        return stems
 
-    def _reservations(self) -> dict[_Bound, int]:
+    @contextmanager
+    def _inheriting(self, parent: _Claims) -> Iterator[None]:
+        """Run the body on this thread with ``parent``'s reservations visible.
+
+        What :func:`run_batch` wraps each job in, so a draw on a worker thread
+        can spend the reservation its climb took on another. The worker's own
+        reservations are its own, and the thread's previous state is put back
+        after, because a pool reuses its threads across jobs.
+        """
+        previous = getattr(self._holding, "reserved", None)
+        self._holding.reserved = _Claims(parent)
+        try:
+            yield
+        finally:
+            self._holding.reserved = previous
+
+    def _reservations(self) -> _Claims:
         """The reservations this thread took and has not released, by bound.
 
         Beside :meth:`_held` and in the same thread-local for the same reason:
@@ -1293,9 +1350,9 @@ class Capacity:
         count that anyone can *see* is the shared ``_reserved``, which this is a
         per-thread breakdown of and never a second opinion about.
         """
-        mine: dict[_Bound, int] | None = getattr(self._holding, "reserved", None)
+        mine: _Claims | None = getattr(self._holding, "reserved", None)
         if mine is None:
-            mine = {}
+            mine = _Claims()
             self._holding.reserved = mine
         return mine
 
@@ -1351,8 +1408,17 @@ def run_batch[T](
     if limit < 1:
         raise CapacityError(f"workers={limit} would run nothing; ask for at least 1")
 
+    # Each job sees the reservations of the thread that started the batch, so
+    # a draw a climb sends here spends the climb's reservation rather than
+    # counting beside it.
+    parent = capacity._reservations()
+
+    def adopted(job: Callable[[Capacity], T]) -> T:
+        with capacity._inheriting(parent):
+            return job(capacity)
+
     with ThreadPoolExecutor(max_workers=limit) as pool:
-        futures = [pool.submit(job, capacity) for job in jobs]
+        futures = [pool.submit(adopted, job) for job in jobs]
         outcomes: list[Outcome[T]] = []
         for index, future in enumerate(futures):
             error = future.exception()

@@ -67,7 +67,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from mcgyvr.config import Config
-from mcgyvr.runner import TransportError
+from mcgyvr.runner import RefusedConnectionError
 from mcgyvr.serving import Card, cards
 
 # The module the door is spelled as -- an ``-m`` and never a path, because the
@@ -378,17 +378,20 @@ class Waker:
     def __init__(self, config: Config) -> None:
         self._config = config
         self._cards = cards(config)
-        #: Cards this run has already woken. One wake per card per run: a
-        #: second refusal after a successful wake is a real fault of the rung —
-        #: the card is up and something else is wrong — and re-running the door
-        #: for it would spend minutes of rig time proving that twice.
-        self._woken: set[str] = set()
+        #: Cards this run has already woken, with whether the wake worked and
+        #: when it ended. One wake per card per run: a refusal after a
+        #: successful wake is a real fault of the rung — the card is up and
+        #: something else is wrong — and re-running the door for it would
+        #: spend minutes of rig time proving that twice.
+        self._woken: dict[str, tuple[bool, float]] = {}
         #: The draws of one attempt are dispatched together, so two of them
-        #: can be refused by the same sleeping card at once. One wake per
-        #: card per run has to hold across them: the check-then-add on
-        #: `_woken` is taken under this lock, and the second refused draw
-        #: finds the card already claimed and stands down.
+        #: can be refused by the same sleeping card at once. One wake per card
+        #: per run has to hold across them, so each card's check-then-wake is
+        #: taken under that card's own lock: a draw refused while the door
+        #: runs waits for it and is sent again if it worked, and a wake of one
+        #: card never waits on another's. `_lock` guards only the map.
         self._lock = threading.Lock()
+        self._card_locks: dict[str, threading.Lock] = {}
 
     def dispatching(self, rung: str, send: Callable[[], Answer]) -> Answer:
         """Send, and on a refused port wake the card once and send again.
@@ -405,12 +408,14 @@ class Waker:
         """
         try:
             return send()
-        except TransportError as refused:
-            if not self.wake_for(rung):
+        except RefusedConnectionError as refused:
+            # Only a refusal. A timeout is a card that is up and busy, and
+            # waking it would start a door run and send the generation twice.
+            if not self.wake_for(rung, refused_at=time.monotonic()):
                 raise refused
             return send()
 
-    def wake_for(self, rung: str) -> bool:
+    def wake_for(self, rung: str, *, refused_at: float | None = None) -> bool:
         """Bring this rung's card back, or say why nothing was tried.
 
         ``False`` is not a failure. It is every one of the honest degradations
@@ -418,14 +423,24 @@ class Waker:
         states no ``compose_dir``, a card mcgyvr never wrote a spec for, and a
         card this run has already woken once — and in each of them the caller's
         refusal stands exactly as it stands today.
-        """
-        with self._lock:
-            return self._wake_for(rung)
 
-    def _wake_for(self, rung: str) -> bool:
+        ``refused_at`` is when the caller was refused. A refusal from before a
+        wake of this card ended was given by the sleeping card, so the caller
+        gets that wake's result and sends again; one from after it is the real
+        fault above, and gets ``False``.
+        """
         card = self._cards.get(rung)
-        if card is None or card.host in self._woken:
+        if card is None:
             return False
+        with self._lock:
+            card_lock = self._card_locks.setdefault(card.host, threading.Lock())
+        with card_lock:
+            return self._wake_for(card, refused_at)
+
+    def _wake_for(self, card: Card, refused_at: float | None) -> bool:
+        if card.host in self._woken:
+            ok, ended = self._woken[card.host]
+            return ok and refused_at is not None and refused_at < ended
         # Live wakes only along a listed switch, and a switch exists only on a
         # locked fleet. With no live lock naming this rig — the lock of the
         # fleet ~/.mcgyvr/live.json names, never whatever directory the run was
@@ -453,15 +468,16 @@ class Waker:
             # reason, and it is the one worth a sentence: nothing is missing,
             # something is ambiguous, and the difference is a directory listing
             # an operator has not looked at. Said once per card per run — the
-            # `_woken` set is what bounds it — because a rung that declines for
+            # `_woken` map is what bounds it — because a rung that declines for
             # a reason only the filesystem holds is the silence this whole
             # module exists to stop.
             if card.specs:
-                self._woken.add(card.host)
+                self._woken[card.host] = (False, time.monotonic())
                 print(f"warning: {_why_not_one(card)}", file=sys.stderr)
             return False
-        self._woken.add(card.host)
-        return _run_door(self._config, card, "up", compose).ok
+        ok = _run_door(self._config, card, "up", compose).ok
+        self._woken[card.host] = (ok, time.monotonic())
+        return ok
 
 
 def for_config(config: Config) -> Waker | None:
