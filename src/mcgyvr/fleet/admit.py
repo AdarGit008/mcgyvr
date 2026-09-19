@@ -105,6 +105,14 @@ def admit_live(
             )
 
         obs_units = obs.get("units") or {}
+        unread = sorted(uid for uid, said in obs_units.items() if said == "unread")
+        if unread:
+            # Owner ruling on FLT-02: a unit whose sleep could not be read is
+            # neither state a layout locks, and no restore can promise it.
+            raise LiveRefusedError(
+                f"{rig_name}: the sleep state of {', '.join(unread)} could not "
+                "be read, so whether it would serve is unknown"
+            )
         fleet_unit_ids = {unit_ids[slot[0]] for slot in slots if slot is not None}
         for slot in slots:
             if slot is None:

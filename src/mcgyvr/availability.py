@@ -161,10 +161,8 @@ class AvailabilityVerdict:
     #: and it is not a nicety: a 404 on the listing, a body that is not JSON, a
     #: body of another shape and an empty list are all ``None``, because the
     #: model-list path is optional and a server may not publish a usable one.
-    #: Only an explicit, readable listing may take a rung out of service — the
-    #: same rule :func:`mcgyvr.serving.servelib.sleeping` takes for
-    #: ``/is_sleeping``, and for the same reason: a probe that failed closed on an
-    #: unreadable answer would empty the ladder.
+    #: Only an explicit, readable listing may take a rung out of service: a
+    #: probe that failed closed on an unreadable answer would empty the ladder.
     models: tuple[str, ...] | None = None
 
 

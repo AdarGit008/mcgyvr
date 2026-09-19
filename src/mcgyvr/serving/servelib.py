@@ -170,38 +170,49 @@ def models_served(host: str, port: int) -> list[str] | None:
     return ids
 
 
-def sleeping(host: str, port: int) -> bool | None:
-    """Whether the unit on ``host``:``port`` says it is asleep, or None if it cannot.
+#: What :func:`sleeping` answers when the unit's ``/is_sleeping`` could not be
+#: read: not a 404, not a readable answer. Owner ruling on FLT-02: a failed read.
+SLEEP_UNREAD = "unread"
+
+
+def sleeping(host: str, port: int) -> bool | str | None:
+    """Whether the unit says it is asleep; None with no sleep route; else unread.
 
     ``/is_sleeping`` is a **vLLM** development route, registered only when the
     server runs with ``VLLM_SERVER_DEV_MODE=1`` (sleeping also needs
     ``--enable-sleep-mode``); without the variable it is 404, and llama.cpp has
     no such route at any launch
-    (``mcgyvr-lab/records/measurements/vllm-sleep-2026-09-09/README.md``). **So None is
-    the ordinary answer and it means awake.** An engine that cannot report a
-    sleep has no way to be asleep, and a probe that read a 404 as an error — or,
-    worse, as a yes — would take such a unit out of service.
+    (``mcgyvr-lab/records/measurements/vllm-sleep-2026-09-09/README.md``). **So
+    a 404 is None, the ordinary answer, and it means awake.** An engine that
+    cannot report a sleep has no way to be asleep.
 
-    Only an explicit ``{"is_sleeping": true}`` may take a unit out of service.
-    Everything else — the route missing, the ssh failing, a body that does not
-    parse, a body of some other shape — is None. Failing closed on an unreadable
-    answer would mean refusing to serve on every engine nobody has taught this
-    function about.
+    ``{"is_sleeping": true}`` or ``false`` is the unit's own answer. Everything
+    else — the ssh failing, a 5xx, a body that does not parse, a body of some
+    other shape — is :data:`SLEEP_UNREAD` (owner ruling, FLT-02): the probe was
+    asked and could not read the answer, and a unit that may be asleep hangs
+    the first contract dispatched to it.
     """
     try:
-        done = ssh(host, f"curl -sf http://localhost:{port}/is_sleeping", timeout=30)
+        done = ssh(
+            host,
+            f"curl -s -w '\\n%{{http_code}}' http://localhost:{port}/is_sleeping",
+            timeout=30,
+        )
     except subprocess.TimeoutExpired:
-        return None
+        return SLEEP_UNREAD
     if done.returncode != 0:
+        return SLEEP_UNREAD
+    body, _, code = done.stdout.rpartition("\n")
+    if not (code.isascii() and code.isdigit() and len(code) == 3):
+        body, code = done.stdout, ""
+    if code == "404":
         return None
     try:
-        doc = json.loads(done.stdout)
+        doc = json.loads(body)
     except ValueError:
-        return None
-    if not isinstance(doc, dict):
-        return None
-    said = doc.get("is_sleeping")
-    return said if isinstance(said, bool) else None
+        return SLEEP_UNREAD
+    said = doc.get("is_sleeping") if isinstance(doc, dict) else None
+    return said if isinstance(said, bool) else SLEEP_UNREAD
 
 
 class SleepLevelError(ValueError):
@@ -289,11 +300,12 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
     ``POST /wake_up?tags=weights``, ``POST /collective_rpc`` with
     ``{"method": "reload_weights"}``, then ``POST /wake_up?tags=kv_cache``.
     ``None`` is "never got an answer to that question" — nobody asked, or the
-    engine cannot say — and it is deliberately not ``False``, which is an engine
-    that was asked and said no.
+    engine has no sleep route — and it is deliberately not ``False``, which is
+    an engine that was asked and said no. :data:`SLEEP_UNREAD` is an answer that
+    could not be read, and it does not read as serving.
     """
     started = time.monotonic()
-    asleep: bool | None = None
+    asleep: bool | str | None = None
     ids: list[str] | None = None
     for attempt in range(HEALTH_POLLS):
         ids = models_served(host, service.port)
