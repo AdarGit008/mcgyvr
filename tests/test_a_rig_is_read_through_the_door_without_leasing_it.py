@@ -159,7 +159,7 @@ def reading(
     snapshot: dict[str, str] | None = None,
     containers: tuple[str, ...] | None = None,
     gpu: tuple[str, ...] | None = None,
-    sleeping: tuple[str, ...] = ("8001,false", "8002,unknown"),
+    sleeping: tuple[str, ...] = ("8001,false", "8002,none"),
     status: tuple[str, ...] = (),
 ) -> None:
     """What the stub rig answers the reader with: its snapshot and the rest."""
@@ -377,6 +377,25 @@ def test_a_unit_that_says_it_is_asleep_reads_asleep(srv2: tuple[Path, Path]) -> 
     assert rig_row(journal)["units"][UNIT_3B] == "asleep"
 
 
+def test_a_vllm_unit_whose_sleep_could_not_be_read_is_filed_unread(
+    srv2: tuple[Path, Path],
+) -> None:
+    """Owner ruling on FLT-02: ``unknown`` is a read that failed, not "awake".
+
+    ``none`` (the unit answered 404: no sleep route) is awake. Anything else
+    the reader could not read is filed as ``unread`` and listed as not read, so
+    admission has something to refuse instead of a guess.
+    """
+    root, journal = srv2
+    reading(root, sleeping=("8001,false", "8002,unknown"))
+
+    assert read_door(root).returncode == 0
+    rig = rig_row(journal)
+    assert rig["units"][UNIT_7B] == "unread"
+    assert rig["units"][UNIT_3B] == "awake"
+    assert "sleeping" in rig["not_read"].get("srv2_7b", []), rig["not_read"]
+
+
 # --- read --probe -----------------------------------------------------------------
 
 
@@ -489,6 +508,54 @@ def test_the_units_reader_prints_containers_card_holders_and_sleep(
     decoded = base64.b64decode(status[0].split(",", 1)[1]).decode("utf-8")
     assert "vllm:num_requests_running 0" in decoded
     assert all(" " not in line for line in lines), lines
+
+
+@pytest.mark.parametrize(
+    ("body", "code", "exit_code", "printed"),
+    [
+        ('{"is_sleeping": true}', "200", 0, "true"),
+        ('{"is_sleeping": false}', "200", 0, "false"),
+        ('{"detail": "Not Found"}', "404", 0, "none"),
+        ('{"error": "engine dead"}', "500", 0, "unknown"),
+        ("<html>catch-all</html>", "200", 0, "unknown"),
+        ("", "", 28, "unknown"),
+        ("", "", 7, "unknown"),
+    ],
+)
+def test_the_units_reader_tells_no_sleep_route_from_a_failed_read(
+    tmp_path: Path, body: str, code: str, exit_code: int, printed: str
+) -> None:
+    """Owner ruling on FLT-02: a 404 is ``none``; every other failure ``unknown``.
+
+    The stub ``curl`` answers the way curl does: the body, then — when asked
+    with ``-w`` — the status code, and on a transport failure nothing at all.
+    """
+    stubs = tmp_path / "bin"
+    _stub(stubs, "docker", 'case "$1" in ps) ;; inspect) echo 0 ;; esac\n')
+    _stub(stubs, "nvidia-smi", "exit 0\n")
+    _stub(
+        stubs,
+        "curl",
+        'case "$*" in\n'
+        "  *is_sleeping*)\n"
+        f"    [ {exit_code} -eq 0 ] || exit {exit_code}\n"
+        f"    printf '%s' '{body}'\n"
+        f"    case \"$*\" in *http_code*) printf '\\n%s' '{code}' ;; esac ;;\n"
+        "  *metrics*) printf 'vllm:num_requests_running 0\\n' ;;\n"
+        "  *) exit 7 ;;\n"
+        "esac\n",
+    )
+    env = {**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"}
+    done = subprocess.run(
+        ["bash", str(GATE_SCRIPTS / "rig-units.sh"), "vllm:8001"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    assert f"sleeping=8001,{printed}" in done.stdout.splitlines(), done.stdout
 
 
 class _Unit(BaseHTTPRequestHandler):

@@ -147,6 +147,23 @@ def test_units_of_ours_the_fleet_does_not_name_are_cleaned_and_it_is_restored(
     assert set(plan.restore) == {("srv2", U7B, "awake"), ("srv2", U3B, "asleep")}
 
 
+def test_a_unit_whose_sleep_could_not_be_read_refuses_that_rig_and_names_it(
+    tmp_path: Path,
+) -> None:
+    """Owner ruling on FLT-02: an unreadable ``/is_sleeping`` is refused.
+
+    A 404 (no sleep route) reads as awake and is admitted; any other failure to
+    read is ``unread``, which is neither state a layout can lock, and is not
+    something a restore plan can honestly promise to fix.
+    """
+    admit = _admit()
+    root = locked(tmp_path)
+    unread = observed({U7B: "unread", U3B: "asleep"})
+    with pytest.raises(admit.LiveRefusedError, match="srv2") as refused:
+        admit.admit_live(root, FLEET, "flt-05", unread)
+    assert U7B in str(refused.value), refused.value
+
+
 def test_a_process_that_is_not_ours_refuses_that_rig_and_names_it(
     tmp_path: Path,
 ) -> None:
