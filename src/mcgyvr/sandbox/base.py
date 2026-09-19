@@ -46,6 +46,8 @@ from functools import cache
 from pathlib import Path
 from typing import ClassVar
 
+from mcgyvr.redact import scrub
+
 _WORKSPACE_PREFIX = "mcgyvr-task-"
 
 # Identity used for the base commit. Deliberately not the host user's: the
@@ -170,10 +172,12 @@ def safe_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
     credential can only appear if a caller passes one, and this drops those
     before they enter. Everything a runtime needs on top of the image's own
     defaults (a working directory, a locale) is set by the mode, not here.
+    A value holding a URL with ``user:password@`` in it is a credential under
+    any name (an index, database or proxy URL), and is dropped the same way.
     """
     env: dict[str, str] = {}
     for name, value in (extra or {}).items():
-        if is_credential_var(name):
+        if is_credential_var(name) or scrub(value) != value:
             continue  # a caller mistake must not become a leak
         env[name] = value
     return env
