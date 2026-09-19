@@ -36,6 +36,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from mcgyvr.lines import parser_lines
 from mcgyvr.orchestrator.index import build_index
 
 #: What ``to`` has to look like. The floor rewrites text, so a replacement that
@@ -81,7 +82,8 @@ def apply(workspace: Path, old: str, new: str) -> RenameReport:
     reason a contract's own words can never reach the user's checkout.
 
     Raises :class:`RenameError` before writing anything when the pair is not
-    usable or the symbol is not one the index knows. Refusing up front matters
+    usable, the symbol is not one the index knows, or not one of the lines the
+    index named holds it. Refusing up front matters
     more here than in a single-file type: a rename that half-applied across
     eight files and then stopped would leave a tree that neither parses nor
     reverts to anything.
@@ -135,29 +137,46 @@ def apply(workspace: Path, old: str, new: str) -> RenameReport:
         if symbol.path in held:
             by_file.setdefault(symbol.path, set()).add(symbol.line)
 
-    changed: list[str] = []
+    # Every file's new bytes are planned before any is written, so a file that
+    # cannot be rewritten leaves the tree as it was rather than half-renamed.
+    planned: dict[str, bytes] = {}
+    missed: list[str] = []
     count = 0
     for path in sorted(by_file):
-        target = workspace / path
-        lines = target.read_text(encoding="utf-8").splitlines(keepends=True)
+        # Read, cut and written back as the index read and numbered it: the
+        # bytes through ``surrogateescape``, the lines where the parser ends
+        # them. Anything else edits a line the index did not name, or rewrites
+        # every line ending in the file.
+        text = (workspace / path).read_bytes().decode("utf-8", "surrogateescape")
+        lines = parser_lines(text)
         touched = 0
         for number in sorted(by_file[path]):
             if not 1 <= number <= len(lines):
                 # The index and the file on disk disagree about how long the
-                # file is. Nothing is rewritten on a line nobody can point at.
+                # file is. Nothing is rewritten on a line nobody can point at,
+                # and the reference is reported as left behind.
+                missed.append(f"{path}:{number}")
                 continue
             rewritten, hits = word.subn(new, lines[number - 1])
             lines[number - 1] = rewritten
             touched += hits
         if touched:
-            target.write_text("".join(lines), encoding="utf-8")
-            changed.append(path)
+            planned[path] = "".join(lines).encode("utf-8", "surrogateescape")
             count += touched
+
+    if not count:
+        raise RenameError(
+            f"the index found {len(occurrences)} occurrence(s) of {old!r} and "
+            f"none of them was on the line it named; nothing was renamed, and "
+            f"a rename that renamed nothing is not a success."
+        )
+    for path, data in planned.items():
+        (workspace / path).write_bytes(data)
 
     return RenameReport(
         old=old,
         new=new,
-        files=tuple(changed),
+        files=tuple(planned),
         occurrences=count,
-        unresolved=unresolved,
+        unresolved=(*unresolved, *missed),
     )
