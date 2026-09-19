@@ -210,6 +210,13 @@ class Machine:
     kernel: str
 
 
+#: How a scan's notes begin when its card list is not the whole answer:
+#: nvidia-smi gave none, or printed a row this could not read. Such a list is
+#: "not determined", never "fewer cards" (rule 1).
+GPU_NOT_DETERMINED = "GPU: not determined"
+GPU_ROW_UNREAD = "GPU: nvidia-smi printed a row this could not read"
+
+
 @dataclass(frozen=True)
 class Scan:
     """What one machine measured of itself, with provenance and gaps."""
@@ -222,6 +229,14 @@ class Scan:
     disk: Disk | None = None
     notes: _Notes = ()
     facts: _Facts = ()
+
+    @property
+    def gpus_determined(self) -> bool:
+        """Whether :attr:`gpus` is every card the machine has, as far as
+        nvidia-smi can say — read off the notes, which travel with the scan."""
+        return not any(
+            note.startswith((GPU_NOT_DETERMINED, GPU_ROW_UNREAD)) for note in self.notes
+        )
 
     @classmethod
     def of(
@@ -734,7 +749,7 @@ def _scan_gpus() -> tuple[tuple[Gpu, ...], _Facts, _Notes]:
             (),
             (),
             (
-                "GPU: not determined — nvidia-smi is absent or failed. This is "
+                f"{GPU_NOT_DETERMINED} — nvidia-smi is absent or failed. This is "
                 "a machine without an NVIDIA card as far as anything here can "
                 "tell; AMD and Apple GPUs are invisible to it, so bind VRAM by "
                 "hand on those rather than reading this as zero.",
@@ -749,7 +764,7 @@ def _scan_gpus() -> tuple[tuple[Gpu, ...], _Facts, _Notes]:
         gpu = _parse_gpu_row(line)
         if gpu is None:
             notes.append(
-                f"GPU: nvidia-smi printed a row this could not read, so that "
+                f"{GPU_ROW_UNREAD}, so that "
                 f"card is missing from the scan: {line.strip()!r}. MIG and "
                 f"vGPU rows report memory as [N/A] and land here. Read the "
                 f"card list as incomplete rather than short: the indexes below "
@@ -904,10 +919,19 @@ def local_machine_id() -> str:
 
 
 def write_scan(scan: Scan, root: Path | None = None) -> Path:
-    """Record a scan under its machine's id, replacing that machine's last one."""
+    """Record a scan under its machine's id, replacing that machine's last one.
+
+    Unless the last one knew its cards and this one does not: a card list
+    nvidia-smi could not give is no measurement of the cards, and replacing a
+    record that had one would make the next healthy scan read every card as new.
+    """
     base = root if root is not None else default_root()
     base.mkdir(parents=True, exist_ok=True)
     path = base / f"{os_machine_id(scan)}.json"
+    if not scan.gpus_determined:
+        prior = load_prior(os_machine_id(scan), base)
+        if prior is not None and prior.gpus_determined:
+            return path
     path.write_text(scan.to_json(), encoding="utf-8")
     return path
 
@@ -944,11 +968,14 @@ def compare(scan: Scan, prior: Scan | None) -> tuple[Mismatch, ...]:
         return ()
     found: list[Mismatch] = []
 
-    if len(scan.gpus) != len(prior.gpus):
+    # Like memory and CPU below, cards that were not determined on either side
+    # are not compared: an unanswered nvidia-smi is not a pulled card.
+    cards = scan.gpus_determined and prior.gpus_determined
+    if cards and len(scan.gpus) != len(prior.gpus):
         found.append(
             Mismatch(field="gpus", prior=len(prior.gpus), measured=len(scan.gpus))
         )
-    for now, was in zip(scan.gpus, prior.gpus, strict=False):
+    for now, was in zip(scan.gpus if cards else (), prior.gpus, strict=False):
         if now.name != was.name:
             found.append(
                 Mismatch(
