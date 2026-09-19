@@ -109,8 +109,12 @@ class Reading:
     snapshot: dict[str, str] = field(default_factory=dict)
     containers: list[Container] = field(default_factory=list)
     holders: list[Holder] = field(default_factory=list)
-    #: port -> what ``/is_sleeping`` said, ``None`` when it could not say.
+    #: port -> what ``/is_sleeping`` said, ``None`` for a unit with no sleep
+    #: route (the reader's ``none``: a 404).
     sleeping: dict[int, bool | None] = field(default_factory=dict)
+    #: ports whose ``/is_sleeping`` could not be read (the reader's ``unknown``):
+    #: a failed read, never "awake" (owner ruling, FLT-02).
+    sleep_unread: set[int] = field(default_factory=set)
     #: port -> the unit's in-flight page, as served.
     status: dict[int, str] = field(default_factory=dict)
     #: port -> the attention backend a vLLM unit's whole log names, ``None``
@@ -165,7 +169,15 @@ def parse(text: str) -> Reading:
             port = _digits(parts[0])
             if len(parts) != 2 or port is None:
                 raise ReadError(f"a sleeping row is PORT,STATE: {line!r}")
-            reading.sleeping[port] = {"true": True, "false": False}.get(parts[1])
+            states: dict[str, bool | None] = {
+                "true": True,
+                "false": False,
+                "none": None,
+            }
+            if parts[1] in states:
+                reading.sleeping[port] = states[parts[1]]
+            else:
+                reading.sleep_unread.add(port)
         elif key == "status":
             port = _digits(parts[0])
             if len(parts) != 2 or port is None:
@@ -287,8 +299,9 @@ class Observed:
     """What one reading means for the live fleet on its rig."""
 
     rig_id: str
-    #: unit id -> awake | asleep; a container of ours the fleet does not name is
-    #: keyed by its container name.
+    #: unit id -> awake | asleep | unread; a container of ours the fleet does not
+    #: name is keyed by its container name. ``unread`` is a vLLM unit whose
+    #: ``/is_sleeping`` could not be read, which admission refuses.
     units: dict[str, str]
     #: every card holder in no container of ours, named.
     foreign: list[str]
@@ -327,8 +340,9 @@ def observe(fleet: Live, host: str, reading: Reading) -> Observed:
         container = by_name.get(str(unit.get("container")))
         if container is None:
             continue
-        asleep = reading.sleeping.get(port) is True
-        observed.units[str(unit["unit_id"])] = "asleep" if asleep else "awake"
+        observed.units[str(unit["unit_id"])] = _sleep_state(
+            engine_of(unit), port, reading
+        )
         observed.containers[name] = container.id
         if engine_of(unit) == "vllm":
             observed.backend[name] = reading.backend.get(port)
@@ -355,6 +369,22 @@ def observe(fleet: Live, host: str, reading: Reading) -> Observed:
                 f"{holder.process} (pid {holder.pid}, {mib}{where})"
             )
     return observed
+
+
+def _sleep_state(engine: str, port: int, reading: Reading) -> str:
+    """``asleep``, ``awake``, or ``unread`` for a vLLM unit whose sleep went unread.
+
+    Owner ruling on FLT-02: a 404 (no sleep route) is awake; any other failure
+    to read is not an answer. The reader prints a sleeping row for every vLLM
+    unit, so one with no row was not read either. Other engines have no sleep.
+    """
+    said = reading.sleeping.get(port)
+    if said is True:
+        return "asleep"
+    unread = port in reading.sleep_unread or port not in reading.sleeping
+    if engine == "vllm" and unread:
+        return "unread"
+    return "awake"
 
 
 @dataclass
@@ -546,6 +576,8 @@ def _file_units(fleet: Live, host: str, filing: _Filing) -> None:
         unit_id = str(unit["unit_id"])
         if unit_id not in observed.units:
             continue
+        if observed.units[unit_id] == "unread":
+            filing.done.not_read.setdefault(name, []).append("sleeping")
         judged: list[dict[str, Any]] = []
         for field_name, value in (
             ("card_mib", observed.card_mib.get(name)),

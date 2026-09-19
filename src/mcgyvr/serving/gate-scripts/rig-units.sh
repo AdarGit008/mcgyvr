@@ -15,7 +15,9 @@
 #                                         the container its /proc/PID/cgroup
 #                                         names: a 64-hex id, `none` (in no
 #                                         container) or `unread`
-#   sleeping=PORT,true|false|unknown     a vLLM unit's own /is_sleeping
+#   sleeping=PORT,true|false|none|unknown  a vLLM unit's own /is_sleeping:
+#                                         `none` is a 404 (no sleep route),
+#                                         `unknown` any other failed read
 #   status=PORT,BASE64                   the unit's in-flight page, as served:
 #                                         /metrics for vLLM, /slots otherwise
 #   backend=PORT,BACKEND|none            the attention backend a vLLM unit's
@@ -100,7 +102,7 @@ backend_rows() { # PORT CONTAINER
 }
 
 unit_pages() {
-    local arg engine rest port container said state path page
+    local arg engine rest port container said code state path page
     for arg in "$@"; do
         engine=${arg%%:*}
         rest=${arg#*:}
@@ -111,12 +113,19 @@ unit_pages() {
         path=/slots
         if [ "$engine" = vllm ]; then
             path=/metrics
-            said=$(curl -s -m 5 "http://127.0.0.1:$port/is_sleeping" 2>/dev/null) || said=
+            # The body, then the status on its own last line. A 404 is a unit
+            # with no sleep route (vLLM without VLLM_SERVER_DEV_MODE=1): `none`,
+            # awake. Anything else that is not an answer is `unknown`, a read
+            # that failed (owner ruling, FLT-02).
+            said=$(curl -s -m 5 -w '\n%{http_code}' \
+                "http://127.0.0.1:$port/is_sleeping" 2>/dev/null) || said=
+            code=
+            case $said in *$'\n'*) code=${said##*$'\n'} ;; esac
             said=$(printf '%s' "$said" | tr -d ' \t\n')
             case $said in
                 *'"is_sleeping":true'*) state=true ;;
                 *'"is_sleeping":false'*) state=false ;;
-                *) state=unknown ;;
+                *) if [ "$code" = 404 ]; then state=none; else state=unknown; fi ;;
             esac
             printf 'sleeping=%s,%s\n' "$port" "$state"
             if [ -n "$container" ]; then

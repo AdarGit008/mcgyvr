@@ -84,8 +84,8 @@ class NoUsableDrawError(ConsensusError):
     Distinct from its parent because a caller can act on it: this is an attempt
     that failed, not a ranking that could not be performed. A driver turns it
     into a rejected attempt and lets the ladder decide what to do next, where a
-    bare :class:`ConsensusError` — a lone surrogate in a draw, a gate that
-    deleted the file it was judging — is a fault it has no answer for.
+    bare :class:`ConsensusError` — a gate that deleted the file it was judging —
+    is a fault it has no answer for.
     """
 
 
@@ -291,6 +291,13 @@ def _draw(
             # and bought nothing, and that is what is kept.
             refused.append(f"draw {index}: {content.reason}")
             continue
+        data = _bytes_of(content, index)
+        if isinstance(data, Unusable):
+            # Encoded before the workspace is touched, for the same reason as
+            # above: a draw with no bytes is not a candidate, and a draw that
+            # passed before it keeps its verdict.
+            refused.append(f"draw {index}: {data.reason}")
+            continue
         target = space.workspace / contract.target
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -300,7 +307,7 @@ def _draw(
             # translates line endings, so the draw the gate judged would not be
             # the draw returned as the winner. A verdict about a file nobody
             # kept is the one thing this ranking cannot survive.
-            target.write_bytes(_bytes_of(content, index))
+            target.write_bytes(data)
             verdict = gate(space)
             # Inside the `try`, so the binding is taken in the tree the verdict
             # was reached in and before the `finally` erases it. There is no
@@ -365,32 +372,29 @@ def _bind(
         ) from exc
 
 
-def _bytes_of(content: str, index: int) -> bytes:
-    """One draw as the bytes that go in the workspace, or this module's error.
+def _bytes_of(content: str, index: int) -> bytes | Unusable:
+    """One draw as the bytes that go in the workspace, or why there are none.
 
     The convention is ``surrogateescape``, which round-trips *bytes* a decode
     could not read (U+DC80..U+DCFF), and a **lone** surrogate is not one of
     those. It is a legal JSON escape, so ``\ud800`` survives ``json.loads``
-    into a completion and reaches here as ordinary draw text. That is answered
-    with this module's own error rather than a codec exception, for the reason
-    that applies here unchanged: a caller catching :class:`ConsensusError` has
-    decided what to do about a draw it cannot use, and a bare
-    ``UnicodeEncodeError`` out of a ranking function is not a decision it can
-    make.
+    into a completion and reaches here as ordinary draw text.
 
     A refusal rather than a rejection, because there is no verdict to record: no
     file was written, so no gate ran, so the draw is not a candidate that scored
-    badly — it is a candidate that does not exist.
+    badly — it is a candidate that does not exist. That is :class:`Unusable`,
+    the same answer a truncated reply gets, so the draws around it keep their
+    verdicts.
     """
     try:
         return content.encode("utf-8", "surrogateescape")
     except UnicodeEncodeError as exc:
-        raise ConsensusError(
-            f"draw {index} cannot be written into the workspace: the character at "
+        return Unusable(
+            f"cannot be written into the workspace: the character at "
             f"position {exc.start} is the lone surrogate "
             f"U+{ord(content[exc.start]):04X}, which has no UTF-8 encoding and "
             f"stands for no byte, so there is nothing for the gate to judge"
-        ) from exc
+        )
 
 
 def _score(result: GateResult) -> tuple[int, int, int]:

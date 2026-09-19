@@ -321,6 +321,8 @@ case $cmd in
   *constraint_0_power_limit_uw*) echo 95000000 ;;
   *constraint_1_power_limit_uw*) echo 120000000 ;;
   *query-compute-apps*) : ;;
+  # No sleep route, as a unit without one answers (owner ruling, FLT-02): 404.
+  *"is_sleeping"*) printf '{"error":"Not Found"}\n404' ;;
   *"v1/models"*) echo '{"data":[{"id":"stub-model"}]}' ;;
   *health*) : ;;
   *completion*) echo '{"content":"hi"}' ;;

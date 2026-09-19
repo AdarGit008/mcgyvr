@@ -24,14 +24,16 @@ development route, registered only when the server runs with
 Without the variable it is 404, and ``mcgyvr emit`` does not set it. llama.cpp
 has no such endpoint at any launch. So a probe that treated a 404 as an error,
 or as an answer of "asleep", would take down every rig in the fleet. **A 404
-means "this engine cannot tell me", and a unit that cannot tell is awake** —
-which is true, because an engine with no sleep endpoint has no way to be
-asleep.
+means "this unit has no sleep route", and a unit with no sleep route is
+awake** — which is true, because an engine with no sleep endpoint has no way to
+be asleep.
 
-The asymmetry is the point and is pinned below in both directions: only an
-explicit ``{"is_sleeping": true}`` may take a unit out of service, and everything
-else — 404, a connection that fails, a body that does not parse, a body of the
-wrong shape — leaves it in.
+**Any other failure to read is not an answer** (owner ruling on FLT-02): a
+connection that fails, a 5xx, a body that does not parse, a body of the wrong
+shape. That is ``sleeping == "unread"``, and a unit whose sleep could not be read
+does not read as serving. The split is pinned below in every direction: a 404
+and ``{"is_sleeping": false}`` leave a unit in, ``{"is_sleeping": true}`` and an
+unread answer keep it out.
 
 **The seam** is ``mcgyvr.serving.servelib.ssh``, the one call in the probe path
 that reaches a rig; ``gatelib.ssh`` refuses outright unless it descends from the
@@ -77,6 +79,9 @@ def reply(stdout: str = "", *, code: int = 0) -> subprocess.CompletedProcess[str
 #: does not serve: exit 22, nothing on stdout. This is srv2's vLLM pair as the
 #: live ladder launches it, and srv1's llama.cpp at every launch there is.
 NO_ROUTE = reply(code=22)
+#: What the sleep probe — ``curl -s -w '\n%{http_code}'`` — prints for a unit
+#: with no ``/is_sleeping`` route: the engine's 404 body, then the status.
+NO_SLEEP_ROUTE = reply('{"detail": "Not Found"}\n404')
 
 
 class Rig:
@@ -210,7 +215,7 @@ def test_a_unit_whose_is_sleeping_is_404_reads_as_serving(
     lets a sleep work. A probe that read that 404 as an error, or as
     an answer, would take the whole fleet out of service.
     """
-    rig = Rig(models=reply(MODELS), is_sleeping=NO_ROUTE)
+    rig = Rig(models=reply(MODELS), is_sleeping=NO_SLEEP_ROUTE)
     row = probe(monkeypatch, rig)
 
     assert row["healthy"] is True, (
@@ -234,28 +239,34 @@ def test_a_llamacpp_unit_that_has_no_such_endpoint_at_all_reads_as_serving(
     could be set, llama.cpp's is an engine that has no sleep to report. A probe
     that decided by engine would have to keep both.
     """
-    rig = Rig(models=reply(MODELS), is_sleeping=NO_ROUTE)
+    rig = Rig(models=reply(MODELS), is_sleeping=NO_SLEEP_ROUTE)
     row = probe(monkeypatch, rig)
 
     assert row["healthy"] is True and row["sleeping"] is None
 
 
-def test_an_engine_that_answers_the_question_with_nonsense_reads_as_serving(
+def test_a_sleep_answer_that_cannot_be_read_does_not_read_as_serving(
     monkeypatch: pytest.MonkeyPatch, brief: None
 ) -> None:
-    """A 200 that is not an answer is not an answer, and not a refusal either.
+    """Owner ruling on FLT-02: only a 404 means "no sleep route".
 
-    A catch-all route, a proxy's error page, a future engine that spells the
-    field differently: none of these say a unit is asleep, and the rule is that
-    only ``{"is_sleeping": true}`` takes a unit out of service. The alternative —
-    treating an unreadable body as suspicious — makes the probe fail closed on
-    every engine nobody has taught it about yet, which on a fleet whose units
-    answer 404 there is the same as refusing to serve.
+    A catch-all route, a proxy's error page, a 5xx, a connection that fails, a
+    body of the wrong shape: none of these say the unit is awake either. The
+    probe was asked and could not read the answer, and a unit that may be
+    asleep hangs the first contract dispatched to it.
     """
-    for body in ("<html>404 page not found</html>", "{}", '{"is_sleeping": "yes"}'):
-        rig = Rig(models=reply(MODELS), is_sleeping=reply(body))
+    for answer in (
+        reply("<html>page not found</html>\n200"),
+        reply("{}\n200"),
+        reply('{"is_sleeping": "yes"}\n200'),
+        reply('{"error": "engine dead"}\n500'),
+        reply(code=7),
+        reply(code=28),
+    ):
+        rig = Rig(models=reply(MODELS), is_sleeping=answer)
         row = probe(monkeypatch, rig)
-        assert row["healthy"] is True and row["sleeping"] is None, body
+        assert row["healthy"] is False, answer
+        assert row["sleeping"] == "unread", answer
 
 
 def test_an_awake_vllm_unit_says_so_and_reads_as_serving(
