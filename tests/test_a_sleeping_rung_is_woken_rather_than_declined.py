@@ -192,14 +192,14 @@ def refusing(*, until_call: int) -> tuple[Any, list[str]]:
     thinks it spent. Those two numbers being different is the whole of "the
     retry spends no attempt".
     """
-    from mcgyvr.runner import TransportError
+    from mcgyvr.runner import RefusedConnectionError
 
     asked: list[str] = []
 
     def generate(model: str, request: Any) -> Any:
         asked.append(model)
         if len(asked) <= until_call:
-            raise TransportError(REFUSED)
+            raise RefusedConnectionError(REFUSED)
         return lj.completion(lj.GOOD_REPLY, request)
 
     return generate, asked
