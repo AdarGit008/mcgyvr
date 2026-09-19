@@ -114,19 +114,13 @@ def translate_endpoint(base_url: str) -> str:
     on every platform (natively on Docker Desktop, via
     :func:`host_gateway_args` on Linux). A non-loopback host — another machine,
     a container network name — is already reachable and is left untouched.
+    A rewritten URL carries no userinfo: it goes into the container's env.
     """
     parsed = urlparse(base_url)
     if parsed.hostname is None or parsed.hostname.lower() not in _LOOPBACK_HOSTS:
         return base_url
-    userinfo = ""
-    if parsed.username:
-        userinfo = parsed.username
-        if parsed.password:
-            userinfo += f":{parsed.password}"
-        userinfo += "@"
     port = f":{parsed.port}" if parsed.port else ""
-    netloc = f"{userinfo}{HOST_ALIAS}{port}"
-    return urlunparse(parsed._replace(netloc=netloc))
+    return urlunparse(parsed._replace(netloc=f"{HOST_ALIAS}{port}"))
 
 
 def host_gateway_args(system: str) -> list[str]:
@@ -289,7 +283,9 @@ def _run_args(
     The container is kept alive with ``sleep infinity`` and driven by
     ``docker exec``; that keeps one container per task while letting the gate
     run many commands in it. The workspace is bind-mounted so host git and the
-    container see one tree.
+    container see one tree, and its ``.git`` is mounted again read-only on top:
+    host git executes what that directory's config and hooks name, so a
+    container able to write it could run code on the host.
     """
     args = [
         "run",
@@ -300,6 +296,11 @@ def _run_args(
         "/workspace",
         "--volume",
         f"{workspace}:/workspace",
+        # Laid over the writable mount above: host git runs over this
+        # directory's config and hooks, so the container may read it and never
+        # write it.
+        "--volume",
+        f"{workspace}/.git:/workspace/.git:ro",
         *resources.run_args(),
         *gateway,
     ]
