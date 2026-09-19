@@ -158,6 +158,7 @@ from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.orchestrator.repo import AttachedRepo
+from mcgyvr.scope import OutsideTreeError, inside
 
 # The well-known SHA-1 of git's empty tree, and the same sentinel
 # :mod:`mcgyvr.gate.changeset` and :mod:`mcgyvr.orchestrator.repo` use: a
@@ -962,46 +963,21 @@ def _push_step(root: Path, branch: str) -> str:
 def _target(root: Path, contract: Contract) -> str:
     """The contract's single target as a repository-relative path.
 
-    A target that escapes the repository is refused loudly rather than written:
-    the contract's single-target discipline says where the worker's output goes,
+    A target that escapes the repository, crosses a symlink or enters ``.git``
+    is refused loudly rather than written (:func:`mcgyvr.scope.inside`): the
+    contract's single-target discipline says where the worker's output goes,
     and "anywhere on this machine" is not one of the answers.
     """
     named = contract.target.strip()
     if not named:
         raise DeliveryError(f"{contract.id} names no target to deliver")
-    anchor = root.resolve()
-    _refuse_symlinked(anchor, named, contract.id)
-    resolved = (anchor / named).resolve()
-    if anchor not in resolved.parents:
+    try:
+        resolved = inside(root, named)
+    except OutsideTreeError as refusal:
         raise DeliveryError(
-            f"{contract.id} targets {named!r}, which is outside the repository"
-        )
-    return resolved.relative_to(anchor).as_posix()
-
-
-def _refuse_symlinked(anchor: Path, named: str, identity: str) -> None:
-    """Refuse a target that is, or crosses, a symlink.
-
-    ``.resolve()`` follows symlinks, so a symlink at the target — or at any
-    parent component — would steer the write to a different file and leave the
-    commit naming a path the tree does not hold. Walk the literal components
-    with ``lstat`` semantics (``Path.is_symlink``) instead and refuse before
-    anything is written.
-    """
-    walked = anchor
-    for part in Path(named).parts:
-        if part in ("", "."):
-            continue
-        if part == "..":
-            walked = walked.parent
-            continue
-        walked = walked / part
-        if walked.is_symlink():
-            raise DeliveryError(
-                f"{identity} targets {named!r}, which crosses the symlink "
-                f"{part!r}; a symlink is not a file the tree holds, so "
-                f"delivery refuses to write through it"
-            )
+            f"{contract.id} targets {refusal}; delivery refuses it"
+        ) from refusal
+    return resolved.relative_to(root.resolve()).as_posix()
 
 
 def _named_base(base: str) -> None:
