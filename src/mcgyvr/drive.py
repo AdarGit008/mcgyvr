@@ -51,7 +51,7 @@ from mcgyvr.escalate import (
     judge,
     required_policy,
 )
-from mcgyvr.gate import Gate, GateResult
+from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.preflight import reply_cap
@@ -59,6 +59,7 @@ from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import TypeCheck
 from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, Request, RunnerError, dispatch
+from mcgyvr.sandbox.base import nested_git
 from mcgyvr.scope import inside
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, verify
@@ -1272,6 +1273,25 @@ def gate_workspace(
     a function for mutating its caller's object and has to stand down where the
     contract *ordered* that.
     """
+    nested = nested_git(sandbox.workspace)
+    if nested is not None:
+        # Before any host git reads the tree (owner ruling): a nested
+        # repository's config is run by the child git host git starts in it.
+        return GateResult(
+            findings=(
+                Finding(
+                    check="workspace",
+                    path=nested,
+                    names_a_file=False,
+                    code="nested-git",
+                    message=(
+                        f"the workspace holds the git entry {nested}; host git "
+                        f"would run that repository's config, so the tree is "
+                        f"not read and the change is not accepted"
+                    ),
+                ),
+            )
+        )
     acceptance = acceptance_for(contract, sandbox)
     return Gate(adapters).run(
         ChangeSet.detect(sandbox.workspace),

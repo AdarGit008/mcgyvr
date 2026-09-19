@@ -254,7 +254,7 @@ def test_a_baseline_command_that_leaves_a_git_entry_is_refused_by_name(
         issue = Acceptance(sandbox, (("sh", "-c", NESTED),)).precondition()
 
     assert issue is not None
-    assert "sub/.git" in issue.detail
+    assert "sub/.git" in str(issue)
 
 
 def test_the_gate_fails_a_workspace_holding_a_nested_git_entry(tmp_path: Path) -> None:
