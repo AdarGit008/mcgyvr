@@ -181,3 +181,49 @@ print(json.dumps({{"file": mcgyvr.__file__, "keys": sorted(row)}}))
     # And the fields that need no checkout are still there.
     assert "prompt_sha256" in out["keys"]
     assert "bundle_sha256" in out["keys"]
+
+
+def test_a_product_surface_that_cannot_be_read_does_not_stop_the_dispatch(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """A surface entry moved without being re-declared makes ``digest`` raise.
+
+    Off-round is recorded, not refused: the attempt still runs, its answer comes
+    back, and its one row says the revision could not be read instead of naming
+    one.
+    """
+    from mcgyvr import telemetry
+
+    product = _bench_product()
+
+    def unreadable(_root: Path) -> str:
+        raise product.ProductError("src/mcgyvr/moved.py is not a file or a directory")
+
+    monkeypatch.setattr(product, "digest", unreadable)
+    telemetry._product_revision.cache_clear()
+    ran: list[bool] = []
+
+    def attempt() -> Completion:
+        ran.append(True)
+        return _completion()
+
+    sink = tmp_path / "journal" / "agent-a.jsonl"
+    try:
+        answer = _observe(
+            attempt,
+            path=sink,
+            attempt_id="agent-a:impl:local_qwen-7b:1",
+            orchestrator="agent-a",
+            rung="local_qwen-7b",
+            endpoint=ENDPOINT,
+        )
+    finally:
+        telemetry._product_revision.cache_clear()
+
+    assert ran == [True]
+    assert answer.text == _completion().text
+    (row,) = fold(path=sink)
+    assert row["ok"] is True
+    assert "round" not in row
+    assert "product_sha256" not in row
+    assert row["revision_error"] == "ProductError"
