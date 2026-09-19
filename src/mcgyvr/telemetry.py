@@ -286,10 +286,10 @@ def observe[T](
         return record
 
     try:
-        # Assembling the identity touches the disk twice — the prompt blob is
-        # written to the store, the product revision is read off the checkout
-        # — and either can fail. Inside the guard, so a failure here still
-        # writes its one row: "exactly one record per call".
+        # Assembling the identity writes the prompt blob to the store, which
+        # can fail (an unreadable product revision is recorded, not raised).
+        # Inside the guard, so a failure here still writes its one row:
+        # "exactly one record per call".
         _identity(
             identity,
             store,
@@ -443,17 +443,19 @@ def _identity(
     **Written into ``fields`` step by step rather than returned whole**, which
     is the whole reason this takes a dict instead of building one. Two of the
     steps touch the disk — :func:`_prompt_identity` writes the prompt to the
-    blob store, :func:`_product_revision` reads the checkout — and either can
-    raise. Filling the caller's dict as it goes means the row it writes for
-    that failure still carries everything the earlier steps established: what
-    endpoint was about to be asked, under what condition, and, past the blob,
-    which revision was asking. Returning a value would make that row empty of
-    all of it, and an empty row is the shape a reader cannot act on.
+    blob store, :func:`_product_revision` reads the checkout. The blob store is
+    a sink and can raise. Filling the caller's dict as it goes means the row it
+    writes for that failure still carries everything the earlier steps
+    established: what endpoint was about to be asked and under what condition.
+    Returning a value would make that row empty of all of it, and an empty row
+    is the shape a reader cannot act on. The revision is not a sink: a checkout
+    whose round or surface cannot be read leaves ``round`` and
+    ``product_sha256`` absent and names the failure in ``revision_error``.
 
     **Which makes the order a contract and not a layout.** Everything the
     caller handed in — the condition, the endpoint, the task type, the session
     file — is established by being passed and cannot fail, so all of it is
-    written before either step that can. Writing a fact after a step that may
+    written before the step that can. Writing a fact after a step that may
     raise gives it away for nothing: ``observe`` promises ``task_type`` and
     ``session_file`` on both rows and a reader takes their absence to mean the
     caller had neither, so a full disk would silently unsay what the caller
@@ -475,7 +477,15 @@ def _identity(
     if temperature is not None:
         fields["temperature"] = temperature
     fields |= _prompt_identity(store, messages)
-    revision = _product_revision()
+    try:
+        revision = _product_revision()
+    except Exception as failure:
+        # Off-round is recorded, not refused, and so is a round or a surface
+        # that cannot be read at all: a rounds file mid-edit, a surface entry
+        # that moved. The row says the revision was not read and why; refusing
+        # would stop every dispatch on exactly the days the product changes.
+        fields["revision_error"] = type(failure).__name__
+        return
     if revision is not None:
         fields["round"], fields["product_sha256"] = revision
 
