@@ -19,17 +19,22 @@ Two properties are still held, weaker mode or not:
   than the empty base a container starts from — the host env is needed for a
   command to find its own tools, but a key is never among what it keeps.
 - **Nothing survives.** The ephemeral directory is removed on success,
-  failure and interrupt by the shared context manager.
+  failure and interrupt by the shared context manager, and each command runs in
+  its own session, killed whole when the command ends — so a child it left in
+  the background neither outlives it nor holds its verdict open.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
+import signal
 import subprocess
+import tempfile
 from collections.abc import Mapping, Sequence
-from typing import ClassVar
+from typing import IO, ClassVar
 
-from mcgyvr.sandbox.base import CommandResult, Sandbox, merge_env
+from mcgyvr.sandbox.base import TIMEOUT_EXIT, CommandResult, Sandbox, merge_env
 
 # Conventional shell exit codes for a command that never ran: 127 when the
 # binary is not found, 126 when it is found but cannot be executed. Both let a
@@ -65,52 +70,63 @@ class TempDirSandbox(Sandbox):
         # command find its own toolchain, and the credential filter is what
         # keeps a key from riding along.
         full_env = merge_env(os.environ, env)
-        try:
-            done = subprocess.run(
-                argv,
-                cwd=self.workspace,
-                env=full_env,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as expired:
+        # Output goes to files rather than pipes: a child the command left in
+        # the background holds a pipe open, and waiting for it to close would
+        # report a command that exited as one that timed out.
+        with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+            try:
+                proc = subprocess.Popen(
+                    argv,
+                    cwd=self.workspace,
+                    env=full_env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=out,
+                    stderr=err,
+                    start_new_session=True,
+                )
+            except OSError as unrunnable:
+                # The binary is missing (FileNotFoundError) or present but not
+                # executable (PermissionError, NotADirectoryError). Either way
+                # it never ran; report the shell code rather than raising, so
+                # the gate sees a command outcome like any other.
+                code = (
+                    _COMMAND_NOT_FOUND
+                    if isinstance(unrunnable, FileNotFoundError)
+                    else _COMMAND_NOT_EXECUTABLE
+                )
+                return CommandResult(
+                    command=argv, exit_code=code, stdout="", stderr=str(unrunnable)
+                )
+            timed_out = False
+            try:
+                exit_code = proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                exit_code = TIMEOUT_EXIT
+            finally:
+                # The command's whole session goes when it ends, on a timeout,
+                # an exit or an interrupt: nothing it started outlives it.
+                _kill_session(proc)
             return CommandResult(
                 command=argv,
-                exit_code=-1,
-                stdout=_as_text(expired.stdout),
-                stderr=_as_text(expired.stderr),
-                timed_out=True,
+                exit_code=exit_code,
+                stdout=_read(out),
+                stderr=_read(err),
+                timed_out=timed_out,
             )
-        except OSError as unrunnable:
-            # The binary is missing (FileNotFoundError) or present but not
-            # executable (PermissionError, NotADirectoryError). Either way it
-            # never ran; report the shell code rather than raising, so the gate
-            # sees a command outcome like any other.
-            code = (
-                _COMMAND_NOT_FOUND
-                if isinstance(unrunnable, FileNotFoundError)
-                else _COMMAND_NOT_EXECUTABLE
-            )
-            return CommandResult(
-                command=argv,
-                exit_code=code,
-                stdout="",
-                stderr=str(unrunnable),
-            )
-        return CommandResult(
-            command=argv,
-            exit_code=done.returncode,
-            stdout=done.stdout,
-            stderr=done.stderr,
-        )
 
 
-def _as_text(stream: str | bytes | None) -> str:
-    """Coerce captured output — bytes on a timeout under some Pythons — to text."""
-    if stream is None:
-        return ""
-    if isinstance(stream, bytes):
-        return stream.decode("utf-8", "replace")
-    return stream
+def _kill_session(proc: subprocess.Popen[bytes]) -> None:
+    """SIGKILL every process in ``proc``'s session and reap ``proc``.
+
+    A process that left the session (``setsid``, a daemon) is not reached:
+    this mode's process isolation is the host's.
+    """
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(proc.pid, signal.SIGKILL)
+    proc.wait()
+
+
+def _read(stream: IO[bytes]) -> str:
+    stream.seek(0)
+    return stream.read().decode("utf-8", "replace")
