@@ -185,6 +185,114 @@ def test_caller_supplied_credential_is_dropped_but_benign_var_passes(
         assert "m=http://x" in result.stdout
 
 
+def test_a_url_carrying_a_password_is_dropped_whatever_the_variable_is_called(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A credential rides in a value as often as in a name: an index URL, a
+    database URL or a proxy with `user:password@` in it is a key by another
+    name, and the name filter alone lets it through."""
+    monkeypatch.setenv("PIP_INDEX_URL", "https://u:fake-host-pw@pypi.invalid/simple")
+    with TempDirSandbox(git_repo) as sandbox:
+        result = sandbox.run(
+            ["sh", "-c", "echo p=${PIP_INDEX_URL:-none} d=${DATABASE_URL:-none}"],
+            env={"DATABASE_URL": "postgres://u:fake-caller-pw@db.invalid/app"},
+        )
+    assert result.stdout.split() == ["p=none", "d=none"]
+
+
+# --- the host HOME is not the command's (owner ruling on EXE-06) -----------
+
+_TOOL_HOMES = ("CARGO_HOME", "RUSTUP_HOME", "UV_CACHE_DIR")
+
+
+@pytest.fixture
+def host_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A stand-in host HOME holding the files a command must not reach."""
+    home = tmp_path / "host-home"
+    for name, text in (
+        (".netrc", "machine x login u password fake-netrc-pw\n"),
+        (".aws/credentials", "[default]\naws_secret_access_key=fake-aws\n"),
+        (".ssh/id_ed25519", "fake-ssh-key\n"),
+    ):
+        (home / name).parent.mkdir(parents=True, exist_ok=True)
+        (home / name).write_text(text, encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    for name in (*_TOOL_HOMES, "XDG_CACHE_HOME", "XDG_CONFIG_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    return home
+
+
+def test_a_command_gets_a_fresh_empty_home_outside_the_workspace(
+    git_repo: Path, host_home: Path
+) -> None:
+    """~/.netrc, ~/.aws and ~/.ssh are not reachable through HOME, and what a
+    command writes there lands neither in the gated diff nor in the next
+    command's HOME."""
+    with TempDirSandbox(git_repo) as sandbox:
+        first = sandbox.run(
+            ["sh", "-c", 'echo "$HOME"; ls -A "$HOME"; touch "$HOME/.mark"']
+        )
+        seen = first.stdout.split()
+        home = Path(seen[0])
+        second = sandbox.run(["sh", "-c", 'echo "$HOME"; ls -A "$HOME"'])
+        status = subprocess.run(
+            ["git", "-C", str(sandbox.workspace), "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        assert seen == [str(home)], "HOME starts empty"
+        assert home != host_home
+        assert not home.is_relative_to(sandbox.workspace)
+        assert len(second.stdout.split()) == 1, "fresh each time: no .mark"
+        assert status == ""
+    assert not home.exists(), "the command's HOME is removed"
+
+
+def test_the_host_home_secrets_are_not_read_through_home_or_xdg(
+    git_repo: Path, host_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(host_home / ".aws"))
+    with TempDirSandbox(git_repo) as sandbox:
+        result = sandbox.run(
+            [
+                "sh",
+                "-c",
+                'cat "$HOME/.netrc" "$HOME/.aws/credentials" "$HOME/.ssh/id_ed25519" '
+                '"${XDG_CONFIG_HOME:-$HOME/.config}/credentials" 2>/dev/null; true',
+            ]
+        )
+    assert "fake" not in result.stdout
+
+
+def test_tool_locations_stay_pinned_to_the_host(
+    git_repo: Path, host_home: Path
+) -> None:
+    """The host's toolchains keep working under the fresh HOME: each tool home
+    is the value the host would resolve, not one under the new HOME."""
+    with TempDirSandbox(git_repo) as sandbox:
+        result = sandbox.run(
+            ["sh", "-c", 'echo "$CARGO_HOME" "$RUSTUP_HOME" "$UV_CACHE_DIR"']
+        )
+    assert result.stdout.split() == [
+        str(host_home / ".cargo"),
+        str(host_home / ".rustup"),
+        str(host_home / ".cache" / "uv"),
+    ]
+
+
+def test_a_tool_location_the_host_sets_is_kept(
+    git_repo: Path, host_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in _TOOL_HOMES:
+        monkeypatch.setenv(name, str(tmp_path / name.lower()))
+    with TempDirSandbox(git_repo) as sandbox:
+        result = sandbox.run(
+            ["sh", "-c", 'echo "$CARGO_HOME" "$RUSTUP_HOME" "$UV_CACHE_DIR"']
+        )
+    assert result.stdout.split() == [str(tmp_path / n.lower()) for n in _TOOL_HOMES]
+
+
 # --- factory -------------------------------------------------------------
 
 
