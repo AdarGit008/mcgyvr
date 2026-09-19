@@ -44,6 +44,8 @@ from functools import cache
 from pathlib import Path
 from typing import ClassVar
 
+from mcgyvr.redact import scrub
+
 _WORKSPACE_PREFIX = "mcgyvr-task-"
 
 # Identity used for the base commit. Deliberately not the host user's: the
@@ -88,6 +90,40 @@ class SandboxError(Exception):
     """A sandbox could not be created, populated, or torn down."""
 
 
+class NestedGitError(SandboxError):
+    """A ``.git`` entry below the workspace root, which host git would enter."""
+
+
+def nested_git(root: Path) -> str | None:
+    """The first ``.git`` entry below ``root``, as a relative path, or ``None``.
+
+    Host git over a tree holding a nested repository runs a child git inside
+    it, and that child runs the nested repository's own ``core.fsmonitor`` and
+    filter drivers. The top-level ``.git`` is the host's and is mounted
+    read-only into a container; any other one was written by a command, so no
+    host git is run over a tree that holds one. Directory or file (a
+    ``gitdir:`` pointer), in any case. Symlinks are not followed.
+    """
+    for here, dirs, files in os.walk(root):
+        top = Path(here) == root
+        for name in sorted([*dirs, *files]):
+            if name.lower() == ".git" and not (top and name == ".git"):
+                return (Path(here) / name).relative_to(root).as_posix()
+        if top:
+            dirs[:] = [d for d in dirs if d != ".git"]
+    return None
+
+
+def refuse_nested_git(root: Path) -> None:
+    """Raise :class:`NestedGitError` naming the entry when ``root`` holds one."""
+    found = nested_git(root)
+    if found is not None:
+        raise NestedGitError(
+            f"{found} is a git entry inside the workspace; host git would run "
+            f"its config, so nothing more is done over this tree"
+        )
+
+
 @dataclass(frozen=True)
 class CommandResult:
     """The outcome of one command run inside a sandbox.
@@ -130,10 +166,12 @@ def safe_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
     credential can only appear if a caller passes one, and this drops those
     before they enter. Everything a runtime needs on top of the image's own
     defaults (a working directory, a locale) is set by the mode, not here.
+    A value holding a URL with ``user:password@`` in it is a credential under
+    any name (an index, database or proxy URL), and is dropped the same way.
     """
     env: dict[str, str] = {}
     for name, value in (extra or {}).items():
-        if is_credential_var(name):
+        if is_credential_var(name) or scrub(value) != value:
             continue  # a caller mistake must not become a leak
         env[name] = value
     return env
@@ -240,7 +278,8 @@ class Sandbox(ABC):
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", self._base_commit)
-        _git(self.workspace, "clean", "-fdx")
+        # `-ff` removes nested repositories too; neither command runs their config.
+        _git(self.workspace, "clean", "-ffdx")
 
     def checkpoint(self) -> str:
         """Commit the workspace's current state and return the commit to restore to.
@@ -252,6 +291,7 @@ class Sandbox(ABC):
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
+        refuse_nested_git(self.workspace)
         _git(self.workspace, "add", "-A")
         _git(
             self.workspace,
@@ -278,7 +318,7 @@ class Sandbox(ABC):
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", checkpoint)
-        _git(self.workspace, "clean", "-fd")
+        _git(self.workspace, "clean", "-ffd")
 
     def drop_checkpoint(self) -> None:
         """Return ``HEAD`` to the base commit, keeping the working tree as it is.
@@ -290,6 +330,7 @@ class Sandbox(ABC):
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
+        refuse_nested_git(self.workspace)
         _git(self.workspace, "reset", "--mixed", self._base_commit)
 
     def base_changeset_ref(self) -> str:

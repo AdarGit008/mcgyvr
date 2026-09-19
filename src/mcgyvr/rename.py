@@ -38,6 +38,7 @@ from pathlib import Path
 
 from mcgyvr.lines import parser_lines
 from mcgyvr.orchestrator.index import build_index
+from mcgyvr.scope import OutsideTreeError, inside
 
 #: What ``to`` has to look like. The floor rewrites text, so a replacement that
 #: is not an identifier produces a tree that no longer parses while reporting
@@ -137,17 +138,26 @@ def apply(workspace: Path, old: str, new: str) -> RenameReport:
         if symbol.path in held:
             by_file.setdefault(symbol.path, set()).add(symbol.line)
 
+    # Every path is checked before any is written, so a refusal leaves the tree
+    # as it was: a tracked symlink would steer the rewrite off the tree.
+    targets: dict[str, Path] = {}
+    for path in sorted(by_file):
+        try:
+            targets[path] = inside(workspace, path)
+        except OutsideTreeError as refusal:
+            raise RenameError(f"the rename is refused: {refusal}") from refusal
+
     # Every file's new bytes are planned before any is written, so a file that
     # cannot be rewritten leaves the tree as it was rather than half-renamed.
     planned: dict[str, bytes] = {}
     missed: list[str] = []
     count = 0
-    for path in sorted(by_file):
+    for path, target in targets.items():
         # Read, cut and written back as the index read and numbered it: the
         # bytes through ``surrogateescape``, the lines where the parser ends
         # them. Anything else edits a line the index did not name, or rewrites
         # every line ending in the file.
-        text = (workspace / path).read_bytes().decode("utf-8", "surrogateescape")
+        text = target.read_bytes().decode("utf-8", "surrogateescape")
         lines = parser_lines(text)
         touched = 0
         for number in sorted(by_file[path]):
@@ -171,7 +181,7 @@ def apply(workspace: Path, old: str, new: str) -> RenameReport:
             f"a rename that renamed nothing is not a success."
         )
     for path, data in planned.items():
-        (workspace / path).write_bytes(data)
+        targets[path].write_bytes(data)
 
     return RenameReport(
         old=old,

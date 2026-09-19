@@ -28,6 +28,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path, PurePosixPath
 
 
 @dataclass(frozen=True)
@@ -124,3 +125,65 @@ def _glob_to_regex(pattern: str) -> str:
 
 def _matches(pattern: str, path: str) -> bool:
     return _compiled(pattern).match(path) is not None
+
+
+# --- where a named path lands on disk ---------------------------------------
+
+
+class OutsideTreeError(ValueError):
+    """A repository-relative name that would read or write outside its tree."""
+
+
+def enters_git_dir(path: str) -> bool:
+    """Whether ``path`` has a ``.git`` component, in any case.
+
+    A ``.git`` directory is not content: host git reads it as its own
+    configuration and hooks, so bytes landing there are commands host git
+    runs. Case-folded because a case-insensitive filesystem reads ``.GIT`` as
+    the same directory.
+    """
+    return any(part.lower() == ".git" for part in PurePosixPath(path).parts)
+
+
+def inside(root: Path, named: str) -> Path:
+    """``named`` as a path under ``root``, refused if it could land anywhere else.
+
+    Every host-side read or write of a worker's target goes through this, in
+    the sandbox workspace and in the repository a delivery commits into alike.
+    Three ways a name reaches somewhere else are refused before anything is
+    touched:
+
+    * it is absolute, or ``..`` walks it out of ``root``;
+    * it is, or crosses, a symlink. ``git archive`` recreates tracked symlinks,
+      and ``.resolve()`` follows them, so a tracked ``target -> ~/.bashrc``
+      would steer the write into the user's shell profile. The literal
+      components are walked with ``lstat`` semantics (``Path.is_symlink``)
+      instead;
+    * it enters a ``.git`` directory (:func:`enters_git_dir`).
+    """
+    if PurePosixPath(named).is_absolute() or Path(named).is_absolute():
+        raise OutsideTreeError(
+            f"{named!r} is absolute; a path in the tree is relative to it"
+        )
+    if enters_git_dir(named):
+        raise OutsideTreeError(
+            f"{named!r} is inside a .git directory, which host git reads as "
+            f"configuration and hooks; nothing is written there"
+        )
+    anchor = root.resolve()
+    walked = anchor
+    for part in Path(named).parts:
+        if part in ("", "."):
+            continue
+        if part == "..":
+            walked = walked.parent
+            continue
+        walked = walked / part
+        if walked.is_symlink():
+            raise OutsideTreeError(
+                f"{named!r} crosses the symlink {part!r}; a symlink is not a "
+                f"file the tree holds, so nothing is read or written through it"
+            )
+    if anchor not in walked.parents:
+        raise OutsideTreeError(f"{named!r} is outside the tree")
+    return walked

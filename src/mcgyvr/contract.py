@@ -77,7 +77,7 @@ import yaml
 from mcgyvr.catalog import CatalogError, catalog
 from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
-from mcgyvr.scope import Scope
+from mcgyvr.scope import Scope, enters_git_dir
 from mcgyvr.strict_yaml import strict_loader
 
 SCHEMA_VERSION = 1
@@ -1151,6 +1151,12 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         )
 
     _check_glob(target, "target")
+    if enters_git_dir(target):
+        raise ContractSchemaError(
+            f"target: {target!r} is inside a .git directory. Host git reads it "
+            f"as configuration and hooks, so a worker's bytes there are commands "
+            f"the host runs. Name a file in the tree."
+        )
     if _GLOB_META.search(target) and not kind.deterministic:
         raise ContractSchemaError(
             f"target: {target!r} is a pattern, but task type "
