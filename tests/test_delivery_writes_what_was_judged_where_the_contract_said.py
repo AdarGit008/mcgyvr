@@ -165,6 +165,38 @@ def test_the_acceptance_ceiling_is_the_run_configs_not_the_default_one(
     assert code != 0, f"stdout: {out.out}\nstderr: {out.err}"
 
 
+def test_a_default_config_that_does_not_load_is_not_read_as_no_ceiling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Owner ruling: a broken config is an error here too.
+
+    A ceiling read off a config nobody could parse is not "no ceiling
+    declared" — it is a config the operator wrote and this run did not use, and
+    swallowing it hands arbitrary contract shell no wall clock at all.
+    """
+    from mcgyvr.config import ConfigError
+    from mcgyvr.drive import task_ceiling
+
+    broken = tmp_path / "mcgyvr.yaml"
+    broken.write_text("version: 1\nsources: {workstation:\n", encoding="utf-8")
+    monkeypatch.setenv("MCGYVR_CONFIG", str(broken))
+
+    with pytest.raises(ConfigError):
+        task_ceiling()
+
+
+def test_no_config_at_all_is_still_no_declared_ceiling(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The supported bare install, told apart from the broken one."""
+    from mcgyvr.drive import task_ceiling
+
+    monkeypatch.delenv("MCGYVR_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    assert task_ceiling() is None
+
+
 # --- PIPE-04: rename cuts and decodes the file as the index did -----------------
 
 
