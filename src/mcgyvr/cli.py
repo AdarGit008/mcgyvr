@@ -1230,7 +1230,7 @@ def _run(args: argparse.Namespace) -> int:
     )
 
     if contract.is_deterministic:
-        code = _floor(args, contract, repo, report, recording=recording)
+        code = _floor(args, contract, repo, report, config, recording=recording)
     else:
         assert config is not None  # refused above when it could not load
         code = _climb(args, contract, repo, config, recording=recording, report=report)
@@ -1329,6 +1329,7 @@ def _floor(
     contract: Contract,
     repo: Path,
     report: RunResult,
+    config: Config | None,
     *,
     recording: Recording,
 ) -> int:
@@ -1416,7 +1417,7 @@ def _floor(
                     f"the gate judges what remains:"
                 )
                 print(textwrap.indent(left, "    "))
-        return gate_workspace(contract, sandbox)
+        return gate_workspace(contract, sandbox, config=config)
 
     try:
         with sandbox:
@@ -1635,7 +1636,7 @@ def _climb(
             # here rather than charged to a model. The issue's own wording
             # tells the two apart, because the operator's next move differs:
             # one says fix the contract, the other says fix the tree.
-            acceptance = acceptance_for(contract, sandbox)
+            acceptance = acceptance_for(contract, sandbox, config=config)
             if acceptance is not None:
                 issue = acceptance.precondition()
                 if issue is not None:
