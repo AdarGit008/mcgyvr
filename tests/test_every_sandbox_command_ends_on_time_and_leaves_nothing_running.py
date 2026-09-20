@@ -36,6 +36,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import tool_steps
 from mcgyvr.drive import run_tool_step
 from mcgyvr.gate.adapter import require_tool
+from mcgyvr.sandbox import base as base_module
 from mcgyvr.sandbox import docker as docker_module
 from mcgyvr.sandbox import image as image_module
 from mcgyvr.sandbox.base import CommandResult, Sandbox, SandboxError
@@ -415,3 +416,34 @@ def test_repair_finds_undefined_names_under_the_gates_config(users_ruff: Path) -
     issues: list[str] = []
     found = repair._undefined_names(users_ruff, require_tool("ruff"), ["a.py"], issues)
     assert found == {"a.py": {"Path"}}, issues
+
+
+# --- no command runs unbounded, config or no config -------------------------
+
+
+def test_a_command_with_no_timeout_is_held_to_the_built_in_ceiling(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No config, no caller ceiling — the sandbox still has one of its own."""
+    monkeypatch.setattr(base_module, "DEFAULT_COMMAND_TIMEOUT_S", 0.5, raising=False)
+    with TempDirSandbox(git_repo) as sandbox:
+        started = time.monotonic()
+        result = sandbox.run(["sleep", "30"])
+    assert result.timed_out
+    assert time.monotonic() - started < 10
+
+
+def test_a_container_command_with_no_timeout_carries_the_built_in_ceiling(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    daemon = FakeDaemon()
+    seen: list[float | None] = []
+
+    def recording_exec(exec_args: Sequence[str], timeout: float | None) -> _ExecResult:
+        seen.append(timeout)
+        return daemon.exec(exec_args, timeout)
+
+    monkeypatch.setattr(docker_module, "_docker_exec", recording_exec)
+    with DockerSandbox(git_repo, image="img:latest", runner=daemon.runner) as sandbox:
+        sandbox.run(["true"])
+    assert seen == [base_module.DEFAULT_COMMAND_TIMEOUT_S]
