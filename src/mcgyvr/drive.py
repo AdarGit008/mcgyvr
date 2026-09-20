@@ -212,6 +212,10 @@ def run_tool_step(
     if not step.argv:
         return _run_in_process(step, sandbox)
 
+    # A formatter is a program like any acceptance command, and one that hangs
+    # is held to the same ceiling.
+    if timeout is None:
+        timeout = task_ceiling()
     result = sandbox.run(step.argv, timeout=timeout)
     if result.exit_code in DID_NOT_RUN and not result.timed_out:
         program = step.tool.program
