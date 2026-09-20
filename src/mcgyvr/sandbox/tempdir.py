@@ -37,7 +37,13 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import IO, ClassVar
 
-from mcgyvr.sandbox.base import TIMEOUT_EXIT, CommandResult, Sandbox, merge_env
+from mcgyvr.sandbox.base import (
+    TIMEOUT_EXIT,
+    CommandResult,
+    Sandbox,
+    command_timeout,
+    merge_env,
+)
 
 # Conventional shell exit codes for a command that never ran: 127 when the
 # binary is not found, 126 when it is found but cannot be executed. Both let a
@@ -143,7 +149,7 @@ class TempDirSandbox(Sandbox):
                 )
             timed_out = False
             try:
-                exit_code = proc.wait(timeout=timeout)
+                exit_code = proc.wait(timeout=command_timeout(timeout))
             except subprocess.TimeoutExpired:
                 timed_out = True
                 exit_code = TIMEOUT_EXIT

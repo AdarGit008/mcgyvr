@@ -94,8 +94,16 @@ class DockerResult:
 
 # The wall clock on each docker call, so a hung daemon or a stalled pull fails
 # the call instead of wedging the task (or interpreter exit, where the reaper
-# removes containers). Pulling and building fetch and install a stack's
-# dependencies and get the long bound; every other call is bookkeeping.
+# removes containers). The two bounds every docker call the product makes is
+# held to, and the only place either is written: pulling and building fetch and
+# install a stack's dependencies and get the long one; every other call is
+# bookkeeping and gets the short one.
+#
+# Both are defaults, not measurements. Nothing here timed a build or a pull;
+# they are bounds chosen to be far above a working call and far below forever,
+# and a real ceiling for an install that needs one belongs in config. The
+# ceiling on the command *inside* the container is
+# :data:`~mcgyvr.sandbox.base.DEFAULT_COMMAND_TIMEOUT_S`.
 DOCKER_CALL_TIMEOUT_S = 120.0
 DOCKER_BUILD_TIMEOUT_S = 3600.0
 _LONG_VERBS = frozenset({"build", "pull"})

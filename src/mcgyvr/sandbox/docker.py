@@ -64,6 +64,7 @@ from mcgyvr.sandbox.base import (
     CommandResult,
     Sandbox,
     SandboxError,
+    command_timeout,
     merge_env,
 )
 from mcgyvr.sandbox.image import (
@@ -235,7 +236,7 @@ class DockerSandbox(Sandbox):
             command=argv,
             env=merge_env(env),  # per-command extras, vetted; base env is ambient
         )
-        result = _docker_exec(exec_args, timeout)
+        result = _docker_exec(exec_args, command_timeout(timeout))
         self._end_leftovers(self._container, result.timed_out)
         return CommandResult(
             command=argv,
