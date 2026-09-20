@@ -135,12 +135,16 @@ WHOLE_FILE = "whole_file"
 # rather than from this constant.
 _ENVELOPE_FIELD = "content"
 
+#: The one definition of an opening fence, imported by every reader of a
+#: model's reply — a second copy is a second answer to where a block begins.
 # An opening fence: up to three spaces of indent (CommonMark's allowance), at
-# least three backticks, an optional info string. Tildes are deliberately not
-# fences here — the bundles instruct backticks, so a tilde-delimited reply is a
-# reply that did not follow the protocol, and saying that is more useful than
-# quietly accepting a second syntax.
-_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,})[ \t]*([A-Za-z0-9_+.#-]*)[ \t]*$")
+# least three backticks, an optional info string of anything but backticks —
+# ``python title="a.py"`` and ``python:src/a.py`` open a block too, and an
+# opener this missed would let its closing fence be read as the opener. Tildes
+# are deliberately not fences here — the bundles instruct backticks, so a
+# tilde-delimited reply is a reply that did not follow the protocol, and saying
+# that is more useful than quietly accepting a second syntax.
+FENCE_OPEN = re.compile(r"^ {0,3}(`{3,})[ \t]*([^`]*)$")
 
 
 # The languages this parser will judge for content, and how each one spells a
@@ -373,7 +377,7 @@ def _fenced(
     blocks: list[tuple[str, list[str]]] = []
     index = 0
     while index < len(lines):
-        opened = _FENCE_OPEN.match(lines[index])
+        opened = FENCE_OPEN.match(lines[index])
         if opened is None:
             index += 1
             continue
@@ -391,7 +395,8 @@ def _fenced(
                 f"a fence opened at line {index + 1} is never closed — the "
                 f"usual signature of a reply that ran out of room",
             )
-        blocks.append((opened.group(2), lines[index + 1 : closed_at]))
+        info = opened.group(2).split()
+        blocks.append((info[0] if info else "", lines[index + 1 : closed_at]))
         index = closed_at + 1
 
     if not blocks:
