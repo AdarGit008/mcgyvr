@@ -31,12 +31,12 @@ being silently skipped.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer
 from mcgyvr.runner import Request, dispatch_role
+from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -240,9 +240,6 @@ def _fenced_body(reply: str) -> str:
                 return "\n".join(lines[index + 1 : close_index]).strip()
         break
     return text
-
-
-_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,})[ \t]*([A-Za-z0-9_+.#-]*)[ \t]*$")
 
 
 def _proposal_of(item: object) -> Proposal:

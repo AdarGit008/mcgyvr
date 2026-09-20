@@ -3,8 +3,8 @@
   "issue": 184,
   "totals": {
     "replies": 34847,
-    "parses": 31949,
-    "refusals": 2898,
+    "parses": 31952,
+    "refusals": 2895,
     "instrument_replies": 31689
   },
   "instruments": {
@@ -134419,7 +134419,8 @@
       "stop_reason": "complete",
       "output_schema": "whole_file",
       "expect": {
-        "refusal": "unterminated-fence"
+        "content_sha256": "bb2fed23bd984889bff9d956a07bce922b9a9d0b6602e5cecc580bd753b0dce0",
+        "info_string": "typescript"
       }
     },
     {
@@ -142724,7 +142725,8 @@
       "stop_reason": "complete",
       "output_schema": "whole_file",
       "expect": {
-        "refusal": "unterminated-fence"
+        "content_sha256": "d19071e1e546ad999e18e9015b3259ed96ac18629c3200686f1d56b8dbeb702a",
+        "info_string": "ts"
       }
     },
     {
@@ -185243,7 +185245,8 @@
       "stop_reason": "complete",
       "output_schema": "whole_file",
       "expect": {
-        "refusal": "unterminated-fence"
+        "content_sha256": "c7dcd0a07e749670276e4651b08674f76846090cbaafa9abcf016f4c444fecc6",
+        "info_string": "typescript"
       }
     },
     {
