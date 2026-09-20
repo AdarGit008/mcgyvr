@@ -1232,16 +1232,21 @@ def task_ceiling(config: Config | None = None) -> float | None:
     is judged under a budget nobody gave it. A caller holding none gets the
     config at the default location.
 
-    A missing or unusable default config is not an error here: refusing a gate
-    because there is no config would make the ceiling a requirement rather than
-    a bound. No config means no declared ceiling, which is what `None` says.
+    A *missing* default config is not an error here: refusing a gate because
+    there is no config would make the ceiling a requirement rather than a
+    bound, and a bare install is supported. No config means no declared
+    ceiling, which is what `None` says. A config that is *there* and does not
+    load is the other situation and raises (owner ruling): it is a ceiling the
+    operator wrote, and reading it as "no ceiling" hands a contract's arbitrary
+    shell no wall clock at all — silently, on the one surface a user is asked
+    to edit.
     """
     if config is None:
-        from mcgyvr.config import ConfigError, load
+        from mcgyvr.config import ConfigMissingError, load
 
         try:
             config = load()
-        except (ConfigError, OSError):
+        except ConfigMissingError:
             return None
     declared = config.get("task_timeout_s")
     return float(declared) if declared is not None else None
