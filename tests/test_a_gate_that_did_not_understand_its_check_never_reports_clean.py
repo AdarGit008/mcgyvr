@@ -19,6 +19,7 @@ from mcgyvr.gate.adapters.javascript import JavaScriptAdapter
 from mcgyvr.gate.adapters.python import PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.typecheck import TypeCheck
+from mcgyvr.worker.reply import ParsedFile, ReplyError, parse_reply
 
 
 def _tool(bin_dir: Path, name: str, script: str) -> None:
@@ -122,3 +123,31 @@ def test_an_eslint_parse_failure_off_the_added_lines_is_inconclusive(
         JavaScriptAdapter().lint(
             [FileChange("app.ts", "M", frozenset({2}), False)], tmp_path
         )
+
+
+def test_a_fence_whose_info_string_has_a_space_opens_the_block() -> None:
+    """CommonMark allows any info string; the body is the file, not the prose after."""
+    reply = 'Here it is.\n```python title="a.py"\nx = 1\n```\nNote the fix.\n'
+
+    parsed = parse_reply(reply, target="a.py")
+
+    assert parsed == ParsedFile(content="x = 1\n", info_string="python")
+
+
+def test_a_fence_whose_info_string_has_a_colon_opens_the_block() -> None:
+    parsed = parse_reply("```python:src/a.py\nx = 1\n```\n", target="src/a.py")
+
+    assert isinstance(parsed, ParsedFile), parsed
+    assert parsed.content == "x = 1\n"
+
+
+def test_two_blocks_with_long_info_strings_are_ambiguous() -> None:
+    reply = (
+        '```python title="a.py"\nx = 1\n```\nNote the fix.\n'
+        '```python title="a.py"\ny = 2\n```\n'
+    )
+
+    parsed = parse_reply(reply, target="a.py")
+
+    assert isinstance(parsed, ReplyError), parsed
+    assert parsed.code == "ambiguous-blocks"
