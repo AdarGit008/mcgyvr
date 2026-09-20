@@ -84,8 +84,20 @@ SCHEMA_VERSION = 1
 
 # Characters that make a path a pattern rather than a destination. A target
 # containing any of these names a set of files, not a file, which is why the
-# single-target rule keys on them.
+# single-target rule keys on them. A ``]`` alone opens nothing: a glob, a
+# shell and a git pathspec all read it as the character it is.
 _GLOB_META = re.compile(r"[*?\[]")
+
+
+def is_pattern(target: str) -> bool:
+    """Whether ``target`` names a set of files rather than one file.
+
+    The one answer: the loader refuses a pattern target by it and delivery
+    re-checks by it, so a target the loader takes as one file is one file at
+    the delivery seam too.
+    """
+    return _GLOB_META.search(target) is not None
+
 
 # A contract id: something a record, a log line and a branch name can all carry
 # without quoting. Deliberately narrow — an id is a join key, not prose.

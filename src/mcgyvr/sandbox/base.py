@@ -35,7 +35,9 @@ import contextlib
 import os
 import re
 import shutil
+import stat
 import subprocess
+import sys
 import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
@@ -84,6 +86,30 @@ _KNOWN_CREDENTIAL_VARS = frozenset(
         "AWS_SESSION_TOKEN",
     }
 )
+
+
+#: The exit code reported for a command the wall-clock ceiling killed.
+TIMEOUT_EXIT = -1
+
+#: The ceiling a sandbox command runs under when nothing else supplies one —
+#: no caller ceiling and no ``task_timeout_s`` in config. A command with no
+#: bound at all hangs a task forever, so the sandbox carries its own. It is a
+#: default, not a measurement: the same 900s the config schema defaults
+#: ``task_timeout_s`` to, chosen so a configured install and an unconfigured
+#: one behave alike. The bounds on the docker CLI calls beneath a command are
+#: :data:`~mcgyvr.sandbox.image.DOCKER_CALL_TIMEOUT_S` and
+#: :data:`~mcgyvr.sandbox.image.DOCKER_BUILD_TIMEOUT_S`, and are defaults in
+#: the same sense.
+DEFAULT_COMMAND_TIMEOUT_S = 900.0
+
+
+def command_timeout(timeout: float | None) -> float:
+    """The ceiling one command runs under: the caller's, or the built-in one.
+
+    Both modes run this over what they were handed, so ``run(..., timeout=None)``
+    is a command with the default ceiling rather than an unbounded one.
+    """
+    return DEFAULT_COMMAND_TIMEOUT_S if timeout is None else timeout
 
 
 class SandboxError(Exception):
@@ -398,6 +424,10 @@ class Sandbox(ABC):
         ``env`` is additive and vetted: it is layered onto the mode's minimal
         environment through :func:`safe_env`, so no credential can enter even
         if a caller forwards one.
+
+        ``timeout`` is a ceiling in seconds; ``None`` asks for the built-in
+        :data:`DEFAULT_COMMAND_TIMEOUT_S` rather than for no ceiling at all.
+        Nothing a sandbox runs is unbounded.
         """
 
     @abstractmethod
@@ -543,10 +573,37 @@ def _git(
 
 
 def _remove_tree(path: Path | None) -> None:
-    """Remove a workspace, tolerating a partially-created or already-gone one."""
+    """Remove a workspace, tolerating a partially-created or already-gone one.
+
+    A command runs as the host user and can take the permissions off a
+    directory it made, so a tree that will not go is given them back and
+    removed again. One that still survives is named on stderr rather than left
+    behind in silence.
+    """
     if path is None:
         return
     shutil.rmtree(path, ignore_errors=True)
+    if not path.exists():
+        return
+    _unlock(path)
+    shutil.rmtree(path, ignore_errors=True)
+    if path.exists():
+        print(f"mcgyvr: workspace {path} could not be removed", file=sys.stderr)
+
+
+def _unlock(root: Path) -> None:
+    """Give the owner full access to every directory under ``root``.
+
+    Symlinks are not followed, so nothing outside the tree is touched.
+    """
+    pending = [root]
+    while pending:
+        here = pending.pop()
+        with contextlib.suppress(OSError):
+            if here.is_symlink() or not here.is_dir():
+                continue
+            here.chmod(stat.S_IRWXU)
+            pending.extend(here.iterdir())
 
 
 # --- factory -------------------------------------------------------------

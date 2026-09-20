@@ -44,6 +44,9 @@ with no reason cannot tell "refused" from "nothing to do":
   the same breath and for the same reason: a verdict that has come apart from its
   bytes is not a verdict about the change in hand — which is what happens when
   a store hands back bytes that are not the ones it was given.
+* **A target committed to since the base.** The verdict is about the copy of
+  the file at the base; a commit to it while the run climbed is work the
+  accepted bytes were never judged against, and writing them would revert it.
 * **A dirty tree.** Uncommitted work in the tree means a commit here would
   mix the worker's change with a person's unfinished edits, and the write would
   destroy them on the way. mcgyvr reports a dirty tree and stops — the same
@@ -142,7 +145,6 @@ import contextlib
 import fcntl
 import hashlib
 import os
-import re
 import subprocess
 import tempfile
 import textwrap
@@ -151,7 +153,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from mcgyvr.config import Config
-from mcgyvr.contract import Contract
+from mcgyvr.contract import Contract, is_pattern
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
@@ -165,12 +167,6 @@ from mcgyvr.scope import OutsideTreeError, inside
 # repository with no commit yet has no base to diff against, and the empty tree
 # makes a first-ever delivery one code path with every other.
 _EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-
-#: Characters that make a target a pattern rather than one file's destination.
-#: Mirrors the contract loader's glob refusal, but is enforced here too so the
-#: seam itself refuses a pattern a caller assembled in code or read back from a
-#: record. A single-file delivery has no answer to a pattern.
-_GLOB_META = re.compile(r"[*?\[\]]")
 
 #: ``config.delivery.mode``: commit onto the branch the operator has checked
 #: out. Also the answer when no config is supplied at all — see :func:`_mode`.
@@ -522,32 +518,10 @@ def deliver(
         if hazard is not None:
             return call.refuse(hazard)
 
-        if refused:
-            # Cheapest first, and nothing has been touched yet: a rejected change
-            # never reaches the working tree at all, so there is nothing to undo.
-            return call.refuse(
-                f"the gate did not accept {contract.id}; nothing was written",
-                bound.findings if bound is not None else (),
-            )
-
-        if bound is not None and not bound.intact:
-            return call.refuse(
-                f"the content handed to {contract.id} is not the content its "
-                f"verdict was reached on: the accepted bytes digest to "
-                f"{bound.digest[:12]} and these digest to "
-                f"{digest_of(bound.content)[:12]}. Nothing is written, because "
-                f"a verdict that has come apart from its bytes covers neither."
-            )
-
-        try:
-            payload = _encoded(text)
-        except UnicodeEncodeError as exc:
-            return call.refuse(
-                f"{rel} cannot be written: the character at position {exc.start} "
-                f"is the lone surrogate U+{ord(text[exc.start]):04X}, which has no "
-                f"UTF-8 encoding and stands for no byte. Writing it as anything "
-                f"would ship bytes nobody gated."
-            )
+        refusal = _unwritable(call, contract, text, refused, bound)
+        if refusal is not None:
+            return refusal
+        payload = _encoded(text)
 
         dirty = _uncommitted(root, rel)
         if dirty:
@@ -677,12 +651,13 @@ def _refuse_pattern_target(contract: Contract) -> None:
     """Refuse a target that names a set of files, not one file.
 
     Contract loading already rejects a glob target for a model-run task type;
-    this is the same refusal at the delivery seam, for a contract assembled in
-    code or read back from a record. A single-file delivery has no answer to a
+    this is the same refusal at the delivery seam, by the same test
+    (:func:`mcgyvr.contract.is_pattern`), for a contract assembled in code or
+    read back from a record. A single-file delivery has no answer to a
     pattern, and writing it as a literal filename would commit a path nobody
     named.
     """
-    if _GLOB_META.search(contract.target):
+    if is_pattern(contract.target):
         raise DeliveryError(
             f"{contract.id} targets {contract.target!r}, which is a pattern. "
             f"A single-file delivery cannot take a pattern target; name one "
@@ -1339,8 +1314,10 @@ def place(
 
     What a run does by default: no commit, no branch, no receipt — the output
     file, where the contract said it goes. The bytes are the ones the gate
-    judged, written the way :func:`deliver` writes them and refused for the same
-    reason when they have no encoding.
+    judged, written the way :func:`deliver` writes them, and refused before the
+    write by the same :func:`_unwritable` checks — a verdict that is not an
+    acceptance, bytes that are not the ones it was reached on, a target
+    committed to since ``base``, content with no encoding.
 
     Git is consulted for one question: whether the target is safe to overwrite,
     which has two halves. ``base`` is the revision the worker started from —
@@ -1374,16 +1351,12 @@ def place(
     _named_base(base)
     with _exclusive(root):
         resolved = _resolve(root, base)
-        moved = _moved_since(root, resolved, rel)
-        if moved:
-            raise DeliveryError(
-                f"{rel} was committed to after the run started: the accepted "
-                f"change was judged against {_shown(resolved)}, and HEAD "
-                f"({moved[:12]}) holds a different {rel}. Writing it would "
-                f"overwrite work that was committed while the ladder was "
-                f"climbing. Review the accepted change against the new copy, "
-                f"or run again from the current HEAD."
-            )
+        call = _Call(root=root, path=rel, base=resolved, mode=_mode(None))
+        unwritable = _unwritable(
+            call, contract, content.content, not content.accepted, content
+        )
+        if unwritable is not None:
+            raise DeliveryRefusedError(unwritable.reason, findings=unwritable.findings)
         if rel in _uncommitted(root, rel):
             raise DeliveryError(
                 f"{rel} has uncommitted changes in the working tree, and the "
@@ -1392,16 +1365,7 @@ def place(
                 f"{rel} and run again."
             )
         target = root / rel
-        try:
-            payload = _encoded(content.content)
-        except UnicodeEncodeError as exc:
-            raise DeliveryError(
-                f"{contract.target} cannot be written: the character at position "
-                f"{exc.start} is the lone surrogate "
-                f"U+{ord(content.content[exc.start]):04X}, which has no UTF-8 "
-                f"encoding and stands for no byte."
-            ) from exc
-        call = _Call(root=root, path=rel, base=resolved, mode=_mode(None))
+        payload = _encoded(content.content)
         before = _snapshot(target)
         created = _missing_dirs(target)
         kept = False
@@ -1424,6 +1388,65 @@ def place(
                 _remove_created(created)
 
 
+def _unwritable(
+    call: _Call,
+    contract: Contract,
+    text: str,
+    refused: bool,
+    bound: Accepted | None,
+) -> Delivery | None:
+    """Why nothing may be written for this call, or ``None``.
+
+    The checks both ways out of a run make before the write, as
+    :func:`_refusal` is the ones they make after it — so a change left in the
+    tree and a change committed are held to one bar. Called inside the
+    repository lock, before anything is touched, so a refusal has nothing to
+    undo.
+
+    In order: the gate did not accept the change; the bytes are not the ones
+    the verdict was reached on; the target was committed to after ``base``, so
+    the verdict is about a copy of the file ``HEAD`` no longer holds and
+    writing would revert that commit; and the content has no encoding.
+    """
+    rel = call.path
+    if refused:
+        return call.refuse(
+            f"the gate did not accept {contract.id}; nothing was written",
+            bound.findings if bound is not None else (),
+        )
+
+    if bound is not None and not bound.intact:
+        return call.refuse(
+            f"the content handed to {contract.id} is not the content its "
+            f"verdict was reached on: the accepted bytes digest to "
+            f"{bound.digest[:12]} and these digest to "
+            f"{digest_of(bound.content)[:12]}. Nothing is written, because "
+            f"a verdict that has come apart from its bytes covers neither."
+        )
+
+    moved = _moved_since(call.root, call.base, rel)
+    if moved:
+        return call.refuse(
+            f"{rel} was committed to after the run started: the accepted "
+            f"change was judged against {_shown(call.base)}, and HEAD "
+            f"({moved[:12]}) holds a different {rel}. Writing it would "
+            f"overwrite work that was committed while the ladder was "
+            f"climbing. Review the accepted change against the new copy, "
+            f"or run again from the current HEAD."
+        )
+
+    try:
+        _encoded(text)
+    except UnicodeEncodeError as exc:
+        return call.refuse(
+            f"{rel} cannot be written: the character at position {exc.start} "
+            f"is the lone surrogate U+{ord(text[exc.start]):04X}, which has no "
+            f"UTF-8 encoding and stands for no byte. Writing it as anything "
+            f"would ship bytes nobody gated."
+        )
+    return None
+
+
 def _moved_since(root: Path, base: str, rel: str) -> str:
     """``HEAD`` when ``rel`` differs between ``base`` and ``HEAD``, else ``""``.
 
@@ -1434,7 +1457,10 @@ def _moved_since(root: Path, base: str, rel: str) -> str:
     head = _head(root)
     if not head:
         return ""
-    changed = _git(root, "diff", "--name-only", base, head, "--", rel)
+    try:
+        changed = _git(root, "diff", "--name-only", base, head, "--", rel)
+    except DeliveryError as exc:
+        raise DeliveryError(f"cannot diff against {_shown(base)}: {exc}") from exc
     return head if changed.strip() else ""
 
 

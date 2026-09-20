@@ -483,6 +483,7 @@ def _undefined_names(
         proc = subprocess.run(
             [
                 ruff,
+                *ruff_config_args(repo),
                 "check",
                 "--select",
                 "F821",
