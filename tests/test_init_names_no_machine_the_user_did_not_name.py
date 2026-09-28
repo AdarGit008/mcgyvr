@@ -11,14 +11,15 @@ or a reserved documentation address (``192.0.2.0/24``, ``198.51.100.0/24``,
 written into a stranger's files.
 
 The test holds no list of names to avoid. It finds machine names by their
-shape — the host of every URL, the value after every ``--host``, every dotted
-IPv4 address, the host segment of every container name, the example value of
-the schema's ``rig`` key and every unit name in an example map — and asks of
-each one where it came from.
+shape — the host of every URL (``ssh://`` included), every ``host:port``
+written without a scheme, the host of every ssh-style ``user@host``, the
+value after every ``--host``, every dotted IPv4 address, the host segment of
+every container name, the example value of the schema's ``rig`` key and
+every unit name in an example map — and asks of each one where it came from.
 
 The machines below are invented, in names and in shape: no card, one card,
-several cards of mixed sizes, a local server, servers on remote hosts named
-on the command line, and hosted units named with ``--api``.
+three cards of mixed sizes, four cards, a local server, servers on remote
+hosts named on the command line, and hosted units named with ``--api``.
 """
 
 from __future__ import annotations
@@ -40,13 +41,28 @@ from mcgyvr.initialize import (
     initialize,
     parse_api_unit,
 )
-from mcgyvr.propose import API, LOCAL
 
 # --- what counts as a machine name, by shape -------------------------------
 
+#: The host of a URL of any scheme, past any ``user@`` in front of it.
 _URL_HOST = re.compile(
-    r"\b[a-z][a-z0-9+.-]*://(\[[^\]\s]+\]|<[^<>\s]+>|[^\s/:?#\"'`,()<>]+)",
+    r"\b[a-z][a-z0-9+.-]*://(?:[^\s/@]+@)?"
+    r"(\[[^\]\s]+\]|<[^<>\s]+>|[^\s/:?#\"'`,()<>@]+)",
     re.IGNORECASE,
+)
+#: A ``host:port`` with no scheme. The host holds a letter, so a clock time
+#: or a ratio is not a host; nothing word-like, ``/`` or ``:`` may precede it,
+#: so the host of a URL is left to the URL finder.
+_HOST_PORT = re.compile(
+    r"(?<![\w./:@<>-])(<[^<>\s]+>|[A-Za-z0-9.-]*[A-Za-z][A-Za-z0-9.-]*)"
+    r":(?:\d{2,5}\b|<[^<>\s]+>)"
+)
+#: An ssh-style ``user@host``. The host holds a letter, so a score such as
+#: ``pass@1`` is not a login; an image digest (``image@sha256:...``) is not a
+#: host, and a ``/`` before the user marks an image path, not a login.
+_SSH_TARGET = re.compile(
+    r"(?<![\w./@<>-])(?:<[^<>\s]+>|[A-Za-z_][\w.-]*)@(?!sha\d+:)"
+    r"(<[^<>\s]+>|(?=[A-Za-z0-9.-]*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)"
 )
 _HOST_FLAG = re.compile(r"--host[ =]+([^\s`'\"(),]+)")
 _IPV4 = re.compile(r"(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(?![\d.])")
@@ -89,17 +105,18 @@ def _is_placeholder(token: str, carried: frozenset[str]) -> bool:
 
 
 def _machine_names(text: str) -> Iterator[str]:
-    """Every token in ``text`` whose shape says it names a machine."""
-    hosted = {m.group(1) for m in _API_EXAMPLE_ADDRESS.finditer(text)}
+    """Every token in ``text`` whose shape says it names a machine.
+
+    The host of an ``--api`` example's own address is exempt at that one
+    place only: the same host anywhere else in the text is still found.
+    """
+    hosted = {m.span(1) for m in _API_EXAMPLE_ADDRESS.finditer(text)}
     for match in _URL_HOST.finditer(text):
-        if match.group(1) not in hosted:
+        if match.span(1) not in hosted:
             yield match.group(1)
-    for match in _HOST_FLAG.finditer(text):
-        yield match.group(1)
-    for match in _IPV4.finditer(text):
-        yield match.group(1)
-    for match in _CONTAINER.finditer(text):
-        yield match.group(1)
+    for finder in (_HOST_PORT, _SSH_TARGET, _HOST_FLAG, _IPV4, _CONTAINER):
+        for match in finder.finditer(text):
+            yield match.group(1)
 
 
 def _strangers(text: str, carried: frozenset[str]) -> list[str]:
@@ -174,8 +191,8 @@ SHAPES: tuple[Shape, ...] = (
     ),
     Shape("remote hosts with nothing loaded", (), ("larch", "birch"), serving=False),
     Shape(
-        "two 32 GB cards, remote host and hosted unit",
-        (32.0, 32.0),
+        "four 24 GB cards, remote host and hosted unit",
+        (24.0, 24.0, 24.0, 24.0),
         ("fen",),
         True,
         (_API,),
@@ -293,38 +310,35 @@ def _all_fields() -> list[config.Field]:
     return list(seen.values())
 
 
-def _unit_name_is_placeholder(name: str) -> bool:
-    """A unit named in an example says what runs, never the machine it runs on.
-
-    Either a placeholder, or a name `init` itself would mint, which begins
-    with a locality rather than with a machine.
-    """
-    return bool(_PLACEHOLDER.fullmatch(name)) or name.startswith(
-        (f"{LOCAL}_", f"{API}_")
-    )
-
-
 def _example_value(hint: str) -> str | None:
-    match = re.search(r"e\.g\.\s+([^\s,]+)", hint)
+    match = re.search(r"e\.g\.\s+`?([^\s,`]+)", hint)
     return match.group(1) if match else None
+
+
+def _field_strangers(name: str, kind: str, texts: Sequence[str]) -> list[str]:
+    """What one schema field's doc, hint and retirement notes name.
+
+    A unit named in an example map says what runs, never the machine it runs
+    on, so only a placeholder may stand there.
+    """
+    found = [t for text in texts for t in _strangers(text, frozenset())]
+    hint = texts[1] if len(texts) > 1 else ""
+    if name == "rig" and hint:
+        value = _example_value(hint)
+        if value is not None and not _is_placeholder(value, frozenset()):
+            found.append(value)
+    if kind == "int_map" and hint:
+        found += [k for k in _MAP_KEY.findall(hint) if not _PLACEHOLDER.fullmatch(k)]
+    return found
 
 
 def test_every_schema_example_names_only_placeholder_machines() -> None:
     found: list[str] = []
     for spec in _all_fields():
         texts = [spec.doc, spec.bind_hint, *(why for _, why in spec.retired)]
-        for text in texts:
-            found += [f"{spec.name}: {t}" for t in _strangers(text, frozenset())]
-        if spec.name == "rig" and spec.bind_hint:
-            value = _example_value(spec.bind_hint)
-            if value is not None and not _is_placeholder(value, frozenset()):
-                found.append(f"{spec.name}: {value}")
-        if spec.kind == "int_map" and spec.bind_hint:
-            found += [
-                f"{spec.name}: {key}"
-                for key in _MAP_KEY.findall(spec.bind_hint)
-                if not _unit_name_is_placeholder(key)
-            ]
+        found += [
+            f"{spec.name}: {t}" for t in _field_strangers(spec.name, spec.kind, texts)
+        ]
     assert found == [], "schema examples name machines nobody named:\n" + "\n".join(
         found
     )
@@ -345,7 +359,86 @@ def test_every_schema_example_names_only_placeholder_machines() -> None:
         ("e.g. mcgyvr-<host>-<unit>", []),
         ("http://localhost:8080 and http://127.0.0.1:8000", []),
         ("--api model=m,address=https://api.provider.test,api_key_env=K", []),
+        # The --api exemption covers its own span, not the host elsewhere.
+        (
+            "--api model=m,address=https://api.provider.test,api_key_env=K"
+            " or http://api.provider.test:9000",
+            ["api.provider.test"],
+        ),
+        ("--api model=m,address=https://somebox:8123,api_key_env=K", ["somebox"]),
+        # host:port with no scheme.
+        ("serve on somebox:8123", ["somebox"]),
+        ("serve on somebox.lan:<port>", ["somebox.lan"]),
+        ("serve on <host>:8080 or localhost:8000 or box.example:80", []),
+        ("at 10:30, a 16:9 screen, e.g. `{<unit>: 2}`, width: 8", []),
+        ("image@sha256:<hex> and vllm/vllm-openai@sha256:<hex>", []),
+        # ssh-style targets.
+        ("ssh operator@somebox", ["somebox"]),
+        ("scp it to operator@somebox.lan:/srv", ["somebox.lan"]),
+        ("ssh://operator@somebox/ and ssh://somebox", ["somebox"]),
+        ("ssh <user>@<host> or ops@box.example. or ssh://<user>@<host>", []),
+        ("65.2% pass@1 on localhost: already pulled", []),
     ],
 )
 def test_the_shape_finder_finds_machine_names(text: str, expected: list[str]) -> None:
     assert _strangers(text, frozenset()) == expected
+
+
+#: An invented stand-in for a private machine, once in each shape a finder
+#: looks for.
+_STAND_IN = "quillwort"
+_STAND_INS: tuple[str, ...] = (
+    f"http://{_STAND_IN}:8123",
+    f"ssh://ops@{_STAND_IN}",
+    f"{_STAND_IN}:8123",
+    f"ops@{_STAND_IN}",
+    f"`mcgyvr init --host {_STAND_IN}`",
+    "172.16.9.9",
+    f"mcgyvr-{_STAND_IN}-unit_7b",
+)
+
+
+@pytest.mark.parametrize("stand_in", _STAND_INS)
+def test_a_stand_in_is_found_in_a_hint(stand_in: str) -> None:
+    doc = "Where this unit answers."
+    assert _field_strangers("address", "url", [doc, f"e.g. {stand_in}"])
+    assert _field_strangers("address", "url", [doc, f"e.g. `{stand_in}`"])
+
+
+@pytest.mark.parametrize(
+    ("name", "kind", "hint"),
+    [
+        ("rig", "str", f"e.g. {_STAND_IN}"),
+        ("rig", "str", f"e.g. `{_STAND_IN}`"),
+        ("attempts", "int_map", f"e.g. `{{{_STAND_IN}_7b: 2}}`"),
+        ("attempts", "int_map", f"e.g. {{local_{_STAND_IN}_7b: 2}}"),
+        ("draws", "int_map", f"e.g. {{api_{_STAND_IN}: 3}}"),
+    ],
+)
+def test_a_stand_in_is_found_as_a_rig_or_a_unit_in_a_hint(
+    name: str, kind: str, hint: str
+) -> None:
+    assert _field_strangers(name, kind, ["", hint])
+
+
+@pytest.mark.parametrize("stand_in", _STAND_INS)
+def test_a_stand_in_is_found_in_a_refusal(stand_in: str, tmp_path: Path) -> None:
+    with pytest.raises(InitError) as refusal:
+        initialize(tmp_path / "setup", detection=Detection())
+    text = str(refusal.value)
+    assert _strangers(text, frozenset()) == []
+    alone = _strangers(stand_in, frozenset())
+    assert alone
+    assert _strangers(f"{text}\n  {stand_in}\n", frozenset()) == alone
+
+
+@pytest.mark.parametrize("stand_in", _STAND_INS)
+def test_a_stand_in_is_found_in_a_rendered_file(stand_in: str, tmp_path: Path) -> None:
+    shape = SHAPES[2]
+    text = _what_init_says(shape, tmp_path / "setup")
+    assert _strangers(text, shape.carried()) == []
+    lines = text.splitlines()
+    lines.insert(len(lines) // 2, f"# e.g. {stand_in}")
+    alone = _strangers(stand_in, frozenset())
+    assert alone
+    assert _strangers("\n".join(lines), shape.carried()) == alone
