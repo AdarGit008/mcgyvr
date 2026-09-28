@@ -183,14 +183,22 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
 
 
 def _check_entry(number: str, entry: object, where: Path) -> None:
-    """Refuse, by name, a shipped entry that is not keyed inside its key space.
+    """Refuse, by name, a shipped entry with no known unit or keyed outside its space.
 
-    Its ``key`` must name a space of :data:`KEY_SPACES` and every key of its
-    ``values`` must be a member of that space, so no entry can be keyed by a
-    machine's name. Every entry is checked on every read, asked for or not.
+    Its ``unit`` must be one of :data:`UNITS`, its ``key`` must name a space of
+    :data:`KEY_SPACES`, and every key of its ``values`` must be a member of that
+    space, so no entry can be keyed by a machine's name. Every entry is checked
+    on every read, asked for or not, and a broken one is reported against the
+    shipped file, even when the user's file sets it.
     """
     if not isinstance(entry, dict):
         raise DerivedNumbersError(f"{number} in {where} is not an object")
+    unit = entry.get("unit")
+    if not isinstance(unit, str) or unit not in _BOUNDS:
+        raise DerivedNumbersError(
+            f"{number} in {where} is stated in {unit!r}, which is not a unit "
+            f"mcgyvr knows ({', '.join(UNITS)})"
+        )
     space_name = entry.get("key")
     space = KEY_SPACES.get(space_name) if isinstance(space_name, str) else None
     if space is None:

@@ -234,3 +234,23 @@ def test_a_shipped_entry_that_is_not_an_object_is_refused_by_name(
     with pytest.raises(derived.DerivedNumbersError) as was:
         derived.lookup("invented_good", "slow", path=path)
     assert str(path) in str(was.value) and "invented_flat" in str(was.value)
+
+
+def test_a_broken_shipped_unit_is_reported_against_the_shipped_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """The user setting a number whose shipped unit is broken is not their fault."""
+    nf.use_invented_spaces(monkeypatch)
+    entry = nf.Entry(
+        id="invented_unit", unit="furlongs", key="lone", values={"only": 1.0}
+    )
+    path = nf.write_json(tmp_path / "shipped.json", nf.document([entry]))
+    user = nf.write_user_file(tmp_path_factory, {"invented_unit": {"only": 2.0}})
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup("invented_unit", "only", path=path)
+    text = str(was.value)
+    assert "invented_unit" in text and "furlongs" in text
+    assert str(path) in text
+    assert str(user) not in text
