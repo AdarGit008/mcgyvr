@@ -20,7 +20,9 @@ NCCL's INFO chatter, which it keeps for the transport NCCL chose.
         hidden_size x 2 bytes per token per all-reduce (7 KiB for a 7B, 10 KiB
         for a 14B/32B), twice a layer — the small sizes are the ones TP pays
 
-`NCCL_P2P_DISABLE` is the step's to set; this file only reports what it got.
+`NCCL_P2P_DISABLE` and `NCCL_P2P_LEVEL` are the step's to set; each AR row
+carries `verified`, an all-reduce of known values checked on both ranks.
+This file only reports what it got.
 """
 
 from __future__ import annotations
@@ -123,6 +125,15 @@ def worker(rank: int, world: int) -> None:
             dist.all_reduce(t)
             torch.cuda.synchronize()
             lat.append(time.perf_counter() - t0)
+        # The timed loop sums in place and overflows; this one checks the
+        # data: rank r sends r+1 everywhere, so every element must read 3.
+        chk = torch.full(
+            (nbytes // 2,), rank + 1, dtype=torch.float16, device=f"cuda:{rank}"
+        )
+        dist.all_reduce(chk)
+        torch.cuda.synchronize()
+        ok = torch.tensor([int(bool(torch.all(chk == 3)))], device=f"cuda:{rank}")
+        dist.all_reduce(ok)
         if rank == 0:
             lat.sort()
             mid = statistics.median(lat)
@@ -134,6 +145,7 @@ def worker(rank: int, world: int) -> None:
                 lat_ms_p90=round(lat[int(0.9 * (reps - 1))] * 1000, 4),
                 # busbw for a ring of n is algbw * 2(n-1)/n, which is algbw at n=2
                 busbw_gibs=round(nbytes / mid / 2**30, 3),
+                verified=int(ok.item()) == world,
             )
     dist.destroy_process_group()
 
@@ -144,6 +156,7 @@ def main() -> int:
         "ENV",
         cards=n,
         nccl_p2p_disable=os.environ.get("NCCL_P2P_DISABLE", "unset"),
+        nccl_p2p_level=os.environ.get("NCCL_P2P_LEVEL", "unset"),
         torch=torch.__version__,
         nccl=".".join(map(str, torch.cuda.nccl.version())),
     )
