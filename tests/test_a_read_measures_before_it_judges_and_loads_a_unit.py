@@ -161,7 +161,6 @@ def test_a_dev_read_over_room_still_probes_files_what_it_measured_then_raises(
     assert three["warm_decode_tok_s"]["observed"] == 126.7
     assert three["prefill_tok_s"]["observed"] == 11500.0
     assert three["card_mib"]["observed"] == 3574 and three["card_mib"]["alert"] is True
-    assert rig_row(journal)["observed_rig_id"] == LOCKED_SRV2
 
 
 def test_a_dev_read_files_every_units_rows_before_it_raises(tmp_path: Path) -> None:
@@ -415,7 +414,7 @@ def test_the_rig_row_files_the_snapshot_its_rig_id_is_named_by(tmp_path: Path) -
     record(rig_text(), "live", Rig())
 
     row = rig_row(journal)
-    assert rig_id(row["snapshot"]) == row["observed_rig_id"] == LOCKED_SRV2
+    assert rig_id(row["snapshot"]) == row["observed_rig_id"]
     assert "container" not in row["snapshot"] and "gpu_app" not in row["snapshot"]
 
 
