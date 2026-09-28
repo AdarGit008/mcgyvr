@@ -38,6 +38,13 @@ _CPU_EXPERT_FLAGS = frozenset({_CPU_MOE, _N_CPU_MOE})
 #: The llama-server flag and value that run the GGUF's own MTP head as the draft.
 _SPEC_TYPE = "--spec-type"
 _DRAFT_MTP = "draft-mtp"
+#: The same pair as one word, which llama-server reads the same.
+_SPEC_TYPE_DRAFT_MTP = f"{_SPEC_TYPE}={_DRAFT_MTP}"
+#: ``launch.speculative`` asking for the head (``mcgyvr.serving.SPECULATIVE_MTP``,
+#: not imported: :mod:`mcgyvr.serving` reaches this module through
+#: :mod:`mcgyvr.derived`). The serving layer renders it as ``--spec-type
+#: draft-mtp`` only when it builds a unit; the fleet's judges read the block.
+_SPECULATIVE_MTP = "mtp"
 
 
 def _positive_int(value: Any) -> bool:
@@ -72,10 +79,11 @@ def _argv_keeps_experts_on_cpu(argv: Any) -> bool:
 
 
 def _drafts_with_its_own_head(words: Any) -> bool:
-    """``--spec-type`` followed by ``draft-mtp``, in an argv or a flags list."""
+    """``--spec-type`` followed by ``draft-mtp``, or ``--spec-type=draft-mtp``,
+    in an argv or a flags list."""
     if not isinstance(words, list):
         return False
-    return any(
+    return _SPEC_TYPE_DRAFT_MTP in words or any(
         words[index] == _SPEC_TYPE and words[index + 1] == _DRAFT_MTP
         for index in range(len(words) - 1)
         if isinstance(words[index], str) and isinstance(words[index + 1], str)
@@ -88,8 +96,9 @@ def tolerance_class(unit: Mapping[str, Any]) -> str:
     ``engine: vllm`` is ``vllm``. Any other unit is llama.cpp (an absent engine
     means llama.cpp, ``units.engine`` in :mod:`mcgyvr.config`), and it is
     ``mtp`` when its launch drafts with the GGUF's own head — ``--spec-type``
-    followed by ``draft-mtp`` in its ``argv`` or among its ``flags`` (owner
-    ruling, 2026-09-16), whether or not experts are on the CPU beside it —
+    followed by ``draft-mtp``, or ``--spec-type=draft-mtp``, in its ``argv``
+    or among its ``flags``, or ``speculative: mtp`` (owner ruling,
+    2026-09-16), whether or not experts are on the CPU beside it —
     ``cpu_experts`` when its launch keeps experts on the CPU, ``llamacpp``
     otherwise. The launch keeps them there with a positive ``n_cpu_moe``, with
     ``--cpu-moe`` / ``--n-cpu-moe`` among its ``flags``, or with ``--cpu-moe``
@@ -103,8 +112,10 @@ def tolerance_class(unit: Mapping[str, Any]) -> str:
         return CLASS_VLLM
     launch = unit.get("launch")
     if isinstance(launch, Mapping):
-        if _drafts_with_its_own_head(launch.get("argv")) or _drafts_with_its_own_head(
-            launch.get("flags")
+        if (
+            launch.get("speculative") == _SPECULATIVE_MTP
+            or _drafts_with_its_own_head(launch.get("argv"))
+            or _drafts_with_its_own_head(launch.get("flags"))
         ):
             return CLASS_MTP
         if _positive_int(launch.get("n_cpu_moe")):
