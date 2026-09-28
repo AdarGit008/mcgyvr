@@ -161,3 +161,35 @@ def test_a_shipped_entry_in_a_unit_without_bounds_is_refused_by_name(
     path = nf.write_json(tmp_path / "shipped.json", nf.document([entry]))
     with pytest.raises(derived.DerivedNumbersError, match="invented_unit"):
         derived.lookup("invented_unit", "only", path=path)
+
+
+@pytest.mark.parametrize("schema", [2, 0, "1", True, None])
+def test_a_shipped_file_of_another_schema_is_refused_by_name(
+    schema: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    nf.use_invented_spaces(monkeypatch)
+    entry = nf.Entry(id="invented_schema", unit="GiB", key="lone", values={"only": 1.0})
+    document = nf.document([entry])
+    if schema is None:
+        del document["schema"]
+    else:
+        document["schema"] = schema
+    path = nf.write_json(tmp_path / "shipped.json", document)
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup("invented_schema", "only", path=path)
+    text = str(was.value)
+    assert str(path) in text
+    assert f"schema {derived.SCHEMA}" in text
+    if schema is not None:
+        assert repr(schema) in text
+
+
+def test_a_document_with_no_numbers_is_not_judged_by_its_schema(
+    tmp_path: Path,
+) -> None:
+    other = nf.write_json(tmp_path / "other.json", {"schema": 99, "a": {}})
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.class_tolerances(path=other)
+    assert "schema" not in str(was.value)
+    for entry in derived.CLASS_PCT_ENTRIES.values():
+        assert entry in str(was.value)
