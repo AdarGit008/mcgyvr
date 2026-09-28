@@ -76,6 +76,7 @@ from mcgyvr.gate.adapter import (
     plain_env,
     require_tool,
 )
+from mcgyvr.gate.adapters.python import ruff_config_args
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
@@ -190,7 +191,17 @@ def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
         return None
     try:
         done = subprocess.run(
-            [ruff, "format", "--force-exclude", "--stdin-filename", target, "-"],
+            [
+                ruff,
+                # The gate's own configuration, so what is tidied is what the
+                # format rung then checks — never a user-level one found instead.
+                *(ruff_config_args(repo) if repo is not None else []),
+                "format",
+                "--force-exclude",
+                "--stdin-filename",
+                target,
+                "-",
+            ],
             input=stdin,
             cwd=repo,
             capture_output=True,

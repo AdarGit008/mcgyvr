@@ -333,6 +333,9 @@ def test_gatelib_no_longer_names_a_docker_cli() -> None:
         (["-oBatchMode=yes", "-l", "me", "srv2", "true"], "srv2"),
         (["-tt", "-i", "key", "-F", "cfg", "srv2", "cmd"], "srv2"),
         (["-4", "srv1"], "srv1"),
+        (["-vJ", "srv1", "srv2", "true"], "srv2"),
+        (["-vp", "22", "srv1"], "srv1"),
+        (["-tvl", "me", "srv2"], "srv2"),
         (["--", "srv1", "docker", "system", "dial-stdio"], "srv1"),
         (["-o", "X", "--", "user@srv2"], "srv2"),
         (["srv1"], "srv1"),
@@ -419,6 +422,11 @@ def test_the_docker_shim_reads_only_dockers_own_global_options(
         (["--", "srv1", "docker", "system", "dial-stdio"], []),
         (["-p", "22", "-l", "adar", "srv1"], []),
         (["srv1", "ssh", "-J", "x", "srv2", "id"], []),
+        (["-vJ", "srv1", "srv2", "true"], ["-J"]),
+        (["-vJsrv2", "srv1"], ["-Jsrv2"]),
+        (["-vo", "ProxyJump=srv2", "srv1"], ["-o ProxyJump=srv2"]),
+        (["-tvL", "8080:srv2:8080", "srv1"], ["-L"]),
+        (["-tv", "-p", "22", "srv1"], []),
     ],
 )
 def test_the_ssh_shim_refuses_an_option_that_carries_the_connection_elsewhere(
@@ -428,3 +436,13 @@ def test_the_ssh_shim_refuses_an_option_that_carries_the_connection_elsewhere(
     `-o ProxyCommand=` keep it on the line and connect elsewhere. Options after
     the host belong to the remote command and are not the shim's business."""
     assert gatelib.ssh_redirects(argv) == found
+
+
+def test_the_ssh_shim_reads_a_bundled_jump_the_way_ssh_does(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """ssh's getopt reads `-vJ srv1 srv2` as `-v -J srv1` to host srv2: the
+    shim refuses it by the jump, not by where it would have admitted it."""
+    with pytest.raises(SystemExit):
+        gatelib.shim_ssh(["-vJ", "srv1", "srv2", "true"], own=tmp_path)
+    assert "-J" in capsys.readouterr().err

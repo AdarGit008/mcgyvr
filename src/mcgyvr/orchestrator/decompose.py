@@ -379,7 +379,10 @@ def _emit(
         return acceptance
     proposal = replace(proposal, acceptance=acceptance)
 
-    dependencies: list[dict[str, str]] = []
+    # One entry per file, as the loader requires: two helpers from one module
+    # are one dependency whose signature states both.
+    signatures: dict[str, list[str]] = {}
+    notes: dict[str, list[str]] = {}
     for ref in proposal.deps:
         signature = _signature_for(index, ref)
         if signature is None:
@@ -390,9 +393,16 @@ def _emit(
                 "rather than stated — omit it and let the worker "
                 "report BLOCKED, or name a symbol the parser defines there",
             )
-        dependencies.append(
-            {"path": ref.path, "signature": signature, "note": ref.note}
-        )
+        stated = signatures.setdefault(ref.path, [])
+        if signature not in stated:
+            stated.append(signature)
+        said = notes.setdefault(ref.path, [])
+        if ref.note and ref.note not in said:
+            said.append(ref.note)
+    dependencies = [
+        {"path": path, "signature": "\n\n".join(stated), "note": "; ".join(notes[path])}
+        for path, stated in signatures.items()
+    ]
 
     document = _document(
         proposal,

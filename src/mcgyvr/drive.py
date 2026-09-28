@@ -51,7 +51,7 @@ from mcgyvr.escalate import (
     judge,
     required_policy,
 )
-from mcgyvr.gate import Gate, GateResult
+from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.preflight import reply_cap
@@ -59,6 +59,8 @@ from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import TypeCheck
 from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, Request, RunnerError, dispatch
+from mcgyvr.sandbox.base import nested_git
+from mcgyvr.scope import inside
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, verify
 from mcgyvr.wake import for_config as wake_for_config
@@ -210,6 +212,10 @@ def run_tool_step(
     if not step.argv:
         return _run_in_process(step, sandbox)
 
+    # A formatter is a program like any acceptance command, and one that hangs
+    # is held to the same ceiling.
+    if timeout is None:
+        timeout = task_ceiling()
     result = sandbox.run(step.argv, timeout=timeout)
     if result.exit_code in DID_NOT_RUN and not result.timed_out:
         program = step.tool.program
@@ -679,10 +685,12 @@ def worker_attempt(
             # a sandbox and nowhere else. `gate_workspace` takes the
             # sandbox and judges whatever is in it right now, so the draw
             # `best_of` just wrote is what the verdict is about.
-            result = gate_workspace(contract, space, adapters=adapters)
+            result = gate_workspace(contract, space, adapters=adapters, config=config)
             if result.accepted or not tidying:
                 return result
-            return _repair_and_regate(contract, space, result, adapters=adapters)
+            return _repair_and_regate(
+                contract, space, result, adapters=adapters, config=config
+            )
 
         # Before the writes rather than after the last one, which is the same
         # bargain `gate_in_sandbox` makes and for the same reason: `best_of`
@@ -885,7 +893,7 @@ def worker_attempt(
             gate, bound = picked.gate, picked.winner
             if tidying:
                 gate, bound = _cleaned(
-                    contract, sandbox, gate, bound, adapters=adapters
+                    contract, sandbox, gate, bound, adapters=adapters, config=config
                 )
             judgement = judge(
                 contract,
@@ -1051,7 +1059,7 @@ def _base_content(sandbox: Sandbox, contract: Contract) -> str:
     still reaches the reviewer as the rest of its content rather than raising
     out of an attempt that has not failed.
     """
-    target = sandbox.workspace / contract.target
+    target = inside(sandbox.workspace, contract.target)
     if not target.is_file():
         return ""
     return target.read_bytes().decode("utf-8", "surrogateescape")
@@ -1081,6 +1089,7 @@ def _cleaned(
     bound: Accepted,
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
+    config: Config | None = None,
 ) -> tuple[GateResult, Accepted]:
     """Tidy the winning draw, and re-judge it when the tidy-up changed it.
 
@@ -1117,7 +1126,9 @@ def _cleaned(
     )
     if not cleanup.regate:
         return result, bound
-    regated = gate_in_sandbox(contract, sandbox, cleanup.content, adapters=adapters)
+    regated = gate_in_sandbox(
+        contract, sandbox, cleanup.content, adapters=adapters, config=config
+    )
     return regated, Accepted.read(
         repo=sandbox.workspace, contract=contract, result=regated
     )
@@ -1129,6 +1140,7 @@ def _repair_and_regate(
     rejected: GateResult,
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
+    config: Config | None = None,
 ) -> GateResult:
     """Repair and re-gate, on the same rung and with no model retry.
 
@@ -1163,7 +1175,7 @@ def _repair_and_regate(
                 ),
             )
         return rejected
-    regated = gate_workspace(contract, sandbox, adapters=adapters)
+    regated = gate_workspace(contract, sandbox, adapters=adapters, config=config)
     noted = tuple(
         Finding(
             check=STYLE,
@@ -1186,6 +1198,7 @@ def gate_in_sandbox(
     content: str,
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
+    config: Config | None = None,
 ) -> GateResult:
     """Write ``content`` as the contract's target in ``sandbox`` and gate it.
 
@@ -1206,32 +1219,46 @@ def gate_in_sandbox(
     list of commands.
     """
     sandbox.reset()
-    target = sandbox.workspace / contract.target
+    target = inside(sandbox.workspace, contract.target)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content.encode("utf-8", "surrogateescape"))
-    return gate_workspace(contract, sandbox, adapters=adapters)
+    return gate_workspace(contract, sandbox, adapters=adapters, config=config)
 
 
-def task_ceiling() -> float | None:
+def task_ceiling(config: Config | None = None) -> float | None:
     """The policy's ``task_timeout_s``, or ``None`` where no config settles it.
 
     A contract's acceptance command is arbitrary shell, and this is the ceiling
     one that hangs is held to.
 
-    A missing or unusable config is not an error here: refusing a gate because
-    there is no config would make the ceiling a requirement rather than a
-    bound. No config means no declared ceiling, which is what `None` says.
-    """
-    from mcgyvr.config import ConfigError, load
+    ``config`` is the run's own — the one ``--config`` named — and when a caller
+    holds one it is the only answer: a run judged under another setup's ceiling
+    is judged under a budget nobody gave it. A caller holding none gets the
+    config at the default location.
 
-    try:
-        declared = load().get("task_timeout_s")
-    except (ConfigError, OSError):
-        return None
+    A *missing* default config is not an error here: refusing a gate because
+    there is no config would make the ceiling a requirement rather than a
+    bound, and a bare install is supported. No config means no declared
+    ceiling, which is what `None` says. A config that is *there* and does not
+    load is the other situation and raises (owner ruling): it is a ceiling the
+    operator wrote, and reading it as "no ceiling" hands a contract's arbitrary
+    shell no wall clock at all — silently, on the one surface a user is asked
+    to edit.
+    """
+    if config is None:
+        from mcgyvr.config import ConfigMissingError, load
+
+        try:
+            config = load()
+        except ConfigMissingError:
+            return None
+    declared = config.get("task_timeout_s")
     return float(declared) if declared is not None else None
 
 
-def acceptance_for(contract: Contract, sandbox: Sandbox) -> Acceptance | None:
+def acceptance_for(
+    contract: Contract, sandbox: Sandbox, *, config: Config | None = None
+) -> Acceptance | None:
     """The contract's acceptance rung, bound to ``sandbox`` and to the ceiling.
 
     ``None`` when the contract declares neither list — there is nothing to run
@@ -1245,7 +1272,7 @@ def acceptance_for(contract: Contract, sandbox: Sandbox) -> Acceptance | None:
     return Acceptance(
         sandbox,
         contract.acceptance_commands,
-        timeout=task_ceiling(),
+        timeout=task_ceiling(config),
         demonstrations=contract.demonstration_commands,
     )
 
@@ -1255,6 +1282,7 @@ def gate_workspace(
     sandbox: Sandbox,
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
+    config: Config | None = None,
 ) -> GateResult:
     """Judge whatever is in ``sandbox`` right now against ``contract``.
 
@@ -1271,7 +1299,26 @@ def gate_workspace(
     a function for mutating its caller's object and has to stand down where the
     contract *ordered* that.
     """
-    acceptance = acceptance_for(contract, sandbox)
+    nested = nested_git(sandbox.workspace)
+    if nested is not None:
+        # Before any host git reads the tree (owner ruling): a nested
+        # repository's config is run by the child git host git starts in it.
+        return GateResult(
+            findings=(
+                Finding(
+                    check="workspace",
+                    path=nested,
+                    names_a_file=False,
+                    code="nested-git",
+                    message=(
+                        f"the workspace holds the git entry {nested}; host git "
+                        f"would run that repository's config, so the tree is "
+                        f"not read and the change is not accepted"
+                    ),
+                ),
+            )
+        )
+    acceptance = acceptance_for(contract, sandbox, config=config)
     return Gate(adapters).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,

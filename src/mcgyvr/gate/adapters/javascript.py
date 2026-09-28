@@ -174,6 +174,15 @@ class JavaScriptAdapter(LanguageAdapter):
             path, added_lines = rel
             for message in result.get("messages", []):
                 line = message.get("line")
+                if message.get("fatal") and line not in added_lines:
+                    # eslint could not parse the file, so no rule ran on it.
+                    # Dropped as off the worker's lines, it would leave a clean
+                    # pass over a file that was never linted.
+                    raise ToolFailedError(
+                        _ESLINT,
+                        proc.returncode,
+                        f"{path}: {(message.get('message') or '').strip()}",
+                    )
                 if message.get("severity") != _ESLINT_ERROR or line not in added_lines:
                     continue
                 findings.append(

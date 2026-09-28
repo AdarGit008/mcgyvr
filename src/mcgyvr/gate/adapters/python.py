@@ -639,11 +639,12 @@ def _format_touched_lines(diff: str) -> dict[str, set[int]]:
 
 
 def _strip_diff_path(raw: str) -> str:
-    path = raw.strip().split("\t", 1)[0]
-    for prefix in ("a/", "b/"):
-        if path.startswith(prefix):
-            return path[len(prefix) :]
-    return path
+    """The path on a ``---`` header, taken as printed.
+
+    ``ruff format --diff`` prints the path it was given, with no git-style
+    ``a/``/``b/`` prefix, so a leading ``a/`` is a real directory named ``a``.
+    """
+    return raw.strip().split("\t", 1)[0]
 
 
 def _hunk_old_range(header: str) -> tuple[int, int]:

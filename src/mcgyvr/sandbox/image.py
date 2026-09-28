@@ -92,6 +92,23 @@ class DockerResult:
         return self.returncode == 0
 
 
+# The wall clock on each docker call, so a hung daemon or a stalled pull fails
+# the call instead of wedging the task (or interpreter exit, where the reaper
+# removes containers). The two bounds every docker call the product makes is
+# held to, and the only place either is written: pulling and building fetch and
+# install a stack's dependencies and get the long one; every other call is
+# bookkeeping and gets the short one.
+#
+# Both are defaults, not measurements. Nothing here timed a build or a pull;
+# they are bounds chosen to be far above a working call and far below forever,
+# and a real ceiling for an install that needs one belongs in config. The
+# ceiling on the command *inside* the container is
+# :data:`~mcgyvr.sandbox.base.DEFAULT_COMMAND_TIMEOUT_S`.
+DOCKER_CALL_TIMEOUT_S = 120.0
+DOCKER_BUILD_TIMEOUT_S = 3600.0
+_LONG_VERBS = frozenset({"build", "pull"})
+
+
 # The seam. A runner takes docker's argv (without the leading "docker") and
 # optional stdin, and returns the result. Production uses the subprocess
 # runner below; tests pass a stub that records argv and returns canned output.
@@ -111,13 +128,19 @@ def subprocess_runner(args: Sequence[str], stdin: bytes | None = None) -> Docker
         return DockerResult(2, "", refusal)
     if shutil.which("docker") is None:
         return DockerResult(127, "", "docker is not on PATH")
+    long = bool(args) and args[0] in _LONG_VERBS
+    bound = DOCKER_BUILD_TIMEOUT_S if long else DOCKER_CALL_TIMEOUT_S
     try:
         done = subprocess.run(
             ["docker", *args],
             input=stdin,
             capture_output=True,
+            timeout=bound,
             check=False,
         )
+    except subprocess.TimeoutExpired:
+        verb = " ".join(args[:1])
+        return DockerResult(124, "", f"docker {verb} did not finish within {bound:g}s")
     except OSError as exc:
         return DockerResult(1, "", str(exc))
     return DockerResult(

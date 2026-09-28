@@ -791,26 +791,48 @@ def _direct_ssh(real: str) -> Transport:
 # --------------------------------------------------------------------------
 
 
-def ssh_target(argv: list[str]) -> str | None:
-    """The host an ssh command line names, or None if it names none.
+def _ssh_options(argv: list[str]) -> tuple[list[tuple[str, str, bool]], int]:
+    """The options before the host as ssh's getopt reads them, and the host's index.
 
-    The first argument that is not an option, with the value-taking options
-    skipped (attached, `-p22`, or detached, `-p 22`) and `--` ending option
-    parsing. A leading `user@` is not part of the host.
+    Each option is ``(flag, value, attached)``. Short flags bundle the way
+    getopt bundles them: `-vJ srv1` is `-v` then `-J srv1`, and `-vJsrv1` is
+    `-v` then `-J` with `srv1` attached — a value-taking flag ends its token.
+    `--` ends option parsing.
     """
+    options: list[tuple[str, str, bool]] = []
     index = 0
     while index < len(argv):
         arg = argv[index]
         if arg == "--":
             index += 1
             break
-        if arg.startswith("-") and len(arg) > 1:
-            if arg[1] in SSH_TAKES_VALUE and len(arg) == 2:
-                index += 2  # `-o VALUE`
+        if not arg.startswith("-") or len(arg) == 1:
+            break
+        index += 1
+        for pos in range(1, len(arg)):
+            flag = arg[pos]
+            if flag not in SSH_TAKES_VALUE:
+                options.append((flag, "", False))
+                continue
+            attached = arg[pos + 1 :]
+            if attached:
+                options.append((flag, attached, True))
             else:
-                index += 1  # `-oVALUE`, `-tt`, `-v`
-            continue
-        break
+                value = argv[index] if index < len(argv) else ""
+                options.append((flag, value, False))
+                index += 1
+            break
+    return options, index
+
+
+def ssh_target(argv: list[str]) -> str | None:
+    """The host an ssh command line names, or None if it names none.
+
+    The first argument that is not an option, with the value-taking options
+    skipped (attached, `-p22`, detached, `-p 22`, or bundled, `-vp 22`) and
+    `--` ending option parsing. A leading `user@` is not part of the host.
+    """
+    _, index = _ssh_options(argv)
     if index >= len(argv):
         return None
     return argv[index].rpartition("@")[2]
@@ -854,22 +876,13 @@ def ssh_redirects(argv: list[str]) -> list[str]:
     refuses them by name. Options after the host are the remote command's.
     """
     found: list[str] = []
-    index = 0
-    while index < len(argv):
-        arg = argv[index]
-        if arg == "--" or not arg.startswith("-") or len(arg) == 1:
-            break
-        flag, attached = arg[1], arg[2:]
-        value = (
-            attached if attached else (argv[index + 1] if index + 1 < len(argv) else "")
-        )
+    for flag, value, attached in _ssh_options(argv)[0]:
         if flag in SSH_REDIRECT_FLAGS:
-            found.append(arg)
+            found.append(f"-{flag}{value}" if attached else f"-{flag}")
         elif (
             flag == "o" and value.partition("=")[0].strip().lower() in SSH_REDIRECT_KEYS
         ):
-            found.append(arg if attached else f"{arg} {value}")
-        index += 1 if attached or flag not in SSH_TAKES_VALUE else 2
+            found.append(f"-o{value}" if attached else f"-o {value}")
     return found
 
 

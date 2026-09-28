@@ -83,7 +83,7 @@ def test_an_acceptance_command_that_outlives_the_ceiling_is_stopped_by_it(
 
     started = time.monotonic()
     with open_sandbox(repo, mode="tempdir") as sandbox:
-        result = gate_workspace(loads(SLOW), sandbox)
+        result = gate_workspace(loads(SLOW), sandbox, config=_config())
     elapsed = time.monotonic() - started
 
     assert elapsed < 15, (

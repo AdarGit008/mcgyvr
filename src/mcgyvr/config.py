@@ -1058,6 +1058,25 @@ def _reject_credential_key(name: str, path: str) -> None:
         )
 
 
+def _reject_credential_anywhere(raw: object, path: str) -> None:
+    """The key and value checks, through a free-form value to every leaf.
+
+    A free-form mapping has no schema to keep a key out, and it is printed by
+    ``canonical()`` and hashed into a lock, so every key and every text leaf
+    in it is checked the way a schema field is.
+    """
+    if isinstance(raw, dict):
+        for key, item in raw.items():
+            if isinstance(key, str):
+                _reject_credential_key(key, path)
+            _reject_credential_anywhere(item, _join(path, str(key)))
+    elif isinstance(raw, list):
+        for i, item in enumerate(raw):
+            _reject_credential_anywhere(item, f"{path}.{i}")
+    elif isinstance(raw, str):
+        _reject_credential_literal(raw.strip(), path)
+
+
 def _mapping(raw: object, path: str) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ConfigSchemaError(
@@ -1176,7 +1195,9 @@ def _value(raw: object, spec: Field, path: str) -> Any:
         return out
 
     if spec.kind == "mapping":
-        return dict(_mapping(raw, path))
+        given = _mapping(raw, path)
+        _reject_credential_anywhere(given, path)
+        return dict(given)
 
     if spec.kind == "int_map":
         given = _mapping(raw, path)

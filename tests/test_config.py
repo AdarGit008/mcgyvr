@@ -12,6 +12,7 @@ user gets.
 
 from __future__ import annotations
 
+import json
 import textwrap
 from pathlib import Path
 
@@ -338,6 +339,34 @@ def test_an_env_key_that_is_not_a_variable_name_is_rejected() -> None:
 def test_a_credential_shaped_value_anywhere_is_rejected() -> None:
     with pytest.raises(CredentialInConfigError, match="Rotate"):
         parse(LOCAL_ONLY.replace("model: qwen2.5-coder:7b", "model: ghp_" + "A" * 36))
+
+
+@pytest.mark.parametrize(
+    "launch",
+    [
+        {"argv": ["--api-key", "sk-fake" + "0" * 20]},
+        {"flags": {"key": "fake-not-a-secret"}},
+        {"env": {"password": "fake-not-a-secret"}},
+        {"token": "ghp_" + "F" * 36},
+    ],
+)
+def test_a_credential_in_a_units_free_form_launch_is_rejected(
+    launch: dict[str, object],
+) -> None:
+    """`launch` is free-form and hashed whole, so a key written there would be
+    printed by canonical() and baked into a lock. It gets the same key and
+    value checks as every other part of the config."""
+    block = "    launch: " + json.dumps(launch) + "\n"
+    text = LOCAL_ONLY.replace("  strong:\n", block + "  strong:\n", 1)
+    with pytest.raises(CredentialInConfigError):
+        parse(text)
+
+
+def test_a_launch_without_a_credential_still_loads_whole() -> None:
+    launch = {"argv": ["--port", "8080"], "env": {"LLAMA_ARG_HOST": "0.0.0.0"}}
+    block = "    launch: " + json.dumps(launch) + "\n"
+    config = parse(LOCAL_ONLY.replace("  strong:\n", block + "  strong:\n", 1))
+    assert config.units["cheap"].launch == launch
 
 
 def test_secrets_resolve_from_the_environment_by_name(
