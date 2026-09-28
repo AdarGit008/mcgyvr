@@ -5,7 +5,7 @@
     "warm_decode_class_pct": {
       "kind": "estimate",
       "estimates": "How far, in percent, the warm decode speed of a healthy unit of this tolerance class may fall from one start of the unit to the next.",
-      "used_for": "A live probe whose warm decode falls further than this below the unit's locked warm decode pulls the unit. Locking a fleet refuses a unit whose warm decode falls further than this below the baseline its evidence states for it.",
+      "used_for": "A live probe that finds a unit's warm decode further than this below its locked warm decode pulls the combination the unit runs in, until that combination's validation is committed again. Writing a fleet's lock is refused when a unit's warm decode falls further than this below the baseline its evidence states for it.",
       "unit": "percent",
       "key": "tolerance_class",
       "values": {
@@ -19,7 +19,7 @@
     "prefill_class_pct": {
       "kind": "estimate",
       "estimates": "How far, in percent, the prefill speed of a healthy unit of this tolerance class may fall from one start of the unit to the next.",
-      "used_for": "A live probe whose prefill falls further than this below the unit's locked prefill pulls the unit.",
+      "used_for": "A live probe that finds a unit's prefill further than this below its locked prefill pulls the combination the unit runs in, until that combination's validation is committed again.",
       "unit": "percent",
       "key": "tolerance_class",
       "values": {
