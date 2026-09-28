@@ -43,10 +43,15 @@ def test_every_name_gets_the_shipped_estimate(seed: int) -> None:
 
 
 @pytest.mark.parametrize("seed", range(4))
-def test_every_name_gets_the_users_own_setting(seed: int) -> None:
+def test_every_name_gets_the_users_own_setting(
+    seed: int, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     shipped = derived.lookup(derived.RUNTIME_RESIDENT, derived.RUNTIME_RESIDENT_KEY)
     mine = nf.a_value(shipped.unit, random.Random(seed), unlike=shipped.value)
-    nf.write_user_file({derived.RUNTIME_RESIDENT: {derived.RUNTIME_RESIDENT_KEY: mine}})
+    nf.write_user_file(
+        tmp_path_factory,
+        {derived.RUNTIME_RESIDENT: {derived.RUNTIME_RESIDENT_KEY: mine}},
+    )
     assert (
         derived.lookup(derived.RUNTIME_RESIDENT, derived.RUNTIME_RESIDENT_KEY).source
         == "override"
@@ -64,10 +69,12 @@ def test_no_name_is_refused_for_being_unknown(tmp_path: Path) -> None:
         assert derived.RUNTIME_RESIDENT in str(was.value), name
 
 
-def test_a_machines_name_cannot_be_a_key_of_the_users_file() -> None:
+def test_a_machines_name_cannot_be_a_key_of_the_users_file(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     name = _names(1)[2]
     assert name is not None
-    path = nf.write_user_file({derived.RUNTIME_RESIDENT: {name: 1.0}})
+    path = nf.write_user_file(tmp_path_factory, {derived.RUNTIME_RESIDENT: {name: 1.0}})
     with pytest.raises(derived.DerivedNumbersError) as was:
         derived.runtime_resident_gb(name)
     assert name in str(was.value)

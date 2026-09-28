@@ -109,9 +109,28 @@ def write_json(path: Path, content: Mapping[str, Any]) -> Path:
     return path
 
 
-def write_user_file(content: Mapping[str, Any] | str) -> Path:
-    """The user's own settings file, holding ``content`` (YAML text or a mapping)."""
+def users_file(tmp: pytest.TempPathFactory) -> Path:
+    """The user's own settings file, only when it lies under pytest's temporary root.
+
+    A test writes the user's file where :func:`mcgyvr.derived.overrides_path`
+    says it is, which follows HOME. Were HOME ever a real one, a test would
+    overwrite a real user's settings; so nothing is written unless the file
+    lies under the temporary root this pytest run made.
+    """
+    root = tmp.getbasetemp().resolve()
     path = derived.overrides_path()
+    assert path.resolve().is_relative_to(root), (
+        f"refusing to write the user's numbers file {path}: it is not under "
+        f"pytest's temporary root {root}, so it may be a real user's file"
+    )
+    return path
+
+
+def write_user_file(
+    tmp: pytest.TempPathFactory, content: Mapping[str, Any] | str
+) -> Path:
+    """The user's own settings file, holding ``content`` (YAML text or a mapping)."""
+    path = users_file(tmp)
     path.parent.mkdir(parents=True, exist_ok=True)
     text = content if isinstance(content, str) else yaml.safe_dump(dict(content))
     path.write_text(text, encoding="utf-8")

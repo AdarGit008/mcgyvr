@@ -68,7 +68,10 @@ def test_each_unstated_number_asked_alone_is_refused_by_name(
 
 @pytest.mark.parametrize("seed", nf.SEEDS)
 def test_a_number_the_user_sets_is_no_longer_missing(
-    seed: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    seed: int,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     nf.use_invented_spaces(monkeypatch)
     made = nf.entries(seed)
@@ -79,7 +82,9 @@ def test_a_number_the_user_sets_is_no_longer_missing(
         pytest.skip("this generated shape states every key")
     number, key = missing[0]
     unit = next(e.unit for e in made if e.id == number)
-    nf.write_user_file({number: {key: nf.a_value(unit, random.Random(seed))}})
+    nf.write_user_file(
+        tmp_path_factory, {number: {key: nf.a_value(unit, random.Random(seed))}}
+    )
 
     rest = missing[1:]
     if rest:

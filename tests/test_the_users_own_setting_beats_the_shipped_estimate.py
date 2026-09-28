@@ -20,7 +20,10 @@ from tests import numbers_fixture as nf
 
 @pytest.mark.parametrize("seed", nf.SEEDS)
 def test_each_answer_comes_from_the_first_layer_that_states_it(
-    seed: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    seed: int,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     nf.use_invented_spaces(monkeypatch)
     made = nf.entries(seed)
@@ -33,7 +36,7 @@ def test_each_answer_comes_from_the_first_layer_that_states_it(
                 settings.setdefault(entry.id, {})[key] = nf.a_value(
                     entry.unit, rng, unlike=entry.values.get(key)
                 )
-    user = nf.write_user_file(settings)
+    user = nf.write_user_file(tmp_path_factory, settings)
 
     for entry in made:
         for key in nf.KEY_SPACES[entry.key]:
@@ -78,7 +81,9 @@ def test_with_no_settings_file_every_stated_number_is_the_shipped_estimate(
 
 
 def test_the_two_layers_say_different_things_about_themselves(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     nf.use_invented_spaces(monkeypatch)
     made = nf.entries(0)
@@ -87,11 +92,12 @@ def test_the_two_layers_say_different_things_about_themselves(
     key = next(iter(entry.values))
     estimate = derived.lookup(entry.id, key, path=shipped)
     nf.write_user_file(
+        tmp_path_factory,
         {
             entry.id: {
                 key: nf.a_value(entry.unit, random.Random(1), unlike=estimate.value)
             }
-        }
+        },
     )
     override = derived.lookup(entry.id, key, path=shipped)
     assert estimate.source != override.source
