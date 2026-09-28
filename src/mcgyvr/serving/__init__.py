@@ -21,9 +21,9 @@ The host memory a llama.cpp server holds beyond the experts it keeps on the
 host is read off neither a :class:`~mcgyvr.scan.Scan` nor the model's GGUF
 header: it is an estimate shipped with mcgyvr that the user can set
 (:mod:`mcgyvr.derived`). Free VRAM decides a fit; total VRAM decides nothing.
-And a model too big for the card is not automatically a model the machine cannot serve: an MoE spills its experts
-to RAM, so fit is a question about a *machine* — card, memory and disk together
-— not about a GPU.
+And a model too big for the card is not automatically a model the machine
+cannot serve: an MoE spills its experts to RAM, so fit is a question about a
+*machine* — card, memory and disk together — not about a GPU.
 
 The card arithmetic is :mod:`mcgyvr.serving.vramfit`'s, applied here and not
 restated. What a placement costs is the non-expert weights, the cache and the
