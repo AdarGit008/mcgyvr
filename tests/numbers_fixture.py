@@ -144,7 +144,7 @@ def users_file(tmp: pytest.TempPathFactory) -> Path:
 def write_user_file(
     tmp: pytest.TempPathFactory, content: Mapping[str, Any] | str | bytes
 ) -> Path:
-    """The user's own settings file, holding ``content`` (YAML text, bytes or a mapping)."""
+    """The user's own settings file, holding ``content``: YAML text, bytes, a mapping."""
     path = users_file(tmp)
     path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(content, bytes):
