@@ -17,12 +17,11 @@ anything at all is the operator's — :mod:`mcgyvr.emit` writes a file and stops
 A unit is a *launch spec*, which is why it can be built on a laptop for a rig
 it has never touched.
 
-Every number in it is read off a :class:`~mcgyvr.scan.Scan` or off the model's
-own GGUF header; the one that is neither is the host memory a llama.cpp server
-holds beyond the experts it keeps on the host, an estimate shipped with mcgyvr
-that the user can set (:mod:`mcgyvr.derived`). Free VRAM
-decides a fit; total VRAM decides nothing. And a model too big for the card is
-not automatically a model the machine cannot serve: an MoE spills its experts
+The host memory a llama.cpp server holds beyond the experts it keeps on the
+host is read off neither a :class:`~mcgyvr.scan.Scan` nor the model's GGUF
+header: it is an estimate shipped with mcgyvr that the user can set
+(:mod:`mcgyvr.derived`). Free VRAM decides a fit; total VRAM decides nothing.
+And a model too big for the card is not automatically a model the machine cannot serve: an MoE spills its experts
 to RAM, so fit is a question about a *machine* — card, memory and disk together
 — not about a GPU.
 
