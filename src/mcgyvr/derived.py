@@ -177,7 +177,39 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
         raise DerivedNumbersError(
             f"{where} {has}; this mcgyvr reads numbers of schema {SCHEMA} only"
         )
+    for number, entry in numbers.items():
+        _check_entry(number, entry, where)
     return where, numbers
+
+
+def _check_entry(number: str, entry: object, where: Path) -> None:
+    """Refuse, by name, a shipped entry that is not keyed inside its key space.
+
+    Its ``key`` must name a space of :data:`KEY_SPACES` and every key of its
+    ``values`` must be a member of that space, so no entry can be keyed by a
+    machine's name. Every entry is checked on every read, asked for or not.
+    """
+    if not isinstance(entry, dict):
+        raise DerivedNumbersError(f"{number} in {where} is not an object")
+    space_name = entry.get("key")
+    space = KEY_SPACES.get(space_name) if isinstance(space_name, str) else None
+    if space is None:
+        raise DerivedNumbersError(
+            f"{number} in {where} is keyed by {space_name!r}, which is not a key "
+            f"space mcgyvr knows ({', '.join(KEY_SPACES)})"
+        )
+    values = entry.get("values")
+    if not isinstance(values, dict):
+        raise DerivedNumbersError(
+            f"{number} in {where} states its values as {values!r}; they must be "
+            "an object of keys to values"
+        )
+    outside = [key for key in values if key not in space]
+    if outside:
+        raise DerivedNumbersError(
+            f"{number} in {where} states {', '.join(map(repr, outside))}, not "
+            f"keys of {space_name} (its keys are {', '.join(space)})"
+        )
 
 
 def _checked(value: object, unit: object, what: str, where: Path) -> float:

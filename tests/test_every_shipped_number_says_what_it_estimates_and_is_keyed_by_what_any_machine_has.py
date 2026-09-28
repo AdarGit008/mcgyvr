@@ -193,3 +193,44 @@ def test_a_document_with_no_numbers_is_not_judged_by_its_schema(
     assert "schema" not in str(was.value)
     for entry in derived.CLASS_PCT_ENTRIES.values():
         assert entry in str(was.value)
+
+
+@pytest.mark.parametrize(
+    ("key", "values", "named"),
+    [
+        ("no_such_space", {"only": 1.0}, "no_such_space"),
+        ("lone", {"only": 1.0, "elsewhere": 2.0}, "elsewhere"),
+        ("lone", [1.0], "values"),
+    ],
+)
+def test_a_shipped_entry_keyed_outside_its_key_space_is_refused_by_name(
+    key: str,
+    values: object,
+    named: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    nf.use_invented_spaces(monkeypatch)
+    good = nf.Entry(id="invented_good", unit="GiB", key="pace", values={"slow": 1.0})
+    bad = nf.Entry(id="invented_keyed", unit="GiB", key="lone", values={"only": 1.0})
+    document = nf.document([good, bad])
+    document["numbers"]["invented_keyed"].update(key=key, values=values)
+    path = nf.write_json(tmp_path / "shipped.json", document)
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup("invented_good", "slow", path=path)
+    text = str(was.value)
+    assert str(path) in text
+    assert "invented_keyed" in text and named in text
+
+
+def test_a_shipped_entry_that_is_not_an_object_is_refused_by_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    nf.use_invented_spaces(monkeypatch)
+    good = nf.Entry(id="invented_good", unit="GiB", key="pace", values={"slow": 1.0})
+    document = nf.document([good])
+    document["numbers"]["invented_flat"] = 3.0
+    path = nf.write_json(tmp_path / "shipped.json", document)
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup("invented_good", "slow", path=path)
+    assert str(path) in str(was.value) and "invented_flat" in str(was.value)
