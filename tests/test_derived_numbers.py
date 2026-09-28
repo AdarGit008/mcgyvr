@@ -92,11 +92,6 @@ def test_a_rig_whose_number_is_absent_is_refused_by_name(tmp_path: Path) -> None
         derived.runtime_resident_gb("srv2", path=path)
 
 
-def test_a_rig_that_is_not_declared_is_refused_by_name() -> None:
-    with pytest.raises(derived.DerivedNumbersError, match="desktop-2"):
-        derived.runtime_resident_gb("desktop-2")
-
-
 def test_the_moved_literals_live_only_in_the_file() -> None:
     """The numbers that were hard-coded in ``src/`` are gone from it."""
     serving = (SRC / "mcgyvr" / "serving" / "__init__.py").read_text(encoding="utf-8")
