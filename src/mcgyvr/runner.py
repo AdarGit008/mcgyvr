@@ -72,6 +72,7 @@ parsing a worker's file-shaped answer are :mod:`mcgyvr.worker`'s — a
 
 from __future__ import annotations
 
+import http.client
 import json
 import time
 import urllib.error
@@ -895,12 +896,14 @@ def _get_text(url: str, timeout: float) -> str | None:
     """GET a text page, or ``None`` when anything about the read fails.
 
     Never raises: this reads a measurement beside a dispatch, and a page that
-    is not there must cost the dispatch nothing but the figure.
+    is not there must cost the dispatch nothing but the figure. A reply HTTP
+    itself cannot read — a garbled status line, a body cut short — is an
+    ``http.client.HTTPException``, which is neither of the other two.
     """
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
             raw: bytes = response.read(_STATUS_BYTES)
-    except (OSError, ValueError):
+    except (OSError, ValueError, http.client.HTTPException):
         return None
     return raw.decode("utf-8", "replace")
 
@@ -944,6 +947,14 @@ def _post_json(
         )
         raise kind(
             f"could not reach {safe_url(url)} within {timeout:g}s: {exc}"
+        ) from exc
+    except http.client.HTTPException as exc:
+        # Not an OSError: a server that died mid-body (IncompleteRead) or
+        # answered with a status line nobody can read. Nothing usable came
+        # back, which is what a transport failure is.
+        raise TransportError(
+            f"{safe_url(url)} sent a reply that could not be read: "
+            f"{type(exc).__name__}: {exc}"
         ) from exc
 
     try:

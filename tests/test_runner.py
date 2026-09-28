@@ -894,3 +894,83 @@ def test_a_keyless_local_endpoint_works_end_to_end_over_a_socket() -> None:
     assert _Handler.seen["headers"]["Content-Type"] == "application/json"
     assert _Handler.seen["payload"]["max_tokens"] == 16
     assert _Handler.seen["payload"]["model"] == "qwen2.5-coder:7b"
+
+
+class _DiesMidBody(BaseHTTPRequestHandler):
+    """Promises 100 bytes, sends 10, and hangs up — a server that died mid-reply."""
+
+    def _cut(self) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", "100")
+        self.end_headers()
+        self.wfile.write(b'{"choices"')
+        self.wfile.flush()
+        self.close_connection = True
+
+    def do_GET(self) -> None:
+        self._cut()
+
+    def do_POST(self) -> None:
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        self._cut()
+
+    def log_message(self, *_: Any) -> None:
+        return
+
+
+@contextlib.contextmanager
+def dying_mid_body() -> Iterator[str]:
+    server = HTTPServer(("127.0.0.1", 0), _DiesMidBody)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_a_reply_cut_off_mid_body_is_a_transport_error() -> None:
+    """``IncompleteRead`` is an ``HTTPException``, not an ``OSError``.
+
+    Escaping as itself, it is not a :class:`RunnerError`: the cooldown never
+    hears of the failure and the ladder ends the task instead of escalating.
+    """
+    with dying_mid_body() as base_url, pytest.raises(TransportError):
+        runner_for(local_openai(base_url)).generate("m", ASK)
+
+
+#: The real status-page reader, taken before ``conftest`` stubs it offline for
+#: every test; the test below reaches only a loopback server of its own.
+_REAL_GET_TEXT = runner_module._get_text
+
+
+class _GarbledStatus(BaseHTTPRequestHandler):
+    """Answers with a status line no HTTP client can read."""
+
+    def do_GET(self) -> None:
+        self.wfile.write(b"NOT-HTTP garbage\r\n\r\n")
+        self.wfile.flush()
+        self.close_connection = True
+
+    def log_message(self, *_: Any) -> None:
+        return
+
+
+def test_a_status_page_with_a_garbled_status_line_reads_as_nothing() -> None:
+    """``BadStatusLine`` is an ``HTTPException`` too, and ``_get_text`` never raises.
+
+    A page read beside a dispatch costs the dispatch nothing but its figure.
+    """
+    server = HTTPServer(("127.0.0.1", 0), _GarbledStatus)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/slots"
+        assert _REAL_GET_TEXT(url, 2.0) is None
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
