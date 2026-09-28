@@ -41,7 +41,6 @@ from tests.test_a_read_measures_before_it_judges_and_loads_a_unit import (
 from tests.test_a_rig_is_read_through_the_door_without_leasing_it import (
     FLEET,
     FLEET_NAME,
-    LOCKED_SRV2,
     RUN_ID,
     UNIT_3B,
     UNIT_7B,
@@ -64,6 +63,14 @@ def setup_folder(tmp_path: Path, profile: str = "dev") -> tuple[Path, Path]:
     (folder / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
     assert not (Path(os.environ["HOME"]) / ".mcgyvr" / "live.json").exists()
     return folder, journal / "fleet"
+
+
+def declared(folder: Path) -> dict[str, Any]:
+    """The fleet declaration the setup at ``folder`` holds, as the test wrote it."""
+    loaded: dict[str, Any] = yaml.safe_load(
+        (folder / "fleet.yaml").read_text(encoding="utf-8")
+    )
+    return loaded
 
 
 def record(folder: Path, text: str, profile: str, rig: Rig, **more: Any) -> Any:
@@ -145,13 +152,14 @@ def test_every_row_says_it_was_not_a_lock_and_names_its_setup(tmp_path: Path) ->
 
     record(folder, rig_text(), "live", Rig())
 
+    rig_id = declared(folder)["rigs"]["srv2"]["rig_id"]
     filed = rows(journal)
     assert filed, "the read filed nothing"
     for row in filed:
         assert row["fleet"] == FLEET_NAME
         assert row["locked"] == "false"
         assert row["setup"] == str(folder)
-        assert row["rig_id"] == LOCKED_SRV2
+        assert row["rig_id"] == rig_id, "filed under the rig id the setup declares"
 
 
 def test_a_probe_with_no_lock_is_filed_unjudged_not_failed(tmp_path: Path) -> None:
@@ -179,7 +187,7 @@ def test_the_card_and_a_loads_peak_are_judged_against_the_declared_room(
     three = unit_rows(journal, UNIT_3B)
     assert three["card_mib"]["observed"] == 3400 and three["card_mib"]["alert"] is False
     assert three["load_peak_mib"]["observed"] == 3500
-    assert three["load_peak_mib"]["alert"] is False, "3500 MiB is inside 3573"
+    assert three["load_peak_mib"]["alert"] is False, "the peak is inside room_mib"
     assert "warm_decode_tok_s" not in unit_rows(journal, UNIT_7B)
 
 
