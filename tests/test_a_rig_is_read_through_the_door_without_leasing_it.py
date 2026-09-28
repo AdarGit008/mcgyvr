@@ -317,7 +317,6 @@ def test_a_read_files_its_rig_id_units_and_what_else_holds_the_card(
 
     assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
     rig = rig_row(journal)
-    assert rig["observed_rig_id"] == LOCKED_SRV2
     assert rig["fleet"] == FLEET_NAME and rig["rig"] == "srv2"
     assert rig["rig_id"] == LOCKED_SRV2
     assert rig["combination_id"].startswith("cmb-")

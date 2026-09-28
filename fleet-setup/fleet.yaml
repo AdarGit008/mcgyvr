@@ -210,6 +210,30 @@ units:
       volumes: ["/home/adaramir/models:/models:ro",
                 "/home/adaramir/models:/home/adaramir/models:ro"]
 
+  # ---- fleet (d): srv2 solo on the 6 GiB card (1660 SUPER, moved from srv1) ----
+  srv2_35b_32k:
+    rig: srv2
+    address: "http://srv2:8080"
+    engine: llama.cpp
+    image: "llamacpp:b10644-L3"
+    model: "Qwen3.6-35B-A3B-UD-IQ3_XXS"
+    width: 1
+    window: 32768                                 # srv1_35b_maxctx's launch, on the card it was measured on
+    output_tokens: 2048
+    request_timeout_s: 180
+    room_mib: 5626                                # carried over: srv1_35b_maxctx's measured card peak on this same 1660 SUPER
+    container: "mcgyvr-srv2-35b-32k"
+    unit_id: "unt-bf826b27dfc7655ee18d21bcf6f55d9592b739e0f4a716e1cbe89559a4193c83"
+    launch:
+      argv: ["--model", "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+             "--n-cpu-moe", "28", "--parallel", "1", "--port", "8080",
+             "-b", "512", "-ub", "512", "-c", "32768", "-fa", "on",
+             "-ctk", "q8_0", "-ctv", "q8_0", "-ngl", "99", "-t", "6"]
+      env:
+        LLAMA_ARG_HOST: "0.0.0.0"
+      volumes: ["/home/adaramir/models:/models:ro",
+                "/home/adaramir/models:/home/adaramir/models:ro"]
+
 rigs:
   srv1:
     rig_id: "rig-3c89f35d83eb724f2b79f218a75c16768817ac83d2c00b740ae2236861ee1ae9"
@@ -238,4 +262,9 @@ fleets:
   c-mtp:
     layout:
       srv2: [[srv2_ornith_mtp, awake]]
+    next: []
+
+  d-srv2-35b:
+    layout:
+      srv2: [[srv2_35b_32k, awake]]
     next: []
