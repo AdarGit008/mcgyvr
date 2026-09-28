@@ -155,6 +155,10 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
         raise DerivedNumbersError(
             f"cannot read the shipped numbers from {where}: {exc}"
         ) from exc
+    except UnicodeDecodeError as exc:
+        raise DerivedNumbersError(
+            f"{where} is not UTF-8 text, so its numbers cannot be read: {exc}"
+        ) from exc
     try:
         document = json.loads(text, parse_constant=_NotANumber)
     except json.JSONDecodeError as exc:
@@ -192,12 +196,12 @@ def _load_overrides(
     """The user's own settings, every one checked, keyed by (number, key).
 
     A file that is not there sets nothing. Every other failure is refused by
-    name with the file's path: unreadable, not YAML, not a mapping of numbers
-    to mappings of keys to values, a number the shipped file does not know, a
-    key outside that number's key space, or a value that is not a finite
-    number inside its unit's bounds. The whole file is checked on every read,
-    so a typo in a number nobody asked for is refused too, never silently
-    ignored.
+    name with the file's path: unreadable, not UTF-8 text, not YAML, not a
+    mapping of numbers to mappings of keys to values, a number the shipped file
+    does not know, a key outside that number's key space, or a value that is
+    not a finite number inside its unit's bounds. The whole file is checked on
+    every read, so a typo in a number nobody asked for is refused too, never
+    silently ignored.
     """
     where = overrides_path()
     try:
@@ -207,6 +211,10 @@ def _load_overrides(
     except OSError as exc:
         raise DerivedNumbersError(
             f"cannot read your numbers from {where}: {exc}"
+        ) from exc
+    except UnicodeDecodeError as exc:
+        raise DerivedNumbersError(
+            f"{where} is not UTF-8 text, so your numbers cannot be read: {exc}"
         ) from exc
     try:
         document = yaml.load(text, Loader=strict_loader(DerivedNumbersError))

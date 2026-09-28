@@ -123,13 +123,16 @@ def test_a_document_with_no_numbers_states_none_of_them(tmp_path: Path) -> None:
         ("not-there.json", None),
         ("broken.json", '{"numbers": '),
         ("a-list.json", json.dumps([1, 2])),
+        ("not-utf8.json", '{"_doc": "caf\xe9", "numbers": {}}'.encode("latin-1")),
     ],
 )
 def test_a_shipped_file_that_cannot_be_read_as_an_object_is_refused_by_name(
-    tmp_path: Path, name: str, content: str | None
+    tmp_path: Path, name: str, content: str | bytes | None
 ) -> None:
     path = tmp_path / name
-    if content is not None:
+    if isinstance(content, bytes):
+        path.write_bytes(content)
+    elif content is not None:
         path.write_text(content, encoding="utf-8")
     with pytest.raises(derived.DerivedNumbersError) as was:
         derived.class_tolerances(path=path)

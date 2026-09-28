@@ -156,6 +156,18 @@ def test_a_settings_file_that_is_not_a_mapping_of_numbers_is_refused(
     assert str(path) in str(was.value)
 
 
+def test_a_settings_file_that_is_not_utf8_text_is_refused_by_name(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    number, key = _every_shipped_ask()[0]
+    path = nf.write_user_file(
+        tmp_path_factory, f"{number}:\n  {key}: 1 # caf\xe9\n".encode("latin-1")
+    )
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup(number, key)
+    assert str(path) in str(was.value)
+
+
 def test_a_settings_path_that_cannot_be_read_is_refused(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
