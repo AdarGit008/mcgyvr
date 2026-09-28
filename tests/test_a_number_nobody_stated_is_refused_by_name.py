@@ -78,8 +78,7 @@ def test_a_number_the_user_sets_is_no_longer_missing(
     shipped = nf.write_json(tmp_path / "shipped.json", nf.document(made))
     stated = {(e.id, k) for e in made for k in e.values}
     missing = [ask for ask in nf.every_ask(made) if ask not in stated]
-    if not missing:
-        pytest.skip("this generated shape states every key")
+    assert missing, "the generator leaves at least one key unstated"
     number, key = missing[0]
     unit = next(e.unit for e in made if e.id == number)
     nf.write_user_file(

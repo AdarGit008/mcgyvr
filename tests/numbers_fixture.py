@@ -58,7 +58,11 @@ def a_value(unit: str, rng: random.Random, *, unlike: float | None = None) -> fl
 
 
 def entries(seed: int) -> list[Entry]:
-    """Several invented numbers, each stating some keys of its space and not others."""
+    """Several invented numbers, each stating some keys of its space and not others.
+
+    Every entry states at least one key, and every shape leaves at least one
+    key unstated, so a test of a missing number always has one to ask for.
+    """
     rng = random.Random(seed)
     made: list[Entry] = []
     for n in range(rng.randint(1, 5)):
@@ -72,6 +76,17 @@ def entries(seed: int) -> list[Entry]:
                 unit=unit,
                 key=key,
                 values={k: a_value(unit, rng) for k in stated},
+            )
+        )
+    if all(set(e.values) == set(KEY_SPACES[e.key]) for e in made):
+        wide = max(sorted(KEY_SPACES), key=lambda name: len(KEY_SPACES[name]))
+        unit = rng.choice(sorted(_RANGES))
+        made.append(
+            Entry(
+                id=f"invented_{seed}_{len(made)}",
+                unit=unit,
+                key=wide,
+                values={KEY_SPACES[wide][0]: a_value(unit, rng)},
             )
         )
     return made
