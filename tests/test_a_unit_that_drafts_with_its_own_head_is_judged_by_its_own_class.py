@@ -12,8 +12,10 @@ sample the lock itself accepted.
   argv (or ``flags``) carries ``--spec-type draft-mtp`` in ``mtp``, whether or
   not experts are on the CPU beside it; any other ``--spec-type`` value, and a
   vLLM unit whatever its argv says, are judged as before.
-* Every other committed unit keeps the class it had: the ruling adds a class,
-  it moves nobody.
+* Every other unit keeps the class it had: the ruling adds a class, it moves
+  nobody. Checked on invented units, and on each unit the committed fleet
+  declares against its class with the mtp request taken out, so the check
+  holds whichever units the fleet carries.
 * ``tools/runs/derived.json`` states ``mtp`` in both judged fields: prefill at
   the 5% ``assemble_evidence.py tolerance`` derived from the window
   (``records/measurements/lock-fleets/mtp-ornith/prefill-tolerance-mtp.json``),
@@ -49,16 +51,54 @@ UNIT = "srv2_ornith_mtp"
 SPEC = ["--spec-type", "draft-mtp", "--spec-draft-n-max", "2"]
 BASE = ["--model", "/models/moe/x.gguf", "--parallel", "1", "-c", "4096", "-ngl", "99"]
 
-#: What every committed unit was judged as before the ruling, and still is.
+#: Units that do not ask for mtp, each with the class it had before the ruling.
+#: Invented, so the check does not move when a unit joins or leaves the fleet.
 BEFORE = {
-    "srv2_35b_256k": CLASS_CPU_EXPERTS,
-    "srv1_35b_maxctx": CLASS_CPU_EXPERTS,
-    "srv2_3b": CLASS_VLLM,
-    "srv2_7b": CLASS_VLLM,
-    "srv2_80b": CLASS_CPU_EXPERTS,
-    "srv1_deepseek": CLASS_CPU_EXPERTS,
-    "srv1_35b_b": CLASS_CPU_EXPERTS,
+    "a_vllm_unit": ({"engine": "vllm", "launch": {"argv": ["Qwen/x"]}}, CLASS_VLLM),
+    "a_plain_llamacpp_unit": (
+        {"engine": "llama.cpp", "launch": {"argv": BASE}},
+        CLASS_LLAMACPP,
+    ),
+    "an_unnamed_engine": ({"launch": {"argv": BASE}}, CLASS_LLAMACPP),
+    "experts_on_the_cpu_in_the_argv": (
+        {"engine": "llama.cpp", "launch": {"argv": [*BASE, "--n-cpu-moe", "8"]}},
+        CLASS_CPU_EXPERTS,
+    ),
+    "experts_on_the_cpu_as_a_key": (
+        {"engine": "llama.cpp", "launch": {"n_cpu_moe": 8}},
+        CLASS_CPU_EXPERTS,
+    ),
+    "experts_on_the_cpu_among_the_flags": (
+        {"engine": "llama.cpp", "launch": {"flags": ["--cpu-moe"]}},
+        CLASS_CPU_EXPERTS,
+    ),
 }
+
+
+def _without_mtp(unit: dict[str, Any]) -> dict[str, Any]:
+    """The unit as it would stand had its launch not asked for mtp."""
+    launch = unit.get("launch")
+    if not isinstance(launch, dict):
+        return unit
+    kept = dict(launch)
+    for key in ("argv", "flags"):
+        words = kept.get(key)
+        if isinstance(words, list):
+            pairs = {
+                index
+                for index in range(len(words) - 1)
+                if words[index : index + 2] == ["--spec-type", "draft-mtp"]
+            }
+            kept[key] = [
+                word
+                for index, word in enumerate(words)
+                if index not in pairs
+                and index - 1 not in pairs
+                and word != "--spec-type=draft-mtp"
+            ]
+    if kept.get("speculative") == "mtp":
+        del kept["speculative"]
+    return {**unit, "launch": kept}
 
 
 def _llamacpp(argv: list[str], **launch: Any) -> dict[str, Any]:
@@ -86,10 +126,20 @@ def test_the_committed_mtp_unit_is_judged_as_mtp() -> None:
     assert tolerance_class(units[UNIT]) == CLASS_MTP
 
 
-def test_every_other_committed_unit_keeps_its_class() -> None:
-    units = committed_units()
-    assert set(units) == {*BEFORE, UNIT}
-    assert {name: tolerance_class(units[name]) for name in BEFORE} == BEFORE
+@pytest.mark.parametrize("name", sorted(BEFORE))
+def test_a_unit_that_does_not_ask_for_mtp_keeps_its_class(name: str) -> None:
+    unit, before = BEFORE[name]
+    assert tolerance_class(unit) == before
+
+
+def test_each_declared_unit_is_mtp_only_where_it_asks_and_else_as_before() -> None:
+    for name, unit in committed_units().items():
+        before = tolerance_class(_without_mtp(unit))
+        assert before != CLASS_MTP, name
+        if _without_mtp(unit) == unit:
+            assert tolerance_class(unit) == before, name
+        else:
+            assert tolerance_class(unit) == CLASS_MTP, name
 
 
 @pytest.mark.parametrize(
