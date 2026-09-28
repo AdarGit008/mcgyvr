@@ -17,7 +17,7 @@ The split this module rests on:
     naming. Called ``C`` here. **It held across every placement measured that
     keeps expert blocks on the host**: five placements of KAT, where every term
     held to the last printed digit, and three of nemotron spanning 9.6 GB of
-    experts. That remainder differs from one card to the next -- it is net of
+    experts. That remainder may differ from one card to the next -- it is net of
     the card's idle baseline -- but ``C`` itself is per (model, serve config)
     and subsumes it.
 
