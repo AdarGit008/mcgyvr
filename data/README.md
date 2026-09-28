@@ -175,6 +175,9 @@ runtime_resident_gb:
   llama.cpp: 2.5
 ```
 
+The file is YAML; write each value as a plain decimal number, such as `12` or
+`2.5`.
+
 A setting for a number or key mcgyvr does not know, or a value that is not a
 finite number inside its unit's bounds (a percent above 0 and below 100, GiB 0
 or more), is refused by name, even when another number was asked. A number
