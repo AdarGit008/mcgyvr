@@ -53,7 +53,7 @@ BASE = ["--model", "/models/moe/x.gguf", "--parallel", "1", "-c", "4096", "-ngl"
 
 #: Units that do not ask for mtp, each with the class it had before the ruling.
 #: Invented, so the check does not move when a unit joins or leaves the fleet.
-BEFORE = {
+BEFORE: dict[str, tuple[dict[str, Any], str]] = {
     "a_vllm_unit": ({"engine": "vllm", "launch": {"argv": ["Qwen/x"]}}, CLASS_VLLM),
     "a_plain_llamacpp_unit": (
         {"engine": "llama.cpp", "launch": {"argv": BASE}},
