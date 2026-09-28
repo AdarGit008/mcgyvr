@@ -337,11 +337,15 @@ def pulled(journal: Path, lock_root: Path | None) -> dict[str, list[dict[str, An
 
     A combination is pulled while it has a live alert newer than its committed
     validation; a re-committed validation (a newer ``validated_at``) clears it.
-    With no ``lock_root`` — no fleet named live — nothing clears a pull.
+    With no ``lock_root`` — no fleet named live — nothing clears a pull. A row
+    read without a lock (``read --fleet``, stamped ``locked=false``) pulls
+    nothing; a row with no ``locked`` was read with the lock.
     """
     groups: dict[str, dict[str, Any]] = {}
     for row in _rows(journal):
         if not row.get("alert") or "unit_id" not in row:
+            continue
+        if row.get("locked") == "false":
             continue
         combination = row.get("combination_id")
         if not combination:
