@@ -593,6 +593,7 @@ DRIVERS = REPO / "tools" / "runs" / "drivers"
 #: digest, so the door's proof is the only refusal left between it and docker.
 DRIVER_CALLS: dict[str, tuple[str, list[str]]] = {
     "lcp_sweep.py": ("LCP_IMG", ["/models/x.gguf", "/models", "tag", "1:4096:0:1"]),
+    "mgpu_sweep.py": ("VLLM_IMG", ["vllm", "tag:org/model:tp2:on:2048:1"]),
     "vllm_sweep.py": ("VLLM_IMG", ["tag", "org/model", "0.9:2048:8:auto:1"]),
     "vllm_cores.py": (
         "VLLM_IMG",
