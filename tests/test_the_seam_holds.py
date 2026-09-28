@@ -79,6 +79,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
+#: The semantic gate's resolver engine: vendored source, not a module of the package.
+_VENDORED_ENGINE = SRC / "gate" / "_engine"
 RED_PORT = Path(__file__).resolve().parent / "red_port"
 
 #: ``mcgyvr.runner``'s own words: "the first code below the seam
@@ -278,8 +280,17 @@ def _the_tree() -> set[str]:
     calls itself "never imported by mcgyvr ... read as text and staged" in its
     own docstring, but it *is* a legal module name, so it is classified like
     everything else rather than skipped.
+
+    The resolver engine under ``gate/_engine/`` is skipped: it is third-party
+    source copied byte for byte and staged as data, it imports itself as
+    ``ghostcall`` and never as ``mcgyvr.*``, and no module of the package
+    imports it.
     """
-    return {name for path in SRC.rglob("*.py") if (name := _dotted_name(path))}
+    return {
+        name
+        for path in SRC.rglob("*.py")
+        if not path.is_relative_to(_VENDORED_ENGINE) and (name := _dotted_name(path))
+    }
 
 
 def _imports_in(source: str, package: str = "mcgyvr") -> set[str]:

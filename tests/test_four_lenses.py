@@ -42,7 +42,9 @@ REPO = Path(__file__).resolve().parent.parent
 SOURCE_ROOTS = (REPO / "src", REPO / "tools")
 # Corpora and the vendored toolkit are material, not code: their contents are
 # pinned by digest and a sweep there measures the instrument, not the project.
-SKIP_PARTS = ("tasks", "baseline", "reserve", "node_modules", ".venv")
+# ``_engine`` is the semantic gate's resolver, copied byte for byte and pinned
+# by digest in ``gate/semantic.py``.
+SKIP_PARTS = ("tasks", "baseline", "reserve", "node_modules", ".venv", "_engine")
 
 
 def _source_files() -> list[Path]:
