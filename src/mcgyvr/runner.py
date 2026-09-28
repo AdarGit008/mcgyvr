@@ -930,9 +930,21 @@ def _post_json(
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace").strip()[:_ERROR_BODY_CHARS]
+        # The body is read inside this handler, so a failure of that read is
+        # not caught by the handlers below it: it is caught here, and the
+        # dispatch still ends as the error status the server sent.
+        cut = ""
+        try:
+            raw_detail = exc.read()
+        except http.client.IncompleteRead as short:
+            raw_detail = short.partial
+            cut = ", then hung up before its body was complete"
+        except (OSError, http.client.HTTPException) as lost:
+            raw_detail = b""
+            cut = f", and its body could not be read ({type(lost).__name__}: {lost})"
+        detail = raw_detail.decode("utf-8", "replace").strip()[:_ERROR_BODY_CHARS]
         raise BackendError(
-            f"{safe_url(url)} answered HTTP {exc.code}: {detail or '(empty body)'}"
+            f"{safe_url(url)} answered HTTP {exc.code}{cut}: {detail or '(empty body)'}"
         ) from exc
     except OSError as exc:
         # URLError and the socket timeout are both OSError; to a caller they
