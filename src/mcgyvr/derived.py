@@ -161,7 +161,7 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
         ) from exc
     try:
         document = json.loads(text, parse_constant=_NotANumber)
-    except json.JSONDecodeError as exc:
+    except ValueError as exc:  # invalid JSON, or a number too long to read
         raise DerivedNumbersError(f"{where} is not valid JSON: {exc}") from exc
     if not isinstance(document, dict):
         raise DerivedNumbersError(f"{where} is not a JSON object")
@@ -180,8 +180,14 @@ def _checked(value: object, unit: object, what: str, where: Path) -> float:
         raise DerivedNumbersError(
             f"{what} in {where} is {value!r}, which is not a number"
         )
-    number = float(value)
     within, bound = _BOUNDS[unit]
+    try:
+        number = float(value)
+    except OverflowError:
+        raise DerivedNumbersError(
+            f"{what} in {where} is a whole number too large to be a float; a "
+            f"number in {unit} must be finite and {bound}"
+        ) from None
     if not math.isfinite(number) or not within(number):
         raise DerivedNumbersError(
             f"{what} in {where} is {value!r}; a number in {unit} must be "
@@ -220,7 +226,7 @@ def _load_overrides(
         document = yaml.load(text, Loader=strict_loader(DerivedNumbersError))
     except DerivedNumbersError as exc:
         raise DerivedNumbersError(f"{where}: {exc}") from exc
-    except yaml.YAMLError as exc:
+    except (yaml.YAMLError, ValueError) as exc:  # or a number too long to read
         raise DerivedNumbersError(f"{where} is not valid YAML: {exc}") from exc
     if document is None:
         return where, {}

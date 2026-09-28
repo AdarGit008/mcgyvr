@@ -106,7 +106,12 @@ def test_the_key_spaces_are_the_ones_the_product_already_names() -> None:
     assert derived.KEY_SPACES["tolerance_class"] == CLASSES
 
 
+#: A whole number too large to be a float: refused as outside its bounds.
+_TOO_LARGE = "1" + "0" * 400
+
 _OUT_OF_BOUNDS: list[tuple[str, str]] = [
+    ("percent", _TOO_LARGE),
+    ("GiB", _TOO_LARGE),
     ("percent", "0"),
     ("percent", "100"),
     ("percent", "250.5"),

@@ -85,7 +85,12 @@ def _another_ask(number: str) -> tuple[str, str]:
     return _every_shipped_ask()[0]
 
 
+#: A whole number too large to be a float: refused as outside its bounds.
+_TOO_LARGE = "1" + "0" * 400
+
 _BAD_VALUES: list[tuple[str, str]] = [
+    ("percent", _TOO_LARGE),
+    ("GiB", _TOO_LARGE),
     ("percent", "0"),
     ("percent", "100"),
     ("percent", "-3"),
