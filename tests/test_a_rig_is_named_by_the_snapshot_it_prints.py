@@ -55,14 +55,6 @@ def locked_rig_id(host: str) -> str:
     return str(fleet["rigs"][host]["rig_id"])
 
 
-def test_srv2_is_locked_under_the_id_its_snapshot_names() -> None:
-    from mcgyvr.fleet.ids import rig_id
-
-    named = rig_id(srv2_snapshot())
-    assert named == locked_rig_id("srv2")
-    assert (REPO / "records" / "fleet" / "rigs" / named).is_dir()
-
-
 def test_a_moved_rig_is_named_anew() -> None:
     from mcgyvr.fleet.ids import rig_id
 

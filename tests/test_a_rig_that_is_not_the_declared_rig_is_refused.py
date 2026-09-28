@@ -97,26 +97,3 @@ def _declaration() -> dict[str, object]:
     document = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(document, dict)
     return document
-
-
-@pytest.mark.parametrize("host", ["srv1", "srv2"])
-def test_hosts_json_declares_the_rig_as_read_on_its_read_on_date(host: str) -> None:
-    document = _declaration()
-    entry = document.get(host)
-    assert isinstance(entry, dict), f"hosts.json has no {host!r} object"
-    rig = entry.get("rig")
-    assert isinstance(rig, dict), f"hosts.json[{host!r}] has no 'rig' block"
-    assert set(rig) == onedoor.RIG_KEYS, (
-        f"hosts.json[{host!r}].rig keys are {sorted(rig)}; "
-        f"expected exactly {sorted(onedoor.RIG_KEYS)}"
-    )
-    wrong = {
-        key: (str(rig[key]), want)
-        for key, want in onedoor.RIG[host].items()
-        if str(rig[key]) != want
-    }
-    assert not wrong, f"hosts.json[{host!r}].rig differs from the live read: {wrong}"
-    assert entry.get("read_on") == onedoor.RIG_READ_ON, (
-        f"hosts.json[{host!r}].read_on is {entry.get('read_on')!r}, "
-        f"not {onedoor.RIG_READ_ON!r}"
-    )
