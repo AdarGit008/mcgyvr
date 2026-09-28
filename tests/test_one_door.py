@@ -216,32 +216,11 @@ ALLOWED: dict[str, str] = {
         "the shims; the argv the list-form pattern sees is the stub's own name"
     ),
     "tests/test_one_door.py": "this file names the patterns it scans for",
-    "tests/test_cross_rig_claim.py": (
-        "monkeypatches contract.ssh with a stub; reaches no rig"
-    ),
-    "tests/test_serving.py": "stubs a dead ssh and asserts its message is kept",
-    "tests/test_serving_memory_declaration.py": (
-        "asserts the shape of a launch line against a stub"
-    ),
-    "tests/test_sink_conformance.py": "counts ssh calls into a stub",
     "tests/test_serving_gatelib.py": (
         "drives gatelib.ssh under a fake door against an ssh stub"
     ),
     "tests/test_serving_door_cli.py": (
         "drives the shims under a fake door against ssh and docker stubs"
-    ),
-    "tests/test_default_step.py": (
-        "drives the shipped step against ssh and docker stubs on PATH"
-    ),
-    "tests/test_a_failed_lock_fleets_start_keeps_its_full_log_and_gets_one_retry.py": (
-        "runs lock-fleets' step bodies under a fake door with an ssh and a docker "
-        "stub standing under RUN_BIN, and finds the move shell's `docker run -d` "
-        "in the stub's call log; reaches no rig"
-    ),
-    "tests/test_lock_fleets_files_an_exit_cause_and_one_diagnostic_start.py": (
-        "runs lock-fleets' unit step under a fake door with an ssh and a docker "
-        "stub standing under RUN_BIN, which answer the container's State and the "
-        "rig's kernel log from files the test writes; reaches no rig"
     ),
 }
 
