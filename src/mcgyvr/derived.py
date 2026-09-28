@@ -1,15 +1,18 @@
-"""Per-rig derived numbers, read from the one file that states them.
+"""The numbers mcgyvr sizes and judges a machine with, and where each one comes from.
 
-``tools/runs/derived.json`` is the source of truth for the numeric values
-mcgyvr measures on a rig rather than reads from the rig or from the model.
-It is JSON and content-addressable so a reader can digest it the way it
-digests ``tools/runs/hosts.json``, and it is a sibling of that file on purpose:
-``hosts.json`` declares what each rig IS, read live by the door's gate 2, and
-this file declares what was MEASURED on it.
+Some numbers cannot be read off the machine or the model: how far a healthy
+unit's speed varies between starts, how much host memory a llama.cpp server
+holds beyond the experts it keeps there. mcgyvr ships an estimate of each in
+``data/numbers.json`` (inside the installed package, :func:`shipped_path`),
+keyed by something every machine has (a tolerance class, an engine) and never
+by a machine's name. The user may set their own value for any of them in
+``numbers.yaml`` in mcgyvr's own folder (:func:`overrides_path`); their value
+answers first.
 
-Nothing here falls back to a literal in code. A number that is absent from the
-file is a named refusal (:class:`DerivedNumbersError`), because a silent inline
-default is exactly the drift this file exists to end.
+Nothing here falls back to a literal in code. A number that neither layer
+states is a named refusal (:class:`DerivedNumbersError`) naming every missing
+number and key and the file where a value can be set, because a silent inline
+default is a number nobody stated for the machine in hand.
 """
 
 from __future__ import annotations
@@ -322,9 +325,8 @@ def runtime_resident_gb(host: str | None = None, *, path: Path | None = None) ->
     return _resolve([asked], path, sizing=host)[asked].value
 
 
-#: A judged field -> the ``engine`` entry of ``tools/runs/derived.json`` that
-#: states its percent per tolerance class. Each field has its own measured
-#: classes (owner, 2026-09-15): prefill is not judged by warm decode's.
+#: A judged field -> the number that states its percent per tolerance class.
+#: Each field has its own: prefill is not judged by warm decode's.
 CLASS_PCT_ENTRIES: dict[str, str] = {
     "warm_decode_tok_s": "warm_decode_class_pct",
     "prefill_tok_s": "prefill_class_pct",

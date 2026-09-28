@@ -1,18 +1,12 @@
 """One tolerance class per unit, so every judge of a unit reads one class.
 
-Owner, 2026-09-15: a live unit is judged with measured class tolerances — vLLM,
-llama.cpp, llama.cpp with experts on the CPU and, since 2026-09-16, llama.cpp
-drafting with the GGUF's own MTP head — and each judged field has its own,
-stated in ``tools/runs/derived.json``: warm decode those of
-``records/measurements/fleet-identity-2026-09-11/tolerances.json``
-(``engine.warm_decode_class_pct``), prefill those of
-``records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json``
-for the llama.cpp and CPU-experts classes and a ruled value for vLLM
-(``engine.prefill_class_pct``), and the ``mtp`` class's both from the
-mtp-ornith window (``records/measurements/lock-fleets/mtp-ornith/``). The
-probe's judge (:mod:`mcgyvr.fleet.probe`) and the lock's NVMe baseline check
-(:mod:`mcgyvr.fleet.lock`) both ask :func:`tolerance_class`, so the two cannot
-put one unit in two classes.
+A live unit is judged by the tolerance of its class: vLLM, llama.cpp,
+llama.cpp with experts on the CPU, and llama.cpp drafting with the GGUF's own
+MTP head. Each judged field (warm decode, prefill) has its own tolerance per
+class, looked up in :mod:`mcgyvr.derived`: an estimate shipped with mcgyvr
+that the user can set. The probe's judge (:mod:`mcgyvr.fleet.probe`) and the
+lock's NVMe baseline check (:mod:`mcgyvr.fleet.lock`) both ask
+:func:`tolerance_class`, so the two cannot put one unit in two classes.
 """
 
 from __future__ import annotations
@@ -24,11 +18,10 @@ CLASS_VLLM = "vllm"
 CLASS_LLAMACPP = "llamacpp"
 CLASS_CPU_EXPERTS = "cpu_experts"
 #: llama.cpp drafting with the GGUF's own grafted head (``--spec-type
-#: draft-mtp``). Owner ruling, 2026-09-16, after the mtp-ornith window: its
-#: numbers are its own — cpu_experts' were measured on srv1 offload and the
-#: unit's three cold starts spread 1.63% in warm decode and 4.29% in prefill.
+#: draft-mtp``). A class of its own, with its own tolerances, whether or not
+#: experts are on the CPU beside it.
 CLASS_MTP = "mtp"
-#: Every class a unit can be in; ``tools/runs/derived.json`` states each.
+#: Every class a unit can be in; each judged field states a tolerance for each.
 CLASSES: tuple[str, ...] = (CLASS_VLLM, CLASS_LLAMACPP, CLASS_CPU_EXPERTS, CLASS_MTP)
 
 #: The llama-server flags that put expert tensors on the CPU.

@@ -18,8 +18,9 @@ A unit is a *launch spec*, which is why it can be built on a laptop for a rig
 it has never touched.
 
 Every number in it is read off a :class:`~mcgyvr.scan.Scan` or off the model's
-own GGUF header; the one declared number is the runtime-resident intercept, a
-host-side figure stated per rig in ``tools/runs/derived.json``. Free VRAM
+own GGUF header; the one that is neither is the host memory a llama.cpp server
+holds beyond the experts it keeps on the host, an estimate shipped with mcgyvr
+that the user can set (:mod:`mcgyvr.derived`). Free VRAM
 decides a fit; total VRAM decides nothing. And a model too big for the card is
 not automatically a model the machine cannot serve: an MoE spills its experts
 to RAM, so fit is a question about a *machine* — card, memory and disk together
@@ -94,13 +95,13 @@ COMPOSE_SUFFIX = ".yml"
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 # What system memory holds beyond the offloaded experts themselves — context,
-# compute buffers, and the copy paths that do not live on the card — is a
-# per-rig measured intercept, read from ``tools/runs/derived.json`` by
-# :func:`mcgyvr.derived.runtime_resident_gb` inside :func:`_host_gb`. It is not
-# a literal here: it applies only where experts actually spill — a model held
-# entirely on the card is not paying it, and a dense model has no spill to pay
-# it for — and a rig whose figure is absent is refused rather than sized from
-# somebody's module.
+# compute buffers, and the copy paths that do not live on the card — is an
+# estimate keyed by engine, shipped with mcgyvr and settable by the user, looked
+# up by :func:`mcgyvr.derived.runtime_resident_gb` inside :func:`_host_gb`. It
+# is not a literal here: it applies only where experts actually spill — a model
+# held entirely on the card is not paying it, and a dense model has no spill to
+# pay it for — and where no layer states it the sizing is refused rather than
+# made from a default in code.
 
 # Held back from host RAM, on top of whatever the model needs, for the same
 # reason :data:`vramfit.SCRATCH_AND_CONTEXT_MIB` is held back from the card:
@@ -1877,8 +1878,12 @@ def _host_gb(geometry: dict[str, Any], n_cpu_moe: int, *, host: str) -> float:
     """What system memory holds at this offload: the spilled experts, plus the
     runtime that spilling carries — and nothing when nothing spills.
 
-    The runtime intercept is per-rig and read from ``tools/runs/derived.json``;
-    a rig whose figure is absent is refused by name, never defaulted.
+    The runtime figure is :func:`mcgyvr.derived.runtime_resident_gb`, an
+    estimate keyed by engine that the user can set. ``host`` is never its key:
+    it only names the machine being sized in a refusal. It is charged wherever
+    experts spill, whatever engine the unit names, since a fit is not told the
+    engine. Where no layer states it, the sizing is refused by name, never
+    defaulted.
     """
     offloaded = int(geometry["bytes_experts"]) - vramfit.experts_on_card(
         geometry, n_cpu_moe
