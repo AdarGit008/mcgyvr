@@ -303,7 +303,7 @@ def prepare(
     if strangers:
         raise ReadError(
             f"{', '.join(strangers)}: not an awake unit of {fleet.name} on {host}, "
-            "so there is nothing of the lock's to measure there"
+            "so there is nothing of the fleet's to measure there"
         )
     return fleet
 
@@ -496,7 +496,7 @@ def record(
     fleet_name: str | None = None,
     setup: Path | None = None,
 ) -> Recorded:
-    """File one reading of ``host`` under the live fleet's journal, then judge it.
+    """File one reading of ``host`` under its fleet's journal, then judge it.
 
     Owner, 2026-09-15 (B2, "probe first, judge after"): every figure is measured
     first — the probes, then the loads — and only then is each row filed and
@@ -674,7 +674,7 @@ def _measure_probe(
 def _file_probe(
     fleet: Live, host: str, name: str, answer: Mapping[str, Any], filing: _Filing
 ) -> None:
-    """A probe's figures, filed contended or judged against the lock."""
+    """A probe's figures, filed contended, judged against the lock, or unjudged."""
     from mcgyvr.derived import DerivedNumbersError, class_tolerances
     from mcgyvr.fleet.harness import HarnessError
     from mcgyvr.fleet.probe import _approved

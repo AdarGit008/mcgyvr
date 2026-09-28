@@ -12,7 +12,8 @@ and each unit's sleep and in-flight page. Nothing lands on the rig's disk.
 is refused with nothing filed. Unlike gate 2 this takes no lease, tears down no
 displaced run and refuses no busy rig: a read is how a serving rig is looked at.
 
-**Filed** under the live fleet's journal by :func:`mcgyvr.fleet.read.record`.
+**Filed** under the journal of the fleet read, the live one or with ``--fleet``
+one of the run's setup, by :func:`mcgyvr.fleet.read.record`.
 With ``--probe``, each idle unit named has the lock's own harness
 (``mcgyvr/fleet/harness.py``) run on the rig as ``python3 -``, at 127.0.0.1
 (:func:`harness_on_rig`).

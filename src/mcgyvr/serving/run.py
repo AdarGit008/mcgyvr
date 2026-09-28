@@ -326,7 +326,7 @@ READ_SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "read-02-rig.py",
         "read, rig: one reader on the rig, its facts held to hosts.json and the "
-        "rest filed under the live fleet's journal; nothing leased, nothing torn "
+        "rest filed under the read fleet's journal; nothing leased, nothing torn "
         "down, and a busy rig read as it is",
     ),
 )
@@ -857,8 +857,8 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         prog="python -m mcgyvr.serving.run read",
         description=(
             "read a rig: its facts, its containers and its card, filed under "
-            "the live fleet's journal; --probe and --load run the lock's "
-            "harness on it"
+            "the journal of the fleet read (the live one, or --fleet's); --probe "
+            "and --load run the lock's harness on it"
         ),
     )
     parser.add_argument(
@@ -870,7 +870,7 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         default=[],
         metavar="UNIT",
         help=(
-            "awake units of the live fleet on this rig to measure on the rig with "
+            "awake units of the fleet read on this rig to measure on the rig with "
             "the lock's own harness, each only while it has nothing in flight"
         ),
     )
@@ -889,9 +889,11 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         default="",
         metavar="FLEET",
         help=(
-            "read FLEET of the setup the config names (MCGYVR_CONFIG) instead of "
-            "the live fleet: no lock, rows filed locked=false, probe figures "
-            "unjudged, card and load peak judged against room_mib"
+            "read FLEET of the fleet.yaml in the folder of the config the read "
+            "loads (MCGYVR_CONFIG, else the run root when it holds a fleet.yaml, "
+            "else the live fleet folder) instead of the live fleet: no lock, rows "
+            "filed locked=false, probe figures unjudged, card and load peak "
+            "judged against room_mib"
         ),
     )
     parser.add_argument(
