@@ -11,6 +11,7 @@ neither, the numbers are refused by name rather than read from anywhere else.
 from __future__ import annotations
 
 import tomllib
+from importlib import resources
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 def _packaged_at(monkeypatch: pytest.MonkeyPatch, package_dir: Path) -> None:
     """The package's resources resolve to ``package_dir`` for one test."""
-    monkeypatch.setattr(derived.resources, "files", lambda _name: package_dir)
+    monkeypatch.setattr(resources, "files", lambda _name: package_dir)
 
 
 def test_the_build_copies_the_checkout_file_into_the_package() -> None:
