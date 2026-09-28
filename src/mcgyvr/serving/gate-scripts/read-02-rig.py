@@ -74,8 +74,13 @@ def main() -> int:
     profile = need("RUN_PROFILE")
     probe = os.environ.get("RUN_READ_PROBE", "").split()
     load = os.environ.get("RUN_READ_LOAD") or None
+    # `read --fleet F`: F of the setup the run's config was loaded from, which
+    # read-01 exported as RUN_CONFIG ("none" when there was no config).
+    fleet_name = os.environ.get("RUN_READ_FLEET") or None
+    config = os.environ.get("RUN_CONFIG", "none")
+    setup = None if config == "none" else Path(config)
     try:
-        fleet = read.prepare(host, probe, load)
+        fleet = read.prepare(host, probe, load, fleet_name=fleet_name, setup=setup)
         args = read.reader_args(fleet, host)
     except read.ReadError as exc:
         refuse(f"read: {exc}. Nothing was read and nothing is filed")
@@ -137,6 +142,8 @@ def main() -> int:
             probe=probe,
             measure=measure,
             load=load,
+            fleet_name=fleet_name,
+            setup=setup,
         )
     except read.ReadError as exc:
         refuse(f"read: {exc}")
@@ -146,6 +153,11 @@ def main() -> int:
 
     seen = recorded.observed
     print(f"read: {host} rig_id={seen.rig_id} run_id={run_id}")
+    if not fleet.locked:
+        print(
+            f"read: fleet {fleet.name} of the setup {fleet.folder}, not the live "
+            "lock: rows filed locked=false, probe figures unjudged"
+        )
     for unit, state in sorted(seen.units.items()):
         print(f"read: unit {unit} {state}")
     for name in sorted(seen.card_mib):

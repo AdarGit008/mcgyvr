@@ -19,6 +19,11 @@ stopped or leased.
   filed as not read, never as 0. With ``probe``, the lock's own harness runs on
   the rig at 127.0.0.1 on an idle unit only (:mod:`mcgyvr.fleet.harness`), and
   its figures are judged.
+* With ``fleet_name`` and ``setup`` (``read --fleet F``, owner 2026-09-28) the
+  fleet is ``F`` of the setup the run's config came from, not the live one: a
+  unit declared there is read and loaded before any lock names it. Its rows say
+  ``locked=false`` and name the setup, and a probe's figures are filed
+  unjudged, since there is no lock record to judge them against.
 * :func:`observations` reads the rig rows of one read back, which is all live
   admission (:mod:`mcgyvr.fleet.admission`) and ``mcgyvr fleet probe`` ask of it.
 * :func:`spawn_read` is the one place a command opens the door's ``read``.
@@ -195,11 +200,16 @@ def parse(text: str) -> Reading:
 
 @dataclass(frozen=True)
 class Live:
-    """The fleet ``~/.mcgyvr/live.json`` names, and its folder."""
+    """The fleet ``~/.mcgyvr/live.json`` names, and its folder.
+
+    Or, with ``locked`` false, a fleet of a dev setup named by ``read --fleet``:
+    its folder is the setup, and it holds no lock.
+    """
 
     name: str
     folder: Path
     fleet: dict[str, Any]
+    locked: bool = True
 
     def slots(self, rig: str) -> list[tuple[str, Mapping[str, Any], str]]:
         """``(unit name, unit block, state)`` for each unit the layout puts on a rig."""
@@ -242,11 +252,40 @@ def engine_of(unit: Mapping[str, Any]) -> str:
     return engine if isinstance(engine, str) and engine else "llama.cpp"
 
 
-def prepare(host: str, probe: Sequence[str] = (), load: str | None = None) -> Live:
-    """The live fleet a read of ``host`` is filed under, refused before any rig read.
+def named(fleet_name: str, setup: Path | None) -> Live:
+    """Fleet ``fleet_name`` of the dev setup at ``setup``, unlocked, or why not."""
+    from mcgyvr.fleet.files import FleetFileError, load_fleet
 
-    ``host`` must be a rig of the live fleet's layout, every unit to probe an
-    awake unit of it on that rig, and a load (``WxN``) a load of probed units.
+    if setup is None:
+        raise ReadError(
+            f"--fleet {fleet_name} names a fleet of a setup, and this read ran "
+            "under no config: set MCGYVR_CONFIG to the setup that declares it"
+        )
+    folder = setup if setup.is_dir() else setup.parent
+    path = folder / "fleet.yaml"
+    try:
+        fleet = load_fleet(path.read_text(encoding="utf-8"))
+    except (OSError, FleetFileError) as exc:
+        raise ReadError(f"{path} cannot be read: {exc}") from exc
+    if fleet_name not in (fleet.get("fleets") or {}):
+        raise ReadError(f"{path} declares no fleet {fleet_name!r}")
+    return Live(fleet_name, folder, fleet, locked=False)
+
+
+def prepare(
+    host: str,
+    probe: Sequence[str] = (),
+    load: str | None = None,
+    *,
+    fleet_name: str | None = None,
+    setup: Path | None = None,
+) -> Live:
+    """The fleet a read of ``host`` is filed under, refused before any rig read.
+
+    The live fleet, or with ``fleet_name`` that fleet of ``setup``
+    (:func:`named`). ``host`` must be a rig of its layout, every unit to probe
+    an awake unit of it on that rig, and a load (``WxN``) a load of probed
+    units.
     """
     if load is not None:
         if not probe:
@@ -254,10 +293,11 @@ def prepare(host: str, probe: Sequence[str] = (), load: str | None = None) -> Li
                 "--load needs --probe: a load runs on the units a probe names"
             )
         load_spec(load)
-    fleet = live()
+    fleet = live() if fleet_name is None else named(fleet_name, setup)
+    which = "the live fleet" if fleet.locked else f"the setup {fleet.folder}'s fleet"
     layout = fleet.fleet["fleets"][fleet.name].get("layout", {})
     if host not in layout:
-        raise ReadError(f"{host} is not a rig of the live fleet {fleet.name}")
+        raise ReadError(f"{host} is not a rig of {which} {fleet.name}")
     awake = {name for name, _, state in fleet.slots(host) if state == "awake"}
     strangers = [name for name in probe if name not in awake]
     if strangers:
@@ -453,6 +493,8 @@ def record(
     probe: Sequence[str] = (),
     measure: Measure | None = None,
     load: str | None = None,
+    fleet_name: str | None = None,
+    setup: Path | None = None,
 ) -> Recorded:
     """File one reading of ``host`` under the live fleet's journal, then judge it.
 
@@ -464,7 +506,7 @@ def record(
     """
     from mcgyvr.fleet.probe import journal_dir
 
-    fleet = prepare(host, probe, load)
+    fleet = prepare(host, probe, load, fleet_name=fleet_name, setup=setup)
     width, window = load_spec(load) if load is not None else (0, 0)
     at = _at(run_id)
     reading = parse(text)
@@ -477,6 +519,8 @@ def record(
             "rig": host,
             "rig_id": fleet.locked_rig_id(host),
             "combination_id": fleet.combination(host),
+            # A setup's fleet is no lock, and every row says so.
+            **({} if fleet.locked else {"locked": "false", "setup": str(fleet.folder)}),
         },
         stamps={
             "run_id": run_id,
@@ -657,6 +701,18 @@ def _file_probe(
                     "observed": value,
                     "contended": True,
                     "in_flight_after": after,
+                },
+            )
+        return
+    if not fleet.locked:
+        for field_name, value in figures.items():
+            filing.record(
+                unit_id,
+                {
+                    "field": field_name,
+                    "observed": value,
+                    "judged": False,
+                    "why_unjudged": "a setup's fleet has no lock record to judge by",
                 },
             )
         return

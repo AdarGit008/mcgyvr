@@ -366,11 +366,13 @@ EXPORTED = (
     "RUN_SERVE",
     "RUN_COMPOSE",
     "RUN_SERVE_EXPECTED",
-    # The read run's own three: the id its rows are filed under, the units it
-    # runs the lock's harness for on the rig, and the load it runs on them.
+    # The read run's own four: the id its rows are filed under, the units it
+    # runs the lock's harness for on the rig, the load it runs on them, and
+    # the setup fleet it reads in place of the live one (`--fleet`).
     "RUN_READ_ID",
     "RUN_READ_PROBE",
     "RUN_READ_LOAD",
+    "RUN_READ_FLEET",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
@@ -883,6 +885,16 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--fleet",
+        default="",
+        metavar="FLEET",
+        help=(
+            "read FLEET of the setup the config names (MCGYVR_CONFIG) instead of "
+            "the live fleet: no lock, rows filed locked=false, probe figures "
+            "unjudged, card and load peak judged against room_mib"
+        ),
+    )
+    parser.add_argument(
         "--run-id",
         default="",
         help="the id the read's rows are filed under (default: minted)",
@@ -942,6 +954,7 @@ def _read(argv: list[str]) -> int:
         RUN_READ_ID=run_id,
         RUN_READ_PROBE=" ".join(opts.probe),
         RUN_READ_LOAD=opts.load,
+        RUN_READ_FLEET=opts.fleet,
     )
     try:
         check_manifest()
