@@ -18,7 +18,13 @@ from typing import TYPE_CHECKING, Any, TextIO
 from mcgyvr import __version__
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
-from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
+from mcgyvr.capability import (
+    ESTIMATES_NOTICE,
+    GB_PER_GIB,
+    CapabilityTableError,
+    load,
+    table_path,
+)
 from mcgyvr.config import (
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
@@ -99,20 +105,23 @@ def _capabilities(args: argparse.Namespace) -> int:
 
     models = table.fitting(args.vram) if args.vram else table.models
     if args.vram:
-        print(f"Measured models that fit {args.vram:g} GB with working headroom:\n")
+        print(
+            f"Models that fit {args.vram:g} GB with working headroom. "
+            f"{ESTIMATES_NOTICE}\n"
+        )
     else:
-        print("Measured models:\n")
+        print(f"Shipped models. {ESTIMATES_NOTICE}\n")
 
     for model in sorted(models, key=lambda m: m.best_quality or 0, reverse=True):
         quality = model.best_quality
-        score = f"{quality:.1%}" if quality is not None else "unmeasured"
+        score = f"{quality:.1%}" if quality is not None else "no estimate"
         backend = f" [{model.requires_backend} only]" if model.requires_backend else ""
         print(
             f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB  {score:>10}{backend}"
         )
 
     if table.caveats:
-        print("\nHarness caveats that invalidate naive re-measurement:")
+        print("\nHarness caveats (ways a naive re-run gets these figures wrong):")
         for caveat in table.caveats:
             print(f"  {caveat.id} [{caveat.severity}] {caveat.summary}")
     return 0

@@ -47,6 +47,18 @@ from mcgyvr.catalog import catalog
 
 TABLE_FILENAME = "capability-table.json"
 
+#: The one table version this code reads. A table of any other version is
+#: refused by name rather than read: a reader that skipped keys it did not know
+#: would take an older table's rows to mean what this version's rows mean.
+SCHEMA_VERSION = 2
+
+#: What every figure in the shipped table is, in the words the product prints
+#: above them.
+ESTIMATES_NOTICE = (
+    "Estimates by card class, one card read per class; none is a reading of "
+    "your machine."
+)
+
 # The table's ``*_gb`` figures are decimal gigabytes; the sizing code is in GiB
 # (:data:`mcgyvr.detect.MIB_PER_GB` is 1024). Divide by this wherever a table
 # figure crosses into the sizing code, and nowhere else.
@@ -106,13 +118,30 @@ class CapabilitySelectionError(Exception):
 
 
 @dataclass(frozen=True)
+class CardClass:
+    """A class of card the table's estimates are given for.
+
+    ``memory_gb`` is the class's nominal card memory. A class is a rough guide:
+    one card was read for it, and speed depends on the card, not only on its
+    memory.
+    """
+
+    id: str
+    label: str
+    memory_gb: float
+
+
+@dataclass(frozen=True)
 class Measurement:
-    """One measured value with the conditions that produced it."""
+    """One figure of the table: an estimate for a card class.
+
+    ``backend`` is the server program the figure was taken through, and
+    ``card_class`` the id of the declared :class:`CardClass` it is given for.
+    """
 
     value: float
     backend: str
-    rig: str
-    date: str
+    card_class: str
 
 
 @dataclass(frozen=True)
@@ -197,6 +226,7 @@ class Caveat:
 class CapabilityTable:
     models: tuple[Model, ...]
     caveats: tuple[Caveat, ...]
+    card_classes: tuple[CardClass, ...] = ()
 
     def get(self, model_id: str) -> Model | None:
         return next((m for m in self.models if m.id == model_id), None)
@@ -221,13 +251,68 @@ class CapabilityTable:
         ]
 
 
+#: The lists on a model row whose entries are readings, each keyed by a class.
+_READING_LISTS = (
+    "quality",
+    "throughput_tok_s",
+    "invalid_measurements",
+    "disputed_measurements",
+)
+
+
+def _card_classes(raw: Mapping[str, Any]) -> tuple[CardClass, ...]:
+    """The declared classes, each with an id, a label and its nominal memory."""
+    declared = raw.get("card_classes")
+    if not isinstance(declared, list):
+        raise CapabilityTableError(
+            "the capability table declares no 'card_classes' list, so no "
+            "reading in it can say which card class it is an estimate for"
+        )
+    classes: list[CardClass] = []
+    for entry in declared:
+        try:
+            card_class = CardClass(
+                id=str(entry["id"]),
+                label=str(entry["label"]),
+                memory_gb=float(entry["memory_gb"]),
+            )
+        except KeyError as exc:
+            raise CapabilityTableError(
+                f"a card class is missing required key {exc.args[0]!r}"
+            ) from exc
+        if any(c.id == card_class.id for c in classes):
+            raise CapabilityTableError(
+                f"card class {card_class.id!r} is declared twice"
+            )
+        classes.append(card_class)
+    return tuple(classes)
+
+
+def _check_readings(entry: Mapping[str, Any], declared: frozenset[str]) -> None:
+    """Every reading of a row names a declared card class, or the table is refused."""
+    model_id = entry.get("id")
+    for field_name in _READING_LISTS:
+        for reading in entry.get(field_name, []):
+            if "card_class" not in reading:
+                raise CapabilityTableError(
+                    f"a reading in {model_id!r} {field_name} names no "
+                    f"'card_class'; every figure is an estimate for a declared "
+                    f"card class"
+                )
+            if reading["card_class"] not in declared:
+                raise CapabilityTableError(
+                    f"a reading in {model_id!r} {field_name} is keyed by card "
+                    f"class {reading['card_class']!r}, which the table does not "
+                    f"declare (declared: {', '.join(sorted(declared)) or 'none'})"
+                )
+
+
 def _measurements(rows: list[dict[str, Any]], key: str) -> tuple[Measurement, ...]:
     return tuple(
         Measurement(
             value=float(row[key]),
             backend=str(row.get("backend", "")),
-            rig=str(row.get("rig", "")),
-            date=str(row.get("date", "")),
+            card_class=str(row["card_class"]),
         )
         for row in rows
         if key in row
@@ -258,10 +343,17 @@ def load(path: Path | None = None) -> CapabilityTable:
     except json.JSONDecodeError as exc:
         raise CapabilityTableError(f"{path} is not valid JSON: {exc}") from exc
 
-    if raw.get("schema_version") != 1:
+    found = raw.get("schema_version")
+    if type(found) is not int or found != SCHEMA_VERSION:
         raise CapabilityTableError(
-            f"unsupported capability table schema_version {raw.get('schema_version')!r}"
+            f"{path} has capability table schema_version {found!r}; this code "
+            f"reads version {SCHEMA_VERSION} only"
         )
+
+    card_classes = _card_classes(raw)
+    declared = frozenset(c.id for c in card_classes)
+    for entry in raw.get("models", []):
+        _check_readings(entry, declared)
 
     try:
         models = tuple(
@@ -306,7 +398,7 @@ def load(path: Path | None = None) -> CapabilityTable:
         raise CapabilityTableError(
             f"a harness caveat is missing required key {exc.args[0]!r}"
         ) from exc
-    return CapabilityTable(models=models, caveats=caveats)
+    return CapabilityTable(models=models, caveats=caveats, card_classes=card_classes)
 
 
 @cache

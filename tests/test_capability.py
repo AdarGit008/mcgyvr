@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.capability import CapabilityTableError, load, table_path
+from tests.table_fixture import table_document, write_table
 
 
 def test_shipped_table_loads() -> None:
@@ -105,7 +106,8 @@ def test_rejects_malformed_json(tmp_path: Path) -> None:
 
 
 def test_rejects_table_with_no_models(tmp_path: Path) -> None:
-    bad = tmp_path / "capability-table.json"
-    bad.write_text(json.dumps({"schema_version": 1, "models": []}), encoding="utf-8")
+    document = table_document()
+    document["models"] = []
+    bad = write_table(tmp_path, document)
     with pytest.raises(CapabilityTableError, match="no models"):
         load(bad)
