@@ -89,15 +89,15 @@ def tolerance_class(unit: Mapping[str, Any]) -> str:
     ``engine: vllm`` is ``vllm``. Any other unit is llama.cpp (an absent engine
     means llama.cpp, ``units.engine`` in :mod:`mcgyvr.config`), and it is
     ``mtp`` when its launch drafts with the GGUF's own head — ``--spec-type``
-    followed by ``draft-mtp``, or ``--spec-type=draft-mtp``, in its ``argv``
-    or among its ``flags``, or ``speculative: mtp``, whether or not experts
-    are on the CPU beside it — ``cpu_experts`` when its launch keeps experts on the CPU, ``llamacpp``
-    otherwise. The launch keeps them there with a positive ``n_cpu_moe``, with
-    ``--cpu-moe`` / ``--n-cpu-moe`` among its ``flags``, or with ``--cpu-moe``
-    or ``--n-cpu-moe`` followed by a positive integer in its ``argv`` (a locked
-    unit's launch, verbatim). A value after ``--n-cpu-moe`` in the argv that is
-    missing or not an integer does not count, and neither does ``0``. Any
-    other ``--spec-type`` value does not make a unit ``mtp``.
+    followed by ``draft-mtp``, or ``--spec-type=draft-mtp``, in its ``argv`` or
+    among its ``flags``, or ``speculative: mtp``, whether or not experts are on
+    the CPU beside it — ``cpu_experts`` when its launch keeps experts on the
+    CPU, ``llamacpp`` otherwise. The launch keeps them there with a positive
+    ``n_cpu_moe``, with ``--cpu-moe`` / ``--n-cpu-moe`` among its ``flags``, or
+    with ``--cpu-moe`` or ``--n-cpu-moe`` followed by a positive integer in its
+    ``argv`` (a locked unit's launch, verbatim). A value after ``--n-cpu-moe``
+    in the argv that is missing or not an integer does not count, and neither
+    does ``0``. Any other ``--spec-type`` value does not make a unit ``mtp``.
     """
     if unit.get("engine") == CLASS_VLLM:
         return CLASS_VLLM
