@@ -153,8 +153,8 @@ awake. With the variable and without the flag the routes still answer. Judge a
 sleep by the card's memory dropping, never by the status.
 
 **A `/v1/models` 200 does not decide that a vLLM unit is serving.** The serve
-probe also reads `/is_sleeping`, and only an explicit `true` takes the unit out
-of service; a 404 there means awake.
+probe also reads `/is_sleeping`, and an explicit `true` or an answer it could
+not read takes the unit out of service; a 404 there means awake.
 
 **Level 1 parks the weights in host RAM and is refused here.** It needs host RAM
 the size of the weights; read available memory after the wake before counting
