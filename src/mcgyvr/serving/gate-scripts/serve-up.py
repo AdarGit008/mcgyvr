@@ -75,8 +75,10 @@ def main() -> int:
         # servelib.wait_for is what stops that reading as `up` at all.
         if row["healthy"]:
             state = "up"
-        elif row["sleeping"]:
+        elif row["sleeping"] is True:
             state = "ASLEEP"
+        elif row["sleeping"] == servelib.SLEEP_UNREAD:
+            state = "SLEEP UNREAD"
         else:
             state = "NOT ANSWERING"
         print(

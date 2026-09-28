@@ -290,3 +290,31 @@ def test_one_unreadable_reply_does_not_cost_a_breadth_attempt_its_winner(
     assert code == 0, "the attempt was lost to one unreadable draw"
     assert len(sent) == 3, f"the rung was asked {len(sent)} time(s), not three"
     assert (repo / TARGET).read_text(encoding="utf-8") == GOOD
+
+
+def test_a_draw_with_a_lone_surrogate_is_unusable_and_the_passing_draw_still_wins(
+    repo: Path,
+) -> None:
+    """``\\ud800`` is legal JSON, so it reaches a draw from an ordinary completion.
+
+    It has no UTF-8 encoding, so there is nothing to write and nothing to gate:
+    a draw that does not exist, the same as a truncated reply. Raising for it
+    ended the attempt and threw away draw 0, which had already passed.
+    """
+    seen: list[str] = []
+    answers = [GOOD, "RETRY = '\ud800'\n"]
+
+    picked = best_of(
+        repo=repo,
+        contract=loads(CONTRACT),
+        sample=lambda index: answers[index],
+        gate=_reads_the_tree(seen),
+        n=2,
+    )
+
+    assert picked.accepted
+    assert picked.winner.content == GOOD
+    assert seen == [GOOD]
+    assert len(picked.unusable) == 1
+    assert picked.unusable[0].startswith("draw 1: ")
+    assert "surrogate" in picked.unusable[0]
