@@ -1,40 +1,36 @@
 """The cross-rig claim, turned into something that can refuse.
 
-The width-16 ramp read srv2 at 15.42x of a single stream and srv1 at 3.76x, and
-the campaign README concludes from it that "the gap is hardware, not
-configuration"
-(`archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:983-987`),
+The width-16 ramp read srv2 far ahead of srv1 against a single stream, and the
+campaign README concludes from it that "the gap is hardware, not configuration"
+(`mcgyvr-lab/archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md`),
 resting on one controlled flag: `--enforce-eager` on both hosts. The owner's
 hunch on record is the opposite — "something feels off — maybe config".
 
-**Hardware may well be right. Nothing recorded can say so.** The journal the
-sentence was read off, `d7-ramp.jsonl`, is twelve rows of seventeen keys and
-names no card, no driver, no launcher, no engine build, no weights digest and
-no engine config; there is not a single launch row in it. Under lens 3
-a claim nothing verifies is worse than dead weight, so this file makes the claim
-a predicate instead of a sentence.
+**Hardware may well be right.** The journal the sentence was read off,
+`d7-ramp.jsonl`, names no card, no driver, no launcher, no engine build, no
+weights digest and no engine config, and carries no launch row, so it cannot
+support the claim; `records/evidence/2026-08-23-cross-rig/ramp.jsonl` can. A
+claim nothing verifies is worse than dead weight, so this file makes the claim a
+predicate instead of a sentence.
 
 Three arms here, and none of them touches a rig:
 
 * The launchers hand the engine the same arguments. srv1 runs `vllm serve` from
   a pip install and srv2 runs the `v0.26.0` container; the two code paths build
-  their command lines separately, so "same flags" was an assumption about two
-  strings nobody had compared. It holds at HEAD, and now stays held.
+  their command lines separately, so this arm compares the two strings.
 * :func:`cross_host_contrast` refuses a contrast whose two sides are not
   comparable — different weights, different engine build, or a card that never
   got named — instead of returning two numbers that look like an answer.
-* The 2026-08-20 claim itself, read through that function. It stood as
-  `xfail(strict=True)` from 2026-08-22, because the journal it was made from
-  carries no identity at all and the function refuses it. **The marker came off
-  on 2026-08-23**, when #329's rig arm wrote a journal that says what each side
-  ran on: `records/evidence/2026-08-23-cross-rig/`, one width-16 ramp and one
-  launch row per host, both launched through the container.
+* The 2026-08-20 claim itself, read through that function off
+  `records/evidence/2026-08-23-cross-rig/`: one width-16 ramp and one launch row
+  per host, both launched through the container. The journal the claim was first
+  read off carries no identity, and the function refuses it.
 
 And one arm that is neither: the launcher a run DECLARES. srv1 holds both a pip
 install and the same image digest srv2 pulls, and detection returns `pip` for
 any host answering `command -v vllm` — so the contrast could not be put on one
-launcher without a seam, and `serving_build` would not have caught the mismatch
-(both answer `vllm 0.26.0`, which is the package's version, not the build's).
+launcher without a seam, and a `serving_build` naming only the package version
+would not have caught the mismatch; `vllm.build` names the launcher as well.
 
 What this file does NOT do is decide what the gap is. It makes the question
 answerable by a measurement that carries its own conditions — and the answer it
@@ -165,16 +161,16 @@ def test_the_two_launchers_hand_the_engine_the_same_arguments(
 
     The one uncontrolled difference the 2026-08-20 claim would be most exposed
     to is the launcher, and the two commands are built by two separate branches
-    of `_start` — so until this ran, "same flags on both hosts" was a statement
-    about two strings that had never been compared. They agree: the same model,
+    of `_start` — so "same flags on both hosts" is checked here by comparing the
+    two strings. They agree: the same model,
     `--max-model-len`, `--gpu-memory-utilization`, `--max-num-seqs`, `--port`
     and `--enforce-eager`, in the same order, and the same environment once
     PATH — which exists to find the pip binary and means nothing to a container
     — is set aside.
 
     What this does NOT show is that the two ENGINES behind those flags are the
-    same. They are known not to be (pip 0.26.0 on torch 2.11.0+cu130 against the
-    `v0.26.0` image), which is why a contrast also has to carry the build.
+    same. They are known not to be (a pip install against the container image),
+    which is why a contrast also has to carry the build.
     """
     pip = _command(vllm, monkeypatch, "pip")
     docker = _command(vllm, monkeypatch, "docker")
@@ -201,13 +197,11 @@ def test_the_two_launchers_hand_the_engine_the_same_arguments(
 # --------------------------------------------------------------------------
 #
 # Arm 1 shows the two branches build the same flags. It cannot show the two
-# engines behind them are the same, and they are not. srv1 now holds BOTH — the
-# pip install it always had and, since 2026-08-22, the same `v0.26.0` image
-# digest srv2 pulls — and `launcher()` returns `pip` for any host answering
-# `command -v vllm`. So the rig arm could not put both hosts on the container
-# without a way to declare one, and `serving_build` would not have caught it:
-# both launchers answer `vllm 0.26.0`, because that string is the package's
-# version and not the build's.
+# engines behind them are the same, and they are not. srv1 holds BOTH — a pip
+# install and the same image digest srv2 pulls — and `launcher()` returns `pip`
+# for any host answering `command -v vllm`. So the rig arm could not put both
+# hosts on the container without a way to declare one, and a build string
+# holding only the package version would not have caught it.
 
 
 @pytest.fixture
@@ -536,27 +530,21 @@ def test_a_cross_host_contrast_refuses_when_identity_differs_or_is_missing(
 # --------------------------------------------------------------------------
 
 
-# The name #329 gives this check is one character past the line limit and is
-# quoted in the issue's definition of done, so the limit yields, not the name.
+# This check's name is one character past the line limit; the limit yields, not
+# the name.
 def test_the_2026_08_20_cross_rig_claim_holds_only_on_a_journal_with_identity_rows() -> (  # noqa: E501
     None
 ):
     """srv1 below srv2 at width 16, off a journal that says what each ran on.
 
-    **The marker came off on 2026-08-23**, in the commit carrying the rig arm.
-    It was `xfail(strict=True)` from 2026-08-22 because the journal the sentence
-    was read off holds no launch row: 3.76 and 15.42 were never in doubt and
-    what was missing was everything that tells a card apart from a container
-    image. The arm wrote one width-16 ramp and one launch row per host with the
+    The journal holds one width-16 ramp and one launch row per host with the
     launcher DECLARED docker on both, and this reads the contrast off it.
 
-    What the arm removed, and what it did not. The launcher is out: srv1 had
-    only ever been launched from its pip install and now runs the same image
-    digest srv2 does, and it read 3.82 against the pip run's 3.76 — so the
-    launcher was worth 0.06 of a 4x gap, which is the size of the run-to-run
-    noise around it. The card and the driver move together across these two
-    rigs and are NOT separated: this check says the contrast is admissible and
-    that srv1 is the slower side of it, never what the slower side is made of.
+    What the journal removes, and what it does not. The launcher is out: both
+    hosts ran the container, declared. The card and the driver move together
+    across these two rigs and are NOT separated: this check says the contrast is
+    admissible and that srv1 is the slower side of it, never what the slower
+    side is made of.
     """
     contrast = cross_host_contrast(CROSS_RIG_JOURNAL, CROSS_RIG_MODEL, CROSS_RIG_WIDTH)
     assert contrast["refused"] is None, (
@@ -573,12 +561,12 @@ def test_both_sides_of_the_cross_rig_contrast_ran_the_launcher_the_run_declared(
 ):
     """The declaration is on the record, not only in the command that ran it.
 
-    `cross_host_contrast` holds the weights and the build equal and says
-    nothing about the launcher, because the field it would read did not exist
-    when it was written. It exists now, and a contrast whose two hosts were
-    DETECTED into the same launcher is a different fact from one whose hosts
-    were declared into it — detection returns `pip` for any host answering
-    `command -v vllm`, which srv1 does, so a detected srv1 is a pip cell.
+    `cross_host_contrast` holds the weights and the build equal; this check reads
+    `launcher` and `launcher_declared` off the launch rows. A contrast whose two
+    hosts were DETECTED into the same launcher is a different fact from one
+    whose hosts were declared into it — detection returns `pip` for any host
+    answering `command -v vllm`, which srv1 does, so a detected srv1 is a pip
+    cell.
     """
     launches = {
         row["host"]: row

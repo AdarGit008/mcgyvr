@@ -1,10 +1,9 @@
 """A live unit is judged by a solo probe that repeats its lock's own measurement.
 
 Owner, 2026-09-15 (F2): every dispatch row keeps its decode, prefill and
-in-flight figures as data, and only a probe judges. A solo srv2_3b dispatch of
-1206 tokens in and 503 out decoded 114.1 tok/s against a locked 126.7. The
-lock measured a short prompt and 256 tokens out, so a dispatch is not the
-lock's quantity, and the probe asks the lock's own question instead:
+in-flight figures as data, and only a probe judges. The lock measured a short
+prompt and 256 tokens out, so a dispatch is not the lock's quantity, and the
+probe asks the lock's own question instead:
 
 * a vLLM unit gets :data:`VLLM_HARNESS`: one 64-token warm-up, five 256-token
   decodes with ``ignore_eos`` (``completion_tokens`` over wall seconds) and
@@ -23,16 +22,12 @@ address.
 **A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM stopwatch
 on the rig; record till then". ``measure_vllm.py`` timed its requests on the
 rig at 127.0.0.1. The probe times the same requests by wall clock from off the
-rig, so each one carries a network round trip. The first live probe
-(run-20260915T050342-42b9afd8) took about 0.12-0.15 s longer a request than
-that harness's on-rig evidence (``srv2/b-small-3b.json``,
-``srv2/b-small-7b.json``). That alone put srv2's decode 7.0% (3B) and 3.5% (7B)
-under the lock, and pulled its combination. So a vLLM unit's decode and
-prefill are filed with the probe's stamp and ``off_the_rig: true`` through
-:func:`mcgyvr.fleet.alerts.record`, as a contended unit's are, and
-:attr:`Report.off_the_rig` names them. They raise no alert and pull nothing. A
-llama.cpp figure is the server's own ``timings``, which carry no network time,
-and is judged.
+rig, so each one carries a network round trip the lock's figure does not. So a
+vLLM unit's decode and prefill are filed with the probe's stamp and
+``off_the_rig: true`` through :func:`mcgyvr.fleet.alerts.record`, as a
+contended unit's are, and :attr:`Report.off_the_rig` names them. They raise no
+alert and pull nothing. A llama.cpp figure is the server's own ``timings``,
+which carry no network time, and is judged.
 
 **Only an idle unit is probed.** The unit's own in-flight count
 (:func:`mcgyvr.runner.unit_in_flight`) is read before and after. A unit busy
@@ -89,6 +84,7 @@ from mcgyvr.fleet.harness import measure_vllm as measure_vllm
 from mcgyvr.fleet.roots import (
     LIVE_FILE_SHOWN,
     LiveFleetError,
+    layout_of,
     live_fleet,
     live_fleet_dir,
 )
@@ -217,6 +213,14 @@ def _approved(
 
 
 def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
+    """``(layout, folder, fleet.yaml)`` of the live fleet, or :class:`ProbeError`.
+
+    The pointer names a promoted folder, ``<fleet>@<lock date>`` or a plain
+    pre-ruling name; what comes back first is the layout — the name the
+    folder's ``fleet.yaml`` keys the fleet by and its lock is filed under
+    (:func:`mcgyvr.fleet.roots.layout_of`) — which is what every reader of
+    the live fleet holds a rig to.
+    """
     try:
         name = live_fleet()
         folder = live_fleet_dir()
@@ -230,9 +234,13 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
         fleet = load_fleet((folder / "fleet.yaml").read_text(encoding="utf-8"))
     except (OSError, FleetFileError) as exc:
         raise ProbeError(f"{folder / 'fleet.yaml'} cannot be read: {exc}") from exc
-    if name not in fleet.get("fleets", {}):
-        raise ProbeError(f"{folder / 'fleet.yaml'} holds no fleet {name!r}")
-    return name, folder, fleet
+    layout = layout_of(name)
+    if layout not in fleet.get("fleets", {}):
+        raise ProbeError(
+            f"{folder / 'fleet.yaml'} holds no fleet {layout!r} "
+            f"({LIVE_FILE_SHOWN} names {name!r})"
+        )
+    return layout, folder, fleet
 
 
 #: A read of one rig through the door: ``(rig, run id, units to probe) -> exit``.

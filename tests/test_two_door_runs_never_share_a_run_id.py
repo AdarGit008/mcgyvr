@@ -2,10 +2,10 @@
 
 ``RUN_ID`` is ``<date>-<campaign>-<step>[-<suffix>]``, it is the token a
 ``### START`` carries, the prefix every container is named with and the key a
-``### RIGMOVED`` or a refusal is filed under. The first cut of gate 5 let a
-``RUN_REWRITES`` step run twice on one day with no ``--suffix``: the
-superseded file and its successor both carried the same ``run_id``, two
-measurements under one id, and only a THIRD run was refused — with a message
+``### RIGMOVED`` or a refusal is filed under. A gate 5 that let a
+``RUN_REWRITES`` step run twice on one day with no ``--suffix`` would leave the
+superseded file and its successor carrying the same ``run_id``, two
+measurements under one id, and refuse only a THIRD run — with a message
 stating the rule the second had already broken.
 
 So gate 5 (``05-envelope.py``) refuses to supersede a file whose ``run_id``

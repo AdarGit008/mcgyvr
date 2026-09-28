@@ -1,28 +1,20 @@
 """A ``dev`` round may serve any launch spec: the live ladder's, or its own.
 
-Gate 1 (``src/mcgyvr/serving/gate-scripts/01-round.py:112``) lets a dev round
-operate only a spec inside the live config's ``serving.compose_dir`` and
-refuses any other before a rig is read. The owner widened sleep-wake §11.2 on
-2026-09-10: **dev runs everything, ``serve up`` and ``down`` included** — N11
-is ruled. The intent is ``mcgyvr-lab/records/plans/fleet-identity.md`` §6.
+Gate 1 (``src/mcgyvr/serving/gate-scripts/01-round.py``) admits a dev round's
+``serve up`` and ``down`` whatever launch spec they name: **dev runs
+everything** (owner ruling N11 in ``mcgyvr-lab/records/plans/sleep-wake.md``;
+the intent is ``mcgyvr-lab/records/plans/fleet-identity.md`` §6).
 
-**What the refused half protected, and where that went.** The composition guard
-kept a ladder nobody declared off a shared rig, so that every later live run did
-not measure against it. Live is now production and runs only a locked fleet:
+**Where the guard on a shared rig lives.** Live runs only a locked fleet:
 gate 1 admits a live ``serve up`` only for units the fleet lock names
 (``tests/test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock.py``), and
 live cleans units of ours the fleet does not name
 (``tests/test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it.py``).
 Guarding dev at gate 1 as well would be the same rule in a second place.
 
-**What does not change.** Gate 2 still makes a dev run yield a rig another run
-holds, and still refuses a ``serve up`` onto a busy card
+**Gate 2 is not widened.** It makes a dev run yield a rig another run holds,
+and refuses a ``serve up`` onto a busy card
 (``tests/test_the_door_serves_a_ladder_and_leaves_it_up.py``).
-
-This replaces ``tests/test_a_dev_round_may_operate_the_ladder_it_may_not_install.py``,
-whose second test pinned the refusal, and
-``tests/red_port/test_dod_profile.py::test_a_dev_profile_does_not_touch_the_live_ladder``
-and ``::test_a_dev_serve_refused_at_gate_1_leaves_even_the_rounds_file_alone``.
 """
 
 from __future__ import annotations
@@ -102,7 +94,7 @@ def test_a_dev_round_may_run_the_live_configs_own_launch_spec(tmp_path: Path) ->
 
 
 def test_a_dev_round_may_bring_up_a_launch_spec_of_its_own(tmp_path: Path) -> None:
-    """The case gate 1 refuses today: a dev spec outside the live ``compose_dir``."""
+    """A dev spec outside the live ``compose_dir`` is admitted by gate 1."""
     root = onedoor.fixture_repo(tmp_path)
     live_config(root)
     theirs = own_spec(root, tmp_path)
@@ -112,8 +104,8 @@ def test_a_dev_round_may_bring_up_a_launch_spec_of_its_own(tmp_path: Path) -> No
     result = onedoor.serve_door(root, "up", theirs, env_extra={CONFIG_VAR: str(dev)})
 
     assert "gate 1:" not in result.stderr, (
-        "gate 1 refused a dev round its own launch spec. The owner ruled on "
-        "2026-09-10 that dev runs everything, serve up and down included.\n"
+        "gate 1 refused a dev round its own launch spec. The owner ruled "
+        "that dev runs everything, serve up and down included.\n"
         f"stderr: {result.stderr[-1500:]}"
     )
     assert result.returncode == 0, (result.stdout, result.stderr[-1500:])
@@ -123,8 +115,8 @@ def test_a_dev_round_may_bring_up_a_launch_spec_of_its_own(tmp_path: Path) -> No
 def test_a_dev_round_may_serve_when_no_live_ladder_is_configured(
     tmp_path: Path,
 ) -> None:
-    """No live config at all: gate 1 refuses today because there is "no live
-    ladder to operate". A dev round needs none to serve its own."""
+    """No live config at all: a dev round needs no live ladder to serve its
+    own."""
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
     dev = dev_config(tmp_path / "dev.yaml")

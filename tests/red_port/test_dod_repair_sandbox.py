@@ -1,13 +1,9 @@
 """R8 — repair is a writer and must take the same sandbox seam the other writers do.
 
-:func:`mcgyvr.repair.repair` rewrites files in place, but its only entry point
-takes a bare ``repo`` path — the one writer that cannot be handed the sandbox a
-caller is already holding. Every other writer takes either a workspace path or a
-:class:`~mcgyvr.sandbox.Sandbox`, so the caller mid-attempt can point it at the
-workspace it already gated without re-deriving the base by hand.
-
-The fix accepts a ``sandbox`` as the alternative to ``repo``, deriving the
-workspace and its base from it the way the other writers do.
+:func:`mcgyvr.repair.repair` rewrites files in place. It accepts a ``sandbox`` as
+the alternative to ``repo``, deriving the workspace and its base from it the way the
+other writers do, so a caller mid-attempt can point it at the workspace it already
+gated without re-deriving the base by hand.
 """
 
 from __future__ import annotations

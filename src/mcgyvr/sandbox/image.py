@@ -13,11 +13,11 @@ Three properties make that safe:
    lockfile change produces a new key and rebuilds; an unrelated source
    change produces the same key and reuses. This is the whole of "invalidate
    on a dependency change and on nothing else".
-2. **The base image is pinned by digest (REPRO-04).** The tag (``python:3.12
-   -slim``) is resolved to an immutable ``sha256`` digest at build time and
-   the Dockerfile is written ``FROM ref@sha256:…``, so a task built today and
-   a task built after the tag floats to new content get the same base. The
-   resolved digest is recorded on the image as a label.
+2. **The base image is pinned by digest.** The tag (``python:3.12-slim``) is
+   resolved to an immutable ``sha256`` digest at build time and the Dockerfile
+   is written ``FROM ref@sha256:…``, so a task built today and a task built
+   after the tag floats to new content get the same base. The resolved digest
+   is recorded on the image as a label.
 3. **The cache is bounded and inspectable.** Every image carries mcgyvr
    labels; :func:`list_cached` reads them back with sizes, :func:`prune`
    evicts the oldest beyond a bound, and :func:`clear` removes them outright.
@@ -57,8 +57,8 @@ DEFAULT_MAX_CACHED_IMAGES = 8
 # The variables that point `docker` at another daemon. The sandbox runs on
 # this machine's daemon and nowhere else: a container the product starts must
 # never land on a rig, and the door (python -m mcgyvr.serving.run) is the only
-# way there. So the one runner that spawns docker refuses under either — it
-# does not honour the variable, and it does not strip it and carry on.
+# way there. So every place the sandbox spawns docker refuses under either —
+# it does not honour the variable, and it does not strip it and carry on.
 DAEMON_OVERRIDES = ("DOCKER_HOST", "DOCKER_CONTEXT")
 
 
@@ -92,6 +92,23 @@ class DockerResult:
         return self.returncode == 0
 
 
+# The wall clock on each docker call, so a hung daemon or a stalled pull fails
+# the call instead of wedging the task (or interpreter exit, where the reaper
+# removes containers). The two bounds every docker call the product makes is
+# held to, and the only place either is written: pulling and building fetch and
+# install a stack's dependencies and get the long one; every other call is
+# bookkeeping and gets the short one.
+#
+# Both are defaults, not measurements. Nothing here timed a build or a pull;
+# they are bounds chosen to be far above a working call and far below forever,
+# and a real ceiling for an install that needs one belongs in config. The
+# ceiling on the command *inside* the container is
+# :data:`~mcgyvr.sandbox.base.DEFAULT_COMMAND_TIMEOUT_S`.
+DOCKER_CALL_TIMEOUT_S = 120.0
+DOCKER_BUILD_TIMEOUT_S = 3600.0
+_LONG_VERBS = frozenset({"build", "pull"})
+
+
 # The seam. A runner takes docker's argv (without the leading "docker") and
 # optional stdin, and returns the result. Production uses the subprocess
 # runner below; tests pass a stub that records argv and returns canned output.
@@ -101,23 +118,29 @@ DockerRunner = Callable[[Sequence[str], "bytes | None"], DockerResult]
 def subprocess_runner(args: Sequence[str], stdin: bytes | None = None) -> DockerResult:
     """Run a real ``docker`` command. The default :data:`DockerRunner`.
 
-    The one place the product builds a docker argv for its own daemon, so the
-    one place :func:`foreign_daemon` is applied: with ``DOCKER_HOST`` or
-    ``DOCKER_CONTEXT`` set nothing is spawned, and the result carries the
-    refusal as its stderr, which every caller raises as its own error.
+    One of the places the sandbox spawns docker, each of which applies
+    :func:`foreign_daemon`: with ``DOCKER_HOST`` or ``DOCKER_CONTEXT`` set
+    nothing is spawned, and the result carries the refusal as its stderr, which
+    every caller raises as its own error.
     """
     refusal = foreign_daemon()
     if refusal is not None:
         return DockerResult(2, "", refusal)
     if shutil.which("docker") is None:
         return DockerResult(127, "", "docker is not on PATH")
+    long = bool(args) and args[0] in _LONG_VERBS
+    bound = DOCKER_BUILD_TIMEOUT_S if long else DOCKER_CALL_TIMEOUT_S
     try:
         done = subprocess.run(
             ["docker", *args],
             input=stdin,
             capture_output=True,
+            timeout=bound,
             check=False,
         )
+    except subprocess.TimeoutExpired:
+        verb = " ".join(args[:1])
+        return DockerResult(124, "", f"docker {verb} did not finish within {bound:g}s")
     except OSError as exc:
         return DockerResult(1, "", str(exc))
     return DockerResult(
@@ -210,7 +233,7 @@ def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) 
 
 
 def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:
-    """Pull ``base_ref`` and return its immutable ``ref@sha256:…`` (REPRO-04).
+    """Pull ``base_ref`` and return its immutable ``ref@sha256:…``.
 
     The tag is pulled so the digest reflects what would actually run, then
     read from the local image's repo-digests. A base that cannot be resolved
@@ -228,7 +251,7 @@ def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:
     if not inspect.ok or "@sha256:" not in digest_ref:
         raise ImageError(
             f"could not resolve {base_ref} to a digest for pinning; got "
-            f"{digest_ref!r}. A base image must pin to a digest (REPRO-04)."
+            f"{digest_ref!r}. A base image must pin to a digest."
         )
     return digest_ref
 

@@ -1,4 +1,4 @@
-"""``vramfit`` against what the rigs actually did, on 2026-09-04.
+"""``vramfit`` against what the rigs actually did.
 
 **Every expected value here was printed by llama.cpp or read from
 ``nvidia-smi``, never computed by the code under test.** The buffer figures come
@@ -6,12 +6,9 @@ from the engine's own allocator summary (``--verbose``; the loader runs twice
 and only the second pass is real), and the placement outcomes from launches that
 loaded or refused on the rig.
 
-This suite exists because the module it tests replaced four constants that were
-each stable, plausible, and wrong -- ``CUDA_CONTEXT_MIB = 1024`` against a
-measured 85-147 MiB, and a per-block expert cost of ``bytes_experts / n_layer``
-that is wrong for nine of ten checkpoints measured. A law with no
-measurement behind it is how that happened, so each law below is pinned to the
-rig reading it claims to describe.
+A fitted constant can be stable, plausible, and wrong -- a per-block expert cost
+of ``bytes_experts / n_layer`` is wrong for nine of ten checkpoints measured --
+so each law below is pinned to the rig reading it claims to describe.
 """
 
 from __future__ import annotations
@@ -46,7 +43,7 @@ def gpt_oss_measured_rows(n_swa: int = 12) -> list[dict[str, Any]]:
     cohere2moe 36 of 49) and both of those escape it only by declaring a
     pattern -- leaving the assumption exercised on this one file alone.
 
-    The engine names the split. 2026-09-05, srv2, ``-c 16384 -np 8``::
+    The engine names the split. srv2, ``-c 16384 -np 8``::
 
         llama_kv_cache_iswa: creating non-SWA KV cache, size = 2048 cells
         llama_kv_cache: size = 384.00 MiB ( 2048 cells, 12 layers, 8/8 seqs)
@@ -56,9 +53,8 @@ def gpt_oss_measured_rows(n_swa: int = 12) -> list[dict[str, Any]]:
     Twelve of each. WHICH twelve is stated by neither the header nor the log,
     and does not need to be: every gpt-oss layer is the same width, so the
     bytes follow from the count alone. The assert below is what makes that
-    safe -- if a future gpt-oss conversion stops being uniform, a count stops
-    being enough and this helper fails instead of quietly inventing an
-    assignment again.
+    safe -- if a gpt-oss conversion is not uniform, a count is not enough and
+    this helper fails instead of quietly inventing an assignment.
 
     -> ``records/evidence/2026-09-05-context-decomposition/srv2-gpt-oss-20b-MXFP4/``
     """
@@ -131,8 +127,7 @@ def test_the_sliding_window_cache_grows_with_ubatch(
     """The one cache that scales with batch size, and the reason gpt-oss looked odd.
 
     A reader that keeps only the last ``CUDA0 KV buffer size`` line sees this
-    half and misses the fixed 192.00 MiB non-SWA half entirely -- which is
-    exactly how gpt-oss acquired a spurious 190 MiB "model-specific anomaly".
+    half and misses the fixed 192.00 MiB non-SWA half entirely.
     """
     out = vramfit.kv_bytes(
         g("gpt-oss-20b-MXFP4.gguf"),
@@ -178,7 +173,7 @@ def test_cache_dtype_scales_exactly() -> None:
 
 
 def test_per_block_expert_bytes_are_bimodal_so_the_mean_is_not_a_block() -> None:
-    """The error that put a predicted floor three steps above the measured one.
+    """A block weighs what its own tensors weigh, not the mean.
 
     ``bytes_experts / n_layer`` matches no block in this file: it is 262.0 MiB
     on 37 blocks and 300.0 on three, and the mean lands at 264.85.
@@ -218,7 +213,7 @@ def test_nemotron_declares_more_blocks_than_carry_experts() -> None:
         # The rig then loaded at 29 (4/4, used 5584) and refused at 28 (6/6).
         ("Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf", 34, 4276, 17, 5727, 29, 29, 5584, 28),
         # srv2, stock. Probe at max offload read 2127 MiB. The rig walked down
-        # to 5 (used 11857) and refused at 4. The predecessor said 8.
+        # to 5 (used 11857) and refused at 4.
         ("KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf", 41, 2127, 1, 11911, 5, 5, 11857, 4),
     ],
 )
@@ -258,11 +253,10 @@ def test_floor_from_one_probe_matches_the_rig(
 def test_the_constant_does_not_move_with_placement() -> None:
     """Measured at five placements of one checkpoint: 145.67 MiB every time.
 
-    This invariance is what makes a single probe sufficient. It was briefly
-    believed false -- an artifact of dividing expert bytes by ``n_layer`` and
-    counting a block the knob never places. All five placements keep experts
-    on the host; the step to the first expert on the host is a different
-    measurement (``test_the_constant_steps_once_an_expert_is_on_the_host.py``).
+    This invariance is what makes a single probe sufficient. All five placements
+    keep experts on the host; the step to the first expert on the host is a
+    different measurement
+    (``test_the_constant_steps_once_an_expert_is_on_the_host.py``).
     """
     geom = g("KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf")
     used = {41: 2127, 8: 11023, 7: 11301, 6: 11579, 5: 11857}
@@ -280,7 +274,7 @@ def test_a_model_too_big_for_the_host_has_no_floor() -> None:
     assert vramfit.floor(geom, 1 * MIB, 100 * MIB) is None
 
 
-# --- regressions from the round-2 review ---------------------------------------
+# --- regressions: mixed widths, split caches, absorbed V -----------------------
 
 
 @pytest.mark.parametrize(
@@ -361,15 +355,14 @@ def test_sliding_layer_split_comes_from_the_declared_pattern() -> None:
 
 @pytest.mark.parametrize("model", ["gpt-oss-20b-MXFP4.gguf", "4b-Q4_K_M.gguf"])
 def test_an_undeclared_sliding_split_is_refused_not_guessed(model: str) -> None:
-    """The last fitted constant, removed: ``l % 2 == 0`` used to answer here.
+    """A sliding window with no declared pattern is refused, not assumed.
 
-    Both of these declare a sliding window and no pattern. The assumption they
-    used to receive was right for them and wrong as a rule -- and it was right
-    for them only because their layers are uniform in width, which is the one
-    condition under which a wrong assignment cannot show up in the bytes. A
-    checkpoint that is undeclared, not 1:1 AND not uniform would have been
-    sized confidently and wrongly, with nothing in the output marking the
-    guess. Refusing turns that into a request for the measurement.
+    Both of these declare a sliding window and no pattern. An alternating
+    assumption is right for them only because their layers are uniform in
+    width, which is the one condition under which a wrong assignment cannot
+    show up in the bytes. A checkpoint that is undeclared, not 1:1 AND not
+    uniform would be sized confidently and wrongly, with nothing in the output
+    marking the guess. Refusing turns that into a request for the measurement.
     """
     geom = g(model)
     assert geom["sliding_window"]
@@ -380,9 +373,8 @@ def test_an_undeclared_sliding_split_is_refused_not_guessed(model: str) -> None:
 
 @pytest.mark.parametrize(
     "n_ctx,total_mib,non_swa_mib,swa_mib",
-    # Measured 2026-09-05 on srv2, `-np 8 -ub 256`, summing BOTH device caches
-    # -- the figure a `tail -1` reader never saw. Three loads per context, all
-    # byte-identical, and srv1 read the same buffers.
+    # Measured on srv2, `-np 8 -ub 256`, summing BOTH device caches. Three
+    # loads per context, all byte-identical, and srv1 read the same buffers.
     [
         (2048, 96.00, 48.00, 48.00),
         (4096, 192.00, 96.00, 96.00),
@@ -397,9 +389,8 @@ def test_both_swa_caches_against_the_engines_own_totals(
 
     At ``-c 16384`` the non-SWA cache holds 2048 cells and the SWA cache 512 --
     the window has bound and the second cache is flat from ``-c 8192`` on. A
-    reader that kept one line saw 96.00 MiB at every context and charged the
-    other 384.00 to the CUDA context, which then appeared to grow with
-    ``-c`` and made the constant look context-dependent when it is not.
+    reader that keeps one line sees 96.00 MiB at every context and charges the
+    other 384.00 to the CUDA context, which then appears to grow with ``-c``.
     """
     out = vramfit.kv_bytes(
         g("gpt-oss-20b-MXFP4.gguf"),
@@ -420,7 +411,7 @@ def test_a_dense_model_has_no_experts_to_place() -> None:
     assert vramfit.floor(geom, 1 * MIB, 5 * MIB) is None
 
 
-# --- regressions from the round-3 review ---------------------------------------
+# --- regressions: expert blocks selected by index, not position ----------------
 
 
 @pytest.mark.parametrize(
@@ -447,7 +438,7 @@ def test_a_dense_leading_block_means_the_first_step_moves_nothing() -> None:
     """``deepseek2`` block 0 carries no experts, so ``--n-cpu-moe 1`` is a no-op.
 
     Measured: ``CUDA0 model buffer size`` is 8376.27 MiB at both 0 and 1, and
-    drops by exactly one block at 2. The positional slice booked a 297.00 MiB
+    drops by exactly one block at 2. A positional slice books a 297.00 MiB
     move at the first step.
     """
     geom = g("deepseek-coder-v2-16b.gguf")
@@ -466,11 +457,10 @@ def test_the_nemotron_floor_the_positional_slice_got_wrong() -> None:
 
 
 def test_the_constant_holds_across_non_contiguous_placements() -> None:
-    """The invariance claim, on the model whose layout broke the old sum.
+    """The invariance claim, on a model whose expert blocks are not contiguous.
 
-    Measured VRAM at three placements spanning 9.6 GB of expert weight. The
-    positional slice made ``C`` swing 8219.75 MiB and appear to disprove its
-    own headline claim.
+    Measured VRAM at three placements spanning 9.6 GB of expert weight. A
+    positional slice makes ``C`` swing 8219.75 MiB.
     """
     geom = g("nvidia_Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf")
     used = {52: 2211, 40: 6321, 21: 11801}

@@ -2,18 +2,15 @@
 
 ``srv1`` and ``srv2`` resolve over Tailscale on the machine this suite is
 developed on, and the fixtures name them because that is what the live ladder
-is. On 2026-09-09 one run of this suite issued a read-only ``GET /v1/models`` at
-srv2 while a residency probe was being built — nothing written, nothing started,
-the code backed out the same day. What the revert did not fix is that no guard
-existed: ``tests/test_one_door.py`` scans for *spawns*, and a hostname in a
-fixture is not a spawn.
+is. A probe added to code under test would send a request from this suite to
+a real rig, and ``tests/test_one_door.py`` does not catch it: it scans for
+*spawns*, and a hostname in a fixture is not a spawn.
 
 ``conftest._no_test_resolves_a_machine`` closes it at the resolver, which is
 where every way out meets — ``urllib``, ``http.client``, ``socket``, and any
 library that ends up in one of them. This file is what keeps the guard honest:
 a guard nobody tests is a guard that can become a no-op by a rename, which is
-the failure ``_offline_probes`` states in its own docstring and the one
-``test_one_door`` found twice on 2026-09-09.
+the failure ``_offline_probes`` states in its own docstring.
 """
 
 from __future__ import annotations
@@ -25,8 +22,8 @@ import pytest
 
 from tests.conftest import ReachedForAMachineError
 
-#: The rig the protected sleep/wake specs name, and the endpoint that was
-#: actually reached on 2026-09-09.
+#: The rig the protected sleep/wake specs name, and an endpoint on it a probe
+#: would reach.
 A_RIG = "srv2"
 WHAT_WAS_REACHED = "http://srv2:8001/v1/models"
 

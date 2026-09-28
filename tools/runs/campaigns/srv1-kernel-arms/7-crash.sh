@@ -6,10 +6,9 @@
 # (`--step crash`): the L2 boundary sweep and L3's 60 trials are the kernel
 # question, so that script owns it. But the door guards what a step file
 # DECLARES, and 4-kernel-arms.sh declares `srv1-lcpp-arms.tsv` write-once for
-# step 4 (`--step serve`). Run as one file, invocation 8 of RUN-ORDER.md was
-# refused at gate 5 the moment invocation 5 had written that file, and the only
-# way through was to move step 4's evidence aside by hand — the waiver the door
-# exists to end. So step 7 is this file: it declares the one thing the crash
+# step 4 (`--step serve`). Run as that one file, the crash study is refused at
+# gate 5 once step 4 has written its artifact. So step 7 is this file: it
+# declares the one thing the crash
 # study writes, an APPEND to step 6's file, and hands off. The door exports
 # RUN_STEP=crash, and 4-kernel-arms.sh holds its --step to that.
 #

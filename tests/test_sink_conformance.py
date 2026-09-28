@@ -1,26 +1,17 @@
 """A value that was computed must arrive in the record.
 
-Six defects found on this lane share one shape: **the instrument measured the
-right thing and the value did not survive the hand-off to the file.**
-``start_seconds`` is computed on every vLLM launch and the return value is never
-assigned. ``repeat_spread`` is computed for every ramp and the row builder does
-not name it. ``declared_slots`` is readable from ``/props`` and is ``None`` on
-every ollama ramp row. The phase duration is printed to a log and not to a
-journal. In each case the measurement was taken and then dropped at the sink.
+The defect shape these tests hold shut: **the instrument measures the right
+thing and the value does not survive the hand-off to the file** — a return value
+never assigned, a field the row builder does not name, a duration printed to a
+log and not to a journal.
 
-**The guard that existed could not see any of them.** ``launch.py``'s MARKERS
-table asserts that a *source file contains a string* — it confirms the
-thermometer was installed and cannot notice that nobody wrote the temperature
-down. Its entry ``'"repeats": attempts'`` passed on the run that discarded
-``repeats``, because ``contract.py`` does produce the field; the row builder two
-modules away simply never reads it.
-
-These tests assert the other half of the claim, against the artifact rather than
-against the source: for each producer→sink pair, every key the producer returns
-is **accounted for** in the row the sink writes — carried, flattened, or
-DECLARED dropped with a reason. Adding a field to a producer without deciding
-its disposition turns this red, which is the property the MARKERS table cannot
-have: it fails on what is *missing* rather than on what is present.
+A check that a *source file contains a string* confirms the thermometer was
+installed and cannot notice that nobody wrote the temperature down. These tests
+assert the other half, against the artifact rather than against the source: for
+each producer→sink pair, every key the producer returns is **accounted for** in
+the row the sink writes — carried, flattened, or DECLARED dropped with a reason.
+Adding a field to a producer without deciding its disposition turns this red: it
+fails on what is *missing* rather than on what is present.
 
 The dispositions live beside the sinks they describe, not here. A test that
 carried its own copy of the answer would be a second hand-written field list,
@@ -67,9 +58,9 @@ def contract(calibrate: Any) -> Any:
     return calibrate.contract
 
 
-#: What the level reader's one ssh prints on a rig (#327): the card line as
-#: `nvidia-smi --format=csv,noheader,nounits` prints it (srv1, 2026-08-21,
-#: with the throttle mask changed to the SW power cap), then `/proc/loadavg`.
+#: What the level reader's one ssh prints on a rig: the card line as
+#: `nvidia-smi --format=csv,noheader,nounits` prints it (read on srv1, with the
+#: throttle mask changed to the SW power cap), then `/proc/loadavg`.
 CARD_LINE = "71, 180.50, 1695, 0x0000000000000004"
 LOAD_LINE = "1.23 0.98 0.77 3/512 40123"
 LEVEL_STATE_STDOUT = f"{CARD_LINE}\n{LOAD_LINE}"
@@ -82,15 +73,15 @@ class _Rig:
     its own body -- threads, wall clock, the state read at the end -- and
     ``read`` is the seam ``contract.ramp`` takes. The point is to obtain the
     producer's key set **from the producer**, never from a literal in this
-    file: the fixture this replaced was a hand-copied level row, and a field
-    added to ``_level`` in a scratch copy passed every test here.
+    file: against a hand-copied level row, a field added to ``_level`` passes
+    every test here.
 
     ``seen`` records how many completions had finished when each read was
     taken, which is how "read at the level's end" is asserted. Each
     completion takes a moment before it lands: a read taken after the
     threads were started but before they were joined then sees none of
-    them, which is what makes that mutation visible (it was green without
-    the delay, because a stub that returns at once finishes inside
+    them, which is what makes that mutation visible (without the delay it is
+    green, because a stub that returns at once finishes inside
     ``Thread.start``). ``client`` stands in for ``os.getloadavg`` and counts
     its reads, so one driver-side read copied onto every row is visible too.
     ``ssh`` answers as the rig does, and records which host was asked.
@@ -149,11 +140,10 @@ def written(
 ) -> dict[str, Any]:
     """The row ``_one_ramp`` writes, with ``contract.ramp`` run for real.
 
-    The ramp used to be stubbed here with the ``produced`` fixture's output,
-    and a ``_one_ramp`` that forgot to pass ``host`` to the ramp stayed green
-    while every level row of a real campaign would have carried a null card.
-    Now the one seam below ``ramp`` is ssh, stubbed as the rig, and the rig
-    records which host it was asked for.
+    With the ramp stubbed, a ``_one_ramp`` that forgot to pass ``host`` to the
+    ramp would stay green while every level row of a real campaign carried a
+    null card. So the one seam below ``ramp`` is ssh, stubbed as the rig, and
+    the rig records which host it was asked for.
     """
     rows: list[dict[str, Any]] = []
     rig = _Rig()
@@ -249,14 +239,10 @@ def test_a_dropped_field_states_why(calibrate: Any) -> None:
 
 
 def test_the_repeat_spread_reaches_the_ramp_row(written: dict[str, Any]) -> None:
-    """D6's RAMP_REPEATS answer, specifically.
+    """`repeat_spread` reaches the ramp row, pinned by name.
 
-    Pinned by name rather than left to the disposition table, because this is
-    the field the campaign was commissioned to measure. `contract.ramp`'s own
-    comment says discarding the losing repeat makes the bias "unrecoverable
-    afterwards" — and the ramp journal, where every headline speedup lives, was
-    written without it for a whole campaign while a MARKERS entry certified the
-    opposite.
+    Pinned by name rather than left to the disposition table: without it every
+    headline speedup in the ramp journal is a point estimate with no error bar.
     """
     assert "repeat_spread" in written, (
         "the ramp row carries no repeat_spread, so every max_speedup_vs_n1 in "
@@ -265,7 +251,7 @@ def test_the_repeat_spread_reaches_the_ramp_row(written: dict[str, Any]) -> None
     )
 
 
-# --- #327: what the card and both machines were doing, on every level ---
+# --- what the card and both machines were doing, on every level ---
 
 
 def _level_rows(ramp: dict[str, Any]) -> list[dict[str, Any]]:
@@ -285,10 +271,9 @@ CARD_PARSED = {
 def test_every_level_row_carries_the_card_state_it_ran_under(
     contract: Any, rig_for_ramp: _Rig, produced: dict[str, Any], written: dict[str, Any]
 ) -> None:
-    """Every ``nvidia-smi`` under tools/bench/serving/ asked for ``memory.used``;
-    none asked what the silicon was doing. The width-16 gap between the rigs
-    (96% against 23% of linear) was attributed to hardware on rows that could
-    not tell a slower card from one throttling by its fifth width.
+    """Every level row says what the silicon was doing, not only
+    ``memory.used``: a row without it cannot tell a slower card from one
+    throttling by its fifth width.
 
     The read is taken at the level's END -- after its ``n`` requests came
     back -- which is when a throttle shows, and it reaches both the kept row
@@ -316,8 +301,7 @@ def test_every_level_row_carries_the_load_of_both_machines(
     produced: dict[str, Any], written: dict[str, Any]
 ) -> None:
     """``wall_s`` is read off the driver's clock and the tokens come off the
-    rig; E14 (launch.py) puts client-side contention at 12-21% and the
-    2026-08-18 record measured 1%, and no row carried either machine's load.
+    rig, so every level row carries both machines' load.
     """
     for row in _level_rows(produced) + _level_rows(written):
         ambient = row["ambient"]
@@ -351,9 +335,8 @@ def test_the_driver_load_is_three_figures_off_os_getloadavg(
     """And off `os.getloadavg`, which is the half the shape cannot show.
 
     The rig fixtures stub `client_loadavg` to count reads, so this is the only
-    test that runs the real body -- and asserting its SHAPE alone passed on a
-    body returning a constant, which is #327's box 2 ("the driver's
-    `os.getloadavg()`") going unchecked. The sentinel is asserted first, then
+    test that runs the real body -- and asserting its SHAPE alone passes on a
+    body returning a constant. The sentinel is asserted first, then
     the shape is read off the machine this actually runs on.
     """
     monkeypatch.setattr(contract.os, "getloadavg", lambda: (1.234, 2.345, 3.456))
@@ -488,17 +471,15 @@ def test_one_ssh_per_recorded_level_carries_card_and_load_together(
         assert row["card"] == CARD_PARSED and row["ambient"]["why"] is None
 
     doc = reader.__doc__ or ""
-    for term in ("RAMP_REPEATS", "ssh_step_seconds", "README.md:20", "README.md:554"):
+    for term in ("RAMP_REPEATS", "ssh_step_seconds"):
         assert term in doc, f"the reader's docstring does not price itself by {term}"
 
 
 def test_the_level_sink_declares_a_disposition_for_every_field_a_level_produces(
     calibrate: Any, contract: Any, rig_for_ramp: _Rig, written: dict[str, Any]
 ) -> None:
-    """The ``emit()`` census (#324) enumerates sinks; a level row is a value
-    inside one, so no census reaches it, and the fixture this file used to
-    carry was a literal of ``_level``'s shape -- a key added to ``_level`` in
-    a scratch copy passed 14 tests. The key set here comes from running
+    """The ``emit()`` census enumerates sinks; a level row is a value inside
+    one, so no census reaches it. The key set here comes from running
     ``_level`` itself, with the completion stubbed, and the table is held to
     it both ways and to the row really written.
     """
@@ -517,11 +498,10 @@ def test_the_level_sink_declares_a_disposition_for_every_field_a_level_produces(
 def test_the_order_the_levels_ran_in_reaches_the_ramp_row(
     calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The order is a measurement condition -- width 16 at n=24 was the last
-    cell of every host's block, with the most load behind it -- and no row
-    said so. ``levels`` on the row is sorted; ``levels_run`` is what was
-    offered, in the order it was offered, with the order's name and seed.
-    Asserted against the row the sink writes, not against a literal.
+    """The order is a measurement condition, and the row says so. ``levels`` on
+    the row is sorted; ``levels_run`` is what was offered, in the order it was
+    offered, with the order's name and seed. Asserted against the row the sink
+    writes, not against a literal.
     """
     rows: list[dict[str, Any]] = []
     monkeypatch.setattr(contract, "_one", _Rig().one, raising=True)
@@ -586,9 +566,6 @@ def test_the_order_flag_reaches_every_ramp_the_phase_runs(
     of those seams runs every ramp ascending while the row says so honestly --
     the re-run's condition silently not applied. Driven from the command line,
     through the real ``emit``, to the rows.
-
-    One engine arm since 2026-09-06; the seam count the flag has to survive is
-    the same, because the arm that went was the shorter one.
     """
     vllm: Any = _by_path("serving_vllm_order", SERVING / "backends" / "vllm.py")
     monkeypatch.setattr(vllm, "release", lambda host: {"card_idle": True})
@@ -634,10 +611,10 @@ def test_the_order_flag_reaches_every_ramp_the_phase_runs(
 def test_a_ramp_that_raised_keeps_the_order_it_was_running(
     calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A timeout at high n is D4's expected failure, and a shuffled ramp that
-    died there could not be replayed if its seed had been drawn inside the
-    ramp and lost with it. The seed is drawn before the ramp; the error row
-    carries the sequence, its order and its seed."""
+    """A timeout at high n is an expected failure, and a shuffled ramp that
+    dies there cannot be replayed if its seed is drawn inside the ramp and lost
+    with it. The seed is drawn before the ramp; the error row carries the
+    sequence, its order and its seed."""
     rows: list[dict[str, Any]] = []
     monkeypatch.setattr(calibrate, "emit", lambda _out, row: rows.append(row))
 
@@ -674,11 +651,9 @@ def test_a_ramp_that_raised_is_not_treated_as_done_by_a_plain_resume(
     about this rig at these settings; an exception means nothing was learned and
     the cell is still owed.
 
-    They were treated identically. ``completed()`` dropped failures only under
-    ``--retry-failed``, so a plain ``--resume`` — which is what the campaign
-    driver runs — counted a cell lost to a transient error as done and skipped
-    it forever. Recovering it required knowing to type a flag whose name says
-    "failed", for a cell whose console line said nothing at all.
+    A ``completed()`` that treats them identically counts a cell lost to a
+    transient error as done on a plain ``--resume`` — which is what the campaign
+    driver runs — and skips it forever.
     """
     journal = tmp_path / "ramp.jsonl"
     raised = {
@@ -739,7 +714,7 @@ STARTED = {
     "command": "vllm serve ...",
     "launched": True,
     "ready": True,
-    # srv2's real figure from 2026-08-19, the number D6 asked for.
+    # srv2's real figure.
     "start_seconds": 108.7,
     "serve": {"max_model_len": 8192},
 }
@@ -749,14 +724,10 @@ STARTED = {
 def claimed() -> dict[str, Any]:
     """What ``vllm.claim`` really returns, obtained from ``vllm.claim``.
 
-    **This fixture was a hand-written literal and that was the same defect one
-    file out.** A mutation sweep on 2026-08-20 added a field to ``claim``'s
-    success branch and every test here still passed, because they were comparing
-    the disposition against a copy of the answer rather than against the
-    producer. Seven of eight mutations were caught; this was the eighth.
-
-    So the seams are stubbed and the function runs its own body: whatever key
-    set ``claim`` builds today is the key set the disposition is held to.
+    The seams are stubbed and the function runs its own body: whatever key set
+    ``claim`` builds is the key set the disposition is held to. A hand-written
+    literal here would compare the disposition against a copy of the answer
+    rather than against the producer.
     """
     vllm: Any = _by_path("serving_vllm_sink", SERVING / "backends" / "vllm.py")
     model = "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ"
@@ -769,8 +740,7 @@ def claimed() -> dict[str, Any]:
     vllm._DIGEST_CACHE.clear()
 
     def ssh(host: str, command: str, timeout: float | None = None) -> str:
-        # #326: `weights_sha256` runs its own body, so its key set is the
-        # producer's -- a hand-written dict here was the defect one file out.
+        # `weights_sha256` runs its own body, so its key set is the producer's.
         if "MCGYVR_EOF" in command:
             return json.dumps(DIGEST_OUTPUT)
         if "temperature.gpu" in command:
@@ -796,11 +766,8 @@ def claimed() -> dict[str, Any]:
 def test_the_launch_sink_declares_a_disposition_for_every_field_claim_returns(
     calibrate: Any, claimed: dict[str, Any]
 ) -> None:
-    """A1's half of the same contract.
-
-    ``vllm.claim``'s return was discarded whole at the call site, so there was
-    no sink to conform to. Now there is one, and it is held to the same rule:
-    every key the producer returns is carried or declared dropped.
+    """``vllm.claim``'s return has a sink, held to the same rule: every key the
+    producer returns is carried or declared dropped.
     """
     disposition = calibrate.LAUNCH_ROW_DISPOSITION
     undeclared = sorted(set(claimed) - set(disposition))
@@ -817,11 +784,10 @@ def test_the_launch_sink_declares_a_disposition_for_every_field_claim_returns(
 def test_the_launch_timing_reaches_the_row(
     calibrate: Any, claimed: dict[str, Any]
 ) -> None:
-    """D6's START_TIMEOUT_S evidence, pinned by name.
+    """``start_seconds`` and ``digest_seconds`` reach the launch row, by name.
 
-    ``vllm.claim`` computed this on all ten launches of the 2026-08-19/20
-    campaign and the value reached no file, leaving a 900 s timeout resting on
-    nothing after the run commissioned to calibrate it.
+    They are the calibration points ``START_TIMEOUT_S`` and
+    ``DIGEST_TIMEOUT_S`` have.
     """
     row = calibrate._launch_row("srv2", "m", 16, claimed)
     assert row["start_seconds"] == 108.7, (
@@ -837,7 +803,7 @@ def test_the_launch_timing_reaches_the_row(
 def test_the_card_state_before_launch_reaches_the_launch_row(
     calibrate: Any, claimed: dict[str, Any]
 ) -> None:
-    """#327: ``vllm.claim`` reads the card beside ``gpu_used_mib`` -- the state
+    """``vllm.claim`` reads the card beside ``gpu_used_mib`` -- the state
     every level of the ramp that follows is measured against -- and it arrives
     on the launch row under ``LAUNCH_ROW_DISPOSITION["checks"]``, so the
     both-direction test over that table holds it there.
@@ -887,15 +853,7 @@ def test_every_carried_launch_field_names_a_key_that_is_really_in_the_row(
         )
 
 
-# `test_the_ollama_ramp_can_state_its_own_slot_count` stood here. A4: the arm
-# whose width was whatever its host's daemon had been configured for had to read
-# that width once per model rather than per token count, or every one of its
-# ramp rows carried `declared_slots: null` while a survey read the same number
-# off the same host. Both the arm and the `slots_now` it needed are in
-# `archive/forensic-ollama/`. The remaining arm launches at a width it chose, so
-# `declared_slots` is what it passed, not something to go and read.
-
-# A5: the three ways a sleep cell used to report a verdict it had not earned.
+# Three ways a sleep cell could report a verdict it had not earned.
 # Each row below is what `sleep_state` would hold at the moment the verdict is
 # computed, with one thing having gone wrong.
 UNMEASURED_SLEEP = {
@@ -922,12 +880,12 @@ UNMEASURED_SLEEP = {
 
 @pytest.mark.parametrize("case", sorted(UNMEASURED_SLEEP))
 def test_a_sleep_cell_that_measured_nothing_says_so(calibrate: Any, case: str) -> None:
-    """A5: a transient failure must not read as a clean measurement.
+    """A transient failure must not read as a clean measurement.
 
-    The control arm is where this bit hardest. DE-12 is right that only the
-    ``enabled`` arm can fail — a control freeing nothing is the finding — so a
-    control whose card read returned ``None`` recorded ``failed: false`` and was
-    indistinguishable from the measurement it was there to make.
+    Only the ``enabled`` arm can fail — a control freeing nothing is the finding
+    — so a control whose card read returned ``None`` must not record
+    ``failed: false`` and be indistinguishable from the measurement it was there
+    to make.
     """
     assert calibrate._sleep_unmeasured(UNMEASURED_SLEEP[case]) is not None, (
         f"{case}: the row reports a verdict it did not earn."
@@ -937,8 +895,7 @@ def test_a_sleep_cell_that_measured_nothing_says_so(calibrate: Any, case: str) -
 def test_a_sleep_cell_that_did_measure_is_not_refused(calibrate: Any) -> None:
     """The negative control — otherwise the guard above could just return a string.
 
-    These are srv2's real enabled-arm readings from 2026-08-20: 11,109 MiB down
-    to 189, the run that showed the flag works.
+    These are srv2's real enabled-arm readings: 11,109 MiB down to 189.
     """
     good = {
         "awake_mib": 11109,
@@ -952,12 +909,11 @@ def test_a_sleep_cell_that_did_measure_is_not_refused(calibrate: Any) -> None:
 def test_an_unmeasured_sleep_cell_is_re_done_by_a_plain_resume(
     calibrate: Any, tmp_path: Path
 ) -> None:
-    """A5 composes with A6: unmeasured is owed, not answered.
+    """Unmeasured is owed, not answered.
 
-    ``_succeeded`` alone was not enough — it already returned False for these
-    rows once they carried a marker, but ``completed`` forgave everything except
-    under ``--retry-failed``. The pair is what makes an unmeasured cell recover
-    on the resume the driver actually runs.
+    ``_succeeded`` returns False for these rows and ``completed`` does not
+    forgive them, so an unmeasured cell recovers on the resume the driver
+    actually runs.
     """
     journal = tmp_path / "sleep.jsonl"
     row = {
@@ -974,10 +930,9 @@ def test_an_unmeasured_sleep_cell_is_re_done_by_a_plain_resume(
 
 
 # --------------------------------------------------------------------------
-# #324: the census. rule 5 -- coverage of rule 4 is mechanical, not
-# counted. Everything above holds a sink to its producer; nothing above says
+# The census. Everything above holds a sink to its producer; nothing above says
 # which sinks exist, so a new `emit()` with a dict producer and no disposition
-# shipped green. The census enumerates every write and demands each be either
+# would be green. The census enumerates every write and demands each be either
 # DISPOSED (a `*_ROW_DISPOSITION` beside the sink) or EXEMPT with a reason
 # that names what is discarded. Modelled on
 # tests/test_bench_rounds.py::test_every_figure_tool_is_classified.
@@ -992,12 +947,8 @@ RUN = SERVING / "run.py"
 #: what is discarded -- when the producer is a scalar, a literal row, or a
 #: remote server's document.
 SINK_DISPOSED: dict[str, str] = {
-    # `calibrate.py::load::row` was here, under LOAD_ROW_DISPOSITION. The load
-    # phase measured a daemon that pulls a model in on first request; both
-    # engines served now are started with their checkpoint, so the phase and
-    # its row builder went to `archive/forensic-ollama/` on 2026-09-06.
-    # #326: both rows take the serving pins after the builder, so the site
-    # is the name the row is held in.
+    # Both rows take the serving pins after the builder, so the site is the name
+    # the row is held in.
     "calibrate.py::_widths::row": "LAUNCH_ROW_DISPOSITION",
     "calibrate.py::_one_ramp::row": "RAMP_ROW_DISPOSITION",
     # The unmeasured early write and the terminal write are the same row.
@@ -1015,10 +966,6 @@ SINK_EXEMPT: dict[str, str] = {
         "scalar: a wall-clock duration; the shell output of `free -m` and "
         "/proc/loadavg it timed is discarded unread"
     ),
-    # The three refusals above `ramp/refused` were the removed engine's arm:
-    # its probe answering None, its inventory coming back empty, and its claim
-    # raising. What is left is the one vLLM refusal, and it keeps its ordinal
-    # from before the renumber so a reader tracing an old row finds it.
     "calibrate.py::ramp::ramp/refused": (
         "literal row: `_awq` found no checkpoint; the ssh listing (a shell "
         "string, possibly None) is discarded"
@@ -1047,7 +994,7 @@ SINK_EXEMPT: dict[str, str] = {
         "literal refusal row: claim raised; the exception's `reasons`, text "
         "and attempt trail (#326) are carried whole under `refusal`"
     ),
-    # #325: the phase rows. Scalars off the clock seam; nothing is dropped.
+    # The phase rows. Scalars off the clock seam; nothing is dropped.
     "calibrate.py::main::?/phase": (
         "scalar: the phase's own span and its length, read off contract.now "
         "at the run's start and end; the phase name is argv's, hence `?`"
@@ -1058,12 +1005,10 @@ SINK_EXEMPT: dict[str, str] = {
     ),
 }
 
-#: `load` is not here since 2026-09-06: the phase raises rather than emitting,
-#: because it measured a daemon that pulls a model in on first request and both
-#: engines served now are started with their checkpoint. A phase function with
-#: no sink in it is exactly what this check is supposed to catch, so it is
-#: removed from the list rather than left to fail — and it fails again the
-#: moment someone puts a sink back without saying what becomes of its fields.
+#: `load` is not here: the phase raises rather than emitting, and a phase
+#: function with no sink is exactly what this check catches. A sink put back
+#: into `load` fails `test_every_sink_is_classified` until its fields have a
+#: disposition.
 PHASE_FUNCTIONS = {
     "calibrate.py": {"fast", "ramp", "_widths", "_one_ramp", "sleep_state"},
     "run.py": {"run"},
@@ -1206,10 +1151,9 @@ def test_nothing_is_both_disposed_and_exempt() -> None:
 
 
 def test_a_sink_added_without_a_disposition_is_refused(tmp_path: Path) -> None:
-    """The mutation that shipped green before #324, re-applied on a copy."""
+    """A sink inserted into a copy of the harness, with no disposition, is refused."""
     # The whole docstring, so the inserted sink lands in the body and not
-    # inside it. `fast`'s docstring grew when its discovery half was removed
-    # on 2026-09-06.
+    # inside it.
     source_now = CALIBRATE.read_text(encoding="utf-8")
     start = source_now.index(
         "def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:\n"
@@ -1291,16 +1235,6 @@ def _dropped_state_why(
         assert len(why) > 20, f"{name}: {field!r} dropped with {why!r}"
 
 
-# The `ollama_attempt` fixture stood here with the two checks it fed:
-# that LOAD_ROW_DISPOSITION declared a disposition for every one of the 21 keys
-# an attempt record carries (before #324 the row kept 3 of them), and that a
-# failed load writes no attempt ordinal. All three were about the load phase,
-# which measured a daemon that pulls a model in on first request. The phase, its
-# row builder and its disposition tables went to `archive/forensic-ollama/` on
-# 2026-09-06 — both engines served now are started with their checkpoint, so
-# there is no on-demand claim left to record.
-
-
 class _SleepVllm:
     NAME = "vllm"
     PORT = 8000
@@ -1380,9 +1314,8 @@ def sleep_run(
 def test_the_sleep_launch_timing_reaches_the_row(
     calibrate: Any, claimed: dict[str, Any], sleep_run: _SleepRun
 ) -> None:
-    """A1 one function down: `sleep_state` discarded `vllm.claim`'s return, so
-    the three sleep-arm launches that came up on 2026-08-19/20 recorded no
-    `start_seconds`."""
+    """`sleep_state` carries `vllm.claim`'s return onto its row, `start_seconds`
+    and `digest_seconds` included."""
     row = sleep_run.rows[1]
     assert row["start_seconds"] == 108.7
     assert row["digest_seconds"] == claimed["checks"]["weights"]["digest_seconds"]
@@ -1416,10 +1349,9 @@ def test_a_finished_sleep_cell_is_recognised_on_resume(
 ) -> None:
     """The row the sink writes must be the row the resume check looks for.
 
-    Found in review of #324: merging the claim's fields put `engine` on the
-    row, `key()` reads `engine`, and the done-lookup in `sleep_state` built
-    its probe without it -- so every finished sleep cell was re-launched on
-    `--resume` while refused cells (no claim, no `engine`) were skipped.
+    The claim's fields put `engine` on the row and `key()` reads `engine`, so
+    the done-lookup in `sleep_state` builds its probe with it; without it every
+    finished sleep cell is re-launched on `--resume`.
     """
     journal = tmp_path / "sleep.jsonl"
     journal.write_text(
@@ -1481,7 +1413,7 @@ class _SurveyBackend:
         return resident
 
     def placements(self, host: str) -> list[dict[str, Any]]:
-        """#335: where each of those names sits. A distinct document."""
+        """Where each of those names sits. A distinct document."""
         if isinstance(self.resident, Exception):
             raise self.resident
         placed = [
@@ -1580,7 +1512,7 @@ def test_the_survey_sink_carries_each_producer_whole_or_says_what_it_picks() -> 
     assert row["concurrency"]["matches_expected"] is True
     assert row["coresidency_after"]["resident"] == ["n"]
     assert row["coresidency_after"]["held"] is True and row["outcome"] == "ok"
-    # #335: the verdict and the placement it is silent about, side by side —
+    # The verdict and the placement it is silent about, side by side —
     # `held` is True for a neighbour sitting 93% on the CPU, which is the whole
     # reason the second field exists.
     assert row["coresidency_after"]["placements"][0]["fraction"] == 0.068
@@ -1593,15 +1525,12 @@ def test_the_survey_sink_records_a_residency_read_that_raised() -> None:
     assert row["outcome"] == "ramp_failed"
 
 
-# --- #325: a clock on every row, and the tree that ran -----------------------
+# --- a clock on every row, and the tree that ran -----------------------------
 #
-# Every duration the harness recorded was a `time.monotonic()` delta, which
-# cannot be placed on a timeline. On the 2026-08-20 campaign 8,185.3 s of the
-# 14,404 s ramp phase belonged to no row, and no journal named the commit, a
-# config digest or the run's start. These tests hold the stamp to its
-# disposition, the spans to every sink and claim attempt, and show the phase's
-# remainder to be a sum of named terms rather than a number nobody can account
-# for.
+# A `time.monotonic()` delta cannot be placed on a timeline. These tests hold
+# the stamp to its disposition, the spans to every sink and claim attempt, and
+# show the phase's remainder to be a sum of named terms rather than a number
+# nobody can account for.
 
 
 def _is_utc_instant(text: Any) -> bool:
@@ -1656,8 +1585,7 @@ def test_provenance_names_the_tree_that_ran_or_says_why_it_cannot(
 def test_the_digests_move_when_a_harness_byte_or_an_underscore_key_is_edited(
     contract: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """`config_sha256` is over the bytes read, so a `_`-key edit moves it --
-    the 2026-08-20 campaign's `_`-key hand-edit is recorded nowhere -- and
+    """`config_sha256` is over the bytes read, so a `_`-key edit moves it, and
     `harness_sha256` moves on one byte of the harness."""
     monkeypatch.setattr(contract, "_git", lambda *a: None)
     body = b'{"hosts": ["h"]}'
@@ -1698,17 +1626,15 @@ def _git_in(repo: Path, *args: str) -> None:
 def test_tree_dirty_answers_about_the_harness_and_not_about_the_runs_own_output(
     contract: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """#334: `tree_dirty` asked `git status` about the whole working tree.
+    """`tree_dirty` answers about the declared harness surface, not the tree.
 
-    A run writes its journal into `records/` *while it runs*, so every row of
-    every future run would have read `tree_dirty: true` caused by nothing but
-    its own output -- a field true on every real run, which states no property
-    (lens 3). The D7 evidence does not show it only because those rows
-    predate #325 and carry no provenance block at all.
+    A run writes its journal into `records/` *while it runs*, so a `git status`
+    of the whole working tree would read `tree_dirty: true` on every real run,
+    caused by nothing but its own output -- a field true on every run states no
+    property.
 
-    Both directions, because a check that cannot be shown to reject is the
-    MARKERS table again: the run's own output must not move it, and one byte
-    under the declared surface must.
+    Both directions: the run's own output must not move it, and one byte under
+    the declared surface must.
     """
     contract._product()  # loaded from the real tree before REPO is moved
     harness = tmp_path / "tools" / "bench" / "serving"
@@ -1726,10 +1652,10 @@ def test_tree_dirty_answers_about_the_harness_and_not_about_the_runs_own_output(
     (tmp_path / "records" / "d7-ramp.jsonl").write_text('{"metric": "ramp"}\n')
     (tmp_path / "survey.out.json").write_text("{}\n")
     clean = contract.provenance()
-    assert clean["tree_dirty"] is False, "#334: a run's own output is not the harness"
+    assert clean["tree_dirty"] is False, "a run's own output is not the harness"
     unscoped = contract._git("status", "--porcelain", "--untracked-files=all")
     assert unscoped is not None and unscoped.strip(), (
-        "the question that shipped would have said true here, which is the defect"
+        "a whole-tree `git status` says true here"
     )
 
     # One byte under the declared surface, and both halves of the pair move.
@@ -1873,10 +1799,8 @@ def test_the_stamp_reaches_the_ramp_launch_sleep_and_survey_rows_and_every_claim
         _stamped(row, FAKE_STAMP)
         _span_ordered(row)
 
-    # Every claim attempt, from the claim that built it. The load phase's
-    # attempt trail was the other half of this and went with that phase on
-    # 2026-09-06 (`archive/forensic-ollama/`); what remains is the launch
-    # claim, whose span the launch and sleep rows above already carry.
+    # Every claim attempt, from the claim that built it: the launch claim, whose
+    # span the launch and sleep rows above already carry.
     _span_ordered(claimed["checks"])
 
 
@@ -1975,14 +1899,10 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
     calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """phase span - sum(launch + ramp row spans) == the clock spent inside the
-    seams that write no row. On 2026-08-20 that remainder was 8,185.3 s and
-    no file held its split; here every second of it has a name.
+    seams that write no row; here every second of it has a name.
 
-    The seams: `release` and `vllm.declared_slots`. Two more were here — the
-    slot read and the claim of the arm removed on 2026-09-06, which loaded a
-    model and wrote no row — and their seconds went to
-    `archive/forensic-ollama/` with them. What the check is about is unchanged:
-    a remainder with no split is a phase nobody can account for.
+    The seams: `release` and `vllm.declared_slots`. A remainder with no split
+    is a phase nobody can account for.
     """
     clock = _FakeClock(contract)
     monkeypatch.setattr(contract, "now", clock.now)
@@ -2038,8 +1958,7 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
     phase_ended = contract.now()
     phase = contract.seconds_between(phase_started, phase_ended)
 
-    # Two widths, each a launch then a ramp. The leading `ramp` row that used
-    # to open this list was the removed arm's, which ran before the widths.
+    # Two widths, each a launch then a ramp.
     assert [r["metric"] for r in rows] == ["launch", "ramp", "launch", "ramp"]
     spans = 0.0
     previous = phase_started
@@ -2054,8 +1973,8 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
             assert sum(lv["wall_s"] for lv in row["levels"]) <= span, (
                 "both repeats of every level lie inside the ramp row"
             )
-            # Two ramps now rather than three: the divisor is the number of
-            # `contract.ramp` calls the phase made, one per width.
+            # The divisor is the number of `contract.ramp` calls the phase
+            # made, one per width.
             assert span == clock.inside["contract.ramp"] / 2
         else:
             assert span == 60.0
@@ -2066,16 +1985,11 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
     }
     assert round(phase - spans, 3) == round(sum(unattributed.values()), 3)
     assert set(unattributed) == {"release", "vllm.declared_slots"}
-    # vllm.release at the host's top and in `finally` (DE-9).
+    # vllm.release at the host's top and in `finally`.
     assert unattributed["release"] == 7.0 * 2
 
 
-# --- #326: identity on every row -----------------------------------------------
-#
-# The campaign's 16 ramp and sleep rows named the machine by `host` alone.
-# `weights_sha256`, `serving_semantic_sha256`, `serving_build`, the driver and
-# the compute capability were on 0 of 16, the vLLM claim was unpinned and
-# discarded, and a refused load left no attempt trail in either sink.
+# --- identity on every row -----------------------------------------------------
 
 IDENTITY_FIELDS = (
     "gpu_name",
@@ -2086,13 +2000,7 @@ IDENTITY_FIELDS = (
     "serving_build",
 )
 
-#: The row shapes `calibrate.emit` writes, by (phase, metric). Hand-listed
-#: until the discovery census child replaces it.
-#:
-#: Five went on 2026-09-06 with the phases that wrote them: the three `fast`
-#: discovery timings, which timed a native enumeration surface, and both `load`
-#: shapes, whose phase measured a daemon that pulls a model in on first request.
-#: `archive/forensic-ollama/`.
+#: The row shapes `calibrate.emit` writes, by (phase, metric), hand-listed.
 ROW_SHAPES = {
     ("ramp", "ramp"),
     ("ramp", "launch"),
@@ -2144,8 +2052,7 @@ def _drive_every_shape(
 ) -> list[dict[str, Any]]:
     """Every phase that emits, every seam stubbed, the real `emit` writing.
 
-    `load` is not driven: it raises since 2026-09-06 rather than emitting, for
-    the reason in `PHASE_FUNCTIONS`.
+    `load` is not driven: it raises rather than emitting (`PHASE_FUNCTIONS`).
     """
     vllm: Any = _by_path("serving_vllm_identity", SERVING / "backends" / "vllm.py")
     monkeypatch.setattr(vllm, "release", lambda host: {"card_idle": True})
@@ -2197,9 +2104,8 @@ def test_every_emitted_row_carries_the_identity_block(
             assert block["engine"] == row["engine"]
             assert (
                 block["serving_build"]
-                # #358: the vLLM build names its launcher. Two hosts of the same
-                # release through different launchers are two instruments, and
-                # the version string alone said they were one.
+                # The vLLM build names its launcher: two hosts of the same
+                # release through different launchers are two instruments.
                 == {"ollama": "ollama 0.32.5", "vllm": "vllm 0.26.0 via pip"}[
                     row["engine"]
                 ]
@@ -2215,7 +2121,7 @@ def test_every_emitted_row_carries_the_identity_block(
 def test_an_identity_field_the_host_did_not_answer_is_null_with_the_command_it_ran(
     calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """D2: null plus the read, never a blank, never a number from prose."""
+    """Null plus the read, never a blank, never a number from prose."""
     host = _Host(answers=False)
     monkeypatch.setattr(contract, "ssh", host.ssh)
     monkeypatch.setattr(contract, "get_json", lambda *a, **k: None)
@@ -2227,10 +2133,10 @@ def test_an_identity_field_the_host_did_not_answer_is_null_with_the_command_it_r
         assert refusals[field] == contract.HARDWARE_COMMAND
     assert identity["serving_build"] is None
     assert "vllm --version" in refusals["serving_build"]
-    # Bandwidth: refused today with the reason, on every row, answered by none.
+    # Bandwidth: refused with the reason, on every row, answered by none.
     assert identity["memory_bandwidth_gb_s"] is None
     why = refusals["memory_bandwidth_gb_s"]
-    assert "step0-gaps.md:202" in why and ":40" in why
+    assert "step0-gaps.md" in why and "mcgyvr-lab/" in why
     assert "21.8" in why, "the prose figure is named as NOT the value"
     assert "" not in identity.values(), "a blank is not a refusal"
 
@@ -2267,10 +2173,6 @@ def test_a_vllm_row_names_the_weights_it_ran_on(
                 row["weights_sha256"]
                 == launches[row["configured_width"]]["weights_sha256"]
             )
-    # The other arm's ramp row carried a `model_sha256` off the claim that
-    # loaded it, which was the only weights identity that surface exposed. Both
-    # went on 2026-09-06 (`archive/forensic-ollama/`); the rows that remain
-    # carry `weights_sha256`, checked above against the claim that produced it.
     assert not [r for r in rows if r.get("engine") not in (None, "vllm")], (
         "a row names an engine this build does not serve"
     )

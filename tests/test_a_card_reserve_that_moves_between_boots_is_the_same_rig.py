@@ -2,23 +2,16 @@
 
 ``gpu_reserve_mib`` is the card's ``memory.reserved``. The driver carves it
 at boot, and ``rig-snapshot.sh`` says as much at its ``nvidia`` reader: "the
-reserve is GSP firmware and differs per boot". Gate 2 (``02-rig.py``,
-``main``) nonetheless compares it with ``tools/runs/hosts.json`` the way it
-compares the hardware, as a literal string. So a reboot that moves the reserve
-by a few MiB tells every door run that this is not the declared machine, and
-refuses it.
+reserve is GSP firmware and differs per boot". Gate 2 (``02-rig.py``) compares
+every other key with ``tools/runs/hosts.json`` as a literal string; compared
+the same way, a reboot that moves the reserve by a few MiB would tell every
+door run that this is not the declared machine, and refuse it
+(``gpu_reserve_mib: declared '401', reads '399'``).
 
-Measured on srv1, with the same GTX 1660 SUPER, the same driver 580.173.02 and
-every other declared key unchanged:
-
-- 399 MiB on the boot of about 05:50Z, 2026-08-31
-  (``records/evidence/2026-08-31-inventory/srv1-scan.txt``).
-- 401 MiB on the boot of 2026-09-01T08:11:08Z, the value ``hosts.json``
-  declared from 2026-09-03.
-- 399 MiB on the boot of 2026-09-11T06:34:36Z, read idle by
-  ``records/measurements/fleet-identity-2026-09-11/reserve.py`` on branch
-  ``red/fleet-identity-measurements``. Gate 2 then refused srv1:
-  ``gpu_reserve_mib: declared '401', reads '399'``.
+srv1, with the same card, the same driver and every other declared key
+unchanged, has read 399 MiB on some boots and 401 MiB on others
+(``records/evidence/2026-08-31-inventory/srv1-scan.txt``,
+``records/measurements/fleet-identity-2026-09-11/results-reserve.json``).
 """
 
 from __future__ import annotations
@@ -31,8 +24,7 @@ import pytest
 from tests import onedoor
 from tests.onedoor import Scenario
 
-#: srv1's reserve on two boots with every other declared key equal: the boot of
-#: 2026-09-01T08:11:08Z and the boot of 2026-09-11T06:34:36Z.
+#: srv1's reserve on two boots with every other declared key equal.
 MEASURED = ("401", "399")
 
 

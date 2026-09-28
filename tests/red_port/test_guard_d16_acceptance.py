@@ -1,20 +1,19 @@
 """D16 — a demonstration that never went red demonstrates nothing.
 
-GREEN by design. The acceptance model being ported over is an exit code: run the
-commands, zero is a pass. There is no way to say "this command must fail before
-the change", so there is no way to tell a fix from a plausible edit that left the
-suite as green as it already was. mcgyvr splits the two lists — ``acceptance``
-expects green at baseline, ``demonstration`` expects red — and enforces both
-halves, at load and at run.
+An acceptance model that is only an exit code — run the commands, zero is a pass —
+has no way to say "this command must fail before the change", so no way to tell a
+fix from a plausible edit that left the suite as green as it already was. mcgyvr
+splits the two lists — ``acceptance`` expects green at baseline, ``demonstration``
+expects red — and enforces both halves, at load and at run.
 
-``tests/test_contract.py`` already refuses a ``bug_fix`` with no demonstration and
-``tests/test_acceptance.py`` already names the baseline refusal. Each holds one
-half. What neither holds, and what a port would take out without tripping either,
-is that the two lists have *opposite* baseline expectations at all: a rewrite that
-collapsed ``demonstration`` into "just more acceptance commands" would keep the
-load-time requirement (the field is still required, still non-empty) and would
-lose the entire point of it, because a green command would then be as acceptable
-in one list as in the other.
+``tests/test_contract.py`` refuses a ``bug_fix`` with no demonstration and
+``tests/test_acceptance.py`` names the baseline refusal. Each holds one half. What
+neither holds, and what a rewrite could take out without tripping either, is that the
+two lists have *opposite* baseline expectations at all: a rewrite that collapsed
+``demonstration`` into "just more acceptance commands" would keep the load-time
+requirement (the field is still required, still non-empty) and would lose the entire
+point of it, because a green command would then be as acceptable in one list as in the
+other.
 
 So the two tests here are:
 

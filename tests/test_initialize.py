@@ -142,9 +142,8 @@ def test_the_invocation_the_refusal_advertises_actually_works(  # type: ignore[n
 ) -> None:
     """We tell the user to run it, so it had better write a loadable setup.
 
-    The refusal used to print a YAML block to paste, and it printed it as one
-    merged document — a shape no setup on disk takes. It now names a command,
-    so what has to be true is that the command works: the line is lifted out
+    The refusal names a command rather than a YAML block to paste, so what has
+    to be true is that the command works: the line is lifted out
     of the message and run, rather than a copy of it being maintained here.
     """
     with pytest.raises(InitError) as exc:
@@ -403,10 +402,9 @@ REMOTE_ONLY = Detection(
 def test_a_laptop_with_no_gpu_binds_the_rigs_it_can_reach(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    """The deployment mcgyvr exists for, and the one init used to refuse.
+    """The deployment mcgyvr exists for: no GPU here, two rigs answering.
 
-    Before #161 this took `_nothing_to_bind`: no GPU here meant no rung, even
-    with two rigs answering.
+    No local GPU does not end in `_nothing_to_bind` while a reachable rig serves one.
     """
     path = tmp_path / "setup"
     result = initialize(path, detection=REMOTE_ONLY, table=table)
@@ -455,7 +453,6 @@ def test_a_ladder_across_machines_is_flagged_as_possibly_inverted(  # type: igno
     result = initialize(tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table)
     joined = " ".join(result.limits)
     assert "spans 2 machines" in joined
-    assert "#162" in joined
 
 
 def test_the_refusal_points_at_the_flag_that_would_have_worked(  # type: ignore[no-untyped-def]

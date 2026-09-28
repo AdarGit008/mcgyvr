@@ -2,9 +2,9 @@
 """#117 — the token estimator's error against real tokenizers.
 
 ``estimate_tokens`` (``orchestrator/read.py``) is four characters per token and
-says so. Two places spend against it today: the exploration budget charges a
-region before reading it, and the decomposer sizes ``context.max_input_tokens``
-off ``worker_view()``. A third will — ``check_prompt_fits`` enforces a hard cap.
+says so. The exploration budget charges a region before reading it, the
+decomposer sizes ``context.max_input_tokens`` off ``worker_view()``, and
+``check_prompt_fits`` enforces a hard cap over the assembled prompt.
 A hard cap enforced by an unquantified proxy either over-prunes a prompt that
 would have fit or admits one the backend rejects, and there is no way to tell
 which is happening. This measures which.
@@ -17,14 +17,9 @@ measured is a string production actually asked the estimator to count, produced
 by the real region planner over real repositories. Nothing here reimplements a
 window, and no text is hand-picked.
 
-**What is not measured, and cannot be yet.** #117 asks for "a corpus of actual
-worker prompts". There are none: #25 owns prompt assembly and is open, and
-``check_prompt_fits`` has no production caller. So the corpus is the two things
-the estimator is actually applied to today — read regions and worker-view
-documents — and the band is a band over *content*. Whatever fixed wrapper #25
-adds is unmeasured here, and since a wrapper is mostly prose its ratio will sit
-nearer the prose end than the code end. The claim says this rather than implying
-coverage it does not have.
+**What is not measured.** Assembled worker prompts. The corpus is read regions
+and worker-view documents, so the band is a band over *content*; the fixed
+wrapper :func:`~mcgyvr.worker.prompt.build_prompt` adds is unmeasured here.
 
 **Queries are derived, not chosen.** A hand-picked query list would be a corpus
 decision nobody could recheck. Each frame is queried with its own exported

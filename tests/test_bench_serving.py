@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _by_path(name: str, path: Path) -> types.ModuleType:
-    """A tool module, imported by path — ``tools/`` is not a package."""
+    """A tool module, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -59,9 +59,8 @@ def test_bench_tiers_load_the_pinned_bench_half_in_both_arms() -> None:
 def test_bench_tiers_serve_only_the_bench_half() -> None:
     """Neither an unpinned candidate nor a reserve problem is dispatchable.
 
-    The pool learned the candidate half of this on 2026-08-07 (a probe
-    recorded 157 pool-py digests against 149 pool-ts mid-batch); the reserve
-    half is the bench's own stake — a reserve problem in a run's identity
+    An unpinned candidate's digests can move mid-batch; the reserve half is the
+    bench's own stake — a reserve problem in a run's identity
     would put training capacity inside the instrument.
     """
     bench, reserve = _halves()

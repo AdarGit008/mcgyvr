@@ -4,19 +4,18 @@
     python tools/reach/count3_jsts.py --run
     python tools/reach/count3_jsts.py --summarise
 
-#129 measured a candidate resolver for Python and could not measure one for
-JS/TS, because none had been identified (``count3.py``: "Two of three frames, and
-the JS/TS half of the launch languages has no candidate measured"). #133 is that
-gap. This is its measurement, over the third frame of the same pinned corpus.
+``count3.py`` measures a candidate resolver for the Python frames. This is the
+JS/TS measurement (#133), over the third frame of the same pinned corpus.
 
 **The candidate is the TypeScript compiler, driven through its own API** —
 ``ts.createProgram`` followed by ``getSemanticDiagnostics``, with the verdict
 read off the diagnostic code. It is here because the survey found nothing
 lighter that answers the question at all; what was rejected and why is in
-``records/measurements/reach-jsts-2026-08-03/README.md``. It is emphatically not
-a like-for-like swap for ghostcall: ghostcall is four stdlib-only files resolving
-against a live interpreter, and this is a 4.4 MB type-checker resolving against a
-type graph. That difference is the finding, not an inconvenience in reporting it.
+``mcgyvr-lab/records/measurements/reach-jsts-2026-08-03/README.md``. It is
+emphatically not a like-for-like swap for ghostcall: ghostcall is stdlib-only
+files resolving against a live interpreter, and this is a full type-checker
+resolving against a type graph. That difference is the finding, not an
+inconvenience in reporting it.
 
 **Counted the same way as Counts 1-3** — same corpus, per change, restricted to
 the lines the change added, with the whole-file rate recorded beside it. A flag
@@ -28,7 +27,8 @@ so a flag on it is a *presumptive* false positive, and each one is written out
 with its path and line so the presumption can be checked by hand.
 
 **The denominator does not transfer, and pretending it does would be the error.**
-the 358 is *resolved call chains*, because ghostcall resolves calls. A
+The Python count's denominator is *resolved call chains*, because ghostcall
+resolves calls. A
 TypeScript diagnostic lands on any expression — a type reference, a property
 access in a type position, an identifier in a declaration — and immer's accepted
 changes are heavily type-level, so several of them contain no call expression at
@@ -43,11 +43,10 @@ the environment is not fully provisioned:
 
 - ``target-ts`` — the frame's own ``node_modules`` installed, resolving with the
   frame's own ``typescript``. Both the environment and the checker are the
-  target's, which is the arrangement  describes.
+  target's.
 - ``staged-ts`` — the frame's ``node_modules`` installed, resolving with a
-  version-pinned ``typescript`` staged into the container the way  stages
-  a resolver. The environment is the target's, the checker is ours. This is the
-  arm that tests version drift.
+  version-pinned ``typescript`` staged into the container. The environment is
+  the target's, the checker is ours. This is the arm that tests version drift.
 - ``bare`` — no ``node_modules`` at all, staged checker. This is what a rung that
   declined to provision the target would actually see.
 
@@ -89,7 +88,7 @@ SCRATCH = Path("/tmp/reach-jsts")
 JS_FRAME = "immerjs/immer"
 
 # The staged resolver, pinned by the sha512 of its published tarball and
-# verified in the container before it is unpacked. the rule: a resolver
+# verified in the container before it is unpacked. The rule: a resolver
 # that is staged rather than installed still has to be the bytes that were
 # measured, and the check fails closed.
 STAGED_TS_VERSION = "5.9.3"
@@ -125,7 +124,7 @@ const targets = JSON.parse(readFileSync(process.argv[3], "utf8"));
 const repo = "/work";
 
 // The repository's own tsconfig, read the way tsc reads it — the compiler
-// options are the target's, which is the half  that survives here.
+// options are the target's.
 const configPath = ts.findConfigFile(repo, ts.sys.fileExists, "tsconfig.json");
 const configFile = configPath
   ? ts.readConfigFile(configPath, ts.sys.readFile)
@@ -688,9 +687,9 @@ def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
             for f in row["flags"]
             if f["on_added_line"] and f["class"] != "other"
         )
-        # A site touched by two changes is counted twice in the totals above —
-        # the same double-count  had to unpick by hand, which is why the
-        # deduplicated figure is computed here rather than left to the reader.
+        # A site touched by two changes is counted twice in the totals above,
+        # which is why the deduplicated figure is computed here rather than
+        # left to the reader.
         for flag in row["flags"]:
             sites.setdefault(row["arm"], {}).setdefault(flag["class"], set()).add(
                 (flag["code"], flag["path"], flag["line"])

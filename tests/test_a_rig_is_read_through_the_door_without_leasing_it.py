@@ -1,6 +1,6 @@
 """A rig is read through the door without being leased, and the read is filed.
 
-Owner, 2026-09-15 (D2): ``python -m mcgyvr.serving.run read --host H [--probe
+Owner ruling D2: ``python -m mcgyvr.serving.run read --host H [--probe
 UNIT...]`` is the door's third fixed sequence, beside the campaign run and
 ``serve``. Neither of those can read a serving rig: gate 2 takes the rig's
 lease, a live run tears down what it displaced, and a busy rig is refused

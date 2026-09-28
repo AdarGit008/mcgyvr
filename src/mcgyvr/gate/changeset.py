@@ -2,10 +2,9 @@
 
 Every gate check needs the same two facts: which files changed, and which
 lines the worker *added*. Deriving that per check is the difference between a
-constant and a linear number of subprocesses — local-ai measured 3 spawns
-against 51 for a 25-file change once this was shared. So the whole change is
-computed here, in a fixed number of git invocations regardless of how many
-files moved, and threaded into every check.
+constant and a linear number of subprocesses. So the whole change is computed
+here, in a fixed number of git invocations regardless of how many files moved,
+and threaded into every check.
 
 The change is computed against a *base* tree — the state of the repository
 before the worker ran. A worker in a sandbox leaves a mix of modified tracked

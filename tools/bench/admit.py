@@ -5,10 +5,10 @@ A bench problem is two arms of the same problem (``tasks/ts/<id>/`` and
 ``tasks/py/<id>/``), each a contract plus a reference solution plus a
 checker, with one ``meta.json`` sidecar in the ts arm (the canonical arm —
 the near-duplicate screen already keys on its prose). The design of record
-is ``archive/docs/bench-design-2026-08-10.md`` §3; the check order below is that
-section's, and the execution machinery (fresh directory per candidate,
-contract-declared commands, the 30s ceiling) is the pool gate's, imported
-by path — orchestration is bench-owned, machinery is shared.
+is ``mcgyvr-lab/archive/docs/bench-design-2026-08-10.md`` §3; the check order
+below is that section's, and the execution machinery (fresh directory per
+candidate, contract-declared commands, the acceptance timeout) is the pool
+gate's, imported by path — orchestration is bench-owned, machinery is shared.
 
 What this gate tightens over ``tools/problems/admit.py``, and why:
 
@@ -33,7 +33,7 @@ What this gate tightens over ``tools/problems/admit.py``, and why:
 * **The split is recorded at pin time and never chosen.** ``split.py``'s
   pre-declared rule assigns the half; ``--pin`` writes the assignment into
   the manifest and moves a reserve problem's arms to ``reserve/`` — outside
-  the roots ``tools/instruments.json`` will declare, so reserve exhaust can
+  the roots ``tools/instruments.json`` declares, so reserve exhaust can
   never classify as instrument material.
 """
 
@@ -530,7 +530,7 @@ def pin(problems: list[str], provenance: str) -> int:
     The split assignment is computed by the pre-declared rule and written
     into the entry — never passed in, so there is nothing to choose. A
     reserve problem's arms move to ``reserve/`` in the same act: outside
-    the roots the declaration will walk, which is what keeps reserve
+    the roots the declaration walks, which is what keeps reserve
     exhaust classifiable as training material rather than instrument.
     """
     pinned = {str(entry["id"]) for entry in manifest_entries()}
@@ -569,8 +569,7 @@ def verify_manifest() -> list[str]:
     Beyond the pool's checks, the bench adds two: the recorded split must
     agree with the rule (a moved problem is a re-split, not a tidy-up), and
     every problem must live where its split says — a reserve id under the
-    declared roots would classify as instrument material the moment the
-    declaration lands.
+    declared roots would classify as instrument material.
     """
     problems: list[str] = []
     entries = manifest_entries()

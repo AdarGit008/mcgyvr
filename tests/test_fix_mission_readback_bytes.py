@@ -2,29 +2,21 @@
 
 ``tools/missions/run.py`` records what was delivered by reading it off the
 worktree rather than carrying it from the reply — that is pattern B, and it is
-right. The read itself was ``read_text(encoding="utf-8")``, which is strict, and
-strict is the one thing this project's byte convention says a reader may not be:
+right. The read is ``read_bytes().decode("utf-8", "surrogateescape")``, because
 :func:`mcgyvr.deliver.deliver` writes through ``surrogateescape``
 (``deliver._encoded``) and refuses *only* a lone surrogate, so a target holding a
-byte that is not valid UTF-8 is committed successfully and then cannot be read
-back by the line that follows the commit.
+byte that is not valid UTF-8 is committed successfully. A strict read would raise
+``UnicodeDecodeError`` after the commit and before ``_write_record``; it is not a
+``DeliveryError``, so the ``DeliveryError`` handler earlier in ``run_task`` would
+not catch it, and the mission would end *"with earlier contracts already
+committed and no record written"*.
 
-What that costs is not a mangled record. ``UnicodeDecodeError`` is not
-``DeliveryError``, so it is caught by nothing: it leaves ``run_task`` after the
-commit and before ``_write_record``, which is exactly the outcome the
-``DeliveryError`` handler twelve lines above exists to prevent — *"ends the
-mission with earlier contracts already committed and no record written"*. The
-contract is in the repository's history and the run that put it there left no
-trace of itself.
-
-The fix is the spelling every other reader in this repository already uses —
-``read_bytes().decode("utf-8", "surrogateescape")``, as in
-:meth:`mcgyvr.deliver.Accepted.read`, ``gate.changeset``, ``orchestrator.index``
-— and not, say, ``errors="replace"`` or a ``try``/``except`` that records a
-placeholder. Both of those would let the
-run finish; both would also make the record's copy of the delivered file a
-different sequence of bytes from the one in the commit beside it, which is the
-substitution this whole pattern was written to close.
+The spelling is the one every other reader in this repository uses, as in
+:meth:`mcgyvr.deliver.Accepted.read`, ``gate.changeset``, ``orchestrator.index`` — and
+not, say, ``errors="replace"`` or a ``try``/``except`` that records a placeholder. Both
+of those would let the run finish; both would also make the record's copy of the
+delivered file a different sequence of bytes from the one in the commit beside it, which
+is the substitution this whole pattern was written to close.
 
 So the assertion here is on the **bytes**, not on the absence of an exception. A
 test that only asked "did ``run_task`` return?" would pass against

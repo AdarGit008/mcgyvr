@@ -1,12 +1,11 @@
 """A machine with a key and no GPU gets a written setup, not a refusal.
 
-Until `--api` existed, `mcgyvr init` on such a machine refused and told the
-operator to hand-write the file — and the text that told them printed one
-merged document, where a setup on disk is two files. The advice was therefore
-both work the product could do itself and a shape the loader does not take.
+`mcgyvr init --api` writes it. Telling the operator to hand-write the file
+instead would be work the product can do itself, and a pasteable merged
+document would be a shape the loader does not take: a setup on disk is two
+files.
 
-What is pinned here is the whole of that claim, and each part is a property
-the old path did not have:
+What is pinned here is the whole of that claim:
 
 * the hosted path writes the **same two files** any other init writes, through
   the same renderer and past the same self-parse, so it cannot emit a config
@@ -60,13 +59,13 @@ def _written(path: Path) -> str:
     ).read_text(encoding="utf-8")
 
 
-# --- the path that used to be a refusal -----------------------------------
+# --- a key and no local backend -------------------------------------------
 
 
 def test_a_machine_with_no_backend_and_an_api_unit_writes_a_setup(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    """No GPU, no backend, one key: the case init used to refuse outright."""
+    """No GPU, no backend, one key: init writes a setup."""
     path = tmp_path / "setup"
     result = initialize(
         path, detection=BARE, table=table, api_units=(parse_api_unit(SPEC),)
@@ -83,7 +82,7 @@ def test_a_machine_with_no_backend_and_an_api_unit_writes_a_setup(  # type: igno
 def test_the_result_is_the_same_two_files_any_other_init_writes(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    """The defect in the old advice: it showed one merged document.
+    """Two files, never one merged document.
 
     A setup is `fleet.yaml` (what runs where) and `policy.yaml` (how work
     moves over it), and each file refuses a key belonging to the other. So
@@ -151,13 +150,13 @@ def test_a_machine_that_asked_for_nothing_still_refuses(  # type: ignore[no-unty
 def test_the_refusal_points_at_the_flag_that_would_have_worked(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    """Advice that is no longer true is worse than no advice."""
+    """Advice that is not true is worse than no advice."""
     with pytest.raises(InitError) as exc:
         initialize(tmp_path / "setup", detection=BARE, table=table)
     message = str(exc.value)
 
     assert "--api" in message
-    assert "write the file by hand" not in message, "the old, now-false advice"
+    assert "write the file by hand" not in message, "false advice: init writes it"
     # The distinctive line of the old pasteable block, which bound the key in
     # YAML inside one merged document. Its absence is the claim; `units:` on
     # its own is not, because the message quotes the loader's own complaint

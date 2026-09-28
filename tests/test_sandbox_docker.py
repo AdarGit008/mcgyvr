@@ -4,8 +4,8 @@ The container path cannot run in CI — there is no daemon — so what is proven
 here is everything up to the daemon: the argv that would be run, the
 platform-specific host-loopback handling, the lifecycle's teardown, and the
 security invariant that no credential-shaped variable can enter a container.
-That last one is asserted, not reviewed, because ``SECURITY.md`` makes it
-red-failing.
+That last one is asserted, not reviewed, because ``SECURITY.md`` names it as
+load-bearing.
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ class RecordingRunner:
         return [c[0] for c in self.calls]
 
 
-# --- host-loopback translation (#31) -------------------------------------
+# --- host-loopback translation -------------------------------------------
 
 
 def test_localhost_endpoint_is_rewritten_to_the_host_alias() -> None:
@@ -84,6 +84,12 @@ def test_loopback_ip_is_rewritten_and_port_preserved() -> None:
 def test_a_remote_endpoint_is_left_untouched() -> None:
     url = "http://gpu-box.lan:11434"
     assert translate_endpoint(url) == url
+
+
+def test_a_rewritten_endpoint_carries_no_userinfo_into_the_container() -> None:
+    """The container env is the task's; a password in an endpoint stays out."""
+    url = "http://u:fake-endpoint-pw@localhost:11434/v1"
+    assert translate_endpoint(url) == f"http://{HOST_ALIAS}:11434/v1"
 
 
 def test_linux_maps_the_host_gateway_but_macos_does_not() -> None:
@@ -123,7 +129,7 @@ def test_exec_args_target_the_workspace_and_container() -> None:
     assert args[-3:] == ["c1", "pytest", "-q"]
 
 
-# --- the credential invariant (#31, SECURITY.md) -------------------------
+# --- the credential invariant (SECURITY.md) ------------------------------
 
 
 def test_container_ambient_env_carries_endpoints_and_no_credential(

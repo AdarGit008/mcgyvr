@@ -1,7 +1,7 @@
 {
   "record": "bench/retired/1",
   "issue": 225,
-  "why": "Problems withdrawn from the bench after admission, declared here rather than only deleted, because a deletion is invisible to anything that already measured them. The gate refuses to re-admit a retired id, the emitter refuses to write one, and every reader drops its rows and says how many it dropped. An id is never reused, so a later problem can never inherit a retired one's history. This file is for withdrawal after admission; a candidate that never passed the gate simply has no manifest entry and belongs nowhere.",
+  "why": "Problems withdrawn from the bench after admission, declared here rather than only deleted, because a deletion is invisible to anything that already measured them. The gate refuses to re-admit a retired id, the emitter refuses to write one, and the readers that derive figures from this file (ablation_report, responsiveness, regrade, gate_rescore) drop or mark its rows. An id is never reused, so a later problem can never inherit a retired one's history. This file is for withdrawal after admission; a candidate that never passed the gate simply has no manifest entry and belongs nowhere.",
   "run_records": "Run records under records/measurements/ are NOT edited. A run.json pins a tasks_sha256 per task and a results.jsonl states what was dispatched; both are evidence of what happened on the day, and a retirement afterwards does not change that it ran. Removal happens where figures are derived, not where they were recorded, which is the same reasoning as #230's instrument pin stamping rather than excluding.",
   "ids": [
     {

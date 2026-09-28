@@ -1,40 +1,37 @@
 """A machine nobody has set up still fails toward SETUP.md, not into silence.
 
-Plan v4 (2026-09-09), actions 13, 14 and 30 through 34. Actions 4 and 5 take
-Step 0 out of `SKILL.md`, which was the only in-context route an agent had
-back to setup; these actions are what replace it.
+`SKILL.md` carries no setup step, so these are the routes an agent has back
+to setup.
 
-Actions 13 and 14: Step 2 (`mcgyvr contract CONTRACT.yaml`) and Step 3
-(`mcgyvr run CONTRACT.yaml ...`) are the two commands a Step-0-less skill
-still points an agent at, in order, on every machine including one nobody has
-run `mcgyvr init` on. They are not the same command. Step 3 needs a ladder:
-`_run` already refuses a model-executed contract when no config loads, but
-names only `str(config_error)`, and from here it names where `SETUP.md` lives
-too. Step 2 needs nothing: `_contract` does not consult a config, and must
-not start — a contract names no model, rung, tier or host, so validating one
-is exactly the work an orchestrator does knowing nothing about the ladder.
-Action 14 is that: Step 2 validates with no config and never mentions setup.
+Step 2 (`mcgyvr contract CONTRACT.yaml`) and Step 3
+(`mcgyvr run CONTRACT.yaml ...`) are the two commands the skill points an agent
+at, in order, on every machine including one nobody has run `mcgyvr init` on.
+They are not the same command. Step 3 needs a ladder: `_run` refuses a
+model-executed contract when no config loads and names where `SETUP.md` lives
+beside the loader's own message (`cli.SETUP_DOC`). Step 2 needs nothing:
+`_contract` does not consult a config, and must not start — a contract names no
+model, rung, tier or host, so validating one is exactly the work an
+orchestrator does knowing nothing about the ladder. Step 2 validates with no
+config and never mentions setup.
 
-Actions 30 through 34 are `install.sh`. 30: a `SKILL.md` that does not parse
-as frontmatter, whose `name` is not the directory it lands in, or whose
-`description` is out of bounds, is refused — and refused on the source,
-before the first `cp`. Verifying the copy read the bytes a harness would
-load, but it read them one `cp` too late: the file that failed was already
-installed, with no record beside it, and a missing record is exactly what the
-next run reads as "installed before this script kept one" and overwrites
-without asking. That the bytes which landed are the bytes that were checked
-is a digest comparison, made as each file is copied. 31: an argument it does
-not recognise gets one line naming `SETUP.md`, not a maintained document per
-harness. 32: it refuses to silently overwrite an installed copy a person has
-hand-edited, without `--force`, and says which file differs — every file it
-installed, the reference files among them. 33 is 32's other half: a refusal
-that cannot tell a hand edit from an ordinary `SKILL.md` upgrade would block
-the very upgrade action 4 makes, on every machine that already has the old,
-Step-0-carrying file installed. It is driven twice — once where a record
-exists, and once on the machine that has none. 34:
-`install.sh`'s stdout is a list of paths, `SETUP.md`'s among them since
-action 7 keeps it out of the installed copies, and never a file's contents —
-stdout is the only part of running it that can reach an agent's context.
+The rest is `install.sh`. A `SKILL.md` that does not parse as frontmatter,
+whose `name` is not the directory it lands in, or whose `description` is out
+of bounds, is refused — and refused on the source, before the first `cp`: a
+file that failed after it was installed would sit there with no record beside
+it, and a missing record is exactly what the next run reads as "installed
+before this script kept one" and overwrites without asking. That the bytes
+which landed are the bytes that were checked is a digest comparison, made as
+each file is copied. An argument it does not recognise gets one line naming
+`SETUP.md`, not a maintained document per harness. It refuses to silently
+overwrite an installed copy a person has hand-edited, without `--force`, and
+says which file differs — every file it installed, the reference files among
+them. The other half of that refusal: one that cannot tell a hand edit from an
+ordinary `SKILL.md` upgrade would block the upgrade on every machine that has
+an older file installed. It is driven twice — once where a record exists, and
+once on the machine that has none. `install.sh`'s stdout is a list of paths,
+`SETUP.md`'s among them since it is kept out of the installed copies, and
+never a file's contents — stdout is the only part of running it that can reach
+an agent's context.
 """
 
 from __future__ import annotations
@@ -52,14 +49,12 @@ SKILL_DIR = REPO / "skills" / "mcgyvr"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 INSTALL_SH = SKILL_DIR / "install.sh"
 
-# `skills/mcgyvr/SKILL.md` as it stood before actions 4 and 5 took Step 0 out
-# of it — the file a machine that installed the skill before this script kept
-# a record is still carrying. Frozen here, verbatim, because that is what such
-# a machine holds: a copy of a file no ref in this repository will name once
-# this lands.
+# `skills/mcgyvr/SKILL.md` as it stood when it carried Step 0 — the file a
+# machine that installed the skill before `install.sh` kept a record holds.
+# Frozen verbatim; no ref on main names it.
 OLD_SKILL_MD = Path(__file__).parent / "fixtures" / "skill_md_carrying_step_0.md"
 
-# Named by action 1: `skills/mcgyvr/SETUP.md`, beside the skill it is not
+# `skills/mcgyvr/SETUP.md`, beside the skill it is not
 # part of. Checked as a substring rather than the absolute path, so this
 # holds however a caller renders it (bare, or with a repo prefix).
 SETUP_PATH_FRAGMENT = "skills/mcgyvr/SETUP.md"
@@ -69,7 +64,7 @@ PI_SKILL = Path(".pi") / "agent" / "skills" / "mcgyvr" / "SKILL.md"
 
 # The Agent Skills layout both harnesses read: the reference files sit in a
 # `references/` directory beside SKILL.md, and SKILL.md points at them
-# skill-relative. Action 27 moved the nine examples there.
+# skill-relative. The examples live there.
 EXAMPLES = Path("references") / "examples.md"
 CLAUDE_EXAMPLES = CLAUDE_SKILL.parent / EXAMPLES
 PI_EXAMPLES = PI_SKILL.parent / EXAMPLES
@@ -132,7 +127,7 @@ def _skill_md(
     return "\n".join(lines) + "\n"
 
 
-# --- actions 13, 14: the two commands a bare machine still reaches ---------
+# --- the two commands a bare machine reaches --------------------------------
 
 
 @pytest.fixture
@@ -165,11 +160,11 @@ def test_mcgyvr_run_with_no_config_names_the_setup_document(
 ) -> None:
     """Step 3, on a bare machine, points back to where setup actually lives.
 
-    `_run` already refuses a model-executed contract when
-    `config is None and not contract.is_deterministic`; today it prints only
-    `str(config_error)`, which says `mcgyvr init` but never where the fuller
-    instructions are. With Step 0 gone from `SKILL.md`, this is the error an
-    agent following Step 3 is left with.
+    `_run` refuses a model-executed contract when
+    `config is None and not contract.is_deterministic`, and names
+    `skills/mcgyvr/SETUP.md` beside the loader's own message
+    (`cli.SETUP_DOC`). `SKILL.md` carries no setup step, so this is the error
+    an agent following Step 3 is left with.
     """
     repo = lj.make_repo(tmp_path / "repo")
     contract = lj.make_contract(tmp_path / "impl.yaml")
@@ -188,13 +183,11 @@ def test_mcgyvr_contract_validates_with_no_config_and_never_mentions_setup(
 ) -> None:
     """Step 2 validates a contract on a machine with no config, and says so.
 
-    An earlier draft of this test asked `_contract` to refuse when no config
-    loads, and it was wrong. A contract names no model, no rung, no tier and
-    no host (`contract.py:461-647`); it is authored and validated by an
-    orchestrator that knows nothing about the ladder, and that is the asset
-    the whole plan exists to protect. Making Step 2 consult a config would
-    make the ladder a precondition of writing a contract about it, which is
-    the opposite of what the plan is for.
+    A contract names no model, no rung, no tier and no host
+    (`mcgyvr.contract.SCHEMA`); it is authored and validated by an
+    orchestrator that knows nothing about the ladder. Making Step 2 consult a
+    config would make the ladder a precondition of writing a contract about
+    it.
 
     So the seam is Step 3, not Step 2: `mcgyvr run` needs a ladder and names
     `SETUP.md` when there is none, and `mcgyvr contract` exits 0 here without
@@ -210,7 +203,7 @@ def test_mcgyvr_contract_validates_with_no_config_and_never_mentions_setup(
     assert SETUP_PATH_FRAGMENT not in out + err, out + err
 
 
-# --- action 30: install.sh verifies the skill, before it copies it ----------
+# --- install.sh verifies the skill, before it copies it ---------------------
 
 
 def test_install_refuses_a_copied_skill_whose_frontmatter_does_not_parse(
@@ -274,7 +267,7 @@ def test_a_refused_skill_is_not_installed_anywhere(tmp_path: Path) -> None:
     assert landed == [], landed
 
 
-# --- action 27's other half: the references travel with the skill -----------
+# --- the references travel with the skill -----------------------------------
 
 
 def test_install_places_the_reference_examples_beside_the_installed_skill(
@@ -282,14 +275,13 @@ def test_install_places_the_reference_examples_beside_the_installed_skill(
 ) -> None:
     """The installed tree is the Agent Skills layout, references included.
 
-    Action 27 moved the nine examples out of `SKILL.md` into
-    `skills/mcgyvr/references/examples.md`, and `SKILL.md` keeps one pointer
-    line to them. A script that copies only `SKILL.md` leaves that pointer
-    aimed at a file that is not there: an agent whose machine INSTALLED the
-    skill, rather than cloning this repository, cannot reach a single example.
-    So `references/` is installed too, and byte for byte — the examples load
-    through the contract validator, and a copy that is not the checked one is
-    not the shape that was checked.
+    The examples live in `skills/mcgyvr/references/examples.md`, and `SKILL.md`
+    keeps one pointer line to them. A script that copies only `SKILL.md` leaves
+    that pointer aimed at a file that is not there: an agent whose machine
+    INSTALLED the skill, rather than cloning this repository, cannot reach a
+    single example. So `references/` is installed too, and byte for byte — the
+    examples load through the contract validator, and a copy that is not the
+    checked one is not the shape that was checked.
     """
     repo_examples = SKILL_DIR / EXAMPLES
     assert repo_examples.exists(), "skills/mcgyvr/references/examples.md must exist"
@@ -323,7 +315,7 @@ def test_uninstall_removes_the_installed_reference_files_too(tmp_path: Path) -> 
 def test_an_edited_reference_file_is_refused_the_way_an_edited_skill_is(
     tmp_path: Path,
 ) -> None:
-    """Action 32 covers everything installed, not only `SKILL.md`.
+    """The hand-edit refusal covers everything installed, not only `SKILL.md`.
 
     The record beside each installed copy names every file this script wrote
     there, so a hand edit to an installed example is the same refusal a hand
@@ -344,23 +336,19 @@ def test_an_edited_reference_file_is_refused_the_way_an_edited_skill_is(
     assert installed.read_bytes() == edited, "unforced install touched an edit"
 
 
-# --- action 31: an argument install.sh does not recognise -------------------
+# --- an argument install.sh does not recognise ------------------------------
 
 
 def test_an_unrecognised_argument_names_the_setup_document_in_one_line(
     tmp_path: Path,
 ) -> None:
-    """Renamed to say what it checks.
+    """An argument, not a harness.
 
     `install.sh` takes no harness argument: it installs into both harnesses
-    it knows and reads nothing about a third from its command line. What
-    action 31 is implemented as, and what this drives, is the `*)` arm of its
-    argument `case` — any word it does not understand, `codex` among them,
-    gets the one line naming `SETUP.md` and no per-harness document. The test
-    said "harness" and checked an argument; naming the argument is the
-    smaller of the two changes, and detecting harnesses would be the second
-    installable plan v4 ruled out ("Not doing": Hermes and Codex install
-    targets, deferred by PR 377 and still deferred).
+    it knows and reads nothing about a third from its command line. What this
+    drives is the `*)` arm of its argument `case` — any word it does not
+    understand, `codex` among them, gets the one line naming `SETUP.md` and no
+    per-harness document.
     """
     home = tmp_path / "home"
     home.mkdir()
@@ -373,7 +361,7 @@ def test_an_unrecognised_argument_names_the_setup_document_in_one_line(
     assert SETUP_PATH_FRAGMENT in combined, combined
 
 
-# --- actions 32, 33: refuse a hand edit, never an upgrade -------------------
+# --- refuse a hand edit, never an upgrade -----------------------------------
 
 
 def test_install_refuses_to_overwrite_a_hand_edited_copy_without_force(
@@ -398,16 +386,14 @@ def test_install_refuses_to_overwrite_a_hand_edited_copy_without_force(
 def test_the_no_force_refusal_does_not_block_an_upgrade_that_changes_the_source(
     tmp_path: Path,
 ) -> None:
-    """32's refusal is for a hand edit, never for the repo's own SKILL.md
-    changing between two runs of install.sh — which is exactly the shape
-    action 4 takes to remove Step 0. A refusal that could not tell the two
-    apart would keep every machine that already has the old, Step-0-carrying
-    file on it forever, which is what would defeat action 4.
+    """The refusal is for a hand edit, never for the repo's own SKILL.md
+    changing between two runs of install.sh. A refusal that could not tell the
+    two apart would keep every machine that has an older file on it forever.
 
     Both halves are proved here, in one test: the hand edit is refused
-    first, to show this action does not ask for that protection to be
-    weakened; only then does the source itself change, with nobody having
-    touched the installed copy, and that must go through unforced.
+    first, to show that protection is not weakened; only then does the source
+    itself change, with nobody having touched the installed copy, and that must
+    go through unforced.
     """
     home = tmp_path / "home"
     home.mkdir()
@@ -433,27 +419,24 @@ def test_the_no_force_refusal_does_not_block_an_upgrade_that_changes_the_source(
 def test_a_machine_carrying_the_old_skill_with_no_record_upgrades_unforced(
     tmp_path: Path,
 ) -> None:
-    """The machine action 33 is actually about, which nothing tested.
+    """The machine with no record at all.
 
     The test above installs first — so a `.mcgyvr-installed` record exists —
-    and only then changes the source. The case the plan feared has no record
-    at all: a machine that installed the skill before this script kept one,
-    carrying the pre-change, Step-0-carrying `SKILL.md`. There, "installed
-    differs from source" is the only thing that can be seen, and it is
-    equally true of the hand edit and of the upgrade. If that is refused,
-    action 32 defeats action 4 on every machine that already has the skill.
+    and only then changes the source. This case has no record: a machine that
+    installed the skill before this script kept one, carrying the
+    Step-0-carrying `SKILL.md`. There, "installed differs from source" is the
+    only thing that can be seen, and it is equally true of the hand edit and
+    of the upgrade. If that is refused, the hand-edit refusal blocks the
+    upgrade on every machine that has the skill.
 
     The old file is the real one those machines carry, kept verbatim beside
-    this test rather than fabricated or read back out of git. Reading it out
-    of git would say nothing on a checkout that has no `main` — and would say
-    the wrong thing the moment this branch lands, since `main`'s SKILL.md is
-    then the Step-0-less one and the file this test is about would exist
-    nowhere a ref could name it. A frozen copy is what an old machine has.
+    this test rather than fabricated or read back out of git: no ref on main
+    names it. A frozen copy is what an old machine has.
     """
     old = OLD_SKILL_MD.read_bytes()
     assert b"mcgyvr init" in old, (
         "the frozen copy must still be the Step-0-carrying one this upgrade "
-        "is for; if it is not, this test is no longer driving action 33"
+        "is for; if it is not, this test is not driving the recordless upgrade"
     )
     assert b"name: mcgyvr" in old, "the frozen copy must be a real SKILL.md"
     assert old != SKILL_MD.read_bytes(), (
@@ -478,7 +461,7 @@ def test_a_machine_carrying_the_old_skill_with_no_record_upgrades_unforced(
     assert record.exists(), "the upgrade must leave the record it was missing"
 
 
-# --- action 34: stdout is paths, never contents -----------------------------
+# --- stdout is paths, never contents ----------------------------------------
 
 
 def test_install_stdout_names_setup_md_and_never_dumps_file_contents(
@@ -486,7 +469,7 @@ def test_install_stdout_names_setup_md_and_never_dumps_file_contents(
 ) -> None:
     """The paths it wrote, `SETUP.md`'s among them, and no file's contents.
 
-    What action 34 keeps out of a context is a file's contents — the
+    What is kept out of a context is a file's contents — the
     frontmatter, and the body — so that, and not "every line is a path", is
     what this asserts. `Invoke it with /mcgyvr; it does not load itself.` is
     one instruction to the operator who ran the script, and the only thing

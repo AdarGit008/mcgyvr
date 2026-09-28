@@ -60,8 +60,7 @@ from mcgyvr.serving import (
 ENGINE_COMMANDS = {"llama.cpp": ("llama-server",), "vllm": ("vllm", "serve")}
 ENGINE_IMAGES = {
     "llama.cpp": "ghcr.io/ggml-org/llama.cpp:server-cuda",
-    # The build measured on srv2 on 2026-09-05; the digest pinned on a source
-    # (`sources.<name>.image`) is what a live row is valid against.
+    # Default only; a unit's own `image` wins (see `_image`).
     "vllm": "vllm/vllm-openai:v0.26.0",
 }
 
@@ -70,13 +69,7 @@ ENGINE_IMAGES = {
 # it.
 MOUNT = "/models"
 
-# Re-exported from :mod:`mcgyvr.serving`, where they now live: `serving.cards`
-# has to name the file a host's launch spec is kept in without a scan, and this
-# module already imports that one. Kept spelled here because they are what an
-# operator reads off a directory listing and half the tree imports them from
-# `mcgyvr.emit`. `safe_host` and `safe_model` moved with them, for the same
-# reason and on 2026-09-09: while the convention was spelled twice, `cards`
-# spelled it wrong for every host whose name has to be rewritten.
+# Re-exported from :mod:`mcgyvr.serving`, where they are defined.
 __all__ = ["COMPOSE_PREFIX", "COMPOSE_SUFFIX", "safe_host", "safe_model"]
 
 # Compose service names: the process, not the file.
@@ -104,10 +97,10 @@ def argv(unit: Unit) -> tuple[str, ...]:
     path is allowed to contain a semicolon, and that is precisely why the bare
     rendering quotes instead of trusting.
 
-    ``--port`` is stated rather than left to the engine, because the source URL
-    the unit was built from is a promise about where that rung answers, and a
+    ``--port`` is stated rather than left to the engine, because the address
+    the unit was built from is a promise about where that unit answers, and a
     server listening somewhere else makes the config a lie — one that reads as
-    a dead tier, or as two models on one host where the second never came up
+    a dead unit, or as two models on one host where the second never came up
     because the first already had 8080. Written here, in the one argv, so the
     compose file and the pasted command cannot disagree about it.
     """
@@ -264,8 +257,8 @@ def planned_paths(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
 
     For a reporter that wants to name them — a clean ``--check`` says which
     files it just agreed with — and it asks the planner rather than spelling
-    ``compose.<host>.yml`` itself, which is a name that stopped being true the
-    day a host could hold alternatives.
+    ``compose.<host>.yml`` itself, which is not the name of every spec: a host
+    may hold alternatives.
     """
     return tuple(path for path, _ in _planned(units, root))
 
@@ -309,17 +302,14 @@ def unplanned(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
 def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
     """Every (path, document) pair a ladder's units resolve to, path-sorted.
 
-    Extracted so that writing and checking cannot disagree about grouping,
-    naming or refusal. Every rule below was :func:`emit_all`'s and keeps its
-    meaning; what changed is that the answer is now a value, so a caller may
-    compare it with the disk instead of committing it to the disk.
+    Shared so that writing and checking cannot disagree about grouping, naming
+    or refusal: the answer is a value, so a caller may compare it with the disk
+    instead of committing it to the disk.
 
     The cut into files is :func:`~mcgyvr.serving.launch_specs`' and not this
-    module's — what comes up together is a fact about units, and since
-    2026-09-09 it is a fact about the *card* they share rather than about the
-    port they answer on. What is decided here is only how a spec is spelled:
-    ``compose.<host>.yml`` for a host that comes up as one, which is both live
-    rigs and every fleet emitted until now and nothing on disk moves for one,
+    module's — what comes up together is a fact about the *card* units share.
+    What is decided here is only how a spec is spelled:
+    ``compose.<host>.yml`` for a host that comes up as one,
     and ``compose.<host>.<what tells it apart>.yml`` otherwise, because
     ``serve up --compose`` takes one file and starts what is in it. The
     discriminator is :func:`~mcgyvr.serving.launch_specs`' too — usually the
@@ -363,7 +353,7 @@ def _document(units: tuple[Unit, ...]) -> str:
     :func:`_service_name` is many-to-one — ``qwen2.5-coder:3b`` and
     ``qwen2.5-coder-3b`` are two sets of weights, two processes and one compose
     name — and keeping the last of them writes a file that looks entirely
-    correct, brings up one server and leaves the rung bound to the other with
+    correct, brings up one server and leaves the unit bound to the other with
     connection refused, on a rig whose own compose file names the model it is
     asking for. Compose has no spelling that is both, so the fixable thing is
     the model name and the error says so.
@@ -387,48 +377,32 @@ def _document(units: tuple[Unit, ...]) -> str:
 def _sequence_on_one_card(
     units: tuple[Unit, ...], services: dict[str, dict[str, object]]
 ) -> None:
-    """Order the units that share a card, largest first, in place.
+    """Chain the units that share a card so they load one at a time, in place.
 
     A compose file with no dependency between its services tells the daemon to
     start every one of them at once, which on a card that fits both only if
-    they load one after the other is a race. Measured on srv2, 2026-09-05:
-    started together the 7B got 0.89 GiB of KV cache and 4.08x concurrency;
-    started alone after the 3B was resident, 2.77 GiB and 12.68x. The first
-    attempt crash-looped — the 7B needed 8.37 GiB free and found 7.61 — until
-    the two were sequenced by hand.
+    they load one after the other is a race (``okf/config/vllm.md``).
 
-    **Largest first, because it is the one that cannot recover.** A small model
-    measuring the card after a large neighbour has taken its share still fits;
-    the large one measuring after the small has taken its share does not. A
-    vLLM unit makes this sharper than it looks: it sizes its cache from
-    ``--gpu-memory-utilization`` of what is free *at load*, so the order does
-    not merely decide who wins a race, it decides how much cache each one ends
-    up holding for the rest of its life.
+    The order this code writes is largest card figure first, then service
+    name. Which order is right is an open ruling (``okf/config/vllm.md``); the
+    sort is total so that two runs of ``emit`` over one config write the same
+    file.
 
-    A chain rather than a fan-in on the largest, so that three units on one
-    card load one at a time as well as two. Sorted by the card figure the fit
-    approved and then by service name, because a compose file that differs
-    between two runs of ``emit`` over one config is a file nobody can review.
+    A chain rather than a fan-in, so that three units on one card load one at a
+    time as well as two.
 
     Units on different cards are not sequenced: they do not contend, and a
     dependency there is noise that delays every restart. Neither is a host with
     one unit, for the same reason.
 
-    **The condition is ``service_healthy``, and it was ``service_started``
-    until the 2026-09-09 campaign showed that started does not sequence.** The
-    daemon releases the waiter as soon as the process ahead of it exists, which
-    is about a second and always long before that process has sized its cache
-    off what is free — so the pair went on contending, the 3B crash-restarted
-    one to two times on every cold start, and ``restart: unless-stopped`` hid
-    each of those behind a wake that merely looked slow. The 168 s pair figure
-    the wake budget was argued from is a wake plus those retries, and the 86 s
-    subtraction built on it is void.
+    **The condition is ``service_healthy``.** ``service_started`` releases the
+    waiter as soon as the process ahead of it exists, long before that process
+    has read its weights and taken its card, so it does not sequence.
 
     A healthcheck is written **only on a service something waits for**, which is
     only ever a co-resident. ``service_healthy`` against a service that declares
-    none never releases at all, so the two are one change; and writing one on
-    every service would move the compose file of every single-unit rig on the
-    fleet — srv1 included — for a failure those rigs cannot have.
+    none never releases at all, so the two go together; a single-unit rig's
+    compose file carries neither.
 
     The check asks the unit's own port, which under host networking is the only
     thing telling two units on one host apart. It is deliberately the same
@@ -453,10 +427,9 @@ def _sequence_on_one_card(
 
 
 #: How long a unit ahead of another may take to read its weights and take its
-#: card before compose calls it unhealthy. The fleet's slowest measured load is
-#: 385.3 s and its slowest co-resident one is 172 s, so the window is generous
-#: on purpose: a healthcheck that gives up is a pair that never starts, and the
-#: door already has `budgets.wake_timeout_s` as the sole authority that does.
+#: card before compose calls it unhealthy. Generous on purpose: a healthcheck
+#: that gives up is a pair that never starts, and the door's own health poll
+#: (`mcgyvr.config.HEALTH_POLLS` x `HEALTH_INTERVAL_S`) is what gives up.
 _HEALTH_START_PERIOD_S = 600
 
 
@@ -465,7 +438,7 @@ def _healthcheck(port: int) -> dict[str, object]:
 
     ``start_period`` rather than a long ``retries``: during it a failing probe
     does not count against the container, which is exactly the state a unit
-    spends its first two minutes in. ``CMD-SHELL`` with a ``wget`` fallback
+    is in while it loads. ``CMD-SHELL`` with a ``wget`` fallback
     because the two engines ship different base images and neither promises
     ``curl`` — a check whose binary is absent is a container that is unhealthy
     forever, and a waiter that never starts.
@@ -501,7 +474,7 @@ def _service(unit: Unit) -> dict[str, object]:
         # published mapping would be a second answer to "where do I reach
         # this" — one that can differ from the pasted command's, which is the
         # drift this module exists to prevent. Under host networking there is
-        # one number, the one the source URL named, and both renderings say it.
+        # one number, the one the unit's address named, and both renderings say it.
         "network_mode": "host",
         # The rig is reached from another machine, and llama-server's own
         # default bind is loopback — which under host networking would serve
@@ -528,8 +501,7 @@ def _vllm_service(unit: Unit) -> dict[str, object]:
     so that cache is what gets mounted — read-only, at the image's own cache
     path so the id resolves with no further flag — and the server is started
     offline, so a rig never downloads at load. ``ipc: host`` is what vLLM's
-    own image documents for its shared-memory tensors, and what every driver
-    on these rigs has started it with.
+    own image documents for its shared-memory tensors.
     """
     return {
         "image": _image(unit),
@@ -597,15 +569,15 @@ def emit_locked(
     """Write one compose file per fleet per rig of a locked ``fleet.yaml``.
 
     A locked unit was measured, approved and hashed, so what is rendered is the
-    launch it states and not one sized here (owner, 2026-09-15): no scan, no
-    fit, no cache dtype. Every file is planned, and every refusal raised,
-    before the first one is written.
+    launch it states and not one sized here: no scan, no fit, no cache dtype.
+    Every file is planned, and every refusal raised, before the first one is
+    written.
 
     ``setup`` is the directory the fleet files are in, which is what a unit's
     ``launch.seccomp`` is named relative to. A unit that states one has its
     profile written beside the compose file that names it, because that is
     where compose looks for it; a fleet where nobody states one needs no
-    ``setup`` and writes exactly the files it wrote before.
+    ``setup``.
     """
     planned = _planned_locked(fleet, root, setup)
     root.mkdir(parents=True, exist_ok=True)
@@ -633,8 +605,8 @@ def unplanned_locked(
 ) -> tuple[Path, ...]:
     """Launch specs on disk for a rig a locked layout names that it does not write.
 
-    The locked counterpart of :func:`unplanned`: the ``compose.<host>.yml`` an
-    emit before the lock wrote is still where a wake would look for that rig.
+    The locked counterpart of :func:`unplanned`: a leftover
+    ``compose.<host>.yml`` is still where a wake would look for that rig.
     """
     hosts = {
         host
@@ -670,7 +642,7 @@ def _planned_locked(
     """``compose.<host>.<fleet>.yml`` per fleet per rig, services in layout order.
 
     The layout is the start order: each service waits for the one before it to
-    be healthy, the order the fleet was brought up in when it was validated.
+    be healthy.
 
     A unit that states ``launch.seccomp`` adds one more planned file: the
     profile itself, beside the compose file that names it, because compose
@@ -763,8 +735,7 @@ def _locked_service(name: str, unit: Mapping[str, Any]) -> dict[str, object]:
         "environment": dict(env),
         "network_mode": "host",
         "restart": "unless-stopped",
-        # Card 0: each rig holds one card, and the compose files b-small was
-        # validated under reserved device 0.
+        # Card 0: a locked unit states no card index.
         "deploy": _reservation(0),
     }
     if isinstance(seccomp, str) and seccomp.strip():

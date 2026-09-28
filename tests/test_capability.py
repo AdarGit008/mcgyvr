@@ -1,8 +1,7 @@
 """The capability table is shipped data other decisions rest on.
 
-These tests hold it to the properties `mcgyvr init` will rely on, and guard
-the failure modes that made the underlying measurements wrong in the first
-place (see data/README.md).
+These tests hold it to the properties `mcgyvr init` relies on, and guard the
+failure modes that make a measurement wrong.
 """
 
 from __future__ import annotations

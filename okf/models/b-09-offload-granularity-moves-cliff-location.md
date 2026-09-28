@@ -7,4 +7,8 @@ tags: [local-ai, hardware]
 
 # Offload granularity moves the cliff location, not the ceiling
 
-**Data point.** Offload granularity moves the *location* of the cliff, not the ceiling — expert-level keeps hot attention resident, only cold experts spill.
+Offload granularity moves the *location* of the cliff, not the ceiling.
+Expert-level offload (`--n-cpu-moe`) keeps hot attention resident and spills
+only cold experts; layer-level offload (lowering `-ngl`) spills attention with
+them.
+→ `okf/config/llama.cpp.md` `--n-cpu-moe`, `-ngl`

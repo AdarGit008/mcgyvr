@@ -1,17 +1,16 @@
 """Gate 5 guards the envelope; a step argument must not route around it.
 
-Six of the eight kernel-arms steps kept an output override from their bare-run
-days (``--out PATH``, ``--out-dir DIR``) and three a ``--force`` that waived
-their own exists-check. The door passes everything after ``--`` to the step
-verbatim, and gate 5's write-once check, gate 7's ``### RIGMOVED`` stamp and
-gate 8's read-back all look only at ``$RUN_OUT_DIR/<declared>``: through the
-door, ``-- --out <the recorded 2026-09-02 file>`` overwrote committed evidence
-while the door printed green, and ``-- --out-dir <anywhere>`` filed a run where
-no gate could see it.
+The door passes everything after ``--`` to the step verbatim, and gate 5's
+write-once check, gate 7's ``### RIGMOVED`` stamp and gate 8's read-back all
+look only at ``$RUN_OUT_DIR/<declared>``. A step output override (``--out
+PATH``, ``--out-dir DIR``) or a ``--force`` that waives a step's own
+exists-check would let ``-- --out <a recorded file>`` overwrite committed
+evidence while the door printed green, and ``-- --out-dir <anywhere>`` file a
+run where no gate could see it.
 
 The door owns the envelope. It refuses those tokens before gate 1
-(``run.py:_check_step_args``) — nothing is checked, nothing is made, no rig is
-read — and the steps no longer parse them: the sanctioned re-run path is
+(``mcgyvr.serving.run._check_step_args``) — nothing is checked, nothing is
+made, no rig is read — and the steps do not parse them: the sanctioned re-run path is
 ``--suffix`` over a ``RUN_REWRITES`` declaration.
 """
 

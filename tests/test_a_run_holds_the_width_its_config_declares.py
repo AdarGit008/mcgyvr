@@ -9,12 +9,11 @@ dispatch already carries a ``capacity``: :func:`~mcgyvr.escalate.ascent` and
 it to the attempt, and :func:`~mcgyvr.runner.dispatch` holds it around the
 request.
 
-Nothing built one. ``cli.py`` named ``capacity`` nowhere, so both calls took
-the default of ``None`` and ``dispatch`` took the branch that sends unbounded.
-The ceiling was printed and never applied, which is the failure the 2026-09-06
-live e2e found: 26 concurrent contracts opened 21 requests at an eight-slot
-rung and 19 of them died on the client's own timeout, waiting in a queue
-inside the engine that a slot file would have kept them out of.
+A capacity nobody builds leaves ``dispatch`` on its ``None`` branch, which
+sends unbounded: the ceiling is printed and never applied, and concurrent
+contracts open more requests at a rung than it has slots, dying on the
+client's own timeout in a queue inside the engine that a slot file would have
+kept them out of.
 
 Two properties, and the second is the one an operator can see:
 

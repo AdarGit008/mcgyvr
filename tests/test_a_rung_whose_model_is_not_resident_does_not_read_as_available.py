@@ -8,28 +8,26 @@ been brought up on a URL the ladder still points a rung at. llama.cpp does not
 check: ``/v1/chat/completions`` with a ``model`` field naming weights it is not
 holding is answered from the weights it *is* holding, with no error anywhere. So
 a dispatch aimed at the sleeping rung reaches a server holding the other model
-and the run records an answer from a rung that was never up. That is O3, and it
-is the failure this file exists to prevent: **wrong weights, silently.**
+and the run records an answer from a rung that was never up. That is the
+failure this file exists to prevent: **wrong weights, silently.**
 
-Card contention makes it ordinary rather than exotic. Since the discriminator
-became the card
-(``tests/test_card_contention_and_not_the_port_decides_who_alternates.py``), any
-two units whose figures do not sum onto the card they share alternate — srv2's
-vLLM pair against the 80B, srv1's DeepSeek against Qwen3.6 — and each of them is
-a rung the ladder still names while its model is not resident.
+Card contention makes it ordinary rather than exotic. The discriminator is the
+card (``tests/test_card_contention_and_not_the_port_decides_who_alternates.py``):
+any two units whose figures do not sum onto the card they share alternate, and
+each of them is a rung the ladder still names while its model is not resident.
 
 **What this file pins**
 
 1. A rung whose model the endpoint does not list is **not available**, and the
    reason names the model and what was found instead.
-2. A rung whose model *is* listed is available exactly as before.
+2. A rung whose model *is* listed is available.
 3. **An endpoint that does not say claims nothing.** A 404 on the listing, a
    body that is not JSON, a body of another shape, a listing that is empty — all
    of them leave every rung available, because the model-list path is optional
-   and half this fleet's servers do not publish a usable one. This is the same
-   discipline ``servelib.sleeping`` takes for ``/is_sleeping`` (``b4e9ea8e``):
-   only an explicit answer may take a rung out of service, because a probe that
-   failed closed on an unreadable one would empty the ladder the day it landed.
+   and not every server publishes a usable one. This is the same
+   discipline ``servelib.sleeping`` takes for ``/is_sleeping``: only an
+   explicit answer may take a rung out of service, because a probe that failed
+   closed on an unreadable one would empty the ladder.
 4. The probe is still **one request per source**. The model check reads the body
    that request already fetched; it does not add a round trip, and a source
    serving four rungs is still probed once.
@@ -121,12 +119,12 @@ def test_a_rung_whose_model_is_listed_is_available_exactly_as_before() -> None:
 
 
 def test_an_endpoint_that_does_not_say_takes_no_rung_out_of_service() -> None:
-    """Only an explicit answer may shorten the ladder (``b4e9ea8e``'s rule).
+    """Only an explicit answer may shorten the ladder.
 
     A small server may implement ``/v1/chat/completions`` and never implement
     ``/v1/models`` — the 404 arm this module's own docstring is asymmetric for —
     and a probe that read silence as "your model is not here" would empty every
-    such ladder the day it landed.
+    such ladder.
     """
     for said in (None, ()):
         kept, skipped = rungs_of(answering(said))

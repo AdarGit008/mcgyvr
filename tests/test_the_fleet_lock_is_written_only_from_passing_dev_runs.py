@@ -29,9 +29,8 @@ It locks only the combinations a fleet lists, leaves a combination no edit
 touched byte for byte, and locks a switch on a rig move another switch already
 ran.
 
-The tolerances here are placeholders. The survey's provisional values and the
-measured ones belong to ``red/fleet-identity-measurements``; these tests pin the
-rule, never the number.
+The tolerances here are placeholders: these tests pin the rule, never the
+number.
 """
 
 from __future__ import annotations
@@ -233,7 +232,8 @@ def test_a_combination_whose_overhead_dev_never_measured_is_not_locked(
     tmp_path: Path,
 ) -> None:
     """Overhead is each combination's own reading, never a rig's: the CUDA
-    context differs per card and per engine (plan §8)."""
+    context differs per card and per engine
+    (``mcgyvr-lab/records/plans/fleet-identity.md`` §8)."""
     lock = _lock()
     evidence = edited(EVIDENCE)
     del evidence["combinations"][1]["overhead_mib"]

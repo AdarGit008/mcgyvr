@@ -1,15 +1,14 @@
 """A bench row is filed under the backend that ran, and a backend the image
 declared but did not run is a refusal, not a number.
 
-On 2026-09-02 the A3 arm (``GGML_VULKAN=ON``) filed four ``BENCH`` rows at
-88-90 tok/s prefill. They were the six-core i5-9600K: ``libggml-vulkan.so``
-dlopened, found no Vulkan device, and ggml fell back to the CPU backend without
-a word. llama-bench's own report says ``backend: CPU`` on every entry, and the
-step did not read it. The correction was written by hand afterwards
-(``### CORRECTION arm=A3 ... measured_backend=cpu``).
+An arm built with ``GGML_VULKAN=ON`` whose ``libggml-vulkan.so`` finds no
+Vulkan device falls back to the CPU backend without a word, and its ``BENCH``
+rows are the host CPU's. llama-bench's own report says ``backend: CPU`` on
+every entry; a step that does not read it files the CPU's numbers under the
+Vulkan arm.
 
-So the parser now carries ``backend=`` from the report into every row, and
-``_common.sh`` gains ``backend_verdict DECLARED MEASURED``: the image's own
+So the parser carries ``backend=`` from the report into every row, and
+``tools/runs/_common.sh`` has ``backend_verdict DECLARED MEASURED``: the image's own
 ``org.mcgyvr.build.backend`` label against what llama-bench reported. A
 declared ``vulkan`` that measured ``CPU`` exits non-zero with the reason; an
 image that declares nothing (the upstream ``server-cuda`` image, arm A1) is
@@ -201,7 +200,7 @@ esac
 def test_the_bench_step_files_a_cpu_run_under_a_vulkan_tag_as_a_refusal(
     tmp_path: Path,
 ) -> None:
-    """The 2026-09-02 A3 scenario, end to end: every arm's row is REFUSED and
+    """The A3 scenario, end to end: every arm's row is REFUSED and
     names both backends, no BENCH row, the bench goes on to ``### END`` and
     exits 0."""
     result, text = _bench_through_the_door(tmp_path, declared="vulkan", measured="CPU")
@@ -227,12 +226,11 @@ def test_the_bench_step_files_bench_rows_when_the_declared_backend_ran(
 
 
 def test_the_vulkan_arm_requests_the_device_through_cdi(tmp_path: Path) -> None:
-    """Third layer, 2026-09-03: the same image saw the GPU on srv2 and not on
-    srv1. docker 29.7.1 routes ``--gpus all`` through the CDI spec, which
-    mounts the NVIDIA Vulkan ICD manifest; docker 29.1.3 routes it through the
-    legacy hook, which mounts the driver libraries and not the manifest, so the
-    loader finds no driver. ``--device nvidia.com/gpu=all`` names the CDI spec
-    on both hosts. CUDA arms keep ``--gpus all``."""
+    """A docker that routes ``--gpus all`` through the CDI spec mounts the
+    NVIDIA Vulkan ICD manifest; one that routes it through the legacy hook
+    mounts the driver libraries and not the manifest, so the loader finds no
+    driver. ``--device nvidia.com/gpu=all`` names the CDI spec on every host.
+    CUDA arms keep ``--gpus all``."""
     root, env_extra = _bench_fixture(tmp_path, "exit 0\n")
     result = onedoor.door(
         root, _bench(root, env_extra, "--dry-run"), env_extra=env_extra

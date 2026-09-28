@@ -1,12 +1,12 @@
 """The bundle and the assembled prompt.
 
 Three properties carry the weight here. The shipped Python bundle must *be* the
-artifact  measured, or the numbers describe a different file. The size
+artifact that was measured, or the numbers describe a different file. The size
 ceiling must be enforced by the loader rather than by a comment, since the
 measurement says an oversized bundle degrades the worker it is meant to help.
 And the assembled prompt must be reachable only through
-:meth:`Contract.worker_view`, because #94's guarantee is structural or it is
-nothing.
+:meth:`Contract.worker_view`, because the guarantee that orchestrator-only
+fields never reach the worker is structural or it is nothing.
 """
 
 from __future__ import annotations
@@ -85,14 +85,14 @@ def test_shipped_python_bundle_is_byte_identical_to_the_measured_one() -> None:
 
 
 def test_both_bundles_are_measured_and_neither_helps_on_this_path() -> None:
-    """Three sweeps now, three different answers, and one flag cannot say any.
+    """Both bundles are measured, and one flag cannot say what was found.
 
-     covered one language,  the other, and #167 re-measured the
-    first through mcgyvr's own prompt assembly. ``measured`` is True throughout
-    and has stopped being the interesting question. ``standing`` is what
-    separates a bundle that measured nothing from one whose effect is real and
-    already supplied by the harness — and both of those from a gain, which is
-    what neither shipped bundle now has on mcgyvr's path.
+    One sweep covered each language, and the first was measured again through
+    mcgyvr's own prompt assembly. ``measured`` is True throughout and is not the
+    interesting question. ``standing`` is what separates a bundle that measured
+    nothing from one whose effect is real and already supplied by the harness —
+    and both of those from a gain, which is what neither shipped bundle has on
+    mcgyvr's path.
     """
     assert load_bundle("python").measured is True
     assert load_bundle("js/ts").measured is True
@@ -106,12 +106,9 @@ def test_the_js_bundle_states_its_null_result_in_the_file_but_not_in_the_prompt(
 ):
     """The standing travels with the file; it is not spent on the worker.
 
-    #25 put the marker in the bundle's text so the caveat could not be lost by
-    reading the file alone. #144 found what that cost: the loader was sending
-    those 162 bytes to the model as the opening of its system prompt, and
-    charging them against the ceiling. The marker still has to be in the file —
-    that half was right — but it is provenance, so it stops at the loader. What
-    it says changed when the sweep ran; where it stops did not.
+    The marker is in the bundle's text so the caveat cannot be lost by reading
+    the file alone. Sent to the model, it would open the system prompt and be
+    charged against the ceiling; it is provenance, so it stops at the loader.
     """
     raw = (
         Path(__file__).resolve().parent.parent
@@ -135,7 +132,7 @@ def test_shipped_bundles_are_within_the_measured_ceiling(language: str) -> None:
 def test_an_oversized_bundle_is_refused_by_the_loader(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The 8 KB condition measured *worse*. Loading one must fail loudly."""
+    """A bundle over the ceiling fails loudly at load."""
     monkeypatch.setattr(
         "mcgyvr.worker.bundle._read", lambda _f: "x" * (MAX_BUNDLE_BYTES + 1)
     )
@@ -185,7 +182,7 @@ def test_a_custom_adapter_set_is_honoured() -> None:
 
 
 def test_orchestrator_only_fields_never_reach_the_prompt() -> None:
-    """#94, held structurally: risk, acceptance, verification and limits are
+    """Held structurally: risk, acceptance, verification and limits are
     how the orchestrator judges the work, and a worker that could read them
     could argue with them."""
     built = build_prompt(contract(PY_CONTRACT))
@@ -227,7 +224,7 @@ def test_optional_sections_are_omitted_when_empty() -> None:
     assert "DEPENDENCIES" not in built.user
 
 
-# --- the target's current content (#150) -----------------------------------
+# --- the target's current content ------------------------------------------
 
 FIXABLE = """
 id: factorial-base-case
@@ -267,13 +264,13 @@ def test_the_content_reaches_the_prompt_verbatim() -> None:
 
 def test_the_content_is_absent_from_the_prompt_when_the_contract_states_none() -> None:
     """Nothing renders an empty section, and nothing invents a placeholder: a
-    contract for a file that does not exist yet says nothing about its content."""
+    contract for a file that does not exist says nothing about its content."""
     built = build_prompt(contract(JS_CONTRACT))
     assert "CURRENT CONTENT" not in built.user
 
 
 def test_the_content_reaches_the_prompt_only_through_the_worker_view() -> None:
-    """#94's property has to survive a field being added to the split.
+    """The worker-view property has to survive a field being added to the split.
 
     Rendering off ``contract.target_content`` would work and would cost the
     guarantee, so this drives the renderer with a view the content was removed

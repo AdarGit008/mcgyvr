@@ -1,17 +1,16 @@
-"""§4 — a derived output cap is a runtime budget, not part of the contract's identity.
+"""A derived output cap is a runtime budget, not part of the contract's identity.
 
-The pressure test's T1-E found that ``sha256(dumps(contract))`` — the pinned
-instrument key ``tools/instruments.py`` joins recorded runs to their task set
-by — depended on ``data/task-catalog.json``. ``output_cap`` derives the cap from
-the task type's required evidence, and the derived number was written into the
-emitted form, so flipping one ``needs_commands`` boolean re-keyed every pinned
-contract of that type.
+``sha256(dumps(contract))`` is the pinned instrument key ``tools/instruments.py``
+joins recorded runs to their task set by, so it must not depend on
+``data/task-catalog.json``. ``output_cap`` derives the cap from the task type's
+required evidence; a derived number written into the emitted form would let one
+flipped ``needs_commands`` boolean re-key every pinned contract of that type.
 
-The fix is the one the port already applied to ``depends_on``: the *resolved*
-value lives on the loaded object, the *declared* value lives in the serialised
-form. A contract that declares ``max_output_tokens`` carries that number as
-identity; a contract that does not carries ``null``, whatever the catalog later
-says, and the loader re-derives the runtime budget on every parse.
+So, as with ``depends_on``, the *resolved* value lives on the loaded object, the
+*declared* value lives in the serialised form. A contract that declares
+``max_output_tokens`` carries that number as identity; a contract that does not
+carries ``null``, whatever the catalog later says, and the loader re-derives the
+runtime budget on every parse.
 """
 
 from __future__ import annotations
@@ -108,7 +107,7 @@ def test_editing_the_catalog_does_not_move_the_identity(
 
     # The runtime cap moved — that is the catalog doing its job.
     assert loads(DOCSTRING).limits.max_output_tokens == 1024
-    # The emitted form did not — that is identity no longer reading the catalog.
+    # The emitted form did not — that is identity not reading the catalog.
     assert dumps(loads(DOCSTRING)) == before
     assert (
         hashlib.sha256(dumps(loads(DOCSTRING)).encode()).hexdigest()

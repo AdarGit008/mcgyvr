@@ -1,16 +1,11 @@
 """S12 — one `Verdict` and one `Outcome` on the composition path.
 
-Three classes named ``Verdict`` and two named ``Outcome`` used to share the
-composition path (``route``, ``verify``, ``availability``, ``escalate``), so a
-bare ``Verdict`` or ``Outcome`` import meant different things depending on the
-module it came from. The fix renames the non-canonical ones —
-``availability.Verdict`` → ``AvailabilityVerdict``, ``verify.Verdict`` →
-``ReviewVerdict``, ``verify.Outcome`` → ``ReviewOutcome`` — and leaves
-``route.Verdict`` and ``escalate.Outcome`` as the single meaning of each word.
+On the composition path (``route``, ``verify``, ``availability``, ``escalate``)
+``route.Verdict`` and ``escalate.Outcome`` are the single meaning of each word; the
+others are ``AvailabilityVerdict``, ``ReviewVerdict`` and ``ReviewOutcome``.
 
-The guard below holds both halves: the distinct names exist, and the bare names
-no longer leak from the modules that used to export them, so a collision cannot
-silently return.
+The guard below holds both halves: the distinct names exist, and ``availability`` and
+``verify`` export no bare ``Verdict`` or ``Outcome``.
 """
 
 from __future__ import annotations

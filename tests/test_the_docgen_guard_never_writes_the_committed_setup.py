@@ -2,17 +2,15 @@
 
 ``tests/test_docgen.py``'s
 ``test_running_the_docgen_tests_does_not_rewrite_the_committed_documents``
-proves something worth proving: no docgen test may regenerate the committed
-documents in place, because that would repair, in the working tree, the drift
-``make docs-check`` exists to fail on. It proves it with a sentinel comment,
-and it plants that sentinel in the tracked file itself — ``committed
-.write_bytes(original + sentinel)`` — runs an inner pytest for up to 600 s,
-and puts the file back in its ``finally``.
+proves that no docgen test regenerates the committed documents in place,
+because that would repair, in the working tree, the drift ``make docs-check``
+exists to fail on. It proves it with a sentinel comment and an inner pytest
+run of up to 600 s.
 
-For that whole window ``skills/mcgyvr/SETUP.md`` on disk is not what git has,
-and ``pyproject.toml:212`` (``addopts = "-q -n auto"``) has the rest of the
-suite running in other processes the whole time. Two of them read that file
-and fail on the sentinel:
+If that sentinel sat in the tracked file, then for the whole window
+``skills/mcgyvr/SETUP.md`` on disk would not be what git has, while
+``addopts = "-q -n auto"`` in ``pyproject.toml`` has the rest of the suite
+running in other processes. Two of them read that file:
 
 * ``tests/test_the_setup_document_is_rendered_and_drift_checked.py::
   test_setup_markdown_on_disk_is_byte_identical_to_render_setup`` reads
@@ -20,18 +18,17 @@ and fail on the sentinel:
 * ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py::
   test_docs_check_refuses_a_skill_that_drifted`` calls ``docgen.main`` with
   ``--check`` and no ``--setup-output``, so the document its second pass
-  expects to be current (docgen.py:928-931, :955-957) is the committed one.
+  expects to be current is the committed one.
 
-Both pass alone and fail when they land inside the window, which is a matter
-of which worker gets which test. What is asserted here instead is the
-property, at the one moment it is decidable: the committed file is read at the
-point the guard invokes its inner run, which is the start of the window and
-the moment a truncating change would already be on disk. Nothing is raced, and
-a guard that never reaches an inner run is not missed silently — it leaves
-nothing read, and that is asserted against.
+Whether they land inside such a window is a matter of which worker gets which
+test. What is asserted here instead is the property, at the one moment it is
+decidable: the committed file is read at the point the guard invokes its inner
+run, which is the start of the window and the moment a truncating change would
+already be on disk. Nothing is raced, and a guard that never reaches an inner
+run is not missed silently — it leaves nothing read, and that is asserted
+against.
 
-Same shape as PR #485 for ``tools/bench/rounds.json``: a test must not write
-the checkout's tracked files.
+A test must not write the checkout's tracked files.
 """
 
 from __future__ import annotations
@@ -47,13 +44,13 @@ import pytest
 from mcgyvr import docgen
 from tests import test_docgen
 
-#: The tracked document the guard plants its sentinel in.
+#: The tracked document the guard must leave untouched.
 SETUP = docgen.REPO_ROOT / "skills" / "mcgyvr" / "SETUP.md"
 
-#: The guard under test, reached through its module so that the fix is free to
+#: The guard under test, reached through its module so that it is free to
 #: change how it plants the sentinel without this file following it.
-#: Typed as taking anything, because what fixtures it asks for is the fix's
-#: business and this file is written before the fix.
+#: Typed as taking anything, because what fixtures it asks for is its own
+#: business.
 GUARD: Callable[..., None] = (
     test_docgen.test_running_the_docgen_tests_does_not_rewrite_the_committed_documents
 )
@@ -70,10 +67,8 @@ def _run_the_guard(
     output are what a clean inner run gives, so the guard's own assertions
     about it still hold and the only thing that can fail is the observation.
 
-    The guard takes no fixtures today. A fix that stops writing the checkout
-    may well want a ``tmp_path``, so one is passed if it asks for a fixture by
-    that name — this file is written before the fix and must not have to change
-    with it.
+    A ``tmp_path`` is passed if the guard asks for a fixture by that name, so
+    this file does not have to change with the guard's signature.
     """
     commands: list[list[str]] = []
 
@@ -126,9 +121,9 @@ def test_the_committed_setup_is_untouched_when_the_guard_runs(
         assert got == committed, (
             "a worker that read skills/mcgyvr/SETUP.md while the docgen guard "
             f"was running read {len(got)} bytes where the committed file has "
-            f"{len(committed)}: the guard plants its sentinel in the tracked "
-            "file, so for the length of its inner run the document on disk is "
-            "not the one render_setup() renders"
+            f"{len(committed)}: the guard wrote the tracked file, so for the "
+            "length of its inner run the document on disk is not the one "
+            "render_setup() renders"
         )
     assert SETUP.read_bytes() == committed
 

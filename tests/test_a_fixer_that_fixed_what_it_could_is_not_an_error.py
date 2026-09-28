@@ -1,4 +1,4 @@
-"""``mcgyvr run`` read every non-zero exit as fatal, and a fixer's ordinary exit is 1.
+"""A fixer's ordinary exit is 1, and ``mcgyvr run`` does not read it as fatal.
 
 :mod:`mcgyvr.deterministic` binds ``("python", "lint_fix")`` to ``ruff check
 --fix``, and the catalog's guarantee for that type says what the binding is for:
@@ -7,22 +7,18 @@ diagnostic the linter will not fix itself is explicitly out of scope for this
 type rather than handed to a model under the same name."* A residue is therefore
 not a failure of the contract — it is the contract's stated shape.
 
-``ruff check --fix`` reports that residue by **exiting 1**. Measured against ruff
-0.16.4 on a file with one fixable and one unfixable diagnostic: the fixable one
-is removed, the file on disk is rewritten, and the process exits 1 saying
-"1 fixed, 1 remaining". :func:`mcgyvr.cli._run` treated that as
-``error: <ruff's diagnostic dump>`` and returned 1 before ``gate_workspace`` was
-ever called. So a ``lint_fix`` contract whose autofixes landed *exactly as its
-guarantee describes* was reported as an error, never gated, and never committed
-— and the operator was shown a list of diagnostics that the type they asked for
-explicitly does not fix, as though it were a crash.
+``ruff check --fix`` reports that residue by **exiting 1**: on a file with one
+fixable and one unfixable diagnostic the fixable one is removed, the file on
+disk is rewritten, and the process exits 1. A ``lint_fix`` contract whose
+autofixes landed *exactly as its guarantee describes* is gated and committed,
+not reported as an error.
 
-``("python", "import_sort")`` is the same binding with ``--select I``, and has
-the same exposure the moment an I-rule violation is unfixable.
+``("python", "import_sort")`` is the same binding with ``--select I`` and is
+treated the same way.
 
 **Where the line goes, and why not somewhere cheaper.** Three states, not two.
-*Could not run* — 126/127, already separated by
-:data:`~mcgyvr.gate.acceptance.DID_NOT_RUN` and already an environment issue,
+*Could not run* — 126/127, separated by
+:data:`~mcgyvr.gate.acceptance.DID_NOT_RUN` and an environment issue,
 which is what degrades a contract onto a dearer family instead of failing it.
 *Ran and did the work its type's guarantee describes* — proceed, because the
 gate is the thing that judges the result and refusing here means the result is
@@ -31,22 +27,22 @@ load its config did not apply the guarantee to anything.
 
 The test between the last two is the **exit code**, checked against the set of
 codes under which that invocation is *reporting* rather than failing. That is
-the clause 2 one layer out, and for the same measured reason: on a fatal
-config error ruff writes an empty stdout, so nothing about the output separates
-"clean" from "never ran". "Ignore the exit code and let the gate decide" would
-have been the cheap fix and is the wrong one — it hands a change that no linter
-ever touched to a gate whose own linter is broken in the same way.
+:func:`mcgyvr.gate.adapter.trusted_stdout`'s rule one layer out, and for the
+same reason: on a fatal config error ruff writes an empty stdout, so nothing
+about the output separates "clean" from "never ran". "Ignore the exit code and
+let the gate decide" is the cheap reading and the wrong one — it hands a change
+that no linter ever touched to a gate whose own linter is broken in the same
+way.
 
 The set differs by **task type**, because the guarantee is what says whether a
 residue is expected. ``lint_fix`` and ``import_sort`` say it in as many words.
 ``format``'s guarantee is "byte-identical to what the project's own formatter
-produces", which admits no residue at all — and, measured, neither formatter
-exits non-zero except on failure (``ruff format`` answers an unparseable file
-and an unloadable config alike with 2; so does ``prettier --write``).
+produces", which admits no residue at all — and neither formatter exits
+non-zero except on failure (``ruff format`` answers an unparseable file and an
+unloadable config alike with 2; so does ``prettier --write``).
 
-Every measurement here is retaken by a test rather than quoted, because
-the own table carries the warning: the fix is only correct for as long as
-the table is.
+The ruff exits the rule rests on are retaken by tests here rather than quoted:
+the rule is only correct for as long as the tools behave that way.
 """
 
 from __future__ import annotations
@@ -75,7 +71,7 @@ TARGET = "src/pkg/messy.py"
 #: file somebody asks a linter to tidy. ``import os`` is F401 and ruff removes
 #: it; ``l`` is E741 and ruff will not rename a variable for you. The residue is
 #: the whole point: a `lint_fix` contract over a file with nothing left over
-#: exits 0 and would have passed against the defect.
+#: exits 0 and proves nothing about exit 1.
 RESIDUE = "import os\n\n\ndef f():\n    l = 1\n    return l\n"
 
 #: ruff's default rule set does not carry E741, so the repository states its own
@@ -85,8 +81,8 @@ RESIDUE = "import os\n\n\ndef f():\n    l = 1\n    return l\n"
 RUFF_CONFIG = '[tool.ruff.lint]\nselect = ["E", "F"]\n'
 
 #: A `pyproject.toml` ruff refuses to load, which is the "ran and failed" case
-#: and must stay fatal. The same shape  measured for the gate's own
-#: invocations, here for the floor's.
+#: and must stay fatal. The same shape ``trusted_stdout`` documents for the
+#: gate's own invocations, here for the floor's.
 BROKEN_CONFIG = "[tool.ruff]\nnot-a-real-ruff-key = 3\n"
 
 LINT_FIX = """
@@ -203,21 +199,21 @@ def test_the_control_is_a_ruff_that_could_not_load_its_config(
     assert outcome.result.exit_code == 2, outcome.result.exit_code
 
 
-# --- the reproduction --------------------------------------------------------
+# --- a residue is gated ------------------------------------------------------
 
 
 @needs_ruff
 def test_a_lint_fix_that_left_a_diagnostic_is_gated_not_errored(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The defect: work done exactly as the catalog describes, reported as an error.
+    """Work done exactly as the catalog describes is gated, not reported as an error.
 
     The change ruff makes here is one the gate accepts — the autofix deletes a
     line and adds none, so the diagnostic that remains is not on a worker-added
     line and the gate has nothing to attribute to the change. That is not a
-    contrivance to make the test pass; it is why the defect is expensive. The
-    contract was satisfiable, the tool satisfied it, and ``run`` returned 1
-    with a dump of diagnostics the type it was given explicitly does not fix.
+    contrivance to make the test pass; it is why an error here is expensive. The
+    contract is satisfiable and the tool satisfies it, so a ``run`` that returned
+    1 would dump diagnostics the type it was given explicitly does not fix.
 
     Both halves are asserted. The exit code says the command did not fail, and
     the gate's own verdict line says the gate was *reached* — which is the
@@ -312,7 +308,7 @@ def test_a_formatters_guarantee_admits_no_residue(
     has no room in it for a file the formatter declined to write. So ``format``
     reports under exit 0 and nothing else, and an unparseable target — which
     ``ruff format`` answers with 2 — is fatal rather than gated. Keeping this
-    per task type rather than per program is what stops the fix from being "ruff
+    per task type rather than per program is what stops the rule from being "ruff
     exits 1, therefore 1 is fine": one program owns three of these types and the
     guarantee is what differs between them.
     """
@@ -333,10 +329,10 @@ def test_a_missing_program_is_still_an_environment_issue(tmp_path: Path) -> None
 
     126/127 is "the program is not on this machine", which
     :data:`~mcgyvr.gate.acceptance.DID_NOT_RUN` already separates and which
-    degrades the contract onto a dearer family rather than failing it. A fix
-    that reshaped the exit-code reading around the reporting/failing split could
-    easily fold this in with the failures; it is a different question with a
-    different answer, and nothing about this change touches it.
+    degrades the contract onto a dearer family rather than failing it. An
+    exit-code reading shaped around the reporting/failing split could easily
+    fold this in with the failures; it is a different question with a different
+    answer.
     """
     from dataclasses import replace
 
@@ -364,7 +360,7 @@ def test_import_sort_carries_the_same_exposure_and_the_same_answer() -> None:
     behaviour under test is which exit codes each type reports under, and
     reaching that through an I-rule violation ruff happens to decline to fix
     would be testing ruff's fixability table instead of mcgyvr's. The
-    reproduction above is the one that needs a real run; this is the claim that
+    ``lint_fix`` run above is the one that needs a real run; this is the claim that
     the answer does not stop at one task type.
     """
     from mcgyvr.deterministic import tool_for

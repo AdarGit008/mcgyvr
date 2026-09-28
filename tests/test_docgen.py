@@ -28,7 +28,8 @@ _REDIRECT_MODULE = "docgen_output_redirect"
 _OUTPUTS_ENV = "MCGYVR_DOCGEN_TEST_OUTPUTS"
 
 #: The redirect plugin, as source. docgen's default output paths are module
-#: constants joined to ``REPO_ROOT`` (docgen.py:74-77, :923-937), and an
+#: constants joined to ``REPO_ROOT`` (``SKILL_PATH``, ``SETUP_PATH``,
+#: ``EXAMPLES_PATH``, read by ``docgen.main``'s argument defaults), and an
 #: absolute path put in their place moves every defaulted write into the outer
 #: test's ``tmp_path``. ``REPO_ROOT`` itself is left alone, so the inner run's
 #: own git calls and imports are exactly what they were. It is written out at
@@ -55,13 +56,13 @@ def _outputs(tmp_path: Path, *, skill: Path | None = None) -> list[str]:
     """All four output flags, every one of them inside ``tmp_path``.
 
     ``--skill-output``, ``--setup-output`` and ``--examples-output`` default
-    to the committed copies (docgen.py:868-880), so a write-mode run that
-    overrides only some of them regenerates the rest of the checkout in
-    place. A test that did that would erase, from the working tree, exactly
-    the drift ``make docs-check`` exists to catch: set SETUP.md to "STALE",
-    run this file, and the file comes back regenerated, after which nothing
-    can tell it had drifted. Every ``docgen.main()`` call in this file passes
-    these, and
+    to the committed copies (``docgen.main``'s argument defaults), so a
+    write-mode run that overrides only some of them regenerates the rest of the
+    checkout in place. A test that did that would erase, from the working tree,
+    exactly the drift ``make docs-check`` exists to catch: set SETUP.md to
+    "STALE", run this file, and the file comes back regenerated, after which
+    nothing can tell it had drifted. Every ``docgen.main()`` call in this file
+    passes these, and
     ``test_running_the_docgen_tests_does_not_rewrite_the_committed_documents``
     holds them to it.
     """
@@ -234,22 +235,21 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
     """A sentinel planted where the inner run's defaults point survives it.
 
     `--skill-output`, `--setup-output` and `--examples-output` default to the
-    checkout's own copies (docgen.py:923-937), so a write-mode `docgen.main()`
-    call that overrides only some of them regenerates the others in place.
-    That is not a stray write: it silently repairs, in the working tree, the
-    very drift `make docs-check` exists to fail on (plan actions 2 and 3), so
+    checkout's own copies (`docgen.main`'s argument defaults), so a write-mode
+    `docgen.main()` call that overrides only some of them regenerates the
+    others in place. That is not a stray write: it silently repairs, in the
+    working tree, the very drift `make docs-check` exists to fail on, so
     a run of the suite would leave a stale committed document looking current.
 
     A digest taken before and after would not see it — the rewrite produces
     the bytes the file is supposed to have. A sentinel does: it is the one
     thing regeneration cannot reproduce.
 
-    The sentinel does not go in the committed file. Planting it there left
-    `skills/mcgyvr/SETUP.md` carrying a comment line for the length of the
-    inner run — up to 600 s — while `addopts = "-q -n auto"`
-    (pyproject.toml:212) had the rest of the suite reading that file in other
-    processes; the two tests that read it failed whenever they landed in the
-    window, and only ever passed by scheduling luck
+    The sentinel does not go in the committed file. Planting it there would
+    leave `skills/mcgyvr/SETUP.md` carrying a comment line for the length of the
+    inner run while `addopts = "-q -n auto"` in `pyproject.toml` has the rest of
+    the suite reading that file in other processes, and a test that reads it
+    would pass only by scheduling luck
     (`tests/test_the_docgen_guard_never_writes_the_committed_setup.py`).
     Instead the three kept documents are copied into `tmp_path`, the sentinel
     goes into the copy, and the inner run is handed a `-p` plugin that points

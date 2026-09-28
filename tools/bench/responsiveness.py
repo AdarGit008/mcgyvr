@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """#225 — is `f1` an instrument, or is it merely in band?
 
-A band's pass rate is a statement about **level**.  measured what that
-does and does not tell you, and the answer was severe: the bundle's Python arm A
-sat at 65-70%, dead centre of any band one would declare, with **one task in
-twenty responsive**. Nineteen were pinned under every condition the matrix ran.
-Its conclusion is the reason this tool exists — *"being in band is not the same
-as having resolution, and level cannot reveal the difference."*
+A band's pass rate is a statement about **level**. Being in band is not the
+same as having resolution, and level cannot reveal the difference.
 
 `f1` reads 38.9% greedy on the floor unit and no rule in its brief fires. This
 reads the other axis: of the cells the band is made of, how many can move at
@@ -15,14 +11,14 @@ discordant mass, and under the ``m >= 6`` wall is worth less toward the
 bench's 400 than its nominal count.
 
 **What is measured, and what is inferred.** The observable is variation across
-draws — one greedy draw plus N sampled at a fixed temperature, the same
-replication D6 licenses as a substitute for material. A cell that
-varies is demonstrably reachable by this model, so a lever that shifts its odds
-has something to shift. The converse is weaker: a cell pinned across every draw
-could still be unpinned by a lever that supplies information the model lacks.
-So ``psi_draw`` is **not** ``psi`` and is not a bound in either direction. It is
-the cheapest available screen for dead cells, and it costs rig time rather than
-authoring. The per-lever ``psi`` stays #231's to measure.
+draws — one greedy draw plus N sampled at a fixed temperature, replication as a
+substitute for material. A cell that varies is demonstrably reachable by this
+model, so a lever that shifts its odds has something to shift. The converse is
+weaker: a cell pinned across every draw could still be unpinned by a lever that
+supplies information the model lacks. So ``psi_draw`` is **not** ``psi`` and is
+not a bound in either direction. It is the cheapest available screen for dead
+cells, and it costs rig time rather than authoring. The per-lever ``psi`` stays
+#231's to measure.
 
 Pre-registration, fixed before the draws existed:
 ``mcgyvr-lab/archive/docs/archive/sessions/lane/225/2026-08-11-f1-responsiveness-prereg.md``.
@@ -74,17 +70,16 @@ FOCUS_TRANCHE = 8
 REFERENCE_TRANCHES = (4, 5, 6, 7)
 
 # From the pre-registration, anchored in the measured psi range (0.05 at
-# arm A, 0.45 at arm B, with 0.10-0.35 the planning prior D5's table spans).
+# arm A, 0.45 at arm B, with 0.10-0.35 the planning prior).
 PSI_HEALTHY = 0.20
 PSI_WEAK = 0.10
 
-# Greedy re-runs at this model size drifted zero tasks across eight repeats
-# (the determinism table). Two cells is slack, not a tolerance.
+# Slack for greedy drift, not a tolerance.
 DRIFT_ALLOWANCE = 2
 
-# The finished bench in the unit the statistic is computed in. the
-# 2026-08-12 amendment: the 400 is 400 problems each contributing both language
-# arms, so sizing is done over 800 paired cells rather than 400.
+# The finished bench in the unit the statistic is computed in: the 400 is 400
+# problems each contributing both language arms, so sizing is done over 800
+# paired cells rather than 400.
 BENCH_PROBLEMS = 400
 COMPLETE_CELLS = BENCH_PROBLEMS * len(ARMS)
 
@@ -171,7 +166,7 @@ def cells(
 def classify(cell: dict[str, Any]) -> str:
     """pinned-fail, pinned-pass, or responsive, over greedy plus the sampled draws.
 
-    The greedy draw is counted. Responsiveness in the sense is variation
+    The greedy draw is counted. Responsiveness here is variation
     across the matrix a task was dispatched under, and the greedy condition is
     part of this one's matrix.
     """
@@ -189,7 +184,7 @@ def fisher_two_sided(a: int, b: int, c: int, d: int) -> float:
     Exact rather than a z approximation because the cell counts here are in the
     tens, which is where a normal approximation starts writing cheques the
     sample cannot cash. Two-sided by summing every table at or below the
-    observed probability, which is the convention the sign test above it uses.
+    observed probability.
     """
     n = a + b + c + d
     row1, col1 = a + b, a + c
@@ -326,7 +321,7 @@ def main() -> int:
         if psi_draw >= PSI_HEALTHY
         else "the prior's pessimistic end; sizing holds at the weak end"
         if psi_draw >= PSI_WEAK
-        else "arm A territory; the 400 will not buy what D5 priced"
+        else "arm A territory; the 400 will not buy what the sizing priced"
     )
     print(f"pre-registered reading: {verdict}")
     report["psi_draw"] = {
@@ -340,22 +335,19 @@ def main() -> int:
     }
 
     # --- what that buys, against the ruled denominator ---------------------
-    #  was written because D5 stated 400 without stating its
-    # denominator, and the same ambiguity survived one level down: `f1` counts
-    # problems, the sweep dispatches cells, and a problem carries two arms. Its
-    # 2026-08-12 amendment settled it — the 400 is 400 problems contributing
-    # BOTH arms, so the statistic's denominator is 800 paired cells. The
-    # problem-counted row stays visible because the difference decides whether
-    # the bench meets D5's target, and a reader should see what was chosen.
+    # `f1` counts problems, the sweep dispatches cells, and a problem carries
+    # two arms. The ruling is that the 400 is 400 problems contributing BOTH
+    # arms, so the statistic's denominator is 800 paired cells. The
+    # problem-counted row stays visible so a reader sees what was chosen.
     print()
     print("## what psi_draw would buy, if a lever moved exactly the reachable cells")
-    print("#  optimistic by construction — see the module docstring")
+    print("#  psi_draw is resampling sensitivity, not a lever's psi")
     print()
     print(f"{'n':>8}  {'unit':<22}  {'MDE':>8}")
     sizes = (
         (n, "cells today", ""),
         (400, "if counted by problem", "  <- not the ruling"),
-        (COMPLETE_CELLS, "cells at 400 problems", "  <- , 2026-08-12"),
+        (COMPLETE_CELLS, "cells at 400 problems", "  <- the ruling"),
     )
     for size, unit, note in sizes:
         mde = detectable_delta(size, psi_draw)
@@ -400,10 +392,10 @@ def main() -> int:
     print()
     print(
         "# The sampled column is DESCRIPTIVE and was not pre-registered: it is the\n"
-        "# mean over eight draws at T=0.7, a different operating point from the\n"
+        "# mean over the sampled draws, a different operating point from the\n"
         "# greedy figure the brief aims at, and it carries no p-value. It is here\n"
         "# because a tranche's greedy rate rests on one draw per cell, and this is\n"
-        "# the same question asked with eight times the data."
+        "# the same question asked with more data."
     )
 
     # --- how much of a cell's verdict is the draw? -------------------------

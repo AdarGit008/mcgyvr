@@ -1,9 +1,9 @@
 """The `mcgyvr sandbox` inspection command.
 
 It exists so a stranger can see, before running anything, which mode is in
-force and what the sandbox will try to install — the surfacing #29/#30 ask
-for. The stack lines are asserted here; the mode line depends on whether the
-test machine has Docker and is left to the sandbox suite.
+force and what the sandbox will try to install. The stack lines are asserted
+here; the mode line depends on whether the test machine has Docker and is left
+to the sandbox suite.
 """
 
 from __future__ import annotations

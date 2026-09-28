@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """#230 — which task sets are instruments, declared once and read by everyone.
 
-the corollary is that *the instrument is declared, and protected at the
-point of entry*. Before this module the declaration existed as a convention
-repeated in one place and absent from two: ``tools/problems/admit.py`` knew the
-pool must not collide with the bundle sets, while ``tools/replies/pin.py`` and
+*The instrument is declared, and protected at the point of entry.* Before this
+module the declaration existed as a convention repeated in one place and absent
+from two: ``tools/problems/admit.py`` knew the pool must not collide with the
+bundle sets, while ``tools/replies/pin.py`` and
 ``tools/finetune/build_dataset.py`` had no concept of a set they must not draw
-from at all. That is how #189 came to train on 622 examples drawn from ``d1``
-— which **is** ``tools/bundle/tasks/``, byte for byte — and score the result on
+from at all. That is how #189 came to train on 622 examples drawn from ``d1`` —
+which **is** ``tools/bundle/tasks/``, byte for byte — and score the result on
 the same twenty contracts.
 
 ``tools/instruments.json`` is the declaration; this module reads it and answers
@@ -257,7 +257,7 @@ def by_id(set_id: str) -> Instrument:
 def task_roots() -> tuple[Path, ...]:
     """The roots the pool must stay distinct from — ``admit.py``'s list.
 
-    RetiredError sets stay on it. Retirement stops the project measuring on a set;
+    Retired sets stay on it. Retirement stops the project measuring on a set;
     it does not make the set's directory a place a pool problem may reappear
     under, and an id that names two different problems is a confusion whether
     or not either is still a ruler.

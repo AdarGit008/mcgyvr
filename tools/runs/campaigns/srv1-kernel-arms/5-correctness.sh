@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/5-correctness.sh — campaign step 5, and the only producer of
-# `records/evidence/2026-09-02-srv1-kernel-arms/correctness.json`.
+# `$RUN_OUT_DIR/correctness.json` (the filed copy is
+# `records/evidence/2026-09-03-srv1-kernel-arms/correctness.json`).
 # Behaviour 11, `tests/test_a_faster_arm_that_answers_differently_has_not_won.py`.
+# "Guideline N" and "behaviour N" are those of
+# `mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md`.
 #
 # WHY THIS EXISTS
 # ---------------
@@ -29,8 +32,8 @@
 # **serving_build** and cells all match it, and every arm in this campaign is a
 # new `serving_build`. So no committed bound covers any of them, and this script
 # measures two identical runs per arm before any arm is compared to any other.
-# That is the whole reason for the second RED test: a bound borrowed across
-# builds is a wrong published effect.
+# That is what `test_each_arm_priced_its_own_null_before_being_compared`
+# checks: a bound borrowed across builds is a wrong published effect.
 #
 # `null.py`'s CLI walks both bench tiers at once; this reads its `compare()`
 # instead, so one tier can be scored on its own exactly as guideline 9 names it.
@@ -46,16 +49,12 @@
 # is the behaviour working, not a bug to route around.
 #
 # Nothing here fabricates. An arm whose build nothing recorded is refused rather
-# than given a plausible string (: a serving build that nothing recorded
-# has already moved results twice), and a bound is never written for a
-# comparison that shared no cells.
+# than given a plausible string, and a bound is never written for a comparison
+# that shared no cells.
 #
-# THE STEP SERVES ITS OWN ARMS. Until 2026-09-02 this script took
-# `--arm ARM=ENDPOINT=BUILD` and measured whatever answered at ENDPOINT, and
-# nothing in the campaign started that server: the door is the one executable
-# allowed to start a container on a rig, and only the step it starts may do so
-# on its behalf. So the endpoints were nobody's job and the step could not run
-# at all. Now `--arm ARM=IMAGE`: the tag is resolved to a digest ONCE before
+# THE STEP SERVES ITS OWN ARMS. The door is the one executable allowed to start
+# a container on a rig, and only the step it starts may do so on its behalf, so
+# an endpoint is refused. `--arm ARM=IMAGE`: the tag is resolved to a digest ONCE before
 # anything starts (gate 3), one container per arm runs as `<RUN_ID>-<ARM>` (so
 # gate 7 finds a leftover), on one host port, one arm at a time — the card
 # holds one — and is removed before the next arm comes up. `serving_build` in
@@ -190,7 +189,7 @@ if len(set(bars.values())) != 1:
     )
 gate_rungs = list(next(iter(bars.values())))
 
-# . Where the endpoint answers, the recorded build decides; a
+# Where a run recorded its serving build, the recorded build decides; a
 # declaration that contradicts it is not quietly preferred.
 for arm in spec["arms"]:
     for run in (arm["run_a"], arm["run_b"]):
@@ -453,12 +452,11 @@ teardown_all() {
 }
 
 # The backend the served container can actually reach, against the image's
-# declared one. A3 on 2026-09-02 declared vulkan and ran the CPU; a drift
-# measured on the wrong device and filed under the image's name is the same
-# defect here. llama-server prints no `load_backend:` line at its default
-# verbosity (the first run of this check, 2026-09-03, read nothing from a
-# healthy L0 and refused it), so the probe is `llama-server --list-devices`
-# exec'd in the running container: `CUDA0: ...` / `Vulkan0: ...`, or nothing.
+# declared one: an image can declare vulkan and run the CPU, and a drift
+# measured on the wrong device would be filed under the image's name.
+# llama-server prints no `load_backend:` line at its default verbosity, so the
+# probe is `llama-server --list-devices` exec'd in the running container:
+# `CUDA0: ...` / `Vulkan0: ...`, or nothing.
 LOADED_BACKENDS=
 served_backend_ok() {
     local name=$1 digest=$2 declared

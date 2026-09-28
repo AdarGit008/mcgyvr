@@ -228,21 +228,18 @@ def test_a_refused_cell_is_recorded_rather_than_deleted() -> None:
 def test_the_recorded_run_measured_the_grid_it_was_asked_for() -> None:
     """The wiring, end to end. A cell that reported `ok` must carry a level for
     every n, and each level must carry a rate -- `tokens_per_s`, which is what
-    ``run.py`` emits. The retired ``sweep.py`` named the same quantity
-    `agg_tok_s`, and a
-    consumer reading the wrong key sees None at every level and reads it as a
-    dead run. That happened once on 2026-08-30 and cost a false alarm."""
+    ``run.py`` emits. A consumer reading another key for the same quantity (such
+    as `agg_tok_s`) sees None at every level and reads it as a dead run."""
     journals = sorted(EVIDENCE.glob("*.jsonl"))
     assert journals, f"no journal under {EVIDENCE}"
     measured = 0
     for journal in journals:
-        # LAST WRITE WINS, per label -- the journal is append-only (run.py:93)
-        # and every consumer reads it that way (`run.completed()` builds the
-        # same dict). Judging superseded rows would make an append-only journal
-        # unable to hold the record of a failure it later fixed, which is the
-        # opposite of what append-only is for: on 2026-08-31 that is exactly why
-        # the documented remedy was to DELETE rows, and deleting them turned the
-        # tree green over outstanding cells.
+        # LAST WRITE WINS, per label -- the journal is append-only
+        # (`tools/bench/serving/run.py`'s `append`) and every consumer reads it
+        # that way (`run.completed()` builds the same dict). Judging superseded
+        # rows would make an append-only journal unable to hold the record of a
+        # failure it later fixed, and would leave deleting rows as the only
+        # remedy -- which turns the tree green over outstanding cells.
         last: dict[str, dict[str, Any]] = {}
         for line in journal.read_text(encoding="utf-8").splitlines():
             if line.strip():
@@ -300,10 +297,10 @@ def test_every_declared_cell_is_present_in_its_journal() -> None:
         declared = [str(entry.get("label")) for entry in document.get("models") or []]
         assert declared, f"{config.name}: declares no models"
         refused = set(document.get("_refused") or {})
-        # `outcome: ok` is not sufficient on its own -- a row written before the
-        # barren-level downgrade (d75d90fb) can be `ok` while carrying a level
-        # that measured nothing. Judge the curve, the same way `run.completed()`
-        # and RESUME.md's status check do, so all three report one number.
+        # `outcome: ok` is not sufficient on its own -- a row written without the
+        # barren-level downgrade can be `ok` while carrying a level that
+        # measured nothing. Judge the curve, the same way `run.completed()`
+        # does, so both report one number.
         ok = {
             row.get("label")
             for line in journal.read_text(encoding="utf-8").splitlines()

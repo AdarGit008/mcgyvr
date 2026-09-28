@@ -1,20 +1,17 @@
 """X05 — style is cleaned for free, correctness is rejected, and a failed cleanup costs
 nothing.
 
-mcgyvr already makes the distinction this lever needs. :class:`~mcgyvr.gate.GateResult`
-splits what a rung saw into ``findings`` (which reject), ``observations`` (real,
-line-attributed, and deliberately outside the verdict) and ``environment_issues``
-(a check that could not run). What it never does is *act* on the split: ``ruff format``
-is run with ``--diff`` and ``ruff check`` without ``--fix``, so a change whose only
-problem is a blank line in the wrong place is reported and then handed to a model to
-fix — a dispatch, a full context, an attempt off the ceiling, to insert a space.
+:class:`~mcgyvr.gate.GateResult` splits what a rung saw into ``findings`` (which
+reject), ``observations`` (real, line-attributed, and deliberately outside the
+verdict) and ``environment_issues`` (a check that could not run).
+:func:`mcgyvr.cleanup.tidy` acts on the split: a change rejected only by the format
+rung is reformatted at zero model spend.
 
 Where the split does not fall where its name suggests, the values below follow the
 gate rather than the name. The format rung emits ``check="format"``, and
 ``Gate.run`` files it in ``findings``: a change whose only problem is its formatting
 is a *rejected* change, and a style-only verdict built as an observation is a value
-no gate run returns. That is what these constants were, and the version of this file
-that held them was green over a state the system cannot produce.
+no gate run returns.
 
 Three statements, and the two after the first are what stop this from being a footgun.
 
@@ -22,7 +19,7 @@ Three statements, and the two after the first are what stop this from being a fo
 It is asserted four ways, because "cleaned" has three cheap wrong answers. The content
 must actually change, or nothing was cleaned. The change must be *stable* — the same
 input cleaned twice gives the same bytes — because a rewriter that is not deterministic
-puts a coin flip inside the acceptance path, and D26 is on the KEEP list. Cleaning
+puts a coin flip inside the acceptance path. Cleaning
 already-clean content must be a fixed point, or the cleanup cannot be run twice, which
 it will be the moment it sits in a retry loop. And the program must survive: a
 "cleanup" that deleted the body would satisfy every other assertion here, so the
@@ -48,10 +45,9 @@ passed everything mcgyvr actually checks. Note it is *not* asserted that cleanup
 silently claims success: the outcome must not say it cleaned anything it did not.
 
 Nothing here runs the gate. The gate results are constructed, which is what makes the
-style/correctness split assertable independently of which rung produced it — and it is
-also how this file was once green over an impossible value, so the correspondence
-between these constants and what ``Gate.run`` returns is pinned by a real run in
-``tests/test_fix_b4_b9_text_handling.py`` rather than assumed here.
+style/correctness split assertable independently of which rung produced it. The
+correspondence between these constants and what ``Gate.run`` returns is pinned by a
+real run in ``tests/test_fix_b4_b9_text_handling.py`` rather than assumed here.
 """
 
 from __future__ import annotations
@@ -105,8 +101,8 @@ CORRECTNESS = GateResult(
 def _tidy() -> Any:
     """Deterministic cleanup of an accepted change.
 
-    Placeholder path. The contract is the outcome: what comes back, whether it is still
-    accepted, and that no model was involved in getting there.
+    :func:`mcgyvr.cleanup.tidy`. The contract is the outcome: what comes back, whether
+    it is still accepted, and that no model was involved in getting there.
     """
     return required(
         BEHAVIOR,

@@ -31,9 +31,10 @@ imported from ``regrade`` and the doctrine below is inherited whole.
   parse and now does not is surfaced instead of silently re-graded.
 
 **Why** ``score.score`` **is called rather than reimplemented.** It is the exact
-function the live sweep runs (``tools/breadth/measure.py:631``), including the
-staged ``pyproject.toml``, the ``.gitignore`` that keeps ``__pycache__`` out of
-the changeset, and the linked ``node_modules``. A re-score that scored
+function the live sweep runs (``score.score``, called from
+``tools/breadth/measure.py``), including the staged ``pyproject.toml``, the
+``.gitignore`` that keeps ``__pycache__`` out of the changeset, and the linked
+``node_modules``. A re-score that scored
 differently from a sweep would answer nothing — the whole point is to put
 ``psi_draw`` on the same bar as ``headroom``, and "the same bar" has to mean the
 same code.
@@ -89,7 +90,7 @@ REPO = HERE.parent.parent
 
 
 def _by_path(name: str, path: Path) -> types.ModuleType:
-    """A tool module, imported by path — ``tools/`` is not a package."""
+    """A tool module, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -273,7 +274,8 @@ def rescore_row(
         "flipped": verdict.passed != was,
         # The field the source rows do not have, and the reason this tool
         # exists: which rung said no. Named exactly as the live sweep names it
-        # (`tools/breadth/measure.py:644`) so one reader serves both files.
+        # (the `rejected_by` key of the row `tools/breadth/measure.py` writes) so
+        # one reader serves both files.
         "rejected_by": verdict.rejected_by,
         "rejected_before_acceptance": verdict.rejected_before_acceptance,
         "fail_output": None if verdict.passed else "; ".join(verdict.findings),
@@ -435,8 +437,8 @@ def summarise(
         "scorer": "tools/bench/score.py:score — mcgyvr.gate.runner.Gate.run",
         "gate_rungs": list(score.GATE_RUNGS),
         "gate_semantic": False,
-        # Five names are the same five on both arms across a 250-rule Python bar
-        # and a 66-rule JS/TS one, so they are not the bar (#262). This is, as
+        # Five names are the same five on both arms across two very different
+        # resolved rule sets, so they are not the bar. This is, as
         # content: the resolved rules, the configs that decided them, the tool
         # versions, and the type check neither arm runs. `None` when a resolver
         # would not answer — the tool refuses a degraded environment before this

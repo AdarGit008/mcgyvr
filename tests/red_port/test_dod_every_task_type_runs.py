@@ -4,24 +4,15 @@
 ``data/task-catalog.json``, each rendered into the shipped skill with a minimal
 example a reader is told is "a shape that is known to validate" — rendered
 into ``skills/mcgyvr/references/examples.md``, which the shipped skill points
-at (plan v4, action 27).
+at.
 
-``rename_symbol`` validates and cannot run. It is the sole member of
-``deterministic._IN_PROCESS``, which yields a ``Tool`` with no argv; ``drive``
-raises ``UnrunnableStepError`` on an empty argv, and ``cli._floor`` reports the
-run as ``error``. Nothing anywhere implements the in-process rename — the word
-appears in the codebase only in docstrings and in the example. Meanwhile the
-catalog still guarantees "every reference the index resolved is renamed", and
-the examples file hands an orchestrator a ``rename_symbol`` contract to
-copy.
-
-So the one path an agent is most likely to take from the documentation — copy
-the example, validate it, run it — spends a contract to arrive at ``error``.
+The path an agent is most likely to take from the documentation is: copy the
+example, validate it, run it. ``rename_symbol`` is the sole member of
+``deterministic.IN_PROCESS``: its step carries no argv and ``drive`` executes it
+in process.
 
 What must be observably true: a task type in the vocabulary can be executed, or
-it is not in the vocabulary. Which of the two ``rename_symbol`` becomes is the
-port's choice; that validating a contract and running it agree is the
-requirement.
+it is not in the vocabulary. Validating a contract and running it agree.
 """
 
 from __future__ import annotations
@@ -51,11 +42,8 @@ def _types() -> tuple[str, ...]:
 def _runnable(task_type: str, repo: Path) -> bool:
     """Whether a contract of this type can actually be carried out.
 
-    Asserted by running it, not by inspecting the step. ``argv`` being empty is
-    how *today's* floor expresses "nothing to run", and an in-process executor —
-    which the docstring above explicitly allows as a fix — would legitimately
-    keep it empty. Probing the field would forbid one of the two permitted
-    outcomes; running the contract forbids neither.
+    Asserted by running it, not by inspecting the step: an in-process step
+    legitimately carries an empty ``argv``, so probing the field would say nothing.
     """
     from mcgyvr.contract import loads
     from mcgyvr.deterministic import tool_steps
@@ -96,10 +84,9 @@ def test_the_shipped_skill_offers_no_example_that_cannot_run(repo: Path) -> None
     installed copy can never fail — it would return early on every run while
     the committed examples still carry the example.
 
-    Read from ``references/examples.md``, where action 27 moved the examples:
-    ``SKILL.md`` no longer carries a ``task_type: {name}`` line at all, so a
-    grep of it would match nothing for every name and pass while checking
-    nothing.
+    Read from ``references/examples.md``: ``SKILL.md`` carries no
+    ``task_type: {name}`` line, so a grep of it would match nothing for every name
+    and pass while checking nothing.
     """
     examples = REPO / "skills" / "mcgyvr" / "references" / "examples.md"
     assert examples.is_file(), f"{examples} is the shipped examples file"

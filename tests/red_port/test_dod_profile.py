@@ -1,13 +1,11 @@
 """A config says whether it is the live setup or a development one, and the
 default is live.
 
-Dev and prod are one tree on two hosts today: the same config shape, no word
-in it saying which is which, and a run that cannot say what it was. The owner's
-rulings (2026-09-06): the default is prod — ``~/.mcgyvr/config/mcgyvr.yaml`` is
-the unnamed fallback, a ``dev.yaml`` is only ever reached through
-``$MCGYVR_CONFIG``, and forgetting the variable must land on prod. Live outranks
-dev on a held rig (gate 2). Since 2026-09-10 a dev run may start and stop any
-ladder (``mcgyvr-lab/records/plans/fleet-identity.md`` §4), and what a dev serve may do
+The default is prod — ``~/.mcgyvr/config/mcgyvr.yaml`` is the unnamed fallback, a
+``dev.yaml`` is only ever reached through ``$MCGYVR_CONFIG``, and forgetting the
+variable lands on prod. Live outranks dev on a held rig (gate 2). A dev run may
+start and stop any ladder
+(``mcgyvr-lab/records/plans/fleet-identity.md`` §4), and what a dev serve may do
 is pinned in ``tests/test_a_dev_round_may_serve_any_launch_spec.py``, not here.
 
 What must be observably true:

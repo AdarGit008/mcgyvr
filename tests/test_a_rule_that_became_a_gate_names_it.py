@@ -1,6 +1,6 @@
 """A rule in ``okf/must-read/touching-rigs.md`` that became a gate says which one.
 
-Three of that file's rules are now code checks the door runs
+Three of that file's rules are code checks the door runs
 (``src/mcgyvr/serving/gate-scripts/``, ``run.py``'s SEQUENCE): prove
 reachability is gate 2 (the live rig
 compared with its declaration); ``img=`` on every srv1 row is gate 3 (a tag
@@ -36,6 +36,6 @@ def test_the_rule_points_at_its_gate(rule: str, gate: str) -> None:
         f"{rule!r} identifies {len(holding)} paragraph(s) of {DOC.name}, not one"
     )
     assert gate in holding[0], (
-        f"the rule {rule!r} is now a code check and its paragraph does not say "
+        f"the rule {rule!r} is a code check and its paragraph does not say "
         f"{gate!r}:\n{holding[0]}"
     )

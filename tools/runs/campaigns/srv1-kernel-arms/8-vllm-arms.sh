@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/8-vllm-arms.sh — campaign step 8, and the only producer of
-# `records/evidence/2026-09-02-srv1-kernel-arms/srv1-vllm-arms.tsv`
-# (`tools/runs/rows.py`). Behaviour 12,
+# `$RUN_OUT_DIR/srv1-vllm-arms.tsv` (the door's envelope; read through
+# `tools/runs/rows.py`). Behaviour 12,
 # `tests/test_two_backends_on_one_checkpoint_is_the_only_pair.py`.
+# "Guideline N" and "behaviour N" are those of
+# `mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md`; section numbers are those
+# of `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md`;
+# B2-CHECKPOINT.md is
+# `mcgyvr-lab/records/evidence/2026-09-02-srv1-kernel-arms/B2-CHECKPOINT.md`;
+# vLLM source paths are under `vllm/model_executor/layers/quantization/` at tag v0.26.0.
 #
 # WHAT THIS ASKS, AND WHAT IT MUST NEVER BE READ AS
 # -------------------------------------------------
@@ -15,36 +21,33 @@
 # stacks. **B1 vs B2 is the only pair this file contains**, which is why the
 # artifact carries no llama.cpp arm, no cross-engine field and no ratio.
 #
-# THE PAIR (B2-CHECKPOINT.md, verified 2026-09-01 — supersedes the run doc)
+# THE PAIR (B2-CHECKPOINT.md)
 #   B1  --linear-backend marlin    -> MarlinLinearKernel   (mma.sync on sm75)
 #   B2  --linear-backend exllama   -> ExllamaLinearKernel  (__hfma2, no mma.sync)
-# One flag, one variable, one checkpoint. The run doc's `--quantization gptq`
-# vs `gptq_marlin` fallback is INVALID in v0.26.0 — both strings map to
-# `AutoGPTQConfig` (quantization/__init__.py:152-154), so that contrast would
-# print two flags and run one kernel. It is not implemented here.
+# One flag, one variable, one checkpoint. A `--quantization gptq` vs
+# `gptq_marlin` contrast is INVALID in v0.26.0 — both strings map to
+# `AutoGPTQConfig` (`get_quantization_config`'s `method_to_config` in
+# `vllm/model_executor/layers/quantization/__init__.py` @ v0.26.0), so that contrast would print two flags and run one kernel. It is
+# not implemented here.
 #
 # `kernel_observed=` is read from the engine's own line,
 # `Using {Marlin,Exllama}LinearKernel for AutoGPTQLinearMethod`
-# (auto_gptq.py:354-358) — never from the flag. A flag that parses is not a
-# kernel that ran: `--cpu-offload-params experts` was accepted, hashed into the
-# compile cache key and silently ignored under the V2 runner.
+# (`AutoGPTQLinearMethod.create_weights` in
+# `vllm/model_executor/layers/quantization/auto_gptq.py` @ v0.26.0)
+# — never from the flag. A flag that parses is not a kernel that ran.
 #
-# THE CHECKPOINT. srv1 holds exactly one GPTQ checkpoint and it is the wrong
-# shape: `Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4`, 7.9 G in three shards, verified
-# present on 2026-09-02 (the 2026-08-31 inventory does not list it, and an
-# earlier note in B2-CHECKPOINT.md that said srv1 held "no GPTQ checkpoint of any
-# shape" was WRONG — see that file's section (A)). It is MoE, so
-# `--linear-backend` would bind only its attention and dense projections while
-# the experts route through `--moe-backend`, and 7.9 G does not fit a 6144 MiB
-# card. So B2 still sits behind a fetch of a DENSE one — the conclusion is
-# unchanged, the reason for it was not what this header used to claim.
+# THE CHECKPOINT. srv1 also holds `Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4`, which
+# is unusable here: it is MoE, so `--linear-backend` would bind only its
+# attention and dense projections while the experts route through
+# `--moe-backend`, and it does not fit a 6144 MiB card (B2-CHECKPOINT.md,
+# section (A)). The pair runs on the DENSE
 # `Qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4`:
 # 1.071 GiB of weights on a 6144 MiB card, dense Qwen2ForCausalLM. Its
 # quantisation parameters live in `config.json` under `quantization_config` —
-# these repos ship NO `quantize_config.json` (HTTP 404), so a script that checks
+# these repos ship NO `quantize_config.json`, so a script that checks
 # that filename reports "missing config" for exactly the right checkpoints. The
 # requirement chain, all of it a hard gate before either launch:
-#   bits=4 sym=true  -> auto_gptq.py:100-104 TYPE_MAP gives uint4b8, the type
+#   bits=4 sym=true  -> `AutoGPTQConfig.TYPE_MAP` (@ v0.26.0) gives uint4b8, the type
 #                       ExllamaLinearKernel accepts; anything else is not it
 #   group_size=128   -> divides 1536 and 8960, exllama's can_implement
 #   desc_act=false   -> keeps has_g_idx False and the weight permute out of the
@@ -53,22 +56,21 @@
 # A mismatch is a REFUSED row, not a warning: a checkpoint's name is not
 # evidence of its format (`nemotron-30b-awq/` resolves as compressed-tensors).
 # The verifier also reads every weight byte, which is what makes a dangling HF
-# blob symlink — mistaken for a capability limit in two REFUSED rows on
-# 2026-09-01 — fail here, loudly, instead of at launch.
+# blob symlink fail here, loudly, instead of at launch.
 #
 # THE POOL IS PINNED, NOT LEFT TO FLOAT. Under `--gpu-memory-utilization` the KV
 # cache is whatever survives the weights, so if the two kernels' scratch buffers
 # differ the pools differ, the driver's width gate drops different rungs, and
 # the file compares two schedulers rather than two kernels. Both arms therefore
-# pass `--kv-cache-memory-bytes` (the knob  already uses for this exact
-# architecture: 1,879,048,192 B / 28,672 B per token = 65,536 tokens), and the
+# pass `--kv-cache-memory-bytes` (the knob fleet-setup/fleet.yaml pins on its
+# vLLM units; here 1,879,048,192 B / 28,672 B per token = 65,536 tokens), and the
 # engine's own `GPU KV cache size:` line is compared across the arms afterwards.
 # An unequal pool does not silently become a verdict — it forces `unresolved`.
 #
 # GUIDELINE 8. A refusal is a result: every launch goes through `retry3`, and a
 # B2 that never came up is written as a REFUSED row carrying `checkpoint_quant`,
-# `tries>=3` and the engine's own words — resolved conflict §6.3. Known risk,
-# unexecuted (B2-CHECKPOINT.md): `AutoGPTQLinearMethod.__init__` calls
+# `tries>=3` and the engine's own words — resolved conflict §6.3. Unverified risk
+# (B2-CHECKPOINT.md, residual risk): `AutoGPTQLinearMethod.__init__` calls
 # `verify_marlin_supported()` unconditionally, before the kernel chooser runs,
 # so B2 may die with a Marlin-worded message. That is a finding and a REFUSED
 # row, not a setup error, and this script says so on stderr when it sees one.
@@ -223,7 +225,8 @@ print("weights_files=" + ",".join(files))
 if bad:
     sys.exit(
         "checkpoint " + snap + " does not meet the requirement chain B2 needs "
-        "(B2-CHECKPOINT.md): " + "; ".join(bad)
+        "(mcgyvr-lab/records/evidence/2026-09-02-srv1-kernel-arms/"
+        "B2-CHECKPOINT.md): " + "; ".join(bad)
     )
 PY
 )
@@ -239,7 +242,7 @@ usage: tools/runs/campaigns/srv1-kernel-arms/8-vllm-arms.sh [--dry-run]
   --dry-run   print every command line this run would execute, in order, and
               exit. Writes no artifact, fetches nothing, launches nothing.
 
-Writes records/evidence/2026-09-02-srv1-kernel-arms/srv1-vllm-arms.tsv.
+Writes $RUN_OUT_DIR/srv1-vllm-arms.tsv (the door's envelope).
 EOF
 }
 
@@ -262,7 +265,7 @@ hf_bin() {
     elif [ "$DRY_RUN" -eq 1 ]; then
         printf 'hf'
     else
-        _fail "neither 'hf' nor 'huggingface-cli' is on PATH, and srv1's only GPTQ checkpoint is the MoE Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4, which this arm cannot use. B2 sits behind this fetch"
+        _fail "neither 'hf' nor 'huggingface-cli' is on PATH, so the checkpoint can be neither resolved from the cache nor fetched"
         return 1
     fi
 }
@@ -401,7 +404,8 @@ snapshot_engine_log() {
     rm -f "$logfile.part"
 }
 
-# The engine names the kernel that ran (auto_gptq.py:354-358). Empty output
+# The engine names the kernel that ran (`AutoGPTQLinearMethod.create_weights`
+# @ v0.26.0). Empty output
 # means the line is absent, which is never turned into a value here.
 kernel_from_log() {
     local logfile line
@@ -518,8 +522,9 @@ note() {
 #
 # NOTE ON `otok_req`. The contract's §3 table scopes `otok_req` to
 # `srv1-lcpp-arms.tsv`, and nothing reads it here. This driver prints the
-# per-request output budget nowhere — `want` never leaves `post()` — so the
-# field is omitted rather than reconstructed from the driver's seeded counter,
+# per-request output budget nowhere (it sends `want` as `max_tokens` and counts
+# early stops against it), so the field is omitted rather than reconstructed from the driver's
+# seeded counter,
 # which would be a second implementation of the workload and a value this run
 # did not measure.
 relay_row() {
@@ -580,24 +585,13 @@ cleanup() {
 
 # hf_snapshot_path FILE — the snapshot directory, out of `hf download`'s stdout.
 #
-# THE PARSE THAT FABRICATED TWO REFUSALS. srv1 runs huggingface_hub 1.24.0, whose
-# `hf download` prints a TWO-LINE summary:
-#     ✓ Downloaded
-#       path: /home/adaramir/.cache/huggingface/hub/models--Qwen--...
-# The old `tail -n 1` therefore returned `  path: /home/...` — a sentence, not a
-# directory — the `[ -d ]` below failed, and B1 and B2 were both written REFUSED
-# with `checkpoint_quant=unread` while the checkpoint sat on the rig, complete
-# and conforming (gptq / bits=4 / group_size=128 / desc_act=false / sym=true).
-# A refusal that did not happen is the one unacceptable outcome in this repo, and
-# this one came out of a line-position assumption about a CLI's cosmetics.
+# `hf download` may print a labelled summary (`path: <dir>`) rather than a bare
+# path, so the LABELLED field is read. A version that prints the bare path on
+# one line still parses, through the fallback; either way the caller requires
+# the answer to be a directory on this host before anything believes it.
 #
-# So the LABELLED field is read. A version that prints the bare path on one line
-# still parses, through the fallback; either way the answer has to be a directory
-# on this host before anything believes it.
-#
-# `huggingface-cli` is not a fallback for this. On 1.24.0 it writes NOTHING to
-# stdout (measured on srv1: 0 bytes, exit 1 offline), so there is no path in it
-# to read at all — which is also why hf_bin prefers `hf`.
+# `hf_bin` prefers `hf`: `huggingface-cli download` may print no path on
+# stdout, and then this parse finds nothing.
 hf_snapshot_path() {
     local p
     p=$(sed -n 's/^[[:space:]]*path:[[:space:]]*//p' "$1" | head -n 1)
@@ -616,10 +610,7 @@ fetch_and_verify() {
     # Already here? Ask the same tool with the network switched off. That resolves
     # the cache through huggingface_hub's own logic rather than through this
     # script guessing at its directory layout, and a checkpoint already on the rig
-    # then costs nothing: srv1 holds this one at
-    # ~/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4/
-    # snapshots/d45c7545dc428f013534f8bfd0441b3afffc0006 and re-fetching it would
-    # verify the same bytes it already verified.
+    # then costs nothing.
     if HF_HUB_OFFLINE=1 "$bin" download "$MODEL" \
         >"$WORK/fetch.out" 2>"$WORK/fetch.stderr"; then
         SNAPSHOT=$(hf_snapshot_path "$WORK/fetch.out")
@@ -797,7 +788,7 @@ main() {
             case $why in
                 *[Mm]arlin* | *verify_marlin_supported*)
                     if [ "$arm" = "B2" ]; then
-                        say "NOTE: B2 died with a Marlin-worded message. AutoGPTQLinearMethod.__init__ calls verify_marlin_supported() unconditionally, before the kernel chooser runs (B2-CHECKPOINT.md, residual risk). That is a finding recorded as a refusal, not a setup error."
+                        say "NOTE: B2 died with a Marlin-worded message. AutoGPTQLinearMethod.__init__ calls verify_marlin_supported() unconditionally, before the kernel chooser runs (mcgyvr-lab/records/evidence/2026-09-02-srv1-kernel-arms/B2-CHECKPOINT.md, residual risk). That is a finding recorded as a refusal, not a setup error."
                     fi
                     ;;
             esac

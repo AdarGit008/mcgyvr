@@ -7,7 +7,7 @@ tags: [local-ai, models]
 
 # Quantization is a dial, not a tax
 
-**Data point.** Quantization is a *dial*, not a tax — bits-per-parameter moves
+Quantization is a *dial*, not a tax — bits-per-parameter moves
 the cliff line itself, so a deeper quant does not merely shrink a model, it
 relocates the capacity boundary the model is judged against. **Do not estimate
 bits-per-parameter from the quant name, or from file size over parameter

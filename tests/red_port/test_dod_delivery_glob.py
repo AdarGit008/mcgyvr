@@ -1,10 +1,8 @@
 """X2 — a single-file delivery cannot take a pattern target.
 
-Contract loading already refuses a glob target for a model-run task type, but
-that is one seam. A contract assembled in code, or an older record, can still
-reach :func:`deliver` with ``src/**/fetch.py`` as its target, and the seam writes
-it as a literal filename — creating and committing a literal ``**`` directory
-while reporting success.
+Contract loading refuses a glob target for a model-run task type, but that is one
+seam. A contract assembled in code, or an older record, can still reach
+:func:`deliver` with ``src/**/fetch.py`` as its target.
 
 The statement is that ``deliver`` itself refuses a target carrying glob
 metacharacters as a hard precondition failure, before anything is written, with a

@@ -13,17 +13,18 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.runs import workload
 
-# cores-2026-09-01 vLLM co-residency driver.
-# args: pairtag  util  maxlen  seqs  kvdtype  levels  tag=model [tag=model ...]
+# vLLM co-residency driver.
+# args: pairtag  util  maxlen  seqs  kvdtype  levels  tag=model[=util] ...
+# The driver runs only under the door and refuses otherwise; its argv reads, for
+# example:
 #
-#   python tools/runs/drivers/vllm_cores.py s2-q15q3 0.45 2048 128 fp8 8,32 \
+#   s2-q15q3 0.45 2048 128 fp8 8,32 \
 #       s2-q15=Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ \
 #       s2-q3=Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
 #
 # WHY A SEPARATE DRIVER. vllm_sweep.py runs one container at a time
-# (`docker rm -f vsweep` between cells), so it cannot answer what a neighbour
-# costs an incumbent. The harness has `coresident_with` and could, but it still
-# sends the 11-token prompt this whole line of work exists to replace.
+# (`docker rm -f <RUN_ID>-vsweep` between cells), so it cannot answer what a
+# neighbour costs an incumbent.
 #
 # WHAT IT MEASURES. Every model is loaded ONCE and stays resident. Then at each
 # level, three measurements against the same loaded pair:
@@ -32,46 +33,26 @@ from tools.runs import workload
 #   solo   -- ramp B while A is resident and IDLE
 #   paired -- ramp A and B CONCURRENTLY                (memory + compute)
 #
-# The plan asked for "solo at the same n, then beside its neighbour". Splitting
-# it three ways costs no extra model load and separates the two costs, which a
-# straight solo-vs-paired delta conflates: a neighbour that is merely resident
-# has already taken VRAM from your KV pool before it serves one token.
+# Splitting it three ways costs no extra model load and separates the two
+# costs, which a straight solo-vs-paired delta conflates: a neighbour that is
+# merely resident has already taken VRAM from your KV pool before it serves one
+# token.
 #
-# UTIL IS A SHARE, PLUS ~980 MiB THE SHARE DOES NOT COVER. Measured on srv2
-# 2026-09-01 against a card verified empty between every launch:
-#
-#     util 0.25 -> 3,925 MiB,  98,032 KV tokens
-#     util 0.45 -> 6,333 MiB, 272,272 KV tokens
-#     util 0.90 -> 11,709 MiB, 664,320 KV tokens
-#
-# util x 11,911 gives 2,978 / 5,360 / 10,720 -- every one ~980 MiB under what
-# the card actually reports. The budget covers weights + KV + activations; the
-# CUDA context is outside it. So co-resident utils must sum to
-# 1 - (n_servers x 980 / total), which is ~0.83 for a pair and ~0.75 for three,
-# NOT 0.9.
-#
-# vLLM also refuses at startup if free memory is below util x total -- a
-# precondition, not a subtraction:
-#
-#     ValueError: Free memory on device cuda:0 (1.12/11.63 GiB) on startup is
-#     less than desired GPU memory utilization (0.9, 10.47 GiB).
-#
-# So LAUNCH LARGEST-UTIL FIRST: each server must clear its own precondition
-# against what its predecessors already took.
-#
-# Because the pool is util-sized, a solo run at 0.45 is NOT comparable to the
-# 0.9 ladders in 2026-09-01-prompt-realism -- which is why the solo halves are
-# re-measured here at the co-resident util rather than read off that run.
+# UTIL is a per-server share of the whole card, the CUDA context is on top of
+# it, and vLLM refuses at startup when free memory is below util x total
+# (-> okf/config/vllm.md, Co-residency). Because the pool is util-sized, the
+# solo halves are measured here at the co-resident util rather than read off a
+# solo run at another util.
 #
 # IDENTICAL WORK, EVERY TIME. The request counter is reset before each batch is
 # built and the same (prompt, want) list is handed to both servers, so a delta
-# between any two rows is contention and never a different prompt draw. That is
-# the confound `reading-results.md` records for cross-run throughput.
+# between any two rows is contention and never a different prompt draw
+# (-> okf/must-read/reading-results.md, the prompt draw desync).
 
 # THE DOOR'S TWO REFUSALS, before argv is read and before docker is touched.
-# A bare run of this file printed byte-compatible rows with no stamps — no rig
-# state, no round, no workload digest — and nothing downstream could tell them
-# from a run that passed every gate (BRIEF "The problem being solved"). So:
+# A bare run of this file would print byte-compatible rows with no stamps — no
+# rig state, no round, no workload digest — and nothing downstream could tell
+# them from a run that passed every gate. So:
 # (1) RUN_ID is minted by the door, python -m mcgyvr.serving.run (gate 5), and
 # only there; without it this process was not started by the door and exits 2
 # having done nothing.
@@ -165,14 +146,9 @@ def teardown(names: list[str]) -> None:
     """Remove the containers AND wait for the card to actually release.
 
     `docker rm -f` returns before the CUDA context is torn down, and vLLM
-    profiles LIVE FREE MEMORY during init -- so a neighbour still releasing
-    makes the next launch abort outright:
-
-        AssertionError: Error in memory profiling. Initial free memory 8.43
-        GiB, current free memory 8.82 GiB.
-
-    Measured 2026-09-01: the abort path used to skip this wait, and the next
-    configuration in the same script refused for that reason alone.
+    profiles live free memory during init -- so a neighbour still releasing
+    makes the next launch abort at memory profiling. Polls the card's compute
+    apps for up to a minute.
     """
     for n in names:
         sh(f"docker rm -f {n}")
@@ -271,21 +247,12 @@ if int(MAXLEN) < workload.MAXLEN_NEED:
     )
     sys.exit(0)
 
-# ONE AT A TIME, EACH FULLY UP BEFORE THE NEXT STARTS. vLLM profiles LIVE free
-# memory during init, so two servers starting together race: each sees memory
-# the other is mid-way through taking, and one of them dies on a util that
-# works perfectly when it launches alone. Measured 2026-09-01 on srv1 -- q15 at
-# 0.40 came up solo with 24,560 KV tokens and REFUSED at the same 0.40 when
-# launched alongside q3. This loop used to start every container and only then
-# wait for health, which is that race by construction.
+# ONE AT A TIME, EACH FULLY UP BEFORE THE NEXT STARTS: vLLM profiles live free
+# memory during init, so two servers starting together race
+# (-> okf/config/vllm.md, Co-residency).
 #
-# ORDER IS THE CALLER'S, AND IT SHOULD BE SMALL-FIRST. util is a per-server
-# share of the whole card -- a resident neighbour does NOT shrink it, proven by
-# co-resident q3 at 0.55 getting 14,448 KV tokens, byte-identical to its solo
-# run at 0.55. What a neighbour does is raise the floor under the free-memory
-# precondition, capping how high a LATER server's util may be set. So give the
-# small model its share first; large-first leaves the second server a budget
-# smaller than the first already occupies, and it gets nothing.
+# ORDER IS THE CALLER'S (argv order). Which order is right is an open ruling
+# -> okf/config/vllm.md, Co-residency.
 servers: list[Server] = []
 alive: list[Server] = []
 for i, spec in enumerate(SPECS):
@@ -306,13 +273,9 @@ for i, spec in enumerate(SPECS):
     s: Server = {"tag": tag, "model": model, "name": name, "port": port, "util": util}
     servers.append(s)
 
-    # RETRY: a launch near the memory edge fails INTERMITTENTLY. Measured on
-    # srv1 2026-09-01 -- the identical command on a verified-empty card, three
-    # times: one died at memory profiling, two came up with byte-identical
-    # 24,560 KV tokens. So a single refusal is a coin flip, not a capacity
-    # limit, and reading one as the other cost most of a day: `q3 at 0.46 came
-    # up` and `q15 at 0.40 refused` were both lucky draws, minutes apart, on
-    # settings that had already worked.
+    # RETRY: a launch near the memory edge fails intermittently, so a refusal
+    # is believed only after LAUNCH_TRIES attempts
+    # (-> okf/config/vllm.md, Co-residency).
     ok, attempts = False, 0
     probe = f"curl -sf -m 3 http://{H}:{s['port']}/health >/dev/null && echo Y"
     for attempts in range(1, LAUNCH_TRIES + 1):

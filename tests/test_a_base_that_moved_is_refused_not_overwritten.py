@@ -1,13 +1,13 @@
 """A target whose base moved under the run is refused, not overwritten.
 
 The sandbox is ``git archive`` of the source's HEAD at open, and a climb can
-take minutes. ``place`` — what a run does by default — asked git one thing
-only: whether the target had uncommitted changes. A user who *committed* to
-the target during the climb had a clean tree, so the accepted bytes, judged
-against the old copy, were written over the new one with exit 0 and nothing
-in the result saying the base had moved. ``deliver`` diffs against the base
-the worker started from and takes the repository's delivery lock; ``place``
-now does both, and refuses in the same words for the same reason.
+take minutes. A user who *commits* to the target during the climb leaves a
+clean tree, so a ``place`` — what a run does by default — that asked git only
+whether the target had uncommitted changes would write the accepted bytes,
+judged against the old copy, over the new one with exit 0 and nothing in the
+result saying the base had moved. ``deliver`` diffs against the base the worker
+started from and takes the repository's delivery lock; ``place`` does both, and
+refuses in the same words for the same reason.
 """
 
 from __future__ import annotations

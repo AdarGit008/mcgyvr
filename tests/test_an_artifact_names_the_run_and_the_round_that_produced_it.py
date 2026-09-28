@@ -1,18 +1,18 @@
 """Gate 6: an artifact says which run made it, and under which product round.
 
 ``srv1-vllm-arms.tsv`` opens with ``### WORKLOAD``, ``### START`` and ``### RIG``
-(``records/evidence/2026-09-02-srv1-kernel-arms/srv1-vllm-arms.tsv:1-3``) and
+(``records/evidence/2026-09-02-srv1-kernel-arms/srv1-vllm-arms.tsv``) and
 nothing in it says which invocation produced it or which revision of the
 product was checked out when it did. A file produced through the door carries
 both: ``### START ... run_id=<RUN_ID>`` (from ``start_stamp``) and a
 ``### ROUND id=<round> product_sha256=<hex>`` stamp (from ``round_stamp`` in
-``_common.sh``, fed by the two values gate 1 exported as ``RUN_ROUND`` and
+``tools/runs/_common.sh``, fed by the two values gate 1 exported as ``RUN_ROUND`` and
 ``RUN_PRODUCT_SHA256`` after ``product.require_pinned()`` passed).
 
 The parser holds the pair together: ``rows.read`` exposes ``sweep.round`` and
 raises when a ``### START`` carries ``run_id=`` but no ``### ROUND`` follows —
 a door-produced file with no round is a broken emitter, not an old file. Files
-without ``run_id=`` are the legacy shape and parse exactly as before; their
+without ``run_id=`` are the legacy shape and parse without one; their
 ``round`` is empty. A file with ``run_id=`` is also held to the stamp rules at
 read time (a loose token in ``### END`` is a parse error, not a truncation),
 which is what gate 8 relies on.
@@ -121,8 +121,8 @@ def test_a_run_id_with_a_round_reads_back_as_sweep_round(tmp_path: Path) -> None
 def test_a_door_produced_file_is_held_to_the_stamp_rules_at_read(
     tmp_path: Path,
 ) -> None:
-    """``srv1-locktest-ling-60min.tsv:1``'s defect — ``uptime_since=2026-09-01
-    08:11:08`` — on a file that claims a run id."""
+    """The loose token of ``srv1-locktest-ling-60min.tsv``'s first line —
+    ``uptime_since=<date> <time>`` — on a file that claims a run id."""
     rows = onedoor.rows_module()
     path = _write(
         tmp_path / "loose.tsv",

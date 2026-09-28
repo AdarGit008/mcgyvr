@@ -1,14 +1,6 @@
 """A tree that has moved off the open round opens the next one, and is not refused.
 
-Gate 1 refuses a door run whose tree does not match the digest the open round
-pins (``tools/bench/product.require_pinned``). That refusal is check 3's teeth
-against two revisions landing in one table — but it is enforced by stopping the
-operator, and the operator's only move is to type the ``--open`` line the
-refusal prints. Measured on 2026-09-06: `serve up` and `serve down` could not
-run at all from this branch, because ten product files had moved since
-``r7-05-09-2026`` was pinned.
-
-Owner's ruling, 2026-09-06: **do not block.** A round is a boundary in the
+**A moved tree does not block.** A round is a boundary in the
 record, not a permission to work. The door opens the next round itself when the
 tree has moved, pins the digest it is about to run against, and continues. There
 is no ceiling on how many rounds a day holds; the pins are what a reader traces
@@ -53,10 +45,9 @@ def _rounds_file(tmp_path: Path, digest: str) -> Path:
 def test_a_moved_tree_opens_the_next_round_instead_of_refusing(
     tmp_path: Path,
 ) -> None:
-    """The case that stopped the door on 2026-09-06.
+    """The pin says one thing and the tree says another.
 
-    The pin says one thing and the tree says another. Today that is a
-    ``ProductError``; it must be a new round pinned to the tree in hand.
+    That is not a ``ProductError``; it is a new round pinned to the tree in hand.
     """
     product = _product()
     repo = Path(product.REPO)

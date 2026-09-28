@@ -102,24 +102,13 @@ MARKERS: tuple[tuple[str, str, str], ...] = (
     ("tools/bench/observed.py", "ELIDE_BY_NAME", "D5"),
     ("tools/bench/observed.py", "MAX_INLINE_ITEMS = 4096", "D5 — the backstop"),
 )
-#: A marker this list used to carry — ``("tools/bench/serving/launch.py",
-#: "wait $CHILD", "the interrupt path — a foreground phase defers the trap")``
-#: — is retired with the launch path it certified. The interrupt path now
-#: belongs to the door's gate 7
-#: (``src/mcgyvr/serving/gate-scripts/07-teardown.py``), which is checked by a
-#: test rather than by a substring.
 
 #: Markers that must NOT be present — a withdrawn thing is only withdrawn if it
 #: is gone. Checked in the same pass, because "we removed it" is exactly the
 #: claim a stale file makes look true.
 #:
-#: **Matched against CODE, not against the file.** The first version was a plain
-#: substring test and it refused this very launch, because
-#: ``BATCHING_SPEEDUP = 2.0`` appears in the docstring explaining what D1
-#: replaced it with. A record saying what a constant used to be is the opposite
-#: of the defect this list looks for, and a check that cannot tell a definition
-#: from a mention of one pushes every author toward deleting the explanation.
-#: So a comment or docstring line is not a hit.
+#: **Matched against CODE, not against the file**: a comment or docstring line
+#: that names a withdrawn constant is not a hit (:func:`code_lines`).
 WITHDRAWN: tuple[tuple[str, str, str], ...] = (
     (
         "tools/bench/serving/contract.py",
@@ -193,8 +182,7 @@ def verify_markers(repo: Path) -> list[str]:
 def check(label: str) -> list[str]:
     """:func:`verify_markers` over this checkout, each problem tagged ``[label]``.
 
-    Kept because the serving tests read the check through this name and label
-    the pass they are asking about (``after writing``, ``after ruff format``).
+    The serving tests read the check through this name.
     """
     return [f"[{label}] {problem}" for problem in verify_markers(REPO)]
 

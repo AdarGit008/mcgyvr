@@ -1,16 +1,14 @@
 """Independent verification: what a reviewer is shown, and what its reply becomes.
 
-mcgyvr owned the policy half of this lever and none of the mechanism.
+:mod:`mcgyvr.escalate` owns the policy half of this lever:
 :func:`~mcgyvr.escalate.judge` reads the gate first and returns before
 ``verifier`` is so much as named on the rejected path;
-:class:`~mcgyvr.escalate.Opinion` already separates a refusal from a reply that
-could not be read; :attr:`~mcgyvr.escalate.Assurance.VERIFIED` is reachable only
-through :attr:`~mcgyvr.escalate.Opinion.AGREED`; and
-:func:`~mcgyvr.runner.dispatch_role` has been a finished socket with nothing
-plugged into it. What was missing is everything between a model and that enum:
-nothing assembled a prompt, nothing read a reply, and nothing ever constructed a
-:class:`~mcgyvr.escalate.Review`. This module is that half (#41, #42), ported
-from local-ai's ``mvp/orchestrator/verifier.py``.
+:class:`~mcgyvr.escalate.Opinion` separates a refusal from a reply that could
+not be read; and :attr:`~mcgyvr.escalate.Assurance.VERIFIED` is reachable only
+through :attr:`~mcgyvr.escalate.Opinion.AGREED`. This module is the mechanism
+between a model and that enum: it assembles the prompt, reads the reply and
+constructs the :class:`~mcgyvr.escalate.Review`, dispatching through
+:func:`~mcgyvr.runner.dispatch_role`.
 
 **The reviewer is shown the whole pre-change file, not a diff's context lines.**
 A patch carries three lines either side of an edit, which is enough to see that
@@ -44,20 +42,14 @@ approval.
 reply, an unreachable backend and a reviewer that is the builder are all
 :attr:`~mcgyvr.escalate.Opinion.UNUSABLE`, which is what
 :attr:`~mcgyvr.escalate.Judgement.reviewer_failed` exists to keep distinguishable
-from a change that was actually judged and found wanting. local-ai answered
-these by bumping the verifier tier and retrying; mcgyvr's pool binds exactly one
-``verifier`` role, so there is no tier to bump — what ports is the rule, and
-mcgyvr already had the place to record it.
+from a change that was actually judged and found wanting.
 
-**M1 — the semantic rung stays non-blocking, and its items arrive here as
-notes.** :class:`~mcgyvr.gate.GateResult` splits what a rung saw into
+**The semantic rung's non-blocking items arrive here as notes.**
+:class:`~mcgyvr.gate.GateResult` splits what a rung saw into
 ``findings``, which reject, and ``observations``, which are real,
-line-attributed and deliberately outside the verdict. The semantic rung reports
-into the second because mcgyvr measured its false-positive rate and chose to
-buy the correct code it would otherwise have rejected. That decision is only
-honest if something still judges those items, which is what
-:func:`gate_summary` is for: it hands them to the reviewer *labelled as not
-having failed anything*, the way local-ai's verifier receives its gate summary.
+line-attributed and deliberately outside the verdict. That is only honest if
+something still judges those items, which is what :func:`gate_summary` is for:
+it hands them to the reviewer *labelled as not having failed anything*.
 Promoting them into ``findings`` — here or in the gate — is a policy flip that
 must be argued for, not a tidy-up.
 
@@ -67,9 +59,8 @@ one :class:`~mcgyvr.escalate.Review` and has no opinion about who tries next,
 which is why an ``ESCALATE`` verdict is a refusal here rather than a routing
 instruction. Whether the assembled prompt fits a budget is
 :func:`~mcgyvr.gate.preflight.check_prompt_fits`'s question and belongs to the
-caller that owns the ceiling; local-ai raised on an over-budget verifier input
-rather than truncating, and the same rule is expressible here because
-:func:`build_prompt` returns the text instead of dispatching it.
+caller that owns the ceiling, which can ask it because :func:`build_prompt`
+returns the text instead of dispatching it.
 """
 
 from __future__ import annotations
@@ -126,10 +117,9 @@ class ReviewOutcome(StrEnum):
 
     Named distinctly from :class:`mcgyvr.escalate.Outcome` — which says how a
     whole *task* ended — so the two never share a bare import name on the
-    composition path. These are the vocabulary one reviewer is given, kept
-    verbatim from local-ai so that a prompt written against either project
-    reads the same: a closed set is what makes "the verdict is the first token"
-    checkable at all, where free prose would have to be interpreted.
+    composition path. These are the vocabulary one reviewer is given: a closed
+    set is what makes "the verdict is the first token" checkable at all, where
+    free prose would have to be interpreted.
     """
 
     APPROVE = "APPROVE"
@@ -234,7 +224,7 @@ def gate_summary(gate: GateResult) -> str:
 
     Three channels, and they are kept apart because they mean different things
     to someone deciding whether to approve. A finding failed the change. An
-    observation is real and was deliberately not rejected on (M1) — the reviewer
+    observation is real and was deliberately not rejected on — the reviewer
     is told exactly that, so it weighs the item without treating it as settled.
     An environment issue is a bar that never applied, which a reviewer has to
     know before reading a clean gate as a strong signal.
@@ -268,11 +258,11 @@ def gate_summary(gate: GateResult) -> str:
 def _contract_block(view: dict[str, Any]) -> str:
     """The brief the builder worked from, rendered for someone judging it.
 
-    Built from :meth:`~mcgyvr.contract.Contract.worker_view` for the reason #94
-    gives: it is the only accessor for worker-facing fields, so a reviewer
-    cannot be shown ``risk``, ``verification`` or ``acceptance`` — the
-    orchestrator's own reasons for believing a result, which a reviewer that
-    could read them could argue with instead of judging the code.
+    Built from :meth:`~mcgyvr.contract.Contract.worker_view` because it is the
+    only accessor for worker-facing fields, so a reviewer cannot be shown
+    ``risk``, ``verification`` or ``acceptance`` — the orchestrator's own
+    reasons for believing a result, which a reviewer that could read them could
+    argue with instead of judging the code.
 
     Not :func:`~mcgyvr.worker.prompt.render_user_message`, which renders the
     same view: that one ends with the worker's OUTPUT instruction, and telling a
@@ -572,8 +562,8 @@ def reviewer_for(
     """The install's verifier role as something :func:`verify` can ask, or ``None``.
 
     ``None`` mirrors :meth:`~mcgyvr.pool.SourceMap.role` and is an ordinary
-    answer: a keyless install has no verifier, which
-    :func:`~mcgyvr.escalate.judge` already answers by labelling the acceptance
+    answer: an install with no verifier role bound has no verifier, which
+    :func:`~mcgyvr.escalate.judge` answers by labelling the acceptance
     ``UNVERIFIED`` rather than by failing it. Callers get that path by passing
     ``verifier=None``, so the absence is decided here, once, instead of being
     discovered inside a dispatch.

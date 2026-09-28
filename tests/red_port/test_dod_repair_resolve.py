@@ -1,14 +1,11 @@
 """D4 — an auto-import is only written for a dependency that actually resolves.
 
-``_module_of`` derives a module name from a dependency's path and the repair
-writes ``from <module> import <name>`` for it, without ever checking that the
-file exists. A contract that declares a dependency whose file is missing — a
-typo, a path the worker was supposed to create but did not — gets an import
-that raises ``ModuleNotFoundError`` at run time: the rejection becomes an
-acceptance plus a crash nobody asked for.
-
-The fix skips a declared dependency whose file is not in the repository, the
-same way it already skips a path it cannot name a module for.
+The repair derives a module name from a dependency's path and writes
+``from <module> import <name>`` for it. A contract that declares a dependency whose
+file is missing — a typo, a path the worker was supposed to create but did not —
+would get an import that raises ``ModuleNotFoundError`` at run time. A declared
+dependency whose file is not in the repository is skipped, the same way as a path
+no module can be named for.
 """
 
 from __future__ import annotations

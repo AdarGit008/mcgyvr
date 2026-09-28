@@ -1,15 +1,14 @@
 """A draw the gate rejects on what a tool can fix is repaired and judged again
-on the same rung, with nothing asked of the config (owner, 2026-09-05:
-"applying the formatter after a rung is done is on purpose — to improve on
-all tasks that were not achievable strictly by the deterministic tiers").
+on the same rung, with nothing asked of the config (owner ruling: "applying the
+formatter after a rung is done is on purpose — to improve on all tasks that
+were not achievable strictly by the deterministic tiers").
 
-``mcgyvr.repair`` had the loop (D21) and no caller in the live drive; the
-tidy behind ``cleanup.enabled`` answered formatting alone and was off. The
-first live ladder rejected all nine replies on a reflowed line, whitespace on
-a blank line or an unsorted import block, and paid a climb for each. Now a
-config that says nothing repairs; ``cleanup.enabled: false`` is the way to
-have the gate's rejection stand. What is delivered is the repaired tree; the
-journal keeps the reply the model sent; the verdict says a repair ran.
+A rejection on a reflowed line, whitespace on a blank line or an unsorted import
+block would otherwise pay a climb. A config that says nothing repairs
+(:func:`mcgyvr.repair.repair`, called by the live drive); ``cleanup.enabled:
+false`` is the way to have the gate's rejection stand. What is delivered is the
+repaired tree; the journal keeps the reply the model sent; the verdict says a
+repair ran.
 """
 
 from __future__ import annotations

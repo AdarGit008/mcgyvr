@@ -1,14 +1,12 @@
 """D20 — the worker's own lines are scanned, the rest are not, and nobody can turn it
 off.
 
-GREEN by design. The scan being ported over has fewer patterns and no notion of
-an environment the check runs under. This file pins the four properties that make
-mcgyvr's version worth keeping, and it pins them one level up from
+This file pins four properties of the secrets scan, one level up from
 ``tests/test_secrets.py``, which builds its ``FileChange`` objects by hand.
 
 Hand-built changes are the right way to test the patterns — they let a case say
 "line 3 was added" without a repository to make it true. They are also exactly
-why a port could pass every one of them while regressing: the attribution the
+why a rewrite could pass every one of them while regressing: the attribution the
 test asserts is the attribution the test supplied. ``added_lines`` is an input
 there, so nothing in that file says the added lines were computed correctly, or
 that a real diff against a real base produces them at all. So every case here
@@ -29,7 +27,7 @@ Four statements:
 * **There is no off switch.** Held two ways, because "no flag exists" is a claim
   about absence and a single assertion cannot carry it. The gate is run with
   every lever it *does* have set to its most permissive, and separately a config
-  that tries to declare the check off is refused at load. A port that added a
+  that tries to declare the check off is refused at load. A change that added a
   toggle would have to break one of the two.
 """
 

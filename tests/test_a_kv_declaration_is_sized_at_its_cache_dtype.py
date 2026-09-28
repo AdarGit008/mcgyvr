@@ -1,17 +1,13 @@
 """A KV declaration is sized at the cache dtype it launches with.
 
-``okf/config/vllm.md`` recorded the gap in one line: nothing read
-``--kv-cache-dtype``. the rule is ``max_num_seqs x max_model_len x
-bytes_per_token``, and every ``bytes_per_token`` in the tree is derived at two
-bytes an element -- the fp16 width of the checkpoint's K and V. Under
-``--kv-cache-dtype fp8`` an element is one byte, so the rule overstated an fp8
-entry's KV by exactly 2x. Measured, not derived: srv2's q15 held 332,160 KV
-tokens at ``auto`` and 664,320 at ``fp8``
-(``records/evidence/2026-09-01-prompt-realism/srv2-fp8-ab-and-lcp-smoke.tsv``),
-and q34b 52,192 and 104,400
-(``records/measurements/measuring-gaps-2026-09-10/results-q2-vllm-fp8.json``).
-The gate therefore refused the cell the 2026-08-31 plan predicted it would --
-q34b at n=32 -- and that cell ran.
+The rule is ``max_num_seqs x max_model_len x bytes_per_token``, and every
+``bytes_per_token`` in the tree is derived at two bytes an element -- the fp16
+width of the checkpoint's K and V. Under ``--kv-cache-dtype fp8`` an element is
+one byte, so a rule that did not read ``--kv-cache-dtype`` would overstate an
+fp8 entry's KV by exactly 2x and refuse cells that run. Measured, not derived:
+an fp8 cache holds twice the KV tokens of an ``auto`` one on the same unit
+(``records/evidence/2026-09-01-prompt-realism/srv2-fp8-ab-and-lcp-smoke.tsv``,
+``records/measurements/measuring-gaps-2026-09-10/results-q2-vllm-fp8.json``).
 
 These checks are static and cost no rig time. They say nothing about whether an
 fp8 cache answers correctly, which is a separate question with its own

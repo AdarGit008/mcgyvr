@@ -34,17 +34,17 @@ each one.
 | `task_type` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol`, `docstring`, `type_annotation`, `function_implementation`, `test_scaffold`, `bug_fix` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry, and therefore whether a glob target is legal. (worker-facing) |
 | `task` | text | **yes** | — | What to do, in words, addressed to the worker. Self-contained: a worker sees this and the rest of the worker-facing fields, never the conversation that produced them. (worker-facing) |
 | `target` | text | **yes** | — | Where the result goes. Exactly one literal repo-relative path for any task type a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a task type that is executed deterministically. e.g. src/pkg/fetch.py. (worker-facing) |
-| `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. Carried on the contract rather than read from the tree at dispatch so that a contract is self-contained and exactly reproducible: `parse(dumps(c))` round-trips the bytes a worker was actually sent. Empty means the target does not exist yet, or its content is not needed — a distinction deterministic execution never asks about, because a tool reads the file itself. (worker-facing) |
+| `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. A contract that carries it is self-contained: `parse(dumps(c))` round-trips the bytes a worker is sent. Empty means the target does not exist yet, or the contract did not carry it: the worker is then given the file as the sandbox workspace holds it at dispatch, and a deterministic tool reads the file itself. (worker-facing) |
 | `interface` | text | no | empty | What the result must expose — the signature, the name, the shape a caller depends on. Stated separately from `task` because it is the machine-checkable half of done. (worker-facing) |
 | `deps` | list of blocks | no | — | Dependencies the target needs, as signatures rather than source. (worker-facing) |
 | `stop_conditions` | list of text | no | `[]` | Explicit triggers on which the worker must stop and report BLOCKED instead of guessing — scope creep, an unknown API, an ambiguous directive. Required for any task type a model executes: guessing is the documented small-model failure mode these exist to prevent, and a worker with no stated stop condition has no licence to refuse. (worker-facing) |
-| `output_schema` | one of `whole_file`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol; `unified_diff` is a patch against the target. (worker-facing) |
+| `output_schema` | one of `whole_file`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol and the only shape implemented; `unified_diff` validates here and is refused before dispatch. (worker-facing) |
 | `context` | block | no | — | Budgets governing what may be assembled into the worker's prompt. (worker-facing) |
 | `scope` | block | **yes** | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
-| `acceptance` | list of text | no | `[]` | Shell commands that must pass for the change to be accepted — the strongest signal the gate has. Each must also pass on the *unchanged* tree (the preflight refuses a suite that is already red), which is exactly why a command meant to demonstrate a defect cannot live here: it goes in `demonstration`. Arbitrary shell from a contract, so they run inside the per-task sandbox, never on the machine you ran mcgyvr from. (orchestrator-facing) |
+| `acceptance` | list of text | no | `[]` | Shell commands that must pass for the change to be accepted — the strongest signal the gate has. Each must also pass on the *unchanged* tree (the preflight refuses a suite that is already red), which is exactly why a command meant to demonstrate a defect cannot live here: it goes in `demonstration`. Arbitrary shell from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
 | `demonstration` | list of text | no | `[]` | Shell commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Runs in the same sandbox, under the same read-only rule. (orchestrator-facing) |
 | `depends_on` | list of text | no | `[]` | Ids of the contracts that must complete before this one may run. Stated on the contract, so a plan can be ordered — and the parts of it that cannot run at all found — before a token is spent, the way `route.plan()` already is. A proposer's emission order is the order a model thought of things, not a dependency order, so ordering that is not written down here is ordering that does not exist. Not worker-facing: a worker is handed one task and never the plan around it, and a dependency that has landed is already in the tree it reads. e.g. ["write-fetch"]. (orchestrator-facing) |
-| `risk` | one of `low`, `medium`, `high` | no | `medium` | How much a wrong answer costs, never a preference. A declared value bounds how cheaply the work may start and how cheaply it may be verified: `high` refuses the cheapest of either, `low` allows them. (orchestrator-facing) |
+| `risk` | one of `low`, `medium`, `high` | no | `medium` | How much a wrong answer costs. Recorded on the contract and printed by `mcgyvr contract`; routing and verification do not read it. (orchestrator-facing) |
 | `verification` | block | no | — | How the change is judged once the gate has passed. (orchestrator-facing) |
 | `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. (orchestrator-facing) |
 | `rename` | block | no | — | Which symbol becomes which, for `task_type: rename_symbol`. The one task type mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other type and ignored there. (orchestrator-facing) |
@@ -58,7 +58,7 @@ An ordered list. Each entry takes these keys:
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `deps.path` | text | **yes** | — | Repo-relative path of the dependency this signature came from. (worker-facing) |
-| `deps.signature` | text | **yes** | — | The function or class signature with its type annotations — NOT its body. Hierarchical context pruning measured signature-only dependency context as improving accuracy while cutting context roughly sixfold: a body invites copying, a signature states the interface. (worker-facing) |
+| `deps.signature` | text | **yes** | — | The function or class signature with its type annotations — NOT its body: a body invites copying, a signature states the interface. (worker-facing) |
 | `deps.note` | text | no | empty | One sentence on how the target is expected to use this dependency. (worker-facing) |
 
 #### `context`
@@ -84,7 +84,7 @@ How the change is judged once the gate has passed.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `verification.policy` | one of `gate_only`, `model` | no | `gate_only` | How the change is judged. `gate_only` accepts on the deterministic gate alone — the whole acceptance bar in a keyless install. `model` additionally requires a fresh-context reviewer to agree. (orchestrator-facing) |
+| `verification.policy` | one of `gate_only`, `model` | no | `gate_only` | How the change is judged. `gate_only` is honoured only for work a deterministic tool does; work a model does is raised to `model`, which asks a fresh-context reviewer to agree. An install with no reviewer labels such an acceptance unverified. (orchestrator-facing) |
 
 #### `limits`
 
@@ -188,15 +188,15 @@ what the run came to. The file's keys:
   does not stop a run.
 
 Every run is journaled under the config's `journal.dir` and nothing on
-the command line moves it — that one directory is where every run there
-has ever been can be counted, which is the only thing that makes the
-record worth keeping. Deterministic runs are there too, as a row naming
+the command line moves it — that one directory is where every run can
+be counted. Deterministic runs are there too, as a row naming
 the program that did the work with `tier: deterministic` and no prompt
 or reply beside it. `--record DIR` adds a complete second copy for your
 own use; `--result PATH` says where you read the result file.
 
-Exit codes: 0 accepted, 1 not accepted or error, 2 usage (including no
-session to file the run under).
+Exit codes: 0 accepted or nothing to change, 1 not accepted or error,
+2 usage (including no session to file the run under), 3 a live fleet
+refused admission.
 
 ## Step 4 — replan from the findings, never retry the same contract
 

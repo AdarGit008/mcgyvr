@@ -1,12 +1,12 @@
-"""§4, second item — ``UP035`` was demoted wholesale, and half of it is fatal.
+"""``UP035`` carries two faults, and only one of them is style.
 
 :data:`~mcgyvr.gate.typecheck.STYLE_LINT_CODES` moves ruff's ``UP035`` off the
 rejecting ``lint`` axis and onto ``style``, which
 :class:`~mcgyvr.gate.GateResult` renders as an *observation*: real,
-line-attributed, and outside the verdict. That was the right call for what the
-demotion was argued for — ``from typing import List`` is correct code in the
-wrong dialect, and spending a model call, a gate run and a rung of the ladder
-on six characters is the exact cost the split exists to stop.
+line-attributed, and outside the verdict. That is the right call for what the
+demotion is for — ``from typing import List`` is correct code in the wrong
+dialect, and spending a model call, a gate run and a rung of the ladder on six
+characters is the exact cost the split exists to stop.
 
 ``UP035`` is not one rule. Ruff reports two unrelated faults under it:
 
@@ -22,9 +22,9 @@ on six characters is the exact cost the split exists to stop.
     (``requires-python = ">=3.12"``). Nothing in the module runs. There is no
     dialect in which it is correct.
 
-The gate accepts the second today and tells the reviewer, in
-:func:`~mcgyvr.verify.gate_summary`'s own words, that "no check is asking for
-them to be fixed".
+A gate that demotes the whole code accepts the second and tells the reviewer,
+in :func:`~mcgyvr.verify.gate_summary`'s own words, that "no check is asking
+for them to be fixed".
 
 **Why the message text cannot be the discriminator.** Ruff's own words for the
 two lines above are byte-identical -- "Import from ``collections.abc``

@@ -1,23 +1,22 @@
 """How long one request may take is the run's declaration, not a constant.
 
-``GENERATE_TIMEOUT_S`` was a module literal of 120 seconds and every dispatch
-took it, so a fixed number in the runner silently decided which combinations
-of reply cap and rung width an operator was allowed to declare.
+A module literal that every dispatch took would silently decide which
+combinations of reply cap and rung width an operator is allowed to declare.
 
 The three are not independent. A reply of ``limits.max_output_tokens`` tokens,
 generated at whatever per-stream rate a rung gives at the width it is serving,
-takes a time that either fits the timeout or does not. Measured on the live
-ladder, 2026-09-06 (``records/measurements/serving-concurrency-2026-09-06/``):
-the srv1 rung gives 27.2 tok/s to one stream and 5.09 tok/s to each of eight,
-so a 1024-token reply takes 38 seconds alone and 201 seconds at width eight.
-Under a constant of 120 the second is unreachable — not refused, and not
-reported as a width that is too wide for this cap, but failed one request at a
-time as a transport error that names a socket and not the ceiling behind it.
+takes a time that either fits the timeout or does not
+(``records/measurements/serving-concurrency-2026-09-06/``): a reply that fits
+the timeout at width one can outlast it at width eight. Under a constant the
+second is unreachable — not refused, and not reported as a width that is too
+wide for this cap, but failed one request at a time as a transport error that
+names a socket and not the ceiling behind it.
 
-So the number belongs to the run that declares the cap and the width, beside
-them, where an operator changing one can see the other two. ``budgets`` is
-where this file already keeps what bounds one task's cost, and 120 stays the
-default: a run that declares nothing behaves exactly as it did.
+So the number belongs to the run that declares the cap and the width, where an
+operator changing one can see the other two. The unit is where the config keeps
+it (``units.<unit>.request_timeout_s``), beside the width, and
+``mcgyvr.config.DEFAULT_REQUEST_TIMEOUT_S`` is the default for a unit that
+declares none.
 """
 
 from __future__ import annotations

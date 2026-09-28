@@ -1,19 +1,16 @@
 """The evidence goes where ``$MCGYVR_RUN_ROOT`` says, and nowhere else.
 
-The door computes its root from its own file — four levels up from
-``src/mcgyvr/serving/run.py`` — and files every run's envelope under
-``<root>/records/evidence/``. From a checkout that root is the repository, and
-the envelope lands beside the code that produced it. From an installed wheel
-the same arithmetic lands in ``site-packages/``, and a run's evidence would be
-written into the interpreter's library directory: the one line that makes a
-production install have to be a git checkout.
+The door files every run's envelope under ``<root>/records/evidence/``. A root
+computed from the door's own file is the repository from a checkout and
+``site-packages/`` from an installed wheel, so the root is ``$MCGYVR_RUN_ROOT`` when
+that is set.
 
 What must be observably true:
 
 * with ``MCGYVR_RUN_ROOT`` set to an existing directory, the envelope is made
   under it, the gates read their declarations (the round, ``hosts.json``, the
   campaigns) from it, and nothing lands under the checkout the door runs from;
-* with it unset, everything is exactly as today: the checkout is the root;
+* with it unset, the checkout is the root;
 * a value naming a path that is not an existing directory is refused before
   any gate — nothing checked, nothing made, no rig read — and the refusal names
   the variable and the rule. A root the door made silently is how evidence goes

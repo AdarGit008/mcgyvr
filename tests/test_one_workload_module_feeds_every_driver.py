@@ -1,16 +1,10 @@
 """Gate 4: one workload module, imported by every driver, digesting to the pin.
 
-Three drivers at the repo root each carry their own copy of the workload block
-— ``PROMPT_DECILES`` through ``mkprompt`` — and ``tools/bench/serving/sweep.py``
-carries a fourth the repo already ruled 2.4x misleading (BRIEF "The problem
-being solved"). Copies agree until one is edited; ``WORKLOAD_DIGEST``
-(``tools/runs/rows.py:340``, ``2f2bb7932a0b660653def819``) is the check that
-would catch that, and it is only run in CI, post-hoc, over one directory.
-
-After the change the block lives once, in ``tools/runs/workload.py``; the
-three drivers under ``tools/runs/drivers/`` import it from ``tools.runs``; the
-parser (now ``tools/runs/rows.py``) digests the module to the pinned value;
-and ``_common.sh``'s ``workload_stamp`` accepts the module's path, so the
+Copies of a workload block — ``PROMPT_DECILES`` through ``mkprompt`` — agree
+until one is edited. The block lives once, in ``tools/runs/workload.py``; the
+drivers under ``tools/runs/drivers/`` import it from ``tools.runs``; the parser
+``tools/runs/rows.py`` digests the module to the pinned ``WORKLOAD_DIGEST``; and
+``_common.sh``'s ``workload_stamp`` accepts the module's path, so the
 ``### WORKLOAD driver=`` field names the one file that generated the prompts.
 """
 

@@ -1,10 +1,9 @@
-"""mcgyvr is packaged as a skill for Claude CLI and pi.
+"""mcgyvr is packaged as a skill for Claude CLI and pi, at ``skills/mcgyvr/``.
 
-Zero implementation expected. Every test here fails until the skill lands at
-``skills/mcgyvr/``. The contract is the Agent Skills standard both harnesses
-implement: a ``SKILL.md`` with valid frontmatter, an install script that places
-it into ``~/.claude/skills`` and ``~/.pi/agent/skills``, a safe first-install
-default, and an onboarding path wired to the existing ``mcgyvr`` CLI.
+The contract is the Agent Skills standard both harnesses implement: a
+``SKILL.md`` with valid frontmatter, an install script that places it into
+``~/.claude/skills`` and ``~/.pi/agent/skills``, a safe first-install default,
+and an onboarding path wired to the existing ``mcgyvr`` CLI.
 """
 
 from __future__ import annotations
@@ -168,10 +167,9 @@ def test_uninstall_removes_both_and_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_skill_body_no_longer_documents_first_run_onboarding() -> None:
-    # Inverted (plan v4, ruled 2026-09-09): Step 0 left the skill. An agent
-    # authoring a contract no longer reads `mcgyvr init` or `mcgyvr pool`
-    # here — that onboarding path moved to SETUP.md, beside the skill it is
-    # not part of.
+    # An agent authoring a contract does not read `mcgyvr init` or
+    # `mcgyvr pool` here — that onboarding path is SETUP.md, beside the skill
+    # it is not part of.
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     body = _body(SKILL_MD)
     assert "mcgyvr init" not in body
@@ -179,20 +177,17 @@ def test_skill_body_no_longer_documents_first_run_onboarding() -> None:
 
 
 def test_skill_body_no_longer_documents_the_levers() -> None:
-    """Inverted (plan v4, ruled 2026-09-09): sources, ladder and budgets were
-    the knobs Step 0 taught a first-time user to read with `mcgyvr pool`.
-    That teaching moved to SETUP.md; the skill an agent reads to author a
-    contract no longer names them as config levers.
+    """Sources, ladder and budgets are config levers a machine's owner reads
+    about in SETUP.md; the skill an agent reads to author a contract does not
+    name them as levers.
 
-    Matched as lever *usage* — the bulleted `` - `lever` — ... `` form Step 0
-    used — and not as a raw substring, which is what plan action 5 asks for
-    ("Test matches lever usage, not raw substring — see action 25") and what
-    the sibling check in ``tests/test_setup_leaves_the_skill.py`` already
-    does. A raw `"ladder" not in body` is unsatisfiable rather than strict:
-    action 24 requires the outcome literal `ladder_spent` to be present in
-    the body, and action 25's closed exception list keeps it. Aligning this
-    check with the plan's own wording is not a weakening of it — the bullet
-    form is exactly the shape the deleted Step 0 used to introduce a lever.
+    Matched as lever *usage* — the bulleted `` - `lever` — ... `` form a setup
+    step introduces a lever with — and not as a raw substring, as the sibling
+    check in ``tests/test_setup_leaves_the_skill.py`` does. A raw
+    `"ladder" not in body` is unsatisfiable rather than strict: the outcome
+    literal `ladder_spent` must be present in the body
+    (``tests/test_the_skill_does_not_explain_the_ladder.py`` keeps it on its
+    closed exception list).
     """
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     body = _body(SKILL_MD)

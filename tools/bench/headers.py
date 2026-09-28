@@ -1,12 +1,10 @@
 """Where a run's intent lives, and the date its shape stops being provisional.
 
-The repo records what a run **was** — `run.json`, `identity.KEY`, eleven fields
-held by `identity.require_comparable`. Nothing recorded what a run is **for**:
-not the question, not what else it could have carried, not what was left on the
-table. #322 decided that every run declares a structured header before it
-starts and that the gate **records rather than refuses**, so the register
-emerges from real headers instead of being designed against code that P1-P5 is
-about to churn. The owner then ruled "right mechanism, wrong size — split it".
+The repo records what a run **was** — `run.json`, and `identity.KEY`, the
+fields held by `identity.require_comparable`. A header records what a run is
+**for**: the question, what else it could have carried, what was left on the
+table. A header is declared before the run starts, and a gate that checks one
+**records rather than refuses**, so the register emerges from real headers.
 
 This module is the half that is not the gate: the record type, the home, the
 listing, and the review point. The gate — a driver that writes or checks a
@@ -55,10 +53,9 @@ REPO = Path(__file__).resolve().parents[2]
 #: The greppable home. One file per header, named for its date and a slug.
 HOME = REPO / "records" / "headers"
 
-#: Where ``run-header/2`` lands when the field review at ten is done, beside
-#: the four record schemas already there. Its existence is what clears the
-#: owed state — the review is finished when it has produced a schema, not when
-#: someone says it is.
+#: Where ``run-header/2`` lands when the field review at ten is done. Its
+#: existence is what clears the owed state — the review is finished when it
+#: has produced a schema, not when someone says it is.
 SCHEMA_V2 = REPO / "tools" / "baseline" / "schema" / "record.run-header.schema.json"
 
 #: This record type. The version is in the value because ``run-header/2`` is a
@@ -66,8 +63,8 @@ SCHEMA_V2 = REPO / "tools" / "baseline" / "schema" / "record.run-header.schema.j
 RECORD = "run-header/1"
 
 #: Read the accumulated headers at ten and decide which fields are required.
-#: #322's number, declared 2026-08-21 with the gate rather than after it: a
-#: gate left open with no review date states no property (lens 3).
+#: Declared with the gate rather than after it: a gate left open with no
+#: review date states no property.
 REVIEW_AFTER = 10
 
 #: v1's four. A header that cannot say what it is asking is not a header.

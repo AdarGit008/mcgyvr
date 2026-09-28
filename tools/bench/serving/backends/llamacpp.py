@@ -1,54 +1,28 @@
 #!/usr/bin/env python3
 """The llama.cpp backend: llama-server launched directly, with its flags set.
 
-Implements the contract in :mod:`contract`. **This file names no other backend
-and must not**: it knows how to stop being on the GPU and how to get itself onto
-it, and who else wants the card is the orchestrator's decision, never this
-module's.
+Implements the contract in :mod:`contract`. **This file names no other
+backend's module and must not**: it knows how to stop being on the GPU and how
+to get itself onto it, and who else wants the card is the orchestrator's
+decision, never this module's.
 
-**Why this exists at all.** Another engine in this tree also ends up running
-``llama-server`` — it spawns one child per loaded model and proxies to it — but
-it drives its own HTTP API, and that API does not expose the flags this campaign
-varies. That path READS ``-ngl``/``-c``/``-np`` off the running child's command
-line; nothing in it can SET them. ``--n-cpu-moe``, the single most important
-knob for MoE-on-a-small-card, appeared nowhere in ``tools/`` at all. Measuring
-expert offload, thread count or batch width therefore required a module that
-launches ``llama-server`` itself, with the flags as arguments.
-
-**Slots are the correctness story here, and they are measured, not assumed.**
-``llama-server`` defaults to FOUR slots. Offer it eight concurrent requests and
-it runs two sequential batches of four: aggregate throughput flatlines at the
-n=4 value while per-request latency doubles. That is indistinguishable, in the
-numbers, from a model that has saturated the hardware — and it is the exact
-shape of the "llama.cpp caps at ~2x" claim this campaign exists to test. A ramp
-run against default slots would have *confirmed* a configuration artifact.
-
-Measured on srv1, 2026-08-30, Qwen2.5-Coder-3B-Q4_K_M, ``-ngl 99``, one model,
-one prompt, only the launch flags differing::
-
-    -c 4096                  total_slots=4  n_ctx=4096  2158 MiB
-    -c 4096  --parallel 8    total_slots=8  n_ctx=512   2154 MiB
-    -c 16384 --parallel 8    total_slots=8  n_ctx=2048  2588 MiB
-
-Two things follow, and both are enforced below rather than left to a caller:
+Two launch flags are set here and are not the caller's to choose:
 
 1. **``--parallel`` is always set, and never below the widest level the ramp
    will offer.** :func:`claim` reads ``total_slots`` back off ``/props`` and
-   refuses a launch that did not get the width it asked for, because a slot
-   count that silently came back smaller is a false plateau waiting to be
-   recorded as a finding.
+   refuses a launch whose readback is below that level: the server runs the
+   excess as a second sequential batch, which reads as a plateau.
 
-2. **``-c`` is the TOTAL context and is divided across the slots.** Per-slot is
-   ``-c / total_slots``, which is why row two above reads 512. The contract's
-   ramp asks for :data:`contract.RAMP_TOKENS` (475) completion tokens on top of
-   a prompt, so a 512-token slot truncates the very generation being timed.
-   Configs therefore declare ``ctx_per_slot`` and this module multiplies; a
-   caller that insists on a raw ``n_ctx`` gets it validated against the width.
+2. **``-c`` is the TOTAL context and is divided across the slots.** The ramp
+   asks for :data:`contract.RAMP_TOKENS` completion tokens on top of a prompt,
+   so configs declare ``ctx_per_slot`` and this module multiplies. A raw
+   ``n_ctx`` is passed through as given; :func:`claim` reads the per-slot
+   window back off ``/props`` and refuses one below :data:`MIN_CTX_PER_SLOT`.
 
 **mmap stays on.** ``--no-mmap`` is never passed and is refused if a config asks
-for it (D-mmap, 2026-08-25): it is a fix for a RAM shortage, not an
-optimisation, and every srv2 cell measured slower with it. The MoE gate below
-is what keeps a model that cannot fit from thrashing instead.
+for it: :func:`mmap_gate` weighs host RAM for an mmap'd model.
+
+The flags themselves are described in ``okf/config/llama.cpp.md``.
 """
 
 from __future__ import annotations
@@ -68,7 +42,7 @@ from mcgyvr.serving import ggufscan, vramfit
 
 
 def _contract() -> types.ModuleType:
-    """The shared contract, by path — ``tools/`` is not a package.
+    """The shared contract, by path — ``tools/`` has no ``__init__.py``.
 
     One slot, so every backend and the orchestrator share a single copy: two
     would mean two ramps, two idle thresholds and two definitions of what
@@ -109,28 +83,25 @@ fingerprint = _fingerprint()
 
 NAME = "llamacpp"
 
-#: The port this engine ships on. llama-server's own default, and deliberately
-#: distinct from every other engine's in this tree: they are never up at once
-#: by the orchestrator's exclusion rule, but a port collision would make a stale
+#: The port this engine ships on. llama-server's own default, and distinct from
+#: every other engine's in this tree: a port collision would make a stale
 #: server answer for a live one.
 PORT = 8080
 
-#: Pinned. The build is part of the measurement — b10481 is the first build in
-#: this campaign that carries the ngram speculative family and `bailingmoe3`,
-#: and a floating tag would silently change the instrument between cells.
+#: Pinned. The build is part of the measurement, and a floating tag would
+#: change the instrument between cells.
 CONTAINER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-cuda-b10481"
 
 CONTAINER_REPOSITORY = CONTAINER_IMAGE.split(":")[0]
 
-#: What we start is what we stop. A cell never repairs a machine it found wrong
-#: (run contract §4), and killing a stranger's container is further from repair
-#: than anything that clause was written about.
+#: What we start is what we stop: :func:`release` removes the container of
+#: this name and no other.
 CONTAINER_NAME = "mcgyvr-llamacpp"
 
 #: The host tree holding GGUF blobs, and where it appears inside the container.
 #: A single mount point is what lets :func:`release` tell our `llama-server`
 #: from a `llama-server` this module did not start: ours carries `/models/` in
-#: its command line, a proxied child carries a blob path under its own store.
+#: its command line.
 HOST_MODELS = "$HOME/models"
 CONTAINER_MODELS = "/models"
 
@@ -143,11 +114,11 @@ IDLE_BEFORE_LOAD_MIB = contract.IDLE_GPU_MIB
 #: thrashing cell reports a throughput that is really a disk benchmark.
 MMAP_HEADROOM_BYTES = 2 * 1000**3
 
-#: Measured on the rigs 2026-08-30: container to `/health` was 25.2 s for a 3B
-#: dense (24.1 s warm — the cost is CUDA init, not the read) and 47.7 s for a
-#: 12.11 GB MoE under `--n-cpu-moe 99`. A 36 GB MoE off a cold page cache is the
-#: worst case this has to cover, so the budget is an order of magnitude above
-#: the measured cases rather than a tight fit to them.
+#: The base of the wait on `/health` (its ssh timeout is
+#: ``START_TIMEOUT_S + 120``) and the source of the poll count: :func:`_start`
+#: polls ``START_TIMEOUT_S // 20`` times, each a curl of at most 5 s followed by
+#: a 10 s sleep, so the polling ends before this many seconds. A large MoE off
+#: a cold page cache is the case it has to cover.
 START_TIMEOUT_S = 900.0
 
 #: Kept on a refusal, so the cause survives the next launch's `docker rm -f`.
@@ -208,12 +179,12 @@ def readings(host: str) -> dict[str, Any]:
             "docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' "
             f"| grep {shlex.quote(CONTAINER_REPOSITORY)} || true"
         ),
+        # `-a` so a stopped container is still in the record even though
+        # `release` deliberately counts only running ones.
         "containers": (
             "docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}' "
             f"| grep {shlex.quote(CONTAINER_REPOSITORY + ':')} || true"
         ),
-        # `-a` so a stopped container is still in the record even though
-        # `release` deliberately counts only running ones.
         "server_processes": "pgrep -af '[l]lama-server' || true",
         "props": f"curl -s -m 10 http://127.0.0.1:{PORT}/props || true",
         "slots": f"curl -s -m 10 http://127.0.0.1:{PORT}/slots || true",
@@ -260,30 +231,24 @@ def build(host: str) -> dict[str, Any]:
 def release(host: str) -> dict[str, Any]:
     """Stop serving and give up the card. Only this engine's own processes.
 
-    Three steps, for the reason the sibling engines record: each is insufficient
-    alone.
+    Three steps, each insufficient alone:
 
     1. Remove our container by NAME. Not by image and not by a filter over
-       ``docker ps`` — on srv2 that listing carries four containers of which one
-       is ours, and stopping a stranger's server is not this module's business.
-    2. Kill any ``llama-server`` still carrying our mount point. A container
-       that was killed rather than stopped can leave the child alive for a beat,
-       and the card is not free until it is gone.
+       ``docker ps``: stopping a stranger's server is not this module's
+       business.
+    2. Kill any ``llama-server`` still carrying our mount point. The card is
+       not free until it is gone.
     3. Settle, then read the card back.
 
     **``released`` is a statement about THIS backend, not about the card.**
     Reading total VRAM would make a backend that holds nothing report failure
-    whenever another engine held the card — which is how the orchestrator's
-    exclusion gate came to refuse the very engine it was about to measure. The
-    card's own number travels beside it under ``card_used_mib``.
+    whenever another process held the card. The card's own number travels
+    beside it under ``card_used_mib``.
 
-    **The process count is narrowed to ours on purpose, and this engine is the
-    one where that matters.** Another engine in this tree also runs
-    ``llama-server`` children. A host-wide ``pgrep -c '[l]lama-server'`` — which
-    is the right scope for *that* module, whose docstring explains why — would
-    here count another engine's child as ours and report ``released: False`` for
-    a card we had already let go of. Ours are the ones serving out of
-    :data:`CONTAINER_MODELS`.
+    **The process count is narrowed to ours on purpose.** Ours are the
+    processes serving out of :data:`CONTAINER_MODELS`; a host-wide count would
+    include ``llama-server`` processes this module did not start and report
+    ``released: False`` for a card we had already let go of.
     """
     steps: list[dict[str, Any]] = []
 
@@ -296,10 +261,8 @@ def release(host: str) -> dict[str, Any]:
         "remove_container",
         f"docker rm -f {shlex.quote(CONTAINER_NAME)} >/dev/null 2>&1; true",
     )
-    # The bracket is not cosmetic: `pkill -f` matches against its own shell's
-    # command line, and an unbracketed pattern kills the ssh session before it
-    # kills the server. `sudo -n` because a container's child is root-owned and
-    # the ssh user gets EPERM otherwise — silently, if stderr is discarded.
+    # Bracketed so `pkill -f` does not match its own shell's command line.
+    # `sudo -n` because a container's child is root-owned.
     run(
         "kill_servers",
         f"sudo -n pkill -f '[l]lama-server.*{CONTAINER_MODELS}' 2>/dev/null; "
@@ -324,9 +287,7 @@ def release(host: str) -> dict[str, Any]:
         f"| grep -w {shlex.quote(CONTAINER_NAME)} | head -20 || true",
     )
     # Recorded and gating nothing: every llama-server on the box, ours and
-    # anybody's. A reader comparing this with `engine_processes_remaining` sees
-    # exactly how many of them belong to another engine — which on these rigs is
-    # another engine's children, and is the difference the narrowing is about.
+    # anybody's.
     everyones = run(
         "llama_server_processes_hostwide",
         "{ pgrep -c '[l]lama-server' 2>/dev/null || echo 0; } | head -1",
@@ -388,10 +349,9 @@ def _gguf_bytes(host: str, model: str) -> int | None:
 def _available_bytes(host: str) -> int | None:
     """``MemAvailable``, in bytes.
 
-    ``available`` and not ``free``: Linux counts mmap'd page cache as
-    reclaimable, and measured on srv1 reading a 12.11 GB GGUF moved `available`
-    by 16 MiB while `buff/cache` grew 11.6 GiB. Gating on `free` would refuse
-    every cell after the first.
+    ``available`` and not ``free``: Linux counts page cache as reclaimable, so
+    a GGUF read through mmap grows `buff/cache` and leaves `available` close to
+    where it was. Gating on `free` would refuse every cell after the first.
     """
     raw = contract.ssh(
         host, "awk '/MemAvailable/ {print $2 * 1024}' /proc/meminfo || true"
@@ -406,35 +366,21 @@ def _available_bytes(host: str) -> int | None:
 SCRATCH_AND_CONTEXT_MIB = vramfit.SCRATCH_AND_CONTEXT_MIB
 
 #: What the process holds in host RAM BEYOND the offloaded experts themselves.
-#: ``RSS - blocks * expert_per_block`` sat at 1.52-1.53 GiB at every setting
-#: measured, which is why it is a constant here and not a rate. Mirrors
-#: :data:`mcgyvr.serving.RUNTIME_RESIDENT_GB`, which fitted it.
+#: A constant and not a rate: :func:`mmap_gate` adds it once to every placement.
 RUNTIME_RESIDENT_BYTES = int(1.53 * 1024**3)
 
 
 def _card_mib(host: str) -> dict[str, int | None]:
     """The card's four buckets, in MiB. Read, never assumed.
 
-    **A card has four buckets and ``total`` is not the one a process can
-    spend:** ``total = reserved + used + free``. The reserve is GSP firmware, a
-    coprocessor on the die whose code lives in card memory, and CUDA does not
-    report it as existing at all -- PyTorch calls srv2's 12,288 MiB card "a
-    total capacity of 11.63 GiB", which is 12,288 - 380.
-
-    **``spendable`` is ``free``, not ``total - reserved``.** Those two agree
-    only on an idle card, and the card is not always idle: measured on srv1
-    2026-09-04, foreign processes held 3,374 MiB with no container of ours
-    running, leaving 2,370 free against a 5,743 total-less-reserve. Deriving a
-    floor from 5,743 there would place seven blocks of experts on a card with
-    room for none, and the cell would OOM at load having passed the gate.
+    ``total = reserved + used + free``, and ``spendable_mib`` is ``free``, not
+    ``total - reserved``: those two agree only on an idle card.
+    See ``okf/must-read/touching-rigs.md``.
 
     **This reads the number and asks nothing about whose it is.** Who else
-    wants the card is the orchestrator's decision, not a backend's -- and
-    whatever holds it at this moment is something the campaign did not start
-    and must not stop (run contract 4). :func:`mmap_gate` runs after
-    :func:`release`, which is the only moment the reading describes what the
-    next launch actually gets: occupancy is a fact about the machine, and the
-    gate's job is to see it rather than to assume it away.
+    wants the card is the orchestrator's decision, not a backend's.
+    :func:`mmap_gate` runs after :func:`release`, so the reading describes what
+    the next launch gets.
     """
     raw = contract.ssh(
         host,
@@ -454,9 +400,9 @@ def _card_mib(host: str) -> dict[str, int | None]:
         "reserved_mib": reserved,
         "used_mib": used,
         "free_mib": free,
-        # What the floor is derived from. `free` already excludes both the GSP
-        # reserve and whatever a stranger holds, which is exactly the quantity
-        # a launch gets to allocate.
+        # What the floor is derived from. `free` already excludes both the
+        # driver's reserve and whatever a stranger holds, which is exactly the
+        # quantity a launch gets to allocate.
         "spendable_mib": free,
     }
 
@@ -464,13 +410,8 @@ def _card_mib(host: str) -> dict[str, int | None]:
 def _geometry(host: str, model: str) -> dict[str, Any] | None:
     """The blob's tensor table, read on the serving host.
 
-    **Shipped and run there rather than tabulated here.** A constant table of
-    expert masses is exactly the shape of the ``EXPERT_SHARE = 0.92`` /
-    ``MOE_BLOCKS = 48`` pair that ``mcgyvr.serving`` had to retract: read
-    against the file they cited, the block count was 40 and the share 0.8416,
-    and the three compounding errors happened to land within 1% of the truth so
-    that correcting any one of them alone made the answer worse. A number about
-    a file belongs to the file.
+    **Shipped and run there rather than tabulated here.** A number about a
+    file belongs to the file.
 
     ``None`` when the host could not answer or the parser refused the blob --
     the caller records the gate as not applied rather than as passed.
@@ -479,7 +420,7 @@ def _geometry(host: str, model: str) -> dict[str, Any] | None:
     blob = base64.b64encode(source).decode("ascii")
     # `python3 -` takes the program on stdin and leaves argv[1:] to the script,
     # so the file never lands on the rig's disk and nothing needs cleaning up
-    # afterwards -- gate 7 has enough to do.
+    # afterwards.
     raw = contract.ssh(
         host,
         f"echo {blob} | base64 -d | python3 - {shlex.quote(model)} 2>/dev/null || true",
@@ -501,54 +442,23 @@ def expert_floor(
 ) -> dict[str, Any]:
     """The FEWEST blocks of experts this card can leave in host RAM.
 
-    This is the ``--n-cpu-moe`` floor, and it is what the gate must judge a
-    model by. Every term but one now comes from the blob's own tensor table or
-    from :mod:`vramfit`'s measured laws; :data:`SCRATCH_AND_CONTEXT_MIB` is the
-    only allowance left.
+    This is the ``--n-cpu-moe`` floor, and it is what the gate judges a model
+    by. Every term but one comes from the blob's own tensor table through
+    :mod:`vramfit`: :func:`vramfit.kv_bytes` sizes the cache per caching layer,
+    :func:`vramfit.rs_bytes` the recurrent state per sequence, and
+    :func:`vramfit.experts_on_card` sums the blocks left on the card, because
+    ``--n-cpu-moe`` moves WHOLE blocks and takes ``N`` as a block INDEX.
+    :data:`SCRATCH_AND_CONTEXT_MIB` is the only allowance.
 
-    **Four fitted constants were retired here, each stable, plausible and
-    wrong** (evidence under ``records/evidence/2026-09-05-context-decomposition``
-    and ``2026-09-04-srv1-ncmoe-floor``):
-
-    ``CUDA_CONTEXT_MIB = 1024``
-        against 85.5-135.1 MiB of actual unnamed residue, measured on both rigs.
-
-    ``KV_BYTES_PER_TOKEN_PER_CACHING_LAYER = 2048``
-        one width for every layer of every model. ``deepseek2`` caches a
-        192-wide key against a 128-wide value; ``gemma4`` runs two head counts
-        and two key widths in one file; a sliding-window checkpoint allocates
-        TWO caches over disjoint layer sets, and the sliding one stops growing
-        once the window binds. :func:`vramfit.kv_bytes` reproduces the engine's
-        own figure exactly on every checkpoint measured.
-
-    ``STATE_MIB_PER_LINEAR_LAYER_PER_SLOT = 2``
-        drops the convolution term, 4.7% of the buffer on ``qwen35moe``, and
-        counts recurrent layers as ``n_layer - caching``, which doubles the
-        buffer on ``nemotron_h_moe`` (52 blocks = 6 attention + 23 mamba + 23
-        MLP-only). :func:`vramfit.rs_bytes` counts the blocks that carry
-        ``ssm_*`` tensors and charges per SEQUENCE.
-
-    ``bytes_experts / n_layer``
-        an average block, which matches no block in nine of ten checkpoints.
-        ``--n-cpu-moe`` moves WHOLE blocks and takes ``N`` as a block INDEX, so
-        what a placement needs is the marginal block.
-        :func:`vramfit.experts_on_card` sums the blocks actually left on the
-        card, skipping a grafted MTP head the knob never places.
-
-    **Still derived, and still to be walked down to.** The remaining allowance
-    makes this a prediction, and it is stated GENEROUSLY on purpose: too high
-    costs throughput until the walk-down, too low admits a cell that clears the
-    gate and then OOMs at load. The refusal is the measurement -- run one cell
-    below it deliberately and it names the true edge. Retry any refusal three
-    times before believing it; a launch near the memory edge is a 1-in-3 coin
-    flip.
+    **The allowance makes this a prediction**, and it is stated GENEROUSLY on
+    purpose: too high costs throughput, too low admits a cell that clears the
+    gate and then OOMs at load.
 
     **Returns ``derived: False`` rather than a number it cannot stand behind.**
-    :func:`vramfit.kv_bytes` refuses a checkpoint that declares a sliding
-    window without the per-layer pattern saying which layers use it, because
-    the split is not in the header and inventing one is how the retired
-    constants got written. The caller weighs the blob whole instead, which is
-    the conservative direction.
+    :func:`vramfit.kv_bytes` and :func:`vramfit.rs_bytes` raise ``ValueError``
+    for a header they cannot size, such as a sliding window declared without
+    the per-layer pattern saying which layers use it. The caller weighs the
+    blob whole instead, which is the conservative direction.
     """
     vf = vramfit
     n_layer = int(geometry.get("n_layer") or 0)
@@ -557,10 +467,8 @@ def expert_floor(
     placeable = list(geometry.get("placeable_blocks") or [])
 
     slots = int(serve.get("parallel") or 1)
-    # `-c` is the TOTAL context across slots, not the per-slot window: measured
-    # 2026-09-05, `-c 8192` gives the same cache at `-np 8`, `-np 4` and
-    # `-np 1`, and llama.cpp reports `n_ctx_seq = 1024` for the first of those.
-    # `kv_bytes` does that division, and the PAD256 that goes with it.
+    # `-c` is the TOTAL context across slots, not the per-slot window.
+    # `kv_bytes` does that division, and the padding that goes with it.
     n_ctx = int(serve.get("ctx_per_slot") or 0) * slots
     n_ubatch = int(serve.get("n_ubatch") or 512)
 
@@ -608,26 +516,20 @@ def mmap_gate(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     """Refuse a model that cannot be held in RAM, BEFORE it is launched.
 
     **The gate is on ``available`` at the moment of the check, and the moment
-    matters.** Measured on srv1: with a 12.11 GB MoE mmap'd, `available` reads
-    about a gigabyte lower than it does once that server is gone. Evaluating
-    this while the previous cell is still up therefore refuses a cell that fits.
-    :func:`_start` calls it *after* :func:`release`, which is the only ordering
-    that reads the memory the model will actually get.
+    matters.** While the previous cell's server is up, the RAM it holds is
+    missing from `available`. :func:`_start` calls this *after*
+    :func:`release`, which is the only ordering that reads the memory the model
+    will actually get.
 
     A refusal here is the campaign's intended outcome for an oversized model,
     not an error to route around: the alternative is a cell that runs, thrashes,
     and reports a disk benchmark as a decode throughput.
 
-    **What is weighed is the RESIDENT share, not the blob.** This gate used to
-    compare ``stat -c %s`` against the budget, and that is the wrong quantity
-    for every split cell. ``-ngl 99 --n-cpu-moe N`` puts the non-expert weights
-    and the experts of ``n_layer - N`` blocks on the CARD; under mmap those
-    pages are read once, uploaded, and are then clean and evictable. They never
-    need to be resident at the same time as the CPU-side experts. Judged by
-    blob size, ``Qwen3.6-35B-A3B-UD-IQ3_XXS`` is 13.21 GB against srv1's
-    12.38 GB budget and refused -- while the experts it would actually hold in
-    RAM weigh 9.16 GB at its floor and 11.11 GB with every block offloaded.
-    Two further cells were refused the same way and would have run.
+    **What is weighed is the RESIDENT share, not the blob.**
+    ``-ngl 99 --n-cpu-moe N`` puts the non-expert weights and the experts of
+    every block from index ``N`` up on the CARD; under mmap those pages are
+    read once, uploaded, and are then clean and evictable. They never need to
+    be resident at the same time as the CPU-side experts.
 
     **The refusal is made only if MAX OFFLOAD still failed.** ``fits`` is
     judged at :func:`expert_floor` -- the fewest blocks this card can leave in
@@ -711,9 +613,8 @@ def mmap_gate(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     def resident(n_cpu_moe: int) -> int:
         """Host bytes at a placement: the experts NOT on the card, plus runtime.
 
-        ``expert_bytes - experts_on_card(N)`` and never ``N x average block``.
-        The average matches no block in nine of ten checkpoints here, and the
-        knob takes ``N`` as a block INDEX -- a dense leading block means the
+        ``expert_bytes - experts_on_card(N)`` and never ``N x average block``:
+        the knob takes ``N`` as a block INDEX -- a dense leading block means the
         first step moves nothing at all, which the multiplication cannot say.
         """
         return int(expert_bytes - vramfit.experts_on_card(geometry, n_cpu_moe)) + (
@@ -753,10 +654,7 @@ def validate_serve(serve: dict[str, Any]) -> int:
     **Separated so it can run BEFORE anything is torn down.** ``_start`` opens
     with :func:`release`, which stops whatever is serving; a config error raised
     after that point has already destroyed the previous cell's server to render
-    a sentence about a typo. A sibling module records the same lesson from the
-    other direction — a pin check placed after its own ``_start`` cost a restart
-    and half an hour to say a field name was wrong. :func:`claim` calls this
-    first.
+    a sentence about a typo. :func:`claim` calls this before :func:`_start`.
 
     Returns the per-slot context, because the caller needs it and computing it
     is where the validation happens.
@@ -764,10 +662,8 @@ def validate_serve(serve: dict[str, Any]) -> int:
     flags = list(serve.get("flags", []))
     if "--no-mmap" in flags or serve.get("no_mmap"):
         raise contract.NotCleanError(
-            "`--no-mmap` is refused by this backend. It is a fix for a RAM "
-            "shortage, not an optimisation — every srv2 cell measured slower "
-            "with it (2026-08-25) — and the MoE gate is what keeps a model "
-            "that cannot fit from thrashing. Nothing was measured."
+            "`--no-mmap` is refused by this backend: its RAM gate weighs the "
+            "model as mmap'd. Nothing was measured."
         )
     per_slot = int(serve.get("ctx_per_slot", 2048))
     if per_slot < MIN_CTX_PER_SLOT:
@@ -836,10 +732,7 @@ def _host_path(host: str, model: str) -> str:
     """The inverse of :func:`_container_path` — what the HOST can ``stat``.
 
     ``/props`` answers with the path the server sees, which is inside the
-    mount. Measured live on srv2: :func:`placements` fed that container path
-    straight to ``stat`` on the host, got nothing, and reported
-    ``fraction: None`` for a model whose size was perfectly readable — the one
-    number this engine can report and its sibling cannot, silently absent.
+    mount; ``stat`` runs on the host and needs this one.
     """
     if not model.startswith(CONTAINER_MODELS + "/"):
         return model
@@ -927,9 +820,9 @@ def _start(host: str, model: str, serve: dict[str, Any], width: int) -> dict[str
     )
     began = time.monotonic()
     launched = contract.ssh(host, command)
-    # The loop's worst case is (curl 5s + sleep 10s) per round, so the ssh
-    # budget covers THAT and not START_TIMEOUT_S alone — a slow start cut off by
-    # the client is recorded as a server that never came up.
+    # Each round is a curl of at most 5 s and a 10 s sleep, so the loop ends
+    # inside the ssh budget — a slow start cut off by the client would be
+    # recorded as a server that never came up.
     rounds = int(START_TIMEOUT_S // 20)
     ready = contract.ssh(
         host,
@@ -945,8 +838,11 @@ def _start(host: str, model: str, serve: dict[str, Any], width: int) -> dict[str
     if (ready or "").split()[:1] != ["ready"]:
         tail = _launch_log(host)
         raise contract.NotCleanError(
-            f"llamacpp on {host} did not reach health inside "
-            f"{START_TIMEOUT_S:.0f}s: {contract.scrub(ready)!r}. Nothing was "
+            f"llamacpp on {host} did not reach health within "
+            f"START_TIMEOUT_S // 20 polls with a 10 s sleep after each, under "
+            f"an ssh timeout of START_TIMEOUT_S + 120 s "
+            f"(START_TIMEOUT_S={START_TIMEOUT_S:.0f}s); the wait returned "
+            f"{contract.scrub(ready)!r}. Nothing was "
             "measured. The known causes here are a GGUF larger than the card "
             "at the requested `-ngl`, and a cold page cache on a large MoE. "
             f"The server's own last {LAUNCH_LOG_LINES} log lines, read on the "
@@ -1150,19 +1046,14 @@ def placements(host: str) -> list[dict[str, Any]]:
     **``fraction`` is nonetheless ``None``, and that is a correction rather
     than a gap.** The obvious number, ``card_mib`` over the blob's size, is not
     the share of the weights on the card: the driver attributes the process's
-    WHOLE allocation, which is weights plus the KV cache plus the CUDA context.
-    Measured live on srv2 — a 1.93 GB blob at ``-ngl 99`` with 8 slots of 2048
-    read 2618 MiB, a "fraction" of **1.42**. A number above one is the
-    harmless case, because it is visibly wrong; the damaging case is a MoE
-    under ``--n-cpu-moe`` landing at, say, 0.7 and being read as "70% of the
-    weights are resident" when the KV is most of what is being counted.
+    WHOLE allocation, which is weights plus the KV cache plus the CUDA context,
+    so the ratio can exceed one. A number above one is the harmless case,
+    because it is visibly wrong; the damaging case is a MoE under
+    ``--n-cpu-moe`` landing at, say, 0.7 and being read as "70% of the weights
+    are resident" when the KV is most of what is being counted.
 
-    The sibling engine reports a weights-only share under this name, taken from
-    its own accounting rather than from the driver. Publishing a
-    differently-defined number under the same key is exactly the cross-engine
-    comparison the record is supposed to make impossible, so the ratio is
-    reported under its own name with its terms stated, and ``fraction`` carries
-    the refusal.
+    So the ratio is reported under its own name, ``card_over_blob``, with its
+    terms stated, and ``fraction`` carries the refusal.
     """
     props = _props(f"http://{host}:{PORT}")
     if not props:
@@ -1208,8 +1099,7 @@ def placements(host: str) -> list[dict[str, Any]]:
                 "fraction": None,
                 "fraction_refused": (
                     "the weights-only share is not observable from the driver "
-                    "here, and the sibling engine publishes a weights-only "
-                    "number under this key; see `card_over_blob`"
+                    "here; see `card_over_blob`"
                 ),
                 "backend": NAME,
             }
@@ -1235,10 +1125,8 @@ def placements(host: str) -> list[dict[str, Any]]:
 #: This engine's defining flags, which this engine cannot read back.
 #:
 #: ``-ngl``, ``--n-cpu-moe`` and ``-t`` decide *where each layer is computed*,
-#: which is the axis this whole campaign varies. Since 2026-09-03 they are in
-#: the shared fingerprint's SEMANTIC set (: ``--n-cpu-moe`` 0 against
-#: 99 on one build moved 9 of 257 verdicts, so placement is semantic until a
-#: placement null shows otherwise). What this engine cannot do is *read* them:
+#: which is the axis this whole campaign varies, and they are in the shared
+#: fingerprint's SEMANTIC set. What this engine cannot do is *read* them:
 #: ``/props`` reports none of them, and a value this module typed in from the
 #: launch command would be a declaration wearing a reading's clothes.
 #:
@@ -1256,9 +1144,8 @@ def serving_config(props: dict[str, Any] | None) -> dict[str, Any]:
 
     Width and per-slot context are the two a cross-engine comparison has to
     match and the two this engine silently defaults, so they lead. The digest
-    is the shared one — the same function the sibling engines pass their
-    configuration through — so two cells are comparable by construction rather
-    than by a reader lining up fields.
+    is the shared one, :func:`fingerprint.fingerprint`, so two cells are
+    comparable by construction rather than by a reader lining up fields.
 
     See :data:`ENGINE_FLAGS_NOT_IN_DIGEST` for what this deliberately does not
     cover, and why that is recorded rather than fixed here.
@@ -1297,7 +1184,7 @@ def serving_config(props: dict[str, Any] | None) -> dict[str, Any]:
         "uncovered_why": (
             "-ngl, --n-cpu-moe and -t decide where each layer is computed, "
             "which is the axis this campaign varies. They are SEMANTIC in the "
-            "shared fingerprint  and /props does not report them, "
+            "shared fingerprint and /props does not report them, "
             "so this engine cannot put them in the digest: two cells differing "
             "only in expert offload share a semantic digest from this engine, "
             "and are NOT comparable on output. The launch command in "

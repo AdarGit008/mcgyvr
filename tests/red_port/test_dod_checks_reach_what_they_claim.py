@@ -1,40 +1,23 @@
-"""Five checks that pass while measuring nothing, or less than they say.
+"""Five checks reach what they are named for.
 
 A check that cannot fail is worse than no check: it occupies the place a real one
-would take, and it reports green. Each of these is one of those, and each was
-found by tracing what the gates actually reach rather than by reading what they
-are named.
+would take, and it reports green.
 
-1. **mypy does not see ``tools/``.** ``pyproject.toml`` sets
-   ``files = ["src", "tests"]`` under ``strict = true``. Measured on 2026-09-06:
-   mypy checks 390 files, ruff checks 821. Everything under ``tools/`` is linted
-   and never type-checked — including ``tools/live/index.py`` and
-   ``tools/live/review.py``, which the ``Makefile`` ships as ``journal-index``
-   and ``journal-review``, the supported way to read the live journal, and
-   ``tools/bench/*.py``, which ``tests/conftest.py`` imports at collection.
+1. **mypy sees ``tools/``.** ``pyproject.toml`` points mypy at ``tools`` under
+   ``strict = true``, and does not silence it there.
 
-2. **The package ships no ``py.typed``.** A strict-typed library that exports no
-   types: running mypy over ``tools/`` reports ``mcgyvr.telemetry: module is
-   installed, but missing library stubs or py.typed marker``.
+2. **The package ships ``py.typed``**, so a strict-typed library exports its types.
 
-3. **``docgen.check_reference`` compares only the last dotted segment.** It
-   verifies ``delivery.mode`` is documented by looking for the word ``mode``,
-   which also appears under ``sandbox``. ``mode``, ``source``, ``model``,
-   ``enabled``, ``image``, ``dir`` and ``attempts`` all recur across blocks, so a
-   whole block could stop rendering and ``make docs-check`` would still pass on
-   a namesake elsewhere.
+3. **``docgen.check_reference`` looks a key up under the block it belongs to.**
+   ``mode``, ``source``, ``model``, ``enabled``, ``image``, ``dir`` and ``attempts``
+   recur across blocks, so a check on the last segment alone would pass on a
+   namesake when a whole block stopped rendering.
 
-4. **``SERVE_ALWAYS`` is read by nothing, and its test asserts it equals
-   ``ALWAYS``.** ``_serve`` iterates the module-level ``ALWAYS`` directly. The
-   assertion cannot fail by construction: it compares a name to the thing it was
-   assigned from, on the line it was assigned.
+4. **The always-entries of the door have exactly one name.**
 
-5. **``_check_manifest`` does not cover ``rig-snapshot.sh``.** The door checks
-   every gate script, both serve steps and both shims exist before running, so a
-   missing file is "a refusal, not an absence, because 'the file was gone' is
-   exactly how a check stops running". ``rig-snapshot.sh`` — which gate 2 reads
-   and gate 7 re-uses — is not on the list. Delete it and gate 2 dies with a
-   ``FileNotFoundError`` traceback, which is an absence.
+5. **The door's manifest covers every shell reader a gate depends on**,
+   ``rig-snapshot.sh`` included, so a missing file is a refusal and not a
+   ``FileNotFoundError`` traceback.
 """
 
 from __future__ import annotations
@@ -116,16 +99,7 @@ def test_the_reference_check_notices_a_dropped_block() -> None:
 
 
 def test_the_always_entries_have_exactly_one_name() -> None:
-    """4. One list of always-entries, under one name.
-
-    ``SERVE_ALWAYS = ALWAYS`` is an export nothing reads: ``_serve`` iterates
-    the module-level ``ALWAYS``, and the only test on it asserts the two are
-    equal — true by assignment, on the line of the assignment.
-
-    Stated as "one name", not as "the export is read", so that **deleting** the
-    dead alias is a legal fix. A test demanding that ``SERVE_ALWAYS`` be read
-    would forbid the cleanest answer and force a use to be invented for it.
-    """
+    """4. One list of always-entries, under one name."""
     from mcgyvr.serving import run as door
 
     names = sorted(

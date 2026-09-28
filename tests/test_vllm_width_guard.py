@@ -1,10 +1,9 @@
 """The batch width, against the ladder the cell will offer.
 
 llama.cpp reads `/props total_slots` back and refuses a server that came up
-narrower than the ramp (`llamacpp.py:674,707`). vLLM has no such endpoint, and
-until this guard nothing in that backend read `concurrency.levels` at all --
-so `max_num_seqs 8` against an n=32 ramp launched happily, queued 24 of every
-32 requests at the scheduler, and recorded the plateau as saturation with
+narrower than the ramp (`llamacpp.claim`). vLLM has no such endpoint. Without
+a guard, `max_num_seqs 8` against an n=32 ramp launches happily, queues 24 of
+every 32 requests at the scheduler, and records the plateau as saturation with
 `outcome: ok`.
 
 Three checks, in the order a run meets them: the config-time refusal (costs

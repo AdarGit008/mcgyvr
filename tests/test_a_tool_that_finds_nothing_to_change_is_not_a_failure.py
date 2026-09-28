@@ -1,10 +1,9 @@
 """A program that finds nothing to change has done its job; a model that does has not.
 
-Owner, 2026-09-15, on PR #469: a delivery check runs whether or not the work is
-committed, so a reply identical to its target is refused either way — live run
-``doc-structured-validators`` was a model echoing the file it was asked to
-change, and it was reported accepted. The same check turned a ``format`` run
-over an already-formatted file into ``delivery_refused``, exit 1. That is a
+Owner ruling: a delivery check runs whether or not the work is committed, so a
+reply identical to its target — a model echoing the file it was asked to
+change — is refused either way. The same check would turn a ``format`` run over
+an already-formatted file into ``delivery_refused``, exit 1. That is a
 different fact: the contract asked for a formatted file and there is one. The
 floor's no-op ends as its own word, ``nothing_to_change``, exit 0, with or
 without ``--commit``; a model's no-op stays refused.

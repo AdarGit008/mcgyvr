@@ -1,30 +1,16 @@
 """Run identity — one block, four groups, and the three states a field can be in.
 
- — *run identity is one block, and an unreadable field is a refusal* —
-and issue `#265 <https://github.com/AdarGit008/mcgyvr/issues/265>`_.
+*Run identity is one block, and an unreadable field is a refusal.*
 
-**Why this is a module and not a tuple in three files.** Five lists disagreed
-about what identity is: ``report.COMPARABLE`` (11 keys), ``report.read_cell``'s
-required set (4), ``report.BOUND_MATCH`` (4), the breadth resume drift check
-(every key it writes) and the bundle resume drift check (6). Three lanes were
-queued to edit the first of them — #256 for the model, #262 for the bar, #231
-check 2 for the condition — and the comparability key is a *single tuple*, so
-three lanes each adding one field is three chances to name one field short. A
-guard that names five fields does not refuse the sixth; it permits it silently,
-which reads as having checked.
+**Why this is a module and not a tuple in several files.**
+``report.COMPARABLE`` and ``report.BOUND_MATCH`` are aliases of :data:`KEY` and
+:data:`BOUND_MATCH`, and the breadth and bundle resume drift checks call
+:func:`drift`. A guard that names five fields does not refuse the sixth; it
+permits it silently, which reads as having checked.
 
-**The defect this closes.** ``require_comparable`` compared
-``manifest.get(key)`` across cells, so a key absent from *every* cell yielded
-one value and passed::
-
-    model         {'"qwen2.5-coder:1.5b"'}  pass
-    tasks_sha256  {'"aaa"'}                 pass
-    model_sha256  {'null'}                  pass   <- nothing writes this field
-
-Adding the three digests to a failing-open guard would have changed no behaviour
-at all while reading, to every later reader, as having checked. So the shape and
-the refusal land together: **a field the guard cannot read is a refusal, not a
-match** (D3).
+**A field the guard cannot read is a refusal, not a match.** A key absent from
+*every* cell yields one value — ``null`` — across all of them, and a guard that
+compared values alone would pass it.
 
 **What is recorded and what is keyed are different questions.** #276 settled
 that: recording is unconditional, and a field enters the *key* only once
@@ -85,7 +71,7 @@ class IdentityError(Exception):
     """Two records cannot be laid beside each other, or one cannot be read."""
 
 
-# --- the three states (D2) -----------------------------------------
+# --- the three states ------------------------------------------------
 #
 # One rule, all four groups, so a reader can tell "not recorded" from "recorded
 # as unknown" from "the endpoint could not say" — and no sentinel string, which
@@ -97,23 +83,14 @@ REFUSED: State = "refused"  # null + a reason: asked, and it would not say
 ABSENT: State = "absent"  # no key: the record predates the contract
 
 
-# --- the four groups (D1) ------------------------------------------
+# --- the four groups -------------------------------------------------
 #
-#  named three fields — the bar, the model and the condition. It was one
-# short. The SERVER is the missing group and it has already cost a contrast:
-# the 2026-08-19 scaffold ablation ran the 3B against srv1 and the 7B against
-# srv2 on two different builds of the backend they served, and nothing on disk
-# said so.
-#
-# A name here is what the record CARRIES, not what the guard checks. Fields
-# nothing writes yet are listed on purpose: the fan-out that computes a digest
-# adds a writer, and flips one entry in KEY below, rather than inventing a field
-# name of its own three months from now.
+# A name here is what the record CARRIES, not what the guard checks.
 GROUPS: dict[str, tuple[str, ...]] = {
     # What answered. A tag is mutable and, on the surfaces this build talks to,
     # cannot be pinned at all: the OpenAI-compatible protocol carries a name
-    # and nothing else about the weights. So identity is captured at request
-    # time from a digest pin or a ggufscan geometry, or not at all.
+    # and nothing else about the weights. So weights identity comes from a
+    # digest pin or a ggufscan geometry, or not at all.
     "model": (
         "model",
         "model_sha256",
@@ -137,39 +114,33 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "sampled_temperature",
         "max_output_tokens",
         "seed",
-        # The retired bundle rig's resume-guard fields (DEC-9, #287). Its two
-        # committed manifests already carry these names, so they join the
-        # contract rather than surviving as a sixth list in the one rig #265
-        # did not touch. Recorded, never keyed — #240 retired both arms, so
-        # nothing will ever ask #276's rule to admit them.
+        # The retired bundle rig's resume-guard fields. Its two committed
+        # manifests carry these names, so they sit inside the contract.
+        # Recorded, never keyed.
         "language",
         "conditions_sha256",
     ),
-    # What served it. Observed, never assumed: two builds are two instruments
-    # , and concurrency decides whether greedy is reproducible at all.
+    # What served it. Observed, never assumed: two builds are two
+    # instruments, and concurrency decides whether greedy is reproducible at
+    # all.
     "server": (
         "endpoint",
         "serving_build",
         "template_sha256",
         "concurrency",
-        # **#358.** `serving_build` names the engine; this names what the engine
-        # RESOLVED. Both are needed and neither substitutes: measured on the two
-        # rigs 2026-08-24, one image digest and one identical argument list gave
-        # `vllm 0.26.0` on both hosts while one ran TRITON_ATTN with the torch
-        # sampler and the other FLASH_ATTN with FlashInfer. The digest is taken
-        # over `fingerprint.RESOLVED_READS` — the attention backend, the sampler
-        # path, the linear kernel, dtype, KV dtype and the two graph modes.
+        # `serving_build` names the engine; this names what the engine
+        # RESOLVED. Both are needed and neither substitutes: one image digest
+        # and one argument list can resolve different kernels on two hosts. The
+        # digest is taken over `fingerprint.RESOLVED_READS`.
         "serving_resolved_sha256",
     ),
-    # What judged it. Five rung names are byte-identical across 328 ruff rules
-    # and 66 eslint, so the bar is hashed as the RESOLVED rule list. `round` and
-    # `product_sha256` sit here because the revision they pin includes the
-    # scorer AND the scorer's configuration — `pyproject.toml`,
-    # `eslint.config.mjs` and the two lockfiles that decide which checker
-    # applies them. It included only the scorer when this line was written,
-    # which made the justification false for half of what it claimed;
-    # (#291) put the configuration in `product.SURFACE` and this sentence is
-    # now true rather than aspirational.
+    # What judged it. Five rung names are byte-identical across two different
+    # resolved rule sets (ruff's and eslint's), so the bar is hashed as the
+    # RESOLVED rule list. `round` and `product_sha256` sit here because the
+    # revision they pin (`product.SURFACE`) includes the scorer AND the
+    # scorer's configuration — `pyproject.toml`, `eslint.config.mjs`,
+    # `prettier.config.mjs` and the two lockfiles that decide which checker
+    # applies them.
     "bar": (
         "gate_rungs",
         "gate_semantic",
@@ -184,18 +155,12 @@ RECORDED: tuple[str, ...] = tuple(f for fields in GROUPS.values() for f in field
 
 
 # The axis a table is allowed to vary in. Named in the call rather than assumed,
-# so a sweep that contrasts something else says which (D5).
+# so a sweep that contrasts something else says which.
 CONTRAST = "condition"
 
 
-# The admitted subset. Every entry here is either one of the four bound-key
-# fields (admitted by construction, #276 corollary 3) or was in
-# `report.COMPARABLE` before this module existed — a manifest mutated in a 4x
-# smaller output cap, a different temperature, a different wire protocol and an
-# emptied task manifest once produced a byte-identical report.
-#
-# It does not widen because a field became writable. #276's rule admits, and
-# nothing else does.
+# The admitted subset. It does not widen because a field became writable.
+# #276's rule admits, and nothing else does.
 KEY: tuple[str, ...] = (
     "model",
     "endpoint",
@@ -219,122 +184,82 @@ KEY: tuple[str, ...] = (
     # justification enters beside it; making it wait on a perturbation run would
     # leave the key admitting a claim its own evidence had refuted.
     #
-    # **What it costs.** Every record written before this field existed carries
-    # no value for it, so a table mixing old and new rows refuses on absence —
-    # `allow_unfingerprinted=True` is how a reader takes an older record
-    # deliberately, and that waiver is exactly D3's purpose.
+    # **What it costs.** A record that carries no value for it makes a table
+    # refuse on absence — `allow_unfingerprinted=True` is how a reader takes
+    # such a record deliberately.
     "serving_resolved_sha256",
 )
 
 
-# Recorded, not keyed. Each waits on a perturbation run under #276's rule, or on
-# a writer. Listed so the gap is a state rather than an oversight — this is the
-# list a reader should hold this module to when the fan-out lands.
+# Recorded, not keyed. Listed so the gap is a state rather than an oversight;
+# `PENDING_REASON` says why for each.
 PENDING: tuple[str, ...] = tuple(f for f in RECORDED if f not in KEY and f != CONTRAST)
 
 
-# WHY each pending field is pending, which the list above could not say (#285).
-# Two different states wore one name: "#276's rule has not admitted it" and
-# "nothing in the repository computes it". Ten of the 27 declared fields were in
-# the second state when  shipped, so the perturbation rule had nothing
-# to perturb and the list read as though it did.
-#
-# Every pending field carries a reason, and the test suite holds this to the
-# tree: a field pending on #276's rule must have a writer — so the day someone
-# writes one without moving it here, the list stops agreeing with the repository
-# and says so.
-#
-# 2026-08-18 (#286): the third state is gone. `AWAITING_PROBE_SET` — "nothing in
-# the repository computes it" — described the four probe-set fields until
-# `tools/bench/observed.py` landed, and they are now captured on every run that
-# opens a directory. They did NOT become `AWAITING_ADMISSION`: that name means
-# "#276's rule has not admitted it", and #276's rule is not their promotion
-# path. D7 is, and D7 makes promotion the owner's.
+# WHY each pending field is pending. Every pending field carries a reason, and
+# the test suite holds this dict complete. The four probe-set fields are
+# promoted by the owner, not by the perturbation rule.
 AWAITING_ADMISSION = "awaiting #276's perturbation rule"
 CAPTURED_IN_OBSERVED = (
     "captured in observed.json (#286) and compared by nothing; promotion into "
-    "KEY is the owner's  D7, not #276's perturbation rule"
+    "KEY is the owner's, not #276's perturbation rule"
 )
 
 PENDING_REASON: dict[str, str] = {
-    # Written by `probe_model` since #285. Recorded on every run made from here
-    # on, and keyed only when perturbation admits them — which for the model
-    # digest is the one experiment #276's rule cannot run on itself, since it
-    # cannot hold `model` fixed while varying `model`. `model` is already a
-    # bound-key field by corollary 3; these qualify it rather than replace it.
+    # `probe_model` records these four as null with a reason on every run: the
+    # OpenAI-compatible surface carries no weights identity. `model` is already
+    # a bound-key field; these would qualify it rather than replace it.
     "model_sha256": AWAITING_ADMISSION,
     "vocabulary_sha256": AWAITING_ADMISSION,
     "merges_sha256": AWAITING_ADMISSION,
     "template_sha256": AWAITING_ADMISSION,
+    # The digest of `bar_material`, as `bar_digest` computes it.
     "bar_sha256": AWAITING_ADMISSION,
-    # Keyed WITHIN a condition and never globally (D6, and `require_comparable`
-    # does it). A global key would refuse `stock` against `norule`, which is the
+    # Keyed WITHIN a condition and never globally (`require_comparable` does
+    # it). A global key would refuse `stock` against `norule`, which is the
     # contrast the bench exists to draw.
-    "prompt_sha256": "keyed within a condition (D6), never globally",
+    "prompt_sha256": "keyed within a condition, never globally",
     "bundle_sha256": AWAITING_ADMISSION,
-    # #286's, not #285's: the probe set, captured comprehensively and compared
-    # by nothing until the owner promotes one. Written since 2026-08-18 into
-    # `observed.json` beside this block, where "written" means the field is
-    # always present — answered where ollama's native surface answers it
-    # (`quantization` does) and `null` with a stated reason where it does not
-    # (`context_length` and `concurrency` are not on that surface at all, and
-    # `seed` is observed and never set). A null here is a measurement, which is
-    # the whole difference between this state and the one it replaced.
+    # The probe set, captured in `observed.json` by `tools/bench/observed.py`
+    # and compared by nothing until the owner promotes one. Every field is
+    # always present: a value, or null with a stated reason.
     "quantization": CAPTURED_IN_OBSERVED,
     "context_length": CAPTURED_IN_OBSERVED,
     "concurrency": CAPTURED_IN_OBSERVED,
     "seed": CAPTURED_IN_OBSERVED,
-    # Written since before this module existed, and pending for the ordinary
-    # reason. Listed rather than left to a default: a field that falls through
-    # to "the usual" is a field nobody decided about, and this dict is complete
-    # by test so a name added to GROUPS cannot arrive unexplained.
+    # Pending for the ordinary reason. Listed rather than left to a default:
+    # this dict is complete by test, so a name added to GROUPS cannot arrive
+    # unexplained.
     "draws": AWAITING_ADMISSION,
     "sampled_temperature": AWAITING_ADMISSION,
     "gate_semantic": AWAITING_ADMISSION,
     "mode": AWAITING_ADMISSION,
-    # The retired bundle rig's resume-guard fields (DEC-9, #287): recorded so
-    # its committed manifests sit inside the contract, and keyed by nothing —
-    # #240 retired both arms, so no perturbation run will ever be made to admit
-    # them. `conditions_sha256` is on both committed manifests under this name
-    # (records/measurements/{jsts-bundle-2026-08-04,python-bundle-2026-08-07}/
-    # run.json); `language` is on the python one, and the jsts arm predates it
-    # and adopts it at the call site.
-    "language": "the retired bundle rig's resume-guard field (DEC-9): recorded, "
+    # The retired bundle rig's resume-guard fields: recorded so its committed
+    # manifests sit inside the contract, and keyed by nothing.
+    "language": "the retired bundle rig's resume-guard field: recorded, "
     "keyed by nothing — #240 retired both arms",
-    "conditions_sha256": "the retired bundle rig's resume-guard field (DEC-9): "
+    "conditions_sha256": "the retired bundle rig's resume-guard field: "
     "recorded, keyed by nothing — #240 retired both arms",
 }
 
 
 # What a declared reproducibility bound must match before it may describe a run.
-# D2 — the null is measured per target tier and does not transfer up the
-# ladder;  — a serving build nothing recorded has already moved results
-# twice; a bar that scores differently produces a different null.
+# The null is measured per target tier and does not transfer up the ladder; two
+# serving builds are two instruments; a bar that scores differently produces a
+# different null.
 #
 # `tier` here is the LANGUAGE ARM — `bench-py` / `bench-ts`, as every run.json
-# records it — and the axis the product ladder calls a tier is `model` (#289).
-# D2's "per target tier" is therefore discharged by `model`, with language as an
+# records it — and the axis the product ladder calls a tier is `model`. "Per
+# target tier" is therefore discharged by `model`, with language as an
 # additional split.
-#
-# The matching note on `mcgyvr.config.Tier` is DEFERRED, not written: `src/mcgyvr`
-# is inside `product.SURFACE`, so a docstring there moves `product_sha256` and
-# re-baselines the open round. It lands with the identity range #276's sequencing
-# already schedules before `r2` opens. Until then a reader of the ladder sense
-# meets no cross-reference, which is why this one states both senses in full
-# rather than pointing at a file.
 BOUND_MATCH: tuple[str, ...] = ("model", "tier", "gate_rungs", "serving_build")
 
-# Declared in the contract, not yet enforced here. D9 put `cells` in
-# the matching key — a rate keyed on everything but its own denominator
-# transfers to subsets it never saw — and `reproducibility.json`'s `matching`
-# prose already states five fields against this tuple's four.
+# Not enforced here. `reproducibility.json`'s `matching` prose names `cells` as
+# a fifth matching field — a rate keyed on everything but its own denominator
+# transfers to subsets it never saw — against this tuple's four.
 #
 # Listed rather than left implicit for the reason `PENDING` exists above: a gap
-# a reader can see is a state, and a gap only one of two documents mentions is
-# an oversight waiting to be satisfied twice. #231 owns closing it, and #289
-# measured what it costs to honour — nothing, because a subset of an
-# already-paired set is itself already paired, so a subset bound is a
-# recomputation over verdicts on disk rather than a new dispatch.
+# a reader can see is a state.
 #
 # **It is not pending the way `PENDING` is, and promoting it is not the same
 # move.** Every entry in `PENDING` is a recorded *manifest* field awaiting
@@ -342,7 +267,7 @@ BOUND_MATCH: tuple[str, ...] = ("model", "tier", "gate_rungs", "serving_build")
 # the bound was measured over — and appears in neither `KEY` nor `RECORDED`,
 # because a run manifest does not carry it. So `BOUND_MATCH` gaining `cells`
 # would break `set(BOUND_MATCH) <= set(KEY)`, which
-# `tests/test_bench_identity.py` asserts today. Whoever closes D9 decides that
+# `tests/test_bench_identity.py` asserts. Whoever closes the gap decides that
 # invariant's fate first: either the bound key stops being a subset of the run
 # key, or `cells` becomes a recorded field of the run it describes.
 BOUND_MATCH_PENDING: tuple[str, ...] = ("cells",)
@@ -356,39 +281,27 @@ def digest(value: Any) -> str:
     already megabytes of rows, and buys a collision argument nobody wants to have
     about an identity field.
 
-    Computed here and never passed in (D4). ``--condition`` was a
-    caller-supplied identity field, it reached dispatch and never ``record_run``,
-    and eight manifests described a render nobody had run.
+    Computed here and never passed in.
     """
     payload = json.dumps(value, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-# --- the writers (#285) -----------------------------------------------------
-#
-#  decided that three fields change from a NAME to CONTENT.
-# decided the record shape and shipped the module. Nothing wrote the content:
-# ten of the 27 declared fields had no writer anywhere in the repository, so
-# `PENDING` could not distinguish "#276's rule has not admitted it" from
-# "nothing computes it", and the perturbation rule had nothing to perturb.
+# --- the writers -------------------------------------------------------------
 #
 # Every one of these is computed HERE and called by the runner with raw
-# material only (D4). A runner that assembles a hash and passes it in
-# is `--condition` with a longer hex string: a caller-supplied identity field
-# that reached dispatch and never `record_run`, and eight manifests described a
-# render nobody had run.
+# material only. A runner that assembles a hash and passes it in supplies an
+# identity field nothing re-derives.
 
-#: Where a refusal's reason lives. D2 says an unobtainable field is ``null``
-#: **with a reason**, and the reason cannot go in the field itself without being
-#: the sentinel string D2 forbids. One sibling block keyed by field name, so
-#: :data:`GROUPS` stays exactly the names it declares — ten ``*_reason`` twins
-#: would double it — and a reader finds the reason where they found the null.
+#: Where a refusal's reason lives. An unobtainable field is ``null`` **with a
+#: reason**, and the reason cannot go in the field itself without being a
+#: sentinel string. One sibling block keyed by field name, so :data:`GROUPS`
+#: stays exactly the names it declares and a reader finds the reason where they
+#: found the null.
 REFUSALS = "identity_refusals"
 
-#: Long, and deliberately not :func:`serving_build`'s two seconds. `/api/show`
-#: with ``verbose`` returns the tokenizer arrays — 151,936 tokens and 151,387
-#: merges on the 1.5B — and a timeout tuned for a version string would record
-#: "unobtainable" for a model that answered perfectly well, slowly.
+#: The default of :func:`probe_model`'s ``timeout``. That function makes no
+#: request, so nothing waits on it.
 MODEL_PROBE_TIMEOUT_S = 30.0
 
 
@@ -414,28 +327,18 @@ def probe_model(
     """What the endpoint will say about the weights it is serving: nothing.
 
     Returns ``(fields, reasons)`` with every field in
-    :data:`MODEL_PROBE_FIELDS` ``null`` and one reason, which is D2's shape for
+    :data:`MODEL_PROBE_FIELDS` ``null`` and one reason, which is the shape for
     a field the endpoint will not answer — never a sentinel string and never a
     plausible substitute.
-
-    **It answered once, and the surface that answered is gone.** This read a
-    native API: a listing that carried a manifest digest per model, and a show
-    call that returned the GGUF header's ``tokenizer.ggml.tokens`` and
-    ``merges`` arrays and the server's rendered template, which were hashed
-    here into the other three fields. That backend was removed from the product
-    on 2026-09-06 and the probe with it; the reasoning — including why the
-    manifest digest is over-sensitive, and #286's correction that the layer
-    digest turned out to be readable off the Modelfile's ``FROM`` line after
-    all — is in ``archive/forensic-ollama/``.
 
     **The OpenAI-compatible surface is identity-free.** That is not a gap in
     this function: the protocol carries a model *name*, and a name is what
     `serving_build` and the pins exist to distrust. So a refusal here is a true
-    statement about what the endpoints this build talks to will say, and the
-    comparability guard it fed is now the digest pins in
-    ``tools/bench/serving/pin.py`` and the ``ggufscan`` geometry an envelope
-    carries, both of which read the weights rather than ask the server about
-    them.
+    statement about what the endpoints this build talks to will say. Weights
+    identity comes from the ``weights_sha256`` pin a vLLM claim carries
+    (``tools/bench/serving/backends/vllm.py``) and the ``ggufscan`` geometry
+    an envelope carries, both of which read the weights rather than ask the
+    server about them.
 
     Kept as a function returning refusals rather than deleted, because callers
     (``tools/breadth/measure.py``) write these four fields into every manifest
@@ -445,11 +348,10 @@ def probe_model(
     return _refused(
         MODEL_PROBE_FIELDS,
         f"{endpoint.rstrip('/')} is asked over the OpenAI-compatible surface, "
-        "which carries a model name and no weights identity. The native API "
-        "that answered these four was removed with its backend on 2026-09-06 "
-        "(archive/forensic-ollama/); weights identity now comes from a digest "
-        "pin or a ggufscan geometry, which read the file rather than ask the "
-        "server",
+        "which carries a model name and no weights identity. Weights identity "
+        "comes from a digest pin or a ggufscan geometry, which read the file "
+        "rather than ask the server; the removed native-API probe is in "
+        "archive/forensic-ollama/",
     )
 
 
@@ -484,15 +386,8 @@ def _post_json(url: str, body: dict[str, Any], *, timeout: float) -> Any | None:
 
 #: The solution filename each arm's checker is pointed at when the bar is
 #: resolved. eslint resolves a config *per file*, so asking it for "the rules"
-#: without naming one is asking a question it does not answer.
-#:
-#: Measured, and the difference is not academic: the same ``eslint.config.mjs``
-#: resolves **66** enabled rules for ``solution.ts`` and **80** for
-#: ``solution.js``, because ``typescript-eslint``'s recommended set turns off
-#: core rules it replaces with type-aware ones. Every bench contract targets
-#: ``.ts``, so 66 is this arm's number — but a corpus admitting one ``.js``
-#: target would be scored by a different bar under the same five names, which is
-#: #262 in miniature.
+#: without naming one is asking a question it does not answer. The same
+#: ``eslint.config.mjs`` resolves a different rule set for ``solution.js``.
 BAR_PROBE_FILE = {"python": "solution.py", "jsts": "solution.ts"}
 
 #: Where the readable bar sits in a run manifest. A sibling block, like
@@ -522,23 +417,17 @@ def bar_material(
     * ``lint`` — the checker, its version, the config that decided it, the count
       of enabled rules, and the rules themselves.
     * ``format`` — the formatter, its version, and the configuration it read.
-      Before #262 the JS/TS entry here would have been prettier reading nothing
-      at all: a bar that moves under a dependency bump with nothing recording
-      it, which is the ruff-with-no-config incident on the other arm.
     * ``type_check`` — the command the **product's own adapter** locates for
       this workspace, or ``null``. Asked of the adapter rather than restated
       here, for the reason the rules are asked of ruff and eslint: a second
       implementation of the resolution drifts from the one that scores.
 
-    **Both arms answer ``null`` for ``type_check``, and that is a correction to
-    #262.** The issue reads it as a JS/TS asymmetry — no ``tsconfig.json`` is
-    staged, so ``tsc`` never runs. True, and incomplete: ``score.lint_config``
-    renders a ``pyproject.toml`` holding ``[tool.ruff]`` and nothing else, so
+    **Both arms answer ``null`` for ``type_check``.** No ``tsconfig.json`` is
+    staged, so ``tsc`` never runs; ``score.lint_config`` renders a
+    ``pyproject.toml`` holding ruff's tables and nothing else, so
     ``_declares_mypy`` is false and the Python arm is not type-checked either.
-    The absence is **symmetric** — better news for comparability than the issue
-    assumed, and exactly as unrecorded. Per  neither is a defect: a
-    repository declaring no type checker is correctly not type-checked. So this
-    records it rather than adding a rung.
+    A repository declaring no type checker is correctly not type-checked, so
+    this records the absence rather than adding a rung.
 
     ``rungs`` is carried through because five names remain what a manifest's
     ``gate_rungs`` says, and a reader needs the names beside the content to see
@@ -578,11 +467,9 @@ def bar_digest(
 
     `gate_rungs` records five names — ``scope``, ``secrets``, ``structured``,
     ``adapters``, ``acceptance`` — and both bench arms write the same five. They
-    are byte-identical across a ruff configuration resolving 250 rules and an
-    eslint one resolving 66, so **two arms scored by two different rule sets are
-    indistinguishable on disk**, and  measured what that costs: under
-    the full bar the arms read py 8.9% / ts 12.8%, and on correctness alone they
-    read py 27.3% / ts 23.9%. The bar reverses which arm leads.
+    are byte-identical across ruff's resolved rule set and eslint's, so **two
+    arms scored by two different rule sets are indistinguishable on disk** by
+    those names alone.
 
     So the digest is over what the checkers *resolve to*, asked of the checkers
     themselves rather than derived from the config by re-implementing their
@@ -590,25 +477,23 @@ def bar_digest(
     is one function that gathers it so the digest and the readable block in a
     manifest cannot describe two different bars.
 
-    **Per language, not per run.** the rule is that no figure pools
-    across a stratum where the effect is heterogeneous, and the two arms' bars
-    are the case it was written from. A single digest over both would restate
-    `gate_rungs`' defect with more hex.
+    **Per language, not per run.** No figure pools across a stratum where the
+    effect is heterogeneous, and the two arms' bars are such a stratum. A single
+    digest over both would restate `gate_rungs`' defect with more hex.
 
-    **The workspace is staged by the caller** (D4 in the other
-    direction): the bench's bar is not the repository's `make lint` bar — it is
-    whatever `score.stage_config` puts in a workspace, which is a
-    `pyproject.toml` rendered from the project's `[tool.ruff]` beside
-    `eslint.config.mjs`, `prettier.config.mjs` and a linked `node_modules`.
-    Resolving the repository's settings instead would digest a bar no candidate
-    is ever scored against. The caller passes its staging, not a hash.
+    **The workspace is staged by the caller**: the bench's bar is not the
+    repository's `make lint` bar — it is whatever `score.stage_config` puts in a
+    workspace, which is a `pyproject.toml` rendered from the project's
+    `[tool.ruff]` beside `eslint.config.mjs`, `prettier.config.mjs` and a linked
+    `node_modules`. Resolving the repository's settings instead would digest a
+    bar no candidate is ever scored against. The caller passes its staging, not
+    a hash.
 
     A resolver that will not answer makes this ``None`` with a reason rather
     than a digest over the half that did: a bar hashed from one of its two
-    checkers is not the bar, and would read as having recorded one. On a real
-    dispatch this cannot fire — `score.require_toolchain` refuses a run with a
-    missing rung tool before the first candidate — so the ``None`` path is for
-    off-rig callers, which is exactly who should not get a confident answer.
+    checkers is not the bar, and would read as having recorded one. The ``None``
+    path is for a caller whose toolchain is missing, which is exactly who should
+    not get a confident answer.
     """
     material, why = bar_material(
         rungs=rungs, language=language, stage_workspace=stage_workspace
@@ -623,18 +508,10 @@ def _python_bar(
 ) -> tuple[dict[str, Any] | None, str | None]:
     """ruff, twice: it is both this arm's linter and this arm's formatter.
 
-    ``--show-settings`` rather than the config, because expanding
-    ``E, F, W, I, N, UP, B, SIM, RUF`` into concrete rules is ruff's resolution
-    and re-implementing it here would drift from the one that scores. It is also
-    the reason **#262's own headline figure is wrong**: the issue reports 328
-    Python rules against 66 JS/TS ones, from prefix-matching ``ruff rule --all``
-    against ``select``, and a string prefix is not a ruff selector. ``E`` matches
-    ``EM``, ``EXE`` and ``ERA``; ``F`` matches ``FURB``, ``FAST``, ``FBT``,
-    ``FIX``, ``FLY`` and ``FA``; ``I`` matches ``ISC``, ``ICN``, ``INT`` and
-    ``INP``; ``N`` matches ``NPY``; ``B`` matches ``BLE``. Sixty rules from ten
-    linters this project never selected, plus six removed ones. Asked of ruff,
-    the answer is **250** under both 0.16.1 and 0.16.2, so the ratio is 3.8:1 and
-    not 5:1.
+    ``--show-settings`` rather than the config, because expanding the ``select``
+    list into concrete rules is ruff's resolution and re-implementing it here
+    would drift from the one that scores. A string prefix is not a ruff
+    selector: ``E`` is also a prefix of ``EM``, ``EXE`` and ``ERA``.
 
     ``linter.rules.enabled`` is the only line taken from that output. The rest
     carries ``linter.project_root``, an absolute path, and a bar that moves when
@@ -656,10 +533,8 @@ def _python_bar(
             "rules_enabled": len(rules),
             "rules": rules,
         },
-        # The staged `pyproject.toml` carries `[tool.ruff.format]`, so unlike the
-        # JS/TS arm before #262 this half of the bar was always declared. It is
-        # recorded anyway: a reader comparing the two arms needs both entries to
-        # be present to see that one of them used to be empty.
+        # The staged `pyproject.toml` carries `[tool.ruff.format]`. Recorded so
+        # a reader comparing the two arms finds both entries present.
         "format": {
             "tool": "ruff format",
             "version": version,
@@ -672,10 +547,7 @@ def _python_bar(
 def _jsts_bar(workspace: Path, probe: str) -> tuple[dict[str, Any] | None, str | None]:
     """eslint for the lint half, prettier for the format half.
 
-    The format entry is what #262 asks for. Until ``prettier.config.mjs``
-    existed, prettier ran on its built-in defaults in the gate and in every
-    scored workspace, and no manifest said so — a bar that a dependency bump
-    could move with nothing recording it. ``config_source`` is the staged file
+    ``config_source`` is the staged file
     verbatim rather than a resolved option dump, because prettier's CLI has no
     ``--print-config``: what it *can* be asked is where its configuration came
     from, and :func:`_prettier_config_path` asks exactly that, so a workspace
@@ -711,9 +583,9 @@ def _jsts_bar(workspace: Path, probe: str) -> tuple[dict[str, Any] | None, str |
             "config_source": (
                 (workspace / resolved).read_text(encoding="utf-8") if declared else None
             ),
-            # The state #262 found, kept nameable rather than inferred from a
-            # `null`: prettier formatting on defaults is not the same fact as
-            # prettier failing to run.
+            # Kept nameable rather than inferred from a `null`: prettier
+            # formatting on defaults is not the same fact as prettier failing
+            # to run.
             "unconfigured": not declared,
         },
     }, None
@@ -745,10 +617,9 @@ def _prettier_config_path(workspace: Path, probe: str) -> tuple[str | None, str 
 def _enabled_rules(config: Any) -> int | None:
     """How many of a resolved eslint config's rules are actually on.
 
-    ``--print-config`` lists every rule the plugins contribute, most of them at
-    severity 0 — 88 entries for 66 enabled rules on ``.ts``. Counting the keys
-    would overstate this arm's bar by a third, which is the direction that makes
-    the two arms look closer than they are.
+    ``--print-config`` lists every rule the plugins contribute, including those
+    at severity 0. Counting the keys would overstate this arm's bar, which is
+    the direction that makes the two arms look closer than they are.
     """
     rules = config.get("rules") if isinstance(config, dict) else None
     if not isinstance(rules, dict):
@@ -771,7 +642,7 @@ def _type_check(language: str, workspace: Path) -> list[str] | None:
     Asked of the adapter for the reason the rules are asked of ruff and eslint:
     a second implementation of "does this repository declare a type checker"
     would drift from the one the gate runs. Both arms answer ``None`` on a bench
-    workspace today — see :func:`bar_material`.
+    workspace — see :func:`bar_material`.
     """
     adapter = JavaScriptAdapter() if language == "jsts" else PythonAdapter()
     return adapter.locate_type_check_command(workspace)
@@ -796,9 +667,9 @@ def _ruff_rules(workspace: Path) -> tuple[list[str] | None, str | None]:
     """Every rule ruff has enabled in this workspace, in ruff's own order.
 
     Parsed out of ``--show-settings`` rather than re-derived from ``select``:
-    expanding ``E, F, W, I, N, UP, B, SIM, RUF`` into concrete rules is ruff's
-    resolution, it changes between releases, and a second implementation of it
-    here would drift from the one that actually scores.
+    expanding selectors into concrete rules is ruff's resolution, it changes
+    between releases, and a second implementation of it here would drift from
+    the one that actually scores.
     """
     proc = _run(["ruff", "check", "--show-settings"], workspace)
     if proc is None:
@@ -849,21 +720,18 @@ def _tool_version(tool: str, workspace: Path) -> tuple[str | None, str | None]:
 def prompt_digest(rendered: Mapping[str, tuple[str, str]]) -> str:
     """The prompt **as sent**, whole, over every task the run will dispatch.
 
-    D6. What exists today is ``bundle_sha256``, and it hashes
-    ``prompt.system`` — while the scaffold ablation edits the **user** message
-    (`tools/breadth/measure.py:915`). So the field that is on disk does not move
-    when the thing under test moves, and two cells that name one condition and
-    render two different prompts compare equal. Prompt wording is the largest
-    measured effect in the literature this campaign surveyed — up to 76pp — and
-    we hash the system half.
+    ``bundle_sha256`` hashes ``prompt.system`` only, while the scaffold ablation
+    edits the **user** message (``ablate`` in ``tools/breadth/measure.py``);
+    this digest covers both halves, so a condition is content rather than a
+    name.
 
     Both halves, keyed by task id, so a render that changes for one task moves
-    the digest: the first task's prompt is not a description of a 498-task
-    sweep, and hashing it would be the curated-subset defect at a smaller scale.
+    the digest: the first task's prompt is not a description of the whole
+    sweep.
 
-    **Not keyed globally, and this is not an omission.** D6 says the prompt is
-    keyed *within a condition*, which is what :func:`require_comparable`'s
-    per-condition loop already does. Putting this in :data:`KEY` would refuse
+    **Not keyed globally, and this is not an omission.** The prompt is keyed
+    *within a condition*, by :func:`require_comparable`'s per-condition loop.
+    Putting this in :data:`KEY` would refuse
     every contrast the bench exists to draw — the ablation changes the render on
     purpose, so ``stock`` and ``norule`` differ here by construction, and a
     global key would read that as two records that may not be laid side by side.
@@ -883,17 +751,13 @@ def unfingerprinted(
 ) -> list[str]:
     """The keyed fields this manifest cannot answer, in declaration order.
 
-    Empty is the `verified` tag's precondition (D8) — necessary and not
+    Empty is the `verified` tag's precondition — necessary and not
     sufficient, since a field can be recorded and wrong.
 
     ``fields`` defaults to :data:`KEY` and is resolved **at call time**, not as a
     default argument. A default is bound when the function is defined, so
-    ``fields: tuple[str, ...] = KEY`` froze the key at import and D8's stated
-    property — that a `verified` record demotes on its own when the key widens —
-    could not be exercised without reimporting the module. It held in practice,
-    because admitting a field means editing the literal above, and it was
-    untestable and one refactor away from being false. The same shape cost
-    `product._open_cli` a round entry describing two trees (#291).
+    ``fields: tuple[str, ...] = KEY`` would freeze the key at import, and a
+    `verified` record could not demote on its own when the key widens.
     """
     return [
         f for f in (KEY if fields is None else fields) if state(manifest, f) != OBTAINED
@@ -904,10 +768,10 @@ def unfingerprinted(
 # names no model on no rig names nothing.
 #
 # `report.read_cell` requires a fourth, `condition`, and this deliberately does
-# not: a bench cell without one cannot be placed in a matrix, but 96 of the
-# manifests on disk are rig sweeps that never had a condition to name. Folding
-# "not a bench run" into "unidentifiable" would tag most of the corpus untrusted
-# for a field its instrument does not have.
+# not: a bench cell without one cannot be placed in a matrix, but a rig sweep
+# never had a condition to name. Folding "not a bench run" into
+# "unidentifiable" would tag those records untrusted for a field their
+# instrument does not have.
 NAMES_ITS_SUBJECT: tuple[str, ...] = ("model", "endpoint", "tier")
 
 VERIFIED = "verified"  # every keyed field obtained
@@ -916,7 +780,7 @@ NO_FINGERPRINT = "no_fingerprint"  # cannot say what produced it
 
 
 def tag(manifest: dict[str, Any]) -> str:
-    """The migration tag for one record (D8), computed and never typed.
+    """The migration tag for one record, computed and never typed.
 
     Three tags, and the middle one is the one that needs its meaning stated,
     because its name invites the wrong reading:
@@ -931,17 +795,10 @@ def tag(manifest: dict[str, Any]) -> str:
     * ``no_fingerprint`` — the record cannot say what produced it. Never
       trusted, no promotion path.
 
-    Nothing is re-run to move a record between tags. Rig time goes to new runs
-    done properly rather than to repairing old ones, so  stays dark until
-    a fresh measurement and #256 waits for that rather than for a promotion.
+    Nothing is re-run to move a record between tags.
 
-    **The tag is a function of today's key, and moves when the key does.** Six
-    records are ``verified`` against :data:`KEY` as it stands, and :data:`KEY`
-    does not yet contain the three digests  asked for because nothing
-    writes them. When the fan-out adds a writer and #276's rule admits the field,
-    those six become ``backfilled`` — which is why this is computed on read
-    rather than stamped into the manifests. A stamped tag would have claimed a
-    fingerprint the run never carried.
+    **The tag is a function of today's key, and moves when the key does** —
+    which is why it is computed on read rather than stamped into the manifests.
     """
     if any(state(manifest, f) != OBTAINED for f in NAMES_ITS_SUBJECT):
         return NO_FINGERPRINT
@@ -955,8 +812,8 @@ def drift(
 
     Absence is not agreement here either: a manifest that does not carry a field
     is not thereby the same as one that does. The one exception a caller may
-    make is the — a field that did not exist when the directory was
-    written is adopted forward by the caller *before* this is called, so the
+    make: a field that did not exist when the directory was written is
+    adopted forward by the caller *before* this is called, so the
     adoption is visible at the call site rather than hidden in a comparison.
 
     ``fields`` resolves at call time for the reason :func:`unfingerprinted`
@@ -979,24 +836,21 @@ def require_comparable(
     Two refusals, and the second is the one this module was written for:
 
     * **they differ** in a keyed field — a contrast between them would vary two
-      things and attribute the result to one, which is the defect #189 shipped
-      and  closes;
+      things and attribute the result to one;
     * **a keyed field is not obtained** — absent, or ``null``. Two unknowns are
       not a match. An endpoint that would not name its build might have named
       two different builds, and a record written before the contract cannot say
       anything at all.
 
     ``allow_unfingerprinted`` exists so the second can be waived, and it is a
-    parameter rather than a default because D3 permits the waiver only
-    where it is explicit. Reading pre-contract records is a legitimate thing to
-    want; doing it without saying so is what produced a shipped -3.1pp headline
-    across a corpus nobody had compared.
+    parameter rather than a default so the waiver is explicit at the call site.
+    Reading pre-contract records is a legitimate thing to want; doing it without
+    saying so is not.
 
     **A single record is never refused for absence.** The defect is two records
-    agreeing *by shared absence*, and one record agrees with nothing. This keeps
-    the consequence intact — an endpoint that will not name its build
-    records ``null``, and a rate from it is still a rate — while withdrawing the
-    half of it that does not survive: ``null`` is a recorded fact about a run and
+    agreeing *by shared absence*, and one record agrees with nothing. An
+    endpoint that will not name its build records ``null``, and a rate from it
+    is still a rate; but ``null`` is a recorded fact about a run and
     is **not** a match between two of them, because an endpoint that would not
     answer twice may have answered differently twice. The caller states what it
     could not check either way; :func:`unfingerprinted` is what it asks.
@@ -1016,10 +870,9 @@ def require_comparable(
                 detail = ", ".join(f"{f} ({state(manifest, f)})" for f in missing)
                 raise IdentityError(
                     f"record {index} cannot answer {detail}. Absence is not "
-                    "agreement: a field no record carries compared equal under "
-                    "the old guard, which read as having checked. Tag the run "
-                    "and pass allow_unfingerprinted=True to read it under the "
-                    "old key deliberately (D3, D8)."
+                    "agreement: a field no record carries is not a match. Pass "
+                    "allow_unfingerprinted=True to read such a record "
+                    "deliberately."
                 )
 
     for field in KEY:
@@ -1028,25 +881,21 @@ def require_comparable(
             raise IdentityError(
                 f"these records differ in {field!r}: {', '.join(sorted(seen))}. "
                 "A contrast between them would vary two things and attribute "
-                "the result to one — the defect #189 shipped and  "
-                "closes. Re-run the odd record, or report them separately."
+                "the result to one. Re-run the odd record, or report them "
+                "separately."
             )
 
-    # Within one condition the prompt as sent must not move (D6). This
-    # needs no admission experiment because the contrast is *inside* the axis
-    # rather than across it: two cells that name the same condition and were
-    # sent different bytes are mislabelled, whatever the effect size turns out
-    # to be. Prompt wording is the largest effect in the surveyed literature —
-    # up to 76pp — and until the fan-out lands, `bundle_sha256` hashes the
-    # system half only, so this check is weaker than it reads.
+    # Within one condition the prompt as sent must not move. This needs no
+    # admission experiment because the contrast is *inside* the axis rather
+    # than across it: two cells that name the same condition and were sent
+    # different bytes are mislabelled, whatever the effect size turns out to
+    # be. `bundle_sha256` hashes the system half only; `prompt_sha256` covers
+    # the prompt as sent, and both are checked.
     #
-    # `bundle_sha256` stays OUT of KEY, decided rather than deferred (
-    # clause 6). #276's rule admits a field only once perturbation shows it
-    # flips more verdicts than the declared bound; no such run has been done,
-    # and corollary 1 is explicit that an untested field is recorded and not
-    # keyed. What made this look urgent — the prompt files sitting outside the
-    # round pin — is closed at the other end instead: `src/mcgyvr/prompts/*.md`
-    # is now inside `product_sha256`, which IS keyed. The check below is a
+    # `bundle_sha256` stays OUT of KEY: #276's rule admits a field only once
+    # perturbation shows it flips more verdicts than the declared bound, and an
+    # untested field is recorded and not keyed. `src/mcgyvr/prompts/*.md` is
+    # inside `product_sha256`, which IS keyed. The check below is a
     # mislabelling refusal inside the contrast axis, not an admission.
     for field in ("prompt_sha256", "bundle_sha256"):
         present = [m for m in manifests if state(m, field) == OBTAINED]
@@ -1071,13 +920,13 @@ def inventory(root: Path) -> list[tuple[Path, str, list[str]]]:
 
     Read rather than written. A tag committed into a file goes stale the moment
     a record or the key moves, and a stale tag is worse than none — it is a
-    claim about a run that nothing re-derives. The migration D8 decides
-    is therefore *tagging in place*, with this as the tag.
+    claim about a run that nothing re-derives. Migration is therefore *tagging
+    in place*, with this as the tag.
 
     Records that are not machine-written manifests are skipped rather than
-    tagged: three of the directories on disk hold hand-authored evidence whose
-    ``protocol`` is a paragraph of prose, and they are excluded by shape rather
-    than by an exception list that would need maintaining.
+    tagged: a ``run.json`` that is not an object with a string ``protocol`` is
+    hand-authored evidence, excluded by shape rather than by an exception list
+    that would need maintaining.
     """
     found: list[tuple[Path, str, list[str]]] = []
     for path in sorted(root.glob("**/run.json")):

@@ -1,8 +1,8 @@
 """A live run is admitted only by a read of its rigs, taken through the door.
 
-Owner, 2026-09-15 (F2, "delegate ... admit_live"): ``admit_live`` gets its
-production callers, and what it is handed as ``observed`` is the door's
-``read`` of each rig (``python -m mcgyvr.serving.run read``), never a guess.
+Owner ruling F2: ``admit_live`` has production callers, and what it is handed as
+``observed`` is the door's ``read`` of each rig (``python -m mcgyvr.serving.run
+read``), never a guess.
 
 * **Live ``mcgyvr run`` and ``delegate --run``** are admitted before anything
   is opened or dispatched, and refused when no fleet is named, when the layout
@@ -19,7 +19,7 @@ production callers, and what it is handed as ``observed`` is the door's
 * **``mcgyvr fleet probe`` takes card MiB and restarts from the same read**,
   judged against ``room_mib`` and 0, and a vLLM unit's decode and prefill from
   ``read --probe``, timed on the rig and judged. A rig the door cannot read
-  leaves its vLLM units timed off the rig, recorded and not judged (PR #480).
+  leaves its vLLM units timed off the rig, recorded and not judged.
 
 The door is substituted where the CLI spawns it,
 :func:`mcgyvr.fleet.read.spawn_read`: the stand-in files exactly what the door's

@@ -1,31 +1,26 @@
-"""The skill an agent reads to author a contract stops explaining
-mcgyvr's local model ladder (plan v4, actions 19-26, ruled 2026-09-09).
+"""The skill an agent reads to author a contract does not explain mcgyvr's
+local model ladder. The numbers in parentheses label the sections below.
 
-The frontmatter `description` is in every session's context whether or not
-the skill is invoked, so it is the highest-value line to stop naming the
-ladder from (19). `limits.max_output_tokens` keeps its one sentence on what
-the work is worth and drops the sentence about what a backend needs and
-about `units.*.output_tokens` overriding it -- deleted, not reworded;
-the override itself still lives in code, at gate/preflight.py:376-378 and
-config.py:365 (20). `limits.max_window_fraction` stops saying `rung` (21).
-`verification.policy` names a fresh-context reviewer without naming
-`verifier` as a rung (22). `task_type`, and the four other rows a reader
-meets it through, state what evidence a contract must carry rather than
-which family or tier may start the work (23). Every `outcome` value the
-result file can carry is glossed -- read from `escalate.Outcome` itself,
-each with the distinct remedy `escalate.disposition` already states for it,
-in words that do not name the ladder; Step 4 replans from these, and the
-two `reassignable=False` outcomes no different contract can move say so
-and point at `skills/mcgyvr/SETUP.md` (24). Backend
-words are absent from SKILL.md except a closed, three-item exception list:
-`ladder_spent` (escalate.py:191), `tier: deterministic`
-(telemetry.py:468, SKILL.md:339), and `` `rung` `` as the result-file field
-name (result.py:42,82) (25). `rung` itself is never renamed in
-`result.py` -- a second word for the same concept would be new vocabulary,
-and old journal rows and tests already say `rung` (26).
-
-Nothing here is implemented; every test below fails until the corresponding
-action lands.
+The frontmatter `description` is in every session's context whether or not the
+skill is invoked, so it is the highest-value line to stop naming the ladder from
+(19). `limits.max_output_tokens` carries one sentence on what the work is worth
+and none about what a backend needs or about `units.*.output_tokens` overriding
+it; the override lives in code (`mcgyvr.gate.preflight`, the `output_tokens`
+unit field in `mcgyvr.config`) (20). `limits.max_window_fraction` does not say
+`rung` (21). `verification.policy` names a fresh-context reviewer without naming
+`verifier` as a rung (22). `task_type`, and the four other rows a reader meets
+it through, state what evidence a contract must carry rather than which family
+or tier may start the work (23). Every `outcome` value the result file can carry
+is glossed -- read from `escalate.Outcome` itself, each with the distinct remedy
+`escalate.disposition` already states for it, in words that do not name the
+ladder; Step 4 replans from these, and the two `reassignable=False` outcomes no
+different contract can move say so and point at `skills/mcgyvr/SETUP.md` (24).
+Backend words are absent from SKILL.md except a closed, three-item exception
+list: `ladder_spent` (`escalate.Outcome.LADDER_SPENT`), `tier: deterministic`
+(SKILL.md's journal paragraph), and `` `rung` `` as the result-file field name
+(`result.AttemptResult.rung`) (25). `rung` itself is never renamed in
+`result.py` -- a second word for the same concept would be new vocabulary, and
+journal rows and tests say `rung` (26).
 """
 
 from __future__ import annotations
@@ -68,8 +63,8 @@ def _row(body: str, key: str) -> str:
 
 
 def test_frontmatter_description_does_not_name_the_local_model_ladder() -> None:
-    # SKILL.md:3 is the line every session carries whether or not the skill
-    # is invoked, so it is the first thing to stop explaining the ladder.
+    # The frontmatter description is the line every session carries whether or
+    # not the skill is invoked.
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     description = str(_frontmatter(SKILL_MD).get("description", ""))
     assert "local model ladder" not in description
@@ -79,10 +74,9 @@ def test_frontmatter_description_does_not_name_the_local_model_ladder() -> None:
 
 
 def test_max_output_tokens_states_worth_without_backend_or_override() -> None:
-    # Keeps the one sentence on what the work is worth; loses the sentence
-    # about what a backend needs and about `units.*.output_tokens`
-    # overriding it. The override itself is unaffected -- it still lives in
-    # gate/preflight.py:376-378 and is stated on config.py:365.
+    # One sentence on what the work is worth; none on what a backend needs or
+    # about `units.*.output_tokens` overriding it. The override itself lives
+    # in `mcgyvr.gate.preflight` and the `output_tokens` unit field.
     row = _row(_body(SKILL_MD), "limits.max_output_tokens").lower()
     assert "worth" in row
     assert "backend" not in row
@@ -222,9 +216,9 @@ def test_the_two_unfixable_outcomes_send_the_reader_to_setup_md() -> None:
 
 # --- action 25 -----------------------------------------------------------------
 
-# `vram`, `gpu` and `quantiz` measure zero in SKILL.md today. They are listed
-# anyway: a word-ban that only lists the words already present stops nothing
-# from adding them tomorrow, which is the whole point of the list.
+# `vram`, `gpu` and `quantiz` are listed whether or not SKILL.md contains them:
+# a word-ban that only lists the words already present stops nothing from
+# adding them, which is the whole point of the list.
 BACKEND_WORDS = (
     "rung",
     "ladder",
@@ -241,9 +235,9 @@ BACKEND_WORDS = (
 # The closed exception list. Anything a backend word does that is not one of
 # these three exact patterns is a leak.
 _EXCEPTIONS = (
-    re.compile(r"ladder_spent"),  # escalate.py:191
-    re.compile(r"`tier: deterministic`"),  # telemetry.py:468, SKILL.md:339
-    re.compile(r"`rung`"),  # result.py:42,82 -- the field name
+    re.compile(r"ladder_spent"),  # escalate.Outcome.LADDER_SPENT
+    re.compile(r"`tier: deterministic`"),  # SKILL.md's journal paragraph
+    re.compile(r"`rung`"),  # result.AttemptResult.rung -- the field name
 )
 
 

@@ -1,13 +1,11 @@
 """Gate 1: no arm ever reaches the rig under a round that does not pin its tree.
 
 An arm measured on a tree three commits past the pin must not land in the same
-table as one measured on the pin (: every arm in a round runs against
-one revision). That property used to be held by refusing the run, and on
-2026-09-06 the owner ruled the other way: a round is a boundary in the record,
-not a permission to work. So gate 1 (``01-round.py``) calls
+table as one measured on the pin: every arm in a round runs against one
+revision. A round is a boundary in the record, not a permission to work (owner
+ruling), so gate 1 (``01-round.py``) does not refuse a moved tree: it calls
 ``tools/bench/product.ensure_open()``, which draws the boundary the moved tree
-needs and lets the run through — the same guarantee, taken from the operator's
-hands.
+needs and lets the run through.
 
 What is asserted here is therefore the guarantee and not the refusal: whatever
 the door does with a moved tree, ``RUN_ROUND`` names a round whose
@@ -46,9 +44,9 @@ def test_a_moved_tree_runs_under_a_round_that_pins_it(
 ) -> None:
     """The measured case: the tree moved, and the run must not be stopped for it.
 
-    On 2026-09-06 this refusal stopped `serve up` and `serve down` outright, ten
-    product files having moved since the open round was pinned. The boundary is
-    now drawn by the door, so what has to hold is that the round the step is
+    A refusal here would stop `serve up` and `serve down` outright whenever
+    product files have moved since the open round was pinned. The boundary is
+    drawn by the door, so what has to hold is that the round the step is
     stamped with pins the tree the step actually ran on.
     """
     was_id = onedoor.pinned(root)[0]

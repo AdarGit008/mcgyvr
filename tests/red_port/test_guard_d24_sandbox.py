@@ -1,28 +1,24 @@
 """D24 — a task's commands run somewhere they cannot reach, holding secrets they cannot
 see.
 
-GREEN by design. Everything here already works; the file exists so a port cannot
-quietly replace it. The thing being ported over runs acceptance commands with
-``shell=True`` **in the caller's live checkout**, hands them ``os.environ``
-untouched, and treats the absence of a Docker daemon as a reason to give up on
-isolation entirely. Each of those is one deletion away from being true here too,
-and none of the three would fail an existing test.
+Running acceptance commands with ``shell=True`` **in the caller's live checkout**,
+handing them ``os.environ`` untouched, and treating the absence of a Docker daemon
+as a reason to give up on isolation entirely are each one deletion away.
 
-So the level is chosen deliberately. ``tests/test_sandbox_tempdir.py`` already
+So the level is chosen deliberately. ``tests/test_sandbox_tempdir.py``
 asserts that one named credential is missing from one command's environment and
 that one workspace path is gone after one ``with`` block. Those are the right
-tests for the machinery. They are not enough to stop the port, because a
+tests for the machinery. They are not enough, because a
 replacement that scrubbed a hardcoded list of well-known keys and left
 ``$DEPLOY_TOKEN`` standing would pass both.
 
 What is asserted instead:
 
-* **The whole environment, not a named variable.** The command dumps everything
-  it can see and the result is put back through the project's own predicate. A
-  variable that is credential-shaped but not famous is included on purpose,
-  because a list-based scrub is exactly the weaker thing a port would arrive
-  with, and a benign variable is asserted to survive so "scrubbed" cannot
-  degrade into "empty".
+* **The whole environment, not a named variable.** The command dumps everything it can
+  see and the result is put back through the project's own predicate. A variable that is
+  credential-shaped but not famous is included on purpose, because a list-based scrub is
+  exactly the weaker thing, and a benign variable is asserted to survive so "scrubbed"
+  cannot degrade into "empty".
 * **The caller's checkout, not the workspace.** The command is destructive on
   purpose and is aimed at the file the contract targets. A sandbox that ran in
   the live tree would pass every isolation test in the suite and still eat the

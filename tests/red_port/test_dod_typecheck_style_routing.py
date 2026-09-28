@@ -3,10 +3,8 @@ verdict.
 
 The adapter branch routes every finding through one split — a ``style`` check
 lands in ``observations`` and is reported without rejecting, everything else
-lands in ``findings`` and rejects. The type-check branch extends ``findings``
-unconditionally, so a style finding it produced would reject the change instead
-of being reported as a note. The seam must route the two axes the same way on
-both branches, or a style finding's meaning depends on which rung produced it.
+lands in ``findings`` and rejects. The type-check branch routes the two axes the
+same way, or a style finding's meaning would depend on which rung produced it.
 """
 
 from __future__ import annotations

@@ -1,14 +1,13 @@
 """A result never says ``accepted`` for a change that was not written.
 
-``_report_run`` set ``outcome = "accepted"`` the moment the gate accepted,
-before ``Accepted.read`` bound the bytes; a ``DeliveryError`` there went
-through ``_error``, which kept the outcome and set the exit code to 1. The
-file then read ``outcome: accepted, exit_code: 1, committed: false`` with
-nothing in the target — and the skill tells the agent that ``accepted``
-means the change is in ``target``. The climb path's ``bound is None`` branch
-had the same shape. ``_error`` now names the outcome it is reporting under,
-``error`` unless the caller says otherwise, so a run that ended in
-``_error`` is never filed as accepted.
+The gate accepts before ``Accepted.read`` binds the bytes, and a
+``DeliveryError`` there, or the climb path's ``bound is None`` branch, goes
+through ``_error``. An ``_error`` that kept an outcome set earlier would file
+``outcome: accepted, exit_code: 1, committed: false`` with nothing in the
+target — and the skill tells the agent that ``accepted`` means the change is in
+``target``. ``_error`` names the outcome it is reporting under, ``error``
+unless the caller says otherwise, so a run that ended in ``_error`` is never
+filed as accepted.
 """
 
 from __future__ import annotations

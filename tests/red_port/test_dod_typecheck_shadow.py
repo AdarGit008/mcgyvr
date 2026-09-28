@@ -1,15 +1,13 @@
 """D7 — a lambda or comprehension that shadows a parameter is not that parameter.
 
-The ``param-mutation`` family walks every expression with :func:`ast.walk`,
-which descends into a lambda's body and a comprehension's element as though
-their names were the enclosing function's. But a lambda binds its own
-parameters, and a comprehension binds its own targets: ``lambda target:
-target.append(1)`` mutates the lambda's argument, not the caller's object, and a
-comprehension that rebinds ``target`` has done the same. Reporting those as the
-parameter's mutation rejects correct code that happens to reuse a name.
+A lambda binds its own parameters, and a comprehension binds its own targets:
+``lambda target: target.append(1)`` mutates the lambda's argument, not the caller's
+object, and a comprehension that rebinds ``target`` has done the same. Reporting
+those as the parameter's mutation would reject correct code that happens to reuse a
+name.
 
-The fix makes the walk scope-aware — the names a lambda or comprehension binds
-stop being the caller's as the walk crosses into it, while a name the inner
+The ``param-mutation`` walk is scope-aware — the names a lambda or comprehension
+binds stop being the caller's as the walk crosses into it, while a name the inner
 scope does not bind still means the caller's object.
 """
 

@@ -6,14 +6,14 @@ cannot tell two very different instruments apart, and the whole reason
 
 * **Sampler drift** — the backend returned different text and some of it landed
   on the other side of the acceptance boundary. A property of the serving
-  stack, which is why  pins the build.
+  stack.
 * **Acceptance drift** — the *same bytes* scored differently. That is the
   harness being nondeterministic, it puts a floor under every contrast the
   bench will ever run, and no number of extra problems lowers it.
 
-The 2026-08-12 run reported zero of the second kind. A defect that silently
-folded them together would publish that same zero whether or not it was true,
-so the classification is pinned here against rows built to contain one of each.
+A defect that silently folded them together would publish a zero for the second kind
+whether or not it was true, so the classification is pinned here against rows built to
+contain one of each.
 """
 
 from __future__ import annotations

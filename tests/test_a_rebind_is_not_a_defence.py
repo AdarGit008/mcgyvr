@@ -1,16 +1,17 @@
-"""§4, third item — the mutation rung reads a rebind without asking where it is.
+"""The mutation rung asks where a rebind is, not only whether there is one.
 
 ``param-mutation`` (:mod:`mcgyvr.gate.typecheck`) rejects a function that
 mutates the object its caller passed in, and stands down for the sanctioned
 defensive copy: ``items = list(items)`` rebinds the name, so what is mutated
 afterwards is the function's own list and the caller's next read is still
-right. That stand-down is correct and it has to keep working — a rung that
+right. That stand-down is correct and it has to hold — a rung that
 flags a real defensive copy rejects correct code, which costs a model call and
 a rung of the ladder every time somebody writes the fix the rung asked for.
 
-What the rung actually asked was *is this name rebound anywhere in this
-function*, which is a different question. ``ast.walk`` over the body has no
-order and no control flow in it, so every one of these reads as a defence:
+*Is this name rebound anywhere in this function* is a different question, and
+a rung that only asked it would read every one of these as a defence;
+``mcgyvr.gate.typecheck._mutations_in`` walks the body in execution order, so
+none of them is:
 
 ``if target is None: target = []`` then ``target.append(extra)``
     The canonical shape, and the one that matters. The rebind runs only when
@@ -20,10 +21,10 @@ order and no control flow in it, so every one of these reads as a defence:
 
 ``items.append(x)`` and then ``items = list(items)``
     A copy placed after the mutation it was meant to prevent. It reads as the
-    fix, it silences the rung, and the caller's list is already longer.
+    fix, and the caller's list is already longer.
 
 ``if False: items = list(items)``
-    Dead code. Nothing executes and the rung stands down anyway.
+    Dead code. Nothing executes.
 
 a rebind in a branch that returns, or in a loop that may run zero times
     Neither is on the path that reaches the mutation.
@@ -39,23 +40,20 @@ So the defended shapes below are as load-bearing as the undefended ones. Every
 one of them is a correct program, and a rung that flags them is worse than the
 rung that missed the canonical none-guard: it argues with the fix.
 
-**The second half: the stand-down that nothing could reach.**
+**The second half: the stand-down reaches the rung.**
 ``compliance_findings`` takes ``contract_text`` so that a contract which asks
 for in-place work — "sort the rows in place" — is not made unsatisfiable by a
-rung that rejects the thing the contract ordered. Nothing passed it.
-:meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks` has no contract
-parameter, :meth:`~mcgyvr.gate.Gate.run` has none either, and the only caller
-of ``compliance_findings`` in the tree passes three arguments. A default
-argument no call site can set is not a policy; it is dead code that reads like
-one, and the contract it was written for still cannot be satisfied.
+rung that rejects the thing the contract ordered. ``contract_text`` travels
+:func:`~mcgyvr.drive.gate_in_sandbox` -> :meth:`~mcgyvr.gate.Gate.run` ->
+:meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks` ->
+``compliance_findings``.
 
 Asserted here through :func:`~mcgyvr.drive.gate_in_sandbox` — the driver's own
-gate call, with a real sandbox and a real diff — because the defect is
-precisely that the seam does not join up, and a test that called
-``compliance_findings`` directly would pass today while the contract stayed
-unsatisfiable. The controls are the two ways the stand-down could be too wide:
-a contract that asks for a *new* list must not stand it down, and a caller with
-no contract at all gets the strict reading.
+gate call, with a real sandbox and a real diff — so that a break anywhere in
+that chain is seen; a test that called ``compliance_findings`` directly would
+pass with the chain broken. The controls are the two ways the stand-down could
+be too wide: a contract that asks for a *new* list must not stand it down, and a
+caller with no contract at all gets the strict reading.
 """
 
 from __future__ import annotations

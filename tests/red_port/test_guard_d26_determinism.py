@@ -1,17 +1,12 @@
 """D26 — the same inputs give the same answer, on a busy machine and on a quiet one.
 
-GREEN by design. The system being ported over sends no seed and takes sampling
-variance as the cost of doing business. That is a decision mcgyvr made the other
-way, and the three places it shows are the three places a port would undo it
-without noticing, because in each of them the weaker behaviour is the one that
-falls out of writing the obvious code.
+In each of three places the weaker behaviour is the one that falls out of writing
+the obvious code.
 
-* **Order.** ``src/mcgyvr/capacity.py:463`` returns batch results in input order
+* **Order.** ``src/mcgyvr/capacity.py`` returns batch results in input order
   "whatever order they finished in — a batch whose results were ordered by
   completion would be reproducible only on a quiet machine." ``as_completed`` is
-  the loop everyone writes first, and it is also the v2 ``main_out_queue``'s
-  natural delivery order, so this one is under active pressure rather than
-  hypothetically at risk.
+  the loop everyone writes first.
 * **Identity.** A contract id drawn from a clock, a counter or a path would make
   every run's records incomparable with the last one's, and would turn the
   duplicate refusal into an ordinal nobody reads.
@@ -20,7 +15,7 @@ falls out of writing the obvious code.
   added inside either — a health check, a token count over a file — takes that
   away silently, because the function still returns the same thing.
 
-Each test is one level up from what already exists.
+Each test is one level up from the unit tests.
 ``tests/test_capacity.py`` pins input order using staggered sleeps, which is an
 observation about a machine rather than a proof: on a loaded box the sleeps can
 land in submission order and the test passes without the inversion ever having

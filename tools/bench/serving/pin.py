@@ -12,8 +12,7 @@ and each needs its own evidence:
     The address the dispatch URL resolves to is one the SSH host reports owning.
     Refutes *"the host readings describe a different box"* — a proxy, a tunnel, a
     load balancer in front of several servers, a hosted endpoint with no host at
-    all. Measured here: ``srv1`` resolves to ``100.67.218.22``, which srv1 lists
-    among its own addresses.
+    all.
 
 ``same_process``
     ``(boot_time, process start ticks, pid)`` read at open and again at close.
@@ -23,19 +22,13 @@ and each needs its own evidence:
 
 ``same_config``
     The semantic serving digest at open equals the one at close. Refutes
-    *"the configuration changed without a restart"* — and that is not
-    hypothetical. A daemon that serves many checkpoints from one process
-    re-derives its serving parameters **per model**: measured 2026-08-22 on one
-    host at one configured width, ``qwen2.5-coder:*``
-    was served ``-c 8192 -np 2`` and ``nemotron-3-nano:4b`` ``-c 4096 -np 1``.
-    Same machine, same pid, different served window and slot count — so the
-    first two claims both hold while the thing being described has changed.
+    *"the configuration changed without a restart"*: same machine, same pid, so
+    the first two claims both hold while the thing being described has changed.
 
 **A failed claim is recorded, never raised.** ``pinned: false`` says the serving
 configuration was not constant across the run, which is a fact *about* the
 measurement rather than an error *in* it — the rows are still real. Whether it
-should refuse a comparison is a question for ``identity.KEY``, which is the
-owner's  D7 and belongs in its own change.
+should refuse a comparison is a question for ``identity.KEY``.
 """
 
 from __future__ import annotations
@@ -193,8 +186,7 @@ def _int(text: str) -> int | None:
 
 
 #: How each engine's serving process is found, and where its config comes from.
-#: Bracketed so `pgrep -f` cannot match the shell that runs it — an unbracketed
-#: pattern kills the ssh session before it finds anything.
+#: Bracketed so the pattern cannot match the shell that runs it.
 _ENGINES: tuple[tuple[str, str], ...] = (
     ("llamacpp", "'[l]lama-server'"),
     ("vllm", "'[v]llm serve'"),
@@ -224,11 +216,11 @@ def width(
     than nowhere.
 
     Normalised across engines deliberately. A reader asking "how wide was the
-    server" should not have to know that one engine calls it ``-np`` on a child
-    process and the other ``--max-num-seqs`` in its own argv; the ``source``
-    field is where that difference is kept.
+    server" should not have to know that one engine calls it ``-np`` and the
+    other ``--max-num-seqs``; the ``source`` field is where that difference is
+    kept.
 
-    ``value`` is ``None`` **with a reason** rather than absent (D2).
+    ``value`` is ``None`` **with a reason** rather than absent.
     **Two sources that disagree are refused, not resolved** — the same rule
     ``vllm.declared_slots`` already applies to its own pair, and for the same
     reason: picking one would be picking which of two contradictory facts about
@@ -271,7 +263,7 @@ def width(
             "source": None,
             "refused": (
                 f"the host states two different widths, {found} — the flag the "
-                "child was launched with and the slot count that child reports "
+                "server was launched with and the slot count that server reports "
                 "must agree, and resolving them here would pick which of two "
                 "contradictory facts to believe"
             ),
@@ -280,10 +272,6 @@ def width(
     return {"value": found[name], "source": f"host:{name}"}
 
 
-#: The shape :func:`width` returns when no serving process was found at all, so
-#: the key is present on every host block rather than only on the ones that
-#: could answer. An absent key means the record predates the contract; this is
-#: a refusal, and it says so.
 #: What a sweep reads off the card, composed from the constants that already
 #: declare each part rather than from a fourth copy of ``nvidia-smi`` (#348).
 #: One ssh, three readings: the card's own state, which processes hold it and
@@ -305,10 +293,8 @@ SWEEP_PROBE = (
 #: How many consecutive failed readings before the sampler stops taking them.
 #:
 #: **The recorder must not be able to damage the run it is recording.** A
-#: reading costs one ssh — measured p50 0.956 s and p95 1.40 s
-#: (archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:20) —
-#: and an ssh to a host
-#: that has GONE AWAY costs its ``ConnectTimeout`` instead, 15 s, every single
+#: reading costs one ssh, and an ssh to a host that has GONE AWAY costs its
+#: ``ConnectTimeout`` (``mcgyvr.serving.gatelib.ssh``) instead, every single
 #: time. Over a several-hundred-task sweep that is hours of a measurement run
 #: spent learning one fact repeatedly. Three is small enough that a sweep never
 #: pays much for a dead host and large enough that one dropped packet does not
@@ -326,7 +312,7 @@ def sweep_reading(raw: str | None) -> dict[str, Any]:
     a column it stops being luck. Every section is delimited, and a section
     whose delimiter is missing is a section that did not complete.
 
-    Three states per reading, as everywhere else (D2): a value, or
+    Three states per reading, as everywhere else: a value, or
     ``null`` **with a reason**, never a zero standing in for an unknown. In
     particular ``placements: null`` is "the card was not read" and ``[]`` is
     "the card answered and holds nothing" — the distinction the sentinel in
@@ -418,14 +404,12 @@ class CardSampler:
         return row
 
 
-#: The ways a host block can hold no readings. **They were one value — `{}` —
-#: and that is #349**: "there is no machine to log into", "the dispatch address
-#: is loopback so it names whatever box resolved it", "the name did not resolve"
-#: and "the probe raised" arrived identical, so a reading that BROKE could not
-#: be told from one that was never available. This module refuses that same
-#: collapse twice elsewhere on purpose — `gpu_idle`'s "`None` is NOT idle" and
-#: the compute-apps probe's `&&`-not-`;` sentinel, both so that an unread card
-#: cannot parse as an empty one — and did it here anyway.
+#: The ways a host block can hold no readings: "there is no machine to log
+#: into", "the dispatch address is loopback so it names whatever box resolved
+#: it", "the name did not resolve" and "the probe raised". One code each, so a
+#: reading that BROKE can be told from one that was never available —
+#: `contract.py` refuses the same collapse for `gpu_idle` and for the
+#: compute-apps probe's sentinel.
 #:
 #: `PROBE_FAILED` is raised on the RUNNER's side of the import, which is the one
 #: place this module cannot reach: if `pin.py` itself will not load, nothing
@@ -440,10 +424,9 @@ PROBE_FAILED = "probe_failed"
 def unread(reason: str, why: str, **extra: Any) -> dict[str, Any]:
     """A host block with no readings in it, saying WHICH of the ways it is one.
 
-    ``refused`` carries the sentence and ``reason`` the code, the pair D2 asks
-    for: a value, or ``null`` **with a reason**, never a silent empty. An
-    absent block still means the record predates the contract, and that is
-    now the only thing it means.
+    ``refused`` carries the sentence and ``reason`` the code: a value, or
+    ``null`` **with a reason**, never a silent empty. An absent block means
+    the record predates the contract, and nothing else.
 
     ``width`` is present on every arm so the shape does not fork. A consumer
     reaching for it must not have to know which failure produced the block it
@@ -457,6 +440,10 @@ def unread(reason: str, why: str, **extra: Any) -> dict[str, Any]:
     }
 
 
+#: The shape :func:`width` returns when no serving process was found at all, so
+#: the key is present on every host block rather than only on the ones that
+#: could answer. An absent key means the record predates the contract; this is
+#: a refusal, and it says so.
 NO_PROCESS_WIDTH: dict[str, Any] = {
     "value": None,
     "source": None,
@@ -521,10 +508,6 @@ def host_block(endpoint: str, host: str = "") -> dict[str, Any]:
         }
 
     backend = contract.load_backend(found["engine"])
-    # One spelling now. A branch stood here for the engine that ran
-    # llama-server as a child of a daemon, whose address had to be discovered
-    # rather than computed from a known port; both engines this build serves
-    # answer at a port the backend states (archive/forensic-ollama/).
     config = backend.serving_config(f"http://{host}:{backend.PORT}")
     return {
         **found,

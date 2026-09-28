@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""What the endpoint will answer about itself, captured once and compared by nothing.
-
- **D7**, issue `#286 <https://github.com/AdarGit008/mcgyvr/issues/286>`_.
+"""What the endpoint will answer about itself: recorded, and compared by nothing.
 
 **Nothing reads this file for comparison, and nothing may.** ``run.json`` is the
 compared block: ``identity.KEY`` is its admitted subset, ``require_comparable``
@@ -10,117 +8,63 @@ block — everything the serving endpoint will say about itself, captured as
 comprehensively as it will answer, written beside ``run.json`` and read by
 people. A guard wired to a field in here would be a guard nobody declared, on a
 field nobody admitted; if a value in this file turns out to be worth refusing a
-table over, its path into the key is D7's — the owner promotes it into
+table over, its path into the key is the owner's — the owner promotes it into
 :data:`identity.GROUPS`, and the promotion is visible in that module's diff.
 
 **Why a separate file rather than more ``run.json`` fields.** The two blocks
 have opposite failure modes. ``run.json`` has to stay small enough that a human
-diffs two of them and sees what moved; this one has to be comprehensive, and on
-the 1.5B the raw ``/api/show`` document is **7.7 MB of JSON** (measured against
-srv2, ollama 0.32.5, 2026-08-18 — three tokenizer arrays of 151,936, 151,387 and
-151,936 entries account for essentially all of it). Merging them would imply
-everything in the file is compared, which is the "a guard that names five fields
-permits the sixth silently" defect approached from the other side.
+diffs two of them and sees what moved; this one has to be comprehensive, and it
+carries a raw ``/metrics`` body. Merging them would imply everything in the file
+is compared.
 
 **The four probe-set fields.** :data:`identity.GROUPS` declares ``quantization``,
-``context_length``, ``concurrency`` and ``seed``, and until this module nothing
-in the repository wrote them — they carried ``PENDING_REASON`` =
-``AWAITING_PROBE_SET``. None can be derived from the tree; only the server at
-request time can answer them, and on the surfaces this build talks to it
-answers two of the four (one of them dev-mode only). That is the honest result
-and it is recorded as such, per D2: a field
-the endpoint will not answer is ``null`` **with a reason**, never a sentinel
-string, and never a plausible substitute:
+``context_length``, ``concurrency`` and ``seed``. None can be derived from the
+tree; only the server at request time can answer them. A field the endpoint
+will not answer is ``null`` **with a reason**, never a sentinel string, and
+never a plausible substitute:
 
 ``quantization``
-    Answered. ``details.quantization_level`` on both calls (``Q4_K_M`` for
-    `qwen2.5-coder:1.5b` on srv2). The same tag serves different quants on
-    different rigs, so the tag is not the answer and this is.
+    Answered on vLLM from ``/server_info`` (dev mode only); refused otherwise.
 
 ``context_length``
     The **effective** serving window, which is a serving flag and not a model
-    property. Both calls report the model's *trained* window — ``32768`` for
-    every `qwen2.5-coder` tag on srv2, under ``details.context_length`` and
-    ``model_info["<arch>.context_length"]`` on the native surface measured
-    2026-08-18 — while the window actually being served was a serving flag that
-    neither call reported unless a Modelfile pinned it. Recording the trained
-    window would put a number on disk that the run did not have, which is worse
-    than the null it replaces. vLLM answers this one directly, from the model
-    card, and it matched the ``--max-model-len`` each server was launched with.
+    property. Read from ``max_model_len`` on the ``/v1/models`` card, else from
+    ``max_seq_len`` on ``/server_info``.
 
 ``concurrency``
-    What decides whether greedy is reproducible at all —  settled that
-    greedy decoding is not deterministic under continuous batching (vLLM #23138:
-    one client deterministic over 70+ rounds, ~1/3 of pairs differing under
-    concurrency), so ``verified`` never means "reproduces" and a run that did not
-    record its concurrency cannot be read on even that weaker signal. No
-    endpoint served here reports it — it is the width the server was launched
-    with, and neither engine publishes that — so it refuses here, and the
-    refusal is a true statement about the surface it is about.
+    What decides whether greedy is reproducible at all: greedy decoding is not
+    deterministic under continuous batching, so ``verified`` never means
+    "reproduces" and a run that did not record its concurrency cannot be read on
+    even that weaker signal. It is the width the server was launched with, and
+    this capture does not read it, so it refuses here; the vLLM backend reads
+    the launched width off the host.
 
-    **It is not the last word on the field.** The refusal names where the answer
-    is, and a run with host access reads it there: see :func:`resolve` and the
-    ``resolved`` source, which carries the served width beside the width this
-    run dispatched at, and states what the pair does and does not license. The
-    number never enters the block labelled ``native``, because a host reading
-    sitting under that label would destroy the one distinction this file's
-    sources exist to make.
+    **It is not the last word on the field.** A run with host access reads it:
+    see :func:`resolve` and the ``resolved`` source, which carries the served
+    width beside the width this run dispatched at, and states what the pair does
+    and does not license. The number never enters the block labelled ``native``,
+    because a host reading sitting under that label would destroy the one
+    distinction this file's sources exist to make.
 
 ``seed``
     **Observed, never set.** Greedy bypasses the sampler RNG, so no dispatch in
-    this tree sends one (``OpenAIRunner._payload`` sends ``max_tokens`` and
-    ``temperature`` and nothing else) and *setting* one would be a different
-    experiment that
-    silently re-baselines every prior measurement (#276's perturbation set, item
-    9). Recording ``null`` states a fact. Where a Modelfile pins a seed
-    server-side this records the value it finds, because then the fact is
-    different.
+    this tree sends one (``OpenAIRunner._payload`` carries no seed) and
+    *setting* one would be a different experiment. Recording ``null`` states a
+    fact. Where the server reports the seed it was launched with
+    (``/server_info``, dev mode), that value is recorded.
 
-**Two engines, and they answer opposite halves of the probe set.** ollama and
-vLLM are both first-class here (``detect.PORT_CONVENTIONS`` has carried both
-since #164), and which one is talking decides what a null means — so the engine
-is identified from what answers, never from the port, and recorded in the block:
+**The engine is identified from what answers, never from the port**, and
+recorded in the block, because which server is talking decides what a null
+means.
 
-==================  ==================  ==================================
-field               native (2026-08-18) vLLM 0.26.0
-==================  ==================  ==================================
-``quantization``    ``Q4_K_M``          ``auto_awq`` (dev mode only)
-``context_length``  ``4096``, resident  ``8192`` / ``16384``
-``concurrency``     refused             refused
-``seed``            refused             ``0`` (dev mode only)
-==================  ==================  ==================================
-
-Every cell above was measured on 2026-08-18 against four servers — ollama 0.32.4
-on srv1 and 0.32.5 on srv2, vLLM 0.26.0 on both — and each is the reason the
-derivation is written the way it is:
-
-``context_length`` **was answerable on both, and on neither of the endpoints
-the obvious guess would use.** On the native surface measured 2026-08-18 the two
-describing calls reported 32768 — the model's *trained* window — while the
-loaded instance was being served with 4096, and only the residency listing said
-so, which is why that field read the residency listing and refused when the
-model was not resident rather than writing down a window no run had. vLLM
-answers from the model card unconditionally, and it matched the
-``--max-model-len`` each server was launched with.
-
-``concurrency`` **is on neither engine's surface, and the lookalike is worse than
-the null.** It decides whether greedy is reproducible at all —  settled
-that greedy decoding is not deterministic under continuous batching, and the
-evidence it cites *is vLLM* (#23138). The native surface did not publish the
-width its daemon was configured with. vLLM does not expose ``max_num_seqs``
-anywhere: not on
-``/server_info``'s full engine config, not in any of the 122 ``/metrics`` series,
-not on ``/v1/models`` — searched across every parameterless GET in each server's
-own ``/openapi.json`` route table. ``vllm:cache_config_info`` carries
-``kv_cache_max_concurrency``, which looks like the answer and is KV-cache
-capacity: srv1 ran ``--max-num-seqs 8`` and reported 16.004, srv2 ran 16 and
-reported 5.314. It moves *opposite* to the quantity it resembles.
+``concurrency`` **has a lookalike that is worse than the null.**
+``vllm:cache_config_info`` carries ``kv_cache_max_concurrency``, which looks
+like the answer and is KV-cache capacity.
 
 ``seed`` **is where "observed, never set" needed splitting in two.** It is a
 statement about what this tree dispatches, and it is not a statement about the
-server: vLLM 0.26.0 defaults to ``seed=0`` on both rigs, so a vLLM run whose seed
-went unrecorded was seeded by something nobody wrote down. The native surface
-measured 2026-08-18 reported none.
+server: vLLM 0.26.0 defaults to ``seed=0``, so a vLLM run whose seed went
+unrecorded was seeded by something nobody wrote down.
 
 **Dev mode is the biggest single lever.** ``/server_info`` carries the
 quantization, the seed and the window, and exists only when the server was
@@ -129,39 +73,30 @@ without it, one. So those refusals name the flag: they are facts about how the
 server was started, not limits on what vLLM can say.
 
 ``/collective_rpc`` is not called, and that is a decision rather than an
-oversight. It exists under the same dev flag and would very likely reach the
-scheduler config, but it executes a method inside the running engine — which is
-not the endpoint describing itself, and a measurement rig that runs arbitrary RPC
-against the server it is about to measure is a seam nobody should have to reason
-about later.
+oversight. It exists under the same dev flag, but it executes a method inside
+the running engine — which is not the endpoint describing itself, and a
+measurement rig that runs arbitrary RPC against the server it is about to
+measure is a seam nobody should have to reason about later.
 
-**A third engine is a table entry, not a rewrite.** llama-server exposes
-``/props`` — ``n_ctx``, ``total_slots`` and a model path — and ``total_slots``
-would be the one place any of these three engines states its own concurrency. It
-is not implemented here because nothing has asked for it and none was running to
-verify it against; the arm it would need is the shape of the two above.
+**llama-server would land in the ``openai-compatible`` arm.** Its ``/props``
+(``n_ctx``, ``total_slots``) is read by ``tools/bench/serving/backends/llamacpp.py``,
+not here.
 
-**The rest of the OpenAI-compatible world.**  measured ``/v1/models`` as
-identity-free on 136 of 139 manifests, and an endpoint that answers it without
-looking like vLLM is recorded as exactly that. One that answers nothing gets the
-same shape as any other: four nulls, four reasons, an empty native capture. The
-schema does not change under a protocol that answers almost nothing — it says so.
+**The rest of the OpenAI-compatible world.** An endpoint that answers
+``/v1/models`` without looking like vLLM is recorded as exactly that. One that
+answers nothing gets the same shape as any other: four nulls, four reasons, an
+empty native capture.
 
 **Redaction runs on capture, before write.** ``run.json`` holds one URL; this
-holds a server's whole self-description, and a generated Modelfile carried a
-host filesystem path — measured on srv2, 2026-08-18: a ``FROM`` line naming a
-blob under a service account's home, which on a home-directory install names a
-user. So
-every string is scrubbed on the way in: credential-bearing URLs through
-``bundle.redact`` (the one redactor both rigs already use), home-directory
-prefixes, and the high-confidence credential shapes. Over-redaction is free
-here, because nothing compares this file.
+holds a server's whole self-description. So every string is scrubbed on the way
+in: credential-bearing URLs through ``bundle.redact`` (the one redactor both
+rigs already use), home-directory prefixes, and the high-confidence credential
+shapes. Over-redaction is free here, because nothing compares this file.
 
-**One capture per run directory, written when the directory is opened.** A
-resume leaves the existing file alone rather than overwriting it: the block
-describes the endpoint the rows were started against, and a resume against a
-materially different server is refused by ``run.json``'s keyed drift, which is
-where a refusal belongs.
+**Two captures per run directory, ``at_open`` and ``at_close``, each written
+once.** A resume adds neither: the block describes the endpoint the rows were
+started against, and a resume against a materially different server is refused
+by ``run.json``'s keyed drift, which is where a refusal belongs.
 """
 
 from __future__ import annotations
@@ -181,7 +116,7 @@ REPO = HERE.parent.parent
 def _bench_identity() -> types.ModuleType:
     """The identity contract, through the slot both rigs already share (#287).
 
-    Two loads of the contract would be the five-lists problem one level down.
+    Two loads of the contract would be two copies of it that could disagree.
     """
     cached = sys.modules.get("bench_identity")
     if cached is not None:
@@ -200,11 +135,11 @@ identity = _bench_identity()
 
 
 def _bundle_rig() -> types.ModuleType:
-    """The bundle rig, for :func:`redact` — ``tools/`` is not a package.
+    """The bundle rig, for :func:`redact` — ``tools/`` has no ``__init__.py``.
 
     Imported for one function, and imported rather than copied: a second
-    redactor is the shape lens 3 exists to catch, and the one thing
-    worse than a redactor with a gap is two of them with different gaps. The
+    redactor is a second place to have a gap, and the one thing worse than a
+    redactor with a gap is two of them with different gaps. The
     slot is the one the breadth rig fills at import time, so in a dispatch this
     is always a cache hit.
     """
@@ -221,12 +156,11 @@ def _bundle_rig() -> types.ModuleType:
     return module
 
 
-#: The file, beside ``run.json``. Named in exactly three places — here, the two
-#: runner call sites — so ``git grep`` answers "does anything read it" honestly.
+#: The file, beside ``run.json``. Only :func:`write` names it.
 OBSERVED_FILE = "observed.json"
 
-#: The four fields :data:`identity.GROUPS` declares and nothing wrote before
-#: this module. Under the names ``GROUPS`` gives them, so a reader who finds a
+#: The four fields :data:`identity.GROUPS` declares and this module writes.
+#: Under the names ``GROUPS`` gives them, so a reader who finds a
 #: null here and a null there is looking at one field and not two.
 PROBE_SET: tuple[str, ...] = (
     "quantization",
@@ -236,8 +170,7 @@ PROBE_SET: tuple[str, ...] = (
 )
 
 #: The two moments a capture is taken. `at_open` describes the server the rows
-#: were started against; `at_close` is the one that can actually answer
-#: `context_length`, because by then the model is resident.
+#: were started against; `at_close` is the far edge of the completions window.
 CAPTURES = "captures"
 AT_OPEN = "at_open"
 AT_CLOSE = "at_close"
@@ -245,8 +178,8 @@ AT_CLOSE = "at_close"
 #: The two SOURCES a capture can draw on, labelled apart because they prove
 #: different things. `native` is what the endpoint this run dispatched to said
 #: about itself; `host` is what the machine said. They coincide when the
-#: endpoint resolves straight to that machine with nothing in between —
-#: measured true on these rigs — and diverge behind a proxy or a load balancer.
+#: endpoint resolves straight to that machine with nothing in between, and
+#: diverge behind a proxy or a load balancer.
 NATIVE_SOURCE = "native"
 HOST_SOURCE = "host"
 
@@ -258,35 +191,29 @@ HOST_SOURCE = "host"
 RESOLVED_SOURCE = "resolved"
 
 #: The two facts about batching, under the names they are recorded by. **Two
-#: fields, never one, and never substituted for one another** — the shape
-#:  settled when a per-process figure and a card total were tempting to
-#: collapse. `served_width` is a ceiling the SERVER was started with;
+#: fields, never one, and never substituted for one another.**
+#: `served_width` is a ceiling the SERVER was started with;
 #: `dispatch_max_parallel` is how many requests THIS run had in flight.
 SERVED_WIDTH = "served_width"
 DISPATCH_MAX_PARALLEL = "dispatch_max_parallel"
 
-#: The third term (#353), and it is named for what it holds rather than for the
+#: The third term, and it is named for what it holds rather than for the
 #: conclusion it supports. `dispatch_max_parallel` bounds the realised batch
 #: only if this run was the sole client; this is how many requests the SERVER
 #: finished between the open and close captures, from the server's own counter.
 #: Subtract the run's own dispatched rows and the remainder is foreign traffic.
 #: **Never a boolean.** A field reading `sole_client: true` because nothing was
-#: detected is the exact failure this issue exists to avoid.
+#: detected is the failure this field exists to avoid.
 SERVER_COMPLETIONS = "server_completions_in_window"
 
-#: The series that answers it on vLLM, and the label it is summed over.
-#: **Measured on srv1, 2026-08-23, against vllm 0.26.0 (`b1` pip launcher):**
-#: five `/v1/completions` moved it by exactly five; `/health`, `/metrics`,
-#: `/ping` and `/v1/models` moved it by none; a request that failed at the API
-#: layer (404 unknown model, 400 over-long prompt, 400 malformed body) moved it
-#: by none while moving `http_requests_total` by one each; and two full
-#: :func:`capture` passes moved it by none while moving `http_requests_total`
-#: by exactly seven each. **The reading does not perturb the counter it reads**,
-#: so the arithmetic needs no correction term for the harness's own traffic.
+#: The series that answers it on vLLM, and the label it is summed over. On
+#: vLLM 0.26.0 only a request that reached the engine moves it: `/health`,
+#: `/metrics`, `/ping`, `/v1/models` and a request that fails at the API layer
+#: do not. **The reading does not perturb the counter it reads**, so the
+#: arithmetic needs no correction term for the harness's own traffic.
 #:
-#: Summed over `finished_reason`, whose values on this build are `stop`,
-#: `length`, `abort`, `error` and `repetition` — a request that reached the
-#: engine and ended for any reason is counted once.
+#: Summed over `finished_reason` — a request that reached the engine and ended
+#: for any reason is counted once.
 VLLM_COMPLETIONS_SERIES = "vllm:request_success_total"
 
 #: The broader view, kept for the refusal to cite rather than read here. It
@@ -336,31 +263,29 @@ VERIFIED_LIVE: dict[str, str] = {
 }
 
 #: Engines built from documented shapes and NOT yet exercised against a live
-#: endpoint, with what it would take to discharge each. the convention:
-#: the contingency is recorded where the code is, not in a PR body, and
+#: endpoint, with what it would take to discharge each. The contingency is
+#: recorded where the code is, not in a PR body, and
 #: `test_every_engine_says_whether_it_has_been_run_live` fails if an engine
 #: appears in neither dict — so a third arm cannot arrive unmarked, and this one
 #: cannot be quietly promoted without someone deleting a line that says why.
 UNVERIFIED: dict[str, str] = {
     OPENAI_COMPATIBLE: (
         "the fallback arm: an endpoint that answers /v1/models and does not "
-        "look like vLLM. Not exercised live, because it is what llama-server, "
-        "LM Studio and TGI would land in and none was running. It refuses all "
-        "four fields by construction — /v1/models carries a window and nothing "
-        "else — so the untested part is the identification, not a derivation"
+        "look like vLLM, which is where llama-server, LM Studio and TGI would "
+        "land. It refuses every field its /v1/models card does not carry — at "
+        "most context_length answers — so the untested part is the "
+        "identification, not a derivation"
     ),
 }
 
-#: Long, and for :func:`identity.probe_model`'s reason: ``verbose`` returns the
-#: tokenizer arrays — 151,936 of them on the 1.5B — and a timeout tuned for a
-#: version string would record "unobtainable" for a server that answered
-#: perfectly well, slowly. This applies to that ONE call.
+#: The `/metrics` body is the one read that can be large; it alone gets this
+#: budget.
 CAPTURE_TIMEOUT_S = 30.0
 
-#: Every other call, which returns kilobytes at most. Short on purpose: a
-#: capture makes a dozen requests and runs immediately before a sweep's first
-#: draw, so charging all of them the `/api/show` budget would put six minutes of
-#: silence in front of a run against an endpoint that drops rather than refuses.
+#: Every other read, which returns kilobytes at most. Short on purpose: a
+#: capture runs immediately before a sweep's first draw, and an endpoint that
+#: drops rather than refuses would otherwise put minutes of silence in front of
+#: the run.
 DISCOVERY_TIMEOUT_S = 5.0
 
 
@@ -368,21 +293,21 @@ def _url(base: str, path: str) -> str:
     """Join a base URL to a path, tolerating a base that already ends in ``/v1``.
 
     The same rule as :func:`mcgyvr.runner._url_for`, and for the same reason: a
-    ``base_url`` copied from a hosted provider's own page carries ``/v1``, and
-    ``tools/bundle/worker.example.json`` documents that spelling. Without this,
-    ``https://host/v1`` is probed at ``/v1/v1/models`` — a 404 that this module
-    would then record as "nothing there described itself at all" about a server
-    answering perfectly well. Restated here rather than imported because
-    ``_url_for`` is private to a module inside ``product.SURFACE`` and this tool
-    must not move that digest to reuse eight lines.
+    ``base_url`` copied from a hosted provider's own page carries ``/v1``.
+    Without this, ``https://host/v1`` is probed at ``/v1/v1/models`` — a 404
+    that this module would then record as "nothing there described itself at
+    all" about a server answering perfectly well. Restated here rather than
+    imported because ``_url_for`` is private to a module inside
+    ``product.SURFACE`` and this tool must not move that digest to reuse eight
+    lines.
 
     The strip is unconditional, which is where this diverges from ``_url_for``:
     that function is only ever handed one path per protocol and both start with
     ``/v1/``, while ``VLLM_READS`` mixes ``/v1/models`` with six root-level
     paths and ``_capture_served`` adds ``/metrics``. Stripping only for ``/v1/``
-    paths sent every root path to ``/v1/version``, ``/v1/server_info`` and so
-    on — 404s that were then recorded as refusals blaming an unset
-    ``VLLM_SERVER_DEV_MODE``, sending a reader after a flag when the cause was
+    paths would send every root path to ``/v1/version``, ``/v1/server_info`` and
+    so on — 404s recorded as refusals blaming an unset
+    ``VLLM_SERVER_DEV_MODE``, sending a reader after a flag when the cause is
     the URL. Every path here is written from the root, so the base's ``/v1``
     is redundant in all cases, not just some.
     """
@@ -392,25 +317,9 @@ def _url(base: str, path: str) -> str:
     return base + path
 
 
-#: **D5, 2026-08-19: elide BY NAME, with a length backstop.**
-#:
-#: The three tokenizer arrays are elided because of *what they are*, not because
-#: of how long they happen to be. A size threshold was doing the right thing for
-#: the wrong reason, and the reason is what generalises: at 512 the same
-#: constant decided both "this is a tokenizer array" and "this list is too long
-#: to read", which are different judgements. The 1.5B's ``tensors`` is 338 rows
-#: and sits inline; a 30B's is thousands and would have been elided by length —
-#: silently losing a STRUCTURAL list that a reader can act on, while the
-#: tokenizer arrays it was aimed at were already covered by name.
-#:
-#: The arrays are hashed into ``run.json``'s ``vocabulary_sha256`` and
-#: ``merges_sha256`` regardless, so an elided array's digest is a join key back
-#: to those and its count is the fact worth keeping.
-#: The two arrays named here are exactly the ones ``identity`` hashes into
-#: ``vocabulary_sha256`` and ``merges_sha256``, so an elided array's digest is
-#: a join key back to a field that already exists rather than a new one. The
-#: rest are the sibling GGUF tokenizer arrays, which are the same KIND of thing
-#: and are elided for the same reason.
+#: Elide BY NAME, with a length backstop: the GGUF tokenizer arrays are elided
+#: for what they are; any other list only above :data:`MAX_INLINE_ITEMS`. The
+#: summary keeps the count and :func:`identity.digest` of the array.
 ELIDE_BY_NAME: frozenset[str] = frozenset(
     {
         "tokenizer.ggml.tokens",
@@ -420,10 +329,9 @@ ELIDE_BY_NAME: frozenset[str] = frozenset(
     }
 )
 
-#: The backstop, for a list this does not know by name. Deliberately far above
-#: any structural list these models produce — the largest seen is in the low
-#: thousands — so it catches an unforeseen array without quietly eliding a
-#: tensor table. A list hitting this is worth noticing, not just shrinking.
+#: The backstop, for a list this does not know by name. Deliberately high, so it
+#: catches an unforeseen array without quietly eliding a structural list. A
+#: list hitting this is worth noticing, not just shrinking.
 MAX_INLINE_ITEMS = 4096
 
 #: What an elided list is replaced by. A dict rather than a truncated list, so
@@ -434,12 +342,10 @@ _REDACTED = "<redacted>"
 
 # A URL carrying credentials, found *inside* a longer string as well as alone.
 # `bundle.redact` does the removal — this only locates the URLs it is given,
-# because `urlsplit` over a 13 KB Modelfile finds no netloc at all.
+# because `urlsplit` over a long free-text string finds no netloc at all.
 _CREDENTIAL_URL = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s\"'<>]*@[^\s\"'<>]*")
 
-# A home-directory prefix, which names a user. The rest of the path stays: the
-# blob filename under it is `sha256-<hex>`, and that digest is the one piece of
-# weights identity the native surface exposes.
+# A home-directory prefix, which names a user. The rest of the path stays.
 _HOME_PATH = re.compile(r"(?P<root>/(?:home|Users))/[^/\s\"']+")
 
 # High-confidence credential shapes, following each issuer's published format.
@@ -461,11 +367,10 @@ _TOKEN_SHAPES: tuple[re.Pattern[str], ...] = (
 def scrub(value: Any) -> Any:
     """``value`` with every string in it redacted, however deeply nested.
 
-    Recursive because the risk is not at the top level: the Modelfile is one
-    string inside one key, and the tensor rows are dicts inside a list. A
-    non-string leaf — a number, a bool, ``null`` — is returned as it is, and a
-    dict key is scrubbed too, since a native ``model_info``'s keys are model-
-    supplied strings.
+    Recursive because the risk is not at the top level: a server-supplied
+    string can sit inside any key or list. A non-string leaf — a number, a bool,
+    ``null`` — is returned as it is, and a dict key is scrubbed too, since a
+    captured document's keys are server-supplied strings.
     """
     if isinstance(value, str):
         return _scrub_text(value)
@@ -482,11 +387,10 @@ def _scrub_text(text: str) -> str:
     ``bundle.redact`` reads ``urlsplit(...).port``, which **raises** on a port
     outside 0-65535 or an unbalanced bracket. That is fine for the one endpoint
     URL ``run.json`` holds and not fine here: this runs over every string a
-    server sent, including a free-text Modelfile and 58 KB of Prometheus text,
-    any of which can contain something URL-shaped and invalid. Left unguarded it
-    took down the whole sweep — `record_run` calls the writer after `run.json` is
-    already on disk, so a raise there means no rows and a traceback, which is
-    exactly the "worst of both" :func:`capture` promises not to be. An
+    server sent, including raw Prometheus text, any of which can contain
+    something URL-shaped and invalid. Left unguarded, a raise would reach
+    `record_run` after `run.json` is already on disk — no rows and a traceback,
+    which is exactly the "worst of both" :func:`capture` promises not to be. An
     unparseable candidate is redacted wholesale: it cannot be shown to be safe.
     """
     bundle = _bundle_rig()
@@ -508,15 +412,14 @@ def _redact_one(bundle: types.ModuleType, url: str) -> str:
 def elide(value: Any, key: str | None = None) -> Any:
     """``value`` with tokenizer arrays summarised by name, plus a length backstop.
 
-    D5: a list is elided when its KEY names it a tokenizer array
+    A list is elided when its KEY names it a tokenizer array
     (:data:`ELIDE_BY_NAME`), or — failing that — when it exceeds
     :data:`MAX_INLINE_ITEMS`. Each summary records which rule fired, because
     "this was elided because we know what it is" and "this was elided because it
     was surprisingly long" are different facts about a run.
 
     The summary is the count and :func:`identity.digest` of the whole array —
-    the same digest convention ``run.json`` uses, so a reader can join an elided
-    array here to ``vocabulary_sha256`` there without rehashing anything.
+    the same digest convention ``run.json`` uses.
     """
     if isinstance(value, dict):
         return {k: elide(v, k) for k, v in value.items()}
@@ -541,17 +444,12 @@ def capture(
     **The engine is identified from what answers, never from the port.**
     ``detect.PORT_CONVENTIONS`` guesses identity from a port because what it
     needs downstream is the wire protocol; this needs the *server*, because the
-    server decides what a refusal means. A native pair used to be tried first —
-    it was the only surface that described the weights — and anything that did
-    not answer it was asked the OpenAI-compatible questions instead. That arm
-    went with its backend on 2026-09-06 (``archive/forensic-ollama/``), so
-    there is one arm and the identification still happens from what answered:
-    ``_identify`` tells vLLM from a bare OpenAI-compatible server from an
-    endpoint that said nothing, and those are three different facts about a run.
+    server decides what a refusal means. ``_identify`` tells vLLM from a bare
+    OpenAI-compatible server from an endpoint that said nothing, and those are
+    three different facts about a run.
 
     The arm reaches the identity module's fetchers by attribute lookup rather
-    than copying them, so a test that patches the seam patches this path too,
-    and no fifth ``urllib`` wrapper joins the four already in this tree.
+    than copying them, so a test that patches the seam patches this path too.
 
     Never raises. An endpoint that is down, slow or speaking another protocol
     produces the same shape as one that answers — that is what makes the shape
@@ -574,18 +472,14 @@ def capture(
     return scrubbed
 
 
-#: Every read-only endpoint vLLM 0.26.0 answers, measured by asking the server
-#: for its own route table (``/openapi.json``) and taking each parameterless
-#: GET — 11 of them on both srv1 and srv2. Discovered rather than listed from
-#: documentation, which is why ``/is_paused``, ``/load`` and ``/get_world_size``
-#: are here at all.
+#: The parameterless GETs this capture reads, chosen from the routes vLLM
+#: 0.26.0 lists in its own ``/openapi.json``.
 #:
-#: ``/collective_rpc`` is deliberately NOT here. It exists (dev mode), and it
-#: would very likely reach the scheduler config that :data:`UNVERIFIED` used to
-#: guess at — but it executes a method inside the running engine, which is not
-#: the endpoint describing itself, and a measurement rig that runs arbitrary
-#: RPC against the server it is about to measure is a seam nobody should have
-#: to reason about later.
+#: ``/collective_rpc`` is deliberately NOT here. It exists (dev mode), but it
+#: executes a method inside the running engine, which is not the endpoint
+#: describing itself, and a measurement rig that runs arbitrary RPC against the
+#: server it is about to measure is a seam nobody should have to reason about
+#: later.
 VLLM_READS: tuple[tuple[str, str], ...] = (
     ("models", "/v1/models"),
     ("version", "/version"),
@@ -597,20 +491,14 @@ VLLM_READS: tuple[tuple[str, str], ...] = (
 )
 
 
-# `_capture_ollama` and the three read-only endpoints it enumerated stood
-# here. One arm remains, and `capture` no longer has to decide which surface it
-# is looking at before it can ask a question. The removed arm, its endpoints
-# and the readings it took are in `archive/forensic-ollama/`.
-
-
 def _capture_served(
     base: str, *, timeout: float = CAPTURE_TIMEOUT_S
 ) -> tuple[dict[str, Any], str]:
     """Everything the OpenAI-compatible surface will answer, vLLM's extras too.
 
     ``/metrics`` is Prometheus text rather than JSON, and it is captured raw:
-    parsing it here would decide, today, which of 122 series a reader may ever
-    ask about. 58 KB in a file nothing compares is a cheap price for a later
+    parsing it here would decide, today, which series a reader may ever ask
+    about. A raw body in a file nothing compares is a cheap price for a later
     question about queue depth or cache blocks being answerable off a run
     already on disk instead of needing the rig back.
     """
@@ -620,11 +508,9 @@ def _capture_served(
         if answer is not None:
             native[name] = answer
     # The one body that can be large, and so the one call that gets the long
-    # budget. A POST returning tokenizer arrays used to be the reason
-    # CAPTURE_TIMEOUT_S existed; that surface is gone, and 58 KB of Prometheus
-    # text is what is left of the same argument. Everything else here returns
-    # kilobytes at the discovery budget, which matters because this capture
-    # runs immediately before the first draw.
+    # budget. Everything else here returns kilobytes at the discovery budget,
+    # which matters because this capture runs immediately before the first
+    # draw.
     metrics = _get_text(_url(base, "/metrics"), timeout=timeout)
     if metrics is not None:
         native["metrics"] = metrics
@@ -685,26 +571,12 @@ def _counter_total(metrics: Any, series: str) -> float | None:
     return total
 
 
-#: What a refusal says on the engine that has no route at all. **Measured on
-#: srv1, 2026-08-23**, and it is a statement about the ENGINE rather than about
-#: this reading: ollama serves no `/metrics` on 11434 (404, both rigs), and its
-#: child `llama-server` answers `501 {"message": "This server does not support
-#: metrics endpoint. Start it with `--metrics`"}` while its own `/props`
-# A refusal constant stood here naming why one engine served no request
-# counter to difference -- 404 on /metrics, a llama-server child answering 501
-# and naming the flag its parent did not pass, and a /slots `id_task` that is
-# monotonic but increments by neither 1 nor a stable number per request
-# (measured 5.0, 7.0, 7.0, 5.67 on srv1 2026-08-23). That engine is in
-# `archive/forensic-ollama/` and the refutation of `/slots` with it. Every
-# engine served here answers /metrics.
-
-
 def _server_completions(
     native: dict[str, Any] | None,
     opened: dict[str, Any] | None,
     when: str,
 ) -> dict[str, Any]:
-    """How many requests the SERVER finished between the two captures (#353).
+    """How many requests the SERVER finished between the two captures.
 
     **Recorded, not concluded.** The value is the server's own counter delta.
     Foreign traffic is that minus the rows this run dispatched, and the
@@ -715,10 +587,9 @@ def _server_completions(
     down in the note. **Zero difference is measured sole-clientness; anything
     else names how much else the server served.**
 
-    Three states, not two (D2 applied to a claim rather than to a
-    reading): a number is *measured*; a refusal on an engine with no counter is
-    *looked in a way that cannot see*; a refusal at the open capture is *not
-    looked yet*. None of them is a boolean.
+    Three states, not two: a number is *measured*; a refusal on an engine with
+    no counter is *looked in a way that cannot see*; a refusal at the open
+    capture is *not looked yet*. None of them is a boolean.
     """
     engine = (native or {}).get(ENGINE)
 
@@ -788,14 +659,11 @@ def resolve(
     """The two batching facts that decide whether a re-run can reproduce.
 
     **Why this block exists.** ``concurrency`` in :data:`PROBE_SET` is refused on
-    every engine above, and the refusal is correct: the width is on no network
-    surface any of them serves. The refusal ends by naming where the answer
-    *is* — "obtainable only with access to the serving host
-    (``tools/bench/serving/``)" — and the ``host`` block written beside it in
-    this same file is produced by exactly that module, with exactly that access.
-    So the record held the number and the field declared for it read ``null``.
-    This is where the two meet, and the native refusal stays exactly as it was,
-    because it remains a true statement about the surface it is about.
+    the native surface, and the refusal is correct: this capture does not read
+    the width. The ``host`` block written beside it in this
+    same file is produced by ``tools/bench/serving/``, with host access. This is
+    where the two meet, and the native refusal stays, because it remains a true
+    statement about what this capture reads.
 
     **What the pair does and does not license.** They are bounds on the realised
     batch, and the realised batch is what determines reproducibility:
@@ -810,17 +678,15 @@ def resolve(
     * Neither field alone establishes reproducibility, and a width above 1 does
       not refute it: the run may still have been serial in fact.
 
-    Sole-clientness is the third term, and **as of #353 one engine can state
-    it and the other cannot** — which is why it is a recorded measurement with
-    a window rather than a boolean. On vLLM,
-    ``server_completions_in_window`` is the server's own count of requests it
-    finished between the two captures; subtract the rows this run dispatched
-    and the remainder is foreign traffic. An engine that serves no counter to
-    difference refuses the field, naming where the answer would be.
+    Sole-clientness is the third term, a recorded measurement with a window
+    rather than a boolean. ``server_completions_in_window`` is the server's own
+    count of requests it finished between the two captures; subtract the rows
+    this run dispatched and the remainder is foreign traffic. A server with no
+    such counter refuses the field.
 
     **The dispatch side is passed in, never read from a constant here.** It is a
-    property of the endpoint the runner actually built (D4: computed,
-    never typed); a literal in this module would describe a dispatcher it cannot
+    property of the endpoint the runner actually built (computed, never
+    typed); a literal in this module would describe a dispatcher it cannot
     see and would keep agreeing after that dispatcher changed.
     """
     reading = (host or {}).get("width") or {}
@@ -857,9 +723,8 @@ def resolve(
             "and close captures, so FOREIGN traffic is that value minus the "
             "rows this run dispatched (in run.json beside this file), and zero "
             "is measured sole-clientness. Where the engine serves no counter "
-            "the field refuses and names where the answer would be, which is a "
-            "fact about reach and not about the run. Nothing compares this "
-            "block (D7)"
+            "the field refuses, which is a fact about reach and not about the "
+            "run. Nothing compares this block"
         ),
     }
 
@@ -880,16 +745,9 @@ def write(
     the first draw and describes the server the rows were started against;
     ``at_close`` is written when the run finishes.
 
-    The close capture is not a nicety. ``context_length`` — the field this whole
-    block exists to record, and the one whose measured value (4096 served
-    against 32768 advertised) is the lane's finding — reads ``/api/ps``, which
-    lists only models that are RESIDENT. At open, on a fresh directory, nothing
-    is loaded yet, so the field was structurally refused on every first run: the
-    capture was taken before the model arrived and then noted that it was not
-    there. At close the model is certainly resident, so the field answers.
-
-    The close capture also records what the server looked like *under* the load
-    the run applied, which nothing else does.
+    The close capture is what gives ``server_completions_in_window`` its far
+    edge, and it records what the server looked like *under* the load the run
+    applied, which nothing else does.
 
     Each capture is written **once**. A resume adds neither: the open capture
     describes rows this invocation did not measure, and re-writing the close one
@@ -908,8 +766,8 @@ def write(
             # one path outside the `capture()` guard. Nothing compares this
             # block; it may never be the reason a run produces no rows.
             existing = {}
-        # A pre-#286 single-capture file is migrated forward rather than
-        # overwritten: it was an `at_open` capture before the key existed.
+        # A single-capture file (no `captures` key) is migrated forward rather
+        # than overwritten: it is an `at_open` capture.
         if existing and CAPTURES not in existing:
             existing = {CAPTURES: {AT_OPEN: existing}}
         if when in (existing.get(CAPTURES) or {}):
@@ -966,17 +824,10 @@ def write(
 def _served_probe_set(
     base: str, model: str, native: dict[str, Any], engine: str
 ) -> tuple[dict[str, Any], dict[str, str]]:
-    """The four declared fields off the OpenAI-compatible surface (D2).
+    """The four declared fields off the OpenAI-compatible surface.
 
-    The only arm now. It was written as the other half of a pair — vLLM answers
-    the field the native surface could not and cannot answer the one it could —
-    and what survives that pairing is the rule each refusal is held to: a
-    refusal names the engine it is a fact about, so ``null`` is never just
+    A refusal names the engine it is a fact about, so ``null`` is never just
     "unavailable".
-
-    **Unverified against a live vLLM** — see :data:`UNVERIFIED`. Every branch
-    here is tested against the documented shapes; none has been run against a
-    server that produced them.
     """
     if engine is UNREACHABLE:
         return (
@@ -1036,19 +887,13 @@ def _served_probe_set(
     fields["concurrency"] = None
     reasons["concurrency"] = (
         "`max_num_seqs` — the scheduler's batch width, which is what this "
-        "field means — is not on vLLM 0.26.0's HTTP surface. Searched "
-        "exhaustively on 2026-08-18: every parameterless GET in the server's "
-        "own /openapi.json route table (11 answered) on srv1 and srv2, "
-        "including /server_info's full engine config, all 122 /metrics series, "
-        "and /v1/models. `vllm:cache_config_info.kv_cache_max_concurrency` "
+        "field means — is not read by this capture; the vLLM backend reads "
+        "the launched width off the host. "
+        "`vllm:cache_config_info.kv_cache_max_concurrency` "
         "looks like the answer and is NOT: it is KV-cache capacity, and it "
         "moves opposite to the flag — srv1 ran --max-num-seqs 8 and reported "
-        "16.004, srv2 ran 16 and reported 5.314. It is not unknowable, only "
-        "unaskable: a concurrency ramp recovers it, and on srv1 it read the "
-        "knee at exactly 8 — throughput plateauing at 106.5 tok/s and "
-        "per-request latency flat at ~9.5s through n=8 before the queue forms. "
-        "That is a measurement this capture must not make, because it would "
-        f"perturb the run it describes. The raw metrics are under {NATIVE}"
+        "16.004, srv2 ran 16 and reported 5.314. "
+        f"The raw metrics are under {NATIVE}"
         if vllm
         else f"the batch width is not on any endpoint {where} served. {unmeasured}"
     )
@@ -1073,12 +918,11 @@ def _served_probe_set(
     return fields, reasons
 
 
-# `vllm_config` on /server_info is a Python repr rather than a JSON object —
-# measured, 3,118 characters on srv1 — so the three settings that live only
-# there are lifted by name. Narrow on purpose: the whole string is captured
-# verbatim beside this, so a value this pattern misses is still on disk, and a
-# repr that changes shape in a later vLLM degrades to a refusal with a reason
-# rather than to a wrong number.
+# `vllm_config` on /server_info is a Python repr rather than a JSON object, so
+# the settings that live only there are lifted by name. Narrow on purpose: the
+# whole string is captured verbatim beside this, so a value this pattern misses
+# is still on disk, and a repr that changes shape in a later vLLM degrades to a
+# refusal with a reason rather than to a wrong number.
 _CONFIG_FIELDS: tuple[tuple[str, str], ...] = (
     ("quantization", r"\bquantization=([^,)\s]+)"),
     ("seed", r"\bseed=([^,)\s]+)"),
@@ -1125,7 +969,7 @@ def _model_field(native: dict[str, Any], model: str, field: str) -> Any:
     the name a config calls it, so an exact-id miss falls back to the single
     card when there is exactly one — which is the shape of every rig in this
     tree. Two cards and no id match is a refusal: guessing which of them the
-    dispatch used is the sort of plausible substitute D2 exists to forbid.
+    dispatch used is a plausible substitute, which a refusal exists to forbid.
     """
     rows = _model_rows(native)
     for row in rows:
@@ -1149,14 +993,6 @@ def _get_text(url: str, *, timeout: float) -> str | None:
             return str(response.read().decode("utf-8", errors="replace"))
     except Exception:
         return None
-
-
-# A native-surface probe set stood here, with `_resident_row`, `_tag_row` and
-# `_parameters` -- the four declared fields read off a native surface, and the
-# three row-matchers that dug them out of an inventory listing, a residency
-# listing and a Modelfile's PARAMETER text. One engine answers the probe set
-# now, through `_served_probe_set`. All of it is in `archive/forensic-ollama/`,
-# with the reasoning for each field's refusal.
 
 
 def _mapping(value: Any) -> dict[str, Any]:

@@ -1,21 +1,16 @@
 """A repo that declares no ruff configuration is linted by a basic default,
-not by everything ruff knows (owner, 2026-09-05: "set a basic default").
+not by everything ruff knows.
 
-Measured in the first live e2e: a workspace with a ``pyproject.toml`` but no
-``[tool.ruff]`` was linted by the gate under 826 rules — ruff 0.16.4 with no
-configuration — and TRY004 alone rejected six of nine replies for raising
-``ValueError`` where the worker bundle says to. ``tools/bench/score.py``
-already writes this project's own selection into every bench workspace for
-exactly that reason; the live gate had no such floor. Now it does, and the
-floor is the same nine families, with pycodestyle narrowed to ``E4``/``E7``/
-``E9`` — ruff's own default — so that E501 is not in it. A repo that states its
-own ruff config keeps it, whatever it selects: the default is for the repo that
-said nothing.
+``tools/bench/score.py`` (``lint_config``) writes the live gate's floor into
+every bench workspace: this project's own nine families (``pyproject.toml``),
+with pycodestyle narrowed to ``E4``/``E7``/``E9`` so that E501 is not in it. A
+repo that states its own ruff config keeps it, whatever it selects:
+the default is for the repo that said nothing.
 
-Why E501 left is argued where it lives, at
-``src/mcgyvr/gate/adapters/python.py:54``, and held to by
+Why E501 is out is argued at
+``mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`` and held to by
 ``tests/test_a_line_the_formatter_cannot_wrap_is_not_a_rejection.py``. This file
-pins only that the floor is still stated and is still this project's own.
+pins only that the floor is stated and is this project's own.
 """
 
 from __future__ import annotations

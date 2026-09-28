@@ -1,10 +1,9 @@
 """A failed lock-fleets start keeps its container's full log, and gets one retry.
 
-Owner ruling, 2026-09-15: "Fix PR, then retry srv2". ``rig-id-relock``'s srv2-01
-started its unit, which died while loading before ``/health`` said ok;
-``_unit.sh`` filed eight tail lines of ``docker logs`` and removed the container,
-so the error line was lost. The driver stopped and could not go on: a logged
-entry is never run again, and a failed one stops every re-check.
+A unit that dies while loading, before ``/health`` says ok, takes its error line
+with it when only a tail of ``docker logs`` is filed before the container is
+removed. And a driver cannot go on past it: a logged entry is never run again,
+and a failed one stops every re-check.
 
 * A container a step started that exited, or never said healthy, has its whole
   ``docker logs`` (stdout and stderr, every line, through the door's shim) filed
@@ -492,7 +491,7 @@ def test_srv2_01_of_rig_id_relock_has_its_one_retry_committed() -> None:
     }
     listed = REPO / "records/measurements/lock-fleets/rig-id-relock/retries.json"
     doc = json.loads(listed.read_text("utf-8"))
-    # srv2-03's retry (owner, 2026-09-16) is listed after it and names no
+    # srv2-03's retry is listed after it and names no
     # wrapper: a read's run id is minted when it runs.
     assert doc["retries"][0] == {
         "entry": "srv2-01",

@@ -1,11 +1,11 @@
 """Gate 3: the daemon a tag is resolved through must answer now, not inside the step.
 
-Gate 3's contract says the daemon "must be reachable now"; the first cut
-checked only that a docker CLI was on PATH. With the CLI installed and the
-daemon stopped, gates 1-5 passed, the envelope was made, ``RUN_ID`` minted,
-and the first ``image_digest`` failure landed inside the step — after
-``start_stamp``/``round_stamp`` — so the artifact carried WORKLOAD/START/ROUND
-and then REFUSED rows whose reason was the daemon, filed against the arm.
+Gate 3's contract says the daemon "must be reachable now". A check that only
+finds a docker CLI on PATH passes gates 1-5 with the daemon stopped: the
+envelope is made, ``RUN_ID`` minted, and the first ``image_digest`` failure
+lands inside the step — after ``start_stamp``/``round_stamp`` — so the artifact
+carries WORKLOAD/START/ROUND and then REFUSED rows whose reason is the daemon,
+filed against the arm.
 
 So gate 3 (``03-image.py``) asks ``docker info`` — the ``docker`` on the
 door's PATH, which lands on the rig's daemon — and refuses with exit 2 when

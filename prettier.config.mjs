@@ -1,21 +1,13 @@
 // The project's JavaScript/TypeScript **format** bar, stated rather than inherited.
 //
-// The decision of record is , and #262 is why this file exists. Until
-// it did, `eslint.config.mjs` declared the lint half of the JS/TS bar and
-// nothing at all declared the format half: prettier ran on its built-in
-// defaults, in the gate and in every bench workspace, and no manifest said so.
-// The Python arm's formatter reads `[tool.ruff.format]` out of a `pyproject.toml`
-// the bench renders from this repository's own settings — so one arm applied a
-// declared style and the other applied whatever its release shipped with.
+// `eslint.config.mjs` declares the lint half of the JS/TS bar and this file the
+// format half, as `[tool.ruff.format]` in `pyproject.toml` does for the Python
+// arm.
 //
-// **Every value here is prettier 3.9.6's own default, verbatim.** That is the
-// point and not a shortcut. #262 is out of scope for changing either bar
-// ("changing either rule set to make the counts closer"), so writing the
-// defaults down changes what is measured by exactly nothing today, and changes
-// what happens tomorrow: a default that moves in prettier 4 moves the bar under
-// every rate measured against it, silently, and this file stops that. Verified
-// by formatting all 257 `bench-ts` reference solutions with and without it —
-// 257 of 257 byte-identical.
+// **Every value here is the default of the prettier `package-lock.json` pins,
+// verbatim.** Writing the defaults down changes nothing that is measured; it
+// stops a default that moves in a later prettier from silently moving the bar
+// under every rate measured against it.
 //
 // Reproduce the defaults with `npx prettier --support-info`. The options left
 // out are the ones that cannot reach a `.ts` file: the HTML/Vue pair
@@ -26,12 +18,10 @@
 //
 // **Why the numbers do not match the Python arm's.** `printWidth` is 80 and
 // `[tool.ruff] line-length` is 88. They are not reconciled here, deliberately:
-//  decided that the two arms' rule *sets* mirror each other in shape
-// rather than in content, and narrowing an 8-column difference after 32,601
-// scored candidates would re-base every JS/TS format rate on the disk for a
-// cosmetic gain. It is a real asymmetry, it is now written down, and
-// `identity.bar_material` puts it in the manifest so a reader of a ts/py
-// contrast sees it.
+// the two arms' rule *sets* mirror each other in shape rather than in content,
+// and narrowing the difference would re-base every JS/TS format rate on the
+// disk for a cosmetic gain. `identity.bar_material` puts the asymmetry in the
+// manifest so a reader of a ts/py contrast sees it.
 //
 // The bench copies this file into each scored workspace
 // (`tools/bench/score.py:stage_config`), so a candidate is judged by the

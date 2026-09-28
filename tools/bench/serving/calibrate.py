@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 """Measure the constants this package was built on, instead of asserting them.
 
-Every threshold and timeout in `contract.py`, `pin.py` and the two backends was
-chosen from one or two observations — several from a single model on a single
-host. `BATCHING_SPEEDUP` carries a docstring admitting it is a judgement
-calibrated on four measurements; the others do not even do that, and two of them
-(`0.95` for the throughput plateau, `0.10` for the latency plateau) were function
-defaults invisible to review.
-
-This runs the observations that decide them, across every model and both hosts,
-and writes each sample as it is taken. Incremental on purpose: the ramp phase is
-hours long, and a harness that only writes at the end converts a crash at hour
-four into the loss of hours one through three.
+This runs the observations that decide the thresholds and timeouts in
+`contract.py`, and writes each sample as it is taken. Incremental on purpose:
+the ramp phase is hours long, and a harness that only writes at the end converts
+a crash at hour four into the loss of hours one through three.
 
 **Nothing here changes a constant.** It produces the distribution; the value is
 a decision, taken with the numbers visible.
@@ -19,22 +12,22 @@ a decision, taken with the numbers visible.
 Phases, cheapest first, so a short night still yields something:
 
 ``fast``
-    No model is loaded. Idle-card readings, ssh step durations, discovery-call
-    durations, and the array sizes in `/api/show` — which decide
-    `IDLE_GPU_MIB`, `STEP_TIMEOUT_S`, `DISCOVERY_TIMEOUT_S`,
-    `CAPTURE_TIMEOUT_S` and `MAX_INLINE_ITEMS`.
+    No model is loaded. Idle-card readings and ssh step durations — which
+    decide `IDLE_GPU_MIB` and `STEP_TIMEOUT_S`.
 
 ``load``
-    One model at a time, cleared between each. Load durations and VRAM
-    placement fractions — `LOAD_TIMEOUT_S` and `MIN_VRAM_FRACTION` — plus the
-    checkpoint digest durations behind `DIGEST_TIMEOUT_S`.
+    Raises ``NotImplementedError``.
 
 ``ramp``
     The expensive one. The concurrency ramp across a matrix of configured batch
-    widths and token counts, which is the only evidence for `RAMP_TOKENS`,
-    `RAMP_REPEATS`, `BATCHING_SPEEDUP` and the two plateau thresholds. Every
-    level of every ramp is a row, so the thresholds can be re-derived later
-    without re-running the rig.
+    widths and token counts, which `RAMP_TOKENS`, `RAMP_REPEATS`,
+    `INFERRED_SATURATION_MIN_SPEEDUP`, `PLATEAU_FRACTION` and
+    `LATENCY_TOLERANCE` are read against. Every level of every ramp is a row,
+    so the thresholds can be re-derived later without re-running the rig.
+
+``sleep``
+    What a sampled vLLM sleep looks like on the card, with and without
+    ``--enable-sleep-mode``.
 """
 
 from __future__ import annotations
@@ -103,11 +96,9 @@ IDENTITY: dict[tuple[str, str | None], dict[str, Any]] = {}
 def identify(host: str, engine: str | None) -> dict[str, Any]:
     """``{"identity": {...}, "identity_refusals": {...}}`` for a row.
 
-    **#326.** The campaign's 16 ramp and sleep rows named the machine by
-    `host` alone: no card, no driver, no compute capability, no engine build
-    -- the 0.32.4 / 0.32.5 split  records as the prior instance of
-    exactly this gap. One block on every row, the shape: a read the
-    host did not answer is ``null`` with the command it ran beside it.
+    One block on every row: the card, the driver, the compute capability and
+    the engine build. A read the host did not answer is ``null`` with the
+    command it ran beside it.
     """
     key = (host, engine)
     if key in IDENTITY:
@@ -158,7 +149,7 @@ def emit(out: Path, row: dict[str, Any]) -> None:
     **Stamped here, at the sink (#325).** Every row carries the commit, the
     harness digest, the argv and the run's start, under
     :data:`contract.PROVENANCE_DISPOSITION`'s keys. At the sink and not in
-    each builder because there are nineteen builders and one sink, and the
+    each builder because there are many builders and one sink, and the
     census in ``tests/test_sink_conformance.py`` proves every write passes
     through here. A row's own keys win, which none of them overlap.
 
@@ -169,7 +160,7 @@ def emit(out: Path, row: dict[str, Any]) -> None:
     costs microseconds.
     """
     with out.open("a", encoding="utf-8") as handle:
-        # Heal a torn tail before appending — see the note above.
+        # Heal a torn tail before appending — see `_ends_mid_line`.
         if _ends_mid_line(out):
             handle.write("\n")
         identity = identify(row["host"], row.get("engine")) if row.get("host") else {}
@@ -201,11 +192,10 @@ def key(row: dict[str, Any]) -> tuple[Any, ...]:
         row.get("phase"),
         row.get("host"),
         row.get("engine"),
-        # **DE-K.** The ramp's model is chosen at RUNTIME (`_smallest`, `_awq`),
-        # not passed in, so two runs of the identical command can measure
-        # different weights — and E7 pre-warmed a checkpoint into the directory
-        # `_awq` ranks. Without the model in the key, a resume skipped work
-        # whose rows name a model that is no longer the one that would run.
+        # The ramp's model is chosen at RUNTIME (`_awq`), not passed in, so two
+        # runs of the identical command can measure different weights. Without
+        # the model in the key, a resume skips work whose rows name a model
+        # that is no longer the one that would run.
         row.get("model"),
         row.get("arm"),
         row.get("configured_width", row.get("width")),
@@ -289,14 +279,7 @@ def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
 
 
 def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:
-    """Idle readings and step durations.
-
-    The discovery half of this phase — three native enumeration endpoints and
-    the array lengths of the document a fourth returned — measured an API this
-    build no longer speaks, and is in ``archive/forensic-ollama/`` with the
-    readings it produced. The engines served now are asked over the
-    OpenAI-compatible surface, which has no equivalent enumeration to time.
-    """
+    """Idle readings and step durations."""
     for host in hosts:
         for index in range(repeats):
             began = time.monotonic()
@@ -329,21 +312,16 @@ def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:
 
 
 def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
-    """Load duration and VRAM placement, one model at a time, cleared between.
+    """Refuses: neither vLLM nor llama-server loads a model on demand.
 
-    Measured through the engine's own launch rather than through a daemon that
-    pulls a model in on first request. The arm that did the latter is in
-    ``archive/forensic-ollama/``: it enumerated an inventory over a native API
-    and timed a claim against it, and neither vLLM nor llama-server has an
-    inventory to enumerate — a process serves the one checkpoint it was
-    started with, so what this phase can still time is the launch, which
-    ``launch.py`` already does with the geometry to price it against.
+    A process serves the one checkpoint it was started with, so there is no
+    load apart from the launch to time.
     """
     raise NotImplementedError(
         "the load phase measured a daemon that loads on demand, and this "
-        "build serves engines that are started with their checkpoint. Use "
-        "`launch.py`, which times a launch and records the placement it was "
-        "sized against"
+        "build serves engines that are started with their checkpoint. A "
+        "launch is timed by the run that makes it: see "
+        "`python -m mcgyvr.serving.run --help`"
     )
 
 
@@ -360,11 +338,7 @@ def ramp(
 
     ``order``/``seed`` (#327): the sequence every ramp offers its levels in.
 
-    One engine arm now. The other enumerated an inventory over a native API,
-    claimed the smallest model on it, and ramped at a width that was whatever
-    the host's daemon had been configured for — one axis rather than two,
-    which is why it ran first and separately. That arm and the curves it read
-    are in ``archive/forensic-ollama/``.
+    One engine arm: vLLM.
     """
     done = done if done is not None else set()
     vllm = contract.load_backend("vllm")
@@ -396,12 +370,8 @@ def ramp(
             )
         if not model:
             continue
-        # **DE-9.** `vllm.release` runs at the TOP of each host's iteration and
-        # nowhere at the end, so after the last width the server keeps the card.
-        # That is exactly the leftover step 0.1 found: a `--max-num-seqs 16`
-        # instrument holding 4954 of srv1's 6144 MiB, never shut down after the
-        # phase-3 ramps. It bites between phases and at the end of the campaign
-        # — which is precisely when the record says "both rigs left idle".
+        # Released in `finally`: a server left up after the last width holds
+        # the card between phases and after the campaign ends.
         try:
             _widths(out, model, host, vllm, done, order=order, seed=seed)
         finally:
@@ -443,51 +413,17 @@ def _widths(
             "max_model_len": 8192,
             "max_num_seqs": width,
             "gpu_memory_utilization": 0.85,
-            # **`--enforce-eager` is NOT mandatory on srv1, and this comment
-            # said it was from 2026-08-19 to 2026-08-24.** The claim was never
-            # a measured refusal: vLLM's `docs/features/README.md:66` lists
-            # CUDA graph as supported on Turing and no capability gate on graph
-            # capture exists in the 0.26.0 source. Measured on the rigs
-            # (`records/evidence/2026-08-24-config-sweep/`): dropping the flag
-            # is worth 0.1% on srv1 -- the card the belief was about -- and
-            # **5.02x on srv2**, where nobody ever claimed it was needed,
-            # including at a single stream (181.7 tok/s at n=1 against 36.2).
-            #
-            # It is KEPT here regardless, and the reason is the second half of
-            # the original comment, which was right: item 2 is a cross-host
-            # replication, and graphs on one host but not the other would be an
-            # uncontrolled difference inside the comparison. What changes is
-            # that this is now a deliberate, priced handicap on BOTH rigs
-            # rather than a constraint one of them imposes -- so no figure this
-            # function produces may be read as either rig's throughput.
+            # `--enforce-eager` is required by neither rig. It is set on BOTH so
+            # the cross-host comparison carries no graphs-on/off difference: a
+            # deliberate handicap, so no figure this function produces may be
+            # read as either rig's throughput.
             "flags": ["--enforce-eager", "--kv-cache-dtype", "float16"],
-            # **E10, 2026-08-19: `CUDA_HOME` is dropped, not repaired.**
-            # It was `"$HOME/.local/lib/python3.14/site-packages/nvidia/
-            # cu13"`, and `vllm._start` renders env values through
-            # `shlex.quote`, so `$HOME` never expanded. Read straight off a
-            # live server's /proc/<pid>/environ: the literal string, which
-            # no path resolves. The expanded path does exist and 3.14 is
-            # right today — but no process has ever seen a valid value, so
-            # the record's claim that this env block fixed ten failed
-            # launches is false; something else fixed them. Expanding it
-            # correctly now would introduce an UNTESTED variable into the
-            # launch path immediately before a multi-hour campaign, and its
-            # effect is unmeasured precisely because it has never been set.
             "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"},
         }
         started_at = contract.now()
         try:
-            # A release of the co-resident daemon stood here, clearing the card
-            # before each launch. It is gone and masked (archive/forensic-ollama/),
-            # and `vllm.release` at the top of each host's iteration is what
-            # clears the card now.
-            # **A1.** The return value used to be discarded. `vllm.claim` times
-            # every launch and hands back `checks.started.start_seconds` with a
-            # comment saying D6 wants it -- and ten launches computed it and
-            # threw it away, leaving START_TIMEOUT_S = 900 s resting on nothing
-            # after the campaign that was commissioned to measure it. The
-            # MARKERS guard passed the whole time: it asserts that vllm.py
-            # contains the string "start_seconds", which it does.
+            # The return value is kept: `vllm.claim` times the launch and hands
+            # back `checks.started.start_seconds`, which the launch row records.
             # #326: pinned when the model has a pin, so a checkpoint that
             # moved under the campaign refuses rather than measuring quietly.
             claimed = vllm.claim(
@@ -968,8 +904,8 @@ LAUNCH_CHECKS_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     "allocation_present": ("allocation_present",),
     "served_models": ("served_models",),
     "engine_config": ("engine_config",),
-    # #345 / . Two fields, not one: the reading, and the reason it is
-    # null when it could not be taken (D2).
+    # Two fields, not one: the reading, and the reason it is null when it
+    # could not be taken.
     "resident_placements": ("resident_placements",),
     "resident_placements_refused": ("resident_placements_refused",),
     "weights": (
@@ -1054,10 +990,7 @@ SLEEP_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
 SLEEP_ROW_DROPPED: dict[str, str] = {}
 
 
-#: What becomes of every key of the attempt record a native-API claim returned
-#: (the last entry of ``attempts`` on success), when the load phase writes its
-#: row. Before #324 the row kept three of the twenty-one and no check could say
-#: so. Same contract as :data:`RAMP_ROW_DISPOSITION`.
+#: Nothing reads this table: :func:`load` raises, so no load row is written.
 LOAD_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     # D6's "does a second attempt ever rescue a first": the ordinal of the
     # attempt whose record this is (on a success, the one that succeeded).
@@ -1126,12 +1059,6 @@ LOAD_ROW_DROPPED: dict[str, str] = {
         "model_sha256 so the identity is still on the record."
     ),
 }
-
-
-# `_load_row` stood here: it flattened the attempt record an on-demand claim
-# returned into a `load` row. Its only caller was `load()`, which measured a
-# daemon that pulls a model in on first request. Both are in
-# `archive/forensic-ollama/`, with LOAD_ROW_DISPOSITION and the rows they wrote.
 
 
 def _launch_row(
@@ -1293,11 +1220,11 @@ def _row_pins(pins: dict[str, Any]) -> dict[str, Any]:
     """``pins`` as carried by every ramp row: the digests, not the material.
 
     The resolved block holds a verbatim engine sentence per field and would be
-    repeated on all eight levels of every ramp — the same paragraph eight times,
-    describing one launch. The launch row keeps it whole; the level rows keep
+    repeated on every ramp row of a launch — the same paragraph once per token
+    count, describing one launch. The launch row keeps it whole; the ramp rows keep
     the digest, which is what a reader compares and what `identity.KEY` reads.
 
-    **The digest is kept even when it is null.** A level row that drops the
+    **The digest is kept even when it is null.** A ramp row that drops the
     field entirely is a row that cannot say it failed to read the config, and
     `require_comparable` distinguishes absent from null for exactly that reason.
     """
@@ -1319,9 +1246,8 @@ def _one_ramp(
 ) -> None:
     """One ramp, every level recorded so thresholds can be re-derived later.
 
-    ``pins`` (#326) is what the curve was read on -- the vLLM weights and
-    serving-config digests, or a native claim's `model_sha256` -- carried as
-    given.
+    ``pins`` is what the curve was read on -- the vLLM weights and
+    serving-config digests -- carried as given.
     ``order``/``seed`` (#327) are the sequence the levels are offered in;
     ``host`` is also where the per-level card and load are read from.
     """
@@ -1411,12 +1337,6 @@ def _one_ramp(
     )
 
 
-# `_show` and `_list_lengths` stood here, reading a native `/api/show`
-# document and counting the arrays in it -- what MAX_INLINE_ITEMS was sized
-# against. Their only caller was the discovery half of `fast()`. Both are in
-# `archive/forensic-ollama/`.
-
-
 def _smallest(models: list[str]) -> str:
     """The 1.5B where present: the ramp should not be a memory experiment."""
     for candidate in models:
@@ -1469,19 +1389,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--engines",
         default="vllm",
-        help="restrict the ramp phase — re-running one half must not redo the other",
+        help="ramp phase: engines to run (comma separated); only `vllm` has an arm",
     )
-    # **E12, 2026-08-19.** The module-level TOKEN_COUNTS is the HISTORICAL
-    # matrix — (32, 128, 512) is what the calibration measured, and rewriting it
-    # would make the record's own columns unreproducible. D7 wants the same five
-    # widths at the single D3 budget of 475, which is three times less rig time
-    # than re-running the whole matrix, so it is asked for rather than edited in.
+    # The module-level TOKEN_COUNTS is the matrix the calibration record was
+    # measured at; rewriting it would make the record's own columns
+    # unreproducible, so another budget is asked for rather than edited in.
     parser.add_argument(
         "--tokens",
         default="",
         help=(
             "ramp phase: token counts to sweep (comma separated). Default is "
-            f"the historical matrix {TOKEN_COUNTS}. D7 runs --tokens 475."
+            f"the historical matrix {TOKEN_COUNTS}."
         ),
     )
     parser.add_argument(

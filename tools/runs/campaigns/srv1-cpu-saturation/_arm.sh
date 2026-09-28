@@ -2,13 +2,13 @@
 # tools/runs/campaigns/srv1-cpu-saturation/_arm.sh — one cold start of
 # Qwen3.6-35B-A3B UD-IQ3_XXS on srv1 at one --n-cpu-moe, all eight slots driven.
 #
-# Owner, 2026-09-16: the footprint-versus-stream test okf/must-read/touching-rigs.md
-# names as outstanding, approved with its hard-lock risk. Three arms differ in
-# --n-cpu-moe only: A1 = 30 (the live b-big placement's depth), A2 = 36, A3 = 40
-# (every expert block in host RAM, 69% of srv1's 15 GB at only ~331 MB per
-# token). Everything else is the srv1 launch shape fleet.yaml locks:
-# --parallel 8, -c 32768 (4096 a slot), -b 512 -ub 512 -fa on -ctk q8_0 -ctv
-# q8_0 -ngl 99 -t 6, under hosts.json's srv1 image resolved to its digest.
+# The footprint-versus-stream test, run with its hard-lock risk
+# (okf/must-read/touching-rigs.md, "A rig that hard-locks under load"). Three
+# arms differ in --n-cpu-moe only: A1 = 30 (the depth of fleet.yaml's
+# srv1_35b_b), A2 = 36, A3 = 40 (every expert block in host RAM). Everything
+# else is fixed by this file: --parallel 8, -c 32768 (4096 a slot), -b 512
+# -ub 512 -fa on -ctk q8_0 -ctv q8_0 -ngl 99 -t 6, under hosts.json's srv1
+# image resolved to its digest. It is not a launch fleet.yaml states.
 #
 # What one arm does, in order, each part filed in the artifact whether or not
 # the next ran: the START marker (uptime_since, pl1_uw from
@@ -131,7 +131,7 @@ stop_sampler() {
     SAMPLER_PID=
 }
 
-# --- the refusals, before the rig is touched --------------------------------
+# --- the refusals, before a container is started ----------------------------
 [ "$RUN_HOST" = srv1 ] || refuse "this campaign is srv1's, and the run is on $RUN_HOST"
 [ "$(basename -- "$RUN_MODEL")" = "$BLOB" ] || refuse "--model $RUN_MODEL is not $BLOB, the blob every arm runs"
 [ "${RUN_PARALLEL:-}" = "$WIDTH" ] || refuse "--parallel ${RUN_PARALLEL:-} is not $WIDTH: every arm drives all eight slots"

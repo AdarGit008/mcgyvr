@@ -1,8 +1,8 @@
-"""The ablation report's statistics (#225), held against first principles.
+"""The ablation report's statistics, held against first principles.
 
 A defect in these two functions would not crash anything — it would publish a
-p-value. This project has already spent a lane correcting a claim whose
-arithmetic nobody re-derived, so both tests are checked against independent
+p-value, and a claim whose arithmetic nobody re-derived is costly to correct,
+so both tests are checked against independent
 computation rather than against a remembered formula.
 
 The anchor worth naming: six problems that all moved the same way give
@@ -99,7 +99,7 @@ def test_no_movement_is_reported_as_no_information() -> None:
 
 
 def test_a_dispatch_error_row_is_not_counted_as_a_draw(tmp_path: Path) -> None:
-    """#217: a cell nobody observed must not shrink or pad a denominator."""
+    """A cell nobody observed must not shrink or pad a denominator."""
     cell = tmp_path / "stock" / "bench-ts"
     cell.mkdir(parents=True)
     rows = [
@@ -118,8 +118,8 @@ def test_the_two_row_sources_are_read_apart(tmp_path: Path) -> None:
 
     `results.jsonl` is what the sweep recorded on the day, under the checker of
     the day; `regrade.jsonl` is `tools/bench/regrade.py`'s verdict under the
-    checkers as they stand now. They must never be silently merged or silently
-    preferred — the `ValueError` fix moved 40 py cells, and a reader that
+    current checkers. They must never be silently merged or silently
+    preferred — a checker change can move many cells, and a reader that
     chose a file on its own would make it impossible to tell which number a
     table was quoting.
     """
@@ -256,8 +256,8 @@ def test_a_retired_problems_rows_reach_no_figure(tmp_path: Path) -> None:
     Its rows stay in the run record — `results.jsonl` states what was
     dispatched on the day, and `regrade.py`'s docstring is explicit that a
     record which changes with the tooling is not a record. Removal happens
-    here, where a figure is computed, which is the same reasoning as #230's
-    instrument pin stamping rather than excluding.
+    here, where a figure is computed, which is the same reasoning as the
+    instrument pin's stamping rather than excluding.
     """
     retired = sorted(report.retired_ids())
     assert retired, "the declaration is the mechanism; an empty one is a no-op"

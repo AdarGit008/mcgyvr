@@ -1,18 +1,16 @@
 """A correction says how the work landed, and the reader shows it end to end.
 
-:func:`mcgyvr.telemetry.correct` has existed since the journal was written and
-nothing in the product called it, so every row read ``uncorrected`` forever —
-including the rows of attempts the gate accepted and the operator committed.
-A journal that cannot say whether a rung's answer was any good is a journal
-that can be counted and never learned from, which is the whole reason the
-text is kept beside the row.
+A row nothing corrects reads ``uncorrected`` forever — including the row of an
+attempt the gate accepted and the operator committed. A journal that cannot say
+whether a rung's answer was any good is a journal that can be counted and never
+learned from, which is the whole reason the text is kept beside the row.
 
-Now ``mcgyvr run`` corrects. After the climb, every attempt row gets the
-verdict the ladder gave it — ``passed``, ``failed`` — with the gate's finding
-lines as the detail of a failure, so the journal answers *why* without the
-gate being run again. Then the accepted attempt gets a second correction
-saying how the work finally landed: ``committed`` with the commit on the
-branch, or ``not_committed`` when the default left the change in the working
+``mcgyvr run`` corrects (:func:`mcgyvr.telemetry.correct`). After the climb,
+every attempt row gets the verdict the ladder gave it — ``passed``, ``failed`` —
+with the gate's finding lines as the detail of a failure, so the journal answers
+*why* without the gate being run again. Then the accepted attempt gets a second
+correction saying how the work finally landed: ``committed`` with the commit on
+the branch, or ``not_committed`` when the default left the change in the working
 tree. ``fold`` is latest-wins in file order, so the folded outcome is the
 landing and the raw lines keep the verdict underneath it.
 

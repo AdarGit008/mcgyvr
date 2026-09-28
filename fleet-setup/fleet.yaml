@@ -1,9 +1,8 @@
-# FINAL fleet.yaml — fleets a-solo, b-small, b-big (dev profile, stamped 2026-09-13).
-# Values pinned from the srv1/srv2 parallel dev runs (REPORT-srv1.md, REPORT-srv2.md).
-# Digests computed via mcgyvr.fleet.ids.digest over the resolved launch
-# (digests-srv1.json / digests-srv2.json carry the exact hashed fields).
+# fleet.yaml — the dev-profile setup: units, rigs and fleets.
+# Each unit_id is mcgyvr.fleet.ids.digest over the unit's resolved launch
+# (digests-srv1.json / digests-srv2.json carry each unit's exact hashed fields).
 # Each unit's launch.argv and launch.env are those hashed fields, verbatim, and
-# `mcgyvr emit` renders them as they are; container is the name its dev run used.
+# `mcgyvr emit` renders them as they are.
 
 profile: dev
 
@@ -16,7 +15,7 @@ units:
     image: "llamacpp-lidenburg:e85e4d9"
     model: "Qwen3.6-35B-A3B-UD-IQ3_XXS"
     width: 1
-    window: 262144                                # -c 256k; decode 48.2 t/s warm, decays with ctx
+    window: 262144                                # -c 256k
     output_tokens: 2048
     request_timeout_s: 180
     room_mib: 10564                               # measured card peak (cache 120/256)
@@ -113,12 +112,12 @@ units:
 
   srv2_80b:
     rig: srv2
-    address: "http://srv2:8003"                   # Q12 width-4 compose
+    address: "http://srv2:8003"
     engine: llama.cpp
     image: "llamacpp:b10644-L3"
     model: "Qwen3-Next-80B-A3B-Instruct-Q3_K_M"
     width: 4
-    window: 16384                                 # width-4 compose runs -c 16384
+    window: 16384
     output_tokens: 2048
     request_timeout_s: 180
     room_mib: 11524                               # measured card peak at -c 16384 width 4
@@ -181,13 +180,12 @@ units:
                 "/home/adaramir/models:/home/adaramir/models:ro"]
 
   # ---- fleet (c): the MTP lever, width 1, srv2 only ----
-  # records/evidence/2026-08-28-mtp-ornith/README.md: --spec-type draft-mtp at
-  # --n-cpu-moe 8 (the measured MTP floor; 4 refused with cudaMalloc failed),
-  # width 1 because MTP refused at n>=4 on the 12 GB card. -c 4096 because the
-  # lock harness's prefill prompt is ~2,300 tokens; -t 10 is srv2's memory
-  # saturation (okf/must-read/touching-rigs.md); the stock server-cuda-b10644
-  # image is the one MTP was measured on and the one tools/runs/hosts.json
-  # declares for srv2; no seccomp (that is the Lidenburg fork's expert cache).
+  # --spec-type draft-mtp with --n-cpu-moe at the measured MTP floor and width 1
+  # (mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md). -c 4096 holds
+  # the lock harness's long prompt; -t sits at srv2's thread knee (rule:
+  # okf/must-read/touching-rigs.md); the stock server-cuda-b10644 image is the
+  # one tools/runs/hosts.json declares for srv2; no seccomp (that is the
+  # Lidenburg fork's expert cache).
   srv2_ornith_mtp:
     rig: srv2
     address: "http://srv2:8004"

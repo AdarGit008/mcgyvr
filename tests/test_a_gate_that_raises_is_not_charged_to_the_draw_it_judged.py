@@ -1,18 +1,15 @@
 """A gate that raises is not the fault of the dispatch it was judging.
 
-The second repair of finding 7 had the driver state its own raise, and cleared
-"the dispatch in flight" at two moments: on entry to ``sample`` and after
-``best_of`` returned. Between those two moments sits the whole of
-:func:`~mcgyvr.consensus._draw`'s per-draw work — writing the bytes, calling
-the gate, binding the winner, restoring the workspace — and every line of it
-ran with the draw that had *already answered* still named as in flight.
+After a draw answers comes the whole of :func:`~mcgyvr.consensus._draw`'s
+per-draw work — writing the bytes, calling the gate, binding the winner,
+restoring the workspace. A driver that still named the draw that had *already
+answered* as "the dispatch in flight" during that work would charge a gate that
+raised on draw 0 of two to draw 0: the row of a dispatch that answered normally
+corrected to ``outcome: error`` as though the endpoint had died, and the result
+naming it as the attempt. A raise belongs to a dispatch only when it came out
+of that dispatch, and not one line further.
 
-So a gate that raised on draw 0 of two was charged to draw 0: the row of a
-dispatch that answered normally was corrected to ``outcome: error`` as though
-the endpoint had died, and the result named it as the attempt. A raise belongs
-to a dispatch only when it came out of that dispatch, and not one line further.
-
-The draws now go out together and come back before any of them is gated, so
+The draws go out together and come back before any of them is gated, so
 the gate's death on draw 0 finds both rows written: both answered, both are
 accounted for, and the raise belongs to no dispatch — so the result names
 none.

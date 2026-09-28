@@ -1,17 +1,14 @@
 """The ``--n-cpu-moe`` floor is VRAM-bound, so each arm has its own.
 
-``okf/config/llama.cpp.md`` said the floor was bounded by host RAM until
-2026-09-01, when srv2's floor was measured at 6 against an archive that had been
-running 24-99 — a 3-12x misplacement worth ~2.4x. The correction matters here
-because each arm in this campaign carries different VRAM overhead: a Vulkan
+The floor is bounded by VRAM, not host RAM, and that matters here because each
+arm in this campaign carries different VRAM overhead: a Vulkan
 build's allocator is not a CUDA build's, and a PTX-only build's context is not a
 SASS build's. A floor copied between arms is not a floor.
 
 Two rules. The derivation states its own inputs and the arithmetic reproduces
 from them. And the floor is established by a recorded refusal one step below it,
-retried, because a launch near the memory edge is a 1-in-3 coin flip and two
-REFUSED rows on 2026-09-01 turned out to be a dangling HF-blob symlink read as a
-capability limit.
+retried, because a launch near the memory edge is a coin flip and a REFUSED
+row can be a dangling HF-blob symlink read as a capability limit.
 """
 
 from __future__ import annotations

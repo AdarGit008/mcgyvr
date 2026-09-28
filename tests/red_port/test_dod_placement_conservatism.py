@@ -1,23 +1,12 @@
 """The sizing law must not refuse a placement the rig has been measured running.
 
-``vramfit`` adds one allowance to every derivation — ``SCRATCH_AND_CONTEXT_MIB``,
-768 MiB — for the compute buffer and the allocation no GGUF header names. Its own
-comment calls it "deliberately generous, because it is only ever walked DOWN
-from", and that was true while the free figure it was subtracted from was itself
-generous: ``mcgyvr.scan`` derived free VRAM as ``total - used`` and so over-stated
-it by the driver's reserve, roughly 400 MiB on srv1 and 376 on srv2.
+``vramfit`` adds one allowance to every derivation — ``SCRATCH_AND_CONTEXT_MIB`` —
+for the compute buffer and the allocation no GGUF header names, and subtracts it
+from the free figure the scan reports.
 
-Correcting the scan (2026-09-06) removes the over-statement, and the allowance is
-now subtracted from a true number. The two changes do not cancel: srv1 is running
-``--n-cpu-moe 32`` at a measured 5306 MiB of 5726 usable, and the corrected law
-derives 34 for the same card and the same eight slots. The law now refuses a
-placement that has been running for hours.
-
-This is stated as a property rather than as a constant, because the fix may be to
-the allowance, to how it is applied, or to reporting it separately from the
-prediction — that is the port's choice. What must be true is that a measurement in
-hand outranks an allowance: a placement a scan of the same card shows fitting must
-not be refused by the law that sized it.
+This is stated as a property rather than as a constant. What must be true is that a
+measurement in hand outranks an allowance: a placement a scan of the same card shows
+fitting must not be refused by the law that sized it.
 
 The second statement is the guard. It would be trivial to satisfy the first by
 deleting the allowance, and an under-stated allowance admits a cell that clears
@@ -161,9 +150,8 @@ def test_the_law_reads_the_free_memory_it_is_given() -> None:
 def test_the_prediction_is_readable_apart_from_the_allowance() -> None:
     """A person checking the arithmetic against ``nvidia-smi`` needs both numbers.
 
-    Today ``predict`` returns one figure with the allowance inside it, so a
-    prediction of 6115 MiB against a measured 5306 cannot be told from a law that
-    is wrong by 809 MiB. The allowance is a policy and the prediction is a claim
+    One figure with the allowance inside it cannot be told from a law that is wrong by
+    the size of the allowance. The allowance is a policy and the prediction is a claim
     about the card; a reader has to be able to see which is which.
     """
     report = required(

@@ -83,7 +83,7 @@ date -u +%Y-%m-%dT%H:%M:%SZ >"$STATE/started_at"
 
 # Whatever happened, the container this run started is removed and the artifact
 # exists: a step that died says where, in `failure`. A run refused before its
-# launch reaches no daemon at all.
+# launch removes no container.
 finish() {
     local rc=$?
     trap - EXIT
@@ -144,7 +144,7 @@ file_exit() {
         printf 'the exit cause could not be put in words; what was read is in the artifact\n' >"$STATE/exit-said"
 }
 
-# --- the refusals, before the rig is touched --------------------------------
+# --- the refusals, before a container is started ----------------------------
 FACTS=$(_py "$LF" unit-facts "$RUN_ROOT" "$STATE" "$UNIT") ||
     refuse "the facts of $UNIT could not be read from fleet-setup/fleet.yaml and digests-$RUN_HOST.json"
 eval "$FACTS"
@@ -202,8 +202,8 @@ while :; do
 done
 
 # --- 4. the lock's harness on the rig: the measure, then the load -----------
-# No timeout on either ssh: a load is held to its own 30 s and waits for the
-# unit to read idle with no limit (owner rulings NB5, NBc).
+# No timeout on either ssh: a load is held to the harness's own LOAD_LIMIT_S
+# and waits for the unit to read idle with no limit.
 HARNESS=$(_py "$LF" harness-path) || fail "the harness could not be located"
 PROBE=$(_py "$LF" harness-command "$STATE" probe "$CID" "$UNITS_READER") || fail "no probe spec for $UNIT"
 "$SSH" "$RUN_HOST" "$PROBE" <"$HARNESS" >"$STATE/harness.json" || true

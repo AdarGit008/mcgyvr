@@ -1,81 +1,46 @@
 """Ten recorded conflicts, and the check each one becomes.
 
-Session 6 read the D7 campaign's evidence and counted six contradictions
-between what the record claims and what the files under
-``records/evidence/calibration-*`` hold. All six were re-derived at
-``d4d6b8c1``: **four survive, two dissolve.** Before this file nothing read any
-of them — ``grep -rl xfail tests`` found nothing at filing, and the only
-guards over the campaign's journals were the disposition tables beside the
-sinks, which account for the FIELDS of a row and say nothing about the VALUES
-inside it. That is why the session record could say of one of these that it
-"would not be caught today".
+Each is a contradiction between what the D7 campaign's record claims and what the
+files under ``records/evidence/calibration-*`` hold. The disposition tables beside
+the sinks account for the FIELDS of a row and say nothing about the VALUES inside
+it; these checks read the values.
 
- (#323) is the rule this file is the first real member of:
-
-* Rule 1 — a finding is a check, not a paragraph. Red means the defect is
-  present; "is this still open?" is answered by running the suite.
-* Rule 2 — a finding the owner has not ruled on keeps its check, marked
-  ``xfail(strict=True, reason=...)`` with a dated reason: the ISO date, then
-  ``owed — <the question>`` while the owner has not ruled and
-  ``decided — <the decision>`` once they have. **All eight are decided as of
-  2026-08-22** — the owner ruled the whole set in one pass, so #328's closing
-  grep for the owed grammar prints 0 against this file and every marker here
-  now records a decision rather than a question. (That grep is a literal
-  string search, so this paragraph states the pattern rather than quoting it:
-  a docstring that spelled it out would be its own counter-example.)
-  ``strict`` is what keeps them live: a campaign that fixes one turns XPASS and
-  fails the suite until the marker comes off. **Seven of the eight** can only be
-  turned green by a run — they resolve against the newest campaign directory.
-  K10 is the exception: it reads ``tools/bench/serving/configs/``, so a prose
-  edit alone flips the check while the measurement its ruling calls for is
-  still owed on #337. The check and the finding are not the same thing there,
-  and that gap is K10's own defect rather than the ruling's.
-* Rule 3 — the append-only record names its check. The block ``## Conflicts
-  recorded 2026-08-21`` in the campaign README carries K1-K6, ``## Conflicts
-  recorded 2026-08-22`` carries K7-K9, ``## Conflict recorded 2026-08-22
-  (second)`` carries K10 alone, and ``## Rulings recorded 2026-08-22`` carries
-  the owner's eight decisions — each naming the test below that reads it. Two
-  of the ten checks (K7, K8) were rewritten by their own ruling and K6 was
-  repointed; the rulings block says so, and the earlier blocks are not edited.
+* A finding is a check, not a paragraph. Red means the defect is present; "is this
+  still open?" is answered by running the suite.
+* A finding that is ruled on and not fixed keeps its check, marked
+  ``xfail(strict=True, reason=...)`` with a dated reason
+  (``tests/test_finding_is_a_check.py`` holds the grammar). ``strict`` is what keeps
+  them live: a campaign that fixes one turns XPASS and fails the suite until the
+  marker comes off. Every check but K9 and K10 resolves against the newest
+  campaign directory, so only a run can turn it green. K9 reads ollama's
+  settings, and ollama is removed, so no run can turn it green. K10 reads
+  ``tools/bench/serving/configs/``, so an edit there alone flips it.
+* The append-only record names its check: the conflict and ruling blocks of
+  ``mcgyvr-lab/archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md``
+  carry K1-K10 and the owner's decisions, each naming the test below that reads it.
 
 The two that dissolve stay as green checks rather than as a deleted paragraph:
 their job is to keep a re-derived non-finding from being re-filed, and to go
 red if a later campaign turns either into a real one.
 
-**The population is the newest campaign, not this one.** Every check but K10
+**The population is the newest campaign, not one named here.** Every check but K10
 resolves its evidence through :func:`campaign` — the newest ``calibration-*``
-directory under ``records/evidence/``. (K10 reads the repository's own serving
-configs instead, because the constant it is about lives there and not in any
-run. Corrected 2026-08-22: this paragraph said "every check" from the day K10
-landed, and K10 never called :func:`campaign`.)
+directory under ``records/evidence/``. A check pinned to one campaign's frozen
+files would be an ``xfail`` that can never XPASS.
 
-The 2026-08-19 files are frozen history and can
-never turn green, so a check pinned to them would be an ``xfail`` that outlives
-its own finding and can never XPASS. Pointed at the newest campaign, each of
-these is a question put to the NEXT run, which is what every "owed" reason
-asks, and the run that answers it flips the marker.
-
-**K7-K9 were added on 2026-08-22 and were not part of #328's six.** They are
-the honest limits of a live verification run that day: with
-``OLLAMA_NUM_PARALLEL`` declared as ``1`` on both rigs, srv1 (ollama 0.32.4)
-and srv2 (ollama 0.32.5) launched ``qwen2.5-coder:1.5b`` at an identical
-``-c 4096 -np 1`` and held a byte-identical ``size_vram``. That is one model,
-one context, one width, and it says nothing about throughput -- so rather than
-record the limits as a caveat in prose, each became the check that would catch
-it: K7 asks the geometry question of every model served on both hosts, K8 asks
+K7 asks the geometry question of every model served on both hosts, K8 asks
 how wide the cross-host population is before an engine is called equivalent,
 and K9 asks whether both hosts declare the settings that decide residency
-instead of inheriting them from two different engine versions.
+instead of inheriting them.
 
-Two checks read wider than the issue that filed them (#328 quotes the narrower
-population; the K-lines in the README say so):
+Two checks read a wide population:
 
 * K5 covers both engines rather than ollama alone. A vLLM width matrix quotes
   1.0 against 3.76 for the same model at the same token count, and what
   separates them is ``configured_width`` — so the declared conditions are
-  ``tokens`` AND the width, over 227 pairs rather than 27.
-* K6 covers every figure-bearing ramp row in the campaign's journals (36),
-  not only the twelve of the ramp phase's own journal.
+  ``tokens`` AND the width.
+* K6 covers every figure-bearing ramp row in the campaign's journals, not only
+  the rows of the ramp phase's own journal.
 """
 
 from __future__ import annotations
@@ -312,14 +277,14 @@ def _served_slots(directory: Path) -> int:
     strict=True,
     reason="2026-08-22: decided — the pin is the sampler the request ran "
     "under; llama-server's /props defaults are recorded beside it and not "
-    "digested (owner). Code owed on #336.",
+    "digested (owner).",
 )
 def test_the_sampler_pin_is_the_layer_the_request_ran_under() -> None:
     """K1 — the pinned sampler is not the sampler any request ran under.
 
     ``serving_config`` digests ``/props``'s ``default_generation_settings``,
-    which is llama-server's own default set. Every request this project
-    dispatches goes through ollama, whose per-request parameters (and a model's
+    which is llama-server's own default set. Every request the 2026-08-19 campaign
+    dispatched went through ollama, whose per-request parameters (and a model's
     ``Modelfile``) decide the values the slot actually holds. On 2026-08-19 the
     two layers disagreed on every served slot: ``top_p``, ``min_p`` and
     ``repeat_penalty`` on 17 of 17, ``temperature`` on 4, ``top_k`` on 1 --
@@ -372,7 +337,7 @@ def _contexts(directory: Path) -> list[Context]:
     strict=True,
     reason="2026-08-22: decided — record, never equalise: the launched total "
     "gets its own name and a cross-host contrast carries the difference, "
-    "rather than the hosts being pinned to match (owner). Code owed on #336.",
+    "rather than the hosts being pinned to match (owner).",
 )
 def test_the_launched_context_total_has_a_name_in_the_semantic_block() -> None:
     """K2 — the launched window is recoverable by arithmetic and unnamed.
@@ -384,7 +349,7 @@ def test_the_launched_context_total_has_a_name_in_the_semantic_block() -> None:
     children and six of them were launched at 8192 rather than 4096 --
     ``OLLAMA_NUM_PARALLEL=2`` in srv1's unit and nothing in srv2's — which is
     a host-configuration difference under a figure the record reads as
-    hardware, and the README still calls context "uniform at 4096".
+    hardware.
     """
     contexts = _contexts(campaign())
     assert contexts, "no served child records the window it was launched with"
@@ -432,8 +397,8 @@ def _yields(directory: Path) -> list[Yielded]:
 @pytest.mark.xfail(
     strict=True,
     reason="2026-08-22: decided — yes; release() names the holder from "
-    "/api/ps and the card's process list, and vLLM's want of an equivalent is "
-    "a stated refusal rather than a null (owner). Code owed on #336.",
+    "the card's process list, and vLLM's want of an equivalent is "
+    "a stated refusal rather than a null (owner).",
 )
 def test_a_yield_row_that_finds_the_card_held_names_the_holder() -> None:
     """K3 — a yield reads the card, records a stranger, and does not say who.
@@ -445,7 +410,7 @@ def test_a_yield_row_that_finds_the_card_held_names_the_holder() -> None:
     that matched the PREVIOUS cell's post-load reading to within 14 MiB. The
     reading is correct and unattributable: nothing in the row says whose
     memory it is, though the same ``release()`` call could name it from
-    ``/api/ps`` or ``nvidia-smi --query-compute-apps``.
+    ``nvidia-smi --query-compute-apps``.
     """
     held = _yields(campaign())
     assert held, "no yield found the card held; nothing to attribute"
@@ -470,16 +435,12 @@ def test_a_false_endpoint_props_beside_a_captured_props_payload_is_the_write_fla
 ):
     """K4 — ``endpoint_props: false`` is not a failed capture. Dissolves.
 
-    It was filed as a contradiction: a payload fetched FROM ``/props`` that
-    says the props endpoint is off. It is llama.cpp's WRITE flag. Its server
-    README (``tools/server/README.md``, fetched 2026-08-21) documents
-    ``--props`` as "enable changing global properties via POST /props (default:
-    disabled)" and says of ``GET /props`` that "By default, it is read-only".
-    The harness only ever issues that GET
-    (``backends/ollama.py``: ``curl -s -m 8 .../props``; a search of
-    ``tools/bench/serving`` for a POST or a ``curl -d`` to ``/props`` on
-    2026-08-21 found none), so the flag is a statement about writes nobody
-    makes, and ``fingerprint`` classing it operational is correct.
+    A payload fetched FROM ``/props`` that says the props endpoint is off reads
+    as a contradiction. It is llama.cpp's WRITE flag: its server README
+    (``tools/server/README.md``) documents ``--props`` as "enable changing global
+    properties via POST /props (default: disabled)" and says of ``GET /props``
+    that "By default, it is read-only". So the flag is a statement about writes,
+    and ``fingerprint`` classing it operational is correct.
 
     The check that keeps it from being re-filed: wherever the flag is false,
     the payload beside it is nonetheless complete — the read path answered.
@@ -582,9 +543,9 @@ def test_two_ramp_rows_that_disagree_differ_in_a_declared_condition() -> None:
     strict=True,
     reason="2026-08-22: decided — the row carries the build; it does not "
     "refuse the split. Repointed from engine_version, which nothing in the "
-    "tree writes, to serving_build (owner). NOT code: calibrate.emit() has "
-    "merged the identity block into every hosted row since #326; the "
-    "2026-08-19 journals predate it, so what is owed is a post-#326 campaign.",
+    "tree writes, to serving_build (owner). NOT code: calibrate.emit() "
+    "merges the identity block into every hosted row; the newest campaign's "
+    "journals predate that, so what is owed is a newer campaign.",
 )
 def test_a_cross_host_figure_carries_the_engine_version_on_each_host() -> None:
     """K6 — the hosts ran different ollama builds and no figure says so.
@@ -662,7 +623,7 @@ def _geometry_by_model(directory: Path) -> dict[str, dict[str, tuple[int, int]]]
     reason=(
         "2026-08-22: decided — yes, provided the difference is recorded and "
         "declared on the contrast that reads the two rows; equalising the "
-        "hosts was rejected (owner). Code owed on #336, the contrast on #335"
+        "hosts was rejected (owner)"
     ),
 )
 def test_a_model_served_on_both_hosts_was_launched_with_the_same_geometry() -> None:
@@ -687,17 +648,13 @@ def test_a_model_served_on_both_hosts_was_launched_with_the_same_geometry() -> N
     assertion restricted to them, so K7 cannot be red while K2 is green. What
     it adds is the population — when K2 goes green partially, the message here
     names the (model, host) children a cross-host figure would have rested on,
-    which K2's whole-campaign count does not. The independence claim first
-    written here was wrong and is corrected in the campaign README's rulings
-    block.
+    which K2's whole-campaign count does not.
 
     The ruling's second clause — the difference is declared on the contrast's
     ignore list — is D4's contrast record and is checked in
     ``tests/test_run_contract.py``, not here. An ignore is a property of the
     claim, and the claim is built at reading time, so it cannot be a property
     of either cell.
-
-    The test's name is kept because #328's definition of done quotes it.
     """
     directory = campaign()
     table = _geometry_by_model(directory)
@@ -757,8 +714,7 @@ def _cross_host_models(directory: Path) -> dict[str, set[str]]:
         "2026-08-22: decided — there is no such number. Cross-host equivalence "
         "is never claimed and ollama and vLLM are never equivalent; a "
         "capability cell is one-armed, and its comparison is a second arm on "
-        "the SAME machine differing in exactly one declared parameter (owner). "
-        "The cell shape is owed on #335"
+        "the SAME machine differing in exactly one declared parameter (owner)"
     ),
 )
 def test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine() -> None:
@@ -794,21 +750,15 @@ def test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine() -> Non
     So the check is not a floor. It asks that every (host, model) reading this
     campaign took for a model seen on more than one host is stored as a
     standalone cell, in the one-directory-per-cell shape D5 defines,
-    so a later contrast can take one up as an arm. Red today because the
-    campaign writes journals and not cells — the same absence
+    so a later contrast can take one up as an arm. Red because the newest
+    campaign wrote journals and not cells — the same absence
     ``tests/test_run_contract.py`` names for D5, asked here of the specific
     readings a cross-host claim was read off.
 
-    Cell **naming** is deliberately not asserted: #335 has not defined the
-    convention, so the cell is matched on the ``host`` and ``model`` inside its
-    own ``run.json`` (the contract makes that file "the terminal record — the
-    row, provenance, identity, pre-state, post-state",
-    ``archive/docs/run-contract-2026-08-22.md:26``). If #335 nests the row under a key,
-    this reader moves with it; if #335 also moves ramp rows out of the
-    campaign's top level, :func:`_figures` stops finding them and this check
-    must be repointed rather than left to refuse.
-
-    The test's name is kept because #328's definition of done quotes it.
+    Cell **naming** is deliberately not asserted: the cell is matched on the
+    ``host`` and ``model`` inside its own ``run.json`` (the contract makes that
+    file "the terminal record — the row, provenance, identity, pre-state,
+    post-state", ``archive/docs/run-contract-2026-08-22.md``).
     """
     directory = campaign()
     per_engine = _cross_host_models(directory)
@@ -873,13 +823,8 @@ def _declared_settings(directory: Path) -> dict[str, set[str]]:
     strict=True,
     reason=(
         "2026-08-22: decided — every host declares them; an engine default "
-        "inherited in silence is not a declaration (owner). Both rigs were "
-        "declared live on 2026-08-22, so this goes green on the next "
-        "campaign's survey. The regression risk this reason first named — "
-        "nothing in the repo stating or asserting the values — is closed by "
-        "tools/runs/hosts.json and "
-        "tests/test_declared_host_state.py, which check the VALUE where this "
-        "checks the name"
+        "inherited in silence is not a declaration (owner). The settings are "
+        "ollama's and ollama is removed, so no later survey can turn this green"
     ),
 )
 def test_both_hosts_declare_the_settings_that_decide_residency() -> None:
@@ -955,52 +900,17 @@ def _knob_sites(directory: Path = CONFIGS) -> list[tuple[str, str, Any, str]]:
 
 
 def test_a_serving_constant_this_project_did_not_choose_names_its_source() -> None:
-    """K10 — ``gpu_memory_utilization = 0.85`` was copied, not decided.
-
-    Traced on 2026-08-22. The value was read off a **running** srv1 on
-    2026-08-18 (``tests/test_bench_observed.py:172``, a fixture captured from
-    a server this repo did not start) roughly seven hours before it entered
-    any config here, and it existed in the local-ai repo by 2026-08-10. The
-    three commits that wrote it into the five sites -- ``d07d45c5``,
-    ``ccae4424``, ``e8ea2648`` -- never mention it. ``backends/vllm.py:10``
-    records it as an observation: "allocates a fraction of VRAM at startup --
-    0.85 or 0.90 on these rigs -- and holds it".
-
-    The reason exists, in the other repo: local-ai reduced 0.90 to 0.85 to
-    stop a CUDA OOM on **srv2's 12 GB RTX 3060**, bundled with two other
-    changes (context 16384 to 8192, width 16 to 8), so the OOM is not
-    attributed to this knob alone. srv1 has a **6 GB** card and the same
-    value is applied there, unexamined.
-
-    vLLM 0.26.0's own default is 0.92 on both builds, so this is a deliberate
-    7-point reduction that no document here defends.
+    """K10 — a serving constant this project did not choose names its source.
 
     The rule this check states is narrow: a knob that moves what a
     measurement MEANS is either this project's choice or says whose it is.
     An entry may satisfy it by naming the origin in its prose; it may not
     satisfy it by describing what the knob does.
 
-    **Repointed 2026-08-22 (owner sign-off, the amendment).**
-    withdrew ``gpu_memory_utilization`` from every config in this tree, so the
-    field this check named stopped existing and the check began failing on its
-    own vacuity guard — asserting nothing about any value, which the amendment
-    calls a typo with a marker on it rather than a live finding. The successor
-    field is ``kv_cache_memory_bytes`` and the rule above is unchanged: it is
-    the *accountability* of a serving constant that is being checked, not the
-    spelling of one knob. The guard is why this was visible at all; it fired
-    the moment the field disappeared, which is the fifth instance on this lane
-    of a check whose result came from where it was run rather than what it
-    asserts, and the first that an existing guard caught rather than a person.
-
-    **The finding is closed by measurement, not by the rename.** #337's
-    question — did we choose this number? — is answered: the declared bytes
-    follow from the entry's own ``max_num_seqs * max_model_len *
-    bytes_per_token``, and the footprint each declaration produces was measured
-    on both cards on 2026-08-22 . The three copies this check could
-    not see are down to two: ``vllm.py``'s fallback is deleted, and
-    ``calibrate.py``'s two inline serve blocks are held by
-    ``tests/test_serving_memory_declaration.py::test_the_calibration_probes_declare_bytes_too``,
-    parked there against #329 rather than invisible here.
+    It is the *accountability* of a serving constant that is being checked, not the
+    spelling of one knob (:data:`ACCOUNTABLE_KNOBS`). ``calibrate.py``'s inline
+    serve blocks are held by
+    ``tests/test_serving_memory_declaration.py::test_the_calibration_probes_declare_bytes_too``.
     """
     sites = _knob_sites()
     assert sites, (

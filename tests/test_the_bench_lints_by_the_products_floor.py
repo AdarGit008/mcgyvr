@@ -2,23 +2,16 @@
 
 ``tools/bench/score.py:lint_config`` exists because a synthetic one-file
 workspace carries no ruff configuration, so ruff falls back to everything it
-knows — 826 rules on 0.16.4, TRY004 alone rejecting 75 of 257 checked-in
-reference solutions. Its own docstring names the failure that made it: *"The
-bench would have been applying a stricter bar than the product, which is the
-exact inverse of what #113 asks for."*
+knows, and a stricter bar than the product's is the wrong bar.
 
-That is the whole test of the choice, and it does not point at
-``pyproject.toml``. When ``lint_config`` was written, this repository's
-selection and the product's *were* the same list — ``src/mcgyvr/gate/adapters/
-python.py:45`` says so, crediting ``lint_config`` as where the selection was
-first measured. They stopped being the same on 2026-09-08, when
-``DEFAULT_RUFF_SELECT`` narrowed pycodestyle from ``E`` to ``E4``/``E7``/``E9``
-so that E501 — the one selected rule ``ruff format`` structurally cannot
-satisfy, and 104 of 220 lint findings in the live journal — stopped rejecting a
-docstring the formatter can never wrap. The bench kept deriving its bar from
-``pyproject.toml`` and so kept selecting ``E``, which resurrected the exact
-defect the docstring was written against: a worker reply the product would ship
-scores as a lint rejection on the bench.
+The choice does not point at ``pyproject.toml``. This repository's selection
+carries rules the product's floor does not: ``DEFAULT_RUFF_SELECT`` in
+``src/mcgyvr/gate/adapters/python.py`` selects pycodestyle's ``E4``/``E7``/``E9``
+rather than ``E``, so that E501 — the one selected rule ``ruff format``
+structurally cannot satisfy — does not reject a docstring the formatter can
+never wrap. A bench that derived its bar from ``pyproject.toml`` would select
+``E``, and a worker reply the product would ship would score as a lint
+rejection on the bench.
 
 Reading ``pyproject.toml`` is the choice that fails here. It measures the
 worker against *this repository's* house style, which nothing in a bench run is
@@ -30,8 +23,8 @@ is.
 The first test below is the load-bearing one: it runs the gate over a workspace
 staged by the bench itself, so it asserts the configuration the bench *applies*
 rather than the tuple it names. The tuple check follows only to catch a
-restated copy — the drift that produced this file — and would pass on its own
-against a bench whose applied bar was still wrong.
+restated copy, and would pass on its own against a bench whose applied bar was
+wrong.
 """
 
 from __future__ import annotations
@@ -132,7 +125,7 @@ def test_the_bench_still_rejects_what_the_product_rejects(
     """The other half: a floor, not an absence of one.
 
     Without this, a ``lint_config`` that selected nothing at all would pass the
-    test above — which is #261's shape, the hole that looks like a pass.
+    test above — the hole that looks like a pass.
     """
     workspace = _bench_workspace(score, tmp_path, UNUSED_IMPORT)
     assert "F401" in _codes(workspace)

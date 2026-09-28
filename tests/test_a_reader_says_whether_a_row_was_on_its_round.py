@@ -4,9 +4,9 @@ A live attempt row carries ``round`` and ``product_sha256`` when the process
 ran inside this checkout (:mod:`mcgyvr.telemetry`, *a row names what answered
 it, and under which round*): the open round's id and the digest of the tree
 that dispatched, whether or not that tree was the round's pinned tree. Off-round
-is NOT refused for live work — the brief (*Live journal (WP0)*) has the reader
-flag it instead — and until now neither reader did: a row said which round it
-was written under, and nothing said whether the tree was that round's tree.
+is NOT refused for live work; the reader flags it instead: a row says which
+round it was written under, and the reader says whether the tree was that
+round's tree.
 
 What is pinned. ``tools/live/index.py DIR`` gives ``attempts`` an ``off_round``
 column: ``0`` when the row's ``product_sha256`` is the digest

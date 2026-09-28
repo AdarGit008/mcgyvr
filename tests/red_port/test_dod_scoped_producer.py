@@ -1,14 +1,11 @@
 """S10 — a scoped edit is not advertised while nothing can produce one.
 
-:func:`mcgyvr.worker.scoped.apply_scoped` splices a *named definition* back into
-a file, but nothing in ``src/`` ever names a definition — the reply protocol is
-whole-file only , and no contract carries a node. The function was
-exported anyway, which is the defect: a public seam with no producer rots and
-reads as a promise the worker never keeps. The fix removes it from the surface
-rather than leaving a dead seam a caller could wire up by mistake.
+The reply protocol is whole-file only, and no contract carries a node, so nothing
+in ``src/`` can produce a scoped edit. A public seam with no producer reads as a
+promise the worker never keeps.
 
-The guard holds the one fact a caller depends on: the worker package no longer
-advertises ``apply_scoped``.
+The guard holds the one fact a caller depends on: the worker package does not
+advertise ``apply_scoped``.
 """
 
 from __future__ import annotations

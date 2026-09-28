@@ -1,19 +1,14 @@
-"""Level 1 is a decision the fleet measured twice and never wrote down as code.
+"""A level-1 sleep is refused where a sleep level is spelled.
 
 vLLM's level-2 sleep drops the weights and frees the card. Level 1 is meant to
-be the fast one — park the weights in host RAM, wake instantly. On this fleet it
-does something else. Measured 2026-09-09 and again in the campaign, identically:
-the 3B never gives back 3.14 GiB and the 7B never gives back 10.32, **13.46 GiB
-of host RAM surrendered for the life of the process**. A later level-2 sleep
-does not release it; only a container restart does. It is bounded rather than a
-leak — a second cycle costs nothing more — and it buys nothing at all, because
-level 1 frees the same card as level 2 (within 14-26 MiB) while being 4-12x
-slower to sleep and to wake.
+be the fast one — park the weights in host RAM, wake instantly. On this fleet
+it surrenders host RAM for the life of the process — a later level-2 sleep does
+not release it; only a container restart does — and frees no more of the card
+than level 2 while being slower to sleep and to wake (the figures are at
+``mcgyvr.serving.servelib.sleep``).
 
-Until now there was nowhere to put the ban: nothing in `src/` issued a sleep at
-any level, and the only caller was the bench harness. This is that place. It is
-the one function through which a sleep level may be spelled, so a fleet-shape
-controller written later cannot route around it.
+``servelib.sleep`` is the one function in ``src/`` through which a sleep level
+may be spelled, so a fleet-shape controller cannot route around the ban.
 """
 
 from __future__ import annotations

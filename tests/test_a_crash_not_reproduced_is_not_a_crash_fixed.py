@@ -6,15 +6,15 @@ Turing) while the device kernel's ``__launch_bounds__`` are baked from
 ``__CUDA_ARCH__`` (610, Pascal, because the build ships only ``61-virtual`` PTX).
 The host hands out a batch the compiled kernel cannot launch, and llama.cpp
 aborts with ``CUDA error: invalid argument`` inside
-``ggml_cuda_mul_mat_vec_q``. ``get_device_table_id`` 148 lines above in the same
-file already reads the compiled arch; this function was missed.
+``ggml_cuda_mul_mat_vec_q``. ``get_device_table_id``, above
+``get_mmvq_mmid_max_batch`` in the same file, reads the compiled arch;
+``get_mmvq_mmid_max_batch`` does not.
 
 It is a batch-size boundary, so the run must locate the boundary rather than
 poke n=8 — show the unpatched build's window and show the patched one crossing
 it clean. And "clean" needs a denominator: 0 failures in 60 trials bounds the
-failure rate at 5%; 30 trials only reaches 10%. One clean run bounds nothing,
-which is exactly what ``touching-rigs.md`` already records about the 12-minute
-offload run that "did not reproduce".
+failure rate at 5%; 30 trials only reaches 10%. One clean run bounds nothing:
+it is a run that did not reproduce, never a fix.
 """
 
 from __future__ import annotations

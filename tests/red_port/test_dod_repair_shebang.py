@@ -1,14 +1,9 @@
 """D3 — an auto-import splice must never land above a shebang.
 
-``_import_anchor`` counts lines with the parser, and the parser does not count a
-shebang at all — it is a comment to ``ast``, so a file that starts with ``#!``
-has every AST line number one lower than the line it actually sits on. The
-import is then spliced at index 0, *above* the shebang, and the executable stops
-being one: the kernel reads the import line as the interpreter and the run
-fails with ``Exec format error``.
-
-The fix counts the shebang the parser ignores, so the anchor is never above
-line 1 in a file that has one.
+A shebang is a comment to ``ast``, so an anchor taken from the parser alone can sit
+at index 0, *above* the shebang, and an import spliced there stops the executable
+being one: the kernel reads the import line as the interpreter. The anchor counts
+the shebang, so it is never above line 1 in a file that has one.
 """
 
 from __future__ import annotations

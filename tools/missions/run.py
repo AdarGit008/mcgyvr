@@ -40,12 +40,10 @@ and :func:`main` releases it from the clone once the record is written unless
 ``--keep-worktree`` asks to inspect it.
 
 **Siblings are loaded at call time, by path.** ``tasks``, ``propose``,
-``attempt`` and ``record`` are items 1, 2, 3 and 5 and are built on the same
-lane; this module imports cleanly and :func:`require_local_only` is testable
-while they are absent. A sibling that is missing is a named refusal
-(:class:`SiblingMissing`); a sibling whose factory wants something this runner
-does not hold is another (:class:`SiblingMismatch`), naming the parameter —
-never a positional guess.
+``attempt`` and ``record`` are items 1, 2, 3 and 5. A sibling that is missing
+is a named refusal (:class:`SiblingMissing`); a sibling whose factory wants
+something this runner does not hold is another (:class:`SiblingMismatch`),
+naming the parameter — never a positional guess.
 
 **The bar is declared by the runner, not named by the model.** The catalog's
 command-needing evidence is left for a proposer to fill, and in a mission the
@@ -64,8 +62,8 @@ is delivered through :func:`mcgyvr.deliver.deliver` — the one seam in the
 project that commits, which re-runs the gate over the bytes on disk inside the
 repository lock before staging — and the record lists the sha each contract
 moved HEAD to (``output.head``). A delivery it refuses is recorded at stage
-``deliver`` rather than counted as one, because a refusal reported as a
-completion is B8's defect wearing a different hat. The commits belong to the
+``deliver`` rather than counted as one: a refusal is not a completion. The
+commits belong to the
 mission worktree; once it is released they dangle in the canonical clone until
 it prunes, which is the cost of the base being a real tree rather than a copy.
 
@@ -75,14 +73,14 @@ contract, the climb's verdicts and item 3's trace of every try
 (``gate.contracts``). ``output.outcomes`` carries only the rule that ended each
 climb (:class:`~mcgyvr.escalate.Outcome`) and its counts; ``verdict`` anywhere
 else is the review's word and item 5 refuses it on read. A halted escalation is
-recorded the same way — the unrecoverable is recorded, not skipped (lens 1).
-So is everything that stopped a contract before or during its climb:
+recorded the same way — the unrecoverable is recorded, not skipped.
+So is everything that stopped a contract before, during or after its climb:
 ``output.attempt_refusals`` names each one with its stage — a bar the proposer
 could not declare (``declare``), an attempt item 3 refused to assemble
-(``assemble``), or a dispatch that raised a :class:`~mcgyvr.runner.RunnerError`
-mid-climb (``dispatch``, with the rung and the exception's name, because
-"srv2 was down" and "a caveated path refused a quality-sensitive request" are
-different findings about the pool and neither is a finding about the task).
+(``assemble``), a ``RunnerError`` that escaped ``escalate`` (``dispatch``, with
+the last rung dispatched), or a delivery :mod:`mcgyvr.deliver` refused or raised on
+(``deliver``). An attempt that raises mid-climb is ``escalate``'s
+``Outcome.ERROR``, recorded under ``output.outcomes``.
 """
 
 from __future__ import annotations
@@ -210,10 +208,10 @@ class RecordAlreadyThere(MissionError):  # noqa: N818
 class AttemptRefusal:
     """One contract that never climbed, or stopped mid-climb, and why.
 
-    Recorded rather than skipped (lens 1). ``subject`` is the
-    contract id — or, at :data:`STAGE_DECLARE`, the proposal's target, since
-    no contract exists yet. ``rung`` and ``exception`` are set only at
-    :data:`STAGE_DISPATCH`, where the finding is about a rung and not the task.
+    Recorded rather than skipped. ``subject`` is the contract id — or, at
+    :data:`STAGE_DECLARE`, the proposal's target, since no contract exists
+    yet. ``rung`` is set at :data:`STAGE_DISPATCH` and :data:`STAGE_DELIVER`;
+    ``exception`` when the stop was a raise.
     """
 
     subject: str
@@ -316,8 +314,7 @@ def _sibling(name: str) -> types.ModuleType:
 def _construct(factory: Callable[..., Any], what: str, **offered: Any) -> Any:
     """Call a sibling's factory with the subset of ``offered`` it names.
 
-    The siblings are written in parallel, so their keyword names are not this
-    module's to assume. A required parameter that nothing offered covers is a
+    A required parameter that nothing offered covers is a
     :class:`SiblingMismatch` naming it and what was on the table — the
     alternative, passing positionally, is how a worktree ends up where a config
     was expected.
@@ -574,13 +571,9 @@ class MissionResult:
     def delivered(self) -> int:
         """How many contracts reached a commit — not how many climbs passed.
 
-        These were the same number while the runner committed whatever a
-        ``Delivered`` carried. They stopped being the same when delivery gained
-        refusals it can reach on its own: an ignored target, a change that is no
-        longer a change, an unbound climb. Counting climb outcomes here would
-        print "1 of 1 contract(s) delivered" over a run that committed nothing,
-        which is B8's defect — a refusal reported as a completion — in the line
-        the operator actually reads.
+        ``deliver`` can refuse on its own — an ignored target, a change that is
+        no longer a change, an unbound climb — and a refusal is not a delivery,
+        so this counts commits rather than climb outcomes.
         """
         return len(self.commits)
 
@@ -646,8 +639,8 @@ def run_task(
                 )
             except attempt_module.AttemptError as exc:
                 # Item 3 refused before a Try (no adapter, a bar that is not
-                # the task's): the unrecoverable is recorded, not skipped
-                # (lens 1), and the climb for this contract never runs.
+                # the task's): the unrecoverable is recorded, not skipped,
+                # and the climb for this contract never runs.
                 attempt_refusals.append(
                     AttemptRefusal(
                         subject=contract.id, stage=STAGE_ASSEMBLE, why=str(exc)
@@ -660,16 +653,15 @@ def run_task(
         # against it, and `MissionSandbox(worktree)` archives `HEAD`, so the two
         # are the same commit by construction. Read here rather than passed as
         # the literal `"HEAD"` — `deliver._resolve` softens that spelling, and
-        # B7 was a moving name being read as a fixed one.
+        # a moving name must not be read as a fixed one.
         base = _git(plan.worktree, "rev-parse", "HEAD").strip()
         try:
             outcome = escalate(config, plan.pool, contract, attempt=watched)
         except RunnerError as exc:
-            # A dispatch that raised is not a judgement about the task (item
-            # 3 and route.climb both refuse to fold it into one), so escalate
-            # let it through. It is the unrecoverable for this contract —
-            # recorded with the rung it happened on and the exception's name,
-            # never swallowed — and the run goes on to the next contract.
+            # `escalate` catches a raising attempt itself and returns
+            # `Halted(Outcome.ERROR)` naming the rung. A `RunnerError` that does
+            # reach here is recorded with the last rung dispatched and the
+            # exception's name, and the run goes on to the next contract.
             attempt_refusals.append(
                 AttemptRefusal(
                     subject=contract.id,
@@ -686,10 +678,7 @@ def run_task(
         outcomes.append((contract, outcome))
         traces.append(_trace_of(attempt))
         if isinstance(outcome, Delivered):
-            # One delivery, and it is `mcgyvr.deliver` (pattern B). What stood
-            # here wrote `outcome.value` — the caller's copy of the worker's
-            # reply — and committed it, so nothing re-established that the bytes
-            # reaching this repository were bytes a gate had read. `deliver`
+            # One delivery, and it is `mcgyvr.deliver`. `deliver`
             # re-runs the gate over what is on disk, inside the repository lock,
             # immediately before staging, and it is handed the binding item 3
             # minted in the workspace the verdict was reached in.
@@ -724,9 +713,8 @@ def run_task(
                 # `deliver` refuses by returning; it *raises* when git itself
                 # fails — a signing config, a hook that aborts, a repository
                 # that moved under the run. Uncaught, that ends the mission with
-                # earlier contracts already committed and no record written,
-                # which is the shape B1 came in. It is this contract's
-                # unrecoverable and nothing more.
+                # earlier contracts already committed and no record written. It
+                # is this contract's unrecoverable and nothing more.
                 attempt_refusals.append(
                     AttemptRefusal(
                         subject=contract.id,
@@ -741,9 +729,8 @@ def run_task(
                 # `deliver` refuses rather than raises, and the refusals it can
                 # reach here are real answers: the change is no longer a change,
                 # the target is ignored, the tree is dirty. Recording one keeps
-                # the run going with the reason attached — the alternative,
-                # treating a refusal as a delivery, is how B8 reported every
-                # failure as a completion.
+                # the run going with the reason attached; a refusal is not a
+                # delivery.
                 attempt_refusals.append(
                     AttemptRefusal(
                         subject=contract.id,
@@ -823,11 +810,8 @@ class _Watched:
     """The attempt :func:`~mcgyvr.escalate.escalate` is handed, remembering the
     rung of the last Try it dispatched.
 
-    A :class:`~mcgyvr.runner.RunnerError` propagates out of ``escalate`` with
-    no Try attached, and item 3's trace has no entry for a try whose dispatch
-    never returned. This is the one place the rung is known at the moment the
-    exception leaves, so the refusal can name it. The wrapped attempt keeps
-    its own ``trace``; the caller reads that off the original object.
+    The wrapped attempt keeps its own ``trace``; the caller reads that off the
+    original object.
     """
 
     def __init__(self, attempt: Callable[[Try], Judgement]) -> None:
@@ -927,9 +911,8 @@ def _git(worktree: Path, *args: str) -> str:
     """Run git in ``worktree``, returning stdout, raising with git's complaint.
 
     Read-only here by construction: the one caller asks for ``rev-parse HEAD``.
-    Writing is :mod:`mcgyvr.deliver`'s, and ``test_pattern_b_one_owner`` holds
-    that — a ``commit`` reached through this helper would be a second delivery
-    growing back under a smaller name.
+    Writing is :mod:`mcgyvr.deliver`'s — a ``commit`` reached through this
+    helper would be a second delivery growing back under a smaller name.
     """
     done = subprocess.run(
         ["git", "-C", str(worktree), *args], capture_output=True, text=True, check=False

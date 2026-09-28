@@ -9,11 +9,11 @@ Two things this file pins:
 
 * the run directories are **arguments with pre-registered defaults**, so the
   1.5B invocation is unchanged and a second tier needs no new file;
-* the reproducibility bound is **looked up per tier**, not carried as a
-  constant. ``control.py`` held ``BOUND_PP = 1.47`` — the 1.5B's number — and
-  annotating a 7B contrast with it is precisely the borrowing D2
-  forbids. A higher-pass-rate model has more cells near the acceptance boundary
-  and therefore its own null.
+* the reproducibility bound is **looked up per tier**
+  (``control.declared_bound``, from ``tools/bench/reproducibility.json``), not
+  carried as a module constant: one model's bound annotating another tier's
+  contrast borrows a null that does not transfer. A higher-pass-rate model has
+  more cells near the acceptance boundary and therefore its own null.
 """
 
 from __future__ import annotations
@@ -108,11 +108,10 @@ def test_the_re_scorer_reads_the_runs_from_the_control_it_re_scores() -> None:
 
 
 def test_no_bound_is_hard_coded_in_the_control(control: Any) -> None:
-    """`BOUND_PP = 1.47` was the 1.5B's, and it would have annotated any tier.
+    """A bound written into the module as a number would annotate any tier.
 
-    Asserted on the module's namespace rather than its text: the docstring names
-    the constant it replaced, and a grep would be satisfied by deleting the
-    explanation instead of the constant.
+    Asserted on the module's namespace rather than its text: a grep for one
+    constant's name would be satisfied by renaming the constant.
     """
     numeric = {
         name: value
@@ -140,7 +139,7 @@ def test_a_bound_matches_only_its_own_tier(report: Any) -> None:
 
 
 def test_a_bound_does_not_transfer_across_the_serving_build(report: Any) -> None:
-    """: a build nothing recorded has already moved results twice."""
+    """A bound does not transfer to a build it was not measured on."""
     bounds = _bounds(_manifest("qwen2.5-coder:1.5b", "bench-py"))
     entry, because = report.declared_bound(
         _manifest("qwen2.5-coder:1.5b", "bench-py", serving_build="0.33.0"), bounds

@@ -1,13 +1,11 @@
 """A unit that keeps experts on the CPU in its argv is judged as ``cpu_experts``.
 
-Since #474 a locked unit's launch is ``launch.argv`` / ``env`` / ``volumes``,
-verbatim (``emit`` refuses an argv that is not a list of strings). b-small's
-live ``srv1_deepseek`` holds ``--n-cpu-moe``, ``19`` in its argv and has no
-``n_cpu_moe`` or ``flags``, the only two fields
-:func:`mcgyvr.fleet.tolerance.tolerance_class` read. So the first live probe
-(2026-09-15 05:03 UTC, run-20260915T050342-42b9afd8) judged its prefill 291.55
-against the lock's 307.11 (-5.1%) at llama.cpp's 1%, not CPU-experts' 48%, and
-that alert pulled srv1's combination.
+A locked unit's launch is ``launch.argv`` / ``env`` / ``volumes``, verbatim
+(``emit`` refuses an argv that is not a list of strings). A unit that holds
+``--n-cpu-moe``, ``19`` in its argv and has no ``n_cpu_moe`` or ``flags`` would
+be judged at llama.cpp's percents, not CPU-experts', by a
+:func:`mcgyvr.fleet.tolerance.tolerance_class` that read only those two fields,
+and pulled on a reading inside its class.
 
 * ``--cpu-moe``, or ``--n-cpu-moe`` followed by a positive integer, in the argv
   is ``cpu_experts``.
@@ -17,7 +15,7 @@ that alert pulled srv1's combination.
   ``llamacpp``, never a crash.
 * The probe's judge and the lock's NVMe check read that one class. Each judged
   field then has its own percent for it: prefill is 1% for both llama.cpp
-  classes (owner, 2026-09-15), so the class shows in decode's 1% against 48%.
+  classes (owner ruling), so the class shows in decode's 1% against 48%.
 """
 
 from __future__ import annotations
@@ -30,8 +28,9 @@ import pytest
 
 from tests import test_a_live_probe_is_judged_against_its_lock as probed
 
-#: ``srv1_deepseek`` as ``~/.mcgyvr/fleets/b-small/fleet.yaml`` stated it on
-#: 2026-09-15, with the probe tests' unit id so it fits their lock.
+#: ``srv1_deepseek`` in b-small's shape — ``--n-cpu-moe 19`` in its argv, no
+#: ``n_cpu_moe`` or ``flags`` — with the probe tests' unit id so it fits their
+#: lock.
 SRV1_DEEPSEEK: dict[str, Any] = {
     "rig": "srv1",
     "address": "http://srv1:8080",
@@ -163,9 +162,9 @@ def test_the_probe_judges_b_smalls_deepseek_decode_at_cpu_experts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """30.93 against a locked 32.56 is 5.0% under: inside CPU-experts decode's
-    48%, past llama.cpp decode's 1%. Prefill no longer tells the two apart: since
-    the owner's 2026-09-15 ruling both llama.cpp classes judge prefill at 1%, so
-    the first live probe's 291.55 alerts whichever class the argv names
+    48%, past llama.cpp decode's 1%. Prefill does not tell the two apart: both
+    llama.cpp classes judge prefill at 1%, so a prefill 5% under alerts
+    whichever class the argv names
     (``tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py``)."""
     monkeypatch.setattr(probed, "FLEET", _fleet_with(B_SMALL_ARGV))
     journal = probed.live_home(tmp_path, monkeypatch)

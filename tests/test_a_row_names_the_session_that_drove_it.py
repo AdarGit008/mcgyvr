@@ -5,8 +5,8 @@ the command, and the row carries the transcript's path as ``session_file`` so
 the full conversation behind any attempt is one ``open`` away. Claude Code
 exports ``CLAUDE_CODE_SESSION_ID`` and keeps the transcript at
 ``~/.claude/projects/<cwd-slug>/<id>.jsonl`` (``CLAUDE_CONFIG_DIR`` moves the
-root); Pi keeps ``~/.pi/agent/sessions/<cwd-slug>/<stamp>_<id>.jsonl`` and a
-Pi extension exports that path as ``PI_SESSION_FILE``. The id is
+root); Pi keeps ``~/.pi/agent/sessions/<cwd-slug>/<stamp>_<id>.jsonl``, and
+``PI_SESSION_FILE``, when the environment carries it, is that path. The id is
 ``claude-<id>`` or ``pi-<id>``: a dash, not a colon, because the id is the
 journal's file name and the prefix of every ``attempt_id``.
 

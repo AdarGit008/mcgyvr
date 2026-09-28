@@ -4,13 +4,12 @@ What these pin:
 
 - A refusal with its reason, a refusal whose reason the harness lost, a
   harness defect that mangled the value, and a declared-but-untried flag are
-  four different facts and never share a label. The 2026-08-24 sweep's own
-  stage 1 wrote three untested cells per rig as "refused"; the surface reads
-  those same records and calls them what they are.
+  four different facts and never share a label, even where a sweep's own
+  records wrote an untested cell as "refused".
 - The effective column states the regime: a contrast carries the ratio at
   every concurrency level both cells ran, not one number.
-- The committed surface is what the tool produces from the evidence directory
-  today. A hand edit, or a change to the reader that moves a cell, fails here.
+- The committed surface is what the tool produces from the evidence directory.
+  A hand edit, or a change to the reader that moves a cell, fails here.
 - The help parser reads argparse's layout: flag, choices, metavar, default.
 """
 

@@ -11,23 +11,23 @@
 # it and expect a refusal. The refusal is the measurement
 # (okf/must-read/touching-rigs.md): a load one below the floor says the floor
 # was loose, a refusal AT the floor says it was greedy, and both are rows, not
-# errors. A launch near the memory edge is a 1-in-3 coin flip, so every
-# REFUSED is retried RETRY times before it is believed; an OK needs no retry.
+# errors. Every REFUSED is retried RETRY times before it is believed; an OK
+# needs no retry.
 #
 # WHAT REFUSES (exit 2, one line naming the rule, before any container):
 #   - a RUN_* fact is missing: this step was started outside the door
 #   - the placement was not derived (the door refused it before this ran)
 #   - hosts.json[HOST] declares no llamacpp_image or cpu_expert_offload
 #   - the daemon does not hold the declared image, so no digest can be stamped
-#   - the host forbids CPU expert offload and the placement needs it: srv1
-#     hard-locks under it. A REFUSED row is written first, so the file says why
+#   - hosts.json[HOST].cpu_expert_offload is false and the placement needs
+#     --n-cpu-moe > 0. A REFUSED row is written first, so the file says why
 # WHAT FAILS (exit 1): REFUSED at the floor after RETRY tries. The step
 # measured that this placement does not run; gates 7 and 8 still run.
 #
 # EVERY LINE IS TEED TO THE RIG under ~/mcgyvr-runs/<RUN_ID>/sizing.tsv. A hard
 # lock takes the ssh pipe with it and the local file stops mid-run; the rig's
 # copy is what survives the reboot. PL1/PL2 are stamped at START from the scan
-# and re-read at END, because a lock has wiped srv1's BIOS profile before.
+# and re-read at END, because a hard lock can wipe the BIOS profile.
 #
 # The ssh and docker this step runs are the door's shims (gate-scripts/bin),
 # resolved BY PATH from RUN_BIN and never from $PATH: ssh refuses any host
@@ -46,7 +46,7 @@ HEALTH_POLLS=120
 HEALTH_INTERVAL=3
 THREAD_CAP=10
 TEARDOWN_WAIT=30
-DOOR='python -m mcgyvr.serving.run --host H --campaign C --step PATH --model M'
+DOOR='python -m mcgyvr.serving.run --host H --campaign C --model M --ctx-per-slot N [--step PATH]'
 
 refuse() { printf '%s: REFUSED — %s\n' "$ME" "$*" >&2; exit 2; }
 warn() { printf '%s: %s\n' "$ME" "$*" >&2; }
@@ -56,7 +56,7 @@ oneline() { tr '\t\r\n' '   ' | tr -s ' ' | cut -c1-300; }
 # mcgyvr on it, a /proc that cannot be read — is a refusal: the door is proved
 # or it is not, and "could not check" is not. What the proof said is quoted.
 proof=$(python3 -c 'from mcgyvr.serving.gatelib import under_door; raise SystemExit(0 if under_door() else 2)' 2>&1 >/dev/null) \
-    || refuse "this step was not started by the door — no ancestor is mcgyvr.serving.run${proof:+; the proof said: $(printf '%s' "$proof" | tail -n 1 | oneline)} — and RUN_* set by hand does not stand in for one. Start the run as \`$DOOR\` (okf/must-read/touching-rigs.md)"
+    || refuse "this step was not started by the door — no ancestor is mcgyvr.serving.run${proof:+; the proof said: $(printf '%s' "$proof" | tail -n 1 | oneline)} — and RUN_* set by hand does not stand in for one. Start the run as \`$DOOR\`"
 
 for v in RUN_ROOT RUN_BIN RUN_HOST RUN_MODEL RUN_PARALLEL RUN_CTX_PER_SLOT RUN_UBATCH \
     RUN_ROUND RUN_PRODUCT_SHA256 RUN_PROFILE RUN_ID RUN_OUT_DIR \
@@ -324,7 +324,7 @@ say "### CONFIG profile=$RUN_PROFILE"
 if [ "$H_OFFLOAD" != true ] && [ "$P_FLOOR" -gt 0 ]; then
     say "$(row REFUSED at_floor "$P_FLOOR" 0 "$P_PREDICTED" NA "$S_FREE" cpu-expert-offload-disabled-on-host)"
     end_stamp
-    refuse "hosts.json[$RUN_HOST].cpu_expert_offload is false and this placement needs --n-cpu-moe $P_FLOOR; $RUN_HOST hard-locks under CPU expert offload (okf/must-read/touching-rigs.md). Nothing was launched; the REFUSED row says why"
+    refuse "hosts.json[$RUN_HOST].cpu_expert_offload is false and this placement needs --n-cpu-moe $P_FLOOR; the host is declared unable to run CPU expert offload (okf/must-read/touching-rigs.md). Nothing was launched; the REFUSED row says why"
 fi
 
 at_floor_ok=0

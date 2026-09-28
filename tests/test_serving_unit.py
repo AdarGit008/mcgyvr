@@ -49,9 +49,9 @@ _ADDRESSES = {
     "d1b": "http://srv1:8081",
 }
 
-#: The window these tests were written against, stated because nothing supplies
-#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
-#: the window is what the run declares, so a test is a run and declares its own.
+#: The window these tests use, stated because ``mcgyvr.serving`` supplies no
+#: default: the window is what the run declares, so a test is a run and declares
+#: its own.
 WINDOW = 4096
 
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
@@ -279,11 +279,10 @@ def test_a_unit_carries_the_width_it_was_written_with(scans: dict[str, Scan]) ->
 def test_an_unstated_width_is_derived_from_the_card_and_the_header() -> None:
     """A roomy card serves many slots, and the number is the cache law's.
 
-    A default of 1 is a claim -- that this rig serves one request at a time --
-    and #366 found 32 slots on a 12 GB card reaching 254 tok/s against ~67
-    single-stream. What bounds the number is the cache and state the header
-    prices per slot against what the card has left, so a 48 GB card holding
-    an 8 GB model is not one slot wide.
+    A default of 1 is a claim -- that this rig serves one request at a time.
+    What bounds the number is the cache and state the header prices per slot
+    against what the card has left, so a 48 GB card holding an 8 GB model is not
+    one slot wide.
     """
     roomy = machine("desktop-3", vram_mib=49152, ram_gb=128.0, free_gb=900.0)
     unit = unit_for(roomy, SPILLER, engine="llama.cpp", ctx_per_slot=WINDOW)
@@ -296,11 +295,9 @@ def test_a_spec_without_a_geometry_is_one_slot_wide_and_says_so(
 ) -> None:
     """Nothing here can price a second slot for a model nobody scanned.
 
-    The per-slot cost is the cache law's and the law reads the header. The
-    constant that used to stand in for it was measured on one family and
-    applied to every other, which is the shape of error this module retired;
-    so a scalar spec gets one slot, labelled as the default it is, and an
-    operator widens it by writing ``max_parallel`` or by scanning the file.
+    The per-slot cost is the cache law's and the law reads the header, so a
+    scalar spec gets one slot, labelled as the default it is, and an operator
+    widens it by writing ``width`` or by scanning the file.
     """
     unit = unit_for(scans["srv2"], SMALL, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert unit.width == Width(value=1, how="default")
@@ -356,11 +353,9 @@ def test_a_unit_built_without_a_ladder_takes_the_engine_default(
 def test_an_moe_is_refused_when_the_experts_it_spills_exceed_free_ram() -> None:
     """An offload is a demand on memory, so a fit has to ask memory about it.
 
-    The only RAM question this module used to ask was about a number the
-    caller declared, and the caller declared zero -- so a 6 GB card with a
-    gigabyte of memory free was told it could serve a model whose experts are
-    five gigabytes, and the emitted `--n-cpu-moe` put them there. The compose
-    file was written, the command exited zero, and the rig swapped.
+    A 6 GB card with a gigabyte of memory free cannot serve a model whose
+    experts are five gigabytes: the emitted `--n-cpu-moe` would put them in RAM
+    the host does not have, and the rig would swap.
 
     The number checked here is the one the argv will carry, not a second
     opinion: whatever `unit_for` offloads is what memory is asked to hold.

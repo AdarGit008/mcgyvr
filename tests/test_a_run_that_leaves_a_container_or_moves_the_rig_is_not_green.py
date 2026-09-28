@@ -1,8 +1,7 @@
 """Gate 7: teardown — the containers are gone and the rig reads as it started.
 
-A hard lock wipes the BIOS profile: srv1 read PL1 95 W at 05:23 and 4095 W at
-05:57, and a lock takes the ssh pipe with it, so the run whose end state is
-unknown is exactly the one that ended silently
+A hard lock can wipe the BIOS profile, and it takes the ssh pipe with it, so
+the run whose end state is unknown is exactly the one that ended silently
 (``test_a_row_without_the_rigs_live_state_is_not_comparable``). A step
 compares its own start and end readings and the comparison lives inside the
 step; a step that dies before ``end_stamp`` compares nothing. The door owns

@@ -1,6 +1,6 @@
-"""The type-check command locator (#114), across both adapters.
+"""The type-check command locator, across both adapters.
 
- is a decision about **restraint**: mcgyvr never chooses a type checker
+The locator is a decision about **restraint**: mcgyvr never chooses a type checker
 and never synthesises its flags — it locates whatever the target repository
 already declared and returns that. Every test here is a way of holding that line,
 because each way of breaking it looks locally reasonable:
@@ -9,9 +9,10 @@ because each way of breaking it looks locally reasonable:
   failures are nobody's fault),
 * adding ``--strict`` (which on an unannotated repository is not a stricter check
   but a different one, failing every change on every rung),
-* or answering the question by *running* something (which on the host is
-  the line, and which would resolve imports against mcgyvr's environment
-  rather than the target's — measuring the wrong project).
+* or answering the question by *running* something (which runs target code
+  on the host, which gate checks never do, and which would resolve imports
+  against mcgyvr's environment rather than the target's — measuring the wrong
+  project).
 
 It lives in its own file rather than split across the two adapter suites because
 the property is one property, and asserting it twice in two places is how the two
@@ -141,9 +142,9 @@ def test_a_tsconfig_is_the_declaration_for_js(tmp_path: Path) -> None:
 def test_a_typecheck_script_is_not_read_from_package_json(tmp_path: Path) -> None:
     """Script detection alone finds nothing on a real TypeScript repository.
 
-    Measured while sizing #133: ``immerjs/immer`` carries a ``tsconfig.json``
-    and pins ``typescript`` at all 27 commits of the pinned corpus while
-    declaring no type-check script at any of them. A repository that *does*
+    ``immerjs/immer`` carries a ``tsconfig.json`` and pins ``typescript`` at
+    all 27 commits of the pinned corpus while declaring no type-check script
+    at any of them. A repository that *does*
     declare one has declared an acceptance command, and that belongs in the
     contract, which outranks a sniff.
     """
@@ -240,11 +241,12 @@ def _called_names(function: Callable[..., object]) -> set[str]:
 def test_the_locator_evaluates_nothing_in_the_target(tmp_path: Path) -> None:
     """The acceptance criterion, asserted structurally rather than by inspection.
 
-    Answering "which checker does this repository use" by *running* something is
-    the  line — and it is wrong before it is unsafe, because on the host
-    a checker resolves imports against mcgyvr's environment rather than the
-    target's, so a check whose whole premise is *the project's* checker on *the
-    project's* code would measure the wrong project.
+    Answering "which checker does this repository use" by *running* something
+    runs target code on the host, which gate checks never do — and it is wrong
+    before it is unsafe, because on the host a checker resolves imports against
+    mcgyvr's environment rather than the target's, so a check whose whole
+    premise is *the project's* checker on *the project's* code would measure the
+    wrong project.
 
     Checked over the locator and every helper it reaches, by parsing rather than
     grepping, so the guard is about what the code *does* and not about which

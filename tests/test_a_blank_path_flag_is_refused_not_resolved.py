@@ -1,15 +1,13 @@
 """A flag given a blank path is refused, not read as "the caller named none".
 
 ``--orchestrator ''`` is refused at parse time, because an id that names nobody
-is a usage error before a file is opened. Every other flag on ``run`` that takes
-a path was left with the defect that refusal was written to close, one flag
-over: an empty string is falsy, so ``Path(args.result) if args.result else ...``
-and ``Path(args.config) if args.config else None`` read it as *absent* and
-resolved the default the caller never chose. ``--record`` is worse than that,
-because it tests ``is not None`` instead: ``Path('')`` is ``Path('.')``, so
-``--record ''`` journals into the current directory — the repository the
-2026-09-03 ruling exists to keep clean — and prints a ``result:`` line relative
-to a working directory the caller may not still be in.
+is a usage error before a file is opened. A blank path is the same hole one
+flag over: an empty string is falsy, so ``Path(args.result) if args.result else
+...`` reads it as *absent* and resolves the default the caller never chose. A
+flag tested with ``is not None`` is worse: ``Path('')`` is ``Path('.')``, so
+``--record ''`` would journal into the current directory — the repository the
+journal is kept out of — and print a ``result:`` line relative to a working
+directory the caller may not still be in.
 
 What puts a blank there is not a person typing two quotes. It is
 ``--record "$JOURNAL_DIR"`` with ``JOURNAL_DIR`` unset, which is the shape every
@@ -46,7 +44,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     The session is there on purpose: a blank flag must be refused rather than
     quietly falling back to whatever the environment would have resolved, which
-    is the whole of the defect.
+    is the whole of the hole.
     """
     (tmp_path / "home").mkdir(exist_ok=True)
     lj.clean_env(monkeypatch, tmp_path / "home")
@@ -109,7 +107,7 @@ def test_a_blank_orchestrator_is_still_refused_by_its_own_message(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The id keeps its own sentence: it is not a path, and §9 is why.
+    """The id keeps its own sentence: it is an empty id, not a blank path.
 
     Both refusals are usage errors at the same seam, and one message for both
     would have to drop the reason either one gives.
@@ -122,7 +120,9 @@ def test_a_blank_orchestrator_is_still_refused_by_its_own_message(
     code = lj.main(lj.run_args(contract, repo, config, "--orchestrator", ""))
 
     assert code == 2, code
-    assert "§9" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "empty id" in err
+    assert "is not a path" not in err
 
 
 @pytest.mark.parametrize(

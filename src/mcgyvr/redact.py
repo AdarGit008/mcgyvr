@@ -16,8 +16,7 @@ claims "no message interpolates a credential" should be true of the code under
 it rather than of a check three imports away.
 
 Lives at the top level, beside :mod:`mcgyvr.lines`, and for the same reason:
-the alternative to one definition is several, and B4 was two definitions of
-"line" disagreeing.
+the alternative to one definition is several.
 """
 
 from __future__ import annotations

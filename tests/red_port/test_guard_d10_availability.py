@@ -1,19 +1,18 @@
 """D10 — answering is not health, and a source is asked once.
 
-GREEN by design. The probe being ported over calls a source healthy if it
-answered at all: only a transport exception makes it say no. A 500 passes it. A
-401 passes it. Both then burn a real dispatch on a rung that could never have
-worked, and the failure surfaces as a bad contract rather than as an unreachable
-source.
+A weaker probe calls a source healthy if it answered at all: only a transport
+exception makes it say no. A 500 passes it. A 401 passes it. Both then burn a real
+dispatch on a rung that could never have worked, and the failure surfaces as a bad
+contract rather than as an unreachable source.
 
-``tests/test_availability.py`` already parametrizes the status table and already
-shows a second pass costing nothing. Both are asserted through the injected
-``probe`` seam or against ``probe_endpoint`` alone, which is right for testing
-the classifier — and is the reason this file exists at a different level. A port
-that rewrote the probe and left the classifier's unit tests untouched would keep
-them all green: the injected-probe tests never reach HTTP, so they cannot notice
-a probe that stopped reading the status, and a cache tested by counting calls to
-an injected function cannot notice a cache that was moved below the transport.
+``tests/test_availability.py`` parametrizes the status table and shows a second pass
+costing nothing. Both are asserted through the injected ``probe`` seam or against
+``probe_endpoint`` alone, which is right for testing the classifier — and is the reason
+this file exists at a different level. A change that rewrote the probe and left the
+classifier's unit tests untouched would keep them all green: the injected-probe tests
+never reach HTTP, so they cannot notice a probe that stopped reading the status, and a
+cache tested by counting calls to an injected function cannot notice a cache that was
+moved below the transport.
 
 Everything here therefore drives the assembled thing — the default
 ``Availability`` with no probe injected — against a stubbed transport, and

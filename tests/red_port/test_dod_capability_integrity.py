@@ -1,18 +1,10 @@
 """F7/F9 — the capability table is read honestly, bounded, and immutable.
 
-Two defects on one file. F7: ``params_b`` became a required key while
-``schema_version`` stayed 1, so a v1 table that predates the field dies with a
-bare ``KeyError`` instead of a named table error. F9: ``shipped_table()``
-returns one shared mutable instance, so a caller that mutates a model changes
-every later selection process-wide.
-
-F8 was the third and is closed by deletion rather than by a fix. A ``NaN``
-``params_b`` fails every size comparison, and the one size comparison in the
-tree was the exploration budget ``mcgyvr.orchestrator.read`` sized from the
-model being dispatched to — which had no caller under ``src/`` and has been
-removed (action 18). Nothing in ``src/`` compares ``params_b`` to anything now,
-so there is no ``StopIteration`` left to raise. If a size comparison comes back,
-it comes back where a rung is chosen, and F8's assertion belongs there.
+F7: a table missing a required key such as ``params_b`` is refused with a named
+:class:`~mcgyvr.capability.CapabilityTableError`, not a bare ``KeyError``. F9:
+``shipped_table()`` hands out one shared instance, and that instance is structurally
+immutable — a caller cannot mutate a model and change every later selection
+process-wide.
 """
 
 from __future__ import annotations

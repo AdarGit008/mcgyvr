@@ -1,14 +1,14 @@
 """An attempt row records how fast the unit answered, and how busy the unit was.
 
-Owner, 2026-09-15 (F2): live must write "the record of speed and memory (and
+Owner ruling F2: live must write "the record of speed and memory (and
 anything else we need for tolerance check) to the journal", on every dispatch:
 decode tok/s, prefill tok/s and the requests in flight, so a live observation
 can be judged against a locked unit's ``warm_decode_tok_s`` and
 ``prefill_tok_s`` — and judged only when one request was in flight.
 
-"In flight" is the unit's fact, not this process's. On 2026-09-14 three
-separate ``mcgyvr run`` processes dispatched to srv2_3b at once; a count kept
-per process would have called every one of them solo. So the count is read
+"In flight" is the unit's fact, not this process's. Separate ``mcgyvr run``
+processes dispatch to one unit at once, and a count kept per process would call
+every one of them solo. So the count is read
 off the unit itself, immediately before and immediately after the dispatch,
 and the larger reading is kept:
 

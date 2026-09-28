@@ -1,11 +1,11 @@
 """X04 — several samples for one attempt, ranked by what the gate actually found.
 
-mcgyvr dispatches once per attempt and escalates on failure. That is the right shape
-when the next rung is genuinely better, and the wrong one when the cheap rung is
-*almost* right: a 7B asked the same question three times produces three different
-answers, and the ladder as it stands throws two of them away unseen and pays for a
-larger model instead. Sampling is the cheapest thing on this list — the prompt is
-already built, the context is already assembled, the slot is already held.
+An attempt draws ``n`` samples (the rung's breadth; one by default) and escalates
+only when none passes the gate. Escalating is the right shape when the next rung is
+genuinely better, and the wrong one when the cheap rung is *almost* right: a small
+model asked the same question three times produces three different answers.
+Sampling is cheap — the prompt is already built, the context is already assembled,
+the slot is already held.
 
 It is also the easiest thing to get dangerously wrong, and three of these four
 statements are about that.
@@ -35,10 +35,9 @@ and D22's delivery would commit it without ever knowing it was there. Note what 
 D22 has it, and a selector that committed would have taken the delivery decision away
 from the code that owns it.
 
-*Requesting one sample behaves exactly as today* is the compatibility statement, and it
+*Leaving ``n`` out asks for one sample* is the compatibility statement, and it
 is asserted with the count left unspecified rather than passed as ``1`` — the default
-is the part that must not change. Every existing caller asks for one attempt's worth of
-work, and this lever is only worth having if it costs them nothing.
+is the part that must not change.
 
 Nothing here dispatches. Samples are supplied and the gate is supplied, for the reason
 :func:`mcgyvr.escalate.escalate` takes ``attempt``: the ranking rule is assertable
@@ -74,8 +73,8 @@ WORKING = "def fetch(url):\n    return url.strip()\n"
 def _best_of() -> Any:
     """N samples for one attempt, ranked by gate result.
 
-    Placeholder path. What must survive the port is what is asserted about the result:
-    one verdict per sample, the winner chosen by those verdicts, and a clean tree.
+    :func:`mcgyvr.consensus.best_of`. What is asserted about the result: one verdict
+    per sample, the winner chosen by those verdicts, and a clean tree.
     """
     return required(
         BEHAVIOR,
@@ -213,9 +212,8 @@ def test_asking_for_one_sample_is_what_mcgyvr_does_today(
 ) -> None:
     """The default is one sample, one verdict, and the sample is the answer.
 
-    ``n`` is deliberately not passed. Every caller that exists today asks for one
-    attempt's worth of work, and a lever that changed what they get by default is a
-    lever that has to be adopted rather than one that can be turned on.
+    ``n`` is deliberately not passed: a lever that changed what a caller gets by
+    default is a lever that has to be adopted rather than one that can be turned on.
     """
     result = _best_of()(
         repo=repo,

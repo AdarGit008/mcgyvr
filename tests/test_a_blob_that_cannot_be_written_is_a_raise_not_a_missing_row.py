@@ -4,7 +4,7 @@
 rather than being swallowed. Silence here is the failure this module was built
 to end, and an unwritable path is an operator error that is cheap to fix at the
 moment it happens and impossible to notice a week later, when the answer is
-simply missing rows." The brief (*Live journal (WP0)*) applies the same rule to
+simply missing rows." The same rule holds for
 ``<sink dir>/blobs/<sha256>``: a row that names a ``prompt_sha256`` whose blob
 was never written is worse than no row, because the hash reads as evidence that
 exists.
@@ -18,10 +18,9 @@ can reason about.
 **Raising is half the rule; the row is the other half.** ``observe`` promises
 exactly one record per call, and a dispatch that left none is one no caller can
 tell from a dispatch nobody made — which is exactly how the caller that counts
-an attempt's rows comes to blame the wrong draw. This file used to assert only
-that the call raised, so it passed while the prompt blob, stored outside every
-``try``, went on writing no row at all. It asserts both now, and the title is
-true again.
+an attempt's rows comes to blame the wrong draw. A test that asserted only that
+the call raised would pass while a blob stored outside every ``try`` wrote no
+row at all, so this file asserts both.
 """
 
 from __future__ import annotations
@@ -38,8 +37,7 @@ from mcgyvr.telemetry import ATTEMPT_KIND, fold, observe
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
 
-# RED-phase typing: ``messages`` and ``endpoint`` are the keyword arguments this
-# change adds to ``observe``; the alias keeps mypy strict clean before and after.
+# ``observe`` called through an untyped alias.
 _observe = cast("Callable[..., Any]", observe)
 
 

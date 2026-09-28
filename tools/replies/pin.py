@@ -23,22 +23,21 @@ disagree with the sha the row recorded, is an error rather than an entry: a
 fixture that cannot say where it came from is the thing this corpus exists
 to replace.
 
-**And provenance now includes which instrument a run belongs to (#230).** This
+**And provenance includes which instrument a run belongs to (#230).** This
 corpus is walked by ``tools/finetune/build_dataset.py`` on its way to a
 training set, so a run over a measurement set joins the training path at the
-moment it lands — that is how #189 came to train on 622 examples drawn from
-``d1``, the set it was then scored on. The guard belongs here, at the point of
+moment it lands. The guard belongs here, at the point of
 entry, and it is a **stamp rather than an exclusion**: every run is classified
 against ``tools/instruments.json`` and the verdict is written into the
 document, so the training path can refuse what the parser corpus must keep.
 
-Keeping it is not a compromise.  is explicit that the population the
-parser is measured against must be the one it actually faces, and 8,432 of
-these replies came from ``d1``; dropping them to protect a *different*
-consumer would curate the parser's corpus down to the shapes that happen to be
-safe for fine-tuning. A stamp serves both readers. What it must not be is
-optional: a run whose provenance cannot be decided at all is a ``PinError``,
-not a clean run, because an unstamped run reaches the builder as material.
+Keeping it is not a compromise. The population the parser is measured against
+must be the one it actually faces, and many of these replies came from ``d1``;
+dropping them to protect a *different* consumer would curate the parser's corpus
+down to the shapes that happen to be safe for fine-tuning. A stamp serves both
+readers. What it must not be is optional: a run whose provenance cannot be
+decided at all is a ``PinError``, not a clean run, because an unstamped run
+reaches the builder as material.
 
 Usage::
 
@@ -110,9 +109,9 @@ def _provenance(run: Path, task_ids: set[str]) -> dict[str, Any]:
 
     The run's own ``run.json`` is the evidence — the tier it named and the
     contract digests it pinned — supplemented by the task ids its captures
-    carry, which is all a run that recorded neither leaves behind. An
-    unreadable or absent ``run.json`` is not an acquittal: without it there is
-    nothing to classify, and this raises.
+    carry, which is all a run that recorded neither leaves behind. An absent
+    ``run.json`` leaves only the task ids, and the run is classified by id
+    space alone; a run with no tier, no digests and no ids raises.
     """
     instruments = _instruments()
     meta: dict[str, Any] = {}
@@ -235,9 +234,8 @@ def compute() -> dict[str, Any]:
             found.append(_entry(run, path, _join_reply(path, rows)))
         if not found:
             continue
-        # Classified from the task ids that actually produced captures, so a
-        # run is judged on the material it contributed rather than on the set
-        # it was configured with.
+        # Classified from the task ids in the run's rows — what it ran, rather
+        # than the set it was configured with.
         task_ids = {str(row["task"]) for row in rows}
         instruments[_run_label(run)] = _provenance(run, task_ids)
         entries.extend(found)

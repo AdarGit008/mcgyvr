@@ -1,14 +1,14 @@
 """A run says why it failed, in words a caller can act on — and in a file.
 
 The agent that types ``mcgyvr run`` has to decide what to do next: accept
-the change, commit it, or write a different contract. Until now it was told
-``the gate rejected the change on acceptance; no verifier was asked`` and no
-more — the finding lines existed (``RetryNotes``) and went into the model's
-retry prompt, never to the caller. A caller that cannot see why the gate
-refused cannot replan; it can only try the same contract again.
+the change, commit it, or write a different contract. Told only ``the gate
+rejected the change on acceptance; no verifier was asked``, while the finding
+lines (``RetryNotes``) go only into the model's retry prompt, a caller cannot
+see why the gate refused and cannot replan; it can only try the same contract
+again.
 
 Two channels, one content. On stdout, each failed attempt is followed by its
-findings, one ``✗`` line each — the glyph the deterministic path already uses.
+findings, one ``✗`` line each — the glyph the deterministic path uses.
 And every run writes one result file, ``<journal.dir>/results/<contract>-<utc
 stamp>.json`` (``--result PATH`` overrides), and prints ``result: <path>`` so
 the caller reads the file rather than the scrollback. A file, not a JSON dump

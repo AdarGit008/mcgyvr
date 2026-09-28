@@ -1,30 +1,24 @@
 """The Vulkan runtime image carries what the NVIDIA ICD needs to load.
 
-Diagnosed on srv2, 2026-09-02, inside ``llamacpp:b10644-A3`` with
-``--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all``: the toolkit injected
-``/etc/vulkan/icd.d/nvidia_icd.json`` and ``libGLX_nvidia.so.0`` correctly,
-and the Vulkan loader then said
+With ``--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all`` the NVIDIA toolkit
+injects ``/etc/vulkan/icd.d/nvidia_icd.json`` and ``libGLX_nvidia.so.0``.
+That library links ``libX11.so.6``, ``libXext.so.6`` and
+``libGLdispatch.so.0``, and the ICD's init opens ``libEGL.so.1``. A runtime
+stage that installs ``libvulkan1`` and ``vulkan-tools`` under
+``--no-install-recommends`` carries none of them, so the Vulkan loader says
 
     Failed loading library associated with ICD JSON libGLX_nvidia.so.0
     libXext.so.6: cannot open shared object file
     vkCreateInstance: Found no drivers!
 
-``libGLX_nvidia.so.0`` links ``libX11.so.6``, ``libXext.so.6`` and
-``libGLdispatch.so.0``; the runtime stage installed ``libvulkan1`` and
-``vulkan-tools`` under ``--no-install-recommends`` and none of the three. So no
-device, so ggml fell back to the CPU, so A3's numbers were the i5-9600K.
+— or, with the X11 three and no EGL, ``Could not get 'vkCreateInstance' via
+'vk_icdGetInstanceProcAddr'`` — and ggml falls back to the CPU. Upstream's
+Vulkan image has EGL as a mesa dependency; ours has no reason to.
 
-With those three the ICD loads and then fails one step later, on
-2026-09-03: ``Could not get 'vkCreateInstance' via 'vk_icdGetInstanceProcAddr'``.
-``strace`` inside the image showed the ICD's init opening ``libEGL.so.1`` and
-finding nothing; upstream's Vulkan image has it as a mesa dependency, ours
-had no reason to. With ``libegl1`` our own ``llama-bench --list-devices``
-lists ``Vulkan0: NVIDIA GeForce RTX 3060`` on srv2.
-
-The fix is four packages on the runtime apt line and a build-time check that
-they resolved, so an image that would silently bench the CPU fails to build.
-And the arm's spec names the fix (``icd_deps=x11-egl``) so ``image_matches``
-refuses to reuse an image that lacks it: the ladder rebuilds A3 rather than
+So the runtime apt line carries four packages and a build-time check that they
+resolved, so an image that would silently bench the CPU fails to build. And the
+arm's spec names them (``icd_deps=x11-egl``) so ``image_matches`` refuses to
+reuse an image that lacks them: the ladder rebuilds A3 rather than
 re-measuring the CPU under the same tag.
 """
 

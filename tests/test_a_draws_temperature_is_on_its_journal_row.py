@@ -2,7 +2,7 @@
 
 :mod:`mcgyvr.consensus` says breadth "cannot be evaluated before the telemetry
 that counts crossings exists". The row already carries the draw — the
-``#<index>`` suffix on its ``attempt_id`` — and now carries the temperature
+``#<index>`` suffix on its ``attempt_id`` — and carries the temperature
 the draw was dispatched at, so "given that a gate-passing candidate exists
 among N, at what index does it first appear, and at what temperature" is a
 question the journal can answer instead of one it invites.

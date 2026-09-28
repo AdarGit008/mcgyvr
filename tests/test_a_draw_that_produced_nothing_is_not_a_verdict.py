@@ -155,8 +155,8 @@ def test_the_draw_that_produced_nothing_is_recorded_rather_than_scored(
 
     A synthetic rejection would have been the easy way to keep the indexes
     aligned, and it would put "the gate refused this" into the record of a gate
-    run that never happened — the same fabrication the sampler is no longer
-    forced into. What breadth actually bought is the measurement this lever
+    run that never happened — the same fabrication the sampler is not forced
+    into. What breadth actually bought is the measurement this lever
     exists for, so the draw that bought nothing is kept in the sampler's words.
     """
     picked = best_of(

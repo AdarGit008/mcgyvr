@@ -27,7 +27,7 @@ GOLDEN = REPO / "records" / "corpora" / "worker-replies" / "golden.json"
 
 
 def _by_path(name: str, path: Path) -> types.ModuleType:
-    """A tool module, imported by path — ``tools/`` is not a package."""
+    """A tool module, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -97,7 +97,7 @@ def test_the_pool_gate_reads_the_same_declaration() -> None:
 def test_a_set_added_to_the_declaration_reaches_every_consumer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """One declaration, not three that happen to agree today.
+    """One declaration, not three that happen to agree.
 
     Declaring a set is the whole interface: the pool gate must start refusing
     collisions with it and the classifier must start recognising runs of it,

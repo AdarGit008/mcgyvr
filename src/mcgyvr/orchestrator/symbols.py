@@ -14,8 +14,8 @@ is a shortlist, not a semantic model: it points the expensive reader at a few
 files, and precise understanding is the reader's job, not the index's.
 
 One exception earns its keep: a definition also carries its **signature**, and an
-import is a kind of its own (#115). The index puts ``deps[].signature`` on a
-contract in the parser's hands rather than a model's — the decomposer names which
+import is a kind of its own (#115). A contract's ``deps[].signature`` is in
+the parser's hands rather than a model's — the decomposer names which
 symbols a contract depends on, the index states what they look like. Both come
 out of the passes already running here, so neither costs a second parse: the
 Python signature is unparsed from the ``ast`` node the collector already visits,
@@ -120,8 +120,9 @@ def _python_symbols(path: str, source: bytes) -> list[Symbol]:
     try:
         tree = ast.parse(source.decode("utf-8", "surrogateescape"), filename=path)
     except (SyntaxError, ValueError):
-        # ValueError covers source with embedded NULs; either way the file is
-        # left to the text index rather than aborting the whole build.
+        # ValueError covers the UnicodeEncodeError a surrogate-escaped byte
+        # raises; either way the file is left to the text index rather than
+        # aborting the whole build.
         return []
     collector = _PythonCollector(path)
     collector.visit(tree)
@@ -499,7 +500,7 @@ def _js_signature(node: Node, body_owner: Node | None = None) -> str:
 
     A node with no body field — a shape the grammar did not resolve — yields its
     whole text rather than nothing, and it is the caller's job not to ask for a
-    signature from a node that has one.
+    signature from such a node.
     """
     owner = body_owner if body_owner is not None else node
     text = node.text

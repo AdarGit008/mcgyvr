@@ -1,20 +1,18 @@
 """``C`` steps once an expert block is on the host, and holds after that.
 
-``vramfit``'s module docstring said ``C`` is "measured once, at any placement,
-because it does not move with ``--n-cpu-moe``". Measured false on 2026-09-10,
-srv2, deepseek-coder-v2-16b (``records/measurements/measuring-gaps-2026-09-10/``
-Q4 and Q6): ``C`` reads 3,028 MiB at ncmoe 0 and 3,102 / 3,101 MiB at 13 / 26.
-The engine's own ``CUDA0 compute buffer size`` accounts for the difference:
-76.13 MiB with every expert on the card, 151.51 MiB as soon as one is on the
-host, and flat after. llama.cpp's op offload copies a host-stored expert tensor
-into the device compute buffer for a large batch; with ``--no-op-offload`` the
-step is gone, and that flag is banned (``okf/config/llama.cpp.md``).
+``C`` is not the same at every placement. On srv2, deepseek-coder-v2-16b
+(``records/measurements/measuring-gaps-2026-09-10/`` Q4 and Q6), ``C`` reads
+lower at ncmoe 0 than at 13 and 26, which agree. The engine's own ``CUDA0
+compute buffer size`` accounts for the difference: it roughly doubles as soon as
+one expert is on the host, and is flat after. llama.cpp's op offload copies a
+host-stored expert tensor into the device compute buffer for a large batch; with
+``--no-op-offload`` the step is gone, and that flag is banned
+(``okf/config/llama.cpp.md``).
 
-What the earlier invariance tests measured still stands
-(``tests/test_serving_vramfit.py``: KAT at ncmoe 41/8/7/6/5, nemotron at
-52/40/21): every one of those placements keeps experts on the host. The rule is
-narrower than the docstring said, and a probe taken with every expert on the
-card under-states every placement that offloads.
+The invariance tests in ``tests/test_serving_vramfit.py`` (KAT and nemotron)
+hold because every one of their placements keeps experts on the host. A probe
+reads ``C`` for the placements on its own side of that step, and a probe taken
+with every expert on the card under-states every placement that offloads.
 """
 
 from __future__ import annotations

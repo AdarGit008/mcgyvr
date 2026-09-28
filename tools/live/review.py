@@ -24,7 +24,7 @@ screen is the word that selects it.
 belongs to, and under §9 that need not be the orchestrator that ran the
 attempt. So an outcome applied by another writer prints as ``outcome=rejected
 (applied by review)``, and one applied by the row's own runner prints as the
-outcome alone: today both of mcgyvr's ``correct()`` call sites pass the
+outcome alone: every one of mcgyvr's ``correct()`` call sites passes the
 recording orchestrator, so the byline would otherwise repeat the row's own
 ``orchestrator=`` on every line of every journal the product writes.
 
@@ -72,7 +72,7 @@ ROUND_WORDS: dict[int | None, str] = {
 
 
 def _live_index() -> types.ModuleType:
-    """``tools/live/index.py`` by path — ``tools/`` is not a package.
+    """``tools/live/index.py`` by path — ``tools/`` has no ``__init__.py``.
 
     The folding and blob-joining are its; this tool prints. One reader of the
     journal directory, not two that could disagree about what a row is.
@@ -169,9 +169,9 @@ def _byline(row: dict[str, Any]) -> str:
     differently when a separate gate or review gave it than when the
     orchestrator that ran the attempt did.
 
-    Empty when the two names agree, and that is the common case: both of
-    mcgyvr's own ``correct()`` call sites pass the recording orchestrator, so
-    every row of every journal the product writes today is self-corrected.
+    Empty when the two names agree, and that is the common case: every one of
+    mcgyvr's own ``correct()`` call sites passes the recording orchestrator, so
+    every row of every journal the product writes is self-corrected.
     Printing the byline anyway would put a column of ``agent-a`` beside
     ``agent-a`` on every screen, and a field that is noise on every row is one
     a reviewer stops reading before the day it says something.

@@ -48,7 +48,7 @@ REPO = HERE.parent.parent
 
 
 def _by_path(name: str, path: Path) -> types.ModuleType:
-    """A tool module, imported by path — ``tools/`` is not a package."""
+    """A tool module, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

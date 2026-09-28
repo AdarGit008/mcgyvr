@@ -1,6 +1,6 @@
 """B2 — a delivery must not commit onto a detached HEAD or a checkout mid-sequence.
 
-``delivery.mode: none`` runs ``git commit`` onto whatever ``HEAD`` names. When the
+A ``git commit`` lands on whatever ``HEAD`` names. When the
 operator has checked out a detached commit — or a rebase, merge, cherry-pick or
 bisect is partway through — that commit has no branch to hold it, and the work
 lands on a SHA nothing names. A delivery that reports ``committed=True`` here has

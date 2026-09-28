@@ -55,8 +55,8 @@ HERE = Path(__file__).resolve().parent
 
 #: What the reader prints beyond the declared keys that must read `none`: a
 #: card held by a process, or a container up, before the step starts, is a
-#: machine somebody else is using. Run contract §4 — a cell never repairs a
-#: machine it found wrong — so the refusal names them and leaves them.
+#: machine somebody else is using. The door does not repair a machine it
+#: found wrong, so the refusal names them and leaves them.
 IDLE_KEYS = ("gpu_procs", "containers")
 
 #: ``gpu_reserve_mib`` is the card's ``memory.reserved``, carved by GSP
@@ -70,7 +70,7 @@ def snapshot(host: str) -> dict[str, str]:
     """Ship the reader to the rig on stdin and parse `key=value` back.
 
     On stdin, never installed: nothing lands on the rig's disk, so gate 7 has
-    nothing extra to look for. Same transport as ggufscan.
+    nothing extra to look for.
     """
     reader = (HERE / "rig-snapshot.sh").read_text(encoding="utf-8")
     try:
@@ -100,17 +100,22 @@ def snapshot(host: str) -> dict[str, str]:
     return reading
 
 
-def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
+def teardown_displaced(
+    host: str, displaced: Lease, who: str, keep: frozenset[str] = frozenset()
+) -> None:
     """Remove the containers a displaced run left, by the names that are ours.
 
     The one place the door removes a container it did not start, and the
-    exception is the point: run contract §4 says a cell never repairs a
-    machine it found wrong, because it cannot know what it found — here it
-    can. The lease names the run, the run names its containers
-    (`<RUN_ID>-<role>`), and its serve units are named
-    `mcgyvr-<host>-<service>` (`mcgyvr emit`), so both prefixes are torn
-    down: R1 says the live run may take the rig from it, and a displaced
+    exception is the point: the door does not repair a machine it found wrong,
+    because it cannot know what it found — here it can. The lease names the
+    run, the run names its containers (`<RUN_ID>-<role>`), and its serve units
+    are named `mcgyvr-<host>-<service>` (`mcgyvr emit`), so both prefixes are
+    torn down: R1 says the live run may take the rig from it, and a displaced
     dev serve must not keep holding the card.
+
+    ``keep`` names containers that are not the displaced run's whatever their
+    prefix: the units a live ``serve up`` has itself just started, which carry
+    the same ``mcgyvr-`` prefix as the dev serve it displaced.
     """
     if displaced.run_id == "none":
         print(f"{who}: the displaced run had minted no run id; nothing to tear down")
@@ -134,7 +139,11 @@ def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
             file=sys.stderr,
         )
         return
-    names = [n.strip() for n in listed.stdout.splitlines() if n.startswith(prefixes)]
+    names = [
+        n.strip()
+        for n in listed.stdout.splitlines()
+        if n.startswith(prefixes) and n.strip() not in keep
+    ]
     if not names:
         print(f"{who}: nothing of the displaced run ({displaced.run_id}) is up")
         return
@@ -306,10 +315,8 @@ def main() -> int:
             "what you started; okf/must-read/touching-rigs.md"
         )
 
-    # Gate 2b, only where a campaign says it serves: D8's rule is verify the
-    # markers and launch as ONE step, so the verification happens here, before
-    # any step. 1.5 h of rig time once went to a run whose patch never reached
-    # the file it was supposed to patch.
+    # Gate 2b, only where a campaign says it serves: the serving harness's
+    # markers are verified here, before any step.
     campaign_json = (
         root() / "tools" / "runs" / "campaigns" / need("RUN_CAMPAIGN") / "campaign.json"
     )

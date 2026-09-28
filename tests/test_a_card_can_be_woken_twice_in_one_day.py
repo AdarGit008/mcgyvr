@@ -1,16 +1,13 @@
 """A card can be woken twice in one day.
 
 The Waker gives every wake a RUN_ID of its own (``--suffix``,
-``src/mcgyvr/wake.py:128-150``). But the serve steps declare fixed artifact
-names (``# RUN_ARTIFACTS: serve-up.json`` in
-``src/mcgyvr/serving/gate-scripts/serve-up.py``), filed under one envelope per
-day and campaign (``records/evidence/<date>-live-<host>/``), and gate 5 refuses
-a declared artifact that already exists
-(``src/mcgyvr/serving/gate-scripts/05-envelope.py:281-289``). A suffix changes
-the RUN_ID and not the file name, so the second ``serve up`` of one host on one
-day is refused (``records/measurements/flexibility-2026-09-09/README.md``,
-Defects: "The Waker cannot wake one card twice in a day"). A waker that works
-once a day is not a waker, and every switch that wakes a unit goes through it.
+``mcgyvr.wake``), and the serve steps declare a fixed artifact name filed under
+one envelope per day and campaign (``records/evidence/<date>-live-<host>/``). A
+suffix changes the RUN_ID and not the file name, so the serve steps declare the
+file as one they may write again (``# RUN_REWRITES: serve-up.json`` in
+``src/mcgyvr/serving/gate-scripts/serve-up.py``): gate 5 moves the earlier
+wake's record aside and admits the second ``serve up`` of one host on one day.
+Every switch that wakes a unit goes through the Waker.
 """
 
 from __future__ import annotations

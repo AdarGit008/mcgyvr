@@ -16,18 +16,18 @@ Each entry states three things the rest of the system needs:
   This is the sentence a caller is owed, and it is why some inherited types are
   not here: a type whose guarantee cannot be stated is one nothing can accept.
 * **A starting family** — where on the ladder work of this type may begin.
-  Deliberately a *family* (deterministic → local → api, boundary 3)
-  rather than a rung: rung names are chosen by whoever wrote the config, so a
-  catalog naming rungs would only be valid on the machine it was written for. A
-  family resolves against any ladder, because a rung is ``api`` exactly when its
-  source declares an ``api_key_env``.
+  Deliberately a *family* (deterministic → local → api) rather than a rung: rung
+  names are chosen by whoever wrote the config, so a catalog naming rungs would
+  only be valid on the machine it was written for. A family resolves against any
+  ladder, because a rung is ``api`` exactly when its unit declares an
+  ``api_key_env``.
 * **Required evidence** — what a contract of this type must carry to be
   judgeable. Evidence needing a command to produce it is enforced at contract
   load, so a type that promises a test demonstrated the fix cannot be dispatched
   with nothing to run.
 
-The start is a floor, and it is the *type's* floor only. Risk raises it per
-contract (#16) and escalation climbs from it (#24); neither is decided here.
+The start is a floor, and it is the *type's* floor only; escalation climbs
+from it, and that is not decided here.
 """
 
 from __future__ import annotations
@@ -100,7 +100,7 @@ class TaskType:
         """Whether the deterministic tier executes this type outright.
 
         Derived from the starting family rather than declared, so the two can
-        never disagree — the same move  makes for binding names.
+        never disagree.
         """
         return self.starts_on.rank == 0
 
@@ -183,12 +183,12 @@ class Catalog:
         return found
 
     def family_of(self, source: Unit) -> Family:
-        """Which family a rung served by ``source`` belongs to.
+        """Which family a rung served by the unit ``source`` belongs to.
 
         The one definition of the rule, so that nothing else has to restate it:
-        a rung is ``api`` exactly when its source declares a credential, and
+        a rung is ``api`` exactly when its unit declares a credential, and
         ``local`` when it does not. It is deliberately a property of the
-        *source* rather than of the model — a 30B model on a keyless local box
+        *unit* rather than of the model — a 30B model on a keyless local box
         and a 30B model behind a hosted API differ in what they cost to ask,
         which is what the families order.
 

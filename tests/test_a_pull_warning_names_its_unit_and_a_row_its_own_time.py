@@ -1,12 +1,10 @@
 """A pull's warning names its unit, and each filed row carries its own time.
 
-Owner, 2026-09-15 (F5). The first live probe (run-20260915T050342-42b9afd8)
-printed ``warning: warm_decode_tok_s pulled b-small — see `mcgyvr fleet
-alerts``` twice, identically, for two different units: no unit, rig or
-combination was named. Every row it filed carried the run's start, 05:03:42,
-though units were probed up to two minutes later; :func:`alerts.pulled` clears
-a pull against the newest alert's ``at``, so a start time can clear a pull
-that a later validation never covered.
+Owner ruling F5. A warning that names no unit, rig or combination reads
+identically for two different units. And a row stamped with the run's start,
+though its unit was probed later, can clear a pull that a later validation
+never covered: :func:`alerts.pulled` clears a pull against the newest alert's
+``at``.
 
 * **The warning names the unit, its rig and its short combination id**:
   ``warning: srv1_coder warm_decode_tok_s pulled b-small (srv1, cmb-…)``.

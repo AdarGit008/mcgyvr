@@ -196,7 +196,7 @@ def _forge(content: str, verdict: GateResult) -> Any:
     """The best binding a laundering caller can build, whatever the shape is.
 
     Written reflectively so it keeps testing *forgery* rather than testing one
-    constructor: whichever way ``Accepted`` is minted today, a caller holding a
+    constructor: whichever way ``Accepted`` is minted, a caller holding a
     string and a verdict can reach the dataclass fields directly, and that is
     the thing this file has to remain able to build.
     """

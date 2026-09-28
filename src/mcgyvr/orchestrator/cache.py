@@ -155,9 +155,9 @@ class _Entry:
 def cache_dir() -> Path:
     """Where index caches live: ``$XDG_CACHE_HOME/mcgyvr/index``.
 
-    Follows the same resolution :func:`mcgyvr.config.config_path` uses for
-    config, one directory over — cached data is regenerable and belongs under
-    the cache root, not beside the user's settings.
+    ``$XDG_CACHE_HOME`` when set, else ``~/.cache`` — cached data is
+    regenerable and belongs under the cache root, not beside the user's
+    settings.
     """
     xdg = os.environ.get("XDG_CACHE_HOME")
     base = Path(xdg).expanduser() if xdg else Path.home() / ".cache"

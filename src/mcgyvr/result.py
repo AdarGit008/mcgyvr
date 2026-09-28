@@ -1,23 +1,21 @@
 """What one run came to, as a file the caller reads instead of the scrollback.
 
 The agent that types ``mcgyvr run`` decides what to do next from what the run
-came to: accept the change, commit it, or write a different contract. It used
-to learn that from prose on stdout and stderr and an exit code, and the one
-thing it most needs — *why* the gate refused — from nowhere, because the
-finding lines went into the model's retry prompt and never to the caller.
+came to: accept the change, commit it, or write a different contract.
 
 This module is the run's answer as data. One JSON file per run, under the
 journal's ``results/``, named by the contract and a UTC stamp so two runs of
 one contract are two files; ``mcgyvr run`` prints ``result: <path>`` and no
-more. A file rather than a dump on stdout by the owner's ruling (2026-09-03):
-an agent's context is the scarce thing, and a file costs nothing until it is
-opened. Nothing here lands in the repository a run works on.
+more. A file rather than a dump on stdout: an agent's context is the scarce
+thing, and a file costs nothing until it is opened. Nothing here lands in the
+repository a run works on.
 
-The fields are the questions a replanner asks. ``outcome`` is ``accepted`` or
-the word :class:`~mcgyvr.escalate.Outcome` gives a halt (``ladder_spent``,
-``escalation_ceiling``, ...) or ``rejected`` for the deterministic gate or
-``error``; ``attempts`` is every rung touched with its verdict and the gate's
-finding lines; ``committed``/``commit``/``branch`` say where the work went;
+The fields are the questions a replanner asks. ``outcome`` is ``accepted``, the
+word :class:`~mcgyvr.escalate.Outcome` gives a halt (``ladder_spent``,
+``escalation_ceiling``, ...), or one of the CLI's own: ``rejected``,
+``nothing_to_change``, ``delivery_refused``, ``error``; ``attempts`` is every
+rung touched with its verdict and the gate's finding lines;
+``committed``/``commit``/``branch`` say where the work went;
 ``orchestrator``/``session_file``/``journal``/``attempt_id`` say where the
 rows are, so the same agent can find its own prompt and reply.
 """
@@ -39,9 +37,9 @@ RESULTS_DIR = "results"
 class AttemptResult:
     """One rung's try, as the climb recorded it."""
 
-    #: Which rung answered. The name stays ``rung`` and is not renamed
-    #: (owner's ruling, 2026-09-09): a second word for one concept is new
-    #: vocabulary, and the journal rows and tests already written say ``rung``.
+    #: Which rung answered. The name stays ``rung`` and is not renamed: the
+    #: journal rows and tests say ``rung``, and a second word for one concept is
+    #: new vocabulary.
     rung: str
     attempt: int
     verdict: str
@@ -77,8 +75,8 @@ class RunResult:
     journal: str | None = None
     outcome: str = "error"
     detail: str = ""
-    #: The rung the run came to rest on, under the same no-rename ruling as
-    #: :attr:`AttemptResult.rung`.
+    #: The rung the run came to rest on, not renamed for the reason
+    #: :attr:`AttemptResult.rung` gives.
     rung: str | None = None
     assurance: str | None = None
     attempts: list[AttemptResult] = field(default_factory=list)
@@ -127,7 +125,7 @@ def write(path: Path, result: RunResult) -> Path:
         )
         os.replace(staging, path)
     except OSError:
-        # The same tidy-up `telemetry._store` makes: a write that failed
+        # The same tidy-up `telemetry._store_one` makes: a write that failed
         # partway leaves no `.part` for the next reader to wonder about.
         staging.unlink(missing_ok=True)
         raise

@@ -246,7 +246,6 @@ flowchart LR
 | `archive/` | the archived files that tests, tools and data still read or cite |
 | `fleet-setup/` | a stamped two-machine setup that tests use as fixtures |
 | `okf/` | rules for agents developing mcgyvr on the owner's machines |
-| `docs/` | internal review notes |
 | `.github/repo-baseline.md` | the checklist this repository is aligned against |
 | [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), [`LICENSE`](LICENSE) | changes, how to report a vulnerability, MIT license |
 

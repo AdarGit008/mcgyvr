@@ -6,41 +6,37 @@ The deterministic floor runs without a config and must go on doing so: a
 :class:`~mcgyvr.config.ConfigError`, keeps it, and only raises it on the path
 that needs a ladder.
 
-That made two very different situations identical. "No config here" and "the
-config in front of you does not parse" are the same exception family, and the
-floor said nothing about either. A run with a malformed ``mcgyvr.yaml`` — one
-whose ``journal.dir`` points its whole journal somewhere else — went to the
-schema default in silence, and the operator's only clue was a result file in a
-directory they had configured away from.
+"No config here" and "the config in front of you does not parse" are the same
+exception family and two very different situations. A run with a malformed
+``mcgyvr.yaml`` — one whose ``journal.dir`` points its whole journal somewhere
+else — goes to the schema default, and must say so.
 
-Missing is still silent, because the floor is built for it. Present and
+Missing is silent, because the floor is built for it. Present and
 unreadable is a ``note:`` naming what is wrong, on stdout beside the floor's
 other notes: nothing failed, and the run is still worth doing, but the config
 the operator wrote is not the one this run used. :class:`ConfigMissingError` is
 what tells the two apart, so the answer is the config module's rather than a
 second guess at the file system here.
 
-"Missing" is narrower than it first looked, and the tests below draw the line
-where the operator does. A default location nobody named and nothing wrote to
+"Missing" is narrow, and the tests below draw the line where the operator
+does. A default location nobody named and nothing wrote to
 is the supported bare install: silence. A path someone typed — ``--config``, or
 ``$MCGYVR_CONFIG`` — and that is not there is a typo, not an install, and
 saying nothing about it hands the operator a run under a directory they never
 chose. So only the implicit probe is silent.
 
 The note is one line, and every fact on it is true of the run that printed it.
-A YAML parse error is several lines long and used to spill out of its own
-prefix, so the reason is flattened into the note rather than printed under it.
+A YAML parse error is several lines long, so the reason is flattened into the
+note rather than printed under it.
 And what the note adds — where this run's answer is going — is read off the
 result destination itself, which ``--result`` moves and which is the only thing
 that lands at all on the floor, where nothing is dispatched and so nothing is
 journaled. Going, not gone: the note is printed before the run, so arrival is
-not yet a fact it has, and a ``--result`` that cannot be written left it
-reporting a file that was never created.
+not yet a fact it has.
 
-That destination is stated twice when ``--record`` is also given, and the
-floor's own note went on naming the recorded directory as the one that gets the
-result file after ``--result`` had moved it elsewhere. One run may not print two
-notes that disagree, so the second reads the same flag as the first.
+That destination is stated twice when ``--record`` is also given. One run may
+not print two notes that disagree, so the second reads the same flag as the
+first.
 """
 
 from __future__ import annotations
@@ -75,7 +71,7 @@ UNPARSEABLE = "version: 1\nsources: {workstation:\n"
 #: which is what an editor told to save as UTF-16 leaves behind.
 NOT_UTF8 = b"\xff\xfeversion: 1\n"
 
-#: YAML that parses and is not a config: the ladder names no unit.
+#: YAML that parses and is not a config: ``units.local.address`` is empty.
 OFF_SCHEMA = """\
 units:
   local:
@@ -154,9 +150,8 @@ def test_a_config_that_fails_the_schema_is_named_too(
 ) -> None:
     """And its ``journal.dir`` is visibly not the one this run wrote under.
 
-    The defect in one line: the result lands under the schema default while the
-    file the operator wrote says somewhere else, and nothing on the way there
-    mentions it.
+    The result lands under the schema default while the file the operator
+    wrote says somewhere else, so the note names the config.
     """
     repo = misformatted(tmp_path / "repo")
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
@@ -186,10 +181,8 @@ def test_no_config_anywhere_is_the_silent_case_the_floor_is_built_for(
 
     The silence has to be earned by nobody having named a path, which is why
     this drives the default probe — no ``--config``, no ``$MCGYVR_CONFIG``, no
-    ``mcgyvr.yaml`` in the working directory. This test used to point
-    ``--config`` at a file that is not there and assert silence, which is the
-    very case the two below say must be spoken about: it was asserting the
-    defect.
+    ``mcgyvr.yaml`` in the working directory. A ``--config`` pointed at a file
+    that is not there is the case the two below say must be spoken about.
     """
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.chdir(tmp_path)
@@ -254,10 +247,9 @@ def test_a_named_config_that_is_absent_is_not_told_to_name_one(
     writes to that very path. Said to someone who typed ``--config``, only a
     different path helps.
 
-    This used to lump the last two together and answer both with "name one
-    that is there", which on a fresh install with the documented
-    ``export MCGYVR_CONFIG=...`` in place withholds the one command that fixes
-    it.
+    Answering both with "name one that is there" would, on a fresh install with
+    the documented ``export MCGYVR_CONFIG=...`` in place, withhold the one
+    command that fixes it.
     """
     absent = tmp_path / "nowhere" / "mcgyvr.yaml"
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
@@ -288,10 +280,8 @@ def test_a_config_that_is_not_text_is_named_and_not_a_traceback(
 ) -> None:
     """Present and undecodable is present and unusable, not an unhandled error.
 
-    ``UnicodeDecodeError`` is a ``ValueError``, so it went past both of
-    ``load``'s excepts and out of the process: no note, no ``result:`` line and
-    no exit code, from the one situation this whole file exists to make
-    speakable.
+    ``UnicodeDecodeError`` is a ``ValueError`` and not an ``OSError`` or a YAML
+    error, so ``load`` has to name it as a config that cannot be read.
     """
     repo = misformatted(tmp_path / "repo")
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
@@ -325,10 +315,10 @@ def test_the_note_names_where_this_run_actually_landed(
 ) -> None:
     """The note's one added fact has to be true of the run that printed it.
 
-    It used to be the journal dir, which under ``--result`` is a directory this
-    run never writes to, and which on the floor gets nothing at all — nothing
-    is dispatched, so nothing is journaled. What does land is the result file,
-    and where it lands is what the note names.
+    Not the journal dir, which under ``--result`` is a directory this run never
+    writes to, and which on the floor gets nothing at all — nothing is
+    dispatched, so nothing is journaled. What does land is the result file, and
+    where it lands is what the note names.
     """
     repo = misformatted(tmp_path / "repo")
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
@@ -354,8 +344,7 @@ def test_a_multi_line_config_error_stays_inside_its_note(
 ) -> None:
     """A YAML error is several lines; a note that loses its prefix is not one.
 
-    The continuation lines carried the rest of the reason and the clause saying
-    where the run went, unprefixed, reading as output from the run itself
+    Unprefixed continuation lines would read as output from the run itself
     rather than as a remark about a file it could not use.
     """
     repo = misformatted(tmp_path / "repo")
@@ -403,16 +392,10 @@ def test_the_two_notes_one_run_prints_agree_about_where_the_result_went(
 ) -> None:
     """One run, two notes, and neither says something the other contradicts.
 
-    The floor's note used to have to branch on ``--result``: the result file
-    was the only thing a recorded directory ever got, and ``--result`` moved it
-    out, so the note either claimed a file that went elsewhere or had to say
-    the directory got nothing at all. Two notes two lines apart then told the
-    operator two different places.
-
-    A ``--record`` copy is now a whole journal — a row, its verdict and a copy
-    of the result — so the note is one sentence that is true under both flags,
-    and ``--result`` moves only the copy the *caller* reads. The config note
-    still names that one, because it is the one the ``result:`` line names.
+    A ``--record`` copy is a whole journal — a row, its verdict and a copy of
+    the result — so the floor's note is one sentence that is true under both
+    flags, and ``--result`` moves only the copy the *caller* reads. The config
+    note names that one, because it is the one the ``result:`` line names.
     """
     repo = misformatted(tmp_path / "repo")
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)

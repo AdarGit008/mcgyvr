@@ -1,15 +1,13 @@
-"""D21 — a change rejected for a missing blank line costs a whole rung of the ladder.
+"""D21 — a rejection a tool can repair is repaired for nothing, outside the gate.
 
 mcgyvr's gate is deliberately read-only. ``ruff format --diff`` reports what the
 formatter *would* change; ``ruff check`` runs without ``--fix``; a formatting violation
 becomes a :class:`~mcgyvr.gate.Finding` and never a rewrite. That is the right shape for
 a gate — a checker that edits what it is checking cannot be trusted to have checked
-it — but it leaves the whole class of failures a tool can repair for nothing being paid
-for with a model call, and on a weak local model that call is the scarce thing. A 7B
-that produced correct logic with an unsorted import block is asked to try again, and it
-is at least as likely to produce different logic as the same logic sorted.
+it — so the failures a tool can repair for nothing are repaired by :mod:`mcgyvr.repair`
+outside the gate rather than paid for with a model call.
 
-So this lever is worth exactly one free attempt per fixable rejection, and the tests are
+The lever is worth exactly one free attempt per fixable rejection, and the tests are
 shaped around what that sentence promises:
 
 * **The re-run gate accepts, and no model was asked.** Both halves in one statement,

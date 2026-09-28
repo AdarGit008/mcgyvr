@@ -1,14 +1,14 @@
 """A live prefill is judged by its own measured class tolerance, not decode's.
 
-Owner, 2026-09-15. ``records/plans/fleet-identity.md`` §12 records "Prefill
-tolerance — ruled 8%" (B89), while the code judged a probe's prefill with the
-warm decode class percent (``engine.warm_decode_class_pct``). An on-rig
-``read --probe srv2_3b`` measured prefill 11157.62 against the locked 11500
-(-2.98%), and it alerted at vLLM decode's 1%.
+The owner's ruling (``mcgyvr-lab/records/plans/fleet-identity.md`` §12):
+"Prefill tolerance — ruled 8%". A probe's prefill is judged by the prefill class
+percent, never the warm decode class percent (``engine.warm_decode_class_pct``):
+an on-rig ``read --probe srv2_3b`` prefill a few percent under its lock is inside
+vLLM's prefill class and outside vLLM decode's 1%.
 
 The prefill classes are those of
-``records/measurements/fleet-identity-prefill-2026-09-12/README.md``, stated in
-``tools/runs/derived.json`` as ``engine.prefill_class_pct``:
+``mcgyvr-lab/records/measurements/fleet-identity-prefill-2026-09-12/README.md``,
+stated in ``tools/runs/derived.json`` as ``engine.prefill_class_pct``:
 
 * **vLLM 8%**: the 3B's 7.86% worst single-sample shortfall, rounded up, after
   the single restart-tail outlier (the 7B's 9,460 tok/s) is dropped;

@@ -678,8 +678,8 @@ def load(
     readings = 0
     while True:
         # Owner ruling, 2026-09-15: "Sample the card until idle". A close does not
-        # cancel the unit's work (llama.cpp b10644 read idle 104.3 s after it), so
-        # the card is sampled beside every status reading, the idle one included.
+        # cancel the unit's work (``records/measurements/lock-fleets``), so the
+        # card is sampled beside every status reading, the idle one included.
         samples.append(read_rig("--card-holders"))
         after_page = page(status_url)
         busy = in_flight(engine, after_page)

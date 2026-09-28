@@ -250,13 +250,13 @@ def test_semantic_rung_reports_one_unreadable_file_without_losing_the_others(
     :func:`mcgyvr.gate.semantic_driver.resolve_file` documents itself as never
     raising, and returns a per-file ``error`` entry so one unresolvable file
     costs only itself. It opens with a *strict* decoder — correctly, since a
-    surrogate is precisely what its own ``ast.parse`` cannot take — but caught
-    only ``OSError``, and ``UnicodeDecodeError`` is a ``ValueError``. One
-    latin-1 byte anywhere in the change therefore killed the run for every
-    other file in it.
+    surrogate is precisely what its own ``ast.parse`` cannot take — so it
+    catches ``UnicodeDecodeError`` beside ``OSError``: a ``UnicodeDecodeError``
+    is a ``ValueError``, and uncaught, one latin-1 byte anywhere in the change
+    would kill the run for every other file in it.
 
     Driven through the real rung in a real sandbox, because the driver is never
-    imported on the host  and the host has no ``ghostcall``.
+    imported on the host and the host has no ``ghostcall``.
     """
     with TempDirSandbox(repo) as sandbox:
         (sandbox.workspace / "bad.py").write_bytes(

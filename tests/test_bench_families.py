@@ -5,12 +5,11 @@ What is pinned is the part that decides *which* pairs are ever executed, because
 a prune that is too tight produces a clean report rather than a failure — and
 that is precisely how two known families were missed.
 
-Until 2026-08-17 the prune was shape **equality**: two tasks were compared only
-if they declared the same arity per function. ``b333-pace-split`` declares
-``pace_list/1`` and ``pace_of/2``; ``b302-stock-take`` and ``b277-fuel-legs``
-each declare one function of arity 2. Equality never compared them, and the
-containment chain ``b302 ⊂ b277 ⊂ b333`` that #268's body reports was invisible
-to the tool that was supposed to find it.
+A prune on shape **equality** compares two tasks only if they declare the same
+arity per function. ``b333-pace-split`` declares ``pace_list/1`` and
+``pace_of/2``; ``b302-stock-take`` and ``b277-fuel-legs`` each declare one
+function of arity 2. Equality never compares them, so the containment chain
+``b302 ⊂ b277 ⊂ b333`` is invisible to it; the prune is on containment.
 
 So the three cases below are the prune's contract: containment holds in the
 direction a reference can actually stand in, the alias binds by arity, and the
@@ -40,8 +39,8 @@ def test_containment_is_directed_and_a_helper_does_not_block_it() -> None:
     """A task declaring a helper as well as the function under test can stand in
     for one that declares the function alone — and not the reverse.
 
-    This is the whole of the 2026-08-17 fix. Under shape equality both
-    directions read `False`, and the pair was never executed at all.
+    Under shape equality both directions read `False`, and the pair is never
+    executed at all.
     """
     two_functions = _task("b333-pace-split", (1, "pace_list"), (2, "pace_of"))
     one_function = _task("b302-stock-take", (2, "unit_price"))

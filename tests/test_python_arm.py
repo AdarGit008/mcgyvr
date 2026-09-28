@@ -1,11 +1,11 @@
 """Offline invariants over #167's Python arm — the control for the null.
 
- measured the JS/TS bundle flat and had to scope the finding, because
-one control could not be run: the own Python ladder against a reachable
-rig. Two readings fit the data and they have opposite consequences. Under
-*language*, ``prompts/python.md`` keeps its evidence and only the JS/TS port is
-unsupported. Under *serving stack*,  does not describe the stack mcgyvr
-dispatches on and the Python bundle's standing is no better than the JS/TS one.
+The JS/TS bundle measured flat, and the finding had to be scoped because one
+control could not be run: the own Python ladder against a reachable rig. Two
+readings fit the data and they have opposite consequences. Under *language*,
+``prompts/python.md`` keeps its evidence and only the JS/TS port is unsupported.
+Under *serving stack*, the Python bundle's measurement does not describe the
+stack mcgyvr dispatches on and its standing is no better than the JS/TS one.
 
 The arm that separates them is the twenty tasks, recovered from local-ai
 and ported to mcgyvr contracts, run through the same rig the JS/TS sweep used.
@@ -98,7 +98,8 @@ def _condition(name: str) -> str:
 
 
 def test_the_task_set_is_twenty_tasks() -> None:
-    """the n. A different one would not be comparable with its rates."""
+    """The n it was measured at. A different one would not be comparable with its
+    rates."""
     assert len(_task_dirs()) == 20
 
 
@@ -229,7 +230,7 @@ def test_c2_is_the_shipped_bundle_byte_for_byte() -> None:
 
 
 def test_c0_is_the_absence_of_a_system_prompt() -> None:
-    """the c0 is "none — contract only", not an empty file."""
+    """The c0 is "none — contract only", not an empty file."""
     measure = _measure()
     assert measure.condition_text("c0", measure.PYTHON) == ""
 

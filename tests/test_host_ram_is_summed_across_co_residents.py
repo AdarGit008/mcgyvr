@@ -1,12 +1,12 @@
-"""Two units on one host share its memory, and until now nothing added it up.
+"""Two units on one host share its memory, and the host's RAM is summed.
 
 ``hold_together`` sums what the units on a host ask of the **card**, because
-each of them fitting alone is exactly how a 12 GB card is handed a compose file
-asking for 13. Host RAM had no such sum: ``fit`` weighed each unit against the
-same ``MemAvailable``, both passed, and the file emitted asked the host for
-twice what it has. Owner's ruling, 2026-09-09: **RAM summed per host, VRAM per
-card**, the sum taken after the loading modes are picked, with one host headroom
-applied once, against the recorded scan and never a live read.
+each of them fitting alone is exactly how a card is handed a compose file asking
+for more than it has. Host RAM is the same: weighing each unit alone against the
+same ``MemAvailable`` would pass both and emit a file asking the host for twice
+what it has. The owner's ruling: **RAM summed per host, VRAM per card**, the sum
+taken after the loading modes are picked, with one host headroom applied once,
+against the recorded scan and never a live read.
 
 What each unit asks for is the arm its fit took — the law is F2.1 in
 ``mcgyvr-lab/records/plans/fleet-shape/formulas.md``, and it is the same split ``fit``

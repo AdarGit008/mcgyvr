@@ -46,11 +46,12 @@ class TokenCount(StrEnum):
 
 
 # How much room a proxy count must leave for its own error, as a fraction of
-# the estimate. Measured, not chosen:  puts the estimator's 5th-
-# percentile error at -31.1% on the worst of the three distinct vocabularies
-# the shipped capability table's models use (DeepSeek-Coder-V2), over 2,387
-# units of the text production actually asks it to count. Rounded up to the
-# next whole percent, and *only* the under-estimating tail matters here:
+# the estimate. Measured, not chosen:
+# `mcgyvr-lab/records/measurements/tokens-2026-08-03/README.md` puts the
+# estimator's 5th-percentile error at -31.1% on the worst of the three distinct
+# vocabularies the shipped capability table's models use (DeepSeek-Coder-V2),
+# over 2,387 units of the text production actually asks it to count. Rounded up
+# to the next whole percent, and *only* the under-estimating tail matters here:
 # over-estimation costs context, under-estimation costs a rejected request, and
 # a reserve is protection against the second.
 #
@@ -151,11 +152,11 @@ def check_prompt_fits(
 
     ``counted_by`` says where ``prompt_tokens`` came from, and it changes the
     arithmetic rather than only the wording. A count from the model-free proxy
-    is charged :data:`ESTIMATE_RESERVE` on top of itself, because
-    measured the proxy under-counting more often than it over-counts and the
-    two directions are not interchangeable: over-estimation costs context,
-    under-estimation ships a prompt the backend then rejects. A count from a
-    real tokenizer is exact and reserves nothing.
+    is charged :data:`ESTIMATE_RESERVE` on top of itself, because the proxy
+    under-counts more often than it over-counts and the two directions are not
+    interchangeable: over-estimation costs context, under-estimation ships a
+    prompt the backend then rejects. A count from a real tokenizer is exact and
+    reserves nothing.
 
     Either way the issue names which count it enforced with, so a rejection can
     be attributed to the proxy rather than to the prompt.
@@ -166,7 +167,7 @@ def check_prompt_fits(
         return None
     basis = (
         f"{prompt_tokens} estimated tokens, charged as {charged} to reserve "
-        f"{ESTIMATE_RESERVE:.0%} for the estimator's measured error "
+        f"{ESTIMATE_RESERVE:.0%} for the estimator's measured error"
         if counted_by is TokenCount.ESTIMATE
         else f"{prompt_tokens} tokens, counted exactly"
     )
@@ -201,12 +202,12 @@ def check_contract_fits(
     """Refuse a contract whose prompt and its own reply cannot share a window.
 
     ``cap`` is the reply the window must hold room for, and ``None`` means the
-    contract's own ``limits.max_output_tokens`` — which is what it meant before
-    a rung could state one, and still means on every caller that reaches this
-    without a rung in hand. A caller that *has* a rung passes
+    contract's own ``limits.max_output_tokens`` — what every caller that
+    reaches this without a rung in hand gets. A caller that *has* a rung passes
     :func:`reply_cap`'s answer, because the number reserved here has to be the
-    number dispatched: reserving the contract's 1024 and sending the rung's
-    2048 is a fit check that passes on a request the window cannot hold.
+    number dispatched: reserving the contract's cap and sending a larger one
+    from the rung is a fit check that passes on a request the window cannot
+    hold.
 
     The contract already states how large its reply may be
     (``limits.max_output_tokens``, sized to the task type by
@@ -222,12 +223,6 @@ def check_contract_fits(
     run" — are one repairable case and two that are not. Only the first is
     fixed by re-decomposing into smaller contracts, and a bare falsy result
     would hide which one happened.
-
-    The verifier's copy of this question — the original file, plus a change no
-    larger than the cap, against the verifier's own window — is the same
-    arithmetic, and is deliberately not written here: nothing in mcgyvr yet
-    declares a verifier's context window, and a number invented for it would be
-    exactly the unsourced constant this project refuses elsewhere.
     """
     # Imported, rather than re-derived, because `estimate_tokens` is the one
     # proxy in the system: a second copy of "four characters to a token" here
@@ -334,8 +329,8 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int:
     A contract's cap is written by whoever wrote the work and says what this
     unit of work is worth spending. A rung's is written by whoever owns the rig
     and says what that backend needs to finish a reply at all. Neither can
-    answer the other's question: a contract cannot know that the 35B model two
-    rungs up thinks out loud before it writes, and a rung cannot know whether
+    answer the other's question: a contract cannot know that a model further
+    up the ladder thinks out loud before it writes, and a rung cannot know whether
     the work in front of it is a docstring or a refactor. So where both have
     spoken about the number sent to one particular backend, the backend's own
     answer is the one used, and the contract's is what a rung that stayed
@@ -343,25 +338,22 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int:
 
     The two obvious alternatives each name a failure this one avoids.
 
-    *The lower of the two* — which is what ``attempts.*`` does
-    with ``limits.attempts``, and the reason that precedent must not simply be
-    copied — re-creates the defect. Measured over 358 journalled attempts under
-    one contract cap of 1024: the 3B rung's replies had a p95 of 716 and the
-    7B rung's 465, while the 35B rung's p50 was 850 and 32 of its 82 replies
-    were cut at 1024. A cut reply is ``reply[incomplete-reply]``, refused by
-    :mod:`mcgyvr.worker.reply` rather than applied, so those 32 spent the
-    dearest rung in the ladder and produced nothing. Under the lower-of rule
-    the contract's 1024 is the smaller number on exactly the rung that needed
-    2048, and every one of those failures happens again.
+    *The lower of the two* — which is what ``attempts.*`` does with
+    ``limits.attempts``, and the reason that precedent must not simply be
+    copied — re-creates the truncation. A cut reply is
+    ``reply[incomplete-reply]``, refused by :mod:`mcgyvr.worker.reply` rather
+    than applied, so it spends the rung and produces nothing. Under the
+    lower-of rule the contract's cap is the smaller number on exactly the rung
+    that declared it needs more.
 
     *The higher of the two* fixes that case and forbids the opposite one, which
-    a rung also needs. Reply length, the rung's ``max_parallel`` and
-    ``budgets.request_timeout_s`` are three numbers that decide each other: the
-    35B rung answers at a measured 17.0 tok/s per stream, so 2048 tokens is
-    120 seconds — the default request timeout exactly — and slower still as the
-    rung serves more streams at once. An operator who has measured that and
-    wants this rung held to 1500 tokens cannot say so under a ``max`` rule, and
-    the failure arrives as a socket timeout naming neither number.
+    a rung also needs. Reply length, the unit's ``width`` and the unit's
+    ``request_timeout_s`` are three numbers that decide each other: a reply of N
+    tokens at the rung's per-stream rate has to finish inside the request
+    timeout, and the rate falls as the rung serves more streams at once. An
+    operator who has measured that and wants the rung held below the contract's
+    cap cannot say so under a ``max`` rule, and the failure arrives as a socket
+    timeout naming neither number.
 
     What the override does *not* do is escape a bound. A rung's number is
     checked against the rung's own window by
@@ -388,14 +380,12 @@ def check_contract_against_rung(
     """Refuse a contract that cannot fit the window of the rung it will reach.
 
     Every other budget in this module is spent against a number the *caller*
-    supplied, and until this existed the only supplier was the contract:
-    ``context.max_input_tokens``, a number an operator typed into a file about
-    the work. So a contract was measured against the window it was written for
-    and never against the window it reaches, and the two failures that follow
-    are opposite. A contract declaring more than the rung serves passes the
-    check and is truncated by the engine at a boundary nobody chose. A contract
-    declaring less is refused on a rung that had room. Which one happens is
-    decided by the file rather than by the machine that will answer.
+    supplied — ``context.max_input_tokens``, a number an operator typed into a
+    file about the work. A contract measured only against the window it was
+    written for fails in two opposite ways: one declaring more than the rung
+    serves is truncated by the engine at a boundary nobody chose, and one
+    declaring less is refused on a rung that had room. This check measures it
+    against the window it reaches.
 
     Three questions, asked in this order because they have different repairs:
 
@@ -404,7 +394,7 @@ def check_contract_against_rung(
        keep whatever this particular prompt turned out to weigh, and the
        refusal names the *rung's* number — the operator's next move is to
        decompose against the real window, and a message quoting the contract's
-       own 32768 tells them the opposite. Only the input ceiling is compared:
+       own ceiling tells them the opposite. Only the input ceiling is compared:
        a contract may declare a reply that, added to a full read, would exceed
        the window, and whether those two actually collide is question 2's,
        measured on the prompt that exists rather than on the one the ceiling
@@ -423,10 +413,9 @@ def check_contract_against_rung(
     3. **What the prompt actually weighs**, through :func:`check_contract_fits`
        — which is the truncation the contract's own ceiling cannot see. A
        contract declaring a small ceiling passes question 1 and is still
-       assembled into a prompt larger than the rung will hold; today that
-       reaches the engine and comes back cut. The reserve held back for the
-       reply is the cap from question 2, not the contract's, or the fit would
-       be measured against a number the dispatch will not use.
+       assembled into a prompt larger than the rung will hold. The reserve
+       held back for the reply is the cap from question 2, not the contract's,
+       or the fit would be measured against a number the dispatch will not use.
 
     A rung whose source declared no window enforces nothing, the same answer
     and for the same reason as ``fraction=None`` in

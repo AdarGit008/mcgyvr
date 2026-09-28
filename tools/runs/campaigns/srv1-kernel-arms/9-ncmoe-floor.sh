@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/9-ncmoe-floor.sh — campaign step 9, behaviour 9.
 #
-# Emits records/evidence/2026-09-02-srv1-kernel-arms/srv1-ncmoe-floor.tsv, read
+# Emits $RUN_OUT_DIR/srv1-ncmoe-floor.tsv (the door's envelope), read
 # by tests/test_an_ncmoe_floor_is_derived_and_not_copied.py through
-# tools/runs/rows.py. The shapes below are ARTIFACT-CONTRACT.md sections 2.8
-# and 5.7.
+# tools/runs/rows.py. The shapes below are sections 2.8 and 5.7 of
+# mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md.
 #
 # WHAT THIS MEASURES. --n-cpu-moe is the number of layers whose expert tensors
 # stay in host RAM. The floor -- the smallest value that still loads -- is
@@ -18,17 +18,16 @@
 #     predicted = (1 - resident) * n_layers
 #
 # Every one of the six inputs is read off THIS arm's own probe launch. The
-# arithmetic is the test's own (test_an_ncmoe_floor_...:44-56), recomputed here
+# arithmetic is the test's own (the test named above), recomputed here
 # from the same strings the stamp carries, so the two cannot drift.
 #
 # WHAT ESTABLISHES IT. "predicted" is arithmetic. "measured" is a launch, and
 # what makes it a floor is the REFUSED row one step BELOW it: descent until
 # refusal (guideline 8 -- a refusal is a result). A refusal is believed only
-# after three attempts, through retry3, because a launch near the memory edge is
-# a 1-in-3 coin flip, and two REFUSED rows on 2026-09-01 turned out to be a
-# dangling HF-blob symlink read as a capability limit.
+# after three attempts, through retry3, because a launch near the memory edge
+# fails intermittently.
 #
-# SCOPE -- this is step 9, not the kernel grid. archive/docs/srv1-kernel-arms-PLAN.md's "Not
+# SCOPE -- this is step 9, not the kernel grid. mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md's "Not
 # worth rig time" list rules out ncmoe cells for the *kernel* question, because
 # the bottleneck moves to host RAM and srv1 hard-locks under that load. So:
 #   * no serving sweep, no width ladder, no replicates. Every cell here is one
@@ -38,15 +37,16 @@
 #     has, so it cannot itself be refused for want of VRAM -- and it alone
 #     yields all six inputs. Every arm is probed BEFORE any descent, so a lock
 #     during a descent still leaves every arm's derivation on disk (### PREDICT).
-#   * the descent is capped at --max-steps (default 4) launches per arm.
-# Worst case per arm: 1 probe + 1 start + 4 steps = 6 launches.
+#   * the descent is capped at --max-steps (default 4) cells past the start.
+# Worst case per arm: 1 probe + 5 cells, each refused cell costing 3 launches
+# (retry3).
 #
 # SURVIVABILITY. Every marker and every row is appended the moment it is
 # produced -- one open/append/close per line, nothing buffered -- so a hard lock
 # mid-run loses only the cell it was in. A hard lock also wipes the BIOS power
-# profile (srv1 read PL1 95 W at 05:23 and 4095 W at 05:57 on one boot), so
-# rig_assert_unchanged failing at the end is a REAL FINDING about the machine
-# rather than a script fault. It is reported as one, marked in the file, and
+# profile, so rig_assert_unchanged failing at the end is a REAL FINDING about
+# the machine rather than a script fault.
+# It is reported as one, marked in the file, and
 # exits 3.
 #
 # Usage:
@@ -57,7 +57,7 @@
 #                       A3=llamacpp:b10644-A3. ARM must match [ABL][0-9].
 #   --cell NAME         label cell (default: derived from the model filename).
 #   --start-ncmoe K     begin the descent at K instead of ceil(predicted).
-#   --max-steps N       cap on descent launches per arm (default 4).
+#   --max-steps N       cap on descent cells past the start, per arm (default 4).
 #   --np N              --parallel (default 1: this loads, it does not serve).
 #   --ctx-slot N        per-slot context (default 4096).
 #   --port N            host port for the container (default 8094).
@@ -173,10 +173,8 @@ label_for() {
 # `print_info: n_layer`, `load_tensors: CUDA0 model buffer size`,
 # `load_tensors: CPU_Mapped model buffer size`, `llama_kv_cache: CUDA0 KV
 # buffer size` and `print_info: file type`. b10644's llama-server prints NONE
-# of them at its default verbosity -- measured on srv1 2026-09-02, where the
-# whole default-verbosity log is fourteen lines and carries no model metadata
-# at all -- so without this flag the script correctly refuses every arm with
-# "n_layers could not be read". Raising the verbosity makes the values
+# of them at its default verbosity, so without this flag the script refuses
+# every arm with "n_layers could not be read". Raising the verbosity makes the values
 # READABLE; it does not supply them, and nothing here is substituted when a
 # line is still absent.
 # --------------------------------------------------------------------------
@@ -435,7 +433,7 @@ done
 emit end_stamp
 if ! rig_assert_unchanged; then
     emit stamp RIGMOVED at=end
-    printf 'srv1-ncmoe-floor: THE RIG MOVED UNDER THIS RUN. That is a FINDING, not a script fault: a hard lock wipes the BIOS power profile, and srv1 has already read PL1 95 W at 05:23 and 4095 W at 05:57 on one boot. The rows above were not all produced under one machine state. Report the START/END pair as measured; do not re-run over this file until the profile is restored.\n' >&2
+    printf 'srv1-ncmoe-floor: THE RIG MOVED UNDER THIS RUN. That is a FINDING, not a script fault: a hard lock wipes the BIOS power profile. The rows above were not all produced under one machine state. Report the START/END pair as measured; do not re-run over this file until the profile is restored.\n' >&2
     exit 3
 fi
 say "done: $OUT"

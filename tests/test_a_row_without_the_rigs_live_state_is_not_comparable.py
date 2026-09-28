@@ -1,15 +1,13 @@
 """A row that cannot name its rig decays into a story about an afternoon.
 
-No throughput artifact in this archive records host CPU, RAM or clock state at
-measurement time, which is why the whole archive decayed: RAM swapped between
-srv1 and srv2 twice in six days, a 2026-08-25 spec was quoted on 2026-08-31 and
-was wrong in both directions, and srv1's max clock read 4800 MHz on 2026-08-31
-and 4600 today with nobody having touched it.
+A throughput artifact that does not record host CPU, RAM and clock state at
+measurement time decays: RAM moves between rigs, a spec quoted days after it
+was read is wrong, and a rig's max clock changes with nobody having touched it.
 
 Two rules. Every measurement row resolves to a complete stamp, re-read per arm
 rather than once per file. And the state read at the end equals the state read at
-the start, because a hard lock wipes the BIOS profile — srv1 read PL1 95 W at
-05:23 and 4095 W at 05:57 — and a lock takes the ssh pipe with it, so a run that
+the start, because a hard lock wipes the BIOS profile — PL1 reads a different
+number after one — and a lock takes the ssh pipe with it, so a run that
 ends silently is exactly the run whose end state is unknown.
 """
 

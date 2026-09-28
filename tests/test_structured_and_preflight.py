@@ -120,10 +120,10 @@ def test_untracked_file_makes_the_tree_dirty(tmp_path: Path) -> None:
 
 def test_prompt_that_fits_passes() -> None:
     assert check_prompt_fits(1000, context_window=8192) is None
-    # 4000 estimated against a 4192 budget used to pass. It no longer does: the
-    # same text could really be 5280 tokens, which  measured rather than
+    # 4000 estimated against a 4192 budget does not pass: the same text could
+    # really be 5280 tokens, an estimator error that was measured rather than
     # supposed, and admitting it is how a prompt reaches a backend that refuses
-    # it. Counted exactly, the same numbers still fit.
+    # it. Counted exactly, the same numbers fit.
     assert check_prompt_fits(3000, context_window=8192, output_reserve=4000) is None
     assert (
         check_prompt_fits(
@@ -147,7 +147,7 @@ def test_output_reserve_counts_against_the_budget() -> None:
     assert issue is not None and issue.reason == "prompt-too-large"
 
 
-# --- #117: the check says which count it enforced with -----------------------
+# --- the check says which count it enforced with ----------------------------
 
 
 def test_an_estimated_count_is_charged_the_measured_reserve() -> None:

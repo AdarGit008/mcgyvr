@@ -1,10 +1,8 @@
 """B12 — a symlink on the target path must not redirect a delivery.
 
-``_target`` resolves the target path with ``.resolve()``, which follows symlinks.
-A symlink at the target — or at any parent component — therefore silently steers
-the write to a different file, and the commit's trailer names a path the commit
-does not actually contain. That is worse than a failure: it is a success that is
-false.
+A symlink at the target — or at any parent component — would steer the write to a
+different file, and the commit's trailer would name a path the commit does not
+contain: a success that is false.
 
 The statement is that such a target is refused as a hard precondition failure
 before anything is written, naming the symlink, because the path the contract

@@ -7,8 +7,8 @@ task depends on most.
 
 Every check in the gate reads the same two facts — which files changed, and
 which lines the worker added — from a single shared :class:`ChangeSet`, so
-the number of subprocesses a gate run spawns is a constant, not a function of
-how many files changed. See :mod:`mcgyvr.gate.changeset`.
+the change is detected in a fixed number of git invocations, not once per
+check or per file. See :mod:`mcgyvr.gate.changeset`.
 """
 
 from __future__ import annotations

@@ -289,12 +289,10 @@ def test_repair_names_what_it_changed_and_leaves_it_in_the_tree(
     repair left behind — which is how the bytes a gate rejected stay in the
     caller's hand while the bytes it accepted sit only on disk.
 
-    What it learns is the *path*, not a copy of the bytes.
-    ``RepairOutcome.content`` used to carry the second copy, for a caller that
-    would hand it to :func:`~mcgyvr.deliver.deliver`; delivery takes an
-    :class:`~mcgyvr.deliver.Accepted` minted off the tree now, so the copy was a
-    value channel with no reader (pattern B, phase 3). The replacement is
-    asserted here rather than assumed: the named path is bound off the tree, and
+    What it learns is the *path*, not a copy of the bytes: delivery takes an
+    :class:`~mcgyvr.deliver.Accepted` minted off the tree, so a copy would be a
+    value channel with no reader. The path is asserted here rather than
+    assumed: the named path is bound off the tree, and
     the binding holds what the repair wrote.
     """
     repo = make_repo(tmp_path / "work", {"src/pkg/fetch.py": UNFORMATTED})

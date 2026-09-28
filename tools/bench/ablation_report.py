@@ -25,8 +25,8 @@ under both conditions is concordant and carries no information no matter how
 the test is designed; with one greedy draw per cell, 25 of 34 problems were
 that. Eight draws per cell turn the outcome into a count, so a problem that
 moves from 6/8 to 2/8 contributes what a binary outcome would have thrown
-away. This is D6's replication, and it is the only reason the
-question is askable on this material at all.
+away. Replication is the only reason the question is askable on this material
+at all.
 
 **The tests are exact and the direction is not assumed.** The sign test over
 problems whose count changed is reported as the primary, because it needs no
@@ -57,11 +57,11 @@ anyone who wants the other number with its name attached.
 used.** ``--rows as-measured`` (the default) reads what the sweep recorded on
 the day. ``--rows regraded`` reads ``tools/bench/regrade.py``'s re-score of the
 same saved completions under the checkers as they stand now — the same model
-output judged again. That is not a hypothetical:  found 104 bench py
-checkers accepting only ``ValueError`` where their ts twins accept any
-``Error``, and correcting it moved 40 py cells and no ts cell at all. Both
-numbers are real and they answer different questions, so neither is silently
-preferred and the heading always says which one is on screen.
+output judged again. A corrected checker moves cells: py checkers accepting
+only ``ValueError`` where their ts twins accept any ``Error`` is the case
+``regrade.py`` exists for. Both sets are real and they answer different
+questions, so neither is silently preferred and the heading always says which
+one is on screen.
 
 Usage::
 

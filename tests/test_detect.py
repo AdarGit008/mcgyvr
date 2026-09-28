@@ -401,12 +401,10 @@ def test_nothing_answering_anywhere_names_the_flag_that_widens_the_sweep(
 
 
 def test_every_backend_is_bound_as_it_is_asked() -> None:
-    """Asking and dispatching were once two questions; today they are one.
+    """Asking and dispatching are one question.
 
-    The backend that made them separate, and the measurement that justified it
-    (#164, CAV-01), are in ``archive/forensic-ollama/``. What must stay true is
-    that nothing quietly reintroduces a split without the fields to describe
-    it: a convention asking on one protocol and dispatching on another would
+    What must stay true is that nothing quietly reintroduces a split without the fields
+    to describe it: a convention asking on one protocol and dispatching on another would
     need somewhere to say so, and there is nowhere.
     """
     for target in targets_for():

@@ -17,9 +17,10 @@ Two invariants are enforced here rather than trusted to each mode:
 
 1. **Nothing survives a finished task.** The workspace is removed on success,
    on failure and on interrupt, by a context manager whose ``__exit__`` runs
-   even when the body raises ``KeyboardInterrupt`` — and, as a backstop for a
-   hard crash that skips ``__exit__``, by a process-exit reaper that reaps
-   whatever is still registered.
+   even when the body raises ``KeyboardInterrupt`` — and, as a backstop for
+   an interpreter exit with a sandbox still open, by an ``atexit`` reaper that
+   reaps whatever is still registered. The reaper does not run on
+   ``os._exit``, a fatal signal or an interpreter crash.
 2. **No credential reaches a task.** The environment a command runs in is
    built from an explicit allowlist, never inherited from the host, and any
    caller-supplied variable whose name looks like a credential is dropped
@@ -34,7 +35,9 @@ import contextlib
 import os
 import re
 import shutil
+import stat
 import subprocess
+import sys
 import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
@@ -42,6 +45,8 @@ from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
 from typing import ClassVar
+
+from mcgyvr.redact import scrub
 
 _WORKSPACE_PREFIX = "mcgyvr-task-"
 
@@ -83,8 +88,66 @@ _KNOWN_CREDENTIAL_VARS = frozenset(
 )
 
 
+#: The exit code reported for a command the wall-clock ceiling killed.
+TIMEOUT_EXIT = -1
+
+#: The ceiling a sandbox command runs under when nothing else supplies one —
+#: no caller ceiling and no ``task_timeout_s`` in config. A command with no
+#: bound at all hangs a task forever, so the sandbox carries its own. It is a
+#: default, not a measurement: the same 900s the config schema defaults
+#: ``task_timeout_s`` to, chosen so a configured install and an unconfigured
+#: one behave alike. The bounds on the docker CLI calls beneath a command are
+#: :data:`~mcgyvr.sandbox.image.DOCKER_CALL_TIMEOUT_S` and
+#: :data:`~mcgyvr.sandbox.image.DOCKER_BUILD_TIMEOUT_S`, and are defaults in
+#: the same sense.
+DEFAULT_COMMAND_TIMEOUT_S = 900.0
+
+
+def command_timeout(timeout: float | None) -> float:
+    """The ceiling one command runs under: the caller's, or the built-in one.
+
+    Both modes run this over what they were handed, so ``run(..., timeout=None)``
+    is a command with the default ceiling rather than an unbounded one.
+    """
+    return DEFAULT_COMMAND_TIMEOUT_S if timeout is None else timeout
+
+
 class SandboxError(Exception):
     """A sandbox could not be created, populated, or torn down."""
+
+
+class NestedGitError(SandboxError):
+    """A ``.git`` entry below the workspace root, which host git would enter."""
+
+
+def nested_git(root: Path) -> str | None:
+    """The first ``.git`` entry below ``root``, as a relative path, or ``None``.
+
+    Host git over a tree holding a nested repository runs a child git inside
+    it, and that child runs the nested repository's own ``core.fsmonitor`` and
+    filter drivers. The top-level ``.git`` is the host's and is mounted
+    read-only into a container; any other one was written by a command, so no
+    host git is run over a tree that holds one. Directory or file (a
+    ``gitdir:`` pointer), in any case. Symlinks are not followed.
+    """
+    for here, dirs, files in os.walk(root):
+        top = Path(here) == root
+        for name in sorted([*dirs, *files]):
+            if name.lower() == ".git" and not (top and name == ".git"):
+                return (Path(here) / name).relative_to(root).as_posix()
+        if top:
+            dirs[:] = [d for d in dirs if d != ".git"]
+    return None
+
+
+def refuse_nested_git(root: Path) -> None:
+    """Raise :class:`NestedGitError` naming the entry when ``root`` holds one."""
+    found = nested_git(root)
+    if found is not None:
+        raise NestedGitError(
+            f"{found} is a git entry inside the workspace; host git would run "
+            f"its config, so nothing more is done over this tree"
+        )
 
 
 @dataclass(frozen=True)
@@ -129,10 +192,12 @@ def safe_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
     credential can only appear if a caller passes one, and this drops those
     before they enter. Everything a runtime needs on top of the image's own
     defaults (a working directory, a locale) is set by the mode, not here.
+    A value holding a URL with ``user:password@`` in it is a credential under
+    any name (an index, database or proxy URL), and is dropped the same way.
     """
     env: dict[str, str] = {}
     for name, value in (extra or {}).items():
-        if is_credential_var(name):
+        if is_credential_var(name) or scrub(value) != value:
             continue  # a caller mistake must not become a leak
         env[name] = value
     return env
@@ -142,9 +207,10 @@ def safe_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
 #
 # The context manager is the primary teardown path and covers interrupt,
 # because a `with` unwinds on KeyboardInterrupt. This registry is the
-# backstop for the case the context manager cannot cover — a hard crash or
-# os._exit — where atexit still runs registered reapers over whatever is
-# live. Each mode registers a cheap idempotent callable.
+# backstop for the case the context manager cannot cover — a normal
+# interpreter exit with a sandbox still registered. It does not run on
+# `os._exit`, a fatal signal or an interpreter crash. Each mode registers a
+# cheap idempotent callable.
 _LIVE_REAPERS: dict[int, tuple[Callable[[], None], ...]] = {}
 
 
@@ -154,7 +220,7 @@ def _install_reaper() -> None:
 
     Memoised rather than latched behind a module flag. The registry above has
     to be process-wide — there is one process exit to hook — but the *flag* did
-    not have to be rebindable, and §9's "no global mutable state" is checkable
+    not have to be rebindable, and "no global mutable state" is checkable
     only if the exceptions are zero: a guard that allows one legitimate
     ``global`` allows the next one that claims to be legitimate.
     """
@@ -238,7 +304,8 @@ class Sandbox(ABC):
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", self._base_commit)
-        _git(self.workspace, "clean", "-fdx")
+        # `-ff` removes nested repositories too; neither command runs their config.
+        _git(self.workspace, "clean", "-ffdx")
 
     def checkpoint(self) -> str:
         """Commit the workspace's current state and return the commit to restore to.
@@ -250,6 +317,7 @@ class Sandbox(ABC):
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
+        refuse_nested_git(self.workspace)
         _git(self.workspace, "add", "-A")
         _git(
             self.workspace,
@@ -276,7 +344,7 @@ class Sandbox(ABC):
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", checkpoint)
-        _git(self.workspace, "clean", "-fd")
+        _git(self.workspace, "clean", "-ffd")
 
     def drop_checkpoint(self) -> None:
         """Return ``HEAD`` to the base commit, keeping the working tree as it is.
@@ -288,6 +356,7 @@ class Sandbox(ABC):
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
+        refuse_nested_git(self.workspace)
         _git(self.workspace, "reset", "--mixed", self._base_commit)
 
     def base_changeset_ref(self) -> str:
@@ -306,22 +375,18 @@ class Sandbox(ABC):
     def source_base_commit(self) -> str:
         """The revision of the *source* repository this workspace was built from.
 
-        The same question ``base`` asked at construction, answered as a concrete
-        commit: it is the revision the worker started from, and it is the one
-        value here that means anything back in the repository a delivery commits
-        into. :meth:`base_changeset_ref` is its workspace-local twin and the two
-        are never equal — a delivery handed the wrong one fails to resolve its
-        base, which is how this came to be exposed at all.
+        The same question ``base`` asked at construction, answered as a
+        concrete commit: it is the revision the worker started from, and it is
+        the one value here that means anything back in the repository a
+        delivery commits into. :meth:`base_changeset_ref` is its
+        workspace-local twin and the two are never equal — a delivery handed
+        the wrong one fails to resolve its base.
 
         Raises when the source could name no commit — a non-git directory, or a
         repository with nothing committed yet. Both are populated by copying, and
         neither has a revision for a caller to diff against, so there is no
-        answer to give. It used to answer ``""``, and that turned out to be the
-        worse half of B7: ``deliver`` softened a falsy base to ``HEAD``, so the
-        one value meaning *there is no base* selected the one base that is a
-        moving name, and a delivery committed against wherever the branch had
-        got to. The two ends are fixed together — delivery refuses an empty base
-        by name, and this refuses to produce one.
+        answer to give. Delivery refuses an empty base by name, and this
+        refuses to produce one.
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
@@ -359,6 +424,10 @@ class Sandbox(ABC):
         ``env`` is additive and vetted: it is layered onto the mode's minimal
         environment through :func:`safe_env`, so no credential can enter even
         if a caller forwards one.
+
+        ``timeout`` is a ceiling in seconds; ``None`` asks for the built-in
+        :data:`DEFAULT_COMMAND_TIMEOUT_S` rather than for no ceiling at all.
+        Nothing a sandbox runs is unbounded.
         """
 
     @abstractmethod
@@ -504,10 +573,37 @@ def _git(
 
 
 def _remove_tree(path: Path | None) -> None:
-    """Remove a workspace, tolerating a partially-created or already-gone one."""
+    """Remove a workspace, tolerating a partially-created or already-gone one.
+
+    A command runs as the host user and can take the permissions off a
+    directory it made, so a tree that will not go is given them back and
+    removed again. One that still survives is named on stderr rather than left
+    behind in silence.
+    """
     if path is None:
         return
     shutil.rmtree(path, ignore_errors=True)
+    if not path.exists():
+        return
+    _unlock(path)
+    shutil.rmtree(path, ignore_errors=True)
+    if path.exists():
+        print(f"mcgyvr: workspace {path} could not be removed", file=sys.stderr)
+
+
+def _unlock(root: Path) -> None:
+    """Give the owner full access to every directory under ``root``.
+
+    Symlinks are not followed, so nothing outside the tree is touched.
+    """
+    pending = [root]
+    while pending:
+        here = pending.pop()
+        with contextlib.suppress(OSError):
+            if here.is_symlink() or not here.is_dir():
+                continue
+            here.chmod(stat.S_IRWXU)
+            pending.extend(here.iterdir())
 
 
 # --- factory -------------------------------------------------------------
@@ -526,8 +622,8 @@ def choose_mode(configured: str, docker_available: bool) -> _SandboxChoice:
 
     ``docker`` configured without a daemon does not fail — it falls back to
     the temp directory and says so once, because locking a user out for the
-    lack of Docker is the opposite of the intent (§5). ``tempdir``
-    configured is an explicit choice and carries the same weaker-mode note.
+    lack of Docker is the opposite of the intent. ``tempdir`` configured is an
+    explicit choice and carries the same weaker-mode note.
     """
     if configured == "tempdir":
         return _SandboxChoice("tempdir", (_WEAKER_MODE_NOTE,))

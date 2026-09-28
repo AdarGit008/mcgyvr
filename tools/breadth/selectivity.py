@@ -26,9 +26,9 @@ so the early ones are the obvious cases and the late ones the corners — which
 is how a thin real-world suite is thin.
 
 **What comes out.** For each draw budget k and checker strength s, selection is
-production's: the first draw that passes the *weak* checker wins ( —
-selection is the first gate pass). That winner is then judged by the *full*
-checker, which stands in for the truth. Three numbers per cell:
+production's: the first draw that passes the *weak* checker wins. That winner is
+then judged by the *full* checker, which stands in for the truth. Three numbers
+per cell:
 
 * ``won`` — tasks where the weak checker selected some candidate
 * ``true`` — of those, how many the full checker also passes
@@ -72,8 +72,8 @@ def _measure_rig() -> types.ModuleType:
 measure = _measure_rig()
 bundle = measure.bundle
 
-# Checker strengths as a fraction of the file's assertions, plus the weakest
-# check anyone would still call a check: does it run and do the obvious thing.
+# Checker strengths, as a fraction of the file's assertions (never fewer than
+# one).
 FRACTIONS = (0.25, 0.5, 0.75, 1.0)
 
 

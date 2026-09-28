@@ -9,7 +9,7 @@ that would silently spoil a run actually live:
   about a file resembling it — the same rule
   ``test_worker_prompt.py`` holds for Python's ``c2.md``. A drift here would not
   fail the sweep; it would produce numbers describing a prompt nobody ships.
-* **The ladder must stay nested.** the conditions are cumulative — c1 is
+* **The ladder must stay nested.** The conditions are cumulative — c1 is
   c2's opening, c2 is c3's — so a condition is *only* a size. If an edit made
   c1 differ from c2's first section in wording as well as length, the ladder
   would be measuring two variables and reporting one.
@@ -57,7 +57,7 @@ CONDITIONS = BUNDLE_TOOLS / "conditions"
 SHIPPED = REPO / "src" / "mcgyvr" / "prompts" / "javascript.md"
 
 # The composition the task set was built to, mapped onto mcgyvr's own catalog
-# vocabulary. It is not the composition and cannot be: the Python set
+# vocabulary. It is not the Python set's composition and cannot be: that set
 # used `refactor` and `edge_case`, neither of which exists in
 # `data/task-catalog.json`, so those intents are carried by the types that own
 # them here. Pinned as a test so a task added later has to state which arm it
@@ -70,7 +70,7 @@ COMPOSITION = {
 
 
 def _measure() -> types.ModuleType:
-    """The rig, imported by path — ``tools/`` is not a package."""
+    """The rig, imported by path — ``tools/`` has no ``__init__.py``."""
     spec = importlib.util.spec_from_file_location(
         "bundle_measure", BUNDLE_TOOLS / "measure.py"
     )
@@ -97,7 +97,8 @@ def _condition(name: str) -> str:
 
 
 def test_the_task_set_is_twenty_tasks() -> None:
-    """the n. A different one would not be comparable with its rates."""
+    """The n it was measured at. A different one would not be comparable with its
+    rates."""
     assert len(_task_dirs()) == 20
 
 
@@ -214,8 +215,8 @@ def test_stripping_provenance_leaves_a_markerless_bundle_alone() -> None:
 def test_only_the_lower_rungs_would_pass_the_measured_ceiling() -> None:
     """c3 is over ``MAX_BUNDLE_BYTES`` on purpose — it is the degradation end.
 
-    If c3 ever fit under the ceiling it would have stopped being the condition
-     named, and the ladder would have no upper arm.
+    If c3 ever fit under the ceiling it would have stopped being the degradation
+    condition, and the ladder would have no upper arm.
     """
     assert len(_condition("c1").encode("utf-8")) <= MAX_BUNDLE_BYTES
     assert len(_condition("c2").encode("utf-8")) <= MAX_BUNDLE_BYTES
@@ -257,8 +258,8 @@ def test_a_measured_bundle_does_not_imply_a_bundle_that_helped() -> None:
     path — but for different reasons, and the reasons are the point. The JS/TS
     ladder measured no effect at all; the Python one measured a real effect that
     ``render_user_message`` already delivers (#167). If these ever collapse to
-    the same value, a reader starts citing  as if it said what
-    said, or writes off an artifact that is worth four tasks in twenty to a
+    the same value, a reader starts citing one measurement as if it said what the
+    other said, or writes off an artifact that is worth four tasks in twenty to a
     harness without output rules of its own.
     """
     js = bundle_for("solution.ts")
@@ -837,7 +838,7 @@ def test_a_dispatch_error_is_a_row_not_an_exception(tmp_path: Path) -> None:
 
 
 def test_a_refused_reply_is_kept_verbatim_with_its_sha(tmp_path: Path) -> None:
-    """The replies the parser refuses are the corpus, not noise .
+    """The replies the parser refuses are the corpus, not noise.
 
     The JS/TS sweep kept an error code and dropped the text for 160 real
     replies; the refused ones are exactly the population a hand-authored

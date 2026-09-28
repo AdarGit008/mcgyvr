@@ -140,7 +140,7 @@ def test_the_waiver_is_a_parameter_and_never_a_default(identity: Any) -> None:
 def test_one_record_is_not_refused_for_what_it_could_not_answer(
     identity: Any,
 ) -> None:
-    """the consequence survives: an unknown build is still a rate.
+    """An unknown build is still a rate.
 
     The defect is two records agreeing *by shared absence*. One record agrees
     with nothing, so there is no comparison to refuse — what the caller owes is
@@ -201,11 +201,11 @@ def test_the_contrast_axis_is_never_a_keyed_field(identity: Any) -> None:
 
 
 def test_recorded_is_wider_than_keyed_and_the_gap_is_named(identity: Any) -> None:
-    """#276: recording is unconditional, keying is earned by perturbation.
+    """Recording is unconditional; keying is earned by perturbation.
 
-    The three digests  asked for sit in `PENDING` rather than in `KEY`,
-    and that is the correct state rather than an omission — nothing writes them
-    yet, and a field in the key that nothing writes is a check that cannot fire.
+    The three digests sit in `PENDING` rather than in `KEY`, and that is the
+    correct state rather than an omission: `identity.PENDING_REASON` says why for
+    each.
     """
     assert set(identity.KEY) <= set(identity.RECORDED)
     for field in ("model_sha256", "bar_sha256", "prompt_sha256"):
@@ -214,14 +214,13 @@ def test_recorded_is_wider_than_keyed_and_the_gap_is_named(identity: Any) -> Non
 
 
 def test_bundle_sha256_is_recorded_and_not_keyed_by_decision(identity: Any) -> None:
-    """clause 6 (#291), which asked the question and answered it `no`.
+    """Recorded and not keyed, because no perturbation run has admitted it.
 
-    Unlike its neighbours in `PENDING` this one has a writer
-    (`tools/breadth/measure.py:915`), so "nothing writes it" is not the reason —
-    #276's admission rule is, and no perturbation run has been done. The gap it
-    was raised to close is covered from the other end: `src/mcgyvr/prompts/*.md`
-    entered `product.SURFACE`, so the prompt files move `product_sha256`, which
-    is keyed.
+    This one has a writer in `tools/breadth/measure.py`, so "nothing writes it" is
+    not the reason — the admission rule is: a field enters `KEY` only once
+    perturbation shows it flips more verdicts than the declared bound. The prompt
+    files are covered from the other end: `src/mcgyvr/prompts/*.md` is inside
+    `product.SURFACE`, so they move `product_sha256`, which is keyed.
     """
     assert "bundle_sha256" in identity.RECORDED
     assert "bundle_sha256" in identity.PENDING
@@ -240,7 +239,7 @@ def test_drift_reads_absence_as_a_difference(identity: Any) -> None:
 
 
 def test_the_key_is_one_list_and_the_report_reads_it(identity: Any) -> None:
-    """D1 — five lists disagreed, and three lanes were queued to edit."""
+    """The comparability key is one list, and the report's key matches it."""
     report = by_path("bench_report_identity_t", REPO / "tools" / "bench" / "report.py")
     assert report.COMPARABLE is identity.KEY or tuple(report.COMPARABLE) == tuple(
         identity.KEY
@@ -320,10 +319,8 @@ def test_a_manifest_on_disk_can_be_read_for_its_state(identity: Any) -> None:
 
 # --- the writers (#285) -----------------------------------------------------
 #
-#  decided three fields change from a name to CONTENT and
-# shipped the shape; ten of the 27 declared fields had no writer, so `PENDING`
-# could not tell "not admitted" from "nothing computes it". These are the cases
-# for what now computes them.
+# The cases for what computes the declared fields, so `PENDING` means "not
+# admitted" and never "nothing computes it".
 
 
 def test_the_prompt_digest_moves_when_the_user_message_does(identity: Any) -> None:
@@ -440,8 +437,8 @@ def test_the_bar_digest_moves_with_the_rungs(identity: Any) -> None:
 
 
 def test_the_bar_digest_is_per_language(identity: Any) -> None:
-    """: no pooled figure across a stratum where the effect is
-    heterogeneous, and the two arms' bars are the case it was written from."""
+    """No pooled figure across a stratum where the effect is heterogeneous,
+    and the two arms' bars are such a stratum."""
     assert identity.BAR_PROBE_FILE["python"] != identity.BAR_PROBE_FILE["jsts"]
     _, why = identity.bar_digest(
         rungs=("acceptance",), language="cobol", stage_workspace=_stage_python
@@ -627,8 +624,8 @@ def test_neither_arm_is_type_checked_and_both_say_so(
     The issue reads it as the TypeScript arm alone — no `tsconfig.json` is
     staged. True, and incomplete: `score.lint_config` renders a `pyproject.toml`
     holding `[tool.ruff]` and nothing else, so `_declares_mypy` is false and the
-    Python arm is not type-checked either. Per  neither is a defect. The
-    defect was that a reader of a pass rate could not tell.
+    Python arm is not type-checked either. Neither is a defect; a reader of a
+    pass rate has to be able to tell.
 
     Asked of the product's own adapters rather than restated, so a repository
     that *does* declare a checker gets the real command — asserted below, or

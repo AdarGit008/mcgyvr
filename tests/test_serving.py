@@ -3,8 +3,7 @@
 The properties here are structural rather than numerical. What can go wrong in
 this tree is not a wrong figure — it is a backend reaching across at another, an
 orchestrator clearing away the server it was about to measure, or a family
-verdict that reads as complete while a member is missing. Each of those happened
-in the single-module predecessor, and each is a test below.
+verdict that reads as complete while a member is missing. Each is a test below.
 """
 
 from __future__ import annotations
@@ -66,9 +65,8 @@ def test_a_backend_never_names_another_backend(name: str) -> None:
     """The rule the whole structure rests on, enforced rather than trusted.
 
     A backend knows how to stop being on the card and how to get onto it. Who
-    else wants the card is the orchestrator's decision — and the bug this
-    prevents was real: an unconditional cleanup stopped one engine immediately
-    before measuring it, then recorded it as unreachable.
+    else wants the card is the orchestrator's decision: an unconditional cleanup
+    inside a backend would stop an engine immediately before it is measured.
 
     Checked against the OTHER backends' names, so a third engine is covered the
     day its file lands, with no edit here.
@@ -86,12 +84,7 @@ def test_a_backend_never_names_another_backend(name: str) -> None:
 
 @pytest.mark.parametrize("name", BACKENDS)
 def test_a_backend_loads_without_a_sibling_priming_the_cache(name: str) -> None:
-    """Each must stand alone.
-
-    One did not: it referenced `importlib` it had never imported, and passed
-    only because a sibling loaded first had already filled the shared contract
-    slot, so the early return skipped the broken line.
-    """
+    """Each must stand alone, whatever loaded before it."""
     for slot in [f"serving_backend_{b}" for b in BACKENDS] + ["serving_contract"]:
         sys.modules.pop(slot, None)
     module = by_path(f"solo_{name}", SERVING / "backends" / f"{name}.py")
@@ -143,8 +136,7 @@ class _Backend:
         coresident_with: Any = None,
     ) -> dict[str, Any]:
         # Accepted because the real backends do: a co-residency entry names its
-        # neighbour here, and a stub that refused the argument made the survey
-        # report `launch_failed` for a claim that never had a chance to run.
+        # neighbour here.
         self.coresident_with = coresident_with
         self.claimed.append(model)
         return {
@@ -157,9 +149,9 @@ class _Backend:
     def describe(
         self, host: str, base: str, model: str, serve: Any = None
     ) -> dict[str, Any]:
-        # `serve` is accepted because D1 made the launched width part of what a
-        # backend can be asked to describe: one engine states it on no endpoint,
-        # so there the only available value is the dispatched one.
+        # `serve` is accepted because the launched width is part of what a
+        # backend can be asked to describe; this fake has no host to read it
+        # from, so the only available value is the dispatched one.
         return {
             "backend": self.NAME,
             "capture": {"model_sha256": f"{self.NAME}-sha"},
@@ -196,12 +188,8 @@ def _stub(
 def test_the_engine_under_test_is_never_the_one_released(
     runner: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The bug this whole structure exists to prevent.
-
-    Measuring one engine must make every OTHER engine yield the card, and must
-    never stop the engine about to be measured. The predecessor stopped vLLM
-    unconditionally and then ramped a server that was no longer running.
-    """
+    """Measuring one engine makes every OTHER engine yield the card, and never
+    stops the engine about to be measured."""
     table = _stub(runner, monkeypatch)
     runner.run(
         {
@@ -392,7 +380,7 @@ def test_a_saturation_point_that_misses_its_expectation_is_flagged(
 def test_the_survey_ramp_names_the_host_its_levels_are_read_on(
     runner: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """#327: the per-level card and load are read over ssh to the rig, and
+    """The per-level card and load are read over ssh to the rig, and
     ``contract.ramp`` only knows which rig if the survey tells it. A ramp
     called without ``host`` writes every level's state as null with the
     command it never ran -- a silent loss on the one runner a config reaches.
@@ -433,18 +421,19 @@ def test_the_survey_ramp_names_the_host_its_levels_are_read_on(
 
 
 def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
-    """Two configured values on one engine, and a decline on the other.
+    """Two configured values on one engine, and on another a plateau that is
+    not a slot count.
 
     Real measurements. The vLLM servers were launched `--max-num-seqs 8` and
     `--max-num-seqs 16` and the throughput plateau returns exactly those — two
     DIFFERENT values on the same engine, which is what makes this a measurement
     of the flag rather than a number that happened to match once.
 
-    Two earlier rules were wrong in opposite directions and both are pinned
-    here. Reading the plateau alone reported 6 for a 2-slot ollama host.
-    Requiring the latency plateau to agree fixed that and then threw away the
-    correct 16, because latency does not stay flat until queueing starts: at
-    n=12 of 16 slots it had already risen 25% with every request still fitting.
+    Two rules fail in opposite directions and both are pinned here. Reading the
+    plateau as a slot count reports 4 for a host configured with 2. Requiring
+    the latency plateau to agree throws away the correct 16, because latency
+    does not stay flat until queueing starts: at n=12 of 16 slots it has already
+    risen 25% with every request still fitting.
     """
 
     def rows(triples: list[tuple[int, float, float]]) -> list[dict[str, Any]]:
@@ -507,17 +496,10 @@ def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
     assert contract.saturation(vllm8)["n"] == 8
     assert contract.saturation(vllm16)["n"] == 16
 
-    # D1: ollama's saturation point is REPORTED, not suppressed. The old rule
-    # returned None here because a 1.71x rise fell under BATCHING_SPEEDUP=2.0 —
-    # which was suppressing a real reading in order to stop it being mistaken
-    # for a slot count. The split makes the suppression unnecessary: this is
-    # where ollama's throughput stops rising, and it is NOT its slot count.
-    # **D2 moves this reading, and that is the point.** At the former inline
-    # 0.95 this curve read 6; at PLATEAU_FRACTION = 0.92 it reads 4, because
-    # the curve is still creeping upward by a percent or two per level and 0.95
-    # placed the saturation point later than the hardware reached it. Neither
-    # number was ever this engine's slot count — it was configured 2 — which is
-    # exactly why D1 stopped calling it one.
+    # The third curve's saturation point is REPORTED, not suppressed: this is
+    # where its throughput stops rising, and it is NOT its slot count -- that
+    # host was configured 2. The curve still creeps upward by a percent or two
+    # per level, so the reading depends on PLATEAU_FRACTION.
     assert contract.saturation(ollama)["n"] == 4
     assert contract.saturation(ollama)["refused"] is None
     assert contract.readings(ollama)["throughput_plateau_n"] == 4
@@ -527,24 +509,21 @@ def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
     assert contract.saturation(vllm16)["ramp_tokens"] == contract.RAMP_TOKENS
     assert contract.saturation(vllm16)["plateau_fraction"] == contract.PLATEAU_FRACTION
 
-    # `batches` is retired: it claimed to say which of two different quantities
-    # to believe.
+    # There is no `batches` reading: it would claim to say which of two
+    # different quantities to believe.
     assert "batches" not in contract.readings(vllm16)
 
-    # WHY the agreement rule was wrong: on a 16-slot server the two plateaus
-    # differ by design, because a bigger batch is slower per request.
+    # On a 16-slot server the two plateaus differ by design, because a bigger
+    # batch is slower per request.
     assert contract.readings(vllm16)["latency_plateau_n"] == 8
 
 
 def test_the_curve_reads_the_same_in_any_order_it_was_run(
     contract: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """#327. ``ramp()`` took ``rows[0]`` as the n=1 baseline and the plateau
-    scans returned the first row in list order, so one synthetic curve that
-    saturates at 4 read ``saturation_n`` 4 offered ascending and 24 offered
-    descending. The readers now see the rows sorted by ``n`` once, repeats
-    kept in the order they ran; the order offered is a condition on the row,
-    not a term in the reading.
+    """The readers see the rows sorted by ``n`` once, repeats kept in the order
+    they ran; the order offered is a condition on the row, not a term in the
+    reading.
     """
     throughput = {1: 100.0, 2: 200.0, 3: 300.0, 4: 400.0}
 
@@ -704,7 +683,7 @@ def test_the_shipped_config_pins_each_backend_with_its_own_field() -> None:
         )
 
 
-# --- what an adversarial pass found -----------------------------------------
+# --- failure paths ----------------------------------------------------------
 
 
 def test_one_model_failing_does_not_destroy_the_survey(
@@ -713,9 +692,8 @@ def test_one_model_failing_does_not_destroy_the_survey(
     """A survey is hours of rig time; an ssh dying in the last model must not
     discard every model before it.
 
-    Unguarded, one RuntimeError from `describe` propagated out of `run` and
-    nothing at all was written — the failure mode this whole instrument spent a
-    day learning to avoid, reintroduced at the orchestration layer.
+    Unguarded, one RuntimeError from `describe` would propagate out of `run`
+    and nothing at all would be written.
     """
     table = _stub(runner, monkeypatch)
     monkeypatch.setattr(
@@ -741,23 +719,10 @@ def test_one_model_failing_does_not_destroy_the_survey(
     assert result["refusals"][-1]["stage"].startswith("describe/ramp")
 
 
-# `test_a_model_id_with_a_quote_cannot_reach_the_shell` stood here. It built the
-# command one backend interpolated a model id into, handed it to a real bash,
-# and asserted that an id containing an apostrophe could not close the quote and
-# run the remainder — checked against a shell rather than by reading, because
-# reasoning about quoting is how quoting bugs survive review. That backend is in
-# `archive/forensic-ollama/`. The same class of defect on the path that is
-# actually driven is refused before any gate runs, by argument validation rather
-# than by quoting:
-# `tests/test_serving_door_cli.py`'s
-# `test_a_model_path_with_shell_characters_is_refused_before_any_gate` covers
-# `;`, `$(...)`, backticks, `|`, a space, `..` and a relative path.
-
-
 def test_an_unusable_environment_variable_name_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Values were quoted and keys were not, so an `env` key was a command.
+    """An `env` key is validated, not quoted: unvalidated, it is a command.
 
     A variable name is a narrow shape, so it is validated rather than escaped:
     quoting would produce a name no shell would export, hiding the typo instead
@@ -768,7 +733,7 @@ def test_an_unusable_environment_variable_name_is_refused(
         backend.contract, "ssh", lambda host, command, timeout=None: "launched"
     )
     monkeypatch.setattr(backend, "release", lambda host: {})
-    # #354: the card is stubbed like everything else here, so the pre-launch fit
+    # The card is stubbed like everything else here, so the pre-launch fit
     # check has no reading to work with and would refuse first. It is exercised
     # in tests/test_serving_memory_declaration.py; this test is about env names.
     monkeypatch.setattr(backend, "free_mib", lambda host: 12287)
@@ -780,11 +745,11 @@ def test_an_unusable_environment_variable_name_is_refused(
         backend._start(
             "h",
             "m",
-            # : `serve` must declare its KV cache or `_start` refuses
+            # `serve` must declare its KV cache or `_start` refuses
             # before it reaches the env names this test is about.
             {
                 "kv_cache_memory_bytes": 1879048192,
-                # #354: an entry that declares bytes also declares the
+                # An entry that declares bytes also declares the
                 # weights they are weighed against, or the fit check refuses
                 # before it reaches the env names.
                 "weights_bytes": 1181116006,
@@ -801,11 +766,8 @@ def test_a_pin_naming_the_wrong_field_is_refused_not_ignored(
     """A config that believes it is pinned and is not.
 
     Each backend computes a different KIND of digest, so a pin has to name the
-    one that backend produces. Naming another backend's field was silently
-    accepted: the success path returned before the check, because the real pin
-    was absent and absent means "nothing to verify". A pin that passes when
-    misspelled is worse than no pin, and this was only found by running it
-    against a live server rather than a stub.
+    one that backend produces. A pin naming another backend's field is refused:
+    a pin that passes when misspelled is worse than no pin.
 
     Parametrised over the discovered roster, so a third backend inherits the
     property the day its file lands.
@@ -823,14 +785,11 @@ def test_no_host_reading_reaches_disk_unredacted(
 
     A systemd `Environment=` line, a `docker inspect` env block, a process
     command line and an exported launch command are where a key actually lives —
-    far more so than the single endpoint URL the per-run capture already guarded
-    with a whole scrubbing subsystem. All of it was being written verbatim to a
-    tracked path; the careful redaction was on the small surface and none of it
-    on the large one.
+    far more so than the single endpoint URL the per-run capture guards.
 
-    Every reading path at once, because a targeted fix missed one: the parsed
-    per-instance detail was redacted while the raw listing it was parsed FROM
-    was not, and only a planted secret across the whole surface found it.
+    Every reading path at once, with one planted secret across the whole
+    surface: a parsed per-instance detail can be redacted while the raw listing
+    it was parsed FROM is not.
 
     Fixtures are assembled at runtime, never written as literals.
     """
@@ -853,9 +812,9 @@ def test_no_host_reading_reaches_disk_unredacted(
     for module in (contract, vllm.contract):
         monkeypatch.setattr(module, "ssh", _ssh)
     monkeypatch.setattr(vllm, "launcher", lambda host: "pip")
-    # #354: `_ssh` leaks on purpose and answers nothing numeric, so the card
-    # reading the fit check needs is absent and it would refuse before `_start`
-    # returns the launch record this test inspects.
+    # `_ssh` leaks on purpose and answers nothing numeric, so the card reading
+    # the fit check needs is absent and it would refuse before `_start` returns
+    # the launch record this test inspects.
     monkeypatch.setattr(vllm, "free_mib", lambda host: 12287)
     monkeypatch.setattr(
         vllm.contract, "get_json", lambda url, timeout=None: {"vllm_config": leak}
@@ -868,19 +827,19 @@ def test_no_host_reading_reaches_disk_unredacted(
             "vllm_launch": vllm._start(
                 "h",
                 "m",
-                # : declared so `_start` reaches the launch record this
+                # Declared so `_start` reaches the launch record this
                 # test reads; the value is irrelevant to redaction.
                 {
                     "kv_cache_memory_bytes": 1879048192,
-                    "weights_bytes": 1181116006,  # #354
+                    "weights_bytes": 1181116006,
                     "flags": ["--kv-cache-dtype", "auto"],
                     "env": {"HF_TOKEN": token},
                 },
             ),
-            # The three vLLM host-derived returns the first version of this
-            # test did not reach: the digest carries a home-directory snapshot
-            # path, and both config readers parse `/server_info`'s repr, which
-            # carries `model='/path/…'` and `download_dir`.
+            # Three vLLM host-derived returns: the digest carries a
+            # home-directory snapshot path, and both config readers parse
+            # `/server_info`'s repr, which carries `model='/path/…'` and
+            # `download_dir`.
             "vllm_weights": vllm.weights_sha256("h", "m"),
             "vllm_serving_config": vllm.serving_config("http://h:8000"),
             "vllm_running_config": vllm._running_config("http://h:8000"),
@@ -900,10 +859,10 @@ def test_no_host_reading_reaches_disk_unredacted(
 def test_an_unreadable_card_is_not_reported_as_an_idle_one(
     contract: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`(value or 0) <= threshold` collapsed "could not read" into "empty".
+    """`(value or 0) <= threshold` would collapse "could not read" into "empty".
 
     The most dangerous direction for this reading: an unreachable host would
-    have been recorded as ready to measure.
+    be recorded as ready to measure.
     """
     monkeypatch.setattr(contract, "ssh", lambda h, c, timeout=None: None)
     assert contract.snapshot("h")["gpu_idle"] is None
@@ -917,9 +876,8 @@ def test_one_missing_digest_is_undecided_not_a_refutation(
 ) -> None:
     """A missing measurement is not evidence of disagreement.
 
-    The guard fired only when EVERY member was null, so one member whose digest
-    could not be computed made the set two-valued and was reported as positive
-    evidence that the weights differ.
+    One member whose digest could not be computed must not make the set
+    two-valued and be reported as positive evidence that the weights differ.
     """
     table = _stub(runner, monkeypatch)
     table["alpha"].digest = "aaa"
@@ -949,8 +907,8 @@ def fingerprint() -> Any:
 
 
 # The four nested blocks from a live vLLM config, verbatim. A naive comma split
-# produced 55 keys where 33 exist and gave the wrong value for every one of
-# these — they are here because they are exactly what the depth-0 reader is for.
+# gives the wrong value for every one of these — they are exactly what the
+# depth-0 reader is for.
 LIVE_REPR = (
     "model='Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ', dtype=torch.float16, "
     "max_seq_len=8192, quantization=auto_awq, enforce_eager=True, "
@@ -962,7 +920,7 @@ LIVE_REPR = (
 
 
 def test_nested_config_survives_the_parse(fingerprint: Any) -> None:
-    """Splitting on every comma flattened nested constructors into phantoms."""
+    """Splitting on every comma would flatten nested constructors into phantoms."""
     parsed = fingerprint.parse_repr("Config(" + LIVE_REPR + ")")
     parsed.pop("_type", None)
     assert len(parsed) == 9, sorted(parsed)
@@ -981,7 +939,7 @@ def test_the_two_digests_move_independently(fingerprint: Any) -> None:
 
     The semantic half is the one a guard could key on, so a change to metrics
     must leave it untouched — and a change to structured-output enforcement must
-    move it, because that changes what a reply is allowed to be .
+    move it, because that changes what a reply is allowed to be.
     """
     base = fingerprint.parse_repr("Config(" + LIVE_REPR + ")")
     base.pop("_type", None)
@@ -1004,8 +962,7 @@ def test_an_unknown_key_refuses_rather_than_defaulting(fingerprint: Any) -> None
     """A new engine field must not fall silently to either side.
 
     Defaulting to "operational" would drop a setting that changes output out of
-    the semantic pin while the pin went on looking green — the exact failure
-    this module exists to prevent, reintroduced by a convenience.
+    the semantic pin while the pin went on looking green.
     """
     with pytest.raises(fingerprint.UnclassifiedError, match="brand_new_flag"):
         fingerprint.fingerprint({"dtype": "float16", "brand_new_flag": True})
@@ -1017,11 +974,7 @@ def test_no_key_is_both_semantic_and_operational(fingerprint: Any) -> None:
 
 
 def test_the_sampler_defaults_are_semantic(fingerprint: Any) -> None:
-    """49 of them sit under every request this project dispatches.
-
-    They were captured verbatim and read by nothing, which made the engine that
-    exposes MORE configuration the less-instrumented of the two.
-    """
+    """The sampler defaults sit under every request this project dispatches."""
     for name in (
         "temperature",
         "top_k",
@@ -1074,13 +1027,12 @@ def test_a_restart_mid_run_breaks_the_pin(pin_module: Any) -> None:
 
 
 def test_a_config_change_without_a_restart_breaks_the_pin(pin_module: Any) -> None:
-    """The claim the other two cannot make, and it is not hypothetical.
+    """The claim the other two cannot make.
 
-    Ollama re-derives serving parameters per model: measured on one host with
-    one OLLAMA_NUM_PARALLEL, `qwen2.5-coder:*` was served `-c 8192 -np 2` and
-    `nemotron-3-nano:4b` `-c 4096 -np 1`. Same machine, same pid, different
-    served window — so `same_machine` and `same_process` both hold while the
-    thing being described has changed underneath them.
+    An engine can re-derive serving parameters without restarting: same
+    machine, same pid, different served window — so `same_machine` and
+    `same_process` both hold while the thing being described has changed
+    underneath them.
     """
     result = pin_module.pin(
         _side("boot:100:7", "aaa"), _side("boot:100:7", "bbb"), {"held": True}
@@ -1133,33 +1085,12 @@ def test_a_reused_pid_after_a_reboot_is_not_the_same_process(pin_module: Any) ->
     assert result["claims"]["same_process"] is False
 
 
-# --- the two paths the adversarial review found untested --------------------
-#
-# `_ollama_rig` and the eight checks it fed stood here. All eight were about one
-# backend's `claim`: that a card which was not idle before the load is refused
-# (D4's withdrawn gate, whose stated replacement this proved was only ever true
-# of the prose), that a refusal carries its reasons as data rather than as
-# prose, that a load which fails once and succeeds once records both attempts
-# (#326), that a refused claim keeps its whole attempt trail, that a placement
-# key the backend does not read is refused, and the three co-residency checks —
-# that a neighbour is arranged rather than merely tolerated, that every
-# resident's placement is recorded and not only the model under test, and that a
-# resident whose row carries no usable size is named without inventing a
-# fraction for it.
-#
-# That backend was removed on 2026-09-06. The checks, the rig and the shapes
-# they were built from are in `archive/forensic-ollama/`. The two backends that
-# remain are launched with their checkpoint rather than pulling one in on
-# demand, so `claim` on them is `_start` plus a readiness loop, which
-# `test_the_launcher_refuses_the_exact_failure_it_exists_for` and the vLLM
-# launch checks below hold to.
-
-# --- #345: the same question, asked of the engine that cannot spill ---------
+# --- placements: whose memory is on the card --------------------------------
 
 #: What `ps -eo pid=,ppid=,args= | grep -E '[V]LLM::EngineCore|[v]llm serve|…'`
-#: printed on srv1, 2026-08-22, with vLLM installed by pip. Verbatim, because a
-#: fixture captures what the parser reads  — including the launcher's
-#: own `bash -c` line, which the grep matches too.
+#: printed on srv1, with vLLM installed by pip. Verbatim, because a fixture
+#: captures what the parser reads — including the launcher's own `bash -c` line,
+#: which the grep matches too.
 _SRV1_TREE = (
     "1133927       1 bash -c export VLLM_SERVER_DEV_MODE=1 "
     "FLASHINFER_DISABLE_VERSION_CHECK=1; export PATH=$HOME/.local/bin:$PATH; "
@@ -1174,7 +1105,7 @@ _SRV1_TREE = (
     "1133972 1133928 VLLM::EngineCore\n"
 )
 
-#: The same read on srv2 the same day, where this engine runs in a container:
+#: The same read on srv2, where this engine runs in a container:
 #: no launcher line, the binary at a different path, and the leading spaces `ps`
 #: pads a narrower pid column with.
 _SRV2_TREE = (
@@ -1223,17 +1154,15 @@ def _vllm_card(
 def test_a_vllm_placement_reports_the_card_it_holds_and_refuses_the_fraction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """rules 1 and 2, on both rigs' real readings.
+    """vLLM's placement is MiB and a refused fraction, on both rigs' real readings.
 
-    ollama reports `size_vram / size` because llama.cpp spills — 6.8% of a model
-    on the card, `load_http=200` beside it. vLLM cannot: `requested = ceil(total
-    * util)` behind a hard `free >= requested` precondition means it takes the
-    whole allocation or refuses to start, so there is no denominator and the
-    fraction is **refused with its reason**, never reported as the `1.0` that is
-    true by the engine's contract and would read as an ollama fraction of 1.0.
+    vLLM takes its whole allocation or refuses to start, so there is no
+    denominator and the fraction is **refused with its reason**, never reported
+    as the `1.0` that is true by the engine's contract and would read as a
+    measured fraction.
 
-    The MiB are the driver's own, measured 2026-08-22 on the declared serve
-    block of `srv-full.json`'s `q15-vllm-s8`: 3,126 on srv1, 3,174 on srv2.
+    The MiB are the driver's own, measured on the declared serve block of
+    `srv-full.json`'s `q15-vllm-s8`: 3,126 on srv1, 3,174 on srv2.
     """
     for tree, apps, mib, rig in (
         (_SRV1_TREE, _SRV1_APPS, 3126, "srv1"),
@@ -1247,10 +1176,10 @@ def test_a_vllm_placement_reports_the_card_it_holds_and_refuses_the_fraction(
         # Present and null, not absent: an absent key would say this reading
         # predates the contract, and this engine will never answer it.
         assert "fraction" in mine[0] and mine[0]["fraction"] is None
-        assert mine[0]["fraction_refused"], "D2: a null carries its reason"
+        assert mine[0]["fraction_refused"], "a null carries its reason"
         assert not [row for row in rows if row["fraction"] == 1.0], (
             "1.0 is true by this engine's contract and is the one value a "
-            "reader would compare against an ollama 0.068 (D4)"
+            "reader would compare against another engine's measured fraction"
         )
 
 
@@ -1284,14 +1213,13 @@ def test_the_pid_that_holds_the_card_names_no_model_so_the_owner_is_the_parent(
 def test_a_card_holder_this_engine_cannot_name_is_a_row_and_not_a_silence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """rule 3, against the co-residency reading that motivated it.
+    """Another engine's allocation on the card is a row with `name: null`.
 
-    srv1 held both engines on 2026-08-22: 3,126 MiB attributed to vLLM's worker
-    and 1,196 MiB to a `llama-server` whose parent is `ollama serve`. Dropping
-    the second row would make a shared card look solo, which is the same silence
-    #335 found on the other engine. Naming it would be this module claiming
-    about a model another engine serves, which it must never do — so it is a
-    row with `name: null` and the reason beside it.
+    The fixture is srv1 holding both engines: 3,126 MiB attributed to vLLM's
+    worker and 1,196 MiB to a `llama-server` whose parent is `ollama serve`.
+    Dropping the second row would make a shared card look solo. Naming it would
+    be this module claiming about a model another engine serves, which it must
+    never do — so it is a row with `name: null` and the reason beside it.
     """
     vllm = _vllm_card(monkeypatch, apps=_SRV1_APPS, tree=_SRV1_TREE, served=[_AWQ])
     rows = vllm.placements("srv1")
@@ -1304,7 +1232,7 @@ def test_a_card_holder_this_engine_cannot_name_is_a_row_and_not_a_silence(
 def test_a_served_model_the_driver_attributed_nothing_to_is_recorded_as_unplaced(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """rule 4 — the other direction of the same silence.
+    """A served model the driver attributes no memory to is kept, unplaced.
 
     The server answers `/v1/models` and the driver attributes no memory to it:
     a worker still starting, or one whose process the narrowed read did not
@@ -1361,13 +1289,12 @@ def test_an_unread_card_is_refused_and_never_an_empty_placement_list(
 def test_a_vllm_claim_records_where_everything_on_the_card_sits_and_gates_on_none_of_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """rule 5, on the claim side, where #335 put the ollama half.
+    """A vLLM claim records whose memory is on the card, and gates on none of it.
 
     `allocation_present` is a threshold over the card's TOTAL, so it says yes to
-    a card whose memory belongs to somebody else. What the claim could not say
-    was *whose*. It says so now — and still returns `ok`, with another engine's
-    1,196 MiB sitting beside it, because a shared card is the frontier this
-    campaign maps and a claim that refused one would refuse its own question.
+    a card whose memory belongs to somebody else. The claim says *whose* — and
+    still returns `ok`, with another engine's 1,196 MiB sitting beside it,
+    because a claim that refused a shared card would refuse its own question.
     """
     vllm = _vllm_card(
         monkeypatch,
@@ -1399,14 +1326,10 @@ def test_a_vllm_claim_records_where_everything_on_the_card_sits_and_gates_on_non
 def test_the_compute_apps_reading_is_declared_once_and_has_a_consumer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The reading stops being minted-and-unwired, and cannot go back.
+    """`COMPUTE_APPS_PROBE` is declared once and read twice.
 
-    §3 of the run contract names three idle readings this tree computes and
-    never reads, and warns against adding a fourth. `gpu_compute_apps` was one
-    of them: a string that appeared once, inside `snapshot`, consumed by
-    nothing. It is now declared once and read twice — `snapshot` records the
-    line, `vllm.placements` computes from it — and a second inline copy is how
-    the two would come to mean different things.
+    `snapshot` records the line and `vllm.placements` computes from it; a second
+    inline copy is how the two would come to mean different things.
     """
     launcher = _launcher()
     contract_source = (SERVING / "contract.py").read_text(encoding="utf-8")
@@ -1452,19 +1375,13 @@ def test_the_launcher_passes_on_the_tree_it_is_launching() -> None:
     assert launcher.check("test") == []
 
 
-# Two tests pinned launch.py's driver text here (dry-run report, interrupt trap);
-# retired: the door's gates 5, 7 and 8 (05-envelope, 07-teardown, 08-parse) own it
-# — tests/test_a_marker_check_is_not_a_launcher.py
-
-
 def test_the_launcher_refuses_the_exact_failure_it_exists_for(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """1.5 h of rig time went to a patch that silently never reached the file.
+    """The launcher REFUSES when a decision is missing, and names which one.
 
-    The unchanged harness ran and produced a full set of plausible readings. So
-    the interesting property is not that the launcher passes — it is that it
-    REFUSES when a decision is missing, and names which one.
+    A patch that silently never reaches the file leaves the unchanged harness
+    producing a full set of plausible readings.
     """
     launcher = _launcher()
     real = launcher.REPO
@@ -1486,11 +1403,10 @@ def test_the_launcher_refuses_the_exact_failure_it_exists_for(
 
 
 def test_a_docstring_naming_a_withdrawn_constant_is_not_a_hit() -> None:
-    """The absence check reads code, not prose, and this is why.
+    """The absence check reads code, not prose.
 
-    The first version was a plain substring test and refused a correct tree,
-    because the docstring explaining what D1 replaced `BATCHING_SPEEDUP = 2.0`
-    with contains the string. A record of what a constant used to be is the
+    A plain substring test refuses a correct tree, because a docstring there
+    mentions `BATCHING_SPEEDUP = 2.0`. A mention of a constant is the
     opposite of the defect the list hunts for — and a check that cannot tell a
     definition from a mention of one pushes every author toward deleting the
     explanation.
@@ -1505,17 +1421,15 @@ def test_a_docstring_naming_a_withdrawn_constant_is_not_a_hit() -> None:
 def test_the_launched_width_is_read_off_the_host_not_off_our_own_variable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """E5, revised: no endpoint carries it, but the host does.
+    """The launched width is read off the host, where the flag is.
 
-    Concluding "there is no observed source" from the HTTP surface alone stopped
-    one step early. The flag is in the server's own argv on the pip rig and in
-    the container's `Config.Cmd` on the docker rig — both verified on the rigs.
-    That matters because `claim` has a path that does NOT restart a server
-    already serving the wanted configuration, so on that path a server someone
-    else started at a different width would otherwise be described using our
-    variable, with nothing looking wrong.
+    The flag is in the server's own argv on the pip rig and in the container's
+    `Config.Cmd` on the docker rig. That matters because `claim` has a path
+    that does NOT restart a server already serving the wanted configuration,
+    so on that path a server someone else started at a different width would
+    otherwise be described using our variable, with nothing looking wrong.
 
-    Fixtures are the two real shapes, read off srv1 and srv2 on 2026-08-19.
+    Fixtures are the two real shapes, read off srv1 and srv2.
     """
     vllm: Any = by_path("width_vllm", SERVING / "backends" / "vllm.py")
     pip_argv = (
@@ -1536,9 +1450,9 @@ def test_the_launched_width_is_read_off_the_host_not_off_our_own_variable(
     agreed = vllm.declared_slots({"max_num_seqs": 16}, "h")
     assert agreed["value"] == 16 and agreed["provenance"] == "observed"
 
-    # The case the whole revision is for: the server is not ours. Neither number
-    # is reported, because picking one would be picking which of two
-    # contradictory facts about the running server to believe.
+    # The server is not ours. Neither number is reported, because picking one
+    # would be picking which of two contradictory facts about the running server
+    # to believe.
     clash = vllm.declared_slots({"max_num_seqs": 8}, "h")
     assert clash["provenance"] == "contradicted" and clash["value"] is None
 
@@ -1547,20 +1461,12 @@ def test_the_launched_width_is_read_off_the_host_not_off_our_own_variable(
     assert fallback["value"] == 8 and fallback["provenance"] == "dispatched"
 
 
-# Two tests pinned launch.py's serial guard and CAMPAIGN table here; retired:
-# the door's gates 5, 7 and 8 (05-envelope, 07-teardown, 08-parse) own it
-# — tests/test_a_marker_check_is_not_a_launcher.py
-
-
 def test_a_crashed_survey_resumes_instead_of_restarting(
     runner: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """D8 made the output durable; nothing read it back.
+    """A resumed survey does not re-measure a journalled cell.
 
-    Seventeen cells over six hours, one fsynced journal line each — and a
-    restart re-measured all of them anyway, because the journal was written and
-    never consulted. Durable output nothing resumes from is a record, not a
-    checkpoint.
+    Durable output nothing resumes from is a record, not a checkpoint.
 
     Simulated by journalling one cell, then re-running with that journal: the
     already-measured entry must not reach the backend a second time.
@@ -1577,7 +1483,7 @@ def test_a_crashed_survey_resumes_instead_of_restarting(
     journal = tmp_path / "journal.jsonl"
     runner.run(config, journal=journal)
     assert len(table["alpha"].claimed) == 2
-    # Two cells and, since #325, the survey's own phase row.
+    # Two cells and the survey's own phase row.
     assert len(journal.read_text(encoding="utf-8").strip().splitlines()) == 3
 
     prior = runner.completed(journal)
@@ -1593,7 +1499,7 @@ def test_a_crashed_survey_resumes_instead_of_restarting(
 def test_every_survey_journal_row_carries_the_stamp_its_document_carries(
     runner: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """#325: one run, one stamp, on every journal row and on `result["run"]`.
+    """One run, one stamp, on every journal row and on `result["run"]`.
 
     Driven through `main` so `config_sha256` is over the bytes the file held
     -- including a `_`-key that the survey ignores and the digest must not.
@@ -1666,11 +1572,9 @@ def test_resume_keeps_a_refusal_but_retry_failed_drops_it(tmp_path: Path) -> Non
 def test_a_torn_line_costs_one_sample_not_two(tmp_path: Path) -> None:
     """A crash mid-append leaves a line without its newline.
 
-    The next append is then concatenated onto it, the PAIR fails to parse, and
-    two records are lost — including one written after the crash, by the run
-    that was supposed to be recovering. The comment claiming this "re-does
-    exactly that one sample" was true of the torn row and false of the row
-    after it.
+    Unhealed, the next append is concatenated onto it, the PAIR fails to parse,
+    and two records are lost — including one written after the crash, by the run
+    that was supposed to be recovering.
     """
     runner: Any = by_path("torn_run", SERVING / "run.py")
     journal = tmp_path / "j.jsonl"
@@ -1695,9 +1599,10 @@ def test_retry_failed_does_not_resurrect_a_superseded_measurement(
 ) -> None:
     """A cell measured `ok`, then re-measured `refused`, is refused.
 
-    Filtering during the scan let the older `ok` line survive the newer one, so
-    the cell was counted done and the document reported `ok` for a cell whose
-    most recent answer was a refusal — the opposite of what the flag is for.
+    Filtering during the scan would let the older `ok` line survive the newer
+    one, so the cell would be counted done and the document would report `ok`
+    for a cell whose most recent answer was a refusal — the opposite of what the
+    flag is for.
     """
     runner: Any = by_path("supersede_run", SERVING / "run.py")
     journal = tmp_path / "j.jsonl"
@@ -1715,22 +1620,20 @@ def test_retry_failed_does_not_resurrect_a_superseded_measurement(
 def test_calibrate_retry_failed_does_not_resurrect_a_superseded_sample(
     tmp_path: Path,
 ) -> None:
-    """`run.py`'s DE-D defect, in the module that never got the fix.
+    """A sample measured once, then re-measured into a failure, is a failure.
 
-    A sample measured once, then re-measured into a failure, is a failure. The
-    filter ran DURING the scan here, so the older good line survived the newer
-    bad one and `--retry-failed` counted the cell done — skipping the retry it
-    was asked for. The twin in `run.py` is pinned by
+    A filter that runs DURING the scan lets the older good line survive the
+    newer bad one, and `--retry-failed` counts the cell done — skipping the
+    retry it was asked for. The twin in `run.py` is pinned by
     `test_retry_failed_does_not_resurrect_a_superseded_measurement`.
     """
     cal: Any = by_path("supersede_cal", SERVING / "calibrate.py")
     out = tmp_path / "c.jsonl"
     sample = {"phase": "ramp", "host": "srv2", "engine": "vllm", "model": "m"}
 
-    # DE-D's own case, restated with a REFUSAL as the superseding row. A refusal
-    # is an answer about this rig at these settings, so a plain resume counts
-    # the cell done and only `--retry-failed` re-does it -- which is the
-    # ordering property this test was written for.
+    # The superseding row is a REFUSAL. A refusal is an answer about this rig at
+    # these settings, so a plain resume counts the cell done and only
+    # `--retry-failed` re-does it.
     out.write_text(
         json.dumps({**sample, "saturation_n": 8})
         + "\n"
@@ -1741,13 +1644,8 @@ def test_calibrate_retry_failed_does_not_resurrect_a_superseded_sample(
     assert len(cal.completed(out)) == 1
     assert cal.completed(out, retry_failed=True) == set()
 
-    # **Changed 2026-08-20 (A6).** This assertion used to read `== 1` with an
-    # `error` row superseding the success, which pinned the defect rather than
-    # the property: an exception is not an answer, nothing was learned, and the
-    # cell is still owed. Counting it done made a cell lost to a transient error
-    # unrecoverable by the `--resume` the campaign driver runs. DE-D's ordering
-    # is unchanged and is asserted above; what changed is which failures a plain
-    # resume forgives.
+    # An `error` row superseding the success is not an answer: nothing was
+    # learned, and the cell is still owed, so a plain resume re-does it.
     out.write_text(
         json.dumps({**sample, "saturation_n": 8})
         + "\n"
@@ -1782,16 +1680,11 @@ def test_a_journal_reads_one_byte_to_heal_its_tail(tmp_path: Path) -> None:
 def test_a_lapsed_coresidency_is_counted_not_only_recorded(
     runner: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The refusal list is what a consumer counts; this path left it empty.
-
-    Four refusal paths set a row-level refusal and three of them also appended
-    to `result["refusals"]`. The one that did not was the post-ramp co-residency
-    lapse — so the entry whose entire purpose is co-residency was the entry
-    whose failure the top-level summary reported as no failure at all.
+    """The refusal list is what a consumer counts, and a post-ramp co-residency
+    lapse is on it.
     """
     table = _stub(runner, monkeypatch)
-    # Resident when the claim looks, gone by the time the ramp ends: BL-6, an
-    # ollama neighbour pinned with `keep_alive: -1` that the server evicts.
+    # Resident when the claim looks, gone by the time the ramp ends.
     monkeypatch.setattr(table["alpha"], "residents", lambda host: [], raising=False)
     result = runner.run(
         {
@@ -1821,7 +1714,7 @@ def test_a_lapsed_coresidency_is_counted_not_only_recorded(
 def test_the_post_ramp_coresidency_verdict_says_where_each_neighbour_sat(
     runner: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """#335 box 5, on the AFTER side — `held` is a verdict on a name list.
+    """On the AFTER side, `held` is a verdict on a name list.
 
     The lapse check above catches a neighbour that LEFT. It cannot catch one
     that stayed and spilled: an evicted neighbour disappears from the name
@@ -1877,11 +1770,10 @@ def test_a_backend_that_cannot_report_placement_writes_null_and_not_a_number(
 ) -> None:
     """Absent is not zero and it is not one.
 
-    Placement is a fact only an engine that reports it can state — `vllm.py`
-    has no `residents` at all today, let alone this. The field is present on
-    every row so a reader never has to ask whether it was looked for, and it is
-    `null` where it was not, because a default here would be a measurement
-    nobody took.
+    Placement is a fact only an engine that reports it can state. The field is
+    present on every row so a reader never has to ask whether it was looked for,
+    and it is `null` where it was not, because a default here would be a
+    measurement nobody took.
     """
     table = _stub(runner, monkeypatch)
     monkeypatch.setattr(
@@ -1914,9 +1806,9 @@ def test_a_resumed_survey_still_reports_its_refusals(
 ) -> None:
     """The deliverable must not claim a run refused nothing when it refused.
 
-    The resume skip returned before any refusal was appended, and the survey is
-    resumed by design — so `d7-survey.json` would have carried `refusals: []`
-    for a run that refused. D8 decided a campaign be countable rather than read.
+    The survey is resumed by design, so a resume skip that returned before a
+    journalled refusal is appended would carry `refusals: []` for a run that
+    refused.
     """
     table = _stub(runner, monkeypatch)
 
@@ -1942,11 +1834,11 @@ def test_a_resumed_survey_still_reports_its_refusals(
 def test_an_entry_key_the_survey_reads_nowhere_is_refused(
     runner: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`expect` and `placement` were whitelisted; the entry itself was not.
+    """An entry's own keys are whitelisted, as `expect` and `placement` are.
 
-    Mistype `coresident_with` and the co-residency entry measures SOLO under a
-    label that says otherwise, with `coresidency_arranged: null` rather than a
-    refusal — the same silent nothing E6 was written against, one level up.
+    Mistyped, `coresident_with` would measure the co-residency entry SOLO under
+    a label that says otherwise, with `coresidency_arranged: null` rather than a
+    refusal.
     """
     _stub(runner, monkeypatch)
     with pytest.raises(runner.contract.NotCleanError, match="reads nowhere"):
@@ -1966,32 +1858,26 @@ def test_an_entry_key_the_survey_reads_nowhere_is_refused(
         )
 
 
-# --- #352: the post-state container clause, narrowed and then recorded -------
+# --- the post-state container clause: running is gated, stopped is recorded --
 #
-# The run contract's second post-state clause read "no container of ours", and
-# the reading beneath it was `docker ps`, which lists RUNNING containers only.
-# Phase 0 ended with every post-state reading clean and srv2 holding
-# `mcgyvr-vllm  Exited (1)`: the clause asserted a property wider than the one
-# it tested. The clause is narrowed to "running" — owner's ruling, 2026-08-23,
-# `archive/docs/run-contract-2026-08-22.md` §4 — and the stopped container is recorded
-# instead of required absent, because it is where a failed launch's reason
-# lives. The checks below hold both halves against the commands the module
-# actually sends, not against its source text.
+# `docker ps` lists RUNNING containers only, so a container of ours that exited
+# is invisible to it. The gate's clause is "no RUNNING container of ours"; the
+# stopped container is recorded instead of required absent, because it is where
+# a failed launch's reason lives. The checks below hold both halves against the
+# commands the module actually sends, not against its source text.
 
-#: srv2's leftover, in the shape `docker ps -a` printed it on 2026-08-23.
+#: srv2's leftover, in the shape `docker ps -a` prints it.
 _STOPPED_CONTAINER = "mcgyvr-vllm Exited (1) 4 hours ago"
 
-#: The last line of a vLLM launch that died allocating KV cache — the #354
-#: refusal reason that had to be recovered by re-running a cell, because the
-#: next cell's `docker rm -f` destroyed the container holding it.
+#: The last line of a vLLM launch that died allocating KV cache.
 _OOM_TAIL = (
     "ERROR [core.py:770] EngineCore failed to start.\n"
     "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 256.00 MiB\n"
 )
 
-#: srv2's four, exactly as `docker ps -a` printed them on 2026-08-23. **Two
-#: tags, one image id** (`ffb2d59b1c05` for both `:latest` and `:v0.26.0`,
-#: measured on both rigs), and exactly one of the four is ours.
+#: srv2's four, exactly as `docker ps -a` printed them. **Two tags, one image
+#: id** (`ffb2d59b1c05` for both `:latest` and `:v0.26.0`, measured on both
+#: rigs), and exactly one of the four is ours.
 _SRV2_ALL = (
     "mcgyvr-vllm vllm/vllm-openai:v0.26.0 Exited (0) 2 hours ago",
     "vllm-7b-coder vllm/vllm-openai:v0.26.0 Exited (0) 5 days ago",
@@ -2055,7 +1941,7 @@ def _vllm_stopped_box(
 def test_a_stopped_container_of_ours_is_in_the_record_and_out_of_the_gate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """#352's two halves, on one host, in one check because they are one ruling.
+    """The two halves, on one host, in one check because they are one rule.
 
     The record must see it: a container named `mcgyvr-vllm` sitting `Exited (1)`
     on the box is ours, and an operator told `engine_containers_remaining: 0`
@@ -2063,23 +1949,22 @@ def test_a_stopped_container_of_ours_is_in_the_record_and_out_of_the_gate(
 
     The gate must not act on it: `released` is the orchestrator's only exclusion
     gate, and what it decides is whether anything of ours still holds the card.
-    A stopped container holds none of it. Widening the gate instead would have
-    made the contract's cheapest guarantee turn on a state that costs nothing.
+    A stopped container holds none of it. Widening the gate instead would make
+    the contract's cheapest guarantee turn on a state that costs nothing.
     """
     vllm, _, _sent = _vllm_stopped_box(monkeypatch)
 
     record = vllm.readings("h")["containers"]["stdout"]
     assert "mcgyvr-vllm" in record and "Exited" in record, (
-        "the record cannot see a container of ours that exited — the exact "
-        "state phase 0 left on srv2 and reported as clean"
+        "the record cannot see a container of ours that exited"
     )
 
     released = vllm.release("h")
     assert released["engine_containers_remaining"] == 0
     assert released["our_containers_remaining"] == 0
     assert released["released"] is True, (
-        "a stopped container held the gate shut: the clause was narrowed to "
-        "running, not the gate widened to match the clause"
+        "a stopped container held the gate shut: the gate's clause is about "
+        "running containers"
     )
 
 
@@ -2089,10 +1974,9 @@ def test_canary_the_running_only_reading_calls_the_same_host_empty(
     """Shown to reject — the check above passes because of `-a` and nothing else.
 
     Asserting that `readings` contains the string `-a` would confirm the
-    thermometer was installed (`tests/test_sink_conformance.py:11-18`). This
-    puts the pre-fix question to the same host and shows the answer differs:
-    without `-a` the exited container reads as absent, which is the defect
-    itself rather than a difference in phrasing.
+    thermometer was installed (`tests/test_sink_conformance.py`'s module
+    docstring). This puts the running-only question to the same host and shows
+    the answer differs: without `-a` the exited container reads as absent.
     """
     vllm, ssh, sent = _vllm_stopped_box(monkeypatch, name="canary_stopped_vllm")
     vllm.readings("h")
@@ -2101,7 +1985,7 @@ def test_canary_the_running_only_reading_calls_the_same_host_empty(
     assert " -a " in listings[0]
     assert ssh("h", listings[0].replace("docker ps -a ", "docker ps ")) == "", (
         "this host answers the running-only reading the same way, so the check "
-        "above would still pass with the fix reverted"
+        "above would still pass without `-a`"
     )
 
 
@@ -2113,8 +1997,8 @@ def test_the_width_read_off_a_container_ignores_the_one_that_exited(
     `launched_width` reads `--max-num-seqs` off a container's own argv, and
     `docker ps -a` lists the newest first — so a sweep that added `-a` here too
     would answer with the width of the run that FAILED, which is the one number
-    this reading exists to get right. It answers `None` with its source instead,
-    which is D2's shape: a reading that was not taken says so.
+    this reading exists to get right. It answers `None` with its source instead:
+    a reading that was not taken says so.
     """
     vllm, _, sent = _vllm_stopped_box(monkeypatch, name="width_stopped_vllm")
     width = vllm.launched_width("h")
@@ -2175,17 +2059,14 @@ def _vllm_launch(
 def test_a_launch_that_never_became_ready_carries_the_log_the_next_cell_destroys(
     monkeypatch: pytest.MonkeyPatch, binary: str, image: str, how: str, read: str
 ) -> None:
-    """#352's third box, and the one that cost rig time.
+    """A failed launch's refusal carries the log tail, not a place to look.
 
-    The refusal used to tell the reader to go and look at `docker logs
-    mcgyvr-vllm` or `/tmp/vllm-serving.log`. Both are gone by the time anybody
-    does: the next cell opens with `docker rm -f mcgyvr-vllm` on the container
-    rig, and the pip launch redirects `> /tmp/vllm-serving.log`, which truncates
-    the previous cell's rather than appending to it. The 2026-08-23 campaign ran
-    a cell byte-identically a second time to recover a reason this call keeps.
+    `docker logs mcgyvr-vllm` and `/tmp/vllm-serving.log` are both gone by the
+    time anybody looks: the next cell opens with `docker rm -f mcgyvr-vllm` on
+    the container rig, and the pip launch redirects `> /tmp/vllm-serving.log`,
+    which truncates the previous cell's rather than appending to it.
 
-    Both launchers, because the pip rig loses it the same way and that had not
-    been noticed — the instruction named two places and neither survived.
+    Both launchers, because the pip rig loses it the same way.
     """
     vllm, sent = _vllm_launch(
         monkeypatch,
@@ -2198,7 +2079,7 @@ def test_a_launch_that_never_became_ready_carries_the_log_the_next_cell_destroys
         vllm._start(
             "h",
             "m",
-            # A fraction rather than bytes, so #354's pre-check has nothing
+            # A fraction rather than bytes, so the fit pre-check has nothing
             # to weigh and this stays a test about the launch failing.
             {"max_model_len": 2048, "max_num_seqs": 8, "gpu_memory_utilization": 0.5},
         )
@@ -2231,7 +2112,7 @@ def test_the_engine_log_is_read_only_where_it_is_about_to_be_lost(
     started = vllm._start(
         "h",
         "m",
-        # A fraction rather than bytes, so #354's pre-check has nothing
+        # A fraction rather than bytes, so the fit pre-check has nothing
         # to weigh and this stays a test about the launch failing.
         {"max_model_len": 2048, "max_num_seqs": 8, "gpu_memory_utilization": 0.5},
     )
@@ -2242,7 +2123,7 @@ def test_the_engine_log_is_read_only_where_it_is_about_to_be_lost(
 def test_a_log_the_host_would_not_give_up_is_a_reason_and_not_a_silence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """D2 on the failure path: the refusal survives the reading failing.
+    """The refusal survives the reading failing.
 
     `contract.ssh` answers `None` for a host it could not reach, and a host that
     will not answer is exactly where a launch fails. A reading that could not be
@@ -2260,7 +2141,7 @@ def test_a_log_the_host_would_not_give_up_is_a_reason_and_not_a_silence(
         vllm._start(
             "h",
             "m",
-            # A fraction rather than bytes, so #354's pre-check has nothing
+            # A fraction rather than bytes, so the fit pre-check has nothing
             # to weigh and this stays a test about the launch failing.
             {"max_model_len": 2048, "max_num_seqs": 8, "gpu_memory_utilization": 0.5},
         )
@@ -2296,7 +2177,7 @@ def test_the_engine_log_goes_through_the_same_scrubber_as_every_other_reading(
         vllm._start(
             "h",
             "m",
-            # A fraction rather than bytes, so #354's pre-check has nothing
+            # A fraction rather than bytes, so the fit pre-check has nothing
             # to weigh and this stays a test about the launch failing.
             {"max_model_len": 2048, "max_num_seqs": 8, "gpu_memory_utilization": 0.5},
         )
@@ -2306,28 +2187,25 @@ def test_the_engine_log_goes_through_the_same_scrubber_as_every_other_reading(
     assert "redacted" in message, "the tail reached the record without a scrub"
 
 
-# --- #355: "ours" is a name, the gate's scope is the engine, and they differ --
+# --- "ours" is a name, the gate's scope is the engine, and they differ -------
 #
-# The container readings filter on `--filter ancestor=<pinned tag>`, and the
-# count derived from them was called `own_containers_remaining`. On srv2 that
-# reading returns four containers of which one is ours. The process arm had the
-# identical defect one level down: `pgrep` for this engine's patterns matches
-# any `vllm serve` on the host, and it too was called `own_`. Both are the right
+# The container readings filter on this engine's image, and `pgrep` for this
+# engine's patterns matches any `vllm serve` on the host. Both are the right
 # SCOPE for an exclusion gate — anything of this engine that is up holds the
-# card — and both were making a claim about ownership that they never tested.
+# card — and neither is a claim about ownership: on srv2 the container reading
+# returns four containers of which one is ours.
 
 
 def test_a_stranger_of_this_engine_shuts_the_gate_and_is_not_counted_as_ours(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The two numbers that were one number, on the box where they differ.
+    """Two numbers, on the box where they differ.
 
     A foreign container of this engine holds the card we are about to measure
-    on, so it must shut the gate — that is E8's finding and it is unchanged.
-    What changes is that the record no longer calls it ours. `released` false
-    with `our_containers_remaining: 0` is a complete sentence: something of this
-    engine is up, and it is not something we started, so we may neither measure
-    behind it nor clear it away.
+    on, so it must shut the gate, and the record does not call it ours.
+    `released` false with `our_containers_remaining: 0` is a complete sentence:
+    something of this engine is up, and it is not something we started, so we
+    may neither measure behind it nor clear it away.
     """
     vllm, _, _sent = _vllm_stopped_box(
         monkeypatch,
@@ -2348,13 +2226,12 @@ def test_a_stranger_of_this_engine_shuts_the_gate_and_is_not_counted_as_ours(
 def test_release_stops_the_container_this_module_started_and_no_other(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The defect with teeth: it stopped by image, so it stopped strangers.
+    """The stop names our container; it is never driven by a list.
 
-    The filtered list went to `xargs -r docker stop`. On srv2 that list is four
-    containers, one of them ours. A cell never repairs a machine it found wrong
-    (run contract §4), and killing another user's server is further from repair
-    than anything that clause was written about — it is not cleanup, it is an
-    outage somebody else has to explain.
+    On srv2 the engine's list is four containers, one of them ours. A cell never
+    repairs a machine it found wrong, and killing another user's server is
+    further from repair than that — it is not cleanup, it is an outage somebody
+    else has to explain.
     """
     vllm, _, sent = _vllm_stopped_box(
         monkeypatch,
@@ -2378,15 +2255,13 @@ def test_release_stops_the_container_this_module_started_and_no_other(
 def test_the_other_tag_is_seen_because_the_repository_is_matched_not_the_pin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """#355 box 4, and it is measured rather than reasoned.
+    """A container of this engine under another tag is visible to the gate.
 
-    `--filter ancestor=<tag>` matches by resolved image ID. On both rigs
-    2026-08-23 `:latest` and `:v0.26.0` are the same id, `ffb2d59b1c05`, so the
-    pinned filter returned the `:latest` containers too and the two filters gave
-    byte-identical sets. **That is E8's coincidence, still live.** Pull a newer
-    `:latest` and every container of it goes invisible while `released` keeps
-    reporting True — the exact failure E8 was written against, arriving from the
-    other direction. Matching the repository does not depend on the ids agreeing.
+    `--filter ancestor=<tag>` matches by resolved image ID, so a pinned-tag
+    filter sees `:latest` containers only while the two tags share an id. Pull a
+    newer `:latest` and every container of it goes invisible while `released`
+    keeps reporting True. Matching the repository does not depend on the ids
+    agreeing.
     """
     vllm, _, _sent = _vllm_stopped_box(
         monkeypatch,
@@ -2410,9 +2285,8 @@ def test_a_container_of_an_unrelated_image_is_not_counted_and_that_is_the_limit(
     mirror — is not matched by a repository string and would still hold the
     card. It is out of this reading's reach by construction, not by oversight.
     Where it shows is `card_used_mib`, which is recorded beside `released` and
-    deliberately not part of it: consulting the card here made a backend that
-    holds nothing report failure whenever another engine held the card, and
-    refused the very engine it was about to measure.
+    deliberately not part of it: consulting the card here would make a backend
+    that holds nothing report failure whenever another engine holds the card.
     """
     vllm, _, _sent = _vllm_stopped_box(
         monkeypatch,
@@ -2452,16 +2326,10 @@ def test_canary_ours_is_told_from_a_stranger_by_the_one_thing_that_differs(
 def test_no_backend_still_calls_a_scope_reading_an_ownership_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The rename, because the count was the same false claim on both arms.
+    """The process count is keyed `engine_`, not `own_`.
 
-    `own_processes_remaining` said the process was ours. Nothing on a host
-    distinguishes a server this project caused from one it did not — that was
-    sharpest on the backend removed on 2026-09-06, which spawned a child, chose
-    its port at load time and gave it no name anything set, but it is true of a
-    container someone started by hand too. `engine_` is the whole of what can be
-    true, so it is what the key says.
-
-    One arm now. The other is in `archive/forensic-ollama/` with its rig.
+    Nothing on a host distinguishes a server this project caused from one it did
+    not. `engine_` is the whole of what can be true, so it is what the key says.
     """
     module, _, _sent = _vllm_stopped_box(monkeypatch, name="renamed_vllm")
     released = module.release("h")
@@ -2471,7 +2339,7 @@ def test_no_backend_still_calls_a_scope_reading_an_ownership_one(
 
 
 # --------------------------------------------------------------------------
-# #356 — every constant names the run behind it, and the ladder follows the
+# every constant names the run behind it, and the ladder follows the
 # configured width
 # --------------------------------------------------------------------------
 
@@ -2515,11 +2383,10 @@ def _provenance_defects(contract: Any) -> list[str]:
     ]
     for name, entry in table.items():
         run = REPO / str(entry.get("run", ""))
-        # The run's data stays under records/evidence/; its README was moved to
-        # archive/docs/archive/evidence-prose/<dir>/ on 2026-08-26 under the tree's rule
-        # that prose lives in the archive. A constant is still only citable if
-        # its run carries a written provenance -- this accepts either location
-        # and refuses a run that has none.
+        # A constant is only citable if its run carries a written provenance:
+        # a README under records/evidence/<dir>/ or under
+        # archive/docs/archive/evidence-prose/<dir>/. A run with neither is
+        # refused.
         readme_here = run / "README.md"
         readme_archived = (
             REPO
@@ -2551,16 +2418,14 @@ def _provenance_defects(contract: Any) -> list[str]:
 
 
 def test_every_serving_constant_names_the_run_behind_it(contract: Any) -> None:
-    """#356 — a number pinned by a marker while the run behind it is void.
+    """Every numeric constant in `contract.py` names the run behind it.
 
-    The D7 campaign ran every ramp with `--enforce-eager`, measured 2026-08-24
-    at 5.02x on srv2, and the constants read off its curves were pinned by
-    `launch.py:MARKERS` -- which certify that a string is present, not that
-    the measurement behind it stands. This check makes the run part of the
-    constant: every numeric constant in `contract.py` names the evidence
-    directory it was derived from or re-read against, with a date, a kind,
-    and a note; the directory must exist and carry a README. A constant this
-    check cannot see (a string, a path) is not a calibration.
+    A marker certifies that a string is present, not that the measurement behind
+    it stands. This check makes the run part of the constant: every numeric
+    constant in `contract.py` names the evidence directory it was derived from
+    or re-read against, with a date, a kind, and a note; the directory must
+    exist and carry a README. A constant this check cannot see (a string, a
+    path) is not a calibration.
     """
     constants = _numeric_constants(contract)
     assert len(constants) >= 10, (
@@ -2573,7 +2438,7 @@ def test_the_provenance_check_is_shown_to_reject(
     contract: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Three mutants: a constant with no entry, a run that is not on disk, an
-    entry with no constant. A check that cannot fail is a MARKERS table."""
+    entry with no constant. A check that cannot fail certifies nothing."""
     monkeypatch.setattr(contract, "NEW_FLOOR_TOKENS_PER_S", 3.0, raising=False)
     assert any("NEW_FLOOR_TOKENS_PER_S" in d for d in _provenance_defects(contract))
     monkeypatch.delattr(contract, "NEW_FLOOR_TOKENS_PER_S")
@@ -2592,8 +2457,7 @@ def test_the_provenance_check_is_shown_to_reject(
 
 
 def test_the_ladder_follows_the_configured_width(contract: Any) -> None:
-    """#356 — RAMP_LEVELS topped out at 24 while both rigs' maxima sit at
-    128-256. The knee ladder stays the default for an undeclared or narrow
+    """The knee ladder stays the default for an undeclared or narrow
     width, so every D7 row is re-takeable as the cell it was; a wider server
     is offered levels past 1.5x its width, so the curve is measured past the
     scheduler's limit rather than stopping under it."""

@@ -1,7 +1,7 @@
 """What runs where is ``fleet.yaml``; how work moves between units is ``policy.yaml``.
 
-The design is ``mcgyvr-lab/records/plans/fleet-identity.md`` §2 (owner, 2026-09-10 and
-2026-09-11). ``mcgyvr.fleet.files`` is the one reader of both files.
+The design is ``mcgyvr-lab/records/plans/fleet-identity.md`` §2.
+``mcgyvr.fleet.files`` is the one reader of both files.
 
 * ``fleet.yaml`` is locked. It holds the units, the rigs and the fleets, and a
   unit carries every fact about what it is and can physically do: model,
@@ -9,7 +9,7 @@ The design is ``mcgyvr-lab/records/plans/fleet-identity.md`` §2 (owner, 2026-09
 * ``policy.yaml`` is not locked. It holds how work moves: the ladder, an
   ordered list of unit names, then fanout, attempts, escalations, the task
   timeout, the window fraction, breadth and cleanup. Deterministic-first and
-  cheap-first are code (``src/mcgyvr/route.py:3-16``), not settings.
+  cheap-first are code (``mcgyvr.route``'s module docstring), not settings.
 * "source", "rung" and "tier" are gone: a unit is the one term. A file that
   still uses them is refused naming what replaced them, and a key in the wrong
   file is refused naming the file it belongs in.

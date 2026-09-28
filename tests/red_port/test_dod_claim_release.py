@@ -5,19 +5,13 @@ directory, ``mcgyvr.serving.gatelib.claim``). The door's own docstring states th
 guarantee: "the claim ... is released on every exit path, the interrupted ones
 included".
 
-It is not. ``_release_claim`` runs in the ``finally`` of the always-block, and a
-gate or data script that refuses returns out of ``main`` before that block is
-reached — and three entries (``data-10-scan``, ``data-20-geometry``,
-``data-30-placement``) run *after* gate 5 and can each refuse. The claim survives
-the process, and the next run of that step on that day is refused for a run that
-is not running. The operator's only move is to delete a dotfile by hand, which is
-exactly the state the claim was invented to make impossible to be in by accident.
+Entries that run *after* gate 5 can refuse. A claim that survived such a
+refusal would refuse the next run of that step for a run that is not running, and
+leave the operator to delete a dotfile by hand.
 
-**Driven through ``main``, not through a helper.** The finding is that an exit
-path skips the release; a test calling a new ``release_and_stop`` directly would
-be satisfied by adding one that the refusing path still does not reach. So the
-door is run with a real sequence, a real claim taken by gate 5, and a later entry
-that refuses — and the assertion is on what is left on disk afterwards.
+**Driven through ``main``, not through a helper.** The door is run with a real sequence,
+a real claim taken by gate 5, and a later entry that refuses — and the assertion is on
+what is left on disk afterwards.
 """
 
 from __future__ import annotations

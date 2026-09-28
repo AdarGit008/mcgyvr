@@ -7,14 +7,14 @@ What is specified here, at the two places a launch is declared:
   ``--kv-cache-dtype``; a llama.cpp entry states both ``-ctk`` and ``-ctv``
   (either spelling). Missing is refused naming the entry and the knob; an
   unknown value is refused naming the value; a stated one is accepted and left
-  exactly as written. The vLLM gate itself stops defaulting to ``auto``.
+  exactly as written. The vLLM gate itself does not default to ``auto``.
 * **The product** (:func:`mcgyvr.serving.unit_for`, before anything is
   rendered). A unit whose model states no KV cache dtype is refused naming the
   model and the knob; a stated one reaches the argv as written.
 
 Nothing here changes a value. ``fp8`` stays ``fp8`` and ``auto`` stays
-``auto``: the GREEN declares what each entry already launches with, it does
-not choose a different cache.
+``auto``: each entry declares what it already launches with, not a different
+cache.
 """
 
 from __future__ import annotations
@@ -165,11 +165,8 @@ def test_a_stated_cache_dtype_is_accepted_and_left_as_written(
 
 
 def test_the_vllm_gate_does_not_read_a_missing_cache_dtype_as_auto(vllm: Any) -> None:
-    """#442 read no flag as vLLM's own default; a default is what the knob removes.
-
-    ``test_a_kv_declaration_is_sized_at_its_cache_dtype.py`` still sizes the
-    no-flag case at ``auto``; the GREEN retires that case with this default.
-    """
+    """No flag is not read as vLLM's own default; a default is what the knob
+    removes."""
     with pytest.raises(vllm.contract.NotCleanError) as refused:
         vllm.kv_cache_dtype({"bytes_per_token": 147456, "flags": []})
     assert _names(str(refused.value), VLLM_KNOB)

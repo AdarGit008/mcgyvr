@@ -1,6 +1,6 @@
 """Who typed the command: the session a run is filed under, and its transcript.
 
-Every journal row names the orchestrator that produced it (§9), and a name
+Every journal row names the orchestrator that produced it, and a name
 that is only a string is a name a reader cannot follow. The orchestrators
 that actually type ``mcgyvr run`` are coding agents in a session — Claude
 Code, Pi — and each keeps a transcript of the whole conversation on disk. So
@@ -16,18 +16,18 @@ Three sources, one rule each:
   transcript and carries none.
 * ``CLAUDE_CODE_SESSION_ID`` is what Claude Code exports to every child
   process. The transcript lives at ``<config dir>/projects/<cwd-slug>/<id>.jsonl``
-  where the config dir is ``$CLAUDE_CONFIG_DIR`` or ``~/.claude``; the slug is
-  Claude Code's, so it is found by glob rather than rebuilt.
-* ``PI_SESSION_FILE`` is the transcript's path itself, exported by a Pi
-  extension on session start (Pi exports nothing on its own). The id is the
-  uuid Pi puts after the timestamp in the file name.
+  where the config dir is ``$CLAUDE_CONFIG_DIR`` or ``~/.claude``; the
+  transcript under this cwd's slug is preferred, and any other slug holding
+  ``<id>.jsonl`` is the fallback, found by glob.
+* ``PI_SESSION_FILE`` is the transcript's path itself. Nothing shipped in this
+  repository sets it (Pi exports nothing on its own). The id is the uuid Pi
+  puts after the timestamp in the file name.
 
-None of the three is a refusal, not a default: a hostname or a pid would be
-exactly the single-orchestrator assumption §9 names, and the flag is one word
-away. Both environment sessions at once is a refusal too. Claude Code can
-launch Pi and Pi can launch Claude Code, and the environment does not say
-which is nearer; a guess would file a whole conversation under the wrong
-agent, silently.
+None of the three is a refusal, not a default: a hostname or a pid would be a
+single-orchestrator assumption, and the flag is one word away. Both
+environment sessions at once is a refusal too. Claude Code can launch Pi and
+Pi can launch Claude Code, and the environment does not say which is nearer; a
+guess would file a whole conversation under the wrong agent, silently.
 
 The id joins with a dash, never a colon: it is the journal's file name
 (``DIR/<ID>.jsonl``) and the prefix of every ``attempt_id``, which is
@@ -108,7 +108,8 @@ def resolve(explicit: str | None, env: Mapping[str, str] | None = None) -> Sessi
     raise SessionError(
         f"nobody is named to write the journal: pass --orchestrator ID, or run "
         f"from a session that exports one ({CLAUDE_SESSION_VAR} from Claude "
-        f"Code, {PI_SESSION_VAR} from Pi's mcgyvr-session extension). A run "
+        f"Code; {PI_SESSION_VAR} is honoured when something sets it to a Pi "
+        f"transcript's path, and nothing shipped here does). A run "
         f"nobody can be traced to is refused, not filed under a default."
     )
 

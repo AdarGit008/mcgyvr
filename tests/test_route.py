@@ -26,11 +26,10 @@ taken under ``full`` and under ``idle``, an idle ladder gives the cheapest rung
 under every mode however wide the others are, and a plan's order is asserted to
 be price order whatever the mode and whatever is busy.
 
-*And it never changes what a climb spends* is the fifth, and it is the one the
-suite got wrong first. ``idle`` and ``full`` are the same rule inside a family —
-the cheapest rung that will admit work — so the tests that once held them apart
-now hold them together, and the ladder of unequal widths that separated them is
-kept for a different job: proving that a *roomier* rung does not outrank a
+*And it never changes what a climb spends* is the fifth. ``idle`` and ``full``
+are the same rule inside a family — the cheapest rung that will admit work — so
+the tests hold them together, and the ladder of unequal widths is kept for a
+different job: proving that a *roomier* rung does not outrank a
 cheaper free one. What separates the two modes is reach, and reach is
 :func:`mcgyvr.escalate.escalate`'s, so the ladders here are single-family and
 the assertions are about which rung of one plan a climb starts on.
@@ -263,9 +262,9 @@ scope:
   allow: ["src/**"]
 """
 
-# A deterministic type whose floor binds no program:  holds eslint at
-# `recommended`, which has no import-order rule, so nothing sorts imports in
-# js/ts. This is the contract that still reaches the empty-plan path now that
+# A deterministic type whose floor binds no program: this project's eslint
+# config is `recommended`, which has no import-order rule, so nothing sorts
+# imports in js/ts. This is the contract that reaches the empty-plan path, since
 # the floor binds tools for the types that have them.
 UNBOUND_DETERMINISTIC_CONTRACT = """
 id: tidy-imports
@@ -333,10 +332,10 @@ class Recorder:
     that produced it. It travels as the result's ``detail``, which
     :func:`~mcgyvr.route.climb` copies into the :class:`~mcgyvr.route.Attempted`
     row it appends — so a test can still say *which* attempt on *which* rung the
-    accepted climb came from, which is the only reason the marker exists. It
-    used to ride on a ``Result.value``; that channel is gone, because content
-    that travels beside a verdict without being bound to it is how un-gated
-    bytes reach a repository.
+    accepted climb came from, which is the only reason the marker exists. There
+    is no content channel beside the verdict, because content that travels
+    beside a verdict without being bound to it is how un-gated bytes reach a
+    repository.
     """
 
     def __init__(self, *verdicts: Verdict) -> None:
@@ -376,10 +375,8 @@ class Judging(Recorder):
         result = super().__call__(attempt)
         return Judgement(
             verdict=result.verdict,
-            # `Recorder` marks a pass in `detail` — #392 removed `Result.value`,
-            # the channel content used to travel on beside a verdict without
-            # being bound to it. A pass is what carried a value, so a pass is
-            # what carries the assurance.
+            # `Recorder` marks a pass in `detail`; a result carries no content
+            # beside its verdict. A pass is what carries the assurance.
             assurance=(
                 Assurance.UNVERIFIED if result.verdict is Verdict.PASSED else None
             ),
@@ -599,12 +596,9 @@ def test_a_plan_never_contains_a_rung_of_another_family(key: None) -> None:
 def test_the_deterministic_family_plans_the_tool_that_does_the_work() -> None:
     """The floor binds a program, so a `format` contract plans one.
 
-    This test used to assert the opposite — that the family planned nothing and
-    said so structurally — and it was an accurate description of a hole. X07
-    measured the hole rather than reading the comment: 4 of 4 deterministic task
-    types planned nothing to run on their own floor, so every one of them was a
-    model call for work `ruff` does for free. The reason string it asserted is
-    still reachable, and the test below is what reaches it.
+    A family that planned nothing would make every deterministic type a model
+    call for work `ruff` does for free. The structural reason string for an
+    empty plan is still reachable, and the test below is what reaches it.
     """
     config, pool = mapped(KEYLESS)
 
@@ -619,10 +613,10 @@ def test_the_deterministic_family_plans_the_tool_that_does_the_work() -> None:
 
 
 def test_a_deterministic_type_with_no_program_for_its_target_still_says_why() -> None:
-    """The structural reason survives, narrowed to the case that now reaches it.
+    """The structural reason survives, narrowed to the case that reaches it.
 
-     holds eslint at `recommended`, which has no import-order rule, so
-    there is no js/ts import sorter to bind. That is a missing *program for a
+    This project's eslint config is `recommended`, which has no import-order
+    rule, so there is no js/ts import sorter to bind. That is a missing *program for a
     type*, not a missing source for a rung, and the words have to send an
     operator to the right file.
     """
@@ -932,7 +926,7 @@ def test_load_never_reorders_a_plan_under_any_mode(lock_dir: None) -> None:
 def test_the_default_takes_the_cheapest_rung_however_busy_it_is(
     lock_dir: None,
 ) -> None:
-    """``none`` is today's behaviour and this is what keeps it byte for byte."""
+    """``none`` is the default and this is what keeps it byte for byte."""
     config, pool = mapped(MIXED)
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
@@ -990,9 +984,8 @@ def test_full_fanout_on_an_idle_ladder_still_takes_the_cheapest_rung(
     and the cheapest rung goes first. This one is also the widest, which is why
     it is not the test that separates the rules — that is
     ``test_full_fanout_on_an_idle_ladder_starts_on_the_cheapest_rung``, where
-    the cheapest rung is the narrowest and still goes first. The docstring here
-    used to say the rung won "on free slots outright", which described the
-    roomiest-rung rule this ladder happens to agree with.
+    the cheapest rung is the narrowest and still goes first. This ladder also
+    agrees with a roomiest-rung rule, so it cannot tell the two apart.
     """
     config, pool = mapped(with_fanout(MIXED, "full"))
     capacity = Capacity.of(config)
@@ -1026,13 +1019,10 @@ def test_idle_keeps_the_cheapest_rung_while_it_still_has_a_slot_to_spare(
 def test_idle_starts_on_the_cheapest_rung_that_has_a_free_slot(
     lock_dir: None,
 ) -> None:
-    """The half of ``idle`` that is #24's: choosing among the rungs of one family.
+    """The half of ``idle`` that is route's: choosing among the rungs of one family.
 
     Both of the cheapest rung's slots are held, so it will admit nothing, and
-    the next cheapest is where this contract can actually run. Before this was
-    wired the mode was a switch attached to nothing here — entering a family
-    whose cheapest rung was full still picked that full rung, and
-    ``docs/config-reference.md`` told operators otherwise.
+    the next cheapest is where this contract can actually run.
 
     The busy rung is passed over rather than tried: it reaches no verdict and
     is in no history, which is what keeps a queue from funding an escalation.
@@ -1062,12 +1052,10 @@ def test_the_two_load_aware_modes_take_the_same_rung_of_one_busy_ladder(
     dearest rung is four times as wide as either and no mode reaches for it,
     because width is a threshold here and never an ordering.
 
-    This test used to assert the opposite, that the three modes give three
-    different answers and that ``full`` lands on ``local_32b``. That assertion
-    was the defect written down as a specification twice over. It ranked a
+    Three different answers, with ``full`` on ``local_32b``, would rank a
     roomier rung above a cheaper free one, which is load reordering the price
     ladder — the one thing :func:`~mcgyvr.route.plan` and this suite both say it
-    may never do — and it made ``full`` reach dearer than the work needed
+    may never do — and would make ``full`` reach dearer than the work needed
     whenever a rig was merely wider, which on a real ladder is the rung that
     costs money. Where the two modes genuinely differ is reach, not rungs:
     ``idle`` may raise the family a climb enters and ``full`` may not, and that
@@ -1250,15 +1238,13 @@ def test_fanout_is_asked_once_and_the_walk_after_it_is_the_plans_own_order(
     the whole assertion: ``local_7b`` before ``local_32b`` is a walk down a
     plan, and ``local_32b`` before ``local_7b`` is a walk down a load reading.
     Ordering a whole walk by load leaves no ladder in it at all — the rung a
-    failure escalates to becomes whichever machine happened to be quiet, which
-    the ``ladder`` doc in ``config.SCHEMA`` calls actively harmful.
+    failure escalates to becomes whichever machine happened to be quiet.
 
-    The rungs the start skipped are walked rather than dropped, and this test
-    used to assert the reverse — that a climb starting in the middle went up
-    only and never returned to the busy rung below. That looked like a ladder
-    rule and was an accounting one: the dropped rungs were rungs ``none`` would
-    have spent, so a fan-out family ran out early with escalation budget to
-    spare, and :func:`mcgyvr.escalate.escalate` spent it on a priced rung. Fan-
+    The rungs the start skipped are walked rather than dropped. Going up only
+    looks like a ladder rule and is an accounting one: the dropped rungs are
+    rungs ``none`` would have spent, so a fan-out family would run out early with
+    escalation budget to spare, and :func:`mcgyvr.escalate.escalate` would spend
+    it on a priced rung. Fan-
     out is a scheduling decision; it does not get to decide what a family costs.
     """
     config, pool = mapped(with_fanout(UNEVEN, "full"))
@@ -1494,15 +1480,15 @@ def test_a_claimed_first_rung_drops_no_rung_and_spends_what_the_default_spends(
 ) -> None:
     """A start handed in is still a start: nothing below it is discarded.
 
-    The same ladder twice, once entered at its middle rung with a reservation
-    already held and once walked plainly. The order differs and nothing else
-    does — the same rungs run, for the same attempts, and the family reaches the
-    same exhaustion. That equality is the escalation budget:
-    :func:`mcgyvr.escalate.permit` charges a move per rung actually spent, so a
-    walk shortened by the rungs it started above would run out of family early
-    with budget nobody had paid for, and that leftover move is what once bought
-    an api call the default refused. Popping the claimed rung out of the middle
-    honours the rule; deleting what is below it does not.
+    The same ladder twice, once entered at its middle rung with a reservation already
+    held and once walked plainly. The order differs and nothing else does — the same
+    rungs run, for the same attempts, and the family reaches the same exhaustion. That
+    equality is the escalation budget: the ``permit`` closure inside
+    :func:`mcgyvr.escalate.escalate` charges a move per rung actually spent, so a walk
+    shortened by the rungs it started above would run out of family early with budget
+    nobody had paid for, and that leftover move would buy an api call the default
+    refuses. Popping the claimed rung out of the middle honours the rule; deleting what
+    is below it does not.
     """
     config, pool = mapped(with_fanout(UNEVEN, "idle"))
     capacity = Capacity.of(config)

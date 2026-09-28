@@ -1,16 +1,15 @@
 """Resolve a change's calls against the environment the code will run in.
 
-**This module is never imported by mcgyvr.** It is read as text and staged
-into the sandbox by :mod:`mcgyvr.gate.semantic`, where it runs under the
-*target's* interpreter with the target's own packages importable. That is the
-whole point : resolution by import is not an implementation detail
-of the check, it is the check, and the only environment in which its answer is
-true is the one the code declared. Nothing here may be imported into the
-orchestrator process — doing so would import target code on the host, which
- forbids and which  explicitly carried forward.
+**This module is never imported by mcgyvr.** It is read as text and staged into
+the sandbox by :mod:`mcgyvr.gate.semantic`, where it runs under the *target's*
+interpreter with the target's own packages importable. That is the whole point:
+resolution by import is not an implementation detail of the check, it is the
+check, and the only environment in which its answer is true is the one the code
+declared. Nothing here may be imported into the orchestrator process — doing so
+would import target code on the host.
 
 It is written to run under an *old* interpreter as well as a new one: the base
-image is ``python:3.12-slim`` today, but ``sandbox.image`` can be overridden
+image defaults to ``python:3.12-slim``, but ``sandbox.image`` can be overridden
 with anything the repository actually runs on. Annotations are deferred
 (:pep:`563`), so nothing here needs a runtime subscript, and no syntax newer
 than 3.8 is used.
@@ -23,12 +22,9 @@ supplies what the gate needs around it:
 call on any other line is never looked at. Pre-existing state in a file does
 not fail a worker's change.
 
-**Suppression, which is the mitigation Count 3 obliged.** ``check()``
-introspects the *live* interpreter, so correctly-guarded foreign-platform code
-is indistinguishable from an invented API — every distinct flag the #129
-measurement produced over three repositories was of that kind, and none was a
-bug. Three rules answer it, and between them they cover all four observed
-sites:
+**Suppression of platform-conditional code.** ``check()`` introspects the
+*live* interpreter, so correctly-guarded foreign-platform code is
+indistinguishable from an invented API. Three rules answer it:
 
 1. An ``if`` whose test depends on the platform is skipped whole — both
    branches, because deciding which branch is foreign means evaluating the

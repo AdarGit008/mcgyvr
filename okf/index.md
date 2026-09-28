@@ -13,8 +13,8 @@ Rules and gotchas for working this fleet.
 - **Enforcing.** Where this project has settled something, the entry is a rule,
   not a consideration.
 
-**The numbers are not here.** Measured values live in `records/` and in the run
-journals, which is where you go to check a claim or to get a figure. An entry
+**The numbers are not here.** Measured values live in `records/`, in
+`tools/runs/derived.json` and in the run journals, which is where you go to check a claim or to get a figure. An entry
 that needs a number tells you how to derive or measure it. Copying a number out
 of this store into a config is the mistake this store exists to prevent — the
 rigs swap hardware, and a value that was right on one afternoon is not a rule.
@@ -23,7 +23,7 @@ rigs swap hardware, and a value that was right on one afternoon is not a rule.
 |---|---|
 | `must-read/always.md` | every session start |
 | `must-read/reading-results.md` | going over run results |
-| `must-read/touching-rigs.md` | any action on srv1 or srv2 |
+| `must-read/touching-rigs.md` | any action on a rig |
 | `must-read/touching-models.md` | choosing, comparing or deleting a checkpoint |
 | `must-read/touching-engine.md` | before turning an engine, quant or kernel flag |
 | `config/vllm.md` | before turning a vLLM knob |
@@ -48,15 +48,16 @@ an authority when they are → `must-read/always.md`.
 
 ## Querying the store
 
-`tools/okf/query.py` walks this directory as a concept store. The trust gate
-returns a strong answer only for a concept signed by a human, so it abstains on
-everything here by design — that is the gate working, not a failure. Read one
-with `--raw`, promote it with `--sign`.
+`tools/okf/query.py --src <okf_rag src>` walks `models/` as a concept store. The
+trust gate returns a strong answer only for a concept signed by a human, so it
+abstains on everything here by design — that is the gate working, not a failure.
+Read one with `--raw`. `--sign` only rewrites an existing `verified:` line, and
+no concept here carries one.
 
 Frontmatter is parsed as YAML and one bad value takes down the whole listing,
 not just its own file — a `title` or `description` containing `: ` must be
 quoted.
 
-`okf/` is gitignored as a generated artifact; `index.md`, `config/`,
-`must-read/` and `models/` are un-ignored so they are tracked. All of it is
-hand-authored and none of it is rebuilt.
+`okf/*` is gitignored; `index.md`, `config/`, `must-read/` and `models/` are
+un-ignored so they are tracked. All of it is hand-authored and none of it is
+rebuilt.

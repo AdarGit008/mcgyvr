@@ -1,44 +1,39 @@
 """The one workload every sweep driver draws its prompts from.
 
-**Why one module.** Three drivers — ``lcp_sweep.py``, ``vllm_sweep.py`` and
-``vllm_cores.py`` under ``tools/runs/drivers/`` — each carried a byte-identical
-copy of this block, and a fourth entry point (``tools/bench/serving/sweep.py``,
-now deleted) hardwired the 11-token prompt the repo had already ruled 2.4x
-misleading. Copies agree until one is edited. ``WORKLOAD_DIGEST`` in
-``tools/runs/rows.py`` (``2f2bb7932a0b660653def819``) is the check that would
-catch a divergence, and it ran only in CI, post-hoc, over one directory. Now
-the block lives here once, every driver imports it, and gate 4 of the door
+Every driver under ``tools/runs/drivers/`` imports this module; none carries a
+copy. ``WORKLOAD_DIGEST`` in ``tools/runs/rows.py`` pins it, gate 4 of the door
 (``src/mcgyvr/serving/gate-scripts/04-workload.py``) re-derives the digest from
-THIS file before a step starts. ``tests/test_one_door.py`` holds the tree to
+THIS file before a step starts, and ``tests/test_one_door.py`` holds the tree to
 exactly one definition.
 
 **The digest is over generated prompts, not over this file's text.**
 ``rows.workload_digest`` execs everything from the first decile list to the
 end of this module and hashes 200 draws, so a ``ruff format`` pass cannot void a
-comparison (it did exactly that to a source hash in 90635351) — and so nothing
-before the decile list, this docstring included, is part of what is hashed.
+comparison — and so nothing before the decile list, this docstring included, is
+part of what is hashed.
 
-**Where the numbers come from.** Derived from ``measurements/**/results.jsonl``
-(n=21342 dedup'd rows): prompt_tokens mean 719, p50 688; completion_tokens
-mean 236, p50 189. Prior drivers sent ONE shared 11-token prompt and a flat
-475-token reply (1:43 in:out). Real traffic is ~3:1 in:out, and the drivers
-reproduce the measured distribution instead of a single point.
+**Where the numbers come from.** The deciles are pinned constants taken from
+``prompt_tokens`` and ``completion_tokens`` in a deduplicated subset of
+``records/measurements/**/results.jsonl``; a recompute over the current tree
+does not reproduce them, and changing them moves ``WORKLOAD_DIGEST``. The
+drivers reproduce that distribution instead of a single point.
 
-SHARED PREFIX: ``bench-scaffold-ablation-3b-2026-08-11`` gives the scaffold size
-directly — stock p50 929 vs noscaffold p50 739 (py), 936 vs 729 (ts) — so
-~190-207 tokens of system prompt are IDENTICAL on every request. Each prompt is
-therefore ``SYSTEM`` (constant, cacheable) + a unique task body, and prefix
-caching gets the hits it gets in production: not zero (unique-at-head, too
-pessimistic), not total (one fixed prompt, the old bug).
+SHARED PREFIX: ``records/measurements/bench-scaffold-ablation-3b-2026-08-11``
+gives the scaffold size directly — the stock arm's median prompt is about two
+hundred tokens longer than the noscaffold arm's — so that much system prompt is
+IDENTICAL on every request. Each prompt is therefore ``SYSTEM`` (constant,
+cacheable) + a unique task body, and prefix caching gets the hits it gets in
+production: not zero (unique-at-head, too pessimistic), not total (one fixed
+prompt).
 
 Lengths are sampled per request from the empirical deciles, seeded by request
 id, so request *k* always gets the same length — reproducible across levels
 and across reruns without collapsing to a constant. The counter ``UID`` is
 per-process state: a driver that must hand two servers the same draws rebinds
 it (``vllm_cores.batch``), and every driver's level list changes what a later
-request draws (``okf/must-read/reading-results.md``, the 6.2% desync).
+request draws (``okf/must-read/reading-results.md``, the prompt draw desync).
 
-``ignore_eos`` is gone. Output length is the sampled cap, and the model may
+Output length is the sampled cap; ``ignore_eos`` is not sent, so the model may
 stop earlier on its own, exactly as in production.
 """
 

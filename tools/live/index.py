@@ -196,7 +196,7 @@ def blob_text(directory: Path, digest: object) -> str | None:
 
 
 def _bench_product() -> types.ModuleType:
-    """``tools/bench/product.py`` by path — ``tools/`` is not a package.
+    """``tools/bench/product.py`` by path — ``tools/`` has no ``__init__.py``.
 
     The rounds file and its reader are the bench's; this tool asks it what a
     round pins rather than parsing the file itself, so there is one reading of

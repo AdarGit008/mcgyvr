@@ -1,7 +1,6 @@
 """Live is admitted only by a read of its rigs, taken through the door.
 
-Defect F2, "admit_live has no production caller" (owner, 2026-09-15). What
-:func:`mcgyvr.fleet.admit.admit_live` is handed as ``observed`` is the door's
+What :func:`mcgyvr.fleet.admit.admit_live` is handed as ``observed`` is the door's
 ``read`` of each rig of the live fleet (:mod:`mcgyvr.fleet.read`), never a
 guess, and the lock is read from the live fleet's own folder
 (:func:`mcgyvr.fleet.roots.lock_root`), never the working directory.
@@ -12,9 +11,9 @@ before any rig is read; and, once each rig is read, when a rig is not the rig
 it was locked on or a process that is not ours holds its card, or when the door
 could not read a rig at all. Otherwise it returns the plan: what would be
 cleaned and restored, with the door commands that would do it. Carrying a plan
-out stops and starts containers on a rig, and that is not decided (records the
-owner's open ruling): the callers refuse a non-empty plan and print the
-commands, and run none of them.
+out stops and starts containers on a rig, and the owner has not ruled that
+mcgyvr may do so: the callers refuse a non-empty plan and print the commands,
+and run none of them.
 """
 
 from __future__ import annotations

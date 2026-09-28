@@ -22,16 +22,16 @@ neither              distinct, as far as either acceptance can tell
 
 Deterministic, no model, no rig time.
 
-**What it cannot see, and this is not a footnote.** Two problems that differ only
-in a *constant* fail each other's tests and read as distinct. That is exactly the
-duplicate this project has already removed: ``b080-brace-fill``,
+**What it cannot see, and this is not a footnote.** Two problems that differ
+only in a *constant* fail each other's tests and read as distinct. That is
+exactly the duplicate this project has already removed: ``b080-brace-fill``,
 ``b090-expand-markers`` and ``b168-badge-slots`` were one problem three times,
-differing only in ``{name}`` / ``%name%`` / ``<name>`` (``c0686889``,
-``tools/bench/retired.json``). Replayed here, ``b080``'s reference fails
-``b168``'s first substantive assertion. **The prose screen caught those and this
-does not; this catches ``b094``/``b172`` and the prose screen does not.** Neither
-is sufficient, and a problem that is both re-skinned *and* re-parameterised is
-invisible to both.
+differing only in ``{name}`` / ``%name%`` / ``<name>``
+(``tools/bench/retired.json``). Replayed here, ``b080``'s reference fails
+``b168``'s first substantive assertion. **``emit.py``'s sibling screen catches
+those and this does not; this catches ``b094``/``b172`` and the prose screen
+does not.** Neither is sufficient, and a problem that is both re-skinned *and*
+re-parameterised is invisible to both.
 
 **Containment is directed, and the prune has to be too.** A source satisfies a
 target only if it supplies every function the target's acceptance imports, so

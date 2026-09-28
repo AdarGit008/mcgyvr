@@ -23,19 +23,19 @@ one file has not carried one.
 output cap can still contain a syntactically perfect fenced block — it is the
 *rest* of the file that is missing, and nothing in the text says so. Only the
 backend's own stop reason knows, so it is required here and anything short of
-:attr:`~mcgyvr.runner.StopReason.COMPLETE` refuses.  chose the cap over
-stop sequences precisely so that an over-long reply arrives *named* rather than
-silently shortened; reading that name is this module's half of the bargain.
+:attr:`~mcgyvr.runner.StopReason.COMPLETE` refuses. The output cap, rather
+than stop sequences, bounds a reply precisely so that an over-long one arrives
+*named* rather than silently shortened; reading that name is this module's
+half of the bargain.
 
-**Only ``whole_file`` parses.**  records it as "the default, and the
-only shape #25 is scoped to". A contract declaring ``unified_diff`` is refused
-by name rather than parsed as if it were whole-file content, which would apply
-a patch's ``+``-prefixed body lines as source.
+**Only ``whole_file`` parses.** A contract declaring ``unified_diff`` is
+refused by name rather than parsed as if it were whole-file content, which
+would apply a patch's ``+``-prefixed body lines as source.
 
-**No stop sequences are derived here.**  rejected them for v1 while
-naming this parser as where the derivation would belong, since the sequence
-that terminates a reply and the sequence a parser treats as the end are one
-fact. The absence is the recorded decision, not an omission.
+**No stop sequences are derived here.** This parser is where the derivation
+would belong, since the sequence that terminates a reply and the sequence a
+parser treats as the end are one fact. The absence is a decision, not an
+omission.
 
 **A fence closes only on one at least as wide.** That is CommonMark's rule, and
 it is kept because it resolves the one nesting case that is not actually
@@ -100,16 +100,16 @@ digs a Python triple-quoted string out of
 JSON, or this module has gone back to guessing.
 
 **A pinned schema replaces the fence hunt rather than adding to it.** A
-:class:`~mcgyvr.runner.Request` may carry a ``response_schema`` (D13), and a
-backend that honours one answers with the object and no prose — nothing to hunt
-for, and none of the ways a hunt is spent: a second block explaining the first,
-a fence closed at the wrong width, an apology that fenced itself. Backends that
+:class:`~mcgyvr.runner.Request` may carry a ``response_schema``, and a backend
+that honours one answers with the object and no prose — nothing to hunt for,
+and none of the ways a hunt is spent: a second block explaining the first, a
+fence closed at the wrong width, an apology that fenced itself. Backends that
 ignore it are the ordinary case on this ladder's cheap rungs, so
 :func:`parse_pinned` falls back to the reader above rather than refusing, and
 the two shapes produce the same :class:`ParsedFile` byte for byte, trailing
-newline included. Two readers that disagreed about the bytes would hand the gate
-a different file depending on which server answered, which would make a run's
-reproducibility a property of the backend.
+newline included. Two readers that disagreed about the bytes would hand the
+gate a different file depending on which server answered, which would make a
+run's reproducibility a property of the backend.
 
 Line endings are normalised to ``\\n`` on entry — a stated transformation, so a
 CRLF reply parses identically to an LF one instead of failing on a fence line
@@ -135,12 +135,16 @@ WHOLE_FILE = "whole_file"
 # rather than from this constant.
 _ENVELOPE_FIELD = "content"
 
+#: The one definition of an opening fence, imported by every reader of a
+#: model's reply — a second copy is a second answer to where a block begins.
 # An opening fence: up to three spaces of indent (CommonMark's allowance), at
-# least three backticks, an optional info string. Tildes are deliberately not
-# fences here — the bundles instruct backticks, so a tilde-delimited reply is a
-# reply that did not follow the protocol, and saying that is more useful than
-# quietly accepting a second syntax.
-_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,})[ \t]*([A-Za-z0-9_+.#-]*)[ \t]*$")
+# least three backticks, an optional info string of anything but backticks —
+# ``python title="a.py"`` and ``python:src/a.py`` open a block too, and an
+# opener this missed would let its closing fence be read as the opener. Tildes
+# are deliberately not fences here — the bundles instruct backticks, so a
+# tilde-delimited reply is a reply that did not follow the protocol, and saying
+# that is more useful than quietly accepting a second syntax.
+FENCE_OPEN = re.compile(r"^ {0,3}(`{3,})[ \t]*([^`]*)$")
 
 
 # The languages this parser will judge for content, and how each one spells a
@@ -325,7 +329,7 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
         return ReplyError(
             "unsupported-schema",
             f"output_schema {output_schema!r} has no parser; only "
-            f"{WHOLE_FILE!r} is implemented ",
+            f"{WHOLE_FILE!r} is implemented",
         )
     if stop_reason is not StopReason.COMPLETE:
         return ReplyError(
@@ -373,7 +377,7 @@ def _fenced(
     blocks: list[tuple[str, list[str]]] = []
     index = 0
     while index < len(lines):
-        opened = _FENCE_OPEN.match(lines[index])
+        opened = FENCE_OPEN.match(lines[index])
         if opened is None:
             index += 1
             continue
@@ -391,7 +395,8 @@ def _fenced(
                 f"a fence opened at line {index + 1} is never closed — the "
                 f"usual signature of a reply that ran out of room",
             )
-        blocks.append((opened.group(2), lines[index + 1 : closed_at]))
+        info = opened.group(2).split()
+        blocks.append((info[0] if info else "", lines[index + 1 : closed_at]))
         index = closed_at + 1
 
     if not blocks:
@@ -521,10 +526,6 @@ def parse_pinned(
         # #174 is *deferred*, not dropped: the carrier may have arrived inside a
         # fence, and the check would refuse it as a data blob before anything
         # looked inside. It runs below, on the file rather than on the envelope.
-        # (An earlier version bought that by passing no target at all, which
-        # also gave up the other rule — with a target, nothing is unwrapped —
-        # and silently truncated a `.json` file whose own content is an object
-        # with a `content` key to that field's value.)
         #
         # Whether this is an envelope at all is still the target's answer, and
         # it is the same answer #174 gives: a JSON object bound for a file whose

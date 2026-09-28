@@ -6,7 +6,8 @@ drafting with the GGUF's own MTP head — and each judged field has its own,
 stated in ``tools/runs/derived.json``: warm decode those of
 ``records/measurements/fleet-identity-2026-09-11/tolerances.json``
 (``engine.warm_decode_class_pct``), prefill those of
-``records/measurements/fleet-identity-prefill-2026-09-12/README.md``
+``records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json``
+for the two llama.cpp classes and a ruled value for vLLM
 (``engine.prefill_class_pct``), and the ``mtp`` class's both from the
 mtp-ornith window (``records/measurements/lock-fleets/mtp-ornith/``). The
 probe's judge (:mod:`mcgyvr.fleet.probe`) and the lock's NVMe baseline check

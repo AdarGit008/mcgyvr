@@ -1,12 +1,12 @@
 """A llama.cpp unit may declare MTP, and a GGUF without a head is refused.
 
-Native multi-token-prediction self-speculation (``--spec-type draft-mtp``) was
-measured on srv2's 12 GB card at +26.5% decode at width 1 and +22% at width 2,
-acceptance ~0.90, and nothing in ``src/`` could express it
-(``records/evidence/2026-08-28-mtp-ornith/README.md`` §2). The declaration is
-two keys on the model block, ``speculative`` (``none`` | ``mtp``) and
-``spec_draft_n_max`` (the ``--spec-draft-n-max`` the driver ran, 2), read into
-:class:`~mcgyvr.serving.ModelSpec` beside ``kv_cache_dtype_k``.
+Native multi-token-prediction self-speculation (``--spec-type draft-mtp``)
+speeds decode on srv2's card
+(``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` §2). The
+declaration is two keys of a unit's ``launch`` block, ``speculative``
+(``none`` | ``mtp``) and ``spec_draft_n_max`` (the ``--spec-draft-n-max`` the
+driver ran), read into :class:`~mcgyvr.serving.ModelSpec` beside
+``kv_cache_dtype_k``.
 
 * A llama.cpp unit whose geometry carries a nextn block builds, and its argv
   carries the two flags.
@@ -134,7 +134,8 @@ def test_a_speculative_value_this_build_does_not_know_is_refused() -> None:
     with pytest.raises(UnitError) as refused:
         scanned(KAT, speculative="eagle")
     message = str(refused.value)
-    assert "models.KAT-Coder-V2.5-Dev_Q2_K-AllGPU.speculative" in message
+    assert KAT[: -len(".gguf")] in message
+    assert "units.<unit>.launch.speculative" in message
     assert "eagle" in message
     assert "none" in message and "mtp" in message
 

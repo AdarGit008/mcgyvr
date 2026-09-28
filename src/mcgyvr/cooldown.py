@@ -6,9 +6,9 @@ caches the answer for the life of a run. :class:`~mcgyvr.capacity.Capacity` asks
 *is there room*, and bounds how many dispatches a source carries at once. Between
 them sits the source that is reachable, uncontended, and does not work: it answers
 the model-list path, accepts the connection, takes the slot, and fails the
-generation. Every rung on it is handed to a dispatch that fails the same way, and
-nothing in the run ever revises the verdict — because the verdict was reached
-before the first dispatch and is never asked again.
+generation. Every dispatch handed to it fails the same way, and nothing in the
+run ever revises the verdict — because the verdict was reached before the first
+dispatch and is never asked again.
 
 This module revises it. A :class:`Cooldown` is an availability view that also
 *learns*: it wraps a probe exactly as :class:`~mcgyvr.availability.Availability`
@@ -28,8 +28,8 @@ dispatches taught it.
 design from either side, and both are worse than doing nothing:
 
 * *Drop a source on its first bad generation* and one truncated reply, one
-  transient 502, one model still loading costs the whole remaining ladder on that
-  host. So the count must be consecutive and it must be more than one;
+  transient 502, one model still loading costs the run that rung. So the count
+  must be consecutive and it must be more than one;
   :data:`CONSECUTIVE_FAILURES` is three, ported from local-ai's pool, and a
   success clears the count because "consecutive" is what makes three failures
   evidence rather than an accumulated grudge.
@@ -46,15 +46,10 @@ this takes, the module reads :class:`mcgyvr.pool.Endpoint` — one field of it,
 nothing, dispatches nothing, and never sees a URL or a protocol, so re-pointing a
 rung remains a config edit.
 
-**What it is keyed on, and what that cannot catch.** A *source*, not a
-source-and-model pair — which is what local-ai keys on (``pool.py:712``). The seam
-that consumes this (:class:`mcgyvr.pool.SourceProbe`) answers per source name, so
-a per-rung record would have nowhere to be reported and :func:`mcgyvr.pool.source_map`
-would have to learn something new to read it. The cost is real and worth stating:
-one broken *model* on an otherwise healthy host takes the host's other rungs with
-it. That trade is the right way round for the fault this exists for — a host whose
-generations fail is the common case, and a ladder is cheap to re-climb — but it is
-a trade, not a free win.
+**What it is keyed on.** A source name, which is a unit name
+(:func:`mcgyvr.pool._endpoint` names each endpoint after its unit), so a cooldown
+takes out exactly one unit. The seam that consumes this
+(:class:`mcgyvr.pool.SourceProbe`) answers per source name.
 
 **What this is not.** It is not a retry policy: it says which sources are worth
 offering, never how many attempts a contract gets, which is escalation's. It is not
@@ -79,9 +74,9 @@ from mcgyvr.availability import (
 )
 from mcgyvr.pool import Endpoint
 
-# How many failures in a row before a source is taken out. Three, from local-ai's
-# `pool.py:712-719`. Not one, for the reason in the module docstring; not so many
-# that a source which is genuinely broken serves the whole ladder first.
+# How many failures in a row before a source is taken out. Three, ported from
+# local-ai's pool. Not one, for the reason in the module docstring; not so many
+# that a source which is genuinely broken keeps being offered for a whole run.
 CONSECUTIVE_FAILURES = 3
 
 # How long the source stays out, from its most recent failure. Sixty seconds is
@@ -135,7 +130,7 @@ class Cooldown:
         if threshold < 2:
             raise ValueError(
                 f"threshold must be at least 2, got {threshold}: a source dropped on "
-                f"one failure loses the rest of the ladder to a single hiccup"
+                f"one failure is lost to a single hiccup"
             )
         self._liveness = Availability(timeout_s=timeout_s, probe=probe)
         self._clock = clock
@@ -184,10 +179,7 @@ class Cooldown:
         A cooldown already armed is not cancelled. Three consecutive failures
         earn the sentence, and a success arriving during it came from a dispatch
         started *before* those failures — it is not evidence the source
-        recovered, and clearing the sentence would let a healthy rung that
-        happened to be in flight wipe a broken one's just-earned removal, which
-        is the single-host install's form of this defect. The count resets; the
-        sentence stands.
+        recovered. The count resets; the sentence stands.
         """
         with self._lock:
             record = self._records.get(source)

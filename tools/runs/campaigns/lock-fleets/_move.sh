@@ -74,7 +74,7 @@ STARTED=
 date -u +%Y-%m-%dT%H:%M:%SZ >"$STATE/started_at"
 
 # Whatever happened, what this run started is removed and the artifact exists. A
-# run refused before its bring-up reaches no daemon at all.
+# run refused before its bring-up removes no container.
 finish() {
     local rc=$?
     trap - EXIT

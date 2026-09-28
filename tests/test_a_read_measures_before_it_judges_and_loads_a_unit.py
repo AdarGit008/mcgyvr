@@ -1,13 +1,13 @@
 """A read measures and files everything before it judges, and can load a unit.
 
-Owner rulings, 2026-09-15, on ``python -m mcgyvr.serving.run read``:
+Owner rulings on ``python -m mcgyvr.serving.run read``:
 
-* **B2, "probe first, judge after".** :func:`mcgyvr.fleet.read.record` judged
-  each unit's card and restarts before it ran any probe, and under the dev
-  profile :func:`mcgyvr.fleet.alerts.check` raises on the first alert, so a read
-  of srv2_3b at 3574 MiB against a 3573 MiB room never measured anything. Now a
-  read measures first (the probes, then the loads), files every row (units,
-  probes, loads), and judges after. Under dev it raises
+* **B2, "probe first, judge after".** Under the dev profile
+  :func:`mcgyvr.fleet.alerts.check` raises on the first alert, so a read that
+  judged a unit's card before it ran any probe would stop a unit one MiB over
+  its room before measuring anything. :func:`mcgyvr.fleet.read.record` measures
+  first (the probes, then the loads), files every row (units, probes, loads),
+  and judges after. Under dev it raises
   :class:`~mcgyvr.fleet.alerts.AlertError` at the end, once the rig row is
   filed, if anything alerted. Live only warns.
 * **B1, "add a load mode to read".** ``read --host H --probe UNIT --load WxN``
@@ -21,9 +21,9 @@ Owner rulings, 2026-09-15, on ``python -m mcgyvr.serving.run read``:
   idle unit only, no lease, and the harness imports only the standard library.
 * **B4, "read saves both".** For each vLLM unit, the attention backend its
   container's log names is filed in that unit's row as ``attention_backend``,
-  or null when the log names none; nothing is guessed. Owner ruling,
-  2026-09-16: the whole log is searched for the token, as the 09-13 method did,
-  and the line the reader matched is filed beside it
+  or null when the log names none; nothing is guessed. Owner ruling: the whole
+  log is searched for the token, as the lock's ``measure_vllm.py`` does, and the
+  line the reader matched is filed beside it
   (``tests/test_a_vllm_backend_read_searches_the_whole_log_and_records_its_line.py``).
   The rig row files the parsed snapshot beside ``observed_rig_id``, so the
   lock's ``evidence.rigs.<rig>.snapshot`` check can be fed from the row.
@@ -453,8 +453,8 @@ def _units_reader(tmp_path: Path, log: str) -> list[str]:
 def test_the_units_reader_names_the_backend_its_whole_log_carries(
     tmp_path: Path,
 ) -> None:
-    """Owner, 2026-09-16: the token is looked for in the whole log, as the 09-13
-    method did, and a log naming none anywhere is still ``none``."""
+    """The token is looked for in the whole log, as the lock's
+    ``measure_vllm.py`` does, and a log naming none anywhere is still ``none``."""
     started = (
         "INFO 09-13 21:40:02 loader.py:12] Loading weights\n"
         "INFO 09-13 21:40:05 cuda.py:40] Using attention backend: FLASH_ATTN\n"

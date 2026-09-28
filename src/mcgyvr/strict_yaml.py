@@ -3,9 +3,8 @@
 PyYAML's ``SafeLoader`` silently keeps the last of a repeated key, and lets a
 list or dict sit as a key until something hashes it. Both are defects a config
 or a contract must fail loudly on, so this loader refuses both. ``config.py``
-and ``contract.py`` each carried their own copy — this is the one they now
-share, with the schema's own error type injected so every failure reads as the
-file that produced it.
+and ``contract.py`` share it, with the schema's own error type injected so
+every failure reads as the file that produced it.
 """
 
 from __future__ import annotations

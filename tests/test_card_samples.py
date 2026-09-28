@@ -1,12 +1,10 @@
-"""The card, read while the sweep runs (#348).
+"""The card, read while the sweep runs.
 
-Every reading that describes the machine already existed as a declared
-constant, and the only production caller was the serving *calibration* runner:
-`contract.snapshot` at `run.py:287`, `CARD_STATE_COMMAND` at the ramp's level
-reader and at a vLLM claim. So a scored sweep that thermally throttled for an
-hour recorded slower `latency_s` and nothing on disk that said why — the run
-contract's §3 principle stated in the document and unimplemented in the rig
-that ships the numbers.
+The readings that describe the machine are declared constants in
+`tools/bench/serving/` (`contract.snapshot`, `CARD_STATE_COMMAND`), and the
+scored sweep in `tools/breadth/measure.py` samples them once per task through
+`pin`'s sampler, so a sweep that thermally throttles records why its
+`latency_s` is slower.
 
 Two properties carry most of the weight here and neither is about a number.
 The first is that **an unread card cannot parse as an empty one**, which is the
@@ -14,10 +12,6 @@ distinction `COMPUTE_APPS_PROBE`'s sentinel exists for and which this composes
 a second reading on top of. The second is that **the recorder cannot damage the
 run it records**: a sampler that could raise, or that pays an ssh timeout per
 task forever on a host that has gone away, is worse than no sampler at all.
-
-Live-verified on both rigs 2026-08-23 before these were written — srv1 read
-49 C / 14.98 W / 300 MHz / `0x…01` and srv2 42 C / 21.15 W / 210 MHz, both with
-`placements: []` on an idle card and `why: null` on all four fields.
 """
 
 from __future__ import annotations
@@ -105,13 +99,12 @@ def test_a_card_section_without_its_sentinel_did_not_complete(pin: Any) -> None:
     assert reading["placements"] == []
     assert reading["host_loadavg"] == [0.10, 0.20, 0.30]
 
-    # The case the guard is actually FOR, and the first version of this check
-    # did not construct: a card read that failed leaves the next section's
-    # output first on stdout, and if that section ever emits four
-    # comma-separated fields it parses as card state. `COMPUTE_APPS_COMMAND` is
-    # a shared constant that can grow a column, and on the day it does this
-    # would read a pid as a temperature. Not a shape the driver is known to
-    # produce today — which is the point: the slicing must not depend on it.
+    # The case the guard is actually FOR: a card read that failed leaves the next
+    # section's output first on stdout, and if that section ever emits four
+    # comma-separated fields it parses as card state. `COMPUTE_APPS_COMMAND` is a shared
+    # constant that can grow a column, and on the day it does this would read a pid as a
+    # temperature. Not a shape the driver is known to produce — which is the point: the
+    # slicing must not depend on it.
     four = "1133972, 3126 MiB, 0, 0x0\n__compute_apps_end__\n0.1 0.2 0.3 1/1 1"
     assert pin.sweep_reading(four)["card"]["temperature_c"] is None
 
@@ -209,7 +202,7 @@ def test_an_endpoint_with_no_host_gets_no_sampler(tmp_path: Path) -> None:
 
 
 def test_the_sweep_samples_once_per_task() -> None:
-    """Held against the source: this is the call the whole issue is about.
+    """Held against the source: this is the call the whole file is about.
 
     A reading taken only at open and close describes a multi-hour sweep at the
     two moments it is least loaded, and anything that begins after open and

@@ -7,4 +7,4 @@ tags: [local-ai, hardware]
 
 # Two independent cliffs (weights and KV/context)
 
-**Data point.** There are *two* independent cliffs — weights AND KV/context — firing the same discontinuity.
+There are *two* independent cliffs — weights AND KV/context — firing the same discontinuity.

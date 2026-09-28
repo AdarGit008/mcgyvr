@@ -1,21 +1,13 @@
 """One door, ``python -m mcgyvr.serving.run`` — and the tree is scanned to prove it.
 
-Four live entry points reached srv1/srv2 on 2026-09-02 and only one of them
-stamped rig state, workload digest and build identity. The three root drivers
-printed byte-compatible TSV rows with no stamps at all; ``tools/bench/serving/
-sweep.py`` hardwired the 11-token prompt the repo had already ruled 2.4x
-misleading; the parser ran only in CI, post-hoc, over one hard-coded
-directory. A design that says "one door" and never looks is the K9 defect
-again: true of an afternoon, not of the instrument.
-
-The door is ``src/mcgyvr/serving/run.py``. It reaches no rig itself: it runs
-the gate scripts in order, on a PATH whose ``ssh`` and ``docker`` are the
-shims under ``gate-scripts/bin``, and the one rule — a rig is reached under
-the door, and only to the host the door was opened for — lives in
-``gatelib.ssh`` and in the shims, which call it. So the complete set of
-places a rig is touched from is small, and it is declared HERE, each with a
-reason, so a new way to reach a rig has to be argued in a diff rather than
-slipped in as a file.
+A design that says "one door" and never looks is true of an afternoon, not of the
+instrument. The door is ``src/mcgyvr/serving/run.py``. It reaches no rig itself: it runs
+the gate scripts in order, on a PATH whose ``ssh`` and ``docker`` are the shims under
+``gate-scripts/bin``, and the one rule — a rig is reached under the door, and only to
+the host the door was opened for — lives in ``gatelib.ssh`` and in the shims, which call
+it. So the complete set of places a rig is touched from is small, and it is declared
+HERE, each with a reason, so a new way to reach a rig has to be argued in a diff rather
+than slipped in as a file.
 
 THE ACCEPTED LIMIT, in one sentence: the proof every gate, step and driver
 applies is an ancestor's command line plus RUN_HOST, both of which an
@@ -29,7 +21,7 @@ The tripwires, each a scan over the tree:
    ssh``, ``command -p ssh``) or a ``docker run`` appears in a code line only
    behind the door. A SPAWN, not the seam's name: a test that substitutes
    ``servelib.ssh``, and the stdlib result record a stub hands back, are the
-   opposite of reaching a rig, and the scan now reads those two spellings for
+   opposite of reaching a rig, and the scan reads those two spellings for
    what they are (``SEAM_MENTION``) instead of taking the bare word — while
    still scanning the whole of the rest of every such line.
 2. Nothing under ``tools/`` or ``src/`` names its own daemon: no
@@ -86,8 +78,8 @@ NOT_SCANNED = {"records", "archive", ".git", ".venv", "node_modules", "__pycache
 #: prose such as "an ssh timeout" in a string is not a hit; scp, rsync and
 #: sftp take a path first and are matched on any argument. The list form
 #: (``["ssh", ...]``, ``["/usr/bin/ssh", ...]``) is what a subprocess argv
-#: looks like: added 2026-09-05 because the shell pattern alone could not see
-#: one, so a Python file could open an ssh to a rig and never appear here.
+#: looks like: the shell pattern alone cannot see one, so without it a Python
+#: file could open an ssh to a rig and never appear here.
 SSH_SPAWN = re.compile(
     r"(?<![\w./-])(?:/usr/bin/)?ssh\s+(?:-[A-Za-z]|[\"']?\$|\{|[\w.-]+@|srv\d\b)"
     r"|(?<![\w./-])(?:scp|rsync|sftp)\s+(?=[\w$\"'{@./-])"
@@ -111,11 +103,11 @@ DAEMON_OVERRIDE = re.compile(
 LOOPBACK = re.compile(r"\blocalhost\b|\b127\.0\.0\.1\b")
 RETIRED_SEAMS = re.compile(r"\bRUN_DOCKER\b|\bRUN_SSH\b|\bRUN_RIG_SNAPSHOT_CMD\b")
 
-#: Two spellings in which the seam's NAME provably starts no process, erased
-#: from a line before the spawn patterns read it. Added 2026-09-09: the list
-#: form above sees ``"ssh",`` and cannot tell ``subprocess.run(["ssh", host])``
-#: from a test taking that very call OUT of the path. Both here are the second
-#: kind, and each is anchored on the construct that makes it so:
+#: Two spellings in which the seam's NAME provably starts no process, erased from a line
+#: before the spawn patterns read it. The list form above sees ``"ssh",`` and cannot
+#: tell ``subprocess.run(["ssh", host])`` from a test taking that very call OUT of the
+#: path. Both here are the second kind, and each is anchored on the construct that makes
+#: it so:
 #:
 #: 1. ``monkeypatch.setattr(<module>, "ssh", fake)`` — pytest's fixture,
 #:    REPLACING the seam. The opposite of reaching a rig, and the reason a
@@ -129,10 +121,9 @@ RETIRED_SEAMS = re.compile(r"\bRUN_DOCKER\b|\bRUN_SSH\b|\bRUN_RIG_SNAPSHOT_CMD\b
 #:    ``Popen`` both raise ``TypeError`` on it. So the second reads the
 #:    constructor wrapped over two lines, which is how black formats it.
 #:
-#: What makes this narrower than the ``SEAM = "ssh"`` binding it replaces —
-#: which deleted the text from the file and so would have hidden a real spawn
-#: written the same way — is that only the matched text is erased and the whole
-#: of the rest of the line is still scanned. An argv, a command string or a
+#: Only the matched text is erased, never the file's text around it — deleting
+#: more would hide a real spawn written the same way — and the whole of the rest
+#: of the line is still scanned. An argv, a command string or a
 #: second seam anywhere else on the line survives the erasure and is still a
 #: hit, INCLUDING inside the substitute itself:
 #: ``monkeypatch.setattr(servelib, "ssh", lambda h: run(["ssh", h]))`` is

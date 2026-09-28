@@ -1,4 +1,4 @@
-"""Fan-out — the config knob, its default, and the two gaps under it.
+"""Fan-out — the config knob, its default, and the two seams under it.
 
 Fan-out is spreading a batch across several sources instead of queueing every
 contract on the cheapest rung. It is a **config knob**, ``ladder.fanout``, and
@@ -8,8 +8,8 @@ throughput rig feeding an intelligence rig — must not, since the second rig is
 sized to drain the first's failure tail and fanning volume onto it eats exactly
 the capacity that drain needs.
 
-* ``none`` — the default, and today's behaviour: the cheapest rung at or above
-  the contract's floor, queued behind whoever is already there.
+* ``none`` — the default: the cheapest rung at or above the contract's floor,
+  queued behind whoever is already there.
 * ``idle`` — the cheapest rung at or above the floor **that has a free slot**.
 * ``full`` — spread across the eligible rungs regardless of load.
 
@@ -19,37 +19,27 @@ waiting — a spend decision the knob makes deliberately, not an escalation.
 
 Two seams carry this, and they are different modules on purpose:
 
-**Within a family** — :func:`mcgyvr.route.plan` orders rungs by price and
-nothing in it reads :meth:`~mcgyvr.capacity.Capacity.in_use`, so six contracts
-of one task type all take the cheapest rung and queue two-wide while a peer that
-serves the same model sits idle. That is ``full``'s seam, and it stays inside
-#24's boundary: nothing in ``route`` looks past the family it was asked about.
+**Within a family** — :func:`mcgyvr.route.plan` orders rungs by price, so under
+``none`` six contracts of one task type all take the cheapest rung and queue
+two-wide while a peer that serves the same model sits idle. That is ``full``'s
+seam, and it stays inside the family boundary: nothing in ``route`` looks past the
+family it was asked about.
 
 **Across families** — ``idle``'s spill cannot live in ``route`` for that same
 reason. :func:`mcgyvr.escalate.ascent` is already the view "every family this
 contract may climb, from its floor upward", so it is where a load-aware choice
 that may reach api belongs.
 
-**Where the width comes from.** Under all three modes the bound itself is still
-a guess: ``max_parallel`` is declared in config and enforced verbatim, and
-nothing asks the machine whether the number is true. CON-02 is what makes that
-cost something — a single-slot server handed four concurrent requests
-*serializes them rather than refusing*, so an over-declared capacity is not an
-error anyone sees, it is a queue nobody sees. :func:`mcgyvr.initialize.initialize`
-writes ``1`` for that reason, which is honest and leaves CON-04's measured 8.5x
-on the floor.
+**Where the width comes from.** The declared ``width`` is a guess until a backend
+reports one: ``Capacity.of(config, probe=...)`` takes a reported width that is
+larger, and refuses one that is smaller. A single-slot server handed four
+concurrent requests *serializes them rather than refusing*, so an over-declared
+capacity is not an error anyone sees, it is a queue nobody sees.
+:func:`mcgyvr.initialize.initialize` writes ``1`` for that reason.
 
 Concurrency is asserted the way ``test_capacity.py`` asserts it: an independent
 :class:`Observer`, and a :class:`Rendezvous` rather than a stopwatch, so a loaded
 machine makes a test slower and never wrong.
-
-**Probed on the rigs, 2026-08-29.** srv1 and srv2 both serve ollama 0.32.15 on
-:11434 and nothing else; the llama.cpp containers that answered ``GET /slots``
-with four slots on 2026-08-25 are gone. ``/slots`` now answers 404 on both, and
-both units declare ``OLLAMA_NUM_PARALLEL=0`` — ollama's *auto*, chosen per model
-at load time against free VRAM. So the width of this project's own two rigs is
-today neither declared nor reportable, which is why the second width test is not
-a hypothetical branch: it is the branch both rigs are currently in.
 """
 
 from __future__ import annotations
@@ -73,8 +63,7 @@ from mcgyvr.route import Accepted, Result, Try, climb, plan
 # asserts on it: if the routing under test fans out, the rendezvous latches as
 # soon as the last member arrives, so this number costs a working implementation
 # nothing and only decides how long a broken one takes to say so. Kept short
-# because these tests are red until #24 lands, and a red test pays this on every
-# run of the suite.
+# because a broken implementation pays this on every run of the suite.
 RENDEZVOUS_TIMEOUT_S = 5.0
 
 
@@ -308,11 +297,11 @@ def saturated(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None
 def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> None:
     """The declared number is a guess; a reported one is a fact, and it wins.
 
-    `init` writes ``max_parallel: 1`` because it cannot know whether a backend
-    was started with its parallel-slot setting on. A backend that will answer
-    that question ends the guess, and ending it is the whole point: CON-04
-    measured 8.5x at sixteen concurrent requests on a batching server, and a
-    config pinned at 1 in front of it leaves all of that unused.
+    `init` writes ``width: 1`` because it cannot know whether a backend was
+    started with its parallel-slot setting on. A backend that will answer that
+    question ends the guess, and ending it is the whole point: a batching server
+    serves many concurrent requests, and a config pinned at 1 in front of it
+    leaves that unused.
     """
     config, _ = mapped()
     reported = {"local_srv1": 4, "local_srv2": 4, "api_big": 4}
@@ -328,12 +317,10 @@ def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_s
 ):
     """Not every backend will answer, and pretending otherwise is the trap.
 
-    ollama serves its parallelism from ``OLLAMA_NUM_PARALLEL`` in the unit file
-    and exposes no endpoint for it; at ``0`` it chooses per model at load time
-    against free VRAM, so the width is not even a per-machine constant. The
-    declared number is then the only number there is — and an operator reading
-    a report must be able to tell that from a number a rig confirmed, because
-    only one of the two is evidence.
+    A backend may take its parallelism from a unit file and expose no endpoint
+    for it. The declared number is then the only number there is — and an
+    operator reading a report must be able to tell that from a number a rig
+    confirmed, because only one of the two is evidence.
     """
     config, _ = mapped()
 
@@ -350,7 +337,7 @@ def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_s
 def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced() -> (
     None
 ):
-    """The one failure the whole CON-02 note exists to warn about, made loud.
+    """A single-slot server behind a wider declaration, made loud.
 
     A config declaring 2 in front of a single-slot server does not fail. It
     admits both dispatches, runs them one after another, and looks exactly like
@@ -417,19 +404,19 @@ def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
 def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
     key: None,
 ) -> None:
-    """The headline gap, and the reason raising ``max_parallel`` does not fix it.
+    """``full`` reaches both sources, which raising ``width`` alone cannot do.
 
     Six contracts, one task type, one floor family, two sources that both serve
-    it at a width of two. The reachable concurrency is four. What happens today
-    is two: every contract takes ``local_srv1`` because it is written first, and
+    it at a width of two. The reachable concurrency is four. Under ``none`` it is
+    two: every contract takes ``local_srv1`` because it is written first, and
     ``local_srv2`` is reached only by a contract that *failed* on srv1 — never
-    because srv1 is busy. Widening ``max_parallel`` widens the rig that was
-    already the only one being used.
+    because srv1 is busy. Widening ``width`` widens the rig that was already the
+    only one being used.
 
     The assertions are per source *and* across sources, and both are needed.
     Two per-source peaks of 2 are equally true of a batch that drained srv1 and
-    only then started srv2; that is the ambiguity #200 added
-    :class:`~mcgyvr.capacity.Concurrency` to remove, and the rendezvous is what
+    only then started srv2; :class:`~mcgyvr.capacity.Concurrency` removes that
+    ambiguity, and the rendezvous is what
     turns it into a fact rather than a stopwatch reading.
     """
     config, pool = mapped(peers("full"))

@@ -1,15 +1,15 @@
 """The bench's null drift, and the mechanism underneath it (#231 check 1).
 
-``tools/power/report.py --section null`` prints the number the D2 asks
-for: ``d``, the count of verdicts that differ between two identical greedy runs.
-This script asks *why* it is what it is, because a null of the same size can
-come from two very different instruments:
+``tools/power/report.py --section null`` prints the null: ``d``, the count of
+verdicts that differ between two identical greedy runs. This script asks *why*
+it is what it is, because a null of the same size can come from two very
+different instruments:
 
 **Sampler drift.** The backend returns different text for the same prompt at
 temperature 0 — batching, kv-cache reuse and floating-point non-associativity
 all do this — and some of that different text lands on the other side of the
 acceptance boundary. This is the expected mechanism, it is a property of the
-serving stack, and  is why the build is pinned.
+serving stack, which is why the build is pinned.
 
 **Acceptance drift.** The *same bytes* score differently on two runs. That is
 not model noise at all; it is the harness being nondeterministic — a timeout, an
@@ -122,11 +122,7 @@ def main() -> int:
                 print(f"missing: {run}/{arm}/results.jsonl", file=sys.stderr)
                 return 2
 
-    # The bar is read from the runs, never inferred from their names. The first
-    # version of this keyed a dict on the *arguments*, so the first entry always
-    # matched and every pair — including the superseded acceptance-only one —
-    # was labelled "Gate.run". A tool whose whole claim is that a rate is never
-    # quoted against an unstated bar stated the bar from the filename.
+    # The bar is read from the runs, never inferred from their names.
     bars = {}
     for run in (run_a, run_b):
         rungs = tuple(
@@ -203,12 +199,10 @@ def main() -> int:
                 f" {len(set(r['flips']) & set(r['diff_bytes']))} flipped"
                 f" ({rate * 100:.1f}%)"
             )
-        # The number check 4 declares, printed where it is measured. The bound
-        # is per arm (D2 keys it to one tier), and this tool used to
-        # print only the pooled interval — so the two entries actually written
-        # into `reproducibility.json` were computed by hand off-screen. The
-        # upper limit, never `d/n`: a bound of 0.00pp would claim the instrument
-        # is exact, which 257 cells cannot establish.
+        # The number `reproducibility.json` declares, printed where it is
+        # measured. The bound is per arm. The upper limit, never `d/n`: a bound
+        # of 0.00pp would claim the instrument is exact, which a finite cell
+        # count cannot establish.
         low, high = wilson(len(r["flips"]), n)
         print(
             f"  declarable bound {high * 100:.2f}pp"

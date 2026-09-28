@@ -1,27 +1,26 @@
 """D09 — a source that keeps failing stops being offered, and comes back on its own.
 
-mcgyvr knows two things about a source and neither is this one.
+mcgyvr knows three things about a source.
 :class:`~mcgyvr.availability.Availability` asks "is anything there", once, and caches
 the answer for the life of the instance — deliberately, because a run is short and a
 re-probe storm at every escalation is the failure it was designed against.
 :class:`~mcgyvr.capacity.Capacity` asks "is there room", and bounds how many
 dispatches a source carries at once. Between them sits a source that is reachable,
 uncontended, and *does not work*: it answers the model-list path, accepts the
-connection, takes the slot, and fails the generation. Every rung on it is handed to a
-dispatch that will fail the same way, and nothing in the run ever revises the verdict,
-because the verdict was reached before the first dispatch and is never asked again.
+connection, takes the slot, and fails the generation.
+:class:`~mcgyvr.cooldown.Cooldown` is the view that learns that from dispatch failures.
 
 Three statements, and the third is the one that makes the first two safe to build.
 
 *A source that keeps failing stops being offered* is the lever. It is asserted with a
-probe that reports the source **live** throughout, so the only thing that can have
-taken the source out is the record of its failures — a test whose probe went down
-would pass against today's code and prove nothing. It is asserted a second time on the
-probe count, which must not move: the point of learning from failures is that the
-knowledge is already paid for. A design that answered this question by re-probing
-would spend a connect timeout per escalation, which is the exact cost
-:mod:`~mcgyvr.availability` exists to avoid, and no assertion about availability alone
-would notice.
+probe that reports the source **live** throughout, so the only thing that can have taken
+the source out is the record of its failures — a test whose probe went down would pass
+against :class:`~mcgyvr.availability.Availability` alone and prove nothing. It is
+asserted a second time on the probe count, which must not move: the point of learning
+from failures is that the knowledge is already paid for. A design that answered this
+question by re-probing would spend a connect timeout per escalation, which is the exact
+cost :mod:`~mcgyvr.availability` exists to avoid, and no assertion about availability
+alone would notice.
 
 The refusal must name the failures, for the reason M2 gives about the dirty tree: a
 caller handed a source that is simply missing from the offered set cannot tell "it kept
@@ -36,13 +35,12 @@ a design that forgot the source the moment anyone looked twice.
 
 *A source that fails once is not taken out* is the negative half, and it is the reason
 the first test is not sufficient on its own. A system that dropped a source on its
-first hiccup would satisfy every assertion above while being strictly worse than what
-mcgyvr has today: one bad generation — a truncated reply, a transient 502, a model
+first hiccup would satisfy every assertion above while being strictly worse than no
+cooldown at all: one bad generation — a truncated reply, a transient 502, a model
 still loading — would cost the whole rest of the ladder on that host. So the count is
 asserted at both ends and at neither middle: five consecutive failures is repeated
 failure by any threshold worth choosing, one is not, and where between them the line
-falls is the port's to measure. A test that pinned the number would freeze a
-measurement nobody has taken.
+falls is not pinned here.
 
 Nothing here touches the network. The probe is the injected seam
 :class:`~mcgyvr.availability.Availability` already takes, and the clock is injected for
@@ -76,10 +74,10 @@ REPEATEDLY = 5
 def _tracker() -> Any:
     """The thing that holds per-source failure history for a run.
 
-    Placeholder path, as :func:`~tests.red_port.conftest.required` documents. What is
-    being asked for is a liveness view that also learns from dispatch failures — it
-    answers ``unavailable`` the way :class:`~mcgyvr.availability.Availability` does, so
-    :func:`mcgyvr.pool.source_map` needs to learn nothing new.
+    :class:`mcgyvr.cooldown.Cooldown`: a liveness view that also learns from dispatch
+    failures — it answers ``unavailable`` the way
+    :class:`~mcgyvr.availability.Availability` does, so :func:`mcgyvr.pool.source_map`
+    needs to learn nothing new.
     """
     return required(
         BEHAVIOR,
@@ -207,8 +205,8 @@ def test_a_source_that_failed_once_is_not_taken_out(
 
     This is the assertion that stops the lever from being implemented as "any failure
     removes the source". Such a design passes the other two tests in this file and is
-    worse than mcgyvr today: a single truncated reply or a model still loading would
-    cost every remaining rung on that host.
+    worse than no cooldown at all: a single truncated reply or a model still loading
+    would cost every remaining rung on that host.
     """
     tracker = _tracker()(probe=probe, clock=clock, cooldown_s=COOLDOWN_S)
 

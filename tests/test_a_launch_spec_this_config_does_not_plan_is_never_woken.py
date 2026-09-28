@@ -1,21 +1,12 @@
-"""A file mcgyvr no longer writes is a file mcgyvr must never start.
+"""A launch spec this config does not plan is a file mcgyvr must never start.
 
-* ``emit`` writes ``compose.<host>.<model>.yml`` for each alternative and
-  **leaves the old ``compose.<host>.yml`` on disk**. Nothing deletes it; the
-  writer only writes what it plans.
-* ``emit --check`` reads only *planned* paths — its own docstring says "files
-  this config says nothing about are not read and not reported" — so it is
-  **CLEAN** with that file sitting there.
-* ``serving.cards`` **hardcodes** ``compose.<host>.yml``, finds it, and
-  ``wake.compose_for`` hands it to the door.
-
-So ``mcgyvr serve wake --host rig``, and the automatic ``Waker`` the moment
-``serving.enable_sleep_wake`` is on, starts a **stale multi-service compose
-file**: the exact card overcommit ``hold_together`` used to refuse at emit time,
-launched on a rig, with nothing having said a word. On srv1's own figures that
-is 11.83 GiB asked of a 6.00 GiB card — two servers racing for one card, the
-second crash-looping under ``restart: unless-stopped`` while the door reports
-``NOT ANSWERING`` (``mcgyvr-lab/records/plans/handoff.md``, "rig gotchas").
+``emit`` writes ``compose.<host>.<model>.yml`` for each alternative and deletes
+nothing, so an old ``compose.<host>.yml`` can sit beside them. A wake that
+picked that file by name would start a multi-service compose file whose units
+do not sum onto the card: two servers racing for one card, the second
+crash-looping under ``restart: unless-stopped``. So ``serving.cards`` lists the
+specs on disk, ``wake.compose_for`` answers only when there is exactly one, and
+``emit.unplanned`` names the leftover.
 
 **What this file pins**
 
@@ -24,22 +15,17 @@ second crash-looping under ``restart: unless-stopped`` while the door reports
    them is current, and the one it would have guessed is the stale one.
 2. A host emitted as N alternatives is **not "no launch spec"**. Every file is
    found; what is missing is a decision about *which*, and the refusal says so
-   rather than claiming mcgyvr never wrote one. (That case is otherwise
-   invisible: with three units at 5 GiB on a 12 GiB card the covering is
-   ``{A,B}`` and ``{A,C}``, ``compose.<host>.yml`` is never written at all, and
-   the hardcoded name degraded to "no launch spec" for a host ``emit`` had just
-   written two files for.)
-3. A host that comes up as one file is woken with it, exactly as before — the
-   compatibility rule ``d8c5cf0a`` established, and both live rigs.
-4. ``emit --check`` **names** a ``compose.<host>.yml`` this config no longer
-   plans. It is not "a file this config says nothing about": it matches
-   mcgyvr's own convention, for a rig this ladder still binds, and it is the
-   file ``cards`` would have picked up. Reported at drift severity, because the
+   rather than claiming mcgyvr never wrote one. (With three units at 5 GiB on
+   a 12 GiB card the covering is ``{A,B}`` and ``{A,C}``, and
+   ``compose.<host>.yml`` is never written at all.)
+3. A host that comes up as one file is woken with it.
+4. ``emit --check`` **names** a ``compose.<host>.yml`` this config does not
+   plan. It is not "a file this config says nothing about": it matches
+   mcgyvr's own convention, for a rig this ladder binds, and it is the file a
+   pick by name would start. Reported at drift severity, because the
    consequence is the same one drift has — a rig serving argv nobody is reading.
 5. ``emit`` **says** when a host's units did not sum onto the card and were
-   therefore written as N alternatives, only one of which is ever up. That
-   sentence stands where ``hold_together``'s card refusal used to: the refusal
-   is gone (owner's ruling 5, 2026-09-09) and the fact it was about is not.
+   therefore written as N alternatives, only one of which is ever up.
 """
 
 from __future__ import annotations
@@ -103,8 +89,7 @@ serving:
 """
 
 
-#: One model on one port: the host that comes up as one file, which is every
-#: fleet emitted before ``d8c5cf0a`` and both live rigs today.
+#: One model on one port: the host that comes up as one file.
 def _one_unit_config(compose_dir: Path) -> str:
     return f"""
 units:
@@ -169,7 +154,7 @@ def _check(out: Path) -> int:
 
 
 def _stale(out: Path) -> Path:
-    """The file a host used to come up as, left behind by an earlier emit."""
+    """A whole-host file left behind by an earlier emit."""
     path = out / f"compose.{HOST}.yml"
     path.write_text(
         "services:\n"
@@ -183,11 +168,11 @@ def _stale(out: Path) -> Path:
 def test_a_stale_whole_host_file_is_not_what_a_wake_brings_up(
     install: Install, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The Sev 1 reproduction: two specs written, an old one left, that one woken.
+    """Two specs written, an old one left: the old one is not woken.
 
-    The stale file is the one shape ``hold_together`` was written to refuse — a
-    card asked to hold both units at once — and every guard between the config
-    and the rig has a reason not to look at it. Waking must not.
+    The stale file is a card asked to hold both units at once, and every guard
+    between the config and the rig has a reason not to look at it. Waking must
+    not.
     """
     out, config, declare = install
     declare(_config(out))
@@ -201,7 +186,7 @@ def test_a_stale_whole_host_file_is_not_what_a_wake_brings_up(
     chosen = compose_for(card)
 
     assert chosen != stale, (
-        f"a wake would have started {stale}, which this config no longer writes "
+        f"a wake would have started {stale}, which this config does not write "
         "and which holds both units on one card"
     )
     assert chosen is None, (

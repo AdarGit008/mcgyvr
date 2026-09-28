@@ -1,25 +1,8 @@
-"""§4, fifth item — three delivery modes, one behaviour, and a default that lies.
+"""A delivery mode is a promise about where the work ends up.
 
 ``config.delivery.mode`` is the key an operator sets to say where accepted work
-ends up. It ships three values and documents three outcomes: ``pull_request``
-"proposes it", ``branch`` "stops after pushing", ``none`` "leaves it committed
-locally". Measured on 2026-08-30, against the module as written:
-
-    schema default for delivery.mode: 'pull_request'
-
-    mode=None           HEAD moved: True   refs after: [refs/heads/master]
-    mode='pull_request' HEAD moved: True   refs after: [refs/heads/master]
-    mode='branch'       HEAD moved: True   refs after: [refs/heads/master]
-    mode='none'         HEAD moved: True   refs after: [refs/heads/master]
-
-Four runs, one commit SHA, one ref, and the operator's checked-out branch moved
-every time. Nothing pushes and nothing branches, so ``branch`` and
-``pull_request`` are two spellings of ``none`` — and ``pull_request``, the one
-that ships by default and reads as *the least invasive of the three*, is the
-most invasive thing the module does. The only trace of the difference is
-``Delivery.handoff``, which comes back as the literal string ``'branch'`` or
-``'pull_request'``: an obligation naming no action, recorded for a discharger
-that does not exist anywhere in ``src/``.
+ends up. It takes ``branch`` (the default) and ``none``; ``pull_request`` is
+refused where it is written.
 
 The rule every test below measures against:
 
@@ -29,7 +12,7 @@ The rule every test below measures against:
     something else is worse than a mode that is not offered.
 
 So there are two honoured modes and one refused one. ``none`` commits onto the
-branch the operator has checked out, which is what it always did. ``branch``
+branch the operator has checked out. ``branch``
 commits onto a *new local branch* and leaves HEAD, the index and the working
 tree exactly as it found them — the honest form of "hand it back rather than
 land it" in a codebase with no remote and no credential path — and its
@@ -37,11 +20,11 @@ land it" in a codebase with no remote and no credential path — and its
 refused where it is written, because opening one needs a forge nothing here
 talks to.
 
-The controls carry as much weight as the reproductions. "Refuse everything" and
+The controls carry as much weight as the refusals. "Refuse everything" and
 "never commit anywhere" would both satisfy the first half of the rule and leave
-mcgyvr unable to deliver at all, so ``none`` still has to land a commit on the
-checked-out branch, the config still has to accept both honoured modes, and the
-shipped default still has to be a value that delivers.
+mcgyvr unable to deliver at all, so ``none`` has to land a commit on the
+checked-out branch, the config has to accept both honoured modes, and the
+shipped default has to be a value that delivers.
 """
 
 from __future__ import annotations
@@ -149,7 +132,7 @@ def delivered(repo: Path, contract: Contract, config: Config | None) -> Delivery
 def test_branch_mode_does_not_move_the_branch_the_operator_has_checked_out(
     repo: Path, contract: Contract
 ) -> None:
-    """The reproduction. ``branch`` advanced ``work`` like every other mode."""
+    """``branch`` leaves ``work``, the checked-out branch, where it found it."""
     head = git(repo, "rev-parse", "HEAD").strip()
 
     result = delivered(repo, contract, config_for("branch"))
@@ -277,11 +260,11 @@ def test_the_handoff_names_the_repository_s_own_remote(
 def test_none_mode_commits_onto_the_checked_out_branch(
     repo: Path, contract: Contract
 ) -> None:
-    """The control: the fix did not stop delivery from delivering.
+    """The control: refusing a mode does not stop delivery from delivering.
 
     ``none`` is the mode that says "leave it committed locally", and locally is
-    the branch in hand. If this goes red the modes differ, and mcgyvr can no
-    longer put a commit where it always put one.
+    the branch in hand. If this goes red, mcgyvr cannot put a commit on the
+    branch in hand.
     """
     head = git(repo, "rev-parse", "HEAD").strip()
     before = heads(repo)
@@ -364,8 +347,7 @@ def test_delivery_refuses_the_mode_rather_than_committing_under_it(
 ) -> None:
     """Behind the loader's front door, for a config that did not come through it.
 
-    This is the assertion the reproduction failed: ``pull_request`` committed to
-    the checked-out branch and reported the pull request as owed.
+    ``pull_request`` commits nothing to the checked-out branch.
     """
     head = git(repo, "rev-parse", "HEAD").strip()
 
@@ -409,9 +391,9 @@ def test_the_shipped_default_is_a_mode_the_code_can_carry_out(
 ) -> None:
     """A config that says nothing about delivery still delivers, and honestly.
 
-    Both halves matter. The default has to be in the honoured set — it was
-    ``pull_request``, which is now refused, so a config with no ``delivery``
-    block would fail to deliver at all — and it has to actually commit, so that
+    Both halves matter. The default has to be in the honoured set — a refused
+    default would leave a config with no ``delivery`` block unable to deliver
+    at all — and it has to actually commit, so that
     "make the default honourable" is not satisfied by a default that refuses.
     """
     default = config_for(None).data["delivery"]["mode"]

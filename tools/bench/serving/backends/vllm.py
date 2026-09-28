@@ -1,42 +1,32 @@
 #!/usr/bin/env python3
 """The vLLM backend: how this engine yields the card, takes it, and describes itself.
 
-Implements the contract in :mod:`contract`. **This file names no other backend
-and must not**: it knows how to stop being on the GPU and how to get itself onto
-it, and who else wants the card is the orchestrator's decision, never this
-module's.
+Implements the contract in :mod:`contract`. **This file names no other
+backend's module and must not**: it knows how to stop being on the GPU and how
+to get itself onto it, and who else wants the card is the orchestrator's
+decision, never this module's.
 
 **This engine claims the card for the life of the process, not per model.** It
 allocates its whole budget at startup — weights, then KV cache filling the rest —
-and holds it whether or not a request is in flight. Since  that budget
-is declared in **bytes of KV cache** (:func:`_memory_args`) rather than as a
-fraction of the card, because ``requested = total_memory * util`` means one
-fraction is a different KV cache on every card it is carried to.
+and holds it whether or not a request is in flight. That budget is declared in
+**bytes of KV cache** or as a fraction of the card (:func:`_memory_args`);
+``requested = total_memory * util`` means one fraction is a different KV cache
+on every card it is carried to.
 
 So :func:`claim` is not "load a model" but "be running, with these serving
-parameters, and prove it": an *empty* card
-means the server died, which is the opposite sense from an engine that loads
-per request. That asymmetry is why cleanup is parameterised by which engine is
-under test rather than applied uniformly — an earlier uniform version stopped
-this engine immediately before measuring it.
+parameters, and prove it": an *empty* card means the server died.
 
 **One flag decides how much this engine will say about itself.**
 ``/server_info`` carries the quantization, the seed and the served window, and
 exists only when the server was launched with ``VLLM_SERVER_DEV_MODE=1``.
-Measured 2026-08-18 by diffing the server's own route table with and without it:
-43 routes declared against 25, exactly 18 gated, and ``/server_info`` returning
-404 when unset. With the flag this engine answers three of the four probe-set
-fields; without it, one. That is a fact about how the server was started rather
-than a limit on what it can report, and the launcher below sets it deliberately.
+:func:`_start` sets it deliberately.
 
-**The batch width is on no endpoint.** ``max_num_seqs`` appears nowhere:
-searched across every parameterless GET in the server's own ``/openapi.json``
-route table, on two hosts — not in ``/server_info``'s engine config, not in any
-of the 122 metrics series, not on the model card. ``cache_config_info`` carries
-``kv_cache_max_concurrency``, which looks like the answer and is KV-cache
-capacity: a server launched with 8 reported 16.004, one launched with 16
-reported 5.314. It moves *opposite* to the quantity it resembles, so it is never
-substituted. The width is recovered by the ramp instead.
+**The batch width is read off the server's own argv** (:func:`launched_width`).
+On ``CONTAINER_IMAGE``'s build, ``/server_info?config_format=json`` also
+carries it, under ``scheduler_config``; no code here reads it there, and the
+text form that :func:`_running_config` parses leaves it out.
+``kv_cache_max_concurrency`` on ``/metrics`` looks like the answer and is
+KV-cache capacity — see :func:`declared_slots`.
 """
 
 from __future__ import annotations
@@ -54,7 +44,7 @@ from typing import Any
 
 
 def _contract() -> types.ModuleType:
-    """The shared contract, by path — ``tools/`` is not a package.
+    """The shared contract, by path — ``tools/`` has no ``__init__.py``.
 
     One slot, so every backend and the orchestrator share a single copy: two
     would mean two ramps, two idle thresholds and two definitions of what
@@ -98,40 +88,22 @@ NAME = "vllm"
 #: The port this engine ships on.
 PORT = 8000
 
-#: How long to wait for a server to become ready after being started.
-#:
-#: **#356, 2026-08-24: every launch timed before this date was an
-#: underestimate, and the number still holds.** `--enforce-eager` skips CUDA
-#: graph capture, so the 33 s (srv1 pip) / 109 s (srv2 container) points D6
-#: collected were launches of a server that never captured. The 2026-08-24
-#: sweep (`records/evidence/2026-08-24-config-sweep/`, container on both
-#: rigs, clock started after `docker run -d` returned with the image already
-#: present) measured 36 graphs-on launches of the 1.5B, the Qwen3-4B and the
-#: 7B: median 122 s on both rigs, maximum 153 s (srv1) and 145 s (srv2),
-#: against an eager median of 81-84 s. Capture costs roughly 40 s here. 900 s
-#: is 5.9x the slowest graphs-on launch measured; a cold page cache and a 14B
-#: are not in that set, and this budget is what leaves room for them.
+#: The base of the readiness wait: :func:`_start` polls ``START_TIMEOUT_S // 20``
+#: times, each a curl of at most 5 s, an `nvidia-smi` with no time limit and a
+#: 10 s sleep, under an ssh timeout of ``START_TIMEOUT_S + 120``. Launch
+#: timings: `records/evidence/2026-08-24-config-sweep/`.
 START_TIMEOUT_S = 900.0
 
-#: Lines of the engine's own log kept beside a launch that never became ready
-#: (#352). Enough to hold a vLLM traceback together with the line naming the
-#: allocation it died on: the three #354 refusals ran 24 to 31 lines from the
-#: first frame to `torch.OutOfMemoryError`. Fewer cuts the cause off the top,
-#: and this text is scrubbed and written to the record, so more is a wall.
+#: Lines of the engine's own log kept beside a launch that never became ready.
+#: Enough to hold a vLLM traceback together with the line naming the allocation
+#: it died on; this text is scrubbed and written to the record, so more is a
+#: wall.
 LAUNCH_LOG_LINES = 40
 
-#: How long a weights digest may take. Measured 7.3s per 1.61 GB, so this
-#: covers a checkpoint far larger than anything these rigs hold.
-#:
-#: **#356, 2026-08-24: invariant to the serving configuration, confirmed
-#: rather than assumed.** #356 listed this beside the other engine's
-#: `LOAD_ATTEMPTS` as that engine's; it is not -- it lives here -- but the
-#: reason it is untouched by `--enforce-eager` is the same shape: the digest
-#: is a separate process over the checkpoint files (`_DIGEST_SCRIPT`), it
-#: never starts an engine and no serve flag reaches it. Its only timed points
-#: are 7.3 s (host
-#: torch, 2026-08-19) and 7.5 s / 10.4 s inside the image on srv1 / srv2
-#: (`records/evidence/2026-08-23-cross-rig/`), all far under this budget.
+#: How long a weights digest may take. The digest is a separate process over
+#: the checkpoint files (`_DIGEST_SCRIPT`): it never starts an engine and no
+#: serve flag reaches it. Timed points:
+#: `records/evidence/2026-08-23-cross-rig/`.
 DIGEST_TIMEOUT_S = 1800.0
 
 #: Hashed on the serving host, because the checkpoint is there and the client
@@ -140,9 +112,8 @@ DIGEST_TIMEOUT_S = 1800.0
 #: laid out — two identical models split into different numbers of files hash
 #: the same, and a re-quantization does not.
 #:
-#: Measured cost on a 1.61 GB checkpoint: 731 tensors, 7.3 seconds. A 5.3 GB
-#: model is proportionally ~25s, which is why the result is cached by snapshot
-#: path and mtime rather than recomputed per survey.
+#: The result is cached in-process per ``(host, model)`` rather than recomputed
+#: per survey.
 _DIGEST_SCRIPT = r"""
 import hashlib, json, os, sys, glob
 
@@ -180,19 +151,11 @@ try:
         with safe_open(shard, framework="pt", device="cpu") as handle:
             for key in sorted(handle.keys()):
                 tensor = handle.get_tensor(key)
-                # `.numpy()` REFUSES bfloat16 — the default dtype for a great
-                # many checkpoints — so the bytes come from the tensor's own
-                # untyped storage instead. Measured on this host's torch:
-                # float16, bfloat16, int32 and uint8 all yield bytes this way,
-                # while `.numpy()` fails on bfloat16 alone. A first attempt used
-                # `view(dtype=None)`, which is not a valid call at all and
-                # failed on every dtype — caught by running it.
                 # `.numpy()` REFUSES bfloat16 and `untyped_storage()` is worse
                 # than wrong: safetensors MMAPS the shard, so a tensor is a view
                 # into the whole file and its storage is the entire mapping —
                 # hashing it would digest the file once per tensor. Reinterpret
-                # the tensor's own elements as bytes instead. Measured on this
-                # host's torch: float16, bfloat16, int32 and uint8 all work.
+                # the tensor's own elements as bytes instead.
                 flat = tensor.flatten().contiguous().view(torch.uint8)
                 digest.update(flat.numpy().tobytes())
                 tensors += 1
@@ -235,11 +198,10 @@ def inventory(host: str, base: str) -> list[str]:
     return [str(row.get("id")) for row in rows if isinstance(row, dict)]
 
 
-#: What the process holding the card is called. vLLM renames its GPU worker
-#: with ``setproctitle``, so the process ``nvidia-smi`` attributes the memory to
-#: has a command line of exactly this — **no model, no flags, nothing to join
-#: on**. Measured on both rigs 2026-08-22, and it is why the reading below walks
-#: to the parent instead of matching the pid's own line.
+#: What the process holding the card is called. vLLM renames its GPU worker,
+#: so the process ``nvidia-smi`` attributes the memory to has a command line of
+#: exactly this — **no model, no flags, nothing to join on** — which is why
+#: :func:`_owner` walks to the parent instead of matching the pid's own line.
 ENGINE_CORE = "VLLM::EngineCore"
 
 #: The process read this backend takes to attribute the card. Narrow on purpose:
@@ -254,9 +216,8 @@ PROCESS_TREE_COMMAND = (
     "grep -E '[V]LLM::EngineCore|[v]llm serve|[v]llm[.]entrypoints' || true"
 )
 
-#: How far up the parent chain a compute-app pid is followed. Measured: the
-#: model is on the **immediate** parent in both deployment shapes, so this is
-#: slack, not a search — three hops and then the answer is ``None``.
+#: How far up the parent chain a compute-app pid is followed before the answer
+#: is ``None``.
 _OWNER_HOPS = 3
 
 
@@ -264,8 +225,7 @@ def _process_tree(raw: str | None) -> dict[int, dict[str, Any]]:
     """:data:`PROCESS_TREE_COMMAND`'s output as ``{pid: {"ppid", "args"}}``.
 
     A pure parser over what the host printed, so the join it feeds is testable
-    against the lines the rigs really produced  rather than against a
-    shape imagined for it.
+    without a host.
     """
     tree: dict[int, dict[str, Any]] = {}
     for line in (raw or "").splitlines():
@@ -285,13 +245,8 @@ def _served_name(args: str) -> str | None:
     ``--served-model-name`` first, because that — not the checkpoint path — is
     what ``/v1/models`` returns, and this name is joined against that list. Then
     ``--model``, the ``api_server`` shape. Then the positional of ``vllm serve
-    <model>``, which is what both rigs run:
-
-    - srv1, installed with pip:  ``/usr/bin/python3 ~/.local/bin/vllm serve Qwen/…``
-    - srv2, inside the container: ``/usr/bin/python3 /usr/local/bin/vllm serve Qwen/…``
-
-    Measured 2026-08-22. The two deployment shapes differ only in the path to
-    the ``vllm`` binary, which is why one join covers both.
+    <model>``, whatever path the ``vllm`` binary sits under, so one join covers
+    a pip install and a container.
     """
     try:
         tokens = shlex.split(args)
@@ -316,10 +271,9 @@ def _owner(pid: int, tree: dict[int, dict[str, Any]]) -> str | None:
 
     ``None`` is the answer whenever the chain runs out, the parent has exited,
     or the line names no model — a pid this engine cannot attribute is not this
-    engine's, and it is never *guessed* to be. The llama-server that shares the
-    card in a co-residency cell arrives here and leaves as ``None``: naming it
-    would be this backend claiming about another engine's model, which is the
-    one thing this module must not do.
+    engine's, and it is never *guessed* to be. Another engine's process sharing
+    the card arrives here and leaves as ``None``: naming it would be this
+    backend claiming about another engine's model.
     """
     seen: set[int] = set()
     current = pid
@@ -344,16 +298,8 @@ def residents(host: str) -> list[str]:
     it. So "resident" here means "being served by a vLLM server on this host",
     which is the same question and not the same reading.
 
-    Public, and shaped like the other backend's ``residents``, because ``run.py``
-    calls it on every backend after a ramp (BL-6). Until #345 only one backend
-    defined it, so a vLLM co-residency cell recorded an ``AttributeError`` as
-    its evidence.
-
-    **It answers about this engine only, and so does the other backend's.** A
-    neighbour served by the other engine is missing from both lists, so a
-    cross-engine cell's post-ramp verdict read ``held: false``. That is #343 and
-    #346's layer, not this one's, and it is stated here so the gap is read as
-    filed rather than as fixed.
+    Public, because ``run.py`` calls it after a successful ramp of an entry
+    that declares ``coresident_with``. It answers about this engine only.
     """
     base = probe(host)
     return [] if base is None else inventory(host, base)
@@ -362,30 +308,17 @@ def residents(host: str) -> list[str]:
 def placements(host: str) -> list[dict[str, Any]]:
     """Where every process on this card sits, as far as this engine can say.
 
-    **The fraction has no analogue here, and that is a decision, not a gap**
-    . An engine that loads through llama.cpp can report
-    ``size_vram / size`` because it *spills*: a model can be 6.8% on the card
-    and answer ``200`` anyway. vLLM cannot —
-    ``requested = ceil(total * util)`` with a hard ``free >= requested``
-    precondition means it takes its whole allocation or refuses to start — so
-    there is no denominator to divide by. Every row therefore carries
-    ``fraction: None`` **with the reason beside it**, rather than the ``1.0``
-    that would be true by this engine's contract and would invite a reader to
-    compare it against the other engine's ``0.068`` as though the two were one
-    measurement (D4).
+    **``fraction`` is ``None`` on every row, and that is a decision, not a
+    gap.** vLLM takes its whole allocation or refuses to start
+    (``requested = ceil(total * util)`` with a hard ``free >= requested``
+    precondition), so there is no partial placement to divide, and every row
+    carries the reason beside the ``None``.
 
-    The absolute number is reported instead, in MiB, from the driver:
-
-    - srv1, pip, 2026-08-22: pid 1133972 (``VLLM::EngineCore``) **3126 MiB**,
-      its parent the ``vllm serve Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ`` line.
-    - srv2, docker, same day, same entry: pid 364842, **3174 MiB**.
-    - Co-resident on srv1 with a 1.5B served by the other engine: a second
-      holder, 1196 MiB, whose parent is that engine's server — reported as a
-      row this engine cannot name rather than dropped.
+    The absolute number is reported instead, in MiB, from the driver. A holder
+    this engine cannot name is reported as a row rather than dropped.
 
     MiB and not bytes: ``nvidia-smi`` attributes per-process memory to the MiB,
-    so a byte count here would be precision nobody measured, and the tree
-    already records footprints in MiB (``srv-full.json``'s ``_footprint_mib``).
+    so a byte count here would be precision nobody measured.
 
     Raises rather than returning ``[]`` when the card's process list could not
     be read at all: an empty list is a statement that the card holds nothing.
@@ -414,7 +347,7 @@ def placements(host: str) -> list[dict[str, Any]]:
                 "fraction_refused": (
                     "this engine allocates its whole budget or refuses to "
                     "start, so a model is never partly on the card and there "
-                    "is no denominator "
+                    "is no denominator"
                 ),
                 **(
                     {}
@@ -444,7 +377,7 @@ def placements(host: str) -> list[dict[str, Any]]:
                     "fraction_refused": (
                         "this engine allocates its whole budget or refuses to "
                         "start, so a model is never partly on the card and "
-                        "there is no denominator "
+                        "there is no denominator"
                     ),
                     "unplaced": (
                         "served by this engine and attributed no memory by the "
@@ -461,8 +394,8 @@ def _recorded_placements(host: str) -> tuple[list[dict[str, Any]] | None, str | 
 
     Recording, not gating: a reading that cannot be taken must never be the
     reason a measurement does not happen, and `None` beside its reason is what
-    that looks like (D2). Broad on purpose — every exception here is a
-    failure to observe, and there is no shape of it that should end a claim.
+    that looks like. Broad on purpose — every exception here is a failure to
+    observe, and there is no shape of it that should end a claim.
     """
     try:
         return placements(host), None
@@ -473,41 +406,28 @@ def _recorded_placements(host: str) -> tuple[list[dict[str, Any]] | None, str | 
 def readings(host: str) -> dict[str, Any]:
     """This engine's own footprint on the machine.
 
-    **`-a` here, and nowhere else in this module (#352).** The run contract's
-    post-state clause is "no container of ours is *running*" — narrowed
-    2026-08-23, because a stopped container holds no card, no port and no
-    process, and :func:`_start` removes it before every launch. It is still
-    there and still named, so a reading that could not see it answered an
-    operator with something true and not with what they asked: phase 0 ended
-    with every post-state reading clean and srv2 holding `mcgyvr-vllm
-    Exited (1)`.
+    **`-a` here, and nowhere else in this module.** A stopped container holds
+    no card, no port and no process, and :func:`_start` removes it before every
+    launch. It is still there and still named, so this reading lists it.
 
-    **What this listing holds is every container built from this engine's
-    image**, not every container this project created. The filter is
-    `ancestor=`, and `mcgyvr-vllm` is the only name :func:`_start` gives a
-    container of ours. Measured 2026-08-23 the moment `-a` went in: srv1 holds
-    `vllm-nemotron-4b Exited (1) 13 days ago` — so **srv1 was in the same state
-    the issue attributed to srv2 alone** — and srv2 holds four, of which one is
-    ours. **#355 renamed the count beside this**: it is
-    `engine_containers_remaining`, because that is what it counts, and
-    `our_containers_remaining` is the one that is about ownership.
+    **What this listing holds is every container whose image string names this
+    engine's repository** (a `grep`, not `--filter ancestor=`), not every
+    container this project created. `mcgyvr-vllm` is the only name
+    :func:`_start` gives a container of ours.
 
     It is recorded, not gated. The count :func:`release` returns stays
-    running-only, which is exactly what the narrowed clause claims — the record
-    sees more than the gate acts on, and that asymmetry is the point rather
-    than an oversight.
+    running-only — the record sees more than the gate acts on, and that
+    asymmetry is the point rather than an oversight.
 
     The other two `docker ps` calls in this module must NOT take `-a`:
-    :func:`release` stops only what is running, and :func:`declared_slots`
+    :func:`release` counts only what is running, and :func:`launched_width`
     reads a width off the live container, where a stopped one would answer with
     a stale one.
     """
     reads = {
         "processes": "ps -eo args | grep -E '[v]llm (serve|.*api_server)' || true",
         # Matched on the repository rather than the pinned tag, for the reason
-        # :data:`CONTAINER_REPOSITORY` records (#355): `--filter ancestor=` is
-        # an image-ID match, and it sees the other tag only while the two ids
-        # agree. `head -10`, not 5: srv2 already holds four.
+        # :data:`CONTAINER_REPOSITORY` records.
         "containers": "docker ps -a --format "
         "'{{.Names}} {{.Image}} {{.Status}}' 2>/dev/null "
         f"| grep {shlex.quote(CONTAINER_REPOSITORY + ':')} | head -10 || true",
@@ -547,8 +467,8 @@ def _classify_containers(listing: str | None) -> list[dict[str, Any]]:
     local build, a fork, a mirror. Neither is detectable from a name and a
     repository, and both would hold the card. The card reading beside this
     (`card_used_mib`) is where such a server shows up, and it is deliberately
-    not part of `released` — see the comment above `engine_processes`, which
-    is the defect that rule exists to prevent.
+    not part of `released`: a backend holding nothing must not report failure
+    because another process holds the card.
     """
     rows: list[dict[str, Any]] = []
     for line in (listing or "").splitlines():
@@ -568,16 +488,12 @@ def _classify_containers(listing: str | None) -> list[dict[str, Any]]:
 def release(host: str) -> dict[str, Any]:
     """Stop serving and give up the card. Only this engine's own processes.
 
-    Three process shapes, because covering fewer leaves the card held: a pip
-    install runs as ``python3 .../bin/vllm serve``, a container runs
-    ``vllm.entrypoints.openai.api_server``, and the engine core is a third name
-    again. Measured 2026-08-18 — patterns covering only the last two left a
-    server holding 4,916 MiB through an entire survey, and every model measured
-    behind it was loaded onto the CPU.
+    Three process shapes, because covering fewer leaves the card held:
+    ``vllm serve``, the ``vllm.entrypoints`` module form, and the engine core,
+    which is a third name again.
 
-    The bracket in each pattern is not cosmetic: ``pkill -f`` matches against
-    its own shell's command line, and an unbracketed pattern kills the session
-    before it kills the server.
+    The bracket in each pattern keeps ``pkill -f`` from matching its own
+    shell's command line.
     """
     steps: list[dict[str, Any]] = []
 
@@ -586,22 +502,8 @@ def release(host: str) -> dict[str, Any]:
         steps.append({"step": name, "command": command, "stdout": stdout})
         return stdout
 
-    # **E8, 2026-08-19.** This filtered on the bare repo name, which docker
-    # resolves to `:latest`. It matched a `:v0.26.0` container only because both
-    # tags happened to share an image id — verified empirically on srv2, and a
-    # coincidence, not a mechanism. Pull a newer `latest` and the filter stops
-    # matching while `released` below still reports True, because that flag is a
-    # `pgrep` for a bare process a container never shows. `run.py` trusts it as
-    # the ONLY exclusion gate, so the campaign would have measured the next
-    # engine behind a live allocation of ours, with nothing in the record
-    # looking wrong.
-    #
-    # **#355: it stopped by IMAGE, and stopped strangers.** The filtered list
-    # went to `xargs -r docker stop`, and on srv2 that list is four containers
-    # of which one is ours. A cell never repairs a machine it found wrong (run
-    # contract §4) — and killing another user's server is further from repair
-    # than anything that clause was written about. What we started is what we
-    # stop, and :data:`CONTAINER_NAME` is the whole of what we started.
+    # Stopped by NAME, never by image: what we started is what we stop, and
+    # :data:`CONTAINER_NAME` is the whole of what we started.
     run(
         "stop_container",
         f"docker stop {shlex.quote(CONTAINER_NAME)} >/dev/null 2>&1; true",
@@ -613,42 +515,26 @@ def release(host: str) -> dict[str, Any]:
         "pkill -f '[V]LLM::EngineCore' 2>/dev/null; sleep 8; true",
     )
     gpu = run("gpu_memory", "nvidia-smi --query-gpu=memory.used --format=csv,noheader")
-    # `released` is a statement about THIS backend, not about the card. Reading
-    # total VRAM made a backend that holds nothing report failure whenever
-    # ANOTHER engine held the card — so the orchestrator's exclusion gate
-    # refused the very engine it was about to measure. With the shipped config
-    # that meant the third entry was refused on every host while the family
-    # verdict quietly reported "2 of 3".
-    # A containerised server is NOT a `vllm serve` process on the host, so this
-    # count alone read 0 on the docker rig no matter what the container was
-    # doing — `released: True` on a card we had not freed. Both are counted.
+    # `released` is a statement about THIS backend, not about the card. Host
+    # processes and running containers are both counted.
     mine = run(
         "engine_processes",
-        # **BL-B: `-f`.** Without it `pgrep` matches the process NAME, which can
-        # never contain a space, so this counted 0 against a live
-        # `vllm serve …` every time — verified at 0 where `pgrep -cf` returns 2.
-        # On the pip rig, with no container to count either, `released` was
-        # therefore unconditionally True, and `run.py` trusts that flag as the
-        # ONLY exclusion gate before every entry of the next engine. The three
-        # patterns are the three this function actually kills.
+        # `-f`: without it `pgrep` matches the process NAME, which can never
+        # contain a space. The three patterns are the three this function kills.
         "{ pgrep -cf '[v]llm serve|[v]llm[.]entrypoints|[V]LLM::EngineCore' "
         "2>/dev/null || echo 0; } | head -1",
     )
     boxes = run(
         "engine_containers",
-        # **Running only, deliberately (#352).** `released` is the orchestrator's
+        # **Running only, deliberately.** `released` is the orchestrator's
         # exclusion gate, and what it must decide is whether anything of this
         # engine still holds the card. A stopped container holds none of it, and
-        # `_start` removes it before the next launch either way. The post-state
-        # clause was narrowed to match this reading rather than the reading
-        # widened to match the clause; :func:`readings` takes `-a` so the
-        # stopped one is still in the record.
+        # `_start` removes it before the next launch either way;
+        # :func:`readings` takes `-a` so the stopped one is still in the record.
         #
-        # **Matched on the repository, not on the pinned tag (#355)**, for the
-        # reason :data:`CONTAINER_REPOSITORY` records: `--filter ancestor=` is
-        # an image-ID match that sees `:latest` only while the two ids agree.
-        # Names and images both, because the gate counts one thing and the
-        # record has to show a reader which containers it counted.
+        # Matched on the repository, not on the pinned tag, for the reason
+        # :data:`CONTAINER_REPOSITORY` records. Names and images both, because
+        # the record has to show a reader which containers the gate counted.
         "docker ps --format '{{.Names}}\t{{.Image}}' 2>/dev/null "
         f"| grep {shlex.quote(CONTAINER_REPOSITORY + ':')} | head -20 || true",
     )
@@ -660,18 +546,16 @@ def release(host: str) -> dict[str, Any]:
         "backend": NAME,
         "steps": steps,
         "gpu_used_mib": used,
-        # **Renamed from `own_*` (#355), because neither reading was ever about
-        # ownership.** The process count is a `pgrep` for this engine's three
-        # patterns and matches any `vllm serve` on the host, ours or not; the
-        # container count matches this engine's repository the same way. Both
-        # are the right scope for an exclusion gate — anything of this engine
-        # that is up holds the card we are about to measure on — and both were
-        # called `own_`, which is a different and false claim.
+        # Neither reading is about ownership. The process count is a `pgrep`
+        # for this engine's three patterns and matches any `vllm serve` on the
+        # host, ours or not; the container count matches this engine's
+        # repository the same way. Both are the right scope for an exclusion
+        # gate — anything of this engine that is up holds the card we are about
+        # to measure on.
         "engine_processes_remaining": remaining,
         "engine_containers_remaining": containers,
         # What is genuinely ours, recorded beside it and gating nothing: the
-        # one container name :func:`_start` assigns. On srv2 the two numbers
-        # differ, which is the whole of #355.
+        # one container name :func:`_start` assigns.
         "our_containers_remaining": sum(
             1 for row in engine_containers if row["name"] == CONTAINER_NAME
         ),
@@ -695,15 +579,11 @@ def claim(
 ) -> dict[str, Any]:
     """Be serving ``model`` under ``serve``, and prove it.
 
-    **DE-7, 2026-08-19.** ``**declared`` absorbs the per-entry declarations the
-    orchestrator forwards for backends that model them — ``placement``,
-    ``coresident``, ``coresident_with``. Without it, a config entry naming any
-    of those on a vLLM entry raised ``TypeError`` inside the claim guard and was
-    recorded as a refusal, with the orchestrator's own comment three lines away
-    asserting that "a backend that does not model placement is unaffected". What
-    it ignored is written down rather than dropped, because an entry that
-    believes it declared something nothing reads is the defect D4's whole
-    replacement mechanism exists to avoid.
+    ``**declared`` absorbs the per-entry declarations the orchestrator forwards
+    for backends that model them — ``placement``, ``coresident``,
+    ``coresident_with``. What it ignored is written down rather than dropped,
+    because an entry that believes it declared something nothing reads is worse
+    than one that was told.
 
     If a server is already up with the right model and the right parameters,
     nothing is restarted — this engine's startup is expensive and a needless
@@ -724,33 +604,19 @@ def claim(
     }
     # BEFORE anything ACTS. A pin naming a field this backend does not compute
     # is a config that believes it is pinned and is not — and the check has to
-    # precede `_start`, which stops the running server and relaunches it. Placed
-    # after, it "refused" a run whose server had already been killed, and its
-    # message called `weights_sha256`, a remote tensor hash budgeted at 1800s:
-    # a config typo cost a restart and up to half an hour to render a sentence.
+    # precede `_start`, which stops the running server and relaunches it.
     unknown = set(expect) - {"weights_sha256"}
     if unknown:
         raise contract.NotCleanError(
             f"{model} on {host}: {sorted(unknown)} is not this backend's pin. "
-            "`model_sha256` is a manifest digest — another engine's addressing "
-            "of a packaged model — and this engine has none. The weights pin "
-            "here is `weights_sha256`, a sha256 over every tensor's bytes in "
-            "the checkpoint. Nothing was measured, and nothing was restarted."
+            "The only pin this backend computes is `weights_sha256`, a sha256 "
+            "over every tensor's bytes in the checkpoint. Nothing was measured, "
+            "and nothing was restarted."
         )
-    # #325: the whole claim on a timeline, not only its launch as a delta.
-    # `start_seconds` below says how long the launch took; this says WHEN the
-    # claim ran, so a ramp phase's minutes can be attributed row by row.
     # **The width the ramp will offer, against the width the engine was given.**
     # BEFORE anything ACTS: `_start` stops the running server, so a config error
     # raised after it has already destroyed the previous cell in order to
     # complain about a typo.
-    #
-    # This engine has no `/props total_slots`. Until now nothing here read
-    # `concurrency.levels` at all -- `grep -n levels backends/vllm.py` returned
-    # nothing -- so `max_num_seqs 8` against a 32-wide ramp launched happily,
-    # queued 24 of every 32 requests at the scheduler, and recorded the
-    # resulting plateau as a measured saturation with `outcome: ok`. The
-    # llama.cpp half of the same campaign was protected; this half was not.
     levels = tuple(declared.get("levels") or serve.get("levels") or ())
     width = serve.get("max_num_seqs")
     if levels and width is not None and int(width) < max(levels):
@@ -759,9 +625,8 @@ def claim(
             f"level this cell will offer (n={max(levels)}). vLLM admits "
             f"{int(width)} sequences per scheduler step and queues the rest, so "
             "the aggregate flatlines while latency climbs -- a configuration "
-            "artifact shaped exactly like hardware saturation, and this engine "
-            "has no /props to catch it afterwards. Set max_num_seqs to the top "
-            "of the ladder. Nothing was measured, and nothing was restarted."
+            "artifact shaped exactly like hardware saturation. Set max_num_seqs to "
+            "the top of the ladder. Nothing was measured, and nothing was restarted."
         )
     claim_started_at = contract.now()
     running = _running_config(base)
@@ -773,13 +638,12 @@ def claim(
 
     gpu = contract.ssh(host, "nvidia-smi --query-gpu=memory.used --format=csv,noheader")
     allocated = contract.first_int(gpu)
-    # #327: the card's state at the claim, beside its memory -- the point the
-    # ramp that follows starts from. Null + the command when it did not answer.
+    # The card's state at the claim, beside its memory -- the point the ramp
+    # that follows starts from. Null + the command when it did not answer.
     card = contract.card_state(contract.ssh(host, contract.CARD_STATE_COMMAND))
     config = _running_config(base)
     served = inventory(host, base)
-    # **Two readbacks this engine does have**, against the plan doc's premise
-    # that it has none. `launched_width` reads `--max-num-seqs` off the running
+    # **Two readbacks.** `launched_width` reads `--max-num-seqs` off the running
     # process argv (`provenance: observed`); `kv_capacity` reads what the engine
     # printed about the pool it actually allocated. The first catches a flag
     # that did not take, the second catches a flag that took and did not fit.
@@ -818,13 +682,9 @@ def claim(
             "flatlines. Lower max_model_len, raise gpu_memory_utilization, or "
             "shorten the ladder. Nothing was measured."
         )
-    # **#345, the claim side.** The same question the other backend's `claim`
-    # asks of the card since #335: not "did it come up" but "what is on this card, and
-    # where". `allocation_present` above is a threshold over the card's TOTAL,
-    # so it says yes to a card whose memory belongs to somebody else. Recorded
-    # and never gated, for the campaign's own reason — a shared card is the
-    # frontier being mapped, and a claim that refused one would refuse its own
-    # question.
+    # Where each process sits on the card, recorded and never gated:
+    # `allocation_present` below is a threshold over the card's TOTAL, so it
+    # says yes to a card whose memory belongs to somebody else.
     placed, placed_refused = _recorded_placements(host)
     digest = weights_sha256(host, model)
     wanted = expect.get("weights_sha256")
@@ -840,7 +700,7 @@ def claim(
         "weights": digest,
         "weights_sha256_expected": wanted,
         "resident_placements": placed,
-        # D2: null carries the reason it is null, never a blank.
+        # Null carries the reason it is null, never a blank.
         "resident_placements_refused": placed_refused,
         # Recorded whether or not they gated anything above: the width the
         # engine is serving at, and the pool it allocated. A curve is read
@@ -860,9 +720,8 @@ def claim(
             "model": model,
             "verified": True,
             "checks": check,
-            # Written down rather than dropped: a config that declares something
-            # nothing reads is the defect D4's replacement exists to avoid, and
-            # silence here would make it invisible.
+            # Written down rather than dropped: silence here would make a
+            # declaration nothing reads invisible.
             "declarations_ignored": ignored or None,
         }
 
@@ -891,9 +750,8 @@ def describe(
 ) -> dict[str, Any]:
     """Everything this engine will say about ``model``.
 
-    ``serve`` is the block this run launched with. It is a parameter rather
-    than something read back because this engine states ``max_num_seqs``
-    nowhere on the wire — see :func:`declared_slots`.
+    ``serve`` is the block this run launched with, the fallback width for
+    :func:`declared_slots`.
     """
     return {
         "backend": NAME,
@@ -930,10 +788,9 @@ def weights_sha256(host: str, model: str) -> dict[str, Any]:
     key = (host, model)
     if key in _DIGEST_CACHE:
         return _DIGEST_CACHE[key]
-    # Per-invocation path and `&&`-chained. Newline-separated with a fixed
-    # name, a failed write left a PREVIOUS run's script in place and its output
-    # was taken as this model's digest — and `contract.ssh` reports neither the
-    # return code nor stderr, so nothing would have said so.
+    # A per-invocation path, removed after the run: a fixed name would let a
+    # failed write leave a PREVIOUS run's script in place, and `contract.ssh`
+    # reports neither the return code nor stderr.
     path = f"/tmp/mcgyvr-weights-digest-{os.getpid()}.py"
     # Run where torch is. One rig has it on the host; the other has it ONLY
     # inside the container, so hashing a checkpoint there means reaching into
@@ -963,7 +820,7 @@ def weights_sha256(host: str, model: str) -> dict[str, Any]:
     try:
         result = json.loads((raw or "").strip().splitlines()[-1])
     except (json.JSONDecodeError, IndexError):
-        # #326: `contract.ssh` answers None for a timeout and for every other
+        # `contract.ssh` answers None for a timeout and for every other
         # failure alike, so the timeout is derived from the clock this
         # function already reads. A digest that ran out of time is a point on
         # DIGEST_TIMEOUT_S's curve, not a blank.
@@ -981,14 +838,10 @@ def weights_sha256(host: str, model: str) -> dict[str, Any]:
     # Scrubbed before it is returned. `snapshot` is
     # `$HF_HOME/hub/models--…/snapshots/<hash>`, i.e. a home-directory path that
     # names a user — precisely what the redactor exists for — and this is
-    # written to a tracked path. The three host-derived returns on this backend
-    # each bypassed it; a leak test that planted secrets only in the other
-    # readings could not have found that.
+    # written to a tracked path.
     result = dict(contract.scrub(result))
-    # **D6/D7 item 7.** DIGEST_TIMEOUT_S has no scaling curve behind it because
-    # the duration was never recorded next to the size. `bytes` is already in
-    # the result, so one number here turns every campaign digest into a point on
-    # that curve — at no rig time, and unrecoverable afterwards.
+    # `digest_seconds` beside `bytes` makes every digest a point on
+    # DIGEST_TIMEOUT_S's curve.
     result["digest_seconds"] = digest_seconds
     result["method"] = (
         "sha256 over every tensor's bytes in sorted key order across all "
@@ -1009,25 +862,17 @@ def weights_sha256(host: str, model: str) -> dict[str, Any]:
 #: version anybody can look up later.
 CONTAINER_IMAGE = "vllm/vllm-openai:v0.26.0"
 
-#: **The one name this module ever gives a container, and what "ours" means
-#: (#355).** :func:`_start` creates exactly one container and calls it this.
-#: Everything else built from the same image belongs to somebody else, and the
-#: rigs hold four such: `vllm-7b-coder`, `vllm-nemotron-30b` and
-#: `vllm-nemotron-4b`, none of them started here.
+#: **The one name this module ever gives a container, and what "ours" means.**
+#: :func:`_start` creates exactly one container and calls it this. Everything
+#: else built from the same image belongs to somebody else.
 CONTAINER_NAME = "mcgyvr-vllm"
 
-#: The repository, tag stripped, and it is what the readings match on rather
-#: than :data:`CONTAINER_IMAGE` (#355).
+#: The repository, tag stripped. :func:`readings` and :func:`release` match on
+#: it; :func:`launched_width` filters on ``ancestor=`` :data:`CONTAINER_IMAGE`.
 #:
-#: **`--filter ancestor=<tag>` matches by resolved image ID, not by tag.**
-#: Measured on both rigs 2026-08-23: `:latest` and `:v0.26.0` are both
-#: `ffb2d59b1c05`, so the pinned filter returns the `:latest` containers too and
-#: the two filters return byte-identical sets. That is E8's coincidence, still
-#: live and still load-bearing — pull a newer `:latest` and every container of
-#: it becomes invisible to a filter pinned to the old tag, while `released`
-#: keeps reporting True. E8 pinned the tag to stop a bare repo name resolving
-#: somewhere unintended; the pin cannot also survive the ids diverging, and
-#: matching the repository is what does.
+#: **`--filter ancestor=<tag>` matches by resolved image ID, not by tag**, so a
+#: filter pinned to one tag stops seeing a container whose tag has moved to
+#: another image id. Matching the repository string does not depend on the ids.
 CONTAINER_REPOSITORY = CONTAINER_IMAGE.split(":")[0]
 
 #: Where the weights cache is mounted inside the container.
@@ -1045,19 +890,11 @@ LAUNCHER_PROBES: dict[str, str] = {
 #: Hosts whose launcher this RUN declares, ``{host: how}`` — empty unless a
 #: caller declared one, so detection is still what happens by default.
 #:
-#: **#329.** Detection is right for a rig that has one launcher and wrong for a
-#: contrast. srv1 has both now (docker 29.1.3 and the same `v0.26.0` image
-#: digest srv2 pulls, recorded 2026-08-22), and detection returns `pip` for it
-#: whenever `vllm` answers on PATH — so a cross-rig ramp compared a pip engine
-#: against a container one with no field saying so. `serving_build` does not
-#: catch it: both answer `vllm 0.26.0`, because the version string is the
-#: package's and not the build's. A run that wants the launcher OUT of its
-#: contrast has to be able to say which one both hosts use.
-#:
-#: Declared, not configured: the docstring below is still right that a config
-#: which states a machine's property can state it wrongly. This is why a
-#: declaration is VERIFIED against the host and refused when the host cannot
-#: serve it, and why the row records that the launcher was declared.
+#: Detection is right for a rig that has one launcher and wrong for a
+#: contrast: on a host with both, detection returns `pip` whenever `vllm`
+#: answers on PATH. A declaration is VERIFIED against the host and refused when
+#: the host cannot serve it, and the launch row records that the launcher was
+#: declared.
 DECLARED_LAUNCHERS: dict[str, str] = {}
 
 
@@ -1084,10 +921,9 @@ def declare_launcher(host: str, how: str | None) -> None:
 def launcher(host: str) -> str:
     """How this engine is deployed here: ``pip``, ``docker``, or ``none``.
 
-    **Both shapes exist on these rigs and the difference is not cosmetic.** One
-    host has the package installed and runs ``vllm serve``; the other has only
-    the container image and no ``vllm`` binary *and no torch at all*, so a
-    launcher that assumed the first would simply fail there — and so would the
+    **Both shapes exist and the difference is not cosmetic.** A host with only
+    the container image has no ``vllm`` binary and may have no torch, so a
+    launcher that assumed pip would simply fail there — and so would the
     weights digest, which needs torch to read a checkpoint. Detected rather than
     configured, because it is a property of the machine and a config that had to
     state it would be a config that could state it wrongly.
@@ -1115,32 +951,25 @@ def launcher(host: str) -> str:
 
 
 #: The two ways an entry may state the memory it wants. **Exclusive, and
-#: neither is defaulted** . This engine's own arithmetic is
+#: neither is defaulted.** This engine's own arithmetic is
 #: ``requested = total_memory * gpu_memory_utilization`` with a hard
 #: ``free >= requested`` precondition (``vllm/v1/worker/utils.py``), so a
-#: fraction is a statement about a *card*: 1,792 MiB of KV cache is 0.565 on
-#: srv1 and 0.273 on srv2, and one number cannot be right for both. Bytes are a
-#: property of the model and travel.
+#: fraction is a statement about a *card*. Bytes are a property of the model
+#: and travel.
 MEMORY_FIELDS: tuple[str, ...] = ("kv_cache_memory_bytes", "gpu_memory_utilization")
 
 
 def _memory_args(serve: dict[str, Any]) -> list[str]:
-    """The KV-cache declaration as CLI arguments, or a refusal .
+    """The KV-cache declaration as CLI arguments, or a refusal.
 
-    **There is no default.** This read ``serve.get("gpu_memory_utilization",
-    0.85)``, and that fallback is how a number nobody chose -- traced to
-    local-ai's OOM fix for a 12 GB card, applied unchanged to a 6 GB one --
-    reached five sites and every vLLM figure this project holds. Measured
-    2026-08-22 at ``max_num_seqs 8``: 0.85 buys 131,104 KV tokens on srv1 and
-    322,304 on srv2 where the declaration can reach 65,536, so the entry paid
-    for 2.0x and 4.9x what it could use and left a neighbour 93% on the CPU.
+    **There is no default**: a fallback fraction is a number nobody chose.
 
     **Both fields together is a refusal, not a precedence rule.** vLLM's own
     precedence is that ``kv_cache_memory_bytes`` silently ignores
     ``gpu_memory_utilization``; honouring that here would let a config state a
     fraction, have it discarded, and read as though it had been applied -- a
     config that believes it declared something it did not, which is the shape
-    ``claim``'s ``expect``/``placement`` guards above already refuse.
+    ``claim``'s ``expect`` guard already refuses.
     """
     declared = [field for field in MEMORY_FIELDS if serve.get(field) is not None]
     if len(declared) > 1:
@@ -1148,12 +977,12 @@ def _memory_args(serve: dict[str, Any]) -> list[str]:
             f"serve declares {sorted(declared)} together. They are exclusive: "
             "vLLM ignores gpu_memory_utilization whenever kv_cache_memory_bytes "
             "is set, so carrying both records a fraction that never applied. "
-            "Declare one . Nothing was measured."
+            "Declare one. Nothing was measured."
         )
     if not declared:
         raise contract.NotCleanError(
             "serve declares neither kv_cache_memory_bytes nor "
-            "gpu_memory_utilization, and there is no default (rule 3). "
+            "gpu_memory_utilization, and there is no default. "
             "Bytes are max_num_seqs * max_model_len * bytes_per_token at the "
             "launch's --kv-cache-dtype and are the same on every card; a "
             "fraction is a statement about one card and says which and why. "
@@ -1209,7 +1038,7 @@ def kv_cache_dtype(serve: dict[str, Any]) -> str:
             declared = flag.partition("=")[2]
     if declared is None:
         raise contract.NotCleanError(
-            "serve launches with no --kv-cache-dtype (or kv_cache_dtype), so "
+            "serve launches with no --kv-cache-dtype in its flags, so "
             "this gate cannot size its KV cache. Declare one — every served "
             "unit states which cache it runs. Nothing was measured."
         )
@@ -1227,31 +1056,28 @@ def kv_cache_dtype(serve: dict[str, Any]) -> str:
 def kv_bytes_per_token(serve: dict[str, Any]) -> int:
     """``bytes_per_token`` at the element width this entry's cache launches with.
 
-    the rule is ``max_num_seqs x max_model_len x bytes_per_token``, and
-    ``bytes_per_token`` is derived at :data:`BYTES_PER_TOKEN_ELEMENT_BYTES` an
-    element. Read at that width for an fp8 cache, the rule declared twice the
-    KV the engine needs and the gate refused cells that fit.
+    The declaration rule is ``max_num_seqs x max_model_len x bytes_per_token``,
+    and ``bytes_per_token`` is derived at :data:`BYTES_PER_TOKEN_ELEMENT_BYTES`
+    an element, so it is rescaled here to the cache's own element width: read
+    at two bytes for an fp8 cache, the rule declares twice the KV the engine
+    needs.
     """
     width = KV_CACHE_DTYPE_BYTES[kv_cache_dtype(serve)]
     return int(serve["bytes_per_token"]) * width // BYTES_PER_TOKEN_ELEMENT_BYTES
 
 
-#: One vLLM allocation block. All three refusals of 2026-08-23 died on the same
-#: sentence — *"Tried to allocate 256.00 MiB"* — so a declaration that leaves
-#: less than one block spare does not launch, whatever the rest of the sum says.
+#: One vLLM allocation block: a declaration that leaves less than one block
+#: spare does not launch, whatever the rest of the sum says.
 ALLOCATOR_BLOCK_MIB = 256
 
 #: What a vLLM process holds on this card BESIDES its weights and the KV cache
 #: it declares, plus the one block it must still be able to take.
 #:
-#: **Measured, as a residue, not assembled from terms.** The first version of
-#: this constant added up the parts — 470 MiB driver and CUDA context,
-#: 133 MiB peak activation, 51 MiB non-torch, one 256 MiB block — and got 910.
-#: That sum double-counts: ``nvidia-smi``'s view of the card already contains
-#: the driver's reserve and the process's context, so those terms were being
-#: charged twice. The refit campaign of 2026-08-23 measured the residue
-#: directly, as ``card_mib_after_load - weights - declared_kv``, on three cells
-#: spanning 2.5 and 9.38 GiB of weights and 1.5 to 7.9 GiB of KV cache:
+#: **Measured, as a residue, not assembled from terms**:
+#: ``card_mib_after_load - weights - declared_kv``. Assembling it from parts
+#: double-counts, because ``nvidia-smi``'s view of the card already contains
+#: the driver's reserve and the process's context. The refit campaign
+#: (`records/evidence/2026-08-23-phase0-refit/`) measured it on three cells:
 #:
 #:     srv1 / Qwen3-4B   len 2048   card  5,222   residue  358 MiB
 #:     srv2 / 14B        len 1024   card 11,479   residue  337 MiB
@@ -1274,8 +1100,7 @@ NON_KV_OVERHEAD_MIB = 733
 #: fields are rounded to whole MiB independently, so a healthy card misses the
 #: identity by a MiB or so. What the check exists to catch is `used` changing
 #: to NVML v2 semantics and absorbing the reserve, which moves the sum by the
-#: reserve's own size -- 380 to 401 MiB on these cards. Anything between the
-#: two is neither rounding nor that, and is worth stopping for.
+#: reserve's own size, far above rounding.
 IDENTITY_TOLERANCE_MIB = 8
 
 
@@ -1287,10 +1112,11 @@ def _mib(byte_count: float) -> int:
 def free_mib(host: str) -> int | None:
     """How much card this host has free right now, or ``None`` if it did not say.
 
-    Total minus used rather than a ``memory.free`` query, so the two figures the
-    arithmetic quotes come off one line and cannot describe two moments. ``None``
-    when the card did not answer — never ``0``, which would read as a full card
-    and refuse every declaration on a host whose driver was merely wedged.
+    Returns ``total - used``, the figure :data:`NON_KV_OVERHEAD_MIB` is fitted
+    against; ``memory.free`` and ``memory.reserved`` are read on the same line
+    only to check ``total == reserved + used + free``. ``None`` when the card
+    did not answer — never ``0``, which would read as a full card and refuse
+    every declaration on a host whose driver was merely wedged.
     """
     line = contract.ssh(
         host,
@@ -1309,24 +1135,23 @@ def free_mib(host: str) -> int | None:
         return None
     free = contract.first_int(parts[2]) if len(parts) > 2 else None
     reserved = contract.first_int(parts[3]) if len(parts) > 3 else None
-    # **The tripwire, 2026-08-30.** `total - used` is not what a process can
-    # allocate: the card also carries a driver/firmware reserve that belongs to
-    # neither term -- 401 MiB on srv1, 380 on srv2, measured. This function
-    # still returns `total - used`, because NON_KV_OVERHEAD_MIB was fitted as a
-    # residue against exactly that figure and already absorbs the reserve;
-    # subtracting it here would charge it twice and refuse cells that fit. The
-    # branch that DOES need it lowers its own ceiling -- see `declaration_fits`.
+    # **The tripwire.** `total - used` is not what a process can allocate: the
+    # card also carries a driver/firmware reserve that belongs to neither term.
+    # This function still returns `total - used`, because NON_KV_OVERHEAD_MIB is
+    # fitted as a residue against exactly that figure and already absorbs the
+    # reserve; subtracting it here would charge it twice and refuse cells that
+    # fit. The branch that DOES need it lowers its own ceiling -- see
+    # `declaration_fits`.
     #
     # What is not safe is the identity moving under us: NVML v1 and v2 disagree
     # on whether `used` includes `reserved`, so a driver that switched
     # `nvidia-smi`'s field to v2 semantics would make `used` jump by the reserve
-    # and silently tighten every gate by ~400 MiB with no error anywhere.
+    # and silently tighten every gate with no error anywhere.
     #
     # Each field is an independently rounded whole MiB, so the identity closes
-    # to within a MiB or two on a healthy card -- srv1 reports 401 + 17 + 5,727
-    # = 6,145 against a total of 6,144. The shift guarded against is the size of
-    # the reserve itself, so the tolerance sits far above rounding and far below
-    # that.
+    # to within a MiB or two on a healthy card. The shift guarded against is the
+    # size of the reserve itself, so the tolerance sits far above rounding and
+    # far below that.
     if (
         free is not None
         and reserved is not None
@@ -1349,23 +1174,14 @@ def free_mib(host: str) -> int | None:
 def reserved_mib(host: str) -> int | None:
     """The card's driver/firmware reserve, or ``None`` if the driver withheld it.
 
-    **Measured 2026-08-30: 401 MiB on srv1, 380 on srv2.** This is the GSP
-    firmware carveout -- the GPU System Processor runs the driver's own firmware
-    out of the card's memory, and has done by default on every part since
-    Turing, which is both of these rigs. It belongs to no process, so it appears
-    in neither ``memory.used`` nor ``memory.free``; the identity is
-    ``total = reserved + used + free`` and :func:`free_mib` returns only
-    ``total - used``.
+    It belongs to no process, so it appears in neither ``memory.used`` nor
+    ``memory.free``; the identity is ``total = reserved + used + free`` and
+    :func:`free_mib` returns only ``total - used``. See
+    ``okf/must-read/touching-rigs.md``.
 
-    Two independent confirmations that this memory is unreachable, not merely
-    unaccounted: ``nvidia-smi -q -d MEMORY`` prints the reserve as its own line,
-    and PyTorch reports srv2's 12,288 MiB card as a ``total capacity of 11.63
-    GiB`` -- 12,288 less 380, exactly -- in the OOM this fix exists to prevent.
-
-    Read on its own rather than alongside ``free``, which :func:`free_mib`'s
-    docstring warns against for that pairing: the reserve is fixed when the
-    driver loads and does not move while a run is in flight, so a second reading
-    of it cannot describe a different moment the way a free-memory reading can.
+    Read on its own rather than on :func:`free_mib`'s line: the reserve does not
+    move while a run is in flight, so a second reading of it cannot describe a
+    different moment the way a free-memory reading can.
     """
     line = contract.ssh(
         host,
@@ -1377,25 +1193,9 @@ def reserved_mib(host: str) -> int | None:
     return reserved
 
 
-#: **`--cpu-offload-gb` does not reduce what an AWQ checkpoint holds on the
-#: card. Measured on srv2 2026-08-30**, Qwen2.5-Coder-14B-Instruct-AWQ at
-#: `--max-model-len 2048 --max-num-seqs 8 --kv-cache-dtype fp8`, three launches
-#: differing only in the offload budget:
-#:
-#:     --cpu-offload-gb 0   Model loading took 9.38 GiB   OOM, never started
-#:     --cpu-offload-gb 4   Model loading took 9.38 GiB   OOM, never started
-#:     --cpu-offload-gb 6   Model loading took 9.38 GiB   OOM, never started
-#:
-#: The figure does not move, and neither does the outcome: PyTorch reported
-#: `total capacity of 11.63 GiB` -- the 12,288 MiB card less its 380 MiB GSP
-#: firmware reserve -- against 9.38 GiB of weights plus the KV cache.
-#:
-#: This is recorded rather than acted on. A gate that subtracted the declared
-#: budget from the weights was written here on 2026-08-30 and REMOVED the same
-#: day: it turned a correct refusal into an admission, and the cell it admitted
-#: OOMed at load. Until a cell demonstrates that the flag moves weights off this
-#: engine's card, the declaration is weighed at its full weight and an entry
-#: that does not fit is refused.
+#: `--cpu-offload-gb` is not subtracted from the weights:
+#: :func:`declaration_fits` weighs a declaration at its full weight. See
+#: ``okf/config/vllm.md``.
 _CPU_OFFLOAD_IS_NOT_A_DISCOUNT = True
 
 
@@ -1404,20 +1204,12 @@ def declaration_fits(
 ) -> None:
     """Refuse a KV declaration this card cannot hold — before the launch.
 
-    **#354.** the rule is
-    ``max_num_seqs x max_model_len x bytes_per_token``, and it is right: three
-    cells of the 2026-08-23 footprint campaign refused on an *empty* card with
-    ``torch.OutOfMemoryError`` inside ``_allocate_kv_cache``, and in every one
-    of the three the declared figure was **exactly** what the entry's own shape
-    computes. Qwen3-4B is 36 layers x 8 KV heads x 128 x 2 x 2 = 147,456 B/token
-    and 65,536 tokens of it is 9,663,676,416 bytes, which is 9.0 GiB on a card
-    that holds 6.0. The rule is arithmetically correct and produces a
-    declaration these cards cannot hold, because every vLLM figure this project
-    had came from the 1.5B, whose KV geometry is four times narrower per layer.
-
-    Nothing refused it until vLLM did, **three minutes and one cell later**, in
-    a message about a number the entry had computed correctly. This is the same
-    arithmetic, run in milliseconds, against figures that already exist.
+    The declaration rule is
+    ``max_num_seqs x max_model_len x bytes_per_token``. It is arithmetically
+    correct and can still produce a declaration a card cannot hold; without
+    this check nothing refuses it until vLLM does, minutes later, with
+    ``torch.OutOfMemoryError`` at load. This is the same arithmetic, run in
+    milliseconds, against figures that already exist.
 
     **Two sources, and the measured one wins.** An entry that has already loaded
     on this host carries ``_footprint_mib`` — what the card said the process
@@ -1427,8 +1219,7 @@ def declaration_fits(
     :data:`NON_KV_OVERHEAD_MIB`. The refusal says which of the two it used, so a
     reader is never left to guess whether a number was seen or computed.
 
-    **A fraction is not checked here** (rule 5 keeps one legal for a
-    run whose question *is* the fraction). Under ``gpu_memory_utilization`` this
+    **A fraction is not checked here.** Under ``gpu_memory_utilization`` this
     engine enforces its own ``free >= total x util`` precondition before it
     allocates anything, so the failure is already immediate and already names
     the card. It is the byte declaration that skips profiling and finds out
@@ -1457,16 +1248,15 @@ def declaration_fits(
     measured = (serve.get("_footprint_mib") or {}).get(host)
     # **The two branches are weighed against DIFFERENT ceilings, deliberately.**
     # Do not reconcile them. `free_mib` returns `total - used`, which overstates
-    # what a process can allocate by the driver/firmware reserve (401 MiB srv1,
-    # 380 srv2 -- see `reserved_mib`). The predicted branch is already correct
-    # against that figure because NON_KV_OVERHEAD_MIB was FITTED as a residue
-    # against it and so already carries the reserve inside itself; subtracting
-    # the reserve there as well would charge it twice and refuse cells that fit.
-    # The measured branch has no such constant -- a footprint is exact -- so
-    # nothing there absorbs the reserve and the ceiling must be lowered by hand.
-    # Left unlowered, a footprint between `total - used - reserved` and
-    # `total - used` is admitted and then dies at load: on srv1 that is a
-    # 401 MiB-wide window of cells the gate waves through.
+    # what a process can allocate by the driver/firmware reserve (see
+    # `reserved_mib`). The predicted branch is already correct against that
+    # figure because NON_KV_OVERHEAD_MIB is FITTED as a residue against it and
+    # so already carries the reserve inside itself; subtracting the reserve
+    # there as well would charge it twice and refuse cells that fit. The
+    # measured branch has no such constant -- a footprint is exact -- so nothing
+    # there absorbs the reserve and the ceiling must be lowered by hand. Left
+    # unlowered, a footprint between `total - used - reserved` and
+    # `total - used` is admitted and then dies at load.
     reserve_mib = None
     if measured is not None:
         reserve_mib = reserved_mib(host)
@@ -1475,8 +1265,7 @@ def declaration_fits(
                 f"{model} on {host}: this entry is weighed on its measured "
                 f"footprint of {int(measured):,} MiB, and that comparison needs "
                 "the card's driver/firmware reserve, which this driver did not "
-                "report. It is NOT assumed to be zero: it was 401 MiB on srv1 "
-                "and 380 on srv2 when measured, and treating it as absent is "
+                "report. It is NOT assumed to be zero: treating it as absent is "
                 "exactly the optimism that admits a cell which then dies in "
                 "torch.OutOfMemoryError at load. Query "
                 "`nvidia-smi --query-gpu=memory.reserved` on this host and "
@@ -1493,8 +1282,7 @@ def declaration_fits(
                 f"`_footprint_mib` for {host} nor a `weights_bytes`, so nothing "
                 "here can say whether the card can hold it. Declare the "
                 "weights with a note showing where the figure came from — this "
-                "engine prints `Model loading took X GiB` on every start "
-                "(rule 2's idiom, extended to weights by #354). "
+                "engine prints `Model loading took X GiB` on every start. "
                 "Nothing was measured."
             )
         weights_mib = _mib(int(weights))
@@ -1528,7 +1316,7 @@ def declaration_fits(
         f"{ways_out} "
         "This picks neither: which one to give up is the entry's decision, and "
         "a launcher that quietly chose would have the run measure a "
-        "configuration nobody declared (rule 2, #354). "
+        "configuration nobody declared. "
         "Nothing was measured."
     )
 
@@ -1588,8 +1376,7 @@ def kv_capacity(text: str | None) -> dict[str, Any]:
     different numbers and the smaller one binds. A cell launched at
     ``max_num_seqs 32`` whose KV pool fits 9 full-length sequences serves the
     other 23 in a second batch, and the aggregate flatlines exactly as hardware
-    saturation does -- the same defect the other engine catches by reading its
-    slot count back off ``/props``, which this engine does not publish.
+    saturation does -- and this engine publishes no slot count to read back.
 
     Null when the lines are absent. A server that was already up when the claim
     arrived has a log tail full of requests rather than its own startup, and a
@@ -1616,16 +1403,10 @@ def _launch_log(host: str, how: str) -> str:
     every launch depend on a human having been there, and a campaign that runs
     for five hours unattended is exactly where that fails.
 
-    **The old answer cost a re-run.** The 2026-08-23 footprint campaign had to
-    run a cell byte-identically a second time to recover an engine refusal
-    reason, because the next cell's `docker rm -f` had already destroyed the
-    container holding it. The refusal below had told the operator to read
-    `docker logs mcgyvr-vllm`, which by then named nothing.
-
-    **The pip rig loses it the same way**, and that had not been noticed: the
-    launch redirects `> /tmp/vllm-serving.log`, so the next cell truncates the
-    previous cell's log rather than appending to it. Both launchers are read
-    here for that reason.
+    **The pip rig loses it the same way**: the launch redirects
+    `> /tmp/vllm-serving.log`, so the next cell truncates the previous cell's
+    log rather than appending to it. Both launchers are read here for that
+    reason.
 
     Never raises. :func:`contract.ssh` answers `None` for a host it could not
     reach, and a log that could not be read must not replace a refusal that was
@@ -1655,7 +1436,7 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     ``VLLM_SERVER_DEV_MODE=1`` is set deliberately: it is what makes the
     quantization and the seed readable at all, and this is a measurement rig on
     a private network. It should not be set on anything exposed — the flag also
-    opens 18 routes that change the server, including one that executes a method
+    opens routes that change the server, including one that executes a method
     inside the engine process.
     """
     release(host)
@@ -1684,11 +1465,9 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
         *serve.get("flags", []),
     ]
     environment = {"VLLM_SERVER_DEV_MODE": "1", **serve.get("env", {})}
-    # Values were quoted and KEYS were not, which put config text straight into
-    # a shell: an `env` key of `A; touch /tmp/x; B` became a command. A variable
-    # name is a narrow shape, so it is validated rather than quoted — quoting a
-    # key would produce a name no shell would export, hiding the typo instead of
-    # naming it.
+    # Values are quoted and KEYS are validated: a variable name is a narrow
+    # shape, and quoting a key would produce a name no shell would export,
+    # hiding the typo instead of naming it.
     for key in environment:
         if not key.replace("_", "").isalnum() or key[:1].isdigit():
             raise contract.NotCleanError(
@@ -1724,20 +1503,13 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
         )
     began = time.monotonic()
     launched = contract.ssh(host, command)
-    # The loop's own worst case is (curl 5s + sleep 10s) per iteration, so the
-    # ssh budget has to cover THAT, not START_TIMEOUT_S alone. It previously
-    # allotted 960 s to a loop that could run 1350 s, so a slow start was cut
-    # off by the client and recorded as if the server had never come up.
-    # //20, not //15: each round is `curl -m 5` + `nvidia-smi` + `sleep 10`,
-    # and on a box loading a 19 GB model the nvidia-smi is not free. At //15 the
-    # loop's worst case was 900 s + 60 nvidia-smi calls against a 1020 s ssh
-    # budget, which a 2 s nvidia-smi is enough to overrun — reinstating, in
-    # smaller form, the very mismatch this fix was for.
+    # Each round is `curl -m 5` + `nvidia-smi` + `sleep 10`. //20 keeps the
+    # loop's worst case inside the ssh budget below, with room for a slow
+    # `nvidia-smi` — a start cut off by the client would be recorded as a server
+    # that never came up.
     rounds = int(START_TIMEOUT_S // 20)
-    # **A model is not ready when /health says 200.** Measured on these rigs:
-    # /health answers before the weights are on the card. The check that holds
-    # is 200 AND the card carrying an allocation — which is what
-    # MIN_ALLOCATION_MIB exists for, and it was not being used here.
+    # Ready is /health 200 AND the card carrying an allocation of at least
+    # MIN_ALLOCATION_MIB.
     ready = contract.ssh(
         host,
         f"for i in $(seq 1 {rounds}); do "
@@ -1750,25 +1522,25 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
         'echo "timeout code=$code mib=$mib"',
         timeout=START_TIMEOUT_S + 120,
     )
-    # **Asserted, not merely recorded.** This was stored and never read, so a
-    # server that never came up was measured against anyway — the exact shape of
-    # failure the rest of this module exists to prevent.
+    # **Asserted, not merely recorded**: a server that never came up must not
+    # be measured against anyway.
     if (ready or "").split()[:1] != ["ready"]:
-        # **Read before it is destroyed (#352).** Taken here, on the failure
-        # path, and not left as an instruction to the reader: the next cell of
-        # this campaign opens with `docker rm -f mcgyvr-vllm` on the docker rig
-        # and truncates `/tmp/vllm-serving.log` on the pip rig, so by the time
-        # anybody follows an instruction to go and look, the thing to look at
-        # is gone. That is not hypothetical — a cell was re-run byte-identically
-        # on 2026-08-23 to recover a reason this call would have kept.
+        # **Read before it is destroyed.** Taken here, on the failure path, and
+        # not left as an instruction to the reader: the next cell opens with
+        # `docker rm -f mcgyvr-vllm` on the docker rig and truncates
+        # `/tmp/vllm-serving.log` on the pip rig.
         tail = _launch_log(host, how)
         raise contract.NotCleanError(
-            f"vllm on {host} did not reach health with an allocation inside "
+            f"vllm on {host} did not reach health with an allocation within "
             # SCRUBBED. Host output carries credentials — a systemd
             # `Environment=` line, an exported launch command — and an exception
             # message is written to logs and to the run record like any other
-            # field. The first version of this interpolated it raw.
-            f"{START_TIMEOUT_S:.0f}s: {contract.scrub(ready)!r}. Launcher was "
+            # field.
+            f"START_TIMEOUT_S // 20 polls with a 10 s sleep after each, under "
+            f"an ssh timeout of START_TIMEOUT_S + 120 s "
+            f"(START_TIMEOUT_S={START_TIMEOUT_S:.0f}s); the wait returned "
+            f"{contract.scrub(ready)!r}. "
+            "Launcher was "
             f"{how!r}. Nothing "
             "was measured. The known causes here are a cold weights download "
             "inside the start budget and a KV cache that will not fit the card "
@@ -1783,21 +1555,16 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
         {
             "restarted": True,
             "launcher": how,
-            # **#329.** Whether that launcher was the machine's answer or the
-            # run's. Detection and declaration produce the same string, and a
-            # reader of a cross-host contrast needs to know which one the two
-            # hosts agreeing came from: two detections that happen to agree are
-            # a fact about the rigs, one declaration honoured twice is a fact
-            # about the run.
+            # Whether that launcher was the machine's answer or the run's.
+            # Detection and declaration produce the same string, and a reader
+            # of a cross-host contrast needs to know which one the two hosts
+            # agreeing came from.
             "launcher_declared": host in DECLARED_LAUNCHERS,
             "command": command,
             "launched": launched,
             "ready": ready,
-            # **D6/D7 item 7.** START_TIMEOUT_S has never been calibrated
-            # against anything, because the one number that would calibrate it
-            # was not recorded. Measured on the rigs at 33 s (srv1) and 109 s
-            # (srv2) for a 1.5B; every launch in the campaign adds a point at
-            # no cost, and the campaign is the only chance to collect them.
+            # Every launch adds a point to START_TIMEOUT_S's calibration at no
+            # cost.
             "start_seconds": round(time.monotonic() - began, 2),
             "serve": serve,
         }
@@ -1812,20 +1579,10 @@ def build(host: str) -> dict[str, Any]:
     nothing, and then the pip package or the container tag is asked. Each
     is named, so a ``null`` says which reads were tried.
 
-    **The launcher is part of the build (#358).** ``GET /version`` returns the
-    PACKAGE's version, which is `0.26.0` from the pip install and `0.26.0` from
-    the container of the same release — so a contrast holding `serving_build`
-    equal across a pip host and a container host passed a gate that had checked
-    nothing. srv1 carries both launchers, which makes this a live confusion and
-    not a hypothetical one. #329 landed `launcher_declared` on the launch row;
-    the row is not where the gate reads, and this is.
-
-    A build string therefore names both, and two runs on the same version
-    through different launchers now differ here — which is the refusal
-    asks for. **It also means a record written before this change does not match
-    one written after**, on the same host and the same engine. That is a false
-    refusal, it is the safe direction, and it is stated rather than smoothed
-    over: re-read the older record under `allow_unfingerprinted`, or re-run it.
+    **The launcher is part of the build.** ``GET /version`` returns the
+    PACKAGE's version, which is the same from a pip install and from the
+    container of the same release. A build string therefore names both, and two
+    runs on the same version through different launchers differ here.
     """
     answered = contract.get_json(
         contract.url(f"http://{host}:{PORT}", "/version"), timeout=10.0
@@ -1858,29 +1615,21 @@ def build(host: str) -> dict[str, Any]:
 def launched_width(host: str) -> dict[str, Any]:
     """The width the running server was actually started with, read off the host.
 
-    **E5, revised 2026-08-19.** The first version concluded there was no observed
-    source because no HTTP endpoint carries ``max_num_seqs`` — which is true, and
-    was the wrong place to stop looking. The harness has ssh, and the flag is in
-    the running process's own argv on the pip rig and in the container's
-    ``Config.Cmd`` on the docker rig. Verified on both:
-    ``vllm serve … --max-num-seqs 16 --port 8000`` and
-    ``["…","--max-num-seqs","16",…]``.
+    The flag is in the running process's own argv on the pip rig and in the
+    container's ``Config.Cmd`` on the docker rig, and the harness reads both
+    over ssh.
 
     That is a genuine observation and it is strictly better than reading back the
     value this run intended, because the two can differ. ``claim`` has a path
     that does NOT restart a server already serving the wanted configuration, so
     on that path a server started by someone else — at some other width — would
-    otherwise have been described using our own variable and nothing would have
-    looked wrong.
+    otherwise be described using our own variable.
     """
     for source, command in (
         (
             "process",
             # `COLUMNS=` explicitly: `ps` truncates its output to that width
-            # when the variable is set, and `--max-num-seqs` sits ~110
-            # characters into this argv. Non-interactive ssh normally does not
-            # set it — normally is not a property worth depending on when the
-            # consequence is silently reading no width at all.
+            # when the variable is set, and the flag sits deep in this argv.
             "COLUMNS=1000 ps -eo args | grep -E '[v]llm (serve|.*api_server)' "
             "| head -1",
         ),
@@ -1908,12 +1657,11 @@ def declared_slots(
 ) -> dict[str, Any]:
     """What this engine is running at — read off the host, not off the wire.
 
-    **No HTTP endpoint carries it.** Searched on a live vLLM 0.26.0 started
-    ``--max-num-seqs 16``: ``/server_info`` (three top-level keys,
-    ``vllm_config`` 3,118 characters), ``/v1/models``, and every environment
-    block — ``'num_seqs'`` 0 hits, ``'seqs'`` 0 hits, ``'scheduler'`` 0 hits.
+    ``/v1/models`` and the text form of ``/server_info`` do not carry it. The
+    JSON form (``?config_format=json``) does, under ``scheduler_config``, and
+    nothing here reads it there.
 
-    **But the host has it**, in the server's own argv — see
+    **The host has it**, in the server's own argv — see
     :func:`launched_width`. So this is an observation after all, and the
     dispatched value is only the fallback for when the host read fails.
 
@@ -1922,11 +1670,9 @@ def declared_slots(
     run launched, and picking either number would be picking which of two
     contradictory facts to believe.
 
-    **Do not "fix" the missing endpoint by reading `/metrics`.** It carries
-    ``vllm:cache_config_info{kv_cache_max_concurrency="16.001953125"}``, which
-    reads as 16 and is not the flag: it is
-    ``kv_cache_size_tokens / max_model_len``. Measured on srv1 at **16.004 on a
-    server launched ``--max-num-seqs 8``** — a positive disproof, not a caveat.
+    **Do not read the width off `/metrics`.**
+    ``vllm:cache_config_info`` carries ``kv_cache_max_concurrency``, which
+    looks like the width and is not the flag: it is KV-cache capacity.
     """
     serve = serve or {}
     dispatched = serve.get("max_num_seqs")
@@ -1984,13 +1730,10 @@ _WAITING = re.compile(r"^vllm:num_requests_waiting(?:\{[^}]*\})?\s+([\d.]+)", re
 def in_flight(base: str) -> dict[str, Any] | None:
     """How many requests this engine is running, and how many are queued.
 
-    **The readback this engine was said not to have.** ``max_num_seqs`` is on
-    no endpoint, which is true and was taken to mean the width could not be
-    observed at all -- so an n=32 ramp against an 8-wide server was
-    indistinguishable from saturation. It is not on the config surface, but it
-    is on the metrics surface, live: ``vllm:num_requests_running`` is what the
-    scheduler admitted, ``vllm:num_requests_waiting`` is what it did not. Asked
-    while a level is in flight, the pair says whether the width ever opened.
+    The metrics surface shows the width live: ``vllm:num_requests_running`` is
+    what the scheduler admitted, ``vllm:num_requests_waiting`` is what it did
+    not. Asked while a level is in flight, the pair says whether the width ever
+    opened.
 
     ``None`` on any failure. This is an observation offered beside a
     measurement, not a gate: a metrics endpoint that did not answer must not
@@ -2012,10 +1755,10 @@ def in_flight(base: str) -> dict[str, Any] | None:
 def serving_config(base: str) -> dict[str, Any]:
     """The whole engine config, parsed and pinned as two digests.
 
-    Nothing else records HOW this engine was serving. `product_sha256` pins the
-    code and `weights_sha256` the weights; the settings between them — dtype,
-    KV dtype, prefix caching, the kernels, structured-output enforcement —
-    decided the output and were on disk nowhere.
+    `product_sha256` pins the code and `weights_sha256` the weights; the
+    settings between them — dtype, KV dtype, prefix caching, the kernels,
+    structured-output enforcement — decide the output, and this is where they
+    are recorded.
     """
     info = contract.get_json(contract.url(base, "/server_info"), timeout=15.0)
     raw = (info or {}).get("vllm_config") if isinstance(info, dict) else None
@@ -2042,12 +1785,11 @@ def serving_config(base: str) -> dict[str, Any]:
 def _running_config(base: str) -> dict[str, Any]:
     """What the server says it was configured with, where it will say it.
 
-    The engine config arrives as a Python ``repr`` rather than a JSON object —
-    3,118 characters on the rig it was measured against — so the three settings
-    that live only there are lifted by name. Narrow on purpose: the whole string
-    is captured verbatim by the description, so a value this misses is still on
-    disk, and a repr that changes shape degrades to nothing found rather than to
-    a wrong number.
+    The engine config arrives as a Python ``repr`` rather than a JSON object,
+    so a handful of settings are lifted by name. Narrow on purpose: the whole
+    string is captured verbatim by the description, so a value this misses is
+    still on disk, and a repr that changes shape degrades to nothing found
+    rather than to a wrong number.
     """
     info = contract.get_json(contract.url(base, "/server_info"), timeout=15.0)
     raw = (info or {}).get("vllm_config") if isinstance(info, dict) else None
@@ -2067,8 +1809,9 @@ def _running_config(base: str) -> dict[str, Any]:
 def _matches(running: dict[str, Any], serve: dict[str, Any]) -> bool:
     """Whether a running server already has the requested serving parameters.
 
-    Only the window is checkable here — the batch width is on no endpoint, so a
-    requested change to it always forces a restart rather than being compared.
+    Only the window is compared — ``running`` comes from the text form of
+    ``/server_info``, which leaves the batch width out, so a requested width
+    always forces a restart.
     That is the safe direction: restarting costs a minute, and measuring the
     wrong width costs the result.
     """
@@ -2106,12 +1849,9 @@ def resolved_serving(
 ) -> dict[str, Any]:
     """What the engine RESOLVED on ``host``, read from a server that came up.
 
-    **#358, and the point is the reading site.** Every fact this repository holds
-    about resolved kernels was obtained from :func:`_start`'s failure path — the
-    log is read at one place, when a cell has already died — so the divergence
-    between the two rigs is documented only because cells OOM'd. A configuration
-    that serves perfectly is exactly the one nothing described. This is the
-    success-path reader.
+    **The success-path reader.** :func:`_start` reads the log only when a cell
+    has already died, so a configuration that serves perfectly is one nothing
+    else describes.
 
     Two sources, both required, because neither alone holds the fields:
     ``/server_info`` carries the numerics and calls the kernels ``'auto'``; the

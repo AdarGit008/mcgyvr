@@ -1,14 +1,8 @@
 """X02 — a run that records nothing is a run nobody can ask a question about afterwards.
 
-mcgyvr measures a great deal and keeps none of it. A :class:`~mcgyvr.runner.Completion`
-carries host-side latency, the backend's own token counts and the cap it was issued
-under; a gate run carries findings, observations and the rungs that could not say; a
-judgement carries the assurance the acceptance rests on. Every one of them is discarded
-when the call returns. The word "telemetry" occurs in ``src/`` only inside docstrings —
-always as a promise about what a number must never become — and no attempt is written
-anywhere. So nothing about a run is answerable once it exits: not what it cost, not
-which rung did the work, not whether climbing the ladder was worth it. Every
-before/after claim about this port is downstream of this file.
+:mod:`mcgyvr.telemetry` appends one record per attempt, so what a run cost, which
+rung did the work and whether climbing the ladder was worth it are answerable after
+the run exits.
 
 Six statements, and three of them are about not losing data:
 
@@ -16,19 +10,18 @@ Six statements, and three of them are about not losing data:
   path is the one that matters and the one that gets forgotten, because it is reached
   by an exception rather than by a return: a sink written after the call site is
   written only when the call site was reached. A test that recorded a successful
-  attempt would pass against a port that silently drops every failure — which is to
-  say, against a port whose numbers describe only the runs that went well. It is held
+  attempt would pass against a sink that silently drops every failure — which is to
+  say, against numbers that describe only the runs that went well. It is held
   by two attempts, one of each kind, counted in the stream on disk.
 * **A record names its rung and its model.** Two attempts that differ only in which
   model answered are otherwise identical rows, and a row that cannot say which is a
   measurement of nothing.
-* **An unreported token count is absent, never zero.** mcgyvr already decided this
-  twice in its own words (``runner.py:42`` and ``:648``): "a zero would average into
-  telemetry as a real measurement of nothing". The rule survives a port only if
-  something asserts it, because ``0`` is what a dataclass default and a
+* **An unreported token count is absent, never zero.** ``runner.py`` says why: "a
+  zero would average into telemetry as a real measurement of nothing". The rule
+  survives only if something asserts it, because ``0`` is what a dataclass default and a
   ``dict.get(..., 0)`` both produce, and both look deliberate. Held in a pair: an
   unreported count never appears as ``0``, and a *reported* count is still carried —
-  a port that simply drops all token fields would pass the first half alone.
+  a sink that simply drops all token fields would pass the first half alone.
 
 Then the two that keep the store honest over time. Corrections about how the work
 finally landed arrive after the attempt was written, and the cheap way to apply one is
@@ -39,10 +32,8 @@ the attempt's original bytes untouched, and the fold is asserted to be latest-wi
 A correction naming no attempt is an authoring error, and dropping it silently turns a
 visible mistake into missing data: it is asserted to survive the fold.
 
-Last, the v2 constraint. The queue architecture has many orchestrators writing one
-stream; a record that cannot say which orchestrator produced it makes that stream
-unreadable the day the second one starts. That costs nothing to hold now and a
-migration to hold later.
+Last, several orchestrators may write one stream; a record that cannot say which
+orchestrator produced it makes that stream unreadable the day the second one starts.
 
 Nothing here dispatches. The attempt is a callable that returns a completion or
 raises, because what telemetry must record is not a property of how the work was done.
@@ -121,9 +112,9 @@ def _stream(sink: Path) -> list[dict[str, Any]]:
 
 
 def _says(record: dict[str, Any], value: object) -> bool:
-    """Whether a record carries ``value`` at all, under whatever key the port chose.
+    """Whether a record carries ``value`` at all, under whatever key.
 
-    Key names are the port's to pick; what a record must carry is not.
+    Key names are not pinned; what a record must carry is.
     """
     return value in record.values()
 

@@ -29,10 +29,7 @@ matched only on its filename has no line anchor, so its window is the file head 
 the imports and top-level shape that stand in for "what is this file".
 
 **Who the budget is for.** :func:`explore` takes the budget as a number and the
-caller says what it is. Sizing that number from the model being dispatched to was
-tried here and removed: it had no caller under ``src/`` and only its own tests
-exercised it, so it was a lever nothing pulled rather than a decision anything
-downstream made. Whatever the budget is eventually derived from, it is derived
+caller says what it is. Whatever the budget is derived from, it is derived
 where a rung is chosen, not here.
 
 What does *not* change with the budget is which regions exist. Planning belongs to
@@ -390,7 +387,8 @@ def estimate_tokens(text: str) -> int:
     Public so that anything else sizing a budget in tokens — the decomposer
     sizing ``context.max_input_tokens`` (#50) — measures with the same proxy the
     read plan spends against, rather than growing a second one that could drift
-    from it. What the proxy's error actually is remains #117's to measure.
+    from it. The proxy's measured error is charged by
+    :data:`mcgyvr.gate.preflight.ESTIMATE_RESERVE`.
     """
     return max(1, (len(text) + 3) // 4)
 

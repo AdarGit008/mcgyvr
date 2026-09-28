@@ -5,16 +5,15 @@ file-backed — including the experts ``--n-cpu-moe`` put in host RAM. File-back
 means evictable, so a blob larger than the host's memory does not refuse and
 does not OOM: the kernel drops expert pages to make room for the pages it is
 reading, then reads them back on the next token, for as long as the server
-serves. Nothing fails, so nothing catches it. Measured twice on this fleet:
-821 MB/s of sustained NVMe reads *during decode* on 2026-08-25, and a 203 s
-wake on 2026-09-08 (`records/measurements/wake-2026-09-08/`).
+serves. Nothing fails, so nothing catches it: what shows is sustained NVMe
+reads *during decode* and a slow wake (`records/measurements/wake-2026-09-08/`).
 
 ``--load-mode none`` is the cure and the whole difference: it reads the file
 once, uploads what belongs on the card, frees that copy, and keeps only the
-CPU-side experts as anonymous memory the kernel cannot take back. It is +63% on
-a rig too tight for its blob and -12% on one with room (2026-08-25), so it is
-not a default to flip — it is a per-rig derivation, which makes it the same
-kind of number as ``--n-cpu-moe`` and belongs in the same place.
+CPU-side experts as anonymous memory the kernel cannot take back. That memory
+is spent whether or not the rig is short of it, so it is not a default to flip —
+it is a per-rig derivation, which makes it the same kind of number as
+``--n-cpu-moe`` and belongs in the same place.
 
 So the fit has two arms, and it names which one carried the model:
 
@@ -22,10 +21,9 @@ So the fit has two arms, and it names which one carried the model:
 * else the spilled experts plus headroom fit -> admitted, ``--load-mode none``
 * else -> refused, because no loading mode makes a model fit a host this small
 
-Before this spec the module had neither arm: it weighed the spilled experts
-against ``MemAvailable`` with no headroom at all, which is exactly how KAT-Coder
-passed onto srv1 (12.6 GiB of experts against 13 GiB available) and then took
-203 s to wake behind a 16.9 GiB blob on a 15 GiB host.
+Weighing only the spilled experts against ``MemAvailable``, with no headroom,
+admits a model whose experts barely fit and then leaves its blob mapped on a
+host smaller than the blob.
 """
 
 from __future__ import annotations
@@ -89,17 +87,12 @@ def test_a_blob_that_overflows_ram_is_emitted_unmapped() -> None:
     headroom, the 8.9 GiB of experts do, so the model runs — with the mode that
     makes those experts unevictable.
 
-    The rig was 13.0 until 2026-09-09, and was described as "srv1 as it
-    stands". Both halves of that stopped being true on the same day. srv1 has
-    14.19 GiB, not 13; and the mode gate came down from 2.0 to 0.5
+    The rig is not srv1, which maps this blob under the mode gate
     (:data:`~mcgyvr.serving.MODE_RAM_HEADROOM_GB`, swept in
-    ``records/measurements/ram-headroom-2026-09-09/``), which is what makes
-    12.30 + 0.5 fit inside 13.0. **srv1 maps this blob now, and that is the
-    behaviour the sweep asked for** — pinned in
+    ``records/measurements/ram-headroom-2026-09-09/``) — pinned in
     ``tests/test_the_two_ram_gates_hold_back_different_margins.py``, not undone
     here. What this file is about is the arm a rig too tight for its blob
-    takes, so the rig is given a number that is still tight under the gate it
-    is now judged by."""
+    takes, so the rig is given a number that is tight under that gate."""
     unit = unit_for(rig(ram_gb=12.5), MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert unit.args["--load-mode"] == "none"
 
@@ -152,10 +145,9 @@ def test_every_model_on_the_tight_rig_is_judged_by_its_own_blob() -> None:
     at 10.6 GiB and maps, which is the point of weighing each blob rather than
     labelling the host.
 
-    The number was 13.0, and named srv1. It is neither now: the 2026-09-09 sweep
-    dropped the mode gate to 0.5, under which srv1's real 14.19 GiB maps every
-    one of these three. The lesson the test carries is the one that does not
-    depend on the number — a host is not a mode.
+    The number is not srv1's: under the mode gate srv1 maps every one of these
+    three. The lesson the test carries does not depend on the number — a host
+    is not a mode.
     """
     tight = rig(ram_gb=12.5)
     lite = unit_for(tight, LITE, engine="llama.cpp", ctx_per_slot=WINDOW)

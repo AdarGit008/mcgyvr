@@ -1,16 +1,10 @@
-"""``hosts.json`` moved beside the door, and said the same thing after the move.
+"""``hosts.json`` lives beside the door, in one place.
 
-``tools/bench/serving/configs/hosts.json`` was filed on 2026-08-22 to close the
-K9 gap: the settings that decide residency were set live on both rigs and
-nothing in the repository stated them. It now grows a ``rig`` block per host
-and moves to ``tools/runs/hosts.json``, because gate 2 of the door compares the
-live ``rig_snapshot`` field by field with a declaration (BRIEF.md gate 2), and
-the declaration belongs where the one reader of it lives.
-
-A move is the moment a value gets retyped. The residency block below is the
-old file's, verbatim, so the move is held to the declaration it carried — and
-``tests/test_declared_host_state.py``'s checks are held to the new path, not
-left pointing at a file that no longer exists.
+``tools/runs/hosts.json`` carries a ``rig`` block per host: gate 2 of the door
+compares the live ``rig_snapshot`` field by field with that declaration, and
+the declaration belongs where the one reader of it lives. No second copy exists
+at ``tools/bench/serving/configs/hosts.json``, and
+``tests/test_declared_host_state.py``'s checks read the same path.
 """
 
 from __future__ import annotations
@@ -25,12 +19,10 @@ REPO = Path(__file__).resolve().parent.parent
 NEW = REPO / "tools" / "runs" / "hosts.json"
 OLD = REPO / "tools" / "bench" / "serving" / "configs" / "hosts.json"
 
-#: The two blocks the move carried, as they stood, are no longer in the file.
-#: They described a daemon that was removed from the product and masked on srv2
-#: on 2026-09-06; both are in ``archive/forensic-ollama/``, verbatim, with the
-#: owner's `no limits` rule that chose their values. The file records the
-#: removal in place rather than dropping the keys, which is what lets the check
-#: below tell a deliberate removal from a block that fell out in a merge.
+#: Two blocks described a daemon that is not in the product; their values are
+#: in ``mcgyvr-lab/archive/forensic-ollama/``. The file records the removal in
+#: place rather than dropping the keys, which is what lets the check below tell
+#: a deliberate removal from a block that fell out in a merge.
 REMOVAL_KEY = "_removed_2026_09_06"
 
 
@@ -51,12 +43,9 @@ def test_the_declaration_lives_beside_the_door_and_nowhere_else() -> None:
 def test_the_blocks_the_move_carried_record_their_own_removal() -> None:
     """A removal that is stated is a different thing from a block that vanished.
 
-    This file exists because a move is the moment a value gets retyped, and it
-    held the two blocks to what they said before the move. They are gone now,
-    with the engine they described — so what it can still hold is that they were
-    taken out on purpose: each key is still present, carries the removal note,
-    and the note points at where the values went. A block that simply
-    disappeared would fail this exactly as a retyped one used to.
+    The two blocks were taken out on purpose: each key is present, carries the
+    removal note, and the note points at where the values went. A block that
+    simply disappeared fails this.
     """
     document = _new()
     for block in ("residency", "engine"):

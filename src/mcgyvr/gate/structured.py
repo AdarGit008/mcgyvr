@@ -7,9 +7,8 @@ structured files up front turns that into a precise, early finding.
 
 The whole resulting file is parsed, not just the added lines: a document is
 valid or it is not, and a worker can break parsing with a deletion as easily as
-an addition. YAML support is optional — it activates when a YAML parser is
-installed (the config epic introduces one as the project's first runtime
-dependency); until then YAML files are left unvalidated rather than guessed at.
+an addition. YAML is parsed with PyYAML, a runtime dependency; where it cannot
+be imported, YAML files are left unvalidated rather than guessed at.
 """
 
 from __future__ import annotations
@@ -22,11 +21,10 @@ from typing import Any
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.findings import Finding
 
-# Optional: a YAML parser is present once the config epic adds PyYAML as a
-# runtime dependency. Imported dynamically and held as Any so this module type
-# checks identically whether or not the parser (and its stubs) are installed —
-# a static `import yaml` would flip between "unused ignore" and "missing import"
-# across those two environments.
+# Imported dynamically and held as Any so this module type checks identically
+# whether or not the parser (and its stubs) are installed — a static `import
+# yaml` would flip between "unused ignore" and "missing import" across those
+# two environments.
 try:  # pragma: no cover - branch taken depends on whether PyYAML is installed
     _yaml: Any = import_module("yaml")
 except ImportError:  # pragma: no cover

@@ -1,33 +1,25 @@
 #!/usr/bin/env python3
 """Query the mcgyvr OKF bundle.
 
-The shipped `okf-rag query` hardcodes its own repo's `okf/` bundle (only
-build/update/ensure/status accept --corpus), so a bundle living in another
-repo is not reachable through it. This wrapper points get_knowledge() at
-mcgyvr's bundle instead. OKF-only: it does not consult pgvector, so a
-fuzzy query returns NONE rather than WEAK.
+This wrapper points okf_rag's get_knowledge() at mcgyvr's `okf/` bundle.
+OKF-only: it does not consult pgvector. `--src` names the okf_rag package
+source directory; the run refuses when that directory does not exist.
 
-WHAT IS IN THE STORE. Today: the thirteen `models/` sizing concepts and nothing
-else. They are hand-authored, `stable`, and carry no signer at all. The
-machine-built `serving/**` bundle this docstring used to cite is not on disk —
-see `okf/index.md` for how it was built and where its approvals live.
+WHAT IS IN THE STORE. `okf/index.md`, `okf/must-read/`, `okf/config/` and
+`okf/models/`. The `models/` files are the concepts this tool lists.
 
 NOTE ON THE TRUST GATE. get_knowledge() returns STRONG only when a concept is
 HUMAN_REVIEWED (`verified.by` starts with "human:"), status is stable, and it is
-not stale (okf_rag/api.py::_okf_result). Nothing here is signed, so
-get_knowledge ABSTAINS on every concept by design — the store refuses to serve
-unreviewed findings as authoritative. Use --raw to read one before signing, and
---sign to promote it.
+not stale (okf_rag/api.py::_okf_result). Use --raw to read a concept directly.
+--sign rewrites an existing `verified:` line and refuses a concept that has
+none.
 
-FRONTMATTER IS YAML AND ONE BAD FILE TAKES DOWN THE WHOLE LISTING. A parse error
-in any concept raises FrontmatterError out of db.list(), so --list fails
-entirely rather than skipping the offender. A `description` or `title`
-containing ": " must be quoted.
+`--list` fails outright on one concept whose YAML frontmatter does not parse;
+quote a `title` or `description` that contains ": ".
 
-    python3 tools/okf/query.py "models/a-05-dense-no-cold-pile"
-    python3 tools/okf/query.py --raw "models/b-01-capacity-cliff-not-slope"
-    python3 tools/okf/query.py --list
-    python3 tools/okf/query.py --sign models/a-05-dense-no-cold-pile --as human:adar
+    python3 tools/okf/query.py --src <okf_rag src> models/a-05-dense-no-cold-pile
+    python3 tools/okf/query.py --src <okf_rag src> --raw models/a-05-dense-no-cold-pile
+    python3 tools/okf/query.py --src <okf_rag src> --list
 """
 
 from __future__ import annotations
@@ -55,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--sign",
         metavar="CONCEPT_ID",
-        help="promote a concept to human-reviewed after you have read it",
+        help="rewrite a concept's existing `verified:` line with the signer",
     )
     ap.add_argument(
         "--as",
@@ -112,10 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         path.write_text(new, encoding="utf-8")
         print(f"signed {args.sign} as {args.signer} at {stamp}")
-        print(
-            "NOTE: build_okf.py reads approvals.json, so a rebuild "
-            "restores this signature. Editing the file by hand does not."
-        )
+        print("NOTE: the signature is written to the concept file and nowhere else.")
         return 0
 
     if not args.query:

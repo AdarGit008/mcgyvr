@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh — campaign step 6, behaviour 10.
 #
-# Emits, into records/evidence/2026-09-02-srv1-kernel-arms/:
-#   srv1-moe-slots.tsv    (APPENDED to; see "one file, two steps" below)
+# Emits, into $RUN_OUT_DIR (the door's envelope):
+#   srv1-moe-slots.tsv    (created here; step 7 appends — see "one file, two
+#                         steps" below)
 #   placement-null.json   read by
 #                         tests/test_placement_is_not_declared_output_neutral_without_a_measurement.py
 #                         with a bare Path.read_text -- there is no friendly RED
 #                         message for a missing or misshapen file, so the shape
 #                         written here is exactly the one that test reads
-#                         (ARTIFACT-CONTRACT.md section 4.1).
+#                         (section 4.1 of mcgyvr-lab/archive/docs/
+#                         2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md,
+#                         whose section numbers are the ones cited below;
+#                         "guideline N" and "behaviour N" are those of
+#                         mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md).
 #
-# WHAT THIS TESTS. tools/bench/serving/fingerprint.py declares by fiat that
-# n_cpu_moe is placement, not semantics -- "WHERE a tensor is computed, not WHAT
-# is emitted ... None of them alters the token distribution". The whole ncmoe
-# floor programme (step 9, behaviour 9) rests on that fiat, and nothing has ever
-# tested it. So this runs ONE checkpoint at ncmoe=0 and at ncmoe=99 through
-# tools/breadth/measure.py, pairs the two through tools/bench/null.py, and
-# writes down whether any cell CHANGED VERDICT. flips == 0 is demonstrated here,
-# not asserted: the number in the JSON is null.py's own count over the two runs.
+# WHAT THIS TESTS. Whether --n-cpu-moe placement is output-neutral on one
+# build: ONE checkpoint at ncmoe=0 and at ncmoe=99 through
+# tools/breadth/measure.py, paired through tools/bench/null.py. The flips count
+# in the JSON is null.py's own count over the two runs, measured and not
+# asserted. tools/bench/serving/fingerprint.py counts n_cpu_moe among the keys
+# that change output.
 #
 # AND THE BOUND IT IS JUDGED AGAINST. Guideline 9: each arm is a new
 # serving_build, so no committed bound in tools/bench/reproducibility.json
@@ -37,17 +40,17 @@
 # ONE FILE, TWO STEPS -- AND THIS SCRIPT OWNS IT. srv1-moe-slots.tsv is also the
 # crash study's file (step 7, behaviour 8: the L2 boundary sweep and L3's 60
 # trials). That work is the KERNEL question and is not this script's:
-# archive/docs/srv1-kernel-arms-PLAN.md's "Not worth rig time" list puts ncmoe cells for the
+# mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md's "Not worth rig time" list puts ncmoe cells for the
 # kernel question out of scope, and this script's grid is exactly two placement
 # cells of one model at one width.
 #
-# ARTIFACT-CONTRACT.md section 4 names `run tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh` as the
-# one behaviour that produces this file, so THIS SCRIPT IS THE OWNER-CREATOR: it
-# creates the file, truncating any previous copy, and it must run FIRST.
+# `BEHAVIOUR` in tools/runs/rows.py names the door step `6-moe-slots.sh` as the
+# one producer of this file (contract §4.3), so THIS SCRIPT IS THE OWNER-CREATOR:
+# it creates the file, refuses to start if one already exists, and it must run FIRST.
 # tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh --step crash is the APPENDER: it refuses to run
 # until the step-6 block is on disk. The order is step 6 then step 7, it is
 # enforced at both ends, and out of order both ends fail loudly rather than
-# leaving half a file. See RUN-ORDER.md.
+# leaving half a file.
 #
 # Within this script every marker and row is appended the moment it is produced,
 # so a hard lock keeps what was measured. The ### INSTRUMENT marker names which
@@ -155,7 +158,7 @@ while [ "$#" -gt 0 ]; do
         --port) PORT=${2:?--port needs an integer}; shift 2 ;;
         --run-prefix) RUN_PREFIX=${2:?--run-prefix needs a name}; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
-        -h | --help) sed -n '63,83p' "$0"; exit 0 ;;
+        -h | --help) sed -n '66,86p' "$0"; exit 0 ;;
         *) die "unknown argument '$1'" ;;
     esac
 done
@@ -402,7 +405,7 @@ mkdir -p "$OUT_DIR" "$ROOT/$MEASUREMENTS"
 IMG_DIGEST=$(image_digest "$IMG") || die "$IMG resolves to no digest on this host (docker image inspect failed); one image for both cells is the whole design, and it is not here"
 
 # ---- ownership, enforced --------------------------------------------------
-# ARTIFACT-CONTRACT.md section 4: `srv1-moe-slots.tsv` -> `6-moe-slots.sh`.
+# tools/runs/rows.py BEHAVIOUR: `srv1-moe-slots.tsv` -> `6-moe-slots.sh`.
 # This script creates that file. Step 7 appends to it and checks that this block
 # is already there, so the order is 6-then-7 at both ends. If the file exists
 # already, either step 7 jumped the queue (its own guard should have stopped it)
@@ -418,7 +421,7 @@ trap teardown EXIT
 say "artifact: $OUT (created by this script; step 7 appends to it)"
 emit workload_stamp "$WORKLOAD"
 # Which instrument produced the rows that follow. The WORKLOAD stamp above is
-# the file's (section 2.1) and names the serving driver; these rows are the
+# the file's (section 2.1) and names the workload module; these rows are the
 # placement null's and came from measure.py paired through null.py.
 emit stamp INSTRUMENT step=6 behaviour=10 measure=tools/breadth/measure.py \
     pairing=tools/bench/null.py "tier=$TIER"
@@ -562,7 +565,7 @@ PY
 emit end_stamp
 if ! rig_assert_unchanged; then
     emit stamp RIGMOVED at=end
-    printf 'srv1-moe-slots: THE RIG MOVED UNDER THIS RUN. That is a FINDING, not a script fault: a hard lock wipes the BIOS power profile, and srv1 has already read PL1 95 W at 05:23 and 4095 W at 05:57 on one boot. The ncmoe=%s cell is the load that does it. The rows above were not all produced under one machine state -- report the START/END pair as measured.\n' "$NCMOE_B" >&2
+    printf 'srv1-moe-slots: THE RIG MOVED UNDER THIS RUN. That is a FINDING, not a script fault: a hard lock wipes the BIOS power profile. The ncmoe=%s cell is the load that does it. The rows above were not all produced under one machine state -- report the START/END pair as measured.\n' "$NCMOE_B" >&2
     exit 3
 fi
 say "done: $OUT and $JSON"

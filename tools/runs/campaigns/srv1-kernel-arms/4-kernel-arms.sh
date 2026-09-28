@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh — steps 4 (serve) and 7 (crash) of the srv1
-# kernel-arms run (`archive/docs/srv1-kernel-arms-PLAN.md:111-128`), written against
+# kernel-arms run (`mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md`, "Steps"), written against
 # `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md`.
 #
 # It drives `tools/runs/drivers/lcp_sweep.py` over `tools/runs/workload.py` —
 # the workload the whole campaign shares —
 # and prints the contract's rows around it. It never invents a number: every
 # field it adds is either read from the rig, read from the engine log, or
-# replayed from the driver's own prompt generator.
+# replayed from the workload module's prompt generator.
 #
 # TWO ARTIFACTS, and the reason:
 #
@@ -24,8 +24,8 @@
 #   60 trials — for this script, because that is the kernel question and not a
 #   placement one.
 #
-#   ARTIFACT-CONTRACT.md section 4 names `run tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh` as
-#   the one behaviour that produces that file, so THAT script is the
+#   `BEHAVIOUR` in tools/runs/rows.py names the door step `6-moe-slots.sh` as
+#   the one producer of that file (contract §4.3), so THAT script is the
 #   owner-creator and THIS one is the appender. The order is step 6 then step 7
 #   and it is ENFORCED, not documented: `--step crash` refuses to start unless
 #   the file already exists and already carries step 6's `### INSTRUMENT step=6`
@@ -52,11 +52,11 @@
 # given (cell, replicate), so `(ptok, otok_req)` pairs across arms.
 #
 # `otok_req` is the requested output budget and is NOT `otok` (resolved conflict
-# §6.2). The driver prints neither, so `otok_req` is recovered by replaying the
-# driver's own `mkprompt()` — the same source region `rows.workload_digest`
-# execs — over the same call order the driver uses (one warm-up, then n per
-# level). It is a plan, computed from the driver, not a measurement copied from
-# somewhere else.
+# §6.2). The driver prints neither, so `otok_req` is recovered by replaying
+# `tools/runs/workload.py`'s `mkprompt()` (the module the driver imports) — the
+# same source region `rows.workload_digest` execs — over the same call order
+# the driver uses (one warm-up, then n per level). It is a plan, computed from
+# the workload module, not a measurement copied from somewhere else.
 #
 # GUIDELINE 8 — a refusal is a result. Every launch goes through `retry3`; only
 # a third failure is believed, and it is recorded as a REFUSED row with the
@@ -112,7 +112,7 @@ SERVE_ARMS="L0 L1 L2 L3 L4 A1"
 SERVE_CELLS="d3b mling"
 SERVE_LEVELS="1,4,8"
 REPS=5
-# The unpatched arm and its patch. `archive/docs/srv1-kernel-arms-PLAN.md:43-44`.
+# The unpatched arm and its patch (the plan's arms table, L2 and L3).
 CRASH_ARM=L2
 FIX_ARM=L3
 CRASH_CELLS="mling moss4b"
@@ -202,8 +202,9 @@ arm_digest() {
 }
 
 # A cell is `<subdir>|<gguf>|<np>|<ctx_slot>|<ncmoe>`. Resident models only
-# (step 4): every one of these loads whole onto the 6144 MiB card at ncmoe=0,
-# as the 2026-09-01 A/B's `vram=` readings show. `ctx_slot` is 2048 because the
+# (step 4): d3b and mling load whole onto the 6144 MiB card at ncmoe=0, as the
+# `vram=` readings of records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/
+# srv1-nomma-dp4a-ab.tsv show; moss4b has no row there. `ctx_slot` is 2048 because the
 # driver SKIPs anything under its worst sampled prompt+reply, 1347.
 cell_def() {
     case $1 in
@@ -212,7 +213,8 @@ cell_def() {
         # MoE, bailingmoe3, 128 experts / 8 used, 23 expert layers
         mling) printf '%s' 'moe|Ling-3.0-tiny-Q4_K_M.gguf|8|2048|0' ;;
         # MoE, gpt-oss, 4 experts / 2 used, 24 expert layers — a different
-        # expert geometry, which is what test_a_crash_...:96-101 is asking for
+        # expert geometry, which is what
+        # `test_two_moe_checkpoints_with_different_expert_geometry_are_driven` asks for
         moss4b) printf '%s' 'moe|4b-Q4_K_M.gguf|8|2048|0' ;;
         *) _fail "cell_def: no such cell '$1'"; return 1 ;;
     esac
@@ -300,7 +302,7 @@ build_stamp() { # ARM — skipped for a registry image, which needs no stamp
 # the engine log, captured while the container is alive
 # --------------------------------------------------------------------------
 
-# The driver runs its server as `lcps` and `docker rm -f`s it before returning,
+# The driver runs its server as `<RUN_ID>-lcps` and `docker rm -f`s it before returning,
 # which takes the log with it. The crash marks
 # (`ggml_cuda_mul_mat_vec_q` / `invalid argument`) and the checkpoint's quant
 # type are only readable from that log, so it is followed while it exists. This
@@ -332,7 +334,7 @@ log_tail_stop() {
 
 # What `quantization_config` is to a GPTQ checkpoint, `print_info: file type` is
 # to a GGUF: read, not inferred from the path. `A checkpoint's name is not
-# evidence of its format` (archive/docs/srv1-kernel-arms-PLAN.md:143).
+# evidence of its format` (mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md, "Blockers").
 log_file_type() { # LOGFILE
     local out
     out=$(sed -n 's/.*file type *= *//p' "$1" 2>/dev/null | head -n 1) || out=
@@ -349,7 +351,7 @@ log_file_type() { # LOGFILE
 }
 
 # --------------------------------------------------------------------------
-# `otok_req` — the driver's own draw, replayed
+# `otok_req` — the workload module's draw, replayed
 # --------------------------------------------------------------------------
 
 # One integer per level, in the driver's call order: one warm-up post, then n
@@ -730,7 +732,7 @@ guard() { # FILE
 }
 
 # The other half of the ownership rule, enforced. `srv1-moe-slots.tsv` belongs
-# to step 6 (`tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh`, ARTIFACT-CONTRACT.md section 4);
+# to step 6 (`tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh`, contract §4.3);
 # this script only ever appends step 7's crash rows to it. Checked BEFORE any
 # work, so an out-of-order run costs no rig time and leaves no partial file.
 require_slots_owner() {

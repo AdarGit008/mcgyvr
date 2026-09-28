@@ -4,7 +4,7 @@
   "_endpoint": "Base URL of a served model. Anything reachable over HTTP: a box on your network, a tunnel (`ssh -N -L 8080:localhost:8080 gpubox`, then use localhost here), or a hosted provider's OpenAI-compatible URL. Never put a key in the URL — see api_key_env.",
   "endpoint": "http://localhost:8080",
 
-  "_protocol": "Use `openai` — the OpenAI-compatible chat-completions shape, which vLLM, llama-server, LM Studio, TGI and the hosted providers all speak. It is the only protocol a sweep carries a measurement on: CAV-01 measured a native, non-OpenAI path scoring a model at 32.3% against a true 84.1%, and that reasoning is kept in archive/forensic-ollama/.",
+  "_protocol": "Use `openai` — the OpenAI-compatible chat-completions shape, which vLLM, llama-server, LM Studio, TGI and the hosted providers all speak. It is the only protocol mcgyvr speaks.",
   "protocol": "openai",
 
   "_model": "The model as that backend names it. #144 is defined on qwen2.5-coder:3b; anything else measures a different question and the run record has to say so.",

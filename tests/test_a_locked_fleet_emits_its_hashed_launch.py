@@ -1,18 +1,12 @@
 """A locked fleet is emitted as the launch its unit_ids were hashed over.
 
-``mcgyvr emit`` on the stamped b-small setup (``~/.mcgyvr/config``, 2026-09-15)
-refused before writing a file::
-
-    refused: Qwen/Qwen2.5-Coder-3B-Instruct-AWQ: served by vLLM, which sizes its
-    KV cache from the dtype the model declares, and nothing states one — set
-    models.Qwen/Qwen2.5-Coder-3B-Instruct-AWQ.kv_cache_dtype_k
-
-A ``fleet.yaml`` has no ``models`` block to state one in, so no locked fleet
-could reach a compose file, and ``serve up`` takes nothing else. b-small went
-live from a hand ``docker run``, and a door run cannot bring it back.
+A ``fleet.yaml`` has no ``models`` block, so an emit that sized a locked unit
+from a scan would refuse a vLLM unit for want of a declared KV cache dtype, and
+no locked fleet could reach a compose file — and ``serve up`` takes nothing
+else.
 
 A locked unit was measured, approved and hashed. What emit owes it is that
-launch, not a new one sized from a scan (owner, 2026-09-15):
+launch, not a new one sized from a scan (owner ruling):
 
 * ``launch.argv`` and ``launch.env`` are the command and the environment,
   verbatim and in order: the argv and env its ``unit_id`` was hashed over.
@@ -273,7 +267,7 @@ def test_the_stamped_setup_emits_the_argv_and_env_its_digests_record(
     for name in ("fleet.yaml", "policy.yaml"):
         shutil.copy(REPO / "fleet-setup" / name, config / name)
     # A setup is its two fleet files AND the seccomp profiles its units state:
-    # `launch.seccomp` names one relative to here (owner, 2026-09-16).
+    # `launch.seccomp` names one relative to here.
     shutil.copytree(REPO / "fleet-setup" / "seccomp", config / "seccomp")
     out = tmp_path / "compose"
     assert emit(config, out) == Exit.OK, capsys.readouterr().err

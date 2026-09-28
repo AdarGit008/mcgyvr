@@ -1,21 +1,16 @@
-"""Behaviors mcgyvr must have and does not yet — stated as tests, not as designs.
+"""Behaviors mcgyvr has, stated as tests, not as designs.
 
 Every test in this package says *what must be observably true*, never *how to make
-it true*. The distinction is load-bearing here because these tests are written
-before the code: a test that asserted a call sequence would freeze an
-implementation nobody has chosen yet, and the first honest design would have to
-delete it.
+it true*: a test that asserted a call sequence would freeze one implementation.
 
 So the assertions are outcomes a person could check by hand — what a file on disk
 holds, what a refusal says, what a record carries, what a prompt contains. None of
 them names a private function, and none asserts that something *was called*.
 
-**Naming a seam.** A test has to call something. Where a lever has no code at all,
-the entry point is resolved through :func:`required`, whose failure message is the
-behavior statement itself — so a RED run reads as a list of missing behaviors
-rather than a list of import errors. The dotted path handed to it is a
-**placeholder**: rename it freely while porting and these tests still say the same
-thing. What must not drift is what is asserted after it resolves.
+**Naming a seam.** A test has to call something. The entry point is resolved
+through :func:`required`, whose failure message is the behavior statement itself —
+so an entry point that cannot be imported reads as a missing behavior rather than
+an import error.
 
 **Why the failure is deliberate rather than an error.** ``pytest.fail(pytrace=False)``
 rather than a bare import at module scope, because a module-level ImportError is a
@@ -48,12 +43,11 @@ limits:
 
 
 def required(behavior: str, resolve: Callable[[], Any]) -> Any:
-    """The capability this test needs, or a RED failure naming the behavior.
+    """The capability this test needs, or a failure naming the behavior.
 
     ``behavior`` is the sentence a reader should see when the test fails. It is
     phrased as a capability of mcgyvr ("must be able to ...") rather than as a
-    missing module, because the module is a guess and the capability is the
-    requirement.
+    missing module, because the capability is the requirement.
     """
     try:
         return resolve()

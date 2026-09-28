@@ -1,46 +1,44 @@
 """A load runs at most thirty seconds, then gives its verdict.
 
-Owner ruling NB5, 2026-09-15: "measure pace for 30 seconds then verdict - if
-breaks in longer contexts we will know from logs - no 900s no 3600s". It holds
-for every load, 8x4096 included.
+The thirty seconds are owner ruling NB5, and hold for every load, 8x4096
+included.
 
-* **Each request still asks to fill the whole window**: its prompt fills N - 64
+* **Each request asks to fill the whole window**: its prompt fills N - 64
   tokens and it generates the rest.
 * **The load runs at most 30 s from when its requests start**, and ends sooner
   when they all finish sooner. At 30 s every unfinished request's connection is
   closed, the unit's status page is read once more, and ``idle_after`` files
   whether it shows nothing in flight.
-* **While it runs**, the card is sampled every 0.5 s as before, and PACE, the
-  prompt tokens per second over the load, is taken from the unit's own counter
-  read at the start and at the end. vLLM's is ``vllm:prompt_tokens_total`` on
+* **While it runs**, the card is sampled every 0.5 s, and PACE, the prompt
+  tokens per second over the load, is taken from the unit's own counter read at
+  the start and at the end. vLLM's is ``vllm:prompt_tokens_total`` on
   ``/metrics``. A llama.cpp unit publishes no counter it can be taken from, so
   its pace is null with the reason, never a client-side guess.
 * **No fixed timeout holds a load.** The load's requests carry no 900 s and its
   model list and tokenize calls no 10 s; the 30 s is the only limit. The probes
   keep theirs.
-* **The verdict is the card peak, judged against ``room_mib`` as before.** Pace
-  and completion counts are filed, not judged. A load cut at the limit with
-  requests unfinished is judged; only an error other than that close, or no
-  sample of the container, leaves a load unjudged.
+* **The verdict is the card peak, judged against ``room_mib``.** Pace and
+  completion counts are filed, not judged. A load cut at the limit with requests
+  unfinished is judged; only an error other than that close, or no sample of the
+  container, leaves a load unjudged.
 * **The row** keeps every field, plus ``limit_s``, ``pace_prompt_tok_s``,
   ``pace_source``, ``completed``, ``closed_unfinished`` and ``idle_after``.
 
-Owner ruling NBc, 2026-09-15: after the close, the load keeps reading the unit's
-own status page until it reads idle, with no time limit on that wait. It files
+Owner ruling NBc: after the close, the load keeps reading the unit's own
+status page until it reads idle, with no time limit on that wait. It files
 ``idle_after_close``, whether the first reading right after the close was
 already idle (true when nothing was left to close), and ``idle_after_s``, the
 seconds from the close (or the finish) to the first idle reading; ``idle_after``
 stays the final reading. A status page that cannot be read at all is filed as
 ``idle_error`` and ends the wait.
 
-Owner ruling, 2026-09-15: "Sample the card until idle". Closing a request at
-30 s did not stop llama.cpp b10644: ``rig-id-relock``'s srv1-01 read idle 104.3 s
-after the close, and all 58 of its card samples were taken before it. So after
-the close the card is sampled beside every status reading, up to and including
-the first idle one. ``samples`` holds every sample, ``samples_before_close`` is
-how many came before the close, and ``sampled_until_idle`` says whether they run
-through to an idle reading; an unreadable status page still ends the wait, short
-of idle. The verdict is the peak over every sample, and the peak of the samples
+The card is sampled until idle: closing a request does not cancel llama.cpp's
+work on it (``records/measurements/lock-fleets/README.md``), so after the close
+the card is sampled beside every status reading, up to and including the first
+idle one. ``samples`` holds every sample, ``samples_before_close`` is how many
+came before the close, and ``sampled_until_idle`` says whether they run through
+to an idle reading; an unreadable status page still ends the wait, short of
+idle. The verdict is the peak over every sample, and the peak of the samples
 before the close is filed beside it as ``peak_before_close_mib``.
 
 So nothing outside the load holds it either (R1, under NB5 and NBc): the door's

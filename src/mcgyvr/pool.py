@@ -1,17 +1,18 @@
 """The source map — where work runs, and the seam that keeps it a secret.
 
-A source is an endpoint with a capacity and a wire protocol. This module is the
-one place that knows which source serves which rung, and it exists so that
-nothing above it has to. Above the seam a caller sees a *ladder of rungs*: named
+A source is an endpoint with a capacity and a wire protocol, and it is one
+declared unit: :func:`_endpoint` names each endpoint after its unit. This module
+is the one place that knows where a rung runs, and it exists so that nothing
+above it has to. Above the seam a caller sees a *ladder of rungs*: named
 steps, cheapest first, each with a model. Below it, a rung resolves to an
 :class:`Endpoint` a runner can dispatch against. The resolution happens here and
 nowhere else.
 
-That division is the whole point, and it is what #20 asks for:
+That division is the whole point:
 
-* **A tier moves between sources with a config edit and no code change.** Rungs
-  bind to sources *by name*, resolved at call time. Nothing is compiled against
-  a host, so re-pointing a rung at a different machine — or at a hosted API — is
+* **A rung moves between machines with a config edit and no code change.** The
+  ladder names units, resolved at call time. Nothing is compiled against a
+  host, so re-pointing a rung at a different machine — or at a hosted API — is
   a line in the config file, not a patch.
 * **Nothing outside the seam reads a source or a backend.** :class:`Rung`
   carries a name and a model and deliberately nothing else: no URL, no protocol,
@@ -28,22 +29,23 @@ That division is the whole point, and it is what #20 asks for:
   is an empty ladder that says why, not an exception — the caller decides what
   an empty ladder means, because for a keyless install it may be expected.
 
-**What is deliberately not here.** A tier naming a source that was never
-declared is a typo, and E1's loader already refuses it at load time; that is the
+**What is deliberately not here.** A ladder naming a unit that was never
+declared is a typo, and the config loader refuses it at load time; that is the
 right place for it, and this module does not re-litigate it. Live reachability —
-is the endpoint actually answering — is #22's, and it enters through
-:class:`SourceProbe`: a caller passes something that can say which sources are
-down, and its answers become ordinary :class:`Skipped` entries. The narrowness of
-that interface is the point. This module still knows nothing about HTTP,
-timeouts, caching or retries; it knows only that a source may turn out to be
-unusable for a reason it did not compute itself. Capacity is *carried* here
-(:attr:`Endpoint.max_parallel`) and enforced in :mod:`mcgyvr.capacity` (#23),
-which keys its semaphores by the source name this module resolves to and holds
-one for the length of a single dispatch — so a task escalating across sources
-accounts correctly without this module learning what a thread is. So the
-degradation this module performs is structural only: a source
-whose credential is named but absent from the environment cannot serve anything,
-and that is knowable without touching the network.
+is the endpoint actually answering — is :mod:`mcgyvr.availability`'s, and it
+enters through :class:`SourceProbe`: a caller passes something that can say
+which sources are down, and its answers become ordinary :class:`Skipped`
+entries. The narrowness of that interface is the point. This module still knows
+nothing about HTTP, timeouts, caching or retries; it knows only that a source
+may turn out to be unusable for a reason it did not compute itself. Capacity is
+*carried* here (:attr:`Endpoint.max_parallel`) and enforced in
+:mod:`mcgyvr.capacity`, which keys its bounds by the source name this module
+resolves to (its slot files by the endpoint's ``base_url``) and holds one for
+the length of a single dispatch — so a task escalating across sources accounts
+correctly without this module learning what a thread is. So the degradation this
+module performs is structural only: a source whose credential is named but
+absent from the environment cannot serve anything, and that is knowable without
+touching the network.
 
 **On credentials.** An ``Endpoint`` carries the environment variable's *name*,
 never its value. The value is read at dispatch through :meth:`Endpoint.credential`
@@ -71,10 +73,10 @@ _ROLES = ("orchestrator", "verifier")
 class SourceProbe(TypingProtocol):
     """Anything that can say which sources cannot currently serve, and why.
 
-    The whole of #22's surface as this module sees it. It is a structural type
-    rather than an import so that resolving a ladder never drags in a network
-    stack: :class:`~mcgyvr.availability.Availability` satisfies it, and so does a
-    dict-backed stub in a test, and neither is named here.
+    The whole of the availability probe as this module sees it. It is a
+    structural type rather than an import so that resolving a ladder never
+    drags in a network stack: :class:`~mcgyvr.availability.Availability`
+    satisfies it, and so does a dict-backed stub in a test, and neither is named here.
 
     Implementations must not raise. A source that cannot be probed is a source
     that is down, and it is reported as such with a reason — the same rule that
@@ -93,10 +95,9 @@ class SourceProbe(TypingProtocol):
     # :func:`source_map` asks for it by name and skips the question where it is
     # absent, which is the same rule the answer itself takes: a probe that
     # cannot tell which weights are resident shortens no ladder. The
-    # implementation is
-    # :meth:`mcgyvr.availability.Availability.not_serving`, and what it exists
-    # to prevent is O3 — llama.cpp answering a request that names weights it is
-    # not holding from the weights it is, silently.
+    # implementation is :meth:`mcgyvr.availability.Availability.not_serving`,
+    # and what it exists to prevent is llama.cpp answering a request that names
+    # weights it is not holding from the weights it is, silently.
 
 
 class PoolError(Exception):
@@ -117,11 +118,7 @@ class Protocol(StrEnum):
     ``OPENAI`` is the OpenAI-compatible chat-completions shape, which vLLM,
     llama-server, LM Studio, TGI and the hosted providers all speak. Supporting
     a new backend is therefore a config entry naming it, not a new integration —
-    which is why this enum has one member and is expected to keep having one.
-
-    It had two. The second was removed on 2026-09-06 with the backend it served
-    (see ``archive/forensic-ollama/``); a protocol nothing serves is a branch
-    through every dispatch decision that no test of the live ladder reaches.
+    which is why this enum has one member.
     """
 
     OPENAI = "openai"
@@ -131,10 +128,10 @@ class Protocol(StrEnum):
 class Endpoint:
     """Everything needed to dispatch, and nothing about who asked. Below the seam.
 
-    ``max_parallel`` is the source's declared capacity, carried so #23 can bound
-    concurrency at this seam; this module does not enforce it. ``source`` is the
-    declared source name, kept for capacity accounting and telemetry — both of
-    which live below the seam.
+    ``max_parallel`` is the unit's declared ``width``, carried so
+    :mod:`mcgyvr.capacity` can bound concurrency at this seam; this module does
+    not enforce it. ``source`` is the declared source name, kept for capacity
+    accounting and telemetry — both of which live below the seam.
 
     ``credential_env`` is the *name* of the variable holding the key, never the
     key. Use :meth:`credential` to resolve it at the moment of dispatch.
@@ -146,20 +143,16 @@ class Endpoint:
     max_parallel: int
     credential_env: str | None
     #: Tokens the process behind this URL serves in one request, or ``None``
-    #: when its source declared none. Below the seam on purpose: a window is a
+    #: when its unit declared none. Below the seam on purpose: a window is a
     #: fact about the machine, and :class:`Rung` stays empty so that a rung can
     #: be re-pointed at another one. ``None`` enforces nothing rather than
     #: standing in for a number — see
     #: :func:`mcgyvr.gate.preflight.check_contract_against_rung`.
     context_window: int | None = None
-    #: Room a reply on this *rung* is given, from ``units.*.
-    #: output_tokens``, or ``None`` when the rung declared none. The one field
-    #: here that is a rung's rather than its source's: a source serving four
-    #: rungs is four endpoints in the map already (keyed by rung name), and
-    #: what a 3B model needs to finish a reply is not what a 35B reasoning
-    #: model needs off the same rig. Below the seam with ``context_window`` and
-    #: for the same reason — both are facts about the machine that answers, and
-    #: :class:`Rung` stays empty so a rung can be re-pointed at another one.
+    #: Room a reply on this unit is given, from ``units.*.output_tokens``, or
+    #: ``None`` when the unit declared none. Below the seam with ``context_window``
+    #: and for the same reason — both are facts about the machine that answers,
+    #: and :class:`Rung` stays empty so a rung can be re-pointed at another one.
     #: ``None`` falls back to the contract's ``limits.max_output_tokens``; see
     #: :func:`mcgyvr.gate.preflight.reply_cap`, where that happens once.
     output_tokens: int | None = None
@@ -330,10 +323,9 @@ class SourceMap:
         :meth:`role` is not that caller's method. A ``RoleBinding`` carries an
         :class:`Endpoint`, and an endpoint carries ``credential()`` — so a
         presence check written as ``source_map.role(VERIFIER_ROLE) is None``
-        put a live credential in the hands of a module that only wanted to know
-        whether a verifier existed. It imported neither forbidden name, which is
-        how the import guard missed it: the object arrived through an accessor,
-        not through an import.
+        puts a live credential in the hands of a module that only wants to know
+        whether a verifier exists, and no import guard sees it: the object
+        arrives through an accessor, not through an import.
 
         The two questions above the seam actually asks are "is this role bound"
         and "which model is it" — ``mcgyvr.cli`` prints the second, ``verify``
@@ -366,12 +358,12 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
 
     The probe runs **once for the whole map**, over the distinct sources that
     survived the structural pass, which is what makes a dead source cost one
-    timeout per run rather than one per rung or one per attempt. Sources already
+    timeout per run rather than one per attempt. Sources already
     ruled out structurally are never probed: there is nothing to learn from
     asking whether a host we have no key for is awake.
 
-    A tier naming an undeclared source cannot reach here; E1's loader rejects
-    that at load time, where a typo belongs.
+    A ladder naming an undeclared unit cannot reach here; the config loader
+    rejects that at load time, where a typo belongs.
     """
     usable: list[Rung] = []
     skipped: list[Skipped] = []
@@ -401,11 +393,8 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         roles[role] = RoleBinding(role=role, model=model, endpoint=_endpoint(unit))
 
     if probe is not None:
-        # One endpoint per *source*, not per rung. `endpoints` is keyed by rung
-        # name, so a source serving four rungs appears four times, and handing
-        # that to a probe would make correct behaviour depend on the probe
-        # deduplicating for us. The seam should not ask for work it does not
-        # need done.
+        # One endpoint per source: a role bound to a unit that is also on the
+        # ladder would otherwise be handed to the probe twice.
         asking: dict[str, Endpoint] = {}
         for endpoint in (*endpoints.values(), *(b.endpoint for b in roles.values())):
             asking.setdefault(endpoint.source, endpoint)
@@ -458,7 +447,7 @@ def _drop_unreachable(
 ) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
     """Move the rungs on unreachable sources over to ``skipped``.
 
-    Both lists are rebuilt in declared tier order rather than filtered in place.
+    Both lists are rebuilt in declared ladder order rather than filtered in place.
     The ladder is written cheapest-first, so a report that reordered it while
     shortening it would be harder to read than one that simply got shorter — and
     that applies to the skipped list too, which would otherwise end up with the
@@ -550,9 +539,9 @@ def _unusable(unit: Unit) -> str | None:
     """Why this unit cannot serve anything, or ``None`` when it can.
 
     Structural only, and knowable without the network: a unit that names a
-    credential the environment does not hold cannot authenticate, so every
-    rung on it is unusable before a request is ever attempted. Whether a
-    reachable unit is actually *answering* is #22's question, and needs a
+    credential the environment does not hold cannot authenticate, so it is
+    unusable before a request is ever attempted. Whether a reachable unit is
+    actually *answering* is :mod:`mcgyvr.availability`'s question, and needs a
     probe.
     """
     if unit.api_key_env and not os.environ.get(unit.api_key_env):

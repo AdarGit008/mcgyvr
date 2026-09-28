@@ -191,8 +191,8 @@ def test_a_new_task_type_needs_no_code_change(
     path = tmp_path / "task-catalog.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     # Repoint the loader and clear the memo, which is the whole of the
-    # supported way to swap the shipped catalog. The module variable this
-    # used to assign was also the way *anything* could swap it silently.
+    # supported way to swap the shipped catalog. There is no module variable to
+    # assign, so nothing can swap it silently.
     monkeypatch.setattr("mcgyvr.catalog.catalog_path", lambda: path)
     catalog.cache_clear()
     request.addfinalizer(catalog.cache_clear)

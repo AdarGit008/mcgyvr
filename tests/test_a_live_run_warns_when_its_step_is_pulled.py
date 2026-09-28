@@ -1,11 +1,8 @@
 """A live run warns when a ladder step's combination is pulled, and still dispatches.
 
-Owner, 2026-09-15: "warn now, enforce later". A live probe alert pulls its
-combination (:func:`mcgyvr.fleet.alerts.pulled`), and until now a pull blocked
-nothing and was seen only by ``mcgyvr fleet alerts``. The first live probe
-(``run-20260915T050342-42b9afd8``) pulled both b-small combinations, and at
-least one of those pulls is a tolerance-class bug, so refusing a pulled step
-now would refuse work on a false reading. Instead:
+Owner ruling: warn, do not refuse. A live probe alert pulls its combination
+(:func:`mcgyvr.fleet.alerts.pulled`), and a pull can rest on a false reading,
+so a pulled step is not refused:
 
 * **On the live profile, a pulled step warns once, before it is dispatched,**
   on stderr: the unit, each pulled field with its count, and ``see mcgyvr
@@ -14,9 +11,9 @@ now would refuse work on a false reading. Instead:
 * **A step whose combination is not pulled, or whose validation is newer than
   its alerts, prints nothing.**
 * **Pulls that cannot be read are one warning, and the run goes on.**
-* **The dev profile is unchanged.**
-* **The units a pull reaches are resolved in** :mod:`mcgyvr.fleet.alerts`, so
-  the enforcing change that follows asks the same function.
+* **A dev run is the same with pulls as without them.**
+* **The units a pull reaches are resolved in** :mod:`mcgyvr.fleet.alerts`
+  (``pulled_units``).
 
 No rig and no network: the dispatch is substituted at
 :data:`mcgyvr.drive.dispatch`, the journal and the lock are files in the test's

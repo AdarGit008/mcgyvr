@@ -1,21 +1,19 @@
 """Two units on one card are sequenced, and `service_started` does not sequence.
 
-`_sequence_on_one_card` has chained co-residents since 2026-09-05 on a measured
-failure: started together the 7B got 0.89 GiB of KV cache, started second it got
-2.77. What the 2026-09-09 campaign then found is that the chain does not hold.
-`service_started` releases the waiter as soon as the daemon has *started* the
-process ahead of it — not when that process has taken its card — so the pair
-still contends, the 3B crash-restarts one to two times per cold start, and
-`restart: unless-stopped` hides every one of them behind a wake that merely
-looks slow. The 168 s pair figure the wake budget was argued from is a wake plus
-those retries, and the 86 s subtraction built on it is void.
+`_sequence_on_one_card` chains co-residents, because two units started together
+race for the card (`okf/config/vllm.md`). A chain on
+`service_started` does not hold: it releases the waiter as soon as the daemon
+has *started* the process ahead of it — not when that process has taken its
+card — so the pair still contends, a unit crash-restarts during a cold start,
+and `restart: unless-stopped` hides every restart behind a wake that merely
+looks slow.
 
 `service_healthy` is the condition that waits for the card. It needs the service
 ahead to declare a healthcheck, so these two land together or neither works.
 
 Blast radius is deliberately small: a healthcheck is written **only** where a
-`depends_on` is, which is only where two units share a card. srv1 serves one
-unit and its compose file must not move.
+`depends_on` is, which is only where two units share a card. A host serving
+one unit gets neither, and its compose file must not move.
 """
 
 from __future__ import annotations

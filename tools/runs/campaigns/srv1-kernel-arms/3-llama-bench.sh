@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 #
 # tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh
-#   -> records/evidence/2026-09-02-srv1-kernel-arms/srv1-llama-bench.tsv
+#   -> $RUN_OUT_DIR/srv1-llama-bench.tsv (the door's envelope,
+#      records/evidence/<run date>-srv1-kernel-arms/; ENVELOPE in
+#      tools/runs/rows.py says where the filed copy is)
 #
-# Campaign step 3 (`archive/docs/srv1-kernel-arms-PLAN.md:117-118`):
+# Campaign step 3 (`mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md`, "Steps";
+# "guideline N" below is that plan's, and section numbers are those of
+# `mcgyvr-lab/archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md`):
 #
 #   3  bench  llama-bench -p 512,2048 -n 128 -r 9 -fa 0,1
 #             x {L0,L1,L2,L3,L4,A3,A1}
 #
-# A1 IS ON THAT LIST, AND THE RUN DOC SAID IT MIGHT NOT BE. The blocker read
-# "`server-cuda-b10644` may not contain `llama-bench`. If not, `A1` cannot be
-# microbenchmarked as shipped and `L0` is the mandatory baseline." Measured on
-# srv1: the image indeed has no `/app/llama-bench` file — and it ships
-# `libllama-bench-impl.so` and an `/app/llama` dispatcher that lists `bench` in
-# `llama help all` and prints llama-bench's own options for `llama bench --help`.
-# The capability is present; only the file name is absent. So A1 is benched as
-# shipped, through `/app/llama bench`, and L0 is not the mandatory baseline.
+# A1 IS ON THAT LIST. `server-cuda-b10644` has no `/app/llama-bench` file, and
+# it ships `libllama-bench-impl.so` and an `/app/llama` dispatcher that lists
+# `bench` in `llama help all`. So A1 is benched as shipped, through
+# `/app/llama bench` (resolve_bench_entry), and L0 is not the mandatory
+# baseline.
 #
 # This file is the INSTRUMENT RECORD. Guideline 3: `prefill=` from the sweep
 # drivers is `pin/wall` over the same wall as `agg = gen/wall`, so `prefill/agg`
@@ -25,9 +26,9 @@
 # (ARTIFACT-CONTRACT.md §6.4); it is a projection, never a second measurement.
 #
 # Two properties are asserted here and nowhere else
-# (test_a_prefill_verdict_needs_an_instrument_that_measures_prefill.py:42-66):
+# (tests/test_a_prefill_verdict_needs_an_instrument_that_measures_prefill.py):
 #
-#   reps / stddev  the same build read 55.7 t/s at -r 3 and 86.4 t/s at -r 9.
+#   reps / stddev  a point estimate from three draws is not a measurement.
 #                  `reps` is COUNTED from the sample array llama-bench reports,
 #                  not copied off the -r flag: a flag records what was asked
 #                  for, and this column has to record what was done.
@@ -46,8 +47,9 @@
 # NO `n=<int>` rows are emitted, so `sweep.levels()` is empty and
 # `sweep.levels() or of_kind("BENCH")` resolves to the BENCH rows (§5.4).
 #
-# It runs ON the rig, because ### START / ### RIG / ### END describe the machine
-# this process is reading and a stamp taken over ssh would name the wrong box.
+# The step runs on the operator's machine: ### START / ### RIG / ### END are
+# read off $RUN_HOST over ssh by _common.sh's rig_snapshot, and docker is the
+# door's shim to that host.
 #
 #   RUN_ARMS         arms to bench.        default "L0 L1 L2 L3 L4 A3 A1"
 #   RUN_TAG_PREFIX   image tag prefix.     default llamacpp:b10644-
@@ -96,7 +98,7 @@ NGL=${RUN_NGL:-99}
 DRY_RUN=0
 
 usage() {
-    sed -n '2,67p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
+    sed -n '2,70p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
 }
 
 while [ "$#" -gt 0 ]; do
@@ -150,8 +152,8 @@ emit() {
 }
 
 # Every locally built arm is tagged `llamacpp:b10644-<ARM>`. `A1` is the stock
-# image, pinned by tag and never floating — the same mapping
-# `tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh:142` and `tools/runs/campaigns/srv1-kernel-arms/2-aa-null.sh:95` use.
+# image, pinned by tag and never floating — the same mapping `arm_img` in
+# `4-kernel-arms.sh` and `2-aa-null.sh` uses.
 tag_of() {
     case $1 in
         A1) printf '%s' 'ghcr.io/ggml-org/llama.cpp:server-cuda-b10644' ;;
@@ -176,15 +178,11 @@ arm_digest() {
 
 # A3 is the Vulkan arm; it reaches the card through the driver's ICD rather than
 # through CUDA, so it needs the driver's display capability inside the container.
-# THE VULKAN ARM ASKS FOR THE DEVICE THROUGH CDI. `--gpus all` goes through
-# whatever docker routes it to: on srv2 (docker 29.7.1) that is the CDI spec,
-# which mounts the NVIDIA Vulkan ICD manifest into the container; on srv1
-# (docker 29.1.3) it is the legacy hook, which mounts every driver library and
-# NOT the manifest, so the loader finds no driver and ggml benches the CPU —
-# the third and last layer of A3's 2026-09-02 CPU numbers (after libX11 and
-# libEGL), found 2026-09-03 by diffing the two hosts' containers.
-# `--device nvidia.com/gpu=all` names the CDI spec on both. CUDA arms need no
-# manifest and keep `--gpus all`, the invocation every number so far carries.
+# THE VULKAN ARM ASKS FOR THE DEVICE THROUGH CDI (`--device
+# nvidia.com/gpu=all`): `--gpus all` may be routed to the legacy hook, which
+# does not mount the NVIDIA Vulkan ICD manifest, and ggml then benches the CPU
+# (-> okf/must-read/touching-engine.md). CUDA arms need no manifest and keep
+# `--gpus all`.
 docker_args() {
     local arm=$1
     # Named for the run, so gate 7 of the door finds a bench that hung.
@@ -233,8 +231,8 @@ resolve_bench_entry() {
     return 1
 }
 
-# The step-3 command line, verbatim from archive/docs/srv1-kernel-arms-PLAN.md:117-118, on
-# whichever of the two entrypoints this arm's image actually has.
+# The step-3 command line of mcgyvr-lab/archive/docs/srv1-kernel-arms-PLAN.md,
+# on whichever of the two entrypoints this arm's image actually has.
 bench_cmd() {
     local arm=$1 image entry
     # The digest once resolved (arm_digest, gate 3); the tag only in the plan.
@@ -422,8 +420,8 @@ bench_arm() {
     fi
     digest=${ARM_DIGEST[$arm]}
 
-    # The blocker the run doc flagged: `server-cuda-b10644` may ship no
-    # llama-bench, and a locally built image can miss the target too. Probed
+    # `server-cuda-b10644` ships no /app/llama-bench file, and a locally built
+    # image can miss the target too. Probed
     # before the model is loaded, retried because guideline 8 asks for three.
     # It is only a refusal when BOTH paths into the instrument are absent.
     if ! resolve_bench_entry "$arm" "$tag"; then

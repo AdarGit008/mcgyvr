@@ -1,22 +1,15 @@
-"""One rung's retry note outlived the attempt that produced it.
+"""One rung's retry note does not outlive the attempt that produced it.
 
 :func:`mcgyvr.drive.worker_attempt` keeps a per-rung note so a second attempt is
-told what the first got wrong — #43's rule, and the reason ``build_prompt`` has
-a ``retry`` parameter at all. It wrote the note like this::
+told what the first got wrong, which is the reason ``build_prompt`` has a
+``retry`` parameter at all. It assigns ``notes[rung] = judgement.retry``
+unconditionally, so an attempt that produced no note clears the previous one
+instead of handing it on. Two attempts produce none: one whose reply did not
+parse — "the note vocabulary is the gate's findings, and nothing was gated" —
+and a ``reviewer_failed`` judgement, which carries ``retry=None`` because the
+gate passed and the verifier produced no verdict to quote.
 
-    if judgement.retry is not None:
-        notes[this.rung.name] = judgement.retry
-
-which stores a note and never clears one. Two attempts produce none. The
-``ReplyError`` branch returns before that line is reached at all — deliberately,
-because "the note vocabulary is the gate's findings, and nothing was gated" —
-and a ``reviewer_failed`` judgement carries ``retry=None`` because the gate
-passed and the verifier produced no verdict to quote. Either way the previous
-attempt's note stays in the dictionary, so the attempt after it is prompted with
-findings from two attempts ago, which the worker has already been asked to fix
-once and may well have fixed.
-
-**Why that is worse than sending nothing.** The retry prompt does not say "here
+**Why a stale note is worse than sending nothing.** The retry prompt does not say "here
 is some old context". ``render_user_message`` renders it under PREVIOUS ATTEMPT
 WAS REJECTED, followed by "fix these and nothing else — every other check
 passed". Every clause of that is false about a stale note: the previous attempt
@@ -25,25 +18,16 @@ everything else passed is a claim about a gate run that never happened. A worker
 told to fix a line it already fixed is a worker being pushed away from a correct
 answer, and the third attempt is exactly where the budget is thinnest.
 
-**The sibling settles which spelling is right.** ``tools/missions/attempt.py`` is
-the standalone form of this loop and assigns unconditionally into a
-``dict[str, RetryNotes | None]``, so an attempt with nothing to say says nothing.
-Two spellings of one loop that disagree is how this project got two deliveries
-(pattern B) and two answers to "which rung is this", so the question is not
-which reading is more convenient but which one is true — and it is the sibling's:
+**The sibling spells it the same way.** ``tools/missions/attempt.py`` is the
+standalone form of this loop and assigns unconditionally into a
+``dict[str, RetryNotes | None]``, so an attempt with nothing to say says nothing:
 a note is *this* attempt's account of *this* attempt, and an attempt that
 produced no account has none to hand on.
 
-The rejected alternative is to keep the guard and make the parse failure produce
-a note of its own — which the sibling does, in ``_unparsed``. That would fix this
-file's first case and not its second: ``reviewer_failed`` reaches the guard with
-``retry=None`` on purpose, and no note invented there would be about the gate.
-The guard is what is wrong, not the branch that trips over it.
-
 Nothing here is stubbed but the model. The gate runs for real over a real
 sandbox, the notes are the ones :func:`~mcgyvr.escalate.judge` builds, and what
-is asserted is the text of the prompt that would have been sent — because the
-defect is not a dictionary entry, it is what a worker was told.
+is asserted is the text of the prompt that would have been sent — because what
+matters is not a dictionary entry, it is what a worker was told.
 """
 
 from __future__ import annotations
@@ -103,8 +87,8 @@ scope:
 #: builds a note. This is the note that must not outlive its attempt.
 REJECTED = "```python\nOTHER = 1\n```"
 
-#: No fenced block, so `parse_reply` refuses and `worker_attempt` returns on the
-#: `ReplyError` branch without reaching the note assignment at all.
+#: No fenced block, so `parse_reply` refuses, no draw is usable, and the
+#: attempt's judgement carries `retry=None`.
 UNREADABLE = "I am afraid I cannot help with that."
 
 #: Satisfies the acceptance command, so the gate accepts.
@@ -228,15 +212,14 @@ def test_an_unreadable_reply_does_not_leave_the_last_notes_standing(
 def test_a_verifier_with_no_verdict_does_not_leave_the_last_notes_standing(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The second producer of ``retry=None``, and the one the guard itself lets past.
+    """The second producer of ``retry=None``.
 
     ``judge`` returns ``reviewer_failed`` with no note when the gate *passed*
     and the verifier came back unusable: there is nothing of the gate's to
     repeat, and the reviewer's non-answer is not something to ask a worker to
-    fix. This one reaches ``if judgement.retry is not None`` and is waved
-    through by it, which is why fixing only the ``ReplyError`` branch — giving
-    it a note of its own, as the sibling's ``_unparsed`` does — would leave the
-    defect standing here.
+    fix. A store guarded by ``if judgement.retry is not None`` would wave this
+    one through with the previous note in place, whatever the unparsed-reply
+    branch did.
 
     It is also the worse case of the two. The gate accepted attempt 2's change;
     attempt 3 is then told that the previous attempt was rejected over findings
@@ -247,7 +230,7 @@ def test_a_verifier_with_no_verdict_does_not_leave_the_last_notes_standing(
         """A reply that names no outcome, which `verify` reads as no verdict.
 
         The reviewer seam rather than a finished ``Review``: ``worker_attempt``
-        takes an ``Ask`` now, so what is stubbed here is the one thing a test
+        takes an ``Ask``, so what is stubbed here is the one thing a test
         cannot have — the model — and everything between it and the judgement
         is the code under test.
         """
@@ -291,7 +274,7 @@ def test_a_note_still_replaces_the_one_before_it(
     assert BANNER in sent[1]
     assert BANNER in sent[2], (
         "a rejected attempt stopped telling the next one what failed, which is "
-        "the whole of what the note is for (#43)"
+        "the whole of what the note is for"
     )
     assert third.verdict is Verdict.PASSED
 
@@ -339,6 +322,6 @@ def test_the_two_spellings_of_one_loop_agree() -> None:
     ]
     assert not guarded, (
         "the write to `notes` is inside an `if`. A conditional store cannot "
-        "clear a note, which is the defect: an attempt with nothing to say "
+        "clear a note, which is the failure: an attempt with nothing to say "
         "leaves the last attempt's findings in place for the next one."
     )

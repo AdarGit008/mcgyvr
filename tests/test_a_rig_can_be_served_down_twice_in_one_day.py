@@ -1,20 +1,13 @@
 """A rig can be served down twice in one day.
 
-``serve-up.py`` declares ``# RUN_REWRITES: serve-up.json``, so a second wake of
-one host on one day supersedes the first wake's record
-(``tests/test_a_card_can_be_woken_twice_in_one_day.py``). ``serve-down.py``
-still declares ``# RUN_ARTIFACTS: serve-down.json``, and gate 5
-(``src/mcgyvr/serving/gate-scripts/05-envelope.py``) refuses a write-once
-artifact that already exists in ``records/evidence/<date>-live-<host>/``. A
-suffix changes the RUN_ID and not the file name, so the day's second
-``serve down`` of a host is refused before anything is stopped.
-
-Found live on 2026-09-15: after b-small was brought up through the door, the
-quick-check sweep's ``serve down --suffix qc`` on srv2 was refused with
-"serve-down.json already exists under records/evidence/2026-09-15-live-srv2/",
-and every later live cycle that day needed the earlier record moved aside by
-hand. A live fleet that can be stopped through the door once a day cannot be
-switched, slept or measured around.
+Gate 5 (``src/mcgyvr/serving/gate-scripts/05-envelope.py``) refuses a write-once
+artifact that already exists in ``records/evidence/<date>-live-<host>/``, and a
+suffix changes the RUN_ID and not the file name. So ``serve-down.py`` declares
+``# RUN_REWRITES: serve-down.json``, as ``serve-up.py`` does for its own record
+(``tests/test_a_card_can_be_woken_twice_in_one_day.py``): the day's second
+``serve down`` of a host supersedes the first one's record instead of being
+refused before anything is stopped. A live fleet that can be stopped through the
+door once a day cannot be switched, slept or measured around.
 """
 
 from __future__ import annotations

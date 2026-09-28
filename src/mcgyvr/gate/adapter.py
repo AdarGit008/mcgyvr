@@ -7,7 +7,7 @@ change anywhere else in the gate (#35). If a Python concept leaks into a method
 signature here, the JS/TS adapter (#36) will not be able to satisfy it, so the
 interface is the contract that keeps the second language affordable.
 
-An adapter supplies five capabilities:
+An adapter supplies six capabilities:
 
 * **syntax** — a cheap parse that fails fast, so a file that does not even
   parse never reaches an expensive linter or a command execution;
@@ -16,11 +16,13 @@ An adapter supplies five capabilities:
 * **lint** and **format** — the project's own tools, with findings attributed
   to added lines so pre-existing style can never fail a worker's change;
 * **test-command location** — the conventional way this stack names its tests,
-  a fallback for when a contract does not declare one.
+  a fallback for when a contract does not declare one;
+* **type-check location** — the checker the repository itself declares, or
+  none.
 
 Lint and format shell out to real tools, and a tool can fail the adapter in two
-distinct ways. Neither is the worker's fault, and  turns on telling them
-apart:
+distinct ways. Neither is the worker's fault, and the gate's verdict turns on
+telling them apart:
 
 * **absent** — not on PATH at all. The reduction in the bar is legible from the
   outside: the operator knows which rung did not run, and a keyless or minimal
@@ -62,7 +64,7 @@ class ToolUnavailableError(EnvironmentFaultError):
     """A required external tool is not on PATH — an environment fault.
 
     Carries the tool name so the gate can tell the operator exactly what to
-    install, and can score the check as inconclusive rather than failed.
+    install, and can record the rung as skipped rather than failed.
     """
 
     def __init__(self, tool: str) -> None:
@@ -182,14 +184,13 @@ class LanguageAdapter(ABC):
         same sense: the contract always wins when it declares its own commands,
         so a sniff can never overrule a caller who has said what to run.
 
-         is the whole of the policy, and it is a policy about restraint:
-        mcgyvr never chooses a type checker and never synthesises its flags. It
-        finds what the repository already configured and returns that
-        invocation. **Strictness is whatever the repository set** — imposing
-        ``--strict`` on a repository that carries no annotations is not a
-        stricter version of this check, it is a different check that always
-        fails, and one no rung can clear because clearing it means annotating
-        files outside the contract's scope.
+        The policy is one of restraint: mcgyvr never chooses a type checker
+        and never synthesises its flags. It finds what the repository already
+        configured and returns that invocation. **Strictness is whatever the
+        repository set** — imposing ``--strict`` on a repository that carries
+        no annotations is not a stricter version of this check, it is a
+        different check that always fails, and one no rung can clear because
+        clearing it means annotating files outside the contract's scope.
 
         ``None`` is an ordinary answer meaning *this repository runs no type
         checker*, and it is load-bearing rather than a shrug: where it is
@@ -199,8 +200,8 @@ class LanguageAdapter(ABC):
 
         Implementations must not import, execute or otherwise evaluate the
         target's code to answer — reading configuration is the whole of the
-        permitted method. Running anything at all belongs in the sandbox
-        , and this is called on the host.
+        permitted method. Running anything at all belongs in the sandbox, and
+        this is called on the host.
         """
 
     def owned(self, changes: Sequence[FileChange]) -> list[FileChange]:
@@ -237,11 +238,10 @@ def trusted_stdout(
     telling us it did not do the job.
 
     The exit code has to be the test, and a format check on the output cannot
-    replace it. Measured 2026-08-16 against ruff 0.16.1, eslint 9 and prettier
-    3: all four invocations here answer a fatal config error with **exit 2 and
-    an empty stdout**, which ``json.loads(stdout or "[]")`` reads as zero
-    diagnostics and ``if not stdout.strip()`` reads as nothing to reformat.
-    Both are a clean pass. The bad output never arrives to be caught.
+    replace it. ruff, eslint and prettier each answer a fatal config error with
+    **exit 2 and an empty stdout**, which ``json.loads(stdout or "[]")`` reads
+    as zero diagnostics and ``if not stdout.strip()`` reads as nothing to
+    reformat. Both are a clean pass. The bad output never arrives to be caught.
     """
     if proc.returncode in expected:
         return proc.stdout

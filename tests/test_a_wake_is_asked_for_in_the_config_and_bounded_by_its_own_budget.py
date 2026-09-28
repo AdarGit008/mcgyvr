@@ -3,17 +3,19 @@
 Three decisions are pinned, and all three are the owner's rather than this
 file's:
 
-* **The switch is a config key and not a flag** (§7.1). ``mcgyvr run --config``
+* **The switch is a config key and not a flag**
+  (``mcgyvr-lab/records/plans/sleep-wake.md`` §7.1). ``mcgyvr run --config``
   already says which rung runs is "this file's ... never a flag", and sleep/wake
   is the stronger case for the same rule: the config is what a run is
   reproducible from, so a flag would let two runs share one setup where one of
   them started and stopped containers on a shared rig. A ``store_true`` flag can
   also never lose to a key — the ``--sandbox`` comment is the worked example —
   so the flag would have to be a tri-state, which is a worse spelling of the key.
-* **The default is off** (§14). The feature is a trade and not an improvement:
-  turning it on lets ``mcgyvr run`` stop containers on a rig other people share.
-  An operator who wants it asks in the one place that is recorded.
-* **A wake's limit is the lock's, not a budget's** (§5). ``request_timeout_s``
+* **The default is off** (sleep-wake.md §14). The feature is a trade and not an
+  improvement: turning it on lets ``mcgyvr run`` stop containers on a rig other
+  people share. An operator who wants it asks in the one place that is recorded.
+* **A wake's limit is the lock's, not a budget's**
+  (``mcgyvr-lab/records/plans/fleet-identity.md`` §5). ``request_timeout_s``
   bounds one reply and is priced from tokens per second; ``task_timeout_s``
   bounds a wait for a free slot on a server that is already running. Neither
   bounds a wait for a server *to exist*: that is the unit's validated wake plus
@@ -25,9 +27,9 @@ from __future__ import annotations
 
 import pytest
 
-#: One card, two vLLM sources, the shape of the live srv2 (§6). Every worked
-#: example in the design is this card because it is the multi-unit one, which is
-#: the harder case; the engine on a card decides nothing (N10, ruled 2026-09-08).
+#: One card, two vLLM sources. Every worked example in the sleep-wake design is
+#: this card because it is the multi-unit one, which is the harder case; the
+#: engine on a card decides nothing (N10).
 CARD = """\
 units:
   local_qwen2.5-coder-3b:
@@ -106,10 +108,10 @@ def test_the_directory_this_checkout_keeps_launch_specs_in_is_a_key_of_its_own()
 def test_a_wake_has_no_budget_of_its_own() -> None:
     """``budgets.wake_timeout_s`` is gone; request and task budgets remain.
 
-    The wake limit is derived from the lock, not set by hand beside the other
-    two budgets. This pins the absence of the key while keeping the two budgets
-    that still answer different questions, so the removal cannot silently take
-    the whole ``budgets`` block with it.
+    No wake limit is set by hand beside the other two budgets. This pins the
+    absence of the key while keeping the two budgets that still answer different
+    questions, so the removal cannot silently take the whole ``budgets`` block
+    with it.
     """
     from mcgyvr.config import field_at, parse
 
@@ -121,17 +123,16 @@ def test_a_wake_has_no_budget_of_its_own() -> None:
     config = parse(card + "task_timeout_s: 60\n")
 
     assert field_at("budgets.wake_timeout_s") is None, (
-        "budgets.wake_timeout_s is still a schema key: the wake limit now comes "
-        "from the lock's validated wake plus its tolerance, not a hand-set budget"
+        "budgets.wake_timeout_s is a schema key: a wake has no hand-set budget"
     )
     assert config.units["local_qwen2.5-coder-3b"].request_timeout_s == 30.0
     assert config.get("task_timeout_s") == 60
 
 
 def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:
-    """The Waker waits for a unit's validated wake plus the lock's tolerance.
+    """The lock's wake limit is a unit's validated wake plus the lock's tolerance.
 
-    The values are the measurement branch's; the rule is the lock's.
+    The values are placeholders; the rule is the lock's.
     """
     from mcgyvr.fleet.lock import wake_limit_s
 
@@ -140,12 +141,11 @@ def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:
 
 
 def test_the_doors_health_budget_is_not_a_wake_budget() -> None:
-    """The door still polls a unit into health; that no longer bounds a wake.
+    """The door polls a unit into health; that poll is not a configured budget.
 
-    ``HEALTH_POLLS`` and ``HEALTH_INTERVAL_S`` describe what ``serve up`` does,
-    not how long a dispatch may wait for a server to exist. Keeping the door's
-    own budget while dropping ``budgets.wake_timeout_s`` is the point: the wake
-    limit is the lock's.
+    ``HEALTH_POLLS`` and ``HEALTH_INTERVAL_S`` describe what ``serve up`` does.
+    Keeping the door's own budget while dropping ``budgets.wake_timeout_s`` is
+    the point: the config holds no wake budget.
     """
     from mcgyvr.config import field_at
     from mcgyvr.serving.servelib import HEALTH_INTERVAL_S, HEALTH_POLLS
@@ -154,5 +154,5 @@ def test_the_doors_health_budget_is_not_a_wake_budget() -> None:
         "the door's own health budget disappeared along with the wake budget"
     )
     assert field_at("budgets.wake_timeout_s") is None, (
-        "the wake limit comes from the lock, not from the door's health budget"
+        "budgets.wake_timeout_s is a schema key beside the door's health budget"
     )

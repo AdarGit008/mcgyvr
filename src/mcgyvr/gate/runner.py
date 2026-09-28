@@ -14,24 +14,27 @@ scope, and stopping saves the expensive subprocesses.
 3. **structured data** — do changed JSON/YAML files still parse? (#39)
 4. per language adapter (#35): **syntax** fast-fail, then **structural**
    hazards on added lines, then batched **lint** and **format** — a file that
-   fails to parse is not linted, and lint/format run once per adapter over all
-   its files, so the subprocess count stays flat as the change grows.
+   fails to parse is not linted. Lint runs once per adapter over all its
+   files; format runs once per adapter plus, for JS/TS, once per file prettier
+   says differs.
+5. **declared type checker** — only what the repository configured, and only
+   when nothing above rejected.
 
-5. **semantic resolution** — do the names the worker called exist in the
+6. **semantic resolution** — do the names the worker called exist in the
    environment this repository declares? (#123) This one needs the per-task
    sandbox, because answering it means importing the target's own packages.
-6. **acceptance commands** — the contract's own suite (#38), also in the
+7. **acceptance commands** — the contract's own suite (#38), also in the
    sandbox.
 
 Both sandboxed rungs are injected rather than constructed, and the cheaper of
 the two goes first: a sub-second resolution pass has no business queueing
-behind a test suite .
+behind a test suite.
 
 Every finding is attributed to a worker-added line wherever the check can know
 one. A tool that is not installed is recorded as an *environment* issue, not a
 worker rejection — a keyless or minimal install still reaches a verdict on the
 checks it could run. A tool that is installed and then *fails* is a different
-thing and  gives it a different answer: the rung is recorded as
+thing with a different answer: the rung is recorded as
 inconclusive and the change is not accepted, because a rung that cannot say
 what bar it applied reported clean while applying none.
 """
@@ -95,11 +98,11 @@ class GateResult:
     but they are surfaced so a degraded run is never mistaken for a
     fully-checked one.
 
-    ``inconclusive`` is the stronger case and it *does* reject . A
+    ``inconclusive`` is the stronger case and it *does* reject. A
     missing linter is a hole the operator can see; a linter that crashed is a
-    hole that looks like a pass, and this project has hit that three times.
-    Every inconclusive rung is also rendered into ``environment_issues``, so a
-    reader that only knows about the older field still sees it.
+    hole that looks like a pass. Every inconclusive rung is also rendered
+    into ``environment_issues``, so a reader that only knows about that field
+    still sees it.
 
     ``observations`` are findings a rung reported without rejecting on: real,
     line-attributed, and deliberately not part of the verdict. The semantic
@@ -118,10 +121,8 @@ class GateResult:
 
     The rung is non-blocking, so its findings arrive as ``observations`` and a
     reader cannot tell a rung that ran and saw nothing from a rung that was
-    never wired — which is exactly how it stayed unwired: the gate accepted
-    ``SemanticCheck`` and the one function both tiers reach acceptance through
-    passed none, and every verdict looked the same. ``None`` here says the rung
-    did not run; a report says it did, and ``resolved`` says how much it saw.
+    never wired. ``None`` here says the rung did not run; a report says it
+    did, and ``resolved`` says how much it saw.
     """
 
     @property
@@ -224,11 +225,11 @@ class Gate:
                     f"python: {exc.tool} not installed — typecheck skipped"
                 )
 
-        # 5 — semantic resolution (#123): the first rung that needs the
+        # 6 — semantic resolution (#123): the first rung that needs the
         # sandbox, and much the cheaper of the two that do. It resolves the
         # names on added lines against the packages the repository actually
         # installs — the coverage `tests_pass` cannot give, since a suite is a
-        # verdict on itself and not on a diff .
+        # verdict on itself and not on a diff.
         semantic_report: SemanticReport | None = None
         if semantic is not None and not findings:
             semantic_report = semantic.run(changeset)
@@ -236,7 +237,7 @@ class Gate:
             observations.extend(semantic_report.observations)
             env_issues.extend(semantic_report.environment_issues)
 
-        # 6 — acceptance commands (#38): the strongest signal but the most
+        # 7 — acceptance commands (#38): the strongest signal but the most
         # expensive, needing the sandbox (E4). It runs last and only when
         # nothing cheaper already rejected the change — there is no value in
         # spinning a suite for a diff that already fails lint or leaks a key.
@@ -278,9 +279,10 @@ class Gate:
         if not syntax_clean:
             return findings
 
-        # Batched, so the subprocess count is per-adapter, not per-file. Each
-        # rung is tried even when the one before it faulted: an operator fixing
-        # a broken environment wants both complaints, not one per run.
+        # One call per rung per adapter (the JS/TS format rung adds one call
+        # per file prettier says differs). Each rung is tried even when the
+        # one before it faulted: an operator fixing a broken environment wants
+        # both complaints, not one per run.
         for label, check in (("lint", adapter.lint), ("format", adapter.format_check)):
             try:
                 findings.extend(check(syntax_clean, repo))
@@ -288,7 +290,7 @@ class Gate:
                 # The tool was there and its answer is unreadable. Recorded in
                 # both channels: `inconclusive` decides the verdict, and the
                 # rendered sentence keeps every existing reader of
-                # `environment_issues` seeing it .
+                # `environment_issues` seeing it.
                 rung = InconclusiveRung(
                     adapter=adapter.name,
                     rung=label,

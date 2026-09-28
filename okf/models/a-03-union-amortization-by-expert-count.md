@@ -7,7 +7,7 @@ tags: [local-ai, models]
 
 # Union amortization depends on expert count, not batch size
 
-**Data point.** Batching amortizes expert reads only when the expert count is
+Batching amortizes expert reads only when the expert count is
 small. With a handful of experts a batch reaches near-full coverage quickly, so
 the union factor collapses and batching buys a lot; with several hundred
 experts, coverage stays nearly linear in batch size and batching shares almost

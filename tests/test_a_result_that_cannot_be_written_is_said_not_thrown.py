@@ -1,13 +1,12 @@
 """A result file that cannot be written is reported in words, never as a traceback.
 
-``mcgyvr run`` printed ``result: <path>`` from an unguarded ``write``. A
-journal directory on a read-only mount, or ``--result`` naming a directory,
-raised ``OSError`` out of ``main`` after the accepted change had already been
-placed in the working tree: exit 1, a traceback, no ``result:`` line — which
-the skill reads as "the run never started" — and a ``.part`` file left
-behind. Now the failure is one ``error:`` line on stderr that names the
-path, the reason, and what the run came to, so the caller is told the change
-is in the tree even though the file that would have said so is not.
+A journal directory on a read-only mount, or ``--result`` naming a directory,
+makes the result ``write`` fail after the accepted change has been placed in the
+working tree. Raised out of ``main``, that is exit 1, a traceback, no
+``result:`` line — which the skill reads as "the run never started" — and a
+``.part`` file left behind. So the failure is one ``error:`` line on stderr that
+names the path, the reason, and what the run came to, so the caller is told the
+change is in the tree even though the file that would have said so is not.
 """
 
 from __future__ import annotations

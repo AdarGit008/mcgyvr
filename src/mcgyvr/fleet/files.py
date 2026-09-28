@@ -229,8 +229,8 @@ def _fleets(raw: object) -> dict[str, Any]:
 
 
 def _rigs(raw: object) -> dict[str, Any]:
-    # P1 pins only `units`; the fields of a rig block are owned by P2 (the
-    # rig identities). What is checked here is that the block is a mapping.
+    # Only that the block is a mapping is checked here; a rig's `rig_id` is
+    # checked where the lock is written (`mcgyvr.fleet.lock`).
     return _document(raw, "fleet.yaml: rigs")
 
 

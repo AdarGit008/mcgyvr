@@ -1,23 +1,20 @@
 """A serving memory declaration is bytes, and the bytes match the declaration.
 
-. ``gpu_memory_utilization = 0.85`` was never decided in this project —
-it is local-ai's OOM fix for a 12 GB card, applied unchanged to a 6 GB one — and
-the reason it survived is that nothing could see it was wrong. A fraction reads
-as a tuning knob. What it actually is, in vLLM's own arithmetic
-(``vllm/v1/worker/utils.py::request_memory``), is ``total_memory * util`` with a
-hard ``free >= requested`` precondition, so it is a statement about a *card*.
-Measured on the rigs 2026-08-22, at ``max_num_seqs 8``, ``max_model_len 8192``:
+A fraction of the card reads as a tuning knob and is a statement about one
+*card*: the same KV cache is a different fraction on srv1 and on srv2. The rules
+held here, by the numbers the tests below cite:
 
-    srv1  0.85 -> 131,104 KV tokens, 4,916 MiB   reachable: 65,536 tokens
-    srv2  0.85 -> 322,304 KV tokens, 10,197 MiB  reachable: 65,536 tokens
+1. a vLLM entry declares ``kv_cache_memory_bytes`` and not
+   ``gpu_memory_utilization``; an entry declaring both is a refusal;
+2. the bytes are ``max_num_seqs x max_model_len x bytes_per_token``, and
+   ``bytes_per_token`` is recorded with its derivation in a note;
+3. there is no default: an entry declaring neither field is a refusal;
+4. the footprint is recorded in MiB per rig, measured, never computed;
+5. ``gpu_memory_utilization`` alone stays legal for a run whose question is the
+   fraction itself.
 
-2.0x and 4.9x over, and the two entries that differ *only* in ``max_num_seqs``
-allocated the same KV cache, because ``max_num_seqs`` does not enter the budget.
-The instrument could not distinguish the two instruments it was built to be.
-
-These checks hold the configs to bytes and hold ``_start`` to refusing an entry
-that declares neither or both. They are static and cost no rig time: the
-measurement is in  and in each entry's own ``_footprint_mib``.
+These checks are static and cost no rig time: the measurement is in each entry's
+own ``_footprint_mib``.
 """
 
 from __future__ import annotations
@@ -57,14 +54,12 @@ def _vllm_entries() -> list[tuple[Path, dict[str, Any]]]:
     return found
 
 
-#: The one entry the 2026-08-30 run launched under ``--kv-cache-dtype fp8``
-#: while pinning the fp16 size, because nothing then read the flag: it holds
-#: exactly twice the KV its shape needs at fp8. It is kept as run: these are
-#: the bytes ``records/evidence/serving-2026-08-30/vllm-srv2.json`` records the
-#: cell as started with (``claim.checks.started.serve``), and halving it here
-#: would leave the config describing a launch that run never made. So it is
-#: written down here rather than rewritten there. Closed: the check below fails
-#: if it disappears, and nothing may join it.
+#: The one entry that declares the fp16 size under ``--kv-cache-dtype fp8``: it
+#: holds exactly twice the KV its shape needs at fp8. It is kept as run: these
+#: are the bytes ``records/evidence/serving-2026-08-30/vllm-srv2.json`` records
+#: the cell as started with (``claim.checks.started.serve``), and halving it
+#: would leave the config describing a launch that run never made. Closed: the
+#: check below fails if it disappears, and nothing may join it.
 PINNED_AT_FP16_AS_RUN: frozenset[tuple[str, str]] = frozenset(
     {
         ("srv-vllm-n1248-srv2.json", "q34b-vllm-srv2"),
@@ -86,7 +81,7 @@ def test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape(
         assert "gpu_memory_utilization" not in serve, (
             f"{where} declares a fraction. A fraction is a statement about one "
             "card: the same 1,792 MiB of KV cache is 0.565 on srv1 and 0.273 on "
-            "srv2 "
+            "srv2"
         )
         assert "kv_cache_memory_bytes" in serve, f"{where} declares no KV cache size"
         per_token = vllm.kv_bytes_per_token(serve)
@@ -115,7 +110,7 @@ def test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape(
 def test_every_declared_model_records_how_its_bytes_per_token_was_derived() -> None:
     """rule 2: the constant carries its derivation, or it is a magic
     number with a longer name. The note must show the arithmetic AND name a
-    measurement, because either alone is how 0.85 travelled."""
+    measurement."""
     for path, entry in _vllm_entries():
         where = f"{path.name}:{entry.get('label')}"
         serve = entry["serve"]
@@ -172,21 +167,16 @@ def test_there_is_no_silent_default_and_both_fields_together_are_a_refusal(
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: decided — rule 1 reaches calibrate.py's two inline "
-        "serve blocks (the width sweep and the sleep arm), and converting them "
-        "re-baselines every vLLM cell they produced. That is #329's arm, which "
-        "already owes a width-16 measurement, and it lands there rather than "
-        "here: at 0.85 srv1 gets 131,088 KV tokens against the 131,072 width 16 "
-        "needs (a 16-token margin) while srv2 gets 322,304, so the two arms of "
-        "that contrast are 2.46x apart in KV cache from one declared setting"
+        "2026-08-22: calibrate.py's two inline serve blocks (the width sweep "
+        "and the sleep arm) declare a fraction, and converting them "
+        "re-baselines every vLLM cell they produced"
     ),
 )
 def test_the_calibration_probes_declare_bytes_too() -> None:
     """The two `serve` blocks built inside `calibrate.py` rather than in a config.
 
     A config-only sweep would report green while the code that actually launches
-    the campaign's vLLM cells still carries the withdrawn fraction — the same
-    where-it-is-run defect this lane has now hit four times.
+    the campaign's vLLM cells still carries the fraction.
     """
     source = (SERVING / "calibrate.py").read_text(encoding="utf-8")
     assert "gpu_memory_utilization" not in source, (
@@ -194,17 +184,13 @@ def test_the_calibration_probes_declare_bytes_too() -> None:
     )
 
 
-# --- #354: a declaration the card cannot hold -------------------------------
+# --- a declaration the card cannot hold -------------------------------------
 #
-# the rule is `max_num_seqs x max_model_len x bytes_per_token`, and the
-# three cells that refused on 2026-08-23 each computed it EXACTLY right. What
-# was missing is that a byte declaration travels across cards and travelling is
-# not the same as fitting: every vLLM figure this project held came from the
-# 1.5B, 28 layers x 2 KV heads, and Qwen3-4B is 36 x 8 -- four times wider per
-# layer. Nothing refused the configuration until vLLM did, three minutes and one
-# cell later. These checks are static and cost no rig time; their content is
-# phase 0's own 25-cell campaign, which produced both the failures and the
-# footprints that let a pre-check exist at all.
+# A byte declaration that follows rule 2 exactly travels across cards, and
+# travelling is not the same as fitting: Qwen3-4B (36 layers x 8 KV heads) is
+# four times wider per layer than the 1.5B (28 x 2). These checks are static and
+# cost no rig time; their content is phase 0's own 25-cell campaign, which holds
+# both the refusals and the footprints a pre-check is judged against.
 
 PHASE0 = REPO / "records" / "evidence" / "2026-08-23-phase0-footprint"
 REFIT = REPO / "records" / "evidence" / "2026-08-23-phase0-refit"
@@ -213,11 +199,11 @@ REFIT = REPO / "records" / "evidence" / "2026-08-23-phase0-refit"
 #: `footprints.csv`'s `card_mib_before` column records for all 25 cells.
 PHASE0_FREE_MIB = {"srv1": 6144 - 1, "srv2": 12288 - 1}
 
-#: Each rig's driver/firmware reserve, MEASURED 2026-08-30 via
-#: `nvidia-smi --query-gpu=memory.reserved`: the GSP firmware carveout, which
-#: belongs to no process and so appears in neither `memory.used` nor
-#: `memory.free`. `free_mib` returns `total - used` and therefore overstates
-#: what a process can allocate by exactly this much.
+#: Each rig's driver/firmware reserve, MEASURED via `nvidia-smi
+#: --query-gpu=memory.reserved`: the GSP firmware carveout, which belongs to no
+#: process and so appears in neither `memory.used` nor `memory.free`. `free_mib`
+#: returns `total - used` and therefore overstates what a process can allocate
+#: by exactly this much.
 RESERVED_MIB = {"srv1": 401, "srv2": 380}
 
 #: What each card can actually hand a process at rest: nameplate, less the
@@ -236,9 +222,8 @@ PHASE0_WEIGHTS_BYTES = {
     "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ": int(9.38 * 1024**3),
 }
 
-#: The 1.5B's weights, measured, from the table -- stable across all
-#: eight of its rows on both rigs. Used only to solve for the two rigs' non-KV,
-#: non-weights residue below.
+#: The 1.5B's weights, measured -- stable across all eight of its rows on both
+#: rigs. Used only to solve for the two rigs' non-KV, non-weights residue below.
 WEIGHTS_1_5B_MIB = 1126
 
 #: Each rig's non-weights, non-KV residue as phase 0's 1.5B rows give it:
@@ -252,12 +237,11 @@ PHASE0_RESIDUE_MIB = {"srv1": 3130 - 1792 - 1126, "srv2": 3183 - 1792 - 1126}
 def _with_kv_dtype(serve: dict[str, Any]) -> dict[str, Any]:
     """The evidence entry as it launches now, with its KV dtype stated.
 
-    The phase-0 and refit campaigns predate the declaration requirement and
-    launched with no ``--kv-cache-dtype`` — the engine's default, ``auto``,
-    which sizes a token at 2 bytes an element, the width every
-    ``_bytes_per_token_note`` in these files already states. The flag is added
-    at read time rather than written into the historical record, so the
-    evidence keeps naming what was actually launched.
+    The phase-0 and refit campaigns launched with no ``--kv-cache-dtype`` — the
+    engine's default, ``auto``, which sizes a token at 2 bytes an element, the
+    width every ``_bytes_per_token_note`` in these files states. The flag is
+    added at read time rather than written into the record, so the evidence
+    keeps naming what was actually launched.
     """
     flags = [str(f) for f in (serve.get("flags") or [])]
     if not any(
@@ -306,8 +290,8 @@ def test_the_phase0_cells_are_all_seven_and_three_of_them_refused() -> None:
     """The fixture above is the campaign, not a sample of it.
 
     Without this, a parse that silently dropped rows would make every check
-    below pass over whatever survived -- the shape session 22's own mutation
-    sweep caught twice, a check asserting a property it never exercised.
+    below pass over whatever survived -- a check asserting a property it never
+    exercised.
     """
     cells = _phase0_cells()
     assert len(cells) == 7, f"phase 0 ran 7 vLLM cells, parsed {len(cells)}"
@@ -326,7 +310,7 @@ def test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell(
     """Seven cells, seven verdicts, and the rule must match the card on all of them.
 
     This is the check with the content. A pre-check that refused everything
-    would be safe and useless; one that refused nothing is what shipped. The
+    would be safe and useless, and one that refuses nothing is no check. The
     campaign is both controls at once -- four cells that loaded and must be
     admitted, three that died in `_allocate_kv_cache` and must be refused --
     and it is the only evidence in the tree that can separate them.
@@ -362,7 +346,7 @@ def test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell(
         else:
             assert refused is not None, (
                 f"{where} died in _allocate_kv_cache on an empty card, and the "
-                "rule admitted it -- which is the defect #354 exists to close"
+                "rule admitted it"
             )
             assert "Nothing was measured" in refused
 
@@ -370,10 +354,10 @@ def test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell(
 def _refit_cells() -> list[dict[str, Any]]:
     """The three cells phase 0 could not measure, re-declared so they fit.
 
-    Same models, same cards, a shorter `max_model_len` — the owner's choice of
-    2026-08-23 between the two ways out. They are the only cells in the tree
-    that show what a vLLM process holds BESIDES weights and KV at more than one
-    model size, which is what makes the residue below a measurement.
+    Same models, same cards, a shorter `max_model_len`. They are the only cells
+    in the tree that show what a vLLM process holds BESIDES weights and KV at
+    more than one model size, which is what makes the residue below a
+    measurement.
     """
     import csv as _csv
 
@@ -398,7 +382,7 @@ def _refit_cells() -> list[dict[str, Any]]:
 
 
 def test_the_refit_measured_all_three_cells_phase_0_could_not() -> None:
-    """#354's last box: the footprint table is complete rather than 22 of 25.
+    """The refit's footprint table is complete.
 
     Three cells, all `ok`. If this shrinks, every figure derived from the
     residue below is derived from fewer cells than it claims.
@@ -417,13 +401,10 @@ def test_the_overhead_constant_is_derived_from_the_residue_and_not_chosen(
 ) -> None:
     """733 MiB is a reading plus a block, and the check re-derives both.
 
-    The first version of this constant was 910, assembled from the terms
-    — driver context, activation, non-torch, one allocator block. That sum
-    double-counts: `nvidia-smi`'s card figure already contains the driver's
-    reserve and the process's own context, so two of the four terms were being
-    charged twice, and it over-predicted every one of the three refit
-    footprints by 433 to 573 MiB. Assembling a constant from parts is what let
-    that go unnoticed; measuring the whole residue is what caught it.
+    A constant assembled from terms — driver context, activation, non-torch,
+    one allocator block — double-counts: `nvidia-smi`'s card figure already
+    contains the driver's reserve and the process's own context. So the whole
+    residue is measured instead.
 
     The residue is `card_mib_after_load - weights - declared_kv`, and the
     constant is the largest one seen plus the block a launch must still be able
@@ -459,12 +440,10 @@ def test_the_constant_lands_inside_the_window_every_measured_cell_allows(
       declaration — which missed by exactly one allocator block — does not
       launch. `free - weights - kv` there is 511 MiB.
     * The **ceiling** is set by every cell that must be ADMITTED, and the
-      tightest is the refit's 14B at 1,145 MiB. Phase 0 alone allowed up to
-      1,793; measuring three more cells narrowed it, which is the direction
-      evidence is supposed to move a bound.
+      tightest is the refit's 14B at 1,145 MiB.
 
     The window is a consequence of the verdicts, not a target: nothing here
-    tunes the constant to sit inside it. If a future cell narrows the window
+    tunes the constant to sit inside it. If a cell narrows the window
     past the derived value, this fails and the two have to be reconciled
     against the cards rather than against each other.
     """
@@ -488,7 +467,7 @@ def test_the_constant_lands_inside_the_window_every_measured_cell_allows(
 
     assert (max(floor), min(ceiling)) == (511, 1145), (
         f"the window moved to ({max(floor)}, {min(ceiling)}); the constant's "
-        "docstring and the amendment both quote it and must be re-read"
+        "docstring quotes it and must be re-read"
     )
     assert max(floor) < vllm.NON_KV_OVERHEAD_MIB < min(ceiling)
 
@@ -572,7 +551,7 @@ def test_every_vllm_entry_can_be_checked_against_a_card() -> None:
         where = f"{path.name}:{entry.get('label', entry.get('id'))}"
         assert serve.get("weights_bytes") or serve.get("_footprint_mib"), (
             f"{where} declares KV bytes and gives the pre-check nothing to "
-            "weigh them against (#354)"
+            "weigh them against"
         )
         if serve.get("weights_bytes"):
             note = serve.get("_weights_bytes_note", "")
@@ -585,17 +564,17 @@ def test_every_vllm_entry_can_be_checked_against_a_card() -> None:
 #
 # `free_mib` returns `total - used`. That is not what a process can allocate:
 # the card also carries a driver/firmware reserve belonging to no process, so
-# the identity is `total = reserved + used + free`. Measured 2026-08-30 --
-# 401 MiB on srv1, 380 on srv2 -- and confirmed from the other side by PyTorch,
-# which called srv2's 12,288 MiB card a `total capacity of 11.63 GiB` in the
-# OOM that prompted this: 12,288 less 380, exactly.
+# the identity is `total = reserved + used + free`. Measured -- 401 MiB on srv1,
+# 380 on srv2 -- and confirmed from the other side by PyTorch, which calls
+# srv2's 12,288 MiB card a `total capacity of 11.63 GiB`: 12,288 less 380,
+# exactly.
 #
 # The predicted branch is already right against `total - used`, because
 # NON_KV_OVERHEAD_MIB was FITTED as a residue against that figure and carries
 # the reserve inside itself. The measured branch has no such constant. These
 # checks pin both halves: that the measured ceiling drops by the reserve, and
-# that the predicted one does not -- so the double-count cannot be reintroduced
-# by a later reader who notices the two branches disagree and "fixes" it.
+# that the predicted one does not -- so the double-count cannot be introduced
+# by a reader who notices the two branches disagree and "fixes" it.
 
 
 def test_the_measured_branch_refuses_a_footprint_inside_the_reserve_window(
@@ -735,8 +714,8 @@ def test_an_unreported_reserve_refuses_rather_than_assuming_zero(
 ) -> None:
     """A driver that withholds the field must stop the run, not be read as zero.
 
-    Assuming zero is precisely the optimism this whole fix removes: it restores
-    `total - used` as the measured branch's ceiling and re-opens the window.
+    Assuming zero makes `total - used` the measured branch's ceiling and
+    re-opens the reserve window.
     """
     monkeypatch.setattr(vllm, "reserved_mib", lambda host: None)
     serve = {

@@ -8,8 +8,7 @@ here, from the outside, the way an operator meets it:
 * ``--help`` shows no ``--skip``, ``--force`` or ``--no-`` anything, and
   ``--step`` is optional (the shipped default step);
 * a step argument that would write outside the envelope is refused before
-  gate 1, as the archived door refused it (archive/runs/run.sh,
-  ``check_step_args``), and one naming a path inside it is admitted;
+  gate 1, and one naming a path inside it is admitted;
 * the ``ssh`` and ``docker`` on the PATH the door exports are shims: outside
   the door they exit 2 naming it, under it they become the real binary
   pointed at the door's host and nothing else;
@@ -58,9 +57,9 @@ RUN_DATE = "2026-09-02"
 GATES = sorted(p.name for p in GATE_SCRIPTS.glob("*.py"))
 
 #: The checkout's record of rounds. A run whose tree has moved off the open
-#: round appends one to its root's copy (owner, 2026-09-06), and this one is
-#: tracked and read by every other xdist worker while these tests run — so no
-#: door here runs from the checkout (:func:`root`), and this is only ever read.
+#: round appends one to its root's copy, and this one is tracked and read by
+#: every other xdist worker while these tests run — so no door here runs from
+#: the checkout (:func:`root`), and this is only ever read.
 ROUNDS = REPO / "tools" / "bench" / "rounds.json"
 
 
@@ -130,11 +129,9 @@ def base_argv(step: Path, campaign: str = "alpha-cli-test") -> list[str]:
         str(step),
         "--date",
         RUN_DATE,
-        # The window the run serves. Required rather than defaulted since
-        # 2026-09-06: the door's own 2048 was the third reader of a number
-        # `emit` had at 4096, and an `--n-cpu-moe` floor derived here was
-        # computed against half the cache the compose file allocates
-        # (test_dod_one_context_number.py).
+        # The window the run serves. Required rather than defaulted, so the
+        # door holds no context number of its own
+        # (tests/red_port/test_dod_one_context_number.py).
         "--ctx-per-slot",
         "4096",
     ]

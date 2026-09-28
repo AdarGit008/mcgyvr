@@ -1,46 +1,26 @@
-"""Pattern B, phase 3 — the three levers that still carry bytes by value.
+"""Pattern B — the tree owns the bytes, in the three levers that rewrite them.
 
-Phase 1 closed the delivery half: ``tools/missions/run.py`` stopped writing and
-committing a ``str`` of its own and now goes through
-:func:`mcgyvr.deliver.deliver`. Phase 2 deleted the channel that string had
-travelled in — ``Judgement.value`` and the three ``value`` fields under it —
-because the one caller that read them was gone.
-
-What phase 2 could not reach is the three levers that were never wired to a
-caller at all, and so were never forced to answer the question. The pressure
-test named all five modules together: *"``repair`` and ``consensus`` mutate the
-working tree, ``cleanup``/``judge``/``deliver`` pass strings by value."*
-``judge`` and ``deliver`` are settled. These are the rest, and each carries the
-disease in a different shape:
+Delivery takes an :class:`~mcgyvr.deliver.Accepted` minted off the tree, and no
+verdict carries a ``value`` beside it. The three levers that rewrite or sample a
+tree each hold the same rule in their own shape:
 
 ``cleanup``
-    :func:`mcgyvr.cleanup.tidy` rewrites an **accepted** change's bytes and
-    reports :attr:`~mcgyvr.cleanup.Cleanup.regate` as ``False``. The gate's
-    verdict was reached on the bytes that went in; the bytes that come out are
-    different and no rung has read them. The detail line says so in prose — it
-    ends the sentence with a full stop for an accepted change and ", and the
-    gate wants re-running over it" only for a rejected one — which is the
-    substitution stated as a feature.
+    :func:`mcgyvr.cleanup.tidy` may rewrite an **accepted** change's bytes, and
+    then :attr:`~mcgyvr.cleanup.Cleanup.regate` is true and the detail line says
+    the gate wants re-running: the verdict was reached on the bytes that went
+    in, and no rung has read the bytes that come out.
 
 ``consensus``
     :func:`mcgyvr.consensus.best_of` resets the workspace after every draw,
-    including the winning one, so when it returns the winner exists **only** as
-    a ``str`` in the value it hands back. The module documents this as safety —
-    a losing draw must leak nowhere — and the argument is right. What it leaves
-    is a winner whose verdict was reached in a tree that no longer exists, and a
-    caller whose only way to use it is to write the string somewhere no gate
-    will look again.
+    including the winning one, so a losing draw leaks nowhere. The winner
+    arrives as an :class:`~mcgyvr.deliver.Accepted`, minted in the draw's
+    workspace before that reset.
 
 ``repair``
-    :attr:`mcgyvr.repair.RepairOutcome.content` is a second copy of the tree
-    ``repair`` has just mutated in place. Its own docstring names the consumer:
-    *"the caller's next move is to re-run the gate on this tree and then hand
-    content to* :func:`mcgyvr.deliver.deliver`*"*. That consumer was deleted in
-    phase 2 — delivery takes an :class:`~mcgyvr.deliver.Accepted` minted off the
-    tree, and there is nothing left in ``src/`` or ``tools/`` that reads this
-    field. It is exactly the shape ``Judgement.value`` had.
+    :class:`mcgyvr.repair.RepairOutcome` carries the paths it changed and no
+    ``content``: ``repair`` mutates the tree in place, and the tree is the copy.
 
-The rule all three are measured against is the one phase 1 stated:
+The rule all three are measured against:
 
     The tree is the owner. Content never travels as a value, and one seam
     commits.
@@ -112,16 +92,12 @@ def repo(tmp_path: Path) -> Path:
 
 
 def test_a_cleaned_acceptance_says_the_verdict_is_stale() -> None:
-    """RED: an accepted change is reformatted and reported as settled.
+    """An accepted change the formatter rewrote says its verdict is stale.
 
-    ``regate`` is ``self.cleaned and not self.accepted`` today, so the one
-    branch where it stays ``False`` after a rewrite is the branch where the gate
-    said yes. That is the worst of the two: a rejected change at least gets
-    re-run because the rejection has to be cleared, while an accepted one is
-    carried forward under a verdict reached on the bytes the formatter replaced.
-
-    The fix is not to stop cleaning. It is that *any* rewrite makes the verdict
-    stale, because the thing that makes a verdict true is the bytes it was
+    A rejected change gets re-run because the rejection has to be cleared; an
+    accepted one would otherwise be carried forward under a verdict reached on
+    the bytes the formatter replaced. So *any* rewrite makes the verdict stale,
+    because the thing that makes a verdict true is the bytes it was
     computed over, and a gate run costs no tokens — which is the same argument
     this module already makes for cleaning instead of dispatching.
     """
@@ -143,7 +119,7 @@ def test_a_cleaned_acceptance_says_the_verdict_is_stale() -> None:
 def test_the_winning_draw_arrives_bound_to_the_tree_it_was_judged_in(
     repo: Path, contract: Contract
 ) -> None:
-    """RED: the winner comes back as a bare string and the tree holds nothing.
+    """The winner arrives as an `Accepted`, minted before the draw's reset.
 
     Three draws, and the middle one is the only one the gate accepts, so the
     winner is neither the first nor the last — a run where "the tree happens to
@@ -151,7 +127,7 @@ def test_the_winning_draw_arrives_bound_to_the_tree_it_was_judged_in(
     the winning bytes are in no tree at all: every draw's workspace was reset,
     which is the invariant that keeps a losing draw from leaking and is right.
 
-    What has to change is not the reset but the channel. The winner's verdict
+    So the channel is what binds the bytes, not the reset. The winner's verdict
     was reached in a workspace that still existed at the moment the gate spoke,
     which is exactly where :meth:`mcgyvr.deliver.Accepted.read` mints — so the
     binding can be taken there, per draw, before the reset that follows it.
@@ -193,13 +169,11 @@ def test_the_winning_draw_arrives_bound_to_the_tree_it_was_judged_in(
 
 
 def test_repair_carries_no_second_copy_of_the_tree() -> None:
-    """RED: ``RepairOutcome.content`` outlived the caller it was written for.
+    """``RepairOutcome`` has no ``content``: repair writes the tree.
 
     ``repair`` mutates the tree in place, which makes the tree the owner by
-    construction — there is no second place the bytes could be. The field was
-    added so a caller could hand the repaired string to ``deliver``; delivery
-    stopped needing one in phase 2, and nothing reads it now. Keeping it is
-    keeping the shape that lets the next caller carry bytes past a gate.
+    construction — there is no second place the bytes could be. A ``content``
+    field would be the shape that lets a caller carry bytes past a gate.
 
     ``repaired`` is the claim that survives: which paths differ from what the
     worker left, which is what makes a second gate run worth a subprocess.

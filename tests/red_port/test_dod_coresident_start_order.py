@@ -1,26 +1,18 @@
 """Two units sharing a card start in an order, and the bigger one goes first.
 
-``emit`` writes one compose file per host and no dependency between its
-services, so ``docker compose up -d`` starts every unit at once. On a card that
-fits both only if they load one after the other, that is a race.
-
-Measured on srv2, 2026-09-05: started together, the 7B got 0.89 GiB of KV cache
-and 4.08x concurrency; started alone after the 3B was resident, 2.77 GiB and
-12.68x. The first attempt crash-looped until the two were sequenced by hand —
-the 7B needed 8.37 GiB free and found 7.61.
+``emit`` writes one compose file per launch spec, and co-residents on one host
+share one. On a card that fits two units only if they load one after the other,
+starting both at once is a race.
 
 The bigger unit goes first because it is the one that cannot recover: a small
 model measuring the card after a large neighbour has taken its share still
 fits, and the large one measuring after the small has taken its share does not.
 
-**Built from real units through the shipped emit path.** An earlier draft
-invented ``compose_document(tmp_path)`` — a function taking a directory and
-somehow knowing to produce two co-resident units, with a ``units=1`` keyword for
-the single case. Nothing could implement that except a shim written for this
-test. The units here are built the way ``tests/test_emit.py`` builds them, from
-a scan and a spec, and the document is whatever ``emit_all`` writes.
+**Built from real units through the shipped emit path.** The units here are built
+the way ``tests/test_emit.py`` builds them, from a scan and a spec, and the document
+is whatever ``emit_all`` writes.
 
-How the order is expressed is the port's choice — ``depends_on`` is compose's
+How the order is expressed is not pinned — ``depends_on`` is compose's
 usual spelling, but a single service with two commands, or an explicit start
 script, would satisfy the requirement equally. What must be observable is that
 the file does not tell the daemon to start both at once, and that the order,

@@ -24,7 +24,7 @@ from tests._helpers import by_path
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "records" / "measurements"
 
-# `tools/` is not a package, so the rig is loaded by path.
+# `tools/` has no `__init__.py`, so the rig is loaded by path.
 responsive = by_path("bench_responsive_t", REPO / "tools" / "bench" / "responsive.py")
 
 # (tier, arm, stratum) -> (k, n), gate-scored off the committed `norule`
@@ -104,9 +104,9 @@ SCORER_SHARE: dict[tuple[str, str, str], int] = {
     ("7B", "ts", "function_implementation+scaffold"): 58,
 }
 
-# What no committed run can answer today, over the two tiers #224 owes a band
-# for. These are the sweeps A2 is scoped from; an entry disappears when one is
-# run, and never because the table was tidied.
+# What no committed run answers, over the 1.5B and 7B tiers. These are the sweeps
+# A2 is scoped from; an entry disappears when one is run, and never because the
+# table was tidied.
 COVERAGE_GAPS = {
     ("1.5B", "py", "function_implementation+scaffold", "psi_draw"),
     ("1.5B", "ts", "function_implementation+scaffold", "psi_draw"),
@@ -208,7 +208,7 @@ def test_psi_draw_is_never_described_as_a_bound() -> None:
 
 
 def test_no_row_is_pooled_across_tiers_or_arms() -> None:
-    """D2 and , carried from ``resolution.py`` unchanged.
+    """No pooling, carried from ``resolution.py`` unchanged.
 
     Every row names exactly one tier and one arm, and the only aggregate row is
     the arm-level one, which is labelled so it cannot be quoted as the bench's
@@ -297,13 +297,12 @@ def test_the_share_of_the_gap_that_was_the_scorer(
 
 
 def test_the_gap_survives_on_every_stratum_that_can_be_compared() -> None:
-    """The finding that reverses today's earlier record.
+    """The scorer is part of the gap, not all of it.
 
-    The 2026-08-15 session record states the gap is "almost entirely the
-    scorer, not the material". Measured, it is not: after both observables are
-    put on one bar `psi_draw` still runs between 2.2x and 6.0x `headroom` on
-    every stratum where the two can be compared. The scorer was a large part of
-    the gap and nowhere near all of it, so the two remain different quantities.
+    After both observables are put on one bar `psi_draw` still runs between 2.2x and
+    6.0x `headroom` on every stratum where the two can be compared. The scorer was a
+    large part of the gap and nowhere near all of it, so the two remain different
+    quantities.
     """
     after = [
         row["gap_after"]

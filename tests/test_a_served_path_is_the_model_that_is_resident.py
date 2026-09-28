@@ -1,44 +1,30 @@
 """llama.cpp answers ``/v1/models`` with a path, and the ladder declares a name.
 
-**1. The comparison is a string equality between two different vocabularies.**
+**1. The two sides speak different vocabularies.**
 ``AvailabilityVerdict.models`` is what the endpoint said, and llama.cpp says the
 **path it was given**::
 
     "id": "/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf"
 
-recorded on this fleet at ``records/evidence/serving-2026-08-30/lcpp-srv1.json``
-lines 784-789. The emitted ``compose.srv1.yml`` passes
-``--model /home/.../Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf`` with **no ``--alias``**,
-and the live config declares ``model: "Qwen3.6-35B-A3B-UD-IQ3_XXS"``. Those two
-strings are not equal, so ``Availability.not_serving`` reports srv1's **ceiling
-rung** as not resident against a rig that is serving it perfectly well, and
-tells the operator to wake a card that is up. vLLM is unaffected: its served id
-is the ``--model`` argument, which is the repository id the config names.
+recorded on this fleet in ``records/evidence/serving-2026-08-30/lcpp-srv1.json``.
+An emitted compose file passes ``--model /home/.../<name>.gguf`` with **no
+``--alias``**, and a config declares ``model: "<name>"``. Those two strings are
+not equal, so ``Availability.not_serving`` compares through
+:func:`mcgyvr.weights.is_model`: a served id that is a **path whose file name,
+minus the weights suffix, is the declared model** is that model, and a path
+that names some other model is not. vLLM's served id is the ``--model``
+argument, which is the repository id the config names.
 
-The fix is not to compare loosely. It is to know what the other vocabulary *is*:
-a served id that is a **path whose file name, minus the weights suffix, is the
-declared model** is that model, and a path that names some other model is not.
-Everything else is unchanged, including every way of saying nothing.
-
-**2. ``mcgyvr run`` never asks — and after this file it still does not.**
+**2. ``mcgyvr run`` never asks.**
 ``cli._climb`` builds its pool with no probe ("Structural resolution, no
-probe"), and only ``mcgyvr pool --probe`` passes one, so a dispatch aimed at a
-rung whose weights are not resident still reaches llama.cpp and is still
-answered from the wrong weights. Closing that means opening a socket before
-dispatch, which was written on 2026-09-09 and **backed out the same day**: the
-sleep/wake specs name ``http://srv2:8001``, a hostname that resolves to the
-actual rig on the machine this suite runs on, so the probe pointed the test
-suite at production and failed four of the nineteen approved specs by doing it.
-The run-path section below pins the property that revert restored — a run
-resolves its ladder without touching the network — and the comment at
-``cli._climb``'s ``source_map`` call carries the two ways to close the hole
-without breaking it.
+probe"), and only ``mcgyvr pool --probe`` passes one. The run-path section
+below pins that property — a run resolves its ladder without touching the
+network.
 
-**The discipline this file pins throughout, because a fix here can only fail
-one way.** Only an explicit, parseable, non-empty listing may take a rung out of
-service. A source that did not answer, answered 404, answered something
-unreadable or listed nothing claims nothing. A probe that failed closed on an
-unreadable answer would empty the ladder the day it landed.
+**The discipline this file pins throughout.** Only an explicit, parseable,
+non-empty listing may take a rung out of service. A source that did not answer,
+answered 404, answered something unreadable or listed nothing claims nothing. A
+probe that failed closed on an unreadable answer would empty the ladder.
 """
 
 from __future__ import annotations
@@ -58,7 +44,7 @@ from tests import livejournal as lj
 DECLARED = "Qwen3.6-35B-A3B-UD-IQ3_XXS"
 #: What the emitted compose file passes as ``--model``, and therefore what
 #: llama.cpp lists — the recorded shape, from
-#: ``records/evidence/serving-2026-08-30/lcpp-srv1.json:784-789``.
+#: ``records/evidence/serving-2026-08-30/lcpp-srv1.json``.
 SERVED = f"/home/adaramir/models/{DECLARED}.gguf"
 #: The other model that rig alternates with, as a path.
 OTHER = "/home/adaramir/models/deepseek-coder-v2-16b.gguf"
@@ -100,9 +86,8 @@ def rungs_of(*models: str) -> tuple[Sequence[str], Mapping[str, str]]:
 def test_a_served_path_whose_stem_is_the_declared_model_is_resident() -> None:
     """srv1's ceiling rung, against srv1 serving it. It must not be skipped.
 
-    This is the regression the routing fix introduced: a healthy rig, the right
-    weights loaded, and the rung taken out of service because the server spells
-    the model as the file it was handed.
+    A healthy rig, the right weights loaded: the rung is not taken out of
+    service because the server spells the model as the file it was handed.
     """
     kept, skipped = rungs_of(SERVED)
 
@@ -160,23 +145,15 @@ def test_a_listing_that_says_nothing_or_names_it_among_others_keeps_the_rung() -
 
 # --- the run path -------------------------------------------------------------
 #
-# **The second half of the hole is still open, and this section is what keeps it
-# honest rather than what closes it.** `cli._climb` builds its pool with no
-# probe, so a dispatch aimed at a rung whose weights are not resident is still
-# answered from whatever is behind the port. Closing it there means opening a
-# socket before dispatch, and that was written on 2026-09-09 and backed out the
-# same day for a reason the tests themselves demonstrate: the sleep/wake specs
-# name `http://srv2:8001`, which on a developer's machine resolves through
-# Tailscale to the actual rig, so the probe sent this repository's own test
-# suite at production and took four of the nineteen approved sleep/wake specs
-# with it. `mcgyvr.wake`'s doctrine says the same thing from the design side —
-# "fail-first, never probe-first", a card that is up must cost nothing extra.
+# `cli._climb` builds its pool with no probe. A probe there would open a socket
+# before dispatch: specs that name a rig by hostname (`http://srv2:8001`) would
+# reach the actual rig from a developer's machine. `mcgyvr.wake`'s doctrine says
+# the same thing from the design side — "fail-first, never probe-first", a card
+# that is up must cost nothing extra.
 #
-# So what is pinned here is the property that revert restored: **a run resolves
-# its ladder without touching the network**. Anything that breaks it breaks
-# every spec that names a rig by hostname, and it will break it by talking to
-# the rig. The two ways to close the hole without breaking it are written up in
-# the comment at `cli._climb`'s `source_map` call.
+# So what is pinned here: **a run resolves its ladder without touching the
+# network**. An answer from weights that are not the declared ones is refused
+# after the dispatch (`mcgyvr.runner.WrongWeightsError`), not probed for.
 
 
 def test_a_run_resolves_its_ladder_without_reaching_a_single_endpoint(

@@ -38,9 +38,9 @@ checked only as a block. `examples/fleet.yaml` shows all three.
 `mcgyvr pool` reads that config back: the usable rungs cheapest-first with
 their family, attempt budget and model; the escalation ceiling and where it
 came from; every skipped rung with the reason it was skipped; and the
-orchestrator and verifier models. `--probe` also asks each source whether it
-is answering — off by default, because it spends. Run it whenever a run
-picks a rung you did not expect.
+orchestrator and verifier models. `--probe` also asks each unit whether it
+is answering — off by default, because resolving a ladder should not need
+a network. Run it whenever a run picks a rung you did not expect.
 
 Three keys across the two files are the levers, and `mcgyvr pool` is how
 you read all three:
@@ -49,8 +49,8 @@ you read all three:
 - `ladder` — The ordered list of unit names work climbs, cheapest first.
 - `max_escalations` — How many rungs a task may climb before it is handed back unfinished.
 
-`mcgyvr config` prints the resolved config; `mcgyvr detect` and
-`mcgyvr capabilities` say what a source is and what it can do.
+`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
+can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
 ## Value types
 
@@ -60,13 +60,14 @@ you read all three:
 | text | A non-empty string. An empty value is rejected rather than treated as unset — remove the key instead. |
 | URL | Text that carries a scheme: it must start with `http://` or `https://`. |
 | boolean | `true` or `false`, unquoted. |
-| decimal number | A number that may carry a fraction. Sizes written this way are in **GiB** — powers of 1024 — which is what the rest of mcgyvr measures in; a file a tool reports as 13.2 GB is 12.3 here. |
+| decimal number | A number that may carry a fraction. |
 | one of ... | Text drawn from a fixed set. Anything else is rejected, with the valid values named. |
 | env var name | The **name** of an environment variable (e.g. `ANTHROPIC_API_KEY`), never the value. Credentials are never written into this file; the orchestrator resolves the name at point of use and a task sandbox never sees the result. |
 | list of text | A YAML list of non-empty strings. |
 | block | A nested mapping with a fixed set of keys, documented in its own section. |
 | block map | A mapping whose keys you choose; every entry takes the same fixed set of keys. |
-| list of blocks | An ordered YAML list; every entry takes the same fixed set of keys. |
+| free-form block | A nested mapping whose keys the schema does not fix. |
+| map of numbers | A mapping from names you choose to whole numbers. |
 
 ## Top-level keys
 
@@ -99,7 +100,7 @@ Each entry takes these keys:
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `units.address` | URL | **yes** | — | Where this unit answers, including scheme and port. One address is one process: a unit is the one term for what used to be a source. To bind it: e.g. http://srv2:8002. |
+| `units.address` | URL | **yes** | — | Where this unit answers, including scheme and port. One address is one process. To bind it: e.g. http://srv2:8002. |
 | `units.model` | text | **yes** | — | Model identifier as the unit names it. |
 | `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
@@ -109,12 +110,12 @@ Each entry takes these keys:
 | `units.window` | number (min 1) | no | unset | Tokens this unit serves in one request. Read it back off the running process, not hoped for. To bind it: e.g. 4096 -- what the unit reports, not what you hoped for. |
 | `units.output_tokens` | number (min 1) | no | unset | Room a reply on this unit is given, the `max_tokens` its backend is actually sent. To bind it: e.g. 2048 -- the reply length this unit needs. |
 | `units.request_timeout_s` | decimal number (min 0.0) | no | unset | How long one dispatched request to this unit may take before the transport gives up. To bind it: e.g. 180. |
-| `units.room_mib` | number (min 0) | no | unset | The card room this unit needs, in MiB, measured or stated. Replaces the model block's vram/ram/disk sizes. To bind it: e.g. 7000 -- the card room this unit needs. |
+| `units.room_mib` | number (min 0) | no | unset | The card room this unit needs, in MiB, measured or stated. To bind it: e.g. 7000 -- the card room this unit needs. |
 | `units.kv_cache_memory_bytes` | number (min 0) | no | unset | The vLLM KV cache this unit pins, in bytes. Absent where the engine sizes its own cache; required before a vLLM unit is locked. To bind it: e.g. 34359738368. |
 | `units.attention_backend` | text | no | unset | The attention backend this vLLM unit pins, because the card decides what is valid. To bind it: e.g. FLASH_ATTN, or TRITON_ATTN on cc 7.5. |
 | `units.container` | text | no | unset | The container name this unit runs under. To bind it: e.g. mcgyvr-srv2-srv2_7b. |
 | `units.hf_cache` | text | no | unset | The HuggingFace cache on the rig holding this unit's weights, as an absolute path there. A serving fact about this unit, not a knob. To bind it: e.g. /home/<user>/.cache/huggingface, as the rig sees it. |
-| `units.launch` | free-form block | no | — | The resolved launch, whole. Free-form by design: a unit hashes its whole resolved launch with no hand-kept field list (ID-2), so a flag this reader has never heard of cannot go unhashed. Two keys sizing reads, llama.cpp only: `speculative` (`none` \| `mtp`, default `none`) runs the GGUF's own grafted multi-token-prediction head as the draft (`--spec-type draft-mtp`), and `spec_draft_n_max` (a count, at least 1, default 2) is its `--spec-draft-n-max`. The head is read off the scan's tensor table and charged to the card, so the `--n-cpu-moe` floor rises (4 to 8 on KAT/Ornith Q2_K-AllGPU, ~816 MiB), and a scan with no nextn block refuses the declaration. Measured: +26.5% decode at width 1 and +22% at width 2 on a 12 GB card (srv2), and a win at width 1 that turned into -10% at width 2 on the offload-bound 6 GB card (srv1) -- records/evidence/2026-08-28-mtp-ornith/. A vLLM unit declaring `mtp` is refused: its speculative decoding is `--speculative-config`, a different mechanism. To bind it: the resolved launch, e.g. serve_args, geometry_json, moe, speculative. |
+| `units.launch` | free-form block | no | — | The resolved launch, whole. Free-form by design: a unit hashes its whole resolved launch with no hand-kept field list, so a flag this reader has never heard of cannot go unhashed. Two keys sizing reads, llama.cpp only: `speculative` (`none` \| `mtp`, default `none`) runs the GGUF's own grafted multi-token-prediction head as the draft (`--spec-type draft-mtp`), and `spec_draft_n_max` (a count, at least 1, default 2) is its `--spec-draft-n-max`. The head is read off the scan's tensor table and charged to the card, so the `--n-cpu-moe` floor rises, and a scan with no nextn block refuses the declaration. Whether it pays depends on the card and the width: records/evidence/2026-08-28-mtp-ornith/. A vLLM unit declaring `mtp` is refused: its speculative decoding is `--speculative-config`, a different mechanism. To bind it: the resolved launch, e.g. serve_args, geometry_json, moe, speculative. |
 
 ## `orchestrator`
 
@@ -159,8 +160,8 @@ How many answers one attempt asks for.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `breadth.draws` | number (min 1) | no | `1` | How many candidates one attempt asks its rung for before the gate picks between them. Draws are not attempts: they share one prompt and one attempt's budget, and the gate ranks the answers rather than the next attempt being told what the last one got wrong. The default of 1 is  unchanged — one draw, one verdict, and the draw is the answer. Raising it is most defensible on a cheap rung that is often almost right, where three draws are still cheaper than escalating; a lever whose whole benefit is fewer crossings into the api family cannot be evaluated before the telemetry that counts crossings, which is why this is something to ask for rather than something you are given. |
-| `breadth.temperature` | decimal number (min 0.0, max 2.0) | no | `0.7` | What every draw after the first samples at. Draw 0 of every attempt is greedy (temperature 0.0), so a single-draw install sends what it always sent, byte for byte; draws 1..n-1 sample at this temperature, because a second draw exists to be a different candidate and a greedy one is the first draw again. 0.0 is refused at load wherever any unit's effective draws exceed 1: identical draws buy N gate runs and nothing else. The wire field is the OpenAI-compatible `temperature`. 0.7 is the default because it is the conventional sampling point, and the journal now records the temperature per row, so the number can be measured against rather than argued about. |
+| `breadth.draws` | number (min 1) | no | `1` | How many candidates one attempt asks its rung for before the gate picks between them. Draws are not attempts: they share one prompt and one attempt's budget, and the gate ranks the answers rather than the next attempt being told what the last one got wrong. The default of 1 is one draw, one verdict, and the draw is the answer. |
+| `breadth.temperature` | decimal number (min 0.0, max 2.0) | no | `0.7` | What every draw after the first samples at. Draw 0 of every attempt is greedy (temperature 0.0), so a single-draw install sends what it always sent, byte for byte; draws 1..n-1 sample at this temperature, because a second draw exists to be a different candidate and a greedy one is the first draw again. 0.0 is refused at load wherever any unit's effective draws exceed 1: identical draws buy N gate runs and nothing else. The wire field is the OpenAI-compatible `temperature`. The journal records the temperature per row. |
 
 ## `cleanup`
 
@@ -168,7 +169,7 @@ What may be fixed without asking a model.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `cleanup.enabled` | boolean | no | `true` | Repair a change the gate rejected with the deterministic tools — the declared imports, the linter's own autofixes, the formatter — and judge it again on the same rung, instead of spending an attempt or a climb on what a tool clears for nothing. The tools are the ones the gate already checks with, so a repair produces the shape the rungs ask for rather than a second opinion about it, and it costs no tokens by construction. On by default (owner, 2026-09-05): the first live ladder rejected all nine replies on a reflowed line, whitespace on a blank line or an unsorted import block and paid a climb for each, and running the fixers after a rung is done is the point — it lifts every task the deterministic floor could not take outright. It rewrites a file after the gate has spoken about it, so the bytes that come back are not the bytes the worker sent: the journal keeps the reply, the tree keeps the repaired file, and the verdict says a repair ran. Set false to have the rejection stand as the gate reached it. What no tool fixes — a failed acceptance command, a name, a line too long to wrap — is rejected exactly as before. |
+| `cleanup.enabled` | boolean | no | `true` | Repair a change the gate rejected with the deterministic tools — the declared imports, the linter's own autofixes, the formatter — and judge it again on the same rung, instead of spending an attempt or a climb on what a tool clears for nothing. The tools are the ones the gate already checks with, so a repair produces the shape the rungs ask for rather than a second opinion about it, and it costs no tokens by construction. It rewrites a file after the gate has spoken about it, so the bytes that come back are not the bytes the worker sent: the journal keeps the reply, the tree keeps the repaired file, and the verdict says a repair ran. Set false to have the rejection stand as the gate reached it. What no tool fixes — a failed acceptance command, a name, a line too long to wrap — is rejected exactly as before. |
 
 ## `serving`
 
@@ -176,8 +177,8 @@ What mcgyvr may do to the machines that serve the units. A unit's HuggingFace ca
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `serving.enable_sleep_wake` | boolean | no | `false` | Whether mcgyvr may take a card down and bring it back on its own. Off by default, because the feature is a trade and not an improvement: turning it on lets `mcgyvr run` stop containers on a rig other people share. It is a key here and not a `--flag` for the reason `mcgyvr run --config` already gives about which rung runs — the config a run is made under is what a run is reproducible from, and a flag would let two runs share one config where only one of them started and stopped containers on a shared rig, putting the rig side effect outside the only record that explains the run. It governs the *decisions*: `mcgyvr serve sleep\|wake`, typed by a person who has therefore asked, is not gated by it. It sits here rather than under `ladder` because `ladder.fanout` decides where work goes among rungs that exist and this decides whether rungs come into existence — two authorities, and only one of them touches a rig. |
-| `serving.compose_dir` | text | no | unset | Where this checkout keeps the launch specs `mcgyvr emit` wrote. The one thing that has to be stated rather than derived, because `mcgyvr emit --out` defaults to the current directory and a wake has to find the file again. It is deliberately not a device and not a host: a `device: cuda:0` beside a `base_url` would be two statements of one fact and would go stale the first time a source was re-pointed, whereas this cannot go stale against anything — it says where files are, not where work runs. A config that omits it has no sleeping cards at all, only down ones: `asleep` is `down` plus a launch spec mcgyvr holds for that card, and with no directory there is no spec. To bind it: the directory `mcgyvr emit --out` writes to -- e.g. ~/.mcgyvr/fleets/<fleet>/compose -- or leave it unset and this ladder has no sleeping cards, only down ones. |
+| `serving.enable_sleep_wake` | boolean | no | `false` | Whether mcgyvr may take a card down and bring it back on its own. Off by default, because the feature is a trade and not an improvement: turning it on lets `mcgyvr run` stop containers on a rig other people share. It is a key here and not a `--flag` for the reason `mcgyvr run --config` already gives about which rung runs — the config a run is made under is what a run is reproducible from, and a flag would let two runs share one config where only one of them started and stopped containers on a shared rig, putting the rig side effect outside the only record that explains the run. It governs the *decisions*: `mcgyvr serve sleep\|wake`, typed by a person who has therefore asked, is not gated by it. It is a key of its own rather than part of `fanout` because `fanout` decides where work goes among rungs that exist and this decides whether rungs come into existence — two authorities, and only one of them touches a rig. |
+| `serving.compose_dir` | text | no | unset | Where this checkout keeps the launch specs `mcgyvr emit` wrote. The one thing that has to be stated rather than derived, because `mcgyvr emit --out` defaults to the current directory and a wake has to find the file again. It is deliberately not a device and not a host: a `device: cuda:0` beside a unit's `address` would be two statements of one fact and would go stale the first time a unit was re-pointed, whereas this cannot go stale against anything — it says where files are, not where work runs. A config that omits it has no sleeping cards at all, only down ones: `asleep` is `down` plus a launch spec mcgyvr holds for that card, and with no directory there is no spec. To bind it: the directory `mcgyvr emit --out` writes to -- e.g. ~/.mcgyvr/fleets/<fleet>/compose -- or leave it unset and this ladder has no sleeping cards, only down ones. |
 
 ## `journal`
 
