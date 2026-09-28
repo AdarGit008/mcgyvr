@@ -92,15 +92,24 @@ class Number:
     where: Path
 
     def says(self) -> str:
-        """The answer in one sentence: value, unit, layer, and how to set your own."""
+        """The answer: value, unit, the layer and file, then the setting as YAML.
+
+        The setting after the blank line is what the user's file holds, or
+        would hold, for this number and key (its name, then the key and value
+        indented below it), so it can be copied into that file as it is. An
+        estimate adds where to write your own; your own setting does not.
+        """
+        setting = yaml.safe_dump(
+            {self.id: {self.key: self.value}}, default_flow_style=False
+        ).rstrip("\n")
+        head = f"{self.id}[{self.key!r}] is {self.value:g} {self.unit}"
         if self.source == "override":
-            layer = f"your own setting in {self.where}"
-        else:
-            layer = f"the estimate shipped with mcgyvr in {self.where}"
+            return f"{head}, your own setting in {self.where}:\n\n{setting}"
         return (
-            f"{self.id}[{self.key!r}] is {self.value:g} {self.unit}, {layer}; "
-            f"set {self.id}: {self.key}: <value> in {overrides_path()} to use "
-            "your own"
+            f"{head}, the shipped estimate in {self.where}. To use your own "
+            f"value, write this in {overrides_path()} with your value in place "
+            f"of {self.value:g}:"
+            f"\n\n{setting}"
         )
 
 

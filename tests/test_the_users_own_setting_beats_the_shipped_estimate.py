@@ -13,6 +13,7 @@ import random
 from pathlib import Path
 
 import pytest
+import yaml
 
 from mcgyvr import derived
 from tests import numbers_fixture as nf
@@ -102,3 +103,16 @@ def test_the_two_layers_say_different_things_about_themselves(
     override = derived.lookup(entry.id, key, path=shipped)
     assert estimate.source != override.source
     assert estimate.says() != override.says()
+
+    # Each ends in the setting as it is written in the user's file: valid YAML,
+    # the number's name, then its key and value indented below it.
+    for number in (estimate, override):
+        setting = number.says().split("\n\n")[-1]
+        assert yaml.safe_load(setting) == {entry.id: {key: number.value}}
+        assert setting.splitlines()[0] == f"{entry.id}:"
+        assert setting.splitlines()[1].startswith("  ")
+    assert str(shipped) in estimate.says()
+    assert str(derived.overrides_path()) in estimate.says()
+    assert "To use your own value" in estimate.says()
+    assert str(derived.overrides_path()) in override.says()
+    assert "To use your own value" not in override.says()
