@@ -502,13 +502,13 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "The attention backend this vLLM unit pins, because the card decides \
 "
         "what is valid.",
-        bind_hint="e.g. FLASH_ATTN, or TRITON_ATTN where the card lacks FLASH_ATTN",
+        bind_hint="e.g. FLASH_ATTN: the backend the unit's own log names",
     ),
     Field(
         "container",
         "str",
         "The container name this unit runs under.",
-        bind_hint="e.g. mcgyvr-<host>-<unit>",
+        bind_hint="e.g. `mcgyvr-<host>-<unit>`",
     ),
     Field(
         "hf_cache",
@@ -616,7 +616,7 @@ SCHEMA: tuple[Field, ...] = (
         "How many times each unit may be tried before escalation moves on.",
         default=None,
         min_value=1,
-        bind_hint="e.g. {<unit>: 2}",
+        bind_hint="e.g. `{<unit>: 2}`",
     ),
     Field(
         "draws",
@@ -629,7 +629,7 @@ SCHEMA: tuple[Field, ...] = (
         "effective number where it exceeds one.",
         default=None,
         min_value=1,
-        bind_hint="e.g. {<unit>: 3}",
+        bind_hint="e.g. `{<unit>: 3}`",
     ),
     Field(
         "max_escalations",

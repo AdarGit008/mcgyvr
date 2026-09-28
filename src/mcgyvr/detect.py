@@ -226,8 +226,9 @@ class Detection:
     def largest_vram_gb(self) -> float | None:
         """VRAM of the biggest single card, or None when there is no GPU.
 
-        Deliberately not a sum: a model runs on one card, so two 6 GB cards
-        are two 6 GB decisions, not one 12 GB decision. Multi-GPU sharding
+        Deliberately not a sum: a model runs on one card, so several cards
+        are one decision per card, never one decision over their total.
+        Multi-GPU sharding
         would change that and is not something this detects.
         """
         return max((g.vram_gb for g in self.gpus), default=None)
