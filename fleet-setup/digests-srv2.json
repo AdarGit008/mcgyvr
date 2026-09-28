@@ -182,6 +182,44 @@
         "weights": "59c77a3c3c05eaa30fec8ec9714b6720605b15b4e117695c568604f1731e6efb"
       },
       "unit_id": "unt-7a00ef65a07969b3897d182e2d195f2e90706a1da6f308e285f16a88911843bb"
+    },
+    "srv2_35b_32k": {
+      "fields": {
+        "argv": [
+          "--model",
+          "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+          "--n-cpu-moe",
+          "28",
+          "--parallel",
+          "1",
+          "--port",
+          "8080",
+          "-b",
+          "512",
+          "-ub",
+          "512",
+          "-c",
+          "32768",
+          "-fa",
+          "on",
+          "-ctk",
+          "q8_0",
+          "-ctv",
+          "q8_0",
+          "-ngl",
+          "99",
+          "-t",
+          "6"
+        ],
+        "engine": "llama.cpp",
+        "env": {
+          "LLAMA_ARG_HOST": "0.0.0.0"
+        },
+        "gpu_cc": "7.5",
+        "image": "sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6",
+        "weights": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe"
+      },
+      "unit_id": "unt-bf826b27dfc7655ee18d21bcf6f55d9592b739e0f4a716e1cbe89559a4193c83"
     }
   }
 }

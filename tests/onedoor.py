@@ -157,6 +157,19 @@ RIG: dict[str, dict[str, str]] = {
         "ram_mt_s": "3600",
         "pl1_uw": "95000000",
         "pl2_uw": "120000000",
+        "gpu_name": "NVIDIA_GeForce_RTX_3060",
+        "gpu_vram_mib": "12288",
+        "gpu_cc": "8.6",
+        "driver": "580.178.04",
+        "gpu_reserve_mib": "381",
+        "docker": "29.7.2",
+    },
+    "srv2": {
+        "cpu_max_mhz": "5200",
+        "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+        "ram_mt_s": "3200",
+        "pl1_uw": "4095000000",
+        "pl2_uw": "4095000000",
         "gpu_name": "NVIDIA_GeForce_GTX_1660_SUPER",
         "gpu_vram_mib": "6144",
         "gpu_cc": "7.5",
@@ -164,22 +177,9 @@ RIG: dict[str, dict[str, str]] = {
         "gpu_reserve_mib": "399",
         "docker": "29.7.2",
     },
-    "srv2": {
-        "cpu_max_mhz": "5200",
-        "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
-        "ram_mt_s": "2933",
-        "pl1_uw": "65000000",
-        "pl2_uw": "0",
-        "gpu_name": "NVIDIA_GeForce_RTX_3060",
-        "gpu_vram_mib": "12288",
-        "gpu_cc": "8.6",
-        "driver": "595.91.07",
-        "gpu_reserve_mib": "377",
-        "docker": "29.7.2",
-    },
 }
 RIG_KEYS = frozenset(RIG["srv1"])
-RIG_READ_ON = "2026-09-03"
+RIG_READ_ON = "2026-09-26"
 #: What ``rig-snapshot.sh`` prints beyond the declared keys: the two VRAM
 #: figures a placement spends, the host memory, the thread count, the name
 #: the daemon must answer to (gate 3), and the two idle readings gate 2 holds
