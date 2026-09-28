@@ -4,7 +4,8 @@
 #
 # Before this step the owner changes srv1 by hand, following
 # records/evidence/2026-09-27-srv1-multi-gpu/p2p-rebar-runbook.md: Above 4G
-# Decoding and Re-Size BAR on in the BIOS, the IOMMU in passthrough, and the
+# Decoding on in the BIOS, BAR1 resized from Linux through resource1_resize
+# (the BIOS has no Re-Size BAR option), the IOMMU in passthrough, and the
 # P2P-patched open kernel module (the p2p patch forward-ported onto NVIDIA's
 # open-gpu-kernel-modules at the userspace driver's exact version) in place of
 # the proprietary DKMS module. The driver version does not move, so the rows
@@ -18,7 +19,7 @@
 #          complexes forward peer writes and not peer reads)
 #   torch.cuda.can_device_access_peer is True both ways, inside the vLLM image,
 #          and a 4 MiB copy cuda:0 -> cuda:1 -> cuda:0 comes back identical
-#   each card's BAR1 total is at least its VRAM (Resizable BAR is on; the
+#   each card's BAR1 total is at least its VRAM (BAR1 is resized; the
 #          patch maps peer memory through BAR1)
 #
 # Rows (p2p.tsv):
