@@ -44,13 +44,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `timings` when it drafted, absent otherwise and never zeroed; the journal
   index carries both columns. Their ratio is the acceptance the lever was
   measured by.
-- A llama.cpp unit whose launch drafts with the GGUF's own head (`--spec-type
-  draft-mtp`) is judged by a tolerance class of its own, `mtp`, stated in
-  `tools/runs/derived.json`: warm decode 2% and prefill 5%, both measured on
-  `srv2_ornith_mtp` over the mtp-ornith window
-  (`records/measurements/lock-fleets/mtp-ornith/`), not `cpu_experts`' 48% and
-  1%, which were measured on srv1 offload (owner, 2026-09-16). Every other
-  unit keeps its class and its numbers.
+- A llama.cpp unit whose launch drafts with the GGUF's own head is judged by
+  a tolerance class of its own, `mtp`, however it asks: `--spec-type
+  draft-mtp` or `--spec-type=draft-mtp` in its argv or flags, or
+  `speculative: mtp` in its launch block, with or without experts on the CPU
+  beside it. The class is stated in `tools/runs/derived.json`: warm decode 2%
+  and prefill 5%, both measured on `srv2_ornith_mtp` over the mtp-ornith
+  window (`records/measurements/lock-fleets/mtp-ornith/`), not `cpu_experts`'
+  48% and 1%, which were measured on srv1 offload (owner, 2026-09-16). The
+  window's prefill tolerance is recorded twice with the same figures:
+  `prefill-tolerance-cpu_experts.json`, written while the unit was still
+  `cpu_experts`, is kept as recorded, beside `prefill-tolerance-mtp.json`,
+  which derived.json cites. Every other unit keeps its class and its numbers.
 - `breadth.temperature` (default 0.7, 0.0–2.0) — what the draws after the
   first sample at. Draw 0 of every attempt stays greedy, so a single-draw
   install sends what it always sent; a breadth above one at temperature 0.0 is
