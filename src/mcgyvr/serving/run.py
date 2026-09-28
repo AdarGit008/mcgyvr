@@ -69,6 +69,20 @@ declared one and before the step, because a placement derived against the
 wrong machine is worse than no placement. Gates 7-8 run after the step
 whatever it did.
 
+A CALLER'S GATES. ``serve`` and ``read`` take ``--gates FILE``: a JSON object
+naming a ``root`` folder and a list of gates, each ``{path, why, phase,
+exports}``. The door runs them inside its own run and never instead of any
+part of it: ``before`` runs after the door's profile gate, which reads no
+machine, and before anything is sent to one; on ``serve``, ``after`` runs
+after the identity and daemon gates and before the step, and ``always`` after
+the teardown gates and before the lease is released; on ``read``, ``after``
+runs after the reading gate has read the machine and filed what it read, so
+it cannot stop that filing, and ``always`` is refused, since a read has no
+teardown and no lease. The list is read and held to :func:`load_gate_list`
+before any gate runs. A caller's gate sees its list's root as ``RUN_ROOT``
+and may export only the ``RUN_`` names its list declares, none of them a name
+the door sets (:data:`DOOR_NAMES`).
+
 THE CONTRACT WITH A GATE SCRIPT. It is an executable under ``gate-scripts/``.
 It reads the run from the environment (:data:`EXPORTED`), writes anything it
 learned as ``KEY=VALUE`` lines on the descriptor ``RUN_EXPORT_FD`` names, and exits 0 to
@@ -80,6 +94,7 @@ the seam that lets a caller do it.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import secrets
@@ -171,6 +186,10 @@ class Entry:
     why: str
     status: int = 2
     exports: tuple[str, ...] = ()
+    #: Empty for the door's own entries. For a caller's gate, the root its
+    #: gate list names: the gate runs there and sees it as ``RUN_ROOT``, and
+    #: ``script`` is the gate's resolved absolute path.
+    root: str = ""
 
 
 #: THE RUN. Order is enforced, membership is enforced, and neither is
@@ -376,6 +395,179 @@ EXPORTED = (
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
+#: Every name the door sets for its own gates: the vocabulary above, what the
+#: read's entries export, and the export descriptor's own name. A caller's
+#: gate may not export one of these, because a door gate would read it.
+DOOR_NAMES = frozenset(
+    {
+        *EXPORTED,
+        *(name for entry in (*READ_SEQUENCE, LEASE_RELEASE) for name in entry.exports),
+        "RUN_EXPORT_FD",
+    }
+)
+#: The names a caller's gate may export: the door's own prefix, so no value
+#: can be inherited under one (see :func:`_ambient`) and none is a variable
+#: that changes how a program runs (``PATH``, ``LD_PRELOAD``, ...).
+CALLER_EXPORT = re.compile(r"^RUN_[A-Z0-9_]+$")
+#: The phases of a caller's gate list.
+PHASES = ("before", "after", "always")
+#: Where each phase runs, as the door entry it follows. ``before`` follows the
+#: profile gate, which reads no machine, so it runs before the first gate that
+#: reaches one. ``always`` is not here: on ``serve`` it runs after
+#: :data:`ALWAYS`, and a read has no such phase.
+SERVE_PHASES = {"before": "01-round.py", "after": "03-image.py"}
+READ_PHASES = {"before": "read-01-profile.py", "after": "read-02-rig.py"}
+#: The keys of a gate list, and of one gate in it. Anything else is refused.
+GATE_LIST_KEYS = frozenset({"root", "gates"})
+GATE_KEYS = frozenset({"path", "why", "phase", "exports"})
+
+
+@dataclass(frozen=True)
+class GateList:
+    """A caller's gates, by phase, as :func:`load_gate_list` admitted them."""
+
+    source: Path
+    root: Path
+    before: tuple[Entry, ...] = ()
+    after: tuple[Entry, ...] = ()
+    always: tuple[Entry, ...] = ()
+
+
+def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
+    """Read the gate list ``named``, or refuse it naming the file and the entry.
+
+    A gate list is input the door does not trust. Refused here, before any
+    gate runs: a file that is not a JSON object of ``root`` and ``gates``; a
+    key the door does not know; a root that is not an existing folder named by
+    an absolute path; a gate whose path is missing, not an executable file, or
+    resolves (through ``..`` or a link) outside the root; a phase not in
+    ``phases``; an export that is not a ``RUN_`` name, is one of
+    :data:`DOOR_NAMES`, or is declared by two gates.
+    """
+    source = Path(named)
+    source = source if source.is_absolute() else Path.cwd() / source
+
+    def no(where: str, why: str) -> NoReturn:
+        _refuse(2, f"--gates {source}: {where} {why}")
+
+    try:
+        doc = json.loads(source.read_text(encoding="utf-8"))
+    except OSError as escape:
+        no("the list", f"cannot be read ({escape.strerror or escape!r})")
+    except (UnicodeDecodeError, json.JSONDecodeError) as escape:
+        no("the list", f"is not JSON ({escape})")
+    if not isinstance(doc, dict):
+        no("the list", "is not a JSON object of `root` and `gates`")
+    for key in sorted(set(doc) - GATE_LIST_KEYS):
+        no(f"key {key!r}", "is not a gate list key; a list holds `root` and `gates`")
+    raw_root = doc.get("root")
+    try:
+        root = Path(raw_root) if isinstance(raw_root, str) and raw_root else None
+        usable = root is not None and root.is_absolute() and root.is_dir()
+    except (OSError, RuntimeError):
+        usable = False
+    if root is None or not usable:
+        no(
+            "root",
+            f"{raw_root!r} is not an existing folder named by an absolute path; "
+            "a caller's gates run there and read it as RUN_ROOT",
+        )
+    root = root.resolve()
+    gates = doc.get("gates")
+    if not isinstance(gates, list):
+        no("gates", "is not a list")
+
+    held: dict[str, list[Entry]] = {phase: [] for phase in PHASES}
+    declared: dict[str, str] = {}
+    for index, gate in enumerate(gates):
+        where = f"gates[{index}]"
+        if not isinstance(gate, dict):
+            no(where, "is not an object of path, why, phase and exports")
+        path = gate.get("path")
+        if isinstance(path, str) and path:
+            where = f"{where} ({path})"
+        for key in sorted(set(gate) - GATE_KEYS):
+            no(where, f"carries {key!r}, which is not a gate key")
+        if not isinstance(path, str) or not path:
+            no(where, "names no path")
+        why = gate.get("why")
+        if not isinstance(why, str) or not why.strip():
+            no(where, "says no `why`; a gate that refuses must say what it holds")
+        phase = gate.get("phase")
+        if phase not in phases:
+            no(
+                where,
+                f"asks for phase {phase!r}; this run has "
+                f"{', '.join(phases)} and no other"
+                + (
+                    " (a read has no teardown and no lease for an `always` "
+                    "gate to follow)"
+                    if phase == "always"
+                    else ""
+                ),
+            )
+        exports = gate.get("exports", [])
+        if not isinstance(exports, list) or not all(
+            isinstance(name, str) for name in exports
+        ):
+            no(where, "`exports` is not a list of names")
+        target = Path(path)
+        target = target if target.is_absolute() else root / target
+        try:
+            script = target.resolve(strict=True)
+        except (OSError, RuntimeError):
+            no(where, f"names {target}, which is not there")
+        if not script.is_relative_to(root):
+            no(
+                where,
+                f"resolves to {script}, outside the list's root {root}; a gate "
+                "runs from inside its root or not at all",
+            )
+        if not script.is_file() or not os.access(script, os.X_OK):
+            no(where, f"is not an executable file ({script})")
+        for name in exports:
+            if CALLER_EXPORT.match(name) is None:
+                no(
+                    where,
+                    f"exports {name!r}; a caller's gate exports RUN_ names only",
+                )
+            if name in DOOR_NAMES:
+                no(where, f"exports {name!r}, a name the door sets for its own gates")
+            if name in declared:
+                no(where, f"exports {name!r}, which {declared[name]} exports too")
+            declared[name] = where
+        held[phase].append(
+            Entry(
+                str(script),
+                why,
+                status=1 if phase == "always" else 2,
+                exports=tuple(exports),
+                root=str(root),
+            )
+        )
+    return GateList(
+        source=source,
+        root=root,
+        before=tuple(held["before"]),
+        after=tuple(held["after"]),
+        always=tuple(held["always"]),
+    )
+
+
+def _following(
+    entry: Entry, anchors: dict[str, str], gates: GateList | None
+) -> tuple[Entry, ...]:
+    """The caller's gates that run right after the door's ``entry``."""
+    if gates is None:
+        return ()
+    return tuple(
+        gate
+        for phase, anchor in anchors.items()
+        if anchor == entry.script
+        for gate in getattr(gates, phase)
+    )
+
+
 #: `KEY=VALUE`, where VALUE runs to end of line. Anything else on the export
 #: descriptor is a
 #: gate trying to say something the door has no vocabulary for.
@@ -522,12 +714,16 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
     there — which it did, silently, while still exiting 0. The declared-exports
     check below is what caught it.
     """
+    # A caller's gate runs from its own root and sees it as RUN_ROOT; what it
+    # exports still lands in the door's ``env``.
+    script = Path(entry.script) if entry.root else GATE_SCRIPTS / entry.script
+    child = dict(env, RUN_ROOT=entry.root) if entry.root else env
     read_fd, write_fd = os.pipe()
     try:
         proc = subprocess.Popen(
-            [sys.executable, str(GATE_SCRIPTS / entry.script), *(args or [])],
-            cwd=env.get("RUN_ROOT") or ROOT,
-            env=dict(env, RUN_EXPORT_FD=str(write_fd)),
+            [sys.executable, str(script), *(args or [])],
+            cwd=child.get("RUN_ROOT") or ROOT,
+            env=dict(child, RUN_EXPORT_FD=str(write_fd)),
             pass_fds=(write_fd,),
         )
         os.close(write_fd)
@@ -565,8 +761,9 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
             _refuse(
                 2,
                 f"{entry.script} exported {key}, which it does not declare in "
-                "SEQUENCE. The door knows the whole vocabulary before anything "
-                "runs, so a gate cannot introduce a variable a later gate reads",
+                f"{'its gate list' if entry.root else 'SEQUENCE'}. The door knows "
+                "the whole vocabulary before anything runs, so a gate cannot "
+                "introduce a variable a later gate reads",
             )
         env[key] = value
 
@@ -754,6 +951,19 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
     parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
+    parser.add_argument(
+        "--gates",
+        default="",
+        metavar="FILE",
+        help=(
+            "a caller's gate list (JSON: root, gates of path, why, phase, "
+            "exports): `before` gates run after the profile and before anything "
+            "is sent to the machine, `after` gates after the identity and daemon "
+            "gates and before the step, `always` gates after the teardown gates "
+            "and before the lease is released. The door's own gates all run, in "
+            "their order"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -794,6 +1004,11 @@ def _serve(argv: list[str]) -> int:
     except servelib.ComposeError as escape:
         print(f"run.py: REFUSED — {escape}", file=sys.stderr)
         return 2
+    try:
+        gates = load_gate_list(opts.gates) if opts.gates else None
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
 
     env = dict(os.environ)
     env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
@@ -827,6 +1042,10 @@ def _serve(argv: list[str]) -> int:
                     if entry.script != "06-step.py":
                         return _stop(entry, status, env)
                     step_status = status
+                for gate in _following(entry, SERVE_PHASES, gates):
+                    status = _run_entry(gate, env)
+                    if status != 0:
+                        return _stop(gate, status, env)
         except RefusedError as refusal:
             print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
             return refusal.status
@@ -838,7 +1057,7 @@ def _serve(argv: list[str]) -> int:
                 file=sys.stderr,
             )
 
-        after = _always(env)
+        after = _always(env, gates.always if gates else ())
         if interrupted:
             return 130
         return step_status or after
@@ -901,6 +1120,18 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         default="",
         help="the id the read's rows are filed under (default: minted)",
     )
+    parser.add_argument(
+        "--gates",
+        default="",
+        metavar="FILE",
+        help=(
+            "a caller's gate list (JSON: root, gates of path, why, phase, "
+            "exports): `before` gates run after the profile and before anything "
+            "is sent to the machine; `after` gates run after the machine is read "
+            "and what was read is filed, so they cannot stop that filing. A read "
+            "has no `always` phase, and a list that asks for one is refused"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -939,6 +1170,8 @@ def _read(argv: list[str]) -> int:
         return 2
     try:
         root = run_root()
+        # A read has no teardown and no lease, so no `always` phase to run in.
+        gates = load_gate_list(opts.gates, tuple(READ_PHASES)) if opts.gates else None
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -966,6 +1199,10 @@ def _read(argv: list[str]) -> int:
                 return _stop(entry, status, env)
             if status != 0:
                 return status
+            for gate in _following(entry, READ_PHASES, gates):
+                status = _run_entry(gate, env)
+                if status != 0:
+                    return _stop(gate, status, env)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -1106,23 +1343,24 @@ def main(argv: list[str] | None = None) -> int:
 UNSTOPPABLE = (signal.SIGINT, signal.SIGTERM)
 
 
-def _always(env: dict[str, str]) -> int:
-    """Gates 7 and 8, to completion, whatever signal arrives meanwhile.
+def _always(env: dict[str, str], callers: tuple[Entry, ...] = ()) -> int:
+    """Gates 7 and 8, then ``callers``, to completion, whatever signal arrives.
 
     A signal handled here would end the entry that was running — gate 7
     mid-read of the rig, gate 8 mid-parse — and the run's end state would be
     exactly as unknown as if neither had run. So both signals are ignored
     for the whole phase and restored after it; a run interrupted before this
     phase still exits 130 (the caller keeps that), and one interrupted
-    during it exits with what 7 and 8 decided. The claim gate 5 took on the
-    RUN_ID is released last, on every path out of here.
+    during it exits with what 7 and 8 decided. ``callers`` are a caller's
+    ``always`` gates, run after 7 and 8 under the same rules. The claim gate 5
+    took on the RUN_ID is released last, on every path out of here.
     """
     if "RUN_ID" not in env:
         return 0  # gate 5 never minted a run: nothing was started to tear down
     previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
     after = 0
     try:
-        for entry in ALWAYS:
+        for entry in (*ALWAYS, *callers):
             try:
                 if _run_entry(entry, env) != 0:
                     print(f"run.py: {entry.why}", file=sys.stderr)
