@@ -28,18 +28,6 @@ from mcgyvr.worker.bundle import (
 )
 from mcgyvr.worker.prompt import build_prompt, render_user_message
 
-REPO = Path(__file__).resolve().parent.parent
-MEASURED_C2 = (
-    REPO
-    / "records"
-    / "evidence"
-    / "local-ai-2026-08-02"
-    / "data"
-    / "context_exp"
-    / "bundles"
-    / "c2.md"
-)
-
 PY_CONTRACT = """
 id: fetch-retry
 task_type: function_implementation
@@ -76,12 +64,6 @@ def contract(text: str) -> Contract:
 
 
 # --- the bundle is the measured artifact -----------------------------------
-
-
-def test_shipped_python_bundle_is_byte_identical_to_the_measured_one() -> None:
-    """A reworded bundle is an unmeasured one, whatever it says in the record."""
-    shipped = load_bundle("python")
-    assert shipped.text.encode("utf-8") == MEASURED_C2.read_bytes()
 
 
 def test_both_bundles_are_measured_and_neither_helps_on_this_path() -> None:

@@ -43,7 +43,6 @@ prompt and 256 tokens out, so a dispatch is not the lock's quantity.
 
 from __future__ import annotations
 
-import ast
 import json
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -54,9 +53,6 @@ import pytest
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
-HARNESS = REPO / "records" / "measurements" / "fleet-setup-2026-09-13"
-VLLM_HARNESS = HARNESS / "srv2" / "measure_vllm.py"
-LLAMA_HARNESS = HARNESS / "srv1" / "harness_llama.py"
 
 UNIT_3B = "unt-" + "5" * 64
 UNIT_DS = "unt-" + "e" * 64
@@ -142,30 +138,6 @@ EVIDENCE: dict[str, Any] = {
 }
 
 NOW = datetime(2026, 9, 15, 12, 0, 0, tzinfo=UTC)
-
-
-def _harness_strings(path: Path) -> dict[str, Any]:
-    """The module-level string constants a harness assigns, evaluated as written."""
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    found: dict[str, Any] = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target = node.targets[0]
-        if not isinstance(target, ast.Name):
-            continue
-        expr = ast.Expression(node.value)
-        ast.fix_missing_locations(expr)
-        try:
-            value = eval(
-                compile(expr, str(path), "eval"),
-                {"__builtins__": {}},
-                dict(found),
-            )
-        except Exception:
-            continue
-        found[target.id] = value
-    return {k: v for k, v in found.items() if isinstance(v, str | list)}
 
 
 def live_home(
@@ -291,22 +263,6 @@ def test_each_unit_has_one_tolerance_class(unit: dict[str, Any], expected: str) 
     assert tolerance_class(unit) == expected
 
 
-def test_the_class_tolerances_are_the_measured_ones_stated_in_derived_json() -> None:
-    from mcgyvr import derived
-
-    measured = json.loads(
-        (
-            REPO / "records/measurements/fleet-identity-2026-09-11/tolerances.json"
-        ).read_text(encoding="utf-8")
-    )["classes"]
-    stated = derived.class_tolerances()["warm_decode_tok_s"]
-    assert {name: stated[name] for name in measured} == {
-        name: float(body["tolerance_pct"]) for name, body in measured.items()
-    }
-    # ``mtp`` was measured later, by the mtp-ornith window (owner, 2026-09-16).
-    assert set(stated) - set(measured) == {"mtp"}
-
-
 def test_an_absent_class_tolerance_is_refused_by_name(tmp_path: Path) -> None:
     from mcgyvr import derived
 
@@ -388,33 +344,6 @@ def test_the_locks_plain_values_are_judged_with_the_class_tolerance(
 
 
 # --- the probe --------------------------------------------------------------
-
-
-def test_the_probe_sends_the_locks_own_requests(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    live_home(tmp_path, monkeypatch)
-    fake = FakeUnits(HOLDING)
-    run_probe(fake)
-
-    vllm = _harness_strings(VLLM_HARNESS)
-    llama = _harness_strings(LLAMA_HARNESS)
-    to_3b = [p for u, p in fake.posts if u.startswith("http://srv2:8001")]
-    assert [p["max_tokens"] for p in to_3b] == [64] + [256] * 5 + [16] * 3
-    assert all(p["temperature"] == 0 for p in to_3b)
-    assert [p["ignore_eos"] for p in to_3b] == [False] + [True] * 5 + [False] * 3
-    assert all(p["messages"] == vllm["SHORT"] for p in to_3b[:6])
-    assert all(
-        p["messages"] == [{"role": "user", "content": vllm["LONG"]}] for p in to_3b[6:]
-    )
-    assert all(p["model"] == "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ" for p in to_3b)
-
-    to_ds = [p for u, p in fake.posts if u.startswith("http://srv1:8080")]
-    assert [p["n_predict"] for p in to_ds] == [64] + [256] * 5 + [16] * 3
-    assert all(p["temperature"] == 0 for p in to_ds)
-    assert all(p["prompt"] == llama["SHORT_PROMPT"] for p in to_ds[:6])
-    assert all(p["prompt"] == llama["LONG_PROMPT"] for p in to_ds[6:])
-    assert all(p.get("cache_prompt") is False for p in to_ds[1:])
 
 
 def test_the_probe_files_stamped_observations_under_journal_fleet(

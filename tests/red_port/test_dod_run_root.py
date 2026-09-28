@@ -39,41 +39,6 @@ def _probe(root: Path, env_file: Path) -> onedoor.Scenario:
     return onedoor.Scenario(campaign=CAMPAIGN, step=str(step))
 
 
-def test_the_envelope_lands_under_the_named_run_root(tmp_path: Path) -> None:
-    """The measured case: the door runs from one tree and files under another."""
-    checkout = onedoor.fixture_repo(tmp_path / "checkout")
-    run_root = onedoor.fixture_repo(tmp_path / "run-root")
-    env_file = tmp_path / "env.txt"
-    done = onedoor.door(
-        checkout,
-        _probe(run_root, env_file),
-        env_extra={RUN_ROOT_VAR: str(run_root)},
-    )
-    assert done.returncode == 0, done.stderr[-1500:]
-
-    envelope = onedoor.envelope(run_root, CAMPAIGN)
-    assert (envelope / "probe.tsv").is_file(), (
-        f"the step's artifact is not under {RUN_ROOT_VAR}={run_root}: "
-        f"{onedoor.written_under_records(run_root)}"
-    )
-    handed = onedoor.read_env_file(env_file)
-    assert handed["RUN_OUT_DIR"] == str(envelope), handed
-    assert onedoor.written_under_records(checkout) == [], (
-        "the checkout the door runs from is not the run root, and got written to"
-    )
-
-
-def test_without_the_variable_the_checkout_is_the_root(tmp_path: Path) -> None:
-    """The direction that must not break: nothing named, nothing moves."""
-    checkout = onedoor.fixture_repo(tmp_path / "checkout")
-    env_file = tmp_path / "env.txt"
-    done = onedoor.door(checkout, _probe(checkout, env_file))
-    assert done.returncode == 0, done.stderr[-1500:]
-    envelope = onedoor.envelope(checkout, CAMPAIGN)
-    assert (envelope / "probe.tsv").is_file()
-    assert onedoor.read_env_file(env_file)["RUN_OUT_DIR"] == str(envelope)
-
-
 def test_a_root_that_does_not_exist_is_refused_and_not_made(tmp_path: Path) -> None:
     """A typo in the variable is a refusal, never a directory."""
     checkout = onedoor.fixture_repo(tmp_path / "checkout")

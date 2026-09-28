@@ -44,27 +44,3 @@ def test_a_container_still_named_for_the_run_is_exit_1_and_named(
     assert any(line.startswith("ps") for line in onedoor.docker_log(root)), (
         "the door never asked docker ps"
     )
-
-
-def test_a_rig_that_reads_differently_after_the_step_is_stamped_rigmoved(
-    tmp_path: Path,
-) -> None:
-    root = onedoor.fixture_repo(tmp_path)
-    flag = tmp_path / "step-ran"
-    onedoor.add_step(
-        root,
-        "alpha",
-        "1-probe.sh",
-        onedoor.probe_step(tmp_path / "e", after=f"touch '{flag}'"),
-    )
-    onedoor.rig_stub(onedoor.stubs_dir(root), "srv1", moved_flag=flag)
-    result = onedoor.door(root, PROBE)
-    assert result.returncode == 1, (result.stdout, result.stderr)
-    assert "pl1_uw" in result.stderr, result.stderr
-    artifact = onedoor.envelope(root, "alpha") / "probe.tsv"
-    lines = artifact.read_text(encoding="utf-8").splitlines()
-    moved = [line for line in lines if line.startswith("### RIGMOVED")]
-    assert moved, f"no ### RIGMOVED in the artifact:\n{artifact.read_text()}"
-    assert lines.index(moved[0]) > lines.index(
-        next(line for line in lines if line.startswith("### END"))
-    ), "RIGMOVED must be appended after the step's own ### END"

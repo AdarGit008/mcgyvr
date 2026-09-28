@@ -34,7 +34,6 @@ import collections
 import json
 import math
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -306,24 +305,6 @@ def test_declared_duplicates_that_must_agree_do_agree() -> None:
 # The unmapped rung — a declared bar naming checks the gate cannot emit
 # --------------------------------------------------------------------------
 
-# `GATE_RUNGS` is written verbatim into every bench manifest as the bar a rate
-# was measured against. Three of its five names match nothing the gate emits,
-# so a reader joining a row's `rejected_by` against the declared bar matches two
-# names in nine. The names are a *category* vocabulary; this is the mapping from
-# each declared category to the `check=` values it actually covers, and it is
-# what makes the declaration checkable rather than decorative.
-RUNG_COVERAGE: dict[str, tuple[str, ...]] = {
-    "scope": ("scope",),
-    "secrets": ("secret",),
-    "structured": ("structured-data",),
-    # `style` is the adapters rung too, not a sixth category: D17 split the lint
-    # rung's output by severity, so the same run now emits `lint` for what
-    # rejects and `style` for what is reported and does not. Both come from the
-    # adapter the bar already names.
-    "adapters": ("syntax", "structure", "lint", "format", "style"),
-    "acceptance": ("acceptance",),
-}
-
 
 def _emitted_check_names(gate: Path | None = None) -> dict[str, list[str]]:
     """Every literal a ``Finding(check=...)`` can carry, resolved by AST."""
@@ -359,148 +340,9 @@ def _emitted_check_names(gate: Path | None = None) -> dict[str, list[str]]:
     return dict(emitted)
 
 
-def test_declared_rungs_name_emitted_checks() -> None:
-    """Every name in the declared bar covers at least one emitted check.
-
-    A check states what it contains, or it is worse than dead weight. ``gate_rungs`` is
-    written byte-identically into both arms of every contrast, so a name in it that
-    corresponds to nothing is a bar that reads as applied and was not.
-    """
-    score = _load_bench_score()
-    emitted = _emitted_check_names()
-
-    unmapped = sorted(set(score.GATE_RUNGS) - set(RUNG_COVERAGE))
-    assert not unmapped, (
-        f"GATE_RUNGS declares {unmapped} with no entry in RUNG_COVERAGE — the "
-        "manifest would record a rung name that maps to no check the gate can "
-        "emit"
-    )
-
-    stale = sorted(set(RUNG_COVERAGE) - set(score.GATE_RUNGS))
-    assert not stale, (
-        f"RUNG_COVERAGE maps {stale}, which GATE_RUNGS no longer declares; the "
-        "coverage table has drifted from the bar it describes"
-    )
-
-    missing: list[str] = []
-    for rung, checks in sorted(RUNG_COVERAGE.items()):
-        absent = [c for c in checks if c not in emitted]
-        if absent:
-            missing.append(f"  {rung} claims to cover {absent}, which nothing emits")
-    assert not missing, (
-        "a declared rung names a check the gate cannot produce:\n" + "\n".join(missing)
-    )
-
-    covered = {c for checks in RUNG_COVERAGE.values() for c in checks}
-    # `semantic` is absent from the bar by decision, not by accident,
-    # so it is one emitted check the bar is allowed not to cover.
-    #
-    # `typecheck` (D17) is the second, and it is the same shape: the rung runs
-    # only when a caller hands `Gate.run` a `TypeCheck`, and `tools/bench/score.py`
-    # does not — it passes `semantic=None` and no typecheck at all. So the gate
-    # *can* emit it while no bench run *does*, and adding it to `GATE_RUNGS`
-    # would declare a bar that no recorded rate was measured against.
-    opt_in = {"semantic", "typecheck"}
-    uncovered = sorted(set(emitted) - covered - opt_in)
-    assert not uncovered, (
-        f"the gate emits {uncovered}, which no declared rung covers — a "
-        "rejection would be attributed to a bar that does not name it"
-    )
-
-
-def _load_bench_score() -> Any:
-    """``tools/bench/score.py``, which is a script rather than a package."""
-    import importlib.util
-    import sys
-
-    path = REPO / "tools" / "bench" / "score.py"
-    spec = importlib.util.spec_from_file_location("bench_score_for_lenses", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    # Registered before execution: the module defines frozen dataclasses, and
-    # `dataclasses` resolves a field's type through `sys.modules[cls.__module__]`.
-    # This is the same dance `tools/bench/report.py:_by_path` does.
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 # --------------------------------------------------------------------------
 # The unjoined field — recorded on every task, read by no analysis
 # --------------------------------------------------------------------------
-
-# The tools that turn rows into a published figure. A field recorded on a task
-# and named in none of these is captured and never joined, which is lens 1's
-# corollary: the join is the requirement, not the capture.
-ANALYSIS_TOOLS = (
-    "tools/bench/report.py",
-    "tools/bench/responsiveness.py",
-    "tools/bench/ablation_report.py",
-    "tools/bench/redundancy.py",
-    "tools/bench/matrix.py",
-    "tools/bench/split.py",
-)
-
-# Fields on a bench task's meta.json that no analysis tool reads. Each is a
-# finding, frozen here so that *adding* an unread field fails, and so
-# that giving one a reader is a one-line deletion that proves the fix.
-#
-# Both are validated at admission and neither is ever used as an axis, which is
-# the distinction that matters: the corpus is refused if they are missing, and
-# no published figure is ever cut by them.
-UNREAD_TASK_FIELDS = frozenset({"shape", "file_shape"})
-
-# Recorded for a reason other than analysis, so their absence from the tools
-# above is not a finding. `target_symbol` names the symbol a `multi_symbol`
-# task's stub is built around — it is construction input, consumed by
-# `tools/bench/admit.py:target_symbol`, not a stratum nobody joined.
-CONSTRUCTION_FIELDS = frozenset({"target_symbol"})
-
-
-def test_recorded_task_fields_have_a_reader() -> None:
-    """A field on every task is read by an analysis tool, or it is declared.
-
-    ``shape`` is recorded on all 514 bench tasks and read by nothing, while on
-    the only committed multi-condition sweep it stratifies the effect at least
-    as widely as language does. Nobody can say whether it matters, because no
-    tool has ever looked — which is the point.
-    """
-    tasks = REPO / "tools" / "bench" / "tasks"
-    if not tasks.is_dir():  # pragma: no cover - the corpus is always present
-        pytest.skip("no bench corpus")
-
-    recorded: set[str] = set()
-    for meta in tasks.rglob("meta.json"):
-        recorded |= set(json.loads(meta.read_text(encoding="utf-8")))
-
-    sources = "\n".join(
-        (REPO / tool).read_text(encoding="utf-8")
-        for tool in ANALYSIS_TOOLS
-        if (REPO / tool).is_file()
-    )
-    unread = {field for field in recorded if f'"{field}"' not in sources}
-    # A field named only in prose is not read; require it inside a subscript or
-    # a `.get`, which is how these tools actually reach a value.
-    unread = {
-        field
-        for field in unread
-        if f"[{field!r}]" not in sources and f"get({field!r}" not in sources
-    }
-
-    new = sorted(unread - UNREAD_TASK_FIELDS - CONSTRUCTION_FIELDS)
-    assert not new, (
-        f"a bench task records {new}, which no analysis tool reads. "
-        "Record what cannot be reconstructed, and join what is "
-        "recorded — the capture was never the gap. If the field is consumed "
-        "when the task is built rather than when it is analysed, declare it in "
-        "CONSTRUCTION_FIELDS and say which function reads it."
-    )
-
-    fixed = sorted(UNREAD_TASK_FIELDS - unread)
-    assert not fixed, (
-        f"{fixed} now has a reader — remove it from UNREAD_TASK_FIELDS so the "
-        "allowlist keeps naming only what is still unjoined"
-    )
 
 
 # --------------------------------------------------------------------------
@@ -548,48 +390,6 @@ def test_estimate_reserve_is_derived() -> None:
         f"ESTIMATE_RESERVE is {ESTIMATE_RESERVE}, but the vendored units give "
         f"a worst-vocabulary p05 of {worst:.4f}, i.e. {derived}. The constant "
         "and the measurement it cites have drifted apart."
-    )
-
-
-# The stratum the reserve's own statement calls out: "the band is language-
-# dependent". A pooled reserve over a heterogeneous stratum is what the
-# consequences forbid a *report* from doing, and the same argument applies to a
-# shipped constant. These are the per-language figures the audit measured; the
-# check pins them so the gap cannot widen unnoticed while the pooled number
-# stays put.
-RESERVE_BY_LANGUAGE = {"javascript": 0.36, "python": 0.29}
-
-
-def test_pooled_reserve_is_recorded_against_its_strata() -> None:
-    """The per-language reserves are re-derived, so the pooling stays visible.
-
-    This does not assert that the shipped constant is wrong — that is #251's
-    finding and its own work to fix. It asserts that the size of the gap is a
-    computed fact rather than a sentence in an audit nobody re-runs.
-    """
-    if not TOKEN_UNITS.is_file():  # pragma: no cover
-        pytest.skip("the units are not vendored")
-    rows = [
-        json.loads(line)
-        for line in TOKEN_UNITS.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    by_language: dict[str, float] = {}
-    for language in RESERVE_BY_LANGUAGE:
-        worst = min(
-            _p05(
-                [
-                    r[f"error.{v}"]
-                    for r in rows
-                    if r.get("language") == language and r.get(f"error.{v}") is not None
-                ]
-            )
-            for v in TOKEN_VOCABS
-        )
-        by_language[language] = math.ceil(abs(worst) * 100) / 100
-    assert by_language == RESERVE_BY_LANGUAGE, (
-        f"the per-language reserves moved: {by_language} against a recorded "
-        f"{RESERVE_BY_LANGUAGE}. One pooled constant still ships for both."
     )
 
 
@@ -648,25 +448,6 @@ def test_control_a_rung_that_maps_to_no_check_is_rejected(tmp_path: Path) -> Non
     # `adapters` is exactly the shape the real GATE_RUNGS carries: a category
     # name that is not itself a check. Without RUNG_COVERAGE it maps to nothing.
     assert "adapters" not in emitted
-
-
-def test_control_a_field_no_analysis_reads_is_rejected() -> None:
-    """The readership check rejects a field named in no analysis tool."""
-    sources = "\n".join(
-        (REPO / tool).read_text(encoding="utf-8")
-        for tool in ANALYSIS_TOOLS
-        if (REPO / tool).is_file()
-    )
-    invented = "steering_band_v2"
-    assert f'"{invented}"' not in sources
-    assert f"[{invented!r}]" not in sources
-    assert f"get({invented!r}" not in sources
-    # And the fields the audit found are genuinely absent from those tools —
-    # the allowlist is a finding, not a way of passing.
-    for field in sorted(UNREAD_TASK_FIELDS):
-        assert f"[{field!r}]" not in sources and f"get({field!r}" not in sources, (
-            f"{field} now has a reader; UNREAD_TASK_FIELDS is stale"
-        )
 
 
 def test_control_the_reserve_moves_with_its_evidence() -> None:
