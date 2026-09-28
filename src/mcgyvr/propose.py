@@ -18,8 +18,8 @@ worse. A ladder built on size would place it above the 7B and be wrong.
 
 Three stages produce the gradient, and their order matters:
 
-1. **Collapse equal-quality ties.** Two models measuring the same score are
-   one rung. The faster one wins, because once both fit the card, latency is
+1. **Collapse equal-quality ties.** Two models estimated at the same score
+   are one rung. The faster one wins, because once both fit the card, latency is
    what the user experiences and footprint only buys concurrency headroom.
    This runs FIRST: doing it after dominance lets a model be eliminated by a
    candidate that is itself dropped a step later.
@@ -41,7 +41,7 @@ is the fastest model in the table at 110 tok/s, and treating throughput as a
 dimension a model can win on would rescue the one model the gradient rule
 exists to exclude. Speed breaks ties between equals; it never buys a rung.
 
-Unmeasured models are never proposed. That is enforced upstream in
+Models with no quality estimate are never proposed. That is enforced upstream in
 ``CapabilityTable.fitting``, and the rejection is surfaced here by name so a
 user can see that a model they expected was withheld on purpose rather than
 overlooked.
@@ -180,19 +180,19 @@ def _ineligible_reason(model: Model, sources: Sequence[AvailableSource]) -> str:
     return (
         f"needs the {model.requires_backend} backend; reachable here: "
         f"{backends}. Binding it elsewhere is not a downgrade but a wrong "
-        f"answer — the measured score belongs to this backend and this quant."
+        f"answer — the estimated score belongs to this backend and this quant."
     )
 
 
 def _slower(candidate: Model, reference: Model) -> bool:
-    """Whether ``candidate`` has a measured throughput below ``reference``.
+    """Whether ``candidate`` has an estimated throughput below ``reference``.
 
-    Unmeasured throughput is not treated as slow — an absent number is not
-    evidence. Note that the two figures may come from different rigs, since
-    a model is measured where it runs; the table's own guidance is to read
-    throughput as ratios rather than absolutes. It is used here only to
-    break a tie between two models of identical measured quality, where the
-    alternative is picking on footprint alone.
+    An absent throughput estimate is not treated as slow — an absent number is
+    not evidence. Note that the two figures may be for different card classes,
+    since a model's speed is given for the class it was read on; the table's
+    own guidance is to read throughput as ratios rather than absolutes. It is
+    used here only to break a tie between two models of identical estimated
+    quality, where the alternative is picking on footprint alone.
     """
     theirs = candidate.best_throughput
     ours = reference.best_throughput
@@ -227,23 +227,23 @@ def binding_name(model_id: str, *, locality: str = LOCAL) -> str:
 
 
 def _tie_reason(loser: Model, winner: Model) -> str:
-    """Why one of two models with identical measured quality was not bound."""
+    """Why one of two models with identical estimated quality was not bound."""
     if _slower(loser, winner):
         return (
-            f"same measured quality as {winner.id} but slower here "
+            f"same estimated quality as {winner.id} but slower here "
             f"({loser.best_throughput:g} against {winner.best_throughput:g} "
             f"tok/s), and both fit this card. Equal quality is not a second "
             f"rung."
         )
     return (
-        f"same measured quality as {winner.id} with no speed advantage, in "
+        f"same estimated quality as {winner.id} with no speed advantage, in "
         f"{loser.vram_gb_working:g} GB against {winner.vram_gb_working:g} GB. "
         f"Equal quality is not a second rung."
     )
 
 
 def _best_of_equal_quality(group: list[Model]) -> list[Model]:
-    """Order models of identical measured quality, best first.
+    """Order models of identical estimated quality, best first.
 
     Faster wins: once both fit the card, latency is the difference the user
     experiences, and footprint only buys concurrency headroom. Size then id
@@ -358,7 +358,7 @@ def _reasons(
     quality = model.best_quality or 0.0
     reasons = [
         _fit_reason(model, source, vram_gb, headroom_gb),
-        f"quality: HumanEval+ pass@1 {quality:.1%} measured on "
+        f"quality: HumanEval+ pass@1 {quality:.1%}, an estimate for "
         f"{model.quant or 'the shipped quant'}",
     ]
     placement = _placement_reason(model, source, sources)
@@ -409,9 +409,10 @@ def _candidates(
     it cannot see, and unlike a VRAM estimate it cannot be wrong about which
     machine it describes.
 
-    Only measured models are admitted by the second rule. A backend will
-    happily hold something the table has no score for, and binding it would
-    put an unmeasured model on the ladder through the back door — which is
+    Only models with a quality estimate are admitted by the second rule. A
+    backend will happily hold something the table has no score for, and
+    binding it would put a model with no estimate on the ladder through the
+    back door — which is
     the one thing ``CapabilityTable.fitting`` exists to prevent.
     """
     admitted: dict[str, Model] = {}
@@ -440,8 +441,8 @@ def propose(
     ``vram_gb`` is what the *local* card holds, and may be ``None`` — either
     because there is no GPU or because there is one this build cannot see.
     That is not the end of the proposal: a source that reports serving a
-    measured model supplies the fit evidence the card would have, so a laptop
-    with no GPU can still bind the rigs it can reach.
+    model the table has an estimate for supplies the fit evidence the card
+    would have, so a laptop with no GPU can still bind the rigs it can reach.
 
     Never raises. A machine with no GPU, no backend, or nothing that fits
     gets an empty local ladder and notes explaining what is missing — that
@@ -459,9 +460,9 @@ def propose(
             rejected.append(
                 Rejection(
                     model.id,
-                    "never proposed: no valid quality measurement survives the "
-                    "table's harness caveats, and an unmeasured model must not "
-                    "be bound on the assumption that it is fine",
+                    "never proposed: no valid quality estimate survives the "
+                    "table's harness caveats, and a model with no estimate must "
+                    "not be bound on the assumption that it is fine",
                 )
             )
         elif vram_gb is None:
@@ -504,7 +505,7 @@ def propose(
         elif vram_gb is None:
             notes.append(
                 "No GPU is visible here, and no backend on another machine "
-                "reports holding a measured model, so no local rung can be "
+                "reports holding a model the table estimates, so no local rung can be "
                 "proposed. This is a supported install: bind an API source, "
                 "bind a local model by hand if this machine has a GPU the "
                 "build could not see, or name the rig that serves your "
@@ -539,7 +540,7 @@ def propose(
         rejected.append(
             Rejection(
                 model.id,
-                f"dominated by {dominant.id}: same or better measured quality "
+                f"dominated by {dominant.id}: same or better estimated quality "
                 f"in {dominant.vram_gb_working:g} GB against "
                 f"{model.vram_gb_working:g} GB. A bigger model that is not "
                 f"better is not a higher rung.",
@@ -574,7 +575,7 @@ def propose(
             )
     ladder.reverse()  # cheapest first
 
-    # Keyed by id: Model holds lists of measurements, so it is not hashable.
+    # Keyed by id: Model holds lists of estimates, so it is not hashable.
     by_id = {m.id: s for m, s in eligible}
     rungs: list[Rung] = []
     for index, model in enumerate(ladder):
@@ -609,7 +610,7 @@ def propose(
 def _spread_note(rungs: Sequence[Rung]) -> str | None:
     """Say so when the proposed ladder crosses machines.
 
-    The gradient rules above order rungs by measured quality, and quality is
+    The gradient rules above order rungs by estimated quality, and quality is
     a property of the weights. Throughput is not: it belongs to the card. So a
     ladder whose rungs sit on different machines can be correctly ordered by
     quality and still be slower at the bottom than at the top — which is the
@@ -625,7 +626,7 @@ def _spread_note(rungs: Sequence[Rung]) -> str | None:
     placed = ", ".join(f"{r.name} on {r.host}" for r in rungs)
     return (
         f"This ladder spans {len(hosts)} machines ({', '.join(hosts)}): "
-        f"{placed}. Rungs are ordered by measured quality, which belongs to "
+        f"{placed}. Rungs are ordered by estimated quality, which belongs to "
         f"the weights — throughput belongs to the card, and is not in the "
         f"table per host. A cheaper rung on a slower machine can therefore "
         f"cost more wall-clock than the rung above it, which makes escalating "

@@ -2678,7 +2678,7 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
 
 
 def _model_specs() -> tuple[ModelSpec, ...]:
-    """Serving specs for the models the capability table measured.
+    """Serving specs for the rows of the shipped capability estimates.
 
     ``vram_gb`` and ``disk_gb`` come off the typed reader. Whether a model has
     experts — and so a knob for *where* its weights sit — is in the table file
@@ -3058,7 +3058,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         # argparse does not abbreviate subcommands the way it abbreviates
         # flags, so the short name is spelled out as an alias.
         aliases=["caps"],
-        help="show the shipped capability table used to propose worker bindings",
+        help="show the shipped estimates by card class used to propose worker bindings",
     )
     caps.add_argument(
         "--vram",

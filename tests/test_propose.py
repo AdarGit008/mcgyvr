@@ -6,8 +6,7 @@ reaches a small card, that an unmeasured model is never bound — are claims
 about that data as much as about this code. A fixture would let the table
 drift out from under them.
 
-The two cards are the table's own measurement rigs: 6 GB (rig_a) and 12 GB
-(rig_b).
+The two cards are the sizes of the table's two declared card classes.
 """
 
 from __future__ import annotations
@@ -113,13 +112,24 @@ def test_a_model_is_never_eliminated_by_a_candidate_that_is_itself_dropped(  # t
 
 
 def test_at_equal_quality_the_faster_model_is_the_rung(table) -> None:  # type: ignore[no-untyped-def]
-    """14B and the MoE both measure 87.8%; on a card that fits both, speed decides."""
+    """Two models estimated at the same quality both fit: speed decides.
+
+    The tied pair is read from the table rather than named here: every model
+    that shares the top rung's quality and was not bound says it lost on speed.
+    """
     proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER])
-    assert proposal.rungs[-1].model == "qwen2.5-coder:14b"
-    reason = proposal.why(MOE)
-    assert reason is not None
-    assert "same measured quality" in reason
-    assert "slower" in reason
+    top = proposal.rungs[-1]
+    tied = [
+        m
+        for m in table.models
+        if m.id != top.model and m.is_measured and m.best_quality == top.quality
+    ]
+    assert tied, "expected the table to hold a model tied with the top rung"
+    for loser in tied:
+        reason = proposal.why(loser.id)
+        assert reason is not None
+        assert "same estimated quality" in reason
+        assert "slower" in reason
 
 
 def test_throughput_is_not_borrowed_across_backends(table) -> None:  # type: ignore[no-untyped-def]
@@ -179,9 +189,12 @@ def test_no_unmeasured_model_is_ever_bound(table) -> None:  # type: ignore[no-un
 def test_a_withheld_model_says_it_was_withheld_on_purpose(table) -> None:  # type: ignore[no-untyped-def]
     """Silence would read as an oversight rather than as a decision."""
     proposal = propose(table, vram_gb=80.0, sources=[OLLAMA, LLAMA_SERVER])
-    reason = proposal.why("gpt-oss-20b")
-    assert reason is not None
-    assert "no valid quality measurement" in reason
+    withheld = [m.id for m in table.models if not m.is_measured]
+    assert withheld, "expected the table to hold back at least one model"
+    for model_id in withheld:
+        reason = proposal.why(model_id)
+        assert reason is not None
+        assert "no valid quality estimate" in reason
 
 
 # --- a machine with no local backend is coherent, not an error -----------
@@ -207,8 +220,7 @@ def test_a_card_too_small_for_anything_is_still_not_an_error(table) -> None:  # 
     assert proposal.is_local_empty
     assert proposal.rejected, "and it says what did not fit"
     assert all(
-        "does not fit" in r.reason or "measurement" in r.reason
-        for r in proposal.rejected
+        "does not fit" in r.reason or "estimate" in r.reason for r in proposal.rejected
     )
 
 

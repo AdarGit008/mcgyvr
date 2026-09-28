@@ -1,35 +1,36 @@
 """Reader for the shipped capability table, and the one question a task asks it.
 
-The table (``data/capability-table.json``) is measured data, not estimates:
-it is how ``mcgyvr init`` proposes worker bindings for detected hardware
-without benchmarking the user's machine. See ``data/README.md`` for
-methodology and for the harness caveats that make some published numbers
-unusable.
+The table (``data/capability-table.json``) is estimates by card class, not
+readings of the user's machine: it is how ``mcgyvr init`` proposes worker
+bindings for detected hardware without benchmarking that machine. See
+``data/README.md`` for what a card class is and for the harness caveats that
+make some published numbers unusable.
 
 Reading and validating is most of this module. Turning hardware into a proposed
 binding is a separate concern and lives in :mod:`mcgyvr.propose`.
 
 **What one number can and cannot decide.** Every row carries a single quality
-figure — measured HumanEval+ pass@1 — and one number induces a total order, so
+figure — an estimated HumanEval+ pass@1 — and one number induces a total order, so
 the only question a scalar can answer is *which model is better*. That is the
 wrong question to put to a contract. Producing a loop invariant that holds and
 producing prose about a loop nobody may touch are not two points on one line,
 and ranking them on one line sends an implementation contract to whichever model
 scored higher on a benchmark that is mostly short functions.
 
-So a row may also carry a ``capabilities`` vector: a score per measured
+So a row may also carry a ``capabilities`` vector: a score per
 *dimension*, and :func:`select_for_task` filters on the dimension the task
 actually needs instead of on the scalar. Two properties keep that from being a
 regression on the day it lands:
 
-* **An absent vector is unmeasured, not unfit.** No shipped row has one yet, so a
+* **An absent vector is unscored, not unfit.** No shipped row has one yet, so a
   filter reading "no data" as "fails the floor" would empty the pool on every
   install. :meth:`Model.capability` falls back to the scalar, which is the half
   of this that is easiest to drop and most expensive to have dropped.
 * **A model with no valid quality at all is still never proposed.** The table
-  keeps invalidated measurements rather than substituting an estimate
-  (``data/README.md``), and the fallback inherits that: unmeasured stays
-  unmeasured, and there is nothing to fall back *to*.
+  keeps invalidated readings aside rather than filling the gap with a figure
+  from elsewhere (``data/README.md``), and the fallback inherits that: a model
+  with no quality estimate stays without one, and there is nothing to fall
+  back *to*.
 """
 
 from __future__ import annotations
@@ -65,7 +66,7 @@ ESTIMATES_NOTICE = (
 GB_PER_GIB = 1.073741824
 
 # The score a model must reach on a task's dimension before it may be asked for
-# that task. 0.5 is inherited from local-ai, not measured here, and it is stated
+# that task. 0.5 is a starting value, not a reading, and it is stated
 # once, as the default of the one function that applies it, rather than as a
 # literal at each call site.
 DIMENSION_FLOOR = 0.5
@@ -92,8 +93,8 @@ DIMENSION_FLOOR = 0.5
 #                       not be touched — `instruction_following` again
 #
 # Order settles a type that requires several: the first kind listed here wins.
-# The dimension names are local-ai's benchmark vocabulary, kept verbatim so a
-# score vector measured against that benchmark drops straight into a row.
+# The dimension names are a coding benchmark's vocabulary, kept verbatim so a
+# score vector taken against that benchmark drops straight into a row.
 _DIMENSION_BY_EVIDENCE: tuple[tuple[str, str], ...] = (
     ("failing_test_first", "branching"),
     ("tests_pass", "simple_function"),
@@ -148,9 +149,9 @@ class Measurement:
 class Model:
     """A model the table knows about.
 
-    ``quality`` holds only VALID measurements. A model whose measurements
-    were all invalidated by a harness caveat has an empty list — the table
-    never substitutes an estimate, so neither does this.
+    ``quality`` holds only VALID estimates. A model whose readings were all
+    invalidated by a harness caveat has an empty list — the table never fills
+    that gap with a figure from elsewhere, so neither does this.
 
     ``params_b`` is the declared parameter count in billions. It is size, not
     footprint: ``vram_gb_working`` says what the weights cost to hold at a
@@ -176,33 +177,33 @@ class Model:
 
     @property
     def is_measured(self) -> bool:
-        """Whether this model has any valid quality measurement."""
+        """Whether this model has any valid quality estimate."""
         return bool(self.quality)
 
     def capability(self, dimension: str) -> float | None:
         """This model's score on ``dimension``, or its scalar quality if unscored.
 
-        ``None`` only when there is nothing measured at all — no vector entry and
-        no valid quality figure. That model is unmeasured, and an unmeasured model
-        is never proposed, here as everywhere else in this file.
+        ``None`` only when there is no estimate at all — no vector entry and no
+        valid quality figure. A model without one is never proposed, here as
+        everywhere else in this file.
         """
         measured = self.capabilities.get(dimension)
         return measured if measured is not None else self.best_quality
 
     @property
     def best_quality(self) -> float | None:
-        """Highest valid HumanEval+ pass@1 measured, or None if unmeasured."""
+        """Highest valid HumanEval+ pass@1 estimate, or None if there is none."""
         return max((m.value for m in self.quality), default=None)
 
     @property
     def best_throughput(self) -> float | None:
-        """Highest tok/s measured on a backend this model can actually run on.
+        """Highest tok/s estimate taken on a backend this model can actually run on.
 
         A model pinned to one backend must not borrow a throughput figure
         taken on another, because the other run was a different quantization
-        of different weights: qwen3-coder-30b-a3b's ollama measurement is not
+        of different weights: qwen3-coder-30b-a3b's ollama figure is not
         of the Q2_K entry this row describes (CAV-02). Filtering
-        by backend keeps a number attached to the thing it measured.
+        by backend keeps a number attached to the thing it was taken of.
         """
         relevant = [
             m.value
@@ -232,17 +233,17 @@ class CapabilityTable:
         return next((m for m in self.models if m.id == model_id), None)
 
     def fitting(self, vram_gb: float, headroom_gb: float = 2.0) -> list[Model]:
-        """Measured models that fit in ``vram_gb`` with room to work.
+        """Models with a quality estimate that fit in ``vram_gb`` with room to work.
 
         ``headroom_gb`` guards CAV-04: a marginal fit degrades badly rather
         than failing outright, which makes it look like a working binding.
         The headroom is ABSOLUTE, not a fraction of the card, because what
         it reserves — KV cache for the context window — is sized by tokens,
-        not by GPU. A measurement bears this out: a 5.0 GB model on a 6 GB
-        card (1.0 GB free) ran 1.9x slower than the same weights on a 12 GB
-        card (CAV-04).
+        not by GPU. The table's own figures bear this out: a 5.0 GB model on
+        a card of the 6 GB class (1.0 GB free) ran 1.9x slower than the same
+        weights on one of the 12 GB class (CAV-04).
 
-        Unmeasured models are never proposed.
+        Models with no quality estimate are never proposed.
         """
         return [
             m
@@ -454,12 +455,12 @@ def select_for_task(
     table: Path | None = None,
     floor: float = DIMENSION_FLOOR,
 ) -> Model:
-    """The cheapest model measured able to do what a ``task_type`` contract asks.
+    """The cheapest model estimated able to do what a ``task_type`` contract asks.
 
     Two steps, and the order is the point. First the *gate*: a model is a
     candidate only if it scores at least ``floor`` on the dimension this task
     needs — its vector entry if it has one, its scalar quality if it does not,
-    and nothing at all if it is unmeasured. Then the *choice*: among models that
+    and nothing at all if it has no estimate. Then the *choice*: among models that
     clear the gate, the smallest working footprint wins, because above the floor
     a model is good enough and more VRAM buys nothing the contract asked for.
     That is the ladder's own economics — cheapest rung that can do the job —
@@ -504,12 +505,12 @@ def select_for_task(
                 f"{model.id} {score:.2f}"
                 for model, score in sorted(scored, key=lambda pair: -pair[1])
             )
-            or "no model in it carries a valid quality measurement at all"
+            or "no model in it carries a valid quality estimate at all"
         )
         raise CapabilitySelectionError(
             f"no model scores {floor:g} or better on {dimension!r}, the capability "
             f"a {task_type!r} contract needs. The table says: {measured}. Bind a "
-            f"rung on a model measured for {dimension!r}, or lower the floor "
+            f"rung on a model estimated for {dimension!r}, or lower the floor "
             f"knowing which capability you are lowering it on."
         )
 
