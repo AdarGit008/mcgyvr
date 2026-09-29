@@ -142,6 +142,31 @@ def test_a_value_the_yaml_reader_cannot_build_is_refused_by_name(
     assert str(path) in str(was.value)
 
 
+def _aliased(levels: int) -> str:
+    """A flow list whose aliases build a value many times larger than its text."""
+    items = ["&a0 [1, 1, 1, 1, 1, 1, 1, 1, 1]"]
+    items += [
+        f"&a{n} [" + ", ".join([f"*a{n - 1}"] * 9) + "]" for n in range(1, levels)
+    ]
+    return "[" + ", ".join(items) + "]"
+
+
+@pytest.mark.parametrize("where", ["value", "number"])
+def test_a_refusal_never_spells_out_a_value_far_larger_than_the_file(
+    where: str, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    number, key = _every_shipped_ask()[0]
+    value = _aliased(6)
+    text = (
+        f"{number}:\n  {key}: {value}\n" if where == "value" else f"{number}: {value}\n"
+    )
+    path = nf.write_user_file(tmp_path_factory, text)
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup(*_another_ask(number))
+    assert str(path) in str(was.value)
+    assert len(str(was.value)) < len(text) + 1_000
+
+
 def test_an_unknown_number_is_refused_even_when_another_is_asked(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
