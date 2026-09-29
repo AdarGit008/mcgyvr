@@ -82,13 +82,17 @@ JUDGING = "judging"
 NO_NUMBER = "holds no number that sizes or judges"
 #: A file vendored from another project, kept byte for byte.
 THIRD_PARTY = "third-party code kept as its author wrote it"
+#: A file another change is rewriting; its numbers are classified after it lands.
+CHANGING_NOW = "changing now; covered after that change lands"
 #: Why a file of the package is not judged, the only other thing the coverage
 #: file may say of it.
-NOT_JUDGING_REASONS: tuple[str, ...] = (
-    NO_NUMBER,
-    "changing now; covered after that change lands",
-    THIRD_PARTY,
-)
+NOT_JUDGING_REASONS: tuple[str, ...] = (NO_NUMBER, CHANGING_NOW, THIRD_PARTY)
+
+#: Every file the coverage file may mark as changing now. The list may only
+#: shrink: a file leaves it when its numbers are classified, and a file added to
+#: it fails :func:`test_no_file_is_added_to_the_files_changing_now`, so "changing
+#: now" cannot become a way to leave a new file unjudged.
+FILES_CHANGING_NOW: frozenset[str] = frozenset()
 
 #: The fields each kind of entry may carry beside ``kind`` and ``says``.
 _OPTIONAL: dict[str, set[str]] = {
@@ -261,11 +265,11 @@ def _uncovered(files: set[str], covered: dict[str, str]) -> set[str]:
 def test_every_python_file_of_the_package_is_covered() -> None:
     covered = _covered()
     assert _uncovered(_package_files(), covered) == set(), (
-        "python files under src/mcgyvr/ are not in the covered block: say "
+        "python files under src/mcgyvr/ are not in the coverage file: say "
         "whether each holds numbers that judge, or why it is not covered"
     )
     assert set(covered) - _package_files() == set(), (
-        "the covered block names files that do not exist under src/mcgyvr/"
+        "the coverage file names files that do not exist under src/mcgyvr/"
     )
 
 
@@ -301,14 +305,50 @@ def test_a_file_said_to_hold_no_number_holds_none_the_check_can_see() -> None:
     )
 
 
-def _licensed(path: str) -> bool:
+def _licensed(path: str, root: Path = SRC) -> bool:
     """Whether a licence file sits in the folder of ``path`` or one above it."""
-    folder = (SRC / path).parent
-    while folder != SRC.parent:
+    folder = (root / path).parent
+    while folder != root.parent:
         if any(folder.glob("LICENSE*")):
             return True
         folder = folder.parent
     return False
+
+
+def test_a_licence_counts_only_beside_the_file_or_one_folder_up(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "vendor" / "author" / "inner").mkdir(parents=True)
+    path = "vendor/author/inner/module.py"
+    assert not _licensed(path, tmp_path)
+    (tmp_path / "LICENSE").write_text("a licence at the root\n", encoding="utf-8")
+    assert not _licensed(path, tmp_path), (
+        "a licence at the package root would pass every file as third-party"
+    )
+    (tmp_path / "vendor" / "author" / "LICENSE").write_text("x\n", encoding="utf-8")
+    assert _licensed(path, tmp_path)
+    assert _licensed("vendor/author/module.py", tmp_path)
+
+
+def _added_to_changing_now(covered: dict[str, str]) -> set[str]:
+    return {path for path, says in covered.items() if says == CHANGING_NOW} - set(
+        FILES_CHANGING_NOW
+    )
+
+
+def test_no_file_is_added_to_the_files_changing_now() -> None:
+    added = sorted(_added_to_changing_now(_covered()))
+    assert added == [], (
+        f"these files are marked changing now and were not before: {added}; "
+        "mark each judging and classify its numbers, or say why it holds none"
+    )
+
+
+def test_a_file_newly_marked_changing_now_is_named() -> None:
+    covered = dict(_covered())
+    invented = "an_invented_module_nobody_wrote.py"
+    covered[invented] = CHANGING_NOW
+    assert _added_to_changing_now(covered) == {invented}
 
 
 def test_a_file_said_to_be_third_party_sits_beside_its_authors_licence() -> None:
