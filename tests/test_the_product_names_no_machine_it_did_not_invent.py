@@ -590,6 +590,7 @@ def test_the_invented_machines_and_reserved_names_pass() -> None:
         ("host", "ss" + "h -oBatchMode=yes ops@" + _HOST),
         ("host", "sc" + "p model.bin ops@" + _HOST + ":/srv/models/"),
         ("host", "rsy" + "nc -a ops@" + _HOST + ":models/ ."),
+        ("host", "sc" + "p f " + _HOST + ":/srv/"),
         ("host", '["ss' + 'h", "ops@' + _HOST + '"]'),
         ("host", '"-o BatchMode=yes -o X ops@' + _HOST + ' cmd"'),
         ("host", "ss" + "h $USER@" + _HOST),
