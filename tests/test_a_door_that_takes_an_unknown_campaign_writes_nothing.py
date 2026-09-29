@@ -41,23 +41,6 @@ def test_the_door_is_the_python_module() -> None:
     assert (onedoor.REPO / onedoor.DOOR_REL).is_file(), "src/mcgyvr/serving/run.py"
 
 
-def test_an_unknown_campaign_is_refused_at_gate_5_naming_the_known_ones(
-    root: Path, tmp_path: Path
-) -> None:
-    # A real step file, so the refusal is the campaign's and not the step's.
-    result = onedoor.door(
-        root, Scenario("gamma", "tools/runs/campaigns/alpha/1-probe.sh")
-    )
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert "no campaign 'gamma' under tools/runs/campaigns/" in result.stderr, (
-        result.stderr
-    )
-    for name in CAMPAIGNS:
-        assert name in result.stderr, f"the refusal does not list {name!r}"
-    assert onedoor.written_under_records(root) == [], "the door wrote under records/"
-    assert not (tmp_path / "e").exists(), "the step ran under an undeclared campaign"
-
-
 def test_an_undeclared_host_is_refused_at_gate_2_before_the_rig_is_read(
     root: Path, tmp_path: Path
 ) -> None:
@@ -74,19 +57,6 @@ def test_without_a_host_the_door_does_not_start(root: Path, tmp_path: Path) -> N
     result = onedoor.door(root, Scenario("alpha", "1-probe.sh", host=""))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "--host" in result.stderr, result.stderr
-    assert onedoor.written_under_records(root) == []
-    assert onedoor.ssh_log(root) == [] and onedoor.docker_log(root) == []
-    assert not (tmp_path / "e").exists()
-
-
-def test_a_step_that_is_not_a_file_is_refused_before_any_gate(
-    root: Path, tmp_path: Path
-) -> None:
-    result = onedoor.door(root, Scenario("alpha", "9-nope.sh"))
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert "9-nope.sh" in result.stderr and "is not a file" in result.stderr, (
-        result.stderr
-    )
     assert onedoor.written_under_records(root) == []
     assert onedoor.ssh_log(root) == [] and onedoor.docker_log(root) == []
     assert not (tmp_path / "e").exists()

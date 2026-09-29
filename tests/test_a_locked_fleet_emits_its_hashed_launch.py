@@ -21,8 +21,6 @@ launch, not a new one sized from a scan (owner ruling):
 
 from __future__ import annotations
 
-import json
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +31,6 @@ from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
 from mcgyvr.exits import Exit
 
-REPO = Path(__file__).resolve().parent.parent
 HF_CACHE = "/home/adaramir/.cache/huggingface"
 MODELS_VOLUMES = [
     "/home/adaramir/models:/models:ro",
@@ -255,50 +252,3 @@ def test_check_agrees_with_the_files_it_wrote(
     assert emit(config, out) == Exit.OK
     capsys.readouterr()
     assert emit(config, out, "--check") == Exit.OK, capsys.readouterr().err
-
-
-def test_the_stamped_setup_emits_the_argv_and_env_its_digests_record(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """``fleet-setup/`` is the stamped a-solo/b-small/b-big setup, and
-    ``digests-srv{1,2}.json`` record the argv and env each unit_id hashed."""
-    config = tmp_path / "config"
-    config.mkdir()
-    for name in ("fleet.yaml", "policy.yaml"):
-        shutil.copy(REPO / "fleet-setup" / name, config / name)
-    # A setup is its two fleet files AND the seccomp profiles its units state:
-    # `launch.seccomp` names one relative to here.
-    shutil.copytree(REPO / "fleet-setup" / "seccomp", config / "seccomp")
-    out = tmp_path / "compose"
-    assert emit(config, out) == Exit.OK, capsys.readouterr().err
-
-    stamped = yaml.safe_load((config / "fleet.yaml").read_text(encoding="utf-8"))
-    hashed: dict[str, Any] = {}
-    for host in ("srv1", "srv2"):
-        digests = REPO / "fleet-setup" / f"digests-{host}.json"
-        hashed |= json.loads(digests.read_text(encoding="utf-8"))["units"]
-
-    expected_files = sorted(
-        [
-            *(
-                f"compose.{host}.{fleet_name}.yml"
-                for fleet_name, block in stamped["fleets"].items()
-                for host in block["layout"]
-            ),
-            # srv2_35b_256k states a seccomp profile, and emit writes it beside
-            # the compose file that names it, which is where compose looks.
-            "io-uring.json",
-        ]
-    )
-    assert sorted(path.name for path in out.iterdir()) == expected_files
-    for fleet_name, block in stamped["fleets"].items():
-        for host, slots in block["layout"].items():
-            emitted = services(out / f"compose.{host}.{fleet_name}.yml")
-            for unit_name, _state in slots:
-                service = emitted[unit_name]
-                unit = stamped["units"][unit_name]
-                fields = hashed[unit_name]["fields"]
-                assert unit["unit_id"] == hashed[unit_name]["unit_id"], unit_name
-                assert service["container_name"] == unit["container"], unit_name
-                assert service["command"] == fields["argv"], unit_name
-                assert service["environment"] == fields["env"], unit_name

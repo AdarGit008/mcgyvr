@@ -7,13 +7,11 @@ because the model offered an alternative, a fence the cap cut off — and each
 must resolve to a *named* failure rather than to a plausible file. None of
 them is linked to a run, so none is claimed as a shape a local worker produces.
 
-The population the parser actually faces is the captured one: the measurement
-rigs keep every raw reply, and ``test_reply_corpus.py`` asserts the whole set
-against pinned verdicts: a refusal shape no author imagines is why the
-constructed set alone is not enough. The split is deliberate, because a fixture
-captures what the parser reads: a shape found in a capture is pinned there as
-gold; a shape an adversarial imagination proposes lives here, marked as what it
-is.
+The population the parser actually faces is the captured one, and this file
+does not hold it: a refusal shape no author imagines is why the constructed set
+alone is not enough. The split is deliberate, because a fixture captures what
+the parser reads: a shape found in a capture belongs with the captures; a shape
+an adversarial imagination proposes lives here, marked as what it is.
 """
 
 from __future__ import annotations
