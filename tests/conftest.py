@@ -1,8 +1,13 @@
-"""Fixtures every test runs under: a home of its own, and no way off the machine.
+"""Fixtures shared by the tests: a home of their own, and no way off the machine.
 
-Nothing here opens a file outside the package and its tests; the suite holds
-itself to that in
-``tests/test_the_suite_opens_no_file_outside_the_package_and_its_own_tests.py``.
+Every test runs in a fresh home; resolving a name that is not this machine is
+refused, the runner's status read is stubbed, and the door's read is refused.
+A test that asks for ``home`` also gets a home of its own under its
+``tmp_path``. What these fixtures read comes from the package and these tests;
+what they write goes into temporary folders (a synthetic session transcript in
+each fresh home). The tests hold the shared fixtures to reading nothing
+outside the package and the tests in
+``tests/test_what_every_test_shares_opens_nothing_outside_the_package_and_the_tests.py``.
 """
 
 from __future__ import annotations
