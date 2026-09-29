@@ -70,11 +70,59 @@ _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
 UNITS: tuple[str, ...] = tuple(_BOUNDS)
 
 
+#: What a number the product sizes, judges, refuses, waits or picks with is, as
+#: the shipped file's ``constants`` block says of each one still written in
+#: code: a fact (true on any machine), a choice of the product, or an estimate
+#: (a starting value that another machine may prove wrong). The loader reads
+#: only the ``numbers`` block; the ``constants`` block is held to these lists by
+#: the check that every such number says what it is.
+NUMBER_KINDS: tuple[str, ...] = ("fact", "choice", "estimate")
+
+#: What makes a fact true on any machine. Every fact names one of these, so no
+#: number becomes a fact by saying so.
+FACT_REASONS: tuple[str, ...] = (
+    "a definition or arithmetic",
+    "the specification of a format, protocol or tool",
+    "where a count starts",
+    "the layout of the package or its checkout",
+)
+
+#: Where a user sets a choice, or an estimate still in code: a key of the
+#: config, a field of a contract, or a command line flag. An entry's ``set_by``
+#: is one of these words, a space, and the key or the flag.
+SETTING_SOURCES: tuple[str, ...] = ("config", "contract", "flag")
+
+#: The reason a choice gives when it repeats another entry, which it then names.
+DUPLICATE_REASON = "a duplicate of another entry"
+
+#: Why a choice has no setting a user can change. A choice names one of these
+#: or how it is set, never neither, so no number becomes a choice by saying so.
+CHOICE_REASONS: tuple[str, ...] = (
+    "a protocol or tool default",
+    "a code or version other programs or files read",
+    "the method a stored reading was made with",
+    "a rule over the product's own shipped data",
+    "what a caller that names none gets; the product's callers name one",
+    (
+        "how much of a text the product itself shows, carries or reads, and at "
+        "what width (never a budget for a model's whole reply or whole input)"
+    ),
+    "a weight, threshold or cut of the product's own ranking of files and symbols",
+    "how often or how many times the product tries its own step again",
+    DUPLICATE_REASON,
+)
+
+
 #: The number for the host memory a llama.cpp server holds beyond the experts
 #: it keeps on the host, and its one key: llama.cpp, the engine whose expert
 #: offload the sizing prices.
 RUNTIME_RESIDENT = "runtime_resident_gb"
 RUNTIME_RESIDENT_KEY = "llama.cpp"
+
+#: The engines whose host memory figure is to be read on the user's machine and
+#: is never shipped: no layer is asked for it, nothing is charged for it until
+#: it is read, and every sizing of a unit of one of them says so.
+RUNTIME_RESIDENT_READ: tuple[str, ...] = ("vllm",)
 
 
 #: How a refusal spells a value it was given: a few levels, items and characters
@@ -145,8 +193,8 @@ def shipped_path() -> Path:
         return checkout
     raise DerivedNumbersError(
         f"shipped numbers not found: neither {packaged} (the package's own copy) "
-        f"nor {checkout} (a checkout's) is a file; none of its numbers "
-        "has a default in code"
+        f"nor {checkout} (a checkout's) is a file; no number of its `numbers` "
+        "block has a default in code"
     )
 
 
@@ -451,13 +499,28 @@ def lookup(number: str, key: str, *, path: Path | None = None) -> Number:
 def runtime_resident_gb(host: str | None = None, *, path: Path | None = None) -> float:
     """The host memory, in GiB, a llama.cpp server holds beyond its host-side experts.
 
-    What a sizing adds to the spilled experts when a model keeps expert blocks
-    in host memory. The number is keyed by the engine, never by the machine:
-    ``host`` only names, in a refusal, the machine that was being sized, and
-    never changes the answer.
+    What a sizing adds to the spilled experts when a llama.cpp unit keeps
+    expert blocks in host memory. The number is keyed by the engine, never by
+    the machine: ``host`` only names, in a refusal, the machine that was being
+    sized, and never changes the answer.
     """
     asked = (RUNTIME_RESIDENT, RUNTIME_RESIDENT_KEY)
     return _resolve([asked], path, sizing=host)[asked].value
+
+
+def user_setting(number: str, key: str, *, path: Path | None = None) -> Path | None:
+    """The user's own file when it sets ``number`` for ``key``, else ``None``.
+
+    It says only that the user's file sets it, never the value, and asks the
+    shipped layer for nothing but what the user's file is checked against.
+    The sizing asks it of an engine of :data:`RUNTIME_RESIDENT_READ`,
+    whose figure no layer answers, to say that a setting of it is not used.
+    The whole file is checked as on every read: one that cannot be read is
+    refused by name.
+    """
+    _, shipped = _load_shipped(path)
+    where, settings = _load_overrides(shipped)
+    return where if (number, key) in settings else None
 
 
 #: A judged field -> the number that states its percent per tolerance class.

@@ -354,6 +354,30 @@ CLEANUP_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+GATE_FIELDS: tuple[Field, ...] = (
+    Field(
+        "param_mutation",
+        "enum",
+        "A Python function that changes an object its caller passed in, on a "
+        "line the change adds: it assigns or deletes into a parameter, an "
+        "element of one or a loop variable over one (`rows[0] = x`, "
+        "`item.count += 1`, `del table[key]`), or calls append, extend, insert, "
+        "remove, pop, clear, sort, reverse, update, setdefault, add, discard or "
+        "popitem on it. `self`, `cls`, `*args` and `**kwargs` are not checked, "
+        "nor is a parameter rebound to a new object on every path before the "
+        "change. `refuse` rejects the change. `report` does not reject it: the "
+        "finding is listed among the gate's observations, which an enabled "
+        "verifier is shown and the gate's retry note does not carry, and "
+        "`mcgyvr run` prints it once, before delivering the accepted change, "
+        "as reported by this setting. `skip` does not look. Delivery judges the "
+        "change again by the same setting. A contract whose `task` or "
+        "`interface` asks for in-place work stands the check down under every "
+        "setting.",
+        default="refuse",
+        choices=("refuse", "report", "skip"),
+    ),
+)
+
 SERVING_FIELDS: tuple[Field, ...] = (
     Field(
         "enable_sleep_wake",
@@ -690,6 +714,12 @@ SCHEMA: tuple[Field, ...] = (
         "block",
         "What may be fixed without asking a model.",
         block=CLEANUP_FIELDS,
+    ),
+    Field(
+        "gate",
+        "block",
+        "What the deterministic gate refuses, where a setup may choose otherwise.",
+        block=GATE_FIELDS,
     ),
     Field(
         "serving",
