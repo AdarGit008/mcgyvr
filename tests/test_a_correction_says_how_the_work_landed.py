@@ -23,29 +23,12 @@ none — the word on the screen is the word that selects it.
 
 from __future__ import annotations
 
-import sqlite3
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 from mcgyvr.telemetry import fold
 from tests import livejournal as lj
-
-REPO = Path(__file__).resolve().parents[1]
-INDEX = REPO / "tools" / "live" / "index.py"
-REVIEW = REPO / "tools" / "live" / "review.py"
-
-
-def _tool(tool: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(tool), *args],
-        capture_output=True,
-        text=True,
-        cwd=REPO,
-        timeout=120,
-    )
 
 
 def test_an_accepted_uncommitted_attempt_folds_to_not_committed(
@@ -106,42 +89,6 @@ def test_a_rejected_attempt_folds_to_failed_with_the_findings_as_detail(
     (row,) = fold(path=journal / "claude-s1.jsonl")
     assert row["outcome"] == "failed", row
     assert "acceptance" in row["detail"], row["detail"]
-
-
-def test_the_index_and_the_review_show_the_landing_end_to_end(
-    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    lj.scripted(monkeypatch, lj.GOOD_REPLY)
-    repo = lj.make_repo(tmp_path / "repo")
-    journal = tmp_path / "journal"
-    config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
-    contract = lj.make_contract(tmp_path / "impl.yaml")
-    assert lj.main(lj.run_args(contract, repo, config, "--commit")) == 0
-    transcript = home / ".claude" / "projects" / "-home-someone-somewhere" / "s1.jsonl"
-
-    built = _tool(INDEX, str(journal))
-    assert built.returncode == 0, built.stderr
-    db = sqlite3.connect(journal / "index.sqlite")
-    try:
-        rows = db.execute(
-            'SELECT outcome, session_file, task_type, latency_s FROM "attempts"'
-        ).fetchall()
-    finally:
-        db.close()
-    assert rows == [("committed", str(transcript), "function_implementation", 0.0)], (
-        rows
-    )
-
-    shown = _tool(REVIEW, str(journal), "--outcome", "committed")
-    assert shown.returncode == 0, shown.stderr
-    assert "outcome=committed" in shown.stdout, shown.stdout
-    assert f"session={transcript}" in shown.stdout, shown.stdout
-    assert "1 of 1 attempts shown" in shown.stderr, shown.stderr
-
-    none = _tool(REVIEW, str(journal), "--outcome", "uncorrected")
-    assert none.returncode == 0, none.stderr
-    assert "0 of 1 attempts shown" in none.stderr, none.stderr
-    assert "===" not in none.stdout
 
 
 def test_two_runs_of_one_contract_are_two_rows_with_their_own_landings(

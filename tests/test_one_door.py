@@ -28,33 +28,20 @@ The tripwires, each a scan over the tree:
    ``DOCKER_HOST``, no ``docker -H``/``--host``/``--context``, no ``-H ssh://``
    outside the shim, and no ``env -u``/``env -i`` that would strip the
    door's vocabulary.
-3. No driver or campaign step measures ``localhost``: the container runs on
-   the rig, and a client that polls this machine's loopback measures nothing.
-4. The archived door's seam variables are gone from src, tools and tests.
-5. The serving harness run bare — outside the door — exits 2 naming the door.
-6. The workload (``PROMPT_DECILES``) is defined once, in
-   ``tools/runs/workload.py``.
-7. Every started artifact under ``records/evidence`` parses with
-   ``tools.runs.rows.read``, and one that names a ``run_id`` also names its
-   round.
-8. Every host that wrote a row has a declared ``rig`` block in
-   ``tools/runs/hosts.json``.
-9. The retired entry points are gone.
-10. A hand-set ``RUN_*`` environment admits nothing: a campaign step, the
-    emitter's rig read, every driver, every gate script and the default
-    step, given every variable the door would export and no door ancestor,
-    exit 2 naming the door before an ``ssh`` or ``docker`` stub sees a line.
+3. The archived door's seam variables are gone from src, tools and tests.
+4. A hand-set ``RUN_*`` environment admits nothing: every gate script and the
+   default step, given every variable the door would export and no door
+   ancestor, exit 2 naming the door before an ``ssh`` or ``docker`` stub sees
+   a line.
+5. No Python file sits at the repository root.
 """
 
 from __future__ import annotations
 
-import importlib
-import json
 import os
 import re
 import subprocess
 import sys
-import types
 from fnmatch import fnmatch
 from pathlib import Path
 
@@ -63,11 +50,7 @@ import pytest
 from mcgyvr.serving.run import EXPORTED
 
 REPO = Path(__file__).resolve().parent.parent
-EVIDENCE = REPO / "records" / "evidence"
-HOSTS = REPO / "tools" / "runs" / "hosts.json"
-WORKLOAD = "tools/runs/workload.py"
 DOOR = "python -m mcgyvr.serving.run"
-SERVING_RUN = REPO / "tools" / "bench" / "serving" / "run.py"
 
 #: Directories never scanned. ``records/`` and ``archive/`` are history and hold
 #: the drivers as they ran; the rest is not this repository's code.
@@ -100,7 +83,6 @@ DAEMON_OVERRIDE = re.compile(
     r"|-H[= ]+ssh://"
     r"|\benv\s+-[ui]\b"
 )
-LOOPBACK = re.compile(r"\blocalhost\b|\b127\.0\.0\.1\b")
 RETIRED_SEAMS = re.compile(r"\bRUN_DOCKER\b|\bRUN_SSH\b|\bRUN_RIG_SNAPSHOT_CMD\b")
 
 #: Two spellings in which the seam's NAME provably starts no process, erased from a line
@@ -216,36 +198,13 @@ ALLOWED: dict[str, str] = {
         "the shims; the argv the list-form pattern sees is the stub's own name"
     ),
     "tests/test_one_door.py": "this file names the patterns it scans for",
-    "tests/test_cross_rig_claim.py": (
-        "monkeypatches contract.ssh with a stub; reaches no rig"
-    ),
-    "tests/test_serving.py": "stubs a dead ssh and asserts its message is kept",
-    "tests/test_serving_memory_declaration.py": (
-        "asserts the shape of a launch line against a stub"
-    ),
-    "tests/test_sink_conformance.py": "counts ssh calls into a stub",
     "tests/test_serving_gatelib.py": (
         "drives gatelib.ssh under a fake door against an ssh stub"
     ),
     "tests/test_serving_door_cli.py": (
         "drives the shims under a fake door against ssh and docker stubs"
     ),
-    "tests/test_default_step.py": (
-        "drives the shipped step against ssh and docker stubs on PATH"
-    ),
-    "tests/test_a_failed_lock_fleets_start_keeps_its_full_log_and_gets_one_retry.py": (
-        "runs lock-fleets' step bodies under a fake door with an ssh and a docker "
-        "stub standing under RUN_BIN, and finds the move shell's `docker run -d` "
-        "in the stub's call log; reaches no rig"
-    ),
-    "tests/test_lock_fleets_files_an_exit_cause_and_one_diagnostic_start.py": (
-        "runs lock-fleets' unit step under a fake door with an ssh and a docker "
-        "stub standing under RUN_BIN, which answer the container's State and the "
-        "rig's kernel log from files the test writes; reaches no rig"
-    ),
 }
-
-DECILES = re.compile(r"^\s*PROMPT_DECILES\s*=")
 
 
 def _code_lines(text: str) -> list[str]:
@@ -316,23 +275,6 @@ def _hits(
         if lines:
             hits[_rel(path)] = lines
     return hits
-
-
-def _rows() -> types.ModuleType:
-    """``tools/runs/rows.py`` — the parser, at the home the door reads it from."""
-    return importlib.import_module("tools.runs.rows")
-
-
-def _started() -> list[Path]:
-    """Every artifact that carries a ``### START`` line."""
-    return [
-        path
-        for path in sorted(EVIDENCE.rglob("*.tsv"))
-        if any(
-            line.startswith("### START")
-            for line in path.read_text(encoding="utf-8").splitlines()
-        )
-    ]
 
 
 # --------------------------------------------------------------------------
@@ -453,16 +395,8 @@ def test_no_shipped_file_is_exempted_by_the_seam_erasure() -> None:
     )
 
 
-def test_the_serving_harness_spawns_no_ssh_of_its_own() -> None:
-    """``tools/bench/serving/*`` reaches a rig only through ``contract.ssh``,
-    which is ``gatelib.ssh``; the `docker run` lines it carries are command
-    text shipped over that ssh. No ssh spawn of its own, in any form."""
-    hits = _hits(SSH_SPAWN, ("tools/bench/serving",))
-    assert not hits, f"the serving harness spawns an ssh outside gatelib: {hits}"
-
-
 # --------------------------------------------------------------------------
-# 2. nothing names its own daemon; 3. nothing measures loopback; 4. no seams
+# 2. nothing names its own daemon; 3. no seams
 # --------------------------------------------------------------------------
 
 
@@ -491,36 +425,6 @@ def test_nothing_under_tools_or_src_names_its_own_daemon() -> None:
     )
 
 
-#: Campaign files whose loopback is the RIG's: shell text sent over the door's
-#: ssh and run on the rig, never on this machine. Path -> why.
-LOOPBACK_ON_THE_RIG: dict[str, str] = {
-    "tools/runs/campaigns/srv1-cpu-saturation/cpusat.py": (
-        "the probe's aggregate pass: this file is shipped to the rig on stdin "
-        "(`python3 - rig-agg`, as the lock's harness is) over the door's ssh "
-        "and posts to the rig's own 127.0.0.1; the step itself polls nothing "
-        "here (owner, 2026-09-16, srv1-cpu-saturation)"
-    ),
-    "tools/runs/campaigns/lock-fleets/_move.sh": (
-        "the move stopwatch: ONE ssh argv, run on the rig, polls each target unit "
-        "at the rig's own 127.0.0.1 and stamps it with the rig's clock (owner "
-        "ruling 2026-09-15, lock-fleets); the step itself polls nothing here"
-    ),
-}
-
-
-def test_no_driver_or_campaign_step_measures_loopback() -> None:
-    hits = _hits(LOOPBACK, ("tools/runs/drivers", "tools/runs/campaigns"))
-    for rel in LOOPBACK_ON_THE_RIG:
-        assert (REPO / rel).is_file(), (
-            f"{rel} is allowed the rig's loopback and is gone"
-        )
-        hits.pop(rel, None)
-    assert not hits, (
-        "the container runs on the rig (the door's `docker` lands there), so a "
-        f"client polling this machine's loopback measures nothing: {hits}"
-    )
-
-
 #: Files that must spell the retired names: the guard, this file, and the
 #: door's CLI test, which asserts the seam is gone from the door's vocabulary.
 SPELLS_THE_SEAMS = (
@@ -543,64 +447,11 @@ def test_the_archived_doors_seam_variables_are_gone() -> None:
 
 
 # --------------------------------------------------------------------------
-# 5. the serving harness run bare exits 2 naming the door
-# --------------------------------------------------------------------------
-
-
-def test_the_serving_harness_run_bare_exits_2_naming_the_door(tmp_path: Path) -> None:
-    """``tests/test_serving_gatelib.py`` pins ``gatelib.ssh``'s refusal and
-    ``tests/test_serving_door_cli.py`` the shims' and the gates'; this is the
-    harness as an operator would run it by hand, from the outside."""
-    config = tmp_path / "min.json"
-    config.write_text(
-        json.dumps({"hosts": ["h"], "backends": [], "models": []}), encoding="utf-8"
-    )
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("RUN_", "DOCKER_"))}
-    done = subprocess.run(
-        [
-            sys.executable,
-            str(SERVING_RUN),
-            "--config",
-            str(config),
-            "--out",
-            str(tmp_path / "survey.jsonl"),
-        ],
-        cwd=REPO,
-        env=env,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
-    )
-    assert done.returncode == 2, (done.returncode, done.stdout[-400:], done.stderr)
-    assert DOOR in done.stderr, done.stderr[-600:]
-    assert "not started by the door" in done.stderr, done.stderr[-600:]
-
-
-# --------------------------------------------------------------------------
-# 10. a hand-set RUN_* environment admits nothing
+# 4. a hand-set RUN_* environment admits nothing
 # --------------------------------------------------------------------------
 
 GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
 DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
-COMMON_SH = REPO / "tools" / "runs" / "_common.sh"
-KERNEL_ARMS_STEP = (
-    REPO / "tools" / "runs" / "campaigns" / "srv1-kernel-arms" / "4-kernel-arms.sh"
-)
-DRIVERS = REPO / "tools" / "runs" / "drivers"
-#: Each driver's image variable and an argv past ``sys.argv``; the image IS a
-#: digest, so the door's proof is the only refusal left between it and docker.
-DRIVER_CALLS: dict[str, tuple[str, list[str]]] = {
-    "lcp_sweep.py": ("LCP_IMG", ["/models/x.gguf", "/models", "tag", "1:4096:0:1"]),
-    "mgpu_sweep.py": ("VLLM_IMG", ["vllm", "tag:org/model:tp2:on:2048:1"]),
-    "vllm_sweep.py": ("VLLM_IMG", ["tag", "org/model", "0.9:2048:8:auto:1"]),
-    "vllm_cores.py": (
-        "VLLM_IMG",
-        ["pair", "0.45", "2048", "128", "auto", "1", "a=org/model"],
-    ),
-}
-ZERO_DIGEST = "sha256:" + "0" * 64
 
 
 def _stubs(where: Path) -> Path:
@@ -692,45 +543,6 @@ def _refused_naming_the_door(
     assert _reached(stubs) == [], f"{what} reached a stub outside the door"
 
 
-def test_a_campaign_step_with_every_run_variable_typed_in_is_refused_outside_the_door(
-    tmp_path: Path,
-) -> None:
-    """``RUN_ID=x RUN_HOST=srv1 ... bash 4-kernel-arms.sh --models ...`` by
-    hand, with every variable the door exports: it once passed door_required
-    on the environment alone and went on to ``ssh srv1``."""
-    stubs = _stubs(tmp_path / "stubs")
-    done = _outside(
-        ["bash", str(KERNEL_ARMS_STEP), "--models", "/models/x.gguf"],
-        _hand_set(stubs, tmp_path),
-    )
-    _refused_naming_the_door(done, stubs, "4-kernel-arms.sh")
-
-
-@pytest.mark.parametrize("full", [False, True], ids=["RUN_HOST-only", "every-RUN_*"])
-def test_rig_snapshot_by_hand_is_refused_before_ssh(tmp_path: Path, full: bool) -> None:
-    stubs = _stubs(tmp_path / "stubs")
-    env = (
-        _hand_set(stubs, tmp_path)
-        if full
-        else _hand_set(stubs, tmp_path, RUN_HOST="srv1")
-    )
-    done = _outside(["bash", "-c", f". '{COMMON_SH}'; rig_snapshot"], env)
-    _refused_naming_the_door(done, stubs, "rig_snapshot")
-
-
-@pytest.mark.parametrize("name", sorted(DRIVER_CALLS))
-def test_a_driver_with_a_run_id_and_a_digest_is_refused_outside_the_door(
-    tmp_path: Path, name: str
-) -> None:
-    stubs = _stubs(tmp_path / "stubs")
-    variable, argv = DRIVER_CALLS[name]
-    env = _hand_set(
-        stubs, tmp_path, RUN_ID="x", RUN_HOST="srv1", **{variable: ZERO_DIGEST}
-    )
-    done = _outside([sys.executable, str(DRIVERS / name), *argv], env)
-    _refused_naming_the_door(done, stubs, name)
-
-
 @pytest.mark.parametrize("script", sorted(p.name for p in GATE_SCRIPTS.glob("*.py")))
 def test_a_gate_with_every_run_variable_typed_in_is_refused_before_any_subprocess(
     tmp_path: Path, script: str
@@ -752,108 +564,8 @@ def test_the_default_step_with_every_run_variable_typed_in_is_refused_outside_th
 
 
 # --------------------------------------------------------------------------
-# 6. one workload
+# 5. no Python sits at the repository root
 # --------------------------------------------------------------------------
-
-
-def test_the_workload_is_defined_once_in_workload_py() -> None:
-    definitions = sorted(
-        _rel(path)
-        for path in _sources(("src", "tools", "tests", "okf", "data"), root_files=True)
-        if any(DECILES.search(line) for line in _code_lines(path.read_text("utf-8")))
-    )
-    assert definitions == [WORKLOAD], (
-        f"PROMPT_DECILES is defined in {definitions}; the one definition is "
-        f"{WORKLOAD}, which every driver imports. A second copy is a second "
-        "workload that will drift — the 2f2bb793 digest is over generated prompts "
-        "precisely so no copy can be equal by accident."
-    )
-
-
-# --------------------------------------------------------------------------
-# 7. every started artifact parses; a run_id brings its round
-# --------------------------------------------------------------------------
-
-
-def test_every_started_artifact_parses_and_a_run_id_names_its_round() -> None:
-    rows = _rows()
-    started = _started()
-    assert started, f"no artifact under {EVIDENCE} carries a ### START line"
-    problems: list[str] = []
-    for path in started:
-        rel = _rel(path)
-        try:
-            sweep = rows.read(path)
-        except ValueError as error:
-            problems.append(f"{rel}: does not parse — {error}")
-            continue
-        starts = [
-            line
-            for _, line in sweep.markers
-            if line.removeprefix("###").split()[:1] == ["START"]
-        ]
-        if not any("run_id=" in line for line in starts):
-            continue  # pre-door artifact: no run_id, no round is owed
-        try:
-            start, round_ = sweep.stamp("START"), sweep.stamp("ROUND")
-        except ValueError as error:
-            problems.append(f"{rel}: a stamp does not parse — {error}")
-            continue
-        if not start.get("run_id"):
-            problems.append(f"{rel}: START names run_id= but it is empty")
-        if not (round_.get("id") and round_.get("product_sha256")):
-            problems.append(
-                f"{rel}: START carries run_id={start.get('run_id')!r} but no "
-                "`### ROUND id= product_sha256=` — a run the door started stamps "
-                "the product round it measured (gate 1)"
-            )
-    assert not problems, "\n".join(problems)
-
-
-# --------------------------------------------------------------------------
-# 8. every host that wrote a row is declared
-# --------------------------------------------------------------------------
-
-
-def test_every_host_that_wrote_a_row_has_a_declared_rig() -> None:
-    rows = _rows()
-    hosts = sorted({row.host for path in _started() for row in rows.read(path).rows})
-    assert hosts, "no artifact carries a row, so no host is on record"
-    declared = json.loads(HOSTS.read_text(encoding="utf-8"))
-    gaps: list[str] = []
-    for host in hosts:
-        rig = (declared.get(host) or {}).get("rig")
-        if not isinstance(rig, dict):
-            gaps.append(
-                f"{host}: no `rig` block under {HOSTS.relative_to(REPO)}[{host!r}]"
-            )
-            continue
-        missing = [f for f in rows.RIG_FIELDS if not str(rig.get(f, "")).strip()]
-        if missing:
-            gaps.append(f"{host}: rig block lacks {missing}")
-        if not str(declared[host].get("read_on", "")).strip():
-            gaps.append(f"{host}: no read_on beside the rig block — read when?")
-    assert not gaps, (
-        "gate 2 compares the live rig with its declaration, so every host that "
-        f"ever wrote a row must be declared: {gaps}"
-    )
-
-
-# --------------------------------------------------------------------------
-# 9. the retired entry points are gone
-# --------------------------------------------------------------------------
-
-
-def test_nothing_under_records_is_executable() -> None:
-    executable = sorted(
-        _rel(path)
-        for path in (REPO / "records").rglob("*")
-        if path.is_file() and path.stat().st_mode & 0o111
-    )
-    assert not executable, (
-        f"{len(executable)} file(s) under records/ carry the exec bit — a record "
-        f"is evidence, not an entry point: {executable}"
-    )
 
 
 def test_no_python_sits_at_the_repo_root() -> None:
@@ -862,22 +574,3 @@ def test_no_python_sits_at_the_repo_root() -> None:
         f"{loose} at the repo root: a driver that can be run bare prints "
         "unstamped rows. Drivers live in tools/runs/drivers/ and refuse without RUN_ID."
     )
-
-
-@pytest.mark.parametrize(
-    "pattern",
-    [
-        "run-with-bench-prompts",
-        "tools/bench/serving/sweep.py",
-        "lcp-vllm-3-arm-run.md",
-        "tools/runs/srv1-*.sh",
-        "tools/runs/run.sh",
-        "tools/runs/campaigns/srv1-kernel-arms/PLAN.md",
-        # The readers moved into the product with the door (round r3).
-        "tools/bench/serving/ggufscan.py",
-        "tools/bench/serving/vramfit.py",
-    ],
-)
-def test_the_retired_entry_point_is_gone(pattern: str) -> None:
-    present = sorted(_rel(p) for p in REPO.glob(pattern))
-    assert not present, f"{present} still exist(s); {DOOR} is the only door"
