@@ -464,6 +464,9 @@ def test_the_by_hand_fix_is_offered_with_no_card_and_a_local_holder(
     text = _refusal(tmp_path, Detection(backends=_holders(("llama-server", 8080))))
     assert "room_mib" in text
     assert "by hand" in text
+    # One wording for a machine without a card: the situation and the fix
+    # say it alike.
+    assert text.count("no GPU this build can see") == 2
 
 
 def test_the_by_hand_fix_is_offered_for_an_unsized_card_with_no_backend(
