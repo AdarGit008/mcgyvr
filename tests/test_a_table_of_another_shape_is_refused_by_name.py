@@ -19,6 +19,9 @@ Promises:
   only where the table holds entries; under a key that holds a value it is
   refused by that key, at every level and however deep in a list, since its
   own keys would be keys nobody declared.
+* A model row or a caveat without a key it needs, and a figure, a model's
+  size or a capability score that is not a number, are refused by the name of
+  the entry and the key.
 * Every refusal names the file it refused, and none is a raw ``TypeError`` or
   ``ValueError`` out of the loader's insides.
 

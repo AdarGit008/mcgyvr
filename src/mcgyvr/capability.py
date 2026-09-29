@@ -415,6 +415,35 @@ def _text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def _number(value: Any) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, int | float)
+        and math.isfinite(value)
+    )
+
+
+#: The keys a model row cannot do without, and those of its keys that are numbers.
+_MODEL_REQUIRED = ("id", "family", "params_b", "vram_gb_working", "weights_gb")
+_MODEL_NUMBERS = ("params_b", "active_params_b", "vram_gb_working", "weights_gb")
+
+#: The keys of a reading that carry its figure.
+_READING_FIGURES = ("humaneval_plus_pass1", "humaneval_pass1", "value")
+
+#: The keys a harness caveat cannot do without.
+_CAVEAT_REQUIRED = ("id", "severity", "summary", "consequence")
+
+
+def _required(
+    entry: Mapping[str, Any], keys: tuple[str, ...], path: Path, where: str
+) -> None:
+    for key in keys:
+        if key not in entry:
+            raise CapabilityTableError(
+                f"{path}: {where} is missing required key {key!r}"
+            )
+
+
 def _card_classes(raw: Mapping[str, Any], path: Path) -> tuple[CardClass, ...]:
     """The declared classes, each with an id, a label and its nominal memory."""
     declared = raw.get("card_classes")
@@ -483,6 +512,21 @@ def _check_readings(
     entry = _object(value, path, f"models[{index}]")
     row = f"models[{index}] ({entry.get('id')!r})"
     _closed(entry, "model row", path, row)
+    _required(entry, _MODEL_REQUIRED, path, row)
+    for key in _MODEL_NUMBERS:
+        if key in entry and not _number(entry[key]):
+            raise CapabilityTableError(
+                f"{path}: {row} gives {key!r} as {entry[key]!r}; a model's "
+                f"{key!r} is a number"
+            )
+    if "capabilities" in entry:
+        scores = _object(entry["capabilities"], path, f"{row} capabilities")
+        for dimension, score in scores.items():
+            if not _number(score):
+                raise CapabilityTableError(
+                    f"{path}: {row} capabilities gives {dimension!r} the score "
+                    f"{score!r}; a capability score is a number"
+                )
     for field_name in READING_LISTS:
         if field_name not in entry:
             continue
@@ -497,6 +541,12 @@ def _check_readings(
                     f"estimate for a declared card class"
                 )
             _given_for(reading, declared, path, where)
+            for key in _READING_FIGURES:
+                if key in reading and not _number(reading[key]):
+                    raise CapabilityTableError(
+                        f"{path}: {where} gives {key!r} as {reading[key]!r}; a "
+                        f"reading's figure is a number"
+                    )
 
 
 def _check_shape(raw: Mapping[str, Any], path: Path) -> tuple[CardClass, ...]:
@@ -514,7 +564,9 @@ def _check_shape(raw: Mapping[str, Any], path: Path) -> tuple[CardClass, ...]:
         _entries(raw.get("harness_caveats", []), path, "harness_caveats")
     ):
         where = f"harness_caveats[{index}]"
-        _closed(_object(value, path, where), "harness caveat", path, where)
+        caveat = _object(value, path, where)
+        _closed(caveat, "harness caveat", path, where)
+        _required(caveat, _CAVEAT_REQUIRED, path, where)
     for index, value in enumerate(_entries(raw.get("models", []), path, "models")):
         _check_readings(index, value, declared, path)
     backends = _object(raw.get("backends", {}), path, "backends")
@@ -581,51 +633,43 @@ def load(path: Path | None = None) -> CapabilityTable:
             f"reads version {SCHEMA_VERSION} only"
         )
 
+    # Every shape the parse below relies on (each required key, each number) is
+    # refused by name here first, so nothing below raises out of the loader.
     card_classes = _check_shape(raw, path)
 
-    try:
-        models = tuple(
-            Model(
-                id=str(entry["id"]),
-                family=str(entry["family"]),
-                params_b=float(entry["params_b"]),
-                vram_gb_working=float(entry["vram_gb_working"]),
-                weights_gb=float(entry["weights_gb"]),
-                quant=str(entry.get("quant", "")),
-                quality=_measurements(entry.get("quality", []), "humaneval_plus_pass1"),
-                throughput=_measurements(entry.get("throughput_tok_s", []), "value"),
-                requires_backend=entry.get("requires_backend"),
-                notes=str(entry.get("notes", "")),
-                capabilities=MappingProxyType(
-                    {
-                        str(dimension): float(score)
-                        for dimension, score in entry.get("capabilities", {}).items()
-                    }
-                ),
-            )
-            for entry in raw.get("models", [])
+    models = tuple(
+        Model(
+            id=str(entry["id"]),
+            family=str(entry["family"]),
+            params_b=float(entry["params_b"]),
+            vram_gb_working=float(entry["vram_gb_working"]),
+            weights_gb=float(entry["weights_gb"]),
+            quant=str(entry.get("quant", "")),
+            quality=_measurements(entry.get("quality", []), "humaneval_plus_pass1"),
+            throughput=_measurements(entry.get("throughput_tok_s", []), "value"),
+            requires_backend=entry.get("requires_backend"),
+            notes=str(entry.get("notes", "")),
+            capabilities=MappingProxyType(
+                {
+                    str(dimension): float(score)
+                    for dimension, score in entry.get("capabilities", {}).items()
+                }
+            ),
         )
-    except KeyError as exc:
-        raise CapabilityTableError(
-            f"a model entry is missing required key {exc.args[0]!r}"
-        ) from exc
+        for entry in raw.get("models", [])
+    )
     if not models:
         raise CapabilityTableError(f"{path} declares no models")
 
-    try:
-        caveats = tuple(
-            Caveat(
-                id=str(c["id"]),
-                severity=str(c["severity"]),
-                summary=str(c["summary"]),
-                consequence=str(c["consequence"]),
-            )
-            for c in raw.get("harness_caveats", [])
+    caveats = tuple(
+        Caveat(
+            id=str(c["id"]),
+            severity=str(c["severity"]),
+            summary=str(c["summary"]),
+            consequence=str(c["consequence"]),
         )
-    except KeyError as exc:
-        raise CapabilityTableError(
-            f"a harness caveat is missing required key {exc.args[0]!r}"
-        ) from exc
+        for c in raw.get("harness_caveats", [])
+    )
     return CapabilityTable(models=models, caveats=caveats, card_classes=card_classes)
 
 
