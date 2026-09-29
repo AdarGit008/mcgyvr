@@ -155,7 +155,8 @@ def overrides_path() -> Path:
 
     The one place that says where it is. It depends on no config, working
     folder, command line flag or live fleet, so every command reads the same
-    file.
+    file. A HOME that cannot be resolved raises ``RuntimeError`` before there
+    is a path to name, as it does for every reader of mcgyvr's own folder.
     """
     return roots.home() / OVERRIDES_FILENAME
 
