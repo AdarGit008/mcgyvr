@@ -378,7 +378,7 @@ def _bytes_of(content: str, index: int) -> bytes | Unusable:
 
     The convention is ``surrogateescape``, which round-trips *bytes* a decode
     could not read (U+DC80..U+DCFF), and a **lone** surrogate is not one of
-    those. It is a legal JSON escape, so ``\ud800`` survives ``json.loads``
+    those. It is a legal JSON escape, so ``\\ud800`` survives ``json.loads``
     into a completion and reaches here as ordinary draw text.
 
     A refusal rather than a rejection, because there is no verdict to record: no

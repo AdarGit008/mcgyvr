@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Refuse to publish a wheel whose version is not the tag's.
 
-    python tools/release/wheel_is_tag.py v0.1.0 dist/mcgyvr-0.1.0-py3-none-any.whl
+    python scripts/release/wheel_is_tag.py v0.1.0 dist/mcgyvr-0.1.0-py3-none-any.whl
 
 The release workflow runs this between `uv build` and `gh release create`.
 A mismatch is a tag on the wrong commit, or a build that read something
