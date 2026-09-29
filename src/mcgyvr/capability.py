@@ -1,13 +1,14 @@
 """Reader for the shipped capability table, and the one question a task asks it.
 
 The table (``data/capability-table.json``) is estimates by card class, not
-readings of the user's machine: it is how ``mcgyvr init`` proposes worker
-bindings for detected hardware without benchmarking that machine. See
-``data/README.md`` for what a card class is and for the harness caveats that
-make some published numbers unusable.
+readings of the user's machine. ``mcgyvr capabilities`` lists it, and
+``mcgyvr emit`` sizes a unit from the row whose id equals the unit's model,
+unless a unit in fleet.yaml declares that model, for example under ``launch``
+or as ``room_mib``. ``mcgyvr init`` does not read it: init binds the models running
+servers list (:mod:`mcgyvr.propose`). See ``data/README.md`` for what a card
+class is and for the harness caveats that make some published numbers unusable.
 
-Reading and validating is most of this module. Turning hardware into a proposed
-binding is a separate concern and lives in :mod:`mcgyvr.propose`.
+Reading and validating is most of this module.
 
 **What one number can and cannot decide.** Every row carries a single quality
 figure — an estimated HumanEval+ pass@1 — and one number induces a total order, so
