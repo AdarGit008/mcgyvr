@@ -155,8 +155,21 @@ def test_a_second_listing_of_a_taken_name_is_not_bound_and_is_named() -> None:
         assert said in reason
 
 
-@pytest.mark.parametrize("model", ["", "   ", "example\nmodel", "example\tmodel"])
+@pytest.mark.parametrize(
+    "model",
+    [
+        "",
+        "   ",
+        "example\nmodel",
+        "example\tmodel",
+        " example-model",
+        "example-model ",
+        "example\u00a0model",
+    ],
+)
 def test_an_id_a_setup_cannot_carry_is_not_bound_and_is_named(model: str) -> None:
+    """Blank, space at either end, or a character that is not printable: the
+    note names the id and says which of these it is, in words true of it."""
     machine = with_server(
         shape("one-card"), kind=KINDS[0], models=(model, "example-model-small")
     )
@@ -165,6 +178,17 @@ def test_an_id_a_setup_cannot_carry_is_not_bound_and_is_named(model: str) -> Non
     reason = proposal.why(model)
     assert reason is not None and repr(model) in reason
     assert reason in proposal.notes
+    if model.strip() and model != model.strip():
+        assert "space at either end" in reason
+    if not model.isprintable():
+        assert "not printable" in reason
+
+
+def test_an_id_with_a_space_inside_is_bound_as_listed() -> None:
+    machine = with_server(shape("one-card"), kind=KINDS[0], models=("example model",))
+    proposal = propose(sources=_sources(machine))
+    assert [r.model for r in proposal.rungs] == ["example model"]
+    assert proposal.rejected == ()
 
 
 # --- nothing listed is coherent, not an error --------------------------------

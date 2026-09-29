@@ -171,6 +171,32 @@ def test_a_reachable_backend_with_nothing_bindable_also_refuses(
     assert "load a model into a server named above" in message
 
 
+@pytest.mark.parametrize("model", ["example\tmodel", " example-model"])
+def test_a_refusal_over_ids_init_cannot_bind_says_why(
+    tmp_path: Path, model: str
+) -> None:
+    """A server that lists only ids init does not bind is not a server that
+    lists nothing: the refusal names each id and why it was not bound."""
+    with pytest.raises(InitError) as exc:
+        initialize(tmp_path / "c.yaml", detection=_serving("bare", model))
+    message = " ".join(str(exc.value).split())
+    assert "none of them lists a model." not in message
+    assert repr(model) in message
+
+
+def test_every_written_unit_reads_back_as_an_id_its_server_lists(
+    tmp_path: Path,
+) -> None:
+    """An id with a space inside is bound as it is listed; one whose file form
+    would read back as another id is not bound at all."""
+    listed = ("example model", " example-lead", "example-trail ", "example\u00a0nbsp")
+    found = _serving("one-card", *listed)
+    result = initialize(tmp_path / "setup", detection=found)
+    models = [unit.model for unit in load_config(result.path).units.values()]
+    assert models, "the id with a space inside is bound"
+    assert all(model in listed for model in models), models
+
+
 def test_a_refusal_never_touches_an_existing_config(tmp_path: Path) -> None:
     """Someone's working config must survive a re-run on a broken machine."""
     path = tmp_path / "setup"
