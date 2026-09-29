@@ -1,5 +1,7 @@
 # Files of the product that name a machine it did not invent, or point into
-# the development repository, with how many hits of each kind they hold.
+# the development repository, in the places and shapes that
+# tests/uninvented_machines.py reads, with how many hits of each kind they
+# hold.
 # Paths and counts only, never the text of a line; a path that is itself a
 # hit is listed as it is. One line per file, sorted by path within its
 # section:
@@ -171,7 +173,7 @@ tests/test_no_landed_test_opens_with_a_red_spec_docstring.py	dev-pointer=1
 tests/test_no_retired_door_names.py	dev-pointer=25
 tests/test_no_stale_pending_citations.py	dev-pointer=6
 tests/test_one_door.py	dev-pointer=11
-tests/test_orchestrator_repo.py	home-path=1	host=1
+tests/test_orchestrator_repo.py	home-path=1	host=2
 tests/test_pattern_b_one_owner.py	dev-pointer=4
 tests/test_pattern_e_boundaries.py	dev-pointer=1
 tests/test_per_rung_width.py	host=12

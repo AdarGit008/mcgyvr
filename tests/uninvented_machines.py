@@ -57,8 +57,10 @@ names exists.
     one-dash option and its value or after ``--`` (``-o Name=value
     <user>@<name>``), quoted on its own (``"<user>@<name>"``), or before
     ``:`` and a path that does not start with ``//`` (a copy's source or
-    target). A digest after ``@`` (``sha256:``, ``SHA256:``, ``blake3:``)
-    is no machine in any of these. It passes when it is ``localhost`` or
+    target); and a name with no user before ``:`` and an absolute path or
+    one under ``~/`` (a copy's ``<name>:/srv/x``). A digest after ``@``
+    (``sha256:``, ``SHA256:``, ``blake3:``) is no machine in the rules with
+    a user. It passes when it is ``localhost`` or
     the generic local name under ``.localdomain``, a reserved name
     (``.invalid``, ``.test``, ``.example``, ``.localhost``, ``example.com``
     and its siblings), docker's name for its own host, the words ``host``
@@ -107,7 +109,8 @@ script with no extension, prose); a key that ends in an id key
 (``config_unit_id``); a card series named in lower case by ``rtx`` or
 ``gtx`` and two digits; a slice of decimal digits and ``::`` written after a
 comma or a space or on a string literal, and a scoped name of three or four
-hex letters on each side of ``::``; the home folder of a cloud image's
+hex letters on each side of ``::``; a docker volume's name before ``:`` and
+an absolute path (``-v <volume>:/data``); the home folder of a cloud image's
 default user; a made-up digest that is not one digit repeated; and a leaving
 folder's name joined to any base in code, a temporary folder included, since
 the join does not know its base.
@@ -124,6 +127,7 @@ encoded or compressed passes. It also does not see:
   copy's ``<user>@<name>:`` with nothing after the colon and no option
   before it; nor ``ssh-copy-id``, ``sftp`` or ``mosh`` with no option before
   the destination; nor a jump host given without a user (``-J <name>``);
+  nor a copy's ``<name>:dir/`` with no user and a relative path;
 - a machine's name in prose where no host is expected, or under keys other
   than those above (``server:``, ``rig:``, ``hosts: [...]``), or as a
   constant (``DEFAULT_HOST = "name"``), or as ``name:8080``; nor a host key
@@ -377,6 +381,11 @@ _QUOTED_USER_HOST = re.compile(r"[\"'`]" + _USER_AT + _MACHINE + r"[\"'`]")
 _COPY_USER_HOST = re.compile(
     r"(?<![\w@/.-])" + _USER_AT + _MACHINE + r":(?!//)(?=[\w~/.$-])"
 )
+# A copy's source or target with no user: a name, then `:` and an absolute
+# path or one under `~/`.
+_COPY_HOST = re.compile(
+    r"(?:^|(?<=[\s\"'`]))([A-Za-z][A-Za-z0-9_.-]+):(?!//)(?=/[\w~.]|~/)"
+)
 _SUFFIXED = re.compile(
     r"(?<![\w.-])([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*(?:"
     + "|".join(re.escape(suffix) for suffix in ANYWHERE_SUFFIXES)
@@ -579,6 +588,7 @@ def scan_text(
             (_OPTION_USER_HOST, 1),
             (_QUOTED_USER_HOST, 1),
             (_COPY_USER_HOST, 1),
+            (_COPY_HOST, 1),
             *(() if python else ((_BARE_KEYED_HOST, 1),)),
         ):
             for m in rule.finditer(line):
@@ -731,7 +741,9 @@ def summary(hits: Sequence[Hit]) -> str:
 
 HEADER = """\
 # Files of the product that name a machine it did not invent, or point into
-# the development repository, with how many hits of each kind they hold.
+# the development repository, in the places and shapes that
+# tests/uninvented_machines.py reads, with how many hits of each kind they
+# hold.
 # Paths and counts only, never the text of a line; a path that is itself a
 # hit is listed as it is. One line per file, sorted by path within its
 # section:

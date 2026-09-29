@@ -3,10 +3,13 @@
 Promise: what the product ships and what a contributor reads holds no home
 folder of a named user, no address that reaches a machine, no private host
 name, no card model, no identity digest of a real machine and no pointer into
-the development repository, except in the files a list names, each with the
-hits of each kind it holds; the list may only shrink. Not read: the folders
-that leave the product, while they are in it, and the changelog from its
-first released version's heading on.
+the development repository, in the places and shapes
+:mod:`tests.uninvented_machines` reads, except in the files a list names,
+each with the hits of each kind it holds; the list may only shrink. Not read:
+the folders that leave the product, while they are in it, and the changelog
+from its first released version's heading on. A name where no rule reads a
+host (prose, a positional argument, other keys) is not seen; the check reads
+shapes and knows no one's own names.
 
 The kinds, what passes and what the check cannot see are stated in
 :mod:`tests.uninvented_machines`, which this test and the command that writes
