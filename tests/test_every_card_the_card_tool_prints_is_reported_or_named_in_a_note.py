@@ -4,7 +4,16 @@ The promise: no card disappears between the card tool's output and what
 detection reports. A card whose name carries a comma is a card. A card whose
 memory size the tool prints as not available is a card whose size is not
 determined: it is listed, a note says its size is undetermined, and it takes no
-part in sizing. A row that cannot be read at all is quoted in a note.
+part in sizing. A row that cannot be read at all is quoted in a note, and the
+quote is of bounded length, whatever the row's.
+
+What the commands say holds to the same promise. ``mcgyvr detect`` prints every
+card and every note. ``mcgyvr init`` on a machine with cards of known and of
+undetermined size names the card it sized against, and states each card whose
+size is not determined, in its decisions and in the comment it writes into the
+setup. On a machine whose only cards are of undetermined size it refuses, and
+the refusal names the fix that applies: a unit bound by hand, which states the
+card room it needs.
 
 Every card here is invented, in name and in size.
 """
@@ -16,12 +25,15 @@ from typing import Any
 
 import pytest
 
-from mcgyvr import detect
+from mcgyvr import cli, detect
 from mcgyvr.capability import load as load_table
+from mcgyvr.config import FLEET_FILENAME
+from mcgyvr.config import load as load_config
 from mcgyvr.detect import Backend, Detection, Gpu
 from mcgyvr.initialize import InitError, initialize
+from tests.machine_shapes import detection, shape, with_server
 
-MIB = 1024
+MIB = detect.MIB_PER_GB
 #: The size of a card whose size is not determined. Typed loosely so this file
 #: states the promise before the reader's types can carry it.
 NO_SIZE: Any = None
@@ -185,18 +197,59 @@ def _unsized_machine(models: tuple[str, ...]) -> Detection:
     )
 
 
-def test_init_on_a_card_of_undetermined_size_says_so(tmp_path: Path) -> None:
+def test_init_on_a_card_of_undetermined_size_refuses_and_says_so(
+    tmp_path: Path,
+) -> None:
+    """No model is sized against a card whose size nobody read, so init has
+    nothing it may bind on this machine's own card, and refuses."""
     table = load_table()
     measured = tuple(m.id for m in table.models if m.is_measured)
     found = _unsized_machine(measured)
-    try:
-        result = initialize(tmp_path / "setup", detection=found, table=table)
-    except InitError as refused:
-        text = str(refused)
-    else:
-        text = " ".join(result.decisions)
+    with pytest.raises(InitError) as refused:
+        initialize(tmp_path / "setup", detection=found, table=table)
+    text = str(refused.value)
     assert "Inventa Shared V" in text
     assert "not determined" in text
+    assert not (tmp_path / "setup").exists()
+
+
+def test_the_refusal_on_a_card_of_undetermined_size_names_the_fix_that_applies(
+    tmp_path: Path,
+) -> None:
+    """A unit bound by hand states the card room it needs: that is the fix."""
+    table = load_table()
+    measured = tuple(m.id for m in table.models if m.is_measured)
+    with pytest.raises(InitError) as refused:
+        initialize(
+            tmp_path / "setup", detection=_unsized_machine(measured), table=table
+        )
+    text = str(refused.value)
+    assert "room_mib" in text
+    assert "by hand" in text
+    assert "start a local backend" not in text, "one is already answering"
+
+
+@pytest.mark.parametrize(
+    "gpus",
+    [(Gpu("Inventa Shared V", NO_SIZE, "invented"),), ()],
+    ids=["a card of undetermined size", "no card"],
+)
+def test_a_refusal_does_not_say_no_backend_holds_a_model_when_one_does(
+    tmp_path: Path, gpus: tuple[Gpu, ...]
+) -> None:
+    table = load_table()
+    measured = tuple(m.id for m in table.models if m.is_measured)
+    found = Detection(
+        gpus=gpus,
+        backends=(
+            Backend(
+                "llama-server", "http://localhost:8080", "openai", measured, "probe"
+            ),
+        ),
+    )
+    with pytest.raises(InitError) as refused:
+        initialize(tmp_path / "setup", detection=found, table=table)
+    assert "none of them reports holding a measured model" not in str(refused.value)
 
 
 def test_a_refusal_on_a_card_of_undetermined_size_does_not_say_there_is_no_card(
@@ -207,3 +260,98 @@ def test_a_refusal_on_a_card_of_undetermined_size_does_not_say_there_is_no_card(
         initialize(tmp_path / "setup", detection=found, table=load_table())
     assert "no GPU this build can see" not in str(refused.value)
     assert "not determined" in str(refused.value)
+
+
+# --- a quoted row is of bounded length --------------------------------------
+
+
+def test_a_note_quotes_a_bounded_part_of_a_huge_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Typed loosely until detection declares its bound.
+    declared: Any = detect
+    bound = declared.ROW_QUOTED_AT_MOST
+    huge = "x" * 100_000
+    _gpus, notes = read(monkeypatch, f"{huge}\n{huge}, [N/A]\n")
+    assert len(notes) == 2
+    for note in notes:
+        assert len(note) <= bound * 2 + 300, note[:120]
+
+
+# --- init names the card it sized against, and the one it could not ---------
+
+
+@pytest.mark.parametrize("label", ["unreadable-size", "unreadable-size-first"])
+def test_init_names_the_card_it_sized_against_and_the_cards_it_could_not(
+    tmp_path: Path, label: str
+) -> None:
+    """In the decisions, in the comment written into the setup, and in the
+    units: one card, the one sizing used, whichever order the tool prints."""
+    machine = shape(label)
+    kind = detect.PORT_CONVENTIONS[0][0]
+    found = detection(with_server(machine, kind=kind, models=("example-model",)))
+    sized = [g for g in found.gpus if g.vram_gb is not None]
+    unsized = [g for g in found.gpus if g.vram_gb is None]
+    assert sized and unsized, "the shape has cards of both kinds"
+    largest = max(sized, key=lambda g: g.vram_gb or 0.0)
+
+    path = tmp_path / "setup"
+    result = initialize(path, detection=found, table=load_table())
+
+    said = [d for d in result.decisions if d.startswith("GPU ")]
+    assert len(said) == len(sized[:1]) + len(unsized)
+    assert said[0].startswith(f"GPU {largest.name} with {largest.size}")
+    for gpu in unsized:
+        line = [d for d in said if d.startswith(f"GPU {gpu.name} ")]
+        assert len(line) == 1
+        assert line[0].startswith(f"GPU {gpu.name} with {gpu.size}")
+    written = " ".join(
+        line.lstrip("#").strip()
+        for line in (path / FLEET_FILENAME).read_text(encoding="utf-8").splitlines()
+        if line.startswith("#")
+    )
+    for gpu in (largest, *unsized):
+        assert f"GPU {gpu.name} with {gpu.size}" in written
+    units = load_config(path).data["units"]
+    assert units, "a unit is sized against the card of known size"
+    card_mib = (largest.vram_gb or 0.0) * MIB
+    for name, unit in units.items():
+        assert unit.get("room_mib", 0) <= card_mib, name
+
+
+# --- the detect command prints every card and every note --------------------
+
+
+def test_the_detect_command_prints_every_card_and_every_note(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = (
+        rows(("Plain X8", str(8 * MIB)), ("Inventa Shared V", "[N/A]"))
+        + "Inventa Broken, not-a-size\n"
+    )
+    monkeypatch.setattr(
+        detect,
+        "_run",
+        lambda command: output if command[0] == "nvidia-smi" else None,
+        raising=True,
+    )
+    monkeypatch.setattr(detect, "_get_json", lambda url, timeout: None, raising=True)
+    monkeypatch.setattr(
+        detect, "detect_ram_gb", lambda: (None, "invented"), raising=True
+    )
+    monkeypatch.setattr(
+        detect, "detect_docker", lambda: (False, "invented"), raising=True
+    )
+    gpus, notes = detect.detect_gpus()
+
+    assert cli.main(["detect"]) == 0
+    printed = capsys.readouterr().out.splitlines()
+
+    assert [g.name for g in gpus] == ["Plain X8", "Inventa Shared V"]
+    assert gpus[1].size == Gpu("Inventa Shared V", NO_SIZE, "invented").size
+    for gpu in gpus:
+        assert f"  {gpu.name} — {gpu.size}  ({gpu.how})" in printed
+    assert any(n.startswith(detect.GPU_SIZE_UNDETERMINED) for n in notes)
+    assert any(n.startswith(detect.GPU_ROW_NOT_READ) for n in notes)
+    for note in notes:
+        assert f"  - {note}" in printed
