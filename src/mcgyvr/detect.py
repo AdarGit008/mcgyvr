@@ -308,12 +308,14 @@ def _get_json(url: str, timeout: float) -> Any | None:
     Every failure mode here — refused, timed out, 404, not JSON, a status line
     that is not one, a body that ends before the length it stated — means the
     same thing to the caller: nothing usable is listening. The last two are
-    ``http.client.HTTPException``, which is not an ``OSError``.
+    ``http.client.HTTPException``, which is not an ``OSError``. JSON nested
+    deeper than the reader follows raises ``RecursionError``, which is neither,
+    and means the same.
     """
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
-    except (OSError, ValueError, http.client.HTTPException):
+    except (OSError, ValueError, http.client.HTTPException, RecursionError):
         return None
 
 

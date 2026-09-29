@@ -109,9 +109,24 @@ class LoadTransport(Protocol):
 
 #: What a reply that is not a readable answer raises while it is read: a refused
 #: or dropped connection and a timeout (``OSError``), a body that is not JSON
-#: (``ValueError``), and a status line that is not one or a body that ends before
-#: the length it stated (``http.client.HTTPException``, which is no ``OSError``).
-_UNREADABLE_REPLY = (OSError, ValueError, http.client.HTTPException)
+#: (``ValueError``), a status line that is not one or a body that ends before
+#: the length it stated (``http.client.HTTPException``, which is no
+#: ``OSError``), and JSON nested deeper than the reader follows
+#: (``RecursionError``, which is neither).
+_UNREADABLE_REPLY = (OSError, ValueError, http.client.HTTPException, RecursionError)
+
+#: The most characters of a server's own text an error quotes. A status line
+#: may be tens of kilobytes long, and an error is read in a terminal and kept
+#: in a report, so it quotes both ends of a longer text and not the middle.
+REPLY_QUOTED_AT_MOST = 200
+
+
+def _bounded(text: str) -> str:
+    """``text``, cut in the middle when longer than :data:`REPLY_QUOTED_AT_MOST`."""
+    if len(text) <= REPLY_QUOTED_AT_MOST:
+        return text
+    keep = (REPLY_QUOTED_AT_MOST - len(" ... ")) // 2
+    return f"{text[:keep]} ... {text[-keep:]}"
 
 
 def _json_answer(request: str | urllib.request.Request, timeout: float | None) -> Any:
@@ -126,7 +141,7 @@ def _json_answer(request: str | urllib.request.Request, timeout: float | None) -
             return json.loads(response.read().decode("utf-8"))
     except _UNREADABLE_REPLY as exc:
         raise HarnessError(
-            f"{url} did not answer properly: {type(exc).__name__}: {exc}"
+            f"{url} did not answer properly: {type(exc).__name__}: {_bounded(str(exc))}"
         ) from exc
 
 
@@ -470,7 +485,7 @@ def slots_in_flight(page: str | None) -> int | None:
         return None
     try:
         slots = json.loads(page)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     if not isinstance(slots, list) or not slots:
         return None

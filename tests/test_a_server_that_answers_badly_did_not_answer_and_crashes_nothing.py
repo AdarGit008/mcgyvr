@@ -39,7 +39,6 @@ import socket
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
 
 import pytest
 
@@ -232,9 +231,7 @@ def test_a_harness_error_quotes_a_bounded_part_of_what_the_server_sent() -> None
             harness.HttpTransport().get(url, TIMEOUT_S)
     said = str(raised.value)
     assert url in said
-    # Typed loosely until the harness declares its bound.
-    declared: Any = harness
-    assert len(said) <= len(url) + declared.REPLY_QUOTED_AT_MOST + 100
+    assert len(said) <= len(url) + harness.REPLY_QUOTED_AT_MOST + 100
 
 
 @pytest.mark.parametrize("reply", UNREADABLE.values(), ids=UNREADABLE.keys())
