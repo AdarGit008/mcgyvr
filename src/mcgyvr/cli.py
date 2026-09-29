@@ -419,7 +419,7 @@ def _detect(args: argparse.Namespace) -> int:
     if found.gpus:
         print("GPU:")
         for gpu in found.gpus:
-            print(f"  {gpu.name} — {gpu.vram_gb:g} GB  ({gpu.how})")
+            print(f"  {gpu.name} — {gpu.size}  ({gpu.how})")
         if found.has_remote_backend:
             print("  (this machine's card — the remote backends below have their own)")
     else:
@@ -2858,9 +2858,9 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     except (json.JSONDecodeError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    # The measured class tolerances, read from the derived-numbers file: the
-    # rule is pinned in `mcgyvr.fleet.lock`, the values live with the rigs. The
-    # lock weighs only warm decode against NVMe, so it reads decode's classes.
+    # The class tolerances, looked up in `mcgyvr.derived`: the rule is pinned in
+    # `mcgyvr.fleet.lock`, the values are estimates the user can set. The lock
+    # weighs only warm decode against NVMe, so it reads decode's classes.
     try:
         tolerances = {"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]}
     except DerivedNumbersError as exc:

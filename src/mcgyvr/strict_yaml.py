@@ -9,12 +9,19 @@ every failure reads as the file that produced it.
 
 from __future__ import annotations
 
+import reprlib
 from collections.abc import Callable
 from typing import Any
 
 import yaml
 
 ErrorFactory = Callable[[str], Exception]
+
+#: How a refusal spells a key: a real key in full, but only the start of a
+#: value that aliases build far larger than the text of the file.
+_KEY = reprlib.Repr(
+    maxlevel=2, maxdict=4, maxlist=4, maxset=4, maxstring=200, maxlong=200, maxother=200
+)
 
 
 def _no_duplicate_keys(
@@ -31,13 +38,13 @@ def _no_duplicate_keys(
             # TypeError past every caller expecting the schema's own error.
             mark = key_node.start_mark
             raise error(
-                f"key {key!r} at line {mark.line + 1} is not a plain name; a "
+                f"key {_KEY.repr(key)} at line {mark.line + 1} is not a plain name; a "
                 "key is one word, never a list or a mapping."
             ) from None
         if key in mapping:
             mark = key_node.start_mark
             raise error(
-                f"duplicate key {key!r} at line {mark.line + 1} — YAML would "
+                f"duplicate key {_KEY.repr(key)} at line {mark.line + 1} — YAML would "
                 f"silently keep only the last one, so the file does not mean "
                 f"what it looks like it means."
             ) from None
