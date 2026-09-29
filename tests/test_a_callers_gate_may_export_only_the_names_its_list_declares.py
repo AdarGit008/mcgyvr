@@ -33,20 +33,20 @@ def test_a_declared_export_reaches_the_gates_after_it_the_doors_included(
 ) -> None:
     cg.clean_door_env(monkeypatch)
     log = tmp_path / "order.log"
-    cg.fake_door(tmp_path, monkeypatch, log, show=("RUN_LAB_MARK",))
+    cg.fake_door(tmp_path, monkeypatch, log, show=("RUN_CALLER_MARK",))
     root = tmp_path / "caller"
     cg.executable(
         root / "mark.py",
-        cg.gate_text(log, "caller:mark", exports={"RUN_LAB_MARK": "seen"}),
+        cg.gate_text(log, "caller:mark", exports={"RUN_CALLER_MARK": "seen"}),
     )
     cg.executable(
-        root / "look.py", cg.gate_text(log, "caller:look", show=("RUN_LAB_MARK",))
+        root / "look.py", cg.gate_text(log, "caller:look", show=("RUN_CALLER_MARK",))
     )
     listed = cg.write_list(
         tmp_path / "gates.json",
         str(root),
         [
-            cg.entry("mark.py", "before", ["RUN_LAB_MARK"]),
+            cg.entry("mark.py", "before", ["RUN_CALLER_MARK"]),
             cg.entry("look.py", "after"),
         ],
     )
@@ -54,9 +54,9 @@ def test_a_declared_export_reaches_the_gates_after_it_the_doors_included(
     assert run.main(cg.read_argv("--gates", str(listed))) == 0
 
     lines = {line.split()[0]: line for line in cg.log_lines(log)}
-    assert "RUN_LAB_MARK=seen" in lines["caller:look"]
-    assert "RUN_LAB_MARK=seen" in lines[f"door:{run.READ_SEQUENCE[1].script}"]
-    assert "RUN_LAB_MARK=-" in lines[f"door:{run.READ_SEQUENCE[0].script}"]
+    assert "RUN_CALLER_MARK=seen" in lines["caller:look"]
+    assert "RUN_CALLER_MARK=seen" in lines[f"door:{run.READ_SEQUENCE[1].script}"]
+    assert "RUN_CALLER_MARK=-" in lines[f"door:{run.READ_SEQUENCE[0].script}"]
 
 
 def test_an_export_the_list_does_not_declare_is_refused_and_the_run_stops(
@@ -70,7 +70,7 @@ def test_an_export_the_list_does_not_declare_is_refused_and_the_run_stops(
     root = tmp_path / "caller"
     cg.executable(
         root / "sneak.py",
-        cg.gate_text(log, "caller:sneak", exports={"RUN_LAB_UNDECLARED": "x"}),
+        cg.gate_text(log, "caller:sneak", exports={"RUN_CALLER_UNDECLARED": "x"}),
     )
     listed = cg.write_list(
         tmp_path / "gates.json", str(root), [cg.entry("sneak.py", "before")]
@@ -83,7 +83,7 @@ def test_an_export_the_list_does_not_declare_is_refused_and_the_run_stops(
         "caller:sneak",
     ]
     said = capsys.readouterr().err
-    assert "RUN_LAB_UNDECLARED" in said and "sneak.py" in said, said
+    assert "RUN_CALLER_UNDECLARED" in said and "sneak.py" in said, said
 
 
 @pytest.mark.parametrize("name", DOOR_NAMES)

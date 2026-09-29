@@ -2,9 +2,12 @@
 
 A gate list is input the door does not trust. A gate that is missing or not
 executable, a path that leaves the list's root (by name or through a link), a
-root that is not an absolute folder, a key or a phase the door does not know,
-and a name two gates both export: each is refused before the door runs its
-first gate, and the refusal names the list file and the entry at fault.
+root that is not an absolute folder or that is, holds or lies inside the
+package's own folder, a key or a phase the door does not know, a key given
+twice, a name two gates both export, a bound that is not a positive number,
+more gates than the door holds a list to, and input that cannot be read as a
+path or as JSON at all: each is refused before the door runs its first gate,
+and the refusal names the list file and the entry at fault.
 """
 
 from __future__ import annotations
@@ -111,11 +114,11 @@ def _duplicate_export(tmp: Path) -> tuple[Path, str]:
         tmp / "g.json",
         str(root),
         [
-            cg.entry(_ok(root, "one.py"), "before", ["RUN_LAB_TWICE"]),
-            cg.entry(_ok(root, "two.py"), "after", ["RUN_LAB_TWICE"]),
+            cg.entry(_ok(root, "one.py"), "before", ["RUN_CALLER_TWICE"]),
+            cg.entry(_ok(root, "two.py"), "after", ["RUN_CALLER_TWICE"]),
         ],
     )
-    return listed, "RUN_LAB_TWICE"
+    return listed, "RUN_CALLER_TWICE"
 
 
 def _list_not_json(tmp: Path) -> tuple[Path, str]:
@@ -126,6 +129,58 @@ def _list_not_json(tmp: Path) -> tuple[Path, str]:
 
 def _list_missing(tmp: Path) -> tuple[Path, str]:
     return tmp / "no-such-list.json", "cannot be read"
+
+
+def _root_in_package(where: Path, gate: str) -> Case:
+    def case(tmp: Path) -> tuple[Path, str]:
+        listed = cg.write_list(tmp / "g.json", str(where), [cg.entry(gate, "before")])
+        return listed, "root"
+
+    return case
+
+
+PACKAGE = run.HERE.parent
+
+
+def _odd_path(path: str) -> Case:
+    def case(tmp: Path) -> tuple[Path, str]:
+        root = tmp / "caller"
+        root.mkdir()
+        listed = cg.write_list(tmp / "g.json", str(root), [cg.entry(path, "before")])
+        return listed, "gates[0]"
+
+    return case
+
+
+def _raw(text: str, names: str) -> Case:
+    def case(tmp: Path) -> tuple[Path, str]:
+        listed = tmp / "g.json"
+        listed.write_text(text.replace("ROOT", str(tmp)), encoding="utf-8")
+        return listed, names
+
+    return case
+
+
+def _too_many(tmp: Path) -> tuple[Path, str]:
+    root = tmp / "caller"
+    gates = [cg.entry(_ok(root), "before") for _ in range(run.MAX_GATES + 1)]
+    return cg.write_list(tmp / "g.json", str(root), gates), str(run.MAX_GATES)
+
+
+def _bound(value: object) -> Case:
+    def case(tmp: Path) -> tuple[Path, str]:
+        root = tmp / "caller"
+        gate = cg.entry(_ok(root), "before")
+        gate["timeout_s"] = value
+        return cg.write_list(tmp / "g.json", str(root), [gate]), "timeout_s"
+
+    return case
+
+
+def _export_with_newline(tmp: Path) -> tuple[Path, str]:
+    root = tmp / "caller"
+    gate = cg.entry(_ok(root), "before", ["RUN_CALLER_LINE\n"])
+    return cg.write_list(tmp / "g.json", str(root), [gate]), "RUN_CALLER_LINE"
 
 
 CASES: dict[str, Case] = {
@@ -142,6 +197,29 @@ CASES: dict[str, Case] = {
     "a name two gates export": _duplicate_export,
     "a list that is not JSON": _list_not_json,
     "a list file that is not there": _list_missing,
+    "a root that is the door's gate folder": _root_in_package(
+        PACKAGE / "serving" / "gate-scripts", "06-step.py"
+    ),
+    "a root that is the package folder": _root_in_package(
+        PACKAGE, "serving/gate-scripts/06-step.py"
+    ),
+    "a root that holds the package folder": _root_in_package(
+        PACKAGE.parent, "mcgyvr/serving/gate-scripts/06-step.py"
+    ),
+    "a path carrying a NUL": _odd_path("a\x00b.py"),
+    "a path carrying a lone surrogate": _odd_path("\udcff.py"),
+    "JSON nested past any list": _raw("[" * 100_000 + "]" * 100_000, "the list"),
+    "an integer of more digits than JSON reads": _raw(
+        '{"root": ' + "9" * 5000 + ', "gates": []}', "the list"
+    ),
+    "a key given twice": _raw(
+        '{"root": "ROOT", "root": "ROOT", "gates": []}', "'root'"
+    ),
+    "more gates than a list holds": _too_many,
+    "a bound of zero": _bound(0),
+    "a bound that is not a number": _bound("5"),
+    "a bound that is a truth value": _bound(True),
+    "an export name ending in a newline": _export_with_newline,
 }
 
 

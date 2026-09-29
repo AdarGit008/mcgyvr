@@ -243,3 +243,52 @@ def door_process(
         timeout=120,
         check=False,
     )
+
+
+#: The checkout the tests run from, for a door started as its own process.
+REPO = Path(__file__).resolve().parent.parent
+
+#: The door as a process over :func:`fake_door`'s stand-ins, with the signal
+#: handlers the door installs when it runs as ``python -m``. Arguments: the
+#: folder to build in, the order log, and the door's argv as JSON.
+DRIVER = """
+import json, signal, sys
+from pathlib import Path
+import pytest
+sys.path.insert(0, {repo!r})
+from mcgyvr.serving import run
+from tests import callergates as cg
+work, log, argv = Path(sys.argv[1]), Path(sys.argv[2]), json.loads(sys.argv[3])
+mp = pytest.MonkeyPatch()
+cg.clean_door_env(mp)
+cg.fake_door(work, mp, log)
+signal.signal(signal.SIGTERM, run._sigterm)
+signal.signal(signal.SIGINT, run._sigterm)
+sys.exit(run.main(argv))
+"""
+
+
+def driven_door(work: Path, log: Path, argv: list[str]) -> subprocess.Popen[str]:
+    """Start the door over stand-in gates as a process of its own."""
+    return subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            DRIVER.format(repo=str(REPO)),
+            str(work),
+            str(log),
+            json.dumps(argv),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def alive(pid: int) -> bool:
+    """Whether a process of that id still runs."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
