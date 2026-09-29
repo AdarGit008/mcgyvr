@@ -390,10 +390,11 @@ _CONTRACT_KIND_LABELS: dict[str, str] = {
     "block_list": "list of blocks",
 }
 
-#: One minimal valid contract per task type, in the catalog's order. Each is
-#: loaded by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``;
-#: an example that does not validate fails the suite.
-EXAMPLES: dict[str, str] = {
+# One minimal contract per task type, in the catalog's order, with the cap of
+# a model-executed type left as ``{cap}``: :func:`examples` fills it from
+# :func:`mcgyvr.contract.output_cap`, so an example states the product's own
+# default and follows it when it changes.
+_EXAMPLE_TEMPLATES: dict[str, str] = {
     "format": """\
 id: format-pkg
 task_type: format
@@ -438,7 +439,7 @@ interface: "def fetch_document(url: str, *, timeout_s: float = 5.0) -> str"
 stop_conditions:
   - The 404 behaviour cannot be read from the code.
 limits:
-  max_output_tokens: 512
+  max_output_tokens: {cap}
 scope:
   allow: ["src/pkg/fetch.py"]
 """,
@@ -451,7 +452,7 @@ stop_conditions:
   - A helper's return type cannot be determined from its callers.
 acceptance: ["mypy src/pkg/fetch.py"]
 limits:
-  max_output_tokens: 1024
+  max_output_tokens: {cap}
 scope:
   allow: ["src/pkg/fetch.py"]
 """,
@@ -470,7 +471,7 @@ stop_conditions:
 acceptance: ["pytest -q tests/test_chunk.py"]
 risk: low
 limits:
-  max_output_tokens: 1024
+  max_output_tokens: {cap}
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
@@ -487,7 +488,7 @@ stop_conditions:
   - The expected result for a remainder group is not stated.
 acceptance: ["pytest -q tests/test_chunk.py"]
 limits:
-  max_output_tokens: 1024
+  max_output_tokens: {cap}
 scope:
   allow: ["tests/test_chunk.py"]
 """,
@@ -502,11 +503,29 @@ stop_conditions:
 demonstration: ["pytest -q tests/test_chunk.py -k remainder"]
 acceptance: ["pytest -q tests/test_chunk.py"]
 limits:
-  max_output_tokens: 1024
+  max_output_tokens: {cap}
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
 }
+
+
+def examples() -> dict[str, str]:
+    """One minimal valid contract per task type, in the catalog's order.
+
+    Each model-executed example declares the cap its task type derives, read
+    from :func:`mcgyvr.contract.output_cap` when this is called. Each is loaded
+    by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``; an
+    example that does not validate fails the suite.
+    """
+    return {
+        task_type: template.replace("{cap}", str(contract_schema.output_cap(task_type)))
+        for task_type, template in _EXAMPLE_TEMPLATES.items()
+    }
+
+
+#: :func:`examples` as built at import, for readers that want a mapping.
+EXAMPLES: dict[str, str] = examples()
 
 
 def _contract_type_label(field: contract_schema.Field) -> str:
@@ -744,7 +763,7 @@ def render_examples() -> str:
     """The examples file, as text: one minimal contract per task type.
 
     A document that is written and kept, like the skill and ``SETUP.md``, and
-    checked the same way: it is a projection of :data:`EXAMPLES`, which
+    checked the same way: it is a projection of :func:`examples`, which
     ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py`` loads
     through ``contract.load``, so an example that stops validating is still a
     build failure. It is one file away from the skill because an agent's
@@ -760,7 +779,7 @@ def render_examples() -> str:
         "keys are documented in `SKILL.md`.",
         "",
     ]
-    for task_type, text in EXAMPLES.items():
+    for task_type, text in examples().items():
         lines += [f"## `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
     return "\n".join(lines).rstrip("\n") + "\n"
 
