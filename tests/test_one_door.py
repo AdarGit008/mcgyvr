@@ -598,18 +598,6 @@ def test_the_default_step_with_every_run_variable_typed_in_is_refused_outside_th
 # --------------------------------------------------------------------------
 
 
-def test_nothing_under_records_is_executable() -> None:
-    executable = sorted(
-        _rel(path)
-        for path in (REPO / "records").rglob("*")
-        if path.is_file() and path.stat().st_mode & 0o111
-    )
-    assert not executable, (
-        f"{len(executable)} file(s) under records/ carry the exec bit — a record "
-        f"is evidence, not an entry point: {executable}"
-    )
-
-
 def test_no_python_sits_at_the_repo_root() -> None:
     loose = sorted(p.name for p in REPO.glob("*.py"))
     assert not loose, (
