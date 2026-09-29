@@ -2376,6 +2376,11 @@ def _emit(args: argparse.Namespace) -> int:
     # had one, only one of which is ever up.
     for said in cut:
         print(f"warning: {said}", file=sys.stderr)
+    # What each unit's sizing says beside its answer (`Fit.notes`), such as a
+    # host memory figure it has not read; a fit's `why` reaches no one else.
+    for unit in sorted(units, key=lambda u: u.key.slug):
+        for note in unit.fit.notes:
+            print(f"note: {unit.key.slug}: {note}", file=sys.stderr)
 
     # `--check` is the whole answer to "the config moved and the rig did not".
     # It is here rather than in the door because this is the function that
