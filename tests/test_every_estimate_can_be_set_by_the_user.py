@@ -8,13 +8,15 @@ that is not a finite number inside the unit's bounds, a file that is not a
 mapping) is refused by name with the file's path, even when the ask was for
 another number: a typo is never silently ignored. A file that is not there sets
 nothing. The shipped ids and keys are read from the file; the values set here
-are generated.
+are generated. A value out of bounds is tried against an invented number in
+each unit the module knows, so no unit's case depends on what is shipped.
 """
 
 from __future__ import annotations
 
 import json
 import random
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -70,11 +72,20 @@ def test_every_key_of_every_estimate_can_be_set_at_once(
         assert (got.value, got.source) == (settings[number][key], "override")
 
 
-def _an_entry_in(unit: str) -> tuple[str, str]:
-    for number, entry in _shipped().items():
-        if entry["unit"] == unit:
-            return number, next(iter(entry["values"]))
-    pytest.skip(f"no shipped number is stated in {unit}")
+def _one_entry_per_unit() -> list[nf.Entry]:
+    """An invented number stated in each unit the module knows, one key each."""
+    space = sorted(nf.KEY_SPACES)[0]
+    key = nf.KEY_SPACES[space][0]
+    rng = random.Random(3)
+    return [
+        nf.Entry(
+            id=f"invented_in_{unit}",
+            unit=unit,
+            key=space,
+            values={key: nf.a_value(unit, rng)},
+        )
+        for unit in derived.UNITS
+    ]
 
 
 def _another_ask(number: str) -> tuple[str, str]:
@@ -107,12 +118,21 @@ _BAD_VALUES: list[tuple[str, str]] = [
 
 @pytest.mark.parametrize(("unit", "literal"), _BAD_VALUES)
 def test_a_value_that_is_not_a_finite_number_inside_its_bounds_is_refused(
-    unit: str, literal: str, tmp_path_factory: pytest.TempPathFactory
+    unit: str,
+    literal: str,
+    tmp_path: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    number, key = _an_entry_in(unit)
+    nf.use_invented_spaces(monkeypatch)
+    made = _one_entry_per_unit()
+    shipped = nf.write_json(tmp_path / "shipped.json", nf.document(made))
+    [entry] = [e for e in made if e.unit == unit]
+    other = next(e for e in made if e is not entry)
+    number, key = entry.id, next(iter(entry.values))
     path = nf.write_user_file(tmp_path_factory, f"{number}:\n  {key}: {literal}\n")
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(*_another_ask(number))
+        derived.lookup(other.id, next(iter(other.values)), path=shipped)
     assert str(path) in str(was.value)
     assert number in str(was.value) and key in str(was.value)
 
