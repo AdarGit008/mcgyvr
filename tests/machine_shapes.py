@@ -130,8 +130,10 @@ class Card:
     ``index`` is the card's position as its own vendor's tool numbers it, so
     on a machine of two vendors each vendor counts from zero. ``name`` is an
     invented card name ("Example Card A"), never a real model; a name with a
-    comma or a line break is refused, as one this helper does not model (the
-    card tool prints one comma separated line per card). ``vendor`` is a
+    line break is refused, as the card tool prints one line per card, and a
+    name with a comma is refused too, as a limit of this helper and not of the
+    product, whose readers take a comma in a name as part of the name.
+    ``vendor`` is a
     key of :data:`VENDORS`. ``total_mib`` is the memory size as the card tool
     prints it, in MiB, or ``None`` when this card's size cannot be read.
     ``holders`` are the processes already holding part of it.
@@ -316,13 +318,12 @@ class Shape:
         - the card is of the vendor the tool is for: the tool prints no other
           vendor's cards;
         - its size is readable (``total_mib`` is not ``None``): a row that
-          prints ``[N/A]`` for memory is dropped, by :mod:`mcgyvr.scan` with a
-          note naming the row and by :mod:`mcgyvr.detect` without a note
-          that names it.
+          prints ``[N/A]`` for memory is dropped by :mod:`mcgyvr.scan`, with a
+          note naming the row.
 
         These are the cards a scan of the machine reports, the machine being
-        scanned where it is. What :func:`detection` reports of a machine that
-        is not local is another matter; see there.
+        scanned where it is. :mod:`mcgyvr.detect` lists more of them: see
+        :attr:`detected_cards`.
         """
         if self.card_reader_missing:
             return ()
@@ -331,6 +332,23 @@ class Shape:
             for card in self.cards
             if card.card_reader_reads and card.total_mib is not None
         )
+
+    @property
+    def detected_cards(self) -> tuple[Card, ...]:
+        """The cards :mod:`mcgyvr.detect` lists when it runs on this machine.
+
+        The first two conditions of :attr:`readable_cards` hold, and the third
+        does not apply: a card whose size the tool prints as ``[N/A]`` is
+        listed with no size (``vram_gb`` is ``None``) and a note that begins
+        with :data:`mcgyvr.detect.GPU_SIZE_UNDETERMINED` and names the card.
+        So these are the readable cards and the cards of unreadable size of the
+        tool's vendor, in the order the tool prints them. What
+        :func:`detection` reports of a machine that is not local is another
+        matter; see there.
+        """
+        if self.card_reader_missing:
+            return ()
+        return tuple(card for card in self.cards if card.card_reader_reads)
 
 
 def _query_of(arguments: Sequence[str]) -> str:
@@ -407,7 +425,10 @@ def detection(machine: Shape, /) -> Detection:
     runs on, whichever host it sweeps. So today:
 
     - for a ``local`` machine the command runs on that machine: the card tool
-      answers for its cards, and the sweep asks ``localhost``;
+      answers for its cards, and the sweep asks ``localhost``. The cards
+      reported are :attr:`Shape.detected_cards`: a card whose size the tool
+      prints as not available is listed with no size, and a note that begins
+      with :data:`mcgyvr.detect.GPU_SIZE_UNDETERMINED` names it;
     - for a machine that is not ``local`` the command runs on another machine
       that has no card tool and no server of its own, and sweeps the far
       machine's host: its servers are found, no card is reported, and the
@@ -571,10 +592,10 @@ def shapes() -> tuple[Shape, ...]:
     Covers: no card and no server; no card with a server here; no card with a
     server elsewhere; one card; four equal cards; two cards of different sizes;
     several cards of several sizes; a busy card; a busy card beside a free one;
-    a card of unreadable size beside a readable one; cards all of a vendor the
-    reader is not for, with the card tool and without it; two vendors mixed;
-    cards without the card reading tool; and the same cards on this machine and
-    on one over the network.
+    a card of unreadable size beside a readable one, in either order; cards
+    all of a vendor the reader is not for, with the card tool and without it;
+    two vendors mixed; cards without the card reading tool; and the same cards
+    on this machine and on one over the network.
     """
     from mcgyvr.detect import PORT_CONVENTIONS
 
@@ -705,6 +726,12 @@ def shapes() -> tuple[Shape, ...]:
             local=False,
             cards=same_cards,
             servers=(server(first, documented, first_port, medium),),
+        ),
+        local(
+            "unreadable-size-first",
+            "machine-e6ce",
+            _card(0, "Example Card J"),
+            _card(1, "Example Card A"),
         ),
     )
 
