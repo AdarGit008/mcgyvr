@@ -166,7 +166,7 @@ DEFAULT_PROBE_TARGETS: tuple[ProbeTarget, ...] = targets_for()
 GPU_SIZE_UNDETERMINED = "GPU: memory size not determined"
 #: How a note begins for a row the card tool printed that could not be read as
 #: a card at all. The note quotes the row, so the card is named, not dropped.
-GPU_ROW_UNREAD = "GPU: nvidia-smi printed a row this could not read"
+GPU_ROW_NOT_READ = "GPU: nvidia-smi printed a row that could not be read as a card"
 
 
 @dataclass(frozen=True)
@@ -417,7 +417,7 @@ def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
             mib = math.nan
         if not math.isfinite(mib) or mib < 0:
             notes.append(
-                f"{GPU_ROW_UNREAD}, so that card is missing from the list: "
+                f"{GPU_ROW_NOT_READ}, so that card is missing from the list: "
                 f"{line.strip()!r}. Read the card list as incomplete, not short."
             )
             continue

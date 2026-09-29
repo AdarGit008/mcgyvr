@@ -119,7 +119,7 @@ def test_a_row_that_cannot_be_read_is_quoted_in_a_note(
     output = rows(("Plain X8", str(8 * MIB))) + "a row with no size at all\n"
     gpus, notes = read(monkeypatch, output)
     assert [g.name for g in gpus] == ["Plain X8"]
-    unread = [n for n in notes if n.startswith(detect.GPU_ROW_UNREAD)]
+    unread = [n for n in notes if n.startswith(detect.GPU_ROW_NOT_READ)]
     assert len(unread) == 1
     assert "a row with no size at all" in unread[0]
 
@@ -168,7 +168,7 @@ def test_the_notes_travel_into_the_detection(
     found = detect.detect()
     assert [g.name for g in found.gpus] == ["Inventa Shared V"]
     assert any(n.startswith(detect.GPU_SIZE_UNDETERMINED) for n in found.notes)
-    assert any(n.startswith(detect.GPU_ROW_UNREAD) for n in found.notes)
+    assert any(n.startswith(detect.GPU_ROW_NOT_READ) for n in found.notes)
 
 
 # --- the callers say it too -------------------------------------------------
