@@ -375,3 +375,114 @@ def test_an_object_under_a_key_that_holds_a_value_is_refused_at_every_level(
 
         # The version is refused by its own check, before any other.
         assert repr(key) in said if key != "schema_version" else key in said, said
+
+
+# --- every refusal is by name, never a raw error out of the loader -----------
+
+#: Values a number cannot be given as.
+NOT_NUMBERS: dict[str, Any] = {
+    "text": "fast",
+    "a-number-written-as-text": "0.5",
+    "null": None,
+    "a-boolean": True,
+}
+
+#: The figure a reading of each list carries.
+FIGURE = {
+    "quality": "humaneval_plus_pass1",
+    "throughput_tok_s": "value",
+    "invalid_measurements": "humaneval_plus_pass1",
+    "disputed_measurements": "humaneval_plus_pass1",
+}
+
+
+@pytest.mark.parametrize("given", sorted(NOT_NUMBERS))
+@pytest.mark.parametrize("field", capability.READING_LISTS)
+def test_a_reading_whose_figure_is_not_a_number_is_refused_by_its_place(
+    tmp_path: Path, field: str, given: str
+) -> None:
+    document = table_document_with_every_block()
+    document["models"][0][field][0][FIGURE[field]] = NOT_NUMBERS[given]
+
+    said = _refusal(tmp_path, document)
+
+    assert f"{field}[0]" in said, said
+    assert repr(FIGURE[field]) in said, said
+
+
+@pytest.mark.parametrize("given", sorted(NOT_NUMBERS))
+@pytest.mark.parametrize(
+    "key", ["params_b", "active_params_b", "vram_gb_working", "weights_gb"]
+)
+def test_a_model_size_that_is_not_a_number_is_refused_by_its_row(
+    tmp_path: Path, key: str, given: str
+) -> None:
+    model = row("invented-model-a", **{key: NOT_NUMBERS[given]})
+
+    said = _refusal(tmp_path, table_document(rows=[model]))
+
+    assert "models[0] ('invented-model-a')" in said, said
+    assert repr(key) in said, said
+
+
+@pytest.mark.parametrize("given", sorted(NOT_NUMBERS))
+def test_a_capability_score_that_is_not_a_number_is_refused_by_its_row(
+    tmp_path: Path, given: str
+) -> None:
+    model = row("invented-model-a", capabilities={"invented": NOT_NUMBERS[given]})
+
+    said = _refusal(tmp_path, table_document(rows=[model]))
+
+    assert "models[0] ('invented-model-a')" in said, said
+    assert "'invented'" in said, said
+
+
+def test_capabilities_given_as_a_list_is_refused_by_its_row(tmp_path: Path) -> None:
+    model = row("invented-model-a", capabilities=[0.5])
+
+    said = _refusal(tmp_path, table_document(rows=[model]))
+
+    assert "models[0] ('invented-model-a')" in said, said
+    assert "capabilities" in said, said
+
+
+def test_a_model_with_numbers_where_it_carries_numbers_loads(tmp_path: Path) -> None:
+    """The control: whole numbers, fractions and a capability score all load."""
+    model = row(
+        "invented-model-a",
+        params_b=5,
+        active_params_b=1.5,
+        capabilities={"invented": 0.4, "another": 1},
+    )
+
+    loaded = load(write_table(tmp_path, table_document(rows=[model])))
+
+    assert loaded.models[0].capabilities == {"invented": 0.4, "another": 1.0}
+
+
+@pytest.mark.parametrize(
+    "key", ["id", "family", "params_b", "vram_gb_working", "weights_gb"]
+)
+def test_a_model_row_missing_a_required_key_is_refused_by_its_place(
+    tmp_path: Path, key: str
+) -> None:
+    model = row("invented-model-a")
+    del model[key]
+
+    said = _refusal(tmp_path, table_document(rows=[model]))
+
+    assert "models[0]" in said, said
+    assert repr(key) in said, said
+
+
+@pytest.mark.parametrize("key", ["id", "severity", "summary", "consequence"])
+def test_a_caveat_missing_a_required_key_is_refused_by_its_place(
+    tmp_path: Path, key: str
+) -> None:
+    document = table_document_with_every_block()
+    del document["harness_caveats"][0][key]
+
+    said = _refusal(tmp_path, document)
+
+    assert "harness_caveats[0]" in said, said
+    assert repr(key) in said, said
