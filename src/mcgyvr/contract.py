@@ -178,7 +178,7 @@ def task_type(name: str) -> CatalogTaskType:
 #
 # Two steps and not more, because two is as far as the catalog's properties
 # actually distinguish. Every type whose required evidence needs a command
-# must write what that command will run, and under `whole_file` each re-emits
+# must write what that command will judge, and under `whole_file` each re-emits
 # the file around it, so a third number among them would be a preference
 # wearing a budget's clothes.
 #
