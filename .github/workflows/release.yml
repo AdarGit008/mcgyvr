@@ -40,7 +40,7 @@
 # that cannot say which tag it is.
 #
 # The notes for a tag are its CHANGELOG.md section, printed by
-# tools/release/changelog_notes.py, which refuses a version that has no
+# scripts/release/changelog_notes.py, which refuses a version that has no
 # section: the release page and the file a reader opens are one text.
 name: release
 on:
@@ -72,13 +72,13 @@ jobs:
       - name: the wheel is the tag's version
         run: |
           ls dist/
-          uv run --no-project --with packaging python tools/release/wheel_is_tag.py "$GITHUB_REF_NAME" dist/*.whl
+          uv run --no-project --with packaging python scripts/release/wheel_is_tag.py "$GITHUB_REF_NAME" dist/*.whl
       # Written notes or no release. Redirected and not piped: the default
       # shell here is `bash -e`, without pipefail, so `… | tee` would hide the
       # refusal this step exists to surface.
       - name: the tag's notes are the changelog's
         run: |
-          uv run --no-project --with packaging python tools/release/changelog_notes.py "$GITHUB_REF_NAME" CHANGELOG.md > release-notes.md
+          uv run --no-project --with packaging python scripts/release/changelog_notes.py "$GITHUB_REF_NAME" CHANGELOG.md > release-notes.md
           cat release-notes.md
       # `gh` is on every ubuntu runner and needs no action to pin. The release
       # carries the wheel and the sdist as assets.
