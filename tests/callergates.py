@@ -272,17 +272,58 @@ sys.exit(run.main(argv))
 """
 
 
-def driven_door(work: Path, log: Path, argv: list[str]) -> subprocess.Popen[str]:
-    """Start the door over stand-in gates as a process of its own."""
+#: A parent for the door that adopts every process orphaned below it (a
+#: child subreaper) and reaps each one only ``delay`` seconds after it died,
+#: so a killed process stays in its process group, as a zombie, for that
+#: long. Arguments: the delay, then the command to run.
+SLOW_REAPER = """
+import ctypes, os, subprocess, sys, time
+delay = float(sys.argv[1])
+if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
+    sys.exit("cannot become a child subreaper")
+door = subprocess.Popen(sys.argv[2:])
+first = {}
+while door.poll() is None:
+    try:
+        info = os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+    except ChildProcessError:
+        info = None
+    now = time.monotonic()
+    if info is not None and info.si_pid != door.pid:
+        if now - first.setdefault(info.si_pid, now) >= delay:
+            os.waitpid(info.si_pid, 0)
+    time.sleep(0.02)
+end = time.monotonic() + 10
+while time.monotonic() < end:
+    try:
+        if os.waitpid(-1, os.WNOHANG) == (0, 0):
+            time.sleep(0.05)
+    except ChildProcessError:
+        break
+sys.exit(door.returncode)
+"""
+
+
+def driven_door(
+    work: Path, log: Path, argv: list[str], *, reap_after: float | None = None
+) -> subprocess.Popen[str]:
+    """Start the door over stand-in gates as a process of its own.
+
+    With ``reap_after``, the door runs under :data:`SLOW_REAPER`: a process
+    orphaned below it is reaped only that many seconds after it died.
+    """
+    door = [
+        sys.executable,
+        "-c",
+        DRIVER.format(repo=str(REPO)),
+        str(work),
+        str(log),
+        json.dumps(argv),
+    ]
+    if reap_after is not None:
+        door = [sys.executable, "-c", SLOW_REAPER, str(reap_after), *door]
     return subprocess.Popen(
-        [
-            sys.executable,
-            "-c",
-            DRIVER.format(repo=str(REPO)),
-            str(work),
-            str(log),
-            json.dumps(argv),
-        ],
+        door,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

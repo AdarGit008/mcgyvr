@@ -34,7 +34,7 @@ def _stubborn(root: Path, log: Path) -> None:
                 "signal.signal(signal.SIGTERM, signal.SIG_IGN)",
                 "child = subprocess.Popen([sys.executable, '-c', "
                 "'import signal, time; "
-                "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)'])",
+                "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(600)'])",
                 "time.sleep(0.5)",
                 f"with open({str(log)!r}, 'a') as out:",
                 "    out.write(f'caller:stubborn pids={os.getpid()},{child.pid}\\n')",
@@ -124,3 +124,33 @@ def test_a_stubborn_gate_is_killed_with_its_child_before_the_lease_is_released(
 
     assert f"{RELEASE} alive=" in cg.log_lines(log), (cg.log_lines(log), said)
     assert left == [], left
+
+
+def test_the_release_waits_until_the_killed_group_is_gone(tmp_path: Path) -> None:
+    """A killed child stays in its group until it is reaped; the release waits.
+
+    Under a parent that reaps an orphan only a while after it died, the gate's
+    killed child is still a member of the group when the gate itself is gone.
+    The door waits for the group to be empty before it releases the lease.
+    """
+    work = tmp_path / "work"
+    work.mkdir()
+    log = work / "order.log"
+    root = work / "caller"
+    _stubborn(root, log)
+    _release_that_looks(work, log)
+    gate = cg.entry("stubborn.py", "after")
+    gate["timeout_s"] = 2
+    listed = cg.write_list(work / "gates.json", str(root), [gate])
+    compose = cg.compose_file(work / "compose.yaml")
+    door = cg.driven_door(
+        work, log, cg.serve_argv(compose, "--gates", str(listed)), reap_after=1.5
+    )
+    try:
+        _, said = door.communicate(timeout=60)
+    finally:
+        if door.poll() is None:
+            door.kill()
+            door.wait()
+
+    assert f"{RELEASE} alive=" in cg.log_lines(log), (cg.log_lines(log), said)
