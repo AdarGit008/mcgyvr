@@ -5,8 +5,8 @@ folder of a named user, no address that reaches a machine, no private host
 name, no card model, no identity digest of a real machine and no pointer into
 the development repository, except in the files a list names, each with the
 hits of each kind it holds; the list may only shrink. Not read: the folders
-that leave the product, while they are in it, and the sections of the
-changelog under a released version.
+that leave the product, while they are in it, and the changelog from its
+first released version's heading on.
 
 The kinds, what passes and what the check cannot see are stated in
 :mod:`tests.uninvented_machines`, which this test and the command that writes
@@ -30,8 +30,11 @@ itself holds none.
 from __future__ import annotations
 
 import os
+import re
 import stat
 import subprocess
+import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -130,17 +133,50 @@ def test_a_folder_read_again_is_still_a_place_no_pointer_may_lead(
     not lead is fixed apart from what is read."""
     assert _FOLDER in um.LAB_FOLDERS
     assert set(um.UNREAD) <= set(um.LAB_FOLDERS)
+    monkeypatch.setattr(um, "UNREAD", (_FOLDER,))
     repo = _repo(tmp_path)
     (repo / _FOLDER).mkdir()
     (repo / _FOLDER / "x.txt").write_text(f"at {_PRIVATE}\n", "utf-8")
     (repo / "README.md").write_text(f"see {_FOLDER}/run.py\n", "utf-8")
     _commit(repo)
     assert _found(repo) == {"README.md": ["dev-pointer"]}
-    monkeypatch.setattr(um, "UNREAD", tuple(f for f in um.UNREAD if f != _FOLDER))
+    monkeypatch.setattr(um, "UNREAD", ())
     assert _found(repo) == {
         "README.md": ["dev-pointer"],
         f"{_FOLDER}/x.txt": ["dev-pointer", "address"],  # its path, line 0
     }
+
+
+def test_the_pointer_rules_are_built_from_the_lab_folders_not_from_unread(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fresh copy of the helper whose source drops a folder from UNREAD, as
+    the folder test asks, still finds a path, an import and a join into that
+    folder: the rules are compiled from LAB_FOLDERS alone."""
+    source = Path(um.__file__).read_text(encoding="utf-8")
+    assignment = re.compile(r"^UNREAD = \(.*\)$", re.MULTILINE)
+    assert len(assignment.findall(source)) == 1
+    fewer = tuple(folder for folder in um.UNREAD if folder != _FOLDER)
+    fresh = types.ModuleType("fresh_uninvented_machines")
+    fresh.__file__ = um.__file__
+    monkeypatch.setitem(sys.modules, fresh.__name__, fresh)
+    changed = assignment.sub(f"UNREAD = {fewer!r}", source)
+    exec(compile(changed, um.__file__, "exec"), fresh.__dict__)
+    assert _FOLDER not in fresh.UNREAD
+    dev_repo = um._dev_repo_name(um.REPO)
+    for text in (
+        f"see {_FOLDER}/x.md",
+        f"from {_FOLDER}.x import y",
+        f'REPO / "{_FOLDER}"',
+    ):
+        found = fresh.scan_text("a.md", text, dev_repo=dev_repo)
+        assert [hit.kind for hit in found] == ["dev-pointer"], text
+
+
+def test_the_folders_no_pointer_may_lead_into_are_the_five_that_leave() -> None:
+    """Dropping a folder here would drop every pointer into it from the
+    count, with nothing cleaned."""
+    assert um.LAB_FOLDERS == ("archive", "fleet-setup", "okf", "records", "tools")
 
 
 def test_the_count_of_tracked_files_is_of_the_one_top_folder_named(
@@ -155,14 +191,23 @@ def test_the_count_of_tracked_files_is_of_the_one_top_folder_named(
     assert um.tracked_in("absent", repo) == 0
 
 
-def test_the_writers_temporary_file_is_not_read(tmp_path: Path) -> None:
+def test_the_writers_temporary_file_is_ignored_and_a_tracked_one_is_read(
+    tmp_path: Path,
+) -> None:
     """A run killed before the new list replaced the old leaves the temporary
-    file behind; it is not a file of the product."""
+    file behind; git ignores it, so it is not read. A file of that name that
+    git tracks is a file of the product, and is read."""
+    if not _is_checkout():
+        pytest.skip(f"{um.REPO} is not a git checkout")
+    left = f"tests/.{um.LIST_PATH.name}.k2j4x_q"
+    ignored = subprocess.run(["git", "-C", str(um.REPO), "check-ignore", "-q", left])
+    assert ignored.returncode == 0
     repo = _repo(tmp_path)
     (repo / "tests").mkdir()
-    left = repo / "tests" / f".{um.LIST_PATH.name}.k2j4x"
-    left.write_text(f"at {_PRIVATE}\n", "utf-8")
-    assert _found(repo) == {}
+    kept = f"tests/.{um.LIST_PATH.name}.kept"
+    (repo / kept).write_text(f"at {_PRIVATE}\n", "utf-8")
+    _commit(repo)
+    assert _found(repo) == {kept: ["address"]}
 
 
 def test_this_folder_of_tests_is_read() -> None:
@@ -180,9 +225,12 @@ def _listed(**kept: dict[str, int]) -> um.Listed:
     return um.Listed(cleaning={"a": {"host": 1}, "c": {"address": 2}}, kept=kept)
 
 
-def test_the_list_is_read_only_in_the_form_the_writer_writes() -> None:
+def test_the_list_is_read_only_in_the_form_the_writer_writes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Sorted, one line per file, known kinds, positive counts, the fixed
     headers, no path the check does not read; anything else is refused."""
+    monkeypatch.setattr(um, "UNREAD", (_FOLDER,))
     good = um.render(_listed(b={"card-model": 1}))
     assert um.parse(good) == _listed(b={"card-model": 1})
     cleaning, kept = good.split(um.KEPT_HEADER)
@@ -205,13 +253,36 @@ def test_the_list_is_read_only_in_the_form_the_writer_writes() -> None:
     um.read_list()
 
 
-def test_a_comment_line_the_writer_did_not_write_is_refused(tmp_path: Path) -> None:
+def test_a_comment_line_the_writer_did_not_write_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     good = um.render(_listed())
     smuggled = good.replace("a\thost=1\n", f"# pending: {_PRIVATE}\na\thost=1\n")
     with pytest.raises(ValueError, match="does not write"):
         um.parse(smuggled)
+    now = tmp_path / "list.txt"
+    now.write_text(smuggled, encoding="utf-8")
     old = tmp_path / "old.txt"
-    old.write_text(smuggled, encoding="utf-8")
+    old.write_text(good, encoding="utf-8")
+    monkeypatch.setattr(um, "LIST_PATH", now)
+    assert um.main(["--compare", str(old)]) == 1
+
+
+def test_the_comparison_reads_the_base_list_by_its_entries_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The base's list may carry headers worded before a change to them; its
+    entries are what is compared, so a change of the headers is not growth."""
+    now = tmp_path / "list.txt"
+    now.write_text(um.render(_listed(k={"card-model": 1})), encoding="utf-8")
+    older = "# A header line since removed.\n" + um.render(
+        _listed(k={"card-model": 1})
+    ).replace("# Section 1: not yet cleaned.", "# Section 1: worded otherwise.")
+    old = tmp_path / "base.txt"
+    old.write_text(older, encoding="utf-8")
+    monkeypatch.setattr(um, "LIST_PATH", now)
+    assert um.main(["--compare", str(old)]) == 0
+    old.write_text(older.replace("c\taddress=2", "c\taddress=1"), encoding="utf-8")
     assert um.main(["--compare", str(old)]) == 1
 
 
@@ -268,6 +339,51 @@ def test_a_rewrite_that_would_grow_the_list_is_refused_without_the_flag(
     assert target.read_bytes() == before
     assert um.main(["--write", "--allow-growth"]) == 0
     assert um.read_list(target) == um.Listed(cleaning={"a": {"host": 2}})
+
+
+def test_a_rewrite_that_shrinks_the_list_needs_no_flag_and_keeps_each_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Through the command itself: a scan that finds less rewrites the list
+    without a flag, and an entry of section 2 stays in section 2."""
+    target = tmp_path / "list.txt"
+    target.write_text(um.render(_listed(k={"card-model": 2})), encoding="utf-8")
+    monkeypatch.setattr(um, "LIST_PATH", target)
+    monkeypatch.setattr(
+        um, "scan", lambda: [um.Hit("a", 1, "host"), um.Hit("k", 1, "card-model")]
+    )
+    assert um.main(["--write"]) == 0
+    assert um.read_list(target) == um.Listed(
+        cleaning={"a": {"host": 1}}, kept={"k": {"card-model": 1}}
+    )
+
+
+def test_the_report_fails_when_the_scan_and_the_list_differ(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "list.txt"
+    target.write_text(um.render(um.Listed(cleaning={"a": {"host": 1}})), "utf-8")
+    monkeypatch.setattr(um, "LIST_PATH", target)
+    monkeypatch.setattr(um, "scan", lambda: [um.Hit("a", 1, "host")])
+    assert um.main([]) == 0
+    monkeypatch.setattr(um, "scan", lambda: [])
+    assert um.main([]) == 1
+
+
+def test_the_command_runs_by_its_file_path_as_ci_runs_it() -> None:
+    """`python tests/uninvented_machines.py`, not only `-m`: the report reads
+    the changelog through the release script, which needs the checkout on the
+    import path."""
+    if not _is_checkout():
+        pytest.skip(f"{um.REPO} is not a git checkout")
+    ran = subprocess.run(
+        [sys.executable, str(Path(um.__file__))],
+        cwd=um.REPO,
+        capture_output=True,
+        text=True,
+    )
+    assert "Traceback" not in ran.stderr, ran.stderr[-2000:]
+    assert ran.returncode == 0, ran.stdout[-2000:]
 
 
 def test_the_writer_keeps_each_file_in_its_section() -> None:
@@ -356,7 +472,10 @@ def _found(repo: Path) -> dict[str, list[str]]:
     return table
 
 
-def test_untracked_files_are_read_and_ignored_ones_are_not(tmp_path: Path) -> None:
+def test_untracked_files_are_read_and_ignored_ones_are_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(um, "UNREAD", (_FOLDER,))
     repo = _repo(tmp_path)
     (repo / ".gitignore").write_text("ignored.txt\n", "utf-8")
     (repo / "tracked.txt").write_text(f"at {_PRIVATE}\n", "utf-8")
@@ -390,11 +509,12 @@ def test_a_path_name_is_read_as_line_zero() -> None:
 
 
 def test_released_changelog_sections_are_history(tmp_path: Path) -> None:
-    """A section ends what is read only when its heading names a version, as
-    the release reads it: an open section spelled in lower case, or a heading
-    of prose, is still read."""
+    """What is read ends at the first heading that names a version, as the
+    release reads it: an open section spelled in lower case, or a heading of
+    prose before it, is still read; a heading of prose after it is not."""
     (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n## [unreleased]\nnow\n## Notes\nkept\n## [0.1.0] - then\nold\n",
+        "# Changelog\n## [unreleased]\nnow\n## Notes\nkept\n## [0.1.0] - then\nold\n"
+        "## Entries written before 0.1.0\nolder\n",
         encoding="utf-8",
     )
     assert um.text_of(tmp_path, "CHANGELOG.md") == (
@@ -449,6 +569,8 @@ def test_the_invented_machines_and_reserved_names_pass() -> None:
         ("address", "http://[fd12" + ":3456::1]:8080/v1"),
         ("address", "reach fd1" + "::1"),
         ("address", "http://[100" + "::2]:8080/v1"),
+        ("address", "y = x[fd12" + ":3456::1]"),
+        ("address", "conversion_host = " + _PRIVATE),
         ("host", "http:/" + f"/{_HOST}:8080/v1"),
         ("host", "http:/" + f"/{_HOST}" + ".inter" + "nal:8080/v1"),
         ("host", '"host": "' + _HOST + '"'),
@@ -465,8 +587,15 @@ def test_the_invented_machines_and_reserved_names_pass() -> None:
         ("host", "rsy" + "nc -a ops@" + _HOST + ":models/ ."),
         ("host", '["ss' + 'h", "ops@' + _HOST + '"]'),
         ("host", '"-o BatchMode=yes -o X ops@' + _HOST + ' cmd"'),
+        ("host", "ss" + "h $USER@" + _HOST),
+        ("host", "ss" + "h ${USER}@" + _HOST),
+        ("host", 'f"ss' + "h {user}@" + _HOST + '"'),
+        ("host", "ss" + "h -- ops@" + _HOST),
+        ("host", "ss" + "h -p 22 -- ops@" + _HOST),
+        ("host", "ss" + "h ops@" + _HOST + ".la" + "n; ping " + _HOST + ".la" + "n"),
         ("host", "at node" + ".la" + "n"),
         ("host", "at node" + ".la" + "n."),
+        ("host", "host: node" + ".la" + "n."),
         ("card-model", "one " + _CARD + " card"),
         ("card-model", "one " + "GT" + "X 99 card"),
         ("card-model", "one " + "rt" + "x 9999 card"),
@@ -519,11 +648,22 @@ def test_the_development_repository_is_named_on_one_readme_line_only() -> None:
         "__version__ = " + '"' + ".".join("1234") + '"',
         'tag = "v@2026-09-29"',
         "docker pull img@sha256:" + "ab" * 32,
+        "docker " + "run -d img@sha256:" + "ab" * 32,
+        "docker pull img@SHA256:" + "ab" * 32 + " img@blake3:" + "cd" * 32,
+        "uv add pkg@https://files.example/pkg.whl other@file:///srv/other.whl",
         "git clone git@github.com:org/repo.git",
+        "y = f()[100::2]",
+        "node_version = " + ".".join("1234"),
+        "orig_id: " + _HEX + " trig_id: " + _HEX,
     ],
 )
 def test_what_an_honest_change_writes_is_not_a_hit(text: str) -> None:
     assert _hits(text) == []
+
+
+def test_a_colon_after_a_machine_is_a_copy_only_before_a_path() -> None:
+    assert _hits("ask ops@" + _HOST + ": done") == []
+    assert _hits("ops@" + _HOST + ":done") == ["host"]
 
 
 def test_an_unquoted_host_value_in_python_is_a_variable() -> None:
