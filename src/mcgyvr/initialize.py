@@ -40,6 +40,7 @@ from mcgyvr.config import (
     CLEANUP_FIELDS,
     DELIVERY_FIELDS,
     FLEET_FILENAME,
+    GATE_FIELDS,
     JOURNAL_FIELDS,
     POLICY_FILENAME,
     SCHEMA,
@@ -472,6 +473,9 @@ def build(
         # A knob whose off position is a number is better read than inferred.
         "breadth": _defaults(BREADTH_FIELDS, "draws"),
         "cleanup": _defaults(CLEANUP_FIELDS, "enabled"),
+        # Written at its default so the file shows what the gate refuses and
+        # where to relax it, rather than a commented key reading as unset.
+        "gate": _defaults(GATE_FIELDS, "param_mutation"),
         # Spelled out for the same reason: the journal is where a user's runs
         # are recorded, and a key they can see is a key they can move.
         "journal": _defaults(JOURNAL_FIELDS, "dir"),

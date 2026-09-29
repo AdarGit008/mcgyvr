@@ -279,6 +279,10 @@ class Accepted:
     """Why the gate refused, when it did — carried so a caller reporting a
     stranded attempt has the offending line rather than a bare ``False``."""
 
+    observations: tuple[Finding, ...] = field(default=())
+    """What the gate said without refusing, carried so the caller that delivers
+    the change can say it too."""
+
     @classmethod
     def read(
         cls,
@@ -308,6 +312,7 @@ class Accepted:
             accepted=result.accepted,
             digest=digest_of(text),
             findings=tuple(result.findings),
+            observations=tuple(result.observations),
         )
 
     @property
@@ -1173,7 +1178,9 @@ def _ADAPTERS() -> tuple[LanguageAdapter, ...]:  # noqa: N802 — a default, not
     """The gate's own adapter pair, built per call.
 
     Constructed rather than shared at module scope so delivery holds no global
-    state; adapters are cheap and stateless, so this costs nothing.
+    state; adapters are cheap and hold nothing but the settings they were built
+    with, so this costs nothing. These are the strict reading; a caller whose
+    setup relaxed a check hands its own in as ``adapters``.
     """
     return (PythonAdapter(), JavaScriptAdapter())
 
