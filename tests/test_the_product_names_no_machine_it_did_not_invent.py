@@ -343,7 +343,7 @@ def test_the_invented_machines_and_reserved_names_pass() -> None:
         ("host", "  ssh_target: ops@" + _HOST),
         ("host", "mcgyvr init --host " + _HOST),
         ("host", "HOST=1 host=" + _HOST),
-        ("host", "ssh -p 22 ops@" + _HOST + " true"),
+        ("host", "ss" + "h -p 22 ops@" + _HOST + " true"),
         ("host", "at node" + ".la" + "n"),
         ("card-model", "one " + _CARD + " card"),
         ("card-model", "NVIDIA GeForce " + "GT" + "X_9999"),
