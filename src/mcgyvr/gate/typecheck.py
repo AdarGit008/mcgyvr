@@ -63,7 +63,10 @@ over six characters, and on a machine without it nothing reports the form at
 all. Those are one missing behaviour seen from two sides: there is no axis on
 which a finding can be said out loud without also being fatal. Both sides are
 answered here, so the verdict does not depend on which tools the operator
-happens to have.
+happens to have. The lint side is answered under the product's default rule
+selection only (:data:`~mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`): a
+repository that states its own ruff configuration has said which codes refuse
+its changes, and a UP006 or UP035 it selects refuses this one.
 
 **A demotion is per fault, not per lint code.** UP035 is one code over two
 unrelated faults. ``from typing import Mapping`` is the deprecated spelling
@@ -179,6 +182,14 @@ class ParamMutation(StrEnum):
 #: only demoted where the line it sits on is not one of those. Membership here
 #: says "this code can carry a style fault", never "every report of this code
 #: is one".
+#:
+#: It is applied only under the product's default rule selection
+#: (:data:`~mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`), for a repository
+#: that states no ruff configuration. A repository that states its own is
+#: judged as it says: where it selects these codes, they refuse the change, and
+#: the same line may then carry the ``type-form`` note beside the refusal. The
+#: note is the product's reading, the refusal is the project's own rule, and
+#: the verdict is the refusal.
 STYLE_LINT_CODES = frozenset({"UP006", "UP035"})
 
 #: Wall-clock ceiling for one type-check pass. A checker reads a repository's
@@ -723,8 +734,10 @@ def _unimportable_verdict(names: Sequence[str]) -> str:
 def deprecated_typing_import_lines(source: str | None) -> frozenset[int]:
     """Lines in ``source`` holding a deprecated ``from typing import X``.
 
-    The lint rung demotes I001 — ruff's unsorted-imports rule — where its row
-    is one of these lines. On the ``typing`` half of UP035, ruff reports the
+    Under the product's default rule selection, the lint rung demotes I001 —
+    ruff's unsorted-imports rule — where its row is one of these lines; under a
+    repository's own ruff configuration it demotes nothing. On the ``typing``
+    half of UP035, ruff reports the
     deprecated spelling and an I001 on the same import statement; demoting only
     UP035 would leave the same style line rejected under a second code, so an
     I001 sitting on a deprecated spelling is treated as the same style fault.
