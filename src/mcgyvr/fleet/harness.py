@@ -107,13 +107,55 @@ class LoadTransport(Protocol):
         """The JSON answer to ``payload`` posted at ``url``."""
 
 
+#: What a reply that is not a readable answer raises while it is read: a refused
+#: or dropped connection and a timeout (``OSError``), a body that is not JSON
+#: (``ValueError``), a status line that is not one or a body that ends before
+#: the length it stated (``http.client.HTTPException``, which is no
+#: ``OSError``), and JSON nested deeper than the reader follows
+#: (``RecursionError``, which is neither).
+_UNREADABLE_REPLY = (OSError, ValueError, http.client.HTTPException, RecursionError)
+
+#: The most characters of a server's own text an error quotes. A status line
+#: may be tens of kilobytes long, and an error is read in a terminal and kept
+#: in a report, so it quotes both ends of a longer text and not the middle.
+REPLY_QUOTED_AT_MOST = 200
+
+
+def _bounded(text: str) -> str:
+    """``text`` escaped, cut in the middle when longer than the bound.
+
+    Escaped as ``repr`` escapes it, so no control character a server sent
+    reaches a terminal as it is; the bound is :data:`REPLY_QUOTED_AT_MOST`.
+    """
+    shown = repr(text)
+    if len(shown) <= REPLY_QUOTED_AT_MOST:
+        return shown
+    keep = (REPLY_QUOTED_AT_MOST - len(" ... ")) // 2
+    return f"{shown[:keep]} ... {shown[-keep:]}"
+
+
+def _json_answer(request: str | urllib.request.Request, timeout: float | None) -> Any:
+    """The JSON a unit answered ``request`` with, or a :class:`HarnessError`.
+
+    The error names the address asked and what happened, so a unit that answered
+    badly reads as a measurement not taken, never as a crash of the harness.
+    """
+    url = request if isinstance(request, str) else request.full_url
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except _UNREADABLE_REPLY as exc:
+        raise HarnessError(
+            f"{url} did not answer properly: {type(exc).__name__}: {_bounded(str(exc))}"
+        ) from exc
+
+
 class HttpTransport:
     """The harnesses' own requests, sent to a unit's address with ``urllib``."""
 
     def get(self, url: str, timeout: float | None) -> Any:
         """The JSON document at ``url``."""
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return _json_answer(url, timeout)
 
     def post(self, url: str, payload: dict[str, Any], timeout: float | None) -> Any:
         """The JSON answer to ``payload`` posted at ``url``."""
@@ -123,8 +165,7 @@ class HttpTransport:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return _json_answer(request, timeout)
 
 
 def _median(samples: list[float], what: str) -> float:
@@ -302,11 +343,12 @@ def measure_llamacpp(
 
 
 def _page(url: str) -> str | None:
+    """The page at ``url`` as text, or ``None`` when it could not be read."""
     try:
         with urllib.request.urlopen(url, timeout=MODELS_TIMEOUT_S) as response:
             text: str = response.read().decode("utf-8", "replace")
             return text
-    except (OSError, ValueError):
+    except _UNREADABLE_REPLY:
         return None
 
 
@@ -396,7 +438,7 @@ def _unbounded_page(url: str) -> str | None:
         with urllib.request.urlopen(url) as response:
             text: str = response.read().decode("utf-8", "replace")
             return text
-    except (OSError, ValueError):
+    except _UNREADABLE_REPLY:
         return None
 
 
@@ -448,7 +490,7 @@ def slots_in_flight(page: str | None) -> int | None:
         return None
     try:
         slots = json.loads(page)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     if not isinstance(slots, list) or not slots:
         return None

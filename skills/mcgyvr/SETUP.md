@@ -89,6 +89,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `delivery` | block | no | — | How accepted work gets back to you. |
 | `breadth` | block | no | — | How many answers one attempt asks for. |
 | `cleanup` | block | no | — | What may be fixed without asking a model. |
+| `gate` | block | no | — | What the deterministic gate refuses, where a setup may choose otherwise. |
 | `serving` | block | no | — | What mcgyvr may do to the machines that serve the units. A unit's HuggingFace cache is a fact about that unit and lives on it, not here: only the policy of starting and stopping a card is a setting. |
 | `journal` | block | no | — | Where mcgyvr keeps its own record of what it dispatched. |
 
@@ -170,6 +171,14 @@ What may be fixed without asking a model.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `cleanup.enabled` | boolean | no | `true` | Repair a change the gate rejected with the deterministic tools — the declared imports, the linter's own autofixes, the formatter — and judge it again on the same rung, instead of spending an attempt or a climb on what a tool clears for nothing. The tools are the ones the gate already checks with, so a repair produces the shape the rungs ask for rather than a second opinion about it, and it costs no tokens by construction. It rewrites a file after the gate has spoken about it, so the bytes that come back are not the bytes the worker sent: the journal keeps the reply, the tree keeps the repaired file, and the verdict says a repair ran. Set false to have the rejection stand as the gate reached it. What no tool fixes — a failed acceptance command, a name, a line too long to wrap — is rejected exactly as before. |
+
+## `gate`
+
+What the deterministic gate refuses, where a setup may choose otherwise.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `gate.param_mutation` | one of `refuse`, `report`, `skip` | no | `refuse` | A Python function that changes an object its caller passed in, on a line the change adds: it assigns or deletes into a parameter, an element of one or a loop variable over one (`rows[0] = x`, `item.count += 1`, `del table[key]`), or calls append, extend, insert, remove, pop, clear, sort, reverse, update, setdefault, add, discard or popitem on it. `self`, `cls`, `*args` and `**kwargs` are not checked, nor is a parameter rebound to a new object on every path before the change. `refuse` rejects the change. `report` does not reject it: the finding is listed among the gate's observations, which an enabled verifier is shown and the gate's retry note does not carry, and `mcgyvr run` prints it once, before delivering the accepted change, as reported by this setting. `skip` does not look. Delivery judges the change again by the same setting. A contract whose `task` or `interface` asks for in-place work stands the check down under every setting. |
 
 ## `serving`
 

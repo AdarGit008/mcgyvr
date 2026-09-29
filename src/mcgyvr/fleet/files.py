@@ -66,6 +66,7 @@ _POLICY_KEYS = frozenset(
         "max_window_fraction",
         "breadth",
         "cleanup",
+        "gate",
         "orchestrator",
         "verifier",
         "sandbox",

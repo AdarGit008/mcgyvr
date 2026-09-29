@@ -70,6 +70,49 @@ _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
 UNITS: tuple[str, ...] = tuple(_BOUNDS)
 
 
+#: What a number the product sizes, judges, refuses, waits or picks with is, as
+#: the shipped file's ``constants`` block says of each one still written in
+#: code: a fact (true on any machine), a choice of the product, or an estimate
+#: (a starting value that another machine may prove wrong). The loader reads
+#: only the ``numbers`` block; the ``constants`` block is held to these lists by
+#: the check that every such number says what it is.
+NUMBER_KINDS: tuple[str, ...] = ("fact", "choice", "estimate")
+
+#: What makes a fact true on any machine. Every fact names one of these, so no
+#: number becomes a fact by saying so.
+FACT_REASONS: tuple[str, ...] = (
+    "a definition or arithmetic",
+    "the specification of a format, protocol or tool",
+    "where a count starts",
+    "the layout of the package or its checkout",
+)
+
+#: Where a user sets a choice, or an estimate still in code: a key of the
+#: config, a field of a contract, or a command line flag. An entry's ``set_by``
+#: is one of these words, a space, and the key or the flag.
+SETTING_SOURCES: tuple[str, ...] = ("config", "contract", "flag")
+
+#: The reason a choice gives when it repeats another entry, which it then names.
+DUPLICATE_REASON = "a duplicate of another entry"
+
+#: Why a choice has no setting a user can change. A choice names one of these
+#: or how it is set, never neither, so no number becomes a choice by saying so.
+CHOICE_REASONS: tuple[str, ...] = (
+    "a protocol or tool default",
+    "a code or version other programs or files read",
+    "the method a stored reading was made with",
+    "a rule over the product's own shipped data",
+    "what a caller that names none gets; the product's callers name one",
+    (
+        "how much of a text the product itself shows, carries or reads, and at "
+        "what width (never a budget for a model's whole reply or whole input)"
+    ),
+    "a weight, threshold or cut of the product's own ranking of files and symbols",
+    "how often or how many times the product tries its own step again",
+    DUPLICATE_REASON,
+)
+
+
 #: The number for the host memory a llama.cpp server holds beyond the experts
 #: it keeps on the host, and its one key: llama.cpp, the engine whose expert
 #: offload the sizing prices.
@@ -150,8 +193,8 @@ def shipped_path() -> Path:
         return checkout
     raise DerivedNumbersError(
         f"shipped numbers not found: neither {packaged} (the package's own copy) "
-        f"nor {checkout} (a checkout's) is a file; none of its numbers "
-        "has a default in code"
+        f"nor {checkout} (a checkout's) is a file; no number of its `numbers` "
+        "block has a default in code"
     )
 
 

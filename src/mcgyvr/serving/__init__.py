@@ -100,7 +100,7 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 # and a dense model has no spill to pay it for. It is not a literal here. For
 # llama.cpp it is an estimate shipped with mcgyvr and settable by the user,
 # looked up by :func:`mcgyvr.derived.runtime_resident_gb`, and where no layer
-# states it the sizing is refused rather than made from a default in code. An
+# states it the sizing is refused: this number has no default in code. An
 # engine of :data:`mcgyvr.derived.RUNTIME_RESIDENT_READ` has its figure to be
 # read on the user's machine and none shipped: until it is read no layer is
 # asked for it, none is charged, and every fit of its units says so
