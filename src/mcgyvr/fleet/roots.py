@@ -21,10 +21,10 @@ runtime".
 Every reader of a lock asks :func:`lock_root`; none reads the working
 directory, because a lock found there is a lock nobody promoted.
 
-mcgyvr keeps two folders on the machine it runs on, and the user may move
-either: settings in the config folder (:func:`home`: ``$MCGYVR_HOME``, else
-``~/.mcgyvr``), and its own files in the data folder (:func:`data_home`:
-``$MCGYVR_DATA``, else ``$XDG_STATE_HOME/mcgyvr``, else
+Two folders on the machine mcgyvr runs on can each be moved by the user: the
+config folder, for settings (:func:`home`: ``$MCGYVR_HOME``, else
+``~/.mcgyvr``), and the data folder, for mcgyvr's own files
+(:func:`data_home`: ``$MCGYVR_DATA``, else ``$XDG_STATE_HOME/mcgyvr``, else
 ``~/.local/state/mcgyvr``). ``~/.mcgyvr`` above is the config folder's
 default.
 """
