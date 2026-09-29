@@ -267,9 +267,11 @@ def _nothing_of_this_machine_is_asked() -> Iterator[list[str]]:
     """Three ways out to this machine fail the test, even if caught inside.
 
     The three patched here are ``subprocess.run``, ``urllib.request.urlopen``
-    and ``shutil.which``. Any other way out is not guarded by this; what holds
-    the rest is the field assertions of the test that uses it, which require
-    every field a machine could leak into to be absent or the shape's own.
+    and ``shutil.which``. Any other way out is not guarded by this. The test
+    that uses it also asserts the fields it names (processor count, memory,
+    container tool, bandwidth, disk, id, host and kernel); cards and servers
+    are held by the detection and scan tests above, and notes and facts by
+    none.
     """
     asked: list[str] = []
 
