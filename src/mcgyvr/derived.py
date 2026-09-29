@@ -111,18 +111,21 @@ class Number:
         The setting after the blank line is what the user's file holds, or
         would hold, for this number and key (its name, then the key and value
         indented below it), so it can be copied into that file as it is. An
-        estimate adds where to write your own; your own setting does not.
+        estimate adds where to write your own; your own setting does not. The
+        value is stated once, as the setting spells it, and the head repeats
+        that same text, so the two never differ by a rounding.
         """
         setting = yaml.safe_dump(
             {self.id: {self.key: self.value}}, default_flow_style=False
         ).rstrip("\n")
-        head = f"{self.id}[{self.key!r}] is {self.value:g} {self.unit}"
+        spelled = setting.rsplit(": ", 1)[1]
+        head = f"{self.id}[{self.key!r}] is {spelled} {self.unit}"
         if self.source == "override":
             return f"{head}, your own setting in {self.where}:\n\n{setting}"
         return (
             f"{head}, the shipped estimate in {self.where}. To use your own "
             f"value, write this in {overrides_path()} with your value in place "
-            f"of {self.value:g}:"
+            f"of {spelled}:"
             f"\n\n{setting}"
         )
 
