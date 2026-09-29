@@ -143,6 +143,27 @@ def overrides_path() -> Path:
     return roots.home() / OVERRIDES_FILENAME
 
 
+#: What reading the shipped JSON raises for text it cannot read: ``ValueError``
+#: for invalid JSON or a number too long to read, ``RecursionError`` for
+#: nesting deeper than the reader goes.
+_UNREADABLE_JSON: tuple[type[Exception], ...] = (ValueError, RecursionError)
+
+#: What reading the user's YAML raises for text it cannot build into values:
+#: ``yaml.YAMLError`` for YAML that does not parse and ``ValueError`` for a
+#: number too long to read, and, from PyYAML's own constructors, ``LookupError``
+#: (``!!int ''``, ``!!bool 'maybe'``), ``AttributeError`` (``!!timestamp 'abc'``)
+#: and ``TypeError`` (``!!map [1]``) for an explicit tag on text it cannot mean,
+#: and ``RecursionError`` for nesting deeper than the reader goes.
+_UNREADABLE_YAML: tuple[type[Exception], ...] = (
+    yaml.YAMLError,
+    ValueError,
+    LookupError,
+    AttributeError,
+    TypeError,
+    RecursionError,
+)
+
+
 @dataclass(frozen=True)
 class _NotANumber:
     """What JSON's ``NaN``, ``Infinity`` or ``-Infinity`` is read as: never a float."""
@@ -173,7 +194,7 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
         ) from exc
     try:
         document = json.loads(text, parse_constant=_NotANumber)
-    except ValueError as exc:  # invalid JSON, or a number too long to read
+    except _UNREADABLE_JSON as exc:
         raise DerivedNumbersError(f"{where} is not valid JSON: {exc}") from exc
     if not isinstance(document, dict):
         raise DerivedNumbersError(f"{where} is not a JSON object")
@@ -286,7 +307,7 @@ def _load_overrides(
         document = yaml.load(text, Loader=strict_loader(DerivedNumbersError))
     except DerivedNumbersError as exc:
         raise DerivedNumbersError(f"{where}: {exc}") from exc
-    except (yaml.YAMLError, ValueError) as exc:  # or a number too long to read
+    except _UNREADABLE_YAML as exc:
         raise DerivedNumbersError(f"{where} is not valid YAML: {exc}") from exc
     if document is None:
         return where, {}
