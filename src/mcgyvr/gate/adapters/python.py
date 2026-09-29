@@ -30,6 +30,7 @@ from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.typecheck import (
     STYLE,
     STYLE_LINT_CODES,
+    ParamMutation,
     compliance_findings,
     deprecated_typing_import_lines,
     unimportable_lines,
@@ -145,6 +146,32 @@ def ruff_config_args(repo: Path) -> list[str]:
 
 
 class PythonAdapter(LanguageAdapter):
+    """The Python adapter, holding the one gate setting that is Python's alone.
+
+    ``param_mutation`` is the setup's ``gate.param_mutation``
+    (:class:`~mcgyvr.gate.typecheck.ParamMutation`): read once, when the adapter
+    is built, and never changed after, so an adapter is still a value a caller
+    can build per call and share. Built with nothing, it is the strict reading.
+    A mode the gate does not implement is refused here by name, for a caller
+    that builds an adapter in code rather than through the loader.
+    """
+
+    def __init__(
+        self, *, param_mutation: ParamMutation | str = ParamMutation.REFUSE
+    ) -> None:
+        try:
+            self._param_mutation = ParamMutation(param_mutation)
+        except ValueError:
+            valid = ", ".join(mode.value for mode in ParamMutation)
+            raise ValueError(
+                f"param_mutation {param_mutation!r} is not a mode the gate "
+                f"implements. Valid: {valid}"
+            ) from None
+
+    @property
+    def param_mutation(self) -> ParamMutation:
+        return self._param_mutation
+
     @property
     def name(self) -> str:
         return "python"
@@ -187,7 +214,11 @@ class PythonAdapter(LanguageAdapter):
         visitor = _HazardVisitor(change.path, change.added_lines)
         visitor.visit(tree)
         return visitor.findings + compliance_findings(
-            tree, change.path, change.added_lines, contract_text=contract_text
+            tree,
+            change.path,
+            change.added_lines,
+            contract_text=contract_text,
+            param_mutation=self._param_mutation,
         )
 
     def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
