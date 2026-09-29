@@ -53,9 +53,9 @@ RUFF = "ruff"
 #: ``.ruff.toml`` keeps it, whatever it selects: the default is for the
 #: repository that said nothing.
 #:
-#: This selection is also the only one the lint rung softens. Under it, a
-#: deprecated ``typing`` spelling (UP006, UP035, and an I001 on the same import)
-#: is reported and does not refuse the change
+#: This selection is also the only one the lint rung softens. Under it, UP006
+#: and UP035 on a deprecated ``typing`` spelling, and an I001 on the line of
+#: such an import, are reported and do not refuse the change
 #: (:data:`~mcgyvr.gate.typecheck.STYLE_LINT_CODES`). A repository's own
 #: configuration is judged as it says: one that selects those rules refuses the
 #: change under them, like any other rule it selects.
@@ -289,13 +289,15 @@ class PythonAdapter(LanguageAdapter):
                 # change — and the two voices, where both are heard, are not
                 # saying opposite things.
                 #
-                # I001 is the same shape in the other direction. On the
-                # `from typing import Mapping` half, ruff reports the
-                # deprecated spelling and an I001 on the same import statement;
-                # demoting only UP035 would still reject the same style line
-                # under a second code. The grant is keyed on the line holding a
-                # deprecated `from typing import X`, so a genuinely unsorted
-                # import block away from such a line still rejects.
+                # I001 is the same shape in the other direction. ruff reports
+                # it on the first line of an import block that is unsorted or
+                # unformatted, not for the spelling: a deprecated
+                # `from typing import X` with one blank line before a function
+                # draws UP035 and I001 on the same line, and with two blank
+                # lines UP035 alone. The grant is keyed on the line holding a
+                # deprecated `from typing import X`: an I001 on any other line
+                # still rejects, and one on such a line is reported, including
+                # a genuinely unsorted block that starts there.
                 demoted = shipped_default and (
                     (code in STYLE_LINT_CODES and row not in unimportable.at(path))
                     or (code == "I001" and row in deprecated_typing.at(path))

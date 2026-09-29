@@ -62,11 +62,14 @@ lint finding rejects — so on a machine with ruff the change costs an attempt
 over six characters, and on a machine without it nothing reports the form at
 all. Those are one missing behaviour seen from two sides: there is no axis on
 which a finding can be said out loud without also being fatal. Both sides are
-answered here, so the verdict does not depend on which tools the operator
-happens to have. The lint side is answered under the product's default rule
-selection only (:data:`~mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`): a
-repository that states its own ruff configuration has said which codes refuse
-its changes, and a UP006 or UP035 it selects refuses this one.
+answered here, so under the product's default rule selection
+(:data:`~mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`) the verdict does
+not depend on which tools the operator happens to have. A repository that
+states its own ruff configuration has said which codes refuse its changes, and
+a UP006 or UP035 it selects refuses this one. There the verdict does depend on
+the tools: without ruff the lint rung does not run, the change is accepted
+with the ``type-form`` note, and the missing linter is listed among the
+environment issues.
 
 **A demotion is per fault, not per lint code.** UP035 is one code over two
 unrelated faults. ``from typing import Mapping`` is the deprecated spelling
@@ -736,15 +739,16 @@ def deprecated_typing_import_lines(source: str | None) -> frozenset[int]:
 
     Under the product's default rule selection, the lint rung demotes I001 —
     ruff's unsorted-imports rule — where its row is one of these lines; under a
-    repository's own ruff configuration it demotes nothing. On the ``typing``
-    half of UP035, ruff reports the
-    deprecated spelling and an I001 on the same import statement; demoting only
-    UP035 would leave the same style line rejected under a second code, so an
-    I001 sitting on a deprecated spelling is treated as the same style fault.
-    Demoting I001 wholesale would also demote a genuinely unsorted import
-    block, so the grant is keyed on the line holding the deprecated spelling
-    instead — the same per-fault, per-line shape :func:`unimportable_lines`
-    gives the withdrawal.
+    repository's own ruff configuration it demotes nothing. ruff reports I001
+    on the first line of an import block that is unsorted or unformatted, not
+    for the spelling: a deprecated ``from typing import X`` followed by one
+    blank line before a function draws UP035 and I001 on the same line, and
+    the same import followed by two draws UP035 alone. Demoting I001 wholesale
+    would also demote every unsorted import block, so the grant is keyed on
+    the line holding the deprecated spelling instead — the same per-line shape
+    :func:`unimportable_lines` gives the withdrawal. An I001 on any other line
+    still rejects; one on such a line is reported, including a genuinely
+    unsorted block that starts there.
 
     Same signature and same tolerance as :func:`unimportable_lines`: the
     caller is the lint rung, which holds a linter's JSON and no tree, and a

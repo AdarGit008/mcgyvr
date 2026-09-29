@@ -16,9 +16,13 @@ product does not soften what it asks:
 * where it selects none of these, the lint rung has nothing to refuse the
   change for.
 
-A repair runs the same linter under the same configuration, so a change the
-project's own configuration refuses for the old spelling is one a repair
-rewrites and the gate then accepts.
+A repair runs the same linter under the same configuration, and fixes only
+what that configuration selects. Where it also selects unused-import removal
+(``F``), a repair rewrites ``List[int]`` to ``list[int]``, drops the import
+that is then unused, and the gate accepts. Under the ``UP`` rules alone a
+repair rewrites the annotation and leaves ``from typing import List`` in
+place, so the change stays refused under UP035: that is the project's own
+selection, and the last test here pins it as a fact that already holds.
 """
 
 from __future__ import annotations
@@ -220,23 +224,54 @@ def test_under_the_shipped_default_the_old_spelling_is_reported_not_refused(
     )
 
 
-@needs_ruff
-def test_a_repair_clears_what_the_projects_own_config_refused(tmp_path: Path) -> None:
-    repo = _repo(
-        tmp_path,
-        {"pyproject.toml": PROJECT + '\n[tool.ruff.lint]\nselect = ["F", "UP"]\n'},
-    )
+def _repaired_and_regated(repo: Path) -> GateResult:
+    """Refused first, then repaired in place, then judged again."""
     first = _gated(repo, OLD_SPELLING)
     assert not first.accepted, (
         f"the premise: the project's own configuration refuses the old "
         f"spelling, and the change was accepted: {first.observations}"
     )
-
     outcome = repair(repo=repo, contract=load_contract(CONTRACT))
-
     assert outcome.repaired == (TARGET,), outcome
-    again = Gate().run(ChangeSet.detect(repo, "HEAD"))
-    assert again.accepted, (
-        f"the repair ran under the same configuration the gate judged by and "
-        f"left the change refused: {again.findings}"
+    return Gate().run(ChangeSet.detect(repo, "HEAD"))
+
+
+@needs_ruff
+def test_a_repair_clears_the_old_spelling_where_the_config_also_removes_unused_imports(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(
+        tmp_path,
+        {"pyproject.toml": PROJECT + '\n[tool.ruff.lint]\nselect = ["F", "UP"]\n'},
     )
+
+    again = _repaired_and_regated(repo)
+
+    assert again.accepted, (
+        f"the repair ran under the same configuration the gate judged by, which "
+        f"also removes an unused import, and left the change refused: "
+        f"{again.findings}"
+    )
+
+
+@needs_ruff
+def test_under_the_up_rules_alone_a_repair_leaves_the_import_and_it_stays_refused(
+    tmp_path: Path,
+) -> None:
+    """A pinned fact, not a promise this change made: it holds already.
+
+    The project's configuration selects no rule that removes an unused import,
+    so the repair rewrites the annotation and the import it no longer needs
+    stays, refused under UP035 as the project asked.
+    """
+    repo = _repo(
+        tmp_path, {"pyproject.toml": PROJECT + '\n[tool.ruff.lint]\nselect = ["UP"]\n'}
+    )
+
+    again = _repaired_and_regated(repo)
+
+    assert not again.accepted, f"the old import was cleared: {again.observations}"
+    assert {f.code for f in again.findings if f.check == "lint"} == {"UP035"}, (
+        f"expected the annotation rewritten and the import left: {again.findings}"
+    )
+    assert "from typing import List" in (repo / TARGET).read_text(encoding="utf-8")
