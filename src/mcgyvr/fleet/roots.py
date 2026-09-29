@@ -51,10 +51,10 @@ DATA_DIR = f"~/.local/state/{DATA_NAME}"
 FLEETS_DIR = "fleets"
 #: The pointer naming the fleet live runs.
 LIVE_FILE = "live.json"
-#: The two under the config folder's default, for help text only: a refusal
-#: names the file it read (:func:`live_file`).
-FLEETS_SHOWN = f"{HOME_DIR}/{FLEETS_DIR}"
-LIVE_FILE_SHOWN = f"{HOME_DIR}/{LIVE_FILE}"
+#: The two as help text names them: by the variable, with the default marked
+#: as the default. A refusal names the file it read (:func:`live_file`).
+FLEETS_SHOWN = f"${HOME_ENV}/{FLEETS_DIR} (default {HOME_DIR}/{FLEETS_DIR})"
+LIVE_FILE_SHOWN = f"${HOME_ENV}/{LIVE_FILE} (default {HOME_DIR}/{LIVE_FILE})"
 #: What separates a fleet from the date of its lock in a promoted folder's name.
 TAG = "@"
 #: The date a tag carries: the lock's ``validated_at`` day, ``YYYY-MM-DD``.
@@ -64,13 +64,14 @@ _TAG_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 class LiveFleetError(Exception):
     """The config folder's ``live.json`` cannot be read or names no fleet.
 
-    A config folder that cannot be located is one of these too: its
-    ``live.json`` cannot be read.
+    A config folder variable that names no usable folder is one of these too:
+    its ``live.json`` cannot be read.
     """
 
 
 class FolderError(RuntimeError):
-    """A variable that moves one of mcgyvr's folders names no usable folder.
+    """A variable that moves one of mcgyvr's folders names no usable folder, or
+    a folder the guard of the live folders must resolve cannot be resolved.
 
     A ``RuntimeError``, as an unresolvable HOME already is for every reader of
     these folders.
@@ -188,15 +189,16 @@ def live_fleet() -> str | None:
     A ``live.json`` that is there and names no fleet raises
     :class:`LiveFleetError`: a pointer nobody can read is not the same as no
     pointer, and live must not quietly run as if nothing were named. A config
-    folder that cannot be located raises it too, with the variable's refusal.
+    folder variable that names no usable folder raises it too, with the
+    variable's refusal, and so does a config folder that cannot be searched.
     """
     try:
         path = live_file()
     except FolderError as exc:
         raise LiveFleetError(str(exc)) from exc
-    if not path.is_file():
-        return None
     try:
+        if not path.is_file():
+            return None
         named = json.loads(path.read_text(encoding="utf-8")).get("fleet")
     except (OSError, json.JSONDecodeError, AttributeError) as exc:
         raise LiveFleetError(f"{path} cannot be read: {exc}") from exc
@@ -229,14 +231,22 @@ def lock_root(profile: str) -> Path | None:
     raise ValueError(f"no fleet lock root for profile {profile!r}: live or dev")
 
 
+def _resolved(path: Path) -> Path:
+    """``path`` with ``~`` expanded and every link followed, or :class:`FolderError`."""
+    try:
+        return path.expanduser().resolve()
+    except (OSError, RuntimeError) as exc:
+        raise FolderError(f"{path} cannot be resolved: {exc}") from exc
+
+
 def is_live(path: Path) -> bool:
     """Whether ``path`` is the config folder or its default, or lies under either.
 
-    The default stays guarded when the variable moves the folder: a server
-    started without the variable reads its fleets there.
+    The default stays guarded when the variable moves the folder: any mcgyvr
+    command started without the variable reads its fleets there.
     """
-    resolved = path.expanduser().resolve()
+    resolved = _resolved(path)
     return any(
-        resolved.is_relative_to(folder)
-        for folder in (home().resolve(), Path(HOME_DIR).expanduser().resolve())
+        resolved.is_relative_to(_resolved(folder))
+        for folder in (home(), Path(HOME_DIR))
     )

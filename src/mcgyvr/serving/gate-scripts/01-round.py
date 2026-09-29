@@ -91,8 +91,8 @@ def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
 
     The lock's combination records under ``records/fleet/rigs/<rig->/`` name
     each locked unit by its container, under the root the profile reads
-    (:func:`mcgyvr.fleet.roots.lock_root`: for live, the fleet folder
-    ``~/.mcgyvr/live.json`` names, and no lock at all without one) and never
+    (:func:`mcgyvr.fleet.roots.lock_root`: for live, the fleet folder the
+    config folder's ``live.json`` names, and no lock at all without one) and never
     under the run root. Gate 1 reaches no rig, so this is a read of local
     files only: a live serve up is matched against the lock offline, before
     any rig time is spent.

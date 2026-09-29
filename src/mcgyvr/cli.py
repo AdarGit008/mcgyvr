@@ -52,7 +52,13 @@ from mcgyvr.emit import (
 )
 from mcgyvr.exits import Exit
 from mcgyvr.fleet.files import FleetFileError, load_fleet
-from mcgyvr.fleet.roots import FLEETS_SHOWN, LIVE_FILE_SHOWN, FolderError
+from mcgyvr.fleet.roots import (
+    FLEETS_SHOWN,
+    HOME_DIR,
+    HOME_ENV,
+    LIVE_FILE_SHOWN,
+    FolderError,
+)
 from mcgyvr.initialize import ApiSpecError, InitError, initialize, parse_api_unit
 from mcgyvr.scan import Mismatch, Scan
 from mcgyvr.serving import (
@@ -1520,8 +1526,8 @@ def _climb(
 
     Hence ``--config`` and no rung flag. It resolves the same way every other
     command's does — ``$MCGYVR_CONFIG``, then the working directory, then
-    the live fleet folder ``~/.mcgyvr/live.json`` names — because a second
-    resolution order for the same file is a
+    the live fleet folder the config folder's ``live.json`` names — because a
+    second resolution order for the same file is a
     second file as far as an operator debugging one is concerned. The config is
     loaded once, in :func:`_run`, because the journal dir is read off it before
     a rung is chosen.
@@ -2884,14 +2890,15 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     from mcgyvr.derived import DerivedNumbersError, class_tolerances
     from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
     from mcgyvr.fleet.lock import LockRefusedError, write
-    from mcgyvr.fleet.roots import is_live, lock_root
+    from mcgyvr.fleet.roots import HOME_DIR, is_live, lock_root
 
     dev_root = lock_root("dev")
     assert dev_root is not None, "the dev lock root is the run root, a path"
     root = Path(args.root) if args.root else dev_root
     if is_live(root):
         print(
-            f"error: {root} is the live root. A lock is written from dev runs "
+            f"error: {root} lies under a folder live fleets are read from (the "
+            f"config folder, or {HOME_DIR}). A lock is written from dev runs "
             "into the dev root and reaches live only through `mcgyvr fleet "
             "promote`",
             file=sys.stderr,
@@ -3011,7 +3018,8 @@ def _fleet_use(args: argparse.Namespace) -> int:
 
     try:
         switch = use(args.name)
-    except PromoteRefusedError as exc:
+    except (PromoteRefusedError, OSError) as exc:
+        # OSError: a config folder that cannot be searched or written.
         print(f"error: {exc}", file=sys.stderr)
         return 1
     print(f"live: {switch.name} ({switch.pointer})")
@@ -3055,7 +3063,8 @@ def _fleet_tag(args: argparse.Namespace) -> int:
 
     try:
         folder = tag(args.name)
-    except PromoteRefusedError as exc:
+    except (PromoteRefusedError, OSError) as exc:
+        # OSError: a config folder that cannot be searched or written.
         print(f"error: {exc}", file=sys.stderr)
         return 1
     print(f"tagged: {args.name} -> {folder}")
@@ -3556,7 +3565,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="DIR",
         help=(
             "where records/fleet/ is written (default: the dev root — "
-            "$MCGYVR_RUN_ROOT, else the checkout). Anything under ~/.mcgyvr is "
+            "$MCGYVR_RUN_ROOT, else the checkout). Anything under the config "
+            f"folder (${HOME_ENV}, else {HOME_DIR}) or under {HOME_DIR} is "
             "refused: a live fleet comes only from `mcgyvr fleet promote`"
         ),
     )
@@ -3564,9 +3574,9 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     fpromote = fleet_sub.add_parser(
         "promote",
         help=(
-            "write a new live fleet folder ~/.mcgyvr/fleets/FLEET@DATE/ from its "
-            "dev lock, DATE being the lock's own validated_at day (one way; "
-            "never over an existing folder)"
+            f"write a new live fleet folder FLEET@DATE/ under {FLEETS_SHOWN} "
+            "from its dev lock, DATE being the lock's own validated_at day (one "
+            "way; never over an existing folder)"
         ),
     )
     fpromote.add_argument(
@@ -3585,7 +3595,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     fuse = fleet_sub.add_parser(
         "use",
         help=(
-            "name a promoted fleet live, in ~/.mcgyvr/live.json, and say whether "
+            f"name a promoted fleet live, in {LIVE_FILE_SHOWN}, and say whether "
             "the move from the fleet that was live is one its lock measured"
         ),
     )
@@ -3598,8 +3608,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     ftag = fleet_sub.add_parser(
         "tag",
         help=(
-            "rename a fleet folder promoted before 2026-09-16 to "
-            "~/.mcgyvr/fleets/FLEET@DATE/, DATE being its lock's validated_at day"
+            "rename a fleet folder promoted before 2026-09-16 to FLEET@DATE/ "
+            f"under {FLEETS_SHOWN}, DATE being its lock's validated_at day"
         ),
     )
     ftag.add_argument("name", metavar="FLEET", help="the untagged folder to rename")
@@ -3637,7 +3647,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="DIR",
         help=(
             "where records/fleet/ is read (default: the lock root the config's "
-            "profile names — for live the fleet ~/.mcgyvr/live.json names, "
+            f"profile names — for live the fleet {LIVE_FILE_SHOWN} names, "
             "for dev the dev root)"
         ),
     )
@@ -3832,8 +3842,8 @@ class _Version(argparse.Action):
     Two lines and not one, because they are two identities: the wheel is the
     code, and the config is the setup. The config is the one `load()` locates —
     `$MCGYVR_CONFIG`, then a working directory holding `fleet.yaml`, then the
-    fleet `~/.mcgyvr/live.json` names — so the path printed is the config a run
-    typed at this prompt would load. No config prints
+    fleet the config folder's `live.json` names — so the path printed is the
+    config a run typed at this prompt would load. No config prints
     `none`; one that is there and cannot be read prints why, because a
     version line that swallowed that would be the one lie an operator
     checking their setup cannot afford.
