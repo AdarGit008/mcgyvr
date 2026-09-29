@@ -12,19 +12,11 @@ cache.
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-from pathlib import Path
-from typing import Any
-
 import pytest
 
 from mcgyvr.emit import argv
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, UnitError, unit_for
-
-REPO = Path(__file__).resolve().parent.parent
-SERVING = REPO / "tools" / "bench" / "serving"
 
 #: The window these tests declare, as every unit test here must.
 WINDOW = 4096
@@ -36,20 +28,6 @@ UTILISATION = ("--gpu-memory-utilization", "0.68")
 VLLM_KNOB = ("--kv-cache-dtype", "kv_cache_dtype")
 CTK_KNOB = ("-ctk", "--cache-type-k", "cache_type_k")
 CTV_KNOB = ("-ctv", "--cache-type-v", "cache_type_v")
-
-
-def _load(name: str, path: Path) -> Any:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-@pytest.fixture(scope="module")
-def vllm() -> Any:
-    return _load("serving_vllm_kv_dtype_knob", SERVING / "backends" / "vllm.py")
 
 
 def _names(message: str, spellings: tuple[str, ...]) -> bool:

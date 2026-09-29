@@ -7,20 +7,6 @@ prove: no runner in this tree sends a seed.
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
-
-import pytest
-
-from tests._helpers import by_path
-
-REPO = Path(__file__).resolve().parent.parent
-
-
-@pytest.fixture(scope="module")
-def observed() -> Any:
-    return by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
-
 
 # --- the probe set ----------------------------------------------------------
 
