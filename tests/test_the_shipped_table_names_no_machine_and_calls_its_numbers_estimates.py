@@ -13,6 +13,10 @@ Promises:
      fact (a machine, a host, where or when a reading was taken) cannot enter
      the table without first being declared in code, where a reviewer reads
      it; the loader refuses an undeclared key as well;
+   * every object in the file is an entry of a declared level, or a model
+     row's ``capabilities`` map, so no key sits where the check above does not
+     reach; the loader refuses an object, or a list holding one, under any
+     key that holds a value rather than entries;
    * a declared card class carries exactly an id, a label and a nominal memory
      size;
    * no text value, at any depth, has the shape of a calendar date, a network
@@ -123,8 +127,7 @@ def _entries(document: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any
     """Every (level, location, entry) of the file, walked here, not by the loader.
 
     The levels are the ones the product declares keys for. Under ``backends``
-    every key but the block's own notes names a backend, so the block's keys
-    are read as notes only where their value is not an entry.
+    every key but the block's own declared notes names a backend.
     """
     yield "table", "the table", document
     if "quality_metric" in document:
@@ -139,13 +142,9 @@ def _entries(document: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any
             for place, entry in enumerate(model.get(field, [])):
                 yield "reading", f"models[{index}].{field}[{place}]", entry
     backends = document.get("backends", {})
-    yield (
-        "backends block",
-        "backends",
-        {k: v for k, v in backends.items() if not isinstance(v, dict)},
-    )
+    yield "backends block", "backends", backends
     for name, entry in backends.items():
-        if isinstance(entry, dict):
+        if name not in DECLARED_KEYS["backends block"]:
             yield "backend", f"backends.{name}", entry
     for index, entry in enumerate(document.get("concurrency_findings", [])):
         yield "concurrency finding", f"concurrency_findings[{index}]", entry
@@ -156,16 +155,36 @@ def test_every_key_in_the_shipped_table_is_one_the_product_declares() -> None:
     undeclared: list[str] = []
     for level, where, entry in _entries(_document()):
         seen.add(level)
+        if not isinstance(entry, dict):
+            undeclared.append(f"{where}: {entry!r} is not an entry")
+            continue
         undeclared.extend(
             f"{where}: {key!r} (a {level} declares {sorted(DECLARED_KEYS[level])})"
             for key in entry
             if key not in DECLARED_KEYS[level]
+            # Under ``backends`` an entry's key is the name of a backend.
+            and not (level == "backends block" and isinstance(entry[key], dict))
         )
 
     assert not undeclared, "keys the product does not declare:\n" + "\n".join(
         undeclared
     )
     assert seen == set(DECLARED_KEYS), "a declared level this walk never reached"
+
+
+def test_every_object_in_the_shipped_table_is_an_entry_of_a_declared_level() -> None:
+    """So the key check above reaches every key: an object anywhere else would
+    carry keys no level declares."""
+    document = _document()
+    entries = {id(entry) for _, _, entry in _entries(document)}
+    scores = {id(m["capabilities"]) for m in document["models"] if "capabilities" in m}
+    stray = [
+        where
+        for where, _, value in _walk(document)
+        if isinstance(value, dict) and id(value) not in entries | scores
+    ]
+
+    assert not stray, "objects at no declared level:\n" + "\n".join(stray)
 
 
 def test_the_loader_reads_the_shipped_table_under_the_same_closed_keys() -> None:

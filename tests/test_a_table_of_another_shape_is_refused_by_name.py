@@ -333,3 +333,42 @@ def test_an_undeclared_key_on_any_reading_is_refused(
 
     assert repr(UNDECLARED) in said, said
     assert field in said, said
+
+
+# --- an object sits only where the table declares entries --------------------
+
+#: A value that would carry keys of its own under a key that holds a value, not
+#: entries, one way per nesting the refusal must see through.
+NESTED_OBJECTS: dict[str, Callable[[], Any]] = {
+    "an-object": lambda: {UNDECLARED: "anything"},
+    "a-list-holding-an-object": lambda: ["text", {UNDECLARED: "anything"}],
+    "a-list-holding-a-list-holding-an-object": lambda: [[{UNDECLARED: "anything"}]],
+}
+
+
+def test_every_container_is_a_declared_key_of_its_level() -> None:
+    containers = capability.CONTAINER_KEYS  # type: ignore[attr-defined]
+
+    assert set(containers) == set(capability.DECLARED_KEYS)
+    for level, keys in containers.items():
+        assert keys <= capability.DECLARED_KEYS[level], level
+
+
+@pytest.mark.parametrize("nested", sorted(NESTED_OBJECTS))
+@pytest.mark.parametrize("level", sorted(capability.DECLARED_KEYS))
+def test_an_object_under_a_key_that_holds_a_value_is_refused_at_every_level(
+    tmp_path: Path, level: str, nested: str
+) -> None:
+    """Every declared key of the level that is not a container, one at a time:
+    were an object accepted there, its keys would be keys nobody declared."""
+    containers = capability.CONTAINER_KEYS[level]  # type: ignore[attr-defined]
+    values = sorted(capability.DECLARED_KEYS[level] - containers)
+    assert values, level
+    for key in values:
+        document = table_document_with_every_block()
+        _entry_at(level, document)[key] = NESTED_OBJECTS[nested]()
+
+        said = _refusal(tmp_path, document)
+
+        # The version is refused by its own check, before any other.
+        assert repr(key) in said if key != "schema_version" else key in said, said
