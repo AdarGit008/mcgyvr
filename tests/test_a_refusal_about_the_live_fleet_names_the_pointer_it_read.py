@@ -5,9 +5,9 @@ is, the refusal names the pointer file it actually read: the one in the config
 folder the user named. It never names the config folder's default in its
 place, where a different pointer may say something else.
 
-Nothing is reached: the probe refuses before it would reach any unit, and the
-door's first gate is called in this process with the variables the door would
-have set.
+Nothing is reached: the probe and live admission refuse before they would
+reach any unit or read any machine, and the door's first gate is called in
+this process with the variables the door would have set.
 """
 
 from __future__ import annotations
@@ -17,7 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.fleet import probe
+from mcgyvr.fleet import admission, probe
+from mcgyvr.fleet.admit import LiveRefusedError
 from tests._helpers import by_path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -51,6 +52,28 @@ def test_a_probe_with_no_fleet_named_live_names_the_pointer_it_looked_for(
 
     with pytest.raises(probe.ProbeError) as refused:
         probe.run()
+
+    said = str(refused.value)
+    assert str(moved / "live.json") in said, said
+    assert DEFAULT_POINTER not in said, said
+
+
+def _no_read(rig: str, run_id: str, units: object) -> int:
+    raise AssertionError(f"{rig} was read, and admission should have refused first")
+
+
+@pytest.mark.parametrize("where", ["empty", "missing"])
+def test_live_admission_with_no_fleet_named_names_the_pointer_it_looked_for(
+    where: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Whether the folder the user named is empty or is not there at all."""
+    moved = _moved(tmp_path, monkeypatch)
+    if where == "missing":
+        moved = tmp_path / "no-such" / "settings"
+        monkeypatch.setenv("MCGYVR_HOME", str(moved))
+
+    with pytest.raises(LiveRefusedError) as refused:
+        admission.admit(reader=_no_read)
 
     said = str(refused.value)
     assert str(moved / "live.json") in said, said
