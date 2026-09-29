@@ -94,13 +94,17 @@ COMPOSE_SUFFIX = ".yml"
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 # What system memory holds beyond the offloaded experts themselves — context,
-# compute buffers, and the copy paths that do not live on the card — is an
-# estimate keyed by engine, shipped with mcgyvr and settable by the user, looked
-# up by :func:`mcgyvr.derived.runtime_resident_gb` inside :func:`_host_gb`. It
-# is not a literal here: it applies only where experts actually spill — a model
-# held entirely on the card is not paying it, and a dense model has no spill to
-# pay it for — and where no layer states it the sizing is refused: this number
-# has no default in code.
+# compute buffers, and the copy paths that do not live on the card — is a
+# figure of the unit's own engine, charged by :func:`_host_gb` only where
+# experts actually spill: a model held entirely on the card is not paying it,
+# and a dense model has no spill to pay it for. It is not a literal here. For
+# llama.cpp it is an estimate shipped with mcgyvr and settable by the user,
+# looked up by :func:`mcgyvr.derived.runtime_resident_gb`, and where no layer
+# states it the sizing is refused: this number has no default in code. An
+# engine of :data:`mcgyvr.derived.RUNTIME_RESIDENT_READ` has its figure to be
+# read on the user's machine and none shipped: until it is read no layer is
+# asked for it, none is charged, and every fit of its units says so
+# (:data:`HOST_FIGURE_NOT_READ`).
 
 # Held back from host RAM, on top of whatever the model needs, for the same
 # reason :data:`vramfit.SCRATCH_AND_CONTEXT_MIB` is held back from the card:
@@ -329,6 +333,25 @@ class Width:
     how: str
 
 
+#: What every fit of a unit whose engine's host memory figure is to be read on
+#: the machine (:data:`mcgyvr.derived.RUNTIME_RESIDENT_READ`) says while no
+#: reading exists, whether the unit fits or is refused: that the host memory
+#: its server holds beyond the weights has not been read and none is charged
+#: for it. It names vLLM, the one engine of that tuple.
+HOST_FIGURE_NOT_READ = (
+    "vLLM host memory beyond the weights: not read on this machine; "
+    "none is charged for it"
+)
+
+#: What that line adds when the user's own numbers file sets the figure all
+#: the same: the setting is not charged either. ``where`` is the file.
+HOST_FIGURE_SETTING_NOT_USED = "your setting in {where} is not used by the sizing"
+
+#: What that line adds instead when the user's own numbers file cannot be read:
+#: ``why`` is its refusal, which names the file.
+HOST_FIGURE_SETTING_UNKNOWN = "whether your own numbers set it is not known: {why}"
+
+
 @dataclass(frozen=True)
 class Fit:
     """Whether this machine can hold this model right now, and why.
@@ -381,6 +404,12 @@ class Fit:
     #: same rule :func:`hold_together` takes for a host with no memory reading
     #: and :mod:`mcgyvr.scan` takes throughout.
     card_free_gb: float = 0.0
+    #: What this fit says beside its answer, one line each, also at the end of
+    #: ``why``: :data:`HOST_FIGURE_NOT_READ` on every fit of a unit whose
+    #: engine's host memory figure is to be read on the machine, and nothing
+    #: otherwise. ``mcgyvr emit`` prints each before it writes or checks
+    #: anything, because ``why`` reaches a user only in a refusal.
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -447,7 +476,12 @@ class Unit:
 
 
 def fit(
-    scan: Scan, spec: ModelSpec, *, width: int | None = None, ctx_per_slot: int
+    scan: Scan,
+    spec: ModelSpec,
+    *,
+    engine: str,
+    width: int | None = None,
+    ctx_per_slot: int,
 ) -> Fit:
     """Whether ``scan``'s machine can hold ``spec``, measured not declared.
 
@@ -476,9 +510,58 @@ def fit(
     is a fit for another process — the same defect ``width`` is required to
     avoid, one field over.
 
+    ``engine`` is the engine the unit is served by, and it has no default
+    either: the host memory a spill carries beyond the experts is a figure of
+    the unit's own engine (:func:`_host_gb`), and a default would size every
+    other engine's unit with llama.cpp's. Every fit of a unit whose engine's
+    figure is to be read on the machine
+    (:data:`mcgyvr.derived.RUNTIME_RESIDENT_READ`)
+    carries :data:`HOST_FIGURE_NOT_READ` in :attr:`Fit.notes` and at the end of
+    ``why``, whether it fits or is refused.
+
     Never raises. An unmeasurable machine is a machine nothing is claimed
     about — the same rule :mod:`mcgyvr.scan` runs on.
     """
+    sized = _sized(scan, spec, engine=engine, width=width, ctx_per_slot=ctx_per_slot)
+    notes = _host_figure_notes(engine)
+    if not notes:
+        return sized
+    said = sized.why if sized.why.endswith(".") else f"{sized.why}."
+    return replace(sized, notes=notes, why=" ".join((said, *notes)))
+
+
+def _host_figure_notes(engine: str) -> tuple[str, ...]:
+    """What a fit of a unit of ``engine`` says of its host memory figure.
+
+    Nothing for an engine whose figure is shipped. For one whose figure is read
+    on the machine, :data:`HOST_FIGURE_NOT_READ`, and, where the user's own
+    numbers file sets that figure, :data:`HOST_FIGURE_SETTING_NOT_USED` after
+    it. A numbers file that cannot be read is named in the line with its
+    refusal (:data:`HOST_FIGURE_SETTING_UNKNOWN`): nothing in it is used for
+    this engine, so the unit is not refused.
+    """
+    if engine not in derived.RUNTIME_RESIDENT_READ:
+        return ()
+    try:
+        where = derived.user_setting(derived.RUNTIME_RESIDENT, engine)
+    except (derived.DerivedNumbersError, RuntimeError) as exc:
+        unknown = HOST_FIGURE_SETTING_UNKNOWN.format(why=exc)
+        return (f"{HOST_FIGURE_NOT_READ}; {unknown}",)
+    if where is None:
+        return (HOST_FIGURE_NOT_READ,)
+    unused = HOST_FIGURE_SETTING_NOT_USED.format(where=where)
+    return (f"{HOST_FIGURE_NOT_READ}; {unused}",)
+
+
+def _sized(
+    scan: Scan,
+    spec: ModelSpec,
+    *,
+    engine: str,
+    width: int | None,
+    ctx_per_slot: int,
+) -> Fit:
+    """:func:`fit`'s answer, before it says anything of the host memory figure."""
     free_bytes = _free_vram_bytes(scan)
     free_vram = free_bytes / _BYTES_PER_GIB
     available_ram = scan.memory.available_gb if scan.memory else 0.0
@@ -501,7 +584,12 @@ def fit(
 
     try:
         placed = _placement(
-            spec, free_bytes, width, host=scan.machine.host, ctx_per_slot=ctx_per_slot
+            spec,
+            free_bytes,
+            width,
+            engine=engine,
+            host=scan.machine.host,
+            ctx_per_slot=ctx_per_slot,
         )
     except UnitError as exc:
         return Fit(fits=False, headroom_gb=_allowance_gb(spec), why=str(exc))
@@ -678,7 +766,7 @@ def unit_for(
             f"rig's HuggingFace cache, and nothing says where that cache is — "
             f"set units.<unit>.hf_cache to its absolute path on the rig"
         )
-    sized = fit(scan, spec, width=width, ctx_per_slot=ctx_per_slot)
+    sized = fit(scan, spec, engine=engine, width=width, ctx_per_slot=ctx_per_slot)
     if not sized.fits:
         raise UnitError(f"{scan.machine.host}: {sized.why}")
 
@@ -717,6 +805,7 @@ def unit_for(
         spec,
         gpu.vram.free_mib << 20,
         width,
+        engine=engine,
         host=scan.machine.host,
         ctx_per_slot=ctx_per_slot,
     )
@@ -1751,6 +1840,7 @@ def _placement(
     free_bytes: int,
     width: int | None = None,
     *,
+    engine: str,
     host: str,
     ctx_per_slot: int,
     n_ubatch: int = DEFAULT_UBATCH,
@@ -1785,9 +1875,11 @@ def _placement(
     together.
 
     The RAM figure is what this card actually spills, plus the runtime that
-    spilling carries with it — not the whole model weight. The declaration is
-    still honoured as a floor, so an operator who states a memory demand this
-    module cannot see is not overruled by it.
+    spilling carries with it for the unit's own ``engine`` (:func:`_host_gb`:
+    none for an engine whose figure is to be read on the machine, until it is)
+    — not the whole model weight. The declaration is still honoured as a
+    floor, so an operator who states a memory demand this module cannot see is
+    not overruled by it.
 
     Without a geometry there is only the scalar path: the stated working set,
     the stated memory floor, no offload, and one slot unless one was written.
@@ -1867,28 +1959,37 @@ def _placement(
         n_cpu_moe=n_cpu_moe,
         width=slots,
         vram_gb=card / _BYTES_PER_GIB,
-        ram_gb=max(spec.ram_gb, _host_gb(geometry, n_cpu_moe, host=host)),
+        ram_gb=max(
+            spec.ram_gb, _host_gb(geometry, n_cpu_moe, engine=engine, host=host)
+        ),
         headroom_gb=vramfit.SCRATCH_AND_CONTEXT_MIB / 1024,
         head_bytes=head_bytes,
     )
 
 
-def _host_gb(geometry: dict[str, Any], n_cpu_moe: int, *, host: str) -> float:
+def _host_gb(
+    geometry: dict[str, Any], n_cpu_moe: int, *, engine: str, host: str
+) -> float:
     """What system memory holds at this offload: the spilled experts, plus the
-    runtime that spilling carries — and nothing when nothing spills.
+    runtime that spilling carries for the unit's own ``engine`` — and nothing
+    when nothing spills.
 
-    The runtime figure is :func:`mcgyvr.derived.runtime_resident_gb`, an
-    estimate keyed by engine that the user can set. ``host`` is never its key:
-    it only names the machine being sized in a refusal. It is charged wherever
-    experts spill, whatever engine the unit names, since a fit is not told the
-    engine. Where no layer states it, the sizing is refused by name, never
-    defaulted.
+    An engine of :data:`mcgyvr.derived.RUNTIME_RESIDENT_READ` has its runtime
+    figure to be read on the user's machine and none shipped: until it is
+    read, no layer is asked for it and only the spilled experts are charged
+    (:func:`fit` says so). Every other engine is charged
+    :func:`mcgyvr.derived.runtime_resident_gb`, llama.cpp's estimate, which the
+    user can set. ``host`` is never its key: it only names the machine being
+    sized in a refusal. Where no layer states it, the sizing is refused by
+    name, never defaulted.
     """
     offloaded = int(geometry["bytes_experts"]) - vramfit.experts_on_card(
         geometry, n_cpu_moe
     )
     if offloaded <= 0:
         return 0.0
+    if engine in derived.RUNTIME_RESIDENT_READ:
+        return offloaded / _BYTES_PER_GIB
     try:
         resident = derived.runtime_resident_gb(host)
     except derived.DerivedNumbersError as exc:
