@@ -253,7 +253,7 @@ def test_a_refusal_does_not_say_no_backend_holds_a_model_when_one_does(
     )
     with pytest.raises(InitError) as refused:
         initialize(tmp_path / "setup", detection=found, table=table)
-    assert "none of them reports holding a measured model" not in str(refused.value)
+    assert "none of them reports holding" not in str(refused.value)
 
 
 def test_a_refusal_on_a_card_of_undetermined_size_does_not_say_there_is_no_card(

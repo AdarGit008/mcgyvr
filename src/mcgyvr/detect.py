@@ -4,7 +4,7 @@
 (``data/capability-table.json``); this module supplies the other half of
 that decision — what hardware and which backends are actually reachable. It
 measures nothing: benchmarking would turn a 30-second install into an hour,
-which is the whole reason the table is shipped pre-measured.
+which is the whole reason the table ships estimates by card class instead.
 
 Two rules shape everything below:
 
