@@ -66,8 +66,8 @@ NO_ESTIMATE_NOTICE = (
     "No estimate was matched to a unit bound from a server's listing: mcgyvr "
     "cannot yet match an estimate to a model by its weights. Until it can, "
     "`mcgyvr emit` sizes a unit whose model name equals a row of the shipped "
-    "table from that row. What you declare for a unit in fleet.yaml, under "
-    "`launch` or as `room_mib`, wins over that row."
+    "table from that row. What you declare for a unit in fleet.yaml, for "
+    "example under `launch` or as `room_mib`, wins over that row."
 )
 
 #: How the ladder init writes is ordered, said beside it when a unit was bound

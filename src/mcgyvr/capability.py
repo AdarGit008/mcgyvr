@@ -3,8 +3,8 @@
 The table (``data/capability-table.json``) is estimates by card class, not
 readings of the user's machine. ``mcgyvr capabilities`` lists it, and
 ``mcgyvr emit`` sizes a unit from the row whose id equals the unit's model,
-unless a unit in fleet.yaml declares that model (under ``launch``, or as
-``room_mib``). ``mcgyvr init`` does not read it: init binds the models running
+unless a unit in fleet.yaml declares that model, for example under ``launch``
+or as ``room_mib``. ``mcgyvr init`` does not read it: init binds the models running
 servers list (:mod:`mcgyvr.propose`). See ``data/README.md`` for what a card
 class is and for the harness caveats that make some published numbers unusable.
 

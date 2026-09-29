@@ -446,7 +446,7 @@ def _detect(args: argparse.Namespace) -> int:
                 print(f"{indent}{backend.name:<20} {backend.base_url:<30} {protocol}")
                 if backend.models:
                     for model in backend.models:
-                        print(f"{indent}    already pulled: {model}")
+                        print(f"{indent}    listed: {model}")
                 else:
                     print(f"{indent}    (reachable, but reports no models)")
                 print(f"{indent}    {backend.how}")
@@ -3060,7 +3060,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         # argparse does not abbreviate subcommands the way it abbreviates
         # flags, so the short name is spelled out as an alias.
         aliases=["caps"],
-        help="show the shipped estimates by card class used to propose worker bindings",
+        help="show the shipped estimates by card class",
     )
     caps.add_argument(
         "--vram",
