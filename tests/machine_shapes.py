@@ -30,7 +30,7 @@ answer here changes with it.
 
 How the card sizes are made
 ---------------------------
-No size is typed in. Each invented card model has a nominal size in GiB and a
+No size in MiB is typed in. Each invented card model has a nominal size in GiB and a
 position in the table of models (:data:`_MODELS`), and its figures are
 computed from those two by one rule:
 
@@ -104,7 +104,8 @@ class Holder:
     ``name`` is an invented process name; ``mib`` is what it holds; ``pid`` is
     an invented process id, positive and unique on its card, so that a reader
     of the card tool's process listing can be served later. The listing itself
-    is not answered today: a reader that asks for it is refused by name.
+    is not answered today: a reader that asks for it is refused by name. A
+    negative ``mib`` or a non-positive ``pid`` is refused by name.
     """
 
     name: str
@@ -112,6 +113,10 @@ class Holder:
     pid: int
 
     def __post_init__(self) -> None:
+        if self.mib < 0:
+            raise ValueError(
+                f"holder {self.name!r} holds {self.mib} MiB, a negative amount"
+            )
         if self.pid <= 0:
             raise ValueError(
                 f"holder {self.name!r}: process id {self.pid} is not positive"
@@ -124,7 +129,9 @@ class Card:
 
     ``index`` is the card's position as its own vendor's tool numbers it, so
     on a machine of two vendors each vendor counts from zero. ``name`` is an
-    invented card name ("Example Card A"), never a real model. ``vendor`` is a
+    invented card name ("Example Card A"), never a real model; a name with a
+    comma or a line break is refused, as one this helper does not model (the
+    card tool prints one comma separated line per card). ``vendor`` is a
     key of :data:`VENDORS`. ``total_mib`` is the memory size as the card tool
     prints it, in MiB, or ``None`` when this card's size cannot be read.
     ``holders`` are the processes already holding part of it.
@@ -140,6 +147,16 @@ class Card:
     reserved_mib: int = 0
 
     def __post_init__(self) -> None:
+        if "," in self.name:
+            raise ValueError(
+                f"card {self.index} ({self.name!r}): a comma in its name, which "
+                "this helper does not model"
+            )
+        if "".join(self.name.splitlines()) != self.name:
+            raise ValueError(
+                f"card {self.index} ({self.name!r}): a line break in its name, "
+                "which this helper does not model"
+            )
         where = f"card {self.index} ({self.name})"
         if self.vendor not in VENDORS:
             raise ValueError(
@@ -151,11 +168,6 @@ class Card:
             raise ValueError(f"{where}: a negative total of {self.total_mib} MiB")
         if self.reserved_mib < 0:
             raise ValueError(f"{where}: a negative reserve of {self.reserved_mib} MiB")
-        for holder in self.holders:
-            if holder.mib < 0:
-                raise ValueError(
-                    f"{where}: holder {holder.name!r} holds a negative {holder.mib} MiB"
-                )
         pids = [holder.pid for holder in self.holders]
         if len(pids) != len(set(pids)):
             raise ValueError(f"{where}: two holders share a process id in {pids}")
@@ -220,18 +232,21 @@ class Server:
 class Shape:
     """One invented machine.
 
-    ``label`` is short, unique and stable, and usable as a pytest id.
+    ``label`` is short and stable, unique among :func:`shapes`, and usable as
+    a pytest id (a copy made by :func:`with_server` keeps it).
     ``machine_id`` is an invented id. ``local`` means the machine the command
-    runs on; it holds exactly when ``host`` is ``"localhost"``, and any other
-    host is a machine reached over the network, by an invented name or a
-    documentation address. ``cards`` and ``servers`` are what the machine has.
-    ``card_reader_missing`` means the tool that reads cards is not installed
-    on it.
+    runs on. An invented local machine is named ``"localhost"``, so ``local``
+    holds exactly when ``host`` is ``"localhost"``; any other host is a machine
+    reached over the network, by an invented name or a documentation address.
+    ``cards`` and ``servers`` are what the machine has. ``card_reader_missing``
+    means the tool that reads cards is not installed on it.
 
-    A shape that contradicts itself is refused by name: ``local`` against
-    ``host``; a server on another host than the machine's; a server of a kind
-    or on a port the product does not probe; two servers on one port; two
-    cards of one vendor with the same index.
+    A shape that contradicts itself is refused by name: an empty host; a host
+    other than ``"localhost"`` that the product holds to be this machine (its
+    :attr:`mcgyvr.detect.Backend.is_local` rule, read when the shape is made);
+    ``local`` against ``host``; a server on another host than the machine's; a
+    server of a kind or on a port the product does not probe; two servers on
+    one port; two cards of one vendor with the same index.
     """
 
     label: str
@@ -243,13 +258,23 @@ class Shape:
     card_reader_missing: bool = False
 
     def __post_init__(self) -> None:
-        from mcgyvr.detect import PORT_CONVENTIONS
+        from mcgyvr.detect import PORT_CONVENTIONS, Backend
 
         where = f"shape {self.label!r}"
+        if not self.host:
+            raise ValueError(f"{where}: an empty host")
+        held_local = Backend(
+            name=self.label, base_url="", api="", models=(), how="", host=self.host
+        ).is_local
+        if held_local and self.host != _LOCALHOST:
+            raise ValueError(
+                f"{where}: host {self.host!r} is one the product holds to be this "
+                f"machine; an invented local machine is named {_LOCALHOST!r}"
+            )
         if self.local != (self.host == _LOCALHOST):
             raise ValueError(
                 f"{where}: local={self.local} contradicts host {self.host!r}; "
-                f"a local machine is {_LOCALHOST!r} and only it is"
+                f"an invented local machine is named {_LOCALHOST!r}"
             )
         ports = {kind: port for kind, port, _ in PORT_CONVENTIONS}
         for server in self.servers:
@@ -338,7 +363,7 @@ def _field(card: Card, field: str) -> str:
     raise ValueError(f"the invented card reader does not answer {field!r}")
 
 
-def card_reader_text(cards: Sequence[Card], /, query: str = _DETECT_QUERY) -> str:
+def card_reader_text(cards: Sequence[Card], /, *, query: str = _DETECT_QUERY) -> str:
     """What the card reading tool prints for the cards it can read.
 
     The format is the tool's, as the product asks for it: one line per card,
@@ -475,7 +500,8 @@ def with_server(
 
     ``kind`` is a kind the product probes; ``port`` defaults to the port the
     product's convention gives that kind. ``models`` is the invented model
-    list the server answers with. The copy keeps the machine's label. A kind
+    list the server answers with. The copy keeps the machine's label, so it is
+    not the machine :func:`shape` gives for that label. A kind
     the product does not probe, a port it does not ask that kind on, or a port
     already taken is refused by name, as :class:`Shape` refuses it.
     """
