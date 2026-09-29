@@ -16,7 +16,8 @@ with a byte order mark says so; one larger than the door reads is refused
 before it is parsed. A root inside the package is refused as the root and
 not as a gate, and a list named relative to a working folder that is gone
 is refused saying so, not raised. A bound of exactly the longest the door
-holds a gate to is accepted.
+holds a gate to is accepted. A gate or a root behind a folder the door may
+not search is refused as one it cannot reach, not as one that is not there.
 """
 
 from __future__ import annotations
@@ -400,7 +401,7 @@ HUGE = "q" * 1_000_000
 
 @pytest.mark.parametrize(
     "field",
-    ["root", "path", "phase", "an export", "a list key", "a gate key"],
+    ["root", "path", "phase", "timeout_s", "an export", "a list key", "a gate key"],
 )
 def test_a_refusal_quotes_no_field_of_the_list_at_length(
     field: str,
@@ -420,6 +421,8 @@ def test_a_refusal_quotes_no_field_of_the_list_at_length(
         gate["path"] = HUGE
     elif field == "phase":
         gate["phase"] = HUGE
+    elif field == "timeout_s":
+        gate["timeout_s"] = HUGE
     elif field == "an export":
         gate["exports"] = [HUGE]
     elif field == "a list key":
@@ -434,4 +437,41 @@ def test_a_refusal_quotes_no_field_of_the_list_at_length(
     said = capsys.readouterr().err
     assert "REFUSED" in said, said[:2000]
     assert len(said) < 2000, (field, len(said), said[:300])
+    assert cg.log_lines(log) == []
+
+
+@pytest.mark.parametrize("what", ["gate", "root"])
+def test_a_gate_or_root_behind_a_folder_that_cannot_be_searched_cannot_be_reached(
+    what: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    if os.geteuid() == 0:
+        pytest.skip("a folder's permissions do not hold its owner out when root")
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    root = tmp_path / "caller"
+    locked = root / "locked"
+    cg.executable(locked / "g.py", "#!/usr/bin/env python3\n")
+    if what == "gate":
+        listed = cg.write_list(
+            tmp_path / "g.json", str(root), [cg.entry("locked/g.py", "before")]
+        )
+    else:
+        cg.executable(locked / "inner" / "g.py", "#!/usr/bin/env python3\n")
+        listed = cg.write_list(
+            tmp_path / "g.json", str(locked / "inner"), [cg.entry("g.py", "before")]
+        )
+    locked.chmod(0)
+    try:
+        status = run.main(cg.read_argv("--gates", str(listed)))
+    finally:
+        locked.chmod(0o755)
+
+    said = capsys.readouterr().err
+    assert status == 2, said
+    assert "cannot be reached (Permission denied)" in said, said
+    assert "is not there" not in said and "not an existing folder" not in said, said
     assert cg.log_lines(log) == []
