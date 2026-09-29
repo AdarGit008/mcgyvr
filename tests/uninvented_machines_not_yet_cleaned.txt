@@ -35,7 +35,6 @@ src/mcgyvr/capacity.py	dev-pointer=1
 src/mcgyvr/catalog.py	dev-pointer=1
 src/mcgyvr/cli.py	dev-pointer=11	host=2
 src/mcgyvr/config.py	dev-pointer=1
-src/mcgyvr/derived.py	dev-pointer=9
 src/mcgyvr/emit.py	dev-pointer=2
 src/mcgyvr/fleet/admit.py	dev-pointer=4
 src/mcgyvr/fleet/alerts.py	dev-pointer=3	identity=1
@@ -47,7 +46,6 @@ src/mcgyvr/fleet/probe.py	dev-pointer=5
 src/mcgyvr/fleet/promote.py	dev-pointer=2
 src/mcgyvr/fleet/read.py	dev-pointer=2
 src/mcgyvr/fleet/roots.py	dev-pointer=3
-src/mcgyvr/fleet/tolerance.py	dev-pointer=5
 src/mcgyvr/gate/adapters/python.py	dev-pointer=1
 src/mcgyvr/gate/preflight.py	dev-pointer=2
 src/mcgyvr/gate/typecheck.py	dev-pointer=1
@@ -55,7 +53,7 @@ src/mcgyvr/prompts/javascript.md	dev-pointer=1
 src/mcgyvr/prompts/python.md	dev-pointer=2
 src/mcgyvr/runner.py	dev-pointer=3
 src/mcgyvr/scan.py	dev-pointer=2
-src/mcgyvr/serving/__init__.py	address=4	card-model=1	dev-pointer=16
+src/mcgyvr/serving/__init__.py	address=4	card-model=1	dev-pointer=13
 src/mcgyvr/serving/gate-scripts/01-round.py	dev-pointer=5
 src/mcgyvr/serving/gate-scripts/02-rig.py	dev-pointer=6
 src/mcgyvr/serving/gate-scripts/03-image.py	dev-pointer=3
@@ -74,7 +72,7 @@ src/mcgyvr/serving/gate-scripts/serve-up.py	dev-pointer=2
 src/mcgyvr/serving/ggufscan.py	dev-pointer=4
 src/mcgyvr/serving/run.py	dev-pointer=9	host=1
 src/mcgyvr/serving/servelib.py	dev-pointer=3
-src/mcgyvr/serving/vramfit.py	dev-pointer=9
+src/mcgyvr/serving/vramfit.py	dev-pointer=8
 src/mcgyvr/telemetry.py	dev-pointer=17
 src/mcgyvr/wake.py	dev-pointer=6
 src/mcgyvr/weights.py	dev-pointer=1
@@ -156,13 +154,13 @@ tests/test_bench_observed.py	dev-pointer=1	host=1
 tests/test_capacity_counts_each_attempt_once_and_never_waits_on_itself.py	host=1
 tests/test_capacity_hostwide.py	host=2
 tests/test_card_contention_and_not_the_port_decides_who_alternates.py	dev-pointer=1	host=10
-tests/test_derived_numbers.py	dev-pointer=3
 tests/test_detect.py	address=1	card-model=5	host=4
 tests/test_dev_and_live_locks_flow_one_way.py	dev-pointer=4
 tests/test_draft_acceptance_is_journaled_when_the_server_reports_it.py	dev-pointer=1
 tests/test_draining_a_source_whose_rung_declares_a_width_does_not_raise.py	dev-pointer=1	host=1
 tests/test_emit.py	address=7
 tests/test_escalate.py	address=5
+tests/test_every_card_the_card_tool_prints_is_reported_or_named_in_a_note.py	host=2
 tests/test_exit_codes.py	card-model=1	host=2
 tests/test_fleet_lock_reads_fleet_and_policy_as_yaml.py	dev-pointer=1	host=1
 tests/test_four_lenses.py	dev-pointer=8
