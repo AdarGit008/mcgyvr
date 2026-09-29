@@ -191,6 +191,23 @@ class _NotANumber:
         return self.spelled
 
 
+def _once_each(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """A JSON object's pairs as a dict, refused when a key is stated twice.
+
+    JSON would keep the last of a repeated key silently, so the file would not
+    mean what it looks like it means; the user's YAML is refused the same way.
+    """
+    made: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in made:
+            raise DerivedNumbersError(
+                f"key {_shown(key)} is stated twice in one object; JSON would "
+                "silently keep only the last one"
+            )
+        made[key] = value
+    return made
+
+
 def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
     """The shipped layer's ``numbers`` object, refused by name when unreadable.
 
@@ -210,7 +227,11 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
             f"{where} is not UTF-8 text, so its numbers cannot be read: {exc}"
         ) from exc
     try:
-        document = json.loads(text, parse_constant=_NotANumber)
+        document = json.loads(
+            text, parse_constant=_NotANumber, object_pairs_hook=_once_each
+        )
+    except DerivedNumbersError as exc:
+        raise DerivedNumbersError(f"{where}: {exc}") from exc
     except _UNREADABLE_JSON as exc:
         raise DerivedNumbersError(f"{where} is not valid JSON: {exc}") from exc
     if not isinstance(document, dict):
