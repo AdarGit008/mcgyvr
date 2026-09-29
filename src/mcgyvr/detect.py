@@ -1,16 +1,14 @@
 """What can actually run the work, detected without benchmarking it.
 
-``mcgyvr init`` proposes worker bindings from the shipped capability table
-(``data/capability-table.json``); this module supplies the other half of
-that decision — what hardware and which backends are actually reachable. It
-measures nothing: benchmarking would turn a 30-second install into an hour,
-which is the whole reason the table ships estimates by card class instead.
+``mcgyvr init`` binds the models that running servers list; this module finds
+those servers and what each one lists, and the cards this machine has. It
+measures nothing: benchmarking would turn a 30-second install into an hour.
 
 Two rules shape everything below:
 
 1. **Absence is an outcome, not an error.** No GPU, no Docker and no
-   reachable backend is a supported machine — it constrains the proposal
-   rather than failing it. Nothing here raises on a missing tool.
+   reachable backend is a machine this module describes, not one it fails
+   on. Nothing here raises on a missing tool.
 2. **Every fact carries how it was found.** A detected value with no
    provenance is indistinguishable from a guess, and the proposal built on
    top of it has to be explainable to someone whose machine it describes.
@@ -23,9 +21,8 @@ a backend ships with; the machine they are asked of is supplied by the caller.
 agent on a laptop, offloading to rigs elsewhere — is expressible.
 The hardware half of detection stays local by definition: ``nvidia-smi``
 here describes this machine, and a remote rig's card is not something this
-module can see. What it *can* see of a remote rig — the models that rig
-reports holding — is the evidence the proposal uses instead, and unlike a
-VRAM estimate it cannot be wrong about which machine it describes.
+module can see. What it *can* see of a remote rig is the models that rig
+lists, and a listing cannot be wrong about which machine it describes.
 
 A probed host is identified by name in every backend it yields, because with
 more than one host in play "a backend answered" identifies nothing.
@@ -187,9 +184,8 @@ class Gpu:
     """One card. ``vram_gb`` is ``None`` when its size could not be determined.
 
     A card of undetermined size is still a card: it is listed, and a note says
-    its size is unknown. It takes no part in sizing (see
-    :attr:`Detection.largest_vram_gb`), because a size nobody read is not a
-    size to fit a model against.
+    its size is unknown. It is left out of :attr:`Detection.largest_vram_gb`,
+    because a size nobody read is not a size.
     """
 
     name: str
@@ -235,10 +231,8 @@ class Backend:
         """Whether this backend already holds a model, by exact id only.
 
         A server may report a path, a bare name or a tagged name for the same
-        weights, and they are not interchangeable. An exact match is
-        the only claim made here — a near match is reported as absent, since
-        proposing a pull that turns out to be unnecessary is cheaper than
-        binding a model that is not there.
+        weights, and they are not interchangeable. An exact match is the only
+        claim made here — a near match is reported as absent.
         """
         return model_id in self.models
 
@@ -279,8 +273,7 @@ class Detection:
         """The card :attr:`largest_vram_gb` reads: the biggest of known size.
 
         Of cards of one size, the first the tool listed. None when no card's
-        size is known. Whatever names the card that sizing used reads it here,
-        so it cannot name one card while the sizing used another.
+        size is known.
         """
         sized = [g for g in self.gpus if g.vram_gb is not None]
         return max(sized, key=lambda g: g.vram_gb or 0.0, default=None)
@@ -301,9 +294,8 @@ class Detection:
     def has_remote_backend(self) -> bool:
         """Whether any reachable backend is on another machine.
 
-        The fact that decides whether this machine's own GPU is the right
-        thing to size a proposal against: with work being served elsewhere,
-        the local card is not a constraint on it.
+        Such a backend serves from that machine's card, which this machine's
+        card tool does not see.
         """
         return any(not b.is_local for b in self.backends)
 
@@ -433,8 +425,8 @@ def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
             notes.append(
                 f"{GPU_SIZE_UNDETERMINED} for {_quoted(name)}: nvidia-smi "
                 f"printed its memory.total as {_quoted(size)}. The card is "
-                f"listed, but no model is sized against it: bind a unit to it by "
-                f"hand, stating the card room it needs as `room_mib`."
+                f"listed with no size: bind a unit to it by hand, stating the "
+                f"card room it needs as `room_mib`."
             )
             continue
         try:

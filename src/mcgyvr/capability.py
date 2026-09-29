@@ -1,13 +1,14 @@
 """Reader for the shipped capability table, and the one question a task asks it.
 
 The table (``data/capability-table.json``) is estimates by card class, not
-readings of the user's machine: it is how ``mcgyvr init`` proposes worker
-bindings for detected hardware without benchmarking that machine. See
-``data/README.md`` for what a card class is and for the harness caveats that
-make some published numbers unusable.
+readings of the user's machine. ``mcgyvr capabilities`` lists it, and
+``mcgyvr emit`` sizes a unit from the row whose id equals the unit's model,
+unless a unit in fleet.yaml declares that model, for example under ``launch``
+or as ``room_mib``. ``mcgyvr init`` does not read it: init binds the models running
+servers list (:mod:`mcgyvr.propose`). See ``data/README.md`` for what a card
+class is and for the harness caveats that make some published numbers unusable.
 
-Reading and validating is most of this module. Turning hardware into a proposed
-binding is a separate concern and lives in :mod:`mcgyvr.propose`.
+Reading and validating is most of this module.
 
 **What one number can and cannot decide.** Every row carries a single quality
 figure — an estimated HumanEval+ pass@1 — and one number induces a total order, so
@@ -67,9 +68,9 @@ ESTIMATES_NOTICE = (
 GB_PER_GIB = 1.073741824
 
 # The score a model must reach on a task's dimension before it may be asked for
-# that task. 0.5 is a starting value, not a reading, and it is stated
-# once, as the default of the one function that applies it, rather than as a
-# literal at each call site.
+# that task. 0.5 is a rule over the shipped table's own scores, not a reading
+# of a machine or a model, and it is stated once, as the default of the one
+# function that applies it, rather than as a literal at each call site.
 DIMENSION_FLOOR = 0.5
 
 # The capability dimension each kind of required evidence implies, strongest

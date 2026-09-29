@@ -577,6 +577,25 @@ def test_a_server_put_on_a_machine_is_found_by_detection(machine: Shape) -> None
         assert (kind, machine.host, ("example-model-extra",)) in found
 
 
+def test_machines_reached_are_swept_after_the_first_in_the_order_given() -> None:
+    here = next(m for m in shapes() if m.local and m.servers and m.detected_cards)
+    far = tuple(m for m in shapes() if not m.local and m.servers)
+    assert len(far) >= 2, "two machines over the network, to sweep in both orders"
+    for reached in (far, far[::-1]):
+        found = detection(here, reached=reached)
+        assert found.hosts_answering == (here.host, *(m.host for m in reached))
+        answered = {(b.kind, b.host, b.models) for b in found.backends}
+        for machine in (here, *reached):
+            for server in machine.servers:
+                assert (server.kind, server.host, server.models) in answered
+        assert len({b.name for b in found.backends}) == len(found.backends)
+        assert [g.name for g in found.gpus] == [c.name for c in here.detected_cards]
+    with pytest.raises(ValueError, match="is local"):
+        detection(far[0], reached=(here,))
+    with pytest.raises(ValueError, match="swept twice"):
+        detection(far[0], reached=(far[0],))
+
+
 def test_a_server_the_product_would_not_find_is_refused() -> None:
     kind, port = _kind_and_port()
     with pytest.raises(ValueError, match="not one the product probes"):

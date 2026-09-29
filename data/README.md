@@ -4,14 +4,18 @@ Three files ship as data rather than as code:
 `capability-table.json` (estimates, by card class, of what a model costs and
 how well it codes, below), `task-catalog.json` (the vocabulary of what mcgyvr
 can be asked to do, after it) and `numbers.json` (estimates mcgyvr sizes
-and judges a machine with, at the end of this file).
+and judges a machine with, and what many other such numbers in its code are,
+at the end of this file).
 
 ## Capability data
 
-`capability-table.json` is the decision data behind `mcgyvr init`. It exists
-so that setup can propose worker bindings from detected hardware **without
-benchmarking the user's machine**, which would turn an install into a
-benchmarking session.
+`capability-table.json` holds estimates of what a model costs to serve.
+`mcgyvr capabilities` lists them, and `mcgyvr emit` sizes a unit from the row
+whose `id` equals the unit's model, unless a unit in fleet.yaml declares that
+model, for example under `launch` or as `room_mib`. `mcgyvr init` does not read
+the table: it binds the models running servers list. The estimates exist so that
+serving can be sized **without benchmarking the user's machine**, which would
+turn an install into a benchmarking session.
 
 ## What its numbers are
 
@@ -75,7 +79,7 @@ instructive and repeatable:
 ## Revising the estimates
 
 There is no regeneration script: the file is edited by hand when the project
-revises its estimates. `mcgyvr init` reads it and never writes it. When taking
+revises its estimates. No mcgyvr command writes it. When taking
 new figures, use an OpenAI-compatible endpoint (llama-server or vLLM) rather
 than a backend-native generate API, and pin the quantisation explicitly —
 CAV-01 and CAV-02 are both consequences of not doing so.
@@ -164,14 +168,14 @@ They fall into three groups:
 
 # The numbers that size and judge a machine
 
-`numbers.json` holds numbers mcgyvr needs and cannot read off the machine
-or the model: how far a healthy unit's warm decode and prefill speed may fall
+The `numbers` block of `numbers.json` holds numbers mcgyvr needs and
+cannot read off the machine or the model: how far a healthy unit's warm decode and prefill speed may fall
 from one start to the next (per tolerance class), and how much host memory a
 llama.cpp server holds beyond the experts it keeps there. `mcgyvr.derived`
 reads it; the build copies it into the package, so an installed mcgyvr finds
 it without a checkout.
 
-Every entry is an estimate, and says so: what it estimates, what mcgyvr does
+Every entry of that block is an estimate, and says so: what it estimates, what mcgyvr does
 with it, its unit, its key, and a note on what the value is not. It is a
 starting value shipped with mcgyvr, not a reading of your machine. Keys come
 from closed spaces the code names (the tolerance classes, the engines a unit
@@ -193,5 +197,42 @@ The file is YAML; write each value as a plain decimal number, such as `12` or
 A setting for a number or key mcgyvr does not know, or a value that is not a
 finite number inside its unit's bounds (a percent above 0 and below 100, GiB 0
 or more), is refused by name, even when another number was asked. A number
-of this file that neither file states is refused by name too: none of them
-has a default in code.
+of that block that neither file states is refused by name too: none of them
+falls back to a default in code.
+
+## What many other numbers are
+
+Many numbers mcgyvr sizes, judges, refuses, waits or picks with are still
+written in its code. The `constants` block says what many of them are, each
+under where it lives (the file, then the name, the class and attribute, or the
+function and its parameter):
+
+- a **fact**: true on any machine, and it names what makes it so from a short
+  closed list (a definition or arithmetic, such as how many bytes make a GiB;
+  the specification of a format, protocol or tool, such as the port an engine
+  listens on when told nothing else; where a count starts; or the layout of
+  the package or its checkout);
+- a **choice** of mcgyvr: the setting that changes it (a config key, a
+  contract field or a command line flag), or, when there is none, a reason
+  from a short closed list (a protocol or tool default; a code or version
+  other programs or files read; the method a stored reading was made with; a
+  rule over mcgyvr's own shipped data; what a caller that names none gets,
+  where mcgyvr's own callers name one; how much of a text mcgyvr itself
+  shows, carries or reads, and at what width, never a budget for a model's
+  whole reply or whole input; a weight, threshold or cut of mcgyvr's own
+  ranking of files and symbols; how often or how many times mcgyvr tries its
+  own step again; or a
+  duplicate of another entry, which it names);
+- an **estimate**: a value another machine may prove wrong. Each one still in
+  code names the number id planned for it in the `numbers` block, where it can
+  be set in your `numbers.yaml` like the others, and the setting that changes
+  it today where one exists. Until it moves, `numbers.yaml` cannot set it.
+
+A test parses the files of mcgyvr's code and fails on a number `constants`
+does not classify, on an entry that no longer matches the code, and on a file
+of the package it has not been told about. Which files it judges, and why the
+others are not judged, is kept beside that test and does not ship. It sees
+numbers named at the top of a file, in a class, or as a parameter's default; a
+number written inside a function where it is used is not seen, and the way to
+bring it under the check is to name it. The kinds and reasons are listed in
+`mcgyvr.derived`.

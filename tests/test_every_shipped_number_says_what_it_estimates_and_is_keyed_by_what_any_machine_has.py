@@ -49,7 +49,7 @@ def _numbers() -> dict[str, dict[str, Any]]:
 
 def test_the_file_says_what_it_is() -> None:
     document = _shipped()
-    assert set(document) == {"_doc", "schema", "numbers"}
+    assert set(document) == {"_doc", "schema", "numbers", "constants"}
     assert isinstance(document["_doc"], str) and document["_doc"].strip()
     assert document["schema"] == 1
 

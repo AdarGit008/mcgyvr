@@ -84,7 +84,10 @@ def test_srv1_maps_the_blob_it_is_serving_unmapped_today() -> None:
     production ``vm.swappiness=60`` the trade is gigabytes of reclaimable
     memory for a few seconds of one-off wake on a rung that stays up.
     """
-    assert fit(rig(ram_gb=14.19), MOE, ctx_per_slot=WINDOW).load_mode is None
+    assert (
+        fit(rig(ram_gb=14.19), MOE, engine="llama.cpp", ctx_per_slot=WINDOW).load_mode
+        is None
+    )
 
 
 def test_the_mode_gate_holds_back_half_a_gigabyte() -> None:
@@ -96,8 +99,18 @@ def test_the_mode_gate_holds_back_half_a_gigabyte() -> None:
     buffers, container overhead — which is what deepseek's wake cost at
     +0.5 GiB (one sample) is most likely showing.
     """
-    assert fit(rig(ram_gb=BLOB_GB + 0.6), MOE, ctx_per_slot=WINDOW).load_mode is None
-    assert fit(rig(ram_gb=BLOB_GB + 0.4), MOE, ctx_per_slot=WINDOW).load_mode == "none"
+    assert (
+        fit(
+            rig(ram_gb=BLOB_GB + 0.6), MOE, engine="llama.cpp", ctx_per_slot=WINDOW
+        ).load_mode
+        is None
+    )
+    assert (
+        fit(
+            rig(ram_gb=BLOB_GB + 0.4), MOE, engine="llama.cpp", ctx_per_slot=WINDOW
+        ).load_mode
+        == "none"
+    )
 
 
 def test_the_refusal_gate_still_holds_back_two() -> None:
@@ -108,10 +121,14 @@ def test_the_refusal_gate_still_holds_back_two() -> None:
     Half a gigabyte would have admitted both, and the arm it admits them onto
     is the one that fails at a fraction of decode without erroring.
     """
-    refused = fit(rig(ram_gb=EXPERTS_GB + 1.95), MOE, ctx_per_slot=WINDOW)
+    refused = fit(
+        rig(ram_gb=EXPERTS_GB + 1.95), MOE, engine="llama.cpp", ctx_per_slot=WINDOW
+    )
     assert not refused.fits
     assert "No loading mode fits this host" in refused.why, refused.why
-    admitted = fit(rig(ram_gb=EXPERTS_GB + 2.15), MOE, ctx_per_slot=WINDOW)
+    admitted = fit(
+        rig(ram_gb=EXPERTS_GB + 2.15), MOE, engine="llama.cpp", ctx_per_slot=WINDOW
+    )
     assert admitted.fits
     assert admitted.load_mode == "none"
 

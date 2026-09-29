@@ -28,13 +28,14 @@ cell the rig refused, never predict less than a cell the rig measured.
 
 from __future__ import annotations
 
+import functools
 import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from mcgyvr import derived
+from mcgyvr import derived, serving
 from mcgyvr.capability import GB_PER_GIB
 from mcgyvr.config import Config, parse
 from mcgyvr.scan import Scan
@@ -42,15 +43,20 @@ from mcgyvr.serving import (
     MAX_WIDTH,
     ModelSpec,
     UnitError,
-    _host_gb,
-    _placement,
     declared_models,
-    fit,
     load_geometry,
     unit_for,
     units_for,
     vramfit,
 )
+
+#: The engine every sizing here is told, bound once: the launches these tests
+#: are anchored to are llama.cpp's, and what a spill costs host memory beyond
+#: the experts is a figure of the unit's own engine.
+ENGINE = "llama.cpp"
+_host_gb = functools.partial(serving._host_gb, engine=ENGINE)
+_placement = functools.partial(serving._placement, engine=ENGINE)
+fit = functools.partial(serving.fit, engine=ENGINE)
 
 #: The window these tests were written against, stated because nothing supplies
 #: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:

@@ -26,13 +26,13 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.capability import load as load_table
 from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME
 from mcgyvr.config import load as load_config
+from mcgyvr.detect import PORT_CONVENTIONS
 from mcgyvr.initialize import ApiSpecError, InitError, initialize, parse_api_unit
 from mcgyvr.pool import source_map
 from mcgyvr.route import family_of
-from tests.test_initialize import BARE, KEYLESS_RIG
+from tests.machine_shapes import detection, shape, with_server
 
 #: The unit a stranger with a key and no card would bind, spelled as they
 #: would type it. One string, so no test here restates the flag's grammar.
@@ -47,9 +47,14 @@ SPEC = (
 SECRET = "sk-ant-api03-notarealkey-000000000000000000"
 
 
-@pytest.fixture
-def table():  # type: ignore[no-untyped-def]
-    return load_table()
+#: A machine with nothing: no card tool, no server.
+BARE = detection(shape("bare"))
+#: A machine with a card and a server that lists a model, and no key.
+KEYLESS_RIG = detection(
+    with_server(
+        shape("one-card"), kind=PORT_CONVENTIONS[0][0], models=("example-model-small",)
+    )
+)
 
 
 def _written(path: Path) -> str:
@@ -62,16 +67,23 @@ def _written(path: Path) -> str:
 # --- a key and no local backend -------------------------------------------
 
 
-def test_a_machine_with_no_backend_and_an_api_unit_writes_a_setup(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_a_machine_with_no_backend_and_an_api_unit_writes_a_setup(
+    tmp_path: Path,
 ) -> None:
-    """No GPU, no backend, one key: init writes a setup."""
+    """No GPU, no backend, one key: init writes a setup.
+
+    What it decided is the hosted unit alone: with no unit bound from a
+    listing, nothing is said about estimates or about the ladder's order.
+    """
     path = tmp_path / "setup"
-    result = initialize(
-        path, detection=BARE, table=table, api_units=(parse_api_unit(SPEC),)
-    )
+    result = initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     assert result.created and result.written
+    (decided,) = result.decisions
+    assert decided.startswith(
+        "api_claude-opus-5 -> claude-opus-5 at https://api.anthropic.com: bound "
+        "because `--api` asked for it"
+    )
     config = load_config(path)
     assert list(config.ladder.names) == ["api_claude-opus-5"]
     assert not config.is_local_only, "a hosted rung needs a key by definition"
@@ -79,8 +91,8 @@ def test_a_machine_with_no_backend_and_an_api_unit_writes_a_setup(  # type: igno
     assert config.units["api_claude-opus-5"].address == "https://api.anthropic.com"
 
 
-def test_the_result_is_the_same_two_files_any_other_init_writes(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_the_result_is_the_same_two_files_any_other_init_writes(
+    tmp_path: Path,
 ) -> None:
     """Two files, never one merged document.
 
@@ -89,7 +101,7 @@ def test_the_result_is_the_same_two_files_any_other_init_writes(  # type: ignore
     the split is asserted on the files themselves, not on a rendered string.
     """
     path = tmp_path / "setup"
-    initialize(path, detection=BARE, table=table, api_units=(parse_api_unit(SPEC),))
+    initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     fleet = (path / FLEET_FILENAME).read_text(encoding="utf-8")
     policy = (path / POLICY_FILENAME).read_text(encoding="utf-8")
@@ -100,20 +112,20 @@ def test_the_result_is_the_same_two_files_any_other_init_writes(  # type: ignore
     assert "units:" not in policy, "units are fleet, not policy"
 
 
-def test_the_written_setup_survives_the_loader_untouched(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_the_written_setup_survives_the_loader_untouched(
+    tmp_path: Path,
 ) -> None:
     """Init's output is the loader's input, unmodified — the whole guarantee."""
     path = tmp_path / "setup"
-    initialize(path, detection=BARE, table=table, api_units=(parse_api_unit(SPEC),))
+    initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     config = load_config(path)
     assert config.get("profile") == "live"
     assert config.units["api_claude-opus-5"].requires_credential
 
 
-def test_a_local_ladder_and_a_hosted_unit_climb_one_ladder(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_a_local_ladder_and_a_hosted_unit_climb_one_ladder(
+    tmp_path: Path,
 ) -> None:
     """`--api` is additive, not a mode.
 
@@ -122,9 +134,7 @@ def test_a_local_ladder_and_a_hosted_unit_climb_one_ladder(  # type: ignore[no-u
     it joins at the dear end, because a ladder is written cheapest-first.
     """
     path = tmp_path / "setup"
-    initialize(
-        path, detection=KEYLESS_RIG, table=table, api_units=(parse_api_unit(SPEC),)
-    )
+    initialize(path, detection=KEYLESS_RIG, api_units=(parse_api_unit(SPEC),))
 
     names = list(load_config(path).ladder.names)
     assert len(names) > 1, "this fixture is only interesting with a local rung too"
@@ -135,24 +145,24 @@ def test_a_local_ladder_and_a_hosted_unit_climb_one_ladder(  # type: ignore[no-u
 # --- the refusal that must survive ----------------------------------------
 
 
-def test_a_machine_that_asked_for_nothing_still_refuses(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_a_machine_that_asked_for_nothing_still_refuses(
+    tmp_path: Path,
 ) -> None:
     """The genuinely-empty case is still a refusal, not an empty config."""
     path = tmp_path / "setup"
     with pytest.raises(InitError) as exc:
-        initialize(path, detection=BARE, table=table)
+        initialize(path, detection=BARE)
 
     assert not path.exists(), "nothing may be left behind on a refusal"
     assert "Refusing to write a config that cannot load" in str(exc.value)
 
 
-def test_the_refusal_points_at_the_flag_that_would_have_worked(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_the_refusal_points_at_the_flag_that_would_have_worked(
+    tmp_path: Path,
 ) -> None:
     """Advice that is not true is worse than no advice."""
     with pytest.raises(InitError) as exc:
-        initialize(tmp_path / "setup", detection=BARE, table=table)
+        initialize(tmp_path / "setup", detection=BARE)
     message = str(exc.value)
 
     assert "--api" in message
@@ -165,8 +175,8 @@ def test_the_refusal_points_at_the_flag_that_would_have_worked(  # type: ignore[
     assert "api_key_env=ANTHROPIC_API_KEY" in message, "the flag that replaced it"
 
 
-def test_a_hosted_unit_that_cannot_load_is_not_blamed_on_the_machine(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_a_hosted_unit_that_cannot_load_is_not_blamed_on_the_machine(
+    tmp_path: Path,
 ) -> None:
     """Two situations, two remedies.
 
@@ -177,7 +187,7 @@ def test_a_hosted_unit_that_cannot_load_is_not_blamed_on_the_machine(  # type: i
     path = tmp_path / "setup"
     spec = "model=m,address=api.example.com,api_key_env=EXAMPLE_KEY"
     with pytest.raises(InitError) as exc:
-        initialize(path, detection=BARE, table=table, api_units=(parse_api_unit(spec),))
+        initialize(path, detection=BARE, api_units=(parse_api_unit(spec),))
 
     message = str(exc.value)
     assert not path.exists()
@@ -185,8 +195,8 @@ def test_a_hosted_unit_that_cannot_load_is_not_blamed_on_the_machine(  # type: i
     assert "--api" in message and "address" in message
 
 
-def test_two_hosted_units_of_one_model_are_refused_by_name(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_two_hosted_units_of_one_model_are_refused_by_name(
+    tmp_path: Path,
 ) -> None:
     """One model mints one rung name, and a ladder lists a rung once."""
     path = tmp_path / "setup"
@@ -197,7 +207,7 @@ def test_two_hosted_units_of_one_model_are_refused_by_name(  # type: ignore[no-u
         ),
     )
     with pytest.raises(InitError) as exc:
-        initialize(path, detection=BARE, table=table, api_units=units)
+        initialize(path, detection=BARE, api_units=units)
 
     assert not path.exists()
     assert "api_claude-opus-5" in str(exc.value)
@@ -206,8 +216,8 @@ def test_two_hosted_units_of_one_model_are_refused_by_name(  # type: ignore[no-u
 # --- the credential rule --------------------------------------------------
 
 
-def test_no_key_value_is_ever_written_only_its_variable_name(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table, monkeypatch: pytest.MonkeyPatch
+def test_no_key_value_is_ever_written_only_its_variable_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The rule the whole `api_key_env` design exists to keep.
 
@@ -217,7 +227,7 @@ def test_no_key_value_is_ever_written_only_its_variable_name(  # type: ignore[no
     """
     monkeypatch.setenv("ANTHROPIC_API_KEY", SECRET)
     path = tmp_path / "setup"
-    initialize(path, detection=BARE, table=table, api_units=(parse_api_unit(SPEC),))
+    initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     text = _written(path)
     assert SECRET not in text, "a key value reached a config file"
@@ -227,8 +237,8 @@ def test_no_key_value_is_ever_written_only_its_variable_name(  # type: ignore[no
     )
 
 
-def test_init_writes_the_setup_without_the_key_existing_at_all(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table, monkeypatch: pytest.MonkeyPatch
+def test_init_writes_the_setup_without_the_key_existing_at_all(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Init names a variable; it never reads one.
 
@@ -238,22 +248,20 @@ def test_init_writes_the_setup_without_the_key_existing_at_all(  # type: ignore[
     """
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     path = tmp_path / "setup"
-    result = initialize(
-        path, detection=BARE, table=table, api_units=(parse_api_unit(SPEC),)
-    )
+    result = initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     assert result.created and result.written
     assert "ANTHROPIC_API_KEY" in _written(path)
 
 
-def test_a_key_pasted_where_its_name_belongs_is_refused(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_a_key_pasted_where_its_name_belongs_is_refused(
+    tmp_path: Path,
 ) -> None:
     """The mistake the flag's wording exists to prevent, caught if made."""
     path = tmp_path / "setup"
     spec = f"model=claude-opus-5,address=https://api.anthropic.com,api_key_env={SECRET}"
     with pytest.raises(InitError) as exc:
-        initialize(path, detection=BARE, table=table, api_units=(parse_api_unit(spec),))
+        initialize(path, detection=BARE, api_units=(parse_api_unit(spec),))
 
     assert not path.exists(), "nothing may be written when a key was pasted"
     assert SECRET not in str(exc.value), "the refusal must not echo the secret back"
@@ -262,13 +270,13 @@ def test_a_key_pasted_where_its_name_belongs_is_refused(  # type: ignore[no-unty
 # --- `mcgyvr pool` reads it back ------------------------------------------
 
 
-def test_pool_reads_the_written_setup_back_as_a_usable_api_rung(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table, monkeypatch: pytest.MonkeyPatch
+def test_pool_reads_the_written_setup_back_as_a_usable_api_rung(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A written config nothing can read back is not a working config."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", SECRET)
     path = tmp_path / "setup"
-    initialize(path, detection=BARE, table=table, api_units=(parse_api_unit(SPEC),))
+    initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     config = load_config(path)
     pool = source_map(config)
@@ -279,8 +287,8 @@ def test_pool_reads_the_written_setup_back_as_a_usable_api_rung(  # type: ignore
     assert family_of(config, "api_claude-opus-5").name == "api"
 
 
-def test_a_rung_whose_variable_is_unset_is_skipped_with_the_reason(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table, monkeypatch: pytest.MonkeyPatch
+def test_a_rung_whose_variable_is_unset_is_skipped_with_the_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The honest degradation: a named-but-absent key shortens the ladder.
 
@@ -290,7 +298,7 @@ def test_a_rung_whose_variable_is_unset_is_skipped_with_the_reason(  # type: ign
     """
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     path = tmp_path / "setup"
-    initialize(path, detection=BARE, table=table, api_units=(parse_api_unit(SPEC),))
+    initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     pool = source_map(load_config(path))
 
@@ -302,7 +310,7 @@ def test_a_rung_whose_variable_is_unset_is_skipped_with_the_reason(  # type: ign
 # --- what the flag accepts ------------------------------------------------
 
 
-def test_a_spec_must_state_all_three_facts(table) -> None:  # type: ignore[no-untyped-def]
+def test_a_spec_must_state_all_three_facts() -> None:
     """No fact is guessed — a provider's URL is not derivable from a model id."""
     with pytest.raises(ApiSpecError) as exc:
         parse_api_unit("model=claude-opus-5")
