@@ -58,13 +58,13 @@ def log_lines(log: Path) -> list[str]:
 
 def gate_text(
     log: Path,
-    label: str,
+    tag: str,
     *,
     exports: dict[str, str] | None = None,
     show: tuple[str, ...] = (),
     status: int = 0,
 ) -> str:
-    """A gate that logs ``label`` with its RUN_ROOT, exports, and exits.
+    """A gate that logs ``tag`` with its RUN_ROOT, exports, and exits.
 
     ``show`` names variables whose value (or ``-`` when unset) the gate adds
     to its log line, so a test reads what the gate was handed.
@@ -76,7 +76,7 @@ def gate_text(
             "seen = ' '.join(",
             f"    f'{{k}}={{os.environ.get(k, \"-\")}}' for k in {list(show)!r}",
             ")",
-            f'line = f\'{label} root={{os.environ.get("RUN_ROOT", "-")}} {{seen}}\'',
+            f'line = f\'{tag} root={{os.environ.get("RUN_ROOT", "-")}} {{seen}}\'',
             f"with open({str(log)!r}, 'a', encoding='utf-8') as out:",
             "    out.write(line.rstrip() + '\\n')",
             *(
