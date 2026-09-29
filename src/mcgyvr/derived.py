@@ -6,7 +6,7 @@ holds beyond the experts it keeps there. mcgyvr ships an estimate of each in
 ``data/numbers.json`` (inside the installed package, :func:`shipped_path`),
 keyed by something every machine has (a tolerance class, an engine) and never
 by a machine's name. The user may set their own value for any of them in
-``numbers.yaml`` in mcgyvr's own folder (:func:`overrides_path`); their value
+``numbers.yaml`` in the config folder (:func:`overrides_path`); their value
 answers first.
 
 Nothing here falls back to a literal in code. A number that neither layer
@@ -199,7 +199,7 @@ def shipped_path() -> Path:
 
 
 def overrides_path() -> Path:
-    """The user's own settings file: ``numbers.yaml`` in mcgyvr's own folder.
+    """The user's own settings file: ``numbers.yaml`` in the config folder.
 
     The one place that says where it is. It depends on no config, working
     folder, command line flag or live fleet, so every command reads the same

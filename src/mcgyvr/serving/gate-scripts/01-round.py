@@ -16,12 +16,12 @@ appended and the one that was open keeps the digest its own arms ran against.
 THE PROFILE IS SETTLED HERE TOO, for the same reason: it is a fact about the
 run that costs no rig time to know and that every later gate reads. The config
 is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`, then `./fleet.yaml`,
-then the live fleet folder `~/.mcgyvr/live.json` names — and its `profile:`
-is exported as RUN_PROFILE. No config at all is `live` (owner's ruling R4: the
-default is prod, and forgetting the variable lands there); a config that is
-there and cannot be read, or a `$MCGYVR_CONFIG` naming a file that is not
-there, is a refusal, because a run whose config cannot be read cannot say
-which profile it ran under. Dev runs everything, `serve up` and `down`
+then the live fleet folder the config folder's `live.json` names — and its
+`profile:` is exported as RUN_PROFILE. No config at all is `live` (owner's
+ruling R4: the default is prod, and forgetting the variable lands there); a
+config that is there and cannot be read, or a `$MCGYVR_CONFIG` naming a
+file that is not there, is a refusal, because a run whose config cannot be
+read cannot say which profile it ran under. Dev runs everything, `serve up` and `down`
 included (the owner ruled N11 on 2026-09-10), and a live `serve up` is
 admitted only for units the fleet lock names for this rig; a live
 `serve down` is always admitted.
@@ -35,7 +35,7 @@ import os
 import sys
 
 from mcgyvr import config as configlib
-from mcgyvr.fleet.roots import LiveFleetError, lock_root
+from mcgyvr.fleet.roots import LiveFleetError, live_file, lock_root
 from mcgyvr.serving.gatelib import DEV, door_required, export, refuse, root
 
 
@@ -91,8 +91,8 @@ def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
 
     The lock's combination records under ``records/fleet/rigs/<rig->/`` name
     each locked unit by its container, under the root the profile reads
-    (:func:`mcgyvr.fleet.roots.lock_root`: for live, the fleet folder
-    ``~/.mcgyvr/live.json`` names, and no lock at all without one) and never
+    (:func:`mcgyvr.fleet.roots.lock_root`: for live, the fleet folder the
+    config folder's ``live.json`` names, and no lock at all without one) and never
     under the run root. Gate 1 reaches no rig, so this is a read of local
     files only: a live serve up is matched against the lock offline, before
     any rig time is spent.
@@ -146,7 +146,7 @@ def refuse_unless_the_fleet_lock_names(serve: str, which: str) -> None:
         refuse(
             f"gate 1: this live `serve up` names {', '.join(missing)}, which "
             f"the fleet lock for {host} does not name. A live run starts only "
-            "units the live fleet lock names — the fleet ~/.mcgyvr/live.json "
+            f"units the live fleet lock names — the fleet {live_file()} "
             "names; lock them from a passing dev run, `mcgyvr fleet promote` "
             "and `mcgyvr fleet use` the fleet, or run this under a dev profile"
         )
