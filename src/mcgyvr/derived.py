@@ -241,7 +241,7 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
         return where, {}
     schema = document.get("schema")
     if isinstance(schema, bool) or schema != NUMBERS_SCHEMA:
-        has = "states no schema" if schema is None else f"is schema {schema!r}"
+        has = "states no schema" if schema is None else f"is schema {_shown(schema)}"
         raise DerivedNumbersError(
             f"{where} {has}; this mcgyvr reads numbers of schema {NUMBERS_SCHEMA} only"
         )
@@ -264,26 +264,26 @@ def _check_entry(number: str, entry: object, where: Path) -> None:
     unit = entry.get("unit")
     if not isinstance(unit, str) or unit not in _BOUNDS:
         raise DerivedNumbersError(
-            f"{number} in {where} is stated in {unit!r}, which is not a unit "
+            f"{number} in {where} is stated in {_shown(unit)}, which is not a unit "
             f"mcgyvr knows ({', '.join(UNITS)})"
         )
     space_name = entry.get("key")
     space = KEY_SPACES.get(space_name) if isinstance(space_name, str) else None
     if space is None:
         raise DerivedNumbersError(
-            f"{number} in {where} is keyed by {space_name!r}, which is not a key "
+            f"{number} in {where} is keyed by {_shown(space_name)}, which is not a key "
             f"space mcgyvr knows ({', '.join(KEY_SPACES)})"
         )
     values = entry.get("values")
     if not isinstance(values, dict):
         raise DerivedNumbersError(
-            f"{number} in {where} states its values as {values!r}; they must be "
+            f"{number} in {where} states its values as {_shown(values)}; they must be "
             "an object of keys to values"
         )
     outside = [key for key in values if key not in space]
     if outside:
         raise DerivedNumbersError(
-            f"{number} in {where} states {', '.join(map(repr, outside))}, not "
+            f"{number} in {where} states {', '.join(map(_shown, outside))}, not "
             f"keys of {space_name} (its keys are {', '.join(space)})"
         )
 
