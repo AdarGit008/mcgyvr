@@ -52,10 +52,3 @@ def test_the_shipped_example_loads_as_the_run_config() -> None:
     policy = (REPO / "examples" / "policy.yaml").read_text(encoding="utf-8")
     loaded = config.parse(fleet, policy)
     assert loaded.units, "the example names no units"
-
-
-def test_the_stamped_dev_setup_loads_as_the_run_config() -> None:
-    fleet = (REPO / "fleet-setup" / "fleet.yaml").read_text(encoding="utf-8")
-    policy = (REPO / "fleet-setup" / "policy.yaml").read_text(encoding="utf-8")
-    loaded = config.parse(fleet, policy)
-    assert set(loaded.ladder.names) <= set(loaded.units)

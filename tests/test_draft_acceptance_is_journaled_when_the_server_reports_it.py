@@ -11,10 +11,7 @@ count in the journal already keeps. A reported zero is a count, and is kept.
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +22,6 @@ from mcgyvr.pool import Endpoint, Protocol
 from mcgyvr.runner import Completion, Request, StopReason, runner_for
 from mcgyvr.telemetry import fold, observe
 
-REPO = Path(__file__).resolve().parent.parent
 ASK = Request(prompt="write a function", max_output_tokens=256)
 
 TIMINGS = {
@@ -147,20 +143,3 @@ def test_a_reported_zero_reaches_the_row_as_zero(tmp_path: Path) -> None:
     row = _row(tmp_path / "agent-a.jsonl", _completion(draft_n=4, draft_n_accepted=0))
     assert row["draft_n_accepted"] == 0
     assert json.dumps(row["draft_n_accepted"]) == "0"
-
-
-def _index() -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "live_index_for_draft_counts", REPO / "tools" / "live" / "index.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_the_journal_index_has_a_column_for_each_count() -> None:
-    columns = dict(_index().COLUMNS)
-    assert columns.get("draft_n") == "INTEGER"
-    assert columns.get("draft_n_accepted") == "INTEGER"

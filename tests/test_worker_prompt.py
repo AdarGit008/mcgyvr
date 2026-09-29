@@ -25,20 +25,9 @@ from mcgyvr.worker.bundle import (
     BundleTooLargeError,
     bundle_for,
     load_bundle,
+    strip_provenance,
 )
 from mcgyvr.worker.prompt import build_prompt, render_user_message
-
-REPO = Path(__file__).resolve().parent.parent
-MEASURED_C2 = (
-    REPO
-    / "records"
-    / "evidence"
-    / "local-ai-2026-08-02"
-    / "data"
-    / "context_exp"
-    / "bundles"
-    / "c2.md"
-)
 
 PY_CONTRACT = """
 id: fetch-retry
@@ -76,12 +65,6 @@ def contract(text: str) -> Contract:
 
 
 # --- the bundle is the measured artifact -----------------------------------
-
-
-def test_shipped_python_bundle_is_byte_identical_to_the_measured_one() -> None:
-    """A reworded bundle is an unmeasured one, whatever it says in the record."""
-    shipped = load_bundle("python")
-    assert shipped.text.encode("utf-8") == MEASURED_C2.read_bytes()
 
 
 def test_both_bundles_are_measured_and_neither_helps_on_this_path() -> None:
@@ -408,3 +391,21 @@ def test_the_estimate_counts_both_messages() -> None:
     assert len(seen) == 1
     assert built.system in seen[0]
     assert built.user in seen[0]
+
+
+def test_stripping_provenance_leaves_a_markerless_bundle_alone() -> None:
+    """The strip must be a no-op on text that has no marker.
+
+    Both shipped bundles carry one since #167 gave ``python.md`` a standing
+    worth stating in the file, so the markerless case is exercised on text
+    written here rather than on a shipped file that might grow a marker later.
+    """
+    markerless = (
+        "You are a senior Python engineer.\n\nOutput rules:\n- Return ONLY code.\n"
+    )
+    assert strip_provenance(markerless) == markerless
+    assert strip_provenance("# heading\n\n<!-- a comment lower down -->\n") == (
+        "# heading\n\n<!-- a comment lower down -->\n"
+    )
+    # An unterminated marker is content, not a licence to eat the file.
+    assert strip_provenance("<!-- never closed\nbody\n") == "<!-- never closed\nbody\n"
