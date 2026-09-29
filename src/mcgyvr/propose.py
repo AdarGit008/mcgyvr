@@ -144,16 +144,18 @@ def _second_listing(model: str, source: AvailableSource, first: Rung) -> str:
 
 
 def _unwritable(model: str, source: AvailableSource) -> str:
-    """Why a listed id that is blank or holds a control character is not bound.
+    """Why a listed id that a setup file may not carry as it is is not bound.
 
     A blank id names nothing a unit could serve, and the loader refuses a unit
-    whose model is empty. An id with a control character, a line break among
-    them, may not read back from the file as the same id, so a unit bound to
-    it could name another model.
+    whose model is empty. An id with space at either end reads back from the
+    file without it, and one with a character that is not printable (a line
+    break among them) may not read back at all, so a unit bound to either
+    could name a model the server does not list.
     """
     return (
-        f"{source.name} lists the id {model!r}, which is blank or holds a "
-        f"control character, so it is not bound."
+        f"{source.name} lists the id {model!r}, which is blank, has space at "
+        f"either end or holds a character that is not printable, so it is not "
+        f"bound."
     )
 
 
@@ -162,8 +164,8 @@ def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
 
     Sources are taken in the order given and each source's models in its own
     listing order. A listing that mints a unit name an earlier one took is
-    not bound, and neither is an id that is blank or holds a control
-    character; the proposal names each.
+    not bound, and neither is an id that is blank, has space at either end or
+    holds a character that is not printable; the proposal names each.
 
     Never raises. No source, or sources that list nothing, give an empty
     ladder: a coherent API-only install, not a failure. The note on
@@ -175,7 +177,7 @@ def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
     notes: list[str] = []
     for source in sources:
         for model in source.models_present:
-            if not model.strip() or not model.isprintable():
+            if not model.strip() or model != model.strip() or not model.isprintable():
                 reason = _unwritable(model, source)
                 rejected.append(Rejection(model, reason))
                 notes.append(reason)

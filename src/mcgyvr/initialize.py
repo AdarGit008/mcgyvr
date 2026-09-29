@@ -230,12 +230,14 @@ def _listing(names: Sequence[str]) -> str:
     return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
-def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
+def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal) -> str:
     """Say what was tried, what is missing, and what to do about it.
 
-    Reached only when no server lists a model and no hosted unit was asked
+    Reached only when no listed model was bound and no hosted unit was asked
     for: init binds a model only when a running server lists it, so a server
-    that answers and lists nothing is named as such, and no card is a reason.
+    that answers and lists nothing is named as such, a server that lists only
+    ids init does not bind is given the proposal's reason for each, and no
+    card is a reason.
 
     Starting a local backend is offered whenever none answers here; loading a
     model is offered whenever a server answered. A unit bound by hand, which
@@ -247,9 +249,15 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
     local = [b for b in detection.backends if b.is_local]
     if detection.backends:
         found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
-        situation = (
-            f"Reachable model servers: {found} — but none of them lists a model."
-        )
+        if proposal.rejected:
+            situation = (
+                f"Reachable model servers: {found} — but none of them lists a "
+                f"model init can bind: " + " ".join(r.reason for r in proposal.rejected)
+            )
+        else:
+            situation = (
+                f"Reachable model servers: {found} — but none of them lists a model."
+            )
     else:
         situation = "No local backend answered on any default endpoint."
 
@@ -775,7 +783,7 @@ def initialize(
         # "start a local backend" would send someone to fix the wrong thing.
         if asked:
             raise InitError(_api_setup_rejected(asked, exc)) from exc
-        raise InitError(_nothing_to_bind(found, exc)) from exc
+        raise InitError(_nothing_to_bind(found, exc, proposal)) from exc
 
     fleet_path = path / FLEET_FILENAME
     policy_path = path / POLICY_FILENAME
