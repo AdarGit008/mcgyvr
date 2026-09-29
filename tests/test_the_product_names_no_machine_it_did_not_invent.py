@@ -139,7 +139,7 @@ def test_a_folder_read_again_is_still_a_place_no_pointer_may_lead(
     monkeypatch.setattr(um, "UNREAD", tuple(f for f in um.UNREAD if f != _FOLDER))
     assert _found(repo) == {
         "README.md": ["dev-pointer"],
-        f"{_FOLDER}/x.txt": ["address"],
+        f"{_FOLDER}/x.txt": ["dev-pointer", "address"],  # its path, line 0
     }
 
 

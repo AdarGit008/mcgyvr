@@ -1,7 +1,8 @@
 # Files of the product that name a machine it did not invent, or point into
 # the development repository, with how many hits of each kind they hold.
-# Paths and counts only, never the text. One line per file, sorted by path
-# within its section:
+# Paths and counts only, never the text of a line; a path that is itself a
+# hit is listed as it is. One line per file, sorted by path within its
+# section:
 #     path<TAB>kind=count[<TAB>kind=count ...]
 # The test demands that the scan finds exactly these files, kinds and counts.
 # What that does not hold: a hit replaced by another of the same kind in a
@@ -12,7 +13,8 @@
 #     uv run --no-sync python -m tests.uninvented_machines --write
 # It refuses to add a file or a kind, or to raise a count, unless given
 # --allow-growth; it puts a new file in the first section and never moves an
-# entry between sections, which a person does.
+# entry between sections, which a person does. A renamed file is a new file
+# to it: rename the entry by hand, in its section and in order.
 # On a merge conflict in this file: take the base branch's list, then run the
 # command above without a flag.
 # Any other comment line, and any line not in this form, is refused.
@@ -89,6 +91,7 @@ tests/red_port/test_dod_one_context_number.py	host=2
 tests/red_port/test_dod_placement_conservatism.py	dev-pointer=1
 tests/red_port/test_dod_profile.py	dev-pointer=1	home-path=1
 tests/red_port/test_dod_release.py	dev-pointer=2
+tests/red_port/test_dod_rig_lease.py	host=1
 tests/red_port/test_dod_run_root.py	home-path=1
 tests/red_port/test_dod_rung_window.py	host=2
 tests/sweeprows.py	dev-pointer=2
@@ -111,14 +114,14 @@ tests/test_a_launch_argv_with_spec_flags_passes_admission_unchanged.py	host=1
 tests/test_a_launch_spec_this_config_does_not_plan_is_never_woken.py	host=1
 tests/test_a_live_probe_is_judged_against_its_lock.py	dev-pointer=9	host=6
 tests/test_a_live_row_names_what_answered_it_and_under_which_round.py	dev-pointer=7
-tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py	dev-pointer=2	host=3
+tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py	dev-pointer=2	host=3	identity=2
 tests/test_a_live_run_warns_when_its_step_is_pulled.py	dev-pointer=1
 tests/test_a_llamacpp_unit_may_declare_mtp_and_a_gguf_without_a_head_is_refused.py	dev-pointer=1	host=3
 tests/test_a_load_runs_thirty_seconds_then_gives_its_verdict.py	dev-pointer=1
 tests/test_a_locked_fleet_emits_its_hashed_launch.py	home-path=5	host=3
 tests/test_a_locked_fleet_loads_as_the_run_config.py	host=1	identity=2
 tests/test_a_measured_scratch_is_used_only_at_the_ubatch_it_was_read_at.py	dev-pointer=4
-tests/test_a_promoted_fleet_carries_the_date_of_its_lock_in_its_name.py	dev-pointer=2
+tests/test_a_promoted_fleet_carries_the_date_of_its_lock_in_its_name.py	dev-pointer=2	host=1
 tests/test_a_pull_warning_names_its_unit_and_a_row_its_own_time.py	dev-pointer=1	host=5
 tests/test_a_read_measures_before_it_judges_and_loads_a_unit.py	host=2
 tests/test_a_read_probes_a_unit_of_a_named_setup_fleet_without_its_lock.py	host=1
@@ -127,8 +130,8 @@ tests/test_a_release_takes_its_notes_from_the_changelog_or_is_refused.py	dev-poi
 tests/test_a_repo_without_a_ruff_config_is_judged_by_a_basic_default.py	dev-pointer=1
 tests/test_a_request_timeout_is_the_runs_own_not_a_constant.py	dev-pointer=1
 tests/test_a_rig_can_be_served_down_twice_in_one_day.py	dev-pointer=1
-tests/test_a_rig_is_named_by_the_snapshot_it_prints.py	dev-pointer=5	host=1
-tests/test_a_rig_is_read_through_the_door_without_leasing_it.py	dev-pointer=6	host=2	identity=1
+tests/test_a_rig_is_named_by_the_snapshot_it_prints.py	dev-pointer=5	host=1	identity=1
+tests/test_a_rig_is_read_through_the_door_without_leasing_it.py	dev-pointer=6	host=2	identity=2
 tests/test_a_rig_that_is_not_the_declared_rig_is_refused.py	dev-pointer=1	host=2
 tests/test_a_rung_whose_model_is_not_resident_does_not_read_as_available.py	host=2
 tests/test_a_scan_that_could_not_read_the_cards_is_not_a_pulled_card.py	card-model=3
@@ -173,7 +176,7 @@ tests/test_no_landed_test_opens_with_a_red_spec_docstring.py	dev-pointer=1
 tests/test_no_retired_door_names.py	dev-pointer=25
 tests/test_no_stale_pending_citations.py	dev-pointer=6
 tests/test_one_door.py	dev-pointer=11
-tests/test_orchestrator_repo.py	home-path=1
+tests/test_orchestrator_repo.py	home-path=1	host=1
 tests/test_pattern_b_one_owner.py	dev-pointer=4
 tests/test_pattern_e_boundaries.py	dev-pointer=1
 tests/test_per_rung_width.py	host=12
@@ -185,8 +188,8 @@ tests/test_route.py	address=2
 tests/test_sandbox_docker.py	host=5
 tests/test_sandbox_image.py	host=4
 tests/test_sandbox_tempdir.py	host=2
-tests/test_serving_door_cli.py	host=4
-tests/test_serving_gatelib.py	dev-pointer=1	host=5
+tests/test_serving_door_cli.py	host=7
+tests/test_serving_gatelib.py	dev-pointer=1	host=7
 tests/test_serving_unit.py	host=7
 tests/test_serving_vramfit.py	dev-pointer=1
 tests/test_sleeping_a_card_takes_every_rung_it_serves.py	card-model=2	dev-pointer=1
@@ -204,5 +207,5 @@ tests/test_two_rungs_on_one_rig_are_two_bounds.py	host=5
 tests/test_verify_b1_b9.py	dev-pointer=1
 # Section 2: kept on purpose. A file here needs such strings as its inputs;
 # a person moves an entry here and says why in the change that moves it.
-tests/test_init_names_no_machine_the_user_did_not_name.py	address=6	host=9
+tests/test_init_names_no_machine_the_user_did_not_name.py	address=6	host=8
 tests/test_what_every_test_shares_opens_nothing_outside_the_package_and_the_tests.py	dev-pointer=12

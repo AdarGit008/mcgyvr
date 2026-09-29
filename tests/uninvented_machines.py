@@ -3,19 +3,28 @@
 The check in ``tests/test_the_product_names_no_machine_it_did_not_invent.py``
 and the command that writes its list share this module. It holds no machine
 name, no real card model, no real user's name and no name of a repository:
-every kind below is a shape. It does hold the names of card families
-(:data:`CARD_FAMILIES`), placeholder user names (:data:`PLACEHOLDER_USERS`)
-and the names of the five folders that leave the product (:data:`LEAVING`).
+every kind below is a shape. It does hold the names of card families and of
+the vendors that write them (:data:`CARD_FAMILIES`, :data:`CARD_VENDORS`),
+the user names that stand for any user or for the CI runner
+(:data:`PLACEHOLDER_USERS`), and the names of the five folders that leave the
+product (:data:`LAB_FOLDERS`).
 
 What is read
 ------------
 Every file git tracks, and every untracked file git does not ignore, except
-the five folders that leave the product (:data:`LEAVING`), the list itself,
-and the sections of ``CHANGELOG.md`` that belong to a released version (those
-are history). A file is read as UTF-8, any byte that is not replaced; a
-symbolic link is read as the path it points at. A path name is read too, as
-line 0 of its file. The exclusion of the five folders lasts while they are
-in the product: a test fails once one of them holds no tracked file.
+the folders in :data:`UNREAD`, the list itself and the writer's temporary
+file, and ``CHANGELOG.md`` from its first heading that names a released
+version, as the release script reads a heading (released sections are
+history; a release moves the open section's hits out of what is read). A
+file is read as UTF-8, a byte that is not UTF-8 replaced; a symbolic link is
+read as the path it points at. A path name is read too, as line 0 of its
+file.
+
+:data:`UNREAD` holds the folders that leave the product, while they are in
+it: a test fails once one of them holds no tracked file, and that folder is
+then dropped from :data:`UNREAD` and read again. :data:`LAB_FOLDERS` stays
+as it is: a pointer into one of its folders is a hit whether that folder is
+read or not.
 
 The kinds
 ---------
@@ -31,48 +40,65 @@ names exists.
     An IP address outside loopback, the unspecified address and the
     documentation blocks (:data:`PASSING_NETWORKS`): an IPv4 literal of four
     decimal parts, leading zeros read as the number they write; and an IPv6
-    literal that has a group of three hex digits or more. Not read in lock
-    files (:data:`LOCK_FILES`), nor after a version comparison (``==``) or a
-    version key, where four numbers are a version.
+    literal that has a group of three hex digits or more, unless it is
+    decimal digits only right after a name, a call or a subscript and ``[``
+    (a slice, ``x[100::2]``). Not read in lock files (:data:`LOCK_FILES`),
+    nor after a version comparison (``==``) or a version key (``version``,
+    ``__version__``), where four numbers are a version.
 ``host``
     A host name where a machine is named: the host of a URL; the value of a
     ``host``, ``hostname``, ``ssh_host`` or ``ssh_target`` key, quoted, or on
     a YAML line of its own (a user before ``@`` allowed), or unquoted after
-    ``=`` outside Python sources; the value of ``--host``; and the host of
-    ``ssh <user>@<name>``. It passes when it is ``localhost`` or the
-    generic local name under ``.localdomain``, a reserved name (``.invalid``,
-    ``.test``, ``.example``, ``.localhost``, ``example.com`` and its
-    siblings), docker's name for its own host, the words ``host`` and
-    ``hostname``, a Python annotation (``host: str``), or a placeholder
-    (``{host}``, ``<host>``, ``$HOST``, ``RUN_HOST``). An address is left to
-    the ``address`` kind; a scheme that names no host (``file://``) gives
-    none. It is a hit when it is one label with no dot, or ends in a
-    private-network suffix (:data:`PRIVATE_SUFFIXES`). The suffixes in
-    :data:`ANYWHERE_SUFFIXES` are hits anywhere in the text.
+    ``=`` (spaces around it allowed) outside Python sources; the value of
+    ``--host``; and the machine of a ``<user>@<name>`` after ``ssh`` and its
+    options (``-p 22``, ``-p22``, ``-oName=value``), after any one-dash
+    option and its value (``-o Name=value <user>@<name>``), quoted on its
+    own (``"<user>@<name>"``), or before ``:`` and a path (a copy's source or
+    target; ``@sha256:`` is a digest). It passes when it is ``localhost`` or
+    the generic local name under ``.localdomain``, a reserved name
+    (``.invalid``, ``.test``, ``.example``, ``.localhost``, ``example.com``
+    and its siblings), docker's name for its own host, the words ``host``
+    and ``hostname``, a Python annotation (``host: str``), a placeholder
+    (``{host}``, ``<host>``, ``$HOST``, ``RUN_HOST``), or digits with dots,
+    dashes or underscores (a date, a version). An address is left to the
+    ``address`` kind; a scheme that names no host (``file://``) gives none.
+    A name two of these rules find at one place is one hit. It is a hit
+    when it is one label with no dot, or ends in a private-network suffix
+    (:data:`PRIVATE_SUFFIXES`). The suffixes in :data:`ANYWHERE_SUFFIXES`
+    are hits anywhere in the text, before a full stop too, except on a line
+    where a rule above found the same name.
 ``card-model``
     A graphics card model: a family written as vendors write it (capitals,
-    or a capitalised name, :data:`CARD_FAMILIES`) followed by a model
-    number, or a lower-case ``rtx`` or ``gtx`` joined to the number with no
-    space. So a shell ``-gt 10`` or a unit ``rx 1500`` is not one.
+    or a capitalised name, :data:`CARD_FAMILIES`), a vendor's name before it
+    allowed, followed by a model number of two to five digits; or a
+    lower-case ``rtx`` or ``gtx`` before the number, joined to it or after a
+    space, ``_`` or ``-``. So a shell ``-gt 10`` or a unit ``rx 1500`` is
+    not one.
 ``identity``
     An identity digest the product computes for a machine or unit:
     ``rig-``, ``unt-``, ``cmb-`` or ``mch-`` and eight or more hex digits,
     or eight or more hex digits as the value of an id key
-    (:data:`ID_KEYS`); unless the digits are one digit repeated, which is
-    how a placeholder is written.
+    (:data:`ID_KEYS`), a prefix to the key allowed (``os_machine_id``);
+    unless the digits are one digit repeated, which is how a placeholder is
+    written.
 ``dev-pointer``
     A pointer into the development repository: its name (the product's own
     name followed by ``-lab``; the README may name it on one line); a path
-    that starts in one of the five folders that leave the product, with no
-    path before it, including the bare folder (``<folder>/`` then a space, a
-    quote or a backtick); an import from one of them (``from <folder>.x
-    import``, ``import <folder>.x``, ``python -m <folder>.x``); and a path
-    joined to one of them in code (``REPO / "<folder>"``). The names in
+    that starts in one of :data:`LAB_FOLDERS`, with no path before it,
+    including the bare folder (``<folder>/`` then a space, a quote or a
+    backtick); an import from one of them (``from <folder>.x import``,
+    ``import <folder>.x``, ``python -m <folder>.x``); and a path joined to
+    one of them in code with ``/`` (``REPO / "<folder>"``). The names in
     :data:`NOT_POINTERS` are not pointers, each for the reason given there.
 
-Hits by design, not false alarms: a netmask, a public resolver's address,
-a container's name as a URL host (``http://<container>:port``), an invented
-single-label host a test uses as input.
+Hits by design, not false alarms: a netmask; a public resolver's address;
+the link-local address clouds serve metadata on; a container's name as a
+URL host (``http://<container>:port``); an invented single-label host a test
+uses as input; a quoted ``<name>@<word>`` where the word is no machine (a
+name and a date written in words); the home folder of a cloud image's
+default user; a made-up digest that is not one digit repeated; and a leaving
+folder's name joined to any base in code, a temporary folder included, since
+the join does not know its base.
 
 What it cannot see
 ------------------
@@ -81,26 +107,34 @@ capitals where the kind reads lower case, split over lines or strings,
 encoded or compressed passes. It also does not see:
 
 - ``ssh <name>`` without a user: in the product's shell scripts every
-  ``ssh`` followed by a word is prose, a comment or a loop list;
+  ``ssh`` followed by a word is prose, a comment or a loop list; nor a bare
+  ``<user>@<name>`` with no ``ssh``, option, quote or path beside it;
 - a machine's name in prose where no host is expected, or under keys other
   than those above (``server:``, ``rig:``, ``hosts: [...]``), or as a
-  constant (``DEFAULT_HOST = "name"``), or as ``name:8080``;
-- a home folder under ``/root/`` (a container's path in the product), a
-  placeholder user name used for a real one, or a home path after a path
-  (``/mnt/home/<name>``);
+  constant (``DEFAULT_HOST = "name"``), or as ``name:8080``; nor a host key
+  with a space before its colon (``host : name``), with an annotation before
+  its value (``host: str = "name"``), or on a YAML line inside a one-line
+  string (``"host: name\\n"``);
+- a home folder under ``/root/`` (a container's path in the product), on
+  Windows (``C:\\Users\\<name>``), after a path (``/mnt/home/<name>``), or of
+  a placeholder user name used for a real one;
 - an IPv4 address written as an integer, in hex, or with a letter or ``_``
-  beside it; an IPv6 address whose groups are all shorter than three digits;
+  beside it; an IPv6 address whose groups are all shorter than three digits,
+  or of decimal digits only written as a subscript;
 - a dotted host name under a public top-level domain, and a name ending in
   ``.local``, ``.internal``, ``.corp``, ``.intranet`` or ``.private`` outside
   a host position;
 - a card named by its number alone, by vendor and number, or in lower case
-  with a space;
-- a bare 64-digit digest under no id key, and an id prefix in capitals;
+  with a space, ``rtx`` and ``gtx`` aside;
+- a bare 64-digit digest under no id key, and an id prefix in capitals or
+  joined with ``_`` (``rig_<hex>``);
 - a leaving folder cited after a path (``$REPO/<folder>/x``) or in capitals;
+  joined by ``Path("<folder>")``, ``joinpath`` or ``os.path.join``; named as
+  one item of a list of paths (a type checker's ``files``); or imported or
+  run bare (``import <folder>``, ``-m <folder>``);
+- the development repository's name with no separator, with a dot, as a
+  plural, or with a hyphen that is not ASCII;
 - a number read on one machine (a card size, a count) stated as a rule.
-
-The development repository keeps its own check of the owner's words, which
-sees what a shape cannot.
 
 The list
 --------
@@ -109,13 +143,15 @@ kind, in two sections: "not yet cleaned" and "kept on purpose" (a file that
 needs such strings as inputs). The test demands that the scan finds exactly
 the files, kinds and counts listed. A hit replaced by another of the same
 kind in a listed file keeps the count and passes; that is what it does not
-hold. Rewrite the list after cleaning::
+hold. A path is listed as it is, also when the path itself is a hit.
+Rewrite the list after cleaning::
 
     uv run --no-sync python -m tests.uninvented_machines --write
 
 It refuses to add a file or a kind, or to raise a count, unless it is given
 ``--allow-growth``; a new file goes to the first section, and no entry moves
-between sections: a person moves it. It builds the whole list first and
+between sections: a person moves it. A renamed file is a new file to it, so
+a person renames the entry by hand. It builds the whole list first and
 replaces the file in one step. A file name the list cannot hold (a byte that
 is not UTF-8, a tab, a line break, a leading ``#``) is refused by name.
 ``--compare OLD`` reads only two list files (no scan, no dependency outside
@@ -142,14 +178,18 @@ REPO = Path(__file__).resolve().parent.parent
 LIST_PATH = Path(__file__).resolve().parent / "uninvented_machines_not_yet_cleaned.txt"
 LIST_NAME = LIST_PATH.relative_to(REPO).as_posix()
 
-#: The folders that leave the product; not read, and never a place a pointer
-#: may lead.
-LEAVING = ("archive", "fleet-setup", "okf", "records", "tools")
+#: The folders that leave the product: never a place a pointer may lead,
+#: whether they are read or not.
+LAB_FOLDERS = ("archive", "fleet-setup", "okf", "records", "tools")
+
+#: The folders not read, while they are in the product. A test says when one
+#: has left; it is then dropped from here, not from LAB_FOLDERS.
+UNREAD = ("archive", "fleet-setup", "okf", "records", "tools")
 
 KINDS = ("address", "card-model", "dev-pointer", "home-path", "host", "identity")
 
-#: Names that stand for any user in a home folder, and the home folder of the
-#: CI runner, which every checkout on CI has.
+#: Names that stand for any user in a home folder, and the name of the CI
+#: runner's user, whose home folder every checkout on CI has.
 PLACEHOLDER_USERS = frozenset(
     {"example", "me", "name", "runner", "someone", "user", "x", "you"}
 )
@@ -205,7 +245,8 @@ _PASSING_HOSTS = frozenset(
         "hostname",
     }
 )
-#: Values after ``host:`` that are Python annotations, not host names.
+#: Values where a host stands that are Python annotations (``host: str``),
+#: not host names.
 _ANNOTATIONS = frozenset(
     {"any", "bool", "bytes", "float", "int", "none", "object", "path", "str"}
 )
@@ -228,9 +269,19 @@ CARD_FAMILIES = (
     "Arc",
     "Instinct",
 )
+#: Vendors' names, as they write them before a family.
+CARD_VENDORS = ("NVIDIA", "AMD", "Intel", "GeForce")
 
-#: Keys whose value is an identity digest.
-ID_KEYS = ("rig_id", "unit_id", "unt_id", "cmb_id", "combination_id", "mch_id")
+#: Keys whose value is an identity digest; a prefix to the key is allowed.
+ID_KEYS = (
+    "rig_id",
+    "unit_id",
+    "unt_id",
+    "cmb_id",
+    "combination_id",
+    "mch_id",
+    "machine_id",
+)
 
 #: Strings shaped like a pointer into a leaving folder that are not one.
 NOT_POINTERS = {
@@ -240,20 +291,22 @@ NOT_POINTERS = {
 
 _SEP = r"[ \t_|-]*"
 _CARD = re.compile(
-    r"(?<![A-Za-z0-9])(?:(?:NVIDIA|AMD|Intel|GeForce)"
+    r"(?<![A-Za-z0-9])(?:(?:"
+    + "|".join(CARD_VENDORS)
+    + r")"
     + _SEP
     + r")*(?:(?:"
     + "|".join(CARD_FAMILIES)
     + r")"
     + _SEP
-    + r"(?:MI)?[A-Z]?|(?:rtx|gtx)[_-]?)[0-9]{2,5}(?![0-9])"
+    + r"(?:MI)?[A-Z]?|(?:rtx|gtx)[ _-]?)[0-9]{2,5}(?![0-9])"
 )
 _HOME = re.compile(r"(?<![\w.~-])/(?:home|Users)/([^\s/\"'`<>(){}\[\]$\\:;,*|=]+)")
 _TILDE_HOME = re.compile(r"(?<![\w~/.-])~([A-Za-z_][A-Za-z0-9_.-]*)/")
 _IPV4 = re.compile(r"(?<![\w.])([0-9]{1,3}(?:\.[0-9]{1,3}){3})(?![\w]|\.[0-9])")
 _IPV6 = re.compile(r"(?<![\w:.])([0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7})(?![\w:])")
 _VERSION_BEFORE = re.compile(
-    r"(?:[=<>!~]=\s*v?|version[\"']?\s*[:=]\s*[\"']?v?)$", re.IGNORECASE
+    r"(?:[=<>!~]=\s*v?|version\w*[\"']?\s*[:=]\s*[\"']?v?)$", re.IGNORECASE
 )
 _URL_HOST = re.compile(
     r"(?<![\w+.-])([A-Za-z][A-Za-z0-9+.-]*)://(?:[^\s/@\"'`<>]*@)?"
@@ -267,39 +320,52 @@ _KEYED_HOST = re.compile(
     r"\s*[\"']([^\"'\s]+)[\"']",
     re.IGNORECASE,
 )
-# A key and `=` with the value unquoted (a shell line, a config file). Not
-# read in Python sources, where the value is a variable.
+# A key and `=`, spaces around it allowed, with the value unquoted (a shell
+# line, a config file). Not read in Python sources, where the value is a
+# variable.
 _BARE_KEYED_HOST = re.compile(
-    r"(?<![\w-])" + _HOST_KEYS + r"=([A-Za-z0-9_.@-]+)", re.IGNORECASE
+    r"(?<![\w-])" + _HOST_KEYS + r"\s*=\s*([A-Za-z0-9_.@-]+)", re.IGNORECASE
 )
 # A YAML line of its own, the value bare or quoted, a user before `@`
-# allowed; also inside a Python string that holds YAML.
+# allowed; also a line of a string that holds YAML over several lines.
 _YAML_HOST = re.compile(
     r"^\s*-?\s*" + _HOST_KEYS + r":\s*[\"']?([A-Za-z0-9_.:@-]+)[\"']?\s*(?:#.*)?$",
     re.IGNORECASE,
 )
 _FLAG_HOST = re.compile(r"(?<![\w-])--host(?:=|\s+)[\"']?([A-Za-z0-9_.-]+)")
-_SSH_OPTIONS = r"(?:-[A-Za-z]+(?:\s+[^\s@-]\S*)?\s+)*"
+_USER_AT = r"[A-Za-z0-9_.-]+@"
+_MACHINE = r"([A-Za-z0-9_.-]+)"
+# An option, its value joined to it (-p22, -oName=value) or after a space.
+_OPTION = r"-[A-Za-z]\S*(?:\s+[^\s@-]\S*)?\s+"
 _SSH_USER_HOST = re.compile(
-    r"(?<![\w-])ssh\s+" + _SSH_OPTIONS + r"[A-Za-z0-9_.-]+@([A-Za-z0-9_.-]+)"
+    r"(?<![\w-])ssh\s+(?:" + _OPTION + r")*" + _USER_AT + _MACHINE
+)
+# A destination after an option and its value, in a command held in one
+# string or line (``"-o Name=value <user>@<name> cmd"``).
+_OPTION_USER_HOST = re.compile(r"(?<![\w-])" + _OPTION + _USER_AT + _MACHINE)
+# A destination quoted on its own, as in an argument list.
+_QUOTED_USER_HOST = re.compile(r"[\"'`]" + _USER_AT + _MACHINE + r"[\"'`]")
+# A copy's source or target, a path after the colon; `@sha256:` is a digest.
+_COPY_USER_HOST = re.compile(
+    r"(?<![\w@/.-])" + _USER_AT + r"(?!sha[0-9]+:)" + _MACHINE + r":(?=[\w~/.$-])"
 )
 _SUFFIXED = re.compile(
     r"(?<![\w.-])([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*(?:"
     + "|".join(re.escape(suffix) for suffix in ANYWHERE_SUFFIXES)
-    + r"))(?![\w.-])",
+    + r"))(?![\w-]|\.[\w-])",
     re.IGNORECASE,
 )
 _IDENTITY = re.compile(
     r"(?<![A-Za-z0-9])(?:rig|unt|cmb|mch)-([0-9a-f]{8,})(?![0-9a-z])"
 )
 _KEYED_IDENTITY = re.compile(
-    r"(?<![\w-])[\"']?(?:"
+    r"(?<![\w-])[\"']?\w*?(?:"
     + "|".join(ID_KEYS)
     + r")[\"']?\s*[:=]\s*[\"']?([0-9a-f]{8,})(?![0-9a-z])"
 )
-_LEAVE = "|".join(re.escape(folder) for folder in LEAVING)
+_LEAVE = "|".join(re.escape(folder) for folder in LAB_FOLDERS)
 _LEAVE_MODULES = "|".join(
-    re.escape(folder) for folder in LEAVING if folder.isidentifier()
+    re.escape(folder) for folder in LAB_FOLDERS if folder.isidentifier()
 )
 _LEAVING_PATH = re.compile(
     r"(?:(?<=\./)|(?<![\w./-]))(?:" + _LEAVE + r")/(?=[\w.*\s\"'`-]|$)"
@@ -310,7 +376,8 @@ _LEAVING_IMPORT = re.compile(
     r"|-m\s+(?:" + _LEAVE_MODULES + r")\.\w)"
 )
 _LEAVING_JOIN = re.compile(r"/\s*[\"'](?:" + _LEAVE + r")[\"']")
-_RELEASED = re.compile(r"^## \[(?!Unreleased\])", re.MULTILINE)
+#: The writer's temporary file, left behind when a run is killed.
+_TEMPORARY = f"{LIST_PATH.parent.relative_to(REPO).as_posix()}/.{LIST_PATH.name}."
 
 
 @dataclass(frozen=True)
@@ -391,8 +458,8 @@ def _is_address(text: str) -> bool:
 def _host_hit(host: str) -> bool:
     """Whether a name found where a host stands names a private machine."""
     name = host.strip().rsplit("@", 1)[-1].rstrip(".").lower()
-    if not name or _placeholder(host) or name.isdigit():
-        return False
+    if not name or _placeholder(host) or re.fullmatch(r"[0-9._-]+", name):
+        return False  # empty, a placeholder, or digits: a date, a version
     if name.startswith("[") or _is_address(name):
         return False  # an address; the address kind reads it
     if name in _PASSING_HOSTS or name in _ANNOTATIONS:
@@ -410,8 +477,19 @@ def _host_hit(host: str) -> bool:
 
 def _ipv6_candidate(text: str) -> bool:
     """An IPv6 literal worth reading: one group of three hex digits or more,
-    so that a slice (``[1::2]``) or a clock time is not taken for one."""
+    so that a clock time or a short slice (``x[1::2]``) is not taken for
+    one. A longer slice is left to :func:`_subscript`."""
     return any(len(group) >= 3 for group in text.split(":"))
+
+
+def _subscript(line: str, match: re.Match[str]) -> bool:
+    """Decimal digits and colons right after a name, a call or a subscript
+    and ``[``: a slice (``x[100::2]``), not an address."""
+    start = match.start(1)
+    return (
+        re.fullmatch(r"[0-9:]+", match.group(1)) is not None
+        and re.search(r"[\w)\]]\[$", line[:start]) is not None
+    )
 
 
 def scan_text(
@@ -453,7 +531,7 @@ def scan_text(
                 if address is not None and not _passes(address):
                     add(number, "address")
             for match in _IPV6.finditer(line):
-                if not _ipv6_candidate(match.group(1)):
+                if not _ipv6_candidate(match.group(1)) or _subscript(line, match):
                     continue
                 try:
                     six = ipaddress.IPv6Address(match.group(1))
@@ -461,19 +539,27 @@ def scan_text(
                     continue
                 if not _passes(six):
                     add(number, "address")
-        hosts = [
-            m.group(2)
-            for m in _URL_HOST.finditer(line)
-            if m.group(1).lower() not in _NO_HOST_SCHEMES
-        ]
-        hosts += [m.group(1) for m in _KEYED_HOST.finditer(line)]
-        hosts += [m.group(1) for m in _YAML_HOST.finditer(line)]
-        hosts += [m.group(1) for m in _FLAG_HOST.finditer(line)]
-        hosts += [m.group(1) for m in _SSH_USER_HOST.finditer(line)]
-        if not python:
-            hosts += [m.group(1) for m in _BARE_KEYED_HOST.finditer(line)]
+        # Each host by where its name starts, so that a name two rules find
+        # (a quoted `<user>@<name>` after `ssh`) is one hit.
+        hosts: dict[int, str] = {}
+        for rule, group in (
+            (_KEYED_HOST, 1),
+            (_YAML_HOST, 1),
+            (_FLAG_HOST, 1),
+            (_SSH_USER_HOST, 1),
+            (_OPTION_USER_HOST, 1),
+            (_QUOTED_USER_HOST, 1),
+            (_COPY_USER_HOST, 1),
+            *(() if python else ((_BARE_KEYED_HOST, 1),)),
+        ):
+            for m in rule.finditer(line):
+                at = m.start(group) + m.group(group).rfind("@") + 1
+                hosts.setdefault(at, m.group(group))
+        for m in _URL_HOST.finditer(line):
+            if m.group(1).lower() not in _NO_HOST_SCHEMES:
+                hosts.setdefault(m.start(2), m.group(2))
         seen = set()
-        for host in hosts:
+        for host in hosts.values():
             if _host_hit(host):
                 seen.add(host.rsplit("@", 1)[-1].lower())
                 add(number, "host")
@@ -508,8 +594,8 @@ def scan_text(
 
 
 def files(repo: Path = REPO) -> list[str]:
-    """The files read: tracked, or untracked and not ignored; not those that
-    leave the product, and not the list."""
+    """The files read: tracked, or untracked and not ignored; not those in
+    :data:`UNREAD`, not the list and not the writer's temporary file."""
     listed = subprocess.run(
         [
             "git",
@@ -522,14 +608,16 @@ def files(repo: Path = REPO) -> list[str]:
             "--exclude-standard",
             "--",
             ".",
-            *(f":(exclude,top){folder}" for folder in LEAVING),
+            *(f":(exclude,top){folder}" for folder in UNREAD),
         ],
         check=True,
         capture_output=True,
     ).stdout.decode("utf-8", "surrogateescape")
     chosen: set[str] = set()
     for path in listed.split("\0"):
-        if not path or path == LIST_NAME or path.split("/", 1)[0] in LEAVING:
+        if not path or path == LIST_NAME or path.split("/", 1)[0] in UNREAD:
+            continue
+        if path.startswith(_TEMPORARY):
             continue
         if os.path.lexists(repo / path):
             chosen.add(path)
@@ -555,9 +643,12 @@ def text_of(repo: Path, path: str) -> str:
         return ""
     text = where.read_bytes().decode("utf-8", "replace")
     if path == "CHANGELOG.md":
-        released = _RELEASED.search(text)
-        if released:
-            text = text[: released.start()]
+        from scripts.release.changelog_notes import released
+
+        lines = text.splitlines(keepends=True)
+        for number, line in enumerate(lines):
+            if line.startswith("## ") and released(line[3:].strip()) is not None:
+                return "".join(lines[:number])
     return text
 
 
@@ -614,8 +705,9 @@ def summary(hits: Sequence[Hit]) -> str:
 HEADER = """\
 # Files of the product that name a machine it did not invent, or point into
 # the development repository, with how many hits of each kind they hold.
-# Paths and counts only, never the text. One line per file, sorted by path
-# within its section:
+# Paths and counts only, never the text of a line; a path that is itself a
+# hit is listed as it is. One line per file, sorted by path within its
+# section:
 #     path<TAB>kind=count[<TAB>kind=count ...]
 # The test demands that the scan finds exactly these files, kinds and counts.
 # What that does not hold: a hit replaced by another of the same kind in a
@@ -626,7 +718,8 @@ HEADER = """\
 #     uv run --no-sync python -m tests.uninvented_machines --write
 # It refuses to add a file or a kind, or to raise a count, unless given
 # --allow-growth; it puts a new file in the first section and never moves an
-# entry between sections, which a person does.
+# entry between sections, which a person does. A renamed file is a new file
+# to it: rename the entry by hand, in its section and in order.
 # On a merge conflict in this file: take the base branch's list, then run the
 # command above without a flag.
 # Any other comment line, and any line not in this form, is refused.
@@ -663,7 +756,7 @@ def _parse_entries(lines: list[tuple[int, str]], source: str) -> Counts:
         path, *fields = raw.split("\t")
         if not fields:
             raise ValueError(f"{where}: an entry with no kind")
-        if path.split("/", 1)[0] in LEAVING or path == LIST_NAME:
+        if path.split("/", 1)[0] in UNREAD or path == LIST_NAME:
             raise ValueError(f"{where}: {path} is a place the check does not read")
         kinds: dict[str, int] = {}
         for item in fields:
@@ -744,6 +837,7 @@ def write_list(listed: Listed, path: Path | None = None) -> None:
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
             out.write(text)
+        os.chmod(temporary, 0o644)  # as git checks a file out; mkstemp gives 600
         os.replace(temporary, path)
     except BaseException:
         os.unlink(temporary)
