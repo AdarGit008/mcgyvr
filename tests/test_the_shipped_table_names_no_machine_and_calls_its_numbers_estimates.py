@@ -13,10 +13,9 @@ Promises:
      fact (a machine, a host, where or when a reading was taken) cannot enter
      the table without first being declared in code, where a reviewer reads
      it; the loader refuses an undeclared key as well;
-   * every object in the file is an entry of a declared level, or a model
-     row's ``capabilities`` map, so no key sits where the check above does not
-     reach; the loader refuses an object, or a list holding one, under any
-     key that holds a value rather than entries;
+   * every object in the file is an entry of a declared level, so no key sits
+     where the check above does not reach; the loader refuses an object, or a
+     list holding one, under any key that holds a value rather than entries;
    * a declared card class carries exactly an id, a label and a nominal memory
      size;
    * no text value, at any depth, has the shape of a calendar date, a network
@@ -114,9 +113,7 @@ def test_every_reading_in_the_file_names_a_class_the_table_declares() -> None:
 def test_every_reading_the_loader_hands_out_names_a_declared_class() -> None:
     table = load()
     declared = {c.id for c in table.card_classes}
-    readings = [
-        m for model in table.models for m in (*model.quality, *model.throughput)
-    ]
+    readings = [m for model in table.models for m in model.throughput]
 
     assert readings
     assert {m.card_class for m in readings} <= declared
@@ -132,8 +129,6 @@ def _entries(document: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any
     every key but the block's own declared notes names a backend.
     """
     yield "table", "the table", document
-    if "quality_metric" in document:
-        yield "quality metric", "quality_metric", document["quality_metric"]
     for index, entry in enumerate(document.get("card_classes", [])):
         yield "card class", f"card_classes[{index}]", entry
     for index, entry in enumerate(document.get("harness_caveats", [])):
@@ -179,11 +174,10 @@ def test_every_object_in_the_shipped_table_is_an_entry_of_a_declared_level() -> 
     carry keys no level declares."""
     document = _document()
     entries = {id(entry) for _, _, entry in _entries(document)}
-    scores = {id(m["capabilities"]) for m in document["models"] if "capabilities" in m}
     stray = [
         where
         for where, _, value in _walk(document)
-        if isinstance(value, dict) and id(value) not in entries | scores
+        if isinstance(value, dict) and id(value) not in entries
     ]
 
     assert not stray, "objects at no declared level:\n" + "\n".join(stray)

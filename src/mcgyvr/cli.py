@@ -120,16 +120,13 @@ def _capabilities(args: argparse.Namespace) -> int:
     else:
         print(f"Shipped models. {ESTIMATES_NOTICE} {classes}\n")
 
-    for model in sorted(models, key=lambda m: m.best_quality or 0, reverse=True):
-        quality = model.best_quality
-        score = f"{quality:.1%}" if quality is not None else "no estimate"
+    for model in models:
         backend = f" [{model.requires_backend} only]" if model.requires_backend else ""
-        print(
-            f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB  {score:>11}{backend}"
-        )
+        kept_out = "  not in a fit listing" if model.not_for_fit is not None else ""
+        print(f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB{backend}{kept_out}")
 
     if table.caveats:
-        print("\nHarness caveats (ways a naive re-run gets these figures wrong):")
+        print("\nHarness caveats (ways a naive reading or benchmark run goes wrong):")
         for caveat in table.caveats:
             print(f"  {caveat.id} [{caveat.severity}] {caveat.summary}")
     return 0

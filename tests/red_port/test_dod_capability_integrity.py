@@ -1,16 +1,16 @@
 """F7/F9 — the capability table is read honestly, bounded, and immutable.
 
 F7: a table missing a required key such as ``params_b`` is refused with a named
-:class:`~mcgyvr.capability.CapabilityTableError`, not a bare ``KeyError``. F9:
-``shipped_table()`` hands out one shared instance, and that instance is structurally
-immutable — a caller cannot mutate a model and change every later selection
-process-wide.
+:class:`~mcgyvr.capability.CapabilityTableError`, not a bare ``KeyError``. F9: a
+loaded table is structurally immutable — a caller cannot mutate a model and
+change what every later reader of the same table sees.
 """
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
@@ -30,9 +30,7 @@ def _model(**overrides: Any) -> dict[str, Any]:
         "params_b": 7.0,
         "vram_gb_working": 5.0,
         "weights_gb": 4.0,
-        "quality": [reading(CLASS, humaneval_plus_pass1=0.6)],
         "throughput_tok_s": [reading(CLASS, value=100.0)],
-        "capabilities": {"algorithm": 0.8},
     }
     row.update(overrides)
     return row
@@ -48,21 +46,15 @@ def test_a_missing_required_key_is_a_named_error(tmp_path: Path) -> None:
         load(_table(tmp_path, [row]))
 
 
-def test_the_shipped_table_is_structurally_immutable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import mcgyvr.capability as capability
+def test_a_loaded_table_is_structurally_immutable(tmp_path: Path) -> None:
+    from mcgyvr.capability import load
 
-    monkeypatch.setattr(capability, "table_path", lambda: _table(tmp_path, [_model()]))
-    capability.shipped_table.cache_clear()
-    table = capability.shipped_table()
+    table = load(_table(tmp_path, [_model()]))
 
     assert isinstance(table.models, tuple)
     assert isinstance(table.caveats, tuple)
     model = table.models[0]
-    assert isinstance(model.quality, tuple)
     assert isinstance(model.throughput, tuple)
-    # ``capabilities`` is a read-only mapping; assignment is refused at runtime.
-    mutable = cast(dict[str, float], model.capabilities)
-    with pytest.raises(TypeError):
-        mutable["algorithm"] = 0.9
+    # A model is a frozen record; assignment is refused at runtime.
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        model.vram_gb_working = 0.5  # type: ignore[misc]
