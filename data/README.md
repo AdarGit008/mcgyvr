@@ -7,10 +7,13 @@ mcgyvr can be asked to do, at the end of this file).
 
 ## Capability data
 
-`capability-table.json` is the decision data behind `mcgyvr init`. It exists
-so that setup can propose worker bindings from detected hardware **without
-benchmarking the user's machine**, which would turn an install into a
-benchmarking session.
+`capability-table.json` holds estimates of what a model costs to serve.
+`mcgyvr capabilities` lists them, and `mcgyvr emit` sizes a unit from the row
+whose `id` equals the unit's model, unless a unit in fleet.yaml declares that
+model (under `launch`, or as `room_mib`). `mcgyvr init` does not read the
+table: it binds the models running servers list. The estimates exist so that
+serving can be sized **without benchmarking the user's machine**, which would
+turn an install into a benchmarking session.
 
 ## What its numbers are
 

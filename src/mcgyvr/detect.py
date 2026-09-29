@@ -1,10 +1,8 @@
 """What can actually run the work, detected without benchmarking it.
 
-``mcgyvr init`` proposes worker bindings from the shipped capability table
-(``data/capability-table.json``); this module supplies the other half of
-that decision — what hardware and which backends are actually reachable. It
-measures nothing: benchmarking would turn a 30-second install into an hour,
-which is the whole reason the table ships estimates by card class instead.
+``mcgyvr init`` binds the models that running servers list; this module finds
+those servers and what each one lists, and the cards this machine has. It
+measures nothing: benchmarking would turn a 30-second install into an hour.
 
 Two rules shape everything below:
 
@@ -235,10 +233,8 @@ class Backend:
         """Whether this backend already holds a model, by exact id only.
 
         A server may report a path, a bare name or a tagged name for the same
-        weights, and they are not interchangeable. An exact match is
-        the only claim made here — a near match is reported as absent, since
-        proposing a pull that turns out to be unnecessary is cheaper than
-        binding a model that is not there.
+        weights, and they are not interchangeable. An exact match is the only
+        claim made here — a near match is reported as absent.
         """
         return model_id in self.models
 
@@ -301,9 +297,8 @@ class Detection:
     def has_remote_backend(self) -> bool:
         """Whether any reachable backend is on another machine.
 
-        The fact that decides whether this machine's own GPU is the right
-        thing to size a proposal against: with work being served elsewhere,
-        the local card is not a constraint on it.
+        Such a backend serves from that machine's card, which this machine's
+        card tool does not see.
         """
         return any(not b.is_local for b in self.backends)
 
