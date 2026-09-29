@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
-import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -384,24 +383,11 @@ def test_the_wheel_ships_exactly_the_engine_files_that_are_pinned() -> None:
 
     A file shipped but unpinned would be unreviewed code reaching the sandbox;
     a file pinned but unshipped would be a check with nothing behind it in an
-    installed mcgyvr — and a checkout would not notice, because there the
-    engine is read out of `records/` where the *whole* vendored project sits,
-    presentation modules and their three third-party dependencies included.
-    Only these four are stdlib-only, and only these four ship.
+    installed mcgyvr. The engine sits inside the package, so a checkout and a
+    wheel read the same files. Only these four are stdlib-only, and only these
+    four ship.
     """
-    pyproject = tomllib.loads(
-        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(
-            encoding="utf-8"
-        )
-    )
-    force_include = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"][
-        "force-include"
-    ]
-    packaged = {
-        Path(target).name
-        for target in force_include.values()
-        if "gate/_engine/ghostcall" in target and target.endswith(".py")
-    }
+    packaged = {p.name for p in engine_dir().glob("*.py")}
     assert packaged == set(ENGINE_DIGESTS)
 
 
