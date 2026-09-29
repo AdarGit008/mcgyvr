@@ -73,6 +73,11 @@
       "says": "How many decimal gigabytes make one GiB, to carry the table's decimal figures into sizing done in GiB.",
       "reason": "a definition or arithmetic"
     },
+    "capability.py:SCHEMA_VERSION": {
+      "kind": "choice",
+      "says": "The version of the capability table's format this code reads; a table of another version is refused by name.",
+      "reason": "a code or version other programs or files read"
+    },
     "capacity.py:_POLL_SECONDS": {
       "kind": "choice",
       "says": "How often, in seconds, a waiter looks again for a free slot; far shorter than a dispatch, so a freed slot is taken promptly.",
