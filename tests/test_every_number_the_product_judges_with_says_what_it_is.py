@@ -405,7 +405,7 @@ def test_a_file_newly_marked_changing_now_is_named() -> None:
 
 
 def _stale_in_changing_now(covered: dict[str, str]) -> set[str]:
-    return set()
+    return {path for path in FILES_CHANGING_NOW if covered.get(path) != CHANGING_NOW}
 
 
 def test_the_pin_has_no_file_that_left_changing_now() -> None:
