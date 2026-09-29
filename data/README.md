@@ -9,10 +9,13 @@ at the end of this file).
 
 ## Capability data
 
-`capability-table.json` is the decision data behind `mcgyvr init`. It exists
-so that setup can propose worker bindings from detected hardware **without
-benchmarking the user's machine**, which would turn an install into a
-benchmarking session.
+`capability-table.json` holds estimates of what a model costs to serve.
+`mcgyvr capabilities` lists them, and `mcgyvr emit` sizes a unit from the row
+whose `id` equals the unit's model, unless a unit in fleet.yaml declares that
+model, for example under `launch` or as `room_mib`. `mcgyvr init` does not read
+the table: it binds the models running servers list. The estimates exist so that
+serving can be sized **without benchmarking the user's machine**, which would
+turn an install into a benchmarking session.
 
 ## What its numbers are
 
@@ -76,7 +79,7 @@ instructive and repeatable:
 ## Revising the estimates
 
 There is no regeneration script: the file is edited by hand when the project
-revises its estimates. `mcgyvr init` reads it and never writes it. When taking
+revises its estimates. No mcgyvr command writes it. When taking
 new figures, use an OpenAI-compatible endpoint (llama-server or vLLM) rather
 than a backend-native generate API, and pin the quantisation explicitly —
 CAV-01 and CAV-02 are both consequences of not doing so.

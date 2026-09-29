@@ -13,10 +13,11 @@ Two readers make that promise here:
   that is JSON of another shape than a model listing (a list, a number, an
   object with no list of models) is not a server that failed to answer: it
   answered at the address asked, so it is a backend that names no model. That
-  is the difference :mod:`mcgyvr.initialize` and :mod:`mcgyvr.propose` act on:
-  a reachable backend that names no model is a place a model may be pulled
-  onto, and nothing listening is not. (JSON ``null`` alone reads as nothing
-  listening, because the reader's ``None`` stands for both.)
+  is a difference :mod:`mcgyvr.initialize` acts on: its refusal names a
+  reachable backend that names no model as a server that lists none, and
+  offers to load a model into it, where nothing listening is not named at
+  all. (JSON ``null`` alone reads as nothing listening, because the reader's
+  ``None`` stands for both.)
 * :mod:`mcgyvr.fleet.harness`, which measures a unit at its address. Its model
   list and its requests fail as :class:`~mcgyvr.fleet.harness.HarnessError`
   naming the address, and so does a measurement given JSON of another shape,
