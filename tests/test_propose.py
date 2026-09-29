@@ -169,7 +169,7 @@ def test_a_second_listing_of_a_taken_name_is_not_bound_and_is_named() -> None:
 )
 def test_an_id_a_setup_cannot_carry_is_not_bound_and_is_named(model: str) -> None:
     """Blank, space at either end, or a character that is not printable: the
-    note names the id and says which of these it is, in words true of it."""
+    note names the id and says it is one of these."""
     machine = with_server(
         shape("one-card"), kind=KINDS[0], models=(model, "example-model-small")
     )

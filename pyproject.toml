@@ -87,6 +87,7 @@ packages = ["src/mcgyvr"]
 [tool.hatch.build.targets.wheel.force-include]
 "data/capability-table.json" = "mcgyvr/data/capability-table.json"
 "data/task-catalog.json" = "mcgyvr/data/task-catalog.json"
+"data/numbers.json" = "mcgyvr/data/numbers.json"
 
 [tool.ruff]
 line-length = 88
