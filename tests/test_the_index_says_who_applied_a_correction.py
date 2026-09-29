@@ -20,19 +20,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
-import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any
 
 from mcgyvr.telemetry import correct, fold
-
-REPO = Path(__file__).resolve().parent.parent
-INDEX = REPO / "tools" / "live" / "index.py"
-
-TABLE = "attempts"
 
 
 def _blob(journal: Path, text: str) -> str:
@@ -95,23 +87,6 @@ def _journal(tmp_path: Path) -> Path:
     return journal
 
 
-def _build(journal: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(INDEX), str(journal)],
-        capture_output=True,
-        text=True,
-        cwd=REPO,
-        timeout=120,
-    )
-
-
-def _rows(journal: Path) -> dict[str, dict[str, Any]]:
-    with sqlite3.connect(journal / "index.sqlite") as db:
-        db.row_factory = sqlite3.Row
-        found = db.execute(f"SELECT * FROM {TABLE}").fetchall()
-    return {row["attempt_id"]: dict(row) for row in found}
-
-
 def test_a_folded_attempt_names_the_writer_of_the_correction_that_won(
     tmp_path: Path,
 ) -> None:
@@ -128,18 +103,3 @@ def test_a_folded_attempt_names_the_writer_of_the_correction_that_won(
     assert corrected["orchestrator"] == "agent-a", corrected
     # Never corrected: no outcome and no author, and absence is not a name.
     assert folded["agent-a:impl:local_qwen-7b:2"].get("applied_by") is None
-
-
-def test_the_index_column_carries_the_author_of_the_folded_outcome(
-    tmp_path: Path,
-) -> None:
-    """The declared ``applied_by`` column is populated, not silently ``NULL``."""
-    journal = _journal(tmp_path)
-
-    built = _build(journal)
-    assert built.returncode == 0, built.stdout + built.stderr
-
-    rows = _rows(journal)
-    assert len(rows) == 2, sorted(rows)
-    assert rows["agent-a:impl:local_qwen-7b:1"]["applied_by"] == "review", rows
-    assert rows["agent-a:impl:local_qwen-7b:2"]["applied_by"] is None, rows

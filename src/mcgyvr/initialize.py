@@ -40,6 +40,7 @@ from mcgyvr.config import (
     CLEANUP_FIELDS,
     DELIVERY_FIELDS,
     FLEET_FILENAME,
+    GATE_FIELDS,
     JOURNAL_FIELDS,
     POLICY_FILENAME,
     SCHEMA,
@@ -193,33 +194,129 @@ def _api_setup_rejected(api_units: Sequence[ApiUnit], why: ConfigError) -> str:
     )
 
 
-def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
-    """Say what was tried, what is missing, and what to do about it."""
+def _listing(names: Sequence[str]) -> str:
+    """``A``, ``A and B``, ``A, B and C``."""
+    if len(names) < 2:
+        return "".join(names)
+    return f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def _nothing_to_bind(
+    detection: Detection,
+    why: ConfigError,
+    table: CapabilityTable,
+    proposal: Proposal,
+) -> str:
+    """Say what was tried, what is missing, and what to do about it.
+
+    Starting a local backend is offered whenever none answers here, also on a
+    machine with no card of known size, where it is a step towards binding by
+    hand and not a fix on its own. A unit bound by hand, which states the card
+    room it needs, is offered for a card whose memory size was not determined,
+    and for a machine with no GPU this build can see while a local backend
+    answers. A backend on another machine that holds a model is given the
+    reason the proposal gave for not binding that model there.
+    """
+    measured = {model.id for model in table.models if model.is_measured}
+    local = [b for b in detection.backends if b.is_local]
+    local_holders = [b.name for b in local if measured & set(b.models)]
+    remote_holders = [
+        b for b in detection.backends if not b.is_local and measured & set(b.models)
+    ]
     if detection.backends:
         found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
-        situation = (
-            f"Reachable backends: {found} — but nothing in the capability "
-            f"table can be bound to them, and none of them reports holding a "
-            f"measured model."
-        )
+        if not local_holders and not remote_holders:
+            situation = (
+                f"Reachable backends: {found} — but nothing in the capability "
+                f"table can be bound to them, and none of them reports holding "
+                f"a model the table has an estimate for."
+            )
+        else:
+            said = [f"Reachable backends: {found}."]
+            if local_holders:
+                holds = "reports" if len(local_holders) == 1 else "report"
+                them = "it" if len(local_holders) == 1 else "them"
+                if detection.largest_vram_gb is None:
+                    said.append(
+                        f"{_listing(local_holders)} {holds} holding a model the "
+                        f"table has an estimate for, but a backend on this "
+                        f"machine is bound only to a model that fits this "
+                        f"machine's card, and no card here has a known memory "
+                        f"size to fit it against."
+                    )
+                else:
+                    said.append(
+                        f"{_listing(local_holders)} {holds} holding a model the "
+                        f"table has an estimate for, but nothing in the "
+                        f"capability table that fits this machine's card can "
+                        f"be bound to {them}."
+                    )
+            reasons = {r.model: r.reason for r in proposal.rejected}
+            for backend in remote_holders:
+                for model in (m for m in backend.models if m in measured):
+                    reason = reasons.get(model)
+                    if reason is not None:
+                        said.append(
+                            f"{backend.name} on {backend.host} reports holding "
+                            f"{model}, which is not bound there: {reason.rstrip('.')}."
+                        )
+            situation = " ".join(said)
     else:
         situation = "No local backend answered on any default endpoint."
 
-    vram = (
-        f"{detection.largest_vram_gb:g} GB of VRAM"
-        if detection.largest_vram_gb is not None
-        else "no GPU this build can see"
+    unsized = [gpu.name for gpu in detection.gpus if gpu.vram_gb is None]
+    if detection.largest_vram_gb is not None:
+        vram = f"{detection.largest_vram_gb:g} GB of VRAM"
+    elif len(unsized) == 1:
+        vram = f"a GPU whose memory size was not determined ({unsized[0]})"
+    elif unsized:
+        vram = f"GPUs whose memory sizes were not determined ({_listing(unsized)})"
+    else:
+        vram = "no GPU this build can see"
+
+    if len(unsized) == 1:
+        cause = (
+            f"the memory size of {unsized[0]} was not determined, so init "
+            f"sizes no model against it."
+        )
+    elif unsized:
+        cause = (
+            f"the memory sizes of {_listing(unsized)} were not determined, so "
+            f"init sizes no model against them."
+        )
+    elif not detection.gpus and local:
+        cause = (
+            "there is no GPU this build can see, so init sizes no model against one."
+        )
+    else:
+        cause = ""
+    by_hand = ""
+    if cause:
+        text = (
+            f"bind a unit by hand: {cause} A unit in fleet.yaml under `units` "
+            f"states its `address`, the `model` it serves and `room_mib`, the "
+            f"card room it needs in MiB, measured or stated; `ladder` in "
+            f"policy.yaml names it, or"
+        )
+        lines = textwrap.wrap(text, width=70)
+        by_hand = "  - " + "\n    ".join(lines) + "\n"
+    start = (
+        ""
+        if local
+        else (
+            "  - start a local backend (llama-server, vLLM, LM Studio, "
+            "TGI) and re-run, or\n"
+        )
     )
     return (
         f"Refusing to write a config that cannot load.\n\n"
         f"{situation} With {vram}, no unit can be proposed, and a config "
         f"with no unit or no ladder dispatches nowhere.\n\n"
         f"The loader would reject it with: {why}\n\n"
-        f"Fix one of these, then re-run:\n"
-        f"  - start a local backend (llama-server, vLLM, LM Studio, "
-        f"TGI) and re-run, or\n"
+        f"Fix one of these:\n"
+        f"{by_hand}{start}"
         f"  - name the rig that serves your models, if it is not this one\n"
-        f"    (`mcgyvr init --host srv1 --host srv2`), or\n"
+        f"    (`mcgyvr init --host <name>`), or\n"
         f"  - bind a hosted API unit, which needs no GPU and no backend:\n\n"
         f"      mcgyvr init --api model=claude-opus-5,"
         f"address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY\n\n"
@@ -416,7 +513,7 @@ def build(
     ``api_units`` are the hosted units the operator named on the command line.
     They are not detected and not proposed, because neither question applies:
     a hosted endpoint answers whether or not this machine has a card, and no
-    capability measurement here describes it. They enter as units like any
+    estimate in the capability table describes it. They enter as units like any
     other, which is what makes the result the same two files any other init
     writes rather than a second kind of output.
     """
@@ -472,6 +569,9 @@ def build(
         # A knob whose off position is a number is better read than inferred.
         "breadth": _defaults(BREADTH_FIELDS, "draws"),
         "cleanup": _defaults(CLEANUP_FIELDS, "enabled"),
+        # Written at its default so the file shows what the gate refuses and
+        # where to relax it, rather than a commented key reading as unset.
+        "gate": _defaults(GATE_FIELDS, "param_mutation"),
         # Spelled out for the same reason: the journal is where a user's runs
         # are recorded, and a key they can see is a key they can move.
         "journal": _defaults(JOURNAL_FIELDS, "dir"),
@@ -505,16 +605,30 @@ def _decisions(
     api_units: Sequence[ApiUnit] = (),
 ) -> tuple[str, ...]:
     decisions: list[str] = []
-    if detection.gpus:
-        gpu = detection.gpus[0]
-        scope = (
-            " — this machine's card, which is not what the remote rungs below run on"
-            if detection.has_remote_backend
+    scope = (
+        " — this machine's card, which is not what the remote rungs below run on"
+        if detection.has_remote_backend
+        else ""
+    )
+    # The card sizing used is named first, so the line cannot name one card
+    # while the units below are sized against another. A card whose size was
+    # not determined is named too, and said to be sized against by nothing.
+    sizing = detection.sizing_gpu
+    if sizing is not None:
+        which = (
+            ", the largest card of known size, which models are sized against"
+            if len(detection.gpus) > 1
             else ""
         )
         decisions.append(
-            f"GPU {gpu.name} with {gpu.vram_gb:g} GB, via {gpu.how}{scope}."
+            f"GPU {sizing.name} with {sizing.size}, via {sizing.how}{which}{scope}."
         )
+    for gpu in detection.gpus:
+        if gpu.vram_gb is None:
+            decisions.append(
+                f"GPU {gpu.name} with {gpu.size}, via {gpu.how}: no model is "
+                "sized against it."
+            )
     for backend in detection.backends:
         where = "here" if backend.is_local else f"on {backend.host}"
         decisions.append(
@@ -530,7 +644,8 @@ def _decisions(
         machine = f" on {rung.host}" if rung.host else ""
         decisions.append(
             f"{rung.name} -> {rung.model} on {rung.source}{machine}: "
-            f"{rung.quality:.1%} HumanEval+ pass@1, {rung.vram_gb:g} GB, "
+            f"an estimated {rung.quality:.1%} HumanEval+ pass@1 in about "
+            f"{rung.vram_gb:g} GB, "
             f"{presence}."
         )
     for api in api_units:
@@ -690,7 +805,7 @@ def initialize(
         # "start a local backend" would send someone to fix the wrong thing.
         if asked:
             raise InitError(_api_setup_rejected(asked, exc)) from exc
-        raise InitError(_nothing_to_bind(found, exc)) from exc
+        raise InitError(_nothing_to_bind(found, exc, capability, proposal)) from exc
 
     fleet_path = path / FLEET_FILENAME
     policy_path = path / POLICY_FILENAME

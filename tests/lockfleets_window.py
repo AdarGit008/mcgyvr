@@ -598,12 +598,5 @@ class Window:
         return output
 
 
-def frozen_window(root: Path, **tree: Any) -> Window:
-    """A tree, its use frozen, and a window object ready to write."""
-    make_tree(root, **tree)
-    plan_module().freeze(root, USE)
-    return Window(root)
-
-
 def context(window: Window) -> Any:
     return assemble_module().Context.load(window.root, USE, str(window.journal))

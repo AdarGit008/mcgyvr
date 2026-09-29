@@ -53,10 +53,11 @@ from mcgyvr.escalate import (
 )
 from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
+from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.preflight import reply_cap
 from mcgyvr.gate.semantic import SemanticCheck
-from mcgyvr.gate.typecheck import TypeCheck
+from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, Request, RunnerError, dispatch
 from mcgyvr.sandbox.base import nested_git
@@ -1298,6 +1299,10 @@ def gate_workspace(
     asked for — the acceptance commands, and ``param-mutation``, which rejects
     a function for mutating its caller's object and has to stand down where the
     contract *ordered* that.
+
+    With no ``adapters`` handed in, the gate's are the ones ``config`` asks for
+    (:func:`gate_adapters`), built here rather than handed down by the driver:
+    the adapters :func:`worker_attempt` holds also decide what a worker is sent.
     """
     nested = nested_git(sandbox.workspace)
     if nested is not None:
@@ -1319,7 +1324,7 @@ def gate_workspace(
             )
         )
     acceptance = acceptance_for(contract, sandbox, config=config)
-    return Gate(adapters).run(
+    return Gate(adapters if adapters is not None else gate_adapters(config)).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
@@ -1332,3 +1337,20 @@ def gate_workspace(
         semantic=SemanticCheck(sandbox=sandbox),
         contract_text=contract.prose,
     )
+
+
+def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:
+    """The gate's language adapters as ``config`` asks for them.
+
+    The only setting they read is ``gate.param_mutation``; a caller holding no
+    config gets the strict reading, the same pair ``Gate()`` builds on its own.
+    That pair is spelled in four other places (``gate/runner.py``,
+    ``deliver.py``, ``orchestrator/decompose.py``, ``worker/bundle.py``); the
+    last two only ask which files an adapter owns, which no setting changes.
+    """
+    mode = (
+        config.get("gate.param_mutation", ParamMutation.REFUSE)
+        if config is not None
+        else ParamMutation.REFUSE
+    )
+    return (PythonAdapter(param_mutation=mode), JavaScriptAdapter())

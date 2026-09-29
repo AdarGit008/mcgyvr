@@ -48,3 +48,23 @@ jobs:
       # A separate job would not be required.
       - name: check (lint, typecheck, docs, test)
         run: make check
+  # The package supports every Python from its `requires-python` floor up, and
+  # a module can import on the floor and not on a newer one. This job runs the
+  # test file that imports every module of the package, and compiles every
+  # source file, on newer supported Pythons. It runs beside `test`, shares
+  # nothing with it, and is not a required check.
+  import-newer-python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.28"
+          python-version: ${{ matrix.python-version }}
+      - name: import every module of the package
+        run: |
+          uv sync --frozen
+          uv run --no-sync pytest tests/test_every_module_of_the_package_imports_under_every_supported_python.py

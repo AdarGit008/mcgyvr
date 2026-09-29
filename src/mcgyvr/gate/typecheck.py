@@ -45,6 +45,9 @@ So the two families ported here carry the split with them:
   caller passed in changes state the caller still owns; the caller's next read
   is wrong, and no amount of reformatting makes it right. It rejects, so it is
   reported on the ``structure`` axis the adapter's existing hazards already use.
+  That is the default and not the only answer: a setup may turn the family to
+  ``report`` (the same finding, on the ``style`` axis) or ``skip`` (not run)
+  with ``gate.param_mutation`` — :class:`ParamMutation`.
 * ``type-form`` — ``from typing import List`` where ``list[int]`` is the pinned
   form — is **style**. The code is correct. Rejecting it spends a model call, a
   gate run and a rung of the ladder to change six characters that a tool
@@ -109,6 +112,7 @@ from collections import Counter
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -134,8 +138,30 @@ CORRECTNESS = "structure"
 
 #: The axis a style hazard reports on: real, line-attributed, and outside the
 #: verdict. Findings carrying this check belong in
-#: :attr:`~mcgyvr.gate.GateResult.observations`.
+#: :attr:`~mcgyvr.gate.GateResult.observations`. It is the gate's one axis for
+#: "said out loud, never fatal", so a correctness finding a setup asked to have
+#: reported rather than refused (:attr:`ParamMutation.REPORT`) travels on it
+#: too, under its own code.
 STYLE = "style"
+
+#: The code every ``param-mutation`` finding carries, on whichever axis.
+PARAM_MUTATION = "PARAM-MUTATION"
+
+
+class ParamMutation(StrEnum):
+    """What the gate does with a ``param-mutation`` finding.
+
+    A setup states it as ``gate.param_mutation``, and the default is the strict
+    reading. ``REPORT`` keeps the finding and moves it to :data:`STYLE`, where
+    the gate lists it among its observations and does not reject on it.
+    ``SKIP`` does not run the family. Under every mode a contract that asks for
+    in-place work stands the family down (:func:`_asks_for_mutation`).
+    """
+
+    REFUSE = "refuse"
+    REPORT = "report"
+    SKIP = "skip"
+
 
 #: Lint rule codes that report the ``type-form`` family under another name, and
 #: therefore belong on :data:`STYLE` rather than on the rejecting ``lint``
@@ -202,7 +228,8 @@ def _python_adapter() -> PythonAdapter:
     module-level import would close that cycle and break
     ``import mcgyvr.gate`` outright, so the direction that runs once per gate
     rung is the one deferred. Nothing is cached: ``sys.modules`` already is the
-    cache, and an adapter is stateless.
+    cache, and neither question asked of the adapter here reads the one setting
+    an adapter carries, so the default one answers them for every setup.
     """
     from mcgyvr.gate.adapters.python import PythonAdapter
 
@@ -529,11 +556,11 @@ _MUTATING_METHODS = frozenset(
 
 #: Wording in a contract that *asks* for mutation. A contract that says "sort
 #: the list in place" has told the worker to do the thing this family rejects,
-#: and rejecting it anyway would make the contract unsatisfiable. Not
-#: hypothetical: ``tools/bundle/python/tasks/t11`` says "keep appending to it in
-#: place and returning that same list", and its own reference solution is the
-#: ``if tags is None: tags = []`` shape this family now flags. Whether that task
-#: can be solved at all rests on the prose reaching here.
+#: and rejecting it anyway would make the contract unsatisfiable. A contract
+#: that says "keep appending to it in place and return that same list" is
+#: asking for the ``if tags is None: tags = []`` shape this family flags, and
+#: whether it can be satisfied at all rests on the prose reaching here. The
+#: stand-down holds under every :class:`ParamMutation` mode.
 #:
 #: Word-boundary rather than substring, because the opposite wording must not
 #: stand the rung down: "do not mutate the caller's list" *forbids* the very
@@ -741,6 +768,7 @@ def compliance_findings(
     added_lines: frozenset[int],
     *,
     contract_text: str = "",
+    param_mutation: ParamMutation = ParamMutation.REFUSE,
 ) -> list[Finding]:
     """The three AST families, attributed to worker-added lines.
 
@@ -756,6 +784,10 @@ def compliance_findings(
     strict reading. It does *not* stand ``unimportable`` down, and there is no
     wording that could: a contract cannot ask for a module that will not load.
 
+    ``param_mutation`` is the setup's word on the mutation family and on
+    nothing else (:class:`ParamMutation`): the default rejects, ``REPORT``
+    carries the same finding on :data:`STYLE`, and ``SKIP`` does not run it.
+
     It reaches here from :meth:`~mcgyvr.gate.Gate.run` through
     :meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks`.
     """
@@ -763,17 +795,22 @@ def compliance_findings(
         Finding(check=STYLE, path=path, line=line, code="TYPE-FORM", message=message)
         for line, message in _type_form(tree)
     ]
-    correctness = [
+    mutation_axis = STYLE if param_mutation == ParamMutation.REPORT else CORRECTNESS
+    mutations = [
         Finding(
-            check=CORRECTNESS,
+            check=mutation_axis,
             path=path,
             line=line,
-            code="PARAM-MUTATION",
+            code=PARAM_MUTATION,
             message=message,
         )
-        for line, message in _param_mutation(tree, contract_text)
+        for line, message in (
+            []
+            if param_mutation == ParamMutation.SKIP
+            else _param_mutation(tree, contract_text)
+        )
     ]
-    correctness += [
+    unimportable = [
         Finding(
             check=CORRECTNESS,
             path=path,
@@ -783,7 +820,7 @@ def compliance_findings(
         )
         for line, message in sorted(_unimportable(tree).items())
     ]
-    return [f for f in (*correctness, *style) if f.line in added_lines]
+    return [f for f in (*mutations, *unimportable, *style) if f.line in added_lines]
 
 
 def _type_form(tree: ast.Module) -> list[tuple[int, str]]:

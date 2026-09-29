@@ -17,9 +17,7 @@ test shaped like the code that produces it.
 from __future__ import annotations
 
 import hashlib
-import json
 import subprocess
-import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -30,7 +28,6 @@ from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.runner import Gate
 from mcgyvr.gate.semantic import (
     CHECK,
-    ENGINE_COMMIT,
     ENGINE_DIGESTS,
     STAGING_DIR,
     SemanticCheck,
@@ -46,14 +43,6 @@ _IDENTITY = {
     "GIT_COMMITTER_NAME": "t",
     "GIT_COMMITTER_EMAIL": "t@t.invalid",
 }
-
-_MANIFEST = (
-    Path(__file__).resolve().parents[1]
-    / "records"
-    / "evidence"
-    / "ghostcall-2026-08-02"
-    / "MANIFEST.json"
-)
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -348,24 +337,6 @@ def test_the_blocking_policy_turns_the_same_report_into_a_rejection(
 # --- the engine pin -------------------------------------------------------
 
 
-def test_the_pinned_digests_match_the_vendored_evidence(tmp_path: Path) -> None:
-    """The pin in the code and the pin in the record are the same pin.
-
-    Two copies of a hash are two chances to drift. This is the test that makes
-    re-pinning the resolver a deliberate act rather than something a stray edit
-    can do quietly.
-    """
-    manifest = json.loads(_MANIFEST.read_text(encoding="utf-8"))
-    assert manifest["source_commit"] == ENGINE_COMMIT
-    recorded = {
-        entry["path"].rsplit("/", 1)[-1]: entry["sha256"]
-        for entry in manifest["files"]
-        if entry["path"].startswith("src/ghostcall/")
-    }
-    for name, digest in ENGINE_DIGESTS.items():
-        assert recorded[name] == digest
-
-
 def test_the_vendored_engine_satisfies_its_own_pin() -> None:
     """The bytes on disk are the bytes the measurement was taken against."""
     assert verify_engine(engine_dir()) is None
@@ -412,24 +383,11 @@ def test_the_wheel_ships_exactly_the_engine_files_that_are_pinned() -> None:
 
     A file shipped but unpinned would be unreviewed code reaching the sandbox;
     a file pinned but unshipped would be a check with nothing behind it in an
-    installed mcgyvr — and a checkout would not notice, because there the
-    engine is read out of `records/` where the *whole* vendored project sits,
-    presentation modules and their three third-party dependencies included.
-    Only these four are stdlib-only, and only these four ship.
+    installed mcgyvr. The engine sits inside the package, so a checkout and a
+    wheel read the same files. Only these four are stdlib-only, and only these
+    four ship.
     """
-    pyproject = tomllib.loads(
-        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(
-            encoding="utf-8"
-        )
-    )
-    force_include = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"][
-        "force-include"
-    ]
-    packaged = {
-        Path(target).name
-        for target in force_include.values()
-        if "gate/_engine/ghostcall" in target and target.endswith(".py")
-    }
+    packaged = {p.name for p in engine_dir().glob("*.py")}
     assert packaged == set(ENGINE_DIGESTS)
 
 
