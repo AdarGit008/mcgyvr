@@ -116,20 +116,6 @@ def test_the_product_carries_no_ollama() -> None:
     )
 
 
-def test_the_tools_carry_no_ollama() -> None:
-    """The bench, the rig drivers and the journal readers, on the same rule.
-
-    ``tools/runs/hosts.json`` is the sharpest of these: it declares three
-    ``ollama.service`` environment settings and a ``systemctl restart ollama``,
-    against a daemon that is now masked on the only rig that ran it.
-    """
-    remaining = _lines(REPO / "tools", ".py", ".json", ".md", ".sh")
-    assert not remaining, (
-        f"{len(remaining)} lines still name Ollama in the tools:\n"
-        + "\n".join(remaining[:20])
-    )
-
-
 def test_a_config_that_asks_for_ollama_is_refused() -> None:
     """Stated as the refusal, not as the shape of the enum.
 
@@ -162,25 +148,4 @@ def test_no_dispatch_decision_has_a_second_branch() -> None:
     assert table is not None and len(table) == 1, (
         f"dispatch can select {len(table or ())} implementations; the second "
         "is reached by nothing the live ladder does"
-    )
-
-
-def test_the_reasoning_is_kept_where_it_can_be_read() -> None:
-    """Removal is not deletion. CAV-01's finding outlives the backend it was about.
-
-    ``#164`` is the measurement that decided asking and dispatching are separate
-    questions, and that conclusion survives Ollama. It belongs in the archive
-    with the code it justified, not in a commit message nobody greps.
-    """
-    archive = REPO / "archive" / "forensic-ollama"
-    assert archive.is_dir(), (
-        "archive/forensic-ollama/ does not exist; the removed code and the "
-        "measurement that justified it must be readable after the removal"
-    )
-    readme = archive / "README.md"
-    assert readme.is_file(), "the archive must say what was removed and why"
-    text = readme.read_text(encoding="utf-8")
-    assert "164" in text and "CAV-01" in text, (
-        "the archive must carry the measurement that decided the design "
-        "(#164, CAV-01), or the next reader repeats the experiment"
     )

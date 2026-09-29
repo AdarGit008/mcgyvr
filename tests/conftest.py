@@ -13,11 +13,10 @@ from __future__ import annotations
 
 import importlib.util
 import ipaddress
-import json
 import socket
 import sys
 import types
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -197,41 +196,6 @@ def _load_instruments() -> types.ModuleType:
 
 
 instruments = _load_instruments()
-
-
-@pytest.fixture
-def live_instruments(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[types.ModuleType]:
-    """The real declaration with every set un-retired and drawn from by nobody.
-
-    Most sets in ``tools/instruments.json`` are retired, so the machinery that
-    has nothing to do with retirement (run identity, resume refusal, the cap a
-    run records) needs a live set to exercise itself on. This gives it one, by
-    editing the flags rather than the sets: the tests then read as "with a live
-    declaration, resuming onto another worker is still refused", and the
-    refusal under the real declaration stays a fact about the data instead of a
-    fact about the code.
-    """
-    doc = json.loads((REPO / "tools" / "instruments.json").read_text(encoding="utf-8"))
-    for entry in doc["sets"]:
-        entry["retired"] = None
-        entry["trainable"] = False
-    declaration = tmp_path / "instruments.json"
-    declaration.write_text(json.dumps(doc), encoding="utf-8")
-    # Two halves, and both are needed. The attribute covers every consumer that
-    # already holds this module; the ``sys.modules`` entry covers the ones that
-    # load a rig *inside* the test body — the by-path shims take whatever is in
-    # the slot, and other test modules put their own copy there at collection
-    # time. Patching only the attribute leaves those reading the real
-    # declaration and wondering why the guard still fired.
-    monkeypatch.setitem(sys.modules, "instruments", instruments)
-    monkeypatch.setattr(instruments, "DECLARATION", declaration)
-    instruments.declared.cache_clear()
-    try:
-        yield instruments
-    finally:
-        instruments.declared.cache_clear()
 
 
 @pytest.fixture(autouse=True)

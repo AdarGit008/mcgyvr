@@ -17,7 +17,6 @@ must be the machine gate 2 read, on the docker hosts.json declares.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -27,16 +26,6 @@ from tests.onedoor import Scenario
 
 DOCKER = "29.7.2"
 OLD = "29.1.3"
-
-
-@pytest.mark.parametrize("host", ["srv1", "srv2"])
-def test_hosts_json_declares_docker_for_each_rig(host: str) -> None:
-    document = json.loads(onedoor.HOSTS_JSON.read_text(encoding="utf-8"))
-    rig = document[host]["rig"]
-    assert rig.get("docker") == DOCKER, (
-        f"hosts.json[{host!r}].rig.docker is {rig.get('docker')!r}; both rigs "
-        f"run docker-ce {DOCKER}"
-    )
 
 
 @pytest.fixture

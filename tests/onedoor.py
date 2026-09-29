@@ -68,13 +68,10 @@ SERVING_SRC = REPO / "src" / "mcgyvr" / "serving"
 BIN = SERVING_SRC / "gate-scripts" / "bin"
 DOOR_REL = Path("src") / "mcgyvr" / "serving" / "run.py"
 PRODUCT_PY = REPO / "tools" / "bench" / "product.py"
-COMMON_SH = RUNS / "_common.sh"
-ROWS_PY = RUNS / "rows.py"
 WORKLOAD_PY = RUNS / "workload.py"
 HOSTS_JSON = RUNS / "hosts.json"
 DRIVERS = RUNS / "drivers"
 CAMPAIGNS = RUNS / "campaigns"
-KERNEL_ARMS = CAMPAIGNS / "srv1-kernel-arms"
 #: One geometry the door once read on srv1, so the placement the fixture's
 #: run derives is derived from a real tensor table and not from a number
 #: invented to fit.
@@ -87,13 +84,6 @@ GEOMETRY_JSON = (
 )
 MODEL = "/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf"
 
-DRIVER_NAMES = ("lcp_sweep.py", "vllm_sweep.py", "vllm_cores.py")
-#: The image variable each driver reads.
-DRIVER_IMG_VAR = {
-    "lcp_sweep.py": "LCP_IMG",
-    "vllm_sweep.py": "VLLM_IMG",
-    "vllm_cores.py": "VLLM_IMG",
-}
 #: Argument lists that get each driver past ``sys.argv`` and to its first
 #: docker call, and no further: the cell is legal but the container never
 #: comes up, so the driver records a refusal and returns.
@@ -102,27 +92,9 @@ DRIVER_ARGV = {
     "vllm_sweep.py": ["T", "org/model", "0.9:2048:8:auto:1"],
     "vllm_cores.py": ["pair", "0.45", "2048", "128", "auto", "1", "a=org/model"],
 }
-#: The nine steps of the kernel-arms campaign, by the name that follows ``<n>-``.
-STEP_NAMES = frozenset(
-    {
-        "aa-null",
-        "build-ladder",
-        "correctness",
-        "crash",
-        "kernel-arms",
-        "llama-bench",
-        "moe-slots",
-        "ncmoe-floor",
-        "vllm-arms",
-    }
-)
 
 RUN_DATE = "2026-09-05"
 ROUND_ID = "r9-onedoor"
-#: A digest-shaped value for artifacts a test writes BY HAND to stand for an
-#: earlier run. The digest the door itself stamps is the fixture's own —
-#: :func:`pinned` reads it back — and is never this constant.
-PRODUCT_SHA256 = "3f9c1a7e5b2d4c6f8a0e1b3d5f7a9c2e4b6d8f0a1c3e5b7d9f2a4c6e8b0d1f3a"
 #: Digests the docker stub knows. ``vllm/vllm-openai:v0.26.0`` has a registry
 #: digest; ``llamacpp:b10644-L3`` is a local build and has only an image id.
 REPO_DIGEST_HEX = "9d2b5e1c7a4f3b8e6c0d1a2f5b7c9e3d4a6b8c0e2f4a6c8e0b2d4f6a8c0e2b4d"
@@ -131,8 +103,6 @@ LOCAL_ID_HEX = "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00
 VLLM_TAG = "vllm/vllm-openai:v0.26.0"
 VLLM_DIGEST = f"vllm/vllm-openai@sha256:{REPO_DIGEST_HEX}"
 LOCAL_TAG = "llamacpp:b10644-L3"
-LCP_TAG = "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644"
-LCP_DIGEST = f"ghcr.io/ggml-org/llama.cpp@sha256:{REPO_DIGEST_HEX}"
 #: A label value that LOOKS like a digest. ``1-build-ladder.sh`` labels every
 #: rung ``org.mcgyvr.build.toolkit=$RUN_CUDA_DEVEL`` and that base image may be
 #: pinned by digest; ``docker image inspect`` prints ``Config.Labels`` after
@@ -214,13 +184,6 @@ LIVE: dict[str, dict[str, str]] = {
         "containers": "none",
     },
 }
-
-
-def rows_module() -> ModuleType:
-    """``tools.runs.rows`` — the parser gate 8 reads an artifact with."""
-    if not ROWS_PY.is_file():
-        raise FileNotFoundError(f"{ROWS_PY.relative_to(REPO)} does not exist")
-    return importlib.import_module("tools.runs.rows")
 
 
 def _product() -> ModuleType:
@@ -556,11 +519,6 @@ def rig_stub(
     return where / "snapshot.txt"
 
 
-def rig_unreadable(where: Path) -> None:
-    """Every ssh fails the way a rig that is down does."""
-    (where / "ssh-down").touch()
-
-
 def rig_lease(root: Path) -> Path:
     """Where the stub rig keeps ``~/.mcgyvr/lease``: the file a door takes
     at gate 2 and releases when it is done, as the ssh stub answers it."""
@@ -587,12 +545,6 @@ def containers_up(root: Path, *names: str) -> None:
     (stubs_dir(root) / "serving-names").write_text(
         "".join(f"{n}\n" for n in names), encoding="utf-8"
     )
-
-
-def stub_sleep(where: Path) -> Path:
-    """A ``sleep`` that returns at once, for a step whose retry loop would
-    otherwise wait real seconds between attempts a stub decides."""
-    return executable(where / "sleep", "#!/usr/bin/env bash\nexit 0\n")
 
 
 def stubs_dir(root: Path) -> Path:
@@ -915,34 +867,11 @@ def written_under_records(root: Path) -> list[str]:
     return sorted(str(p.relative_to(root)) for p in records.rglob("*") if p.is_file())
 
 
-#: What the door files in an envelope before the step, whatever the step does.
-DOOR_FACTS = frozenset({"scan.json", "geometry.json", "placement.json"})
-
-
 def is_claim(name: str) -> bool:
     """Whether ``name`` is gate 5's claim on a RUN_ID (``.<RUN_ID>.running``),
     which exists only while a run is in progress and is the door's, not a
     step's."""
     return name.startswith(".") and name.endswith(".running")
-
-
-def is_header(name: str) -> bool:
-    """Whether ``name`` is gate 5's header for a run (``<RUN_ID>.run.json``):
-    the run's identity, filed by the door before the step."""
-    return name.endswith(".run.json")
-
-
-def filed_by_steps(root: Path) -> list[str]:
-    """Files under ``records/`` that a STEP wrote — the door's own three facts
-    (scan, geometry, placement), its header for the run and its claim on the
-    RUN_ID left out."""
-    return [
-        p
-        for p in written_under_records(root)
-        if Path(p).name not in DOOR_FACTS
-        and not is_claim(Path(p).name)
-        and not is_header(Path(p).name)
-    ]
 
 
 def claims(root: Path) -> list[str]:
