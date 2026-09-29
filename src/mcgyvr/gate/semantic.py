@@ -18,7 +18,7 @@ still happens in a subprocess rather than in-process — exactly the strength
 acceptance commands have in that mode, and no more.
 
 **The resolver is ghostcall's engine, staged rather than installed.** The four
-engine files are stdlib-only and are vendored under ``records/evidence/``
+engine files are stdlib-only and are vendored under ``gate/_engine/ghostcall/``
 pinned to an upstream commit with a sha256 per file; this rung stages them into
 the workspace for the length of one run and removes them after. It is staged
 rather than baked into an image layer, so the resolver never enters the image
@@ -81,18 +81,6 @@ ENGINE_DIGESTS: Mapping[str, str] = {
     "checker.py": "f89e2a6024155f4676cf348a6caa09009b699a6253ab668abc48882d33e51e47",
     "suggest.py": "ddd5a2d321e8a063c7158bf6ec0d34067738f0184445d1608738f69299be1fc7",
 }
-
-# The vendored copy, as it sits in a checkout. In a wheel the same files are
-# force-included under the package (see ``pyproject.toml``), because a record
-# outside ``src/`` does not ship — the gotcha the task catalog already hit.
-_CHECKOUT_ENGINE = (
-    Path(__file__).resolve().parents[3]
-    / "records"
-    / "evidence"
-    / "ghostcall-2026-08-02"
-    / "src"
-    / "ghostcall"
-)
 
 _DRIVER_NAME = "semantic_driver.py"
 
@@ -235,12 +223,10 @@ class SemanticCheck:
 
 
 def engine_dir() -> Path:
-    """Locate the vendored resolver, whether running from a wheel or a checkout."""
+    """Locate the vendored resolver: one place, inside the package."""
     packaged = resources.files("mcgyvr.gate") / "_engine" / "ghostcall"
     if (packaged / "checker.py").is_file():
         return Path(str(packaged))
-    if (_CHECKOUT_ENGINE / "checker.py").is_file():
-        return _CHECKOUT_ENGINE
     raise SemanticError(
         "the vendored resolver engine was not found, so no semantic check ran "
         f"(looked for {ENGINE_ORIGIN} at {ENGINE_COMMIT})"

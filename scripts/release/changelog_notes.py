@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Print one version's CHANGELOG.md section, or refuse to release without it.
 
-    python tools/release/changelog_notes.py v0.2.0 CHANGELOG.md
+    python scripts/release/changelog_notes.py v0.2.0 CHANGELOG.md
 
 The release workflow runs this between the wheel check and `gh release
 create`, and hands what it prints to `--notes-file`. So the notes a reader
@@ -15,7 +15,7 @@ nothing said so. Here a tag whose version has no section, or whose section is
 empty, stops the release and names the heading that has to exist.
 
 Compared as versions and not as strings, for the reason
-tools/release/wheel_is_tag.py compares that way: a release tag is PEP
+scripts/release/wheel_is_tag.py compares that way: a release tag is PEP
 440-normalised on the way to being a version, so `v0.2.0-rc1` is the section
 `## [0.2.0rc1]` and the two are not a mismatch.
 """
