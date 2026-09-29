@@ -343,6 +343,10 @@ HOST_FIGURE_NOT_READ = "vLLM host memory: not read on this machine; none is char
 #: the same: the setting is not charged either. ``where`` is the file.
 HOST_FIGURE_SETTING_NOT_USED = "your setting in {where} is not used by the sizing"
 
+#: What that line adds instead when the user's own numbers file cannot be read:
+#: ``why`` is its refusal, which names the file.
+HOST_FIGURE_SETTING_UNKNOWN = "whether your own numbers set it is not known: {why}"
+
 
 @dataclass(frozen=True)
 class Fit:
@@ -527,15 +531,17 @@ def _host_figure_notes(engine: str) -> tuple[str, ...]:
     Nothing for an engine whose figure is shipped. For one whose figure is read
     on the machine, :data:`HOST_FIGURE_NOT_READ`, and, where the user's own
     numbers file sets that figure, :data:`HOST_FIGURE_SETTING_NOT_USED` after
-    it. A numbers file that cannot be read adds nothing here: nothing in it is
-    used for this engine, and a sizing that does use it refuses it by name.
+    it. A numbers file that cannot be read is named in the line with its
+    refusal (:data:`HOST_FIGURE_SETTING_UNKNOWN`): nothing in it is used for
+    this engine, so the unit is not refused.
     """
     if engine not in derived.RUNTIME_RESIDENT_READ:
         return ()
     try:
         where = derived.user_setting(derived.RUNTIME_RESIDENT, engine)
-    except (derived.DerivedNumbersError, RuntimeError):
-        where = None
+    except (derived.DerivedNumbersError, RuntimeError) as exc:
+        unknown = HOST_FIGURE_SETTING_UNKNOWN.format(why=exc)
+        return (f"{HOST_FIGURE_NOT_READ}; {unknown}",)
     if where is None:
         return (HOST_FIGURE_NOT_READ,)
     unused = HOST_FIGURE_SETTING_NOT_USED.format(where=where)
