@@ -215,9 +215,10 @@ function and its parameter):
   other programs or files read; the method a stored reading was made with; a
   rule over mcgyvr's own shipped data; what a caller that names none gets,
   where mcgyvr's own callers name one; how much of a text mcgyvr itself
-  shows, carries or reads, and at what width, never a cap on a model's reply
-  or on its input; a weight, threshold or cut of mcgyvr's own ranking of files and
-  symbols; how often or how many times mcgyvr tries its own step again; or a
+  shows, carries or reads, and at what width, never a budget for a model's
+  whole reply or whole input; a weight, threshold or cut of mcgyvr's own
+  ranking of files and symbols; how often or how many times mcgyvr tries its
+  own step again; or a
   duplicate of another entry, which it names);
 - an **estimate**: a value another machine may prove wrong. Each one still in
   code names the number id planned for it in the `numbers` block, where it can

@@ -105,7 +105,7 @@ CHOICE_REASONS: tuple[str, ...] = (
     "what a caller that names none gets; the product's callers name one",
     (
         "how much of a text the product itself shows, carries or reads, and at "
-        "what width (never a cap on a model's reply or on its input)"
+        "what width (never a budget for a model's whole reply or whole input)"
     ),
     "a weight, threshold or cut of the product's own ranking of files and symbols",
     "how often or how many times the product tries its own step again",

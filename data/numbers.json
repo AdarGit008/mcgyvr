@@ -56,7 +56,7 @@
     "availability.py:_LIST_BODY_BYTES": {
       "kind": "choice",
       "says": "How much of a model listing is read; a listing is a handful of ids, and a longer answer is treated as unreadable.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "capability.py:CapabilityTable.fitting(headroom_gb)": {
       "kind": "estimate",
@@ -201,7 +201,7 @@
     "derived.py:_SHOWN": {
       "kind": "choice",
       "says": "How much of a refused value a refusal spells out: a few levels, items and characters, never all of it.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "detect.py:COMMAND_TIMEOUT_S": {
       "kind": "estimate",
@@ -361,17 +361,17 @@
     "gate/acceptance.py:_MAX_EXCERPT_CHARS": {
       "kind": "choice",
       "says": "How many characters of a failing command's output are carried, taken from its end.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "gate/acceptance.py:_MAX_EXCERPT_LINES": {
       "kind": "choice",
       "says": "How many lines of a failing command's output are carried, taken from its end.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "gate/adapter.py:_DETAIL_LIMIT": {
       "kind": "choice",
       "says": "How many characters of a failed tool's own words a finding carries.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "gate/adapters/javascript.py:_ESLINT_ERROR": {
       "kind": "fact",
@@ -426,7 +426,7 @@
     "initialize.py:COMMENT_WIDTH": {
       "kind": "choice",
       "says": "The width comments in a written setup file are wrapped to.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "orchestrator/cache.py:CACHE_VERSION": {
       "kind": "choice",
@@ -456,17 +456,17 @@
     "orchestrator/decompose.py:_ID_DIGEST_BYTES": {
       "kind": "choice",
       "says": "How many bytes of a digest a contract id carries: short enough to read in a log line, and a collision is refused.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "orchestrator/index.py:DEFAULT_MAX_FILE_BYTES": {
       "kind": "choice",
       "says": "The size in bytes past which a file is not read into the index, and the skip reported; a source file is far smaller.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "orchestrator/index.py:_BINARY_SNIFF_BYTES": {
       "kind": "choice",
       "says": "How much of a file is read for a NUL byte before it is judged binary.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "orchestrator/read.py:Exploration.saved": {
       "kind": "fact",
@@ -481,17 +481,17 @@
     "orchestrator/read.py:_DEFAULT_CONTEXT": {
       "kind": "choice",
       "says": "How many lines a region read around a match spans.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "orchestrator/read.py:_LEAD": {
       "kind": "choice",
       "says": "How many lines of a region sit above the line that matched.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "orchestrator/read.py:_MAX_TEXT_ANCHORS": {
       "kind": "choice",
       "says": "How many text matches per candidate are taken before regions are merged.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "orchestrator/resolve.py:_DOMINANCE": {
       "kind": "choice",
@@ -546,7 +546,7 @@
     "orchestrator/resolve.py:_top_evidence(keep)": {
       "kind": "choice",
       "says": "How many evidence lines a candidate shows, best first.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "orchestrator/resolve.py:resolve(limit)": {
       "kind": "choice",
@@ -807,7 +807,7 @@
     "strict_yaml.py:_KEY": {
       "kind": "choice",
       "says": "How much of a refused key a refusal of a YAML file spells out: a real key in full, and only the start of a value that aliases build far larger than the file.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "verify.py:REVIEW_OUTPUT_TOKENS": {
       "kind": "estimate",
