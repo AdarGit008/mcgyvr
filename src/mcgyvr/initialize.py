@@ -33,8 +33,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mcgyvr.capability import CapabilityTable
-from mcgyvr.capability import load as load_table
 from mcgyvr.config import (
     BREADTH_FIELDS,
     CLEANUP_FIELDS,
@@ -49,10 +47,42 @@ from mcgyvr.config import (
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
-from mcgyvr.detect import DEFAULT_PROBE_TARGETS, Detection, detect, targets_for
+from mcgyvr.detect import (
+    DEFAULT_PROBE_TARGETS,
+    PORT_CONVENTIONS,
+    Detection,
+    detect,
+    targets_for,
+)
 from mcgyvr.propose import API, AvailableSource, Proposal, binding_name, propose
 
 COMMENT_WIDTH = 78
+
+#: What init says beside the units it bound from a server's listing, when it
+#: bound one. It matched no estimate to any of them, and names the one reader
+#: that still sizes a unit by its model's name (``mcgyvr.serving.units_for``,
+#: over ``mcgyvr.serving.declared_models``), so the sentence is true of it.
+NO_ESTIMATE_NOTICE = (
+    "No estimate was matched to a unit bound from a server's listing: mcgyvr "
+    "cannot yet match an estimate to a model by its weights. Until it can, "
+    "`mcgyvr emit` sizes a unit whose model name equals a row of the shipped "
+    "table from that row. What you declare for a unit in fleet.yaml, under "
+    "`launch` or as `room_mib`, wins over that row."
+)
+
+#: How the ladder init writes is ordered, said beside it when a unit was bound
+#: from a listing. All three parts of the order are named, because only the
+#: last is the servers' own: the order of the machines is the command line's,
+#: and the order of the server programs is mcgyvr's probe order.
+LISTED_ORDER_NOTICE = (
+    "The ladder is written in the order init found the models: the machines "
+    "in the order `--host` named them (this one when none was named), then on "
+    "each machine the server programs in mcgyvr's fixed probe order ("
+    + ", ".join(kind for kind, _, _ in PORT_CONVENTIONS)
+    + "), then each server's own listing order; a unit named with `--api` "
+    "comes after them. None of these judges cost or quality. A ladder is "
+    "climbed cheapest first, and that order is yours to set in policy.yaml."
+)
 
 # A YAML scalar is safe bare only if it cannot be read as anything else. A
 # model id like `qwen2.5-coder:7b` carries a colon and a URL carries both a
@@ -200,66 +230,26 @@ def _listing(names: Sequence[str]) -> str:
     return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
-def _nothing_to_bind(
-    detection: Detection,
-    why: ConfigError,
-    table: CapabilityTable,
-    proposal: Proposal,
-) -> str:
+def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
     """Say what was tried, what is missing, and what to do about it.
 
-    Starting a local backend is offered whenever none answers here, also on a
-    machine with no card of known size, where it is a step towards binding by
-    hand and not a fix on its own. A unit bound by hand, which states the card
-    room it needs, is offered for a card whose memory size was not determined,
-    and for a machine with no GPU this build can see while a local backend
-    answers. A backend on another machine that holds a model is given the
-    reason the proposal gave for not binding that model there.
+    Reached only when no server lists a model and no hosted unit was asked
+    for: init binds a model only when a running server lists it, so a server
+    that answers and lists nothing is named as such, and no card is a reason.
+
+    Starting a local backend is offered whenever none answers here; loading a
+    model is offered whenever a server answered. A unit bound by hand, which
+    states the card room it needs, is offered for a card whose memory size was
+    not determined, and for a machine with no GPU this build can see while a
+    local backend answers. The text for no backend and no card is kept as it
+    is quoted elsewhere.
     """
-    measured = {model.id for model in table.models if model.is_measured}
     local = [b for b in detection.backends if b.is_local]
-    local_holders = [b.name for b in local if measured & set(b.models)]
-    remote_holders = [
-        b for b in detection.backends if not b.is_local and measured & set(b.models)
-    ]
     if detection.backends:
         found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
-        if not local_holders and not remote_holders:
-            situation = (
-                f"Reachable backends: {found} — but nothing in the capability "
-                f"table can be bound to them, and none of them reports holding "
-                f"a model the table has an estimate for."
-            )
-        else:
-            said = [f"Reachable backends: {found}."]
-            if local_holders:
-                holds = "reports" if len(local_holders) == 1 else "report"
-                them = "it" if len(local_holders) == 1 else "them"
-                if detection.largest_vram_gb is None:
-                    said.append(
-                        f"{_listing(local_holders)} {holds} holding a model the "
-                        f"table has an estimate for, but a backend on this "
-                        f"machine is bound only to a model that fits this "
-                        f"machine's card, and no card here has a known memory "
-                        f"size to fit it against."
-                    )
-                else:
-                    said.append(
-                        f"{_listing(local_holders)} {holds} holding a model the "
-                        f"table has an estimate for, but nothing in the "
-                        f"capability table that fits this machine's card can "
-                        f"be bound to {them}."
-                    )
-            reasons = {r.model: r.reason for r in proposal.rejected}
-            for backend in remote_holders:
-                for model in (m for m in backend.models if m in measured):
-                    reason = reasons.get(model)
-                    if reason is not None:
-                        said.append(
-                            f"{backend.name} on {backend.host} reports holding "
-                            f"{model}, which is not bound there: {reason.rstrip('.')}."
-                        )
-            situation = " ".join(said)
+        situation = (
+            f"Reachable model servers: {found} — but none of them lists a model."
+        )
     else:
         situation = "No local backend answered on any default endpoint."
 
@@ -273,20 +263,15 @@ def _nothing_to_bind(
     else:
         vram = "no GPU this build can see"
 
+    binds = "init binds only a model a running server lists."
     if len(unsized) == 1:
-        cause = (
-            f"the memory size of {unsized[0]} was not determined, so init "
-            f"sizes no model against it."
-        )
+        cause = f"the memory size of {unsized[0]} was not determined, and {binds}"
     elif unsized:
         cause = (
-            f"the memory sizes of {_listing(unsized)} were not determined, so "
-            f"init sizes no model against them."
+            f"the memory sizes of {_listing(unsized)} were not determined, and {binds}"
         )
     elif not detection.gpus and local:
-        cause = (
-            "there is no GPU this build can see, so init sizes no model against one."
-        )
+        cause = f"there is no GPU this build can see, and {binds}"
     else:
         cause = ""
     by_hand = ""
@@ -307,13 +292,18 @@ def _nothing_to_bind(
             "TGI) and re-run, or\n"
         )
     )
+    load = (
+        "  - load a model into a server named above and re-run, or\n"
+        if detection.backends
+        else ""
+    )
     return (
         f"Refusing to write a config that cannot load.\n\n"
         f"{situation} With {vram}, no unit can be proposed, and a config "
         f"with no unit or no ladder dispatches nowhere.\n\n"
         f"The loader would reject it with: {why}\n\n"
         f"Fix one of these:\n"
-        f"{by_hand}{start}"
+        f"{by_hand}{start}{load}"
         f"  - name the rig that serves your models, if it is not this one\n"
         f"    (`mcgyvr init --host <name>`), or\n"
         f"  - bind a hosted API unit, which needs no GPU and no backend:\n\n"
@@ -323,7 +313,8 @@ def _nothing_to_bind(
         f"`api_key_env`\n"
         f"    names the environment variable holding your key; the key itself "
         f"is\n"
-        f"    never written to either file.\n"
+        f"    never written to either file.\n\n"
+        f"`mcgyvr capabilities` lists the shipped estimates.\n"
     )
 
 
@@ -505,9 +496,12 @@ def build(
     """The fleet data implied by what was detected, proposed and asked for.
 
     A unit carries the whole fact: its address and engine, the model it
-    serves, its width, and the room it needs on the card. There is no
-    separate ``sources``/``models``/``tiers`` split to keep consistent — the
-    unit is the one term.
+    serves and its width. There is no separate ``sources``/``models``/``tiers``
+    split to keep consistent — the unit is the one term.
+
+    A unit bound from a listing carries no ``room_mib``: the card room a unit
+    needs is the user's to state, from a reading of their own machine, and a
+    figure init wrote would be one nobody read there.
 
     ``api_units`` are the hosted units the operator named on the command line.
     They are not detected and not proposed, because neither question applies:
@@ -528,13 +522,10 @@ def build(
         if backend is not None and backend.kind == "vllm":
             unit["engine"] = "vllm"
         unit["rig"] = backend.name if backend is not None else rung.source
-        if rung.vram_gb:
-            unit["room_mib"] = round(rung.vram_gb * 1024)
         units[rung.name] = unit
     for api in api_units:
-        # The same whole fact, minus the two a hosted endpoint does not have:
-        # no `rig`, because it is not a machine in your fleet, and no
-        # `room_mib`, because it occupies no card of yours. `api_key_env` is a
+        # The same whole fact, minus the `rig` a hosted endpoint does not have,
+        # because it is not a machine in your fleet. `api_key_env` is a
         # variable NAME; the key is never held here.
         units[api.name] = {
             "address": api.address,
@@ -575,20 +566,20 @@ def build(
 
 
 def _sources_for(detection: Detection) -> list[AvailableSource]:
-    """Detected backends as proposal inputs.
+    """Detected backends as proposal inputs, in the order they were found.
 
-    ``backend`` is the kind of server (``vllm``, ``llama-server``) and drives the
-    table's ``requires_backend`` check; ``name`` is what the source will be
-    called in the config, which for a multi-host sweep is qualified with the
-    machine. They are the same string on a single-host sweep and must not be
-    conflated: qualifying a name is a config concern, and matching a backend
-    requirement is a capability one.
+    ``backend`` is the kind of server (``vllm``, ``llama-server``); ``name`` is
+    what the source will be called in the config, which for a multi-host sweep
+    is qualified with the machine. They are the same string on a single-host
+    sweep and must not be conflated: qualifying a name is a config concern,
+    and the kind is what the server is. Each source keeps its server's listing
+    order, which is the last part of the order the ladder is written in.
     """
     return [
         AvailableSource(
             name=backend.name,
             backend=backend.kind,
-            models_present=frozenset(backend.models),
+            models_present=tuple(backend.models),
             host=backend.host,
         )
         for backend in detection.backends
@@ -601,49 +592,36 @@ def _decisions(
     api_units: Sequence[ApiUnit] = (),
 ) -> tuple[str, ...]:
     decisions: list[str] = []
+    backends = {backend.name: backend for backend in detection.backends}
+    remote = False
+    for rung in proposal.rungs:
+        backend = backends.get(rung.source)
+        remote = remote or (backend is not None and not backend.is_local)
     scope = (
         " — this machine's card, which is not what the remote rungs below run on"
-        if detection.has_remote_backend
+        if remote
         else ""
     )
-    # The card sizing used is named first, so the line cannot name one card
-    # while the units below are sized against another. A card whose size was
-    # not determined is named too, and said to be sized against by nothing.
-    sizing = detection.sizing_gpu
-    if sizing is not None:
-        which = (
-            ", the largest card of known size, which models are sized against"
-            if len(detection.gpus) > 1
-            else ""
-        )
-        decisions.append(
-            f"GPU {sizing.name} with {sizing.size}, via {sizing.how}{which}{scope}."
-        )
+    # Every card is named, in the order the card tool printed them, whatever
+    # its size. No card decides a unit: init binds what a server lists.
     for gpu in detection.gpus:
-        if gpu.vram_gb is None:
-            decisions.append(
-                f"GPU {gpu.name} with {gpu.size}, via {gpu.how}: no model is "
-                "sized against it."
-            )
+        decisions.append(f"GPU {gpu.name} with {gpu.size}, via {gpu.how}{scope}.")
     for backend in detection.backends:
         where = "here" if backend.is_local else f"on {backend.host}"
         decisions.append(
             f"Backend '{backend.name}' {where} at {backend.base_url} speaking "
-            f"{backend.api}; {len(backend.models)} model(s) already pulled."
+            f"{backend.api}; {len(backend.models)} model(s) listed."
         )
     for rung in proposal.rungs:
-        presence = (
-            "already pulled"
-            if rung.already_present
-            else f"needs a ~{rung.weights_gb:g} GB pull"
-        )
-        machine = f" on {rung.host}" if rung.host else ""
+        backend = backends.get(rung.source)
+        address = backend.base_url if backend is not None else rung.source
         decisions.append(
-            f"{rung.name} -> {rung.model} on {rung.source}{machine}: "
-            f"an estimated {rung.quality:.1%} HumanEval+ pass@1 in about "
-            f"{rung.vram_gb:g} GB, "
-            f"{presence}."
+            f"{rung.name} -> {rung.model} at {address}: bound because "
+            f"{rung.source} lists it; no estimate was matched to it."
         )
+    if proposal.rungs:
+        decisions.append(NO_ESTIMATE_NOTICE)
+        decisions.append(LISTED_ORDER_NOTICE)
     for api in api_units:
         decisions.append(
             f"{api.name} -> {api.model} at {api.address}: bound because "
@@ -662,8 +640,9 @@ def _limits(
     """What is NOT configured, and what that costs. Never silent.
 
     The proposal's own notes belong here rather than among the decisions:
-    "no backend answered" and "needs a 9 GB pull" are both statements about
-    what this install cannot do yet, not about what was chosen.
+    "no backend answered" and "a second listing was not bound" are both
+    statements about what this install does not do yet, not about what was
+    chosen.
     """
     limits = list(detection.notes) + list(proposal.notes)
     if api_units:
@@ -748,14 +727,14 @@ def initialize(
     *,
     force: bool = False,
     detection: Detection | None = None,
-    table: CapabilityTable | None = None,
     hosts: Sequence[str] = (),
     api_units: Sequence[ApiUnit] = (),
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
-    ``detection`` and ``table`` are injectable so the whole command can be
-    exercised against machines nobody here owns.
+    ``detection`` is injectable so the whole command can be exercised against
+    machines nobody here owns. No table is read: init binds the models the
+    servers it found list, and matches no estimate to them.
 
     ``hosts`` names the machines to sweep for backends; empty means this one.
     It is ignored when ``detection`` is supplied, because the caller has then
@@ -776,12 +755,7 @@ def initialize(
         else detect(targets_for(hosts) if hosts else DEFAULT_PROBE_TARGETS)
     )
     asked = _distinct_api_units(api_units)
-    capability = table if table is not None else load_table()
-    proposal = propose(
-        capability,
-        vram_gb=found.largest_vram_gb,
-        sources=_sources_for(found),
-    )
+    proposal = propose(sources=_sources_for(found))
     data = build(found, proposal, api_units=asked)
     decisions = _decisions(found, proposal, asked)
     limits = _limits(found, proposal, asked)
@@ -801,7 +775,7 @@ def initialize(
         # "start a local backend" would send someone to fix the wrong thing.
         if asked:
             raise InitError(_api_setup_rejected(asked, exc)) from exc
-        raise InitError(_nothing_to_bind(found, exc, capability, proposal)) from exc
+        raise InitError(_nothing_to_bind(found, exc)) from exc
 
     fleet_path = path / FLEET_FILENAME
     policy_path = path / POLICY_FILENAME
