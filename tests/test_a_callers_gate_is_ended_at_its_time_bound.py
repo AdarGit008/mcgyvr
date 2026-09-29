@@ -214,7 +214,7 @@ def test_a_signal_while_an_always_gate_is_reported_does_not_stop_the_next(
         "shown = run._printable\n"
         "sent = []\n"
         "def printable(text):\n"
-        "    if 'was ended by a signal' in text and not sent:\n"
+        "    if 'a signal reached the door' in text and not sent:\n"
         "        sent.append(1)\n"
         "        os.kill(os.getpid(), signal.SIGINT)\n"
         "    return shown(text)\n"

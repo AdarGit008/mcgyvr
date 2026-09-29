@@ -8,6 +8,8 @@ gate that reaches the machine, ``after`` after the door's identity and daemon
 gates and before the step, ``always`` after the door's teardown gates and
 before the lease is released. No caller gate runs before the profile or after
 the release, and a refusal in one ``always`` gate does not stop the others or
+the release. The one exception is a gate that INT or TERM reaches while the
+door is starting it: the door does not end that gate, and it can run on past
 the release.
 
 On ``read``, which has no step, no teardown and no lease: ``before`` after the

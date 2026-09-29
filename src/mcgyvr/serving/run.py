@@ -92,7 +92,9 @@ that group, KILL when the group is still there :data:`GROUP_GRACE_S` later,
 and then waits up to :data:`GROUP_GONE_S` for it to be empty
 (:func:`_end_group`). In a session of its own, the gate is outside every
 signal sent to the door's process group: the door ends it on INT or TERM,
-but a door that is killed or hung up leaves it running with no bound. It may
+except a gate the signal reaches while the door is starting it, which can be
+left running past the lease release (see :func:`_run_entry`); a door that is
+killed or hung up leaves it running with no bound. It may
 export only the ``RUN_`` names its list declares, none of them a name the
 door sets (:data:`DOOR_NAMES`), in at most :data:`MAX_EXPORT_BYTES`.
 
@@ -638,6 +640,8 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
     root = Path(raw_root) if isinstance(raw_root, str) and raw_root else None
     try:
         usable = root is not None and root.is_absolute() and root.is_dir()
+    except PermissionError as escape:
+        no("root", f"{_brief(raw_root)} cannot be reached ({escape.strerror})")
     except (OSError, ValueError):
         usable = False
     if root is None or not usable:
@@ -699,14 +703,9 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
         except OverflowError:
             seconds = math.nan
         if not math.isfinite(seconds) or not 0 < seconds <= CALLER_GATE_MOST_S:
-            shown = (
-                f"{str(bound)[:20]}..."
-                if isinstance(bound, int) and len(str(bound)) > 20
-                else bound
-            )
             no(
                 where,
-                f"gives timeout_s {shown!r}; a bound is a positive number of "
+                f"gives timeout_s {_brief(bound)}; a bound is a positive number of "
                 f"seconds, at most {CALLER_GATE_MOST_S:g}",
             )
         exports = gate.get("exports", [])
@@ -761,8 +760,12 @@ def _outside(target: Path, root: Path) -> tuple[str | None, Path]:
     """
     try:
         script = target.resolve(strict=True)
-    except (OSError, RuntimeError, ValueError):
+    except FileNotFoundError:
         return "is not there", target
+    except OSError as escape:
+        return f"cannot be reached ({escape.strerror or escape})", target
+    except (RuntimeError, ValueError) as escape:
+        return f"cannot be reached ({escape})", target
     if not script.is_relative_to(root):
         return (
             f"resolves to {script}, outside the list's root {root}; a gate runs "
@@ -1393,8 +1396,10 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
             "for the group to be empty, and refuses the gate; there is no bound "
             "over the whole list, each gate has its own. A signal to the door's "
             "process group does not reach a gate: the door ends it on INT or "
-            "TERM, but a door that is killed or hung up leaves it running with "
-            "no bound. A process a gate leaves behind after ending within its "
+            "TERM, except a gate the signal reaches while the door is starting "
+            "it, which can be left running past the lease release; a door that "
+            "is killed or hung up leaves it running with no bound. A process "
+            "a gate leaves behind after ending within its "
             "bound outlives the door, unless it holds the gate's export "
             "descriptor open: then the door waits up to the bound for it to "
             "close it, and if it has not, refuses the gate and ends the gate's "
@@ -1588,8 +1593,10 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
             "for the group to be empty, and refuses the gate; there is no bound "
             "over the whole list, each gate has its own. A signal to the door's "
             "process group does not reach a gate: the door ends it on INT or "
-            "TERM, but a door that is killed or hung up leaves it running with "
-            "no bound. A process a gate leaves behind after ending within its "
+            "TERM, except a gate the signal reaches while the door is starting "
+            "it, which can be left running past the lease release; a door that "
+            "is killed or hung up leaves it running with no bound. A process "
+            "a gate leaves behind after ending within its "
             "bound outlives the door, unless it holds the gate's export "
             "descriptor open: then the door waits up to the bound for it to "
             "close it, and if it has not, refuses the gate and ends the gate's "
@@ -1838,7 +1845,10 @@ def _always(env: dict[str, str], callers: tuple[Entry, ...] = ()) -> int:
     ``always`` gates, run after 7 and 8: a refusal in one does not stop the
     next, but a signal to the door ends the one that is running (it is the
     caller's code, with a time bound of its own, and the lease waits on it),
-    and counts as its refusal. INT and TERM are set to end a caller's gate
+    and counts as its refusal. One the signal reaches while the door is
+    starting it is not ended and can run on past the lease release; the door
+    cannot tell the two apart, and its message says either may be so. INT
+    and TERM are set to end a caller's gate
     only while it runs, and set aside again before the door says how it
     ended; a signal that lands in between is caught and they are set aside
     again (:func:`_aside`), so it neither stops the next gate nor escapes the
@@ -1884,8 +1894,10 @@ def _always(env: dict[str, str], callers: tuple[Entry, ...] = ()) -> int:
             elif ended:
                 print(
                     _printable(
-                        f"run.py: {entry.script} was ended by a signal to the "
-                        f"door — {entry.why}"
+                        f"run.py: {entry.script} is refused: a signal reached "
+                        "the door while it ran or was being started (one the "
+                        "door was waiting on is ended with its process group; "
+                        f"one being started may still run) — {entry.why}"
                     ),
                     file=sys.stderr,
                 )

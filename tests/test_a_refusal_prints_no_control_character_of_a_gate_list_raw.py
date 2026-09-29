@@ -135,7 +135,7 @@ def test_an_always_gate_ended_by_a_signal_is_named_escaped(tmp_path: Path) -> No
         cg.stop_door(door)
 
     assert "\x1b" not in said and "\x00" not in said, repr(said)
-    named = [line for line in said.splitlines() if "was ended by a signal" in line]
+    named = [line for line in said.splitlines() if "a signal reached the door" in line]
     assert named, said
     assert "esc\\x1b[2Jnew\\nline.py" in named[0], repr(named[0])
     assert "why\\x1b[31m\\x00\\nred" in named[0], repr(named[0])
