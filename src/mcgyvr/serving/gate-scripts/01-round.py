@@ -16,12 +16,12 @@ appended and the one that was open keeps the digest its own arms ran against.
 THE PROFILE IS SETTLED HERE TOO, for the same reason: it is a fact about the
 run that costs no rig time to know and that every later gate reads. The config
 is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`, then `./fleet.yaml`,
-then the live fleet folder `~/.mcgyvr/live.json` names — and its `profile:`
-is exported as RUN_PROFILE. No config at all is `live` (owner's ruling R4: the
-default is prod, and forgetting the variable lands there); a config that is
-there and cannot be read, or a `$MCGYVR_CONFIG` naming a file that is not
-there, is a refusal, because a run whose config cannot be read cannot say
-which profile it ran under. Dev runs everything, `serve up` and `down`
+then the live fleet folder the config folder's `live.json` names — and its
+`profile:` is exported as RUN_PROFILE. No config at all is `live` (owner's
+ruling R4: the default is prod, and forgetting the variable lands there); a
+config that is there and cannot be read, or a `$MCGYVR_CONFIG` naming a
+file that is not there, is a refusal, because a run whose config cannot be
+read cannot say which profile it ran under. Dev runs everything, `serve up` and `down`
 included (the owner ruled N11 on 2026-09-10), and a live `serve up` is
 admitted only for units the fleet lock names for this rig; a live
 `serve down` is always admitted.

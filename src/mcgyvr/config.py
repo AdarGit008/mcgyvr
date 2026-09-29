@@ -1643,8 +1643,8 @@ def load(path: Path | None = None) -> Config:
 
     A setup is a directory holding ``fleet.yaml`` and ``policy.yaml``:
     ``path`` names that directory, and ``None`` locates it (the environment
-    override, then the working directory, then the live fleet folder
-    ``~/.mcgyvr/live.json`` names). A policy
+    override, then the working directory, then the live fleet folder the
+    config folder's ``live.json`` names). A policy
     file is optional — a fleet with one unit and no policy is the smallest
     working install — but a fleet file is not.
     """
