@@ -411,14 +411,14 @@ def _reader_answer(machine: Shape, arguments: Sequence[str]) -> str | None:
     return card_reader_text(machine.cards, query=query)
 
 
-def detection(machine: Shape, /) -> Detection:
+def detection(machine: Shape, /, *, reached: Sequence[Shape] = ()) -> Detection:
     """What :func:`mcgyvr.detect.detect` reports, run as this helper models it.
 
-    The product's own ``detect`` runs, sweeping only ``machine.host``, with its
-    seams answered from the shape: a server answers its model list on its
-    conventional port, and the card tool answers :func:`card_reader_text` (or
-    is absent). RAM, CPU count and docker are not part of a shape and are
-    reported as not determined.
+    The product's own ``detect`` runs, sweeping ``machine.host`` and then the
+    host of each machine in ``reached``, with its seams answered from the
+    shapes: a server answers its model list on its conventional port, and the
+    card tool answers :func:`card_reader_text` (or is absent). RAM, CPU count
+    and docker are not part of a shape and are reported as not determined.
 
     Where the command runs is the helper's model, not a statement about the
     product. The product's ``detect`` reads the cards of whatever machine it
@@ -434,11 +434,26 @@ def detection(machine: Shape, /) -> Detection:
       machine's host: its servers are found, no card is reported, and the
       notes say the card tool is absent.
 
-    A later version may add machines the same command sweeps as well, as
-    ``detection(machine, reached=())``; with nothing reached that call means
-    exactly what this one means today.
+    ``reached`` are further machines the same command sweeps, in the order
+    given, after ``machine``. Each is a machine over the network: its servers
+    are found, named by its host as the product names them when a sweep covers
+    more than one host, and none of its cards is reported, since the card tool
+    reads only the machine the command runs on. A reached machine that is
+    local, or whose host is swept already, is refused by name. With nothing
+    reached, this is the sweep of one host described above.
     """
     from mcgyvr import detect
+
+    hosts = (machine.host, *(other.host for other in reached))
+    for other in reached:
+        if other.local:
+            raise ValueError(
+                f"reached machine {other.label!r} is local; a reached machine "
+                "is one over the network"
+            )
+    if len(set(hosts)) != len(hosts):
+        raise ValueError(f"a host is swept twice in {list(hosts)}")
+    servers = [server for each in (machine, *reached) for server in each.servers]
 
     def run(command: Sequence[str]) -> str | None:
         if not machine.local or command[0] != "nvidia-smi":
@@ -447,7 +462,7 @@ def detection(machine: Shape, /) -> Detection:
 
     def get_json(url: str, timeout: float) -> Any | None:
         asked = urllib.parse.urlsplit(url)
-        for server in machine.servers:
+        for server in servers:
             if (
                 asked.hostname == server.host
                 and asked.port == server.port
@@ -473,7 +488,7 @@ def detection(machine: Shape, /) -> Detection:
         mock.patch.object(detect, "detect_docker", docker),
         mock.patch.object(detect, "os", no_cpu_count),
     ):
-        return detect.detect(detect.targets_for((machine.host,)))
+        return detect.detect(detect.targets_for(hosts))
 
 
 def scan(machine: Shape, /) -> Scan:
