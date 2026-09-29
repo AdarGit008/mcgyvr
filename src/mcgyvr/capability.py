@@ -1,4 +1,4 @@
-"""Reader for the shipped capability table, and the one question a task asks it.
+"""Reader for the shipped capability table.
 
 The table (``data/capability-table.json``) is estimates by card class, not
 readings of the user's machine. ``mcgyvr capabilities`` lists it, and
@@ -8,30 +8,11 @@ or as ``room_mib``. ``mcgyvr init`` does not read it: init binds the models runn
 servers list (:mod:`mcgyvr.propose`). See ``data/README.md`` for what a card
 class is and for the harness caveats that make some published numbers unusable.
 
+The table carries no quality figure. It says what a model costs to serve, never
+how well it does the work, so nothing read from it ranks one model above
+another. No level of it declares a key for such a figure (:data:`DECLARED_KEYS`).
+
 Reading and validating is most of this module.
-
-**What one number can and cannot decide.** Every row carries a single quality
-figure — an estimated HumanEval+ pass@1 — and one number induces a total order, so
-the only question a scalar can answer is *which model is better*. That is the
-wrong question to put to a contract. Producing a loop invariant that holds and
-producing prose about a loop nobody may touch are not two points on one line,
-and ranking them on one line sends an implementation contract to whichever model
-scored higher on a benchmark that is mostly short functions.
-
-So a row may also carry a ``capabilities`` vector: a score per
-*dimension*, and :func:`select_for_task` filters on the dimension the task
-actually needs instead of on the scalar. Two properties keep that from being a
-regression on the day it lands:
-
-* **An absent vector is unscored, not unfit.** No shipped row has one yet, so a
-  filter reading "no data" as "fails the floor" would empty the pool on every
-  install. :meth:`Model.capability` falls back to the scalar, which is the half
-  of this that is easiest to drop and most expensive to have dropped.
-* **A model with no valid quality at all is still never proposed.** The table
-  keeps invalidated readings aside rather than filling the gap with a figure
-  from elsewhere (``data/README.md``), and the fallback inherits that: a model
-  with no quality estimate stays without one, and there is nothing to fall
-  back *to*.
 """
 
 from __future__ import annotations
@@ -39,21 +20,18 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass, field
-from functools import cache
+from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
-
-from mcgyvr.catalog import catalog
 
 TABLE_FILENAME = "capability-table.json"
 
 #: The one table version this code reads. A table of any other version is
 #: refused by name rather than read: a reader that skipped keys it did not know
 #: would take an older table's rows to mean what this version's rows mean.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 #: What every figure in the shipped table is, in the words the product prints
 #: above them.
@@ -67,57 +45,9 @@ ESTIMATES_NOTICE = (
 # figure crosses into the sizing code, and nowhere else.
 GB_PER_GIB = 1.073741824
 
-# The score a model must reach on a task's dimension before it may be asked for
-# that task. 0.5 is a starting value, not a reading, and it is stated
-# once, as the default of the one function that applies it, rather than as a
-# literal at each call site.
-DIMENSION_FLOOR = 0.5
-
-# The capability dimension each kind of required evidence implies, strongest
-# characterisation first.
-#
-# A task type does not name its dimension directly, and this is deliberate. The
-# catalog is the vocabulary's one definition (:mod:`mcgyvr.catalog`): adding a
-# task type must be an edit to ``data/task-catalog.json`` and nothing else, and
-# nothing downstream may match on a type name. A second table here keyed by type
-# name would be the vocabulary written down twice, and every new type would
-# arrive with no dimension until somebody remembered this file.
-#
-# What a type must *demonstrate* is already declared there, and it says what the
-# model producing it has to be able to do:
-#
-#   failing_test_first  a defect has to be located and the branch that caused it
-#                       changed — `branching`
-#   tests_pass          the change has to actually run correctly — `simple_function`
-#   type_check          a stated, machine-checked contract has to be satisfied
-#                       exactly — `instruction_following`
-#   no_semantic_change  prose or annotation has to be produced over logic that may
-#                       not be touched — `instruction_following` again
-#
-# Order settles a type that requires several: the first kind listed here wins.
-# The dimension names are a coding benchmark's vocabulary, kept verbatim so a
-# score vector taken against that benchmark drops straight into a row.
-_DIMENSION_BY_EVIDENCE: tuple[tuple[str, str], ...] = (
-    ("failing_test_first", "branching"),
-    ("tests_pass", "simple_function"),
-    ("type_check", "instruction_following"),
-    ("no_semantic_change", "instruction_following"),
-)
-
 
 class CapabilityTableError(Exception):
     """The capability table is missing, malformed, or internally inconsistent."""
-
-
-class CapabilitySelectionError(Exception):
-    """No model in the table can be asked for this task, and the message says why.
-
-    Distinct from :class:`CapabilityTableError`: the table is fine, the request
-    cannot be served from it. The floor message names the dimension that came up
-    short, because "no model is good enough" sends an operator back to the ladder
-    they have already read, while "nothing scores 0.5 on 'algorithm'" tells them
-    which rung to go and bind.
-    """
 
 
 @dataclass(frozen=True)
@@ -151,18 +81,14 @@ class Measurement:
 class Model:
     """A model the table knows about.
 
-    ``quality`` holds only VALID estimates. A model whose readings were all
-    invalidated by a harness caveat has an empty list — the table never fills
-    that gap with a figure from elsewhere, so neither does this.
-
     ``params_b`` is the declared parameter count in billions. It is size, not
     footprint: ``vram_gb_working`` says what the weights cost to hold at a
     quantization, while this says how big the model is regardless of how it was
     packed, which is what a *usable context window* scales with.
 
-    ``capabilities`` is the per-dimension score vector, empty for every row
-    shipped today. Read it through :meth:`capability`, never directly, so the
-    fallback to the scalar happens in one place.
+    ``not_for_fit`` is ``None``, or the table's text saying why this row is
+    never listed as fitting a card (:meth:`CapabilityTable.fitting`), for
+    example that its memory figure is not the model's own footprint.
     """
 
     id: str
@@ -171,48 +97,10 @@ class Model:
     vram_gb_working: float
     weights_gb: float
     quant: str
-    quality: tuple[Measurement, ...]
     throughput: tuple[Measurement, ...]
     requires_backend: str | None
     notes: str
-    capabilities: Mapping[str, float] = field(default_factory=dict)
-
-    @property
-    def is_measured(self) -> bool:
-        """Whether this model has any valid quality estimate."""
-        return bool(self.quality)
-
-    def capability(self, dimension: str) -> float | None:
-        """This model's score on ``dimension``, or its scalar quality if unscored.
-
-        ``None`` only when there is no estimate at all — no vector entry and no
-        valid quality figure. A model without one is never proposed, here as
-        everywhere else in this file.
-        """
-        measured = self.capabilities.get(dimension)
-        return measured if measured is not None else self.best_quality
-
-    @property
-    def best_quality(self) -> float | None:
-        """Highest valid HumanEval+ pass@1 estimate, or None if there is none."""
-        return max((m.value for m in self.quality), default=None)
-
-    @property
-    def best_throughput(self) -> float | None:
-        """Highest tok/s estimate taken on a backend this model can actually run on.
-
-        A model pinned to one backend must not borrow a throughput figure
-        taken on another, because the other run was a different quantization
-        of different weights: qwen3-coder-30b-a3b's ollama figure is not
-        of the Q2_K entry this row describes (CAV-02). Filtering
-        by backend keeps a number attached to the thing it was taken of.
-        """
-        relevant = [
-            m.value
-            for m in self.throughput
-            if self.requires_backend is None or m.backend == self.requires_backend
-        ]
-        return max(relevant, default=None)
+    not_for_fit: str | None = None
 
 
 @dataclass(frozen=True)
@@ -235,32 +123,26 @@ class CapabilityTable:
         return next((m for m in self.models if m.id == model_id), None)
 
     def fitting(self, vram_gb: float, headroom_gb: float = 2.0) -> list[Model]:
-        """Models with a quality estimate that fit in ``vram_gb`` with room to work.
+        """The rows that fit in ``vram_gb`` with room to work, in table order.
 
         ``headroom_gb`` guards CAV-04: a marginal fit degrades badly rather
         than failing outright, which makes it look like a working binding.
         The headroom is ABSOLUTE, not a fraction of the card, because what
         it reserves — KV cache for the context window — is sized by tokens,
-        not by GPU. The table's own figures bear this out: a 5.0 GB model on
-        a card of the 6 GB class (1.0 GB free) ran 1.9x slower than the same
-        weights on one of the 12 GB class (CAV-04).
+        not by the card.
 
-        Models with no quality estimate are never proposed.
+        A row that carries ``not_for_fit`` is never listed, whatever its
+        memory figure: its text says why. Nothing else is judged here.
         """
         return [
             m
             for m in self.models
-            if m.is_measured and m.vram_gb_working + headroom_gb <= vram_gb
+            if m.not_for_fit is None and m.vram_gb_working + headroom_gb <= vram_gb
         ]
 
 
 #: The lists on a model row whose entries are readings, each keyed by a class.
-READING_LISTS = (
-    "quality",
-    "throughput_tok_s",
-    "invalid_measurements",
-    "disputed_measurements",
-)
+READING_LISTS = ("throughput_tok_s",)
 
 #: Every key the table may carry, level by level, and no other.
 #:
@@ -272,9 +154,13 @@ READING_LISTS = (
 #: new kind of fact out until it is declared here, where a reviewer reads it:
 #: the same reason a table of another version is refused rather than read.
 #:
-#: Two places hold names that are data rather than keys, and are not declared:
-#: under ``backends`` every key but the block's own notes names a backend, and a
-#: model row's ``capabilities`` maps a dimension name to a score.
+#: One place holds names that are data rather than keys, and they are not
+#: declared: under ``backends`` every key but the block's own notes names a
+#: backend.
+#:
+#: No level declares a quality figure or a benchmark score, so a table that
+#: carries one at any level but the backends block's is refused by the key's
+#: name.
 #:
 #: A declared key that is not one of its level's :data:`CONTAINER_KEYS` holds a
 #: value, never an object and never a list holding one, and the loader refuses
@@ -285,16 +171,12 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
             {
                 "schema_version",
                 "_purpose",
-                "quality_metric",
                 "card_classes",
                 "harness_caveats",
                 "models",
                 "backends",
                 "concurrency_findings",
             }
-        ),
-        "quality metric": frozenset(
-            {"name", "dataset", "decoding", "framework", "_caveat"}
         ),
         "card class": frozenset({"id", "label", "memory_gb"}),
         "harness caveat": frozenset(
@@ -312,21 +194,11 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
                 "vram_gb_working",
                 "requires_backend",
                 *READING_LISTS,
-                "capabilities",
+                "not_for_fit",
                 "notes",
             }
         ),
-        "reading": frozenset(
-            {
-                "humaneval_plus_pass1",
-                "humaneval_pass1",
-                "value",
-                "backend",
-                "card_class",
-                "caveat",
-                "note",
-            }
-        ),
+        "reading": frozenset({"value", "backend", "card_class", "caveat", "note"}),
         "backends block": frozenset({"_doc"}),
         "backend": frozenset({"wire_protocol", "strengths", "limits", "card_class"}),
         "concurrency finding": frozenset(
@@ -336,14 +208,13 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
 )
 
 
-#: The declared keys whose value holds the entries of another level, or a
-#: ``capabilities`` map, level by level. Every other declared key holds a value.
+#: The declared keys whose value holds the entries of another level, level by
+#: level. Every other declared key holds a value.
 CONTAINER_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         **{level: frozenset[str]() for level in DECLARED_KEYS},
         "table": frozenset(
             {
-                "quality_metric",
                 "card_classes",
                 "harness_caveats",
                 "models",
@@ -351,7 +222,7 @@ CONTAINER_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
                 "concurrency_findings",
             }
         ),
-        "model row": frozenset({*READING_LISTS, "capabilities"}),
+        "model row": frozenset(READING_LISTS),
     }
 )
 
@@ -429,7 +300,7 @@ _MODEL_REQUIRED = ("id", "family", "params_b", "vram_gb_working", "weights_gb")
 _MODEL_NUMBERS = ("params_b", "active_params_b", "vram_gb_working", "weights_gb")
 
 #: The keys of a reading that carry its figure.
-_READING_FIGURES = ("humaneval_plus_pass1", "humaneval_pass1", "value")
+_READING_FIGURES = ("value",)
 
 #: The keys a harness caveat cannot do without.
 _CAVEAT_REQUIRED = ("id", "severity", "summary", "consequence")
@@ -520,14 +391,11 @@ def _check_readings(
                 f"{path}: {row} gives {key!r} as {entry[key]!r}; a model's "
                 f"{key!r} is a number"
             )
-    if "capabilities" in entry:
-        scores = _object(entry["capabilities"], path, f"{row} capabilities")
-        for dimension, score in scores.items():
-            if not _number(score):
-                raise CapabilityTableError(
-                    f"{path}: {row} capabilities gives {dimension!r} the score "
-                    f"{score!r}; a capability score is a number"
-                )
+    if "not_for_fit" in entry and not _text(entry["not_for_fit"]):
+        raise CapabilityTableError(
+            f"{path}: {row} gives 'not_for_fit' as {entry['not_for_fit']!r}; it "
+            f"is the text saying why the row is never listed as fitting a card"
+        )
     for field_name in READING_LISTS:
         if field_name not in entry:
             continue
@@ -556,9 +424,6 @@ def _check_shape(raw: Mapping[str, Any], path: Path) -> tuple[CardClass, ...]:
     Returns the declared card classes, which everything else is keyed by.
     """
     _closed(raw, "table", path, "the table")
-    if "quality_metric" in raw:
-        metric = _object(raw["quality_metric"], path, "quality_metric")
-        _closed(metric, "quality metric", path, "quality_metric")
     card_classes = _card_classes(raw, path)
     declared = frozenset(c.id for c in card_classes)
     for index, value in enumerate(
@@ -648,16 +513,10 @@ def load(path: Path | None = None) -> CapabilityTable:
             vram_gb_working=float(entry["vram_gb_working"]),
             weights_gb=float(entry["weights_gb"]),
             quant=str(entry.get("quant", "")),
-            quality=_measurements(entry.get("quality", []), "humaneval_plus_pass1"),
             throughput=_measurements(entry.get("throughput_tok_s", []), "value"),
             requires_backend=entry.get("requires_backend"),
             notes=str(entry.get("notes", "")),
-            capabilities=MappingProxyType(
-                {
-                    str(dimension): float(score)
-                    for dimension, score in entry.get("capabilities", {}).items()
-                }
-            ),
+            not_for_fit=str(entry["not_for_fit"]) if "not_for_fit" in entry else None,
         )
         for entry in raw.get("models", [])
     )
@@ -674,119 +533,3 @@ def load(path: Path | None = None) -> CapabilityTable:
         for c in raw.get("harness_caveats", [])
     )
     return CapabilityTable(models=models, caveats=caveats, card_classes=card_classes)
-
-
-@cache
-def shipped_table() -> CapabilityTable:
-    """The shipped table, loaded once.
-
-    The file travels with the package and cannot change under a running process,
-    so re-reading and re-validating it per contract would be cost with no
-    meaning. The same argument :func:`mcgyvr.catalog.catalog` makes, for the same
-    reason: these are the two shipped data files, and both are read on hot paths.
-
-    Memoised rather than held in a module variable, so no assignable name can
-    replace the table under a running process. Reloading, which only a test
-    wants, is ``shipped_table.cache_clear()`` after repointing
-    :func:`table_path`.
-    """
-    return load()
-
-
-# --- what a task needs, and which model has it ------------------------------
-
-
-def dimension_for(task_type: str) -> str | None:
-    """The capability dimension a task of this type exercises, if it names one.
-
-    Derived from what the catalog says a change of this type must demonstrate —
-    see :data:`_DIMENSION_BY_EVIDENCE` for why it is derived rather than declared
-    beside the type name.
-
-    ``None`` has two honest readings and they are not distinguished here, because
-    a caller that needs to tell them apart is asking the catalog, not this
-    function. A type the deterministic family executes asks no model at all, so
-    it has no dimension to gate on; and a name the catalog does not hold is not a
-    task type, which contract loading refuses long before anything reaches here.
-    """
-    entry = catalog().get(task_type)
-    if entry is None or entry.deterministic:
-        return None
-    required = set(entry.evidence_names)
-    return next(
-        (
-            dimension
-            for evidence, dimension in _DIMENSION_BY_EVIDENCE
-            if evidence in required
-        ),
-        None,
-    )
-
-
-def select_for_task(
-    *,
-    task_type: str,
-    table: Path | None = None,
-    floor: float = DIMENSION_FLOOR,
-) -> Model:
-    """The cheapest model estimated able to do what a ``task_type`` contract asks.
-
-    Two steps, and the order is the point. First the *gate*: a model is a
-    candidate only if it scores at least ``floor`` on the dimension this task
-    needs — its vector entry if it has one, its scalar quality if it does not,
-    and nothing at all if it has no estimate. Then the *choice*: among models that
-    clear the gate, the smallest working footprint wins, because above the floor
-    a model is good enough and more VRAM buys nothing the contract asked for.
-    That is the ladder's own economics — cheapest rung that can do the job —
-    applied to the rate card instead of to the config.
-
-    Ties break on the dimension score and then on the id, so the same table and
-    the same task always yield the same model. Determinism matters here for the
-    reason it matters in the gate: a selection that varied run to run would make
-    a comparison between two runs unreadable.
-
-    ``table`` is a path to a table file; the shipped one is used when it is
-    omitted. Raises :class:`CapabilitySelectionError` when the type is not in the
-    vocabulary, when it names no dimension, or when nothing in the table reaches
-    the floor on it.
-    """
-    entry = catalog().get(task_type)
-    if entry is None:
-        raise CapabilitySelectionError(
-            f"{task_type!r} is not a known task type, so there is no capability to "
-            f"select on. Valid: {', '.join(catalog().names)}"
-        )
-    dimension = dimension_for(task_type)
-    if dimension is None:
-        raise CapabilitySelectionError(
-            f"{task_type!r} names no capability dimension: what it must "
-            f"demonstrate ({', '.join(entry.evidence_names)}) does not say what a "
-            f"model producing it has to be able to do. A type the deterministic "
-            f"tier executes is the ordinary case — a tool does the work and no "
-            f"model is asked."
-        )
-
-    loaded = shipped_table() if table is None else load(table)
-    scored: list[tuple[Model, float]] = []
-    for model in loaded.models:
-        score = model.capability(dimension)
-        if score is not None:
-            scored.append((model, score))
-    capable = [(model, score) for model, score in scored if score >= floor]
-    if not capable:
-        measured = (
-            ", ".join(
-                f"{model.id} {score:.2f}"
-                for model, score in sorted(scored, key=lambda pair: -pair[1])
-            )
-            or "no model in it carries a valid quality estimate at all"
-        )
-        raise CapabilitySelectionError(
-            f"no model scores {floor:g} or better on {dimension!r}, the capability "
-            f"a {task_type!r} contract needs. The table says: {measured}. Bind a "
-            f"rung on a model whose estimate on {dimension!r} reaches the floor, "
-            f"or lower the floor knowing which capability you are lowering it on."
-        )
-
-    capable.sort(key=lambda pair: (pair[0].vram_gb_working, -pair[1], pair[0].id))
-    return capable[0][0]
