@@ -142,7 +142,8 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: verify, deliver, cleanup), what a worker is sent
 #: and what may be read back (worker.*), what judges the change (gate.*,
 #: scope, and the semantic gate's resolver engine under gate._engine, which is
-#: staged into the sandbox and imports only itself and the standard library),
+#: staged into the sandbox and whose import statements name only itself and the
+#: standard library),
 #: and what the run leaves behind for the caller (result, session, telemetry).
 ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.cleanup",
