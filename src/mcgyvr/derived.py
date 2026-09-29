@@ -340,8 +340,9 @@ def _load_overrides(
         raise DerivedNumbersError(
             f"{where} is not UTF-8 text, so your numbers cannot be read: {exc}"
         ) from exc
+    loader = strict_loader(DerivedNumbersError)
     try:
-        document = yaml.load(text, Loader=strict_loader(DerivedNumbersError))
+        document = yaml.load(text, Loader=loader)
     except DerivedNumbersError as exc:
         raise DerivedNumbersError(f"{where}: {exc}") from exc
     except _UNREADABLE_YAML as exc:
