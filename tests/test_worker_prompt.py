@@ -25,6 +25,7 @@ from mcgyvr.worker.bundle import (
     BundleTooLargeError,
     bundle_for,
     load_bundle,
+    strip_provenance,
 )
 from mcgyvr.worker.prompt import build_prompt, render_user_message
 
@@ -390,3 +391,21 @@ def test_the_estimate_counts_both_messages() -> None:
     assert len(seen) == 1
     assert built.system in seen[0]
     assert built.user in seen[0]
+
+
+def test_stripping_provenance_leaves_a_markerless_bundle_alone() -> None:
+    """The strip must be a no-op on text that has no marker.
+
+    Both shipped bundles carry one since #167 gave ``python.md`` a standing
+    worth stating in the file, so the markerless case is exercised on text
+    written here rather than on a shipped file that might grow a marker later.
+    """
+    markerless = (
+        "You are a senior Python engineer.\n\nOutput rules:\n- Return ONLY code.\n"
+    )
+    assert strip_provenance(markerless) == markerless
+    assert strip_provenance("# heading\n\n<!-- a comment lower down -->\n") == (
+        "# heading\n\n<!-- a comment lower down -->\n"
+    )
+    # An unterminated marker is content, not a licence to eat the file.
+    assert strip_provenance("<!-- never closed\nbody\n") == "<!-- never closed\nbody\n"
