@@ -53,3 +53,16 @@ def test_the_examples_follow_the_derivation_when_it_changes(
             f"the {task_type} example did not follow the derivation it is "
             "generated from"
         )
+
+    # The rendered examples file is built from the same derivation, so it
+    # carries the invented figures too: under each model type's heading, the
+    # cap line states that type's number.
+    rendered = docgen.render_examples()
+    for task_type, text in docgen.examples().items():
+        if not contract.loads(text).max_output_tokens_declared:
+            continue
+        section = rendered.split(f"## `{task_type}`", 1)[1].split("\n## `", 1)[0]
+        assert f"max_output_tokens: {invented[task_type]}\n" in section, (
+            f"the rendered {task_type} example did not follow the derivation it "
+            "is generated from"
+        )
