@@ -11,13 +11,13 @@ product (:data:`LAB_FOLDERS`).
 
 What is read
 ------------
-Every file git tracks, and every untracked file git does not ignore, except
-the folders in :data:`UNREAD`, the list itself and the writer's temporary
-file, and ``CHANGELOG.md`` from its first heading that names a released
-version, as the release script reads a heading (released sections are
-history; a release moves the open section's hits out of what is read). A
-file is read as UTF-8, a byte that is not UTF-8 replaced; a symbolic link is
-read as the path it points at. A path name is read too, as line 0 of its
+Every file git tracks, and every untracked file git does not ignore (it
+ignores the writer's temporary file), except the folders in :data:`UNREAD`,
+the list itself, and ``CHANGELOG.md`` from its first heading that names a
+released version, as the release script reads a heading (released sections
+are history; a release moves the open section's hits out of what is read).
+A file is read as UTF-8, a byte that is not UTF-8 replaced; a symbolic link
+is read as the path it points at. A path name is read too, as line 0 of its
 file.
 
 :data:`UNREAD` holds the folders that leave the product, while they are in
@@ -44,17 +44,21 @@ names exists.
     decimal digits only right after a name, a call or a subscript and ``[``
     (a slice, ``x[100::2]``). Not read in lock files (:data:`LOCK_FILES`),
     nor after a version comparison (``==``) or a version key (``version``,
-    ``__version__``), where four numbers are a version.
+    alone or after ``_``: ``__version__``, ``node_version``), where four
+    numbers are a version.
 ``host``
     A host name where a machine is named: the host of a URL; the value of a
     ``host``, ``hostname``, ``ssh_host`` or ``ssh_target`` key, quoted, or on
     a YAML line of its own (a user before ``@`` allowed), or unquoted after
     ``=`` (spaces around it allowed) outside Python sources; the value of
-    ``--host``; and the machine of a ``<user>@<name>`` after ``ssh`` and its
-    options (``-p 22``, ``-p22``, ``-oName=value``), after any one-dash
-    option and its value (``-o Name=value <user>@<name>``), quoted on its
-    own (``"<user>@<name>"``), or before ``:`` and a path (a copy's source or
-    target; ``@sha256:`` is a digest). It passes when it is ``localhost`` or
+    ``--host``; and the machine of a ``<user>@<name>``, the user by name or as
+    a variable (``$USER``, ``${USER}``, ``{user}``), after ``ssh`` and its
+    options (``-p 22``, ``-p22``, ``-oName=value``, ``--``), after any
+    one-dash option and its value or after ``--`` (``-o Name=value
+    <user>@<name>``), quoted on its own (``"<user>@<name>"``), or before
+    ``:`` and a path that does not start with ``//`` (a copy's source or
+    target). A digest after ``@`` (``sha256:``, ``SHA256:``, ``blake3:``)
+    is no machine in any of these. It passes when it is ``localhost`` or
     the generic local name under ``.localdomain``, a reserved name
     (``.invalid``, ``.test``, ``.example``, ``.localhost``, ``example.com``
     and its siblings), docker's name for its own host, the words ``host``
@@ -95,7 +99,15 @@ Hits by design, not false alarms: a netmask; a public resolver's address;
 the link-local address clouds serve metadata on; a container's name as a
 URL host (``http://<container>:port``); an invented single-label host a test
 uses as input; a quoted ``<name>@<word>`` where the word is no machine (a
-name and a date written in words); the home folder of a cloud image's
+name and a date written in words), and a package's ``<name>@<tag>`` quoted
+or after a one-dash option (``npx -y <pkg>@latest``, ``git commit -m
+"<a>@<b>"``); an unquoted ``host = <word>`` outside Python sources that is
+no setting (a variable in JavaScript or TypeScript, a notebook, a Python
+script with no extension, prose); a key that ends in an id key
+(``config_unit_id``); a card series named in lower case by ``rtx`` or
+``gtx`` and two digits; a slice of decimal digits and ``::`` written after a
+comma or a space or on a string literal, and a scoped name of three or four
+hex letters on each side of ``::``; the home folder of a cloud image's
 default user; a made-up digest that is not one digit repeated; and a leaving
 folder's name joined to any base in code, a temporary folder included, since
 the join does not know its base.
@@ -108,13 +120,18 @@ encoded or compressed passes. It also does not see:
 
 - ``ssh <name>`` without a user: in the product's shell scripts every
   ``ssh`` followed by a word is prose, a comment or a loop list; nor a bare
-  ``<user>@<name>`` with no ``ssh``, option, quote or path beside it;
+  ``<user>@<name>`` with no ``ssh``, option, quote or path beside it; nor a
+  copy's ``<user>@<name>:`` with nothing after the colon and no option
+  before it; nor ``ssh-copy-id``, ``sftp`` or ``mosh`` with no option before
+  the destination; nor a jump host given without a user (``-J <name>``);
 - a machine's name in prose where no host is expected, or under keys other
   than those above (``server:``, ``rig:``, ``hosts: [...]``), or as a
   constant (``DEFAULT_HOST = "name"``), or as ``name:8080``; nor a host key
   with a space before its colon (``host : name``), with an annotation before
   its value (``host: str = "name"``), or on a YAML line inside a one-line
-  string (``"host: name\\n"``);
+  string (``"host: name\\n"``); nor a prefixed key (``<PREFIX>_HOST=<name>``),
+  make's ``host ?= <name>`` and ``host := <name>``, a shell test
+  (``[ "$host" = <name> ]``) or an object literal (``{host: <name>}``);
 - a home folder under ``/root/`` (a container's path in the product), on
   Windows (``C:\\Users\\<name>``), after a path (``/mnt/home/<name>``), or of
   a placeholder user name used for a real one;
@@ -124,10 +141,14 @@ encoded or compressed passes. It also does not see:
 - a dotted host name under a public top-level domain, and a name ending in
   ``.local``, ``.internal``, ``.corp``, ``.intranet`` or ``.private`` outside
   a host position;
-- a card named by its number alone, by vendor and number, or in lower case
-  with a space, ``rtx`` and ``gtx`` aside;
+- a card named by its number alone, by vendor and number, by a letter and a
+  number (``A100``), or in lower case with a space, ``rtx`` and ``gtx``
+  aside, which are read with one space but not with two, a tab, or a capital
+  first letter only;
 - a bare 64-digit digest under no id key, and an id prefix in capitals or
-  joined with ``_`` (``rig_<hex>``);
+  joined with ``_`` (``rig_<hex>``); a machine id under ``machine-id:`` or
+  ``machineId``, as a bytes value (``b'<hex>'``), or as 32 hex digits under
+  no key;
 - a leaving folder cited after a path (``$REPO/<folder>/x``) or in capitals;
   joined by ``Path("<folder>")``, ``joinpath`` or ``os.path.join``; named as
   one item of a list of paths (a type checker's ``files``); or imported or
@@ -156,8 +177,12 @@ replaces the file in one step. A file name the list cannot hold (a byte that
 is not UTF-8, a tab, a line break, a leading ``#``) is refused by name.
 ``--compare OLD`` reads only two list files (no scan, no dependency outside
 the standard library) and fails when the list grew against OLD; CI runs it
-against the list on a pull request's base branch. A list that is not in the
-form ``--write`` writes, a comment line included, is refused by both.
+against the list on a pull request's base branch. It reads OLD by its
+entries alone, whatever its comment lines say, so a change of the headers is
+not growth. The list itself is refused, by the test and by every mode, when
+it is not in the form ``--write`` writes (line endings aside), a comment line
+included. The command runs as ``python -m tests.uninvented_machines`` or by
+its file path.
 """
 
 from __future__ import annotations
@@ -306,7 +331,8 @@ _TILDE_HOME = re.compile(r"(?<![\w~/.-])~([A-Za-z_][A-Za-z0-9_.-]*)/")
 _IPV4 = re.compile(r"(?<![\w.])([0-9]{1,3}(?:\.[0-9]{1,3}){3})(?![\w]|\.[0-9])")
 _IPV6 = re.compile(r"(?<![\w:.])([0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7})(?![\w:])")
 _VERSION_BEFORE = re.compile(
-    r"(?:[=<>!~]=\s*v?|version\w*[\"']?\s*[:=]\s*[\"']?v?)$", re.IGNORECASE
+    r"(?:[=<>!~]=\s*v?|(?<![A-Za-z0-9])_*version_*[\"']?\s*[:=]\s*[\"']?v?)$",
+    re.IGNORECASE,
 )
 _URL_HOST = re.compile(
     r"(?<![\w+.-])([A-Za-z][A-Za-z0-9+.-]*)://(?:[^\s/@\"'`<>]*@)?"
@@ -333,10 +359,12 @@ _YAML_HOST = re.compile(
     re.IGNORECASE,
 )
 _FLAG_HOST = re.compile(r"(?<![\w-])--host(?:=|\s+)[\"']?([A-Za-z0-9_.-]+)")
-_USER_AT = r"[A-Za-z0-9_.-]+@"
-_MACHINE = r"([A-Za-z0-9_.-]+)"
+# A user by name or as a variable ($USER, ${USER}, {user}).
+_USER_AT = r"(?:[A-Za-z0-9_.-]+|\$\{?[A-Za-z_]\w*\}?|\{\w*\})@"
+# A machine; a digest after @ (sha256:, SHA256:, blake3:) is not one.
+_MACHINE = r"(?!(?i:sha|blake|md)[0-9]+[a-z]?:)([A-Za-z0-9_.-]+)"
 # An option, its value joined to it (-p22, -oName=value) or after a space.
-_OPTION = r"-[A-Za-z]\S*(?:\s+[^\s@-]\S*)?\s+"
+_OPTION = r"(?:-[A-Za-z]\S*(?:\s+[^\s@-]\S*)?|--)\s+"
 _SSH_USER_HOST = re.compile(
     r"(?<![\w-])ssh\s+(?:" + _OPTION + r")*" + _USER_AT + _MACHINE
 )
@@ -345,9 +373,9 @@ _SSH_USER_HOST = re.compile(
 _OPTION_USER_HOST = re.compile(r"(?<![\w-])" + _OPTION + _USER_AT + _MACHINE)
 # A destination quoted on its own, as in an argument list.
 _QUOTED_USER_HOST = re.compile(r"[\"'`]" + _USER_AT + _MACHINE + r"[\"'`]")
-# A copy's source or target, a path after the colon; `@sha256:` is a digest.
+# A copy's source or target, a path after the colon (not `//`: a URL).
 _COPY_USER_HOST = re.compile(
-    r"(?<![\w@/.-])" + _USER_AT + r"(?!sha[0-9]+:)" + _MACHINE + r":(?=[\w~/.$-])"
+    r"(?<![\w@/.-])" + _USER_AT + _MACHINE + r":(?!//)(?=[\w~/.$-])"
 )
 _SUFFIXED = re.compile(
     r"(?<![\w.-])([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*(?:"
@@ -359,7 +387,7 @@ _IDENTITY = re.compile(
     r"(?<![A-Za-z0-9])(?:rig|unt|cmb|mch)-([0-9a-f]{8,})(?![0-9a-z])"
 )
 _KEYED_IDENTITY = re.compile(
-    r"(?<![\w-])[\"']?\w*?(?:"
+    r"(?<![\w-])[\"']?(?:\w*_)?(?:"
     + "|".join(ID_KEYS)
     + r")[\"']?\s*[:=]\s*[\"']?([0-9a-f]{8,})(?![0-9a-z])"
 )
@@ -376,8 +404,8 @@ _LEAVING_IMPORT = re.compile(
     r"|-m\s+(?:" + _LEAVE_MODULES + r")\.\w)"
 )
 _LEAVING_JOIN = re.compile(r"/\s*[\"'](?:" + _LEAVE + r")[\"']")
-#: The writer's temporary file, left behind when a run is killed.
-_TEMPORARY = f"{LIST_PATH.parent.relative_to(REPO).as_posix()}/.{LIST_PATH.name}."
+#: Where section 2 starts, in any wording of its header.
+_SECTION_2 = "# Section 2"
 
 
 @dataclass(frozen=True)
@@ -540,7 +568,8 @@ def scan_text(
                 if not _passes(six):
                     add(number, "address")
         # Each host by where its name starts, so that a name two rules find
-        # (a quoted `<user>@<name>` after `ssh`) is one hit.
+        # is one hit: `ssh` with an option before `<user>@<name>`, or a copy
+        # with an option before `<user>@<name>:<path>`.
         hosts: dict[int, str] = {}
         for rule, group in (
             (_KEYED_HOST, 1),
@@ -561,7 +590,7 @@ def scan_text(
         seen = set()
         for host in hosts.values():
             if _host_hit(host):
-                seen.add(host.rsplit("@", 1)[-1].lower())
+                seen.add(host.rsplit("@", 1)[-1].rstrip(".").lower())
                 add(number, "host")
         for match in _SUFFIXED.finditer(line):
             if match.group(1).lower() not in seen and _host_hit(match.group(1)):
@@ -616,8 +645,6 @@ def files(repo: Path = REPO) -> list[str]:
     chosen: set[str] = set()
     for path in listed.split("\0"):
         if not path or path == LIST_NAME or path.split("/", 1)[0] in UNREAD:
-            continue
-        if path.startswith(_TEMPORARY):
             continue
         if os.path.lexists(repo / path):
             chosen.add(path)
@@ -824,6 +851,23 @@ def parse(text: str, *, source: str = LIST_NAME) -> Listed:
     return listed
 
 
+def entries(text: str, *, source: str) -> Listed:
+    """A list read by its entries alone, whatever its comment lines say: how
+    ``--compare`` reads the base branch's list, so that a change of the
+    headers is not growth. Each entry is still refused as the list's own
+    would be: an unknown kind, a count that is not positive, or a path the
+    check does not read (so a change that stops reading a folder the base
+    lists is refused, not taken for a shrink)."""
+    parts: tuple[list[tuple[int, str]], list[tuple[int, str]]] = ([], [])
+    part = 0
+    for number, line in enumerate(text.splitlines(), start=1):
+        if line.startswith(_SECTION_2):
+            part = 1
+        if line.strip() and not line.startswith("#"):
+            parts[part].append((number, line))
+    return Listed(_parse_entries(parts[0], source), _parse_entries(parts[1], source))
+
+
 def read_list(path: Path | None = None) -> Listed:
     path = path or LIST_PATH
     return parse(path.read_text(encoding="utf-8"), source=path.name)
@@ -889,7 +933,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         listed = read_list()
         if args.compare is not None:
-            old = parse(
+            old = entries(
                 args.compare.read_text(encoding="utf-8"), source=str(args.compare)
             )
     except ValueError as refused:
@@ -932,4 +976,5 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    sys.path.insert(0, str(REPO))  # run by its path: the release script's import
     sys.exit(main())

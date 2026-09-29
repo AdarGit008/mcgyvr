@@ -284,6 +284,11 @@ def test_the_comparison_reads_the_base_list_by_its_entries_only(
     assert um.main(["--compare", str(old)]) == 0
     old.write_text(older.replace("c\taddress=2", "c\taddress=1"), encoding="utf-8")
     assert um.main(["--compare", str(old)]) == 1
+    # A change that stops reading a folder the base lists hides its hits.
+    monkeypatch.setattr(um, "UNREAD", (_FOLDER,))
+    unread = older.replace("c\taddress=2\n", f"c\taddress=2\n{_FOLDER}/x\thost=1\n")
+    old.write_text(unread, encoding="utf-8")
+    assert um.main(["--compare", str(old)]) == 1
 
 
 def test_the_list_only_shrinks_against_an_older_one() -> None:
