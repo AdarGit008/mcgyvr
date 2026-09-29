@@ -145,8 +145,8 @@ def shipped_path() -> Path:
         return checkout
     raise DerivedNumbersError(
         f"shipped numbers not found: neither {packaged} (the package's own copy) "
-        f"nor {checkout} (a checkout's) is a file; nothing is sized or judged "
-        "from a default in code"
+        f"nor {checkout} (a checkout's) is a file; none of its numbers "
+        "has a default in code"
     )
 
 
@@ -424,7 +424,7 @@ def _resolve(
             f"no number for {named}{context}: the shipped estimates "
             f"({shipped_where}) state none and your own numbers ({user_where}) "
             f"set none; set each under its name and key in {user_where}. "
-            "Nothing is sized or judged from a default in code"
+            "None of these numbers has a default in code"
         )
     return answered
 

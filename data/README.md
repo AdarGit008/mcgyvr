@@ -3,7 +3,7 @@
 Three files ship as data rather than as code:
 `capability-table.json` (estimates, by card class, of what a model costs and
 how well it codes, below), `task-catalog.json` (the vocabulary of what mcgyvr
-can be asked to do, after it) and `numbers.json` (the estimates mcgyvr sizes
+can be asked to do, after it) and `numbers.json` (estimates mcgyvr sizes
 and judges a machine with, at the end of this file).
 
 ## Capability data
@@ -164,7 +164,7 @@ They fall into three groups:
 
 # The numbers that size and judge a machine
 
-`numbers.json` holds the numbers mcgyvr needs and cannot read off the machine
+`numbers.json` holds numbers mcgyvr needs and cannot read off the machine
 or the model: how far a healthy unit's warm decode and prefill speed may fall
 from one start to the next (per tolerance class), and how much host memory a
 llama.cpp server holds beyond the experts it keeps there. `mcgyvr.derived`
@@ -193,5 +193,5 @@ The file is YAML; write each value as a plain decimal number, such as `12` or
 A setting for a number or key mcgyvr does not know, or a value that is not a
 finite number inside its unit's bounds (a percent above 0 and below 100, GiB 0
 or more), is refused by name, even when another number was asked. A number
-that neither file states is refused by name too: nothing is sized or judged
-from a default in code.
+of this file that neither file states is refused by name too: none of them
+has a default in code.

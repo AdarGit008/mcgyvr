@@ -1,6 +1,6 @@
 """A number that no layer states for the key asked is refused by name.
 
-Nothing is sized or judged from a default in code. When a number is asked for
+A number of the shipped file has no default in code. When a number is asked for
 and neither the user's own settings file nor the shipped estimates state it for
 the key asked, the ask is refused, and the one refusal names every missing
 number and key together, the shipped file it looked in, and the file where the

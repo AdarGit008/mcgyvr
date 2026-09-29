@@ -1,5 +1,5 @@
 {
-  "_doc": "The numbers mcgyvr sizes and judges a machine with that it cannot read off the machine or the model. Every entry is an estimate: a starting value shipped with mcgyvr, not a reading of your machine. Each is keyed by something every machine has (an engine, a unit's tolerance class), never by a machine's name. To use your own value, write it in numbers.yaml in mcgyvr's own folder (~/.mcgyvr/numbers.yaml), under the number's name and then its key, for example `prefill_class_pct:` and below it `vllm: 12`; your value replaces the estimate. A number that neither file states is refused by name: nothing is sized or judged from a default in code.",
+  "_doc": "Numbers mcgyvr sizes and judges a machine with that it cannot read off the machine or the model. Every entry is an estimate: a starting value shipped with mcgyvr, not a reading of your machine. Each is keyed by something every machine has (an engine, a unit's tolerance class), never by a machine's name. To use your own value, write it in numbers.yaml in mcgyvr's own folder (~/.mcgyvr/numbers.yaml), under the number's name and then its key, for example `prefill_class_pct:` and below it `vllm: 12`; your value replaces the estimate. A number of this file that neither file states is refused by name: none of them has a default in code.",
   "schema": 1,
   "numbers": {
     "warm_decode_class_pct": {
