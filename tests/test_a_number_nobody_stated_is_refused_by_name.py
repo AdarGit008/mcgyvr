@@ -139,3 +139,26 @@ def test_a_shipped_file_that_cannot_be_read_as_an_object_is_refused_by_name(
     with pytest.raises(derived.DerivedNumbersError) as was:
         derived.class_tolerances(path=path)
     assert str(path) in str(was.value)
+
+
+@pytest.mark.parametrize("level", ["document", "entry", "values"])
+def test_a_key_the_shipped_file_states_twice_is_refused_by_name(
+    level: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """JSON would keep the last of a repeated key silently; the file is refused."""
+    nf.use_invented_spaces(monkeypatch)
+    entry = nf.entries(0)[0]
+    key = next(iter(entry.values))
+    text = json.dumps(nf.document([entry]))
+    twice = {
+        "document": ('{"_doc"', '{"_doc": "once", "_doc"'),
+        "entry": ('"unit"', f'"unit": "{entry.unit}", "unit"'),
+        "values": (f'"{key}"', f'"{key}": {entry.values[key]}, "{key}"'),
+    }[level]
+    assert text.count(twice[0]) == 1
+    path = tmp_path / "twice.json"
+    path.write_text(text.replace(*twice), encoding="utf-8")
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup(entry.id, key, path=path)
+    assert str(path) in str(was.value)
+    assert twice[0].strip('{"') in str(was.value)
