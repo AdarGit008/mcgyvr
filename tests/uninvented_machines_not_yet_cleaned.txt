@@ -48,7 +48,6 @@ src/mcgyvr/fleet/read.py	dev-pointer=2
 src/mcgyvr/fleet/roots.py	dev-pointer=3
 src/mcgyvr/gate/adapters/python.py	dev-pointer=1
 src/mcgyvr/gate/preflight.py	dev-pointer=2
-src/mcgyvr/gate/typecheck.py	dev-pointer=1
 src/mcgyvr/prompts/javascript.md	dev-pointer=1
 src/mcgyvr/prompts/python.md	dev-pointer=2
 src/mcgyvr/runner.py	dev-pointer=3
