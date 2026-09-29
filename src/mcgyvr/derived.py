@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import math
+import reprlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from importlib import resources
@@ -74,6 +75,19 @@ UNITS: tuple[str, ...] = tuple(_BOUNDS)
 #: offload the sizing prices.
 RUNTIME_RESIDENT = "runtime_resident_gb"
 RUNTIME_RESIDENT_KEY = "llama.cpp"
+
+
+#: How a refusal spells a value it was given: a few levels, items and characters
+#: of it, never all of it, so a value the YAML reader builds far larger than its
+#: text (one alias repeated inside another) is refused as fast as any other.
+_SHOWN = reprlib.Repr(
+    maxlevel=2, maxdict=4, maxlist=4, maxset=4, maxstring=60, maxlong=60, maxother=60
+)
+
+
+def _shown(value: object) -> str:
+    """``value`` as a refusal spells it: its ``repr``, cut short when it is long."""
+    return _SHOWN.repr(value)
 
 
 class DerivedNumbersError(Exception):
@@ -259,7 +273,7 @@ def _checked(value: object, unit: object, what: str, where: Path) -> float:
         )
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise DerivedNumbersError(
-            f"{what} in {where} is {value!r}, which is not a number"
+            f"{what} in {where} is {_shown(value)}, which is not a number"
         )
     within, bound = _BOUNDS[unit]
     try:
@@ -271,7 +285,7 @@ def _checked(value: object, unit: object, what: str, where: Path) -> float:
         ) from None
     if not math.isfinite(number) or not within(number):
         raise DerivedNumbersError(
-            f"{what} in {where} is {value!r}; a number in {unit} must be "
+            f"{what} in {where} is {_shown(value)}; a number in {unit} must be "
             f"finite and {bound}"
         )
     return number
@@ -320,19 +334,20 @@ def _load_overrides(
         entry = shipped.get(number) if isinstance(number, str) else None
         if not isinstance(entry, dict):
             raise DerivedNumbersError(
-                f"{where} sets {number!r}, which is not a number mcgyvr ships "
+                f"{where} sets {_shown(number)}, which is not a number mcgyvr ships "
                 f"(it knows {', '.join(sorted(shipped)) or 'none'})"
             )
         if not isinstance(by_key, dict):
             raise DerivedNumbersError(
-                f"{where} sets {number} to {by_key!r}; it must be a mapping of "
+                f"{where} sets {number} to {_shown(by_key)}; it must be a mapping of "
                 "keys to values"
             )
         space = KEY_SPACES.get(str(entry.get("key")), ())
         for key, value in by_key.items():
             if not isinstance(key, str) or key not in space:
+                shown = _shown(key)
                 raise DerivedNumbersError(
-                    f"{where} sets {number}[{key!r}], and {key!r} is not a key "
+                    f"{where} sets {number}[{shown}], and {shown} is not a key "
                     f"of {number} (its keys are {', '.join(space) or 'none'})"
                 )
             settings[(number, key)] = _checked(
