@@ -165,7 +165,7 @@ They fall into three groups:
 
 # The numbers that size and judge a machine
 
-The `numbers` block of `numbers.json` holds the numbers mcgyvr needs and
+The `numbers` block of `numbers.json` holds numbers mcgyvr needs and
 cannot read off the machine or the model: how far a healthy unit's warm decode and prefill speed may fall
 from one start to the next (per tolerance class), and how much host memory a
 llama.cpp server holds beyond the experts it keeps there. `mcgyvr.derived`
@@ -197,11 +197,11 @@ or more), is refused by name, even when another number was asked. A number
 of that block that neither file states is refused by name too: none of them
 falls back to a default in code.
 
-## What every other number is
+## What many other numbers are
 
 Many numbers mcgyvr sizes, judges, refuses, waits or picks with are still
-written in its code. The `constants` block says what each of them is, under
-where it lives (the file, then the name, the class and attribute, or the
+written in its code. The `constants` block says what many of them are, each
+under where it lives (the file, then the name, the class and attribute, or the
 function and its parameter):
 
 - a **fact**: true on any machine, and it names what makes it so from a short
