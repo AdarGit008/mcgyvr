@@ -28,22 +28,12 @@ The tripwires, each a scan over the tree:
    ``DOCKER_HOST``, no ``docker -H``/``--host``/``--context``, no ``-H ssh://``
    outside the shim, and no ``env -u``/``env -i`` that would strip the
    door's vocabulary.
-3. No driver or campaign step measures ``localhost``: the container runs on
-   the rig, and a client that polls this machine's loopback measures nothing.
-4. The archived door's seam variables are gone from src, tools and tests.
-5. The serving harness run bare — outside the door — exits 2 naming the door.
-6. The workload (``PROMPT_DECILES``) is defined once, in
-   ``tools/runs/workload.py``.
-7. Every started artifact under ``records/evidence`` parses with
-   ``tools.runs.rows.read``, and one that names a ``run_id`` also names its
-   round.
-8. Every host that wrote a row has a declared ``rig`` block in
-   ``tools/runs/hosts.json``.
-9. The retired entry points are gone.
-10. A hand-set ``RUN_*`` environment admits nothing: a campaign step, the
-    emitter's rig read, every driver, every gate script and the default
-    step, given every variable the door would export and no door ancestor,
-    exit 2 naming the door before an ``ssh`` or ``docker`` stub sees a line.
+3. The archived door's seam variables are gone from src, tools and tests.
+4. A hand-set ``RUN_*`` environment admits nothing: every gate script and the
+   default step, given every variable the door would export and no door
+   ancestor, exit 2 naming the door before an ``ssh`` or ``docker`` stub sees
+   a line.
+5. No Python file sits at the repository root.
 """
 
 from __future__ import annotations
@@ -406,7 +396,7 @@ def test_no_shipped_file_is_exempted_by_the_seam_erasure() -> None:
 
 
 # --------------------------------------------------------------------------
-# 2. nothing names its own daemon; 3. nothing measures loopback; 4. no seams
+# 2. nothing names its own daemon; 3. no seams
 # --------------------------------------------------------------------------
 
 
@@ -457,12 +447,7 @@ def test_the_archived_doors_seam_variables_are_gone() -> None:
 
 
 # --------------------------------------------------------------------------
-# 5. the serving harness run bare exits 2 naming the door
-# --------------------------------------------------------------------------
-
-
-# --------------------------------------------------------------------------
-# 10. a hand-set RUN_* environment admits nothing
+# 4. a hand-set RUN_* environment admits nothing
 # --------------------------------------------------------------------------
 
 GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
@@ -579,22 +564,7 @@ def test_the_default_step_with_every_run_variable_typed_in_is_refused_outside_th
 
 
 # --------------------------------------------------------------------------
-# 6. one workload
-# --------------------------------------------------------------------------
-
-
-# --------------------------------------------------------------------------
-# 7. every started artifact parses; a run_id brings its round
-# --------------------------------------------------------------------------
-
-
-# --------------------------------------------------------------------------
-# 8. every host that wrote a row is declared
-# --------------------------------------------------------------------------
-
-
-# --------------------------------------------------------------------------
-# 9. the retired entry points are gone
+# 5. no Python sits at the repository root
 # --------------------------------------------------------------------------
 
 

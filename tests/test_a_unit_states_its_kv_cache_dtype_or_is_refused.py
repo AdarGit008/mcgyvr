@@ -1,19 +1,12 @@
 """A unit states its KV cache dtype, and a unit that does not is refused.
 
-What is specified here, at the two places a launch is declared:
-
-* **The bench survey** (``tools/bench/serving/run.py`` ``check_entries``, the
-  config-time refusals that precede the first ssh). A vLLM entry states
-  ``--kv-cache-dtype``; a llama.cpp entry states both ``-ctk`` and ``-ctv``
-  (either spelling). Missing is refused naming the entry and the knob; an
-  unknown value is refused naming the value; a stated one is accepted and left
-  exactly as written. The vLLM gate itself does not default to ``auto``.
-* **The product** (:func:`mcgyvr.serving.unit_for`, before anything is
-  rendered). A unit whose model states no KV cache dtype is refused naming the
-  model and the knob; a stated one reaches the argv as written.
+What is specified here, where the product declares a launch
+(:func:`mcgyvr.serving.unit_for`, before anything is rendered): a unit whose
+model states no KV cache dtype is refused naming the model and the knob; a
+stated one reaches the argv as written.
 
 Nothing here changes a value. ``fp8`` stays ``fp8`` and ``auto`` stays
-``auto``: each entry declares what it already launches with, not a different
+``auto``: each unit declares what it already launches with, not a different
 cache.
 """
 
@@ -61,9 +54,6 @@ def vllm() -> Any:
 
 def _names(message: str, spellings: tuple[str, ...]) -> bool:
     return any(spelling in message for spelling in spellings)
-
-
-# --- the bench survey ------------------------------------------------------
 
 
 # --- the product -----------------------------------------------------------

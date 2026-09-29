@@ -10,18 +10,16 @@ instance fails the build even though nobody wrote it down. The allowlists are
 the audit's findings, frozen: an entry is a fact of record, and removing one is
 how a fix is proved.
 
-Four classes, one check each:
+Two classes, one check each:
 
 * **the twin constant** — one value, two definitions, and only a comment
   holding them equal. ``test_duplicated_constants_are_declared``.
-* **the unmapped rung** — a declared bar naming rungs the gate cannot emit, so a
-  manifest records a bar nothing applied.
-  ``test_declared_rungs_name_emitted_checks``.
-* **the unjoined field** — recorded on every task and read by no analysis, so
-  the capture was never the gap. ``test_recorded_task_fields_have_a_reader``.
 * **the underived constant** — a shipped number citing a measurement no test
   recomputes, so the figure and its evidence drift apart.
   ``test_estimate_reserve_is_derived``.
+
+The reader of the checks the gate can emit (``_emitted_check_names``) is kept
+with its control.
 
 The cost of a wrong allowlist entry here is not a missed defect; it is a
 published number nobody can re-derive.
@@ -338,11 +336,6 @@ def _emitted_check_names(gate: Path | None = None) -> dict[str, list[str]]:
                 elif isinstance(value, ast.Name) and value.id in constants:
                     emitted[constants[value.id]].append(_where(path, value.lineno))
     return dict(emitted)
-
-
-# --------------------------------------------------------------------------
-# The unjoined field — recorded on every task, read by no analysis
-# --------------------------------------------------------------------------
 
 
 # --------------------------------------------------------------------------
