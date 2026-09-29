@@ -1,10 +1,10 @@
 """A derived output cap is a runtime budget, not part of the contract's identity.
 
-``sha256(dumps(contract))`` is how any record of runs tells two contracts
-apart, so it must not depend on ``data/task-catalog.json``. ``output_cap``
+A digest of ``dumps(contract)`` names a contract by what it says, so the
+emitted form must not depend on ``data/task-catalog.json``. ``output_cap``
 derives the cap from the task type's required evidence; a derived number written
-into the emitted form would let one flipped ``needs_commands`` boolean re-key
-every pinned contract of that type.
+into the emitted form would let one flipped ``needs_commands`` boolean change
+the digest of every contract of that type that declares no cap.
 
 So, as with ``depends_on``, the *resolved* value lives on the loaded object, the
 *declared* value lives in the serialised form. A contract that declares
@@ -92,6 +92,7 @@ def test_editing_the_catalog_does_not_move_the_identity(
     from mcgyvr.catalog import catalog as catalog_fn
 
     before = dumps(loads(DOCSTRING))
+    cap_before = loads(DOCSTRING).limits.max_output_tokens
 
     raw: dict[str, Any] = json.loads(
         catalog_module.catalog_path().read_text(encoding="utf-8")
@@ -106,7 +107,9 @@ def test_editing_the_catalog_does_not_move_the_identity(
     request.addfinalizer(catalog_fn.cache_clear)
 
     # The runtime cap moved — that is the catalog doing its job.
-    assert loads(DOCSTRING).limits.max_output_tokens == RUNNING_ALLOWANCE
+    cap_after = loads(DOCSTRING).limits.max_output_tokens
+    assert cap_after != cap_before, "flipping the evidence did not move the cap"
+    assert cap_after == RUNNING_ALLOWANCE
     # The emitted form did not — that is identity not reading the catalog.
     assert dumps(loads(DOCSTRING)) == before
     assert (

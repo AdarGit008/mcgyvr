@@ -177,19 +177,26 @@ def task_type(name: str) -> CatalogTaskType:
 # before it can run.
 #
 # Two steps and not more, because two is as far as the catalog's properties
-# actually distinguish. Both kinds that run a command must write behaviour, and
-# under `whole_file` both re-emit the file around it, so a third number between
-# them would be a preference wearing a budget's clothes.
+# actually distinguish. Every type whose required evidence needs a command
+# must write what that command will run, and under `whole_file` each re-emits
+# the file around it, so a third number among them would be a preference
+# wearing a budget's clothes.
 #
 # The numbers below are the product's defaults: chosen rather than measured,
 # and generous on purpose. An unspent cap costs nothing, while truncation costs
 # a whole attempt; a reply that overflows a generous cap is a task too big for
 # one contract, which is a re-decomposition and not a larger number.
 #
-# They are defaults and not the last word. A contract states its own cap with
-# `limits.max_output_tokens`, and a unit caps every reply it serves with
-# `units.<name>.output_tokens`, which wins over the contract's
-# (`mcgyvr.gate.preflight.reply_cap`).
+# They are defaults in the loader's sense: what it fills in for a contract that
+# states no cap, and the figure the generated examples and the command line's
+# refusal offer as the value to start from. Omitting the cap is not accepted
+# there: `mcgyvr contract` and `mcgyvr run` refuse a model contract that
+# declares none (`mcgyvr.cli._cap_undeclared`).
+#
+# Nor are they the last word. A contract states its own cap with
+# `limits.max_output_tokens`, and a unit that declares
+# `units.<name>.output_tokens` sends that number for every contract it serves,
+# in place of the contract's (`mcgyvr.gate.preflight.reply_cap`).
 #
 # A cap derived here for a contract loaded from text is not part of that
 # contract's emitted form: `dumps` writes `null` for it, so changing these
@@ -809,12 +816,12 @@ class Contract:
 
         ``depends_on`` is emitted only when the contract states one, where
         every other key is emitted empty or not. The difference is not
-        tidiness: this form is an identity — ``sha256(dumps(contract))`` is how
-        any record of runs tells two contracts apart — so a key every contract
-        carries whether or not it means anything re-keys every contract ever
-        emitted, and detaches every recorded run from the contract it ran. A
-        key that appears exactly when it says something costs nothing to add
-        later.
+        tidiness: this form is an identity — a digest of ``dumps(contract)``
+        names a contract by what it says — so a key every contract carries
+        whether or not it means anything changes that digest for every contract
+        ever emitted, and whatever was keyed by the old digest no longer finds
+        its contract. A key that appears exactly when it says something costs
+        nothing to add later.
         """
         stated = {"depends_on": sorted(self.depends_on)} if self.depends_on else {}
         # Emitted on the same rule and for the same reason: a key every
