@@ -206,7 +206,8 @@ function and its parameter):
 
 The `covered` block names every file of mcgyvr's code once: `judging` when its
 numbers are classified in `constants`, or why not (it holds no number that
-sizes or judges, or it is being changed and is covered after that change).
+sizes or judges, it is being changed and is covered after that change, or it
+is third-party code kept as its author wrote it).
 
 A test parses every judging file and fails on a number `constants` does not
 classify, on an entry that no longer matches the code, and on a file of the

@@ -105,6 +105,7 @@ JUDGING = "judging"
 NOT_JUDGING_REASONS: tuple[str, ...] = (
     "holds no number that sizes or judges",
     "changing now; covered after that change lands",
+    "third-party code kept as its author wrote it",
 )
 
 
