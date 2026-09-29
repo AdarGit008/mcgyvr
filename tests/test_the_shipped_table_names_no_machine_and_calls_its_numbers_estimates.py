@@ -213,6 +213,23 @@ def test_no_text_in_the_shipped_table_has_the_shape_of_a_machine_record(
     assert not offending, f"text with the shape of {shape}:\n" + "\n".join(offending)
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["2031-04-09", "9/4/2031", "09/04/2031", "9 April 2031", "Apr 9, 2031"],
+)
+def test_the_date_shape_sees_a_date_with_a_four_digit_year(text: str) -> None:
+    assert MACHINE_SHAPES["a calendar date"].search(f"read on {text} at noon")
+
+
+@pytest.mark.parametrize(
+    "text", ["at 1/2/16 concurrent requests", "a 3/4 share", "ratios 1/2/4/8"]
+)
+def test_the_date_shape_does_not_read_a_run_of_small_numbers_as_a_date(
+    text: str,
+) -> None:
+    assert not MACHINE_SHAPES["a calendar date"].search(text)
+
+
 # --- 3. what the product prints calls the numbers estimates -------------------
 
 
