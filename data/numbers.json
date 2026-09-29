@@ -1,0 +1,45 @@
+{
+  "_doc": "Numbers mcgyvr sizes and judges a machine with that it cannot read off the machine or the model. Every entry is an estimate: a starting value shipped with mcgyvr, not a reading of your machine. Each is keyed by something every machine has (an engine, a unit's tolerance class), never by a machine's name. To use your own value, write it in numbers.yaml in mcgyvr's own folder (~/.mcgyvr/numbers.yaml), under the number's name and then its key, for example `prefill_class_pct:` and below it `vllm: 12`; your value replaces the estimate. A number of this file that neither file states is refused by name: none of them has a default in code.",
+  "schema": 1,
+  "numbers": {
+    "warm_decode_class_pct": {
+      "kind": "estimate",
+      "estimates": "How far, in percent, the warm decode speed of a healthy unit of this tolerance class may fall from one start of the unit to the next.",
+      "used_for": "A live probe that finds a unit's warm decode further than this below its locked warm decode pulls the combination the unit runs in, until that combination's validation is committed again. Writing a fleet's lock is refused when a unit's warm decode falls further than this below the baseline its evidence states for it.",
+      "unit": "percent",
+      "key": "tolerance_class",
+      "values": {
+        "vllm": 1.0,
+        "llamacpp": 1.0,
+        "cpu_experts": 48.0,
+        "mtp": 2.0
+      },
+      "note": "A starting value, not a reading of your machine. The spread between starts may differ with the engine version, the model and what else the machine is doing."
+    },
+    "prefill_class_pct": {
+      "kind": "estimate",
+      "estimates": "How far, in percent, the prefill speed of a healthy unit of this tolerance class may fall from one start of the unit to the next.",
+      "used_for": "A live probe that finds a unit's prefill further than this below its locked prefill pulls the combination the unit runs in, until that combination's validation is committed again.",
+      "unit": "percent",
+      "key": "tolerance_class",
+      "values": {
+        "vllm": 8.0,
+        "llamacpp": 1.0,
+        "cpu_experts": 1.0,
+        "mtp": 5.0
+      },
+      "note": "A starting value, not a reading of your machine. The spread between starts may differ with the engine version, the model and what else the machine is doing."
+    },
+    "runtime_resident_gb": {
+      "kind": "estimate",
+      "estimates": "Host memory, in GiB, that a llama.cpp server holds beyond the expert weights it keeps in host memory.",
+      "used_for": "Added to the host memory a unit is sized to need when some of its experts stay in host memory; charged only then.",
+      "unit": "GiB",
+      "key": "engine",
+      "values": {
+        "llama.cpp": 1.53
+      },
+      "note": "A starting value, not a reading of your machine. It may differ with the model and the context size."
+    }
+  }
+}

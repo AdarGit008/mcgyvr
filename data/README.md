@@ -1,9 +1,10 @@
 # Shipped data
 
-Two files ship as data rather than as code:
+Three files ship as data rather than as code:
 `capability-table.json` (estimates, by card class, of what a model costs and
-how well it codes, below) and `task-catalog.json` (the vocabulary of what
-mcgyvr can be asked to do, at the end of this file).
+how well it codes, below), `task-catalog.json` (the vocabulary of what mcgyvr
+can be asked to do, after it) and `numbers.json` (estimates mcgyvr sizes
+and judges a machine with, at the end of this file).
 
 ## Capability data
 
@@ -159,3 +160,38 @@ They fall into three groups:
   the vocabulary is a copy that can disagree with the first.
   `string_literal_edit` is an exact edit at a known location — a tool's job,
   not a kind of work to route.
+
+
+# The numbers that size and judge a machine
+
+`numbers.json` holds numbers mcgyvr needs and cannot read off the machine
+or the model: how far a healthy unit's warm decode and prefill speed may fall
+from one start to the next (per tolerance class), and how much host memory a
+llama.cpp server holds beyond the experts it keeps there. `mcgyvr.derived`
+reads it; the build copies it into the package, so an installed mcgyvr finds
+it without a checkout.
+
+Every entry is an estimate, and says so: what it estimates, what mcgyvr does
+with it, its unit, its key, and a note on what the value is not. It is a
+starting value shipped with mcgyvr, not a reading of your machine. Keys come
+from closed spaces the code names (the tolerance classes, the engines a unit
+may name), so no entry is keyed by a machine's name, and any machine has a key.
+
+Your own value replaces an estimate. Write it in `~/.mcgyvr/numbers.yaml`,
+under the number's name and then its key:
+
+```yaml
+prefill_class_pct:
+  vllm: 12
+runtime_resident_gb:
+  llama.cpp: 2.5
+```
+
+The file is YAML; write each value as a plain decimal number, such as `12` or
+`2.5`.
+
+A setting for a number or key mcgyvr does not know, or a value that is not a
+finite number inside its unit's bounds (a percent above 0 and below 100, GiB 0
+or more), is refused by name, even when another number was asked. A number
+of this file that neither file states is refused by name too: none of them
+has a default in code.
