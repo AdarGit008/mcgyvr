@@ -5,10 +5,14 @@ executable, a path that leaves the list's root (by name or through a link), a
 root that is not an absolute folder or that is or lies inside the package's
 own folder, a gate inside that folder, a key or a phase the door does not
 know, a key given twice, a name two gates both export, a bound that is not a
-positive number of seconds, more gates than the door holds a list to, and
-input that cannot be read as a path or as JSON at all: each is refused before
-the door runs its first gate, and the refusal names the list file and the
-entry at fault, with no control character of the list printed raw.
+positive number of seconds or is longer than the door holds a gate to, more
+gates than the door holds a list to, and input that cannot be read as a path
+or as JSON at all: each is refused before the door runs its first gate, and
+the refusal names the list file and the entry at fault, with no control
+character of the list printed raw. A list that is not JSON is refused saying
+where the reading stopped, a root inside the package is refused as the root
+and not as a gate, and a list named relative to a working folder that is
+gone is refused, not raised.
 """
 
 from __future__ import annotations
@@ -128,11 +132,21 @@ def _list_not_json(tmp: Path) -> tuple[Path, str]:
     return listed, "JSON"
 
 
+def _list_not_json_later(tmp: Path) -> tuple[Path, str]:
+    listed = tmp / "g.json"
+    listed.write_text('{"root": "/somewhere",\n "gates": [,]}\n', encoding="utf-8")
+    return listed, "line 2, column 12: Expecting value"
+
+
 def _list_missing(tmp: Path) -> tuple[Path, str]:
     return tmp / "no-such-list.json", "cannot be read"
 
 
-def _root_in_package(where: Path, gate: str, names: str = "root") -> Case:
+#: What the refusal of a root inside the package says, and a gate's never does.
+ROOT_IN_PACKAGE = "is or lies inside the package"
+
+
+def _root_in_package(where: Path, gate: str, names: str = ROOT_IN_PACKAGE) -> Case:
     def case(tmp: Path) -> tuple[Path, str]:
         listed = cg.write_list(tmp / "g.json", str(where), [cg.entry(gate, "before")])
         return listed, names
@@ -197,6 +211,7 @@ CASES: dict[str, Case] = {
     "an unknown phase": _unknown_phase,
     "a name two gates export": _duplicate_export,
     "a list that is not JSON": _list_not_json,
+    "a list that stops being JSON after its first line": _list_not_json_later,
     "a list file that is not there": _list_missing,
     "a root that is the door's gate folder": _root_in_package(
         PACKAGE / "serving" / "gate-scripts", "06-step.py"
@@ -219,6 +234,8 @@ CASES: dict[str, Case] = {
     ),
     "more gates than a list holds": _too_many,
     "a bound of zero": _bound(0),
+    "a bound longer than the door holds a gate to": _bound(1e10),
+    "a bound too long to wait on": _bound(1e308),
     "a bound that is not a number": _bound("5"),
     "a bound that is a truth value": _bound(True),
     "an export name ending in a newline": _export_with_newline,
@@ -274,3 +291,49 @@ def test_a_refusal_prints_no_control_character_of_the_list_raw(
     said = capsys.readouterr().err
     assert "\x00" not in said and "\x1b" not in said, repr(said)
     assert "\\x1b" in said, said
+
+
+@pytest.mark.parametrize(
+    "where", [PACKAGE / "serving" / "gate-scripts", PACKAGE], ids=["gates", "package"]
+)
+def test_a_root_inside_the_package_is_refused_as_the_root_not_as_a_gate(
+    where: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    listed = cg.write_list(
+        tmp_path / "g.json", str(where), [cg.entry("06-step.py", "before")]
+    )
+
+    assert run.main(cg.read_argv("--gates", str(listed))) == 2
+
+    said = " ".join(capsys.readouterr().err.split())
+    assert f"root {where.resolve()} {ROOT_IN_PACKAGE}" in said, said
+    assert "gates[0]" not in said, said
+    assert cg.log_lines(log) == []
+
+
+def test_a_list_named_from_a_working_folder_that_is_gone_is_refused(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    compose = cg.compose_file(tmp_path / "compose.yaml")
+    gone = tmp_path / "gone"
+    gone.mkdir()
+    monkeypatch.chdir(gone)
+    gone.rmdir()
+
+    status = run.main(cg.serve_argv(compose, "--gates", "g.json"))
+
+    said = capsys.readouterr().err
+    assert status == 2, said
+    assert "REFUSED" in said and "--gates g.json" in said, said
+    assert cg.log_lines(log) == []

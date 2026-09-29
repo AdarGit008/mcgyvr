@@ -6,11 +6,14 @@ gates after it, the door's included, see it. A name the list does not declare
 is refused, and so is a list declaring a name the door sets itself or a name
 outside the door's ``RUN_`` vocabulary, since either would change what a
 door gate reads. A caller's gate sees the list's root as ``RUN_ROOT``; the
-door's gates keep the door's.
+door's gates keep the door's. A declared export is read whatever number its
+descriptor has, however many descriptors the door holds open.
 """
 
 from __future__ import annotations
 
+import os
+import resource
 from pathlib import Path
 
 import pytest
@@ -57,6 +60,46 @@ def test_a_declared_export_reaches_the_gates_after_it_the_doors_included(
     assert "RUN_CALLER_MARK=seen" in lines["caller:look"]
     assert "RUN_CALLER_MARK=seen" in lines[f"door:{run.READ_SEQUENCE[1].script}"]
     assert "RUN_CALLER_MARK=-" in lines[f"door:{run.READ_SEQUENCE[0].script}"]
+
+
+#: More descriptors than ``select`` can wait on, so the export pipe opens
+#: at a number above what it takes.
+HELD_OPEN = 1100
+
+
+def test_an_export_is_read_on_a_descriptor_of_any_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    wanted = HELD_OPEN + 64
+    if hard != resource.RLIM_INFINITY and hard < wanted:
+        pytest.skip(f"this system lets a process hold only {hard} descriptors")
+    if soft != resource.RLIM_INFINITY and soft < wanted:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (wanted, hard))
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log, show=("RUN_CALLER_MARK",))
+    root = tmp_path / "caller"
+    cg.executable(
+        root / "mark.py",
+        cg.gate_text(log, "caller:mark", exports={"RUN_CALLER_MARK": "seen"}),
+    )
+    listed = cg.write_list(
+        tmp_path / "gates.json",
+        str(root),
+        [cg.entry("mark.py", "before", ["RUN_CALLER_MARK"])],
+    )
+    held = [os.open(os.devnull, os.O_RDONLY) for _ in range(HELD_OPEN)]
+    try:
+        status = run.main(cg.read_argv("--gates", str(listed)))
+    finally:
+        for fd in held:
+            os.close(fd)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+    assert status == 0
+    lines = {line.split()[0]: line for line in cg.log_lines(log)}
+    assert "RUN_CALLER_MARK=seen" in lines[f"door:{run.READ_SEQUENCE[1].script}"]
 
 
 def test_an_export_the_list_does_not_declare_is_refused_and_the_run_stops(

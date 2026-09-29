@@ -20,11 +20,14 @@ Every host, folder and container here is invented for the test.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import signal
 import stat
 import subprocess
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -250,16 +253,21 @@ REPO = Path(__file__).resolve().parent.parent
 
 #: The door as a process over :func:`fake_door`'s stand-ins, with the signal
 #: handlers the door installs when it runs as ``python -m``. Arguments: the
-#: folder to build in, the order log, and the door's argv as JSON. A
-#: ``lease-release.py`` in that folder stands in for the lease release.
+#: folder to build in, the order log, the door's argv as JSON, and
+#: ``subreaper`` or nothing. A ``lease-release.py`` in that folder stands in
+#: for the lease release. With ``subreaper`` the door adopts every process
+#: orphaned below it (a child subreaper), as a door running as PID 1 does.
 DRIVER = """
-import json, signal, sys
+import ctypes, json, signal, sys
 from pathlib import Path
 import pytest
 sys.path.insert(0, {repo!r})
 from mcgyvr.serving import run
 from tests import callergates as cg
 work, log, argv = Path(sys.argv[1]), Path(sys.argv[2]), json.loads(sys.argv[3])
+if sys.argv[4:] == ["subreaper"]:
+    if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
+        sys.exit("cannot become a child subreaper")
 mp = pytest.MonkeyPatch()
 cg.clean_door_env(mp)
 gates = cg.fake_door(work, mp, log)
@@ -305,12 +313,20 @@ sys.exit(door.returncode)
 
 
 def driven_door(
-    work: Path, log: Path, argv: list[str], *, reap_after: float | None = None
+    work: Path,
+    log: Path,
+    argv: list[str],
+    *,
+    reap_after: float | None = None,
+    subreaper: bool = False,
 ) -> subprocess.Popen[str]:
     """Start the door over stand-in gates as a process of its own.
 
     With ``reap_after``, the door runs under :data:`SLOW_REAPER`: a process
-    orphaned below it is reaped only that many seconds after it died.
+    orphaned below it is reaped only that many seconds after it died. With
+    ``subreaper``, the door itself adopts the processes orphaned below it.
+    The door starts in a session of its own, so :func:`stop_door` can end it
+    and whatever runs in its process group.
     """
     door = [
         sys.executable,
@@ -319,6 +335,7 @@ def driven_door(
         str(work),
         str(log),
         json.dumps(argv),
+        *(["subreaper"] if subreaper else []),
     ]
     if reap_after is not None:
         door = [sys.executable, "-c", SLOW_REAPER, str(reap_after), *door]
@@ -327,7 +344,23 @@ def driven_door(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        start_new_session=True,
     )
+
+
+def stop_door(door: subprocess.Popen[str], pids: Iterable[int] = ()) -> None:
+    """Kill a driven door's process group, when it still runs, and ``pids``.
+
+    A caller's gate runs in a session of its own, outside the door's group,
+    so a test names the gate's processes to leave nothing running.
+    """
+    if door.poll() is None:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(door.pid, signal.SIGKILL)
+        door.wait()
+    for pid in pids:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.kill(pid, signal.SIGKILL)
 
 
 def alive(pid: int) -> bool:

@@ -2,13 +2,17 @@
 
 A gate's path and its ``why`` are the caller's text. A terminal escape, a NUL
 or a line break in them is printed as its escape wherever the door names the
-gate: a gate that refuses before the step, an ``always`` gate that refuses, a
-gate that exports a name its list does not declare, one that writes a line
-that is not ``KEY=VALUE``, and one that admits without its declared export.
+gate. Seven of the texts that name one are held here: a gate that refuses
+before the step, an ``always`` gate that refuses, a gate that exports a name
+its list does not declare, one that exports a value holding a NUL, one that
+writes a line that is not ``KEY=VALUE``, one that admits without its
+declared export, and an ``always`` gate ended by a signal to the door.
 """
 
 from __future__ import annotations
 
+import signal
+import time
 from pathlib import Path
 
 import pytest
@@ -37,6 +41,11 @@ GATES = {
         "sys.exit(0)",
         "before",
         ["RUN_CALLER_OWED"],
+    ),
+    "exports a value holding a NUL": (
+        "os.write(fd, b'RUN_CALLER_X=a\\x00b\\n')",
+        "before",
+        ["RUN_CALLER_X"],
     ),
 }
 
@@ -77,3 +86,37 @@ def test_a_gate_named_with_control_characters_is_named_escaped(
     assert not any(line.startswith(("line.py", "red")) for line in said.splitlines()), (
         said
     )
+
+
+def test_an_always_gate_ended_by_a_signal_is_named_escaped(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    log = work / "order.log"
+    root = work / "caller"
+    cg.executable(
+        root / NAME,
+        "#!/usr/bin/env python3\nimport time\n"
+        f"open({str(log)!r}, 'a').write('caller:named\\n')\n"
+        "time.sleep(60)\n",
+    )
+    gate = cg.entry(NAME, "always", why=WHY)
+    gate["timeout_s"] = 120
+    listed = cg.write_list(work / "gates.json", str(root), [gate])
+    compose = cg.compose_file(work / "compose.yaml")
+    door = cg.driven_door(work, log, cg.serve_argv(compose, "--gates", str(listed)))
+    try:
+        deadline = time.monotonic() + 60
+        while "caller:named" not in cg.log_lines(log):
+            assert door.poll() is None, door.communicate()
+            assert time.monotonic() < deadline, cg.log_lines(log)
+            time.sleep(0.1)
+        door.send_signal(signal.SIGTERM)
+        _, said = door.communicate(timeout=60)
+    finally:
+        cg.stop_door(door)
+
+    assert "\x1b" not in said and "\x00" not in said, repr(said)
+    named = [line for line in said.splitlines() if "was ended by a signal" in line]
+    assert named, said
+    assert "esc\\x1b[2Jnew\\nline.py" in named[0], repr(named[0])
+    assert "why\\x1b[31m\\x00\\nred" in named[0], repr(named[0])
