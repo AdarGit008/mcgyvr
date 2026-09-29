@@ -24,7 +24,6 @@
 CHANGELOG.md	dev-pointer=10
 Makefile	dev-pointer=2
 README.md	dev-pointer=9
-data/capability-table.json	card-model=4	dev-pointer=3	host=2
 eslint.config.mjs	dev-pointer=7
 examples/fleet.yaml	dev-pointer=2
 prettier.config.mjs	dev-pointer=1
@@ -80,7 +79,6 @@ src/mcgyvr/weights.py	dev-pointer=1
 src/mcgyvr/worker/bundle.py	dev-pointer=4
 src/mcgyvr/worker/prompt.py	dev-pointer=1
 src/mcgyvr/worker/reply.py	dev-pointer=1
-tests/conftest.py	dev-pointer=5	host=1
 tests/livejournal.py	dev-pointer=1
 tests/lockfleets_window.py	dev-pointer=6
 tests/onedoor.py	card-model=2	dev-pointer=20	host=2
@@ -207,3 +205,4 @@ tests/test_verify_b1_b9.py	dev-pointer=1
 # Section 2: kept on purpose. A file here needs such strings as its inputs;
 # a person moves an entry here and says why in the change that moves it.
 tests/test_init_names_no_machine_the_user_did_not_name.py	address=6	host=9
+tests/test_what_every_test_shares_opens_nothing_outside_the_package_and_the_tests.py	dev-pointer=12
