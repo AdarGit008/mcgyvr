@@ -144,9 +144,9 @@ def shipped_path() -> Path:
     if checkout.is_file():
         return checkout
     raise DerivedNumbersError(
-        f"shipped numbers not found (looked for {NUMBERS_FILENAME} in the "
-        "package's data folder and in the checkout's data folder); nothing is "
-        "sized or judged from a default in code"
+        f"shipped numbers not found: neither {packaged} (the package's own copy) "
+        f"nor {checkout} (a checkout's) is a file; nothing is sized or judged "
+        "from a default in code"
     )
 
 
