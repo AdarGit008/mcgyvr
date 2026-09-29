@@ -51,7 +51,8 @@ DATA_DIR = f"~/.local/state/{DATA_NAME}"
 FLEETS_DIR = "fleets"
 #: The pointer naming the fleet live runs.
 LIVE_FILE = "live.json"
-#: The two as help text names them, under the config folder's default.
+#: The two under the config folder's default, for help text only: a refusal
+#: names the file it read (:func:`live_file`).
 FLEETS_SHOWN = f"{HOME_DIR}/{FLEETS_DIR}"
 LIVE_FILE_SHOWN = f"{HOME_DIR}/{LIVE_FILE}"
 #: What separates a fleet from the date of its lock in a promoted folder's name.
@@ -61,7 +62,11 @@ _TAG_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 class LiveFleetError(Exception):
-    """``~/.mcgyvr/live.json`` is there and does not name a fleet."""
+    """The config folder's ``live.json`` cannot be read or names no fleet.
+
+    A config folder that cannot be located is one of these too: its
+    ``live.json`` cannot be read.
+    """
 
 
 class FolderError(RuntimeError):
@@ -98,9 +103,10 @@ def _named(variable: str, default: str) -> Path | None:
 def home() -> Path:
     """The config folder: ``$MCGYVR_HOME``, else ``~/.mcgyvr``.
 
-    The lease a served machine keeps on itself is not in this folder and never
-    follows the variable: it is :data:`mcgyvr.serving.gatelib.LEASE_FILE`,
-    named from that machine's own home.
+    The lease a served machine keeps on itself never follows the variable: it
+    is :data:`mcgyvr.serving.gatelib.LEASE_FILE`, named from that machine's own
+    home. It lies in this folder only when the served machine is this one and
+    the folder is at its default.
     """
     named = _named(HOME_ENV, HOME_DIR)
     return named if named is not None else Path(HOME_DIR).expanduser()
@@ -113,13 +119,14 @@ def data_home() -> Path:
     An ``$XDG_STATE_HOME`` that is not absolute is ignored, as the XDG base
     directory convention says.
     """
-    named = _named(DATA_ENV, DATA_DIR)
+    state = os.environ.get(STATE_ENV)
+    under_state = (
+        Path(state) / DATA_NAME if state and Path(state).is_absolute() else None
+    )
+    named = _named(DATA_ENV, DATA_DIR if under_state is None else str(under_state))
     if named is not None:
         return named
-    state = os.environ.get(STATE_ENV)
-    if state and Path(state).is_absolute():
-        return Path(state) / DATA_NAME
-    return Path(DATA_DIR).expanduser()
+    return under_state if under_state is not None else Path(DATA_DIR).expanduser()
 
 
 def fleets_dir() -> Path:
@@ -180,9 +187,13 @@ def live_fleet() -> str | None:
 
     A ``live.json`` that is there and names no fleet raises
     :class:`LiveFleetError`: a pointer nobody can read is not the same as no
-    pointer, and live must not quietly run as if nothing were named.
+    pointer, and live must not quietly run as if nothing were named. A config
+    folder that cannot be located raises it too, with the variable's refusal.
     """
-    path = live_file()
+    try:
+        path = live_file()
+    except FolderError as exc:
+        raise LiveFleetError(str(exc)) from exc
     if not path.is_file():
         return None
     try:
@@ -203,11 +214,11 @@ def live_fleet_dir() -> Path | None:
 def lock_root(profile: str) -> Path | None:
     """The directory whose ``records/fleet/`` is the lock ``profile`` reads.
 
-    ``live`` is the fleet folder ``~/.mcgyvr/live.json`` names, and ``None``
-    when no fleet is named — no live lock, so live admits nothing. ``dev`` is
-    the run root — ``$MCGYVR_RUN_ROOT`` when the door names one, else the
-    checkout — which is :func:`mcgyvr.serving.run.run_root`, so the dev lock
-    and the dev evidence are found under one directory.
+    ``live`` is the fleet folder the config folder's ``live.json`` names, and
+    ``None`` when no fleet is named — no live lock, so live admits nothing.
+    ``dev`` is the run root — ``$MCGYVR_RUN_ROOT`` when the door names one,
+    else the checkout — which is :func:`mcgyvr.serving.run.run_root`, so the
+    dev lock and the dev evidence are found under one directory.
     """
     if profile == "live":
         return live_fleet_dir()
@@ -219,7 +230,13 @@ def lock_root(profile: str) -> Path | None:
 
 
 def is_live(path: Path) -> bool:
-    """Whether ``path`` is the config folder or lies under it."""
-    live = home().resolve()
+    """Whether ``path`` is the config folder or its default, or lies under either.
+
+    The default stays guarded when the variable moves the folder: a server
+    started without the variable reads its fleets there.
+    """
     resolved = path.expanduser().resolve()
-    return resolved == live or resolved.is_relative_to(live)
+    return any(
+        resolved.is_relative_to(folder)
+        for folder in (home().resolve(), Path(HOME_DIR).expanduser().resolve())
+    )

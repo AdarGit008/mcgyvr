@@ -52,7 +52,7 @@ from mcgyvr.emit import (
 )
 from mcgyvr.exits import Exit
 from mcgyvr.fleet.files import FleetFileError, load_fleet
-from mcgyvr.fleet.roots import FLEETS_SHOWN, LIVE_FILE_SHOWN
+from mcgyvr.fleet.roots import FLEETS_SHOWN, LIVE_FILE_SHOWN, FolderError
 from mcgyvr.initialize import ApiSpecError, InitError, initialize, parse_api_unit
 from mcgyvr.scan import Mismatch, Scan
 from mcgyvr.serving import (
@@ -3867,7 +3867,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.func is _run:
         _name_the_writer(run, args)
-    result: int = args.func(args)
+    try:
+        result: int = args.func(args)
+    except FolderError as exc:
+        # A variable that moves one of mcgyvr's folders names no usable
+        # folder: one line naming it, whichever command met it first.
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return result
 
 

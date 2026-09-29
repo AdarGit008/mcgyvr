@@ -35,7 +35,7 @@ import os
 import sys
 
 from mcgyvr import config as configlib
-from mcgyvr.fleet.roots import LiveFleetError, lock_root
+from mcgyvr.fleet.roots import LiveFleetError, live_file, lock_root
 from mcgyvr.serving.gatelib import DEV, door_required, export, refuse, root
 
 
@@ -146,7 +146,7 @@ def refuse_unless_the_fleet_lock_names(serve: str, which: str) -> None:
         refuse(
             f"gate 1: this live `serve up` names {', '.join(missing)}, which "
             f"the fleet lock for {host} does not name. A live run starts only "
-            "units the live fleet lock names — the fleet ~/.mcgyvr/live.json "
+            f"units the live fleet lock names — the fleet {live_file()} "
             "names; lock them from a passing dev run, `mcgyvr fleet promote` "
             "and `mcgyvr fleet use` the fleet, or run this under a dev profile"
         )
