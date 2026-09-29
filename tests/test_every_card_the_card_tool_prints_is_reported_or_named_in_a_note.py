@@ -337,9 +337,15 @@ def test_a_card_of_undetermined_size_is_named_without_a_claim_about_remote_rungs
             Gpu("Inventa Shared V", NO_SIZE, "invented"),
         ),
         backends=(
-            Backend("llama-server", "http://localhost:8080", "openai", measured, "probe"),
             Backend(
-                "vllm-far", "http://elsewhere:9000", "openai", (), "probe",
+                "llama-server", "http://localhost:8080", "openai", measured, "probe"
+            ),
+            Backend(
+                "vllm-far",
+                "http://elsewhere:9000",
+                "openai",
+                (),
+                "probe",
                 host="elsewhere",
             ),
         ),

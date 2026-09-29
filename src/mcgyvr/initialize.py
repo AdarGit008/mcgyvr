@@ -623,7 +623,7 @@ def _decisions(
         if gpu.vram_gb is None:
             decisions.append(
                 f"GPU {gpu.name} with {gpu.size}, via {gpu.how}: no model is "
-                f"sized against it{scope}."
+                "sized against it."
             )
     for backend in detection.backends:
         where = "here" if backend.is_local else f"on {backend.host}"
