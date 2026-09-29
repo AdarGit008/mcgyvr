@@ -316,8 +316,9 @@ def test_removing_an_old_temp_tree_with_folders_named_like_the_watched_ones_is_n
     watched ones, with the repository as the working directory, logs nothing:
     the names ``shutil.rmtree`` opens relative to a directory descriptor are
     not taken for the repository's folders. ``shutil`` is imported before the
-    hook, as it is under pytest, and the script asserts that ``rmtree`` does
-    walk by descriptor wherever the platform offers it, so this cannot pass by
+    hook, as it is under pytest. Whether the platform lets ``rmtree`` walk by
+    descriptor is read before the hook replaces ``os.open``; where it does, the
+    script asserts that ``rmtree`` walks by descriptor, so this cannot pass by
     never opening a name relative to one."""
     root = tmp_path / "root"
     for name in OUTSIDE:
@@ -331,12 +332,16 @@ def test_removing_an_old_temp_tree_with_folders_named_like_the_watched_ones_is_n
         root,
         "\n".join(
             [
-                "if os.open in os.supports_dir_fd and os.scandir in os.supports_fd:",
+                "if BY_FD:",
                 "    assert shutil._use_fd_functions, 'rmtree walks by full path'",
                 f"shutil.rmtree({str(tmp_path / 'stale')!r})",
             ]
         ),
-        before="import os\nimport shutil",
+        before=(
+            "import os\n"
+            "BY_FD = os.open in os.supports_dir_fd and os.scandir in os.supports_fd\n"
+            "import shutil"
+        ),
     )
     assert seen == []
 
