@@ -4,7 +4,9 @@ Promise: what the product ships and what a contributor reads holds no home
 folder of a named user, no address that reaches a machine, no private host
 name, no card model, no identity digest of a real machine and no pointer into
 the development repository, except in the files a list names, each with the
-hits of each kind it holds; the list may only shrink.
+hits of each kind it holds; the list may only shrink. Not read: the folders
+that leave the product, while they are in it, and the sections of the
+changelog under a released version.
 
 The kinds, what passes and what the check cannot see are stated in
 :mod:`tests.uninvented_machines`, which this test and the command that writes
@@ -27,8 +29,8 @@ itself holds none.
 
 from __future__ import annotations
 
-import ipaddress
 import os
+import stat
 import subprocess
 from pathlib import Path
 
@@ -37,10 +39,12 @@ import pytest
 from tests import machine_shapes
 from tests import uninvented_machines as um
 
-_FOLDER = um.LEAVING[4]  # a folder that leaves the product and is a module name
+_FOLDER = "tools"  # a folder that leaves the product and is a module name
 _PRIVATE = ".".join(("10", "9", "8", "7"))
 _HOST = "gpu" + "box"
 _CARD = "RT" + "X 9999"
+_HEX = "0123" + "456789abcdef"
+_HEX8 = "0123" + "abcd"
 
 
 def _is_checkout() -> bool:
@@ -107,15 +111,58 @@ def test_every_listed_count_is_the_count_found(
 
 
 def test_every_folder_left_unread_is_still_in_the_product() -> None:
-    """The five folders are passed over because they leave the product; once
-    one holds no tracked file, its exclusion has outlived its reason."""
+    """The folders in UNREAD are passed over because they leave the product;
+    once one holds no tracked file, its exclusion has outlived its reason."""
     if not _is_checkout():
         pytest.skip(f"{um.REPO} is not a git checkout")
-    gone = [folder for folder in um.LEAVING if um.tracked_in(folder) == 0]
+    gone = [folder for folder in um.UNREAD if um.tracked_in(folder) == 0]
     assert not gone, (
         f"{', '.join(gone)} holds no tracked file any more: remove it from "
-        "LEAVING in tests/uninvented_machines.py, so a file there is read again"
+        "UNREAD in tests/uninvented_machines.py, so a file there is read again"
     )
+
+
+def test_a_folder_read_again_is_still_a_place_no_pointer_may_lead(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Doing what the test above says, dropping a folder from UNREAD, makes
+    its files read and keeps every pointer into it a hit: where a pointer may
+    not lead is fixed apart from what is read."""
+    assert _FOLDER in um.LAB_FOLDERS
+    assert set(um.UNREAD) <= set(um.LAB_FOLDERS)
+    repo = _repo(tmp_path)
+    (repo / _FOLDER).mkdir()
+    (repo / _FOLDER / "x.txt").write_text(f"at {_PRIVATE}\n", "utf-8")
+    (repo / "README.md").write_text(f"see {_FOLDER}/run.py\n", "utf-8")
+    _commit(repo)
+    assert _found(repo) == {"README.md": ["dev-pointer"]}
+    monkeypatch.setattr(um, "UNREAD", tuple(f for f in um.UNREAD if f != _FOLDER))
+    assert _found(repo) == {
+        "README.md": ["dev-pointer"],
+        f"{_FOLDER}/x.txt": ["address"],
+    }
+
+
+def test_the_count_of_tracked_files_is_of_the_one_top_folder_named(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    for path in (f"{_FOLDER}/a.txt", f"deep/{_FOLDER}/b.txt", "c.txt"):
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_text("x\n", "utf-8")
+    _commit(repo)
+    assert um.tracked_in(_FOLDER, repo) == 1
+    assert um.tracked_in("absent", repo) == 0
+
+
+def test_the_writers_temporary_file_is_not_read(tmp_path: Path) -> None:
+    """A run killed before the new list replaced the old leaves the temporary
+    file behind; it is not a file of the product."""
+    repo = _repo(tmp_path)
+    (repo / "tests").mkdir()
+    left = repo / "tests" / f".{um.LIST_PATH.name}.k2j4x"
+    left.write_text(f"at {_PRIVATE}\n", "utf-8")
+    assert _found(repo) == {}
 
 
 def test_this_folder_of_tests_is_read() -> None:
@@ -177,6 +224,52 @@ def test_the_list_only_shrinks_against_an_older_one() -> None:
     assert um.growth(old, {"c": {"host": 1}}) == ["c: host 0 -> 1"]
 
 
+@pytest.mark.parametrize(
+    ("base", "grew"),
+    [
+        (_listed(k={"card-model": 1}), False),
+        (
+            um.Listed(
+                cleaning={"a": {"host": 1}, "c": {"address": 1}},
+                kept={"k": {"card-model": 1}},
+            ),
+            True,
+        ),
+        (_listed(), True),
+    ],
+    ids=["the-same", "a-count-lower-in-the-base", "a-kept-entry-new"],
+)
+def test_the_comparison_ci_runs_fails_when_the_list_grew_in_either_section(
+    base: um.Listed, grew: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Through the command itself: a count lower in the base, or an entry of
+    section 2 the base does not hold, is growth and exits 1."""
+    now = tmp_path / "list.txt"
+    now.write_text(um.render(_listed(k={"card-model": 1})), encoding="utf-8")
+    old = tmp_path / "base.txt"
+    old.write_text(um.render(base), encoding="utf-8")
+    monkeypatch.setattr(um, "LIST_PATH", now)
+    assert um.main(["--compare", str(old)]) == (1 if grew else 0)
+
+
+def test_a_rewrite_that_would_grow_the_list_is_refused_without_the_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Through the command itself: a scan that finds more than is listed
+    leaves the list byte for byte as it was and exits 1."""
+    target = tmp_path / "list.txt"
+    target.write_text(um.render(_listed()), encoding="utf-8")
+    before = target.read_bytes()
+    monkeypatch.setattr(um, "LIST_PATH", target)
+    monkeypatch.setattr(
+        um, "scan", lambda: [um.Hit("a", 1, "host"), um.Hit("a", 2, "host")]
+    )
+    assert um.main(["--write"]) == 1
+    assert target.read_bytes() == before
+    assert um.main(["--write", "--allow-growth"]) == 0
+    assert um.read_list(target) == um.Listed(cleaning={"a": {"host": 2}})
+
+
 def test_the_writer_keeps_each_file_in_its_section() -> None:
     old = um.Listed(cleaning={"a": {"host": 2}}, kept={"k": {"address": 3}})
     found = {"a": {"host": 1}, "k": {"address": 2}, "n": {"host": 1}}
@@ -193,6 +286,7 @@ def test_the_writer_replaces_the_list_in_one_step(
     target.write_text("before\n", encoding="utf-8")
     um.write_list(_listed(), target)
     assert um.parse(target.read_text(encoding="utf-8")) == _listed()
+    assert stat.S_IMODE(target.stat().st_mode) == 0o644
 
     def broken(*_: object) -> None:
         raise OSError("the disk is full")
@@ -296,11 +390,16 @@ def test_a_path_name_is_read_as_line_zero() -> None:
 
 
 def test_released_changelog_sections_are_history(tmp_path: Path) -> None:
+    """A section ends what is read only when its heading names a version, as
+    the release reads it: an open section spelled in lower case, or a heading
+    of prose, is still read."""
     (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n## [Unreleased]\nnow\n## [0.1.0] - then\nold\n",
+        "# Changelog\n## [unreleased]\nnow\n## Notes\nkept\n## [0.1.0] - then\nold\n",
         encoding="utf-8",
     )
-    assert um.text_of(tmp_path, "CHANGELOG.md") == "# Changelog\n## [Unreleased]\nnow\n"
+    assert um.text_of(tmp_path, "CHANGELOG.md") == (
+        "# Changelog\n## [unreleased]\nnow\n## Notes\nkept\n"
+    )
 
 
 # --- the kinds ---------------------------------------------------------------
@@ -321,8 +420,19 @@ def test_the_invented_machines_and_reserved_names_pass() -> None:
             lines.append(f"{server.kind} {' '.join(server.models)}")
     for host in ("gpu-7.invalid", "box.test", "api.example.com", "localhost"):
         lines.append(f"http://{host}:8000 host={host!r} --host {host}")
-    for block in um.PASSING_NETWORKS:
-        lines.append(f"http://{block.network_address}:9 {block.network_address}")
+    # Loopback, unspecified, and each documentation block, written out.
+    for address in (
+        "127.0.0.2",
+        "0.0.0.0",
+        "192.0.2.7",
+        "198.51.100.7",
+        "203.0.113.7",
+        "::1",
+        "::",
+        "2001:db8::7",
+    ):
+        host = f"[{address}]" if ":" in address else address
+        lines.append(f"http://{host}:9 {address}")
     lines.append("/home/someone/models /Users/<user>/x /home/runner/work")
     lines.append("rig-" + "0" * 16 + " unt-" + "1" * 64 + " rig_id: " + "2" * 16)
     assert _hits("\n".join(lines)) == []
@@ -337,19 +447,37 @@ def test_the_invented_machines_and_reserved_names_pass() -> None:
         ("address", "reach " + ".".join(("010", "009", "008", "007"))),
         ("address", "reach fd12" + ":3456::1"),
         ("address", "http://[fd12" + ":3456::1]:8080/v1"),
+        ("address", "reach fd1" + "::1"),
+        ("address", "http://[100" + "::2]:8080/v1"),
         ("host", "http:/" + f"/{_HOST}:8080/v1"),
+        ("host", "http:/" + f"/{_HOST}" + ".inter" + "nal:8080/v1"),
         ("host", '"host": "' + _HOST + '"'),
         ("host", "host: " + _HOST),
+        ("host", "host: " + _HOST + ".loc" + "al"),
         ("host", "  ssh_target: ops@" + _HOST),
         ("host", "mcgyvr init --host " + _HOST),
         ("host", "HOST=1 host=" + _HOST),
+        ("host", "host = " + _HOST),
         ("host", "ss" + "h -p 22 ops@" + _HOST + " true"),
+        ("host", "ss" + "h -p22 ops@" + _HOST + " true"),
+        ("host", "ss" + "h -oBatchMode=yes ops@" + _HOST),
+        ("host", "sc" + "p model.bin ops@" + _HOST + ":/srv/models/"),
+        ("host", "rsy" + "nc -a ops@" + _HOST + ":models/ ."),
+        ("host", '["ss' + 'h", "ops@' + _HOST + '"]'),
+        ("host", '"-o BatchMode=yes -o X ops@' + _HOST + ' cmd"'),
         ("host", "at node" + ".la" + "n"),
+        ("host", "at node" + ".la" + "n."),
         ("card-model", "one " + _CARD + " card"),
+        ("card-model", "one " + "GT" + "X 99 card"),
+        ("card-model", "one " + "rt" + "x 9999 card"),
         ("card-model", "NVIDIA GeForce " + "GT" + "X_9999"),
         ("card-model", "def test_on_the_" + "rt" + "x_9999(): pass"),
         ("identity", "rig" + "-" + "0123456789abcdef"),
+        ("identity", "rig" + "-" + _HEX8),
         ("identity", "rig_" + "id: 0123456789abcdef"),
+        ("identity", "unit_id=" + _HEX8),
+        ("identity", "machine_id: " + _HEX),
+        ("identity", '"os_machine_id": "' + _HEX + '"'),
         ("dev-pointer", "see " + _FOLDER + "/" + "rules.md"),
         ("dev-pointer", "see `" + _FOLDER + "/` there"),
         ("dev-pointer", "from " + _FOLDER + ".x import y"),
@@ -384,12 +512,23 @@ def test_the_development_repository_is_named_on_one_readme_line_only() -> None:
         "file:///srv/models unix:///run/docker.sock s3://bucket/key",
         "/home/runner/work/x",
         "host: int = 0",
+        "    host: int",
         "self.private = 1",
         '{"method": "tools/call"} {"method": "tools/list"}',
+        "step = x[100::2]",
+        "__version__ = " + '"' + ".".join("1234") + '"',
+        'tag = "v@2026-09-29"',
+        "docker pull img@sha256:" + "ab" * 32,
+        "git clone git@github.com:org/repo.git",
     ],
 )
 def test_what_an_honest_change_writes_is_not_a_hit(text: str) -> None:
     assert _hits(text) == []
+
+
+def test_an_unquoted_host_value_in_python_is_a_variable() -> None:
+    assert _hits("host = " + _HOST, "run.py") == []
+    assert _hits("host = " + _HOST, "rig.ini") == ["host"]
 
 
 def test_a_lock_file_holds_versions_not_addresses() -> None:
@@ -398,12 +537,12 @@ def test_a_lock_file_holds_versions_not_addresses() -> None:
     assert _hits(f"x {four}\n", "notes.txt") == ["address"]
 
 
-def test_a_card_is_found_as_vendors_write_it_and_not_in_lower_case_prose() -> None:
-    assert _hits("rt" + "x 9999") == []
+def test_a_card_is_found_as_vendors_write_it() -> None:
     assert _hits(_CARD) == ["card-model"]
     assert _hits("Rade" + "on 9999") == ["card-model"]
+    assert _hits("rt" + "x 9999") == ["card-model"]
 
 
 def test_ipv6_is_read_and_its_documentation_block_passes() -> None:
     assert _hits("fd12" + ":3456::1") == ["address"]
-    assert _hits(str(ipaddress.ip_address("2001:db8::1"))) == []
+    assert _hits("2001:db8::1") == []
