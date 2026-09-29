@@ -6,12 +6,14 @@ reaches a small card, that an unmeasured model is never bound — are claims
 about that data as much as about this code. A fixture would let the table
 drift out from under them.
 
-The two cards are the sizes of the table's two declared card classes.
+The two cards are the sizes of the smallest and the largest card class the
+table declares, read from it.
 """
 
 from __future__ import annotations
 
 import inspect
+import re
 from itertools import pairwise
 
 import pytest
@@ -26,8 +28,9 @@ from mcgyvr.propose import (
     propose,
 )
 
-SMALL_CARD = 6.0
-BIG_CARD = 12.0
+_CLASS_SIZES = sorted(c.memory_gb for c in load().card_classes)
+SMALL_CARD = _CLASS_SIZES[0]
+BIG_CARD = _CLASS_SIZES[-1]
 
 OLLAMA = AvailableSource("local", "ollama")
 LLAMA_SERVER = AvailableSource("local-gguf", "llama-server")
@@ -128,8 +131,12 @@ def test_at_equal_quality_the_faster_model_is_the_rung(table) -> None:  # type: 
     for loser in tied:
         reason = proposal.why(loser.id)
         assert reason is not None
+        assert top.model in reason, "the reason names the rung that won"
         assert "same estimated quality" in reason
         assert "slower" in reason
+        assert not re.search(r"\bhere\b", reason), (
+            "the speeds compared are the table's estimates, not this machine's"
+        )
 
 
 def test_throughput_is_not_borrowed_across_backends(table) -> None:  # type: ignore[no-untyped-def]
@@ -358,16 +365,16 @@ def test_headroom_is_respected_on_every_rung(table) -> None:  # type: ignore[no-
 # --- a rig on another machine is not sized against this one's card (#161) ---
 
 REMOTE_BIG = AvailableSource(
-    "srv2_ollama",
+    "host-b_ollama",
     "ollama",
     frozenset({"qwen2.5-coder:7b", "qwen2.5-coder:3b"}),
-    host="srv2",
+    host="host-b",
 )
 REMOTE_SMALL = AvailableSource(
-    "srv1_ollama",
+    "host-a_ollama",
     "ollama",
     frozenset({"qwen2.5-coder:3b", "qwen2.5-coder:1.5b"}),
-    host="srv1",
+    host="host-a",
 )
 
 
@@ -380,7 +387,7 @@ def test_a_remote_rig_yields_a_ladder_with_no_gpu_here(table) -> None:  # type: 
     proposal = propose(table, vram_gb=None, sources=[REMOTE_BIG])
     assert proposal.rungs, "a reachable rig is a bindable rig"
     assert {r.model for r in proposal.rungs} <= REMOTE_BIG.models_present
-    assert all(r.host == "srv2" for r in proposal.rungs)
+    assert all(r.host == REMOTE_BIG.host for r in proposal.rungs)
 
 
 def test_a_remote_rig_admits_only_what_it_reports_holding(table) -> None:  # type: ignore[no-untyped-def]
@@ -395,7 +402,9 @@ def test_an_unmeasured_model_is_not_admitted_by_being_served(table) -> None:  # 
     unmeasured = [m.id for m in table.models if not m.is_measured]
     if not unmeasured:
         pytest.skip("the shipped table currently measures every model")
-    rig = AvailableSource("srv1_ollama", "ollama", frozenset(unmeasured), host="srv1")
+    rig = AvailableSource(
+        "host-a_ollama", "ollama", frozenset(unmeasured), host="host-a"
+    )
     proposal = propose(table, vram_gb=None, sources=[rig])
     assert all(r.model not in unmeasured for r in proposal.rungs)
 
@@ -435,7 +444,9 @@ def test_an_arbitrary_placement_says_it_was_arbitrary(table) -> None:  # type: i
     joined = " ".join(shared.reasons)
     assert "placement:" in joined
     assert "first host named" in joined
-    assert shared.host == "srv1", "first named wins, and the reason admits it"
+    assert shared.host == REMOTE_SMALL.host, (
+        "first named wins, and the reason admits it"
+    )
 
 
 def test_a_sole_holder_is_not_reported_as_a_coin_toss(table) -> None:  # type: ignore[no-untyped-def]
