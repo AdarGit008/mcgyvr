@@ -223,6 +223,11 @@
       "says": "How long, in seconds, a model server on a probed port takes to answer; one slower than this is not detected.",
       "moves_to": "port_probe_timeout_s"
     },
+    "detect.py:ROW_QUOTED_AT_MOST": {
+      "kind": "choice",
+      "says": "How many characters of the card tool's own text a note quotes; a longer row is quoted by both ends, not the middle.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
     "deterministic.py:ToolStep.attempts": {
       "kind": "choice",
       "says": "A deterministic tool step built without a count of attempts gets one; the product builds each with the count the routing rule gives, one for a tool.",
@@ -337,6 +342,11 @@
       "kind": "choice",
       "says": "How many tokens each prefill sample of a probe generates after its long prompt.",
       "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:REPLY_QUOTED_AT_MOST": {
+      "kind": "choice",
+      "says": "How many characters of a server's own text an error quotes; a longer text is quoted by both ends, not the middle.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "fleet/harness.py:REQUEST_TIMEOUT_S": {
       "kind": "estimate",
