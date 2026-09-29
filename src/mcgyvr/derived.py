@@ -288,13 +288,12 @@ def _check_entry(number: str, entry: object, where: Path) -> None:
         )
 
 
-def _checked(value: object, unit: object, what: str, where: Path) -> float:
-    """``value`` as a float when it is a finite number inside ``unit``'s bounds."""
-    if not isinstance(unit, str) or unit not in _BOUNDS:
-        raise DerivedNumbersError(
-            f"{what} in {where} is stated in {unit!r}, which is not a unit "
-            f"mcgyvr knows ({', '.join(UNITS)})"
-        )
+def _checked(value: object, unit: str, what: str, where: Path) -> float:
+    """``value`` as a float when it is a finite number inside ``unit``'s bounds.
+
+    ``unit`` is one of :data:`UNITS`: every shipped entry's unit is checked
+    when the file is read (:func:`_check_entry`), before any value is.
+    """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise DerivedNumbersError(
             f"{what} in {where} is {_shown(value)}, which is not a number"
@@ -375,7 +374,7 @@ def _load_overrides(
                     f"of {number} (its keys are {', '.join(space) or 'none'})"
                 )
             settings[(number, key)] = _checked(
-                value, entry.get("unit"), f"{number}[{key!r}]", where
+                value, entry["unit"], f"{number}[{key!r}]", where
             )
     return where, settings
 
@@ -411,7 +410,7 @@ def _resolve(
         answered[(number, key)] = Number(
             id=number,
             key=key,
-            value=_checked(values[key], unit, f"{number}[{key!r}]", shipped_where),
+            value=_checked(values[key], str(unit), f"{number}[{key!r}]", shipped_where),
             unit=str(unit),
             source="estimate",
             where=shipped_where,
