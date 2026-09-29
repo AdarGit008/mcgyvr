@@ -29,7 +29,7 @@ def test_ci_installs_the_js_toolchain_so_the_skip_cannot_become_permanent() -> N
     # The job is read up to the next job, so another job's steps cannot stand
     # in for it.
     job = workflow[workflow.index("\n  test:") + 1 :]
-    following = re.search(r"\n  [A-Za-z_-]+:\n", job)
+    following = re.search(r"\n  [A-Za-z0-9_.-]+:[ \t]*(#.*)?\n", job)
     test_job = job[: following.start()] if following else job
     assert "npm ci" in test_job, "the test job must install the pinned toolchain"
     assert "node_modules/.bin" in test_job and "GITHUB_PATH" in test_job, (
