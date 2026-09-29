@@ -119,7 +119,9 @@ def test_missing_required_key_names_the_key() -> None:
             )
         )
     assert "units.cheap.address" in str(exc.value)
-    assert "http://srv2:8002" in str(exc.value), "the message must show a shape"
+    address = field_at("units.cheap.address")
+    assert address is not None and address.bind_hint
+    assert address.bind_hint in str(exc.value), "the message must show a shape"
 
 
 def test_tier_bound_to_an_undeclared_source_is_rejected() -> None:

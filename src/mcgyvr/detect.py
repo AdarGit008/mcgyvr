@@ -94,7 +94,7 @@ class ProbeTarget:
         # part company the moment a sweep covers two hosts, and the capability
         # table's `requires_backend` matches on the former — a model measured
         # on vLLM is measured on vLLM whether the source is called `vllm` or
-        # `srv2_vllm`.
+        # `box_example_vllm`.
         if not self.kind:
             object.__setattr__(self, "kind", self.name)
 
@@ -114,8 +114,8 @@ PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (
 def _host_token(host: str) -> str:
     """A host as a name segment: safe in a YAML key and in a tier name.
 
-    A tailnet address (``100.69.72.51``) and a DNS name
-    (``srv1.tailbaf744.ts.net``) both have to survive becoming a config key
+    An address (``192.0.2.10``) and a DNS name
+    (``box.example.net``) both have to survive becoming a config key
     someone edits by hand, so the separators become underscores and the
     leading character is guaranteed non-numeric. The result identifies the
     host to a reader; it is not required to be reversible.
@@ -133,7 +133,7 @@ def targets_for(
     """Expand hosts into the candidate endpoints to sweep on each.
 
     The cross product of hosts and port conventions. A host is a bare name or
-    address — ``srv1``, ``100.69.72.51`` — and never a port, because
+    address — ``box.example``, ``192.0.2.10`` — and never a port, because
     identification here is *by* port convention and a port nobody
     conventionally uses carries no claim about which protocol answers on it.
     An endpoint on a non-standard port is bound by hand.
@@ -227,7 +227,7 @@ class Backend:
         Decided by the name the user gave, not by resolving the address: a
         rig reachable as ``localhost`` through an SSH tunnel really is being
         treated as local by everything else here, and one named by its
-        tailnet address is not, whatever it resolves to.
+        network address is not, whatever it resolves to.
         """
         return self.host in (DEFAULT_HOST, "127.0.0.1", "::1", "[::1]")
 
@@ -263,9 +263,9 @@ class Detection:
     def largest_vram_gb(self) -> float | None:
         """VRAM of the biggest single card whose size is known, else None.
 
-        Deliberately not a sum: a model runs on one card, so two cards are two
-        decisions, not one decision of their total. Multi-GPU sharding would
-        change that and is not something this detects.
+        Deliberately not a sum: a model runs on one card, so several cards
+        are one decision per card, never one decision over their total.
+        Multi-GPU sharding would change that and is not something this detects.
 
         A card of undetermined size takes no part: it is not the largest, and
         with no card of known size this is None, as for a machine without a

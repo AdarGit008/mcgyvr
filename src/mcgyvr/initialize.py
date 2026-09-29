@@ -263,7 +263,7 @@ def _nothing_to_bind(
         f"Fix one of these:\n"
         f"{by_hand}{start}"
         f"  - name the rig that serves your models, if it is not this one\n"
-        f"    (`mcgyvr init --host srv1 --host srv2`), or\n"
+        f"    (`mcgyvr init --host <name>`), or\n"
         f"  - bind a hosted API unit, which needs no GPU and no backend:\n\n"
         f"      mcgyvr init --api model=claude-opus-5,"
         f"address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY\n\n"
