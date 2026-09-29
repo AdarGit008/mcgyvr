@@ -1061,7 +1061,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
-    from mcgyvr.drive import Recording
+    from mcgyvr.drive import Recording, gate_adapters
     from mcgyvr.result import RunResult, result_path, run_stamp, write
 
     session: Session = args.session
@@ -1236,6 +1236,11 @@ def _run(args: argparse.Namespace) -> int:
         or (config.get("sandbox.mode") if config is not None else None)
         or "docker"
     )
+    # Settled once too, for delivery (`_commit`): it judges the bytes again,
+    # and a gate that read a different setup from the sandbox's would refuse
+    # where the change lands what the setup asked it to accept where it was
+    # written (`gate.param_mutation`).
+    args.gate_adapters = gate_adapters(config)
 
     if contract.is_deterministic:
         code = _floor(args, contract, repo, report, config, recording=recording)
@@ -2093,6 +2098,12 @@ def _commit(
     at. Handing over the ladder's config because the ladder path happens to have
     one would make the same flag mean two things depending on the contract.
 
+    What *is* handed over is the gate's adapters as the run's setup built them
+    (``args.gate_adapters``, settled in :func:`_run`), so delivery judges by the
+    same ``gate`` settings the sandbox did. A caller that settled none is
+    refused by name rather than delivered under the strict default it did not
+    choose.
+
     **The default is the working tree, and that is not a lack.** Without
     ``--commit`` the accepted change is left in the target and the repository
     is otherwise untouched — no commit, no branch, no receipt. The journal row
@@ -2115,9 +2126,25 @@ def _commit(
                 on_copy_error=recording.copy_failed,
             )
 
+    adapters = getattr(args, "gate_adapters", None)
+    if adapters is None:
+        return _error(
+            report,
+            "delivery was reached with no `gate_adapters` settled for this run, "
+            "so it cannot judge the change by the setup's `gate` settings; "
+            "nothing was written",
+        )
+    _say_reported(bound)
+
     if not args.commit:
         try:
-            place(repo=repo, contract=contract, content=bound, base=base)
+            place(
+                repo=repo,
+                contract=contract,
+                content=bound,
+                base=base,
+                adapters=adapters,
+            )
         except DeliveryError as exc:
             landed(DELIVERY_REFUSED, str(exc))
             if isinstance(exc, DeliveryRefusedError):
@@ -2131,7 +2158,9 @@ def _commit(
         return 0
 
     try:
-        delivery = deliver(repo=repo, contract=contract, content=bound, base=base)
+        delivery = deliver(
+            repo=repo, contract=contract, content=bound, base=base, adapters=adapters
+        )
     except DeliveryError as exc:
         landed(DELIVERY_REFUSED, str(exc))
         return _error(report, str(exc), outcome=DELIVERY_REFUSED)
@@ -2149,6 +2178,31 @@ def _commit(
     report.detail = delivery.reason
     report.findings = [str(finding) for finding in delivery.findings]
     return 1
+
+
+def _say_reported(bound: Accepted) -> None:
+    """Print once each finding the gate reported only because the setup said so.
+
+    Under ``gate.param_mutation: report`` a function that changes its argument
+    is accepted, and the finding travels as one of the gate's observations,
+    which nothing else here prints. It is the one observation a user turned
+    from a refusal into a report, so it is the only one printed; the others
+    (style, repair notes) are not. Unset or ``refuse``, an accepted change
+    carries no such finding and nothing is printed. The behaviour lives in this
+    function and its one call in :func:`_commit`.
+    """
+    from mcgyvr.gate.typecheck import PARAM_MUTATION, ParamMutation
+
+    for finding in bound.observations:
+        if finding.code != PARAM_MUTATION:
+            continue
+        where = (
+            finding.path if finding.line is None else f"{finding.path}:{finding.line}"
+        )
+        print(
+            f"  reported: {where} [{finding.code}] {finding.message} "
+            f"(not refused: gate.param_mutation is {ParamMutation.REPORT.value})"
+        )
 
 
 def _scan(args: argparse.Namespace) -> int:

@@ -99,8 +99,8 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 # up by :func:`mcgyvr.derived.runtime_resident_gb` inside :func:`_host_gb`. It
 # is not a literal here: it applies only where experts actually spill — a model
 # held entirely on the card is not paying it, and a dense model has no spill to
-# pay it for — and where no layer states it the sizing is refused rather than
-# made from a default in code.
+# pay it for — and where no layer states it the sizing is refused: this number
+# has no default in code.
 
 # Held back from host RAM, on top of whatever the model needs, for the same
 # reason :data:`vramfit.SCRATCH_AND_CONTEXT_MIB` is held back from the card:
