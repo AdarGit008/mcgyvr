@@ -5,7 +5,8 @@ card's memory size, an amount of a card's memory a server held, a fraction of
 a card, a card's core count or a card's memory bandwidth. A text names a card
 by a class the table declares, or by nothing ("the card", "a card of a larger
 class"). A declared class's own label and id are read from the table and are
-not taken for a card's size.
+not taken for a card's size where one stands whole and names the class; a
+size that only contains one, or a card named by one, is still a card's size.
 
 Every figure of the table is an estimate for a card class. A text that gives a
 card's size, cores or share of memory describes the one card that was read,
@@ -14,9 +15,11 @@ not the class, and a reader takes that card's shape for a rule.
 The check is by the shape of the words around a number (:data:`CARD_SHAPES`).
 The controls below show that each shape sees what it is for, and leaves alone a
 model's own size, a speed, a ratio of speeds and a cache hit rate. What it
-cannot see: a size, a share or a count written out in words; a card model or a
-machine named outright, which is the word guard's. A qualitative share, such as
-"nearly all of the card", is what a text may say in place of a figure.
+cannot see: a size, a share or a count written out in words; a size given as
+an amount "of memory" with no word that names a card, which a model's own need
+is written as too; a card model or a machine named outright, which is the word
+guard's. A qualitative share, such as "nearly all of the card", is what a text
+may say in place of a figure.
 """
 
 from __future__ import annotations
@@ -79,11 +82,22 @@ def _declared_names() -> tuple[str, ...]:
     return tuple(name for c in classes for name in (c.label, c.id))
 
 
+#: A word that names a card itself. A declared class name that one of these
+#: follows names a card by its size, not the class.
+_CARD_WORD = r"(?:cards?|gpus?|vram|boards?|devices?)\b"
+
+
 def _unlabelled(text: str, names: Iterable[str]) -> str:
     """``text`` with every declared class name taken out, longest first, so a
-    class named by its own label is not read as a card's size."""
+    class named by its own label or id is not read as a card's size.
+
+    A name is taken out only where it stands whole, not inside a longer word
+    or number (nor before a ``/``, as in a bandwidth), and where no word that
+    names a card follows it.
+    """
     for name in sorted(names, key=len, reverse=True):
-        text = re.sub(re.escape(name), "a declared class", text, flags=re.IGNORECASE)
+        whole = rf"(?<![\w.]){re.escape(name)}(?![\w./])(?![\s-]*{_CARD_WORD})"
+        text = re.sub(whole, "a declared class", text, flags=re.IGNORECASE)
     return text
 
 
