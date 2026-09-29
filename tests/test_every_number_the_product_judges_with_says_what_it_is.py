@@ -1,8 +1,9 @@
 """Every number the product judges with says what it is, in one place.
 
-The promise: every number mcgyvr sizes, judges, refuses, waits or picks with
-says, in ``data/numbers.json``, what it is: a fact, an estimate, or a choice of
-the product. A number nobody has classified fails here.
+The promise: every number a judging file names at module level, in a class or
+as a parameter default says, in ``data/numbers.json``, what it is: a fact, an
+estimate, or a choice of the product. A number nobody has classified fails
+here.
 
 What ships is the classification. Its ``constants`` block, beside the
 estimates the file already ships, classifies each number a judging file holds,
@@ -10,8 +11,8 @@ keyed by where it lives: ``<file>:<NAME>``, ``<file>:<Class>.<attribute>`` or
 ``<file>:<function>(<parameter>)``. A fact names what makes it one, from the
 closed list :data:`mcgyvr.derived.FACT_REASONS`. A choice names how a user sets
 it, or a reason from the closed list :data:`mcgyvr.derived.CHOICE_REASONS` why
-it has no setting. An estimate still in code names the number id it will have
-in the ``numbers`` block when its value moves there.
+it has no setting. An estimate still in code names the number id planned for
+it in the ``numbers`` block when its value moves there.
 
 What stays on this side is the bookkeeping of which files are judged:
 ``tests/numbers_coverage.json`` names every python file under ``src/mcgyvr/``
