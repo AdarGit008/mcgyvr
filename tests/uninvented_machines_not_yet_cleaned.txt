@@ -1,0 +1,8 @@
+# Files of the product that still name a machine it did not invent, or point
+# into the development repository, with how many hits of each kind they hold.
+# Paths and counts only, never the text. Sorted by path; one line per file:
+#     path<TAB>kind=count[<TAB>kind=count ...]
+# This list may only shrink. A file off it may hold no hit, a count may not
+# rise, and a file or kind whose hits are gone leaves it. Rewrite it with
+#     uv run --no-sync python -m tests.uninvented_machines --write
+# The kinds and what passes are in tests/uninvented_machines.py.
