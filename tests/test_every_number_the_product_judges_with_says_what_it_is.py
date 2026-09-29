@@ -346,9 +346,16 @@ def test_a_file_said_to_hold_no_number_holds_none_the_check_can_see() -> None:
 
 
 def _licensed(path: str, root: Path = SRC) -> bool:
-    """Whether a licence file sits in the folder of ``path`` or the one above it."""
+    """Whether a licence file sits in the folder of ``path`` or the one above
+    it, counting only a folder strictly inside ``root``: the root itself is
+    the package's own tree, never a third party's licence for it."""
     folder = (root / path).parent
-    return any(any(place.glob("LICENSE*")) for place in (folder, folder.parent))
+    inside = (
+        place
+        for place in (folder, folder.parent)
+        if place != root and place.is_relative_to(root)
+    )
+    return any(any(place.glob("LICENSE*")) for place in inside)
 
 
 def test_a_licence_counts_only_beside_the_file_or_one_folder_up(
