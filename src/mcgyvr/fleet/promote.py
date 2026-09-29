@@ -18,7 +18,7 @@ folder promoted before the ruling is tagged by a rename (:func:`tag`). Every
 refusal is decided before anything is written, the folder is built beside its
 place and renamed into it, and an existing folder is never touched.
 
-:func:`use` names the fleet live runs in ``~/.mcgyvr/live.json``: any
+:func:`use` names the fleet live runs in the config folder's ``live.json``: any
 promoted folder whose layout still matches its own lock. It says whether the
 move from the fleet that was live is one that fleet's lock measured
 (:class:`Switch`), and starts nothing. Nothing here writes the dev root.
@@ -149,7 +149,8 @@ def lock_date(root: Path, fleet: dict[str, Any], name: str) -> str:
 
 
 def promote(dev_root: Path, setup: Path, name: str) -> Path:
-    """Write ``~/.mcgyvr/fleets/<name>@<lock date>/`` from the dev lock; that folder.
+    """Write ``<config folder>/fleets/<name>@<lock date>/`` from the dev lock;
+    that folder.
 
     ``name`` is the plain fleet name; the date is the lock's
     (:func:`lock_date`), never today's. ``setup`` is the dev setup directory
@@ -250,7 +251,7 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
 class Switch:
     """What ``use`` did: the pointer it wrote, and what the lock knows of the move."""
 
-    #: ``~/.mcgyvr/live.json``, as written.
+    #: the config folder's ``live.json``, as written.
     pointer: Path
     #: The live name now: ``<fleet>@<date>``, or a plain pre-ruling name.
     name: str
@@ -289,9 +290,9 @@ def _measured(previous: str, layout: str) -> tuple[bool, list[dict[str, Any]], s
 
 
 def use(name: str) -> Switch:
-    """Name ``name`` the fleet live runs, in ``~/.mcgyvr/live.json``.
+    """Name ``name`` the fleet live runs, in the config folder's ``live.json``.
 
-    Refused when ``~/.mcgyvr/fleets/<name>/`` does not exist or its layout no
+    Refused when ``<config folder>/fleets/<name>/`` does not exist or its layout no
     longer matches its own lock. Any other promoted folder may be named — a
     verified fleet is one the lock approved — and the :class:`Switch` says
     whether the move from the fleet that was live is one its lock measured.
@@ -348,10 +349,11 @@ def _point(pointer: Path, name: str, since: str) -> None:
 
 
 def tag(name: str) -> Path:
-    """Rename ``~/.mcgyvr/fleets/<name>/`` to ``<name>@<its lock date>/``; the folder.
+    """Rename ``<config folder>/fleets/<name>/`` to ``<name>@<its lock date>/``;
+    the folder.
 
     For a folder promoted before the ruling. A rename and nothing else: the
-    files inside are what they were, and ``~/.mcgyvr/live.json`` follows when
+    files inside are what they were, and the config folder's ``live.json`` follows when
     it named the folder. Refused when ``name`` already carries a tag, has no
     folder, or the tagged name is taken.
     """

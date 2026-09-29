@@ -11,6 +11,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `$MCGYVR_HOME` moves the config folder (default `~/.mcgyvr`): the live
+  fleet folders, `live.json` and your own `numbers.yaml` follow it. When no
+  fleet is live, `mcgyvr fleet probe`, a live run's admission and the door's
+  first gate name the `live.json` they looked for. A `$MCGYVR_HOME` that is
+  not an absolute path is refused by the variable's name, in one line.
+  `$MCGYVR_DATA` names the data folder (default `$XDG_STATE_HOME/mcgyvr`,
+  else `~/.local/state/mcgyvr`), and nothing reads it yet: the journal
+  (`journal.dir`, with the fleet readings filed under it) and the scans keep
+  their own places, by default under `~/.local/state/mcgyvr`. `mcgyvr fleet
+  lock` refuses a root under the config folder or under `~/.mcgyvr`, since
+  any mcgyvr command started without the variable reads that one. The lease
+  a served machine keeps on itself stays `~/.mcgyvr/lease` on that machine.
 - A promoted fleet carries the date of its lock in its name (owner,
   2026-09-16: "all fleets get tagged with date"): `mcgyvr fleet promote
   b-small` writes `~/.mcgyvr/fleets/b-small@2026-09-16/`, the date being the
