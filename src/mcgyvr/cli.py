@@ -104,20 +104,22 @@ def _capabilities(args: argparse.Namespace) -> int:
         return 1
 
     models = table.fitting(args.vram) if args.vram else table.models
+    labels = ", ".join(c.label for c in table.card_classes) or "none declared"
+    classes = f"Card classes in the table: {labels}."
     if args.vram:
         print(
             f"Models that fit {args.vram:g} GB with working headroom. "
-            f"{ESTIMATES_NOTICE}\n"
+            f"{ESTIMATES_NOTICE} {classes}\n"
         )
     else:
-        print(f"Shipped models. {ESTIMATES_NOTICE}\n")
+        print(f"Shipped models. {ESTIMATES_NOTICE} {classes}\n")
 
     for model in sorted(models, key=lambda m: m.best_quality or 0, reverse=True):
         quality = model.best_quality
         score = f"{quality:.1%}" if quality is not None else "no estimate"
         backend = f" [{model.requires_backend} only]" if model.requires_backend else ""
         print(
-            f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB  {score:>10}{backend}"
+            f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB  {score:>11}{backend}"
         )
 
     if table.caveats:

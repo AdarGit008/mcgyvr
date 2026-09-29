@@ -230,7 +230,8 @@ def _tie_reason(loser: Model, winner: Model) -> str:
     """Why one of two models with identical estimated quality was not bound."""
     if _slower(loser, winner):
         return (
-            f"same estimated quality as {winner.id} but slower here "
+            f"same estimated quality as {winner.id} but slower by the table's "
+            f"estimates "
             f"({loser.best_throughput:g} against {winner.best_throughput:g} "
             f"tok/s), and both fit this card. Equal quality is not a second "
             f"rung."

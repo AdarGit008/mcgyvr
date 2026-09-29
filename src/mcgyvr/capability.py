@@ -36,6 +36,7 @@ regression on the day it lands:
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import cache
@@ -253,59 +254,243 @@ class CapabilityTable:
 
 
 #: The lists on a model row whose entries are readings, each keyed by a class.
-_READING_LISTS = (
+READING_LISTS = (
     "quality",
     "throughput_tok_s",
     "invalid_measurements",
     "disputed_measurements",
 )
 
+#: Every key the table may carry, level by level, and no other.
+#:
+#: The loader refuses a key its level does not declare, by name, rather than
+#: skipping it. A key this code does not know is either a misspelling of one it
+#: reads, whose value would be lost without a word, or a fact nobody reads, and
+#: a fact nobody reads in a table of estimates is how a machine's description,
+#: or where and when a figure was taken, would come back in. Refusing it keeps a
+#: new kind of fact out until it is declared here, where a reviewer reads it:
+#: the same reason a table of another version is refused rather than read.
+#:
+#: Two places hold names that are data rather than keys, and are not declared:
+#: under ``backends`` every key but the block's own notes names a backend, and a
+#: model row's ``capabilities`` maps a dimension name to a score.
+DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
+    {
+        "table": frozenset(
+            {
+                "schema_version",
+                "_purpose",
+                "quality_metric",
+                "card_classes",
+                "harness_caveats",
+                "models",
+                "backends",
+                "concurrency_findings",
+            }
+        ),
+        "quality metric": frozenset(
+            {"name", "dataset", "decoding", "framework", "_caveat"}
+        ),
+        "card class": frozenset({"id", "label", "memory_gb"}),
+        "harness caveat": frozenset(
+            {"id", "severity", "summary", "detail", "consequence"}
+        ),
+        "model row": frozenset(
+            {
+                "id",
+                "family",
+                "params_b",
+                "active_params_b",
+                "architecture",
+                "quant",
+                "weights_gb",
+                "vram_gb_working",
+                "requires_backend",
+                *READING_LISTS,
+                "capabilities",
+                "notes",
+            }
+        ),
+        "reading": frozenset(
+            {
+                "humaneval_plus_pass1",
+                "humaneval_pass1",
+                "value",
+                "backend",
+                "card_class",
+                "caveat",
+                "note",
+            }
+        ),
+        "backends block": frozenset({"_doc"}),
+        "backend": frozenset({"wire_protocol", "strengths", "limits", "card_class"}),
+        "concurrency finding": frozenset(
+            {"id", "summary", "detail", "consequence", "card_class"}
+        ),
+    }
+)
 
-def _card_classes(raw: Mapping[str, Any]) -> tuple[CardClass, ...]:
+
+def _kind(value: Any) -> str:
+    """What a JSON value is, in the words a refusal uses."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "a boolean"
+    if isinstance(value, int | float):
+        return "a number"
+    if isinstance(value, str):
+        return "text"
+    if isinstance(value, list):
+        return "a list"
+    return "an object"
+
+
+def _object(value: Any, path: Path, where: str) -> Mapping[str, Any]:
+    if not isinstance(value, dict):
+        raise CapabilityTableError(f"{path}: {where} is {_kind(value)}, not an object")
+    return value
+
+
+def _entries(value: Any, path: Path, where: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise CapabilityTableError(f"{path}: {where} is {_kind(value)}, not a list")
+    return value
+
+
+def _closed(entry: Mapping[str, Any], level: str, path: Path, where: str) -> None:
+    """Refuse a key ``level`` does not declare, naming it and what is declared."""
+    stray = sorted(str(key) for key in entry if key not in DECLARED_KEYS[level])
+    if stray:
+        raise CapabilityTableError(
+            f"{path}: {where} carries {', '.join(repr(k) for k in stray)}, which "
+            f"this code does not declare for a {level} (declared: "
+            f"{', '.join(sorted(DECLARED_KEYS[level]))})"
+        )
+
+
+def _text(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _card_classes(raw: Mapping[str, Any], path: Path) -> tuple[CardClass, ...]:
     """The declared classes, each with an id, a label and its nominal memory."""
     declared = raw.get("card_classes")
     if not isinstance(declared, list):
         raise CapabilityTableError(
-            "the capability table declares no 'card_classes' list, so no "
-            "reading in it can say which card class it is an estimate for"
+            f"{path}: the capability table declares no 'card_classes' list, so "
+            f"no reading in it can say which card class it is an estimate for"
         )
     classes: list[CardClass] = []
-    for entry in declared:
-        try:
-            card_class = CardClass(
-                id=str(entry["id"]),
-                label=str(entry["label"]),
-                memory_gb=float(entry["memory_gb"]),
-            )
-        except KeyError as exc:
+    for index, value in enumerate(declared):
+        where = f"card_classes[{index}]"
+        entry = _object(value, path, where)
+        _closed(entry, "card class", path, where)
+        for key in ("id", "label", "memory_gb"):
+            if key not in entry:
+                raise CapabilityTableError(
+                    f"{path}: {where} is missing required key {key!r}"
+                )
+        for key in ("id", "label"):
+            if not _text(entry[key]):
+                raise CapabilityTableError(
+                    f"{path}: {where} has {key} {entry[key]!r}; a card class's "
+                    f"{key} is non-empty text"
+                )
+        memory = entry["memory_gb"]
+        if (
+            isinstance(memory, bool)
+            or not isinstance(memory, int | float)
+            or not math.isfinite(memory)
+            or memory <= 0
+        ):
             raise CapabilityTableError(
-                f"a card class is missing required key {exc.args[0]!r}"
-            ) from exc
+                f"{path}: {where} ({entry['id']!r}) has memory_gb {memory!r}; a "
+                f"card class's memory is a positive number of GB"
+            )
+        card_class = CardClass(
+            id=entry["id"], label=entry["label"], memory_gb=float(memory)
+        )
         if any(c.id == card_class.id for c in classes):
             raise CapabilityTableError(
-                f"card class {card_class.id!r} is declared twice"
+                f"{path}: {where}: card class {card_class.id!r} is declared twice"
             )
         classes.append(card_class)
     return tuple(classes)
 
 
-def _check_readings(entry: Mapping[str, Any], declared: frozenset[str]) -> None:
-    """Every reading of a row names a declared card class, or the table is refused."""
-    model_id = entry.get("id")
-    for field_name in _READING_LISTS:
-        for reading in entry.get(field_name, []):
+def _given_for(
+    entry: Mapping[str, Any], declared: frozenset[str], path: Path, where: str
+) -> None:
+    """A ``card_class`` an entry carries is one the table declares."""
+    if "card_class" not in entry:
+        return
+    named = entry["card_class"]
+    if not isinstance(named, str) or named not in declared:
+        raise CapabilityTableError(
+            f"{path}: {where} is keyed by card class {named!r}, which the table "
+            f"does not declare (declared: {', '.join(sorted(declared)) or 'none'})"
+        )
+
+
+def _check_readings(
+    index: int, value: Any, declared: frozenset[str], path: Path
+) -> None:
+    """A model row carries only declared keys, and every reading of it names a
+    declared card class, or the table is refused."""
+    entry = _object(value, path, f"models[{index}]")
+    row = f"models[{index}] ({entry.get('id')!r})"
+    _closed(entry, "model row", path, row)
+    for field_name in READING_LISTS:
+        if field_name not in entry:
+            continue
+        readings = _entries(entry[field_name], path, f"{row} {field_name}")
+        for place, reading in enumerate(readings):
+            where = f"{row} {field_name}[{place}]"
+            reading = _object(reading, path, where)
+            _closed(reading, "reading", path, where)
             if "card_class" not in reading:
                 raise CapabilityTableError(
-                    f"a reading in {model_id!r} {field_name} names no "
-                    f"'card_class'; every figure is an estimate for a declared "
-                    f"card class"
+                    f"{path}: {where} names no 'card_class'; every figure is an "
+                    f"estimate for a declared card class"
                 )
-            if reading["card_class"] not in declared:
-                raise CapabilityTableError(
-                    f"a reading in {model_id!r} {field_name} is keyed by card "
-                    f"class {reading['card_class']!r}, which the table does not "
-                    f"declare (declared: {', '.join(sorted(declared)) or 'none'})"
-                )
+            _given_for(reading, declared, path, where)
+
+
+def _check_shape(raw: Mapping[str, Any], path: Path) -> tuple[CardClass, ...]:
+    """Refuse, by name, every entry of a shape or a key this code does not read.
+
+    Returns the declared card classes, which everything else is keyed by.
+    """
+    _closed(raw, "table", path, "the table")
+    if "quality_metric" in raw:
+        metric = _object(raw["quality_metric"], path, "quality_metric")
+        _closed(metric, "quality metric", path, "quality_metric")
+    card_classes = _card_classes(raw, path)
+    declared = frozenset(c.id for c in card_classes)
+    for index, value in enumerate(
+        _entries(raw.get("harness_caveats", []), path, "harness_caveats")
+    ):
+        where = f"harness_caveats[{index}]"
+        _closed(_object(value, path, where), "harness caveat", path, where)
+    for index, value in enumerate(_entries(raw.get("models", []), path, "models")):
+        _check_readings(index, value, declared, path)
+    backends = _object(raw.get("backends", {}), path, "backends")
+    for name, value in backends.items():
+        if name in DECLARED_KEYS["backends block"]:
+            continue
+        where = f"backends[{name!r}]"
+        backend = _object(value, path, where)
+        _closed(backend, "backend", path, where)
+        _given_for(backend, declared, path, where)
+    for index, value in enumerate(
+        _entries(raw.get("concurrency_findings", []), path, "concurrency_findings")
+    ):
+        where = f"concurrency_findings[{index}]"
+        finding = _object(value, path, where)
+        _closed(finding, "concurrency finding", path, where)
+        _given_for(finding, declared, path, where)
+    return card_classes
 
 
 def _measurements(rows: list[dict[str, Any]], key: str) -> tuple[Measurement, ...]:
@@ -344,6 +529,8 @@ def load(path: Path | None = None) -> CapabilityTable:
     except json.JSONDecodeError as exc:
         raise CapabilityTableError(f"{path} is not valid JSON: {exc}") from exc
 
+    if not isinstance(raw, dict):
+        raise CapabilityTableError(f"{path}: the table is {_kind(raw)}, not an object")
     found = raw.get("schema_version")
     if type(found) is not int or found != SCHEMA_VERSION:
         raise CapabilityTableError(
@@ -351,10 +538,7 @@ def load(path: Path | None = None) -> CapabilityTable:
             f"reads version {SCHEMA_VERSION} only"
         )
 
-    card_classes = _card_classes(raw)
-    declared = frozenset(c.id for c in card_classes)
-    for entry in raw.get("models", []):
-        _check_readings(entry, declared)
+    card_classes = _check_shape(raw, path)
 
     try:
         models = tuple(
@@ -510,8 +694,8 @@ def select_for_task(
         raise CapabilitySelectionError(
             f"no model scores {floor:g} or better on {dimension!r}, the capability "
             f"a {task_type!r} contract needs. The table says: {measured}. Bind a "
-            f"rung on a model estimated for {dimension!r}, or lower the floor "
-            f"knowing which capability you are lowering it on."
+            f"rung on a model whose estimate on {dimension!r} reaches the floor, "
+            f"or lower the floor knowing which capability you are lowering it on."
         )
 
     capable.sort(key=lambda pair: (pair[0].vram_gb_working, -pair[1], pair[0].id))

@@ -25,8 +25,9 @@ machine.
   with the same memory can differ a lot.
 - **Through another server program.** Each figure's `backend` says which
   server program it was taken through. Most were taken through one this
-  product does not run, with a file of the same model and quantisation type,
-  which is not necessarily the file you will serve.
+  product does not run, with a file of the same model, usually of the same
+  quantisation type; a reading's `note` says when it was not. That file is
+  not necessarily the one you will serve.
 - **Ratios more than absolutes.** Read the speed figures as ratios between
   models (which is faster, and by roughly how much; how much a marginal fit
   costs) rather than as the speed your card will reach.

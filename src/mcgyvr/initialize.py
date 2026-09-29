@@ -530,7 +530,8 @@ def _decisions(
         machine = f" on {rung.host}" if rung.host else ""
         decisions.append(
             f"{rung.name} -> {rung.model} on {rung.source}{machine}: "
-            f"{rung.quality:.1%} HumanEval+ pass@1, {rung.vram_gb:g} GB, "
+            f"an estimated {rung.quality:.1%} HumanEval+ pass@1 in about "
+            f"{rung.vram_gb:g} GB, "
             f"{presence}."
         )
     for api in api_units:

@@ -87,12 +87,17 @@ def table_document(
         from mcgyvr.capability import SCHEMA_VERSION
 
         version = SCHEMA_VERSION
-    default = row("invented-model-a", card_class=str(classes[0]["id"]))
+    # A test may spoil a class on purpose; the default row is keyed by the
+    # first class that still has an id, and a spoiled entry is kept as given.
+    first = next(
+        (str(c["id"]) for c in classes if isinstance(c, dict) and "id" in c), ""
+    )
     return {
         "schema_version": version,
         "_purpose": "an invented table for a test",
-        "card_classes": [dict(c) for c in classes],
-        "models": [dict(r) for r in rows] or [default],
+        "card_classes": [dict(c) if isinstance(c, dict) else c for c in classes],
+        "models": [dict(r) for r in rows]
+        or [row("invented-model-a", card_class=first)],
     }
 
 

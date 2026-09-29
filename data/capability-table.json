@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "_purpose": "Estimates `mcgyvr init` proposes worker bindings from, so that setup needs no benchmark of your machine. Every figure is an estimate for a card class. One card was read per class, so a class is a rough guide: speed depends on the card, not only on its memory. Most figures were taken through another server program (each reading's `backend` says which), with a file of the same model and quantisation type. None is a reading of your machine.",
+  "_purpose": "Estimates `mcgyvr init` proposes worker bindings from, so that setup needs no benchmark of your machine. Every figure is an estimate for a card class. One card was read per class, so a class is a rough guide: speed depends on the card, not only on its memory. Most figures were taken through another server program (each reading's `backend` says which), with a file of the same model, usually of the same quantisation type; a reading's `note` says when it was not. None is a reading of your machine.",
   "quality_metric": {
     "name": "humaneval_plus_pass1",
     "dataset": "HumanEval+ (164 tasks, base + extra tests)",
