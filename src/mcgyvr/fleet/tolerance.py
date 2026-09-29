@@ -1,18 +1,12 @@
 """One tolerance class per unit, so every judge of a unit reads one class.
 
-Owner, 2026-09-15: a live unit is judged with measured class tolerances — vLLM,
-llama.cpp, llama.cpp with experts on the CPU and, since 2026-09-16, llama.cpp
-drafting with the GGUF's own MTP head — and each judged field has its own,
-stated in ``tools/runs/derived.json``: warm decode those of
-``records/measurements/fleet-identity-2026-09-11/tolerances.json``
-(``engine.warm_decode_class_pct``), prefill those of
-``records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json``
-for the llama.cpp and CPU-experts classes and a ruled value for vLLM
-(``engine.prefill_class_pct``), and the ``mtp`` class's both from the
-mtp-ornith window (``records/measurements/lock-fleets/mtp-ornith/``). The
-probe's judge (:mod:`mcgyvr.fleet.probe`) and the lock's NVMe baseline check
-(:mod:`mcgyvr.fleet.lock`) both ask :func:`tolerance_class`, so the two cannot
-put one unit in two classes.
+A live unit is judged by the tolerance of its class: vLLM, llama.cpp,
+llama.cpp with experts on the CPU, and llama.cpp drafting with the GGUF's own
+MTP head. Each judged field (warm decode, prefill) has its own tolerance per
+class, looked up in :mod:`mcgyvr.derived`: an estimate shipped with mcgyvr
+that the user can set. The probe's judge (:mod:`mcgyvr.fleet.probe`) and the
+lock's NVMe baseline check (:mod:`mcgyvr.fleet.lock`) both ask
+:func:`tolerance_class`, so the two cannot put one unit in two classes.
 """
 
 from __future__ import annotations
@@ -24,11 +18,10 @@ CLASS_VLLM = "vllm"
 CLASS_LLAMACPP = "llamacpp"
 CLASS_CPU_EXPERTS = "cpu_experts"
 #: llama.cpp drafting with the GGUF's own grafted head (``--spec-type
-#: draft-mtp``). Owner ruling, 2026-09-16, after the mtp-ornith window: its
-#: numbers are its own — cpu_experts' were measured on srv1 offload and the
-#: unit's three cold starts spread 1.63% in warm decode and 4.29% in prefill.
+#: draft-mtp``). A class of its own, with its own tolerances, whether or not
+#: experts are on the CPU beside it.
 CLASS_MTP = "mtp"
-#: Every class a unit can be in; ``tools/runs/derived.json`` states each.
+#: Every class a unit can be in; each judged field states a tolerance for each.
 CLASSES: tuple[str, ...] = (CLASS_VLLM, CLASS_LLAMACPP, CLASS_CPU_EXPERTS, CLASS_MTP)
 
 #: The llama-server flags that put expert tensors on the CPU.
@@ -96,17 +89,15 @@ def tolerance_class(unit: Mapping[str, Any]) -> str:
     ``engine: vllm`` is ``vllm``. Any other unit is llama.cpp (an absent engine
     means llama.cpp, ``units.engine`` in :mod:`mcgyvr.config`), and it is
     ``mtp`` when its launch drafts with the GGUF's own head — ``--spec-type``
-    followed by ``draft-mtp``, or ``--spec-type=draft-mtp``, in its ``argv``
-    or among its ``flags``, or ``speculative: mtp`` (owner ruling,
-    2026-09-16), whether or not experts are on the CPU beside it —
-    ``cpu_experts`` when its launch keeps experts on the CPU, ``llamacpp``
-    otherwise. The launch keeps them there with a positive ``n_cpu_moe``, with
-    ``--cpu-moe`` / ``--n-cpu-moe`` among its ``flags``, or with ``--cpu-moe``
-    or ``--n-cpu-moe`` followed by a positive integer in its ``argv`` (a locked
-    unit's launch, verbatim). A value after ``--n-cpu-moe`` in the argv that is
-    missing or not an integer does not count, and neither does ``0``. Any
-    other ``--spec-type`` value is not a class: the head is the one the
-    window measured.
+    followed by ``draft-mtp``, or ``--spec-type=draft-mtp``, in its ``argv`` or
+    among its ``flags``, or ``speculative: mtp``, whether or not experts are on
+    the CPU beside it — ``cpu_experts`` when its launch keeps experts on the
+    CPU, ``llamacpp`` otherwise. The launch keeps them there with a positive
+    ``n_cpu_moe``, with ``--cpu-moe`` / ``--n-cpu-moe`` among its ``flags``, or
+    with ``--cpu-moe`` or ``--n-cpu-moe`` followed by a positive integer in its
+    ``argv`` (a locked unit's launch, verbatim). A value after ``--n-cpu-moe``
+    in the argv that is missing or not an integer does not count, and neither
+    does ``0``. Any other ``--spec-type`` value does not make a unit ``mtp``.
     """
     if unit.get("engine") == CLASS_VLLM:
         return CLASS_VLLM
