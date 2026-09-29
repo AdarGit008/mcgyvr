@@ -133,7 +133,7 @@ class Excluded:
     """An inherited type that did not survive validation, kept with its reason.
 
     Removals are recorded rather than deleted for the same reason the capability
-    table keeps its known-bad measurements: the next person to reach for
+    table keeps its harness caveats: the next person to reach for
     ``multi_file_refactor`` should find out why it is absent instead of
     rediscovering it.
     """

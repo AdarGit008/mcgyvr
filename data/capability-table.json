@@ -16,8 +16,8 @@
     {
       "id": "CAV-02",
       "severity": "high",
-      "summary": "One server program resolved qwen3-coder-30b-a3b's tag to an F16 weight set (~18 GB), not a Q4 quant.",
-      "detail": "The F16 set spills ~59% to CPU on a 12 GB card and runs ~100 s/task. The same model as a Q2_K GGUF under llama-server runs in ~3 GB.",
+      "summary": "One server program resolved qwen3-coder-30b-a3b's tag to a weight set of ~18 GB, not the Q2_K file this row describes.",
+      "detail": "That set spills ~59% to CPU on a 12 GB card and runs ~100 s/task. The same model as a Q2_K GGUF under llama-server runs with ~3 GB on the card under partial offload.",
       "consequence": "Bind an explicit quantised file under llama-server."
     },
     {
@@ -121,7 +121,7 @@
         { "value": 24.19, "card_class": "12gb", "backend": "ollama", "note": "Q4, 8.9 GB" }
       ],
       "not_for_fit": "its memory figure is the resident part under partial offload, not the file",
-      "notes": "Slow, and requires an explicit GGUF quant under llama-server."
+      "notes": "Requires an explicit GGUF quant under llama-server."
     },
     {
       "id": "gpt-oss-20b",

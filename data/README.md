@@ -49,10 +49,10 @@ A row that carries `not_for_fit` is never listed as fitting a card
 text says why, for example that the row's memory figure is not the model's
 own footprint.
 
-## Known-bad figures
+## Harness caveats
 
-The table carries a `harness_caveats` block: ways a re-run of these
-estimates gets its figures wrong. They are kept rather than deleted because
+The table carries a `harness_caveats` block: ways a naive run of a reading
+or a benchmark goes wrong. They are kept rather than deleted because
 the failures are instructive and repeatable, and `mcgyvr capabilities` prints
 each one's summary. One of them bears on the fit listing:
 

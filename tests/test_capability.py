@@ -20,7 +20,7 @@ from tests.table_fixture import row, table_document, write_table
 def test_shipped_table_loads() -> None:
     table = load()
     assert table.models
-    assert table.caveats, "the known-bad measurement caveats must travel with the data"
+    assert table.caveats, "the harness caveats must travel with the data"
 
 
 def test_every_model_has_a_working_footprint() -> None:

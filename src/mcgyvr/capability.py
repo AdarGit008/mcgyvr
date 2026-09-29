@@ -6,7 +6,8 @@ readings of the user's machine. ``mcgyvr capabilities`` lists it, and
 unless a unit in fleet.yaml declares that model, for example under ``launch``
 or as ``room_mib``. ``mcgyvr init`` does not read it: init binds the models running
 servers list (:mod:`mcgyvr.propose`). See ``data/README.md`` for what a card
-class is and for the harness caveats that make some published numbers unusable.
+class is and for the harness caveats: ways a naive run of a reading or a
+benchmark goes wrong.
 
 The table carries no quality figure. It says what a model costs to serve, never
 how well it does the work, so nothing read from it ranks one model above

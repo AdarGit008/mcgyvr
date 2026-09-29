@@ -120,7 +120,7 @@ def _capabilities(args: argparse.Namespace) -> int:
         print(f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB{backend}{kept_out}")
 
     if table.caveats:
-        print("\nHarness caveats (ways a naive re-run gets these figures wrong):")
+        print("\nHarness caveats (ways a naive reading or benchmark run goes wrong):")
         for caveat in table.caveats:
             print(f"  {caveat.id} [{caveat.severity}] {caveat.summary}")
     return 0
