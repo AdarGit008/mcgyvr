@@ -373,10 +373,10 @@ def test_every_schema_example_names_only_placeholder_machines() -> None:
         ("at 10:30, a 16:9 screen, e.g. `{<unit>: 2}`, width: 8", []),
         ("image@sha256:<hex> and vllm/vllm-openai@sha256:<hex>", []),
         # ssh-style targets.
-        ("ssh operator@somebox", ["somebox"]),
-        ("scp it to operator@somebox.lan:/srv", ["somebox.lan"]),
+        ("log in as operator@somebox", ["somebox"]),
+        ("copy it to operator@somebox.lan:/srv", ["somebox.lan"]),
         ("ssh://operator@somebox/ and ssh://somebox", ["somebox"]),
-        ("ssh <user>@<host> or ops@box.example. or ssh://<user>@<host>", []),
+        ("log in as <user>@<host> or ops@box.example. or ssh://<user>@<host>", []),
         ("65.2% pass@1 on localhost: already pulled", []),
     ],
 )
