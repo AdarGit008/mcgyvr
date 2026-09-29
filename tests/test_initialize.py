@@ -6,19 +6,21 @@ the central test here is exactly that machine — and the generated file is
 fed back through the real loader, because "it looks right" is not the claim
 being made.
 
-Detection is injected rather than performed, so these run identically on a
-machine with no GPU and on one with four.
+Every machine is invented (:mod:`tests.machine_shapes`) and detection is run
+on it offline, so these run identically on a machine with no GPU and on one
+with four.
 """
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
 
-from mcgyvr.capability import load as load_table
+from mcgyvr import detect
 from mcgyvr.config import load as load_config
-from mcgyvr.detect import Backend, Detection, Gpu
+from mcgyvr.detect import Detection
 from mcgyvr.initialize import (
     InitError,
     _sources_for,
@@ -27,68 +29,63 @@ from mcgyvr.initialize import (
     parse_api_unit,
     render,
 )
-from mcgyvr.propose import propose
+from mcgyvr.propose import binding_name, propose
+from tests.machine_shapes import Shape, detection, shape, shapes, with_server
 
-BARE = Detection(
-    gpus=(),
-    cpu_count=4,
-    ram_gb=16.0,
-    backends=(),
-    docker=False,
-    provenance={"docker": "docker is not on PATH"},
-    notes=("GPU: not determined — nvidia-smi is absent or failed.",),
-)
+KINDS = tuple(kind for kind, _, _ in detect.PORT_CONVENTIONS)
 
-SMALL_RIG = Detection(
-    gpus=(Gpu("NVIDIA GeForce GTX 1660 SUPER", 6.0, "nvidia-smi"),),
-    cpu_count=6,
-    ram_gb=32.0,
-    backends=(
-        Backend(
-            "llama-server",
-            "http://localhost:8080",
-            "openai",
-            ("qwen2.5-coder:3b",),
-            "probe",
-        ),
-        Backend("llama-server", "http://localhost:8080", "openai", (), "probe"),
-    ),
-    docker=True,
-    provenance={"docker": "docker info reported server 27.1.1"},
-)
-
-KEYLESS_RIG = Detection(
-    gpus=(Gpu("NVIDIA GeForce RTX 3060", 12.0, "nvidia-smi"),),
-    cpu_count=8,
-    ram_gb=32.0,
-    backends=(
-        Backend(
-            "llama-server",
-            "http://localhost:8080",
-            "openai",
-            ("qwen2.5-coder:7b",),
-            "probe",
-        ),
-    ),
-    docker=False,
-    provenance={"docker": "docker is not on PATH"},
-    notes=("Sandbox falls back to a temp directory (docker is not on PATH).",),
-)
+#: A machine with nothing: no card tool, no server.
+BARE = detection(shape("bare"))
 
 
-@pytest.fixture
-def table():  # type: ignore[no-untyped-def]
-    return load_table()
+def _serving(label: str, *models: str) -> Detection:
+    """The invented machine of ``label`` with one more server listing ``models``."""
+    machine = shape(label)
+    taken = {server.kind for server in machine.servers}
+    kind = next(kind for kind in KINDS if kind not in taken)
+    return detection(with_server(machine, kind=kind, models=models))
+
+
+#: A machine with a card and a server that lists a model, and no docker.
+KEYLESS_RIG = _serving("one-card", "example-model:small")
+
+
+def _far() -> tuple[Shape, Shape]:
+    """Two machines over the network, both running the same server program.
+
+    Each server lists models of its own, so every listing is bound.
+    """
+    far = [m for m in shapes() if not m.local and m.servers][:2]
+    assert len(far) == 2, "two machines over the network"
+    first, second = (
+        dataclasses.replace(
+            machine,
+            servers=tuple(
+                dataclasses.replace(s, models=(f"example-model-{i}-{j}",))
+                for j, s in enumerate(machine.servers)
+            ),
+        )
+        for i, machine in enumerate(far)
+    )
+    kind = second.servers[0].kind
+    if kind not in {s.kind for s in first.servers}:
+        first = with_server(first, kind=kind, models=("example-model-far",))
+    return first, second
+
+
+def _remote_only() -> Detection:
+    first, second = _far()
+    return detection(first, reached=(second,))
 
 
 # --- the v1 release criterion --------------------------------------------
 
 
-def test_clean_machine_no_key_no_docker_gets_a_working_local_config(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_clean_machine_no_key_no_docker_gets_a_working_local_config(
+    tmp_path: Path,
 ) -> None:
     path = tmp_path / "setup"
-    result = initialize(path, detection=KEYLESS_RIG, table=table)
+    result = initialize(path, detection=KEYLESS_RIG)
     assert result.created and result.written
 
     config = load_config(path)
@@ -97,19 +94,16 @@ def test_clean_machine_no_key_no_docker_gets_a_working_local_config(  # type: ig
     assert config.data["sandbox"]["mode"] == "tempdir", "no Docker → the weaker mode"
 
 
-def test_the_generated_file_loads_without_edits(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+@pytest.mark.parametrize("label", ["one-card", "busy-card", "bare-local-server"])
+def test_the_generated_file_loads_without_edits(tmp_path: Path, label: str) -> None:
     """The whole point: init's output is the loader's input, unmodified."""
-    for name, detection in (("small", SMALL_RIG), ("keyless", KEYLESS_RIG)):
-        path = tmp_path / name
-        initialize(path, detection=detection, table=table)
-        config = load_config(path)
-        assert config.get("profile") == "live"
-        assert "version" not in config.data
+    initialize(tmp_path / "setup", detection=_serving(label, "example-model-small"))
+    config = load_config(tmp_path / "setup")
+    assert config.get("profile") == "live"
+    assert "version" not in config.data
 
 
-def test_a_machine_with_no_backend_refuses_rather_than_writing(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
+def test_a_machine_with_no_backend_refuses_rather_than_writing(tmp_path: Path) -> None:
     """No GPU, no backend, nothing to dispatch to.
 
     A file that dispatches nowhere is not a head start — it is a
@@ -118,7 +112,7 @@ def test_a_machine_with_no_backend_refuses_rather_than_writing(  # type: ignore[
     """
     path = tmp_path / "setup"
     with pytest.raises(InitError) as exc:
-        initialize(path, detection=BARE, table=table)
+        initialize(path, detection=BARE)
 
     assert not path.exists(), "nothing may be left behind on a refusal"
     message = str(exc.value)
@@ -127,19 +121,17 @@ def test_a_machine_with_no_backend_refuses_rather_than_writing(  # type: ignore[
     assert "no GPU this build can see" in message
 
 
-def test_the_refusal_says_how_to_fix_it_both_ways(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_the_refusal_says_how_to_fix_it_both_ways(tmp_path: Path) -> None:
     """A loud failure that does not say what to do is just a loud failure."""
     with pytest.raises(InitError) as exc:
-        initialize(tmp_path / "c.yaml", detection=BARE, table=table)
+        initialize(tmp_path / "c.yaml", detection=BARE)
     message = str(exc.value)
     assert "start a local backend" in message
     assert "--api model=claude-opus-5" in message, "a worked `--api` invocation"
     assert "api_key_env=ANTHROPIC_API_KEY" in message, "the key named, never held"
 
 
-def test_the_invocation_the_refusal_advertises_actually_works(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
+def test_the_invocation_the_refusal_advertises_actually_works(tmp_path: Path) -> None:
     """We tell the user to run it, so it had better write a loadable setup.
 
     The refusal names a command rather than a YAML block to paste, so what has
@@ -147,7 +139,7 @@ def test_the_invocation_the_refusal_advertises_actually_works(  # type: ignore[n
     of the message and run, rather than a copy of it being maintained here.
     """
     with pytest.raises(InitError) as exc:
-        initialize(tmp_path / "refused", detection=BARE, table=table)
+        initialize(tmp_path / "refused", detection=BARE)
 
     advertised = next(
         line.strip()
@@ -158,7 +150,6 @@ def test_the_invocation_the_refusal_advertises_actually_works(  # type: ignore[n
     result = initialize(
         path,
         detection=BARE,
-        table=table,
         api_units=(parse_api_unit(advertised.split("--api ", 1)[1]),),
     )
 
@@ -168,126 +159,127 @@ def test_the_invocation_the_refusal_advertises_actually_works(  # type: ignore[n
     assert not config.is_local_only
 
 
-def test_a_reachable_backend_with_nothing_bindable_also_refuses(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_a_reachable_backend_with_nothing_bindable_also_refuses(
+    tmp_path: Path,
 ) -> None:
-    """A backend is up, but no GPU means no rung fits — still unwritable."""
-    detection = Detection(
-        gpus=(),
-        cpu_count=4,
-        ram_gb=16.0,
-        backends=(
-            Backend("llama-server", "http://localhost:8080", "openai", (), "probe"),
-        ),
-        docker=False,
-        provenance={"docker": "docker is not on PATH"},
-    )
+    """A server is up but lists no model: nothing to bind, still unwritable."""
     with pytest.raises(InitError) as exc:
-        initialize(tmp_path / "c.yaml", detection=detection, table=table)
-    assert "Reachable backends: llama-server" in str(exc.value)
+        initialize(tmp_path / "c.yaml", detection=_serving("bare"))
+    message = " ".join(str(exc.value).split())
+    assert f"Reachable model servers: {KINDS[0]}" in message
+    assert "none of them lists a model" in message
+    assert "load a model into a server named above" in message
 
 
-def test_a_refusal_never_touches_an_existing_config(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+@pytest.mark.parametrize("model", ["example\tmodel", " example-model"])
+def test_a_refusal_over_ids_init_cannot_bind_says_why(
+    tmp_path: Path, model: str
+) -> None:
+    """A server that lists only ids init does not bind is not a server that
+    lists nothing: the refusal names each id and why it was not bound."""
+    with pytest.raises(InitError) as exc:
+        initialize(tmp_path / "c.yaml", detection=_serving("bare", model))
+    message = " ".join(str(exc.value).split())
+    assert "none of them lists a model." not in message
+    assert repr(model) in message
+
+
+def test_every_written_unit_reads_back_as_an_id_its_server_lists(
+    tmp_path: Path,
+) -> None:
+    """An id with a space inside is bound as it is listed; one whose file form
+    would read back as another id is not bound at all."""
+    listed = ("example model", " example-lead", "example-trail ", "example\u00a0nbsp")
+    found = _serving("one-card", *listed)
+    result = initialize(tmp_path / "setup", detection=found)
+    models = [unit.model for unit in load_config(result.path).units.values()]
+    assert models, "the id with a space inside is bound"
+    assert all(model in listed for model in models), models
+
+
+def test_a_refusal_never_touches_an_existing_config(tmp_path: Path) -> None:
     """Someone's working config must survive a re-run on a broken machine."""
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     before = (
         (path / "fleet.yaml").read_text(encoding="utf-8"),
         (path / "policy.yaml").read_text(encoding="utf-8"),
     )
 
     with pytest.raises(InitError):
-        initialize(path, detection=BARE, table=table, force=True)
+        initialize(path, detection=BARE, force=True)
     assert (
         (path / "fleet.yaml").read_text(encoding="utf-8"),
         (path / "policy.yaml").read_text(encoding="utf-8"),
     ) == before
 
 
-def test_the_small_rig_gets_the_moe_rung_written_into_the_file(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
-    path = tmp_path / "setup"
-    initialize(path, detection=SMALL_RIG, table=table)
-    config = load_config(path)
-    models = [config.units[n].model for n in config.ladder.names]
-    assert "qwen3-coder-30b-a3b" in models
-    moe = next(u for u in config.units.values() if u.model == "qwen3-coder-30b-a3b")
-    assert moe.rig == "llama-server", "bound to the backend it was measured on"
-
-
 # --- naming convention ----------------------------------------------------
 
 
-def test_tiers_are_named_by_role_locality_and_model(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_tiers_are_named_by_locality_and_model(tmp_path: Path) -> None:
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     config = load_config(path)
     for name in config.ladder.names:
         assert name.startswith("local_")
-    assert "local_qwen2.5-coder-7b" in list(config.ladder.names)
+    assert list(config.ladder.names) == [binding_name("example-model:small")]
 
 
 # --- idempotence and not clobbering hand edits ---------------------------
 
 
-def test_rerunning_reports_a_delta_and_writes_nothing(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_rerunning_reports_a_delta_and_writes_nothing(tmp_path: Path) -> None:
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     fleet = path / "fleet.yaml"
     edited = fleet.read_text(encoding="utf-8").replace("width: 1", "width: 4")
     fleet.write_text(edited, encoding="utf-8")
 
-    again = initialize(path, detection=KEYLESS_RIG, table=table)
+    again = initialize(path, detection=KEYLESS_RIG)
     assert not again.written, "a hand edit must never be overwritten silently"
     assert fleet.read_text(encoding="utf-8") == edited
     assert any("width" in str(d) for d in again.deltas)
 
 
-def test_an_unchanged_config_reports_no_delta(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_an_unchanged_config_reports_no_delta(tmp_path: Path) -> None:
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
-    again = initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
+    again = initialize(path, detection=KEYLESS_RIG)
     assert not again.written
     assert again.deltas == (), "the same machine must propose the same config"
 
 
-def test_force_overwrites_and_says_what_changed(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_force_overwrites_and_says_what_changed(tmp_path: Path) -> None:
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     fleet = path / "fleet.yaml"
     fleet.write_text(
         fleet.read_text(encoding="utf-8").replace("width: 1", "width: 4"),
         encoding="utf-8",
     )
-    forced = initialize(path, detection=KEYLESS_RIG, table=table, force=True)
+    forced = initialize(path, detection=KEYLESS_RIG, force=True)
     assert forced.written and not forced.created
     assert any("width" in str(d) for d in forced.deltas)
-    assert (
-        next(
-            u for u in load_config(path).units.values() if u.rig == "llama-server"
-        ).width
-        == 1
-    )
+    units = load_config(path).units.values()
+    assert next(u for u in units if u.rig == KINDS[0]).width == 1
 
 
-def test_rendering_is_deterministic(table) -> None:  # type: ignore[no-untyped-def]
+def test_rendering_is_deterministic() -> None:
     """BUILD-09: a second run on an unchanged machine is a no-op."""
-    from mcgyvr.propose import propose
-
-    proposal = propose(table, vram_gb=12.0, sources=[])
+    proposal = propose(sources=_sources_for(KEYLESS_RIG))
     data = build(KEYLESS_RIG, proposal)
     assert render(data) == render(data)
 
 
-def test_an_unreadable_config_is_not_silently_replaced(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_an_unreadable_config_is_not_silently_replaced(tmp_path: Path) -> None:
     """A corrupt file is still someone's file."""
     path = tmp_path / "setup"
     path.mkdir()
     (path / "fleet.yaml").write_text(
         "this: is: not: valid: yaml:\n  - [\n", encoding="utf-8"
     )
-    result = initialize(path, detection=KEYLESS_RIG, table=table)
+    result = initialize(path, detection=KEYLESS_RIG)
     assert not result.written
     assert (path / "fleet.yaml").read_text(encoding="utf-8").startswith("this:")
     assert result.deltas, "it must say why it declined"
@@ -297,63 +289,49 @@ def test_an_unreadable_config_is_not_silently_replaced(tmp_path: Path, table) ->
 # --- honest about what is missing ----------------------------------------
 
 
-def test_missing_pieces_are_reported_with_what_they_cost(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
-    result = initialize(tmp_path / "c", detection=KEYLESS_RIG, table=table)
+def test_missing_pieces_are_reported_with_what_they_cost(tmp_path: Path) -> None:
+    result = initialize(tmp_path / "c", detection=KEYLESS_RIG)
     limits = " ".join(result.limits)
     assert "No API provider is configured" in limits
     assert "supported install" in limits
     assert "tempdir" in limits and "weaker" in limits
 
 
-def test_docker_present_does_not_produce_a_docker_warning(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
-    result = initialize(tmp_path / "c", detection=SMALL_RIG, table=table)
+def test_docker_present_does_not_produce_a_docker_warning(tmp_path: Path) -> None:
+    # The generator's machines have no docker; this one is given it, and the
+    # note detection adds for its absence goes with it.
+    found = dataclasses.replace(
+        KEYLESS_RIG,
+        docker=True,
+        notes=tuple(n for n in KEYLESS_RIG.notes if not n.startswith("Sandbox")),
+    )
+    result = initialize(tmp_path / "c", detection=found)
     assert not any("weaker mode" in limit for limit in result.limits)
     assert load_config(tmp_path / "c").data["sandbox"]["mode"] == "docker"
 
 
-def test_decisions_explain_each_binding(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
-    result = initialize(tmp_path / "c", detection=KEYLESS_RIG, table=table)
+def test_decisions_explain_each_binding(tmp_path: Path) -> None:
+    """Every card and server found is named, and every unit says why it is."""
+    result = initialize(tmp_path / "c", detection=KEYLESS_RIG)
     decisions = " ".join(result.decisions)
-    assert "NVIDIA GeForce RTX 3060" in decisions
-    assert "HumanEval+" in decisions
-    assert "already pulled" in decisions
-    assert "needs a" in decisions and "pull" in decisions
-
-
-def test_a_table_figure_among_the_decisions_is_called_an_estimate(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
-    """A figure init takes from the shipped table says it is an estimate.
-
-    The figures are read from the table, not restated: every bound model's
-    quality appears in its decision as an estimate, here and in the comment
-    init writes into the user's file.
-    """
-    result = initialize(tmp_path / "c", detection=KEYLESS_RIG, table=table)
-    shown = [
-        (model, line)
-        for line in result.decisions
-        for model in table.models
-        if f"-> {model.id} " in line and model.best_quality is not None
-    ]
-    assert shown, result.decisions
-    for model, line in shown:
-        assert f"an estimated {model.best_quality:.1%}" in line, line
-    written = " ".join(part.strip("# ").strip() for part in result.content.splitlines())
-    assert "an estimated" in written
+    for gpu in KEYLESS_RIG.gpus:
+        assert f"GPU {gpu.name} with {gpu.size}" in decisions
+    for backend in KEYLESS_RIG.backends:
+        assert f"{len(backend.models)} model(s) listed" in decisions
+        for model in backend.models:
+            assert (
+                f"{binding_name(model)} -> {model} at {backend.base_url}: bound "
+                f"because {backend.name} lists it" in decisions
+            )
 
 
 # --- the file a human has to read ----------------------------------------
 
 
-def test_the_file_carries_comments_from_the_schema(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_the_file_carries_comments_from_the_schema(tmp_path: Path) -> None:
     """Comments are rendered from the schema, so they cannot drift from it."""
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     text = (path / "fleet.yaml").read_text(encoding="utf-8") + (
         path / "policy.yaml"
     ).read_text(encoding="utf-8")
@@ -370,9 +348,9 @@ def test_the_file_carries_comments_from_the_schema(tmp_path: Path, table) -> Non
     )
 
 
-def test_no_credential_is_ever_written_as_a_value(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_no_credential_is_ever_written_as_a_value(tmp_path: Path) -> None:
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     text = (path / "fleet.yaml").read_text(encoding="utf-8") + (
         path / "policy.yaml"
     ).read_text(encoding="utf-8")
@@ -381,145 +359,92 @@ def test_no_credential_is_ever_written_as_a_value(tmp_path: Path, table) -> None
     assert "# api_key_env:" in text
 
 
-def test_values_that_need_quoting_get_it(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+def test_values_that_need_quoting_get_it(tmp_path: Path) -> None:
     """A model id carries a colon; a URL carries a colon and slashes."""
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     text = (path / "fleet.yaml").read_text(encoding="utf-8")
-    assert '"http://localhost:8080"' in text
-    assert '"qwen2.5-coder:7b"' in text
+    assert f'"{KEYLESS_RIG.backends[0].base_url}"' in text
+    assert '"example-model:small"' in text
 
 
 # --- a rig on another machine is bindable (#161) --------------------------
 
-REMOTE_ONLY = Detection(
-    gpus=(),
-    cpu_count=8,
-    ram_gb=23.5,
-    backends=(
-        Backend(
-            "srv1_llama-server",
-            "http://srv1:8080",
-            "openai",
-            ("qwen2.5-coder:3b", "qwen2.5-coder:1.5b"),
-            "probe",
-            host="srv1",
-            kind="llama-server",
-        ),
-        Backend(
-            "srv2_llama-server",
-            "http://srv2:8080",
-            "openai",
-            ("qwen2.5-coder:7b", "qwen2.5-coder:3b"),
-            "probe",
-            host="srv2",
-            kind="llama-server",
-        ),
-    ),
-    docker=True,
-    provenance={"docker": "docker info reported server 29.1.3"},
-    notes=("GPU: not determined — nvidia-smi is absent or failed.",),
-)
 
-
-def test_a_laptop_with_no_gpu_binds_the_rigs_it_can_reach(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
+def test_a_laptop_with_no_gpu_binds_the_rigs_it_can_reach(tmp_path: Path) -> None:
     """The deployment mcgyvr exists for: no GPU here, two rigs answering.
 
-    No local GPU does not end in `_nothing_to_bind` while a reachable rig serves one.
+    No local GPU does not end in a refusal while a reachable rig lists a model.
     """
+    found = _remote_only()
+    assert not found.gpus
     path = tmp_path / "setup"
-    result = initialize(path, detection=REMOTE_ONLY, table=table)
+    result = initialize(path, detection=found)
 
     assert result.created and path.exists()
     config = load_config(path)
     assert config.ladder.names, "a reachable rig is a bindable rig"
-    assert {u.rig for u in config.units.values()} == {
-        "srv1_llama-server",
-        "srv2_llama-server",
-    }
+    assert {u.rig for u in config.units.values()} == {b.name for b in found.backends}
     assert config.is_local_only, "no key is needed to reach your own machines"
 
 
-def test_two_rigs_running_the_same_backend_both_survive(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
+def test_two_rigs_running_the_same_backend_both_survive() -> None:
     """Sources are a mapping, so an unqualified name would drop a whole rig."""
-    proposal = propose(
-        table,
-        vram_gb=REMOTE_ONLY.largest_vram_gb,
-        sources=_sources_for(REMOTE_ONLY),
-    )
-    data = build(REMOTE_ONLY, proposal)
+    found = _remote_only()
+    kinds = [b.kind for b in found.backends]
+    assert any(kinds.count(kind) > 1 for kind in kinds), "one program on both"
+    data = build(found, propose(sources=_sources_for(found)))
     assert {s["address"] for s in data["units"].values()} == {
-        "http://srv1:8080",
-        "http://srv2:8080",
+        b.base_url for b in found.backends
     }
 
 
-def test_every_rung_says_which_machine_it_runs_on(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
+def test_every_rung_says_which_machine_it_runs_on(tmp_path: Path) -> None:
     """With one machine this was implicit. With two it is the whole question."""
-    result = initialize(tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table)
+    found = _remote_only()
+    result = initialize(tmp_path / "c.yaml", detection=found)
     rung_decisions = [d for d in result.decisions if " -> " in d]
-    assert rung_decisions
+    assert len(rung_decisions) == sum(len(b.models) for b in found.backends)
     for decision in rung_decisions:
-        assert " on srv1" in decision or " on srv2" in decision
+        assert any(f" at {b.base_url}: " in decision for b in found.backends)
 
 
-def test_a_ladder_across_machines_is_flagged_as_possibly_inverted(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
-    """Ordering across heterogeneous hardware is #162; silence is not an option."""
-    result = initialize(tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table)
-    joined = " ".join(result.limits)
-    assert "spans 2 machines" in joined
-
-
-def test_the_refusal_points_at_the_flag_that_would_have_worked(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
+def test_the_refusal_points_at_the_flag_that_would_have_worked(tmp_path: Path) -> None:
     """A bare laptop's problem may be that nobody told init where the rigs are."""
     with pytest.raises(InitError) as exc:
-        initialize(tmp_path / "c.yaml", detection=BARE, table=table)
+        initialize(tmp_path / "c.yaml", detection=BARE)
     assert "--host" in str(exc.value)
 
 
-def test_hosts_are_ignored_when_a_detection_is_supplied(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
+def test_hosts_are_ignored_when_a_detection_is_supplied(tmp_path: Path) -> None:
     """Two answers to one question. The caller's own detection wins, silently.
 
     Asserted because the alternative — sweeping the network during a test
     that supplied its own machine — is the kind of thing that passes locally
     and hangs in CI.
     """
-    result = initialize(
-        tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table, hosts=("nope.invalid",)
-    )
+    found = _remote_only()
+    result = initialize(tmp_path / "c.yaml", detection=found, hosts=("nope.invalid",))
     assert {u.rig for u in load_config(result.path).units.values()} == {
-        "srv1_llama-server",
-        "srv2_llama-server",
+        b.name for b in found.backends
     }
 
 
 # --- a written config dispatches on the uncaveated path (#164) ------------
 
 
-def test_a_written_config_binds_ollama_on_the_uncaveated_protocol(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_a_written_config_binds_ollama_on_the_uncaveated_protocol(
+    tmp_path: Path,
 ) -> None:
-    """`detect` calls it Ollama; the config dispatches to it as OpenAI."""
+    """A unit init writes for a server that is not vLLM names no engine."""
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     config = load_config(path)
     assert next(iter(config.units.values())).engine is None
 
 
-def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
+def test_no_rung_of_a_written_config_carries_the_quality_caveat(
+    tmp_path: Path,
 ) -> None:
     """The property that matters, asserted where it is actually decided.
 
@@ -531,7 +456,7 @@ def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore
     from mcgyvr.runner import runner_for
 
     path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG, table=table)
+    initialize(path, detection=KEYLESS_RIG)
     pool = source_map(load_config(path))
     assert pool.rungs, "this fixture is only interesting with rungs on it"
     for rung in pool.rungs:
@@ -542,13 +467,13 @@ def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore
         )
 
 
-def test_detection_still_reads_the_native_model_listing(  # type: ignore[no-untyped-def]
-    tmp_path: Path, table
-) -> None:
-    """Binding compatibly must not cost the inventory that made it possible.
-
-    `/v1/models` on Ollama reports loaded models; `/api/tags` reports pulled
-    ones. Proposing against the former would hide every model on disk.
-    """
-    result = initialize(tmp_path / "c", detection=KEYLESS_RIG, table=table)
-    assert any("already pulled" in d for d in result.decisions)
+def test_detection_still_reads_the_whole_model_listing(tmp_path: Path) -> None:
+    """Each server's decision counts every model it lists, bound or not."""
+    found = _serving("one-card", "example-model-small", "example-model-medium")
+    result = initialize(tmp_path / "c", detection=found)
+    (backend,) = found.backends
+    assert any(
+        d.startswith(f"Backend '{backend.name}'")
+        and d.endswith(f"; {len(backend.models)} model(s) listed.")
+        for d in result.decisions
+    )

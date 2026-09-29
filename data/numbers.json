@@ -568,11 +568,6 @@
       "says": "Card memory, in decimal GB, a model needs past its working set so that a close fit does not run degraded rather than fail.",
       "moves_to": "vram_headroom_gb"
     },
-    "propose.py:MIN_QUALITY_GAIN": {
-      "kind": "choice",
-      "says": "How much better, as a share of the shipped benchmark's tasks, a model must score than the rung above it to be worth its own rung.",
-      "reason": "a rule over the product's own shipped data"
-    },
     "rename.py:RenameReport.occurrences": {
       "kind": "fact",
       "says": "A rename's count of occurrences touched starts at none.",
