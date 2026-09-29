@@ -101,9 +101,9 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 # llama.cpp it is an estimate shipped with mcgyvr and settable by the user,
 # looked up by :func:`mcgyvr.derived.runtime_resident_gb`, and where no layer
 # states it the sizing is refused rather than made from a default in code. An
-# engine of :data:`mcgyvr.derived.RUNTIME_RESIDENT_READ` has its figure read on
-# the user's machine and none shipped: until it is read no layer is asked for
-# it, none is charged, and every fit of its units says so
+# engine of :data:`mcgyvr.derived.RUNTIME_RESIDENT_READ` has its figure to be
+# read on the user's machine and none shipped: until it is read no layer is
+# asked for it, none is charged, and every fit of its units says so
 # (:data:`HOST_FIGURE_NOT_READ`).
 
 # Held back from host RAM, on top of whatever the model needs, for the same
@@ -333,11 +333,15 @@ class Width:
     how: str
 
 
-#: What every fit of a unit whose engine's host memory figure is read on the
-#: machine (:data:`mcgyvr.derived.RUNTIME_RESIDENT_READ`) says while no reading
-#: exists, whether the unit fits or is refused: that the figure has not been
-#: read and none is charged. It names vLLM, the one engine of that tuple.
-HOST_FIGURE_NOT_READ = "vLLM host memory: not read on this machine; none is charged"
+#: What every fit of a unit whose engine's host memory figure is to be read on
+#: the machine (:data:`mcgyvr.derived.RUNTIME_RESIDENT_READ`) says while no
+#: reading exists, whether the unit fits or is refused: that the host memory
+#: its server holds beyond the weights has not been read and none is charged
+#: for it. It names vLLM, the one engine of that tuple.
+HOST_FIGURE_NOT_READ = (
+    "vLLM host memory beyond the weights: not read on this machine; "
+    "none is charged for it"
+)
 
 #: What that line adds when the user's own numbers file sets the figure all
 #: the same: the setting is not charged either. ``where`` is the file.
@@ -402,7 +406,7 @@ class Fit:
     card_free_gb: float = 0.0
     #: What this fit says beside its answer, one line each, also at the end of
     #: ``why``: :data:`HOST_FIGURE_NOT_READ` on every fit of a unit whose
-    #: engine's host memory figure is read on the machine, and nothing
+    #: engine's host memory figure is to be read on the machine, and nothing
     #: otherwise. ``mcgyvr emit`` prints each before it writes or checks
     #: anything, because ``why`` reaches a user only in a refusal.
     notes: tuple[str, ...] = ()
@@ -510,7 +514,8 @@ def fit(
     either: the host memory a spill carries beyond the experts is a figure of
     the unit's own engine (:func:`_host_gb`), and a default would size every
     other engine's unit with llama.cpp's. Every fit of a unit whose engine's
-    figure is read on the machine (:data:`mcgyvr.derived.RUNTIME_RESIDENT_READ`)
+    figure is to be read on the machine
+    (:data:`mcgyvr.derived.RUNTIME_RESIDENT_READ`)
     carries :data:`HOST_FIGURE_NOT_READ` in :attr:`Fit.notes` and at the end of
     ``why``, whether it fits or is refused.
 
@@ -1871,7 +1876,7 @@ def _placement(
 
     The RAM figure is what this card actually spills, plus the runtime that
     spilling carries with it for the unit's own ``engine`` (:func:`_host_gb`:
-    none for an engine whose figure is read on the machine, until it is read)
+    none for an engine whose figure is to be read on the machine, until it is)
     — not the whole model weight. The declaration is still honoured as a
     floor, so an operator who states a memory demand this module cannot see is
     not overruled by it.
@@ -1970,8 +1975,8 @@ def _host_gb(
     when nothing spills.
 
     An engine of :data:`mcgyvr.derived.RUNTIME_RESIDENT_READ` has its runtime
-    figure read on the user's machine and none shipped: until it is read, no
-    layer is asked for it and only the spilled experts are charged
+    figure to be read on the user's machine and none shipped: until it is
+    read, no layer is asked for it and only the spilled experts are charged
     (:func:`fit` says so). Every other engine is charged
     :func:`mcgyvr.derived.runtime_resident_gb`, llama.cpp's estimate, which the
     user can set. ``host`` is never its key: it only names the machine being

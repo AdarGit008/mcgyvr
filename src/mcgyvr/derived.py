@@ -76,9 +76,9 @@ UNITS: tuple[str, ...] = tuple(_BOUNDS)
 RUNTIME_RESIDENT = "runtime_resident_gb"
 RUNTIME_RESIDENT_KEY = "llama.cpp"
 
-#: The engines whose host memory figure is read on the user's machine and never
-#: shipped: no layer is asked for it, nothing is charged for it until it is
-#: read, and every sizing of a unit of one of them says so.
+#: The engines whose host memory figure is to be read on the user's machine and
+#: is never shipped: no layer is asked for it, nothing is charged for it until
+#: it is read, and every sizing of a unit of one of them says so.
 RUNTIME_RESIDENT_READ: tuple[str, ...] = ("vllm",)
 
 
@@ -469,8 +469,8 @@ def user_setting(number: str, key: str, *, path: Path | None = None) -> Path | N
     """The user's own file when it sets ``number`` for ``key``, else ``None``.
 
     It says only that the user's file sets it, never the value, and asks the
-    shipped layer for nothing but the names the user's file is checked
-    against. The sizing asks it of an engine of :data:`RUNTIME_RESIDENT_READ`,
+    shipped layer for nothing but what the user's file is checked against.
+    The sizing asks it of an engine of :data:`RUNTIME_RESIDENT_READ`,
     whose figure no layer answers, to say that a setting of it is not used.
     The whole file is checked as on every read: one that cannot be read is
     refused by name.

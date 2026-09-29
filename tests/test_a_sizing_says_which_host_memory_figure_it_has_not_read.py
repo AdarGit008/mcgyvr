@@ -109,6 +109,13 @@ def test_the_engines_read_on_the_machine_are_some() -> None:
     assert not_shipped(), "every engine ships its figure; this file tests nothing"
 
 
+def test_the_line_names_every_engine_whose_figure_it_has_not_read() -> None:
+    stated = line()
+    assert stated is not None, "the sizing module states no such line"
+    for engine in derived.RUNTIME_RESIDENT_READ:
+        assert engine.lower() in stated.lower(), (engine, stated)
+
+
 @pytest.mark.parametrize("machine", machines(), ids=lambda machine: machine.label)
 @pytest.mark.parametrize("engine", derived.KEY_SPACES["engine"])
 def test_a_unit_that_fits_says_it_only_when_its_figure_is_not_shipped(
