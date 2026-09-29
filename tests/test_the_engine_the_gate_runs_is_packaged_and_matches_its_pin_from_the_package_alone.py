@@ -33,7 +33,14 @@ import mcgyvr.gate.semantic as semantic
 from mcgyvr.gate.semantic import ENGINE_DIGESTS, engine_dir, verify_engine
 
 REPO = Path(__file__).resolve().parents[1]
-PACKAGED = Path(semantic.__file__).resolve().parent / "_engine" / "ghostcall"
+ENGINE_ROOT = Path(semantic.__file__).resolve().parent / "_engine"
+PACKAGED = ENGINE_ROOT / "ghostcall"
+
+#: Every file the package may hold under ``gate/_engine/``, relative to it: the
+#: pinned engine files and their licence, and nothing else at any depth.
+SHIPPED = frozenset(
+    {*(f"ghostcall/{name}" for name in ENGINE_DIGESTS), "ghostcall/LICENSE"}
+)
 
 #: The only inputs a wheel build is given: the package's sources, the data it
 #: ships, and the project metadata.
@@ -48,8 +55,12 @@ def test_a_checkout_reads_the_engine_from_inside_the_package() -> None:
 
 def test_the_package_holds_exactly_the_pinned_engine_files() -> None:
     assert PACKAGED.is_dir(), f"{PACKAGED} does not exist"
-    held = {p.name for p in PACKAGED.iterdir() if p.is_file() and p.suffix != ".pyc"}
-    assert held == {*ENGINE_DIGESTS, "LICENSE"}, held
+    held = {
+        p.relative_to(ENGINE_ROOT).as_posix()
+        for p in ENGINE_ROOT.rglob("*")
+        if p.is_file() and "__pycache__" not in p.parts
+    }
+    assert held == SHIPPED, sorted(held ^ SHIPPED)
 
 
 def _uv() -> str:
@@ -125,6 +136,13 @@ def test_a_wheel_built_from_the_product_alone_runs_the_pinned_engine(
 
     site = tmp_path / "site"
     with zipfile.ZipFile(wheel) as archive:
+        prefix = "mcgyvr/gate/_engine/"
+        shipped = {
+            name.removeprefix(prefix)
+            for name in archive.namelist()
+            if name.startswith(prefix) and not name.endswith("/")
+        }
+        assert shipped == SHIPPED, sorted(shipped ^ SHIPPED)
         archive.extractall(site)
     ran = subprocess.run(
         [sys.executable, "-c", _PROBE, str(site)],
