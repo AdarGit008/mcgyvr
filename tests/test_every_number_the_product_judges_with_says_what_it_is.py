@@ -91,8 +91,11 @@ NOT_JUDGING_REASONS: tuple[str, ...] = (NO_NUMBER, CHANGING_NOW, THIRD_PARTY)
 
 #: Every file the coverage file may mark as changing now. The list may only
 #: shrink: a file leaves it when its numbers are classified, and a file added to
-#: it fails :func:`test_no_file_is_added_to_the_files_changing_now`, so "changing
-#: now" cannot become a way to leave a new file unjudged.
+#: it fails :func:`test_no_file_is_added_to_the_files_changing_now`, and a file
+#: that leaves "changing now" in the coverage file and stays here fails
+#: :func:`test_the_pin_has_no_file_that_left_changing_now`, so "changing now"
+#: cannot become a way to leave a new file unjudged, nor a stale exemption for
+#: one already judged.
 FILES_CHANGING_NOW: frozenset[str] = frozenset(
     {
         "cli.py",
@@ -399,6 +402,25 @@ def test_a_file_newly_marked_changing_now_is_named() -> None:
     invented = "an_invented_module_nobody_wrote.py"
     covered[invented] = CHANGING_NOW
     assert _added_to_changing_now(covered) == {invented}
+
+
+def _stale_in_changing_now(covered: dict[str, str]) -> set[str]:
+    return set()
+
+
+def test_the_pin_has_no_file_that_left_changing_now() -> None:
+    stale = sorted(_stale_in_changing_now(_covered()))
+    assert stale == [], (
+        f"these files are pinned in FILES_CHANGING_NOW and the coverage file "
+        f"no longer marks them changing now: {stale}; drop each from the pin"
+    )
+
+
+def test_a_file_that_leaves_changing_now_is_named() -> None:
+    covered = dict(_covered())
+    left = next(iter(FILES_CHANGING_NOW))
+    covered[left] = NO_NUMBER
+    assert _stale_in_changing_now(covered) == {left}
 
 
 def test_a_file_said_to_be_third_party_sits_beside_its_authors_licence() -> None:
