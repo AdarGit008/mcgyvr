@@ -56,11 +56,10 @@ def row(
     model_id: str,
     *,
     card_class: str = str(CLASSES[0]["id"]),
-    quality: float = 0.71,
     speed: float = 43.0,
     **overrides: Any,
 ) -> dict[str, Any]:
-    """One model row with one quality and one speed reading for ``card_class``."""
+    """One model row with one speed reading for ``card_class``."""
     entry: dict[str, Any] = {
         "id": model_id,
         "family": "invented",
@@ -68,7 +67,6 @@ def row(
         "quant": "q5",
         "weights_gb": 3.1,
         "vram_gb_working": 3.7,
-        "quality": [reading(card_class, humaneval_plus_pass1=quality)],
         "throughput_tok_s": [reading(card_class, value=speed)],
         "notes": "an invented row",
     }
@@ -106,26 +104,15 @@ def table_document_with_every_block(
 ) -> dict[str, Any]:
     """A document carrying at least one entry at every level the table declares.
 
-    A quality metric, a caveat, a row with a valid, an invalid and a disputed
-    reading, a backend given for a class, and a finding given for a class. A
-    test that changes one level of it knows every other level is well formed.
+    A caveat, a row with a speed reading that cites it and a reason to keep it
+    out of fit listings, a backend given for a class, and a finding given for a
+    class. A test that changes one level of it knows every other level is well
+    formed.
     """
     first = str(classes[0]["id"])
-    model = row("invented-model-a", card_class=first)
-    model["invalid_measurements"] = [
-        reading(first, humaneval_plus_pass1=0.11, caveat="CAV-X")
-    ]
-    model["disputed_measurements"] = [
-        reading(first, humaneval_plus_pass1=0.22, caveat="CAV-X")
-    ]
+    model = row("invented-model-a", card_class=first, not_for_fit="an invented reason")
+    model["throughput_tok_s"][0]["caveat"] = "CAV-X"
     document = table_document(classes=classes, rows=[model])
-    document["quality_metric"] = {
-        "name": "humaneval_plus_pass1",
-        "dataset": "an invented set",
-        "decoding": "greedy",
-        "framework": "an invented harness",
-        "_caveat": "a proxy",
-    }
     document["harness_caveats"] = [
         {
             "id": "CAV-X",

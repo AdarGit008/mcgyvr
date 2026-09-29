@@ -326,17 +326,15 @@ def test_no_module_holds_shipped_data_in_an_assignable_global() -> None:
     assert offenders == []
 
 
-def test_the_shipped_table_is_still_loaded_only_once() -> None:
+def test_the_shipped_catalog_is_still_loaded_only_once() -> None:
     """Removing the global must not have removed the reason it was there.
 
-    The cost argument is real — both files are read on hot paths — so the memo
-    has to still be a memo. Identity, not equality: two equal tables would mean
-    it reloaded and revalidated.
+    The cost argument is real — the catalog is read on hot paths — so the memo
+    has to still be a memo. Identity, not equality: two equal catalogs would
+    mean it reloaded and revalidated.
     """
-    from mcgyvr.capability import shipped_table
     from mcgyvr.catalog import catalog
 
-    assert shipped_table() is shipped_table()
     assert catalog() is catalog()
 
 

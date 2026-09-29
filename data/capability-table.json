@@ -1,13 +1,6 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "_purpose": "Estimates of what a model costs to serve, so that serving can be sized without a benchmark of your machine; `mcgyvr init` does not read them. Every figure is an estimate for a card class. One card was read per class, so a class is a rough guide: speed depends on the card, not only on its memory. Most figures were taken through another server program (each reading's `backend` says which), with a file of the same model, usually of the same quantisation type; a reading's `note` says when it was not. None is a reading of your machine.",
-  "quality_metric": {
-    "name": "humaneval_plus_pass1",
-    "dataset": "HumanEval+ (164 tasks, base + extra tests)",
-    "decoding": "greedy (temperature=0, n_samples=1)",
-    "framework": "EvalPlus v0.4.0.dev44",
-    "_caveat": "Coding-benchmark pass@1 is a proxy for worker suitability, not a promise about a user's repo. It ranks models; it does not predict acceptance rate on real contracts."
-  },
   "card_classes": [
     { "id": "6gb", "label": "6 GB class", "memory_gb": 6 },
     { "id": "12gb", "label": "12 GB class", "memory_gb": 12 }
@@ -16,23 +9,23 @@
     {
       "id": "CAV-01",
       "severity": "critical",
-      "summary": "Ollama /api/generate yields invalid HumanEval+ scores for Qwen2.5-Coder 7B and larger.",
-      "detail": "Measured 32.3% (7b) and 17.1% (14b) via ollama /api/generate; the same weights via llama-server scored 84.1% and 87.8% — deltas of +54.9pp and +73.8pp. Non-Qwen models (yi-coder, deepseek-coder-v2) scored correctly through the same ollama path.",
-      "consequence": "Any capability data collected through ollama /api/generate for these models must be discarded. A table built from them would systematically under-route to the best available local models."
+      "summary": "One server program's native generate API gave benchmark results far below those of the same weights served by llama-server, for some models.",
+      "detail": "Seen for the qwen2.5-coder 7b and 14b rows; yi-coder and deepseek-coder-v2 were scored correctly through the same path.",
+      "consequence": "No benchmark reading taken through that path is shipped."
     },
     {
       "id": "CAV-02",
       "severity": "high",
-      "summary": "Ollama resolves qwen3-coder-30b-a3b to an F16 weight set (~18 GB), not a Q4 quant.",
-      "detail": "The F16 pull spills ~59% to CPU on a 12 GB card, runs ~100 s/task and scores 3.7%. The same model as a Q2_K GGUF under llama-server scores 87.8% in ~3 GB.",
-      "consequence": "MoE models of this family must be bound to an explicit GGUF quant under llama-server, never left to ollama tag resolution."
+      "summary": "One server program resolved qwen3-coder-30b-a3b's tag to a weight set of ~18 GB, not the Q2_K file this row describes.",
+      "detail": "That set spills ~59% to CPU on a 12 GB card and runs ~100 s/task. The same model as a Q2_K GGUF under llama-server runs with ~3 GB on the card under partial offload.",
+      "consequence": "Bind an explicit quantised file under llama-server."
     },
     {
       "id": "CAV-03",
       "severity": "medium",
-      "summary": "The gpt-oss-20b score below is disputed and should not be used for routing.",
-      "detail": "Originally attributed to MXFP4 quantization destroying code quality. Later investigation attributed the failure to an insufficient output token budget in the harness, not to the quantization.",
-      "consequence": "Treat gpt-oss-20b as unmeasured until re-run. Do not propose it, and do not cite 53.7% as its quality."
+      "summary": "The benchmark reading of gpt-oss-20b is disputed: it is attributed to an output budget too small in the harness.",
+      "detail": "First attributed to the MXFP4 quantisation; a later investigation attributed it to the harness's output token budget, not to the quantisation.",
+      "consequence": "No figure of that reading is shipped."
     },
     {
       "id": "CAV-04",
@@ -50,15 +43,10 @@
       "quant": "q4_K_M",
       "weights_gb": 0.99,
       "vram_gb_working": 1.5,
-      "quality": [
-        { "humaneval_plus_pass1": 0.652, "humaneval_pass1": 0.707, "backend": "ollama", "card_class": "6gb" },
-        { "humaneval_plus_pass1": 0.591, "humaneval_pass1": 0.640, "backend": "ollama", "card_class": "12gb" }
-      ],
       "throughput_tok_s": [
         { "value": 130.6, "card_class": "6gb", "backend": "ollama" },
         { "value": 54.29, "card_class": "12gb", "backend": "ollama" }
-      ],
-      "notes": "Fastest option on a small card and by a wide margin. Quality is the floor of what is useful; suits mechanical, tightly-scoped contracts."
+      ]
     },
     {
       "id": "qwen2.5-coder:3b",
@@ -67,15 +55,10 @@
       "quant": "q4_K_M",
       "weights_gb": 1.9,
       "vram_gb_working": 2.4,
-      "quality": [
-        { "humaneval_plus_pass1": 0.805, "humaneval_pass1": 0.841, "backend": "ollama", "card_class": "6gb" },
-        { "humaneval_plus_pass1": 0.768, "humaneval_pass1": 0.823, "backend": "ollama", "card_class": "12gb" }
-      ],
       "throughput_tok_s": [
         { "value": 87.8, "card_class": "6gb", "backend": "ollama" },
         { "value": 96.97, "card_class": "12gb", "backend": "ollama" }
-      ],
-      "notes": "Best quality-per-GB below 6 GB. The 1.5B→3B step is +15.3pp HumanEval+; the 3B→7B step is +2.4pp on the same card class."
+      ]
     },
     {
       "id": "qwen2.5-coder:7b",
@@ -84,18 +67,10 @@
       "quant": "q4_K_M",
       "weights_gb": 4.7,
       "vram_gb_working": 5.0,
-      "quality": [
-        { "humaneval_plus_pass1": 0.829, "humaneval_pass1": 0.872, "backend": "ollama", "card_class": "6gb" },
-        { "humaneval_plus_pass1": 0.841, "humaneval_pass1": 0.872, "backend": "llama-server", "card_class": "12gb" }
-      ],
       "throughput_tok_s": [
         { "value": 30.4, "card_class": "6gb", "backend": "ollama", "caveat": "CAV-04" },
         { "value": 57.59, "card_class": "12gb", "backend": "ollama" }
-      ],
-      "invalid_measurements": [
-        { "humaneval_plus_pass1": 0.323, "backend": "ollama /api/generate", "card_class": "12gb", "caveat": "CAV-01" }
-      ],
-      "notes": "Needs ≥8 GB to run without memory pressure."
+      ]
     },
     {
       "id": "qwen2.5-coder:14b",
@@ -104,16 +79,9 @@
       "quant": "q4_K_M",
       "weights_gb": 9.0,
       "vram_gb_working": 9.5,
-      "quality": [
-        { "humaneval_plus_pass1": 0.878, "humaneval_pass1": 0.909, "backend": "llama-server", "card_class": "12gb" }
-      ],
       "throughput_tok_s": [
         { "value": 32.18, "card_class": "12gb", "backend": "ollama" }
-      ],
-      "invalid_measurements": [
-        { "humaneval_plus_pass1": 0.171, "backend": "ollama /api/generate", "card_class": "12gb", "caveat": "CAV-01" }
-      ],
-      "notes": "Highest measured dense-model quality. Needs ≥12 GB."
+      ]
     },
     {
       "id": "yi-coder:9b",
@@ -122,13 +90,9 @@
       "quant": "q4",
       "weights_gb": 5.0,
       "vram_gb_working": 5.5,
-      "quality": [
-        { "humaneval_plus_pass1": 0.689, "humaneval_pass1": 0.744, "backend": "ollama", "card_class": "12gb" }
-      ],
       "throughput_tok_s": [
         { "value": 57.35, "card_class": "12gb", "backend": "ollama" }
-      ],
-      "notes": "Dominated by qwen2.5-coder:7b — smaller, faster and 15pp better. Present for completeness."
+      ]
     },
     {
       "id": "deepseek-coder-v2:16b",
@@ -138,13 +102,9 @@
       "quant": "q4",
       "weights_gb": 8.9,
       "vram_gb_working": 9.4,
-      "quality": [
-        { "humaneval_plus_pass1": 0.726, "humaneval_pass1": 0.768, "backend": "ollama", "card_class": "12gb" }
-      ],
       "throughput_tok_s": [
         { "value": 110.35, "card_class": "12gb", "backend": "ollama" }
-      ],
-      "notes": "Fastest large model measured, but 15pp below qwen2.5-coder:14b at a similar footprint. A throughput lane, never a quality rung — binding it above 7B inverts the quality gradient."
+      ]
     },
     {
       "id": "qwen3-coder-30b-a3b",
@@ -156,17 +116,12 @@
       "weights_gb": 3.0,
       "vram_gb_working": 3.0,
       "requires_backend": "llama-server",
-      "quality": [
-        { "humaneval_plus_pass1": 0.878, "humaneval_pass1": 0.927, "backend": "llama-server", "card_class": "6gb" }
-      ],
       "throughput_tok_s": [
         { "value": 13.0, "card_class": "6gb", "backend": "llama-server", "note": "-ngl 10 partial GPU offload" },
         { "value": 24.19, "card_class": "12gb", "backend": "ollama", "note": "Q4, 8.9 GB" }
       ],
-      "invalid_measurements": [
-        { "humaneval_plus_pass1": 0.037, "backend": "ollama", "card_class": "12gb", "caveat": "CAV-02" }
-      ],
-      "notes": "Highest quality per GB measured: 14B-class quality in ~3 GB. Slow, and requires an explicit GGUF quant under llama-server. Strong fit for a quality rung on a small card where latency is not the constraint."
+      "not_for_fit": "its memory figure is the resident part under partial offload, not the file",
+      "notes": "Requires an explicit GGUF quant under llama-server."
     },
     {
       "id": "gpt-oss-20b",
@@ -177,14 +132,10 @@
       "quant": "MXFP4",
       "weights_gb": 4.9,
       "vram_gb_working": 4.9,
-      "quality": [],
-      "disputed_measurements": [
-        { "humaneval_plus_pass1": 0.537, "humaneval_pass1": 0.549, "backend": "llama-server", "card_class": "6gb", "caveat": "CAV-03" }
-      ],
       "throughput_tok_s": [
         { "value": 15.4, "card_class": "6gb", "backend": "llama-server" }
       ],
-      "notes": "Quality unmeasured pending a re-run with an adequate output budget. Not proposed."
+      "not_for_fit": "its benchmark reading is disputed and not shipped (CAV-03)"
     },
     {
       "id": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
@@ -194,12 +145,12 @@
       "weights_gb": 5.29,
       "vram_gb_working": 9.9,
       "requires_backend": "vllm",
-      "quality": [],
       "throughput_tok_s": [
         { "value": 67.5, "card_class": "12gb", "backend": "vllm" },
         { "value": 489.0, "card_class": "12gb", "backend": "vllm", "note": "aggregate at 16 concurrent (CON-04)" }
       ],
-      "notes": "Same weights as qwen2.5-coder:7b in a different quantization and server. Quality is deliberately empty: throughput and features were measured, HumanEval+ was not, and the q4_K_M score must not be borrowed across a different quantization. vram_gb_working is the server's CONFIGURED allocation (gpu-memory-utilization 0.90 of a 12 GB card), not an intrinsic footprint — the fit rule's assumptions do not transfer to this backend unchanged."
+      "not_for_fit": "its memory figure is the server's configured allocation, not the model's footprint",
+      "notes": "Same weights as qwen2.5-coder:7b in a different quantization and server. vram_gb_working is the server's CONFIGURED allocation (gpu-memory-utilization 0.90 of a 12 GB card), not an intrinsic footprint — the fit rule's assumptions do not transfer to this backend unchanged."
     },
     {
       "id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
@@ -209,10 +160,10 @@
       "weights_gb": 9.29,
       "vram_gb_working": 11.6,
       "requires_backend": "vllm",
-      "quality": [],
       "throughput_tok_s": [
         { "value": 19.5, "card_class": "12gb", "backend": "vllm", "caveat": "CAV-04" }
       ],
+      "not_for_fit": "its memory figure is the server's configured allocation, not the model's footprint",
       "notes": "A second, independent instance of CAV-04 and a useful one: at 11.6 GB allocated on a 12 GB card it ran 19-20 tok/s against 32.2 tok/s for the same model class under a simpler server — the batching backend was 38% SLOWER because it had no memory to batch with, and required eager execution. A marginal fit does not merely lose its backend's advantages; it inverts them."
     }
   ],
@@ -221,7 +172,7 @@
     "ollama": {
       "wire_protocol": "ollama",
       "strengths": ["multiple distinct models resident concurrently", "GGUF native", "setup in one command"],
-      "limits": ["no continuous batching", "no structured-output enforcement", "backend-native generate API is unsafe for quality measurement (CAV-01)"]
+      "limits": ["no continuous batching", "no structured-output enforcement", "backend-native generate API is unsafe for benchmark measurement (CAV-01)"]
     },
     "vllm": {
       "wire_protocol": "openai",
@@ -241,7 +192,7 @@
     {
       "id": "CON-05",
       "summary": "Prefix caching returned a 43.3% hit rate on a shared 39-token prefix, and scales with prefix size.",
-      "detail": "Measured on HumanEval tasks sharing a system prompt; 19% wall-clock speedup at that prefix length.",
+      "detail": "Over short coding tasks sharing one system prompt; 19% wall-clock speedup at that prefix length.",
       "consequence": "Directly relevant to the shared worker bundle: every local worker receives the same <=2 KB system prompt, which is roughly 50x the prefix measured here, so the benefit should be substantially larger in normal operation.",
       "card_class": "12gb"
     },
