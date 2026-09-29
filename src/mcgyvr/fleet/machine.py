@@ -1,21 +1,44 @@
 """A machine's short reading, and the short id that names the machine.
 
 ``gate-scripts/machine-read.sh`` reads a machine as an ordinary user, on any
-vendor: its machine id, its host name, every card with its name and memory and
-the processes holding it, and the running containers. :func:`parse` turns what
-it prints into a :class:`Reading`; :func:`short_id` names the machine from it.
+vendor: its machine id, its host name, the cards its sources show (each card
+tool that is installed, and sysfs for the cards of any vendor no answering tool
+covered), each with its name, memory and the processes holding it, and the
+running containers. :func:`parse` turns what it prints into a :class:`Reading`;
+:func:`short_id` names the machine from it.
 
 The shape of :class:`Reading` is what later readers of it rely on (the lock
 evidence, the rows filed from a read, the machine declaration): every field is
-named here, and a field is added, never renamed. The reading holds figures per
-card only. Nothing in it sums the cards or picks one of them, so a machine of
-several cards is never read as its first.
+named here, and a field may be added, never renamed. The reading holds figures
+per card only. Nothing in it sums the cards or picks one of them, so a machine
+of several cards is never read as its first.
 
 What the reader prints is untrusted: it comes from another machine, and parts
-of it from tools there. :func:`parse` never raises. A value that is not what
-its field allows is left ``None`` and listed in :attr:`Reading.unread` with a
+of it from tools there. :func:`parse` never raises and holds its own checks,
+since its input may not come from this reader. A value that is not what its
+field allows is left ``None`` and listed in :attr:`Reading.unread` with a
 reason, and so is a value the reader itself named as unread. A ``None`` field
 of a card is always listed there, keyed ``card.<vendor>.<index>.<field>``.
+
+Two limits hold today. A card name or a process name that holds a line break
+can forge a row of the same kind for the same card, when what follows the
+break has that row's form; the reader catches it otherwise. Holders are a
+report of what holds a card, and never part of the machine's identity.
+
+The machine id is ``mcgyvr scan``'s for a machine-id file of one line and for
+a plain host name: both take the sha256 of the file's text, or of
+``host:NAME``, to 16 hex. They differ where the input is not well formed: the
+reader takes the first line of the file and trims it, where scan hashes the
+whole file trimmed (a file of two lines, or with a blank first line, gives two
+ids; a blank first line makes the reader try the next file); and a host name
+with a space or a character outside ASCII letters, digits, ``.``, ``_`` and
+``-`` is refused by the reader, where scan hashes it.
+
+The present policy of :func:`short_id` (in :func:`_refusals`, so it can change
+in one place): a card whose memory size cannot be read stays in the reading
+with its size named unread, and the machine gets no short id; the refusal
+names the card and says what the user can do. A card tool that is installed
+but fails, or that answers with no card, refuses the id too, naming the tool.
 """
 
 from __future__ import annotations
@@ -110,7 +133,8 @@ class Reading:
     ``hostname``). ``card_sources`` are the sources that gave a card, in the
     order the reader asked them; empty when none did. ``cards`` are sorted by
     vendor, then index. ``containers`` is ``None`` when they could not be
-    listed. ``unread`` names every field that could not be read.
+    listed or a container line was not taken. ``unread`` names every field
+    that could not be read.
     """
 
     machine_id: str | None
@@ -134,6 +158,7 @@ class _Parse:
         self.containers: list[Container] = []
         self.said: list[Unread] = []
         self.found: list[Unread] = []
+        self.containers_refused = False
 
     def note(self, field: str, why: str) -> None:
         self.found.append(Unread(field=field, why=why))
@@ -218,8 +243,12 @@ class _Parse:
             _TOKEN.fullmatch(part) and _is_text(part) for part in parts
         ):
             self.note(
-                "containers", f"line {number}: a container line without four fields"
+                "containers",
+                f"line {number}: a container line the parser does not take "
+                "(four fields, each without blanks, commas or control characters, "
+                "at most 256 characters)",
             )
+            self.containers_refused = True
             return
         name, cid, project, restarts = parts
         count = int(restarts) if _DIGITS.fullmatch(restarts) else None
@@ -333,7 +362,7 @@ def parse(text: str) -> Reading:
         state.note("cards", "the reader printed cards and said it found none")
 
     containers: tuple[Container, ...] | None = tuple(state.containers)
-    if "containers" in unread_by_reader:
+    if "containers" in unread_by_reader or state.containers_refused:
         containers = None
 
     reading = Reading(
@@ -403,46 +432,93 @@ def _named(reading: Reading, unread: list[Unread]) -> Reading:
 _CARD_WHOLE = re.compile(r"card\.[^.]+\.[0-9]+", re.ASCII)
 
 
+def _refusals(reading: Reading) -> list[tuple[str, str]]:
+    """The fields that refuse a short id today, each with what the user can do.
+
+    This is the one place the policy lives: a covered field that was not read
+    or is not of its type, a card source that failed or may be short, a card
+    dropped, or a line not understood.
+    """
+    found: list[tuple[str, str]] = []
+    if not isinstance(reading.machine_id, str) or not _HEX16.fullmatch(
+        reading.machine_id
+    ):
+        found.append(
+            (
+                "machine_id",
+                "no machine id was read: the machine needs a machine-id file or a "
+                "host name the reader can read",
+            )
+        )
+    for card in reading.cards:
+        if not isinstance(card.name, str):
+            found.append((f"{card.key}.name", "the card's name was not read"))
+        if card.total_mib is None:
+            found.append(
+                (
+                    f"{card.key}.total",
+                    "the card's memory size was not read; the card tool of its "
+                    "vendor, installed and working, may read it. A card whose size "
+                    "cannot be read gives the machine no short id for now",
+                )
+            )
+        elif type(card.total_mib) is not int:
+            found.append(
+                (f"{card.key}.total", "the card's memory size is not a whole number")
+            )
+    for item in reading.unread:
+        if item.field.startswith("cards"):
+            found.append(
+                (
+                    item.field,
+                    "the list of cards may be short: see the reason; after the "
+                    "tool is fixed or removed, read the machine again",
+                )
+            )
+        elif item.field == "reading" or _CARD_WHOLE.fullmatch(item.field):
+            found.append(
+                (
+                    item.field,
+                    "a line of the reading was not taken; read the machine again",
+                )
+            )
+    return found
+
+
 def short_id(reading: Reading) -> str:
     """``mch-`` = H{ machine id, [(card name, total MiB) for every card] }.
 
-    The cards are taken in the reading's order (by vendor, then index). A
-    reading that could not read the machine id, a card's name or size, or a
-    card source is refused by name: an id is never hashed over a field that
-    was not read, nor over a list of cards that may be short.
+    The cards are sorted by name, then size, so their indexes and their order,
+    which a card tool may change, do not move the id; two equal cards are both
+    in it. Names are taken in Unicode normal form C. A reading that
+    :func:`_refusals` finds anything in is refused by name, with the reason
+    the reading gave and what the user can do: an id is never hashed over a
+    field that was not read, nor over a list of cards that a source it asked
+    names as short. A card that no source shows (no card tool of its vendor
+    installed, and no entry under sysfs's DRM class) is not in the reading,
+    and the id cannot know of it.
     """
-    missing: list[str] = []
-    if reading.machine_id is None:
-        missing.append("machine_id")
-    for card in reading.cards:
-        if card.name is None:
-            missing.append(f"{card.key}.name")
-        if card.total_mib is None:
-            missing.append(f"{card.key}.total")
-    for item in reading.unread:
-        if (
-            item.field in ("cards", "reading")
-            or item.field.startswith("cards.")
-            or _CARD_WHOLE.fullmatch(item.field)
-        ):
-            missing.append(item.field)
-    if missing:
+    refused = _refusals(reading)
+    if refused:
         why = {u.field: u.why for u in reading.unread}
         said = "; ".join(
-            f"{field} ({why[field]})" if field in why else field
-            for field in dict.fromkeys(missing)
+            f"{field} ({why[field]}; {remedy})"
+            if field in why
+            else f"{field} ({remedy})"
+            for field, remedy in dict(refused).items()
         )
         raise ValueError(
             f"the reading does not read {said}, and a machine's short id is never "
             "hashed over a field that was not read"
         )
+    cards = sorted(
+        (unicodedata.normalize("NFC", str(card.name)), int(card.total_mib or 0))
+        for card in reading.cards
+    )
     return ids.digest(
         SHORT_ID_PREFIX,
         {
             "machine_id": reading.machine_id,
-            "cards": [
-                {"name": card.name, "total_mib": card.total_mib}
-                for card in reading.cards
-            ],
+            "cards": [{"name": name, "total_mib": total} for name, total in cards],
         },
     )

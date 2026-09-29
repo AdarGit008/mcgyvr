@@ -151,3 +151,37 @@ def test_a_size_over_the_digit_bound_is_refused_by_the_parser() -> None:
     assert "card.nvidia.0.total" in _unread(text)
     ok = HEAD + "card=nvidia,0," + "1" * 18 + ",0,0,Example Card V\n"
     assert machine.parse(ok).cards[0].total_mib == int("1" * 18)
+
+
+@pytest.mark.parametrize(
+    ("text", "field", "remedy"),
+    [
+        (
+            HEAD + CARD + "unread=cards.nvidia-smi,failed\n",
+            "cards.nvidia-smi",
+            "read the machine again",
+        ),
+        (
+            HEAD + "card=nvidia,0,,0,,Example Card V\n",
+            "card.nvidia.0.total",
+            "installed and working",
+        ),
+        (
+            "host=box-6.example\ncards=nvidia-smi\n" + CARD,
+            "machine_id",
+            "machine-id file",
+        ),
+    ],
+    ids=["a-failed-tool", "a-size-not-read", "no-machine-id"],
+)
+def test_a_refusal_says_what_the_user_can_do_when_the_reason_does_not(
+    text: str, field: str, remedy: str
+) -> None:
+    """The reason in a reading may come from elsewhere and say nothing useful."""
+    from mcgyvr.fleet import machine
+
+    with pytest.raises(ValueError) as refused:
+        machine.short_id(machine.parse(text))
+    said = str(refused.value)
+    assert field in said
+    assert remedy in said

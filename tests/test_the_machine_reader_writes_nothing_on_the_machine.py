@@ -50,11 +50,11 @@ def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> 
     bash = shutil.which("bash")
     assert strace and bash
     rows = "".join(
-        f"{i}, 7919, 0, 7919, Example Card {'W' * 1000}\n" for i in range(100)
+        f"{i}, 7919, 0, 7919, Example Card {'W' * 3900}\n" for i in range(20)
     )
     staged = Staged(
         first_tool=rows.encode(),
-        first_tool_processes={i: (b"", 0) for i in range(100)},
+        first_tool_processes={i: (b"", 0) for i in range(20)},
     )
     trace = tmp_path / "reader.trace"
     ran = run(
@@ -72,7 +72,7 @@ def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> 
         ),
     )
     assert ran.returncode == 0, ran.stderr
-    assert ran.stdout.count("\ncard=") == 100
+    assert ran.stdout.count("\ncard=") == 20
     written = [
         line
         for line in trace.read_text("utf-8", errors="replace").splitlines()

@@ -41,7 +41,7 @@ def _code_lines(text: str) -> list[str]:
 
 
 #: A path from the file system's top, not written under the reader's root.
-_ABSOLUTE = re.compile(r"(?<![\w$}*])/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+")
+_ABSOLUTE = re.compile(r"(?<![\w$}*/\]])/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+")
 
 
 def test_the_reader_names_no_file_outside_its_root() -> None:

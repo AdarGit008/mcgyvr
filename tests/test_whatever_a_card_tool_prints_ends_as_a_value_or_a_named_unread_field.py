@@ -86,6 +86,30 @@ def test_a_card_name_that_is_not_text_is_named_unread(
     assert set(_cards(reading)) == {0}
 
 
+def test_the_reader_itself_prints_no_name_longer_than_its_bound(
+    tmp_path: Path,
+) -> None:
+    """The reader, not only the parser after it, holds back an over-long name.
+
+    The parser's input may come from elsewhere and the reader's output may be
+    read by something other than this parser, so each keeps the bound.
+    """
+    from mcgyvr.fleet import machine
+
+    long_name = "Example Card " + "X" * 300
+    ran = run(
+        Staged(
+            first_tool=f"0, 7919, 100, 7819, {long_name}\n".encode(),
+            first_tool_processes={0: (b"", 0)},
+        ),
+        tmp_path,
+    )
+    assert ran.returncode == 0, ran.stderr
+    assert "X" * 300 not in ran.stdout
+    reading = machine.parse(ran.stdout)
+    assert "printed a name longer than" in _unread(reading)["card.nvidia.0.name"]
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -112,7 +136,7 @@ def test_a_tool_that_prints_nothing_gives_no_card_and_is_named(
     assert "printed no card" in _unread(reading)["cards.nvidia-smi"]
 
 
-def test_a_line_longer_than_the_bound_is_refused_before_it_is_read(
+def test_a_line_longer_than_the_bound_is_refused_before_it_is_trimmed(
     tmp_path: Path,
 ) -> None:
     started = time.monotonic()
