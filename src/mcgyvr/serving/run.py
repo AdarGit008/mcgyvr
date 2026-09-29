@@ -85,10 +85,16 @@ gate exited 0; it cannot stop the filing. ``always`` is refused on a read,
 which has no teardown and no lease. The list is read and held to
 :func:`load_gate_list` before any gate runs, and each gate's path is checked
 again just before it starts. A caller's gate is run by the door's Python from
-its list's root, which it sees as ``RUN_ROOT``, in a process group of its own,
-for at most its ``timeout_s`` (:data:`CALLER_GATE_TIMEOUT_S` when the list
-gives none); it may export only the ``RUN_`` names its list declares, none of
-them a name the door sets (:data:`DOOR_NAMES`).
+its list's root, which it sees as ``RUN_ROOT``, in a session and a process
+group of its own. At its ``timeout_s`` (:data:`CALLER_GATE_TIMEOUT_S` when the
+list gives none, at most :data:`CALLER_GATE_MOST_S`) the door sends TERM to
+that group, KILL when the group is still there :data:`GROUP_GRACE_S` later,
+and then waits up to :data:`GROUP_GONE_S` for it to be empty
+(:func:`_end_group`). In a session of its own, the gate is outside every
+signal sent to the door's process group: the door ends it on INT or TERM,
+but a door that is killed or hung up leaves it running with no bound. It may
+export only the ``RUN_`` names its list declares, none of them a name the
+door sets (:data:`DOOR_NAMES`), in at most :data:`MAX_EXPORT_BYTES`.
 
 THE CONTRACT WITH A GATE SCRIPT. The door's own gates are executables under
 ``gate-scripts/``; a caller's gates are the executables its list names.
@@ -117,7 +123,7 @@ import types
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.serving import gatelib
@@ -438,18 +444,32 @@ GATE_LIST_KEYS = frozenset({"root", "gates"})
 GATE_KEYS = frozenset({"path", "why", "phase", "exports", "timeout_s"})
 #: How long a caller's gate may run when its list gives no ``timeout_s``.
 CALLER_GATE_TIMEOUT_S = 600.0
+#: The longest bound a list may give a gate: a day. A longer one is refused
+#: when the list is read, before any gate runs.
+CALLER_GATE_MOST_S = 86400.0
 #: The most gates a list may hold. Far above any list a caller writes by
 #: hand; a list longer than this is refused rather than read at length.
 MAX_GATES = 256
-#: How long the door waits, after it killed a caller's gate, for the gate's
-#: process group to be empty (see :func:`_end_group`).
+#: How long the door waits, after TERM to a caller's gate's process group,
+#: for the group to be empty before it sends KILL (see :func:`_end_group`).
+GROUP_GRACE_S = 5.0
+#: How long the door waits, after KILL, for that group to be empty.
 GROUP_GONE_S = 5.0
+#: The most a caller's gate may write on its export descriptor. A gate that
+#: writes more is ended with its process group and refused by name. It is
+#: well under the 128 KiB Linux lets one environment string hold (with 4 KiB
+#: pages), so one value that passes can still start a process. What all gates
+#: export together must fit in the environment a process starts with too;
+#: when it does not, the next gate cannot start, and the door refuses naming
+#: that gate.
+MAX_EXPORT_BYTES = 64 * 1024
 #: The package's own folder, where the door's own scripts are. A list whose
 #: root is or lies inside it is refused, and so is a gate that resolves
 #: inside it: either could run the door's scripts out of the door's order. A
 #: root may hold it (a project with the package in its virtual environment).
 #: Paths are compared by their spelling, after links are resolved: on a file
-#: system that ignores case, a path spelled in another case is not caught.
+#: system that ignores case, a path spelled in another case is not caught. A
+#: copy or a hard link of a door script outside the package is not caught.
 PACKAGE = HERE.parent
 
 
@@ -515,7 +535,7 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
     whose path cannot be a path, is missing, is not an executable file, or
     resolves (through ``..`` or a link) outside the root or inside
     :data:`PACKAGE`; a phase not in ``phases``; a ``timeout_s`` that is not a
-    positive number of seconds a float can hold; an export that
+    positive number of seconds up to :data:`CALLER_GATE_MOST_S`; an export that
     is not a ``RUN_`` name, is one of :data:`DOOR_NAMES`, or is declared by two
     gates.
     """
@@ -526,7 +546,18 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
             "passed an empty name would otherwise run without its gates",
         )
     source = Path(named)
-    source = source if source.is_absolute() else Path.cwd() / source
+    if not source.is_absolute():
+        try:
+            source = Path.cwd() / source
+        except OSError as escape:
+            _refuse(
+                2,
+                _printable(
+                    f"--gates {named}: the list is named relative to the working "
+                    "folder, which cannot be read "
+                    f"({escape.strerror or escape!r}); name it by an absolute path"
+                ),
+            )
 
     def no(where: str, why: str) -> NoReturn:
         _refuse(2, _printable(f"--gates {source}: {where} {why}"))
@@ -543,6 +574,12 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
         no("the list", f"cannot be read ({escape.strerror or escape!r})")
     except _TwiceError as twice:
         no(f"key {twice.key!r}", "is given twice; a list states each key once")
+    except json.JSONDecodeError as escape:
+        no(
+            "the list",
+            f"is not JSON the door reads (line {escape.lineno}, column "
+            f"{escape.colno}: {escape.msg})",
+        )
     except (ValueError, RecursionError) as escape:
         no("the list", f"is not JSON the door reads ({type(escape).__name__})")
     if not isinstance(doc, dict):
@@ -613,7 +650,7 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
             )
         except OverflowError:
             seconds = math.nan
-        if not math.isfinite(seconds) or seconds <= 0:
+        if not math.isfinite(seconds) or not 0 < seconds <= CALLER_GATE_MOST_S:
             shown = (
                 f"{str(bound)[:20]}..."
                 if isinstance(bound, int) and len(str(bound)) > 20
@@ -621,7 +658,8 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
             )
             no(
                 where,
-                f"gives timeout_s {shown!r}; a bound is a positive number of seconds",
+                f"gives timeout_s {shown!r}; a bound is a positive number of "
+                f"seconds, at most {CALLER_GATE_MOST_S:g}",
             )
         exports = gate.get("exports", [])
         if not isinstance(exports, list) or not all(
@@ -859,9 +897,12 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
     check below is what caught it.
 
     A caller's gate is started by the path :func:`_outside` resolved and
-    checked, opened by name again at the spawn: a folder on that path swapped
-    between the check and the spawn is not caught. That is a known limit, held
-    to be acceptable while the caller is the user.
+    checked, opened by name again at the spawn: the gate file, or a folder on
+    its path, swapped between the check and the spawn is not caught. A signal
+    to the door that lands while a caller's gate is being started, before the
+    door waits on it in :func:`_collect_bounded`, raises past it, and that gate
+    is left running; a burst of signals can land there. Both are known limits,
+    held to be acceptable while the caller is the user.
     """
     # A caller's gate runs from its own root and sees it as RUN_ROOT; what it
     # exports still lands in the door's ``env``. Its path is held to its root
@@ -875,6 +916,9 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
         if why_not is not None:
             _refuse(2, _printable(f"{entry.script} {why_not}, since the list was read"))
         child = dict(env, RUN_ROOT=entry.root)
+        # The handlers to set back once the gate's group is ended, taken
+        # before the gate starts: ending it sets both signals aside.
+        restore = {sig: signal.getsignal(sig) for sig in UNSTOPPABLE}
     else:
         script = GATE_SCRIPTS / entry.script
         child = env
@@ -894,7 +938,7 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
         write_fd = -1
         if entry.root:
             fd, read_fd = read_fd, -1
-            reported, status = _collect_bounded(entry, proc, fd)
+            reported, status = _collect_bounded(entry, proc, fd, restore)
         else:
             with os.fdopen(read_fd, "r", encoding="utf-8", errors="replace") as pipe:
                 read_fd = -1
@@ -921,7 +965,7 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
         if match is None:
             _refuse(
                 2,
-                f"{name} wrote {line!r} on RUN_EXPORT_FD, which is not "
+                f"{name} wrote {_start_of(line)} on RUN_EXPORT_FD, which is not "
                 "KEY=VALUE; the door passes named facts between gates and "
                 "nothing else",
             )
@@ -1011,86 +1055,143 @@ def _end(proc: subprocess.Popen[bytes]) -> None:
         proc.wait()
 
 
-def _end_group(proc: subprocess.Popen[bytes]) -> None:
-    """End a caller's gate and its process group: TERM, a grace, then KILL.
+def _start_of(line: str, most: int = 80) -> str:
+    """``line`` quoted, cut to its first ``most`` characters when it is longer."""
+    if len(line) <= most:
+        return repr(line)
+    return f"{line[:most]!r}... ({len(line)} characters)"
 
-    Both signals are ignored while it runs: a second Ctrl-C or TERM that
-    landed in the grace would otherwise raise out of the wait, and the KILL
-    that ends a gate ignoring TERM would never be sent. A process the gate
-    started in a session of its own is outside the group and is not ended.
 
-    After KILL the door waits for the gate, then until the group is empty,
-    for at most :data:`GROUP_GONE_S`: a killed process stays in its group
-    until it is reaped, and one the gate left behind is reaped by whoever
-    adopted it, not by the door. When that bound passes with the group not
-    yet empty (a process KILL cannot end at once, or one nobody has reaped),
-    the door goes on: the lease release still runs, with those processes
-    still in the group.
+def _end_group(
+    proc: subprocess.Popen[bytes], restore: dict[signal.Signals, Any]
+) -> None:
+    """End a caller's gate and its process group, and wait for the group to be gone.
+
+    TERM goes to the gate's process group. The door waits up to
+    :data:`GROUP_GRACE_S` for the group to be empty, so a process of it that
+    cleans up on TERM gets to finish, and sends KILL to what is left of it
+    only then; after KILL it waits up to :data:`GROUP_GONE_S` for the group
+    to be empty. A process stays in its group until it is reaped. The door
+    reaps the gate, and any process of the group that has become its own
+    child (a door running as PID 1 or as a child subreaper adopts the ones
+    the gate left); any other is reaped by whoever adopted it. When the bound
+    after KILL passes with the group not yet empty (a process KILL cannot end
+    at once, or one nobody has reaped), the door goes on: the lease release
+    still runs, with those processes still in the group. A process the gate
+    started in a group or a session of its own is outside the group and is
+    not ended.
+
+    INT and TERM are ignored while it runs, and set back to ``restore`` when
+    it returns: a signal that landed in a wait would otherwise raise out of
+    it, and KILL would never be sent. A signal already pending when it is
+    called can raise before they are ignored; the caller calls it again until
+    it returns (see :func:`_collect_bounded`).
     """
-    previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
     try:
+        for sig in UNSTOPPABLE:
+            signal.signal(sig, signal.SIG_IGN)
         with contextlib.suppress(ProcessLookupError, PermissionError):
             os.killpg(proc.pid, signal.SIGTERM)
-        with contextlib.suppress(subprocess.TimeoutExpired):
-            proc.wait(timeout=5)
-        # Whatever is left in the group, the gate included, is killed.
-        with contextlib.suppress(ProcessLookupError, PermissionError):
-            os.killpg(proc.pid, signal.SIGKILL)
-        proc.wait()
-        gone_by = time.monotonic() + GROUP_GONE_S
-        while time.monotonic() < gone_by:
-            try:
-                os.killpg(proc.pid, 0)
-            except (ProcessLookupError, PermissionError):
-                break
-            time.sleep(0.02)
+        if not _group_gone(proc, GROUP_GRACE_S):
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(proc.pid, signal.SIGKILL)
+            _group_gone(proc, GROUP_GONE_S)
     finally:
-        for sig, handler in previous.items():
+        for sig, handler in restore.items():
             signal.signal(sig, handler)
 
 
+def _group_gone(proc: subprocess.Popen[bytes], within: float) -> bool:
+    """Whether the gate's process group is empty within ``within`` seconds.
+
+    The gate is reaped as it ends. Once it is, a process of its group that is
+    the door's child now is reaped too: only a process the door adopted can
+    be, since the gate was the door's one child in the group.
+    """
+    until = time.monotonic() + within
+    while True:
+        if proc.poll() is not None:
+            with contextlib.suppress(ChildProcessError):
+                while os.waitpid(-proc.pid, os.WNOHANG)[0]:
+                    pass
+        try:
+            os.killpg(proc.pid, 0)
+        except (ProcessLookupError, PermissionError):
+            return True
+        if time.monotonic() >= until:
+            return False
+        time.sleep(0.02)
+
+
 def _collect_bounded(
-    entry: Entry, proc: subprocess.Popen[bytes], fd: int
+    entry: Entry,
+    proc: subprocess.Popen[bytes],
+    fd: int,
+    restore: dict[signal.Signals, Any],
 ) -> tuple[str, int]:
     """What a caller's gate exported and its status, within its time bound.
 
     The export pipe is read until every writer has closed it and the gate has
-    exited, or until the bound. A gate still running at its bound, or one
-    that exited and left a process holding the descriptor open until then,
-    is ended with its process group at the bound and refused. A
-    KeyboardInterrupt ends it the same way before it goes on.
+    exited, or until the bound, and is waited on with ``poll``, which takes a
+    descriptor of any number. At the bound the gate's process group is ended
+    (:func:`_end_group`) and the gate refused, whether the gate still runs or
+    exited and left a process holding the descriptor open; the refusal says
+    which. A gate that writes more than :data:`MAX_EXPORT_BYTES` on it is
+    ended and refused the same way.
+
+    A KeyboardInterrupt ends the group the same way before it goes on. A
+    second signal can land before :func:`_end_group` has set both aside, and
+    raise out of it; the door calls it again until it returns, and it sets
+    the handlers back to ``restore``, taken before the gate started.
     """
     deadline = time.monotonic() + entry.timeout_s
     chunks: list[bytes] = []
+    held = 0
+
+    def ended(why: str) -> NoReturn:
+        _end_group(proc, restore)
+        _refuse(2, _printable(f"{entry.script} {why}"))
 
     def over() -> NoReturn:
-        _end_group(proc)
-        _refuse(
-            2,
-            _printable(
-                f"{entry.script} ran past its bound of {entry.timeout_s:g} s and "
-                "was ended with its process group"
-            ),
+        bound = f"{entry.timeout_s:g} s"
+        if proc.poll() is None:
+            ended(f"ran past its bound of {bound} and was ended with its process group")
+        ended(
+            "exited, but a process it left held its export descriptor past the "
+            f"bound of {bound}; what was left of its process group was ended"
         )
 
     try:
         try:
+            poller = select.poll()
+            poller.register(fd, select.POLLIN)
             while True:
                 left = deadline - time.monotonic()
                 if left <= 0:
                     over()
-                ready, _, _ = select.select([fd], [], [], left)
-                if ready:
+                if poller.poll(math.ceil(left * 1000)):
                     data = os.read(fd, 65536)
                     if not data:
                         break
+                    held += len(data)
+                    if held > MAX_EXPORT_BYTES:
+                        ended(
+                            f"wrote more than {MAX_EXPORT_BYTES} bytes on "
+                            "RUN_EXPORT_FD, more than the door reads from a gate, "
+                            "and was ended with its process group"
+                        )
                     chunks.append(data)
             try:
                 status = proc.wait(timeout=max(deadline - time.monotonic(), 0.0))
             except subprocess.TimeoutExpired:
                 over()
         except KeyboardInterrupt:
-            _end_group(proc)
+            while True:
+                try:
+                    _end_group(proc, restore)
+                    break
+                except KeyboardInterrupt:
+                    continue
             raise
     finally:
         os.close(fd)
@@ -1219,14 +1320,21 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
         help=(
             "a caller's gate list (JSON: root, gates of path, why, phase, "
             "exports, timeout_s), each gate run by the door's Python from the "
-            "root, for at most its timeout_s (default "
-            f"{CALLER_GATE_TIMEOUT_S:g} s); there is no bound over the whole "
-            "list, each gate has its own. A gate over its bound is ended with "
-            "its process group. A process a gate leaves behind after ending "
-            "within its bound outlives the door, unless it holds the gate's "
-            "export descriptor open: then the door waits up to the bound for "
-            "it to close it, and if it has not, ends the gate's process group "
-            "and refuses the gate. "
+            "root, in a session of its own. At a gate's timeout_s (default "
+            f"{CALLER_GATE_TIMEOUT_S:g} s, at most {CALLER_GATE_MOST_S:g} s) the "
+            "door sends TERM to its process group, KILL when the group is still "
+            f"there {GROUP_GRACE_S:g} s later, then waits up to {GROUP_GONE_S:g} s "
+            "for the group to be empty, and refuses the gate; there is no bound "
+            "over the whole list, each gate has its own. A signal to the door's "
+            "process group does not reach a gate: the door ends it on INT or "
+            "TERM, but a door that is killed or hung up leaves it running with "
+            "no bound. A process a gate leaves behind after ending within its "
+            "bound outlives the door, unless it holds the gate's export "
+            "descriptor open: then the door waits up to the bound for it to "
+            "close it, and if it has not, refuses the gate and ends the gate's "
+            "process group, which ends that process only while it is in the "
+            "group. One in a group or a session of its own outlives the door "
+            "even while it holds the descriptor. "
             "`before` gates run after the "
             "profile and before anything is sent to the machine; `after` gates "
             "after the identity and daemon gates and before the envelope and "
@@ -1402,14 +1510,21 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         help=(
             "a caller's gate list (JSON: root, gates of path, why, phase, "
             "exports, timeout_s), each gate run by the door's Python from the "
-            "root, for at most its timeout_s (default "
-            f"{CALLER_GATE_TIMEOUT_S:g} s); there is no bound over the whole "
-            "list, each gate has its own. A gate over its bound is ended with "
-            "its process group. A process a gate leaves behind after ending "
-            "within its bound outlives the door, unless it holds the gate's "
-            "export descriptor open: then the door waits up to the bound for "
-            "it to close it, and if it has not, ends the gate's process group "
-            "and refuses the gate. "
+            "root, in a session of its own. At a gate's timeout_s (default "
+            f"{CALLER_GATE_TIMEOUT_S:g} s, at most {CALLER_GATE_MOST_S:g} s) the "
+            "door sends TERM to its process group, KILL when the group is still "
+            f"there {GROUP_GRACE_S:g} s later, then waits up to {GROUP_GONE_S:g} s "
+            "for the group to be empty, and refuses the gate; there is no bound "
+            "over the whole list, each gate has its own. A signal to the door's "
+            "process group does not reach a gate: the door ends it on INT or "
+            "TERM, but a door that is killed or hung up leaves it running with "
+            "no bound. A process a gate leaves behind after ending within its "
+            "bound outlives the door, unless it holds the gate's export "
+            "descriptor open: then the door waits up to the bound for it to "
+            "close it, and if it has not, refuses the gate and ends the gate's "
+            "process group, which ends that process only while it is in the "
+            "group. One in a group or a session of its own outlives the door "
+            "even while it holds the descriptor. "
             "`before` gates run after the "
             "profile and before anything is sent to the machine. `after` gates "
             "run after the machine is read and what was read is filed, so they "

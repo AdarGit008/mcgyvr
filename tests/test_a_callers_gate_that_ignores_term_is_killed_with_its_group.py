@@ -134,10 +134,11 @@ def test_a_stubborn_gate_is_killed_with_its_child_before_the_lease_is_released(
             for sig in signals:
                 os.kill(door.pid, sig)
             os.kill(door.pid, signal.SIGCONT)
-        for index, sig in enumerate(signals if gap is not None else ()):
-            if index:
-                time.sleep(gap)
-            door.send_signal(sig)
+        else:
+            for index, sig in enumerate(signals):
+                if index:
+                    time.sleep(gap)
+                door.send_signal(sig)
         # The grace is 5 s and the gates live 600 s: a door still running
         # after 60 s did not end them. The door's stderr is not read before
         # it exits, since a gate left running holds it open.
@@ -182,6 +183,7 @@ def test_a_signal_after_kill_does_not_hurry_the_release(tmp_path: Path) -> None:
 
     The gate's killed child stays in the group until its slow parent reaps it.
     A TERM to the door in that wait is ignored like one in the grace: the
+    door refuses the gate for its bound, not as an interrupted run, and the
     lease is released only once the group is empty.
     """
     work, log, listed, compose = _stubborn_list(tmp_path)
@@ -210,6 +212,8 @@ def test_a_signal_after_kill_does_not_hurry_the_release(tmp_path: Path) -> None:
 
     released = [line for line in cg.log_lines(log) if line.startswith(RELEASE)]
     assert released == [f"{RELEASE} alive="], (released, said)
+    assert door.returncode == 2, (door.returncode, said)
+    assert "ran past its bound of 2 s" in said and "interrupted" not in said, said
 
 
 def test_a_door_that_adopts_orphans_reaps_its_gates_group(tmp_path: Path) -> None:
