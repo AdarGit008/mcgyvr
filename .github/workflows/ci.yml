@@ -49,39 +49,22 @@ jobs:
       - name: check (lint, typecheck, docs, test)
         run: make check
   # The package supports every Python from its `requires-python` floor up, and
-  # a module can compile on the floor and not on a newer one. This job imports
-  # every module of the package, and compiles every source file, on a newer
-  # supported Python. It runs beside `test`, shares nothing with it, and is not
-  # a required check.
+  # a module can import on the floor and not on a newer one. This job runs the
+  # test file that imports every module of the package, and compiles every
+  # source file, on newer supported Pythons. It runs beside `test`, shares
+  # nothing with it, and is not a required check.
   import-newer-python:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.11.28"
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
       - name: import every module of the package
         run: |
           uv sync --frozen
-          uv run --no-sync python - <<'PY'
-          import importlib
-          import pkgutil
-          import sys
-
-          import mcgyvr
-
-          failed = []
-          names = []
-          for info in pkgutil.walk_packages(
-              mcgyvr.__path__, "mcgyvr.", onerror=lambda name: failed.append(name)
-          ):
-              names.append(info.name)
-              try:
-                  importlib.import_module(info.name)
-              except Exception as exc:
-                  failed.append(f"{info.name}: {type(exc).__name__}: {exc}")
-          print(f"{sys.version.split()[0]}: imported {len(names)} modules")
-          sys.exit("\n".join(failed) if failed else 0)
-          PY
-          uv run --no-sync pytest -n0 tests/test_every_module_of_the_package_imports_under_every_supported_python.py
+          uv run --no-sync pytest tests/test_every_module_of_the_package_imports_under_every_supported_python.py
