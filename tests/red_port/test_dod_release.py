@@ -55,8 +55,7 @@ BUILD_INPUTS = (
     "LICENSE",
     "src",
     "data",
-    "records/evidence/ghostcall-2026-08-02",
-    "tools/release",
+    "scripts/release",
 )
 
 
@@ -160,7 +159,7 @@ def test_a_tag_that_is_not_a_version_does_not_break_the_build(tmp_path: Path) ->
 def test_a_pre_release_tag_is_the_version_it_normalises_to() -> None:
     """The release checks the wheel against the tag as versions: `v0.1.0-rc1`
     builds `mcgyvr-0.1.0rc1-…`, which is that tag and not a mismatch."""
-    from tools.release.wheel_is_tag import mismatch
+    from scripts.release.wheel_is_tag import mismatch
 
     assert mismatch("v0.1.0-rc1", Path("mcgyvr-0.1.0rc1-py3-none-any.whl")) is None
     assert mismatch("v0.1.0", Path("mcgyvr-0.1.0-py3-none-any.whl")) is None
