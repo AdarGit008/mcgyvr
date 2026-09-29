@@ -4,7 +4,7 @@ Three files ship as data rather than as code:
 `capability-table.json` (measured model capability, below),
 `task-catalog.json` (the vocabulary of what mcgyvr can be asked to do, after
 it) and `numbers.json` (the estimates mcgyvr sizes and judges a machine with,
-at the end of this file).
+and what every other such number in its code is, at the end of this file).
 
 ## Capability data
 
@@ -152,14 +152,14 @@ They fall into three groups:
 
 # The numbers that size and judge a machine
 
-`numbers.json` holds the numbers mcgyvr needs and cannot read off the machine
-or the model: how far a healthy unit's warm decode and prefill speed may fall
+The `numbers` block of `numbers.json` holds the numbers mcgyvr needs and
+cannot read off the machine or the model: how far a healthy unit's warm decode and prefill speed may fall
 from one start to the next (per tolerance class), and how much host memory a
 llama.cpp server holds beyond the experts it keeps there. `mcgyvr.derived`
 reads it; the build copies it into the package, so an installed mcgyvr finds
 it without a checkout.
 
-Every entry is an estimate, and says so: what it estimates, what mcgyvr does
+Every entry of that block is an estimate, and says so: what it estimates, what mcgyvr does
 with it, its unit, its key, and a note on what the value is not. It is a
 starting value shipped with mcgyvr, not a reading of your machine. Keys come
 from closed spaces the code names (the tolerance classes, the engines a unit
@@ -181,5 +181,36 @@ The file is YAML; write each value as a plain decimal number, such as `12` or
 A setting for a number or key mcgyvr does not know, or a value that is not a
 finite number inside its unit's bounds (a percent above 0 and below 100, GiB 0
 or more), is refused by name, even when another number was asked. A number
-that neither file states is refused by name too: nothing is sized or judged
-from a default in code.
+of that block that neither file states is refused by name too: none of them
+falls back to a default in code.
+
+## What every other number is
+
+Many numbers mcgyvr sizes, judges, refuses, waits or picks with are still
+written in its code. The `constants` block says what each of them is, under
+where it lives (the file, then the name, the class and attribute, or the
+function and its parameter):
+
+- a **fact**: true on any machine, such as how many bytes make a GiB or the
+  port an engine listens on when told nothing else;
+- a **choice** of mcgyvr: the setting that changes it (a config key, a
+  contract field or a command line flag), or, when there is none, a reason
+  from a short closed list (a protocol or tool default, a code other programs
+  read, an internal bound nobody meets, a method stored readings were made
+  with, a rule over mcgyvr's own shipped data, or a duplicate of another
+  entry, which it names);
+- an **estimate**: a value another machine may prove wrong. Each one still in
+  code names the number it will become in the `numbers` block, where it can
+  be set in your `numbers.yaml` like the others, and the setting that changes
+  it today where one exists. Until it moves, `numbers.yaml` cannot set it.
+
+The `covered` block names every file of mcgyvr's code once: `judging` when its
+numbers are classified in `constants`, or why not (it holds no number that
+sizes or judges, or it is being changed and is covered after that change).
+
+A test parses every judging file and fails on a number `constants` does not
+classify, on an entry that no longer matches the code, and on a file of the
+package `covered` does not name. It sees numbers named at the top of a file,
+in a class, or as a parameter's default; a number written inside a function
+where it is used is not seen, and the way to bring it under the check is to
+name it. The kinds and reasons are listed in `mcgyvr.derived`.

@@ -70,6 +70,44 @@ _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
 UNITS: tuple[str, ...] = tuple(_BOUNDS)
 
 
+#: What a number the product sizes, judges, refuses, waits or picks with is, as
+#: the shipped file's ``constants`` block says of each one still written in
+#: code: a fact (true on any machine), a choice of the product, or an estimate
+#: (a starting value that another machine may prove wrong). The loader reads
+#: only the ``numbers`` block; the ``constants`` and ``covered`` blocks are held
+#: to these lists by the check that every such number says what it is.
+NUMBER_KINDS: tuple[str, ...] = ("fact", "choice", "estimate")
+
+#: Where a user sets a choice, or an estimate still in code: a key of the
+#: config, a field of a contract, or a command line flag. An entry's ``set_by``
+#: is one of these words, a space, and the key or the flag.
+SETTING_SOURCES: tuple[str, ...] = ("config", "contract", "flag")
+
+#: The reason a choice gives when it repeats another entry, which it then names.
+DUPLICATE_REASON = "a duplicate of another entry"
+
+#: Why a choice has no setting a user can change. A choice names one of these
+#: or how it is set, never neither, so no number becomes a choice by saying so.
+CHOICE_REASONS: tuple[str, ...] = (
+    "a protocol or tool default",
+    "a code or version other programs or files read",
+    "an internal bound or default no user meets",
+    "fixed so a reading compares with the stored ones",
+    "a rule over the product's own shipped data",
+    DUPLICATE_REASON,
+)
+
+#: What the ``covered`` block says of a file whose numbers are classified.
+JUDGING = "judging"
+
+#: Why a file of the package is not judged, the only other thing ``covered``
+#: may say of it.
+NOT_JUDGING_REASONS: tuple[str, ...] = (
+    "holds no number that sizes or judges",
+    "changing now; covered after that change lands",
+)
+
+
 #: The number for the host memory a llama.cpp server holds beyond the experts
 #: it keeps on the host, and its one key: llama.cpp, the engine whose expert
 #: offload the sizing prices.
