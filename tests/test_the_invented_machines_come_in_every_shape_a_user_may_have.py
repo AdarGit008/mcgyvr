@@ -60,6 +60,7 @@ LABELS = (
     "no-reader",
     "same-cards-here",
     "same-cards-there",
+    "unreadable-size-first",
 )
 
 
@@ -100,6 +101,12 @@ def test_the_generator_offers_every_kind_of_machine_a_user_may_bring() -> None:
         "an unreadable memory size beside a readable one": any(
             any(c.total_mib is None for c in m.cards)
             and any(c.total_mib is not None for c in m.cards)
+            for m in machines
+        ),
+        "an unreadable memory size listed before a readable one": any(
+            m.detected_cards
+            and m.detected_cards[0].total_mib is None
+            and any(c.total_mib is not None for c in m.detected_cards)
             for m in machines
         ),
         "cards all of a vendor the reader is not for, with the card tool": any(
@@ -210,10 +217,19 @@ def test_detection_reports_the_cards_the_product_reader_can_read(
         assert found.gpus == ()
     else:
         assert [(g.name, g.vram_gb) for g in found.gpus] == [
-            (c.name, round(c.total_mib / detect.MIB_PER_GB, 1))
-            for c in machine.readable_cards
-            if c.total_mib is not None
+            (
+                c.name,
+                None
+                if c.total_mib is None
+                else round(c.total_mib / detect.MIB_PER_GB, 1),
+            )
+            for c in machine.detected_cards
         ]
+    unsized = [g.name for g in found.gpus if g.vram_gb is None]
+    said = [n for n in found.notes if n.startswith(detect.GPU_SIZE_UNDETERMINED)]
+    assert len(said) == len(unsized)
+    for name, note in zip(unsized, said, strict=True):
+        assert name in note
     if machine.card_reader_missing:
         assert found.gpus == ()
     assert {(b.kind, b.host, b.models) for b in found.backends} == {
@@ -252,10 +268,20 @@ def test_a_scan_reports_the_cards_the_product_reader_can_read(
 def test_a_scan_and_a_detection_of_one_machine_agree_on_its_cards(
     machine: Shape,
 ) -> None:
+    """On the cards of known size they agree; detection also lists the rest.
+
+    A card whose size the tool prints as not available is dropped by the scan,
+    with a note, and listed by detection with no size: the two differ there by
+    design, so the cards of known size are compared, and the unsized ones are
+    held to what detection lists.
+    """
     found = detection(machine)
     measured = scan(machine)
-    assert [(g.name, g.vram_gb) for g in found.gpus] == [
+    assert [(g.name, g.vram_gb) for g in found.gpus if g.vram_gb is not None] == [
         (g.name, round(g.vram.total_mib / detect.MIB_PER_GB, 1)) for g in measured.gpus
+    ]
+    assert [g.name for g in found.gpus if g.vram_gb is None] == [
+        c.name for c in machine.detected_cards if c.total_mib is None
     ]
 
 
