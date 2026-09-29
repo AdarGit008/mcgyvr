@@ -466,6 +466,18 @@ def test_the_by_hand_fix_is_offered_with_no_card_and_a_local_holder(
     assert "by hand" in text
 
 
+def test_the_by_hand_fix_is_offered_for_an_unsized_card_with_no_backend(
+    tmp_path: Path,
+) -> None:
+    """With no backend answering, a unit bound by hand may still name the one
+    the user starts, and the card is still one init sizes nothing against."""
+    text = _refusal(
+        tmp_path, Detection(gpus=(Gpu("Inventa Shared V", NO_SIZE, "invented"),))
+    )
+    assert "bind a unit by hand" in text
+    assert "room_mib" in text
+
+
 def test_the_by_hand_fix_is_not_offered_with_no_card_and_no_backend(
     tmp_path: Path,
 ) -> None:
