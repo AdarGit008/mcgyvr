@@ -208,11 +208,12 @@ def _nothing_to_bind(
 ) -> str:
     """Say what was tried, what is missing, and what to do about it.
 
-    Only the fixes that apply are offered: starting a local backend is not
-    offered while one answers, and a machine whose card cannot be sized
-    against, while a backend answers on it, gets the one fix that needs no
-    size read off a card, a unit bound by hand that states the card room it
-    needs. A backend on another machine that holds a model is given the
+    Starting a local backend is offered whenever none answers here, also on a
+    machine with no card of known size, where it is a step towards binding by
+    hand and not a fix on its own. A unit bound by hand, which states the card
+    room it needs, is offered for a card whose memory size was not determined,
+    and for a machine with no GPU this build can see while a local backend
+    answers. A backend on another machine that holds a model is given the
     reason the proposal gave for not binding that model there.
     """
     measured = {model.id for model in table.models if model.is_measured}
@@ -282,7 +283,7 @@ def _nothing_to_bind(
         )
     elif not detection.gpus and local:
         cause = (
-            "no card on this machine could be read, so init sizes no model against one."
+            "there is no GPU this build can see, so init sizes no model against one."
         )
     else:
         cause = ""
