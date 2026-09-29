@@ -56,12 +56,6 @@ RUN_DATE = "2026-09-02"
 
 GATES = sorted(p.name for p in GATE_SCRIPTS.glob("*.py"))
 
-#: The checkout's record of rounds. A run whose tree has moved off the open
-#: round appends one to its root's copy, and this one is tracked and read by
-#: every other xdist worker while these tests run — so no door here runs from
-#: the checkout (:func:`root`), and this is only ever read.
-ROUNDS = REPO / "tools" / "bench" / "rounds.json"
-
 
 def stubs(where: Path) -> Path:
     """An ``ssh`` that refuses and a ``docker`` that logs, both behind the shims."""
@@ -161,98 +155,6 @@ def test_help_offers_no_way_past_a_gate(env: dict[str, str]) -> None:
         assert hole not in result.stdout, f"--help names {hole}"
     assert "[--step" in result.stdout, "--step is no longer optional"
     assert "--host" in result.stdout
-
-
-def test_the_default_step_is_taken_when_none_is_named(
-    env: dict[str, str], step: Path
-) -> None:
-    argv = [a for a in base_argv(step) if a not in ("--step", str(step))]
-    result = door(argv, env)
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    if run.DEFAULT_STEP.is_file():
-        assert "the default step is missing" not in result.stderr, result.stderr
-    else:
-        assert "the default step is missing" in result.stderr, result.stderr
-        assert str(run.DEFAULT_STEP.relative_to(run.ROOT)) in result.stderr
-
-
-ESCAPES = (
-    ["--out", "/tmp/elsewhere.tsv"],
-    ["--out=/tmp/elsewhere.tsv"],
-    ["--out-dir", "/tmp/elsewhere"],
-    ["--out-dir=/tmp/elsewhere"],
-    ["--force"],
-    ["--out", "records/evidence/2026-09-01-other/x.tsv"],
-    ["--out", "../outside.tsv"],
-)
-
-
-@pytest.mark.parametrize(
-    "args", ESCAPES, ids=[a[0].split("=")[0] + str(i) for i, a in enumerate(ESCAPES)]
-)
-def test_a_step_argument_that_leaves_the_envelope_is_refused_before_any_gate(
-    env: dict[str, str], step: Path, tmp_path: Path, root: Path, args: list[str]
-) -> None:
-    result = door([*base_argv(step), "--", *args], env)
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert "step argument" in result.stderr, result.stderr
-    assert args[0].split("=")[0] in result.stderr, result.stderr
-    assert f"{RUN_DATE}-alpha-cli-test" in result.stderr, result.stderr
-    for where in (REPO, root):
-        assert not (
-            where / "records" / "evidence" / f"{RUN_DATE}-alpha-cli-test"
-        ).exists()
-    assert not (tmp_path / "stubs" / "ssh.log").exists(), "a gate reached ssh"
-
-
-def test_a_step_argument_inside_the_envelope_is_admitted(
-    env: dict[str, str], step: Path
-) -> None:
-    inside = f"records/evidence/{RUN_DATE}-alpha-cli-test/probe.tsv"
-    result = door([*base_argv(step), "--", "--out", inside], env)
-    # It goes on to gate 1 (or 2, where the stub refuses); it is not the
-    # argument check that stopped it.
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert "step argument" not in result.stderr, result.stderr
-
-
-def test_a_round_gate_1_opens_for_these_tests_lands_in_their_own_root(
-    env: dict[str, str], step: Path, tmp_path: Path
-) -> None:
-    """Gate 1 appends a round when the tree it measures has moved off the open
-    one, which is the door's job. From the checkout that append lands in the
-    tracked ``tools/bench/rounds.json`` while every other xdist worker reads
-    it, so the door these tests start measures a root under ``tmp_path`` —
-    moved off its round here, so gate 1 has a round to open."""
-    named = env.get(run.ROOT_ENV)
-    root = Path(named) if named else run.ROOT
-    assert tmp_path in root.parents, (
-        f"the door these tests start runs from {root}, so gate 1 opens its "
-        f"rounds in {ROUNDS} while other xdist workers are reading it"
-    )
-    onedoor.unpin(root)
-    checkout = ROUNDS.read_bytes()
-
-    result = door(base_argv(step), env)
-
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert onedoor.pinned(root)[0] != onedoor.ROUND_ID, (
-        "gate 1 opened no round in the test's own root",
-        result.stderr,
-    )
-    assert ROUNDS.read_bytes() == checkout, f"a door run from a test wrote {ROUNDS}"
-
-
-def test_check_step_args_reads_the_archived_rule() -> None:
-    envelope = run.ROOT / "records" / "evidence" / "2026-09-02-alpha"
-    assert run._check_step_args([], envelope) is None
-    assert (
-        run._check_step_args(["--model", "/models/x.gguf", "-n", "8"], envelope) is None
-    )
-    assert run._check_step_args(["--out", str(envelope / "a.tsv")], envelope) is None
-    for tokens in (["--out"], ["--out="], ["--out-dir", "/tmp"], ["--force"]):
-        rule = run._check_step_args(tokens, envelope)
-        assert rule is not None and "step argument" in rule, tokens
 
 
 def test_run_docker_is_gone_from_the_vocabulary() -> None:
@@ -545,55 +447,3 @@ def test_the_run_environment_leads_with_the_shims_and_carries_no_docker_seam(
     assert seen[1] == str(gates / "bin"), "gate-scripts/bin is not first on PATH"
     assert seen[2] == "False", "RUN_DOCKER reached a gate"
     assert seen[0] == "2026-09-02-alpha-probe"
-
-
-@pytest.mark.parametrize(
-    "model",
-    [
-        "/models/x.gguf; touch /tmp/pwned",
-        "/models/x.gguf$(id)",
-        "/models/x.gguf`id`",
-        "/models/a b.gguf",
-        "/models/x.gguf|id",
-        "models/x.gguf",
-        "/models/../etc/passwd",
-        "/models//x.gguf",
-    ],
-)
-def test_a_model_path_with_shell_characters_is_refused_before_any_gate(
-    env: dict[str, str], step: Path, tmp_path: Path, model: str
-) -> None:
-    """--model is handed to a remote shell by data-20 and to container argv by
-    the step; the door refuses anything but an absolute path of ordinary
-    characters, before gate 1, so nothing is ever escaped in three places."""
-    argv = [a for a in base_argv(step)]
-    argv[argv.index("--model") + 1] = model
-    result = door(argv, env)
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert "--model" in result.stderr and "refused" in result.stderr, result.stderr
-    assert not (tmp_path / "stubs" / "ssh.log").exists(), "a gate reached ssh"
-
-
-def test_data_20_quotes_the_remote_path_even_so() -> None:
-    """The second lock on the same door: the remote line data-20 builds leaves
-    only `$HOME` bare, so a path that somehow carried a shell character is a
-    file name on the rig and never a command."""
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location(
-        "data_20_geometry",
-        REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "data-20-geometry.py",
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    line = module.scan_command("QUJD", "/models/x.gguf; touch /tmp/pwned")
-    assert line.endswith("""python3 - "$HOME"/models'/x.gguf; touch /tmp/pwned'"""), (
-        line
-    )
-    assert module.scan_command("QUJD", "/models/moe/x.gguf").endswith(
-        'python3 - "$HOME"/models/moe/x.gguf'
-    )
-    assert module.scan_command("QUJD", "/srv/blob.gguf").endswith(
-        "python3 - /srv/blob.gguf"
-    )

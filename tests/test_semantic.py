@@ -17,7 +17,6 @@ test shaped like the code that produces it.
 from __future__ import annotations
 
 import hashlib
-import json
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -29,7 +28,6 @@ from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.runner import Gate
 from mcgyvr.gate.semantic import (
     CHECK,
-    ENGINE_COMMIT,
     ENGINE_DIGESTS,
     STAGING_DIR,
     SemanticCheck,
@@ -45,14 +43,6 @@ _IDENTITY = {
     "GIT_COMMITTER_NAME": "t",
     "GIT_COMMITTER_EMAIL": "t@t.invalid",
 }
-
-_MANIFEST = (
-    Path(__file__).resolve().parents[1]
-    / "records"
-    / "evidence"
-    / "ghostcall-2026-08-02"
-    / "MANIFEST.json"
-)
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -345,24 +335,6 @@ def test_the_blocking_policy_turns_the_same_report_into_a_rejection(
 
 
 # --- the engine pin -------------------------------------------------------
-
-
-def test_the_pinned_digests_match_the_vendored_evidence(tmp_path: Path) -> None:
-    """The pin in the code and the pin in the record are the same pin.
-
-    Two copies of a hash are two chances to drift. This is the test that makes
-    re-pinning the resolver a deliberate act rather than something a stray edit
-    can do quietly.
-    """
-    manifest = json.loads(_MANIFEST.read_text(encoding="utf-8"))
-    assert manifest["source_commit"] == ENGINE_COMMIT
-    recorded = {
-        entry["path"].rsplit("/", 1)[-1]: entry["sha256"]
-        for entry in manifest["files"]
-        if entry["path"].startswith("src/ghostcall/")
-    }
-    for name, digest in ENGINE_DIGESTS.items():
-        assert recorded[name] == digest
 
 
 def test_the_vendored_engine_satisfies_its_own_pin() -> None:

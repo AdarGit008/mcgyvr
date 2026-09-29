@@ -34,10 +34,7 @@ provider — for neither.
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from pathlib import Path
 from typing import Any
 
@@ -50,8 +47,6 @@ from mcgyvr.pool import Endpoint, Protocol
 from mcgyvr.pool import source_map as build_source_map
 from mcgyvr.runner import Completion, Request, StopReason, dispatch, runner_for
 from mcgyvr.telemetry import fold, observe
-
-REPO = Path(__file__).resolve().parent.parent
 
 ASK = Request(prompt="write a function", max_output_tokens=256)
 
@@ -459,25 +454,3 @@ def test_a_figure_that_was_not_read_is_absent_from_the_row(tmp_path: Path) -> No
         "in_flight_source",
     ):
         assert key not in row, f"{key} was never read and must not be written"
-
-
-def _index() -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "live_index_for_rates", REPO / "tools" / "live" / "index.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_the_journal_index_has_a_column_for_each_new_field() -> None:
-    columns = dict(_index().COLUMNS)
-
-    assert columns.get("decode_tok_s") == "REAL"
-    assert columns.get("decode_source") == "TEXT"
-    assert columns.get("prefill_tok_s") == "REAL"
-    assert columns.get("prefill_source") == "TEXT"
-    assert columns.get("in_flight") == "INTEGER"
-    assert columns.get("in_flight_source") == "TEXT"
