@@ -141,8 +141,10 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: ladder (route, escalate, drive, consensus, deterministic, rename, repair,
 #: verify, deliver, cleanup), what a worker is sent
 #: and what may be read back (worker.*), what judges the change (gate.*,
-#: scope), and what the run leaves behind for the caller (result, session,
-#: telemetry).
+#: scope, and the semantic gate's resolver engine under gate._engine, which is
+#: staged into the sandbox and whose import statements name only itself and the
+#: standard library),
+#: and what the run leaves behind for the caller (result, session, telemetry).
 ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.cleanup",
     "mcgyvr.consensus",
@@ -154,6 +156,10 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.drive",
     "mcgyvr.escalate",
     "mcgyvr.gate",
+    "mcgyvr.gate._engine.ghostcall",
+    "mcgyvr.gate._engine.ghostcall.checker",
+    "mcgyvr.gate._engine.ghostcall.parser",
+    "mcgyvr.gate._engine.ghostcall.suggest",
     "mcgyvr.gate.acceptance",
     "mcgyvr.gate.adapter",
     "mcgyvr.gate.adapters",

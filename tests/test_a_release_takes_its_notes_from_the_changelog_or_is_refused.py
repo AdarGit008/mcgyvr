@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from tools.release.changelog_notes import (
+from scripts.release.changelog_notes import (
     NoNotesError,
     main,
     notes_for,
