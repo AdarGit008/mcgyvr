@@ -232,11 +232,15 @@ class PythonAdapter(LanguageAdapter):
         if not files:
             return []
         ruff = require_tool(RUFF)
+        # Read once: the same answer decides how ruff runs and, below, whether
+        # the demotion applies. It is empty exactly when the repository states
+        # its own ruff configuration.
+        config_args = ruff_config_args(repo)
         proc = subprocess.run(
             [
                 ruff,
                 "check",
-                *ruff_config_args(repo),
+                *config_args,
                 "--output-format=json",
                 "--force-exclude",
                 "--",
@@ -266,7 +270,7 @@ class PythonAdapter(LanguageAdapter):
         # product's selection does. A repository that states its own ruff
         # configuration is judged as that configuration says: a UP006, UP035
         # or I001 it selects refuses the change like any other code it selects.
-        shipped_default = not declares_ruff_config(repo)
+        shipped_default = bool(config_args)
         unimportable = _Unimportable(repo)
         deprecated_typing = _DeprecatedTyping(repo)
         findings: list[Finding] = []
