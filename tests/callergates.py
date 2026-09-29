@@ -250,7 +250,8 @@ REPO = Path(__file__).resolve().parent.parent
 
 #: The door as a process over :func:`fake_door`'s stand-ins, with the signal
 #: handlers the door installs when it runs as ``python -m``. Arguments: the
-#: folder to build in, the order log, and the door's argv as JSON.
+#: folder to build in, the order log, and the door's argv as JSON. A
+#: ``lease-release.py`` in that folder stands in for the lease release.
 DRIVER = """
 import json, signal, sys
 from pathlib import Path
@@ -261,7 +262,10 @@ from tests import callergates as cg
 work, log, argv = Path(sys.argv[1]), Path(sys.argv[2]), json.loads(sys.argv[3])
 mp = pytest.MonkeyPatch()
 cg.clean_door_env(mp)
-cg.fake_door(work, mp, log)
+gates = cg.fake_door(work, mp, log)
+release = work / "lease-release.py"
+if release.is_file():
+    cg.executable(gates / run.LEASE_RELEASE.script, release.read_text("utf-8"))
 signal.signal(signal.SIGTERM, run._sigterm)
 signal.signal(signal.SIGINT, run._sigterm)
 sys.exit(run.main(argv))

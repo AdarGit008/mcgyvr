@@ -1,7 +1,7 @@
 """A caller's gate is ended at its time bound, and a signal ends an ``always`` one.
 
 Each gate of a list runs for at most its ``timeout_s``, or a stated default.
-A gate over its bound is ended with every process it started, and that is a
+A gate over its bound is ended with its process group, and that is a
 refusal naming the gate and the bound. A gate that exits but leaves a
 process holding its export descriptor does not keep the door waiting past
 the bound. A signal to the door while a caller's ``always`` gate runs ends
@@ -71,6 +71,7 @@ def test_a_gate_over_its_bound_is_ended_as_a_refusal_and_the_lease_released(
     assert status == 2, said
     assert took < 30, took
     assert "slow.py" in said and "bound of 1 s" in said, said
+    assert "its process group" in said, said
     order = [line.split()[0] for line in cg.log_lines(log)]
     assert "caller:slow-end" not in order
     assert order[-1] == RELEASE, order

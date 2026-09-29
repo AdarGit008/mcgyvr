@@ -2,12 +2,13 @@
 
 A gate list is input the door does not trust. A gate that is missing or not
 executable, a path that leaves the list's root (by name or through a link), a
-root that is not an absolute folder or that is, holds or lies inside the
-package's own folder, a key or a phase the door does not know, a key given
-twice, a name two gates both export, a bound that is not a positive number,
-more gates than the door holds a list to, and input that cannot be read as a
-path or as JSON at all: each is refused before the door runs its first gate,
-and the refusal names the list file and the entry at fault.
+root that is not an absolute folder or that is or lies inside the package's
+own folder, a gate inside that folder, a key or a phase the door does not
+know, a key given twice, a name two gates both export, a bound that is not a
+positive number of seconds, more gates than the door holds a list to, and
+input that cannot be read as a path or as JSON at all: each is refused before
+the door runs its first gate, and the refusal names the list file and the
+entry at fault, with no control character of the list printed raw.
 """
 
 from __future__ import annotations
@@ -131,10 +132,10 @@ def _list_missing(tmp: Path) -> tuple[Path, str]:
     return tmp / "no-such-list.json", "cannot be read"
 
 
-def _root_in_package(where: Path, gate: str) -> Case:
+def _root_in_package(where: Path, gate: str, names: str = "root") -> Case:
     def case(tmp: Path) -> tuple[Path, str]:
         listed = cg.write_list(tmp / "g.json", str(where), [cg.entry(gate, "before")])
-        return listed, "root"
+        return listed, names
 
     return case
 
@@ -203,9 +204,10 @@ CASES: dict[str, Case] = {
     "a root that is the package folder": _root_in_package(
         PACKAGE, "serving/gate-scripts/06-step.py"
     ),
-    "a root that holds the package folder": _root_in_package(
-        PACKAGE.parent, "mcgyvr/serving/gate-scripts/06-step.py"
+    "a gate inside the package, under a root that holds it": _root_in_package(
+        PACKAGE.parent, "mcgyvr/serving/gate-scripts/06-step.py", "gates[0]"
     ),
+    "a bound too large to be a number of seconds": _bound(10**400),
     "a path carrying a NUL": _odd_path("a\x00b.py"),
     "a path carrying a lone surrogate": _odd_path("\udcff.py"),
     "JSON nested past any list": _raw("[" * 100_000 + "]" * 100_000, "the list"),
@@ -251,3 +253,24 @@ def test_a_bad_gate_list_is_refused_naming_the_file_and_the_entry_before_any_gat
     )
     assert str(listed) in said, f"{case}: the refusal does not name the list: {said}"
     assert names in said, f"{case}: the refusal does not name {names!r}: {said}"
+
+
+def test_a_refusal_prints_no_control_character_of_the_list_raw(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A path in a list is the caller's text; the door's refusal escapes it."""
+    cg.clean_door_env(monkeypatch)
+    cg.fake_door(tmp_path, monkeypatch, tmp_path / "order.log")
+    root = tmp_path / "caller"
+    root.mkdir()
+    listed = cg.write_list(
+        tmp_path / "g.json", str(root), [cg.entry("a\x00b\x1b[2Jc.py", "before")]
+    )
+
+    assert run.main(cg.read_argv("--gates", str(listed))) == 2
+
+    said = capsys.readouterr().err
+    assert "\x00" not in said and "\x1b" not in said, repr(said)
+    assert "\\x1b" in said, said
