@@ -107,17 +107,20 @@ name() {
     fi
 }
 
+# ADDED: the position of the card with this vendor and index, new or not.
 add_card() { # VENDOR INDEX TOTAL USED FREE NAME
     local k
     for k in "${!C_INDEX[@]}"; do
         if [ "${C_VENDOR[$k]}" = "$1" ] && [ "${C_INDEX[$k]}" = "$2" ]; then
             [ -n "${C_DROP[$k]}" ] || unread "card.$1.$2" "the card source printed index $2 twice; neither line is taken"
             C_DROP[$k]=1
+            ADDED=$k
             return
         fi
     done
     C_VENDOR+=("$1") C_INDEX+=("$2") C_TOTAL+=("$3") C_USED+=("$4") C_FREE+=("$5")
     C_NAME+=("$6") C_DROP+=("")
+    ADDED=$((${#C_INDEX[@]} - 1))
 }
 
 # --- the first vendor's tool ----------------------------------------------
@@ -168,7 +171,7 @@ first_tool() {
         number "${free:-}" "card.nvidia.$idx.free" nvidia-smi; free=$NUM
         name "${rest:-}" "card.nvidia.$idx.name" nvidia-smi
         add_card nvidia "$idx" "$total" "$used" "$free" "$TEXT"
-        k=$((${#C_INDEX[@]} - 1))
+        k=$ADDED
     done <<<"$out"
     [ ${#C_INDEX[@]} -gt "$start" ] && SOURCES+=(nvidia-smi)
     for k in "${!C_INDEX[@]}"; do

@@ -141,6 +141,21 @@ def test_an_index_printed_twice_gives_neither_card(tmp_path: Path) -> None:
     assert "twice" in _unread(reading)["card.nvidia.0"]
 
 
+def test_a_stray_line_after_a_repeated_index_marks_no_other_cards_name(
+    tmp_path: Path,
+) -> None:
+    text = (
+        b"0, 8192, 0, 8192, Example Card A\n"
+        b"1, 4096, 0, 4096, Example Card B\n"
+        b"0, 2048, 0, 2048, Example Card C\n"
+        b"a stray line\n"
+    )
+    reading = _read(tmp_path, first_tool=text, first_tool_processes={1: (b"", 0)})
+    assert _cards(reading)[1].name == "Example Card B"
+    assert "card.nvidia.1.name" not in _unread(reading)
+    assert 0 not in _cards(reading)
+
+
 def test_a_process_name_with_spaces_and_commas_is_read_exactly(
     tmp_path: Path,
 ) -> None:
