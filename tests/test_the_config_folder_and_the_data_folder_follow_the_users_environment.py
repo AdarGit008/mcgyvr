@@ -203,7 +203,7 @@ def test_an_empty_value_is_no_value(name: str, monkeypatch: pytest.MonkeyPatch) 
 
 @pytest.mark.parametrize("value", ["relative/folder", "~<user>/x"])
 @pytest.mark.parametrize("name", MOVED)
-def test_a_folder_that_is_not_absolute_is_refused_by_its_variables_name(
+def test_a_value_that_names_no_folder_is_refused_by_its_variables_name(
     name: str, value: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _unset(monkeypatch)

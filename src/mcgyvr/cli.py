@@ -2897,7 +2897,7 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     root = Path(args.root) if args.root else dev_root
     if is_live(root):
         print(
-            f"error: {root} lies under a folder live fleets are read from (the "
+            f"error: {root} is or lies under a folder live fleets are read from (the "
             f"config folder, or {HOME_DIR}). A lock is written from dev runs "
             "into the dev root and reaches live only through `mcgyvr fleet "
             "promote`",
@@ -3565,8 +3565,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="DIR",
         help=(
             "where records/fleet/ is written (default: the dev root — "
-            "$MCGYVR_RUN_ROOT, else the checkout). Anything under the config "
-            f"folder (${HOME_ENV}, else {HOME_DIR}) or under {HOME_DIR} is "
+            "$MCGYVR_RUN_ROOT, else the checkout). Anything in or under the config "
+            f"folder (${HOME_ENV}, else {HOME_DIR}) or in or under {HOME_DIR} is "
             "refused: a live fleet comes only from `mcgyvr fleet promote`"
         ),
     )
@@ -3880,8 +3880,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result: int = args.func(args)
     except FolderError as exc:
-        # A variable that moves one of mcgyvr's folders names no usable
-        # folder: one line naming it, whichever command met it first.
+        # A folder variable that names no usable folder, or a guarded folder
+        # that cannot be resolved: one line naming it, whichever command met
+        # it first.
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return result

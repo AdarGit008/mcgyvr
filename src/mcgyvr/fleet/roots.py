@@ -25,8 +25,8 @@ Two folders on the machine mcgyvr runs on can each be moved by the user: the
 config folder, for settings (:func:`home`: ``$MCGYVR_HOME``, else
 ``~/.mcgyvr``), and the data folder, for mcgyvr's own files
 (:func:`data_home`: ``$MCGYVR_DATA``, else ``$XDG_STATE_HOME/mcgyvr``, else
-``~/.local/state/mcgyvr``). ``~/.mcgyvr`` above is the config folder's
-default.
+``~/.local/state/mcgyvr``). ``~/.mcgyvr`` above stands for the config
+folder's default: the literal is only the default, not a fixed place.
 """
 
 from __future__ import annotations
@@ -232,7 +232,12 @@ def lock_root(profile: str) -> Path | None:
 
 
 def _resolved(path: Path) -> Path:
-    """``path`` with ``~`` expanded and every link followed, or :class:`FolderError`."""
+    """``path`` with ``~`` expanded and every link followed.
+
+    Raises :class:`FolderError` where it cannot be resolved. A link to itself
+    raises on Python 3.12; on 3.13/3.14 ``resolve()`` returns the path, which
+    every reader then sees as holding no ``live.json``.
+    """
     try:
         return path.expanduser().resolve()
     except (OSError, RuntimeError) as exc:

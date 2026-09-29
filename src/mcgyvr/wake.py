@@ -443,8 +443,9 @@ class Waker:
             return ok and refused_at is not None and refused_at < ended
         # Live wakes only along a listed switch, and a switch exists only on a
         # locked fleet. With no live lock naming this rig — the lock of the
-        # fleet ~/.mcgyvr/live.json names, never whatever directory the run was
-        # started in — there is no switch to be along, so the wake is refused
+        # fleet the config folder's live.json names, never whatever directory
+        # the run was started in — there is no switch to be along, so the wake
+        # is refused
         # before any door run. No live.json is no live lock.
         if self._config.get("profile") == "live":
             from mcgyvr.fleet.admit import host_is_locked

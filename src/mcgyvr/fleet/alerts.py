@@ -417,7 +417,7 @@ def pulled_units(
 
 
 def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
-    """:func:`pulled_units` for the fleet ``~/.mcgyvr/live.json`` names.
+    """:func:`pulled_units` for the fleet the config folder's ``live.json`` names.
 
     The journal and the lock are the two ``mcgyvr fleet alerts`` reads: the
     live fleet's ``<journal.dir>/fleet``, where ``mcgyvr fleet probe`` files

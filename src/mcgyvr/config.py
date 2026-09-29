@@ -1397,8 +1397,9 @@ def config_path() -> Path:
     directory: where ``mcgyvr init`` writes and where a missing config is
     reported. A path that depends on an environment variable only some shells
     export is a config that is found from one terminal and not another, so
-    no variable of mcgyvr's is consulted but ``$MCGYVR_CONFIG`` and
-    ``$MCGYVR_HOME``.
+    no fourth place is consulted; the two variables that move these places,
+    ``$MCGYVR_CONFIG`` and ``$MCGYVR_HOME``, are named in the version line's
+    config path.
     """
     override = named_config_path()
     if override is not None:

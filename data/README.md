@@ -181,7 +181,7 @@ starting value shipped with mcgyvr, not a reading of your machine. Keys come
 from closed spaces the code names (the tolerance classes, the engines a unit
 may name), so no entry is keyed by a machine's name, and any machine has a key.
 
-Your own value replaces an estimate. Write it in `~/.mcgyvr/numbers.yaml`,
+Your own value replaces an estimate. Write it in `numbers.yaml` in the config folder (`$MCGYVR_HOME`, default `~/.mcgyvr`),
 under the number's name and then its key:
 
 ```yaml

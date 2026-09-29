@@ -3,8 +3,8 @@
 Promise: every help line that names a place in mcgyvr's config folder names
 the folder by the variable that moves it and says which folder is only the
 default, so a user who moved the folder is never sent to one mcgyvr does not
-read. The one line that names the default on its own, the lock's guard, says
-why: the default stays guarded when the folder is moved.
+read. The one line that names the default on its own is the lock's guard,
+which refuses a root under either folder.
 
 Nothing is reached: only help is printed.
 """

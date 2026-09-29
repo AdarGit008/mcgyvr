@@ -3,8 +3,10 @@
 Promise: when the variable that moves mcgyvr's config folder names no usable
 folder, a command refuses with one line, never a traceback. A value that names
 no folder at all (not an absolute path, or a home that cannot be expanded) is
-refused by the variable's name; a folder that is there and cannot be searched,
-or that loops back on itself, is refused by the path that could not be used.
+refused by the variable's name; a folder that is there and cannot be searched
+is refused by the path that could not be used; ``fleet lock``'s guard also
+refuses one that loops back on itself where Python raises on the loop (3.12),
+and other readers see it as holding no live.json.
 Every reader of the pointer naming the live fleet refuses it as it refuses a
 pointer that cannot be read, so a run, a probe or the door's first gate says
 why it cannot tell which fleet is live. The version line still prints, and
@@ -190,7 +192,8 @@ def test_the_version_line_says_a_folder_it_cannot_search_cannot_be_read(
 def test_a_config_folder_that_loops_back_on_itself_is_refused_in_one_line(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The lock guard resolves the config folder; a link to itself never resolves."""
+    """On Python 3.12 a link to itself never resolves; on later Pythons it
+    resolves and the folder is seen as holding no live.json."""
     loop = tmp_path / "settings"
     loop.symlink_to(loop)
     monkeypatch.chdir(tmp_path)
