@@ -18,7 +18,13 @@ from typing import TYPE_CHECKING, Any, TextIO
 from mcgyvr import __version__
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
-from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
+from mcgyvr.capability import (
+    ESTIMATES_NOTICE,
+    GB_PER_GIB,
+    CapabilityTableError,
+    load,
+    table_path,
+)
 from mcgyvr.config import (
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
@@ -98,21 +104,26 @@ def _capabilities(args: argparse.Namespace) -> int:
         return 1
 
     models = table.fitting(args.vram) if args.vram else table.models
+    labels = ", ".join(c.label for c in table.card_classes) or "none declared"
+    classes = f"Card classes in the table: {labels}."
     if args.vram:
-        print(f"Measured models that fit {args.vram:g} GB with working headroom:\n")
+        print(
+            f"Models that fit {args.vram:g} GB with working headroom. "
+            f"{ESTIMATES_NOTICE} {classes}\n"
+        )
     else:
-        print("Measured models:\n")
+        print(f"Shipped models. {ESTIMATES_NOTICE} {classes}\n")
 
     for model in sorted(models, key=lambda m: m.best_quality or 0, reverse=True):
         quality = model.best_quality
-        score = f"{quality:.1%}" if quality is not None else "unmeasured"
+        score = f"{quality:.1%}" if quality is not None else "no estimate"
         backend = f" [{model.requires_backend} only]" if model.requires_backend else ""
         print(
-            f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB  {score:>10}{backend}"
+            f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB  {score:>11}{backend}"
         )
 
     if table.caveats:
-        print("\nHarness caveats that invalidate naive re-measurement:")
+        print("\nHarness caveats (ways a naive re-run gets these figures wrong):")
         for caveat in table.caveats:
             print(f"  {caveat.id} [{caveat.severity}] {caveat.summary}")
     return 0
@@ -2669,7 +2680,7 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
 
 
 def _model_specs() -> tuple[ModelSpec, ...]:
-    """Serving specs for the models the capability table measured.
+    """Serving specs for the rows of the shipped capability estimates.
 
     ``vram_gb`` and ``disk_gb`` come off the typed reader. Whether a model has
     experts — and so a knob for *where* its weights sit — is in the table file
@@ -3049,7 +3060,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         # argparse does not abbreviate subcommands the way it abbreviates
         # flags, so the short name is spelled out as an alias.
         aliases=["caps"],
-        help="show the shipped capability table used to propose worker bindings",
+        help="show the shipped estimates by card class used to propose worker bindings",
     )
     caps.add_argument(
         "--vram",

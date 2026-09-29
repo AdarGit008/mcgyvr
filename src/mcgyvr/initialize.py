@@ -200,7 +200,7 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
         situation = (
             f"Reachable backends: {found} — but nothing in the capability "
             f"table can be bound to them, and none of them reports holding a "
-            f"measured model."
+            f"model the table has an estimate for."
         )
     else:
         situation = "No local backend answered on any default endpoint."
@@ -416,7 +416,7 @@ def build(
     ``api_units`` are the hosted units the operator named on the command line.
     They are not detected and not proposed, because neither question applies:
     a hosted endpoint answers whether or not this machine has a card, and no
-    capability measurement here describes it. They enter as units like any
+    estimate in the capability table describes it. They enter as units like any
     other, which is what makes the result the same two files any other init
     writes rather than a second kind of output.
     """
@@ -530,7 +530,8 @@ def _decisions(
         machine = f" on {rung.host}" if rung.host else ""
         decisions.append(
             f"{rung.name} -> {rung.model} on {rung.source}{machine}: "
-            f"{rung.quality:.1%} HumanEval+ pass@1, {rung.vram_gb:g} GB, "
+            f"an estimated {rung.quality:.1%} HumanEval+ pass@1 in about "
+            f"{rung.vram_gb:g} GB, "
             f"{presence}."
         )
     for api in api_units:
