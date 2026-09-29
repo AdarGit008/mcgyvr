@@ -17,13 +17,17 @@ What the reader prints is untrusted: it comes from another machine, and parts
 of it from tools there. :func:`parse` never raises and holds its own checks,
 since its input may not come from this reader. A value that is not what its
 field allows is left ``None`` and listed in :attr:`Reading.unread` with a
-reason, and so is a value the reader itself named as unread. A ``None`` field
-of a card is always listed there, keyed ``card.<vendor>.<index>.<field>``.
+reason; a value the same reading names as unread is dropped to ``None`` and
+stays listed there. A ``None`` field of a card is always listed there, keyed
+``card.<vendor>.<index>.<field>``. A reading without its last line, ``end=``,
+may have been cut short, and is named so under ``reading``.
 
-Two limits hold today. A card name or a process name that holds a line break
-can forge a row of the same kind for the same card, when what follows the
-break has that row's form; the reader catches it otherwise. Holders are a
-report of what holds a card, and never part of the machine's identity.
+Two limits hold today. A card name that holds a line break forges a card when
+what follows the break is a card row of another index: nothing tells it from
+a real card, and it is in the short id. (A row of an index already printed is
+caught, as is a line that is not a card row.) A process name that holds a line
+break can forge a holder row on the same card. Holders are a report of what
+holds a card, and never part of the machine's identity.
 
 The machine id is ``mcgyvr scan``'s for a machine-id file of one line and for
 a plain host name: both take the sha256 of the file's text, or of
@@ -34,15 +38,21 @@ ids; a blank first line makes the reader try the next file); and a host name
 with a space or a character outside ASCII letters, digits, ``.``, ``_`` and
 ``-`` is refused by the reader, where scan hashes it.
 
-The present policy of :func:`short_id` (in :func:`_refusals`, so it can change
-in one place): a card whose memory size cannot be read stays in the reading
-with its size named unread, and the machine gets no short id; the refusal
-names the card and says what the user can do. A card tool that is installed
-but fails, or that answers with no card, refuses the id too, naming the tool.
+The present policy of :func:`short_id`, all of it in :func:`_policy` so that
+it can change in one place. A card the reading names in
+:attr:`Reading.unsized` (no card tool installed there reads its vendor, and
+its sysfs entry publishes no memory size: a management adapter, an integrated
+one, a virtual display, or a card whose vendor's tool is not installed) is
+left out of the id; a machine whose every card is such is given the id of a
+machine with no card. Any other card whose name or memory size was not read
+refuses the id; the refusal names the card and says what the user can do. A
+card tool that is installed but fails, or that answers with no card, refuses
+the id too, naming the tool.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -134,7 +144,9 @@ class Reading:
     order the reader asked them; empty when none did. ``cards`` are sorted by
     vendor, then index. ``containers`` is ``None`` when they could not be
     listed or a container line was not taken. ``unread`` names every field
-    that could not be read.
+    that could not be read. ``unsized`` names, by :attr:`Card.key`, the cards
+    of unread size that no card tool installed on the machine reads and whose
+    sysfs entry publishes no size; :func:`short_id` leaves them out.
     """
 
     machine_id: str | None
@@ -144,6 +156,7 @@ class Reading:
     cards: tuple[Card, ...]
     containers: tuple[Container, ...] | None
     unread: tuple[Unread, ...]
+    unsized: tuple[str, ...]
 
 
 class _Parse:
@@ -159,6 +172,8 @@ class _Parse:
         self.said: list[Unread] = []
         self.found: list[Unread] = []
         self.containers_refused = False
+        self.unsized: list[tuple[int, str, int]] = []
+        self.ended = False
 
     def note(self, field: str, why: str) -> None:
         self.found.append(Unread(field=field, why=why))
@@ -176,6 +191,10 @@ class _Parse:
             self._container(number, value)
         elif key == "unread":
             self._unread(number, value)
+        elif key == "unsized":
+            self._unsized(number, value)
+        elif key == "end":
+            self.ended = True
         else:
             self.note("reading", f"line {number}: not a line the machine reader prints")
 
@@ -271,6 +290,15 @@ class _Parse:
         why = "".join(c if c.isprintable() else " " for c in why).strip()
         self.said.append(Unread(field=field, why=why[:_WHY_MAX] or "no reason given"))
 
+    def _unsized(self, number: int, value: str) -> None:
+        vendor, _, index = value.partition(",")
+        if not _VENDOR.fullmatch(vendor) or not _INDEX.fullmatch(index):
+            self.note(
+                "reading", f"line {number}: an unsized line without a vendor and index"
+            )
+            return
+        self.unsized.append((number, vendor, int(index)))
+
     def _mib(self, value: str, field: str) -> int | None:
         if value == "":
             return None
@@ -282,11 +310,10 @@ class _Parse:
     def _name(self, value: str, field: str) -> str | None:
         if value == "":
             return None
-        if len(value) > NAME_MAX:
-            self.note(field, f"the name printed is longer than {NAME_MAX} characters")
-            return None
-        if not _is_text(value) or value != value.strip():
-            self.note(field, "the name printed holds characters a name does not")
+        value = unicodedata.normalize("NFC", value)
+        problem = _name_problem(value)
+        if problem:
+            self.note(field, problem)
             return None
         return value
 
@@ -300,12 +327,37 @@ def _is_text(value: str) -> bool:
     )
 
 
+def _name_problem(value: object) -> str | None:
+    """Why ``value`` is not a name this module takes, or ``None`` when it is."""
+    if not isinstance(value, str):
+        return "the name is not text"
+    if value == "":
+        return "the name is empty"
+    if len(value) > NAME_MAX:
+        return f"the name printed is longer than {NAME_MAX} characters"
+    if value in ("[N/A]", "N/A"):
+        return "the name printed is [N/A]: its source gave no name"
+    if "\ufffd" in value:
+        return "the name printed holds a byte that is not text"
+    if not _is_text(value) or value != value.strip():
+        return "the name printed holds characters a name does not"
+    return None
+
+
+def _is_size(value: object) -> bool:
+    """A whole number of MiB as the reader prints one."""
+    return type(value) is int and 0 <= value < 10**18
+
+
 def parse(text: str) -> Reading:
     """The reading in ``text``, as ``machine-read.sh`` prints it. Never raises."""
     state = _Parse()
     for number, raw in enumerate(text.split("\n"), start=1):
         line = raw.removesuffix("\r")
         if not line.strip():
+            continue
+        if state.ended:
+            state.note("reading", f"line {number}: a line after the end line")
             continue
         key, equals, value = line.partition("=")
         if not equals:
@@ -315,11 +367,16 @@ def parse(text: str) -> Reading:
             continue
         state.line(number, key, value)
 
+    if not state.ended:
+        state.note("reading", "the reading has no end line; it may have been cut short")
+    unread_by_reader = {u.field for u in state.said}
     single: dict[str, str | None] = {}
     checks = {"machine_id": _HEX16, "machine_id_from": _ID_FROM, "host": _HOST}
     for key, pattern in checks.items():
         values = state.single.get(key, [])
-        if len(values) > 1:
+        if key in unread_by_reader:
+            single[key] = None
+        elif len(values) > 1:
             state.note(key, "the reader printed it more than once")
             single[key] = None
         elif not values or values[0] == "":
@@ -332,11 +389,13 @@ def parse(text: str) -> Reading:
 
     for vendor, index in state.twice:
         state.note(f"card.{vendor}.{index}", "the reader printed this card twice")
-    unread_by_reader = {u.field for u in state.said}
     cards: list[Card] = []
     for where in sorted(state.cards):
-        card = state.cards[where]
-        listed = state.holders.pop(where, [])
+        card = _dropped(state.cards[where], unread_by_reader)
+        listed = [
+            _dropped_holder(card.key, h, unread_by_reader)
+            for h in state.holders.pop(where, [])
+        ]
         if f"{card.key}.holders" in unread_by_reader:
             if listed:
                 state.note(
@@ -365,6 +424,20 @@ def parse(text: str) -> Reading:
     if "containers" in unread_by_reader or state.containers_refused:
         containers = None
 
+    held = {card.key: card for card in cards}
+    unsized: list[str] = []
+    for number, vendor, index in state.unsized:
+        key = f"card.{vendor}.{index}"
+        sized = held.get(key)
+        if sized is None or sized.total_mib is not None or key in unsized:
+            state.note(
+                "reading",
+                f"line {number}: an unsized line for {key}, "
+                "which the reading does not hold without a size",
+            )
+        else:
+            unsized.append(key)
+
     reading = Reading(
         machine_id=single["machine_id"],
         machine_id_from=single["machine_id_from"],
@@ -373,8 +446,29 @@ def parse(text: str) -> Reading:
         cards=tuple(cards),
         containers=containers,
         unread=(),
+        unsized=tuple(unsized),
     )
     return _named(reading, [*state.said, *state.found])
+
+
+def _dropped(card: Card, named: set[str]) -> Card:
+    """``card`` without the values its reading names unread."""
+    return dataclasses.replace(
+        card,
+        name=None if f"{card.key}.name" in named else card.name,
+        total_mib=None if f"{card.key}.total" in named else card.total_mib,
+        used_mib=None if f"{card.key}.used" in named else card.used_mib,
+        free_mib=None if f"{card.key}.free" in named else card.free_mib,
+    )
+
+
+def _dropped_holder(key: str, holder: Holder, named: set[str]) -> Holder:
+    field = f"{key}.holder.{holder.pid}"
+    return dataclasses.replace(
+        holder,
+        name=None if f"{field}.name" in named else holder.name,
+        mib=None if f"{field}.mib" in named else holder.mib,
+    )
 
 
 def _with_holders(card: Card, holders: tuple[Holder, ...]) -> Card:
@@ -426,63 +520,89 @@ def _named(reading: Reading, unread: list[Unread]) -> Reading:
         cards=reading.cards,
         containers=reading.containers,
         unread=tuple(kept),
+        unsized=reading.unsized,
     )
 
 
 _CARD_WHOLE = re.compile(r"card\.[^.]+\.[0-9]+", re.ASCII)
 
 
-def _refusals(reading: Reading) -> list[tuple[str, str]]:
-    """The fields that refuse a short id today, each with what the user can do.
+#: What the user can do, for each kind of field that refuses a short id.
+_REMEDY_MACHINE_ID = (
+    "no machine id was read: the machine needs a machine-id file or a host name "
+    "the reader can read"
+)
+_REMEDY_NAME = (
+    "the card's name was not read: see the reason. Once its source prints a "
+    "name that is text, read the machine again"
+)
+_REMEDY_SIZE = (
+    "the card's memory size was not read: see the reason. A source on the "
+    "machine should give it (its vendor's card tool is installed, or sysfs "
+    "publishes a size that was not taken); once it does, read the machine again"
+)
+_REMEDY_SIZE_TYPE = "the card's memory size is not a whole number of MiB"
+_REMEDY_CARDS = (
+    "the list of cards may be short: see the reason. Once the tool answers, "
+    "read the machine again; a tool left over on a machine with no card of its "
+    "vendor can be removed"
+)
+_REMEDY_READING = (
+    "a line of the reading was not taken, or the reading was cut short: see "
+    "the reason. A reading cut short can be taken again; a reading this parser "
+    "does not take whole gets no id"
+)
 
-    This is the one place the policy lives: a covered field that was not read
-    or is not of its type, a card source that failed or may be short, a card
-    dropped, or a line not understood.
+
+def _policy(reading: Reading) -> tuple[list[tuple[str, str]], frozenset[str]]:
+    """The present short-id policy, all of it: what refuses the id, each with
+    what the user can do, and which cards the id leaves out.
+
+    A card named in :attr:`Reading.unsized` whose size is unread is left out.
+    Any other card refuses the id when its name or size was not read, is
+    named unread, or is not a value the parser takes. A machine id that is
+    not 16 hex or is named unread refuses it, and so do a card source that
+    failed or may be short, a card dropped, and a line not taken.
     """
     found: list[tuple[str, str]] = []
-    if not isinstance(reading.machine_id, str) or not _HEX16.fullmatch(
-        reading.machine_id
+    named = {u.field for u in reading.unread}
+    left_out = frozenset(
+        card.key
+        for card in reading.cards
+        if card.key in reading.unsized and card.total_mib is None
+    )
+    machine_id = reading.machine_id
+    if (
+        not isinstance(machine_id, str)
+        or not _HEX16.fullmatch(machine_id)
+        or "machine_id" in named
     ):
-        found.append(
-            (
-                "machine_id",
-                "no machine id was read: the machine needs a machine-id file or a "
-                "host name the reader can read",
-            )
-        )
+        found.append(("machine_id", _REMEDY_MACHINE_ID))
     for card in reading.cards:
-        if not isinstance(card.name, str):
-            found.append((f"{card.key}.name", "the card's name was not read"))
-        if card.total_mib is None:
-            found.append(
-                (
-                    f"{card.key}.total",
-                    "the card's memory size was not read; the card tool of its "
-                    "vendor, installed and working, may read it. A card whose size "
-                    "cannot be read gives the machine no short id for now",
-                )
-            )
-        elif type(card.total_mib) is not int:
-            found.append(
-                (f"{card.key}.total", "the card's memory size is not a whole number")
-            )
+        if card.key in left_out:
+            continue
+        if _name_problem(card.name) or f"{card.key}.name" in named:
+            found.append((f"{card.key}.name", _REMEDY_NAME))
+        if card.total_mib is None or f"{card.key}.total" in named:
+            found.append((f"{card.key}.total", _REMEDY_SIZE))
+        elif not _is_size(card.total_mib):
+            found.append((f"{card.key}.total", _REMEDY_SIZE_TYPE))
     for item in reading.unread:
         if item.field.startswith("cards"):
-            found.append(
-                (
-                    item.field,
-                    "the list of cards may be short: see the reason; after the "
-                    "tool is fixed or removed, read the machine again",
-                )
-            )
+            found.append((item.field, _REMEDY_CARDS))
         elif item.field == "reading" or _CARD_WHOLE.fullmatch(item.field):
-            found.append(
-                (
-                    item.field,
-                    "a line of the reading was not taken; read the machine again",
-                )
-            )
-    return found
+            found.append((item.field, _REMEDY_READING))
+    return found, left_out
+
+
+def _order(card: tuple[object, object]) -> tuple[bool, str, bool, int]:
+    name, total = card
+    return (
+        name is None,
+        name if isinstance(name, str) else repr(name),
+        total is None,
+        total if type(total) is int else 0,
+    )
 
 
 def short_id(reading: Reading) -> str:
@@ -490,17 +610,20 @@ def short_id(reading: Reading) -> str:
 
     The cards are sorted by name, then size, so their indexes and their order,
     which a card tool may change, do not move the id; two equal cards are both
-    in it. Names are taken in Unicode normal form C. A reading that
-    :func:`_refusals` finds anything in is refused by name, with the reason
-    the reading gave and what the user can do: an id is never hashed over a
-    field that was not read, nor over a list of cards that a source it asked
-    names as short. A card that no source shows (no card tool of its vendor
-    installed, and no entry under sysfs's DRM class) is not in the reading,
-    and the id cannot know of it.
+    in it. A name is taken in Unicode normal form C; every value is hashed as
+    it is, never as a stand-in. A reading that :func:`_policy` finds anything
+    in is refused by name, with the reason the reading gave and what the user
+    can do: an id is never hashed over a field that was not read, nor over a
+    list of cards that a source it asked names as short. The cards the policy
+    leaves out are not in the id. A card that no source shows (no card tool of
+    its vendor installed, and no entry under sysfs's DRM class) is not in the
+    reading, and the id cannot know of it.
     """
-    refused = _refusals(reading)
+    refused, left_out = _policy(reading)
     if refused:
-        why = {u.field: u.why for u in reading.unread}
+        why: dict[str, str] = {}
+        for item in reading.unread:
+            why.setdefault(item.field, item.why)
         said = "; ".join(
             f"{field} ({why[field]}; {remedy})"
             if field in why
@@ -512,8 +635,17 @@ def short_id(reading: Reading) -> str:
             "hashed over a field that was not read"
         )
     cards = sorted(
-        (unicodedata.normalize("NFC", str(card.name)), int(card.total_mib or 0))
-        for card in reading.cards
+        (
+            (
+                unicodedata.normalize("NFC", card.name)
+                if isinstance(card.name, str)
+                else card.name,
+                card.total_mib,
+            )
+            for card in reading.cards
+            if card.key not in left_out
+        ),
+        key=_order,
     )
     return ids.digest(
         SHORT_ID_PREFIX,

@@ -275,3 +275,25 @@ def test_a_failed_tool_is_refused_naming_it_and_what_to_do(tmp_path: Path) -> No
     said = str(refused.value)
     assert "nvidia-smi" in said
     assert "Run nvidia-smi by hand" in said
+
+
+def test_a_reading_built_without_the_parser_is_hashed_in_one_unicode_form(
+    tmp_path: Path,
+) -> None:
+    import unicodedata
+
+    from mcgyvr.fleet import machine
+
+    reading = _reading("one-card", tmp_path)
+    (card,) = reading.cards
+    assert card.name is not None
+    named = "Example Carte é"
+    forms = [
+        dataclasses.replace(
+            reading,
+            cards=(dataclasses.replace(card, name=unicodedata.normalize(form, named)),),
+        )
+        for form in ("NFC", "NFD")
+    ]
+    assert forms[0].cards[0].name != forms[1].cards[0].name
+    assert machine.short_id(forms[0]) == machine.short_id(forms[1])

@@ -2,7 +2,8 @@
 
 The reader holds no here-string and no here-document, which bash may back with
 a temporary file; every tool's output reaches it through a pipe. Where the
-system can trace it, a run over a tool that prints a large answer, traced with
+system can trace it, a run over a tool that prints a large answer and a tool
+whose answer is read by python, traced with
 every process it starts, opens no file for writing and makes no call that
 creates, removes, renames, links or truncates a file or folder, outside the
 stub tools' own folder and ``/dev/null``. What is traced is those calls; a
@@ -11,6 +12,7 @@ write through another call is not seen.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
@@ -62,7 +64,7 @@ _CHANGES = (
     "mknod",
     "mknodat",
 )
-_CHANGE_CALL = re.compile(r"^\d+\s+(?:" + "|".join(_CHANGES) + r")\(")
+_CHANGE_CALL = re.compile(r"^(?:" + "|".join(_CHANGES) + r")\(")
 
 
 def _writes(line: str) -> bool:
@@ -80,17 +82,28 @@ def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> 
     rows = "".join(
         f"{i}, 7919, 0, 7919, Example Card {'W' * 3900}\n" for i in range(20)
     )
+    second = {
+        "card0": {
+            "Card series": "Example Card S",
+            "VRAM Total Memory (B)": str(7919 * 1024 * 1024),
+            "VRAM Total Used Memory (B)": "0",
+        }
+    }
     staged = Staged(
         first_tool=rows.encode(),
         first_tool_processes={i: (b"", 0) for i in range(20)},
+        second_tool=json.dumps(second).encode(),
+        tool_seconds=120,
     )
-    trace = tmp_path / "reader.trace"
+    # One file per process, so that no call is split over two lines.
+    trace = tmp_path / "trace" / "reader"
+    trace.parent.mkdir()
     ran = run(
         staged,
         tmp_path / "machine",
         command=(
             strace,
-            "-f",
+            "-ff",
             "-e",
             "trace=open,openat,openat2," + ",".join(_CHANGES),
             "-o",
@@ -100,10 +113,12 @@ def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> 
         ),
     )
     assert ran.returncode == 0, ran.stderr
-    assert ran.stdout.count("\ncard=") == 20
+    unread = [line for line in ran.stdout.splitlines() if line.startswith("unread=")]
+    assert ran.stdout.count("\ncard=") == 21, unread
     written = [
         line
-        for line in trace.read_text("utf-8", errors="replace").splitlines()
+        for one in sorted(trace.parent.iterdir())
+        for line in one.read_text("utf-8", errors="replace").splitlines()
         if _writes(line)
         and "/dev/null" not in line
         and "= -1" not in line

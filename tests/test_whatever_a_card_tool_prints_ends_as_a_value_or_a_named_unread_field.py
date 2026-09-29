@@ -229,7 +229,17 @@ def test_an_idle_card_that_says_so_has_no_holder_and_nothing_unread(
 def test_a_name_the_tool_prints_as_not_available_is_unread(
     name: str, tmp_path: Path
 ) -> None:
-    reading = _one(f"0, 7919, 0, 7919, {name}\n".encode(), tmp_path)
+    from mcgyvr.fleet import machine
+
+    ran = run(
+        Staged(
+            first_tool=f"0, 7919, 0, 7919, {name}\n".encode(),
+            first_tool_processes={0: (b"", 0)},
+        ),
+        tmp_path,
+    )
+    assert "card=nvidia,0,7919,0,7919," in ran.stdout.splitlines()
+    reading = machine.parse(ran.stdout)
     assert _cards(reading)[0].name is None
     assert "N/A" in _unread(reading)["card.nvidia.0.name"]
 
@@ -522,5 +532,5 @@ def test_parsing_never_raises_and_never_fills_a_figure() -> None:
 def test_the_parser_names_a_line_it_does_not_know() -> None:
     from mcgyvr.fleet import machine
 
-    reading = machine.parse("no equals sign\nsomething=else\n")
+    reading = machine.parse("no equals sign\nsomething=else\nend=\n")
     assert [u.field for u in reading.unread].count("reading") == 2
