@@ -146,13 +146,14 @@ def _second_listing(model: str, source: AvailableSource, first: Rung) -> str:
 def _unwritable(model: str, source: AvailableSource) -> str:
     """Why a listed id that is blank or holds a control character is not bound.
 
-    Such an id names nothing a unit could serve, or cannot be written into a
-    setup and read back as the same id, so binding it would give a file the
-    loader refuses or one that names another model.
+    A blank id names nothing a unit could serve, and the loader refuses a unit
+    whose model is empty. An id with a control character, a line break among
+    them, may not read back from the file as the same id, so a unit bound to
+    it could name another model.
     """
     return (
         f"{source.name} lists the id {model!r}, which is blank or holds a "
-        f"character a setup file cannot carry as it is, so it is not bound."
+        f"control character, so it is not bound."
     )
 
 
