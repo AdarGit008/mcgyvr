@@ -122,6 +122,9 @@ def test_a_document_with_no_numbers_states_none_of_them(tmp_path: Path) -> None:
         ("not-there.json", None),
         ("broken.json", '{"numbers": '),
         ("a-list.json", json.dumps([1, 2])),
+        pytest.param(
+            "too-deep.json", "[" * 100_000 + "]" * 100_000, id="too-deep.json"
+        ),
         ("not-utf8.json", '{"_doc": "caf\xe9", "numbers": {}}'.encode("latin-1")),
     ],
 )

@@ -117,6 +117,31 @@ def test_a_value_that_is_not_a_finite_number_inside_its_bounds_is_refused(
     assert number in str(was.value) and key in str(was.value)
 
 
+#: YAML the reader cannot build into a value: an explicit tag on text that tag
+#: cannot mean, a mapping tag on a list, or nesting deeper than the reader goes.
+_UNBUILDABLE: list[str] = [
+    "!!int ''",
+    "!!float ''",
+    "!!timestamp 'abc'",
+    "!!bool 'maybe'",
+    "!!map [1]",
+    "[" * 400 + "]" * 400,
+]
+
+
+@pytest.mark.parametrize(
+    "literal", _UNBUILDABLE, ids=lambda text: text if len(text) < 40 else "nested"
+)
+def test_a_value_the_yaml_reader_cannot_build_is_refused_by_name(
+    literal: str, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    number, key = _every_shipped_ask()[0]
+    path = nf.write_user_file(tmp_path_factory, f"{number}:\n  {key}: {literal}\n")
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup(*_another_ask(number))
+    assert str(path) in str(was.value)
+
+
 def test_an_unknown_number_is_refused_even_when_another_is_asked(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
