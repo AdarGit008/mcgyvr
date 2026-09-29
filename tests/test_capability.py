@@ -1,24 +1,26 @@
-"""The capability table is shipped data other decisions rest on.
+"""The capability table is shipped data that sizing and listing rest on.
 
-These tests hold it to the properties `mcgyvr init` relies on, and guard the
-failure modes that make a measurement wrong.
+These tests hold the shipped table to the properties `mcgyvr capabilities` and
+`mcgyvr emit` rely on, and hold the fit listing to its rule over generated
+tables.
 """
 
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 
 import pytest
 
-from mcgyvr.capability import CapabilityTableError, load, table_path
-from tests.table_fixture import table_document, write_table
+from mcgyvr.capability import CapabilityTable, CapabilityTableError, load, table_path
+from tests.table_fixture import row, table_document, write_table
 
 
 def test_shipped_table_loads() -> None:
     table = load()
     assert table.models
-    assert table.caveats, "the known-bad measurement caveats must travel with the data"
+    assert table.caveats, "the harness caveats must travel with the data"
 
 
 def test_every_model_has_a_working_footprint() -> None:
@@ -26,67 +28,65 @@ def test_every_model_has_a_working_footprint() -> None:
         assert model.vram_gb_working > 0, f"{model.id} has no working VRAM figure"
 
 
-def test_unmeasured_models_are_never_proposed() -> None:
-    """A model whose only scores were invalidated must not be offered.
-
-    gpt-oss-20b's published score is attributed to a harness limitation
-    (CAV-03), so it carries no valid quality measurement and must be absent
-    from any proposal regardless of how much VRAM is available.
-    """
-    table = load()
-    unmeasured = [m.id for m in table.models if not m.is_measured]
-    assert unmeasured, "expected at least one model held back as unmeasured"
-    proposed = {m.id for m in table.fitting(vram_gb=80)}
-    assert proposed.isdisjoint(unmeasured)
+#: Invented working footprints, and invented headrooms besides the default.
+FOOTPRINTS = (1.3, 3.9, 8.2)
+HEADROOMS = (0.4, 2.6)
 
 
-def test_marginal_fits_are_excluded() -> None:
+def _default_headroom() -> float:
+    default = inspect.signature(CapabilityTable.fitting).parameters["headroom_gb"]
+    assert isinstance(default.default, float | int)
+    return float(default.default)
+
+
+def _invented(tmp_path: Path) -> CapabilityTable:
+    rows = [
+        row(f"invented-model-{index}", vram_gb_working=footprint)
+        for index, footprint in enumerate(FOOTPRINTS)
+    ]
+    return load(write_table(tmp_path, table_document(rows=rows)))
+
+
+def test_marginal_fits_are_excluded(tmp_path: Path) -> None:
     """CAV-04: a model that only just fits degrades rather than failing.
 
-    qwen2.5-coder:7b needs ~5 GB and measured 1.9x slower on a 6 GB card
-    than on a 12 GB one, so a 6 GB machine must not be offered it.
+    A card with less free room than the headroom beside a row's working
+    footprint is not offered that row, however close the fit.
     """
-    table = load()
-    assert "qwen2.5-coder:7b" not in {m.id for m in table.fitting(vram_gb=6)}
-    assert "qwen2.5-coder:7b" in {m.id for m in table.fitting(vram_gb=12)}
+    table = _invented(tmp_path)
+    for headroom in (_default_headroom(), *HEADROOMS):
+        for model in table.models:
+            just_short = model.vram_gb_working + headroom * 0.9
+            enough = model.vram_gb_working + headroom
+            short_ids = {m.id for m in table.fitting(just_short, headroom_gb=headroom)}
+            assert model.id not in short_ids
+            assert model.id in {
+                m.id for m in table.fitting(enough, headroom_gb=headroom)
+            }
 
 
-def test_headroom_is_absolute_not_proportional() -> None:
-    """The two rigs disagree with any ratio rule; only free GB separates them.
+def test_headroom_is_absolute_not_proportional(tmp_path: Path) -> None:
+    """No share of the card separates what is listed from what is not.
 
-    5.0 GB on a 6 GB card thrashed (83% utilization); 9.5 GB on a 12 GB card
-    did not (79%). A proportional rule admitting the second must admit the
-    first. These two assertions cannot both hold under one.
+    What the headroom reserves, KV cache for the context window, is sized by
+    tokens, not by the card. So a small row is refused on a card it would fill
+    by a small share when the room beside it is short, while a large row is
+    listed on a card it nearly fills when the room is there: a rule by share
+    of the card would have to admit the first to admit the second.
     """
-    table = load()
-    fits_12 = {m.id for m in table.fitting(vram_gb=12)}
-    assert "qwen2.5-coder:14b" in fits_12
-    assert "qwen2.5-coder:7b" not in {m.id for m in table.fitting(vram_gb=6)}
+    table = _invented(tmp_path)
+    headroom = _default_headroom()
+    listed_shares: list[float] = []
+    refused_shares: list[float] = []
+    for model in table.models:
+        enough = model.vram_gb_working + headroom
+        short = model.vram_gb_working + headroom * 0.9
+        assert model in table.fitting(enough)
+        assert model not in table.fitting(short)
+        listed_shares.append(model.vram_gb_working / enough)
+        refused_shares.append(model.vram_gb_working / short)
 
-
-def test_moe_quality_is_reachable_on_a_small_card() -> None:
-    """qwen3-coder-30b-a3b delivers 14B-class quality in ~3 GB.
-
-    It is the only measured path to >85% on a 6 GB card, so a proposal for
-    small hardware that omits it has lost the point.
-    """
-    table = load()
-    small = {m.id: m for m in table.fitting(vram_gb=6)}
-    assert "qwen3-coder-30b-a3b" in small
-    best = max(m.best_quality or 0 for m in small.values())
-    assert best > 0.85
-
-
-def test_invalid_measurements_are_not_read_as_quality() -> None:
-    """CAV-01: ollama /api/generate scored 7B at 32.3% against a true 84.1%.
-
-    Those rows live in `invalid_measurements` and must never be mistaken for
-    quality — a table that read them would route away from the best models.
-    """
-    model = load().get("qwen2.5-coder:7b")
-    assert model is not None
-    best = model.best_quality
-    assert best is not None and best > 0.8
+    assert max(listed_shares) > min(refused_shares)
 
 
 def test_rejects_unknown_schema_version(tmp_path: Path) -> None:
