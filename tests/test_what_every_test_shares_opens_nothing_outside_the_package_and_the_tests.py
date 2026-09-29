@@ -22,7 +22,11 @@ What it does not see, stated so nobody reads it as more: a child process
 without it); a check that only asks whether a path exists or for its metadata
 (``os.stat`` and ``os.path.exists`` raise no audit event); and, where
 ``/proc`` is absent, the target of a ``dir_fd`` open, which is then not
-attributed at all.
+attributed at all; and the builtin ``open(name, opener=...)`` whose opener
+opens relative to a directory descriptor, whose audit event is raised before
+the wrapper runs, so a relative name opened that way is taken as relative to
+the working directory. Nothing in the package or its tests passed an
+``opener`` when this was written.
 
 What is checked, while tests of those folders' own code still sit in this
 tree: a test module that itself imports from one of those folders is that
@@ -41,12 +45,14 @@ minute on a developer machine, since it imports every test module once.
 
 from __future__ import annotations
 
-import ast
+import importlib
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+from _pytest.fixtures import getfixturemarker
 
 REPO = Path(__file__).resolve().parent.parent
 CONFTEST = REPO / "tests" / "conftest.py"
@@ -207,15 +213,19 @@ def _audited_pytest(tmp_path: Path, *args: str) -> list[list[str]]:
     return _logged(log, done)
 
 
-def _run_the_hook(tmp_path: Path, root: Path, script: str) -> list[list[str]]:
-    """Run ``script`` in a fresh interpreter with the audit hook installed and
-    ``root`` standing for the repository; return what the hook logged."""
+def _run_the_hook(
+    tmp_path: Path, root: Path, script: str, before: str = ""
+) -> list[list[str]]:
+    """Run ``before``, then install the audit hook, then run ``script``, in a
+    fresh interpreter with ``root`` standing for the repository; return what
+    the hook logged."""
     env, log = _audit_env(tmp_path, root)
     done = subprocess.run(
         [
             sys.executable,
             "-c",
-            f"import suite_audit\n{script}\nsuite_audit.pytest_unconfigure(None)",
+            f"{before}\nimport suite_audit\n{script}\n"
+            "suite_audit.pytest_unconfigure(None)",
         ],
         cwd=root,
         env=env,
@@ -228,28 +238,21 @@ def _run_the_hook(tmp_path: Path, root: Path, script: str) -> list[list[str]]:
 
 
 def _fixtures_the_conftest_defines() -> list[str]:
-    """Every function the conftest decorates with ``pytest.fixture``, under the
-    name a test asks for it by."""
+    """Every fixture the loaded conftest offers, under the name a test asks for
+    it by: defined there, imported into it, or decorated however it was
+    spelled. A ``pytest_plugins`` line would offer fixtures this cannot list,
+    so it is refused by name."""
+    conftest = importlib.import_module("tests.conftest")
+    assert not hasattr(conftest, "pytest_plugins"), (
+        f"{CONFTEST} names pytest_plugins {conftest.pytest_plugins!r}; the "
+        "fixtures those plugins offer are not read by this test"
+    )
     names = []
-    for node in ast.parse(CONFTEST.read_text(encoding="utf-8")).body:
-        if not isinstance(node, ast.FunctionDef):
+    for attribute, value in vars(conftest).items():
+        if getfixturemarker(value) is None:
             continue
-        for decorator in node.decorator_list:
-            call = decorator if isinstance(decorator, ast.Call) else None
-            target = call.func if call is not None else decorator
-            if not (
-                isinstance(target, ast.Attribute)
-                and target.attr == "fixture"
-                and isinstance(target.value, ast.Name)
-                and target.value.id == "pytest"
-            ):
-                continue
-            name = node.name
-            for keyword in call.keywords if call is not None else ():
-                if keyword.arg == "name" and isinstance(keyword.value, ast.Constant):
-                    name = str(keyword.value.value)
-            names.append(name)
-    return names
+        names.append(str(getattr(value, "name", None) or attribute))
+    return sorted(set(names))
 
 
 def test_what_every_test_shares_opens_nothing_outside_the_package(
@@ -309,10 +312,13 @@ def test_asking_for_every_fixture_the_conftest_defines_opens_nothing_outside(
 def test_removing_an_old_temp_tree_with_folders_named_like_the_watched_ones_is_no_hit(
     tmp_path: Path,
 ) -> None:
-    """An old temp tree elsewhere that holds folders named like the watched ones
-    is walked by bare names relative to a directory descriptor; with the
-    repository as the working directory it is still not taken for the
-    repository's folders."""
+    """Removing an old temp tree elsewhere that holds folders named like the
+    watched ones, with the repository as the working directory, logs nothing:
+    the names ``shutil.rmtree`` opens relative to a directory descriptor are
+    not taken for the repository's folders. ``shutil`` is imported before the
+    hook, as it is under pytest, and the script asserts that ``rmtree`` does
+    walk by descriptor wherever the platform offers it, so this cannot pass by
+    never opening a name relative to one."""
     root = tmp_path / "root"
     for name in OUTSIDE:
         (root / name).mkdir(parents=True)
@@ -321,7 +327,16 @@ def test_removing_an_old_temp_tree_with_folders_named_like_the_watched_ones_is_n
         (stale / name).mkdir(parents=True)
         (stale / name / "file.txt").write_text("old\n", encoding="utf-8")
     seen = _run_the_hook(
-        tmp_path, root, f"import shutil\nshutil.rmtree({str(tmp_path / 'stale')!r})"
+        tmp_path,
+        root,
+        "\n".join(
+            [
+                "if os.open in os.supports_dir_fd and os.scandir in os.supports_fd:",
+                "    assert shutil._use_fd_functions, 'rmtree walks by full path'",
+                f"shutil.rmtree({str(tmp_path / 'stale')!r})",
+            ]
+        ),
+        before="import os\nimport shutil",
     )
     assert seen == []
 
