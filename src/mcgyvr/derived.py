@@ -37,7 +37,7 @@ NUMBERS_FILENAME = "numbers.json"
 #: The user's own settings' file name, in mcgyvr's own folder.
 OVERRIDES_FILENAME = "numbers.yaml"
 #: The shape of the shipped file this code reads, stated as its ``schema``.
-SCHEMA = 1
+NUMBERS_SCHEMA = 1
 #: Where a checkout keeps the shipped file, for a mcgyvr run from its source.
 CHECKOUT_DATA = Path(__file__).resolve().parents[2] / "data"
 
@@ -158,7 +158,7 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
 
     A JSON object with no ``numbers`` object states no number: every ask is
     then refused per number, not as a schema error. One that has a ``numbers``
-    object is read only when its ``schema`` is :data:`SCHEMA`.
+    object is read only when its ``schema`` is :data:`NUMBERS_SCHEMA`.
     """
     where = shipped_path() if path is None else path
     try:
@@ -181,10 +181,10 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
     if not isinstance(numbers, dict):
         return where, {}
     schema = document.get("schema")
-    if isinstance(schema, bool) or schema != SCHEMA:
+    if isinstance(schema, bool) or schema != NUMBERS_SCHEMA:
         has = "states no schema" if schema is None else f"is schema {schema!r}"
         raise DerivedNumbersError(
-            f"{where} {has}; this mcgyvr reads numbers of schema {SCHEMA} only"
+            f"{where} {has}; this mcgyvr reads numbers of schema {NUMBERS_SCHEMA} only"
         )
     for number, entry in numbers.items():
         _check_entry(number, entry, where)

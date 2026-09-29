@@ -179,7 +179,7 @@ def test_a_shipped_file_of_another_schema_is_refused_by_name(
         derived.lookup("invented_schema", "only", path=path)
     text = str(was.value)
     assert str(path) in text
-    assert f"schema {derived.SCHEMA}" in text
+    assert f"schema {derived.NUMBERS_SCHEMA}" in text
     if schema is not None:
         assert repr(schema) in text
 
