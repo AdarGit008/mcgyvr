@@ -4,10 +4,11 @@ For an engine whose host memory figure is read on the user's machine, mcgyvr
 ships no estimate of it (every engine is one or the other, never both; the
 test beside this one holds that). While no reading exists, every sizing of a
 unit of such an engine says that it has none: when the unit fits, when it is
-refused, and in what ``mcgyvr emit`` prints, before anything is written or
-checked. That holds when the user's own numbers file sets the figure too, and
-the sizing then also says that setting is not used. No sizing of a unit of
-any other engine says it.
+refused, and in what ``mcgyvr emit`` prints, before it refuses units that
+fit host memory one at a time and not together. That holds when the user's own
+numbers file sets the figure too, and the sizing then also says that setting
+is not used; when that file cannot be read, the sizing names its refusal
+instead of refusing the unit. No sizing of a unit of any other engine says it.
 
 The line is read from the sizing module and never restated here: a module
 that has no such line says it nowhere. The machines are the invented shapes of
@@ -17,7 +18,9 @@ that has no such line says it nowhere. The machines are the invented shapes of
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -27,8 +30,14 @@ from mcgyvr.cli import main
 from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.exits import Exit
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
-from mcgyvr.scan import Scan
-from mcgyvr.serving import ModelSpec, UnitError, UnitKey, unit_for
+from mcgyvr.scan import Memory, Scan
+from mcgyvr.serving import (
+    MODE_RAM_HEADROOM_GB,
+    ModelSpec,
+    UnitError,
+    UnitKey,
+    unit_for,
+)
 from tests import machine_shapes
 from tests import numbers_fixture as nf
 from tests.test_one_engines_host_memory_figure_is_never_charged_to_another import (
@@ -42,6 +51,24 @@ DENSE = "example-dense"
 
 #: A value the user might set for the figure, in GiB: invented.
 SETTING = 1.25
+
+#: A floor on host memory the user states for a dense unit, in GiB: invented.
+#: With one, a unit's fit asks host memory for its blob mapped.
+FLOOR = 1.0
+
+#: Two kinds of numbers file that cannot be read.
+BROKEN = ("not-yaml", "unknown-number")
+
+
+def broken(kind: str, engine: str) -> str | dict[str, Any]:
+    """A numbers file of ``kind`` that cannot be read: text that is not YAML,
+    or a setting of ``engine``'s figure beside a number mcgyvr does not ship."""
+    if kind == "not-yaml":
+        return f"{derived.RUNTIME_RESIDENT}: [\n"
+    return {
+        derived.RUNTIME_RESIDENT: {engine: SETTING},
+        "an_invented_number": {engine: SETTING},
+    }
 
 
 def line() -> str | None:
@@ -131,6 +158,25 @@ def test_your_own_setting_of_that_figure_is_said_to_be_unused(
     assert note in unit.fit.why
 
 
+@pytest.mark.parametrize("kind", BROKEN)
+@pytest.mark.parametrize("engine", derived.KEY_SPACES["engine"])
+def test_a_numbers_file_that_cannot_be_read_is_named_not_swallowed(
+    engine: str, kind: str, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    nf.write_user_file(tmp_path_factory, broken(kind, engine))
+    with pytest.raises(derived.DerivedNumbersError) as refused:
+        derived.user_setting(derived.RUNTIME_RESIDENT, engine)
+    scan = machine_shapes.scan(machines()[0])
+    unit = unit_for(scan, dense(scan), engine=engine, ctx_per_slot=WINDOW)
+    if engine not in not_shipped():
+        assert not says(unit.fit.why), unit.fit.why
+        return
+    assert str(refused.value) in unit.fit.why, unit.fit.why
+    (note,) = unit.fit.notes
+    assert says(note), note
+    assert serving.HOST_FIGURE_SETTING_UNKNOWN.format(why=refused.value) in note
+
+
 def config(host: str, sizes: dict[str, float]) -> str:
     """One unit of each engine a unit may name, on ``host``, each on its port."""
     blocks = []
@@ -145,6 +191,7 @@ def config(host: str, sizes: dict[str, float]) -> str:
     launch:
       vram_gb: {sizes["vram_gb"]}
       disk_gb: {sizes["disk_gb"]}
+      ram_gb: {sizes.get("ram_gb", 0.0)}
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
 """
@@ -156,25 +203,21 @@ def config(host: str, sizes: dict[str, float]) -> str:
     return "units:\n" + "".join(blocks) + "ladder:\n" + ladder
 
 
-@pytest.mark.parametrize("machine", machines(), ids=lambda machine: machine.label)
-def test_emit_says_it_for_each_such_unit_before_it_writes_or_checks(
-    machine: machine_shapes.Shape,
+def install(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    scan = machine_shapes.scan(machine)
+    scan: Scan,
+    sizes: dict[str, float],
+) -> tuple[Path, dict[str, str]]:
+    """``scan`` recorded and :func:`config` written: where emit writes, and each
+    engine's unit by its slug."""
     host = scan.machine.host
     scans = tmp_path / "scans"
     scans.mkdir()
     (scans / "machine.json").write_text(scan.to_json(), encoding="utf-8")
     monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(scans))
-    spec = dense(scan)
     written = tmp_path / "mcgyvr.yaml"
-    written.write_text(
-        config(host, {"vram_gb": spec.vram_gb, "disk_gb": spec.disk_gb}),
-        encoding="utf-8",
-    )
+    written.write_text(config(host, sizes), encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(written))
     out = tmp_path / "compose"
     out.mkdir()
@@ -184,6 +227,21 @@ def test_emit_says_it_for_each_such_unit_before_it_writes_or_checks(
         ).slug
         for port, engine in enumerate(derived.KEY_SPACES["engine"], start=8080)
     }
+    return out, slugs
+
+
+@pytest.mark.parametrize("machine", machines(), ids=lambda machine: machine.label)
+def test_emit_says_it_for_each_such_unit_when_it_writes_and_when_it_checks(
+    machine: machine_shapes.Shape,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    scan = machine_shapes.scan(machine)
+    spec = dense(scan)
+    out, slugs = install(
+        tmp_path, monkeypatch, scan, {"vram_gb": spec.vram_gb, "disk_gb": spec.disk_gb}
+    )
     for check in ((), ("--check",)):
         told = main(["emit", *check, "--out", str(out), "--ctx-per-slot", str(WINDOW)])
         said = capsys.readouterr()
@@ -197,3 +255,41 @@ def test_emit_says_it_for_each_such_unit_before_it_writes_or_checks(
                 )
             else:
                 assert about == [], about
+
+
+@pytest.mark.parametrize("machine", machines(), ids=lambda machine: machine.label)
+def test_emit_says_it_before_it_refuses_units_that_fit_host_memory_one_at_a_time(
+    machine: machine_shapes.Shape,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Each unit's blob fits the host's memory mapped alone; the two do not fit
+    it together, so emit refuses them, and says the line first."""
+    measured = machine_shapes.scan(machine)
+    spec = dense(measured)
+    available = spec.disk_gb + MODE_RAM_HEADROOM_GB + spec.disk_gb / 2
+    scan = replace(
+        measured, memory=Memory(total_gb=2 * available, available_gb=available)
+    )
+    out, slugs = install(
+        tmp_path,
+        monkeypatch,
+        scan,
+        {"vram_gb": spec.vram_gb, "disk_gb": spec.disk_gb, "ram_gb": FLOOR},
+    )
+    told = main(["emit", "--out", str(out), "--ctx-per-slot", str(WINDOW)])
+    said = capsys.readouterr()
+    assert told == Exit.REFUSED, said.err
+    lines = said.err.splitlines()
+    refusal = [at for at, text in enumerate(lines) if text.startswith("refused: ")]
+    assert refusal, said.err
+    for engine, slug in slugs.items():
+        about = [
+            at for at, text in enumerate(lines) if text.startswith(f"note: {slug}: ")
+        ]
+        if engine in not_shipped():
+            assert any(says(lines[at]) for at in about), f"{engine}: {said.err!r}"
+            assert max(about) < min(refusal), said.err
+        else:
+            assert about == [], said.err
