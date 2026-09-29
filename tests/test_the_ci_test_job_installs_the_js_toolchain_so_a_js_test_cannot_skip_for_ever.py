@@ -9,6 +9,7 @@ machine and wrong on the runner that is supposed to hold the property.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -25,7 +26,11 @@ def test_ci_installs_the_js_toolchain_so_the_skip_cannot_become_permanent() -> N
     nothing to install.
     """
     workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    test_job = workflow[workflow.index("\n  test:") :]
+    # The job is read up to the next job, so another job's steps cannot stand
+    # in for it.
+    job = workflow[workflow.index("\n  test:") + 1 :]
+    following = re.search(r"\n  [A-Za-z_-]+:\n", job)
+    test_job = job[: following.start()] if following else job
     assert "npm ci" in test_job, "the test job must install the pinned toolchain"
     assert "node_modules/.bin" in test_job and "GITHUB_PATH" in test_job, (
         "installing is not enough — `require_tool` resolves linters with "
