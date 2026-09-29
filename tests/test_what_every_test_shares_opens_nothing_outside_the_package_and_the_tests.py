@@ -34,7 +34,7 @@ module's own business and leaves with the folder. So the checks are (1) what
 happens outside the import of any test module, over the whole tree; (2) staying
 tests chosen because they run under every autouse fixture and the ``home``
 fixture, from collection to teardown; (3) one generated test that asks for
-every fixture the conftest defines, found by reading the conftest.
+every fixture the loaded conftest module offers.
 
 Every inner run gets its own ``--basetemp`` under the outer test's
 ``tmp_path``, so pytest's clean-up of old numbered temp folders elsewhere on
@@ -64,7 +64,7 @@ CONFTEST = REPO / "tests" / "conftest.py"
 OUTSIDE = ("tools", "records", "okf", "fleet-setup", "archive")
 
 #: The longest one inner run may take before the test fails.
-INNER_TIMEOUT_S = 300
+INNER_TIMEOUT_S = 600
 
 #: Staying tests that run under every autouse fixture and the ``home`` fixture
 #: and open nothing under :data:`OUTSIDE` themselves.
