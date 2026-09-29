@@ -4,19 +4,23 @@ The promise: every number mcgyvr sizes, judges, refuses, waits or picks with
 says, in ``data/numbers.json``, what it is: a fact, an estimate, or a choice of
 the product. A number nobody has classified fails here.
 
-The file has two blocks for this, beside the estimates it already ships:
+What ships is the classification. Its ``constants`` block, beside the
+estimates the file already ships, classifies each number a judging file holds,
+keyed by where it lives: ``<file>:<NAME>``, ``<file>:<Class>.<attribute>`` or
+``<file>:<function>(<parameter>)``. A fact names what makes it one, from the
+closed list :data:`mcgyvr.derived.FACT_REASONS`. A choice names how a user sets
+it, or a reason from the closed list :data:`mcgyvr.derived.CHOICE_REASONS` why
+it has no setting. An estimate still in code names the number id it will have
+in the ``numbers`` block when its value moves there.
 
-* ``covered`` names every python file under ``src/mcgyvr/`` once, as
-  ``judging`` (its numbers are classified) or with a reason from the closed
-  list :data:`mcgyvr.derived.NOT_JUDGING_REASONS`. A new file that is in
-  neither fails :func:`test_every_python_file_of_the_package_is_covered`, so
-  the check cannot stop covering the tree the day the tree grows.
-* ``constants`` classifies each number a judging file holds, keyed by where it
-  lives: ``<file>:<NAME>``, ``<file>:<Class>.<attribute>`` or
-  ``<file>:<function>(<parameter>)``. A choice names how a user sets it, or a
-  reason from the closed list :data:`mcgyvr.derived.CHOICE_REASONS` why nobody
-  needs to; an estimate still in code names the number id it will have in the
-  ``numbers`` block when its value moves there.
+What stays on this side is the bookkeeping of which files are judged:
+``tests/numbers_coverage.json`` names every python file under ``src/mcgyvr/``
+once, as :data:`JUDGING` (its numbers are classified) or with a reason from the
+closed list :data:`NOT_JUDGING_REASONS`. A new file that is in neither fails
+:func:`test_every_python_file_of_the_package_is_covered`, so the check cannot
+stop covering the tree the day the tree grows. A file said to hold no number
+must hold none the collector finds, and a file said to be third-party code must
+sit beside its author's licence.
 
 The files are parsed with :mod:`ast` by path, never imported, so a file no
 import statement can reach is read like any other. What is collected from a
@@ -42,10 +46,18 @@ What is deliberately not collected, and so what this check cannot see:
   (a cache size given to ``lru_cache``);
 * a module-level call that is not an assignment, and a number held in a
   string (a duration spelled ``"5s"``);
-* the files ``covered`` does not mark ``judging``, and numbers in other data
+* a number bound by a walrus inside a module-level ``if`` test, or by the
+  header of a module-level ``for`` loop, and a class defined inside a function;
+* a number added inside a name that is already classified: one entry covers
+  everything its name holds (a table of five bounds under one name, with one
+  kind), so a sixth value written into that name passes unseen;
+* the files the coverage file does not mark judging, and numbers in other data
   files;
 * whether a classification is true: calling an estimate a fact passes here.
   The closed lists narrow what can be said; review decides whether it is so.
+  A setting named under a free-form mapping is held only to this: the last
+  part of its key is spelled as a string somewhere in the package's code, so a
+  key nobody reads fails, and a real key unrelated to the number passes.
 
 Nothing here restates a number's value: the file and the code are read.
 """
@@ -61,10 +73,26 @@ from mcgyvr import config, contract, derived
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
 CLI = SRC / "cli.py"
+#: Which files of the package are judged, and why the others are not.
+COVERAGE = Path(__file__).resolve().parent / "numbers_coverage.json"
+
+#: What the coverage file says of a file whose numbers are classified.
+JUDGING = "judging"
+#: A file whose numeric literals are indexes, counters, offsets or statuses.
+NO_NUMBER = "holds no number that sizes or judges"
+#: A file vendored from another project, kept byte for byte.
+THIRD_PARTY = "third-party code kept as its author wrote it"
+#: Why a file of the package is not judged, the only other thing the coverage
+#: file may say of it.
+NOT_JUDGING_REASONS: tuple[str, ...] = (
+    NO_NUMBER,
+    "changing now; covered after that change lands",
+    THIRD_PARTY,
+)
 
 #: The fields each kind of entry may carry beside ``kind`` and ``says``.
 _OPTIONAL: dict[str, set[str]] = {
-    "fact": set(),
+    "fact": {"reason"},
     "choice": {"set_by", "reason", "same_as"},
     "estimate": {"moves_to", "set_by"},
 }
@@ -115,11 +143,17 @@ def _constants() -> dict[str, dict[str, Any]]:
 
 
 def _covered() -> dict[str, str]:
-    return _block("covered")
+    loaded = json.loads(
+        COVERAGE.read_text(encoding="utf-8"), object_pairs_hook=_once_each
+    )
+    assert isinstance(loaded, dict) and set(loaded) == {"_doc", "files"}, COVERAGE
+    files = loaded["files"]
+    assert isinstance(files, dict) and files, COVERAGE
+    return files
 
 
 def _judging() -> list[str]:
-    return sorted(path for path, says in _covered().items() if says == _word("JUDGING"))
+    return sorted(path for path, says in _covered().items() if says == JUDGING)
 
 
 # --- the collector ----------------------------------------------------------
@@ -243,9 +277,50 @@ def test_a_new_file_nobody_covered_is_named() -> None:
 
 
 def test_every_file_is_judging_or_says_why_not_from_the_closed_list() -> None:
-    allowed = {_word("JUDGING"), *_closed("NOT_JUDGING_REASONS")}
+    allowed = {JUDGING, *NOT_JUDGING_REASONS}
     for path, says in _covered().items():
         assert says in allowed, (path, says)
+
+
+def test_the_bookkeeping_of_files_does_not_ship() -> None:
+    assert "covered" not in _document(), (
+        "which files are judged is development state: it is kept in "
+        f"{COVERAGE.name} beside this test, never in the installed package"
+    )
+
+
+def test_a_file_said_to_hold_no_number_holds_none_the_check_can_see() -> None:
+    holding = {
+        path: sorted(_numbers_of(path))
+        for path, says in _covered().items()
+        if says == NO_NUMBER and _numbers_of(path)
+    }
+    assert holding == {}, (
+        f"these files are said to hold no number, and do: {holding}; mark each "
+        "judging and classify its numbers"
+    )
+
+
+def _licensed(path: str) -> bool:
+    """Whether a licence file sits in the folder of ``path`` or one above it."""
+    folder = (SRC / path).parent
+    while folder != SRC.parent:
+        if any(folder.glob("LICENSE*")):
+            return True
+        folder = folder.parent
+    return False
+
+
+def test_a_file_said_to_be_third_party_sits_beside_its_authors_licence() -> None:
+    unlicensed = sorted(
+        path
+        for path, says in _covered().items()
+        if says == THIRD_PARTY and not _licensed(path)
+    )
+    assert unlicensed == [], (
+        f"these files are said to be third-party code and no licence of their "
+        f"author is beside them: {unlicensed}"
+    )
 
 
 def test_every_number_a_judging_file_holds_is_classified() -> None:
@@ -283,6 +358,16 @@ def test_every_entry_is_of_a_kind_from_the_closed_list_and_says_what_it_is() -> 
         assert says.endswith(".") and " " in says, where
 
 
+def test_every_fact_names_what_makes_it_one() -> None:
+    for where, entry in _constants().items():
+        if entry["kind"] != "fact":
+            continue
+        assert entry.get("reason") in _closed("FACT_REASONS"), (
+            f"{where}: a fact names what makes it true on any machine, from "
+            f"the closed list, not {entry.get('reason')!r}"
+        )
+
+
 def test_every_choice_says_how_it_is_set_or_why_nobody_needs_to() -> None:
     constants = _constants()
     for where, entry in constants.items():
@@ -302,8 +387,16 @@ def test_every_choice_says_how_it_is_set_or_why_nobody_needs_to() -> None:
         duplicate = has_reason and entry["reason"] == _word("DUPLICATE_REASON")
         assert ("same_as" in entry) == duplicate, where
         if duplicate:
-            assert entry["same_as"] in constants, (where, entry["same_as"])
+            original = constants.get(entry["same_as"])
+            assert original is not None, (where, entry["same_as"])
             assert entry["same_as"] != where, where
+            assert original["kind"] == entry["kind"], (
+                f"{where} repeats {entry['same_as']}, which is of another kind"
+            )
+            assert original.get("reason") != _word("DUPLICATE_REASON"), (
+                f"{where} repeats {entry['same_as']}, itself a duplicate: name "
+                "the entry it repeats"
+            )
 
 
 def test_every_estimate_in_code_names_the_number_it_moves_to() -> None:
@@ -344,11 +437,22 @@ def _flags() -> set[str]:
     }
 
 
-def _is_a_key(key: str, keys: dict[str, str]) -> bool:
-    """A declared key, or a key inside a declared free-form mapping."""
+def _strings_of_the_package() -> set[str]:
+    """Every string constant the package's code spells, docstrings included."""
+    return {
+        node.value
+        for path in SRC.rglob("*.py")
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+
+
+def _is_a_key(key: str, keys: dict[str, str], strings: set[str]) -> bool:
+    """A declared key, or a key inside a declared free-form mapping that the
+    code reads: the last part of the key is spelled as a whole string."""
     if key in keys:
         return True
-    return any(
+    return key.rpartition(".")[2] in strings and any(
         key.startswith(f"{name}.") and kind == "mapping" for name, kind in keys.items()
     )
 
@@ -357,25 +461,38 @@ def test_every_setting_named_is_one_a_user_can_write() -> None:
     config_keys = _config_keys(config.SCHEMA)
     contract_keys = _config_keys(contract.SCHEMA)
     flags = _flags()
+    strings = _strings_of_the_package()
     for where, entry in _constants().items():
         if "set_by" not in entry:
             continue
         source, _, key = str(entry["set_by"]).partition(" ")
         assert source in _closed("SETTING_SOURCES"), (where, source)
         if source == "config":
-            assert _is_a_key(key, config_keys), (where, key)
+            assert _is_a_key(key, config_keys, strings), (where, key)
         elif source == "contract":
-            assert _is_a_key(key, contract_keys), (where, key)
+            assert _is_a_key(key, contract_keys, strings), (where, key)
         else:
             assert key in flags, (where, key)
+
+
+def test_a_setting_under_a_free_form_mapping_is_one_the_code_reads() -> None:
+    keys = {"units": "block", "units.launch": "mapping"}
+    assert _is_a_key("units.launch.width", keys, {"width"})
+    assert not _is_a_key("units.launch.width", keys, {"height"})
+    assert not _is_a_key("units.other.width", keys, {"width"})
 
 
 def test_the_closed_lists_are_short_and_say_what_they_mean() -> None:
     assert _closed("NUMBER_KINDS") == ("fact", "choice", "estimate")
     assert set(_OPTIONAL) == set(_closed("NUMBER_KINDS"))
     assert _word("DUPLICATE_REASON") in _closed("CHOICE_REASONS")
-    assert _word("JUDGING") not in _closed("NOT_JUDGING_REASONS")
-    for words in (*_closed("CHOICE_REASONS"), *_closed("NOT_JUDGING_REASONS")):
+    assert JUDGING not in NOT_JUDGING_REASONS
+    assert not set(_closed("FACT_REASONS")) & set(_closed("CHOICE_REASONS"))
+    for words in (
+        *_closed("FACT_REASONS"),
+        *_closed("CHOICE_REASONS"),
+        *NOT_JUDGING_REASONS,
+    ):
         assert isinstance(words, str) and words == words.strip() and " " in words
 
 
@@ -418,6 +535,16 @@ class Holder:
     def method(self, width=18):
         inside = 19
         return inside
+
+if (WALRUS := 21):
+    pass
+for LOOPED in (22,):
+    pass
+
+def maker():
+    class Local:
+        HIDDEN = 23
+    return Local
 """
 
 
@@ -445,7 +572,18 @@ def test_the_collector_finds_every_shape_it_is_written_for() -> None:
 
 def test_the_collector_is_blind_where_its_docstring_says() -> None:
     found = numbers_in(_INVENTED)
-    for unseen in ("TEXT", "FLAG", "Holder.flag", "outer(fourth)", "outer(fifth)"):
+    for unseen in (
+        "TEXT",
+        "FLAG",
+        "Holder.flag",
+        "outer(fourth)",
+        "outer(fifth)",
+        "WALRUS",
+        "LOOPED",
+        "HIDDEN",
+        "Local.HIDDEN",
+        "maker.Local.HIDDEN",
+    ):
         assert unseen not in found, unseen
     assert not any("local" in where or "inside" in where for where in found)
     assert not any("inner" in where for where in found)
