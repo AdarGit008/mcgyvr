@@ -433,7 +433,8 @@ def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
             notes.append(
                 f"{GPU_SIZE_UNDETERMINED} for {_quoted(name)}: nvidia-smi "
                 f"printed its memory.total as {_quoted(size)}. The card is "
-                f"listed, but it is not sized against; bind VRAM by hand for it."
+                f"listed, but no model is sized against it: bind a unit to it by "
+                f"hand, stating the card room it needs as `room_mib`."
             )
             continue
         try:

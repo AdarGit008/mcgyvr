@@ -363,9 +363,10 @@ def test_the_detect_command_prints_every_card_and_every_note(
 
 
 def _refusal(tmp_path: Path, found: Detection) -> str:
+    """The refusal's words, with its line wrapping read as plain spaces."""
     with pytest.raises(InitError) as refused:
         initialize(tmp_path / "setup", detection=found, table=load_table())
-    return str(refused.value)
+    return " ".join(str(refused.value).split())
 
 
 def test_a_refusal_over_a_remote_holder_says_why_its_model_is_not_bound(
@@ -395,7 +396,7 @@ def test_a_refusal_over_a_remote_holder_says_why_its_model_is_not_bound(
     text = _refusal(tmp_path, found)
     assert "on this machine" not in text
     assert model.id in text
-    assert rejected[model.id] in text
+    assert " ".join(rejected[model.id].split()) in text
 
 
 def _holders(*names_and_ports: tuple[str, int]) -> tuple[Backend, ...]:

@@ -193,63 +193,112 @@ def _api_setup_rejected(api_units: Sequence[ApiUnit], why: ConfigError) -> str:
     )
 
 
+def _listing(names: Sequence[str]) -> str:
+    """``A``, ``A and B``, ``A, B and C``."""
+    if len(names) < 2:
+        return "".join(names)
+    return f"{', '.join(names[:-1])} and {names[-1]}"
+
+
 def _nothing_to_bind(
-    detection: Detection, why: ConfigError, table: CapabilityTable
+    detection: Detection,
+    why: ConfigError,
+    table: CapabilityTable,
+    proposal: Proposal,
 ) -> str:
     """Say what was tried, what is missing, and what to do about it.
 
     Only the fixes that apply are offered: starting a local backend is not
-    offered while one answers, and a card whose memory size was not
-    determined gets the one fix that needs no size read off it, a unit bound
-    by hand that states the card room it needs.
+    offered while one answers, and a machine whose card cannot be sized
+    against, while a backend answers on it, gets the one fix that needs no
+    size read off a card, a unit bound by hand that states the card room it
+    needs. A backend on another machine that holds a model is given the
+    reason the proposal gave for not binding that model there.
     """
     measured = {model.id for model in table.models if model.is_measured}
-    holding = [b.name for b in detection.backends if measured & set(b.models)]
+    local = [b for b in detection.backends if b.is_local]
+    local_holders = [b.name for b in local if measured & set(b.models)]
+    remote_holders = [
+        b for b in detection.backends if not b.is_local and measured & set(b.models)
+    ]
     if detection.backends:
         found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
-        if not holding:
+        if not local_holders and not remote_holders:
             situation = (
                 f"Reachable backends: {found} — but nothing in the capability "
                 f"table can be bound to them, and none of them reports holding "
                 f"a measured model."
             )
-        elif detection.largest_vram_gb is None:
-            situation = (
-                f"Reachable backends: {found} — {', '.join(holding)} reports "
-                f"holding a measured model, but a backend on this machine is "
-                f"bound only to a model that fits this machine's card, and no "
-                f"card here has a known memory size to fit it against."
-            )
         else:
-            situation = (
-                f"Reachable backends: {found} — {', '.join(holding)} reports "
-                f"holding a measured model, but nothing in the capability "
-                f"table that fits this machine's card can be bound to them."
-            )
+            said = [f"Reachable backends: {found}."]
+            if local_holders:
+                holds = "reports" if len(local_holders) == 1 else "report"
+                them = "it" if len(local_holders) == 1 else "them"
+                if detection.largest_vram_gb is None:
+                    said.append(
+                        f"{_listing(local_holders)} {holds} holding a model the "
+                        f"table lists, but a backend on this machine is bound "
+                        f"only to a model that fits this machine's card, and no "
+                        f"card here has a known memory size to fit it against."
+                    )
+                else:
+                    said.append(
+                        f"{_listing(local_holders)} {holds} holding a model the "
+                        f"table lists, but nothing in the capability table that "
+                        f"fits this machine's card can be bound to {them}."
+                    )
+            reasons = {r.model: r.reason for r in proposal.rejected}
+            for backend in remote_holders:
+                for model in (m for m in backend.models if m in measured):
+                    reason = reasons.get(model)
+                    if reason is not None:
+                        said.append(
+                            f"{backend.name} on {backend.host} reports holding "
+                            f"{model}, which is not bound there: {reason.rstrip('.')}."
+                        )
+            situation = " ".join(said)
     else:
         situation = "No local backend answered on any default endpoint."
 
+    unsized = [gpu.name for gpu in detection.gpus if gpu.vram_gb is None]
     if detection.largest_vram_gb is not None:
         vram = f"{detection.largest_vram_gb:g} GB of VRAM"
-    elif detection.gpus:
-        cards = ", ".join(gpu.name for gpu in detection.gpus)
-        vram = f"a GPU whose memory size was not determined ({cards})"
+    elif len(unsized) == 1:
+        vram = f"a GPU whose memory size was not determined ({unsized[0]})"
+    elif unsized:
+        vram = f"GPUs whose memory sizes were not determined ({_listing(unsized)})"
     else:
         vram = "no GPU this build can see"
 
-    by_hand = ""
-    if detection.gpus and detection.largest_vram_gb is None:
-        cards = ", ".join(gpu.name for gpu in detection.gpus)
-        by_hand = (
-            f"  - bind a unit by hand: the memory size of {cards} was not\n"
-            f"    determined, so init sizes no model against it. A unit in\n"
-            f"    fleet.yaml under `units` states its `address`, the `model` it\n"
-            f"    serves and `room_mib`, the card room it needs in MiB, measured\n"
-            f"    or stated; `ladder` in policy.yaml names it, or\n"
+    if len(unsized) == 1:
+        cause = (
+            f"the memory size of {unsized[0]} was not determined, so init "
+            f"sizes no model against it."
         )
+    elif unsized:
+        cause = (
+            f"the memory sizes of {_listing(unsized)} were not determined, so "
+            f"init sizes no model against them."
+        )
+    elif not detection.gpus and local:
+        cause = (
+            "no card on this machine could be read, so init sizes no model against one."
+        )
+    else:
+        cause = ""
+    by_hand = ""
+    if cause:
+        text = (
+            f"bind a unit by hand: {cause} A unit in fleet.yaml under `units` "
+            f"states its `address`, the `model` it serves and `room_mib`, the "
+            f"card room it needs in MiB, measured or stated; `ladder` in "
+            f"policy.yaml names it, or"
+        )
+        lines = textwrap.wrap(text, width=70)
+        by_hand = "  - " + "\n    ".join(lines) + "\n"
     start = (
         ""
-        if any(backend.is_local for backend in detection.backends)
+        if local
         else (
             "  - start a local backend (llama-server, vLLM, LM Studio, "
             "TGI) and re-run, or\n"
@@ -748,7 +797,7 @@ def initialize(
         # "start a local backend" would send someone to fix the wrong thing.
         if asked:
             raise InitError(_api_setup_rejected(asked, exc)) from exc
-        raise InitError(_nothing_to_bind(found, exc, capability)) from exc
+        raise InitError(_nothing_to_bind(found, exc, capability, proposal)) from exc
 
     fleet_path = path / FLEET_FILENAME
     policy_path = path / POLICY_FILENAME

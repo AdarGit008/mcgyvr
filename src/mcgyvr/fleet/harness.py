@@ -122,11 +122,16 @@ REPLY_QUOTED_AT_MOST = 200
 
 
 def _bounded(text: str) -> str:
-    """``text``, cut in the middle when longer than :data:`REPLY_QUOTED_AT_MOST`."""
-    if len(text) <= REPLY_QUOTED_AT_MOST:
-        return text
+    """``text`` escaped, cut in the middle when longer than the bound.
+
+    Escaped as ``repr`` escapes it, so no control character a server sent
+    reaches a terminal as it is; the bound is :data:`REPLY_QUOTED_AT_MOST`.
+    """
+    shown = repr(text)
+    if len(shown) <= REPLY_QUOTED_AT_MOST:
+        return shown
     keep = (REPLY_QUOTED_AT_MOST - len(" ... ")) // 2
-    return f"{text[:keep]} ... {text[-keep:]}"
+    return f"{shown[:keep]} ... {shown[-keep:]}"
 
 
 def _json_answer(request: str | urllib.request.Request, timeout: float | None) -> Any:
