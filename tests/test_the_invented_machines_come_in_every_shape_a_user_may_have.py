@@ -185,6 +185,12 @@ def test_card_reader_text_answers_the_query_detection_asks() -> None:
     )
 
 
+def test_the_card_reader_takes_its_query_by_keyword_only() -> None:
+    reader: Any = card_reader_text
+    with pytest.raises(TypeError):
+        reader(shape("one-card").cards, "name")
+
+
 def test_the_card_reader_refuses_by_name_what_it_does_not_answer() -> None:
     cards = shape("busy-card").cards
     with pytest.raises(ValueError, match="'pid'"):
@@ -258,7 +264,13 @@ def test_a_scan_and_a_detection_of_one_machine_agree_on_its_cards(
 
 @contextmanager
 def _nothing_of_this_machine_is_asked() -> Iterator[list[str]]:
-    """Every way out to this machine fails the test, even if caught inside."""
+    """Three ways out to this machine fail the test, even if caught inside.
+
+    The three patched here are ``subprocess.run``, ``urllib.request.urlopen``
+    and ``shutil.which``. Any other way out is not guarded by this; what holds
+    the rest is the field assertions of the test that uses it, which require
+    every field a machine could leak into to be absent or the shape's own.
+    """
     asked: list[str] = []
 
     def forbidden(name: str) -> Callable[..., Any]:
@@ -301,6 +313,28 @@ def test_nothing_of_the_machine_the_tests_run_on_gets_into_what_is_reported(
         machine.host,
         machine_shapes._KERNEL,
     )
+
+
+def test_every_card_has_the_figures_the_size_rule_gives_its_model() -> None:
+    """The vendor, total and reserve of every card are what the helper's own
+    table of models and its size rule give for the card's name, so a size
+    written straight into a shape fails here."""
+    table = machine_shapes._MODELS
+    names = [name for name, _, _ in table]
+    assert len(names) == len(set(names)), names
+    position_of = {name: position for position, name in enumerate(names)}
+    cards = [card for m in shapes() for card in m.cards]
+    assert cards
+    for card in cards:
+        assert card.name in position_of, card.name
+        position = position_of[card.name]
+        _, vendor, nominal = table[position]
+        assert card.vendor == vendor, card
+        if nominal is None:
+            assert (card.total_mib, card.reserved_mib) == (None, 0), card
+        else:
+            assert card.total_mib == machine_shapes._total_mib(nominal, position)
+            assert card.reserved_mib == machine_shapes._reserved_mib(position)
 
 
 # 5. Busy cards, reserves and free memory.
@@ -357,7 +391,7 @@ def _holder(mib: int, pid: int = 1) -> Holder:
         (lambda: _card(index=-1), "negative index"),
         (lambda: _card(total_mib=-1), "negative total"),
         (lambda: _card(reserved_mib=-1), "negative reserve"),
-        (lambda: _card(holders=(_holder(-5),)), "holds a negative"),
+        (lambda: _holder(-5), "holds -5 MiB, a negative amount"),
         (lambda: _card(holders=(_holder(1), _holder(1))), "share a process id"),
         (
             lambda: _card(total_mib=None, holders=(_holder(1),)),
@@ -374,6 +408,14 @@ def _holder(mib: int, pid: int = 1) -> Holder:
             "more than the 3900 MiB",
         ),
         (lambda: _holder(1, pid=0), "not positive"),
+        (
+            lambda: _card(name="Example Card\nZ"),
+            "a line break in its name, which this helper does not model",
+        ),
+        (
+            lambda: _card(name="Example Card, Z"),
+            "a comma in its name, which this helper does not model",
+        ),
     ],
     ids=[
         "unknown-vendor",
@@ -388,6 +430,8 @@ def _holder(mib: int, pid: int = 1) -> Holder:
         "holders-over-total",
         "holders-over-room",
         "pid-not-positive",
+        "line-break-in-name",
+        "comma-in-name",
     ],
 )
 def test_a_card_that_contradicts_itself_is_refused_by_name(
@@ -407,6 +451,19 @@ def _kind_and_port() -> tuple[str, int]:
     [
         ({"local": False}, "contradicts host"),
         ({"host": "box-9.example"}, "contradicts host"),
+        (
+            {"host": "127.0.0.1", "local": False},
+            "host '127.0.0.1' is one the product holds to be this machine",
+        ),
+        (
+            {"host": "127.0.0.1", "local": True},
+            "host '127.0.0.1' is one the product holds to be this machine",
+        ),
+        (
+            {"host": "::1", "local": False},
+            "host '::1' is one the product holds to be this machine",
+        ),
+        ({"host": "", "local": False}, "an empty host"),
         ({"cards": (_card(), _card())}, "two vendor-a cards with index 0"),
         (
             {
@@ -437,12 +494,17 @@ def _kind_and_port() -> tuple[str, int]:
                     ),
                 )
             },
-            "probes",
+            f"a {_kind_and_port()[0]} server on port 1; the product probes "
+            f"{_kind_and_port()[0]} on port {_kind_and_port()[1]} only",
         ),
     ],
     ids=[
         "local-false-on-localhost",
         "local-true-on-a-far-host",
+        "loopback-address-not-local",
+        "loopback-address-local",
+        "loopback-v6-not-local",
+        "empty-host",
         "two-cards-one-index",
         "server-elsewhere",
         "unknown-server-kind",
@@ -454,6 +516,15 @@ def test_a_shape_that_contradicts_itself_is_refused_by_name(
 ) -> None:
     with pytest.raises(ValueError, match=re.escape(message)):
         dataclasses.replace(shape("bare"), **change)
+
+
+def test_the_hosts_refused_as_loopback_are_ones_the_product_holds_local() -> None:
+    """The refusal above follows the product's own rule, not a copy of it."""
+    for host in ("127.0.0.1", "::1"):
+        held = detect.Backend(
+            name="example", base_url="", api="", models=(), how="", host=host
+        )
+        assert held.is_local, host
 
 
 def test_two_cards_of_one_index_are_accepted_when_their_vendors_differ() -> None:
