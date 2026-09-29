@@ -148,6 +148,9 @@ SEEN: dict[str, tuple[str, ...]] = {
         "not viable below ~10 GB",
         "a 32 GB class nobody declared",
         "needs ≥20 GB",
+        "a 16GB card",
+        "a 124GB card",
+        "on a 24GB card",
     ),
     "an amount of a card's memory a server held": (
         "at 22.5 GB total",
@@ -168,8 +171,12 @@ SEEN: dict[str, tuple[str, ...]] = {
     "a card's memory bandwidth": (
         "bounded by 900 GB/s",
         "448 GB per second",
+        "912GB/s",
     ),
 }
+
+#: Names an invented table might declare for a class: a label and an id.
+INVENTED_NAMES: tuple[str, ...] = ("24 GB class", "24gb")
 
 #: Invented texts no shape may see: a model's size, speeds, ratios, a hit rate,
 #: a qualitative share of a card, and a card named by its class.
@@ -195,13 +202,31 @@ def test_each_shape_sees_what_it_is_for(shape: str, text: str) -> None:
     assert CARD_SHAPES[shape].search(text), (shape, text)
 
 
+@pytest.mark.parametrize(
+    ("shape", "text"),
+    [(shape, text) for shape, texts in SEEN.items() for text in texts],
+)
+def test_a_shape_stays_seen_once_the_class_names_are_taken_out(
+    shape: str, text: str
+) -> None:
+    """A size that contains a declared name, or a card named by one, is still
+    a card's size: taking the class names out must not hide it."""
+    for names in (_declared_names(), INVENTED_NAMES):
+        assert shape in _shapes_in(text, names), (shape, text, names)
+
+
 @pytest.mark.parametrize("text", UNSEEN)
 def test_no_shape_sees_a_models_size_a_speed_or_a_class(text: str) -> None:
     assert not _shapes_in(text, ()), text
 
 
 def test_a_class_label_is_taken_out_and_an_undeclared_size_is_not() -> None:
-    names = ("24 GB class", "24gb")
+    names = INVENTED_NAMES
+    size = ["a card's memory size"]
 
     assert not _shapes_in("on a card of the 24 GB class", names)
-    assert _shapes_in("on a card of the 10 GB class", names) == ["a card's memory size"]
+    assert not _shapes_in("on a card of the 24gb class", names)
+    assert _shapes_in("on a card of the 10 GB class", names) == size
+    assert _shapes_in("on a card of the 124 GB class", names) == size
+    assert _shapes_in("on a 24GB card", names) == size
+    assert _shapes_in("a 124GB card", names) == size
