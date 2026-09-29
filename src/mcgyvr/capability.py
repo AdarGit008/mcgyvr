@@ -621,6 +621,8 @@ def load(path: Path | None = None) -> CapabilityTable:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
         raise CapabilityTableError(f"cannot read {path}: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise CapabilityTableError(f"{path} is not UTF-8 text: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise CapabilityTableError(f"{path} is not valid JSON: {exc}") from exc
 
