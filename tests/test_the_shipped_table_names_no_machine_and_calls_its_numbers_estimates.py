@@ -24,10 +24,12 @@ Promises:
 
    What these checks cannot see: a machine, a card model, a vendor or a host
    named in the prose of a declared field (a note, a class label or id, a
-   caveat's detail); a date written in a form the shapes do not know; a number
+   caveat's detail); a date written in a form the shapes do not know (a
+   two-digit year, a month and a year alone, dots between the parts); a number
    that belongs to one card (a core count, a memory bandwidth). Those are the
    word guard's and the reviewer's. The address shape cannot tell a four-part
-   version number from an address, and would refuse one.
+   version number from an address, and would refuse one; the date shape would
+   refuse a run of small numbers that ends in four digits, such as 1/2/2048.
 3. What the product prints about the shipped table calls its numbers estimates
    and never calls them measurements: the header of ``mcgyvr capabilities``
    carries the notice the capability module states and names the card classes
@@ -54,7 +56,7 @@ _MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
 MACHINE_SHAPES: dict[str, re.Pattern[str]] = {
     "a calendar date": re.compile(
         r"\b\d{4}-\d{2}-\d{2}\b"
-        r"|\b\d{1,2}/\d{1,2}/\d{2,4}\b"
+        r"|\b\d{1,2}/\d{1,2}/\d{4}\b"
         rf"|\b\d{{1,2}} {_MONTH} \d{{4}}\b"
         rf"|\b{_MONTH} \d{{1,2}},? \d{{4}}\b",
         re.IGNORECASE,
