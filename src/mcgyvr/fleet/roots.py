@@ -20,22 +20,38 @@ runtime".
 
 Every reader of a lock asks :func:`lock_root`; none reads the working
 directory, because a lock found there is a lock nobody promoted.
+
+mcgyvr keeps two folders on the machine it runs on, and the user may move
+either: settings in the config folder (:func:`home`: ``$MCGYVR_HOME``, else
+``~/.mcgyvr``), and its own files in the data folder (:func:`data_home`:
+``$MCGYVR_DATA``, else ``$XDG_STATE_HOME/mcgyvr``, else
+``~/.local/state/mcgyvr``). ``~/.mcgyvr`` above is the config folder's
+default.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date
 from pathlib import Path
 
-#: mcgyvr's own directory on this machine.
+#: The variable that moves the config folder, and the folder when it is unset.
+HOME_ENV = "MCGYVR_HOME"
 HOME_DIR = "~/.mcgyvr"
-#: Where each live fleet folder sits under it.
+#: The variable that moves the data folder; with it unset, the folder is
+#: :data:`DATA_NAME` under the XDG state folder, whose own default is
+#: :data:`DATA_DIR`'s parent.
+DATA_ENV = "MCGYVR_DATA"
+STATE_ENV = "XDG_STATE_HOME"
+DATA_NAME = "mcgyvr"
+DATA_DIR = f"~/.local/state/{DATA_NAME}"
+#: Where each live fleet folder sits under the config folder.
 FLEETS_DIR = "fleets"
 #: The pointer naming the fleet live runs.
 LIVE_FILE = "live.json"
-#: The two as help text names them.
+#: The two as help text names them, under the config folder's default.
 FLEETS_SHOWN = f"{HOME_DIR}/{FLEETS_DIR}"
 LIVE_FILE_SHOWN = f"{HOME_DIR}/{LIVE_FILE}"
 #: What separates a fleet from the date of its lock in a promoted folder's name.
@@ -48,18 +64,71 @@ class LiveFleetError(Exception):
     """``~/.mcgyvr/live.json`` is there and does not name a fleet."""
 
 
+class FolderError(RuntimeError):
+    """A variable that moves one of mcgyvr's folders names no usable folder.
+
+    A ``RuntimeError``, as an unresolvable HOME already is for every reader of
+    these folders.
+    """
+
+
+def _named(variable: str, default: str) -> Path | None:
+    """The folder ``variable`` names, or ``None`` when it is unset or empty.
+
+    Absolute after ``~`` is expanded, or refused: a relative folder is a
+    different folder from each working directory, and the door's gates run
+    from another directory than the command that opened it.
+    """
+    value = os.environ.get(variable)
+    if not value:
+        return None
+    try:
+        path = Path(value).expanduser()
+    except RuntimeError as exc:
+        raise FolderError(f"${variable}={value!r} cannot be expanded: {exc}") from exc
+    if not path.is_absolute():
+        raise FolderError(
+            f"${variable}={value!r} is not an absolute path, so it would name "
+            f"a different folder from each working directory; name the folder "
+            f"by an absolute path, or unset {variable} to use {default}"
+        )
+    return path
+
+
 def home() -> Path:
-    """``~/.mcgyvr``, expanded against the current HOME."""
-    return Path(HOME_DIR).expanduser()
+    """The config folder: ``$MCGYVR_HOME``, else ``~/.mcgyvr``.
+
+    The lease a served machine keeps on itself is not in this folder and never
+    follows the variable: it is :data:`mcgyvr.serving.gatelib.LEASE_FILE`,
+    named from that machine's own home.
+    """
+    named = _named(HOME_ENV, HOME_DIR)
+    return named if named is not None else Path(HOME_DIR).expanduser()
+
+
+def data_home() -> Path:
+    """The data folder: ``$MCGYVR_DATA``, else ``$XDG_STATE_HOME/mcgyvr``, else
+    ``~/.local/state/mcgyvr``.
+
+    An ``$XDG_STATE_HOME`` that is not absolute is ignored, as the XDG base
+    directory convention says.
+    """
+    named = _named(DATA_ENV, DATA_DIR)
+    if named is not None:
+        return named
+    state = os.environ.get(STATE_ENV)
+    if state and Path(state).is_absolute():
+        return Path(state) / DATA_NAME
+    return Path(DATA_DIR).expanduser()
 
 
 def fleets_dir() -> Path:
-    """``~/.mcgyvr/fleets``: one folder per promoted fleet."""
+    """``<config folder>/fleets``: one folder per promoted fleet."""
     return home() / FLEETS_DIR
 
 
 def live_file() -> Path:
-    """``~/.mcgyvr/live.json``: which promoted fleet live runs."""
+    """``<config folder>/live.json``: which promoted fleet live runs."""
     return home() / LIVE_FILE
 
 
@@ -150,7 +219,7 @@ def lock_root(profile: str) -> Path | None:
 
 
 def is_live(path: Path) -> bool:
-    """Whether ``path`` is ``~/.mcgyvr`` or lies under it."""
+    """Whether ``path`` is the config folder or lies under it."""
     live = home().resolve()
     resolved = path.expanduser().resolve()
     return resolved == live or resolved.is_relative_to(live)
