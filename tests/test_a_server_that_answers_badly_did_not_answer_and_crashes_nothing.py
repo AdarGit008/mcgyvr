@@ -2,22 +2,34 @@
 
 The promise: a server that answers badly — a body that ends before the length
 it stated, a status line that is not one, a connection closed before any byte,
-a reply that is not JSON, a reply that is JSON of another shape — is reported
-as a server that did not answer properly, never as a crash.
+a reply that is not JSON, a reply nested deeper than the JSON reader follows —
+is reported as a server that did not answer properly, never as a crash.
 
 Two readers make that promise here:
 
 * :mod:`mcgyvr.detect`, whose sweep asks every conventional port of a host what
   it serves. One misbehaving server on a swept port must not end the sweep; it
-  is "nothing usable is listening" (``None``), like a refused port.
+  is "nothing usable is listening" (``None``), like a refused port. A reply
+  that is JSON of another shape than a model listing (a list, a number, an
+  object with no list of models) is not a server that failed to answer: it
+  answered at the address asked, so it is a backend that names no model. That
+  is the difference :mod:`mcgyvr.initialize` and :mod:`mcgyvr.propose` act on:
+  a reachable backend that names no model is a place a model may be pulled
+  onto, and nothing listening is not. (JSON ``null`` alone reads as nothing
+  listening, because the reader's ``None`` stands for both.)
 * :mod:`mcgyvr.fleet.harness`, which measures a unit at its address. Its model
   list and its requests fail as :class:`~mcgyvr.fleet.harness.HarnessError`
-  naming the address; its status pages read as ``None`` (a page that could not
-  be read), the way an unreachable page already does.
+  naming the address, and so does a measurement given JSON of another shape,
+  which is not the answer it asked for. The error quotes a bounded part of
+  what the server sent. Its status pages read as ``None`` (a page that could
+  not be read), the way an unreachable page already does.
 
 Every bad reply comes from a one-shot server on the loopback address, started
-inside the test on a port the kernel picks. It reads one request, sends its
-bytes, and closes: no sleep and no timing decides anything.
+inside the test on a port the kernel picks. It reads one request, its headers
+and its body, sends its bytes at once, and closes. No sleep is used, and no
+timeout decides an outcome: a bad reply read too slowly is a timeout, which is
+the same outcome, and the one reply that must arrive whole is given a generous
+timeout.
 """
 
 from __future__ import annotations
@@ -27,6 +39,7 @@ import socket
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Any
 
 import pytest
 
@@ -35,6 +48,9 @@ from mcgyvr.fleet import harness
 
 #: Short: every reply below is sent and closed at once, so nothing waits on it.
 TIMEOUT_S = 0.5
+#: For the one reply that must arrive whole, so a loaded machine cannot turn a
+#: good answer into a timeout.
+GENEROUS_TIMEOUT_S = 30.0
 
 _JSON_HEAD = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
 
@@ -53,6 +69,17 @@ NOT_JSON = _reply(b"<html>a page, not a document</html>")
 JSON_OF_ANOTHER_SHAPE = _reply(
     json.dumps(["a", "list", "not", "a", "listing"]).encode()
 )
+#: Deeper than the JSON reader follows on every supported Python. The reader
+#: gives up with ``RecursionError`` somewhere between a thousand and fifty
+#: thousand levels, by interpreter version; four times the deepest of those is
+#: still a body of a few hundred kilobytes, read in milliseconds. The test
+#: below checks that this depth does cross the limit of the Python running it.
+NESTING_DEPTH = 200_000
+DEEPLY_NESTED_BODY = b"[" * NESTING_DEPTH + b"]" * NESTING_DEPTH
+DEEPLY_NESTED = _reply(DEEPLY_NESTED_BODY)
+#: A status line tens of kilobytes long, under the length the HTTP client
+#: refuses outright, so it is quoted back in the error it raises.
+LONG_BAD_STATUS_LINE = b"NOT A STATUS " + b"x" * 60_000 + b"\r\n\r\n"
 
 #: Replies that can never be read as JSON, whatever the reader wanted from them.
 UNREADABLE = {
@@ -60,6 +87,7 @@ UNREADABLE = {
     "a status line that is not one": NOT_A_STATUS_LINE,
     "a connection closed before any byte": CLOSED_BEFORE_ANY_BYTE,
     "a reply that is not JSON": NOT_JSON,
+    "a reply nested deeper than the JSON reader follows": DEEPLY_NESTED,
 }
 EVERY_BAD_REPLY = {
     **UNREADABLE,
@@ -72,6 +100,15 @@ def _no_proxy_between(monkeypatch: pytest.MonkeyPatch) -> None:
     """The reply under test comes from the loopback server, not a proxy."""
     for name in ("http_proxy", "HTTP_PROXY", "all_proxy", "ALL_PROXY"):
         monkeypatch.delenv(name, raising=False)
+
+
+def _stated_length(head: bytes) -> int:
+    """The Content-Length a request's headers state, 0 when they state none."""
+    for line in head.split(b"\r\n")[1:]:
+        name, _, value = line.partition(b":")
+        if name.strip().lower() == b"content-length":
+            return int(value.strip())
+    return 0
 
 
 @contextmanager
@@ -97,6 +134,13 @@ def answering(reply: bytes) -> Iterator[str]:
                     if not chunk:
                         break
                     received += chunk
+                head, _, body = received.partition(b"\r\n\r\n")
+                stated = _stated_length(head)
+                while len(body) < stated:
+                    chunk = connection.recv(65536)
+                    if not chunk:
+                        break
+                    body += chunk
                 if reply:
                     connection.sendall(reply)
             except OSError:
@@ -127,12 +171,31 @@ def test_a_probe_of_a_bad_reply_finds_no_backend(reply: bytes) -> None:
         assert detect.probe(target, TIMEOUT_S) is None
 
 
-def test_a_listing_of_another_shape_names_no_model() -> None:
-    """JSON that is not a model listing yields no model id, and no crash."""
-    with answering(JSON_OF_ANOTHER_SHAPE) as base:
+def test_the_nesting_crosses_the_json_readers_limit_here() -> None:
+    """The deeply nested reply is a real case on the Python running this."""
+    with pytest.raises(RecursionError):
+        json.loads(DEEPLY_NESTED_BODY)
+
+
+#: JSON that answers, but is not a model listing.
+OTHER_SHAPES = {
+    "a list": ["a", "list", "not", "a", "listing"],
+    "a number": 7,
+    "an object whose data is not a list": {"data": None},
+    "an object with no data": {"object": "list"},
+}
+
+
+@pytest.mark.parametrize("payload", OTHER_SHAPES.values(), ids=OTHER_SHAPES.keys())
+def test_a_listing_of_another_shape_is_a_backend_that_names_no_model(
+    payload: object,
+) -> None:
+    """It answered at the address asked, so it is a backend, with no model."""
+    with answering(_reply(json.dumps(payload).encode())) as base:
         target = detect.ProbeTarget("invented", base, "openai", host="127.0.0.1")
-        found = detect.probe(target, TIMEOUT_S)
-    assert found is None or found.models == ()
+        found = detect.probe(target, GENEROUS_TIMEOUT_S)
+    assert found is not None
+    assert (found.base_url, found.models) == (base, ())
 
 
 def test_one_bad_server_in_a_sweep_does_not_end_the_sweep() -> None:
@@ -143,7 +206,7 @@ def test_one_bad_server_in_a_sweep_does_not_end_the_sweep() -> None:
             detect.ProbeTarget("good", good, "openai", host="127.0.0.1"),
             detect.ProbeTarget("bad", bad, "openai", host="127.0.0.1"),
         )
-        found = detect.probe_all(targets, TIMEOUT_S)
+        found = detect.probe_all(targets, GENEROUS_TIMEOUT_S)
     assert [(b.name, b.models) for b in found] == [("good", ("invented-model",))]
 
 
@@ -159,6 +222,19 @@ def test_the_harness_model_list_fails_as_a_harness_error_naming_the_address(
         with pytest.raises(harness.HarnessError) as raised:
             harness.HttpTransport().get(url, TIMEOUT_S)
     assert url in str(raised.value)
+
+
+def test_a_harness_error_quotes_a_bounded_part_of_what_the_server_sent() -> None:
+    """A status line of any length makes an error of bounded length."""
+    with answering(LONG_BAD_STATUS_LINE) as base:
+        url = f"{base}/v1/models"
+        with pytest.raises(harness.HarnessError) as raised:
+            harness.HttpTransport().get(url, TIMEOUT_S)
+    said = str(raised.value)
+    assert url in said
+    # Typed loosely until the harness declares its bound.
+    declared: Any = harness
+    assert len(said) <= len(url) + declared.REPLY_QUOTED_AT_MOST + 100
 
 
 @pytest.mark.parametrize("reply", UNREADABLE.values(), ids=UNREADABLE.keys())
