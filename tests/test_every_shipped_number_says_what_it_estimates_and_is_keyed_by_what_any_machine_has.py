@@ -7,7 +7,8 @@ other field. Its keys come from a closed key space of the module (an engine, a
 tolerance class), never from a machine's name, so any machine has one. Every
 key the code can ask for is stated, and every value is a finite number inside
 its unit's bounds. A value outside them, in any shipped-shaped file, is refused
-by name. Nothing here restates a shipped value: the file is read.
+by name, spelling only the start of what it refuses. Nothing here restates a
+shipped value: the file is read.
 """
 
 from __future__ import annotations
@@ -254,3 +255,28 @@ def test_a_broken_shipped_unit_is_reported_against_the_shipped_file(
     assert "invented_unit" in text and "furlongs" in text
     assert str(path) in text
     assert str(user) not in text
+
+
+#: A text far longer than any refusal needs to show of it.
+_LONG = "x" * 100_000
+
+
+@pytest.mark.parametrize("field", ["schema", "unit", "key", "values", "a key"])
+def test_a_shipped_refusal_spells_only_the_start_of_what_it_refuses(
+    field: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    nf.use_invented_spaces(monkeypatch)
+    entry = nf.Entry(id="invented_long", unit="GiB", key="lone", values={"only": 1.0})
+    document = nf.document([entry])
+    body = document["numbers"]["invented_long"]
+    if field == "schema":
+        document["schema"] = _LONG
+    elif field == "a key":
+        body["values"] = {_LONG: 1.0}
+    else:
+        body[field] = _LONG
+    path = nf.write_json(tmp_path / "shipped.json", document)
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.lookup("invented_long", "only", path=path)
+    assert str(path) in str(was.value)
+    assert len(str(was.value)) < len(str(path)) + 1_000
