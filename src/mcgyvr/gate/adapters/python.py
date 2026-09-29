@@ -44,15 +44,21 @@ _EXTENSIONS = (".py", ".pyi")
 #: and a second opinion cannot guarantee the re-run gate accepts.
 RUFF = "ruff"
 
-#: The basic default a repository that declares no ruff configuration is judged
-#: by: this project's own nine families (owner, 2026-09-05), with pycodestyle
-#: narrowed for the reason stated at the bottom of this comment. ruff with no
-#: configuration enables a different and larger rule set — TRY004 among it,
-#: which rejects raising ``ValueError`` where the worker bundle says to.
-#: ``tools/bench/score.py`` (``lint_config``) writes the same selection into
-#: every bench workspace. A repository that states its own ``[tool.ruff]``,
-#: ``ruff.toml`` or ``.ruff.toml`` keeps it, whatever it selects: the default is
-#: for the repository that said nothing.
+#: The product's default rule selection, for a repository that states no ruff
+#: configuration of its own. It is stated here rather than left to ruff,
+#: because ruff with no configuration enables a different and larger rule set —
+#: TRY004 among it, which rejects raising ``ValueError`` where the worker bundle
+#: says to. pycodestyle is narrowed for the reason stated at the bottom of this
+#: comment. A repository that states its own ``[tool.ruff]``, ``ruff.toml`` or
+#: ``.ruff.toml`` keeps it, whatever it selects: the default is for the
+#: repository that said nothing.
+#:
+#: This selection is also the only one the lint rung softens. Under it, UP006
+#: and UP035 on a deprecated ``typing`` spelling, and an I001 on the line of
+#: such an import, are reported and do not refuse the change
+#: (:data:`~mcgyvr.gate.typecheck.STYLE_LINT_CODES`). A repository's own
+#: configuration is judged as it says: one that selects those rules refuses the
+#: change under them, like any other rule it selects.
 #:
 #: **pycodestyle is spelled ``E4``/``E7``/``E9``, not ``E``, and that is not a
 #: typo.** The whole ``E`` family carries E501, line-too-long, and E501 is the
@@ -72,7 +78,7 @@ RUFF = "ruff"
 #:
 #: Narrowing the select rather than adding ``lint.ignore = ["E501"]`` — the
 #: other honest spelling — because the ignore is a trap at this call site.
-#: Measured on ruff 0.16.6: a ``--config lint.ignore`` that *follows* a
+#: In ruff 0.16, a ``--config lint.ignore`` that *follows* a
 #: ``--config lint.select`` on the same command line is silently discarded, and
 #: :func:`ruff_config_args` appends in exactly that order. The ignore would
 #: read correctly and change nothing, which is the hole that looks like a pass.
@@ -129,7 +135,7 @@ def ruff_config_args(repo: Path) -> list[str]:
     ``line-length`` is here for the formatter, not for a lint threshold: it is
     the width ``ruff format`` wraps code to on both rungs below, and the default
     selection does not carry E501 (see :data:`DEFAULT_RUFF_SELECT`). Nothing
-    may be appended after ``lint.select``: measured on ruff 0.16.6, a later
+    may be appended after ``lint.select``: in ruff 0.16, a later
     ``--config lint.ignore`` on the same command line is silently discarded."""
     if declares_ruff_config(repo):
         return []
@@ -226,11 +232,15 @@ class PythonAdapter(LanguageAdapter):
         if not files:
             return []
         ruff = require_tool(RUFF)
+        # Read once: the same answer decides how ruff runs and, below, whether
+        # the demotion applies. It is empty exactly when the repository states
+        # its own ruff configuration.
+        config_args = ruff_config_args(repo)
         proc = subprocess.run(
             [
                 ruff,
                 "check",
-                *ruff_config_args(repo),
+                *config_args,
                 "--output-format=json",
                 "--force-exclude",
                 "--",
@@ -256,6 +266,11 @@ class PythonAdapter(LanguageAdapter):
                 RUFF, proc.returncode, f"stdout is not JSON: {exc}"
             ) from exc
         added = _added_by_resolved_path(files, repo)
+        # The demotion below is the product's, so it holds only where the
+        # product's selection does. A repository that states its own ruff
+        # configuration is judged as that configuration says: a UP006, UP035
+        # or I001 it selects refuses the change like any other code it selects.
+        shipped_default = bool(config_args)
         unimportable = _Unimportable(repo)
         deprecated_typing = _DeprecatedTyping(repo)
         findings: list[Finding] = []
@@ -268,25 +283,29 @@ class PythonAdapter(LanguageAdapter):
             path, added_lines = rel
             if row in added_lines:
                 code = diag.get("code")
-                # A demotable code is only demoted where the line it sits on is
-                # a style fault. UP035 is one code over two faults, and its
-                # other half — `from collections import Mapping` — is an
-                # ImportError that this line withdraws the demotion for. The
-                # AST family reports it too, on the same line and the same
-                # side of the verdict, so a machine with ruff and a machine
-                # without one reject the same change — and the two voices,
-                # where both are heard, are not saying opposite things.
+                # Under the shipped default, a demotable code is only demoted
+                # where the line it sits on is a style fault. UP035 is one code
+                # over two faults, and its other half —
+                # `from collections import Mapping` — is an ImportError that
+                # this line withdraws the demotion for. The AST family reports
+                # it too, on the same line and the same side of the verdict, so
+                # a machine with ruff and a machine without one reject the same
+                # change — and the two voices, where both are heard, are not
+                # saying opposite things.
                 #
-                # I001 is the same shape in the other direction. On the
-                # `from typing import Mapping` half, ruff reports the
-                # deprecated spelling and an I001 on the same import statement;
-                # demoting only UP035 would still reject the same style line
-                # under a second code. The grant is keyed on the line holding a
-                # deprecated `from typing import X`, so a genuinely unsorted
-                # import block away from such a line still rejects.
-                demoted = (
-                    code in STYLE_LINT_CODES and row not in unimportable.at(path)
-                ) or (code == "I001" and row in deprecated_typing.at(path))
+                # I001 is the same shape in the other direction. ruff reports
+                # it on the first line of an import block that is unsorted or
+                # unformatted, not for the spelling: a deprecated
+                # `from typing import X` with one blank line before a function
+                # draws UP035 and I001 on the same line, and with two blank
+                # lines UP035 alone. The grant is keyed on the line holding a
+                # deprecated `from typing import X`: an I001 on any other line
+                # still rejects, and one on such a line is reported, including
+                # a genuinely unsorted block that starts there.
+                demoted = shipped_default and (
+                    (code in STYLE_LINT_CODES and row not in unimportable.at(path))
+                    or (code == "I001" and row in deprecated_typing.at(path))
+                )
                 findings.append(
                     Finding(
                         check=STYLE if demoted else "lint",

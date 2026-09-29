@@ -1,16 +1,17 @@
 """A repo that declares no ruff configuration is linted by a basic default,
 not by everything ruff knows.
 
-``tools/bench/score.py`` (``lint_config``) writes the live gate's floor into
-every bench workspace: this project's own nine families (``pyproject.toml``),
-with pycodestyle narrowed to ``E4``/``E7``/``E9`` so that E501 is not in it. A
-repo that states its own ruff config keeps it, whatever it selects:
-the default is for the repo that said nothing.
+The product states its default rule selection,
+``mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT``, and hands it to ruff for a
+repo that states no ruff configuration of its own, with pycodestyle narrowed to
+``E4``/``E7``/``E9`` so that E501 is not in it. A repo that states its own ruff
+config keeps it, whatever it selects: the default is for the repo that said
+nothing.
 
-Why E501 is out is argued at
-``mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`` and held to by
+Why E501 is out is argued at ``DEFAULT_RUFF_SELECT`` and held to by
 ``tests/test_a_line_the_formatter_cannot_wrap_is_not_a_rejection.py``. This file
-pins only that the floor is stated and is this project's own.
+pins that the default is stated and handed to ruff, and that a repo's own
+configuration is kept.
 """
 
 from __future__ import annotations
