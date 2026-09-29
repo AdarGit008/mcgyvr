@@ -57,8 +57,8 @@ or a benchmark goes wrong. They are kept rather than deleted because
 the failures are instructive and repeatable, and `mcgyvr capabilities` prints
 each one's summary. One of them bears on the fit listing:
 
-- **CAV-04** — a marginal VRAM fit degrades rather than failing, which makes
-  it look like a working binding.
+- **CAV-04** — a marginal fit on a card can run markedly slower rather than
+  fail, which makes it look like a working binding.
 
 ## Revising the estimates
 

@@ -126,8 +126,8 @@ class CapabilityTable:
     def fitting(self, vram_gb: float, headroom_gb: float = 2.0) -> list[Model]:
         """The rows that fit in ``vram_gb`` with room to work, in table order.
 
-        ``headroom_gb`` guards CAV-04: a marginal fit degrades badly rather
-        than failing outright, which makes it look like a working binding.
+        ``headroom_gb`` guards CAV-04: a marginal fit can run markedly slower
+        rather than fail, which makes it look like a working binding.
         The headroom is ABSOLUTE, not a fraction of the card, because what
         it reserves — KV cache for the context window — is sized by tokens,
         not by the card.
