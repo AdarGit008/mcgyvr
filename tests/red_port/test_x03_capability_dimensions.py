@@ -45,12 +45,14 @@ The table is handed over as a **path**, so the test also holds that
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from tests.red_port.conftest import required
+from tests.table_fixture import CLASSES, reading, table_document, write_table
+
+CLASS = str(CLASSES[0]["id"])
 
 DIMENSION = "say which capability dimension a task type needs"
 SELECT = (
@@ -95,17 +97,8 @@ def _model(
         "quant": "q4_K_M",
         "weights_gb": 4.0,
         "vram_gb_working": 5.0,
-        "quality": [
-            {
-                "humaneval_plus_pass1": quality,
-                "backend": "ollama",
-                "rig": "rig_a",
-                "date": "2026-08-28",
-            }
-        ],
-        "throughput_tok_s": [
-            {"value": 60.0, "backend": "ollama", "rig": "rig_a", "date": "2026-08-28"}
-        ],
+        "quality": [reading(CLASS, humaneval_plus_pass1=quality)],
+        "throughput_tok_s": [reading(CLASS, value=60.0)],
         "notes": "fixture row",
     }
     if capabilities is not None:
@@ -114,11 +107,7 @@ def _model(
 
 
 def _table(tmp_path: Path, *models: dict[str, Any]) -> Path:
-    path = tmp_path / "capability-table.json"
-    path.write_text(
-        json.dumps({"schema_version": 1, "models": list(models)}), encoding="utf-8"
-    )
-    return path
+    return write_table(tmp_path, table_document(rows=list(models)))
 
 
 def _refusal(call: Callable[[], Any]) -> str:

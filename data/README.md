@@ -1,10 +1,10 @@
-# Shipped data — provenance
+# Shipped data
 
 Three files ship as data rather than as code:
-`capability-table.json` (measured model capability, below),
-`task-catalog.json` (the vocabulary of what mcgyvr can be asked to do, after
-it) and `numbers.json` (the estimates mcgyvr sizes and judges a machine with,
-at the end of this file).
+`capability-table.json` (estimates, by card class, of what a model costs and
+how well it codes, below), `task-catalog.json` (the vocabulary of what mcgyvr
+can be asked to do, after it) and `numbers.json` (the estimates mcgyvr sizes
+and judges a machine with, at the end of this file).
 
 ## Capability data
 
@@ -13,19 +13,35 @@ so that setup can propose worker bindings from detected hardware **without
 benchmarking the user's machine**, which would turn an install into a
 benchmarking session.
 
-## Where the numbers come from
+## What its numbers are
 
-Every model and backend measurement was taken in
-[`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai), on two rigs
-described in the table's `measurement_rigs`, whose `ram_gb` was re-read in
-this project (see its `_correction`). Each quality and throughput row carries
-its rig and date. Quality is HumanEval+ pass@1, greedy decoding, EvalPlus
-v0.4.0.dev44, 164 tasks. Throughput is generation rate in tokens per second; a
-row's `note` says when it is not a single request (the 489 tok/s vLLM row is an
-aggregate at 16 concurrent requests).
+Every figure in the table is an **estimate**. None is a reading of your
+machine.
 
-A model with no valid measurement carries an empty `quality` array rather
-than a guess.
+- **A card class.** Each quality and speed figure names the card class it is
+  given for (`card_class`), and each class is declared once in
+  `card_classes` with an id, a label and the nominal memory of its cards.
+- **One card per class.** One card was read for each class, so a class is a
+  rough guide. Speed depends on the card, not only on its memory: two cards
+  with the same memory can differ a lot.
+- **Through another server program.** Each figure's `backend` says which
+  server program it was taken through. Most were taken through one this
+  product does not run, with a file of the same model, usually of the same
+  quantisation type; a reading's `note` says when it was not. That file is
+  not necessarily the one you will serve.
+- **Ratios more than absolutes.** Read the speed figures as ratios between
+  models (which is faster, and by roughly how much; how much a marginal fit
+  costs) rather than as the speed your card will reach.
+- **No provenance here.** Where and when the figures were taken is not
+  recorded in the product.
+
+Quality is HumanEval+ pass@1, greedy decoding, EvalPlus v0.4.0.dev44, 164
+tasks. Speed is generation rate in tokens per second; a figure's `note` says
+when it is not a single request (one vLLM figure is an aggregate at 16
+concurrent requests).
+
+A model with no valid quality figure carries an empty `quality` array rather
+than a guess, and is never proposed.
 
 ## What the table is not
 
@@ -36,20 +52,16 @@ repository it can see, on multi-hunk edits, or on instruction adherence
 under a constrained output protocol. Treat it as an ordering, not a
 prediction.
 
-Two rigs is a small sample. The throughput figures are specific to those two
-GPUs and are present to express *ratios* (a small model is ~2.4x faster on the
-small card; a marginal fit costs ~1.9x) rather than absolute expectations.
-
-## Known-bad measurements
+## Known-bad figures
 
 The table carries a `harness_caveats` block, and models carry
 `invalid_measurements` / `disputed_measurements` arrays alongside their valid
-ones. These are kept rather than deleted because the failures are
+figures. These are kept rather than deleted because the failures are
 instructive and repeatable:
 
 - **CAV-01** — Ollama's `/api/generate` returns invalid HumanEval+ scores for
-  Qwen2.5-Coder 7B and larger (32.3% vs a true 84.1%). Anyone regenerating
-  this table through that path will silently produce a table that routes away
+  Qwen2.5-Coder 7B and larger (32.3% vs a true 84.1%). Anyone revising these
+  estimates through that path will silently produce a table that routes away
   from the best models available.
 - **CAV-02** — `qwen3-coder-30b-a3b` left to Ollama's tag resolution spills
   to CPU on a 12 GB card and scores 3.7%; the model must be bound to an
@@ -60,13 +72,13 @@ instructive and repeatable:
 - **CAV-04** — a marginal VRAM fit degrades rather than failing, which makes
   it look like a working binding.
 
-## Regenerating
+## Revising the estimates
 
-There is no regeneration script in this repo, by design: `mcgyvr init`
-consumes this table and does not produce it. When re-measuring, use an
-OpenAI-compatible endpoint (llama-server or vLLM) rather than a
-backend-native generate API, and pin quantization explicitly — CAV-01 and
-CAV-02 are both consequences of not doing so.
+There is no regeneration script: the file is edited by hand when the project
+revises its estimates. `mcgyvr init` reads it and never writes it. When taking
+new figures, use an OpenAI-compatible endpoint (llama-server or vLLM) rather
+than a backend-native generate API, and pin the quantisation explicitly —
+CAV-01 and CAV-02 are both consequences of not doing so.
 
 
 # The decomposition catalog — validation

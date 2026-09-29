@@ -6,13 +6,14 @@ reaches a small card, that an unmeasured model is never bound — are claims
 about that data as much as about this code. A fixture would let the table
 drift out from under them.
 
-The two cards are the table's own measurement rigs: 6 GB (rig_a) and 12 GB
-(rig_b).
+The two cards are the sizes of the smallest and the largest card class the
+table declares, read from it.
 """
 
 from __future__ import annotations
 
 import inspect
+import re
 from itertools import pairwise
 
 import pytest
@@ -27,9 +28,6 @@ from mcgyvr.propose import (
     propose,
 )
 
-SMALL_CARD = 6.0
-BIG_CARD = 12.0
-
 OLLAMA = AvailableSource("local", "ollama")
 LLAMA_SERVER = AvailableSource("local-gguf", "llama-server")
 MOE = "qwen3-coder-30b-a3b"
@@ -41,18 +39,32 @@ def table():  # type: ignore[no-untyped-def]
     return load()
 
 
+@pytest.fixture
+def small_card(table) -> float:  # type: ignore[no-untyped-def]
+    """The size of the smallest card class the table declares."""
+    return float(min(c.memory_gb for c in table.card_classes))
+
+
+@pytest.fixture
+def big_card(table) -> float:  # type: ignore[no-untyped-def]
+    """The size of the largest card class the table declares."""
+    return float(max(c.memory_gb for c in table.card_classes))
+
+
 # --- the ladder must not invert ------------------------------------------
 
 
-def test_a_twelve_gb_card_gets_a_ladder_that_does_not_invert(table) -> None:  # type: ignore[no-untyped-def]
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER])
+def test_a_twelve_gb_card_gets_a_ladder_that_does_not_invert(table, big_card) -> None:  # type: ignore[no-untyped-def]
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA, LLAMA_SERVER])
     qualities = [r.quality for r in proposal.rungs]
     assert qualities == sorted(qualities), "rungs must climb in measured quality"
     assert len(set(qualities)) == len(qualities), "two rungs at one quality is one rung"
 
 
-def test_every_step_up_clears_the_measurable_separation_floor(table) -> None:  # type: ignore[no-untyped-def]
-    for card in (SMALL_CARD, BIG_CARD):
+def test_every_step_up_clears_the_measurable_separation_floor(  # type: ignore[no-untyped-def]
+    table, small_card, big_card
+) -> None:
+    for card in (small_card, big_card):
         rungs = propose(table, vram_gb=card, sources=[OLLAMA, LLAMA_SERVER]).rungs
         for lower, higher in pairwise(rungs):
             gap = higher.quality - lower.quality
@@ -62,20 +74,20 @@ def test_every_step_up_clears_the_measurable_separation_floor(table) -> None:  #
             )
 
 
-def test_the_worked_inversion_case_is_never_bound(table) -> None:  # type: ignore[no-untyped-def]
+def test_the_worked_inversion_case_is_never_bound(table, big_card) -> None:  # type: ignore[no-untyped-def]
     """deepseek-coder-v2:16b — 9.4 GB for 72.6% against the 7B's 5.0 GB for 84.1%.
 
     It fits a 12 GB card, so only the gradient rule keeps it out. A ladder
     built on size would place it above the 7B and make escalation harmful.
     """
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA])
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA])
     assert INVERTER not in [r.model for r in proposal.rungs]
     reason = proposal.why(INVERTER)
     assert reason is not None and "dominated by" in reason
 
 
-def test_a_dominated_model_names_what_beat_it(table) -> None:  # type: ignore[no-untyped-def]
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA])
+def test_a_dominated_model_names_what_beat_it(table, big_card) -> None:  # type: ignore[no-untyped-def]
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA])
     reason = proposal.why(INVERTER)
     assert reason is not None
     assert "qwen2.5-coder:7b" in reason
@@ -84,9 +96,11 @@ def test_a_dominated_model_names_what_beat_it(table) -> None:  # type: ignore[no
 
 def test_the_ceiling_is_never_dropped_for_sitting_close_to_a_cheaper_rung(  # type: ignore[no-untyped-def]
     table,
+    small_card,
+    big_card,
 ) -> None:
     """Selection runs downward from the best model that fits."""
-    for card in (SMALL_CARD, BIG_CARD):
+    for card in (small_card, big_card):
         proposal = propose(table, vram_gb=card, sources=[OLLAMA, LLAMA_SERVER])
         best_available = max(
             (m.best_quality or 0.0)
@@ -98,6 +112,7 @@ def test_the_ceiling_is_never_dropped_for_sitting_close_to_a_cheaper_rung(  # ty
 
 def test_a_model_is_never_eliminated_by_a_candidate_that_is_itself_dropped(  # type: ignore[no-untyped-def]
     table,
+    big_card,
 ) -> None:
     """Regression: the 7B was being removed by the MoE, which then also went.
 
@@ -106,20 +121,35 @@ def test_a_model_is_never_eliminated_by_a_candidate_that_is_itself_dropped(  # t
     12 GB card with no 84.1% middle rung at all — eliminated by a model that
     never made the ladder.
     """
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER])
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA, LLAMA_SERVER])
     bound = [r.model for r in proposal.rungs]
     assert "qwen2.5-coder:7b" in bound
     assert MOE not in bound
 
 
-def test_at_equal_quality_the_faster_model_is_the_rung(table) -> None:  # type: ignore[no-untyped-def]
-    """14B and the MoE both measure 87.8%; on a card that fits both, speed decides."""
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER])
-    assert proposal.rungs[-1].model == "qwen2.5-coder:14b"
-    reason = proposal.why(MOE)
-    assert reason is not None
-    assert "same measured quality" in reason
-    assert "slower" in reason
+def test_at_equal_quality_the_faster_model_is_the_rung(table, big_card) -> None:  # type: ignore[no-untyped-def]
+    """Two models estimated at the same quality both fit: speed decides.
+
+    The tied pair is read from the table rather than named here: every model
+    that shares the top rung's quality and was not bound says it lost on speed.
+    """
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA, LLAMA_SERVER])
+    top = proposal.rungs[-1]
+    tied = [
+        m
+        for m in table.models
+        if m.id != top.model and m.is_measured and m.best_quality == top.quality
+    ]
+    assert tied, "expected the table to hold a model tied with the top rung"
+    for loser in tied:
+        reason = proposal.why(loser.id)
+        assert reason is not None
+        assert top.model in reason, "the reason names the rung that won"
+        assert "same estimated quality" in reason
+        assert "slower" in reason
+        assert not re.search(r"\bhere\b", reason), (
+            "the speeds compared are the table's estimates, not this machine's"
+        )
 
 
 def test_throughput_is_not_borrowed_across_backends(table) -> None:  # type: ignore[no-untyped-def]
@@ -133,24 +163,28 @@ def test_throughput_is_not_borrowed_across_backends(table) -> None:  # type: ign
 # --- the small card gets the MoE quality rung ----------------------------
 
 
-def test_a_six_gb_card_is_proposed_the_moe_quality_rung(table) -> None:  # type: ignore[no-untyped-def]
+def test_a_six_gb_card_is_proposed_the_moe_quality_rung(table, small_card) -> None:  # type: ignore[no-untyped-def]
     """14B-class quality in ~3 GB is the whole reason a small card is viable."""
-    proposal = propose(table, vram_gb=SMALL_CARD, sources=[OLLAMA, LLAMA_SERVER])
+    proposal = propose(table, vram_gb=small_card, sources=[OLLAMA, LLAMA_SERVER])
     bound = [r.model for r in proposal.rungs]
     assert MOE in bound
     assert bound[-1] == MOE, "it is the quality ceiling on this card"
     assert proposal.rungs[-1].quality > 0.85
 
 
-def test_the_moe_rung_is_bound_to_the_backend_it_was_measured_on(table) -> None:  # type: ignore[no-untyped-def]
-    proposal = propose(table, vram_gb=SMALL_CARD, sources=[OLLAMA, LLAMA_SERVER])
+def test_the_moe_rung_is_bound_to_the_backend_it_was_measured_on(  # type: ignore[no-untyped-def]
+    table, small_card
+) -> None:
+    proposal = propose(table, vram_gb=small_card, sources=[OLLAMA, LLAMA_SERVER])
     rung = next(r for r in proposal.rungs if r.model == MOE)
     assert rung.source == LLAMA_SERVER.name
 
 
-def test_without_llama_server_the_moe_rung_is_withheld_and_explained(table) -> None:  # type: ignore[no-untyped-def]
+def test_without_llama_server_the_moe_rung_is_withheld_and_explained(  # type: ignore[no-untyped-def]
+    table, small_card
+) -> None:
     """CAV-02: ollama resolves it to F16, which scored 3.7%. Wrong, not worse."""
-    proposal = propose(table, vram_gb=SMALL_CARD, sources=[OLLAMA])
+    proposal = propose(table, vram_gb=small_card, sources=[OLLAMA])
     assert MOE not in [r.model for r in proposal.rungs]
     reason = proposal.why(MOE)
     assert reason is not None
@@ -159,11 +193,11 @@ def test_without_llama_server_the_moe_rung_is_withheld_and_explained(table) -> N
     assert proposal.rungs, "the card still gets a working ladder without it"
 
 
-def test_a_six_gb_card_still_gets_a_working_ladder(table) -> None:  # type: ignore[no-untyped-def]
-    proposal = propose(table, vram_gb=SMALL_CARD, sources=[OLLAMA, LLAMA_SERVER])
+def test_a_six_gb_card_still_gets_a_working_ladder(table, small_card) -> None:  # type: ignore[no-untyped-def]
+    proposal = propose(table, vram_gb=small_card, sources=[OLLAMA, LLAMA_SERVER])
     assert len(proposal.rungs) >= 2
     for rung in proposal.rungs:
-        assert rung.vram_gb + 2.0 <= SMALL_CARD
+        assert rung.vram_gb + 2.0 <= small_card
 
 
 # --- unmeasured models are never proposed --------------------------------
@@ -179,16 +213,21 @@ def test_no_unmeasured_model_is_ever_bound(table) -> None:  # type: ignore[no-un
 def test_a_withheld_model_says_it_was_withheld_on_purpose(table) -> None:  # type: ignore[no-untyped-def]
     """Silence would read as an oversight rather than as a decision."""
     proposal = propose(table, vram_gb=80.0, sources=[OLLAMA, LLAMA_SERVER])
-    reason = proposal.why("gpt-oss-20b")
-    assert reason is not None
-    assert "no valid quality measurement" in reason
+    withheld = [m.id for m in table.models if not m.is_measured]
+    assert withheld, "expected the table to hold back at least one model"
+    for model_id in withheld:
+        reason = proposal.why(model_id)
+        assert reason is not None
+        assert "no valid quality estimate" in reason
 
 
 # --- a machine with no local backend is coherent, not an error -----------
 
 
-def test_no_backend_yields_an_empty_local_ladder_rather_than_an_error(table) -> None:  # type: ignore[no-untyped-def]
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[])
+def test_no_backend_yields_an_empty_local_ladder_rather_than_an_error(  # type: ignore[no-untyped-def]
+    table, big_card
+) -> None:
+    proposal = propose(table, vram_gb=big_card, sources=[])
     assert proposal.is_local_empty
     assert proposal.rungs == ()
     assert any("No local backend is reachable" in n for n in proposal.notes)
@@ -207,16 +246,15 @@ def test_a_card_too_small_for_anything_is_still_not_an_error(table) -> None:  # 
     assert proposal.is_local_empty
     assert proposal.rejected, "and it says what did not fit"
     assert all(
-        "does not fit" in r.reason or "measurement" in r.reason
-        for r in proposal.rejected
+        "does not fit" in r.reason or "estimate" in r.reason for r in proposal.rejected
     )
 
 
 # --- every binding states why, and what it costs -------------------------
 
 
-def test_every_rung_states_fit_quality_and_presence(table) -> None:  # type: ignore[no-untyped-def]
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER])
+def test_every_rung_states_fit_quality_and_presence(table, big_card) -> None:  # type: ignore[no-untyped-def]
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA, LLAMA_SERVER])
     for rung in proposal.rungs:
         joined = " ".join(rung.reasons)
         assert "fit:" in joined
@@ -225,19 +263,19 @@ def test_every_rung_states_fit_quality_and_presence(table) -> None:  # type: ign
         assert "already pulled" in joined or "needs pulling" in joined
 
 
-def test_already_pulled_models_are_reported_as_such(table) -> None:  # type: ignore[no-untyped-def]
+def test_already_pulled_models_are_reported_as_such(table, big_card) -> None:  # type: ignore[no-untyped-def]
     stocked = AvailableSource(
         "local", "ollama", frozenset({"qwen2.5-coder:7b", "qwen2.5-coder:3b"})
     )
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[stocked])
+    proposal = propose(table, vram_gb=big_card, sources=[stocked])
     present = {r.model for r in proposal.rungs if r.already_present}
     assert "qwen2.5-coder:7b" in present
     rung = next(r for r in proposal.rungs if r.model == "qwen2.5-coder:7b")
     assert any("already pulled on local" in reason for reason in rung.reasons)
 
 
-def test_what_must_be_pulled_is_named_with_its_size(table) -> None:  # type: ignore[no-untyped-def]
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA])
+def test_what_must_be_pulled_is_named_with_its_size(table, big_card) -> None:  # type: ignore[no-untyped-def]
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA])
     assert proposal.must_pull
     assert proposal.download_gb > 0
     notes = " ".join(proposal.notes)
@@ -246,7 +284,9 @@ def test_what_must_be_pulled_is_named_with_its_size(table) -> None:  # type: ign
         assert rung.model in notes
 
 
-def test_the_proposal_warns_a_number_does_not_make_a_server_parallel(table) -> None:  # type: ignore[no-untyped-def]
+def test_the_proposal_warns_a_number_does_not_make_a_server_parallel(  # type: ignore[no-untyped-def]
+    table, big_card
+) -> None:
     """#23's third scope bullet: CON-02, stated where the operator will read it.
 
     The failure it warns about is the invisible kind — a single-slot server
@@ -255,7 +295,7 @@ def test_the_proposal_warns_a_number_does_not_make_a_server_parallel(table) -> N
     because the config schema already carries CON-01's good news about distinct
     models, and good news is the half that gets remembered.
     """
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA])
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA])
     notes = " ".join(proposal.notes)
 
     assert "CON-02" in notes
@@ -271,12 +311,12 @@ def test_a_machine_with_no_ladder_gets_no_concurrency_advice(table) -> None:  # 
     assert not any("CON-02" in note for note in proposal.notes)
 
 
-def test_presence_breaks_ties_without_overriding_the_gradient(table) -> None:  # type: ignore[no-untyped-def]
+def test_presence_breaks_ties_without_overriding_the_gradient(table, big_card) -> None:  # type: ignore[no-untyped-def]
     """A download is a one-time cost; a weaker rung is a permanent one."""
-    bare = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA])
+    bare = propose(table, vram_gb=big_card, sources=[OLLAMA])
     stocked = propose(
         table,
-        vram_gb=BIG_CARD,
+        vram_gb=big_card,
         sources=[AvailableSource("local", "ollama", frozenset({INVERTER}))],
     )
     assert [r.model for r in bare.rungs] == [r.model for r in stocked.rungs], (
@@ -284,9 +324,9 @@ def test_presence_breaks_ties_without_overriding_the_gradient(table) -> None:  #
     )
 
 
-def test_rungs_are_named_by_what_they_are(table) -> None:  # type: ignore[no-untyped-def]
+def test_rungs_are_named_by_what_they_are(table, big_card) -> None:  # type: ignore[no-untyped-def]
     """`<role>_<locality>_<model>` — a name that survives inserting a rung."""
-    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER])
+    proposal = propose(table, vram_gb=big_card, sources=[OLLAMA, LLAMA_SERVER])
     assert [r.name for r in proposal.rungs] == [
         "local_qwen2.5-coder-1.5b",
         "local_qwen2.5-coder-3b",
@@ -317,9 +357,9 @@ def test_a_tier_name_carries_no_role_token() -> None:
     assert "role" not in inspect.signature(binding_name).parameters
 
 
-def test_rung_names_are_unique_within_a_proposal(table) -> None:  # type: ignore[no-untyped-def]
+def test_rung_names_are_unique_within_a_proposal(table, small_card, big_card) -> None:  # type: ignore[no-untyped-def]
     """The config loader rejects duplicate tier names, so this must hold."""
-    for card in (SMALL_CARD, BIG_CARD):
+    for card in (small_card, big_card):
         names = [
             r.name
             for r in propose(table, vram_gb=card, sources=[OLLAMA, LLAMA_SERVER]).rungs
@@ -327,35 +367,35 @@ def test_rung_names_are_unique_within_a_proposal(table) -> None:  # type: ignore
         assert len(names) == len(set(names))
 
 
-def test_the_proposal_is_deterministic(table) -> None:  # type: ignore[no-untyped-def]
+def test_the_proposal_is_deterministic(table, big_card) -> None:  # type: ignore[no-untyped-def]
     """Same inputs, same ladder — a proposal that wobbles cannot be reviewed."""
     runs = [
-        propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER]).rungs
+        propose(table, vram_gb=big_card, sources=[OLLAMA, LLAMA_SERVER]).rungs
         for _ in range(5)
     ]
     assert all(r == runs[0] for r in runs)
 
 
-def test_headroom_is_respected_on_every_rung(table) -> None:  # type: ignore[no-untyped-def]
+def test_headroom_is_respected_on_every_rung(table, small_card) -> None:  # type: ignore[no-untyped-def]
     """CAV-04: a marginal fit degrades rather than failing outright."""
-    proposal = propose(table, vram_gb=SMALL_CARD, sources=[OLLAMA, LLAMA_SERVER])
+    proposal = propose(table, vram_gb=small_card, sources=[OLLAMA, LLAMA_SERVER])
     for rung in proposal.rungs:
-        assert rung.vram_gb + 2.0 <= SMALL_CARD
+        assert rung.vram_gb + 2.0 <= small_card
 
 
 # --- a rig on another machine is not sized against this one's card (#161) ---
 
 REMOTE_BIG = AvailableSource(
-    "srv2_ollama",
+    "host-b_ollama",
     "ollama",
     frozenset({"qwen2.5-coder:7b", "qwen2.5-coder:3b"}),
-    host="srv2",
+    host="host-b",
 )
 REMOTE_SMALL = AvailableSource(
-    "srv1_ollama",
+    "host-a_ollama",
     "ollama",
     frozenset({"qwen2.5-coder:3b", "qwen2.5-coder:1.5b"}),
-    host="srv1",
+    host="host-a",
 )
 
 
@@ -368,7 +408,7 @@ def test_a_remote_rig_yields_a_ladder_with_no_gpu_here(table) -> None:  # type: 
     proposal = propose(table, vram_gb=None, sources=[REMOTE_BIG])
     assert proposal.rungs, "a reachable rig is a bindable rig"
     assert {r.model for r in proposal.rungs} <= REMOTE_BIG.models_present
-    assert all(r.host == "srv2" for r in proposal.rungs)
+    assert all(r.host == REMOTE_BIG.host for r in proposal.rungs)
 
 
 def test_a_remote_rig_admits_only_what_it_reports_holding(table) -> None:  # type: ignore[no-untyped-def]
@@ -383,7 +423,9 @@ def test_an_unmeasured_model_is_not_admitted_by_being_served(table) -> None:  # 
     unmeasured = [m.id for m in table.models if not m.is_measured]
     if not unmeasured:
         pytest.skip("the shipped table currently measures every model")
-    rig = AvailableSource("srv1_ollama", "ollama", frozenset(unmeasured), host="srv1")
+    rig = AvailableSource(
+        "host-a_ollama", "ollama", frozenset(unmeasured), host="host-a"
+    )
     proposal = propose(table, vram_gb=None, sources=[rig])
     assert all(r.model not in unmeasured for r in proposal.rungs)
 
@@ -423,7 +465,9 @@ def test_an_arbitrary_placement_says_it_was_arbitrary(table) -> None:  # type: i
     joined = " ".join(shared.reasons)
     assert "placement:" in joined
     assert "first host named" in joined
-    assert shared.host == "srv1", "first named wins, and the reason admits it"
+    assert shared.host == REMOTE_SMALL.host, (
+        "first named wins, and the reason admits it"
+    )
 
 
 def test_a_sole_holder_is_not_reported_as_a_coin_toss(table) -> None:  # type: ignore[no-untyped-def]
@@ -432,9 +476,9 @@ def test_a_sole_holder_is_not_reported_as_a_coin_toss(table) -> None:  # type: i
     assert not any("placement:" in reason for reason in sole.reasons)
 
 
-def test_a_remote_fit_never_cites_this_machines_card(table) -> None:  # type: ignore[no-untyped-def]
+def test_a_remote_fit_never_cites_this_machines_card(table, small_card) -> None:  # type: ignore[no-untyped-def]
     """Citing the local card for a remote rung describes the wrong machine."""
-    proposal = propose(table, vram_gb=SMALL_CARD, sources=[REMOTE_BIG])
+    proposal = propose(table, vram_gb=small_card, sources=[REMOTE_BIG])
     for rung in proposal.rungs:
         fit = next(r for r in rung.reasons if r.startswith("fit:"))
-        assert f"{SMALL_CARD:g} GB card" not in fit
+        assert f"{small_card:g} GB card" not in fit
