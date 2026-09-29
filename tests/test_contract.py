@@ -25,6 +25,7 @@ from mcgyvr.contract import (
     dumps,
     load,
     loads,
+    output_cap,
     parse,
     task_types,
 )
@@ -153,7 +154,7 @@ def test_defaults_are_applied() -> None:
     assert contract.demonstration == ()
     assert contract.risk == "medium"
     assert contract.verification.policy == "gate_only"
-    assert contract.limits.max_output_tokens == 1024
+    assert contract.limits.max_output_tokens == output_cap(contract.task_type)
     assert contract.limits.attempts == 2
     assert contract.scope.forbid == ()
 

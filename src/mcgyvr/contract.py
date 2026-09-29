@@ -177,35 +177,47 @@ def task_type(name: str) -> CatalogTaskType:
 # before it can run.
 #
 # Two steps and not more, because two is as far as the catalog's properties
-# actually distinguish. Splitting the second — a defect fix, say, above a
-# function written from nothing — would need a measurement nobody here has
-# taken: both must write behaviour, and under `whole_file` both re-emit the
-# file around it, so a third number would be a preference wearing a budget's
-# clothes. The two that are here are a shape rather than a measurement too, and
-# generous on purpose: an unspent cap costs nothing, while truncation costs a
-# whole attempt. A reply that overflows a generous cap is a task too big for one
-# contract, which is a re-decomposition and not a larger number.
+# actually distinguish. Every type whose required evidence needs a command
+# must write what that command will judge, and under `whole_file` each re-emits
+# the file around it, so a third number among them would be a preference
+# wearing a budget's clothes.
 #
-# Moving either number is not a free re-tune. A contract's emitted form carries
-# its cap, and `sha256(dumps(contract))` is what `tools/instruments.py` joins
-# recorded runs to their task set by, so a step that moves re-keys every pinned
-# contract of every type that reads it and detaches those runs from their
-# provenance. Deliberate is fine; incidental is not.
-_STRUCTURAL_ALLOWANCE = 512
+# The numbers below are the product's defaults: chosen rather than measured,
+# and generous on purpose. An unspent cap costs nothing, while truncation costs
+# a whole attempt; a reply that overflows a generous cap is a task too big for
+# one contract, which is a re-decomposition and not a larger number.
+#
+# They are defaults in the loader's sense: what it fills in for a contract that
+# states no cap, and the figure the generated examples and the command line's
+# refusal offer as the value to start from. Omitting the cap is not accepted
+# there: `mcgyvr contract` and `mcgyvr run` refuse a model contract that
+# declares none (`mcgyvr.cli._cap_undeclared`).
+#
+# Nor are they the last word. A contract states its own cap with
+# `limits.max_output_tokens`, and a unit that declares
+# `units.<name>.output_tokens` sends that number for every contract it serves,
+# in place of the contract's (`mcgyvr.gate.preflight.reply_cap`).
+#
+# A cap derived here for a contract loaded from text is not part of that
+# contract's emitted form: `dumps` writes `null` for it, so changing these
+# numbers moves the identity of no such contract. A declared cap is emitted and
+# is part of the identity, and so is the cap of a contract built in code, whose
+# dataclass default counts as declared.
+STRUCTURAL_ALLOWANCE = 512
 """Nothing to run: the reply is prose, or an edit a parser can check."""
 
-_RUNNING_ALLOWANCE = 1024
+RUNNING_ALLOWANCE = 1024
 """A command has to run afterwards, so behaviour has to be written."""
 
 # A file that does not exist yet arrives with its declarations as well as its
 # body — the imports, the def line, the module docstring — so creating one is a
 # step dearer than editing one that is already there.
-_NEW_FILE_STEP = 512
+NEW_FILE_STEP = 512
 
 # Caps come out as whole steps, never below the floor. The floor is what a
 # deterministic type gets; the allowances above are already whole steps.
-_ROUND_TO = 128
-_MIN_CAP = 256
+CAP_STEP = 128
+MIN_CAP = 256
 
 
 def output_cap(name: str, *, new_file: bool = False) -> int:
@@ -230,13 +242,13 @@ def output_cap(name: str, *, new_file: bool = False) -> int:
         if kind.deterministic
         else max(
             (_evidence_allowance(e) for e in kind.required_evidence),
-            default=_STRUCTURAL_ALLOWANCE,
+            default=STRUCTURAL_ALLOWANCE,
         )
     )
     if allowance and new_file:
-        allowance += _NEW_FILE_STEP
-    whole_steps = ((allowance + _ROUND_TO - 1) // _ROUND_TO) * _ROUND_TO
-    return max(_MIN_CAP, whole_steps)
+        allowance += NEW_FILE_STEP
+    whole_steps = ((allowance + CAP_STEP - 1) // CAP_STEP) * CAP_STEP
+    return max(MIN_CAP, whole_steps)
 
 
 def _evidence_allowance(evidence: CatalogEvidence) -> int:
@@ -249,7 +261,7 @@ def _evidence_allowance(evidence: CatalogEvidence) -> int:
     behaviour, which has to be written before it can run. A kind matched by
     name would put the evidence vocabulary in this file too.
     """
-    return _RUNNING_ALLOWANCE if evidence.needs_commands else _STRUCTURAL_ALLOWANCE
+    return RUNNING_ALLOWANCE if evidence.needs_commands else STRUCTURAL_ALLOWANCE
 
 
 # --- the declared schema --------------------------------------------------
@@ -709,7 +721,7 @@ class Contract:
     depends_on: tuple[str, ...] = ()
     risk: str = "medium"
     verification: Verification = Verification("gate_only")
-    limits: Limits = Limits(_RUNNING_ALLOWANCE, 2)
+    limits: Limits = Limits(RUNNING_ALLOWANCE, 2)
     rename: Rename = Rename()
     max_output_tokens_declared: bool = True
 
@@ -804,17 +816,17 @@ class Contract:
 
         ``depends_on`` is emitted only when the contract states one, where
         every other key is emitted empty or not. The difference is not
-        tidiness: this form is an identity — ``tools/instruments.py`` pins
-        ``sha256(dumps(contract))`` per task as the evidence that a recorded
-        run was run against a declared instrument — so a key every contract
-        carries whether or not it means anything re-keys every contract ever
-        emitted, and several runs' provenance with them. A key that appears
-        exactly when it says something costs nothing to add later.
+        tidiness: this form is an identity — a digest of ``dumps(contract)``
+        names a contract by what it says — so a key every contract carries
+        whether or not it means anything changes that digest for every contract
+        ever emitted, and whatever was keyed by the old digest no longer finds
+        its contract. A key that appears exactly when it says something costs
+        nothing to add later.
         """
         stated = {"depends_on": sorted(self.depends_on)} if self.depends_on else {}
         # Emitted on the same rule and for the same reason: a key every
         # contract carries whether or not it means anything re-keys every
-        # contract ever emitted, and the provenance of every run with them.
+        # contract ever emitted, and every record of a run keyed by one.
         renamed = (
             {"rename": {"from": self.rename.old, "to": self.rename.new}}
             if self.rename.stated

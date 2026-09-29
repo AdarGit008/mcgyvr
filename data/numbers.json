@@ -1,0 +1,833 @@
+{
+  "_doc": "The numbers mcgyvr sizes and judges a machine with that it cannot read off the machine or the model. The `numbers` block holds some of them, and every entry of it is an estimate: a starting value shipped with mcgyvr, not a reading of your machine. Each is keyed by something every machine has (an engine, a unit's tolerance class), never by a machine's name. To use your own value, write it in numbers.yaml in mcgyvr's own folder (~/.mcgyvr/numbers.yaml), under the number's name and then its key, for example `prefill_class_pct:` and below it `vllm: 12`; your value replaces the estimate. A number of this block that neither file states is refused by name: none of them falls back to a default in code. The `constants` block says what many of the numbers still written in mcgyvr's code are, among those that size, judge, refuse, wait or pick: a fact (with what makes it one), a choice of mcgyvr (with the setting that changes it, or why there is none), or an estimate (with the number id planned for it in the `numbers` block).",
+  "schema": 1,
+  "numbers": {
+    "warm_decode_class_pct": {
+      "kind": "estimate",
+      "estimates": "How far, in percent, the warm decode speed of a healthy unit of this tolerance class may fall from one start of the unit to the next.",
+      "used_for": "A live probe that finds a unit's warm decode further than this below its locked warm decode pulls the combination the unit runs in, until that combination's validation is committed again. Writing a fleet's lock is refused when a unit's warm decode falls further than this below the baseline its evidence states for it.",
+      "unit": "percent",
+      "key": "tolerance_class",
+      "values": {
+        "vllm": 1.0,
+        "llamacpp": 1.0,
+        "cpu_experts": 48.0,
+        "mtp": 2.0
+      },
+      "note": "A starting value, not a reading of your machine. The spread between starts may differ with the engine version, the model and what else the machine is doing."
+    },
+    "prefill_class_pct": {
+      "kind": "estimate",
+      "estimates": "How far, in percent, the prefill speed of a healthy unit of this tolerance class may fall from one start of the unit to the next.",
+      "used_for": "A live probe that finds a unit's prefill further than this below its locked prefill pulls the combination the unit runs in, until that combination's validation is committed again.",
+      "unit": "percent",
+      "key": "tolerance_class",
+      "values": {
+        "vllm": 8.0,
+        "llamacpp": 1.0,
+        "cpu_experts": 1.0,
+        "mtp": 5.0
+      },
+      "note": "A starting value, not a reading of your machine. The spread between starts may differ with the engine version, the model and what else the machine is doing."
+    },
+    "runtime_resident_gb": {
+      "kind": "estimate",
+      "estimates": "Host memory, in GiB, that a llama.cpp server holds beyond the expert weights it keeps in host memory.",
+      "used_for": "Added to the host memory a llama.cpp unit is sized to need when some of its experts stay in host memory; charged only then, and never to a unit of another engine.",
+      "unit": "GiB",
+      "key": "engine",
+      "values": {
+        "llama.cpp": 1.53
+      },
+      "note": "A starting value, not a reading of your machine. It may differ with the model and the context size."
+    }
+  },
+  "constants": {
+    "availability.py:PROBE_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a reachable source takes to answer a request for its model list; a source slower than this is judged unreachable.",
+      "moves_to": "source_probe_timeout_s"
+    },
+    "availability.py:_CREDENTIAL_REFUSED": {
+      "kind": "fact",
+      "says": "The HTTP statuses that mean the server answered and refused the credential, so every dispatch to it would fail the same way.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "availability.py:_LIST_BODY_BYTES": {
+      "kind": "choice",
+      "says": "How much of a model listing is read; a listing is a handful of ids, and a longer answer is treated as unreadable.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "capability.py:CapabilityTable.fitting(headroom_gb)": {
+      "kind": "estimate",
+      "says": "Card memory, in decimal GB, a model needs past its working set so that a close fit does not run degraded; the default of the table's own fit.",
+      "moves_to": "vram_headroom_gb"
+    },
+    "capability.py:DIMENSION_FLOOR": {
+      "kind": "choice",
+      "says": "The score a model must reach on a task's dimension of the shipped capability table before it may be asked for that task.",
+      "reason": "a rule over the product's own shipped data"
+    },
+    "capability.py:GB_PER_GIB": {
+      "kind": "fact",
+      "says": "How many decimal gigabytes make one GiB, to carry the table's decimal figures into sizing done in GiB.",
+      "reason": "a definition or arithmetic"
+    },
+    "capability.py:SCHEMA_VERSION": {
+      "kind": "choice",
+      "says": "The version of the capability table's format this code reads; a table of another version is refused by name.",
+      "reason": "a code or version other programs or files read"
+    },
+    "capacity.py:_POLL_SECONDS": {
+      "kind": "choice",
+      "says": "How often, in seconds, a waiter looks again for a free slot; far shorter than a dispatch, so a freed slot is taken promptly.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "catalog.py:SCHEMA_VERSION": {
+      "kind": "choice",
+      "says": "The version of the task catalog's format this code reads.",
+      "reason": "a code or version other programs or files read"
+    },
+    "cleanup.py:_FORMAT_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a formatter takes on a changed file in a tidy-up after the gate accepted it; past it the content comes back untouched.",
+      "moves_to": "formatter_timeout_s"
+    },
+    "consensus.py:best_of(n)": {
+      "kind": "choice",
+      "says": "How many candidates one attempt draws when its caller names none: one, the breadth of an install that sets none.",
+      "set_by": "config breadth.draws"
+    },
+    "contract.py:CAP_STEP": {
+      "kind": "choice",
+      "says": "The step, in tokens, a reply cap of a contract that declares none is rounded up to.",
+      "set_by": "contract limits.max_output_tokens"
+    },
+    "contract.py:CONTEXT_FIELDS": {
+      "kind": "choice",
+      "says": "The input ceiling a contract carries when it declares none, and the least a declared one may be.",
+      "set_by": "contract context.max_input_tokens"
+    },
+    "contract.py:Contract.limits": {
+      "kind": "choice",
+      "says": "The reply cap and the number of tries a contract built in code carries when it states none.",
+      "set_by": "contract limits"
+    },
+    "contract.py:Contract.max_input_tokens": {
+      "kind": "choice",
+      "says": "The input ceiling a contract built in code carries when it states none.",
+      "set_by": "contract context.max_input_tokens"
+    },
+    "contract.py:LIMITS_FIELDS": {
+      "kind": "choice",
+      "says": "The tries a contract carries when it declares none, the least a declared count may be, and the bounds of a share of the window.",
+      "set_by": "contract limits"
+    },
+    "contract.py:MIN_CAP": {
+      "kind": "choice",
+      "says": "The smallest reply cap a contract that declares none is given, in tokens.",
+      "set_by": "contract limits.max_output_tokens"
+    },
+    "contract.py:NEW_FILE_STEP": {
+      "kind": "choice",
+      "says": "The reply room, in tokens, added to the cap of a contract that creates a file, which arrives with its declarations as well as its body.",
+      "set_by": "contract limits.max_output_tokens"
+    },
+    "contract.py:RUNNING_ALLOWANCE": {
+      "kind": "choice",
+      "says": "The reply cap, in tokens, of a contract that declares none and whose change a command must run afterwards.",
+      "set_by": "contract limits.max_output_tokens"
+    },
+    "contract.py:SCHEMA": {
+      "kind": "fact",
+      "says": "The least schema version a contract may declare: versions count from one.",
+      "reason": "where a count starts"
+    },
+    "contract.py:SCHEMA_VERSION": {
+      "kind": "choice",
+      "says": "The version of the contract format this code reads and writes.",
+      "reason": "a code or version other programs or files read"
+    },
+    "contract.py:STRUCTURAL_ALLOWANCE": {
+      "kind": "choice",
+      "says": "The reply cap, in tokens, of a contract that declares none and whose reply is prose or an edit a parser can check.",
+      "set_by": "contract limits.max_output_tokens"
+    },
+    "cooldown.py:CONSECUTIVE_FAILURES": {
+      "kind": "estimate",
+      "says": "How many failures in a row tell a broken source from a flaky one; a source that fails this many times in a row is taken out of the ladder for a while.",
+      "moves_to": "failures_before_cooldown"
+    },
+    "cooldown.py:COOLDOWN_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a failed source takes to recover on its own (a restart, a model load, a machine waking); it stays out of the ladder this long after its latest failure.",
+      "moves_to": "cooldown_s"
+    },
+    "cooldown.py:_Record.failures": {
+      "kind": "fact",
+      "says": "A source's failure count starts at none.",
+      "reason": "where a count starts"
+    },
+    "cooldown.py:_Record.until": {
+      "kind": "fact",
+      "says": "A source that has not reached the failure threshold is out until no time at all: it is still offered.",
+      "reason": "a definition or arithmetic"
+    },
+    "delegate.py:ORCHESTRATOR_OUTPUT_TOKENS": {
+      "kind": "estimate",
+      "says": "How many tokens the orchestrator's model spends on a decomposition, a short list of proposals, including any reasoning it writes before them; a reply cut short loses the whole decomposition.",
+      "moves_to": "decomposition_reply_tokens"
+    },
+    "deliver.py:_BRANCH_ATTEMPTS": {
+      "kind": "choice",
+      "says": "How many suffixed branch names a delivery tries when its branch name is taken, before it refuses and says what to clear.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "derived.py:CHECKOUT_DATA": {
+      "kind": "fact",
+      "says": "A checkout keeps the shipped data folder two folders above this module's own folder.",
+      "reason": "the layout of the package or its checkout"
+    },
+    "derived.py:NUMBERS_SCHEMA": {
+      "kind": "choice",
+      "says": "The version of the shipped numbers file's format this code reads.",
+      "reason": "a code or version other programs or files read"
+    },
+    "derived.py:_BOUNDS": {
+      "kind": "fact",
+      "says": "A percent a speed may fall lies above none and below all of it, and a size in GiB is never below zero.",
+      "reason": "a definition or arithmetic"
+    },
+    "derived.py:_SHOWN": {
+      "kind": "choice",
+      "says": "How much of a refused value a refusal spells out: a few levels, items and characters, never all of it.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "detect.py:COMMAND_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a local hardware command such as a card query takes to answer; one slower than this reads as no answer.",
+      "moves_to": "hardware_command_timeout_s"
+    },
+    "detect.py:MIB_PER_GB": {
+      "kind": "fact",
+      "says": "How many MiB make one GiB.",
+      "reason": "a definition or arithmetic"
+    },
+    "detect.py:PORT_CONVENTIONS": {
+      "kind": "fact",
+      "says": "The port each known model server listens on when nothing tells it otherwise.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "detect.py:PROBE_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a model server on a probed port takes to answer; one slower than this is not detected.",
+      "moves_to": "port_probe_timeout_s"
+    },
+    "detect.py:ROW_QUOTED_AT_MOST": {
+      "kind": "choice",
+      "says": "How many characters of the card tool's own text a note quotes; a longer row is quoted by both ends, not the middle.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "deterministic.py:ToolStep.attempts": {
+      "kind": "choice",
+      "says": "A deterministic tool step built without a count of attempts gets one; the product builds each with the count the routing rule gives, one for a tool.",
+      "reason": "what a caller that names none gets; the product's callers name one"
+    },
+    "docgen.py:REPO_ROOT": {
+      "kind": "fact",
+      "says": "A checkout's root is two folders above this module's own folder.",
+      "reason": "the layout of the package or its checkout"
+    },
+    "drive.py:Recording.attempt_id(draw)": {
+      "kind": "fact",
+      "says": "The draws of an attempt are numbered from zero, and a caller that names none means the first.",
+      "reason": "where a count starts"
+    },
+    "drive.py:_Dispatches.rows": {
+      "kind": "fact",
+      "says": "A run's count of journal rows starts at none.",
+      "reason": "where a count starts"
+    },
+    "emit.py:_HEALTH_START_PERIOD_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a unit takes to read its weights and take its card, which depends on the disk and the model; the container runtime does not call a unit unhealthy before this.",
+      "moves_to": "unit_load_time_s"
+    },
+    "escalate.py:Judgement.draw": {
+      "kind": "fact",
+      "says": "A verdict that names no draw is about the first, and draws are numbered from zero.",
+      "reason": "where a count starts"
+    },
+    "escalate.py:Judgement.draws": {
+      "kind": "choice",
+      "says": "A verdict that states no breadth came from one draw, the breadth of an install that sets none.",
+      "set_by": "config breadth.draws"
+    },
+    "escalate.py:Judgement.rows": {
+      "kind": "fact",
+      "says": "A verdict that states no journal rows left one, the row of its single draw.",
+      "reason": "a definition or arithmetic"
+    },
+    "escalate.py:_POLICY_RANK": {
+      "kind": "fact",
+      "says": "The order of the verification policies, cheapest first: the gate alone costs less than a model's review.",
+      "reason": "a definition or arithmetic"
+    },
+    "exits.py:Exit.ERROR": {
+      "kind": "choice",
+      "says": "The exit status of a run that failed, the general failure status of command line programs.",
+      "reason": "a protocol or tool default"
+    },
+    "exits.py:Exit.MISMATCH": {
+      "kind": "choice",
+      "says": "The exit status of a scan that found the machine changed since its last scan.",
+      "reason": "a code or version other programs or files read"
+    },
+    "exits.py:Exit.OK": {
+      "kind": "fact",
+      "says": "The exit status a shell reads as success.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "exits.py:Exit.REFUSED": {
+      "kind": "choice",
+      "says": "The exit status of a refusal: nothing went wrong, and a number was not given.",
+      "reason": "a code or version other programs or files read"
+    },
+    "exits.py:Exit.USAGE": {
+      "kind": "fact",
+      "says": "The exit status the argument parser leaves for a usage error.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "fleet/harness.py:DECODE_SAMPLES": {
+      "kind": "choice",
+      "says": "How many decode samples a probe takes before it reports their median.",
+      "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:DECODE_TOKENS": {
+      "kind": "choice",
+      "says": "How many tokens each decode sample of a probe generates.",
+      "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:LLAMA_LONG_PROMPT": {
+      "kind": "choice",
+      "says": "How many times the long block is repeated in the prompt a llama.cpp prefill sample sends.",
+      "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:LOAD_LIMIT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a load must run before a unit's pace under it can be judged; at this many seconds every unfinished request is closed.",
+      "moves_to": "load_pace_window_s"
+    },
+    "fleet/harness.py:LOAD_OUTPUT_TOKENS": {
+      "kind": "choice",
+      "says": "How many tokens of each window a load leaves to generation, filling the rest with prompt.",
+      "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:LOAD_SAMPLE_S": {
+      "kind": "choice",
+      "says": "How often, in seconds, a load samples the unit's container while it runs.",
+      "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:MODELS_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a healthy unit takes to answer a probe's request for its model list; a unit slower than this gets no reading.",
+      "moves_to": "probe_models_timeout_s"
+    },
+    "fleet/harness.py:PREFILL_SAMPLES": {
+      "kind": "choice",
+      "says": "How many prefill samples a probe takes before it reports their median.",
+      "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:PREFILL_TOKENS": {
+      "kind": "choice",
+      "says": "How many tokens each prefill sample of a probe generates after its long prompt.",
+      "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:REPLY_QUOTED_AT_MOST": {
+      "kind": "choice",
+      "says": "How many characters of a server's own text an error quotes; a longer text is quoted by both ends, not the middle.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "fleet/harness.py:REQUEST_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a healthy unit takes to answer one probe sample; a unit slower than this gets no reading.",
+      "moves_to": "probe_sample_timeout_s"
+    },
+    "fleet/harness.py:VLLM_LONG": {
+      "kind": "choice",
+      "says": "How many times the long block is repeated in the prompt a vLLM prefill sample sends.",
+      "reason": "the method a stored reading was made with"
+    },
+    "fleet/harness.py:WARMUP_TOKENS": {
+      "kind": "choice",
+      "says": "How many tokens the warm-up request of a probe generates before any sample is taken.",
+      "reason": "the method a stored reading was made with"
+    },
+    "gate/acceptance.py:DID_NOT_RUN": {
+      "kind": "fact",
+      "says": "The shell statuses that mean a command could not be run at all, not found or not executable.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "gate/acceptance.py:_MAX_EXCERPT_CHARS": {
+      "kind": "choice",
+      "says": "How many characters of a failing command's output are carried, taken from its end.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "gate/acceptance.py:_MAX_EXCERPT_LINES": {
+      "kind": "choice",
+      "says": "How many lines of a failing command's output are carried, taken from its end.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "gate/adapter.py:_DETAIL_LIMIT": {
+      "kind": "choice",
+      "says": "How many characters of a failed tool's own words a finding carries.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "gate/adapters/javascript.py:_ESLINT_ERROR": {
+      "kind": "fact",
+      "says": "The severity ESLint reports an error with, as opposed to a warning.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "gate/adapters/python.py:DEFAULT_RUFF_LINE_LENGTH": {
+      "kind": "choice",
+      "says": "The line length the Python lint holds a repository to when the repository states none: ruff's own default.",
+      "reason": "a protocol or tool default"
+    },
+    "gate/adapters/python.py:_SURROGATE_BASE": {
+      "kind": "fact",
+      "says": "Where Python's surrogateescape error handler places an undecodable byte, so the byte can be recovered.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "gate/preflight.py:ESTIMATE_RESERVE": {
+      "kind": "estimate",
+      "says": "How far, as a share, the model-free token estimate may fall short of a real tokenizer's count; a prompt is charged this much more before it is judged to fit.",
+      "moves_to": "token_estimate_reserve_share"
+    },
+    "gate/preflight.py:check_prompt_fits(output_reserve)": {
+      "kind": "fact",
+      "says": "A prompt checked against an input ceiling keeps no room for a reply, since the ceiling bounds the input alone; a check against a whole window names the room it keeps.",
+      "reason": "a definition or arithmetic"
+    },
+    "gate/secrets.py:_p(flags)": {
+      "kind": "fact",
+      "says": "A secret pattern compiled with no flags is compiled with none: the regular expression module's value for no flags.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "gate/semantic.py:DEFAULT_TIMEOUT": {
+      "kind": "estimate",
+      "says": "How long, in seconds, the import resolution pass takes on the repository in hand, which imports its packages; past it the rung reports an environment issue, never a verdict.",
+      "moves_to": "import_resolution_timeout_s"
+    },
+    "gate/semantic.py:SemanticReport.resolved": {
+      "kind": "fact",
+      "says": "A resolution report's count of resolved names starts at none.",
+      "reason": "where a count starts"
+    },
+    "gate/typecheck.py:TYPECHECK_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, one type check takes on the repository in hand, which a large import graph or a cold cache makes slow; past it the rung is skipped, never read as a verdict on the worker.",
+      "moves_to": "typecheck_timeout_s"
+    },
+    "gate/typecheck.py:_REPORTING": {
+      "kind": "fact",
+      "says": "The exit statuses with which a type checker says it did its job: clean, or with diagnostics.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "initialize.py:COMMENT_WIDTH": {
+      "kind": "choice",
+      "says": "The width comments in a written setup file are wrapped to.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/cache.py:CACHE_VERSION": {
+      "kind": "choice",
+      "says": "The version of the index cache's format on disk; a cache of another version is rebuilt.",
+      "reason": "a code or version other programs or files read"
+    },
+    "orchestrator/cache.py:DEFAULT_MAX_CACHE_BYTES": {
+      "kind": "estimate",
+      "says": "How much disk, in bytes, the index cache may take across repositories on the machine in hand before the least recently used are evicted; evicting costs only a rebuild.",
+      "moves_to": "index_cache_max_bytes"
+    },
+    "orchestrator/cache.py:_NO_STAMP": {
+      "kind": "fact",
+      "says": "A modification time no real file carries, marking a cache entry whose stamp is not to be trusted.",
+      "reason": "a definition or arithmetic"
+    },
+    "orchestrator/context.py:_HINT_BOOST": {
+      "kind": "choice",
+      "says": "How much a caller's hint lifts a candidate in the ranking, kept below the lead a resolved leader has.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/decompose.py:_DEFAULT_MAX_INPUT_TOKENS": {
+      "kind": "estimate",
+      "says": "How many estimated tokens of input the workers of the ladder in hand accept, the ceiling a decomposition sizes a contract's input up to when its caller names none; a unit's own window is enforced separately.",
+      "moves_to": "decomposition_input_tokens"
+    },
+    "orchestrator/decompose.py:_ID_DIGEST_BYTES": {
+      "kind": "choice",
+      "says": "How many bytes of a digest a contract id carries: short enough to read in a log line, and a collision is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/index.py:DEFAULT_MAX_FILE_BYTES": {
+      "kind": "choice",
+      "says": "The size in bytes past which a file is not read into the index, and the skip reported; a source file is far smaller.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/index.py:_BINARY_SNIFF_BYTES": {
+      "kind": "choice",
+      "says": "How much of a file is read for a NUL byte before it is judged binary.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/read.py:Exploration.saved": {
+      "kind": "fact",
+      "says": "An exploration's count of tokens saved starts at none.",
+      "reason": "where a count starts"
+    },
+    "orchestrator/read.py:_DEFAULT_BUDGET": {
+      "kind": "choice",
+      "says": "How many estimated tokens an exploration may read when its caller names no budget.",
+      "set_by": "flag --budget"
+    },
+    "orchestrator/read.py:_DEFAULT_CONTEXT": {
+      "kind": "choice",
+      "says": "How many lines a region read around a match spans.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/read.py:_LEAD": {
+      "kind": "choice",
+      "says": "How many lines of a region sit above the line that matched.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/read.py:_MAX_TEXT_ANCHORS": {
+      "kind": "choice",
+      "says": "How many text matches per candidate are taken before regions are merged.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/resolve.py:_DOMINANCE": {
+      "kind": "choice",
+      "says": "By how much a leading candidate must beat the runner-up for a query to count as resolved rather than tied.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_KIND_BONUS": {
+      "kind": "choice",
+      "says": "The ranking nudge an export or a top-level definition gets over a method.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_S_PATH": {
+      "kind": "choice",
+      "says": "The ranking weight of one query token landing on a path component.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_S_STEM": {
+      "kind": "choice",
+      "says": "The ranking weight of one query token landing on a file name.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_S_SYMBOL": {
+      "kind": "choice",
+      "says": "The ranking weight of one query token landing on a symbol name.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_TEST_DEMOTION": {
+      "kind": "choice",
+      "says": "How much a test file is demoted in the ranking, so it does not crowd out the code it tests.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_W_COVERAGE": {
+      "kind": "choice",
+      "says": "The ranking reward for a candidate that accounts for more of the query.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_W_PATH_EXACT": {
+      "kind": "choice",
+      "says": "The ranking weight of a query that names a path outright.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_W_STEM_EXACT": {
+      "kind": "choice",
+      "says": "The ranking weight of a query that names a file's stem outright.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_W_SYMBOL_EXACT": {
+      "kind": "choice",
+      "says": "The ranking weight of a query that names a symbol outright.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "orchestrator/resolve.py:_top_evidence(keep)": {
+      "kind": "choice",
+      "says": "How many evidence lines a candidate shows, best first.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/resolve.py:resolve(limit)": {
+      "kind": "choice",
+      "says": "How many candidates a resolution keeps, best first, when its caller names no limit, as a decomposition does.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "propose.py:DEFAULT_HEADROOM_GB": {
+      "kind": "estimate",
+      "says": "Card memory, in decimal GB, a model needs past its working set so that a close fit does not run degraded rather than fail.",
+      "moves_to": "vram_headroom_gb"
+    },
+    "rename.py:RenameReport.occurrences": {
+      "kind": "fact",
+      "says": "A rename's count of occurrences touched starts at none.",
+      "reason": "where a count starts"
+    },
+    "repair.py:RUFF_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, one repair run of the linter takes on the repository in hand; past it the repair is an environment issue, never waited on.",
+      "moves_to": "lint_repair_timeout_s"
+    },
+    "repair.py:_REPORTING": {
+      "kind": "fact",
+      "says": "The exit statuses with which the linter says it did its job: clean, or with findings left.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "route.py:Attempted.draw": {
+      "kind": "fact",
+      "says": "An entry that names no draw is about the first, and draws are numbered from zero.",
+      "reason": "where a count starts"
+    },
+    "route.py:Attempted.draws": {
+      "kind": "choice",
+      "says": "An entry that states no breadth came from one draw, the breadth of an install that sets none.",
+      "set_by": "config breadth.draws"
+    },
+    "route.py:Attempted.rows": {
+      "kind": "fact",
+      "says": "An entry that states no journal rows left one, the row of its single draw.",
+      "reason": "a definition or arithmetic"
+    },
+    "route.py:Result.declined(draws)": {
+      "kind": "choice",
+      "says": "A decline that states no breadth was configured for one draw, the breadth of an install that sets none.",
+      "set_by": "config breadth.draws"
+    },
+    "route.py:Result.draw": {
+      "kind": "fact",
+      "says": "A result that names no draw is about the first, and draws are numbered from zero.",
+      "reason": "where a count starts"
+    },
+    "route.py:Result.draws": {
+      "kind": "choice",
+      "says": "A result that states no breadth came from one draw, the breadth of an install that sets none.",
+      "set_by": "config breadth.draws"
+    },
+    "route.py:Result.failed(draws)": {
+      "kind": "choice",
+      "says": "A failure that states no breadth came from one draw, the breadth of an install that sets none.",
+      "set_by": "config breadth.draws"
+    },
+    "route.py:Result.passed(draws)": {
+      "kind": "choice",
+      "says": "A pass that states no breadth came from one draw, the breadth of an install that sets none.",
+      "set_by": "config breadth.draws"
+    },
+    "route.py:Result.rows": {
+      "kind": "fact",
+      "says": "A result that states no journal rows left one, the row of its single draw.",
+      "reason": "a definition or arithmetic"
+    },
+    "scan.py:BANDWIDTH_TOLERANCE": {
+      "kind": "estimate",
+      "says": "How far, as a share, two memory bandwidth readings of one unchanged machine may differ; a scan that differs more reports the machine changed.",
+      "moves_to": "bandwidth_drift_share"
+    },
+    "scan.py:BYTES_PER_GB": {
+      "kind": "fact",
+      "says": "How many bytes make one GiB.",
+      "reason": "a definition or arithmetic"
+    },
+    "scan.py:COPY_MIB": {
+      "kind": "estimate",
+      "says": "The copy buffer, in MiB, large enough that a bandwidth reading repeats from one scan to the next.",
+      "moves_to": "bandwidth_copy_mib"
+    },
+    "scan.py:COPY_MIB_TIGHT": {
+      "kind": "estimate",
+      "says": "The smaller copy buffer, in MiB, a machine short of memory is measured with instead.",
+      "moves_to": "bandwidth_copy_tight_mib"
+    },
+    "scan.py:COPY_PASSES": {
+      "kind": "estimate",
+      "says": "How many copy passes a bandwidth reading takes for it to repeat from one scan to the next.",
+      "moves_to": "bandwidth_copy_passes"
+    },
+    "scan.py:KB_PER_GB": {
+      "kind": "fact",
+      "says": "How many KiB make one GiB.",
+      "reason": "a definition or arithmetic"
+    },
+    "scan.py:SSH_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a scan of a working remote machine takes, bandwidth reading included; one slower than this fails.",
+      "moves_to": "remote_scan_timeout_s"
+    },
+    "scan.py:TIGHT_RAM_GB": {
+      "kind": "estimate",
+      "says": "Free host memory, in GiB, below which the full copy buffer would push the machine into swap, so the smaller buffer is used.",
+      "moves_to": "bandwidth_tight_ram_gib"
+    },
+    "scan.py:Vram.reserved_mib": {
+      "kind": "fact",
+      "says": "A card reading that states no driver reserve carries none; a fit is decided by the free figure, which is read.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/__init__.py:DEFAULT_PORT": {
+      "kind": "fact",
+      "says": "The port llama.cpp's server listens on when nothing tells it otherwise.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/__init__.py:DEFAULT_SPEC_DRAFT_N_MAX": {
+      "kind": "estimate",
+      "says": "How many tokens a unit that drafts with its own prediction head drafts at a time, when its launch states none.",
+      "set_by": "config units.launch.spec_draft_n_max",
+      "moves_to": "spec_draft_n_max"
+    },
+    "serving/__init__.py:DEFAULT_UBATCH": {
+      "kind": "choice",
+      "says": "The micro-batch a llama.cpp unit is sized at and launched with: the engine's own default, stated so sizing and launch agree.",
+      "reason": "a protocol or tool default"
+    },
+    "serving/__init__.py:Fit.card_free_gb": {
+      "kind": "fact",
+      "says": "A fit made with no reading of the card's free memory carries none, so no contention is claimed without a reading.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/__init__.py:Fit.ram_gb": {
+      "kind": "fact",
+      "says": "A fit that charges nothing to host memory carries none, as a refusal does.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/__init__.py:Fit.vram_gb": {
+      "kind": "fact",
+      "says": "A fit that charges nothing to the card carries none, as a refusal does.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/__init__.py:MAX_WIDTH": {
+      "kind": "choice",
+      "says": "The widest slot count sizing derives for a llama.cpp unit when nobody wrote a width.",
+      "set_by": "config units.width"
+    },
+    "serving/__init__.py:MODE_RAM_HEADROOM_GB": {
+      "kind": "estimate",
+      "says": "Host memory, in GiB, that must stay clear past a model's weights for llama.cpp to map them rather than be told not to; with less clear, mapping costs start time.",
+      "moves_to": "mode_ram_headroom_gib"
+    },
+    "serving/__init__.py:REFUSAL_RAM_HEADROOM_GB": {
+      "kind": "estimate",
+      "says": "Host memory, in GiB, that must stay clear past the experts a model keeps on the host for decode to hold; with less, the model is refused on that host.",
+      "moves_to": "refusal_ram_headroom_gib"
+    },
+    "serving/__init__.py:SIZE_TOLERANCE_GB": {
+      "kind": "fact",
+      "says": "How far a stated file size may sit from the scanned one and still be the same figure written to two decimals.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/__init__.py:VLLM_DEFAULT_SEQS": {
+      "kind": "estimate",
+      "says": "How many sequences a vLLM unit is started with when no width is written; the engine's cache decides how many actually run.",
+      "set_by": "config units.width",
+      "moves_to": "default_parallel_sequences"
+    },
+    "serving/__init__.py:_BYTES_PER_GIB": {
+      "kind": "fact",
+      "says": "How many bytes make one GiB.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/__init__.py:_Placement.head_bytes": {
+      "kind": "fact",
+      "says": "A placement that declares no prediction head charges none for it.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/ggufscan.py:NAME": {
+      "kind": "fact",
+      "says": "The name of each tensor type the GGUF format numbers.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/ggufscan.py:T": {
+      "kind": "fact",
+      "says": "How many elements each block of a GGUF tensor type holds and how many bytes it takes, as the format defines them.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/servelib.py:_LEVEL_ONE_RAM_GIB": {
+      "kind": "estimate",
+      "says": "Host memory, in GiB, an engine keeps for the life of its process once it is put to sleep at level one, stated in the refusal of that level.",
+      "moves_to": "sleep_level_one_ram_gib"
+    },
+    "serving/servelib.py:compose(timeout)": {
+      "kind": "estimate",
+      "says": "How long, in seconds, one compose command against a unit's compose file takes, starting or stopping its containers; one slower than this fails.",
+      "moves_to": "compose_timeout_s"
+    },
+    "serving/vramfit.py:CACHE_ELEM_BYTES": {
+      "kind": "fact",
+      "says": "How many bytes one cache element takes in each cache type llama.cpp offers.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/vramfit.py:MEASURED_SCRATCH_MIB": {
+      "kind": "estimate",
+      "says": "Card memory, in MiB, the compute buffer and the engine's unnamed allocations take past a placement's prediction, per model architecture and micro-batch.",
+      "moves_to": "compute_scratch_mib"
+    },
+    "serving/vramfit.py:SCRATCH_AND_CONTEXT_MIB": {
+      "kind": "estimate",
+      "says": "Card memory, in MiB, the compute buffer and the engine's unnamed allocations take past a placement's prediction, for an architecture with no reading of its own.",
+      "moves_to": "compute_scratch_fallback_mib"
+    },
+    "serving/vramfit.py:SWA_PAD": {
+      "kind": "fact",
+      "says": "The multiple llama.cpp pads a sliding-window cache to.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/vramfit.py:allowance_mib(n_ubatch)": {
+      "kind": "choice",
+      "says": "The micro-batch an allowance is looked up at when its caller names none.",
+      "reason": "a duplicate of another entry",
+      "same_as": "serving/__init__.py:DEFAULT_UBATCH"
+    },
+    "serving/vramfit.py:explain(n_ubatch)": {
+      "kind": "choice",
+      "says": "The micro-batch an explanation of a placement is made at when its caller names none.",
+      "reason": "a duplicate of another entry",
+      "same_as": "serving/__init__.py:DEFAULT_UBATCH"
+    },
+    "serving/vramfit.py:fits_measured(n_ubatch)": {
+      "kind": "choice",
+      "says": "The micro-batch a held placement is judged at when its caller names none.",
+      "reason": "a duplicate of another entry",
+      "same_as": "serving/__init__.py:DEFAULT_UBATCH"
+    },
+    "serving/vramfit.py:kv_bytes(n_seq_max)": {
+      "kind": "choice",
+      "says": "A cache sized with no sequence count holds one sequence; every sizing the product does names the count.",
+      "reason": "what a caller that names none gets; the product's callers name one"
+    },
+    "serving/vramfit.py:kv_bytes(n_ubatch)": {
+      "kind": "choice",
+      "says": "The micro-batch a cache is sized at when its caller names none.",
+      "reason": "a duplicate of another entry",
+      "same_as": "serving/__init__.py:DEFAULT_UBATCH"
+    },
+    "strict_yaml.py:_KEY": {
+      "kind": "choice",
+      "says": "How much of a refused key a refusal of a YAML file spells out: a real key in full, and only the start of a value that aliases build far larger than the file.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "verify.py:REVIEW_OUTPUT_TOKENS": {
+      "kind": "estimate",
+      "says": "How many tokens a reviewing model spends on a review, including any reasoning it writes before its verdict; the verdict is the first word of the reply.",
+      "moves_to": "review_reply_tokens"
+    },
+    "worker/bundle.py:MAX_BUNDLE_BYTES": {
+      "kind": "estimate",
+      "says": "How many bytes of instructions a worker's prompt may carry before more of them stops helping the models it is sent to.",
+      "moves_to": "bundle_max_bytes"
+    },
+    "worker/prompt.py:_MIN_FENCE": {
+      "kind": "fact",
+      "says": "The fewest backticks that open a code fence in Markdown.",
+      "reason": "the specification of a format, protocol or tool"
+    }
+  }
+}

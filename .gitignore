@@ -6,8 +6,7 @@
 tools/bundle/worker.local.json
 *.log
 # ...except under records/evidence/, where a log is the artefact a record
-# cites: `tests/test_run_headers.py` asserts that the log a run header's
-# `cost.source` names exists.
+# cites: a run header's `cost.source` names it.
 !records/evidence/**/*.log
 # ...and one exception back the other way: this log's whole content is
 # reproduced in `mcgyvr-lab/archive/docs/archive/evidence-prose/calibration-2026-08-19/d7-sleep.aborted-run.README.md`,

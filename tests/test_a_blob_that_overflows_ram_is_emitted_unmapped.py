@@ -128,8 +128,8 @@ def test_the_fit_states_which_mode_it_approved() -> None:
     """A fit that admitted a model on the unmapped arm approved a different
     launch from the one that fits mapped, and `emit --check` diffs argv: the
     mode is part of what was approved, not a decoration the unit adds later."""
-    tight = fit(rig(ram_gb=12.5), MOE, ctx_per_slot=WINDOW)
-    roomy = fit(rig(ram_gb=48.0), MOE, ctx_per_slot=WINDOW)
+    tight = fit(rig(ram_gb=12.5), MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
+    roomy = fit(rig(ram_gb=48.0), MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert tight.fits and roomy.fits
     assert tight.load_mode == "none"
     assert roomy.load_mode is None

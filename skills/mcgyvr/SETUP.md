@@ -77,8 +77,8 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
 | `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across units or queues on one. |
-| `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. To bind it: e.g. {srv2_7b: 2}. |
-| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr pool` prints the effective number where it exceeds one. To bind it: e.g. {srv2_7b: 3}. |
+| `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. To bind it: e.g. `{<unit>: 2}`. |
+| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr pool` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
 | `max_escalations` | number (min 0) | no | `1` | How many rungs a task may climb before it is handed back unfinished. |
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
 | `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
@@ -89,6 +89,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `delivery` | block | no | — | How accepted work gets back to you. |
 | `breadth` | block | no | — | How many answers one attempt asks for. |
 | `cleanup` | block | no | — | What may be fixed without asking a model. |
+| `gate` | block | no | — | What the deterministic gate refuses, where a setup may choose otherwise. |
 | `serving` | block | no | — | What mcgyvr may do to the machines that serve the units. A unit's HuggingFace cache is a fact about that unit and lives on it, not here: only the policy of starting and stopping a card is a setting. |
 | `journal` | block | no | — | Where mcgyvr keeps its own record of what it dispatched. |
 
@@ -100,22 +101,22 @@ Each entry takes these keys:
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `units.address` | URL | **yes** | — | Where this unit answers, including scheme and port. One address is one process. To bind it: e.g. http://srv2:8002. |
+| `units.address` | URL | **yes** | — | Where this unit answers, including scheme and port. One address is one process. To bind it: e.g. http://box.example:8080. |
 | `units.model` | text | **yes** | — | Model identifier as the unit names it. |
 | `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
-| `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. srv2. |
+| `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |
 | `units.width` | number (min 1) | no | unset | How many requests this unit may run at once. Concurrency is a property of the process, so it is a unit fact. To bind it: e.g. 8 -- the slot count the backend was started with. |
 | `units.window` | number (min 1) | no | unset | Tokens this unit serves in one request. Read it back off the running process, not hoped for. To bind it: e.g. 4096 -- what the unit reports, not what you hoped for. |
 | `units.output_tokens` | number (min 1) | no | unset | Room a reply on this unit is given, the `max_tokens` its backend is actually sent. To bind it: e.g. 2048 -- the reply length this unit needs. |
 | `units.request_timeout_s` | decimal number (min 0.0) | no | unset | How long one dispatched request to this unit may take before the transport gives up. To bind it: e.g. 180. |
 | `units.room_mib` | number (min 0) | no | unset | The card room this unit needs, in MiB, measured or stated. To bind it: e.g. 7000 -- the card room this unit needs. |
 | `units.kv_cache_memory_bytes` | number (min 0) | no | unset | The vLLM KV cache this unit pins, in bytes. Absent where the engine sizes its own cache; required before a vLLM unit is locked. To bind it: e.g. 34359738368. |
-| `units.attention_backend` | text | no | unset | The attention backend this vLLM unit pins, because the card decides what is valid. To bind it: e.g. FLASH_ATTN, or TRITON_ATTN on cc 7.5. |
-| `units.container` | text | no | unset | The container name this unit runs under. To bind it: e.g. mcgyvr-srv2-srv2_7b. |
+| `units.attention_backend` | text | no | unset | The attention backend this vLLM unit pins, because the card decides what is valid. To bind it: e.g. FLASH_ATTN: the backend the unit's own log names. |
+| `units.container` | text | no | unset | The container name this unit runs under. To bind it: e.g. `mcgyvr-<host>-<unit>`. |
 | `units.hf_cache` | text | no | unset | The HuggingFace cache on the rig holding this unit's weights, as an absolute path there. A serving fact about this unit, not a knob. To bind it: e.g. /home/<user>/.cache/huggingface, as the rig sees it. |
-| `units.launch` | free-form block | no | — | The resolved launch, whole. Free-form by design: a unit hashes its whole resolved launch with no hand-kept field list, so a flag this reader has never heard of cannot go unhashed. Two keys sizing reads, llama.cpp only: `speculative` (`none` \| `mtp`, default `none`) runs the GGUF's own grafted multi-token-prediction head as the draft (`--spec-type draft-mtp`), and `spec_draft_n_max` (a count, at least 1, default 2) is its `--spec-draft-n-max`. The head is read off the scan's tensor table and charged to the card, so the `--n-cpu-moe` floor rises, and a scan with no nextn block refuses the declaration. Whether it pays depends on the card and the width: records/evidence/2026-08-28-mtp-ornith/. A vLLM unit declaring `mtp` is refused: its speculative decoding is `--speculative-config`, a different mechanism. To bind it: the resolved launch, e.g. serve_args, geometry_json, moe, speculative. |
+| `units.launch` | free-form block | no | — | The resolved launch, whole. Free-form by design: a unit hashes its whole resolved launch with no hand-kept field list, so a flag this reader has never heard of cannot go unhashed. Two keys sizing reads, llama.cpp only: `speculative` (`none` \| `mtp`, default `none`) runs the GGUF's own grafted multi-token-prediction head as the draft (`--spec-type draft-mtp`), and `spec_draft_n_max` (a count, at least 1, default 2) is its `--spec-draft-n-max`. The head is read off the scan's tensor table and charged to the card, so the `--n-cpu-moe` floor rises, and a scan with no nextn block refuses the declaration. Whether it pays depends on the card and the width. A vLLM unit declaring `mtp` is refused: its speculative decoding is `--speculative-config`, a different mechanism. To bind it: the resolved launch, e.g. serve_args, geometry_json, moe, speculative. |
 
 ## `orchestrator`
 
@@ -170,6 +171,14 @@ What may be fixed without asking a model.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `cleanup.enabled` | boolean | no | `true` | Repair a change the gate rejected with the deterministic tools — the declared imports, the linter's own autofixes, the formatter — and judge it again on the same rung, instead of spending an attempt or a climb on what a tool clears for nothing. The tools are the ones the gate already checks with, so a repair produces the shape the rungs ask for rather than a second opinion about it, and it costs no tokens by construction. It rewrites a file after the gate has spoken about it, so the bytes that come back are not the bytes the worker sent: the journal keeps the reply, the tree keeps the repaired file, and the verdict says a repair ran. Set false to have the rejection stand as the gate reached it. What no tool fixes — a failed acceptance command, a name, a line too long to wrap — is rejected exactly as before. |
+
+## `gate`
+
+What the deterministic gate refuses, where a setup may choose otherwise.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `gate.param_mutation` | one of `refuse`, `report`, `skip` | no | `refuse` | A Python function that changes an object its caller passed in, on a line the change adds: it assigns or deletes into a parameter, an element of one or a loop variable over one (`rows[0] = x`, `item.count += 1`, `del table[key]`), or calls append, extend, insert, remove, pop, clear, sort, reverse, update, setdefault, add, discard or popitem on it. `self`, `cls`, `*args` and `**kwargs` are not checked, nor is a parameter rebound to a new object on every path before the change. `refuse` rejects the change. `report` does not reject it: the finding is listed among the gate's observations, which an enabled verifier is shown and the gate's retry note does not carry, and `mcgyvr run` prints it once, before delivering the accepted change, as reported by this setting. `skip` does not look. Delivery judges the change again by the same setting. A contract whose `task` or `interface` asks for in-place work stands the check down under every setting. |
 
 ## `serving`
 

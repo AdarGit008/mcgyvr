@@ -1,30 +1,51 @@
-# Shipped data — provenance
+# Shipped data
 
-Two files ship as data rather than as code:
-`capability-table.json` (measured model capability, below) and
-`task-catalog.json` (the vocabulary of what mcgyvr can be asked to do, at the
-end of this file).
+Three files ship as data rather than as code:
+`capability-table.json` (estimates, by card class, of what a model costs and
+how well it codes, below), `task-catalog.json` (the vocabulary of what mcgyvr
+can be asked to do, after it) and `numbers.json` (estimates mcgyvr sizes
+and judges a machine with, and what many other such numbers in its code are,
+at the end of this file).
 
 ## Capability data
 
-`capability-table.json` is the decision data behind `mcgyvr init`. It exists
-so that setup can propose worker bindings from detected hardware **without
-benchmarking the user's machine**, which would turn an install into a
-benchmarking session.
+`capability-table.json` holds estimates of what a model costs to serve.
+`mcgyvr capabilities` lists them, and `mcgyvr emit` sizes a unit from the row
+whose `id` equals the unit's model, unless a unit in fleet.yaml declares that
+model, for example under `launch` or as `room_mib`. `mcgyvr init` does not read
+the table: it binds the models running servers list. The estimates exist so that
+serving can be sized **without benchmarking the user's machine**, which would
+turn an install into a benchmarking session.
 
-## Where the numbers come from
+## What its numbers are
 
-Every model and backend measurement was taken in
-[`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai), on two rigs
-described in the table's `measurement_rigs`, whose `ram_gb` was re-read in
-this project (see its `_correction`). Each quality and throughput row carries
-its rig and date. Quality is HumanEval+ pass@1, greedy decoding, EvalPlus
-v0.4.0.dev44, 164 tasks. Throughput is generation rate in tokens per second; a
-row's `note` says when it is not a single request (the 489 tok/s vLLM row is an
-aggregate at 16 concurrent requests).
+Every figure in the table is an **estimate**. None is a reading of your
+machine.
 
-A model with no valid measurement carries an empty `quality` array rather
-than a guess.
+- **A card class.** Each quality and speed figure names the card class it is
+  given for (`card_class`), and each class is declared once in
+  `card_classes` with an id, a label and the nominal memory of its cards.
+- **One card per class.** One card was read for each class, so a class is a
+  rough guide. Speed depends on the card, not only on its memory: two cards
+  with the same memory can differ a lot.
+- **Through another server program.** Each figure's `backend` says which
+  server program it was taken through. Most were taken through one this
+  product does not run, with a file of the same model, usually of the same
+  quantisation type; a reading's `note` says when it was not. That file is
+  not necessarily the one you will serve.
+- **Ratios more than absolutes.** Read the speed figures as ratios between
+  models (which is faster, and by roughly how much; how much a marginal fit
+  costs) rather than as the speed your card will reach.
+- **No provenance here.** Where and when the figures were taken is not
+  recorded in the product.
+
+Quality is HumanEval+ pass@1, greedy decoding, EvalPlus v0.4.0.dev44, 164
+tasks. Speed is generation rate in tokens per second; a figure's `note` says
+when it is not a single request (one vLLM figure is an aggregate at 16
+concurrent requests).
+
+A model with no valid quality figure carries an empty `quality` array rather
+than a guess, and is never proposed.
 
 ## What the table is not
 
@@ -35,20 +56,16 @@ repository it can see, on multi-hunk edits, or on instruction adherence
 under a constrained output protocol. Treat it as an ordering, not a
 prediction.
 
-Two rigs is a small sample. The throughput figures are specific to those two
-GPUs and are present to express *ratios* (a small model is ~2.4x faster on the
-small card; a marginal fit costs ~1.9x) rather than absolute expectations.
-
-## Known-bad measurements
+## Known-bad figures
 
 The table carries a `harness_caveats` block, and models carry
 `invalid_measurements` / `disputed_measurements` arrays alongside their valid
-ones. These are kept rather than deleted because the failures are
+figures. These are kept rather than deleted because the failures are
 instructive and repeatable:
 
 - **CAV-01** — Ollama's `/api/generate` returns invalid HumanEval+ scores for
-  Qwen2.5-Coder 7B and larger (32.3% vs a true 84.1%). Anyone regenerating
-  this table through that path will silently produce a table that routes away
+  Qwen2.5-Coder 7B and larger (32.3% vs a true 84.1%). Anyone revising these
+  estimates through that path will silently produce a table that routes away
   from the best models available.
 - **CAV-02** — `qwen3-coder-30b-a3b` left to Ollama's tag resolution spills
   to CPU on a 12 GB card and scores 3.7%; the model must be bound to an
@@ -59,13 +76,13 @@ instructive and repeatable:
 - **CAV-04** — a marginal VRAM fit degrades rather than failing, which makes
   it look like a working binding.
 
-## Regenerating
+## Revising the estimates
 
-There is no regeneration script in this repo, by design: `mcgyvr init`
-consumes this table and does not produce it. When re-measuring, use an
-OpenAI-compatible endpoint (llama-server or vLLM) rather than a
-backend-native generate API, and pin quantization explicitly — CAV-01 and
-CAV-02 are both consequences of not doing so.
+There is no regeneration script: the file is edited by hand when the project
+revises its estimates. No mcgyvr command writes it. When taking
+new figures, use an OpenAI-compatible endpoint (llama-server or vLLM) rather
+than a backend-native generate API, and pin the quantisation explicitly —
+CAV-01 and CAV-02 are both consequences of not doing so.
 
 
 # The decomposition catalog — validation
@@ -147,3 +164,75 @@ They fall into three groups:
   the vocabulary is a copy that can disagree with the first.
   `string_literal_edit` is an exact edit at a known location — a tool's job,
   not a kind of work to route.
+
+
+# The numbers that size and judge a machine
+
+The `numbers` block of `numbers.json` holds numbers mcgyvr needs and
+cannot read off the machine or the model: how far a healthy unit's warm decode and prefill speed may fall
+from one start to the next (per tolerance class), and how much host memory a
+llama.cpp server holds beyond the experts it keeps there. `mcgyvr.derived`
+reads it; the build copies it into the package, so an installed mcgyvr finds
+it without a checkout.
+
+Every entry of that block is an estimate, and says so: what it estimates, what mcgyvr does
+with it, its unit, its key, and a note on what the value is not. It is a
+starting value shipped with mcgyvr, not a reading of your machine. Keys come
+from closed spaces the code names (the tolerance classes, the engines a unit
+may name), so no entry is keyed by a machine's name, and any machine has a key.
+
+Your own value replaces an estimate. Write it in `~/.mcgyvr/numbers.yaml`,
+under the number's name and then its key:
+
+```yaml
+prefill_class_pct:
+  vllm: 12
+runtime_resident_gb:
+  llama.cpp: 2.5
+```
+
+The file is YAML; write each value as a plain decimal number, such as `12` or
+`2.5`.
+
+A setting for a number or key mcgyvr does not know, or a value that is not a
+finite number inside its unit's bounds (a percent above 0 and below 100, GiB 0
+or more), is refused by name, even when another number was asked. A number
+of that block that neither file states is refused by name too: none of them
+falls back to a default in code.
+
+## What many other numbers are
+
+Many numbers mcgyvr sizes, judges, refuses, waits or picks with are still
+written in its code. The `constants` block says what many of them are, each
+under where it lives (the file, then the name, the class and attribute, or the
+function and its parameter):
+
+- a **fact**: true on any machine, and it names what makes it so from a short
+  closed list (a definition or arithmetic, such as how many bytes make a GiB;
+  the specification of a format, protocol or tool, such as the port an engine
+  listens on when told nothing else; where a count starts; or the layout of
+  the package or its checkout);
+- a **choice** of mcgyvr: the setting that changes it (a config key, a
+  contract field or a command line flag), or, when there is none, a reason
+  from a short closed list (a protocol or tool default; a code or version
+  other programs or files read; the method a stored reading was made with; a
+  rule over mcgyvr's own shipped data; what a caller that names none gets,
+  where mcgyvr's own callers name one; how much of a text mcgyvr itself
+  shows, carries or reads, and at what width, never a budget for a model's
+  whole reply or whole input; a weight, threshold or cut of mcgyvr's own
+  ranking of files and symbols; how often or how many times mcgyvr tries its
+  own step again; or a
+  duplicate of another entry, which it names);
+- an **estimate**: a value another machine may prove wrong. Each one still in
+  code names the number id planned for it in the `numbers` block, where it can
+  be set in your `numbers.yaml` like the others, and the setting that changes
+  it today where one exists. Until it moves, `numbers.yaml` cannot set it.
+
+A test parses the files of mcgyvr's code and fails on a number `constants`
+does not classify, on an entry that no longer matches the code, and on a file
+of the package it has not been told about. Which files it judges, and why the
+others are not judged, is kept beside that test and does not ship. It sees
+numbers named at the top of a file, in a class, or as a parameter's default; a
+number written inside a function where it is used is not seen, and the way to
+bring it under the check is to name it. The kinds and reasons are listed in
+`mcgyvr.derived`.

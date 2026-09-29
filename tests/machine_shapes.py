@@ -130,8 +130,10 @@ class Card:
     ``index`` is the card's position as its own vendor's tool numbers it, so
     on a machine of two vendors each vendor counts from zero. ``name`` is an
     invented card name ("Example Card A"), never a real model; a name with a
-    comma or a line break is refused, as one this helper does not model (the
-    card tool prints one comma separated line per card). ``vendor`` is a
+    line break is refused, as the card tool prints one line per card, and a
+    name with a comma is refused too, as a limit of this helper and not of the
+    product, whose readers take a comma in a name as part of the name.
+    ``vendor`` is a
     key of :data:`VENDORS`. ``total_mib`` is the memory size as the card tool
     prints it, in MiB, or ``None`` when this card's size cannot be read.
     ``holders`` are the processes already holding part of it.
@@ -316,13 +318,12 @@ class Shape:
         - the card is of the vendor the tool is for: the tool prints no other
           vendor's cards;
         - its size is readable (``total_mib`` is not ``None``): a row that
-          prints ``[N/A]`` for memory is dropped, by :mod:`mcgyvr.scan` with a
-          note naming the row and by :mod:`mcgyvr.detect` without a note
-          that names it.
+          prints ``[N/A]`` for memory is dropped by :mod:`mcgyvr.scan`, with a
+          note naming the row.
 
         These are the cards a scan of the machine reports, the machine being
-        scanned where it is. What :func:`detection` reports of a machine that
-        is not local is another matter; see there.
+        scanned where it is. :mod:`mcgyvr.detect` lists more of them: see
+        :attr:`detected_cards`.
         """
         if self.card_reader_missing:
             return ()
@@ -331,6 +332,23 @@ class Shape:
             for card in self.cards
             if card.card_reader_reads and card.total_mib is not None
         )
+
+    @property
+    def detected_cards(self) -> tuple[Card, ...]:
+        """The cards :mod:`mcgyvr.detect` lists when it runs on this machine.
+
+        The first two conditions of :attr:`readable_cards` hold, and the third
+        does not apply: a card whose size the tool prints as ``[N/A]`` is
+        listed with no size (``vram_gb`` is ``None``) and a note that begins
+        with :data:`mcgyvr.detect.GPU_SIZE_UNDETERMINED` and names the card.
+        So these are the readable cards and the cards of unreadable size of the
+        tool's vendor, in the order the tool prints them. What
+        :func:`detection` reports of a machine that is not local is another
+        matter; see there.
+        """
+        if self.card_reader_missing:
+            return ()
+        return tuple(card for card in self.cards if card.card_reader_reads)
 
 
 def _query_of(arguments: Sequence[str]) -> str:
@@ -393,31 +411,49 @@ def _reader_answer(machine: Shape, arguments: Sequence[str]) -> str | None:
     return card_reader_text(machine.cards, query=query)
 
 
-def detection(machine: Shape, /) -> Detection:
+def detection(machine: Shape, /, *, reached: Sequence[Shape] = ()) -> Detection:
     """What :func:`mcgyvr.detect.detect` reports, run as this helper models it.
 
-    The product's own ``detect`` runs, sweeping only ``machine.host``, with its
-    seams answered from the shape: a server answers its model list on its
-    conventional port, and the card tool answers :func:`card_reader_text` (or
-    is absent). RAM, CPU count and docker are not part of a shape and are
-    reported as not determined.
+    The product's own ``detect`` runs, sweeping ``machine.host`` and then the
+    host of each machine in ``reached``, with its seams answered from the
+    shapes: a server answers its model list on its conventional port, and the
+    card tool answers :func:`card_reader_text` (or is absent). RAM, CPU count
+    and docker are not part of a shape and are reported as not determined.
 
     Where the command runs is the helper's model, not a statement about the
     product. The product's ``detect`` reads the cards of whatever machine it
     runs on, whichever host it sweeps. So today:
 
     - for a ``local`` machine the command runs on that machine: the card tool
-      answers for its cards, and the sweep asks ``localhost``;
+      answers for its cards, and the sweep asks ``localhost``. The cards
+      reported are :attr:`Shape.detected_cards`: a card whose size the tool
+      prints as not available is listed with no size, and a note that begins
+      with :data:`mcgyvr.detect.GPU_SIZE_UNDETERMINED` names it;
     - for a machine that is not ``local`` the command runs on another machine
       that has no card tool and no server of its own, and sweeps the far
       machine's host: its servers are found, no card is reported, and the
       notes say the card tool is absent.
 
-    A later version may add machines the same command sweeps as well, as
-    ``detection(machine, reached=())``; with nothing reached that call means
-    exactly what this one means today.
+    ``reached`` are further machines the same command sweeps, in the order
+    given, after ``machine``. Each is a machine over the network: its servers
+    are found, named by its host as the product names them when a sweep covers
+    more than one host, and none of its cards is reported, since the card tool
+    reads only the machine the command runs on. A reached machine that is
+    local, or whose host is swept already, is refused by name. With nothing
+    reached, this is the sweep of one host described above.
     """
     from mcgyvr import detect
+
+    hosts = (machine.host, *(other.host for other in reached))
+    for other in reached:
+        if other.local:
+            raise ValueError(
+                f"reached machine {other.label!r} is local; a reached machine "
+                "is one over the network"
+            )
+    if len(set(hosts)) != len(hosts):
+        raise ValueError(f"a host is swept twice in {list(hosts)}")
+    servers = [server for each in (machine, *reached) for server in each.servers]
 
     def run(command: Sequence[str]) -> str | None:
         if not machine.local or command[0] != "nvidia-smi":
@@ -426,7 +462,7 @@ def detection(machine: Shape, /) -> Detection:
 
     def get_json(url: str, timeout: float) -> Any | None:
         asked = urllib.parse.urlsplit(url)
-        for server in machine.servers:
+        for server in servers:
             if (
                 asked.hostname == server.host
                 and asked.port == server.port
@@ -452,7 +488,7 @@ def detection(machine: Shape, /) -> Detection:
         mock.patch.object(detect, "detect_docker", docker),
         mock.patch.object(detect, "os", no_cpu_count),
     ):
-        return detect.detect(detect.targets_for((machine.host,)))
+        return detect.detect(detect.targets_for(hosts))
 
 
 def scan(machine: Shape, /) -> Scan:
@@ -571,10 +607,10 @@ def shapes() -> tuple[Shape, ...]:
     Covers: no card and no server; no card with a server here; no card with a
     server elsewhere; one card; four equal cards; two cards of different sizes;
     several cards of several sizes; a busy card; a busy card beside a free one;
-    a card of unreadable size beside a readable one; cards all of a vendor the
-    reader is not for, with the card tool and without it; two vendors mixed;
-    cards without the card reading tool; and the same cards on this machine and
-    on one over the network.
+    a card of unreadable size beside a readable one, in either order; cards
+    all of a vendor the reader is not for, with the card tool and without it;
+    two vendors mixed; cards without the card reading tool; and the same cards
+    on this machine and on one over the network.
     """
     from mcgyvr.detect import PORT_CONVENTIONS
 
@@ -705,6 +741,12 @@ def shapes() -> tuple[Shape, ...]:
             local=False,
             cards=same_cards,
             servers=(server(first, documented, first_port, medium),),
+        ),
+        local(
+            "unreadable-size-first",
+            "machine-e6ce",
+            _card(0, "Example Card J"),
+            _card(1, "Example Card A"),
         ),
     )
 
