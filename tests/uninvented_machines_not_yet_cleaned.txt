@@ -159,14 +159,12 @@ tests/test_draft_acceptance_is_journaled_when_the_server_reports_it.py	dev-point
 tests/test_draining_a_source_whose_rung_declares_a_width_does_not_raise.py	dev-pointer=1	host=1
 tests/test_emit.py	address=7
 tests/test_escalate.py	address=5
-tests/test_every_card_the_card_tool_prints_is_reported_or_named_in_a_note.py	host=2
 tests/test_exit_codes.py	card-model=1	host=2
 tests/test_fleet_lock_reads_fleet_and_policy_as_yaml.py	dev-pointer=1	host=1
 tests/test_four_lenses.py	dev-pointer=8
 tests/test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock.py	dev-pointer=1	host=1
 tests/test_ggufscan_self_contained.py	dev-pointer=1
 tests/test_host_ram_is_summed_across_co_residents.py	dev-pointer=2	host=1
-tests/test_initialize.py	card-model=3	host=6
 tests/test_measured_scan.py	card-model=6
 tests/test_measured_sizing.py	card-model=1	dev-pointer=3	host=19
 tests/test_no_landed_test_opens_with_a_red_spec_docstring.py	dev-pointer=1
@@ -179,7 +177,6 @@ tests/test_pattern_e_boundaries.py	dev-pointer=1
 tests/test_per_rung_width.py	host=12
 tests/test_prefill_is_judged_and_cuda_host_and_the_backend_are_recorded.py	dev-pointer=1
 tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py	dev-pointer=5
-tests/test_propose.py	host=3
 tests/test_remote_scan.py	card-model=1
 tests/test_route.py	address=2
 tests/test_sandbox_docker.py	host=5
