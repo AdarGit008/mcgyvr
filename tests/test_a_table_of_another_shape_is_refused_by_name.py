@@ -489,3 +489,13 @@ def test_a_caveat_missing_a_required_key_is_refused_by_its_place(
 
     assert "harness_caveats[0]" in said, said
     assert repr(key) in said, said
+
+
+def test_a_file_that_is_not_text_is_refused_by_its_name(tmp_path: Path) -> None:
+    path = tmp_path / "capability-table.json"
+    path.write_bytes(b"\xff\xfe{")
+
+    with pytest.raises(CapabilityTableError) as refused:
+        load(path)
+
+    assert str(path) in str(refused.value), refused.value
