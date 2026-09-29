@@ -42,13 +42,13 @@ separate concern and does not live here.
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import platform
 import re
 import shutil
 import subprocess
-import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -275,13 +275,15 @@ def _run(command: Sequence[str]) -> str | None:
 def _get_json(url: str, timeout: float) -> Any | None:
     """GET a JSON document, returning None on any failure whatsoever.
 
-    Every failure mode here — refused, timed out, 404, not JSON — means the
-    same thing to the caller: nothing usable is listening.
+    Every failure mode here — refused, timed out, 404, not JSON, a status line
+    that is not one, a body that ends before the length it stated — means the
+    same thing to the caller: nothing usable is listening. The last two are
+    ``http.client.HTTPException``, which is not an ``OSError``.
     """
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, OSError, ValueError, json.JSONDecodeError):
+    except (OSError, ValueError, http.client.HTTPException):
         return None
 
 
