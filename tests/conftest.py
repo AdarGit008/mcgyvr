@@ -1,21 +1,19 @@
-"""Fixtures shared across the tests that touch the instrument declaration.
+"""Fixtures shared by the tests: a home of their own, and no way off the machine.
 
-``tools/instruments.json`` is read by five modules and none of them is a
-package, so each reaches it by path through the same ``sys.modules`` slot. This
-file loads it **first** — a conftest is imported before any test module — so
-every rig imported later binds *this* module object, and a fixture that patches
-it here is a fixture the rigs can see. Without that ordering guarantee a test
-would be patching a second copy of the declaration and wondering why the guard
-still fired.
+Every test runs in a fresh home; resolving a name that is not this machine is
+refused, the runner's status read is stubbed, and the door's read is refused.
+A test that asks for ``home`` also gets a home of its own under its
+``tmp_path``. What these fixtures read comes from the package and these tests;
+what they write goes into temporary folders (a synthetic session transcript in
+each fresh home). The tests hold the shared fixtures to reading nothing
+outside the package and the tests in
+``tests/test_what_every_test_shares_opens_nothing_outside_the_package_and_the_tests.py``.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import ipaddress
 import socket
-import sys
-import types
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -23,9 +21,6 @@ from typing import Any
 import pytest
 
 import tests.livejournal as lj
-from tests._helpers import by_path
-
-REPO = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture(autouse=True)
@@ -126,24 +121,23 @@ class ReachedForAMachineError(RuntimeError):
 def _no_test_resolves_a_machine(monkeypatch: pytest.MonkeyPatch) -> None:
     """A test may **name** a rig. It may not **resolve** one.
 
-    ``srv1`` and ``srv2`` are real machines on this developer's Tailnet, and the
-    suite is full of fixtures that name them — the protected sleep/wake specs
-    carry ``http://srv2:8001`` because that is what the live ladder is. A test
-    that resolved such a name would send a request to a real rig, so a test
-    naming a rig by hostname is non-hermetic unless something prevents it.
+    Fixtures name serving hosts by hostname, and a developer's network may
+    well answer to such a name. A test that resolved one would send a request
+    to a real machine, so a test naming a host is non-hermetic unless something
+    prevents it.
 
-    ``tests/test_one_door.py`` guards *spawns* — a test that reaches a rig
+    ``tests/test_one_door.py`` guards *spawns* — a test that reaches a machine
     through ``ssh`` — and a name is not a spawn. :func:`_offline_probes` stubs
-    the two ``tools/bench`` fetchers by name, which is the same shape of guard
-    one layer up and misses every other way out: :mod:`mcgyvr.availability`,
+    the runner's status read by name, which is the same shape of guard one
+    layer up and misses every other way out: :mod:`mcgyvr.availability`,
     :mod:`mcgyvr.detect` and :mod:`mcgyvr.runner` each open their own
     ``urllib.request.urlopen``.
 
     So the guard goes where all of them meet. Resolution itself is refused for
     every name that is not this machine, which catches the socket whoever opens
     it and whatever library they opened it with. It is a **deny-list of the
-    whole world** rather than of the two rigs on purpose: a guard listing
-    ``srv1`` and ``srv2`` is a guard the third rig is not in, and a hermetic
+    whole world** rather than of known hosts on purpose: a guard listing the
+    hosts someone knows is a guard the next host is not in, and a hermetic
     suite has no business asking a resolver anything.
 
     Two ways through, and both are narrow. A test that wants a real transport
@@ -181,48 +175,15 @@ def _no_test_resolves_a_machine(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket, "getaddrinfo", refuse)
 
 
-def _load_instruments() -> types.ModuleType:
-    cached = sys.modules.get("instruments")
-    if cached is not None:
-        return cached
-    spec = importlib.util.spec_from_file_location(
-        "instruments", REPO / "tools" / "instruments.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-instruments = _load_instruments()
-
-
 @pytest.fixture(autouse=True)
 def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test reaches a serving endpoint unless it says so.
 
-    Both rigs' ``record_run`` writes the `observed` block, which probes the
-    endpoint — so a test that records a run would make real outbound requests,
-    silently, some to a fixture host whose URL carries a credential. Behind a
-    wildcard resolver the credential leaves the machine; behind a firewall that
-    drops rather than refuses, one test takes minutes.
-
     Stubbed centrally rather than per test, because the property wanted is "the
     suite is offline", and a per-test discipline is one someone forgets. A test
-    that wants to control these seams patches them itself afterwards and wins,
+    that wants to control this seam patches it itself afterwards and wins,
     since its ``monkeypatch`` applies later than this one.
-
-    Both JSON fetchers and the text fetcher: `/metrics` is Prometheus text and
-    goes through a separate function by design, so patching only the first two
-    leaves every capture making a live call while reading as offline.
     """
-    # LOADED, not looked-up. Returning early when the modules are not in
-    # `sys.modules` would make the guarantee "you are offline, unless something
-    # loads the capture module after I looked", so the modules are imported
-    # here rather than hoped for.
-    identity = by_path("bench_identity", REPO / "tools" / "bench" / "identity.py")
-    observed = by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
     # The runner reads a keyless unit's status page (`/slots` or `/metrics`)
     # before and after every dispatch, to record what the unit had in flight.
     # A test that stubs the dispatch's `_post_json` has stubbed the request,
@@ -234,13 +195,9 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     # loaded and the function was renamed" — with `raising=False` a rename would
     # leave the real fetcher live and this fixture would go on reporting that
     # the suite is offline. Two ways to silently become a no-op, two guards.
-    for module, name in (
-        (identity, "_get_json"),
-        (identity, "_post_json"),
-        (observed, "_get_text"),
-        (dispatch_runner, "_get_text"),
-    ):
-        monkeypatch.setattr(module, name, lambda *a, **k: None, raising=True)
+    monkeypatch.setattr(
+        dispatch_runner, "_get_text", lambda *a, **k: None, raising=True
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -249,7 +206,7 @@ def _no_test_opens_the_doors_read(monkeypatch: pytest.MonkeyPatch) -> None:
 
     Live admission and ``mcgyvr fleet probe`` read each rig of the live fleet
     through the door (:func:`mcgyvr.fleet.read.spawn_read`), and the door's ssh
-    reaches srv1 and srv2 for real. :func:`_no_test_resolves_a_machine` cannot
+    reaches the named machines for real. :func:`_no_test_resolves_a_machine` cannot
     see it: the door is a subprocess, which resolves in its own interpreter. So
     the one place a command spawns it is replaced for every test, and a test
     that means to read a rig substitutes it again with a stand-in of its own.

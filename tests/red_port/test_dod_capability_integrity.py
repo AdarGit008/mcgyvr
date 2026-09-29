@@ -9,17 +9,18 @@ process-wide.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
+from tests.table_fixture import CLASSES, reading, table_document, write_table
+
+CLASS = str(CLASSES[0]["id"])
+
 
 def _table(tmp_path: Path, models: list[dict[str, Any]]) -> Path:
-    path = tmp_path / "capability-table.json"
-    path.write_text(json.dumps({"schema_version": 1, "models": models}))
-    return path
+    return write_table(tmp_path, table_document(rows=models))
 
 
 def _model(**overrides: Any) -> dict[str, Any]:
@@ -29,10 +30,8 @@ def _model(**overrides: Any) -> dict[str, Any]:
         "params_b": 7.0,
         "vram_gb_working": 5.0,
         "weights_gb": 4.0,
-        "quality": [
-            {"humaneval_plus_pass1": 0.6, "backend": "b", "rig": "r", "date": "d"}
-        ],
-        "throughput_tok_s": [{"value": 100.0, "backend": "b", "rig": "r", "date": "d"}],
+        "quality": [reading(CLASS, humaneval_plus_pass1=0.6)],
+        "throughput_tok_s": [reading(CLASS, value=100.0)],
         "capabilities": {"algorithm": 0.8},
     }
     row.update(overrides)

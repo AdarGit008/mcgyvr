@@ -324,6 +324,29 @@ def test_decisions_explain_each_binding(tmp_path: Path, table) -> None:  # type:
     assert "needs a" in decisions and "pull" in decisions
 
 
+def test_a_table_figure_among_the_decisions_is_called_an_estimate(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """A figure init takes from the shipped table says it is an estimate.
+
+    The figures are read from the table, not restated: every bound model's
+    quality appears in its decision as an estimate, here and in the comment
+    init writes into the user's file.
+    """
+    result = initialize(tmp_path / "c", detection=KEYLESS_RIG, table=table)
+    shown = [
+        (model, line)
+        for line in result.decisions
+        for model in table.models
+        if f"-> {model.id} " in line and model.best_quality is not None
+    ]
+    assert shown, result.decisions
+    for model, line in shown:
+        assert f"an estimated {model.best_quality:.1%}" in line, line
+    written = " ".join(part.strip("# ").strip() for part in result.content.splitlines())
+    assert "an estimated" in written
+
+
 # --- the file a human has to read ----------------------------------------
 
 
