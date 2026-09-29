@@ -108,6 +108,7 @@ stub a gate is the seam that lets a caller do it.
 from __future__ import annotations
 
 import argparse
+import codecs
 import contextlib
 import json
 import math
@@ -448,8 +449,13 @@ CALLER_GATE_TIMEOUT_S = 600.0
 #: when the list is read, before any gate runs.
 CALLER_GATE_MOST_S = 86400.0
 #: The most gates a list may hold. Far above any list a caller writes by
-#: hand; a list longer than this is refused rather than read at length.
+#: hand. The list is read whole (at most :data:`MAX_LIST_BYTES`) and parsed
+#: before its gates are counted.
 MAX_GATES = 256
+#: The most bytes of a gate list the door reads: far above a list of
+#: :data:`MAX_GATES` gates written by hand. A larger file is refused before it
+#: is parsed.
+MAX_LIST_BYTES = 1024 * 1024
 #: How long the door waits, after TERM to a caller's gate's process group,
 #: for the group to be empty before it sends KILL (see :func:`_end_group`).
 GROUP_GRACE_S = 5.0
@@ -523,13 +529,25 @@ def _printable(text: str) -> str:
     )
 
 
+def _brief(value: object, most: int = 80) -> str:
+    """``value`` quoted, cut to its first ``most`` characters when it is longer."""
+    if isinstance(value, str):
+        return _start_of(value, most)
+    quoted = repr(value)
+    if len(quoted) <= most + 2:
+        return quoted
+    return f"{quoted[:most]}... ({len(quoted)} characters)"
+
+
 def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
     """Read the gate list ``named``, or refuse it naming the file and the entry.
 
     A gate list is input the door does not trust. Refused here, before any
-    gate runs: an empty name; a file that is not a regular file of JSON (too
-    deep, a number JSON will not read and a key given twice included) holding
-    an object of ``root`` and ``gates``; a key the door does not know; a root
+    gate runs: an empty name; a name relative to a working folder the door
+    cannot name; a file that is not a regular file of at most
+    :data:`MAX_LIST_BYTES` of UTF-8 JSON, with no byte order mark (too deep, a
+    number JSON will not read and a key given twice included) holding an
+    object of ``root`` and ``gates``; a key the door does not know; a root
     that is not an existing folder named by an absolute path, or that is or
     lies inside :data:`PACKAGE`; more than :data:`MAX_GATES` gates; a gate
     whose path cannot be a path, is missing, is not an executable file, or
@@ -537,7 +555,8 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
     :data:`PACKAGE`; a phase not in ``phases``; a ``timeout_s`` that is not a
     positive number of seconds up to :data:`CALLER_GATE_MOST_S`; an export that
     is not a ``RUN_`` name, is one of :data:`DOOR_NAMES`, or is declared by two
-    gates.
+    gates. A refusal quotes a field of the list by its first characters only
+    (:func:`_brief`).
     """
     if not named:
         _refuse(
@@ -550,12 +569,17 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
         try:
             source = Path.cwd() / source
         except OSError as escape:
+            which = (
+                "is gone"
+                if isinstance(escape, FileNotFoundError)
+                else "the door cannot name"
+            )
             _refuse(
                 2,
                 _printable(
                     f"--gates {named}: the list is named relative to the working "
-                    "folder, which cannot be read "
-                    f"({escape.strerror or escape!r}); name it by an absolute path"
+                    f"folder, which {which} ({escape.strerror or repr(escape)}); "
+                    "name it by an absolute path"
                 ),
             )
 
@@ -569,23 +593,47 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
     if not regular:
         no("the list", "cannot be read: it is not a regular file")
     try:
-        doc = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_once)
+        with source.open("rb") as handle:
+            raw = handle.read(MAX_LIST_BYTES + 1)
     except OSError as escape:
-        no("the list", f"cannot be read ({escape.strerror or escape!r})")
+        no("the list", f"cannot be read ({escape.strerror or repr(escape)})")
+    if len(raw) > MAX_LIST_BYTES:
+        no(
+            "the list",
+            f"is larger than {MAX_LIST_BYTES} bytes, the most the door reads",
+        )
+    if raw.startswith(codecs.BOM_UTF8):
+        no("the list", "starts with a byte order mark; the door reads UTF-8 with none")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as bad:
+        no("the list", f"is not UTF-8 (at byte {bad.start + 1})")
+    try:
+        doc = json.loads(text, object_pairs_hook=_once)
     except _TwiceError as twice:
-        no(f"key {twice.key!r}", "is given twice; a list states each key once")
+        no(f"key {_brief(twice.key)}", "is given twice; a list states each key once")
     except json.JSONDecodeError as escape:
         no(
             "the list",
-            f"is not JSON the door reads (line {escape.lineno}, column "
-            f"{escape.colno}: {escape.msg})",
+            f"is not JSON the door reads ({escape.msg.removesuffix(' at')}, "
+            f"at line {escape.lineno}, column {escape.colno})",
         )
-    except (ValueError, RecursionError) as escape:
-        no("the list", f"is not JSON the door reads ({type(escape).__name__})")
+    except RecursionError:
+        no("the list", "is not JSON the door reads (it nests deeper than it reads)")
+    except ValueError as escape:
+        no(
+            "the list",
+            "holds a number with more digits than the door reads"
+            if "digits" in str(escape)
+            else f"is not JSON the door reads ({type(escape).__name__})",
+        )
     if not isinstance(doc, dict):
         no("the list", "is not a JSON object of `root` and `gates`")
     for key in sorted(set(doc) - GATE_LIST_KEYS):
-        no(f"key {key!r}", "is not a gate list key; a list holds `root` and `gates`")
+        no(
+            f"key {_brief(key)}",
+            "is not a gate list key; a list holds `root` and `gates`",
+        )
     raw_root = doc.get("root")
     root = Path(raw_root) if isinstance(raw_root, str) and raw_root else None
     try:
@@ -595,7 +643,7 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
     if root is None or not usable:
         no(
             "root",
-            f"{raw_root!r} is not an existing folder named by an absolute path; "
+            f"{_brief(raw_root)} is not an existing folder named by an absolute path; "
             "a caller's gates run there and read it as RUN_ROOT",
         )
     root = root.resolve()
@@ -620,9 +668,9 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
             no(where, "is not an object of path, why, phase and exports")
         path = gate.get("path")
         if isinstance(path, str) and path:
-            where = f"{where} ({path!r})"
+            where = f"{where} ({_brief(path)})"
         for key in sorted(set(gate) - GATE_KEYS):
-            no(where, f"carries {key!r}, which is not a gate key")
+            no(where, f"carries {_brief(key)}, which is not a gate key")
         if not isinstance(path, str) or not path:
             no(where, "names no path")
         why = gate.get("why")
@@ -632,7 +680,7 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
         if phase not in phases:
             no(
                 where,
-                f"asks for phase {phase!r}; this run has "
+                f"asks for phase {_brief(phase)}; this run has "
                 f"{', '.join(phases)} and no other"
                 + (
                     " (a read has no teardown and no lease for an `always` "
@@ -675,7 +723,7 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
             if CALLER_EXPORT.fullmatch(name) is None:
                 no(
                     where,
-                    f"exports {name!r}; a caller's gate exports RUN_ names only",
+                    f"exports {_brief(name)}; a caller's gate exports RUN_ names only",
                 )
             if name in DOOR_NAMES:
                 no(where, f"exports {name!r}, a name the door sets for its own gates")
@@ -714,7 +762,7 @@ def _outside(target: Path, root: Path) -> tuple[str | None, Path]:
     try:
         script = target.resolve(strict=True)
     except (OSError, RuntimeError, ValueError):
-        return f"names {target}, which is not there", target
+        return "is not there", target
     if not script.is_relative_to(root):
         return (
             f"resolves to {script}, outside the list's root {root}; a gate runs "
@@ -965,7 +1013,8 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
         if match is None:
             _refuse(
                 2,
-                f"{name} wrote {_start_of(line)} on RUN_EXPORT_FD, which is not "
+                f"{name} wrote {_start_of(line) if entry.root else repr(line)} "
+                "on RUN_EXPORT_FD, which is not "
                 "KEY=VALUE; the door passes named facts between gates and "
                 "nothing else",
             )
@@ -1082,10 +1131,12 @@ def _end_group(
     not ended.
 
     INT and TERM are ignored while it runs, and set back to ``restore`` when
-    it returns: a signal that landed in a wait would otherwise raise out of
-    it, and KILL would never be sent. A signal already pending when it is
-    called can raise before they are ignored; the caller calls it again until
-    it returns (see :func:`_collect_bounded`).
+    it returns. A signal that landed in a wait would otherwise raise out of
+    it: the caller would call it again, which sends TERM again and starts the
+    grace over, and a gate ended at its bound would be reported as an
+    interrupted run (130) rather than refused (2). A signal already pending
+    when it is called can raise before they are ignored; the caller calls it
+    again until it returns (see :func:`_collect_bounded`).
     """
     try:
         for sig in UNSTOPPABLE:
@@ -1137,7 +1188,8 @@ def _collect_bounded(
     (:func:`_end_group`) and the gate refused, whether the gate still runs or
     exited and left a process holding the descriptor open; the refusal says
     which. A gate that writes more than :data:`MAX_EXPORT_BYTES` on it is
-    ended and refused the same way.
+    ended and refused the same way, and one that writes bytes that are not
+    UTF-8 is refused: carried on, each would grow into three.
 
     A KeyboardInterrupt ends the group the same way before it goes on. A
     second signal can land before :func:`_end_group` has set both aside, and
@@ -1175,10 +1227,15 @@ def _collect_bounded(
                         break
                     held += len(data)
                     if held > MAX_EXPORT_BYTES:
-                        ended(
+                        wrote = (
                             f"wrote more than {MAX_EXPORT_BYTES} bytes on "
-                            "RUN_EXPORT_FD, more than the door reads from a gate, "
-                            "and was ended with its process group"
+                            "RUN_EXPORT_FD, more than the door reads from a gate"
+                        )
+                        if proc.poll() is None:
+                            ended(f"{wrote}, and was ended with its process group")
+                        ended(
+                            f"{wrote}, and exited; what was left of its process "
+                            "group was ended"
                         )
                     chunks.append(data)
             try:
@@ -1195,7 +1252,16 @@ def _collect_bounded(
             raise
     finally:
         os.close(fd)
-    return b"".join(chunks).decode("utf-8", errors="replace"), status
+    try:
+        return b"".join(chunks).decode("utf-8"), status
+    except UnicodeDecodeError as bad:
+        _refuse(
+            2,
+            _printable(
+                f"{entry.script} wrote bytes that are not UTF-8 on RUN_EXPORT_FD "
+                f"(at byte {bad.start + 1}); the door passes text between gates"
+            ),
+        )
 
 
 #: What a `--model` may contain: an absolute path of ordinary path characters.
@@ -1334,7 +1400,12 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
             "close it, and if it has not, refuses the gate and ends the gate's "
             "process group, which ends that process only while it is in the "
             "group. One in a group or a session of its own outlives the door "
-            "even while it holds the descriptor. "
+            "even while it holds the descriptor. A gate may write at most "
+            f"{MAX_EXPORT_BYTES // 1024} KiB of UTF-8 on its export descriptor; "
+            "one that writes more is ended and refused. What all gates export "
+            "together must fit in the environment a process starts with: when "
+            "it does not, the next gate cannot start, and the door refuses "
+            "naming that gate. "
             "`before` gates run after the "
             "profile and before anything is sent to the machine; `after` gates "
             "after the identity and daemon gates and before the envelope and "
@@ -1524,7 +1595,12 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
             "close it, and if it has not, refuses the gate and ends the gate's "
             "process group, which ends that process only while it is in the "
             "group. One in a group or a session of its own outlives the door "
-            "even while it holds the descriptor. "
+            "even while it holds the descriptor. A gate may write at most "
+            f"{MAX_EXPORT_BYTES // 1024} KiB of UTF-8 on its export descriptor; "
+            "one that writes more is ended and refused. What all gates export "
+            "together must fit in the environment a process starts with: when "
+            "it does not, the next gate cannot start, and the door refuses "
+            "naming that gate. "
             "`before` gates run after the "
             "profile and before anything is sent to the machine. `after` gates "
             "run after the machine is read and what was read is filed, so they "
@@ -1762,8 +1838,13 @@ def _always(env: dict[str, str], callers: tuple[Entry, ...] = ()) -> int:
     ``always`` gates, run after 7 and 8: a refusal in one does not stop the
     next, but a signal to the door ends the one that is running (it is the
     caller's code, with a time bound of its own, and the lease waits on it),
-    and counts as its refusal. The claim gate 5 took on the RUN_ID is released
-    last, on every path out of here.
+    and counts as its refusal. INT and TERM are set to end a caller's gate
+    only while it runs, and set aside again before the door says how it
+    ended; a signal that lands in between is caught and they are set aside
+    again (:func:`_aside`), so it neither stops the next gate nor escapes the
+    door. One more signal landing in the few instructions between catching a
+    signal and setting them aside can still escape. The claim gate 5 took on
+    the RUN_ID is released last, on every path out of here.
     """
     if "RUN_ID" not in env:
         return 0  # gate 5 never minted a run: nothing was started to tear down
@@ -1779,22 +1860,28 @@ def _always(env: dict[str, str], callers: tuple[Entry, ...] = ()) -> int:
                 print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
                 after = refusal.status
         for entry in callers:
-            for sig in UNSTOPPABLE:
-                signal.signal(sig, _sigterm)
+            status: int | None = None
+            refused: RefusedError | None = None
+            ended = False
             try:
-                status = _run_entry(entry, env)
-                if status != 0:
-                    print(
-                        _printable(
-                            f"run.py: {entry.script} ({_ended(status)}) — {entry.why}"
-                        ),
-                        file=sys.stderr,
-                    )
-                    after = entry.status
-            except RefusedError as refusal:
-                print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-                after = refusal.status
+                try:
+                    for sig in UNSTOPPABLE:
+                        signal.signal(sig, _sigterm)
+                    status = _run_entry(entry, env)
+                except RefusedError as refusal:
+                    refused = refusal
+                except KeyboardInterrupt:
+                    ended = True
+                finally:
+                    _aside()
             except KeyboardInterrupt:
+                # One more signal, landed before INT and TERM were set aside.
+                _aside()
+                ended = ended or (status is None and refused is None)
+            if refused is not None:
+                print(f"run.py: REFUSED — {refused.rule}", file=sys.stderr)
+                after = refused.status
+            elif ended:
                 print(
                     _printable(
                         f"run.py: {entry.script} was ended by a signal to the "
@@ -1803,14 +1890,35 @@ def _always(env: dict[str, str], callers: tuple[Entry, ...] = ()) -> int:
                     file=sys.stderr,
                 )
                 after = entry.status
-            finally:
-                for sig in UNSTOPPABLE:
-                    signal.signal(sig, signal.SIG_IGN)
+            elif status:
+                print(
+                    _printable(
+                        f"run.py: {entry.script} ({_ended(status)}) — {entry.why}"
+                    ),
+                    file=sys.stderr,
+                )
+                after = entry.status
     finally:
         for sig, handler in previous.items():
             signal.signal(sig, handler)
         _release_claim(env)
     return after
+
+
+def _aside() -> None:
+    """Set INT and TERM to be ignored, whatever signal lands while it does so.
+
+    A signal that arrives while a handler is still the door's raises
+    KeyboardInterrupt; it is caught and the setting done again, so once this
+    returns neither signal raises.
+    """
+    while True:
+        try:
+            for sig in UNSTOPPABLE:
+                signal.signal(sig, signal.SIG_IGN)
+        except KeyboardInterrupt:
+            continue
+        return
 
 
 def _release_claim(env: dict[str, str]) -> None:
