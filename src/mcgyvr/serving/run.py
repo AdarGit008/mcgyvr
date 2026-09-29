@@ -441,8 +441,10 @@ CALLER_GATE_TIMEOUT_S = 600.0
 #: The most gates a list may hold. Far above any list a caller writes by
 #: hand; a list longer than this is refused rather than read at length.
 MAX_GATES = 256
-#: The package's own folder. A list whose root is, holds or lies inside it
-#: could name the door's own scripts and run them out of the door's order.
+#: The package's own folder, where the door's own scripts are. A list whose
+#: root is or lies inside it is refused, and so is a gate that resolves
+#: inside it: either could run the door's scripts out of the door's order. A
+#: root may hold it (a project with the package in its virtual environment).
 PACKAGE = HERE.parent
 
 
@@ -484,8 +486,16 @@ def _once(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def _printable(text: str) -> str:
-    """``text`` as a terminal can print it: a lone surrogate is escaped."""
-    return text.encode("utf-8", "backslashreplace").decode("utf-8")
+    """``text`` as a terminal can print it.
+
+    A refusal quotes the caller's list, and a list may carry a NUL, a
+    terminal escape or a lone surrogate; each character that is not
+    printable is written as its escape (``\\x1b``), never raw.
+    """
+    return "".join(
+        char if char.isprintable() else char.encode("unicode_escape").decode("ascii")
+        for char in text
+    )
 
 
 def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
@@ -495,11 +505,12 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
     gate runs: an empty name; a file that is not a regular file of JSON (too
     deep, a number JSON will not read and a key given twice included) holding
     an object of ``root`` and ``gates``; a key the door does not know; a root
-    that is not an existing folder named by an absolute path, or that is,
-    holds or lies inside :data:`PACKAGE`; more than :data:`MAX_GATES` gates;
-    a gate whose path cannot be a path, is missing, is not an executable file,
-    or resolves (through ``..`` or a link) outside the root; a phase not in
-    ``phases``; a ``timeout_s`` that is not a positive number; an export that
+    that is not an existing folder named by an absolute path, or that is or
+    lies inside :data:`PACKAGE`; more than :data:`MAX_GATES` gates; a gate
+    whose path cannot be a path, is missing, is not an executable file, or
+    resolves (through ``..`` or a link) outside the root or inside
+    :data:`PACKAGE`; a phase not in ``phases``; a ``timeout_s`` that is not a
+    positive number of seconds a float can hold; an export that
     is not a ``RUN_`` name, is one of :data:`DOOR_NAMES`, or is declared by two
     gates.
     """
@@ -546,13 +557,12 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
             "a caller's gates run there and read it as RUN_ROOT",
         )
     root = root.resolve()
-    package = PACKAGE.resolve()
-    if root.is_relative_to(package) or package.is_relative_to(root):
+    if root.is_relative_to(PACKAGE.resolve()):
         no(
             "root",
-            f"{root} is, holds or lies inside the package's own folder "
-            f"{package}; a list could then run the door's own scripts out of "
-            "the door's order",
+            f"{root} is or lies inside the package's own folder "
+            f"{PACKAGE.resolve()}; a list could then run the door's own scripts "
+            "out of the door's order",
         )
     gates = doc.get("gates")
     if not isinstance(gates, list):
@@ -590,13 +600,24 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
                 ),
             )
         bound = gate.get("timeout_s", CALLER_GATE_TIMEOUT_S)
-        if (
-            isinstance(bound, bool)
-            or not isinstance(bound, int | float)
-            or not math.isfinite(bound)
-            or bound <= 0
-        ):
-            no(where, f"gives timeout_s {bound!r}; a bound is a positive number")
+        try:
+            seconds = (
+                float(bound)
+                if isinstance(bound, int | float) and not isinstance(bound, bool)
+                else math.nan
+            )
+        except OverflowError:
+            seconds = math.nan
+        if not math.isfinite(seconds) or seconds <= 0:
+            shown = (
+                f"{str(bound)[:20]}..."
+                if isinstance(bound, int) and len(str(bound)) > 20
+                else bound
+            )
+            no(
+                where,
+                f"gives timeout_s {shown!r}; a bound is a positive number of seconds",
+            )
         exports = gate.get("exports", [])
         if not isinstance(exports, list) or not all(
             isinstance(name, str) for name in exports
@@ -604,7 +625,7 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
             no(where, "`exports` is not a list of names")
         target = Path(path)
         target = target if target.is_absolute() else root / target
-        why_not = _outside(target, root)
+        why_not, _ = _outside(target, root)
         if why_not is not None:
             no(where, why_not)
         for name in exports:
@@ -625,7 +646,7 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
                 status=1 if phase == "always" else 2,
                 exports=tuple(exports),
                 root=str(root),
-                timeout_s=float(bound),
+                timeout_s=seconds,
             )
         )
     return GateList(
@@ -637,24 +658,37 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
     )
 
 
-def _outside(target: Path, root: Path) -> str | None:
-    """Why ``target`` cannot run as a gate of ``root``, or None when it can."""
+def _outside(target: Path, root: Path) -> tuple[str | None, Path]:
+    """Why ``target`` cannot run as a gate of ``root`` (None when it can), and
+    the path it resolves to, which is the one to run.
+
+    A root may hold the package's folder (a project with the package in its
+    virtual environment); a gate may not resolve inside it, since the door's
+    own scripts are there and a list must not run them out of order.
+    """
     try:
         script = target.resolve(strict=True)
     except (OSError, RuntimeError, ValueError):
-        return f"names {target}, which is not there"
+        return f"names {target}, which is not there", target
     if not script.is_relative_to(root):
         return (
             f"resolves to {script}, outside the list's root {root}; a gate runs "
-            "from inside its root or not at all"
+            "from inside its root or not at all",
+            script,
+        )
+    if script.is_relative_to(PACKAGE.resolve()):
+        return (
+            f"resolves to {script}, inside the package's own folder; a caller's "
+            "gate never runs the door's own files",
+            script,
         )
     try:
         runnable = script.is_file() and os.access(script, os.X_OK)
     except (OSError, ValueError):
         runnable = False
     if not runnable:
-        return f"is not an executable file ({script})"
-    return None
+        return f"is not an executable file ({script})", script
+    return None, script
 
 
 def _following(
@@ -822,10 +856,9 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
     # again here: the list was checked when it was read, and a gate that ran
     # since could have swapped this one's file for a link out of the root.
     if entry.root:
-        why_not = _outside(Path(entry.script), Path(entry.root))
+        why_not, script = _outside(Path(entry.script), Path(entry.root))
         if why_not is not None:
             _refuse(2, _printable(f"{entry.script} {why_not}, since the list was read"))
-        script = Path(entry.script).resolve(strict=True)
         child = dict(env, RUN_ROOT=entry.root)
     else:
         script = GATE_SCRIPTS / entry.script
@@ -964,15 +997,26 @@ def _end(proc: subprocess.Popen[bytes]) -> None:
 
 
 def _end_group(proc: subprocess.Popen[bytes]) -> None:
-    """End a caller's gate and every process in its group, and wait for it."""
-    with contextlib.suppress(ProcessLookupError, PermissionError):
-        os.killpg(proc.pid, signal.SIGTERM)
-    with contextlib.suppress(subprocess.TimeoutExpired):
-        proc.wait(timeout=5)
-    # Whatever is left in the group, the gate included, is killed.
-    with contextlib.suppress(ProcessLookupError, PermissionError):
-        os.killpg(proc.pid, signal.SIGKILL)
-    proc.wait()
+    """End a caller's gate and its process group: TERM, a grace, then KILL.
+
+    Both signals are ignored while it runs: a second Ctrl-C or TERM that
+    landed in the grace would otherwise raise out of the wait, and the KILL
+    that ends a gate ignoring TERM would never be sent. A process the gate
+    started in a session of its own is outside the group and is not ended.
+    """
+    previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
+    try:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(proc.pid, signal.SIGTERM)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.wait(timeout=5)
+        # Whatever is left in the group, the gate included, is killed.
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
 
 
 def _collect_bounded(
@@ -981,9 +1025,10 @@ def _collect_bounded(
     """What a caller's gate exported and its status, within its time bound.
 
     The export pipe is read until every writer has closed it and the gate has
-    exited, or until the bound: a gate that runs long, or that exits and
-    leaves a process holding the descriptor, is ended with its whole group
-    and refused. A KeyboardInterrupt ends it the same way before it goes on.
+    exited, or until the bound. A gate still running at its bound, or one
+    that exited and left a process holding the descriptor open until then,
+    is ended with its process group at the bound and refused. A
+    KeyboardInterrupt ends it the same way before it goes on.
     """
     deadline = time.monotonic() + entry.timeout_s
     chunks: list[bytes] = []
@@ -994,7 +1039,7 @@ def _collect_bounded(
             2,
             _printable(
                 f"{entry.script} ran past its bound of {entry.timeout_s:g} s and "
-                "was ended with every process it started"
+                "was ended with its process group"
             ),
         )
 
@@ -1145,7 +1190,10 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
             "a caller's gate list (JSON: root, gates of path, why, phase, "
             "exports, timeout_s), each gate run by the door's Python from the "
             "root, for at most its timeout_s (default "
-            f"{CALLER_GATE_TIMEOUT_S:g} s). `before` gates run after the "
+            f"{CALLER_GATE_TIMEOUT_S:g} s); there is no bound over the whole "
+            "list, each gate has its own. A gate over its bound is ended with "
+            "its process group; a process a gate leaves behind after ending "
+            "within its bound outlives the door. `before` gates run after the "
             "profile and before anything is sent to the machine; `after` gates "
             "after the identity and daemon gates and before the envelope and "
             "the step; `always` gates after gates 7 and 8 and before the lease "
@@ -1321,13 +1369,17 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
             "a caller's gate list (JSON: root, gates of path, why, phase, "
             "exports, timeout_s), each gate run by the door's Python from the "
             "root, for at most its timeout_s (default "
-            f"{CALLER_GATE_TIMEOUT_S:g} s). `before` gates run after the "
+            f"{CALLER_GATE_TIMEOUT_S:g} s); there is no bound over the whole "
+            "list, each gate has its own. A gate over its bound is ended with "
+            "its process group; a process a gate leaves behind after ending "
+            "within its bound outlives the door. `before` gates run after the "
             "profile and before anything is sent to the machine. `after` gates "
             "run after the machine is read and what was read is filed, so they "
             "cannot stop that filing, and only when the reading gate exited 0: "
             "it exits non-zero when it refused, and also after filing when a "
-            "probe or a load on the rig failed. A read has no `always` phase, "
-            "and a list that asks for one is refused"
+            "probe or a load on the rig failed, or when a read under the dev "
+            "profile raised an alert. A read has no `always` phase, and a list "
+            "that asks for one is refused"
         ),
     )
     return parser.parse_args(argv)
