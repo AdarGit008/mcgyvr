@@ -69,3 +69,17 @@ def test_with_neither_the_shipped_numbers_are_refused_by_name(
         derived.shipped_path()
     with pytest.raises(derived.DerivedNumbersError, match=derived.NUMBERS_FILENAME):
         derived.class_tolerances()
+
+
+def test_the_refusal_names_both_paths_it_looked_at(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "package").mkdir()
+    _packaged_at(monkeypatch, tmp_path / "package")
+    monkeypatch.setattr(derived, "CHECKOUT_DATA", tmp_path / "no-checkout")
+    with pytest.raises(derived.DerivedNumbersError) as was:
+        derived.shipped_path()
+    packaged = tmp_path / "package" / "data" / derived.NUMBERS_FILENAME
+    checkout = tmp_path / "no-checkout" / derived.NUMBERS_FILENAME
+    assert str(packaged) in str(was.value)
+    assert str(checkout) in str(was.value)
