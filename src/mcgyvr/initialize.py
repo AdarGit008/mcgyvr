@@ -193,15 +193,39 @@ def _api_setup_rejected(api_units: Sequence[ApiUnit], why: ConfigError) -> str:
     )
 
 
-def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
-    """Say what was tried, what is missing, and what to do about it."""
+def _nothing_to_bind(
+    detection: Detection, why: ConfigError, table: CapabilityTable
+) -> str:
+    """Say what was tried, what is missing, and what to do about it.
+
+    Only the fixes that apply are offered: starting a local backend is not
+    offered while one answers, and a card whose memory size was not
+    determined gets the one fix that needs no size read off it, a unit bound
+    by hand that states the card room it needs.
+    """
+    measured = {model.id for model in table.models if model.is_measured}
+    holding = [b.name for b in detection.backends if measured & set(b.models)]
     if detection.backends:
         found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
-        situation = (
-            f"Reachable backends: {found} — but nothing in the capability "
-            f"table can be bound to them, and none of them reports holding a "
-            f"measured model."
-        )
+        if not holding:
+            situation = (
+                f"Reachable backends: {found} — but nothing in the capability "
+                f"table can be bound to them, and none of them reports holding "
+                f"a measured model."
+            )
+        elif detection.largest_vram_gb is None:
+            situation = (
+                f"Reachable backends: {found} — {', '.join(holding)} reports "
+                f"holding a measured model, but a backend on this machine is "
+                f"bound only to a model that fits this machine's card, and no "
+                f"card here has a known memory size to fit it against."
+            )
+        else:
+            situation = (
+                f"Reachable backends: {found} — {', '.join(holding)} reports "
+                f"holding a measured model, but nothing in the capability "
+                f"table that fits this machine's card can be bound to them."
+            )
     else:
         situation = "No local backend answered on any default endpoint."
 
@@ -212,14 +236,32 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
         vram = f"a GPU whose memory size was not determined ({cards})"
     else:
         vram = "no GPU this build can see"
+
+    by_hand = ""
+    if detection.gpus and detection.largest_vram_gb is None:
+        cards = ", ".join(gpu.name for gpu in detection.gpus)
+        by_hand = (
+            f"  - bind a unit by hand: the memory size of {cards} was not\n"
+            f"    determined, so init sizes no model against it. A unit in\n"
+            f"    fleet.yaml under `units` states its `address`, the `model` it\n"
+            f"    serves and `room_mib`, the card room it needs in MiB, measured\n"
+            f"    or stated; `ladder` in policy.yaml names it, or\n"
+        )
+    start = (
+        ""
+        if any(backend.is_local for backend in detection.backends)
+        else (
+            "  - start a local backend (llama-server, vLLM, LM Studio, "
+            "TGI) and re-run, or\n"
+        )
+    )
     return (
         f"Refusing to write a config that cannot load.\n\n"
         f"{situation} With {vram}, no unit can be proposed, and a config "
         f"with no unit or no ladder dispatches nowhere.\n\n"
         f"The loader would reject it with: {why}\n\n"
-        f"Fix one of these, then re-run:\n"
-        f"  - start a local backend (llama-server, vLLM, LM Studio, "
-        f"TGI) and re-run, or\n"
+        f"Fix one of these:\n"
+        f"{by_hand}{start}"
         f"  - name the rig that serves your models, if it is not this one\n"
         f"    (`mcgyvr init --host srv1 --host srv2`), or\n"
         f"  - bind a hosted API unit, which needs no GPU and no backend:\n\n"
@@ -507,14 +549,30 @@ def _decisions(
     api_units: Sequence[ApiUnit] = (),
 ) -> tuple[str, ...]:
     decisions: list[str] = []
-    if detection.gpus:
-        gpu = detection.gpus[0]
-        scope = (
-            " — this machine's card, which is not what the remote rungs below run on"
-            if detection.has_remote_backend
+    scope = (
+        " — this machine's card, which is not what the remote rungs below run on"
+        if detection.has_remote_backend
+        else ""
+    )
+    # The card sizing used is named first, so the line cannot name one card
+    # while the units below are sized against another. A card whose size was
+    # not determined is named too, and said to be sized against by nothing.
+    sizing = detection.sizing_gpu
+    if sizing is not None:
+        which = (
+            ", the largest card of known size, which models are sized against"
+            if len(detection.gpus) > 1
             else ""
         )
-        decisions.append(f"GPU {gpu.name} with {gpu.size}, via {gpu.how}{scope}.")
+        decisions.append(
+            f"GPU {sizing.name} with {sizing.size}, via {sizing.how}{which}{scope}."
+        )
+    for gpu in detection.gpus:
+        if gpu.vram_gb is None:
+            decisions.append(
+                f"GPU {gpu.name} with {gpu.size}, via {gpu.how}: no model is "
+                f"sized against it{scope}."
+            )
     for backend in detection.backends:
         where = "here" if backend.is_local else f"on {backend.host}"
         decisions.append(
@@ -690,7 +748,7 @@ def initialize(
         # "start a local backend" would send someone to fix the wrong thing.
         if asked:
             raise InitError(_api_setup_rejected(asked, exc)) from exc
-        raise InitError(_nothing_to_bind(found, exc)) from exc
+        raise InitError(_nothing_to_bind(found, exc, capability)) from exc
 
     fleet_path = path / FLEET_FILENAME
     policy_path = path / POLICY_FILENAME

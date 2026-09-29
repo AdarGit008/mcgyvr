@@ -167,6 +167,19 @@ GPU_SIZE_UNDETERMINED = "GPU: memory size not determined"
 #: How a note begins for a row the card tool printed that could not be read as
 #: a card at all. The note quotes the row, so the card is named, not dropped.
 GPU_ROW_NOT_READ = "GPU: nvidia-smi printed a row that could not be read as a card"
+#: The most characters of the card tool's own text a note quotes. A row may be
+#: of any length, and a note is printed and written into a setup, so a longer
+#: quote keeps both ends and not the middle.
+ROW_QUOTED_AT_MOST = 200
+
+
+def _quoted(text: str) -> str:
+    """``text`` quoted, cut in the middle when longer than the bound."""
+    shown = repr(text)
+    if len(shown) <= ROW_QUOTED_AT_MOST:
+        return shown
+    keep = (ROW_QUOTED_AT_MOST - len(" ... ")) // 2
+    return f"{shown[:keep]} ... {shown[-keep:]}"
 
 
 @dataclass(frozen=True)
@@ -258,9 +271,19 @@ class Detection:
         with no card of known size this is None, as for a machine without a
         card. The card is still in :attr:`gpus` and named in :attr:`notes`.
         """
-        return max(
-            (g.vram_gb for g in self.gpus if g.vram_gb is not None), default=None
-        )
+        sizing = self.sizing_gpu
+        return None if sizing is None else sizing.vram_gb
+
+    @property
+    def sizing_gpu(self) -> Gpu | None:
+        """The card :attr:`largest_vram_gb` reads: the biggest of known size.
+
+        Of cards of one size, the first the tool listed. None when no card's
+        size is known. Whatever names the card that sizing used reads it here,
+        so it cannot name one card while the sizing used another.
+        """
+        sized = [g for g in self.gpus if g.vram_gb is not None]
+        return max(sized, key=lambda g: g.vram_gb or 0.0, default=None)
 
     def backend(self, name: str) -> Backend | None:
         return next((b for b in self.backends if b.name == name), None)
@@ -408,9 +431,9 @@ def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
         if len(parts) >= 2 and name and _is_not_available(size):
             gpus.append(Gpu(name=name, vram_gb=None, how=how))
             notes.append(
-                f"{GPU_SIZE_UNDETERMINED} for {name}: nvidia-smi printed its "
-                f"memory.total as {size}. The card is listed, but it is not "
-                f"sized against; bind VRAM by hand for it."
+                f"{GPU_SIZE_UNDETERMINED} for {_quoted(name)}: nvidia-smi "
+                f"printed its memory.total as {_quoted(size)}. The card is "
+                f"listed, but it is not sized against; bind VRAM by hand for it."
             )
             continue
         try:
@@ -420,7 +443,7 @@ def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
         if not math.isfinite(mib) or mib < 0:
             notes.append(
                 f"{GPU_ROW_NOT_READ}, so that card is missing from the list: "
-                f"{line.strip()!r}. Read the card list as incomplete, not short."
+                f"{_quoted(line.strip())}. Read the card list as incomplete, not short."
             )
             continue
         gpus.append(Gpu(name=name, vram_gb=round(mib / MIB_PER_GB, 1), how=how))

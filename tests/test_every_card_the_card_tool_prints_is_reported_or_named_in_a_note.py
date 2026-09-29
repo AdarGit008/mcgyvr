@@ -268,9 +268,7 @@ def test_a_refusal_on_a_card_of_undetermined_size_does_not_say_there_is_no_card(
 def test_a_note_quotes_a_bounded_part_of_a_huge_row(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Typed loosely until detection declares its bound.
-    declared: Any = detect
-    bound = declared.ROW_QUOTED_AT_MOST
+    bound = detect.ROW_QUOTED_AT_MOST
     huge = "x" * 100_000
     _gpus, notes = read(monkeypatch, f"{huge}\n{huge}, [N/A]\n")
     assert len(notes) == 2
