@@ -9,6 +9,7 @@ absent or refused, or a missing machine-id file each name what they cost.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -16,7 +17,9 @@ import pytest
 from tests.machine_shapes import Shape, shape, shapes
 from tests.machinereader import (
     FIRST_TOOL,
+    MIB,
     Staged,
+    SysfsCard,
     expected_unread,
     fingerprint,
     replace,
@@ -142,3 +145,95 @@ def test_without_a_machine_id_file_or_a_host_name_both_are_named_unread(
     unread = {u.field: u.why for u in reading.unread}
     assert unread["machine_id"].strip()
     assert unread["host"].strip()
+
+
+def test_a_first_tool_that_answers_with_no_card_is_named_unread(
+    tmp_path: Path,
+) -> None:
+    ran = run(Staged(first_tool=b""), tmp_path)
+    why = _unread(ran.stdout)["cards.nvidia-smi"]
+    assert "printed no card" in why
+    assert "left over" in why
+
+
+def test_a_failing_tool_is_named_with_what_the_user_can_do(tmp_path: Path) -> None:
+    ran = run(Staged(first_tool=b"", first_tool_exit=4), tmp_path)
+    why = _unread(ran.stdout)["cards.nvidia-smi"]
+    assert "Run nvidia-smi by hand" in why
+
+
+def _raw_unread(stdout: str) -> dict[str, str]:
+    """The reader's own unread lines, before any parsing."""
+    lines = [line for line in stdout.splitlines() if line.startswith("unread=")]
+    return dict(line.removeprefix("unread=").split(",", 1) for line in lines)
+
+
+def test_a_second_tool_reporting_more_used_than_total_names_free_unread(
+    tmp_path: Path,
+) -> None:
+    text = json.dumps(
+        {
+            "card0": {
+                "Card series": "Example Card S",
+                "VRAM Total Memory (B)": str(3001 * MIB),
+                "VRAM Total Used Memory (B)": str(3002 * MIB),
+            }
+        }
+    ).encode()
+    ran = run(Staged(second_tool=text), tmp_path)
+    assert "card=amd,0,3001,3002,,Example Card S" in ran.stdout.splitlines()
+    assert "more memory used" in _raw_unread(ran.stdout)["card.amd.0.free"]
+
+
+def test_sysfs_reporting_more_used_than_total_names_free_unread(
+    tmp_path: Path,
+) -> None:
+    card = SysfsCard(
+        number=0,
+        vendor="0x1002",
+        device="0x00cc",
+        product_name="Example Card T",
+        vram_total_bytes=3001 * MIB,
+        vram_used_bytes=3002 * MIB,
+    )
+    ran = run(Staged(sysfs=(card,)), tmp_path)
+    assert "card=amd,0,3001,3002,,Example Card T" in ran.stdout.splitlines()
+    assert "more memory used" in _raw_unread(ran.stdout)["card.amd.0.free"]
+
+
+@pytest.mark.parametrize(
+    "hostname", ["bad host", "boxé.example", "x" * 254, "box;1.example"]
+)
+def test_a_host_name_a_host_name_cannot_be_is_named_unread(
+    hostname: str, tmp_path: Path
+) -> None:
+    ran = run(Staged(hostname=hostname), tmp_path)
+    assert "host=" in ran.stdout.splitlines()
+    assert _raw_unread(ran.stdout)["host"].strip()
+
+
+def test_the_machine_id_is_taken_from_the_first_machine_id_file_first(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine as reader
+
+    staged = Staged(machine_id_file="aa" * 16, dbus_machine_id_file="bb" * 16)
+    reading = reader.parse(run(staged, tmp_path).stdout)
+    assert reading.machine_id == fingerprint("aa" * 16)
+    assert reading.machine_id_from == "/etc/machine-id"
+
+
+def test_a_blank_first_machine_id_file_gives_way_to_the_second(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine as reader
+
+    staged = Staged(machine_id_file="   ", dbus_machine_id_file="bb" * 16)
+    reading = reader.parse(run(staged, tmp_path).stdout)
+    assert reading.machine_id == fingerprint("bb" * 16)
+    assert reading.machine_id_from == "/var/lib/dbus/machine-id"
+
+
+def test_without_a_time_bound_the_reading_says_so(tmp_path: Path) -> None:
+    ran = run(Staged(timeout_program=False), tmp_path)
+    assert "timeout" in _raw_unread(ran.stdout)["tool_bound"]

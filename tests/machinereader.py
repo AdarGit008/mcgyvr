@@ -2,10 +2,13 @@
 
 The reader, ``machine-read.sh``, is run as the door ships it: ``bash -s`` with
 the script on stdin. Here its PATH holds only stub card tools, a stub container
-tool, traps for every command that asks for elevated rights, and the few
-programs the script needs (:data:`PROGRAMS`); every file it reads (sysfs, the
-machine-id file, the host name) lies under a fake root it takes from
-``MCGYVR_TEST_MACHINE_ROOT``. Nothing of the machine the tests run on is read.
+tool, traps for six commands that raise rights or read what only raised rights
+may (:data:`ELEVATION`), and the programs the script uses (:data:`PROGRAMS`,
+plus ``timeout`` and ``python3`` unless a test leaves them out). Every file it
+reads (sysfs, the machine-id files, the host name) lies under a fake root it
+takes from ``MCGYVR_TEST_MACHINE_ROOT``. Nothing of the machine the tests run on
+is read. The stubs call ``cat`` and ``sleep`` by their full paths, so neither is
+on the reader's PATH.
 
 A machine is set out as a :class:`Staged`: what each tool prints and how it
 exits, what sysfs holds, what the container tool lists. :func:`stage` sets out
@@ -17,12 +20,14 @@ it:
   :func:`~tests.machine_shapes.card_reader_text`; its process listing is
   answered here from the card's holders, since the generator does not answer it;
 - a card of ``vendor-b`` is read by the second vendor's tool
-  (:data:`SECOND_TOOL`), whose text is built here; that tool counts what the
-  card keeps for itself as used;
-- a machine without the card tool (``card_reader_missing``) has neither tool,
-  and its cards are found in sysfs only, numbered by their place in the shape;
-  there a ``vendor-b`` card publishes its name and memory and a ``vendor-a``
-  card neither.
+  (:data:`SECOND_TOOL`), whose text is built here, and which is installed only
+  on a machine that has such a card; that tool counts what the card keeps for
+  itself as used;
+- a machine without the card tool (``card_reader_missing``) has neither tool;
+- every card is also in sysfs, numbered by its place in the shape; there a
+  ``vendor-b`` card publishes its name and memory and a ``vendor-a`` card
+  neither. The reader takes from sysfs the cards of a vendor no tool answered
+  for.
 
 :func:`expected_cards` and :func:`expected_unread` say what the reader must
 report for a shape under that model, computed from the shape, never from a run.
@@ -35,6 +40,7 @@ import hashlib
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -47,8 +53,9 @@ from tests.machine_shapes import Card, Shape, card_reader_text
 REPO = Path(__file__).resolve().parent.parent
 READER = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "machine-read.sh"
 
-#: The environment variable the reader takes its fake file root from.
+#: The environment variables the reader takes, for tests only.
 ROOT_VARIABLE = "MCGYVR_TEST_MACHINE_ROOT"
+SECONDS_VARIABLE = "MCGYVR_TEST_TOOL_SECONDS"
 
 FIRST_TOOL = "nvidia-smi"
 SECOND_TOOL = "rocm-smi"
@@ -69,12 +76,12 @@ SECOND_TOOL_CARDS = ("--showproductname", "--showmeminfo", "vram", "--json")
 TOOL_VENDOR: Mapping[str, str] = {"vendor-a": "nvidia", "vendor-b": "amd"}
 PCI_VENDOR: Mapping[str, str] = {"vendor-a": "0x10de", "vendor-b": "0x1002"}
 
-#: Commands that ask for elevated rights or read what only they may; each is a
+#: Commands that raise rights or read what only raised rights may; each is a
 #: trap on the reader's PATH that records being called.
 ELEVATION = ("sudo", "su", "pkexec", "doas", "runuser", "dmidecode")
 
-#: The programs the reader may use besides the stubs.
-PROGRAMS = ("bash", "cat", "sha256sum")
+#: The programs the reader always has on its PATH besides the stubs.
+PROGRAMS = ("bash", "sha256sum")
 
 MIB = 1024 * 1024
 
@@ -98,12 +105,17 @@ class Staged:
     ``None`` for a tool's text means the tool is not installed.
     ``first_tool_processes`` maps a card index to (text, exit status); an index
     not in it is answered with an error. ``containers`` is the container
-    tool's listing, ``ID|NAME|PROJECT`` per line.
+    tool's listing, ``ID|NAME|PROJECT`` per line. ``first_tool_waits`` makes
+    the first tool wait instead of answering; ``first_tool_reads_stdin`` makes
+    it read its standard input to the end before it answers.
+    ``tool_seconds`` is the bound the reader is told to put on each tool call.
     """
 
     first_tool: bytes | None = None
     first_tool_exit: int = 0
     first_tool_processes: Mapping[int, tuple[bytes, int]] = field(default_factory=dict)
+    first_tool_waits: bool = False
+    first_tool_reads_stdin: bool = False
     second_tool: bytes | None = None
     second_tool_exit: int = 0
     sysfs: tuple[SysfsCard, ...] = ()
@@ -111,19 +123,23 @@ class Staged:
     containers_exit: int = 0
     restarts: Mapping[str, bytes] = field(default_factory=dict)
     machine_id_file: str | None = "0123456789abcdef0123456789abcdef"
+    dbus_machine_id_file: str | None = None
     hostname: str | None = "box-1.example"
     python: bool = True
+    timeout_program: bool = True
+    tool_seconds: int | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
 class Ran:
-    """One run of the reader."""
+    """One run of the reader. ``gave_up`` when it was stopped from outside."""
 
     stdout: str
     stderr: str
     returncode: int
     unexpected: tuple[str, ...]
     elevated: tuple[str, ...]
+    gave_up: bool = False
 
 
 def _device_id(name: str) -> str:
@@ -174,27 +190,43 @@ def _sysfs(shape: Shape) -> tuple[SysfsCard, ...]:
     return tuple(found)
 
 
-def _tool_cards(shape: Shape, vendor: str) -> tuple[Card, ...]:
-    if shape.card_reader_missing:
-        return ()
-    return tuple(sorted((c for c in shape.cards if c.vendor == vendor), key=_index))
-
-
 def _index(card: Card) -> int:
     return card.index
 
 
+def _of(shape: Shape, vendor: str) -> tuple[Card, ...]:
+    return tuple(sorted((c for c in shape.cards if c.vendor == vendor), key=_index))
+
+
+def _first_installed(shape: Shape) -> bool:
+    return not shape.card_reader_missing
+
+
+def _second_installed(shape: Shape) -> bool:
+    return not shape.card_reader_missing and bool(_of(shape, "vendor-b"))
+
+
+def _covered(shape: Shape) -> set[str]:
+    """The vendors a tool answered for with at least one card."""
+    covered = set()
+    if _first_installed(shape) and _of(shape, "vendor-a"):
+        covered.add("vendor-a")
+    if _second_installed(shape):
+        covered.add("vendor-b")
+    return covered
+
+
 def stage(shape: Shape, /) -> Staged:
     """The invented machine set out as the reader will find it."""
-    first = _tool_cards(shape, "vendor-a")
-    second = _tool_cards(shape, "vendor-b")
+    first = _of(shape, "vendor-a") if _first_installed(shape) else ()
+    second = _of(shape, "vendor-b") if _second_installed(shape) else ()
     return Staged(
         first_tool=(
-            None
-            if shape.card_reader_missing
-            else card_reader_text(
+            card_reader_text(
                 first, query=FIRST_TOOL_CARDS[0].removeprefix("--query-gpu=")
             ).encode("utf-8")
+            if _first_installed(shape)
+            else None
         ),
         first_tool_processes={
             card.index: (_first_tool_processes(card), 0) for card in first
@@ -214,10 +246,22 @@ def _write(path: Path, content: bytes | str) -> None:
         path.write_bytes(content)
 
 
+def _program(name: str) -> str:
+    found = shutil.which(name)
+    assert found, f"no {name} on the test's PATH"
+    return found
+
+
 _STUB_HEAD = """#!{bash}
 here={here}
-say() {{ cat "$here/$1.out"; exit "$(cat "$here/$1.exit")"; }}
+say() {{ {cat} "$here/$1.out"; read -r s < "$here/$1.exit"; exit "$s"; }}
 odd() {{ printf '%s %s\\n' "${{0##*/}}" "$*" >> "$here/unexpected.log"; exit 97; }}
+"""
+
+_WAITS = """exec {sleep} 600
+"""
+
+_READS_STDIN = """{cat} > "$here/stdin.seen"
 """
 
 _FIRST_TOOL_STUB = """
@@ -240,7 +284,7 @@ if [ "$1" = ps ] && [ "$2" = --no-trunc ]; then say ps; fi
 if [ "$1" = inspect ]; then
     for id in "$@"; do :; done
     [ -f "$here/restarts.$id.out" ] || exit 1
-    cat "$here/restarts.$id.out"; exit 0
+    {cat} "$here/restarts.$id.out"; exit 0
 fi
 odd "$@"
 """
@@ -251,15 +295,16 @@ exit 1
 """
 
 
-def _stub(folder: Path, name: str, body: str, answers: Mapping[str, bytes]) -> None:
+def _stub(
+    folder: Path, name: str, body: str, answers: Mapping[str, bytes], prelude: str = ""
+) -> None:
     here = folder / f".{name}"
     here.mkdir(parents=True)
     for key, text in answers.items():
         _write(here / f"{key}.out", text)
-    bash = shutil.which("bash")
-    assert bash, "no bash on the test's PATH"
+    head = _STUB_HEAD.format(bash=_program("bash"), here=here, cat=_program("cat"))
     script = folder / name
-    script.write_text(_STUB_HEAD.format(bash=bash, here=here) + body, "utf-8")
+    script.write_text(head + prelude + body.replace("{cat}", _program("cat")), "utf-8")
     script.chmod(0o755)
 
 
@@ -267,21 +312,14 @@ def _exit(folder: Path, name: str, key: str, status: int) -> None:
     _write(folder / f".{name}" / f"{key}.exit", str(status))
 
 
-def run(staged: Staged, where: Path, /) -> Ran:
-    """Run the reader over ``staged``, in fresh folders under ``where``."""
-    stubs = where / "stubs"
-    programs = where / "programs"
-    root = where / "root"
-    for folder in (stubs, programs, root):
-        folder.mkdir(parents=True)
-    log = where / "elevated.log"
-    bash = shutil.which("bash")
-    assert bash, "no bash on the test's PATH"
-
+def _set_out(
+    staged: Staged, stubs: Path, programs: Path, root: Path, log: Path
+) -> None:
+    bash = _program("bash")
     for name in PROGRAMS:
-        found = shutil.which(name)
-        assert found, f"no {name} on the test's PATH"
-        (programs / name).symlink_to(found)
+        (programs / name).symlink_to(_program(name))
+    if staged.timeout_program:
+        (programs / "timeout").symlink_to(_program("timeout"))
     if staged.python:
         (programs / "python3").symlink_to(sys.executable)
     for name in ELEVATION:
@@ -294,6 +332,11 @@ def run(staged: Staged, where: Path, /) -> Ran:
         answers |= {
             f"processes.{i}": t for i, (t, _) in staged.first_tool_processes.items()
         }
+        prelude = ""
+        if staged.first_tool_waits:
+            prelude += _WAITS.format(sleep=_program("sleep"))
+        if staged.first_tool_reads_stdin:
+            prelude += _READS_STDIN.format(cat=_program("cat"))
         _stub(
             stubs,
             FIRST_TOOL,
@@ -302,6 +345,7 @@ def run(staged: Staged, where: Path, /) -> Ran:
                 processes=" ".join(FIRST_TOOL_PROCESSES),
             ),
             answers,
+            prelude,
         )
         _exit(stubs, FIRST_TOOL, "cards", staged.first_tool_exit)
         for index, (_, status) in staged.first_tool_processes.items():
@@ -334,22 +378,66 @@ def run(staged: Staged, where: Path, /) -> Ran:
         (device.parent.parent / f"card{card.number}-HDMI-A-1").mkdir(exist_ok=True)
     if staged.machine_id_file is not None:
         _write(root / "etc" / "machine-id", staged.machine_id_file + "\n")
+    if staged.dbus_machine_id_file is not None:
+        _write(
+            root / "var" / "lib" / "dbus" / "machine-id",
+            staged.dbus_machine_id_file + "\n",
+        )
     if staged.hostname is not None:
         _write(root / "proc" / "sys" / "kernel" / "hostname", staged.hostname + "\n")
 
-    done = subprocess.run(
-        [bash, "-s"],
-        input=READER.read_bytes(),
-        capture_output=True,
-        env={
-            "PATH": f"{stubs}{os.pathsep}{programs}",
-            ROOT_VARIABLE: str(root),
-            "LC_ALL": "C",
-        },
+
+def reader_env(where: Path, staged: Staged) -> dict[str, str]:
+    """The environment the reader runs in, for :func:`run` and its callers."""
+    env = {
+        "PATH": f"{where / 'stubs'}{os.pathsep}{where / 'programs'}",
+        ROOT_VARIABLE: str(where / "root"),
+        "LC_ALL": "C",
+    }
+    if staged.tool_seconds is not None:
+        env[SECONDS_VARIABLE] = str(staged.tool_seconds)
+    return env
+
+
+def run(
+    staged: Staged,
+    where: Path,
+    /,
+    *,
+    give_up_after: float = 60,
+    command: tuple[str, ...] | None = None,
+) -> Ran:
+    """Run the reader over ``staged``, in fresh folders under ``where``.
+
+    After ``give_up_after`` seconds the reader and everything it started are
+    killed, and what it printed so far is returned. ``command`` runs another
+    command than ``bash -s`` (for example one that traces it), with the script
+    still on its standard input.
+    """
+    stubs = where / "stubs"
+    programs = where / "programs"
+    root = where / "root"
+    for folder in (stubs, programs, root):
+        folder.mkdir(parents=True)
+    log = where / "elevated.log"
+    _set_out(staged, stubs, programs, root, log)
+
+    process = subprocess.Popen(
+        list(command or (_program("bash"), "-s")),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=reader_env(where, staged),
         cwd=where,
-        timeout=60,
-        check=False,
+        start_new_session=True,
     )
+    gave_up = False
+    try:
+        out, err = process.communicate(READER.read_bytes(), timeout=give_up_after)
+    except subprocess.TimeoutExpired:
+        gave_up = True
+        os.killpg(process.pid, signal.SIGKILL)
+        out, err = process.communicate()
     unexpected = [
         line
         for path in sorted(stubs.glob(".*/unexpected.log"))
@@ -357,11 +445,12 @@ def run(staged: Staged, where: Path, /) -> Ran:
     ]
     elevated = log.read_text("utf-8").splitlines() if log.exists() else []
     return Ran(
-        stdout=done.stdout.decode("utf-8", errors="replace"),
-        stderr=done.stderr.decode("utf-8", errors="replace"),
-        returncode=done.returncode,
+        stdout=out.decode("utf-8", errors="replace"),
+        stderr=err.decode("utf-8", errors="replace"),
+        returncode=process.returncode,
         unexpected=tuple(unexpected),
         elevated=tuple(elevated),
+        gave_up=gave_up,
     )
 
 
@@ -392,15 +481,25 @@ Expected = tuple[
 ]
 
 
-def _read_by_sysfs(shape: Shape) -> bool:
-    return not _tool_cards(shape, "vendor-a") and not _tool_cards(shape, "vendor-b")
+def expected_sources(shape: Shape, /) -> tuple[str, ...]:
+    """The card sources the reading names for this shape, in order."""
+    covered = _covered(shape)
+    sources = []
+    if "vendor-a" in covered:
+        sources.append(FIRST_TOOL)
+    if "vendor-b" in covered:
+        sources.append(SECOND_TOOL)
+    if any(card.vendor not in covered for card in shape.cards):
+        sources.append("sysfs")
+    return tuple(sources)
 
 
 def expected_cards(shape: Shape, /) -> list[Expected]:
     """The cards the reading holds for this shape, sorted by vendor and index."""
+    covered = _covered(shape)
     found: list[Expected] = []
-    if not _read_by_sysfs(shape):
-        for card in _tool_cards(shape, "vendor-a"):
+    if "vendor-a" in covered:
+        for card in _of(shape, "vendor-a"):
             holders = tuple((h.pid, h.name, h.mib) for h in card.holders)
             used = None if card.total_mib is None else card.used_mib
             found.append(
@@ -414,7 +513,8 @@ def expected_cards(shape: Shape, /) -> list[Expected]:
                     holders,
                 )
             )
-        for card in _tool_cards(shape, "vendor-b"):
+    if "vendor-b" in covered:
+        for card in _of(shape, "vendor-b"):
             assert card.total_mib is not None
             used = _second_tool_used_mib(card)
             found.append(
@@ -428,26 +528,27 @@ def expected_cards(shape: Shape, /) -> list[Expected]:
                     None,
                 )
             )
-    else:
-        for number, card in enumerate(shape.cards):
-            if card.vendor == "vendor-b" and card.total_mib is not None:
-                used = _second_tool_used_mib(card)
-                found.append(
-                    (
-                        "amd",
-                        number,
-                        card.name,
-                        card.total_mib,
-                        used,
-                        card.total_mib - used,
-                        None,
-                    )
+    for number, card in enumerate(shape.cards):
+        if card.vendor in covered:
+            continue
+        if card.vendor == "vendor-b" and card.total_mib is not None:
+            used = _second_tool_used_mib(card)
+            found.append(
+                (
+                    "amd",
+                    number,
+                    card.name,
+                    card.total_mib,
+                    used,
+                    card.total_mib - used,
+                    None,
                 )
-            elif card.vendor == "vendor-b":
-                found.append(("amd", number, card.name, None, None, None, None))
-            else:
-                name = f"PCI {PCI_VENDOR[card.vendor]}:{_device_id(card.name)}"
-                found.append(("nvidia", number, name, None, None, None, None))
+            )
+        elif card.vendor == "vendor-b":
+            found.append(("amd", number, card.name, None, None, None, None))
+        else:
+            name = f"PCI {PCI_VENDOR[card.vendor]}:{_device_id(card.name)}"
+            found.append(("nvidia", number, name, None, None, None, None))
     return sorted(found, key=lambda c: (c[0], c[1]))
 
 
@@ -461,6 +562,8 @@ def expected_unread(shape: Shape, /) -> set[str]:
                 unread.add(f"{key}.{name}")
         if holders is None:
             unread.add(f"{key}.holders")
+    if _first_installed(shape) and "vendor-a" not in _covered(shape):
+        unread.add(f"cards.{FIRST_TOOL}")
     return unread
 
 

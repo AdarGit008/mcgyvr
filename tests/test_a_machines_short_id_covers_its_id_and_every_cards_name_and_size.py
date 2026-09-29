@@ -1,11 +1,15 @@
 """A machine's short id covers its machine id and every card's name and size.
 
 The short id is a digest, under its own identity prefix, over the machine id
-and the list of every card's name and total memory. It changes when any of
-those change, on any card, and only then: free and used memory, the processes
-on a card, the host name and the containers do not move it. A reading that
-could not read one of the covered fields gets no short id, and the refusal
-names the field.
+and every card's name and total memory, the cards sorted by name and size so
+that their indexes, which a card tool may renumber, do not move it; two equal
+cards count twice. It changes when the machine id, a card's name or size, or
+the number of cards changes. Free and used memory, the processes on a card,
+the card indexes and the containers do not move it; the host name moves it
+only through a machine id derived from it. Names are taken in one Unicode form.
+A reading that could not read a covered field, or whose card list may be
+short, gets no short id, and the refusal names the field and what the user can
+do.
 """
 
 from __future__ import annotations
@@ -44,13 +48,11 @@ def test_every_readable_machine_gets_a_short_id_under_that_prefix(
     named = {}
     for number, m in enumerate(shapes()):
         reading = machine.parse(machine_read_text(m, tmp_path / str(number)))
-        covered_unread = any(
-            c.name is None or c.total_mib is None for c in reading.cards
-        )
-        if covered_unread:
+        try:
+            named[m.label] = machine.short_id(reading)
+        except ValueError:
             continue
-        named[m.label] = machine.short_id(reading)
-    assert named
+    assert len(named) >= len(shapes()) // 2, sorted(named)
     assert all(i.startswith(machine.SHORT_ID_PREFIX) for i in named.values())
     assert len(set(named.values())) == len(named)
 
@@ -70,8 +72,6 @@ def test_the_short_id_moves_with_any_cards_name_or_size_and_the_machine_id(
             assert machine.short_id(moved) != before, (place, change)
     other = dataclasses.replace(reading, machine_id="f" * 16)
     assert machine.short_id(other) != before
-    swapped = dataclasses.replace(reading, cards=reading.cards[::-1])
-    assert machine.short_id(swapped) != before
     fewer = dataclasses.replace(reading, cards=reading.cards[:-1])
     assert machine.short_id(fewer) != before
 
@@ -135,3 +135,114 @@ def test_a_reading_without_a_machine_id_gets_no_short_id() -> None:
     reading = machine.parse("host=box-4.example\ncards=none\n")
     with pytest.raises(ValueError, match="machine_id"):
         machine.short_id(reading)
+
+
+def test_the_short_id_does_not_move_with_card_indexes_or_their_order(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine
+
+    reading = _reading("several-sizes", tmp_path)
+    before = machine.short_id(reading)
+    assert (
+        machine.short_id(dataclasses.replace(reading, cards=reading.cards[::-1]))
+        == before
+    )
+    renumbered = tuple(
+        dataclasses.replace(card, index=len(reading.cards) - place)
+        for place, card in enumerate(reading.cards)
+    )
+    assert machine.short_id(dataclasses.replace(reading, cards=renumbered)) == before
+
+
+def test_two_equal_cards_count_twice(tmp_path: Path) -> None:
+    from mcgyvr.fleet import machine
+
+    reading = _reading("four-equal", tmp_path)
+    before = machine.short_id(reading)
+    assert (
+        machine.short_id(dataclasses.replace(reading, cards=reading.cards[:3]))
+        != before
+    )
+
+
+def test_a_name_is_taken_in_one_unicode_form() -> None:
+    from mcgyvr.fleet import machine
+
+    def one(name: str) -> str:
+        reading = machine.parse(
+            "machine_id=0123456789abcdef\ncards=nvidia-smi\n"
+            f"card=nvidia,0,7919,0,7919,{name}\n"
+        )
+        return machine.short_id(reading)
+
+    composed = "Example Carte \u00e9"
+    decomposed = "Example Carte e\u0301"
+    assert composed != decomposed
+    assert one(composed) == one(decomposed)
+
+
+def _typed(**change: object) -> object:
+    from mcgyvr.fleet import machine
+
+    reading = machine.parse(
+        "machine_id=0123456789abcdef\ncards=nvidia-smi\n"
+        "card=nvidia,0,7919,0,7919,Example Card U\n"
+    )
+    card = dataclasses.replace(reading.cards[0], **change)  # type: ignore[arg-type]
+    return dataclasses.replace(reading, cards=(card,))
+
+
+@pytest.mark.parametrize(
+    ("change", "field"),
+    [
+        ({"total_mib": "7919"}, "card.nvidia.0.total"),
+        ({"total_mib": True}, "card.nvidia.0.total"),
+        ({"total_mib": 7919.0}, "card.nvidia.0.total"),
+        ({"name": b"Example Card U"}, "card.nvidia.0.name"),
+    ],
+    ids=["size-as-text", "size-as-bool", "size-as-float", "name-as-bytes"],
+)
+def test_a_covered_field_of_the_wrong_type_gets_no_short_id(
+    change: dict[str, object], field: str
+) -> None:
+    from mcgyvr.fleet import machine
+
+    reading = _typed(**change)
+    assert isinstance(reading, machine.Reading)
+    with pytest.raises(ValueError, match=field.replace(".", r"\.")):
+        machine.short_id(reading)
+
+
+def test_a_machine_id_of_the_wrong_type_gets_no_short_id() -> None:
+    from mcgyvr.fleet import machine
+
+    reading = _typed()
+    assert isinstance(reading, machine.Reading)
+    with pytest.raises(ValueError, match="machine_id"):
+        machine.short_id(dataclasses.replace(reading, machine_id=12))  # type: ignore[arg-type]
+
+
+def test_a_card_of_unread_size_is_refused_naming_it_and_what_to_do(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine
+
+    reading = _reading("no-reader", tmp_path)
+    with pytest.raises(ValueError) as refused:
+        machine.short_id(reading)
+    said = str(refused.value)
+    assert "card.nvidia.0.total" in said
+    assert "card tool" in said
+
+
+def test_a_failed_tool_is_refused_naming_it_and_what_to_do(tmp_path: Path) -> None:
+    from mcgyvr.fleet import machine
+
+    staged = replace(stage(shape("one-card")), first_tool=b"", first_tool_exit=3)
+    reading = machine.parse(run(staged, tmp_path).stdout)
+    with pytest.raises(ValueError) as refused:
+        machine.short_id(reading)
+    said = str(refused.value)
+    assert "nvidia-smi" in said
+    assert "Run nvidia-smi by hand" in said

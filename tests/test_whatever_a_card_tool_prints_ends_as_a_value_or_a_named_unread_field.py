@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import random
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -56,21 +57,21 @@ def _one(text: bytes, where: Path, processes: bytes = b"") -> Reading:
     ids=["comma", "quotes", "many-commas", "padded", "non-ascii"],
 )
 def test_a_card_name_that_is_text_is_read_exactly(name: str, tmp_path: Path) -> None:
-    reading = _one(f"0, 8192, 100, 8092, {name}\n".encode(), tmp_path)
+    reading = _one(f"0, 7919, 100, 7819, {name}\n".encode(), tmp_path)
     card = _cards(reading)[0]
     assert card.name == name.strip()
-    assert card.total_mib == 8192
+    assert card.total_mib == 7919
     assert _unread(reading) == {}
 
 
 @pytest.mark.parametrize(
     ("line", "why"),
     [
-        (b"0, 8192, 100, 8092, Example\x1bCard\n", "control"),
-        (b"0, 8192, 100, 8092, Example\x7fCard\n", "control"),
-        (b"0, 8192, 100, 8092, " + b"X" * 5000 + b"\n", "longer"),
-        (b"0, 8192, 100, 8092, \n", "no name"),
-        (b"0, 8192, 100, 8092, Example\nCard\n", "line"),
+        (b"0, 7919, 100, 7819, Example\x1bCard\n", "control"),
+        (b"0, 7919, 100, 7819, Example\x7fCard\n", "control"),
+        (b"0, 7919, 100, 7819, " + b"X" * 300 + b"\n", "longer"),
+        (b"0, 7919, 100, 7819, \n", "no name"),
+        (b"0, 7919, 100, 7819, Example\nCard\n", "line"),
     ],
     ids=["escape", "delete", "very-long", "empty", "line-break"],
 )
@@ -80,7 +81,7 @@ def test_a_card_name_that_is_not_text_is_named_unread(
     reading = _one(line, tmp_path)
     card = _cards(reading)[0]
     assert card.name is None
-    assert card.total_mib == 8192
+    assert card.total_mib == 7919
     assert why in _unread(reading)["card.nvidia.0.name"]
     assert set(_cards(reading)) == {0}
 
@@ -103,15 +104,82 @@ def test_a_tool_that_prints_garbage_gives_no_card_and_names_the_tool(
     assert "cards.nvidia-smi" in _unread(reading)
 
 
-def test_a_tool_that_prints_nothing_gives_no_card(tmp_path: Path) -> None:
+def test_a_tool_that_prints_nothing_gives_no_card_and_is_named(
+    tmp_path: Path,
+) -> None:
     reading = _one(b"", tmp_path)
     assert _cards(reading) == {}
+    assert "printed no card" in _unread(reading)["cards.nvidia-smi"]
+
+
+def test_a_line_longer_than_the_bound_is_refused_before_it_is_read(
+    tmp_path: Path,
+) -> None:
+    started = time.monotonic()
+    line = b"0, 7919, 0, 7919, " + b" " * 200_000 + b"Example Card\n"
+    reading = _one(line, tmp_path)
+    assert time.monotonic() - started < 20
+    assert _cards(reading) == {}
+    assert "longer than" in _unread(reading)["cards.nvidia-smi"]
+
+
+def test_a_tool_that_waits_is_given_up_on_and_named(tmp_path: Path) -> None:
+    started = time.monotonic()
+    ran = run(
+        Staged(
+            first_tool=b"0, 7919, 0, 7919, Example Card\n",
+            first_tool_waits=True,
+            tool_seconds=1,
+        ),
+        tmp_path,
+    )
+    assert time.monotonic() - started < 20
+    assert not ran.gave_up
+    from mcgyvr.fleet import machine
+
+    reading = machine.parse(ran.stdout)
+    assert "did not answer within 1 s" in _unread(reading)["cards.nvidia-smi"]
+    assert reading.machine_id is not None
+
+
+def test_a_caller_that_gives_up_still_holds_the_machine_id_and_host(
+    tmp_path: Path,
+) -> None:
+    ran = run(
+        Staged(
+            first_tool=b"0, 7919, 0, 7919, Example Card\n",
+            first_tool_waits=True,
+            timeout_program=False,
+        ),
+        tmp_path,
+        give_up_after=3,
+    )
+    assert ran.gave_up
+    lines = ran.stdout.splitlines()
+    assert any(line.startswith("machine_id=") and len(line) > 11 for line in lines)
+    assert "host=box-1.example" in lines
+
+
+def test_a_tool_that_reads_standard_input_reads_nothing_of_the_reader(
+    tmp_path: Path,
+) -> None:
+    ran = run(
+        Staged(
+            first_tool=b"0, 7919, 0, 7919, Example Card\n",
+            first_tool_processes={0: (b"", 0)},
+            first_tool_reads_stdin=True,
+        ),
+        tmp_path,
+    )
+    seen = tmp_path / "stubs" / ".nvidia-smi" / "stdin.seen"
+    assert seen.read_bytes() == b""
+    assert "card=nvidia,0,7919,0,7919,Example Card" in ran.stdout.splitlines()
 
 
 def test_half_a_line_reads_what_it_holds_and_names_the_rest(tmp_path: Path) -> None:
-    reading = _one(b"0, 8192", tmp_path)
+    reading = _one(b"0, 7919", tmp_path)
     card = _cards(reading)[0]
-    assert card.total_mib == 8192
+    assert card.total_mib == 7919
     assert (card.used_mib, card.free_mib, card.name) == (None, None, None)
     unread = _unread(reading)
     assert {"card.nvidia.0.used", "card.nvidia.0.free", "card.nvidia.0.name"} <= set(
@@ -121,13 +189,13 @@ def test_half_a_line_reads_what_it_holds_and_names_the_rest(tmp_path: Path) -> N
 
 @pytest.mark.parametrize(
     "total",
-    [b"8 GiB", b"-5", b"8192.5", b"99999999999999999999999", b"\xd9\xa1\xd9\xa2"],
+    [b"8 GiB", b"-5", b"7919.5", b"99999999999999999999999", b"\xd9\xa1\xd9\xa2"],
     ids=["with-unit", "negative", "fraction", "too-large", "other-digits"],
 )
 def test_a_size_that_is_not_a_number_is_named_unread(
     total: bytes, tmp_path: Path
 ) -> None:
-    reading = _one(b"0, " + total + b", 100, 8092, Example Card\n", tmp_path)
+    reading = _one(b"0, " + total + b", 100, 7819, Example Card\n", tmp_path)
     card = _cards(reading)[0]
     assert card.total_mib is None
     assert card.name == "Example Card"
@@ -135,7 +203,7 @@ def test_a_size_that_is_not_a_number_is_named_unread(
 
 
 def test_an_index_printed_twice_gives_neither_card(tmp_path: Path) -> None:
-    text = b"0, 8192, 0, 8192, Example Card A\n0, 4096, 0, 4096, Example Card B\n"
+    text = b"0, 7919, 0, 7919, Example Card A\n0, 3001, 0, 3001, Example Card B\n"
     reading = _read(tmp_path, first_tool=text, first_tool_processes={0: (b"", 0)})
     assert _cards(reading) == {}
     assert "twice" in _unread(reading)["card.nvidia.0"]
@@ -145,9 +213,9 @@ def test_a_stray_line_after_a_repeated_index_marks_no_other_cards_name(
     tmp_path: Path,
 ) -> None:
     text = (
-        b"0, 8192, 0, 8192, Example Card A\n"
-        b"1, 4096, 0, 4096, Example Card B\n"
-        b"0, 2048, 0, 2048, Example Card C\n"
+        b"0, 7919, 0, 7919, Example Card A\n"
+        b"1, 3001, 0, 3001, Example Card B\n"
+        b"0, 2003, 0, 2003, Example Card C\n"
         b"a stray line\n"
     )
     reading = _read(tmp_path, first_tool=text, first_tool_processes={1: (b"", 0)})
@@ -160,7 +228,7 @@ def test_a_process_name_with_spaces_and_commas_is_read_exactly(
     tmp_path: Path,
 ) -> None:
     reading = _one(
-        b"0, 8192, 300, 7892, Example Card\n",
+        b"0, 7919, 300, 7619, Example Card\n",
         tmp_path,
         processes=b"4242, 300, /opt/example tool/serve --flag a,b\n",
     )
@@ -178,7 +246,7 @@ def test_a_process_whose_memory_is_not_available_names_it_unread(
     tmp_path: Path,
 ) -> None:
     reading = _one(
-        b"0, 8192, 300, 7892, Example Card\n",
+        b"0, 7919, 300, 7619, Example Card\n",
         tmp_path,
         processes=b"4242, [N/A], example-process\n",
     )
@@ -197,7 +265,7 @@ def test_a_process_whose_memory_is_not_available_names_it_unread(
 def test_a_process_listing_that_is_not_one_leaves_the_holders_unread(
     processes: bytes, tmp_path: Path
 ) -> None:
-    reading = _one(b"0, 8192, 300, 7892, Example Card\n", tmp_path, processes)
+    reading = _one(b"0, 7919, 300, 7619, Example Card\n", tmp_path, processes)
     card = _cards(reading)[0]
     assert card.name == "Example Card"
     if b"bad" in processes:
@@ -230,7 +298,7 @@ def test_a_second_tool_name_with_a_line_break_is_named_unread(tmp_path: Path) ->
         {
             "card3": {
                 "Card series": "Example\nCard",
-                "VRAM Total Memory (B)": str(4096 * MIB),
+                "VRAM Total Memory (B)": str(3001 * MIB),
                 "VRAM Total Used Memory (B)": "0",
             }
         }
@@ -238,8 +306,38 @@ def test_a_second_tool_name_with_a_line_break_is_named_unread(tmp_path: Path) ->
     reading = _read(tmp_path, second_tool=text)
     card = _cards(reading)[3]
     assert card.name is None
-    assert card.total_mib == 4096
+    assert card.total_mib == 3001
     assert "card.amd.3.name" in _unread(reading)
+
+
+@pytest.mark.parametrize(
+    "listing",
+    [
+        b"a" * 64 + b"|example\x1b[31mred|p\n",
+        b"a" * 64 + b"|example\rone|p\n",
+        b"a" * 64 + b"|example|" + b"L" * 5000 + b"\n",
+        b"a" * 64 + b"|example|" + b"L" * 300 + b"\n",
+    ],
+    ids=[
+        "escape-sequence",
+        "carriage-return",
+        "over-the-line-bound",
+        "over-the-name-bound",
+    ],
+)
+def test_a_container_value_that_is_not_text_leaves_the_containers_unread(
+    listing: bytes, tmp_path: Path
+) -> None:
+    ran = run(Staged(containers=listing, restarts={"a" * 64: b"0\n"}), tmp_path)
+    assert not [
+        line for line in ran.stdout.splitlines() if line.startswith("container=")
+    ]
+    assert "\x1b" not in ran.stdout and "\r" not in ran.stdout
+    from mcgyvr.fleet import machine
+
+    reading = machine.parse(ran.stdout)
+    assert reading.containers is None
+    assert "containers" in _unread(reading)
 
 
 def test_a_container_name_with_commas_is_listed_as_the_unit_reader_lists_it(
@@ -273,8 +371,8 @@ def test_parsing_never_raises_and_never_fills_a_figure() -> None:
         "cards=none",
         "cards=nvidia-smi",
         "card=",
-        "card=nvidia,0,8192,0,8192,Example",
-        "card=nvidia,x,8192,0,8192,Example",
+        "card=nvidia,0,7919,0,7919,Example",
+        "card=nvidia,x,7919,0,7919,Example",
         "card=nvidia,0,,,,",
         "card=NV IDIA,0,1,1,1,x",
         "card=nvidia,1,1e3,0,0,Example",
@@ -290,8 +388,8 @@ def test_parsing_never_raises_and_never_fills_a_figure() -> None:
         "=",
         "no equals sign",
         "\x00\x01",
-        "card=nvidia,0,8192,0,8192,Exa\u2028mple",
-        "card=nvidia,0,8192,0,8192,Exa\u0085mple",
+        "card=nvidia,0,7919,0,7919,Exa\u2028mple",
+        "card=nvidia,0,7919,0,7919,Exa\u0085mple",
         "x" * 10_000,
     ]
     rng = random.Random(20260929)
