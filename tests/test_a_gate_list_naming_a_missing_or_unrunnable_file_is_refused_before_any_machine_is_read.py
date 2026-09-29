@@ -9,14 +9,19 @@ positive number of seconds or is longer than the door holds a gate to, more
 gates than the door holds a list to, and input that cannot be read as a path
 or as JSON at all: each is refused before the door runs its first gate, and
 the refusal names the list file and the entry at fault, with no control
-character of the list printed raw. A list that is not JSON is refused saying
-where the reading stopped, a root inside the package is refused as the root
-and not as a gate, and a list named relative to a working folder that is
-gone is refused, not raised.
+character of the list printed raw, and no field of it quoted at more than a
+short length. A list whose text is not JSON is refused saying where the
+reading stopped; one that is not UTF-8 says at which byte; one that starts
+with a byte order mark says so; one larger than the door reads is refused
+before it is parsed. A root inside the package is refused as the root and
+not as a gate, and a list named relative to a working folder that is gone
+is refused saying so, not raised. A bound of exactly the longest the door
+holds a gate to is accepted.
 """
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -135,7 +140,31 @@ def _list_not_json(tmp: Path) -> tuple[Path, str]:
 def _list_not_json_later(tmp: Path) -> tuple[Path, str]:
     listed = tmp / "g.json"
     listed.write_text('{"root": "/somewhere",\n "gates": [,]}\n', encoding="utf-8")
-    return listed, "line 2, column 12: Expecting value"
+    return listed, "(Expecting value, at line 2, column 12)"
+
+
+def _list_with_a_raw_control_character(tmp: Path) -> tuple[Path, str]:
+    listed = tmp / "g.json"
+    listed.write_text('{"root": "/some\twhere", "gates": []}', encoding="utf-8")
+    return listed, "(Invalid control character, at line 1, column 16)"
+
+
+def _list_not_utf8(tmp: Path) -> tuple[Path, str]:
+    listed = tmp / "g.json"
+    listed.write_bytes(b'{"root": "/some\xffwhere", "gates": []}')
+    return listed, "is not UTF-8 (at byte 16)"
+
+
+def _list_with_a_byte_order_mark(tmp: Path) -> tuple[Path, str]:
+    listed = tmp / "g.json"
+    listed.write_bytes(b'\xef\xbb\xbf{"root": "/", "gates": []}')
+    return listed, "starts with a byte order mark"
+
+
+def _list_too_large(tmp: Path) -> tuple[Path, str]:
+    listed = tmp / "g.json"
+    listed.write_text('{"root": "/", "gates": []}' + " " * 4_000_000, encoding="utf-8")
+    return listed, "the list is larger than"
 
 
 def _list_missing(tmp: Path) -> tuple[Path, str]:
@@ -212,6 +241,13 @@ CASES: dict[str, Case] = {
     "a name two gates export": _duplicate_export,
     "a list that is not JSON": _list_not_json,
     "a list that stops being JSON after its first line": _list_not_json_later,
+    "a list with a raw control character in a string": (
+        _list_with_a_raw_control_character
+    ),
+    "a list that is not UTF-8": _list_not_utf8,
+    "a list that starts with a byte order mark": _list_with_a_byte_order_mark,
+    "a list larger than the door reads": _list_too_large,
+    "a bound just past the longest the door holds a gate to": _bound(86400.0001),
     "a list file that is not there": _list_missing,
     "a root that is the door's gate folder": _root_in_package(
         PACKAGE / "serving" / "gate-scripts", "06-step.py"
@@ -336,4 +372,66 @@ def test_a_list_named_from_a_working_folder_that_is_gone_is_refused(
     said = capsys.readouterr().err
     assert status == 2, said
     assert "REFUSED" in said and "--gates g.json" in said, said
+    assert "working folder, which is gone (No such file or directory)" in said, said
+    assert cg.log_lines(log) == []
+
+
+def test_a_bound_of_exactly_the_longest_is_accepted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    root = tmp_path / "caller"
+    cg.executable(root / "quick.py", cg.gate_text(log, "caller:quick"))
+    gate = cg.entry("quick.py", "before")
+    gate["timeout_s"] = 86400
+    listed = cg.write_list(tmp_path / "g.json", str(root), [gate])
+
+    assert run.main(cg.read_argv("--gates", str(listed))) == 0, capsys.readouterr()
+    assert "caller:quick" in [line.split()[0] for line in cg.log_lines(log)]
+
+
+#: A field far longer than any refusal should quote.
+HUGE = "q" * 1_000_000
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["root", "path", "phase", "an export", "a list key", "a gate key"],
+)
+def test_a_refusal_quotes_no_field_of_the_list_at_length(
+    field: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    root = tmp_path / "caller"
+    gate: dict[str, Any] = cg.entry(_ok(root), "before")
+    doc: dict[str, Any] = {"root": str(root), "gates": [gate]}
+    if field == "root":
+        doc["root"] = HUGE
+    elif field == "path":
+        gate["path"] = HUGE
+    elif field == "phase":
+        gate["phase"] = HUGE
+    elif field == "an export":
+        gate["exports"] = [HUGE]
+    elif field == "a list key":
+        doc[HUGE] = 1
+    else:
+        gate[HUGE] = 1
+    listed = tmp_path / "g.json"
+    listed.write_text(json.dumps(doc), encoding="utf-8")
+
+    assert run.main(cg.read_argv("--gates", str(listed))) == 2
+
+    said = capsys.readouterr().err
+    assert "REFUSED" in said, said[:2000]
+    assert len(said) < 2000, (field, len(said), said[:300])
     assert cg.log_lines(log) == []

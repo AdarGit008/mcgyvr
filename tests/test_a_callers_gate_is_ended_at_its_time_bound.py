@@ -7,7 +7,11 @@ bound is ended with its process group, and that is a refusal naming the gate
 and the bound. A gate that exits but leaves a process holding its export
 descriptor does not keep the door waiting past the bound, and the refusal
 says the gate exited. A signal to the door while a caller's ``always`` gate
-runs ends that gate. The lease is released in every case.
+runs ends that gate, and one more that lands while the door reports it
+neither stops the ``always`` gates after it nor escapes the door. Ending a
+gate sets back the signal handlers the door had before the gate started,
+even when a signal lands while the door sets them aside. The lease is
+released in every case.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ import re
 import signal
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -155,6 +160,8 @@ def test_the_help_says_the_default_bound(
     said = " ".join(capsys.readouterr().out.split())
     assert f"{run.CALLER_GATE_TIMEOUT_S:g} s" in said, said
     assert "timeout_s" in said, said
+    assert f"{run.MAX_EXPORT_BYTES // 1024} KiB" in said, said
+    assert "all gates export together" in said, said
 
 
 def test_a_signal_during_a_callers_always_gate_ends_it_and_the_lease_is_released(
@@ -189,3 +196,92 @@ def test_a_signal_during_a_callers_always_gate_ends_it_and_the_lease_is_released
     assert order[-1] == RELEASE, (order, said)
     assert not cg.alive(pid)
     assert "slow.py" in said, said
+
+
+def test_a_signal_while_an_always_gate_is_reported_does_not_stop_the_next(
+    tmp_path: Path,
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    log = work / "order.log"
+    root = work / "caller"
+    _sleeper(root, log, "slow", "time.sleep(60)")
+    _sleeper(root, log, "next", "pass")
+    # A second signal lands just as the door prints that the first gate was
+    # ended: the moment a Ctrl-C held down would reach.
+    (work / "hook.py").write_text(
+        "import os, signal\n"
+        "shown = run._printable\n"
+        "sent = []\n"
+        "def printable(text):\n"
+        "    if 'was ended by a signal' in text and not sent:\n"
+        "        sent.append(1)\n"
+        "        os.kill(os.getpid(), signal.SIGINT)\n"
+        "    return shown(text)\n"
+        "run._printable = printable\n",
+        encoding="utf-8",
+    )
+    gates = [cg.entry("slow.py", "always"), cg.entry("next.py", "always")]
+    for gate in gates:
+        gate["timeout_s"] = 120
+    listed = cg.write_list(work / "gates.json", str(root), gates)
+    compose = cg.compose_file(work / "compose.yaml")
+    door = cg.driven_door(work, log, cg.serve_argv(compose, "--gates", str(listed)))
+    try:
+        deadline = time.monotonic() + 60
+        while not any(line.startswith("caller:slow") for line in cg.log_lines(log)):
+            assert door.poll() is None, door.communicate()
+            assert time.monotonic() < deadline, cg.log_lines(log)
+            time.sleep(0.1)
+        door.send_signal(signal.SIGTERM)
+        _, said = door.communicate(timeout=60)
+    finally:
+        cg.stop_door(door, [_pid(log, "slow")])
+
+    order = [line.split()[0] for line in cg.log_lines(log)]
+    assert "caller:next-end" in order, (order, said)
+    assert order[-1] == RELEASE, (order, said)
+    assert "Traceback" not in said, said
+    assert door.returncode == 1, (door.returncode, said)
+
+
+def test_ending_a_gate_sets_back_the_handlers_it_found_before_the_gate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A signal lands as the door sets INT and TERM aside to end a gate."""
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    root = tmp_path / "caller"
+    _sleeper(root, log, "slow", "time.sleep(60)")
+    gate = cg.entry("slow.py", "after")
+    gate["timeout_s"] = 1
+    listed = cg.write_list(tmp_path / "gates.json", str(root), [gate])
+    compose = cg.compose_file(tmp_path / "compose.yaml")
+    before = {sig: signal.getsignal(sig) for sig in run.UNSTOPPABLE}
+    install = signal.signal
+    aside: list[int] = []
+
+    def landing(sig: int, handler: Any) -> Any:
+        if handler is signal.SIG_IGN:
+            aside.append(sig)
+            if len(aside) == 2:  # INT is set aside; TERM is not yet
+                raise KeyboardInterrupt
+        return install(sig, handler)
+
+    monkeypatch.setattr(signal, "signal", landing)
+    try:
+        status = run.main(cg.serve_argv(compose, "--gates", str(listed)))
+    finally:
+        monkeypatch.setattr(signal, "signal", install)
+        after = {sig: signal.getsignal(sig) for sig in run.UNSTOPPABLE}
+        for sig, handler in before.items():
+            install(sig, handler)
+
+    said = capsys.readouterr().err
+    assert len(aside) >= 3, aside
+    assert status == 130, said
+    assert after == before, (after, before)
+    assert not cg.alive(_pid(log, "slow"))

@@ -255,8 +255,10 @@ REPO = Path(__file__).resolve().parent.parent
 #: handlers the door installs when it runs as ``python -m``. Arguments: the
 #: folder to build in, the order log, the door's argv as JSON, and
 #: ``subreaper`` or nothing. A ``lease-release.py`` in that folder stands in
-#: for the lease release. With ``subreaper`` the door adopts every process
-#: orphaned below it (a child subreaper), as a door running as PID 1 does.
+#: for the lease release, and a ``hook.py`` there is run in the door's process
+#: before the door starts, with ``run`` in its namespace. With ``subreaper``
+#: the door adopts every process orphaned below it (a child subreaper), as a
+#: door running as PID 1 does.
 DRIVER = """
 import ctypes, json, signal, sys
 from pathlib import Path
@@ -274,6 +276,9 @@ gates = cg.fake_door(work, mp, log)
 release = work / "lease-release.py"
 if release.is_file():
     cg.executable(gates / run.LEASE_RELEASE.script, release.read_text("utf-8"))
+hook = work / "hook.py"
+if hook.is_file():
+    exec(hook.read_text("utf-8"), {{"run": run}})
 signal.signal(signal.SIGTERM, run._sigterm)
 signal.signal(signal.SIGINT, run._sigterm)
 sys.exit(run.main(argv))
