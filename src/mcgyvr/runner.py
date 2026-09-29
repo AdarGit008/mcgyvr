@@ -930,10 +930,28 @@ def _post_json(
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace").strip()[:_ERROR_BODY_CHARS]
-        raise BackendError(
-            f"{safe_url(url)} answered HTTP {exc.code}: {detail or '(empty body)'}"
-        ) from exc
+        # The body is read inside this handler, so a failure of that read is
+        # not caught by the handlers below it: it is caught here, and the
+        # dispatch still ends as the error status the server sent. A failed
+        # read says nothing about how much arrived: `http.client` keeps only
+        # the part it could frame (a chunk cut off partway is dropped), and a
+        # stall or a reset keeps nothing. So no failed read is called empty.
+        answered = f"{safe_url(url)} answered HTTP {exc.code}"
+        try:
+            raw_detail = exc.read()
+        except http.client.IncompleteRead as short:
+            kept = short.partial.decode("utf-8", "replace").strip()
+            raise BackendError(
+                f"{answered}, and its body ended before it was complete "
+                f"(kept: {kept[:_ERROR_BODY_CHARS] or 'nothing readable'})"
+            ) from exc
+        except (OSError, http.client.HTTPException) as lost:
+            raise BackendError(
+                f"{answered}, and its body could not be read "
+                f"({type(lost).__name__}: {lost})"
+            ) from exc
+        detail = raw_detail.decode("utf-8", "replace").strip()[:_ERROR_BODY_CHARS]
+        raise BackendError(f"{answered}: {detail or '(empty body)'}") from exc
     except OSError as exc:
         # URLError and the socket timeout are both OSError; to a caller they
         # mean the same thing — nothing usable answered within the timeout —
